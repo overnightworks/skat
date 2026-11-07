@@ -10,7 +10,6 @@ flowchart LR
     person -->|"sign in"| keycloak["Keycloak"]
     skat -->|"code exchange, key set"| keycloak
     person -.->|"legal links"| legal["hallucinai.de legal pages"]
-    legal -.->|"reads legal/ from each release"| skat
 ```
 
 ## 2. Building Block View
