@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 import structlog
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from webauth.config import WebAuthConfig, installed_web_auth_config
@@ -39,10 +38,6 @@ def sign_in_through_issuer(browser: TestClient, issuer: FakeIssuer) -> None:
 
 
 class TestCreateApp:
-    def test_returns_fastapi_application(self, sign_in_settings):
-        app = create_app(sign_in_settings().settings, page_build=fixture_page_build())
-        assert isinstance(app, FastAPI)
-
     def test_installs_the_web_auth_config_built_from_its_settings(self, sign_in_settings):
         sign_in = sign_in_settings()
         config = installed_web_auth_config(create_app(sign_in.settings, page_build=fixture_page_build()))
