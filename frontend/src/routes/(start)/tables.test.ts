@@ -156,7 +156,7 @@ describe("watchTable after a stream error", () => {
     });
 
     it("leaves the address alone when it carries no marker", () => {
-        watchTable(TABLE_ID, vi.fn(), vi.fn());
+        void readTableAfresh(TABLE_ID);
 
         expect(replaceState).not.toHaveBeenCalled();
     });
