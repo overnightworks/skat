@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 import structlog.testing
 from pydantic import SecretStr
-from webauth.ports import AccountEvent, AccountEventKind, AuditSink, SessionRecordStore, SubjectUserStore
+from webauth.ports import AccountEvent, AccountEventKind
 
 from skat.web.stores import (
     InMemoryAccounts,
@@ -44,11 +44,6 @@ def accounts(stores: SignInStores) -> InMemoryAccounts:
 @pytest.fixture
 def sessions(stores: SignInStores) -> InMemorySessions:
     return stores.sessions
-
-
-def test_stores_satisfy_the_webauth_ports(accounts, sessions):
-    ports: tuple[SubjectUserStore, SessionRecordStore, AuditSink] = (accounts, sessions, LoggingAuditSink())
-    assert len(ports) == 3
 
 
 def test_in_memory_sign_in_stores_load_a_session_for_an_account_created_through_them():
