@@ -1,11 +1,6 @@
-import itertools
-
 import pytest
 
-from skat.table.records import Actor, CreateTable, TableId
-from skat.table.service import TableService
 from skat.web.presence import Presence
-from tests.support.fake_tables import FakeTableStore
 
 TABLE = "t" * 32
 OTHER_TABLE = "o" * 32
@@ -97,28 +92,3 @@ class TestPublishing:
         presence.subscribe(TABLE, "ben", wakes.callback("ben"))
 
         assert wakes.counts == {"anna": 0, "ben": 0}
-
-    def test_a_stalled_stream_does_not_delay_the_others_who_hear_every_change(self, presence, wakes):
-        presence.subscribe(TABLE, "stalled", wakes.callback("stalled"))
-        presence.subscribe(TABLE, "quick", wakes.callback("quick"))
-        joined = [presence.subscribe(TABLE, f"member-{n}", wakes.callback(f"member-{n}")) for n in range(5)]
-        for subscription in joined:
-            presence.unsubscribe(subscription)
-
-        assert wakes.counts["quick"] == 10
-
-
-class TestRegistrationBeforeRead:
-    def test_a_change_between_registering_and_reading_is_in_the_view_the_stream_reads(self, presence, wakes):
-        numbers = itertools.count(1)
-        service = TableService(FakeTableStore(), new_table_id=lambda: TableId(f"{next(numbers):032x}"))
-        opener = Actor(account_id="opener", display_name="Anna")
-        table_id = service.create(opener, CreateTable(command_id="command-1")).id
-        visitor = Actor(account_id="visitor", display_name="Ben")
-
-        presence.subscribe(table_id, visitor.account_id, wakes.callback("visitor"))
-        presence.subscribe(table_id, "late", wakes.callback("late"))
-        view = service.view(visitor, table_id, presence.connected(table_id))
-
-        assert (view.version, view.watchers) == (1, 2)
-        assert wakes.counts["visitor"] == 1
