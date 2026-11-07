@@ -68,10 +68,10 @@ class TestCreate:
         assert list(store.tables) == [first.id]
 
     def test_a_failure_between_the_table_write_and_the_receipt_persists_nothing(self, service, store):
-        store.fail_on_receipt = RuntimeError("connection lost")
+        faulty = TableService(FaultyTableTransactions(store, receipt_failure=RuntimeError("connection lost")))
 
         with pytest.raises(RuntimeError, match="connection lost"):
-            service.create(OPENER, CreateTable(command_id="command-1"))
+            faulty.create(OPENER, CreateTable(command_id="command-1"))
 
         assert (store.tables, store.receipts) == ({}, {})
 

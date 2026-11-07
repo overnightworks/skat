@@ -17,7 +17,6 @@ class FakeTableStore:
     def __init__(self) -> None:
         self.tables: dict[str, TableRecord] = {}
         self.receipts: dict[tuple[str, str], Receipt] = {}
-        self.fail_on_receipt: Exception | None = None
 
     @contextmanager
     def begin(self) -> Iterator[FakeTableStore]:
@@ -41,8 +40,6 @@ class FakeTableStore:
         self.tables[table.id.value] = table
 
     def add_receipt(self, receipt: Receipt) -> None:
-        if self.fail_on_receipt is not None:
-            raise self.fail_on_receipt
         key = (receipt.account_id, receipt.command_id)
         if key in self.receipts:
             raise DuplicateReceiptError
