@@ -107,3 +107,31 @@ def test_a_forged_or_expired_session_cookie_is_treated_as_no_session(
 
     expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
+
+
+def sign_in_through(person: Page, e2e_server: RunningServer, query: str, *, username: str) -> None:
+    sign_in_at_issuer(person, e2e_server, username=username)
+    person.goto(f"{e2e_server.base_url}{LOGIN_PATH}{query}")
+    person.get_by_role("link", name="Log in", exact=True).click()
+
+
+@pytest.mark.parametrize(
+    "next_value",
+    [
+        "https%3A%2F%2Fevil.example",
+        "%2F%2Fevil.example",
+        "%2F%5Cevil.example",
+        "%252F%252Fevil.example",
+        "%09%2F%2Fevil.example",
+    ],
+    ids=["absolute-url", "protocol-relative", "backslash", "double-encoded", "tab-before-slashes"],
+)
+def test_a_foreign_return_path_is_dropped_and_sign_in_ends_at_the_start_page(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], next_value: str
+) -> None:
+    person = record_page_errors(open_person(signed_in=False), page_errors)
+
+    sign_in_through(person, e2e_server, f"?next={next_value}", username="anna")
+
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    assert urlsplit(person.url)._replace(query="").geturl() == f"{e2e_server.base_url}/"
