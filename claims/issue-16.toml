@@ -1,8 +1,0 @@
-claim_id = "80cac771361d4a9a916a7c6a4b3ca62e"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "8a0e3d8d949e7e850fe0136e002c5a6ca475e897"
-branch = "claude/issue-16-s3-1-open-a-table-and-reach-it-by-its-li"
-scope = [".github/workflows/ci.yml", "Makefile", "README.md", "docs/ARCHITECTURE.md", "frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)", "pyproject.toml", "scripts/generate_wire.py", "scripts/test_postgres.sh", "src/skat/host", "src/skat/store", "src/skat/table", "src/skat/web/settings.py", "src/skat/web/tables.py", "tests", "uv.lock"]
-opened_commit = "9b5a87548e7fa92bf5d7fda527ea5c924c44aee4"
-whole_reason = "The first table command needs its store, migration owner, application service, route and page together; none of them has a caller without the others."
