@@ -19,10 +19,10 @@ DATABASE_NAME_BYTES = 8
 
 
 def server_url() -> str:
-    """The throwaway server's URL; `scripts/test-postgres.sh` and CI's service provide it."""
+    """The throwaway server's URL; `scripts/test_postgres.sh` and CI's service provide it."""
     url = os.environ.get(URL_ENVIRONMENT_VARIABLE)
     if not url:
-        pytest.fail(f"{URL_ENVIRONMENT_VARIABLE} names no Postgres; run the tests through scripts/test-postgres.sh")
+        pytest.fail(f"{URL_ENVIRONMENT_VARIABLE} names no Postgres; run the tests through scripts/test_postgres.sh")
     return url
 
 

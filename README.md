@@ -17,7 +17,7 @@ You need Python 3.14+, [uv](https://docs.astral.sh/uv/), Node 24 or 26 and pnpm.
 
 Sign-in returns the person to `SKAT_PUBLIC_ORIGIN`, which must be https, so open Skat at that origin (behind a TLS-terminating proxy), not at the plain listen address. The issuer needs a client whose redirect URI is `SKAT_PUBLIC_ORIGIN` + `/auth/callback` and that sends the groups claim.
 
-The tests that touch the database run against a throwaway Postgres: `make test` and `make e2e` start one through `scripts/test-postgres.sh`, which needs Docker. `make check` runs the lint, the unit tests, the dead-code check and the frontend checks; `make e2e` drives the browser tests and needs Playwright's Chromium installed once.
+The tests that touch the database run against a throwaway Postgres: `make test` and `make e2e` start one through `scripts/test_postgres.sh`, which needs Docker. `make check` runs the lint, the unit tests, the dead-code check and the frontend checks; `make e2e` drives the browser tests and needs Playwright's Chromium installed once.
 
 ## Configuration
 

@@ -21,10 +21,10 @@ format:
 	uv run ruff format src tests scripts
 
 test:
-	scripts/test-postgres.sh uv run pytest -m "not e2e"
+	scripts/test_postgres.sh uv run pytest -m "not e2e"
 
 e2e: frontend
-	scripts/test-postgres.sh uv run pytest -m e2e --no-cov --output test-results
+	scripts/test_postgres.sh uv run pytest -m e2e --no-cov --output test-results
 
 dead:
 	uv run vulture src/skat

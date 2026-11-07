@@ -14,7 +14,7 @@ jobs:
     name: Lint and test
     timeout-minutes: 10
     runs-on: ubuntu-latest
-    # The throwaway server of the Postgres tests; the digest is the image scripts/test-postgres.sh runs, so keep them equal.
+    # The throwaway server of the Postgres tests; the digest is the image scripts/test_postgres.sh runs, so keep them equal.
     services:
       postgres:
         image: postgres:18.6-alpine3.24@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
@@ -92,7 +92,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    # The throwaway server of the Postgres tests; the digest is the image scripts/test-postgres.sh runs, so keep them equal.
+    # The throwaway server of the Postgres tests; the digest is the image scripts/test_postgres.sh runs, so keep them equal.
     services:
       postgres:
         image: postgres:18.6-alpine3.24@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395

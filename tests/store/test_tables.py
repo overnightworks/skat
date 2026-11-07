@@ -3,7 +3,7 @@ import threading
 from contextlib import contextmanager
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import func, select, table, text
 
 from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
@@ -28,9 +28,9 @@ def service(engine):
     return TableService(PostgresTableTransactions(engine))
 
 
-def count(engine, table):
+def count(engine, table_name):
     with engine.connect() as connection:
-        return connection.execute(text(f"SELECT count(*) FROM {table}")).scalar_one()
+        return connection.execute(select(func.count()).select_from(table(table_name))).scalar_one()
 
 
 def test_a_created_table_reads_back_the_same_after_a_reload(service):

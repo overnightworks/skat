@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run a command against a throwaway Postgres: scripts/test-postgres.sh <command> [argument...]
+# Run a command against a throwaway Postgres: scripts/test_postgres.sh <command> [argument...]
 #
 # The command finds the server in SKAT_TEST_POSTGRES_URL. The container is removed when the command
 # ends, is stopped, or the caller dies. Keep the image's major version equal to the one CI's service runs.
