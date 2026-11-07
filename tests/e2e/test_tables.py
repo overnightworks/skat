@@ -157,6 +157,38 @@ def test_a_refused_copy_says_so(
     expect(person.get_by_role("status")).to_have_text("Der Link ließ sich nicht kopieren")
 
 
+def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
+) -> None:
+    person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
+    held: list[Route] = []
+
+    def hold_the_first_read(route: Route) -> None:
+        if held:
+            route.continue_()
+        else:
+            held.append(route)
+
+    person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{UNKNOWN_ID}")
+    expect(person.get_by_role("heading", name="Tisch nicht gefunden")).to_be_visible()
+    click_new_table(person)
+    expect_a_table_seating(person, "anna", mine=True)
+    person.route(f"**{TABLES_PATH}/{UNKNOWN_ID}", hold_the_first_read)
+
+    person.go_back()
+    expect(person).to_have_url(re.compile(f"{UNKNOWN_ID}$"))
+    person.go_forward()
+    expect(person).to_have_url(TABLE_URL)
+    expect_a_table_seating(person, "anna", mine=True)
+    with person.expect_response(re.compile(f"{UNKNOWN_ID}$")):
+        held[0].continue_()
+    # Two frames let the page act on the answer it just received.
+    person.evaluate("() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))")
+
+    expect_a_table_seating(person, "anna", mine=True)
+    expect(person.get_by_role("heading", name="Tisch nicht gefunden")).to_have_count(0)
+
+
 def test_a_table_the_server_cannot_read_says_so(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
 ) -> None:

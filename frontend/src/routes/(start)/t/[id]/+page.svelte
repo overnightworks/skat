@@ -13,7 +13,14 @@
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
         outcome = null;
-        void readTable(id).then((answer) => (outcome = answer));
+        let current = true;
+        void readTable(id).then((answer) => {
+            if (current) outcome = answer;
+        });
+        // An answer for an address the person has left must not replace the current table.
+        return () => {
+            current = false;
+        };
     });
 
     async function copy(): Promise<void> {
