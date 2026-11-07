@@ -28,6 +28,7 @@ from skat.web.constants import (
     NO_ACCESS_PATH,
     OIDC_LEEWAY_SECONDS,
     OIDC_SCOPES,
+    RETURN_PATH_QUERY_NAME,
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
 )
@@ -167,11 +168,11 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
         )
 
     @router.api_route(LOGIN_PATH, methods=READ_METHODS)
-    def signed_out(next_path: Annotated[str | None, Query(alias="next")] = None) -> Response:
+    def signed_out(next_path: Annotated[str | None, Query(alias=RETURN_PATH_QUERY_NAME)] = None) -> Response:
         """Carries the raw `next` onto the sign-in address; webauth is the only validator of it."""
         if next_path is None:
             return built_page_response(signed_out_page)
-        address = f"{AUTH_START_PATH}?next={quote(next_path, safe='')}".encode()
+        address = f"{AUTH_START_PATH}?{RETURN_PATH_QUERY_NAME}={quote(next_path, safe='')}".encode()
         return built_page_response(
             BuiltPage.of(signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"'))
         )
