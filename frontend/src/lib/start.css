@@ -71,10 +71,307 @@ body {
     padding: 24px;
 }
 
-.next {
+/* The new-table button and the table page. */
+.new-table {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.new-table button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 56px;
+    padding: 0 28px 0 22px;
+    border: 0;
+    border-radius: 999px;
+    color: #0d1013;
+    background: #7aa7f0;
+    box-shadow:
+        0 0 0 6px rgba(122, 167, 240, 0.18),
+        0 16px 30px -10px rgba(0, 0, 0, 0.9);
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.new-table button:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.new-table svg {
+    width: 22px;
+    height: 22px;
+}
+
+.new-table p {
+    margin: 0;
     color: var(--on-stage-soft);
-    font-size: 20px;
     text-align: center;
+}
+
+.room {
+    --on-stage: #f4f6f8;
+    --on-stage-soft: rgba(244, 246, 248, 0.72);
+    --brass: #c9a464;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    color: var(--on-stage);
+    font-family: "Open Sans", Arial, sans-serif;
+    background:
+        radial-gradient(70% 55% at 50% 40%, rgba(255, 190, 110, 0.13), transparent 70%),
+        radial-gradient(130% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.75) 100%),
+        linear-gradient(180deg, #1a1512 0%, #120f0d 55%, #0c0a09 100%);
+}
+
+.room .bar {
+    padding: 14px;
+}
+
+.room .wordmark {
+    color: var(--brass);
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.room .stage {
+    position: relative;
+    display: grid;
+    flex: 1;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto minmax(120px, 1fr) minmax(120px, 1fr) auto;
+    justify-items: center;
+    width: min(100%, 560px);
+    margin: 0 auto;
+    padding: 8px 24px 24px;
+    box-sizing: border-box;
+}
+
+.room .plaque {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: fit-content;
+    padding: 8px 16px;
+    border-radius: 16px;
+    background: rgba(12, 14, 17, 0.55);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.18);
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.room .dots {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.room .dots i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brass);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.room .dots i:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.room .dots i:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.25;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .room .dots i {
+        animation: none;
+    }
+}
+
+.room .felt {
+    grid-column: 1 / 3;
+    grid-row: 2 / 4;
+    align-self: stretch;
+    justify-self: stretch;
+    margin: 36px 0;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 40%, #24855f, #166443 60%, #0b3b2a);
+    box-shadow:
+        0 0 0 10px #57331b,
+        0 24px 40px -12px rgba(0, 0, 0, 0.9);
+}
+
+.room .chairs {
+    display: contents;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.room .chair {
+    position: relative;
+    z-index: 1;
+    width: clamp(88px, 28vw, 120px);
+    aspect-ratio: 4 / 3;
+}
+
+.room .chair:nth-child(1) {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+}
+
+.room .chair:nth-child(2) {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+}
+
+.room .chair:nth-child(3) {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    align-self: end;
+}
+
+.room .tile {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 22px 22px 12px 12px;
+    background: linear-gradient(160deg, #4a3330, #241918);
+    box-shadow: inset 0 0 0 2px rgba(240, 214, 150, 0.2);
+}
+
+.room .chair.mine .tile {
+    box-shadow: inset 0 0 0 3px var(--brass);
+}
+
+.room .tile.empty {
+    background: rgba(12, 14, 17, 0.55);
+    box-shadow: inset 0 0 0 2px rgba(244, 246, 248, 0.2);
+}
+
+.room .initial {
+    font-size: 36px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .plate {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 50%);
+    max-width: 140%;
+    padding: 3px 12px;
+    overflow: hidden;
+    border-radius: 8px;
+    color: #2b1d05;
+    background: linear-gradient(180deg, #f1d898, #c9a464);
+    font-size: 13.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .controls {
+    grid-column: 1 / 3;
+    grid-row: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.room .copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(14px);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.room .copy svg {
+    width: 20px;
+    height: 20px;
+}
+
+.room .note {
+    min-height: 1.4em;
+    margin: 0;
+    color: var(--on-stage-soft);
+    font-size: 14px;
+}
+
+.room .panel {
+    grid-column: 1 / 3;
+    grid-row: 1 / 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+}
+
+.room .panel h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.room .panel p {
+    margin: 0;
+    color: var(--on-stage-soft);
+}
+
+.room .legal {
+    display: flex;
+    justify-content: center;
+    padding: 14px;
+}
+
+@media (min-width: 900px) {
+    .room .bar {
+        padding: 22px 24px;
+    }
+
+    .room .stage {
+        width: min(100%, 900px);
+    }
+
+    .room .chair {
+        width: 160px;
+    }
 }
 
 .start-legal {

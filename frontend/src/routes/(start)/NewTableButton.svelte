@@ -1,7 +1,6 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
-    import "./tables.css";
     import { createTable } from "./tables.ts";
 
     let opening = $state(false);

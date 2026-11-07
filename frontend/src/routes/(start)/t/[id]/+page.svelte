@@ -4,7 +4,6 @@
     import { onMount } from "svelte";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
-    import "../../tables.css";
     import NewTableButton from "../../NewTableButton.svelte";
     import { copyTableLink, drawingOrder, readTable, type Outcome } from "../../tables.ts";
 
