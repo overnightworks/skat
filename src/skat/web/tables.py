@@ -12,9 +12,12 @@ if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.table.views import TableView
     from skat.web.page_build import PageBuild
+    from skat.web.presence import Presence
 
 TABLES_PATH: Final = "/api/tables"
 TABLE_PAGE_PREFIX: Final = "/t/"
+# The live view of a table: `TABLES_PATH/{table_id}` plus this.
+TABLE_EVENTS_SUFFIX: Final = "/events"
 # The browser's `crypto.randomUUID()` writes 36 characters of this alphabet.
 COMMAND_ID_PATTERN: Final = r"^[A-Za-z0-9_-]{8,64}$"
 
@@ -37,17 +40,19 @@ class TableAnswer(BaseModel):
     id: str
     version: int
     chairs: list[ChairAnswer]
+    watchers: int
 
 
-def _answer(view: TableView) -> TableAnswer:
+def answer_of(view: TableView) -> TableAnswer:
     return TableAnswer(
         id=view.id,
         version=view.version,
         chairs=[ChairAnswer(seat=c.seat, occupant_name=c.occupant_name, is_mine=c.is_mine) for c in view.chairs],
+        watchers=view.watchers,
     )
 
 
-def _actor(request: Request) -> Actor:
+def actor_of(request: Request) -> Actor:
     user = admitted_user(request)
     # The gate refuses a request without a session before the route runs, so a missing user is a wiring fault.
     if user is None:  # pragma: no cover
@@ -56,7 +61,7 @@ def _actor(request: Request) -> Actor:
     return Actor(account_id=user.id, display_name=user.username)
 
 
-def create_tables_router(tables: TableService, page_build: PageBuild) -> APIRouter:
+def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
     router = APIRouter()
 
     @router.post(TABLES_PATH, responses={409: {"description": "The command id came back with another request."}})
@@ -64,17 +69,17 @@ def create_tables_router(tables: TableService, page_build: PageBuild) -> APIRout
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            return _answer(tables.create(_actor(request), CreateTable(command_id=body.command_id)))
+            return answer_of(tables.create(actor_of(request), CreateTable(command_id=body.command_id)))
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
 
     @router.get(TABLES_PATH + "/{table_id}", responses={404: {"description": "No table has this id."}})
     def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
         response.headers["Cache-Control"] = "no-store"
-        view = tables.view(_actor(request), table_id)
+        view = tables.view(actor_of(request), table_id, presence.connected(table_id))
         if view is None:
             raise HTTPException(status_code=404, detail="table not found")
-        return _answer(view)
+        return answer_of(view)
 
     # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
     @router.api_route(TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS)

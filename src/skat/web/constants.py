@@ -53,3 +53,5 @@ SESSION_LIFETIME_SECONDS = 12 * 60 * 60
 SESSION_SWEEP_SECONDS = 10 * 60
 
 UVICORN_LOG_LEVEL = "warning"
+# Open event streams never finish by themselves; after this long the server cancels them so it can stop.
+GRACEFUL_SHUTDOWN_SECONDS = 3

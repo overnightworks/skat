@@ -27,6 +27,7 @@ from skat.web.constants import (
     SIGN_IN_RATE_LIMIT_BUDGET,
 )
 from skat.web.gate import session_gate
+from skat.web.presence import Presence
 from skat.web.routes import create_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
@@ -36,6 +37,7 @@ from skat.web.sign_in import (
     install_sign_in,
 )
 from skat.web.stores import InMemorySessions, SignInStores
+from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
@@ -100,7 +102,9 @@ def create_app(
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
-    app.include_router(create_tables_router(tables, page_build))
+    presence = Presence()
+    app.include_router(create_tables_router(tables, page_build, presence))
+    app.include_router(create_streams_router(tables, presence))
     install_web_auth_config(app, sign_in_configs.web_auth)
     install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
     _install_web_auth(app, sign_in_stores.sessions, page_build)
