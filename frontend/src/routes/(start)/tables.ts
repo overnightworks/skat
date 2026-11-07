@@ -49,6 +49,7 @@ export function createTable(commandId: string): Promise<Outcome> {
 }
 
 export function readTable(id: string): Promise<Outcome> {
+    takeSignedInAgainMarker();
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}`);
 }
 
@@ -63,16 +64,16 @@ function signInAgain(id: string, reachedBySigningIn: boolean): void {
     location.assign(`${AUTH_START_PATH}?${RETURN_PATH_QUERY_NAME}=${encodeURIComponent(returnPath)}`);
 }
 
-// The marker is read once when the page loads and then leaves the address bar, so a reload,
-// a bookmark or a shared link never carries it.
-function takeSignedInAgainMarker(): boolean {
+let reachedBySigningIn = false;
+
+// The marker is taken at the page's first table request, whatever the answer, and then leaves the address
+// bar, so a reload, a bookmark or a shared link never carries it. Later calls find it gone and keep the result.
+function takeSignedInAgainMarker(): void {
     const address = new URL(location.href);
-    const marked = address.searchParams.has(SIGNED_IN_AGAIN_QUERY_NAME);
-    if (marked) {
-        address.searchParams.delete(SIGNED_IN_AGAIN_QUERY_NAME);
-        history.replaceState(history.state, "", address);
-    }
-    return marked;
+    if (!address.searchParams.has(SIGNED_IN_AGAIN_QUERY_NAME)) return;
+    address.searchParams.delete(SIGNED_IN_AGAIN_QUERY_NAME);
+    history.replaceState(history.state, "", address);
+    reachedBySigningIn = true;
 }
 
 // A stream that ends is a refused session or a dropped connection; the table's own session check tells
@@ -94,7 +95,8 @@ export function watchTable(
     onTable: (table: Table) => void,
     onConnection: (connected: boolean) => void,
 ): () => void {
-    const reachedBySigningIn = takeSignedInAgainMarker();
+    takeSignedInAgainMarker();
+    const reachedNow = reachedBySigningIn;
     const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_EVENTS_SUFFIX}`);
     source.onmessage = (event: MessageEvent<string>) => {
         onConnection(true);
@@ -113,7 +115,7 @@ export function watchTable(
             if (!refused || finished) return;
             finished = true;
             source.close();
-            signInAgain(id, reachedBySigningIn);
+            signInAgain(id, reachedNow);
         });
     };
     return () => {

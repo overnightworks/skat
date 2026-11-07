@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_START_PATH, SIGNED_IN_AGAIN_QUERY_NAME, TABLES_PATH } from "#lib/wire.ts";
-import { copyTableLink, createTable, drawingOrder, readTable, tablePath, watchTable, type Chair } from "./tables.ts";
+import { copyTableLink, createTable, drawingOrder, readTable, tablePath, type Chair } from "./tables.ts";
 
 class FakeEventSource {
     static last: FakeEventSource;
@@ -15,6 +15,9 @@ class FakeEventSource {
 const TABLE_ID = "a".repeat(32);
 
 describe("watchTable after a stream error", () => {
+    // The marker is taken once per document, so each test loads the module afresh.
+    let watchTable: typeof import("./tables.ts").watchTable;
+    let readTableAfresh: typeof import("./tables.ts").readTable;
     const assign = vi.fn();
     const reload = vi.fn();
     let answers: ((status: number) => void)[];
@@ -25,7 +28,9 @@ describe("watchTable after a stream error", () => {
         vi.stubGlobal("location", { assign, reload, href: `https://skat.test/t/${TABLE_ID}${search}` });
     }
 
-    beforeEach(() => {
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ watchTable, readTable: readTableAfresh } = await import("./tables.ts"));
         assign.mockClear();
         reload.mockClear();
         replaceState.mockClear();
@@ -133,9 +138,23 @@ describe("watchTable after a stream error", () => {
         expect(assign).not.toHaveBeenCalled();
     });
 
-    it("removes the marker from the address bar when the page loads", () => {
+    it("removes the marker from the address bar when watching starts", () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1&other=2`);
         watchTable(TABLE_ID, vi.fn(), vi.fn());
+
+        expect(replaceState).toHaveBeenCalledTimes(1);
+        expect(String(replaceState.mock.calls[0]?.[2])).toBe(`https://skat.test/t/${TABLE_ID}?other=2`);
+    });
+
+    it.each([
+        ["a server error", 500],
+        ["an ended session", 401],
+        ["a table that does not exist", 404],
+    ])("removes the marker from the address bar when the first read meets %s", async (_name, status) => {
+        location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1&other=2`);
+        const reading = readTableAfresh(TABLE_ID);
+        answer(0, status);
+        await reading;
 
         expect(replaceState).toHaveBeenCalledTimes(1);
         expect(String(replaceState.mock.calls[0]?.[2])).toBe(`https://skat.test/t/${TABLE_ID}?other=2`);
@@ -176,7 +195,7 @@ describe("asking for a table", () => {
 
     beforeEach(() => {
         reload.mockClear();
-        vi.stubGlobal("location", { reload });
+        vi.stubGlobal("location", { reload, href: `https://skat.test/t/${TABLE_ID}` });
     });
 
     afterEach(() => {
@@ -232,6 +251,10 @@ describe("asking for a table", () => {
 describe("the table's seats and link", () => {
     const chair = (seat: number, isMine = false): Chair => ({ seat, occupant_name: null, is_mine: isMine });
 
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
     it("draws the viewer's own chair last", () => {
         expect(drawingOrder([chair(0), chair(1, true), chair(2)]).map((each) => each.seat)).toEqual([2, 0, 1]);
     });
@@ -247,7 +270,6 @@ describe("the table's seats and link", () => {
 
         expect(await copyTableLink(TABLE_ID)).toBe(true);
         expect(writeText).toHaveBeenCalledWith(`https://skat.test${tablePath(TABLE_ID)}`);
-        vi.unstubAllGlobals();
     });
 
     it("reports a refused clipboard as not copied", async () => {
@@ -255,6 +277,5 @@ describe("the table's seats and link", () => {
         vi.stubGlobal("location", { origin: "https://skat.test" });
 
         expect(await copyTableLink(TABLE_ID)).toBe(false);
-        vi.unstubAllGlobals();
     });
 });
