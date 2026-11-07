@@ -1,11 +1,11 @@
 import time
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from typing import TYPE_CHECKING, Annotated
+from urllib.parse import quote, urlsplit
 
 import structlog
-from fastapi import APIRouter, FastAPI, Response
+from fastapi import APIRouter, FastAPI, Query, Response
 from webauth.admission import AdmissionConfig, AdmissionRefusal, NoAdmins
 from webauth.config import SessionLifetime, WebAuthConfig
 from webauth.https_client import fetch_key_set_over_https
@@ -22,14 +22,17 @@ from webauth.sign_in_routes import (
 
 from skat.web.constants import (
     AUTH_CALLBACK_PATH,
+    AUTH_START_PATH,
     LOGIN_GROUP,
     LOGIN_PATH,
     NO_ACCESS_PATH,
     OIDC_LEEWAY_SECONDS,
     OIDC_SCOPES,
+    RETURN_PATH_QUERY_NAME,
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
 )
+from skat.web.page_build import BuiltPage
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.secret_files import StartRefusedError, read_secret_file
 
@@ -43,6 +46,7 @@ if TYPE_CHECKING:
 
 OPENID_CONNECT_PATH = "/protocol/openid-connect"
 LOGOUT_LABEL = "Log out"
+SIGN_IN_ADDRESS = f'href="{AUTH_START_PATH}"'.encode()
 
 logger = structlog.get_logger()
 
@@ -157,10 +161,21 @@ def install_sign_in(
 
 def _create_pages_router(page_build: PageBuild) -> APIRouter:
     router = APIRouter()
+    signed_out_page = page_build.signed_out
+    if signed_out_page.content.count(SIGN_IN_ADDRESS) != 1:
+        raise SignInConfigurationError(
+            f"The signed-out page lacks its one {AUTH_START_PATH} address; run make frontend"
+        )
 
     @router.api_route(LOGIN_PATH, methods=READ_METHODS)
-    def signed_out() -> Response:
-        return built_page_response(page_build.signed_out)
+    def signed_out(next_path: Annotated[str | None, Query(alias=RETURN_PATH_QUERY_NAME)] = None) -> Response:
+        """Carries the raw `next` onto the sign-in address; webauth is the only validator of it."""
+        if next_path is None:
+            return built_page_response(signed_out_page)
+        address = f"{AUTH_START_PATH}?{RETURN_PATH_QUERY_NAME}={quote(next_path, safe='')}".encode()
+        return built_page_response(
+            BuiltPage.of(signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"'))
+        )
 
     @router.api_route(NO_ACCESS_PATH, methods=READ_METHODS)
     def no_access() -> Response:
