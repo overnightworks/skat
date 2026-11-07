@@ -1,0 +1,17 @@
+{
+    "extends": "$app/tsconfig",
+    "compilerOptions": {
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "sourceMap": true,
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "noImplicitOverride": true,
+        "noFallthroughCasesInSwitch": true,
+        "verbatimModuleSyntax": true,
+        "moduleResolution": "bundler"
+    },
+    "include": ["src", "vite.config.ts"]
+}

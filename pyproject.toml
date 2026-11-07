@@ -1,0 +1,174 @@
+[project]
+name = "skat"
+version = "0.1.0"
+description = "Skat for the overnightworks fleet"
+license = "MIT"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.123.7",
+    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.31.0",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "structlog>=24.4",
+    "urllib3>=2.6.3,<3",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+skat = "skat.host.main:main"
+
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# The overnightworks library is built from its git tag; a named package
+# overrides a global --no-build, so every other package still installs as a wheel.
+no-binary-package = ["overnightworks-webauth"]
+# Its build backend runs with these exact tools, as hatchling is pinned above.
+build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skat"]
+# .gitignore excludes build/, which hatch would otherwise skip.
+# The page build's source maps are for the coverage report; the package serves none.
+artifacts = ["src/skat/web/build", "!*.map"]
+
+# --- Ruff ---
+
+[tool.ruff]
+src = [".", "src"]
+target-version = "py314"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "F",      # pyflakes
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "A",      # flake8-builtins
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez
+    "SIM",    # flake8-simplify
+    "TC",     # flake8-type-checking
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "RUF",    # ruff-specific rules
+    "ANN",    # flake8-annotations
+    "ASYNC",  # flake8-async
+    "RET",    # flake8-return
+    "SLF",    # flake8-self
+    "PT",     # flake8-pytest-style
+]
+ignore = []
+# quality owns S and T20; its noqa lines would read as unused here
+external = ["S", "T20"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRouter.get"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ANN",     # relax annotations in tests
+    "ARG",     # allow unused arguments in fixtures
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# --- Pyright ---
+
+[tool.pyright]
+include = ["src", "scripts"]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+
+# --- Pytest ---
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
+addopts = [
+    "--import-mode=importlib",
+    "--strict-markers",
+    "--strict-config",
+    "--cov",
+    "--cov-report=term-missing",
+]
+markers = [
+    "e2e: browser end-to-end tests",
+]
+
+# --- Coverage ---
+
+[tool.coverage.run]
+# The measured set has one owner, here: `--cov` in addopts turns measurement
+# on and takes its sources from this key, so every way of running the suite
+# measures the same files.
+source = ["src"]
+branch = true
+# The unit and end-to-end runs happen on different runners; relative paths
+# let their data combine.
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+]
+show_missing = true
+
+# --- Vulture ---
+
+[tool.vulture]
+paths = ["src/skat"]
+min_confidence = 80
+
+# --- Import contracts ---
+
+[tool.importlinter]
+root_packages = ["skat"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "Skat's packages depend downwards only"
+type = "layers"
+containers = ["skat"]
+# The host composes the app and starts the server; the web adapter authenticates
+# and transports. Domain and application packages join below `web` with their first
+# caller, and nothing below the host imports it.
+exhaustive = true
+layers = ["host", "web"]
+
+[[tool.importlinter.contracts]]
+id = "host-layers"
+name = "The host's modules depend downwards only"
+type = "layers"
+containers = ["skat.host"]
+# `main` starts the server and `app` is the composition root: nothing imports `main`,
+# and only `main` imports `app`.
+layers = ["main", "app"]
+
+[dependency-groups]
+dev = [
+    "cryptography>=50.0.2",
+    "httpx2>=2.13.1",
+    "import-linter>=2.3",
+    "pyjwt>=2.15.1",
+    "pyright>=1.1.414",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pytest-playwright>=0.10.0",
+    "ruff>=0.17.0",
+    "vulture>=2.15",
+]
