@@ -1,4 +1,3 @@
-import hashlib
 import json
 import re
 import secrets
@@ -31,7 +30,7 @@ from skat.web.constants import (
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
 )
-from skat.web.page_build import BuiltPage
+from skat.web.page_build import BuiltPage, PageBuild
 from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import (
     LOGOUT_LABEL,
@@ -126,6 +125,7 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
         windows_line_ending: bool = False,
         client_secret: str | None = None,
         audit: LoggingAuditSink | None = None,
+        page_build: PageBuild | None = None,
     ) -> SignInHarness:
         sign_in = sign_in_settings()
         if client_secret is not None:
@@ -145,7 +145,12 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
         transaction = InMemorySignInTransaction(
             sessions, LoggingAuditSink() if audit is None else audit, ProcessWriteLock()
         )
-        install_sign_in(app, build_relying_party(configs, transports), transaction, fixture_page_build())
+        install_sign_in(
+            app,
+            build_relying_party(configs, transports),
+            transaction,
+            fixture_page_build() if page_build is None else page_build,
+        )
 
         @app.get(WHO_AM_I_PATH)
         def who_am_i(request: Request) -> dict[str, object]:
@@ -326,17 +331,12 @@ class TestMemberSignIn:
         original = (FIXTURE_DIRECTORY / "login.html").read_bytes()
         expected = original.replace(b'href="/auth/start"', f'href="/auth/start?next={encoded}"'.encode())
         assert response.content == expected
-        assert response.headers["etag"] != f'"{hashlib.sha256(original).hexdigest()}"'
-        assert response.headers["etag"] == f'"{hashlib.sha256(expected).hexdigest()}"'
+        assert response.headers["etag"] == BuiltPage.of(expected).etag
 
-    def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness, monkeypatch):
-        page_build = fixture_page_build()
-        monkeypatch.setattr(
-            "tests.web.test_sign_in_routes.fixture_page_build",
-            lambda: replace(page_build, signed_out=BuiltPage.of(b"<html></html>")),
-        )
+    def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness):
+        page_build = replace(fixture_page_build(), signed_out=BuiltPage.of(b"<html></html>"))
         with pytest.raises(StartRefusedError, match="signed-out page"):
-            make_harness()
+            make_harness(page_build=page_build)
 
     def test_two_subjects_with_one_username_both_get_a_session(self, harness):
         first, second = harness.browser(), harness.browser()
