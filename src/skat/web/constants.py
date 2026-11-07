@@ -60,5 +60,5 @@ SESSION_SWEEP_SECONDS = 10 * 60
 STREAM_HEARTBEAT_SECONDS = 15
 
 UVICORN_LOG_LEVEL = "warning"
-# The server ends its open event streams itself when it stops; after this long it cancels any that are still open.
+# The server ends its open event streams itself when it stops; this limit is the backstop for any still open after that.
 GRACEFUL_SHUTDOWN_SECONDS = 3
