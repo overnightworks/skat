@@ -1,3 +1,7 @@
+body {
+    margin: 0;
+}
+
 /* The entry look: the dark lounge with its warm light pool and brass accents. */
 .start {
     --on-stage: #f4f6f8;

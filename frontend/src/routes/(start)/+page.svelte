@@ -1,5 +1,4 @@
 <script lang="ts">
-    import "#lib/start.css";
     import { AccountMenu, LegalLinks } from "overnightworks-appkit";
     import { onMount } from "svelte";
     import { LEGAL_LINKS } from "#lib/legal.ts";
