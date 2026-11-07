@@ -1,10 +1,17 @@
 import random
-from collections.abc import MutableSequence
+from typing import TYPE_CHECKING
 
 import pytest
 
 from skat.engine.cards import DECK
 from skat.engine.deal import Position, deal, next_dealer, positions_from
+
+if TYPE_CHECKING:
+    from collections.abc import MutableSequence
+
+
+def seeded(seed: int) -> random.Random:
+    return random.Random(seed)  # noqa: S311 - a seeded source makes the deal reproducible in tests
 
 
 class KeepsOrder(random.Random):
@@ -34,7 +41,7 @@ def test_next_deal_goes_to_the_next_seat_and_rotates_through_every_seat():
 
 
 def test_deal_gives_each_player_ten_cards_and_the_skat_two_without_overlap():
-    dealt = deal(random.Random(7))
+    dealt = deal(seeded(7))
     everything = [card for hand in dealt.hands.values() for card in hand] + list(dealt.skat)
     assert [len(hand) for hand in dealt.hands.values()] == [10, 10, 10]
     assert len(dealt.skat) == 2
@@ -51,13 +58,13 @@ def test_deal_hands_out_three_then_skat_two_then_four_then_three():
 
 
 def test_the_same_seeded_source_deals_the_same_hand_twice():
-    assert deal(random.Random(42)) == deal(random.Random(42))
+    assert deal(seeded(42)) == deal(seeded(42))
 
 
 def test_over_many_seeded_deals_every_card_reaches_every_position_and_the_skat():
     reached: dict[object, set[object]] = {card: set() for card in DECK}
     for seed in range(200):
-        dealt = deal(random.Random(seed))
+        dealt = deal(seeded(seed))
         for position, hand in dealt.hands.items():
             for card in hand:
                 reached[card].add(position)
@@ -68,5 +75,5 @@ def test_over_many_seeded_deals_every_card_reaches_every_position_and_the_skat()
 
 @pytest.mark.parametrize("dealer", [0, 4])
 def test_a_seat_outside_one_to_three_is_refused(dealer):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="not one of"):
         positions_from(dealer=dealer)
