@@ -6,7 +6,7 @@ from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
 from skat.web.constants import ACCOUNT_PATH, LOGIN_PATH
-from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
 from tests.e2e.support.tables import TABLE_URL, click_new_table, open_new_table, table_id_of
@@ -280,6 +280,8 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
 
     expect(outsider.get_by_text("Warte auf Mitspieler")).to_have_count(0)
     assert outsider.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}").status == UNAUTHORIZED
+    events = f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}{TABLE_EVENTS_SUFFIX}"
+    assert outsider.request.get(events).status == UNAUTHORIZED
     answer = outsider.request.post(
         f"{e2e_server.base_url}{TABLES_PATH}", data={"command_id": "command-0001"}, headers=same_origin(e2e_server)
     )

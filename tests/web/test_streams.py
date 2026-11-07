@@ -128,14 +128,14 @@ class TestTableViews:
         assert seen_by_quick == [2] * 5
         assert caught_up.watchers == 1
 
-    def test_the_stream_ends_when_its_table_is_gone(self, table_id):
+    def test_a_table_that_vanishes_under_a_stream_is_an_error_that_still_unregisters_it(self, table_id):
         async def vanished(_connected):
             return None
 
         async def scenario():
             presence = Presence()
             stream = table_views(presence, vanished, table_id, OPENER.account_id)
-            with pytest.raises(StopAsyncIteration):
+            with pytest.raises(RuntimeError, match="vanished"):
                 await anext(stream)
             return presence
 

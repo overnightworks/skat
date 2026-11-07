@@ -36,7 +36,8 @@ async def table_views(
             changed.clear()
             view = await read_view(presence.connected(table_id))
             if view is None:
-                return
+                message = f"table {table_id} vanished while a stream watched it"
+                raise RuntimeError(message)
             yield view
             await changed.wait()
     finally:
