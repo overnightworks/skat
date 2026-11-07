@@ -1,5 +1,8 @@
+import asyncio
+
 import pytest
 
+from skat.web.presence import Presence
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.support.page_build import FIXTURE_DIRECTORY
 from tests.web.support.skat import FETCH, NAVIGATION, UNKNOWN_ID
@@ -80,6 +83,27 @@ class TestReadTable:
         created = skat.create(headers).json()
 
         assert skat.client.get(f"{TABLES_PATH}/{created['id']}", headers=headers).json() == created
+
+    def test_reads_who_is_connected_on_the_event_loop_that_owns_the_presence(self, skat, monkeypatch):
+        headers, _ = skat.member()
+        table_id = skat.create(headers).json()["id"]
+        threads_with_a_loop = []
+        connected = Presence.connected
+
+        def connected_on(presence, read_table_id):
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                threads_with_a_loop.append(False)
+            else:
+                threads_with_a_loop.append(True)
+            return connected(presence, read_table_id)
+
+        monkeypatch.setattr(Presence, "connected", connected_on)
+
+        skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+
+        assert threads_with_a_loop == [True]
 
     @pytest.mark.parametrize("table_id", [UNKNOWN_ID, "not-an-id", "%27%3B--", "A" * 32])
     def test_an_unknown_or_malformed_id_is_not_found_without_a_database_message(self, skat, table_id):

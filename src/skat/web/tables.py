@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Annotated, Final
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
 from skat.table.records import Actor, CreateTable
@@ -74,9 +75,10 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
 
     @router.get(TABLES_PATH + "/{table_id}", responses={404: {"description": "No table has this id."}})
-    def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
+    async def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
         response.headers["Cache-Control"] = "no-store"
-        view = tables.view(actor_of(request), table_id, presence.connected(table_id))
+        # Presence belongs to the event loop's thread; only the store read leaves it.
+        view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
         if view is None:
             raise HTTPException(status_code=404, detail="table not found")
         return answer_of(view)
