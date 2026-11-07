@@ -1,8 +1,0 @@
-claim_id = "18a88bae77874f61868eab69e5e46b83"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "88f95e26e68825e63d9026933b01b383e94bbf68"
-branch = "claude/issue-7-s2a-skat-s-first-release-carries-its-leg"
-scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "legal/nutzungsbedingungen.html", "quality/config.toml"]
-opened_commit = "26449dcc036bd7eb6df302f1da26f8e57c995182"
-whole_reason = "Skat's legal part, the root allow that admits its directory and the architecture sentence that names it are one change."
