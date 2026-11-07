@@ -6,10 +6,9 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.constants import LOGIN_PATH
-from skat.web.tables import TABLE_PAGE_PREFIX
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
-from tests.e2e.test_tables import UNKNOWN_ID, expect_a_table_seating, open_new_table
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -17,6 +16,25 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
+
+NEVER_OPENED_ID = "f" * 32
+
+
+def table_opened_by(opener: Page, server: RunningServer) -> str:
+    """The page path of a table the signed-in opener creates through the API from the app's own origin."""
+    opener.goto(f"{server.base_url}/")
+    table_id = opener.evaluate(
+        """async (path) => {
+            const response = await fetch(path, {
+                method: "POST",
+                headers: {"content-type": "application/json"},
+                body: JSON.stringify({command_id: "shared-link-0001"}),
+            });
+            return (await response.json()).id;
+        }""",
+        TABLES_PATH,
+    )
+    return f"{TABLE_PAGE_PREFIX}{table_id}"
 
 
 def follow_a_shared_link_and_sign_in(
@@ -33,13 +51,14 @@ def test_a_signed_out_member_signs_in_through_a_shared_link_and_lands_at_the_tab
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     opener = record_page_errors(open_person(username="anna", **form_factor), page_errors)
-    path = open_new_table(opener, e2e_server)
+    path = table_opened_by(opener, e2e_server)
     visitor = record_page_errors(open_person(signed_in=False, **form_factor), page_errors)
 
     follow_a_shared_link_and_sign_in(visitor, e2e_server, path, username="ben")
 
     expect(visitor).to_have_url(f"{e2e_server.base_url}{path}")
-    expect_a_table_seating(visitor, "anna", mine=False)
+    expect(visitor.get_by_text("Warte auf Mitspieler")).to_be_visible()
+    expect(visitor.locator(".chair[data-seat='1'] .plate")).to_have_text("anna")
 
 
 def test_a_signed_out_member_signs_in_through_a_link_to_an_unknown_table_and_sees_it_is_not_found(
@@ -48,9 +67,9 @@ def test_a_signed_out_member_signs_in_through_a_link_to_an_unknown_table_and_see
     # The 404 the browser logs for the table request is the console error, so only script errors are recorded.
     visitor = record_page_errors(open_person(signed_in=False, **DESKTOP), page_errors, console=False)
 
-    follow_a_shared_link_and_sign_in(visitor, e2e_server, f"{TABLE_PAGE_PREFIX}{UNKNOWN_ID}", username="ben")
+    follow_a_shared_link_and_sign_in(visitor, e2e_server, f"{TABLE_PAGE_PREFIX}{NEVER_OPENED_ID}", username="ben")
 
-    expect(visitor).to_have_url(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{UNKNOWN_ID}")
+    expect(visitor).to_have_url(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{NEVER_OPENED_ID}")
     expect(visitor.get_by_role("heading", name="Tisch nicht gefunden")).to_be_visible()
 
 
@@ -58,7 +77,7 @@ def test_a_signed_out_person_the_group_does_not_admit_reaches_the_no_access_page
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
 ) -> None:
     opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
-    path = open_new_table(opener, e2e_server)
+    path = table_opened_by(opener, e2e_server)
     outsider = record_page_errors(open_person(signed_in=False, **DESKTOP), page_errors)
 
     follow_a_shared_link_and_sign_in(outsider, e2e_server, path, username="carl", groups=["/apps/other"])
