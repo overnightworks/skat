@@ -55,7 +55,7 @@ class TableService:
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())
 
-    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str] = frozenset()) -> TableView | None:
+    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
         identifier = TableId.parse(table_id)
         if identifier is None:
             return None
