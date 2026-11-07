@@ -61,7 +61,9 @@ class TestCreateTable:
     def test_answers_a_retry_with_the_same_table(self, skat):
         headers, _ = skat.member()
 
-        assert skat.create(headers).json() == skat.create(headers).json()
+        first = skat.create(headers).json()
+
+        assert skat.create(headers).json() == first
         assert len(skat.store.tables) == 1
 
     def test_refuses_a_command_id_that_comes_back_with_another_request(self, skat):
