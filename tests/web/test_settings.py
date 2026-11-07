@@ -11,14 +11,14 @@ REQUIRED_SIGN_IN_SETTINGS = ["oidc_issuer", "oidc_client_secret_file", "public_o
 
 
 class TestServerSettings:
-    def test_defaults(self, sign_in_settings):
+    def test_unset_settings_take_the_default_listen_address_client_id_and_no_trusted_proxies(self, sign_in_settings):
         settings = sign_in_settings().settings
         assert settings.host == DEFAULT_HOST
         assert settings.port == DEFAULT_PORT
         assert settings.oidc_client_id == OIDC_CLIENT_ID
         assert settings.trusted_proxies == ""
 
-    def test_override_via_environment(self, sign_in_settings):
+    def test_each_setting_is_read_from_its_skat_environment_variable(self, sign_in_settings):
         sign_in = sign_in_settings()
         env = {
             **sign_in.environment,
