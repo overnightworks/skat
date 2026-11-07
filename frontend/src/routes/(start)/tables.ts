@@ -54,14 +54,25 @@ export function readTable(id: string): Promise<Outcome> {
 
 // The page that the sign-in returns to carries a marker in its address, so nothing is kept on the device.
 // The reload of a table address is answered with the sign-in page while the session stays ended.
-function signInAgain(id: string): void {
-    const reachedBySigningIn = new URLSearchParams(location.search).has(SIGNED_IN_AGAIN_QUERY_NAME);
+function signInAgain(id: string, reachedBySigningIn: boolean): void {
     if (reachedBySigningIn && performance.now() < RESIGN_IN_WINDOW_MILLISECONDS) {
         location.reload();
         return;
     }
     const returnPath = `${tablePath(id)}?${SIGNED_IN_AGAIN_QUERY_NAME}=1`;
     location.assign(`${AUTH_START_PATH}?${RETURN_PATH_QUERY_NAME}=${encodeURIComponent(returnPath)}`);
+}
+
+// The marker is read once when the page loads and then leaves the address bar, so a reload,
+// a bookmark or a shared link never carries it.
+function takeSignedInAgainMarker(): boolean {
+    const address = new URL(location.href);
+    const marked = address.searchParams.has(SIGNED_IN_AGAIN_QUERY_NAME);
+    if (marked) {
+        address.searchParams.delete(SIGNED_IN_AGAIN_QUERY_NAME);
+        history.replaceState(history.state, "", address);
+    }
+    return marked;
 }
 
 // A stream that ends is a refused session or a dropped connection; the table's own session check tells
@@ -83,6 +94,7 @@ export function watchTable(
     onTable: (table: Table) => void,
     onConnection: (connected: boolean) => void,
 ): () => void {
+    const reachedBySigningIn = takeSignedInAgainMarker();
     const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_EVENTS_SUFFIX}`);
     source.onmessage = (event: MessageEvent<string>) => {
         onConnection(true);
@@ -101,7 +113,7 @@ export function watchTable(
             if (!refused || finished) return;
             finished = true;
             source.close();
-            signInAgain(id);
+            signInAgain(id, reachedBySigningIn);
         });
     };
     return () => {

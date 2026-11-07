@@ -19,13 +19,17 @@ describe("watchTable after a stream error", () => {
     const reload = vi.fn();
     let answers: ((status: number) => void)[];
 
+    const replaceState = vi.fn();
+
     function location(search: string) {
-        vi.stubGlobal("location", { assign, reload, search });
+        vi.stubGlobal("location", { assign, reload, href: `https://skat.test/t/${TABLE_ID}${search}` });
     }
 
     beforeEach(() => {
         assign.mockClear();
         reload.mockClear();
+        replaceState.mockClear();
+        vi.stubGlobal("history", { state: null, replaceState });
         answers = [];
         vi.stubGlobal("EventSource", FakeEventSource);
         vi.stubGlobal(
@@ -129,6 +133,20 @@ describe("watchTable after a stream error", () => {
         expect(assign).not.toHaveBeenCalled();
     });
 
+    it("removes the marker from the address bar when the page loads", () => {
+        location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1&other=2`);
+        watchTable(TABLE_ID, vi.fn(), vi.fn());
+
+        expect(replaceState).toHaveBeenCalledTimes(1);
+        expect(String(replaceState.mock.calls[0]?.[2])).toBe(`https://skat.test/t/${TABLE_ID}?other=2`);
+    });
+
+    it("leaves the address alone when it carries no marker", () => {
+        watchTable(TABLE_ID, vi.fn(), vi.fn());
+
+        expect(replaceState).not.toHaveBeenCalled();
+    });
+
     it("signs in again when the page reached by signing in has been open past the window", async () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
         vi.stubGlobal("performance", { now: () => 3_600_000 });
@@ -158,7 +176,7 @@ describe("asking for a table", () => {
 
     beforeEach(() => {
         reload.mockClear();
-        vi.stubGlobal("location", { reload, search: "" });
+        vi.stubGlobal("location", { reload });
     });
 
     afterEach(() => {
