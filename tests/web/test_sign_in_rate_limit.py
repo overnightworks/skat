@@ -1,11 +1,11 @@
-import types
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, replace
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
-import webauth.rate_limit
 from fastapi.testclient import TestClient
+from webauth.config import install_web_auth_config, installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.web.constants import (
@@ -42,7 +42,7 @@ FORM_POST = {"content-type": "application/x-www-form-urlencoded"}
 
 
 class LimiterClock:
-    """Stands in for the `time` binding of the webauth limiter, the only clock it reads."""
+    """The clock the test's rate-limit backend reads."""
 
     def __init__(self) -> None:
         self.now = 1000.0
@@ -52,6 +52,25 @@ class LimiterClock:
 
     def advance(self, seconds: float) -> None:
         self.now += seconds
+
+
+class ClockedRateLimitBackend:
+    """A sliding-window rate-limit backend whose window moves only when the test advances its clock."""
+
+    def __init__(self, clock: LimiterClock) -> None:
+        self._clock = clock
+        self._events: dict[str, list[float]] = {}
+        self._guard = threading.Lock()
+
+    def is_allowed(self, key: str, *, limit: int, window_seconds: int) -> bool:
+        with self._guard:
+            now = self._clock.monotonic()
+            recent = [stamp for stamp in self._events.get(key, []) if stamp > now - window_seconds]
+            allowed = len(recent) < limit
+            if allowed:
+                recent.append(now)
+            self._events[key] = recent
+            return allowed
 
 
 @dataclass
@@ -94,18 +113,17 @@ class Deployment:
 
 
 @pytest.fixture
-def make_deployment(sign_in_settings: Callable[..., SignInSettings], monkeypatch) -> Callable[..., Deployment]:
+def make_deployment(sign_in_settings: Callable[..., SignInSettings]) -> Callable[..., Deployment]:
     clock = LimiterClock()
-    monkeypatch.setattr(webauth.rate_limit, "time", types.SimpleNamespace(monotonic=clock.monotonic))
 
     def make(**overrides: str) -> Deployment:
         sign_in = sign_in_settings(**overrides)
         issuer = FakeIssuer(sign_in)
-        return Deployment(
-            create_app(sign_in.settings, page_build=fixture_page_build(), issuer_transports=issuer.transports),
-            issuer,
-            clock,
+        app = create_app(sign_in.settings, page_build=fixture_page_build(), issuer_transports=issuer.transports)
+        install_web_auth_config(
+            app, replace(installed_web_auth_config(app), rate_limits=ClockedRateLimitBackend(clock))
         )
+        return Deployment(app, issuer, clock)
 
     return make
 
