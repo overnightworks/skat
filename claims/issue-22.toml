@@ -1,0 +1,8 @@
+claim_id = "3c1dc0b14e6640fea9aacf4d598d598f"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "23573a5510be58a614205c093d06dee0d92cad26"
+branch = "claude/issue-22-s3-3b-stream-readmission"
+scope = ["docs/ARCHITECTURE.md", "frontend/src/routes/(start)/tables.ts", "src/skat/host/app.py", "src/skat/host/main.py", "src/skat/web/constants.py", "src/skat/web/streams.py", "tests/e2e/support", "tests/e2e/test_table_resign_in.py", "tests/host", "tests/web/support", "tests/web/test_streams.py"]
+opened_commit = "ef019f0b76c863844cb25137bd9e6b3e0a833418"
+whole_reason = "Server-side re-admission and the page's re-sign-in are one flow; neither half proves line 7 B without the other."
