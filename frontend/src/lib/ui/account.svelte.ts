@@ -1,12 +1,12 @@
 import { ACCOUNT_PATH } from "#lib/wire.ts";
+import { words } from "#lib/words.ts";
 
 const SIGNED_OUT_STATUS = 401;
-const UNNAMED_MENU_NAME = "Account";
 
 const account: { name: string | null } = $state({ name: null });
 
 export function menuName(): string {
-    return account.name ?? UNNAMED_MENU_NAME;
+    return account.name ?? words.account;
 }
 
 // A session that ended while the page was open goes through the sign-in again; any other failure

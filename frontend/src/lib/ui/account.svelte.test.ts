@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_PATH } from "#lib/wire.ts";
+import { words } from "#lib/words.ts";
 
 function answerWith(body: BodyInit | null, status = 200) {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status })));
@@ -42,7 +43,7 @@ describe("readAccount", () => {
 
         await readAccount();
 
-        expect(menuName()).toBe("Account");
+        expect(menuName()).toBe(words.account);
     });
 
     it("leaves the menu unnamed when the account cannot be reached", async () => {
@@ -51,7 +52,7 @@ describe("readAccount", () => {
 
         await readAccount();
 
-        expect(menuName()).toBe("Account");
+        expect(menuName()).toBe(words.account);
     });
 
     it("goes through the sign-in again when the session has ended", async () => {

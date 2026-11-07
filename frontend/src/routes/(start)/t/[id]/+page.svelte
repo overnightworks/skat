@@ -3,6 +3,7 @@
     import { page } from "$app/state";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
+    import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import { copyTableLink, drawingOrder, readTable, watchTable, type Outcome } from "../../tables.ts";
 
@@ -37,19 +38,19 @@
     });
 
     async function copy(): Promise<void> {
-        copyNote = (await copyTableLink(id)) ? "Link kopiert" : "Der Link ließ sich nicht kopieren";
+        copyNote = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
     }
 </script>
 
 <svelte:head>
-    <title>Skat</title>
+    <title>{words.appName}</title>
 </svelte:head>
 
-<div class="room" data-theme="dark" lang="de">
+<div class="room" data-theme="dark">
     <header class="bar" class:stale={!connected}>
-        <a class="wordmark" href={resolve("/(start)")}>Skat</a>
+        <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
         {#if outcome?.kind === "table"}
-            <div class="watchers" title="Zuschauer" role="group" aria-label="Zuschauer">
+            <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
                 <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -69,7 +70,7 @@
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
             <div class="plaque">
-                <span>Warte auf Mitspieler</span>
+                <span>{words.waitingForPlayers}</span>
                 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
             </div>
             <div class="felt" aria-hidden="true"></div>
@@ -81,7 +82,7 @@
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                             {/if}
                         </span>
-                        <span class="plate">{chair.occupant_name ?? "Frei"}</span>
+                        <span class="plate">{chair.occupant_name ?? words.seatFree}</span>
                     </li>
                 {/each}
             </ul>
@@ -98,23 +99,23 @@
                         <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
                         <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
                     </svg>
-                    Link kopieren
+                    {words.copyLink}
                 </button>
                 <p class="note" role="status">{copyNote}</p>
             </div>
         {:else if outcome?.kind === "missing"}
             <section class="panel">
-                <h1>Tisch nicht gefunden</h1>
+                <h1>{words.tableNotFound}</h1>
                 <NewTableButton />
             </section>
         {:else if outcome?.kind === "failed"}
             <section class="panel" role="alert">
-                <h1>Der Tisch lässt sich gerade nicht laden</h1>
-                <p>Lade die Seite neu, um es noch einmal zu versuchen.</p>
+                <h1>{words.tableLoadFailed}</h1>
+                <p>{words.tableLoadFailedHint}</p>
             </section>
         {/if}
     </main>
-    <div class="reconnect" role="status" hidden={connected}><span class="spin"></span>verbinde neu</div>
+    <div class="reconnect" role="status" hidden={connected}><span class="spin"></span>{words.reconnecting}</div>
     <footer class="legal">
         <LegalLinks links={LEGAL_LINKS} />
     </footer>

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
+    import { words } from "#lib/words.ts";
     import { createTable } from "./tables.ts";
 
     let opening = $state(false);
@@ -20,7 +21,7 @@
     }
 </script>
 
-<div class="new-table" lang="de">
+<div class="new-table">
     <button type="button" disabled={opening} onclick={open}>
         <svg
             viewBox="0 0 24 24"
@@ -32,9 +33,9 @@
         >
             <path d="M12 5v14M5 12h14" />
         </svg>
-        Neuer Tisch
+        {words.newTable}
     </button>
     {#if failed}
-        <p role="alert">Der Tisch konnte nicht eröffnet werden.</p>
+        <p role="alert">{words.newTableFailed}</p>
     {/if}
 </div>
