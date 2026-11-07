@@ -16,7 +16,8 @@
 </script>
 
 <svelte:head>
-    <title>{words.appName}</title>
+    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+    <title>{`${words.appName}`}</title>
 </svelte:head>
 
 <div class="start" data-theme="dark">

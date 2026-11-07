@@ -33,7 +33,8 @@
         >
             <path d="M12 5v14M5 12h14" />
         </svg>
-        {words.newTable}
+        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+        {`${words.newTable}`}
     </button>
     {#if failed}
         <p role="alert">{words.newTableFailed}</p>

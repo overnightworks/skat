@@ -43,7 +43,8 @@
 </script>
 
 <svelte:head>
-    <title>{words.appName}</title>
+    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+    <title>{`${words.appName}`}</title>
 </svelte:head>
 
 <div class="room" data-theme="dark">
@@ -99,7 +100,8 @@
                         <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
                         <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
                     </svg>
-                    {words.copyLink}
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                    {`${words.copyLink}`}
                 </button>
                 <p class="note" role="status">{copyNote}</p>
             </div>
