@@ -1,7 +1,8 @@
 import argparse
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, Unpack
 
 import uvicorn
+from fastapi import FastAPI
 
 from skat.host.app import create_app
 from skat.store.migrate import create_store_engine, migrate, require_head
@@ -13,6 +14,7 @@ from skat.web.secret_files import read_secret_file
 from skat.web.settings import DatabaseSettings, ServerSettings
 
 if TYPE_CHECKING:
+    import socket
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
@@ -37,6 +39,30 @@ def uvicorn_options(settings: ServerSettings) -> UvicornOptions:
     )
 
 
+class StreamsEndingServer(uvicorn.Server):
+    """uvicorn's server that ends every open table stream before it waits for connections to close.
+
+    uvicorn runs the app's lifespan shutdown only after that wait, and an open stream never finishes by
+    itself, so the wait would run out and cancel each stream with an error in the log.
+    """
+
+    def __init__(self, config: uvicorn.Config, stop_streams: Callable[[], None]) -> None:
+        super().__init__(config)
+        self._stop_streams = stop_streams
+
+    async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
+        self._stop_streams()
+        await super().shutdown(sockets)
+
+
+def streams_ending_server(app: FastAPI, **options: Unpack[UvicornOptions]) -> StreamsEndingServer:
+    return StreamsEndingServer(uvicorn.Config(app, **options), app.state.stop_streams)
+
+
+def serve(app: FastAPI, **options: Unpack[UvicornOptions]) -> None:
+    streams_ending_server(app, **options).run()  # pragma: no cover - blocks until a signal stops the server
+
+
 def command_line_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="skat")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -48,7 +74,7 @@ def command_line_parser() -> argparse.ArgumentParser:
 def main(
     arguments: Sequence[str] | None = None,
     *,
-    run_server: Callable[..., None] = uvicorn.run,
+    run_server: Callable[..., None] = serve,
     build_directory: Path = BUILD_DIRECTORY,
 ) -> None:
     command = command_line_parser().parse_args(arguments).command
