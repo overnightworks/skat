@@ -2,9 +2,11 @@ import http.client
 import json
 import ssl
 import threading
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from babel.messages.pofile import read_po
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
@@ -20,11 +22,19 @@ from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
+
+CATALOG = Path(__file__).resolve().parents[2] / "frontend/src/lib/catalogs/de.po"
+
+
+def catalog_text(key: str) -> str:
+    """The German catalog's text for `key`, as the page shows it."""
+    with CATALOG.open("rb") as catalog:
+        return str(read_po(catalog, locale="de")[key].string)
+
 
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
@@ -32,7 +42,7 @@ FIRST_EVENT = """(url) => new Promise((resolve) => {
     const source = new EventSource(url);
     source.onmessage = (event) => { source.close(); resolve(event.data); };
 })"""
-RECONNECTING = "verbinde neu"
+RECONNECTING = catalog_text("reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
 

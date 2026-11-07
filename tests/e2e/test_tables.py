@@ -1,7 +1,9 @@
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from babel.messages.pofile import read_po
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
@@ -17,6 +19,15 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
+
+CATALOG = Path(__file__).resolve().parents[2] / "frontend/src/lib/catalogs/de.po"
+
+
+def catalog_text(key: str) -> str:
+    """The German catalog's text for `key`, as the page shows it."""
+    with CATALOG.open("rb") as catalog:
+        return str(read_po(catalog, locale="de")[key].string)
+
 
 TABLES_ROUTE = f"**{TABLES_PATH}"
 UNKNOWN_ID = "0" * 32
@@ -36,13 +47,13 @@ def same_origin(server: RunningServer) -> dict[str, str]:
 
 
 def expect_a_table_seating(person: Page, opener: str, *, mine: bool) -> None:
-    expect(person.get_by_text("Warte auf Mitspieler")).to_be_visible()
-    expect(person.get_by_role("button", name="Link kopieren")).to_be_visible()
+    expect(person.get_by_text(catalog_text("waitingForPlayers"))).to_be_visible()
+    expect(person.get_by_role("button", name=catalog_text("copyLink"))).to_be_visible()
     chairs = person.locator(".chair")
     expect(chairs).to_have_count(3)
     expect(person.locator(".chair[data-seat='1'] .plate")).to_have_text(opener)
     expect(person.locator(".chair.mine")).to_have_count(1 if mine else 0)
-    expect(person.locator(".chair .plate", has_text="Frei")).to_have_count(2)
+    expect(person.locator(".chair .plate", has_text=catalog_text("seatFree"))).to_have_count(2)
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
@@ -109,7 +120,7 @@ def test_an_unknown_or_malformed_id_shows_not_found_and_offers_a_new_table(
 
     person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table_id}")
 
-    expect(person.get_by_role("heading", name="Tisch nicht gefunden")).to_be_visible()
+    expect(person.get_by_role("heading", name=catalog_text("tableNotFound"))).to_be_visible()
     expect(person.get_by_text(re.compile("error|sql|postgres", re.IGNORECASE))).to_have_count(0)
     click_new_table(person)
 
@@ -123,9 +134,9 @@ def test_the_link_control_copies_the_absolute_link_of_the_table(
     person.context.grant_permissions(["clipboard-read", "clipboard-write"], origin=e2e_server.base_url)
     path = open_new_table(person, e2e_server)
 
-    person.get_by_role("button", name="Link kopieren").click()
+    person.get_by_role("button", name=catalog_text("copyLink")).click()
 
-    expect(person.get_by_role("status")).to_have_text("Link kopiert")
+    expect(person.get_by_role("status")).to_have_text(catalog_text("linkCopied"))
     assert person.evaluate("navigator.clipboard.readText()") == f"{e2e_server.base_url}{path}"
 
 
@@ -136,9 +147,9 @@ def test_a_refused_copy_says_so(
     open_new_table(person, e2e_server)
     person.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error('refused')); }")
 
-    person.get_by_role("button", name="Link kopieren").click()
+    person.get_by_role("button", name=catalog_text("copyLink")).click()
 
-    expect(person.get_by_role("status")).to_have_text("Der Link ließ sich nicht kopieren")
+    expect(person.get_by_role("status")).to_have_text(catalog_text("linkCopyFailed"))
 
 
 def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
@@ -154,7 +165,7 @@ def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
             held.append(route)
 
     person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{UNKNOWN_ID}")
-    expect(person.get_by_role("heading", name="Tisch nicht gefunden")).to_be_visible()
+    expect(person.get_by_role("heading", name=catalog_text("tableNotFound"))).to_be_visible()
     click_new_table(person)
     expect_a_table_seating(person, "anna", mine=True)
     person.route(f"**{TABLES_PATH}/{UNKNOWN_ID}", hold_the_first_read)
@@ -170,7 +181,7 @@ def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
     person.evaluate("() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))")
 
     expect_a_table_seating(person, "anna", mine=True)
-    expect(person.get_by_role("heading", name="Tisch nicht gefunden")).to_have_count(0)
+    expect(person.get_by_role("heading", name=catalog_text("tableNotFound"))).to_have_count(0)
 
 
 def test_a_table_the_server_cannot_read_says_so(
@@ -183,7 +194,7 @@ def test_a_table_the_server_cannot_read_says_so(
 
     person.goto(f"{e2e_server.base_url}{path}")
 
-    expect(person.get_by_role("alert")).to_contain_text("Der Tisch lässt sich gerade nicht laden")
+    expect(person.get_by_role("alert")).to_contain_text(catalog_text("tableLoadFailed"))
 
 
 @pytest.mark.parametrize("failure", ["server error", "lost connection", "unreadable answer"])
@@ -218,7 +229,7 @@ def test_a_table_that_could_not_be_opened_says_so_and_a_retry_opens_it(
     person.goto(f"{e2e_server.base_url}/")
 
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-    expect(person.get_by_role("alert")).to_have_text("Der Tisch konnte nicht eröffnet werden.")
+    expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
 
     expect(person).to_have_url(TABLE_URL)
@@ -257,7 +268,7 @@ def test_a_visitor_without_a_session_gets_the_sign_in_page_for_a_link_and_no_tab
     visitor.goto(f"{e2e_server.base_url}{path}")
 
     expect(visitor).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
-    expect(visitor.get_by_text("Warte auf Mitspieler")).to_have_count(0)
+    expect(visitor.get_by_text(catalog_text("waitingForPlayers"))).to_have_count(0)
     answer = visitor.request.post(
         f"{e2e_server.base_url}{TABLES_PATH}", data={"command_id": "command-0001"}, headers=same_origin(e2e_server)
     )
@@ -278,7 +289,7 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
 
     outsider.goto(f"{e2e_server.base_url}{path}")
 
-    expect(outsider.get_by_text("Warte auf Mitspieler")).to_have_count(0)
+    expect(outsider.get_by_text(catalog_text("waitingForPlayers"))).to_have_count(0)
     assert outsider.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}").status == UNAUTHORIZED
     events = f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}{TABLE_EVENTS_SUFFIX}"
     assert outsider.request.get(events).status == UNAUTHORIZED
