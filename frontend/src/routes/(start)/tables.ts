@@ -1,10 +1,12 @@
 import { TABLE_PAGE_PREFIX, TABLES_PATH } from "#lib/wire.ts";
 
+const EVENTS_SEGMENT = "/events";
+
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
 
 export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean };
-export type Table = { id: string; version: number; chairs: Chair[] };
+export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
 export type Outcome = { kind: "table"; table: Table } | { kind: "missing" } | { kind: "failed" };
 
 // A session that ended while the page was open goes through the sign-in again; any other failure
@@ -40,6 +42,27 @@ export function createTable(commandId: string): Promise<Outcome> {
 
 export function readTable(id: string): Promise<Outcome> {
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}`);
+}
+
+// The server sends the full view first and a fresh one after every change; a lost connection
+// reconnects by itself and starts again from a full view, so a view always replaces the last.
+// The returned function closes the stream.
+export function watchTable(
+    id: string,
+    onTable: (table: Table) => void,
+    onConnection: (connected: boolean) => void,
+): () => void {
+    const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${EVENTS_SEGMENT}`);
+    source.onmessage = (event: MessageEvent<string>) => {
+        onConnection(true);
+        onTable(JSON.parse(event.data) as Table);
+    };
+    source.onerror = () => {
+        onConnection(false);
+    };
+    return () => {
+        source.close();
+    };
 }
 
 export function tablePath(id: string): string {
