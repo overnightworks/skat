@@ -1,6 +1,4 @@
-import { TABLE_PAGE_PREFIX, TABLES_PATH } from "#lib/wire.ts";
-
-const EVENTS_SEGMENT = "/events";
+import { TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH } from "#lib/wire.ts";
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
@@ -52,7 +50,7 @@ export function watchTable(
     onTable: (table: Table) => void,
     onConnection: (connected: boolean) => void,
 ): () => void {
-    const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${EVENTS_SEGMENT}`);
+    const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_EVENTS_SUFFIX}`);
     source.onmessage = (event: MessageEvent<string>) => {
         onConnection(true);
         onTable(JSON.parse(event.data) as Table);
