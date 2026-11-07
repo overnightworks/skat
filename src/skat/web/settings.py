@@ -30,10 +30,17 @@ OriginUrl = Annotated[str, AfterValidator(_require_origin_without_path)]
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
 
 
-class ServerSettings(BaseSettings):
-    # The sign-in settings are secrets or name them, so a refusal never echoes an input.
+class DatabaseSettings(BaseSettings):
+    """The one setting `skat migrate` needs, so it runs before any other setting or the page build is read."""
+
+    # The settings are secrets or name them, so a refusal never echoes an input.
     model_config = SettingsConfigDict(env_prefix="SKAT_", hide_input_in_errors=True)
 
+    # The file holds a Postgres connection URL.
+    database_url_file: AbsolutePath = Field(repr=False)
+
+
+class ServerSettings(DatabaseSettings):
     host: str = DEFAULT_HOST
     port: int = DEFAULT_PORT
     oidc_issuer: IssuerUrl

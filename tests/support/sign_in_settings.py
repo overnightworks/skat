@@ -9,6 +9,8 @@ if TYPE_CHECKING:
 
 TEST_ISSUER = "https://issuer.test.invalid/realms/test"
 TEST_PUBLIC_ORIGIN = "https://skat.test.invalid"
+# Names no server: settings tests never connect, and a test that does overrides `database_url_file`.
+TEST_DATABASE_URL = "postgresql://skat@database.test.invalid/skat"
 SESSION_SECRET_BYTES = 36
 CLIENT_SECRET_BYTES = 24
 
@@ -26,12 +28,15 @@ def build_sign_in_settings(directory: Path, **overrides: str | int | Path | None
     client_secret = secrets.token_urlsafe(CLIENT_SECRET_BYTES)
     session_secret = secrets.token_urlsafe(SESSION_SECRET_BYTES)
     client_secret_file = directory / "client-secret"
+    database_url_file = directory / "database-url"
     session_secret_file = directory / "session-secret"
     client_secret_file.write_text(client_secret + "\n")
     session_secret_file.write_text(session_secret + "\n")
+    database_url_file.write_text(TEST_DATABASE_URL + "\n")
     values: dict[str, str | int | Path | None] = {
         "oidc_issuer": TEST_ISSUER,
         "oidc_client_secret_file": client_secret_file,
+        "database_url_file": database_url_file,
         "public_origin": TEST_PUBLIC_ORIGIN,
         "session_secret_file": session_secret_file,
         **overrides,

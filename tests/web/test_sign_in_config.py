@@ -7,6 +7,7 @@ from webauth.config import installed_web_auth_config
 from skat.host.app import create_app
 from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import SignInConfigurationError, build_sign_in_configs
+from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import fixture_page_build
 
 SECRET_FILE_SETTINGS = ["oidc_client_secret_file", "session_secret_file"]
@@ -140,7 +141,9 @@ class TestBuiltConfigs:
         assert client.end_session_endpoint == f"{issuer}/protocol/openid-connect/logout"
 
     def test_a_session_lasts_twelve_hours_in_a_secure_lax_cookie(self, sign_in_settings):
-        web_auth = installed_web_auth_config(create_app(sign_in_settings().settings, page_build=fixture_page_build()))
+        web_auth = installed_web_auth_config(
+            create_app(sign_in_settings().settings, page_build=fixture_page_build(), tables=in_memory_tables())
+        )
         assert web_auth.session_lifetime.idle_seconds == SESSION_LENGTH_SECONDS
         assert web_auth.session_lifetime.absolute_max_age_seconds == SESSION_LENGTH_SECONDS
         assert web_auth.cookie_samesite == "lax"
@@ -148,5 +151,7 @@ class TestBuiltConfigs:
 
     def test_only_the_public_origins_host_is_admitted(self, sign_in_settings):
         settings = sign_in_settings(public_origin="https://Skat.Test.invalid:8443").settings
-        web_auth = installed_web_auth_config(create_app(settings, page_build=fixture_page_build()))
+        web_auth = installed_web_auth_config(
+            create_app(settings, page_build=fixture_page_build(), tables=in_memory_tables())
+        )
         assert web_auth.allowed_hosts_exact == frozenset({"skat.test.invalid:8443"})

@@ -20,6 +20,7 @@ from skat.web.constants import (
 )
 from skat.web.sign_in import SignInConfigurationError, build_sign_in_configs
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
@@ -119,7 +120,12 @@ def make_deployment(sign_in_settings: Callable[..., SignInSettings]) -> Callable
     def make(**overrides: str) -> Deployment:
         sign_in = sign_in_settings(**overrides)
         issuer = FakeIssuer(sign_in)
-        app = create_app(sign_in.settings, page_build=fixture_page_build(), issuer_transports=issuer.transports)
+        app = create_app(
+            sign_in.settings,
+            page_build=fixture_page_build(),
+            tables=in_memory_tables(),
+            issuer_transports=issuer.transports,
+        )
         install_web_auth_config(
             app, replace(installed_web_auth_config(app), rate_limits=ClockedRateLimitBackend(clock))
         )

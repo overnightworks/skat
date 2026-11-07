@@ -18,6 +18,7 @@ from skat.web.constants import (  # noqa: E402
     AUTH_START_PATH,
     LOGOUT_PATH,
 )
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -33,6 +34,8 @@ def render() -> str:
         "LOGOUT_PATH": LOGOUT_PATH,
         "ACCOUNT_PATH": ACCOUNT_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
+        "TABLES_PATH": TABLES_PATH,
+        "TABLE_PAGE_PREFIX": TABLE_PAGE_PREFIX,
     }
     return HEADER + "\n" + "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
 

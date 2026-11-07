@@ -32,6 +32,7 @@ from skat.web.gate import session_gate
 from skat.web.sign_in import build_sign_in_configs
 from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import (
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
@@ -99,6 +100,7 @@ class Application:
         self.app = create_app(
             sign_in.settings,
             page_build=fixture_page_build(),
+            tables=in_memory_tables(),
             stores=self.stores,
             issuer_transports=self.issuer.transports,
             **options,
