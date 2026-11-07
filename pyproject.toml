@@ -172,6 +172,7 @@ layers = ["main", "app"]
 
 [dependency-groups]
 dev = [
+    "babel>=2.18",
     "cryptography>=50.0.2",
     "httpx2>=2.13.1",
     "import-linter>=2.3",
