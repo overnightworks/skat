@@ -33,6 +33,13 @@ class TestAccountRoute:
 
         assert (answer.status_code, answer.json()) == (200, {"name": member.account.username})
 
+    def test_lets_no_cache_keep_the_answer(self, app, stores, browser):
+        member = seed_member(stores, installed_web_auth_config(app))
+
+        answer = browser.get(ACCOUNT_PATH, headers={"cookie": cookie_header(member.set_cookie_headers)})
+
+        assert answer.headers["cache-control"] == "no-store"
+
     @pytest.mark.parametrize("session", ["absent", "ended"])
     def test_refuses_a_request_without_a_live_session_and_names_nobody(self, app, stores, browser, session):
         member = seed_member(stores, installed_web_auth_config(app))

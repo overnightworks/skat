@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from webauth.middleware import admitted_user
@@ -15,12 +15,14 @@ def create_account_router(oidc_issuer: str) -> APIRouter:
     router = APIRouter()
 
     @router.api_route(ACCOUNT_PATH, methods=READ_METHODS)
-    def account(request: Request) -> AccountName:
+    def account(request: Request, response: Response) -> AccountName:
         user = admitted_user(request)
         # The gate refuses a request without a session before the route runs, so a missing user is a wiring fault.
         if user is None:  # pragma: no cover
             message = "The account route ran without an admitted user."
             raise RuntimeError(message)
+        # The answer names the session's person, so no cache may keep it past the gate.
+        response.headers["Cache-Control"] = "no-store"
         return AccountName(name=user.username)
 
     # The target comes from configuration, never from the request, so the redirect cannot be steered elsewhere.
