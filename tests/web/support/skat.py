@@ -1,5 +1,7 @@
+from dataclasses import replace
+
 from fastapi.testclient import TestClient
-from webauth.config import installed_web_auth_config
+from webauth.config import install_web_auth_config, installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.table.service import TableService
@@ -29,8 +31,13 @@ class Skat:
         self.config = installed_web_auth_config(self.app)
         self.client = TestClient(self.app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
 
-    def member(self):
-        member = seed_member(self.stores, self.config, account=new_account(self.stores, self.config))
+    def run_on_clock(self, now):
+        """Reads webauth's time from `now[0]`, a list the test moves; call before the first member is seeded."""
+        self.config = replace(self.config, wall_clock=lambda: now[0])
+        install_web_auth_config(self.app, self.config)
+
+    def member(self, **seed_options):
+        member = seed_member(self.stores, self.config, account=new_account(self.stores, self.config), **seed_options)
         return {"cookie": cookie_header(member.set_cookie_headers), **FETCH}, member.account
 
     def create(self, headers, command_id="command-0001", **extra):

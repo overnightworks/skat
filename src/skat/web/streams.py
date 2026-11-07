@@ -8,13 +8,14 @@ from starlette.concurrency import run_in_threadpool
 from webauth.config import installed_web_auth_config
 from webauth.dependencies import ConnectionRefusal, admit_session, session_id_from_request
 
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, actor_of, answer_of
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, actor_for, actor_of, answer_of
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
 
     from webauth.ports import SessionRecordStore
 
+    from skat.table.records import Actor
     from skat.table.service import TableService
     from skat.table.views import TableView
     from skat.web.presence import Presence
@@ -24,8 +25,8 @@ EVENT_STREAM: Final = "text/event-stream"
 
 async def table_views(
     presence: Presence,
-    read_view: Callable[[frozenset[str]], Awaitable[TableView | None]],
-    admit: Callable[[], Awaitable[bool]],
+    read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
+    admit: Callable[[], Awaitable[Actor | None]],
     table_id: str,
     account_id: str,
     *,
@@ -45,9 +46,10 @@ async def table_views(
         while True:
             changed.clear()
             # A stop that lands during the admission has set `changed`, so the check follows the call.
-            if not await admit() or presence.stopped:
+            actor = await admit()
+            if actor is None or presence.stopped:
                 return
-            view = await read_view(presence.connected(table_id))
+            view = await read_view(actor, presence.connected(table_id))
             if view is None:
                 message = f"table {table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
@@ -55,8 +57,10 @@ async def table_views(
             while not changed.is_set():
                 with suppress(TimeoutError):
                     await asyncio.wait_for(changed.wait(), heartbeat_seconds)
-                if not changed.is_set() and not await admit():
-                    return
+                if not changed.is_set():
+                    actor = await admit()
+                    if actor is None:
+                        return
     finally:
         presence.unsubscribe(subscription)
 
@@ -72,13 +76,13 @@ def create_streams_router(
         responses={404: {"description": "No table has this id."}},
     )
     async def watch_table(table_id: str, request: Request) -> StreamingResponse:
-        actor = actor_of(request)
+        opened_as = actor_of(request)
 
-        async def read_view(connected: frozenset[str]) -> TableView | None:
+        async def read_view(actor: Actor, connected: frozenset[str]) -> TableView | None:
             return await run_in_threadpool(tables.view, actor, table_id, connected)
 
         # Nothing is registered or held open for an id that is no table.
-        if await read_view(frozenset()) is None:
+        if await read_view(opened_as, frozenset()) is None:
             raise HTTPException(status_code=404, detail="table not found")
 
         # The gate admitted this request by its cookie, so a missing session id is a wiring fault.
@@ -88,14 +92,16 @@ def create_streams_router(
             message = "A stream route ran without a session cookie."
             raise RuntimeError(message)
 
-        async def admit() -> bool:
+        async def admit() -> Actor | None:
             # Each admission is one call into the store, which takes its own guard; it renews the session.
             admission = await run_in_threadpool(admit_session, session_id, sessions=sessions, config=config)
-            return not isinstance(admission, ConnectionRefusal)
+            if isinstance(admission, ConnectionRefusal):
+                return None
+            return actor_for(admission)
 
         async def messages() -> AsyncIterator[str]:
             async for view in table_views(
-                presence, read_view, admit, table_id, actor.account_id, heartbeat_seconds=heartbeat_seconds
+                presence, read_view, admit, table_id, opened_as.account_id, heartbeat_seconds=heartbeat_seconds
             ):
                 yield f"data: {answer_of(view).model_dump_json()}\n\n"
 
