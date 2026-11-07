@@ -194,8 +194,62 @@ body.solo .frame{border-radius:0;border:0}
   .jacks .card{animation:spread .9s cubic-bezier(.2,.9,.3,1.15) var(--d,0s) both}
   @keyframes spread{from{rotate:calc(var(--a) * -1);translate:calc(var(--tx) * -1) 0}}
 }
-/* key moment for the PNGs: ?f=<frame>&key freezes each moment at its peak and shows the end state of everything else */
+/* key moment: ?f=<frame>&key freezes each moment at its peak and shows the end state of everything else */
 body.key .frame *:not(.mo){animation:none!important}
+</style>
+<style>
+/* ---------- S3: the live list of open tables; each is a short table edge with its three chairs ---------- */
+.tables{display:flex;flex-direction:column;gap:12px}
+.d1280 .tables{flex-direction:row;gap:22px;transform:translateX(-50%)}
+.entry{position:relative;flex:none;display:flex;flex-direction:column;gap:12px;padding:12px 14px 18px;border-radius:22px;
+  background:var(--glass-dark);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(240,214,150,.2),0 18px 30px -14px rgba(0,0,0,.9)}
+.entry header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.entry h3{font-family:var(--font-mark);font-size:20px;font-weight:700;color:var(--brass-hi);text-shadow:0 2px 0 rgba(0,0,0,.4);white-space:nowrap}
+.watch{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 10px;border-radius:999px;background:var(--glass-dark);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.watch svg{width:16px;height:16px;color:var(--on-stage-soft)}
+.watch.none{color:var(--on-stage-soft)}
+.entry .row{position:relative;height:var(--rh)}
+.entry .row > *{position:absolute}
+.entry .table{left:0;right:0;bottom:0;height:var(--th)}
+.entry .felt::before{inset:5px}
+/* a free chair: the empty leather back holds a dashed seat, the plus makes it the button to sit down */
+.seat.free{cursor:pointer}
+.seat.free .tile{background:radial-gradient(80% 70% at 50% 30%,rgba(0,0,0,.18),rgba(0,0,0,.45)),var(--stage-2);box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+.seat.free .tile::before{content:"";position:absolute;inset:4px;border-radius:inherit;border:2px dashed rgba(122,167,240,.8)}
+.seat.free .tile::after{display:none}
+.sit{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:clamp(26px,46cqmin,60px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
+  background:var(--accent-stage);color:var(--stage);box-shadow:0 0 0 5px rgba(122,167,240,.18),0 8px 16px -6px rgba(0,0,0,.8)}
+.sit svg{width:52%;height:52%}
+/* nobody plays: the start table, with the truth on the felt */
+.lull{transform:translateX(-50%);height:36px;padding:0 18px;border-radius:999px;display:flex;align-items:center;white-space:nowrap;background:var(--glass-dark);
+  backdrop-filter:blur(12px);font-size:15px;font-weight:600;color:var(--on-stage-soft);box-shadow:inset 0 0 0 1px rgba(240,214,150,.2)}
+/* a new table: open or private, in the table page's panel; the choice wears the coaster shape */
+.scrim{inset:0;background:rgba(8,9,11,.62)}
+.sheet{transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 16px 16px;border-radius:24px;
+  background:rgba(12,14,17,.8);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:inset 0 0 0 1.5px rgba(240,214,150,.32),0 24px 50px -16px rgba(0,0,0,.9)}
+.sheet h3{font-family:var(--font-mark);font-size:32px;font-weight:700;color:#f3cf7a;line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.info{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--glass);color:var(--on-stage-soft);
+  font-family:var(--font-mark);font-size:17px;font-weight:700;font-style:italic}
+.choice{display:flex;gap:12px;width:100%}
+.opt{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 6px 14px;border-radius:50% 50% 16px 16px / 34% 34% 16px 16px;
+  background:#f4ecd9;color:var(--ink);font-size:17px;font-weight:700;box-shadow:0 3px 0 #d8ccb0,0 10px 18px -6px rgba(0,0,0,.8);cursor:pointer}
+.opt .ic{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#e4d9bf;color:#4a3d24}
+.opt .ic svg{width:26px;height:26px}
+.opt.on{box-shadow:0 0 0 3px var(--accent-stage),0 3px 0 #d8ccb0,0 10px 22px -6px rgba(122,167,240,.45)}
+.opt.on .ic{background:var(--accent-stage);color:var(--stage)}
+.opt .tick{position:absolute;top:-7px;right:-7px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--accent-stage);color:var(--stage);box-shadow:0 0 0 3px var(--stage)}
+.opt .tick svg{width:15px;height:15px}
+.sheet .btns{display:flex;gap:10px;width:100%}
+.button{flex:1;height:52px;padding:0 24px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font:inherit;font-size:16px;font-weight:600;white-space:nowrap;cursor:pointer}
+.button svg{width:20px;height:20px}
+.button-stage{background:var(--accent-stage);color:var(--stage)}
+.button-glass{background:var(--glass);color:var(--on-stage);backdrop-filter:blur(14px)}
+@media (prefers-reduced-motion:no-preference){
+  .sheet{animation:rise .5s cubic-bezier(.2,.9,.3,1.2) both}
+  @keyframes rise{from{translate:0 30px;opacity:0;scale:.94}}
+}
 </style>
 </head>
 <body>
@@ -403,6 +457,55 @@ frame('start-1280','Start','Desktop 1280 px','d1280',
   +legal);
 
 const ORDER=['start'].flatMap(f=>[`${f}-390`,`${f}-1280`]);
+/* ===== S3: the live list of open tables, the empty list, and the choice for a new table ===== */
+Object.assign(P,{
+  tom:{n:'Tom',i:'T',c:['#9fd0f2','#4b8fc4'],v:['#2e3c4a','#171f27'],l:['#2f4a63','#172533']},
+  lena:{n:'Lena',i:'L',c:['#f6b3a6','#d0645a'],v:['#4a3330','#241918'],l:['#6e3d36','#341c19']},
+  mia:{n:'Mia',i:'M',c:['#f3d27a','#c79a2e'],v:['#47402a','#231f14'],l:['#5f5226','#302912']},
+  ida:{n:'Ida',i:'I',c:['#b9e39a','#5f9e3c'],v:['#33422a','#1a2215'],l:['#3d5a2c','#1e2d16']},
+});
+I.lock=sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>');
+const freeSeat=(pos)=>`<div class="seat free sm" role="button" tabindex="0" aria-label="Hinsetzen" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h})}">
+  <div class="chair"><div class="tile"><span class="sit">${I.plus}</span></div></div><span class="plate"><b>Frei</b></span></div>`;
+/* one open table: the opener names it, the chairs say who sits and what is free, the eye counts who watches */
+const entry=(opener,chairs,watch,o)=>`<article class="entry" style="${at({width:o.w})}"><header><h3>${P[opener].n}s Tisch</h3>
+  <span class="watch ${watch?'':'none'}" title="Zuschauer">${I.eye}${watch}</span></header>
+  <div class="row" style="${at({'--rh':o.ch+34,'--th':42})}">${chairs.map((k,i)=>{const pos={x:i*o.step,y:0,w:o.cw,h:o.ch,sm:true};return k?seat(k,pos):freeSeat(pos);}).join('')}
+  <div class="table" style="--tr:21px;--rim:7px"><div class="felt" style="--line:5px"></div></div></div></article>`;
+const OPEN_TABLES=[['anna',['anna','ben',null],3],['tom',['tom','lena','mia'],5],['ida',['ida',null,null],0]];
+const tables=(pos,size)=>`<div class="tables" style="${at(pos)}">${OPEN_TABLES.map(([k,chairs,watch])=>entry(k,chairs,watch,size)).join('')}</div>`;
+const cta=(x,y)=>`<span class="cta" role="button" style="${at({left:x,top:y})}">${I.plus}Neuer Tisch</span>`;
+const LIST={
+  phone:()=>wordmark(195,40,{ws:60,ps:20,rule:30,wg:8})+`<div class="account" style="--ar:12px;--at:12px"><span class="av">F</span>${I.chev}</div>`
+    +tables({left:16,top:150},{w:358,cw:92,ch:64,step:119})+cta(195,688)+legal,
+  desk:()=>wordmark(640,64,{ws:100,ps:26,rule:70,wg:12})+`<div class="account" style="--ar:20px;--at:16px"><span class="av">F</span>Felix${I.chev}</div>`
+    +tables({left:640,top:262},{w:372,cw:100,ch:80,step:122})+cta(640,550)+legal,
+};
+const newTable=(x,y,w)=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
+  <span class="info" role="button" tabindex="0" title="Offen: steht in der Liste. Privat: nur mit dem Link." aria-label="Info">i</span>
+  <div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
+  <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
+  <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
+
+frame('s3-list-390','Offene Tische','Handy 390 px','p390',LIST.phone());
+frame('s3-list-1280','Offene Tische','Desktop 1280 px','d1280',LIST.desk());
+frame('s3-empty-390','Niemand spielt','Handy 390 px','p390',
+  wordmark(195,112,{ws:84,ps:26,rule:44,wg:12})
+  +`<div class="account" style="--ar:12px;--at:12px"><span class="av">F</span>${I.chev}</div>`
+  +emptyChair(34,262,104,80,'anna',-14)+emptyChair(252,262,104,80,'ben',14)
+  +table({x:20,y:318,w:350,h:420,tr:175,rim:14,ry:'44%',rs:170})
+  +`<div class="lull" role="status" style="${at({left:195,top:356})}">Gerade spielt niemand</div>`
+  +jacks(195,530,80,.85)+cta(195,584)+legal);
+frame('s3-empty-1280','Niemand spielt','Desktop 1280 px','d1280',
+  wordmark(640,92,{ws:132,ps:30,rule:90,wg:16})
+  +`<div class="account" style="--ar:20px;--at:16px"><span class="av">F</span>Felix${I.chev}</div>`
+  +emptyChair(222,430,150,112,'anna',-78)+emptyChair(908,430,150,112,'ben',78)
+  +table({x:340,y:318,w:600,h:420,tr:210,rim:16,ry:'44%',rs:200})
+  +`<div class="lull" role="status" style="${at({left:640,top:350})}">Gerade spielt niemand</div>`
+  +jacks(640,544,100)+cta(640,600)+legal);
+frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',LIST.phone()+newTable(195,230,354));
+frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',LIST.desk()+newTable(640,190,440));
+ORDER.push(...['s3-list','s3-empty','s3-new'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
