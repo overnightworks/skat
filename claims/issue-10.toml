@@ -1,8 +1,0 @@
-claim_id = "7541d5eb17a54b9cb62d9ed11370a22f"
-agent = "Claude 2e72b6fe-6d7c-4638-a8ef-a9980f042336"
-role = "builder"
-base = "22a976db745fad4ebea340ab9a6576464a9ad746"
-branch = "claude/issue-10-freeze-blessed-look"
-scope = ["docs/mockups"]
-opened_commit = "85aa710272c946479c82f896d01197889994df7b"
-whole_reason = "Two mockup files of one blessed picture, in one directory that holds nothing else."
