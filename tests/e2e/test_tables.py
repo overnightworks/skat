@@ -1,6 +1,5 @@
 import re
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Route, expect
@@ -10,6 +9,7 @@ from skat.web.constants import ACCOUNT_PATH, LOGIN_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.tables import TABLE_URL, click_new_table, open_new_table, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}[0-9a-f]{{32}}$")
 TABLES_ROUTE = f"**{TABLES_PATH}"
 UNKNOWN_ID = "0" * 32
 SERVER_ERROR = 500
@@ -34,21 +33,6 @@ def table_count(server: RunningServer) -> int:
 def same_origin(server: RunningServer) -> dict[str, str]:
     """The headers of a fetch from Skat's own page, which the origin check admits."""
     return {"origin": server.base_url, "accept": "application/json"}
-
-
-def click_new_table(person: Page) -> str:
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-    expect(person).to_have_url(TABLE_URL)
-    return urlsplit(person.url).path
-
-
-def open_new_table(person: Page, server: RunningServer) -> str:
-    person.goto(f"{server.base_url}/")
-    return click_new_table(person)
-
-
-def table_id_of(path: str) -> str:
-    return path.removeprefix(TABLE_PAGE_PREFIX)
 
 
 def expect_a_table_seating(person: Page, opener: str, *, mine: bool) -> None:

@@ -15,7 +15,7 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.server import LOOPBACK_HOST, loopback_sign_in, running_skat
-from tests.e2e.test_tables import open_new_table, table_id_of
+from tests.e2e.support.tables import open_new_table, table_id_of
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:

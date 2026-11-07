@@ -1,5 +1,6 @@
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -9,16 +10,11 @@ from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
-from tests.web.test_tables import FETCH, UNKNOWN_ID, Skat
+from tests.web.support.skat import FETCH, UNKNOWN_ID
 
 OPENER = Actor(account_id="opener", display_name="Anna")
 VISITOR = Actor(account_id="visitor", display_name="Ben")
 ALLOWED_SECONDS = 2
-
-
-@pytest.fixture
-def skat(sign_in_settings):
-    return Skat(sign_in_settings)
 
 
 @pytest.fixture
@@ -42,6 +38,12 @@ def stream_of(presence, service, actor, table_id):
     return table_views(presence, reader(service, actor, table_id), table_id, actor.account_id)
 
 
+def run_on_a_loop_of_its_own(scenario):
+    """A thread of its own keeps the loop apart from one that a browser driver left running in this one."""
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(asyncio.run, scenario).result()
+
+
 async def next_view(stream):
     return await asyncio.wait_for(anext(stream), ALLOWED_SECONDS)
 
@@ -61,7 +63,7 @@ class TestTableViews:
             await stream.aclose()
             return first, joined, left, presence
 
-        first, joined, left, presence = asyncio.run(scenario())
+        first, joined, left, presence = run_on_a_loop_of_its_own(scenario())
 
         assert [(view.watchers, view.version) for view in (first, joined, left)] == [(0, 1), (1, 1), (0, 1)]
         assert presence.connected(table_id) == frozenset()
@@ -84,7 +86,7 @@ class TestTableViews:
             await stream.aclose()
             return first, second
 
-        first, second = asyncio.run(scenario())
+        first, second = run_on_a_loop_of_its_own(scenario())
 
         assert (first.watchers, second.watchers) == (1, 2)
 
@@ -98,7 +100,7 @@ class TestTableViews:
             await visitor_stream.aclose()
             return views
 
-        opener_view, visitor_view = asyncio.run(scenario())
+        opener_view, visitor_view = run_on_a_loop_of_its_own(scenario())
 
         assert [chair.is_mine for chair in opener_view.chairs] == [True, False, False]
         assert [chair.is_mine for chair in visitor_view.chairs] == [False, False, False]
@@ -121,7 +123,7 @@ class TestTableViews:
             await quick.aclose()
             return seen_by_quick, caught_up
 
-        seen_by_quick, caught_up = asyncio.run(scenario())
+        seen_by_quick, caught_up = run_on_a_loop_of_its_own(scenario())
 
         assert seen_by_quick == [2] * 5
         assert caught_up.watchers == 1
@@ -137,7 +139,7 @@ class TestTableViews:
                 await anext(stream)
             return presence
 
-        assert asyncio.run(scenario()).connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
 
 
 class TestWatchTableAdmission:
