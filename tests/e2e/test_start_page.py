@@ -12,6 +12,7 @@ from tests.e2e.support.browser import (
     ACCOUNT_MENU,
     ISSUER_END_SESSION_URL,
     LEGAL_LINKS,
+    NEW_TABLE_BUTTON,
     record_page_errors,
 )
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-START_PAGE_LINE = "Tische kommen als Nächstes."
 ACCOUNT_ROUTE = f"**{ACCOUNT_PATH}"
 UNAUTHORIZED = 401
 
@@ -34,12 +34,12 @@ def open_start_page(
 ) -> Page:
     person = record_page_errors(open_person(**options), page_errors)
     person.goto(f"{e2e_server.base_url}/")
-    expect(person.get_by_text(START_PAGE_LINE)).to_be_visible()
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     return person
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
-def test_the_start_page_shows_the_wordmark_the_account_button_the_legal_links_and_the_tables_line(
+def test_the_start_page_shows_the_wordmark_the_account_button_the_legal_links_and_the_new_table_button(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = open_start_page(open_person, e2e_server, page_errors, **form_factor)

@@ -5,10 +5,13 @@ description = "Skat for the overnightworks fleet"
 license = "MIT"
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.16",
     "fastapi>=0.123.7",
     "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.31.0",
+    "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
+    "sqlalchemy>=2.0",
     "structlog>=24.4",
     "urllib3>=2.6.3,<3",
     "uvicorn>=0.54.0",
@@ -105,6 +108,7 @@ addopts = [
 ]
 markers = [
     "e2e: browser end-to-end tests",
+    "postgres: tests that need the throwaway Postgres named by SKAT_TEST_POSTGRES_URL",
 ]
 
 # --- Coverage ---
@@ -144,11 +148,18 @@ id = "layers"
 name = "Skat's packages depend downwards only"
 type = "layers"
 containers = ["skat"]
-# The host composes the app and starts the server; the web adapter authenticates
-# and transports. Domain and application packages join below `web` with their first
-# caller, and nothing below the host imports it.
+# The host composes the app and starts the server; the web adapter transports and
+# the store persists, side by side and unaware of each other; the table core below
+# both holds the rules and knows neither. Nothing below the host imports it.
 exhaustive = true
-layers = ["host", "web"]
+layers = ["host", "web | store", "table"]
+
+[[tool.importlinter.contracts]]
+id = "table-core"
+name = "The table core imports no framework, driver or adapter"
+type = "forbidden"
+source_modules = ["skat.table"]
+forbidden_modules = ["sqlalchemy", "alembic", "psycopg", "fastapi", "starlette", "webauth"]
 
 [[tool.importlinter.contracts]]
 id = "host-layers"

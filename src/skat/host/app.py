@@ -36,8 +36,10 @@ from skat.web.sign_in import (
     install_sign_in,
 )
 from skat.web.stores import InMemorySessions, SignInStores
+from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
+    from skat.table.service import TableService
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
 
@@ -84,6 +86,7 @@ def create_app(
     settings: ServerSettings,
     *,
     page_build: PageBuild,
+    tables: TableService,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
     stores: SignInStores | None = None,
 ) -> FastAPI:
@@ -97,6 +100,7 @@ def create_app(
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
+    app.include_router(create_tables_router(tables, page_build))
     install_web_auth_config(app, sign_in_configs.web_auth)
     install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
     _install_web_auth(app, sign_in_stores.sessions, page_build)

@@ -14,6 +14,19 @@ jobs:
     name: Lint and test
     timeout-minutes: 10
     runs-on: ubuntu-latest
+    # The throwaway server of the Postgres tests; the digest is the image scripts/test_postgres.sh runs, so keep them equal.
+    services:
+      postgres:
+        image: postgres:18.6-alpine3.24@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,6 +71,7 @@ jobs:
       - name: Test with coverage
         env:
           COVERAGE_FILE: .coverage.unit
+          SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
         run: pytest -q -m "not e2e"
 
       - name: Upload the unit coverage data
@@ -78,6 +92,19 @@ jobs:
     permissions:
       contents: read
       actions: read
+    # The throwaway server of the Postgres tests; the digest is the image scripts/test_postgres.sh runs, so keep them equal.
+    services:
+      postgres:
+        image: postgres:18.6-alpine3.24@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -135,6 +162,7 @@ jobs:
         timeout-minutes: 10
         env:
           COVERAGE_FILE: .coverage.e2e
+          SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
           SKAT_BROWSER_COVERAGE_DIR: ${{ runner.temp }}/browser-coverage-raw
         run: pytest -m e2e --tracing retain-on-failure --screenshot only-on-failure --output test-results
 

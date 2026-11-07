@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.constants import AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_PATH, OIDC_CLIENT_ID
-from tests.e2e.support.browser import ACCOUNT_AVATAR, record_page_errors, sign_in_at_issuer
+from tests.e2e.support.browser import ACCOUNT_AVATAR, NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import FORM_FACTORS, playwright_cookie
 from tests.e2e.support.server import LOOPBACK_HOST
 from tests.support.sign_in_settings import TEST_ISSUER
@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-START_PAGE_LINE = "Tische kommen als Nächstes."
 SESSION_COOKIE = "__Host-session_id"
 
 
@@ -44,7 +43,7 @@ def test_a_member_signs_in_at_the_issuer_and_reaches_the_start_page(
     person.goto(f"{e2e_server.base_url}{LOGIN_PATH}")
     person.get_by_role("link", name="Log in", exact=True).click()
 
-    expect(person.get_by_text(START_PAGE_LINE)).to_be_visible()
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
     assert any(cookie["name"] == SESSION_COOKIE for cookie in person.context.cookies())
 
@@ -60,7 +59,7 @@ def test_a_member_the_group_does_not_admit_sees_the_refusal_and_no_start_page(
     person.get_by_role("link", name="Log in", exact=True).click()
 
     expect(person.get_by_role("button", name="Log out")).to_be_visible()
-    expect(person.get_by_text(START_PAGE_LINE)).to_have_count(0)
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
     expect(person.locator(ACCOUNT_AVATAR)).to_have_count(0)
     assert not any(cookie["name"] == SESSION_COOKIE for cookie in person.context.cookies())
 
@@ -107,4 +106,4 @@ def test_a_forged_or_expired_session_cookie_is_treated_as_no_session(
     person.goto(f"{e2e_server.base_url}/")
 
     expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
-    expect(person.get_by_text(START_PAGE_LINE)).to_have_count(0)
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)

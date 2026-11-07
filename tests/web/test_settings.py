@@ -7,7 +7,13 @@ from pydantic import ValidationError
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
 from skat.web.settings import ServerSettings
 
-REQUIRED_SIGN_IN_SETTINGS = ["oidc_issuer", "oidc_client_secret_file", "public_origin", "session_secret_file"]
+REQUIRED_SIGN_IN_SETTINGS = [
+    "oidc_issuer",
+    "oidc_client_secret_file",
+    "public_origin",
+    "session_secret_file",
+    "database_url_file",
+]
 
 
 class TestServerSettings:
@@ -37,6 +43,7 @@ class TestServerSettings:
             assert settings.public_origin == sign_in.settings.public_origin
             assert settings.oidc_client_secret_file == sign_in.settings.oidc_client_secret_file
             assert settings.session_secret_file == sign_in.settings.session_secret_file
+            assert settings.database_url_file == sign_in.settings.database_url_file
 
     @pytest.mark.parametrize("setting", REQUIRED_SIGN_IN_SETTINGS)
     def test_missing_required_sign_in_setting_is_refused_by_name(self, sign_in_settings, setting):
@@ -51,6 +58,7 @@ class TestServerSettings:
             ("public_origin", "https://skat.test.invalid/apps/skat"),
             ("oidc_client_secret_file", "relative/client-secret"),
             ("session_secret_file", "relative/session-secret"),
+            ("database_url_file", "relative/database-url"),
         ],
     )
     def test_malformed_sign_in_setting_is_refused_by_name_and_never_by_value(self, sign_in_settings, setting, value):

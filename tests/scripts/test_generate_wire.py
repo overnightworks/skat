@@ -6,6 +6,7 @@ import pytest
 
 from scripts import generate_wire
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,6 +24,8 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("LOGOUT_PATH", LOGOUT_PATH),
         ("ACCOUNT_PATH", ACCOUNT_PATH),
         ("ACCOUNT_CONSOLE_PATH", ACCOUNT_CONSOLE_PATH),
+        ("TABLES_PATH", TABLES_PATH),
+        ("TABLE_PAGE_PREFIX", TABLE_PAGE_PREFIX),
     ]:
         assert any(name in line and f'"{path}"' in line for line in rendered.splitlines())
 

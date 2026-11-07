@@ -2,6 +2,7 @@
     import { AccountMenu, LegalLinks } from "overnightworks-appkit";
     import { onMount } from "svelte";
     import { LEGAL_LINKS } from "#lib/legal.ts";
+    import NewTableButton from "./NewTableButton.svelte";
     import { menuName, readAccount } from "#lib/ui/account.svelte.ts";
     import { ACCOUNT_CONSOLE_PATH, LOGOUT_PATH } from "#lib/wire.ts";
 
@@ -46,7 +47,7 @@
         />
     </div>
     <main class="start-main">
-        <p class="next" lang="de">Tische kommen als Nächstes.</p>
+        <NewTableButton />
     </main>
     <footer class="start-legal">
         <LegalLinks links={LEGAL_LINKS} />

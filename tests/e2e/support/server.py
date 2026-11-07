@@ -17,6 +17,8 @@ from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.host.main import uvicorn_options
+from skat.store.tables import PostgresTableTransactions
+from skat.table.service import TableService
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
@@ -26,6 +28,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+    from sqlalchemy import Engine
     from webauth.config import WebAuthConfig
 
     from tests.support.sign_in_settings import SignInSettings
@@ -92,6 +95,7 @@ class RunningServer:
     config: WebAuthConfig
     stores: SignInStores
     issuer: FakeIssuer
+    engine: Engine
 
 
 @dataclass(frozen=True)
@@ -120,6 +124,7 @@ def loopback_sign_in(directory: Path) -> LoopbackSignIn:
 def running_skat(
     loopback: LoopbackSignIn,
     tls_directory: Path,
+    engine: Engine,
     page_build_directory: Path = BUILD_DIRECTORY,
 ) -> Iterator[RunningServer]:
     """Serve Skat over https on `loopback`.
@@ -129,6 +134,7 @@ def running_skat(
     app = create_app(
         loopback.sign_in.settings,
         page_build=PageBuild.load(page_build_directory),
+        tables=TableService(PostgresTableTransactions(engine)),
         stores=loopback.stores,
         issuer_transports=loopback.issuer.transports,
     )
@@ -143,5 +149,9 @@ def running_skat(
     )
     with _serving(server):
         yield RunningServer(
-            f"https://{LOOPBACK_HOST}:{loopback.port}", installed_web_auth_config(app), loopback.stores, loopback.issuer
+            f"https://{LOOPBACK_HOST}:{loopback.port}",
+            installed_web_auth_config(app),
+            loopback.stores,
+            loopback.issuer,
+            engine,
         )

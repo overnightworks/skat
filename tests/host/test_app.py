@@ -13,6 +13,7 @@ from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH
 from skat.web.secret_files import StartRefusedError
 from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -25,7 +26,7 @@ SESSION_COOKIE = "__Host-session_id"
 
 def signed_in_client(settings: ServerSettings) -> TestClient:
     stores = SignInStores.in_memory()
-    app = create_app(settings, page_build=fixture_page_build(), stores=stores)
+    app = create_app(settings, page_build=fixture_page_build(), tables=in_memory_tables(), stores=stores)
     member = seed_member(stores, installed_web_auth_config(app))
     headers = {"cookie": cookie_header(member.set_cookie_headers)}
     return TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers, follow_redirects=False)
@@ -40,7 +41,9 @@ def sign_in_through_issuer(browser: TestClient, issuer: FakeIssuer) -> None:
 class TestCreateApp:
     def test_installs_the_web_auth_config_built_from_its_settings(self, sign_in_settings):
         sign_in = sign_in_settings()
-        config = installed_web_auth_config(create_app(sign_in.settings, page_build=fixture_page_build()))
+        config = installed_web_auth_config(
+            create_app(sign_in.settings, page_build=fixture_page_build(), tables=in_memory_tables())
+        )
         assert isinstance(config, WebAuthConfig)
         assert config.session_secret.get_secret_value() == sign_in.session_secret
 
@@ -48,13 +51,19 @@ class TestCreateApp:
         settings = sign_in_settings().settings
         settings.session_secret_file.unlink()
         page_build = fixture_page_build()
+        tables = in_memory_tables()
         with pytest.raises(StartRefusedError, match="session_secret_file"):
-            create_app(settings, page_build=page_build)
+            create_app(settings, page_build=page_build, tables=tables)
 
     def test_account_route_reads_the_sessions_the_sign_in_wrote(self, sign_in_settings):
         sign_in = sign_in_settings()
         issuer = FakeIssuer(sign_in)
-        app = create_app(sign_in.settings, page_build=fixture_page_build(), issuer_transports=issuer.transports)
+        app = create_app(
+            sign_in.settings,
+            page_build=fixture_page_build(),
+            tables=in_memory_tables(),
+            issuer_transports=issuer.transports,
+        )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
 
@@ -67,7 +76,11 @@ class TestCreateApp:
         issuer = FakeIssuer(sign_in)
         stores = SignInStores.in_memory()
         app = create_app(
-            sign_in.settings, page_build=fixture_page_build(), issuer_transports=issuer.transports, stores=stores
+            sign_in.settings,
+            page_build=fixture_page_build(),
+            tables=in_memory_tables(),
+            issuer_transports=issuer.transports,
+            stores=stores,
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
@@ -96,7 +109,7 @@ class TestCreateApp:
 
 class TestLoggedExceptions:
     def test_rendered_traceback_leaves_out_the_values_of_local_variables(self, sign_in_settings, capsys):
-        create_app(sign_in_settings().settings, page_build=fixture_page_build())
+        create_app(sign_in_settings().settings, page_build=fixture_page_build(), tables=in_memory_tables())
         sentinel = secrets.token_urlsafe(16)
 
         def fail_holding_the_sentinel():
