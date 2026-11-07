@@ -36,14 +36,14 @@ def count(engine, table_name):
 def test_a_created_table_reads_back_the_same_after_a_reload(service):
     created = service.create(OPENER, CreateTable(command_id="command-1"))
 
-    assert service.view(OPENER, created.id) == created
+    assert service.view(OPENER, created.id, frozenset()) == created
     assert [(chair.seat, chair.occupant_name) for chair in created.chairs] == [(1, "Anna"), (2, None), (3, None)]
 
 
 def test_another_member_reads_the_table_without_a_chair_of_their_own(service):
     created = service.create(OPENER, CreateTable(command_id="command-1"))
 
-    view = service.view(VISITOR, created.id)
+    view = service.view(VISITOR, created.id, frozenset())
 
     assert [chair.is_mine for chair in view.chairs] == [False, False, False]
     assert view.chairs[0].occupant_name == "Anna"

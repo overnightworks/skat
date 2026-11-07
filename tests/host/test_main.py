@@ -5,6 +5,7 @@ from skat.host.main import main, uvicorn_options
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine
 from skat.web.constants import UVICORN_LOG_LEVEL
 from skat.web.secret_files import StartRefusedError
+from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
 from tests.support.page_build import FIXTURE_DIRECTORY
 
 
@@ -112,3 +113,8 @@ class TestUvicornOptions:
 
     def test_leaves_the_client_address_to_the_trusted_proxy_setting(self, sign_in_settings):
         assert uvicorn_options(sign_in_settings().settings)["proxy_headers"] is False
+
+    def test_cancels_open_streams_before_the_end_to_end_server_gives_up_waiting(self, sign_in_settings):
+        timeout = uvicorn_options(sign_in_settings().settings)["timeout_graceful_shutdown"]
+
+        assert 0 < timeout < SERVER_STOP_TIMEOUT_SECONDS

@@ -91,7 +91,7 @@ class TestView:
     def test_shows_another_member_the_opener_in_chair_one_and_assigns_them_no_chair(self, service):
         created = service.create(OPENER, CreateTable(command_id="command-1"))
 
-        view = service.view(VISITOR, created.id)
+        view = service.view(VISITOR, created.id, frozenset())
 
         assert [(chair.seat, chair.occupant_name, chair.is_mine) for chair in view.chairs] == [
             (1, "Anna", False),
@@ -102,11 +102,28 @@ class TestView:
     def test_shows_the_opener_their_own_chair_after_a_reload(self, service):
         created = service.create(OPENER, CreateTable(command_id="command-1"))
 
-        assert service.view(OPENER, created.id) == created
+        assert service.view(OPENER, created.id, frozenset()) == created
+
+    @pytest.mark.parametrize(
+        ("connected", "watchers"),
+        [
+            pytest.param(frozenset(), 0, id="nobody-connected"),
+            pytest.param({OPENER.account_id}, 0, id="the-seated-opener-is-no-watcher"),
+            pytest.param({VISITOR.account_id}, 1, id="a-connected-member-without-a-chair-watches"),
+            pytest.param({OPENER.account_id, VISITOR.account_id, "account-third"}, 2, id="each-account-counts-once"),
+        ],
+    )
+    def test_counts_the_connected_members_without_a_chair_as_watchers(self, service, connected, watchers):
+        created = service.create(OPENER, CreateTable(command_id="command-1"))
+
+        assert service.view(VISITOR, created.id, connected).watchers == watchers
+
+    def test_a_new_table_has_no_watchers(self, service):
+        assert service.create(OPENER, CreateTable(command_id="command-1")).watchers == 0
 
     @pytest.mark.parametrize("table_id", ["0" * 32, "", "not-an-id", "A" * 32, "0" * 31, "0" * 33, "../" + "0" * 29])
     def test_an_unknown_or_malformed_id_is_no_table(self, service, table_id):
-        assert service.view(OPENER, table_id) is None
+        assert service.view(OPENER, table_id, frozenset()) is None
 
 
 class TestTableId:

@@ -4,23 +4,35 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import NewTableButton from "../../NewTableButton.svelte";
-    import { copyTableLink, drawingOrder, readTable, type Outcome } from "../../tables.ts";
+    import { copyTableLink, drawingOrder, readTable, watchTable, type Outcome } from "../../tables.ts";
 
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
     let outcome: Outcome | null = $state(null);
     let copyNote = $state("");
+    let connected = $state(true);
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
         outcome = null;
+        connected = true;
         let current = true;
+        let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
-            if (current) outcome = answer;
+            if (!current) return;
+            outcome = answer;
+            if (answer.kind === "table") {
+                stopWatching = watchTable(
+                    id,
+                    (table) => (outcome = { kind: "table", table }),
+                    (isConnected) => (connected = isConnected),
+                );
+            }
         });
         // An answer for an address the person has left must not replace the current table.
         return () => {
             current = false;
+            stopWatching();
         };
     });
 
@@ -34,10 +46,27 @@
 </svelte:head>
 
 <div class="room" data-theme="dark" lang="de">
-    <header class="bar">
+    <header class="bar" class:stale={!connected}>
         <a class="wordmark" href={resolve("/(start)")}>Skat</a>
+        {#if outcome?.kind === "table"}
+            <div class="watchers" title="Zuschauer" role="group" aria-label="Zuschauer">
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                >
+                    <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span>{outcome.table.watchers}</span>
+            </div>
+        {/if}
     </header>
-    <main class="stage">
+    <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
             <div class="plaque">
                 <span>Warte auf Mitspieler</span>
@@ -85,6 +114,7 @@
             </section>
         {/if}
     </main>
+    <div class="reconnect" role="status" hidden={connected}><span class="spin"></span>verbinde neu</div>
     <footer class="legal">
         <LegalLinks links={LEGAL_LINKS} />
     </footer>

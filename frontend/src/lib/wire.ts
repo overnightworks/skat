@@ -6,3 +6,4 @@ export const ACCOUNT_PATH = "/api/account";
 export const ACCOUNT_CONSOLE_PATH = "/account";
 export const TABLES_PATH = "/api/tables";
 export const TABLE_PAGE_PREFIX = "/t/";
+export const TABLE_EVENTS_SUFFIX = "/events";

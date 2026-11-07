@@ -1,47 +1,12 @@
+import asyncio
+
 import pytest
-from fastapi.testclient import TestClient
-from webauth.config import installed_web_auth_config
 
-from skat.host.app import create_app
 from skat.table.service import TableService
-from skat.web.stores import SignInStores
-from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
-from tests.support.fake_tables import FakeTableStore
+from skat.web.presence import Presence
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH, create_tables_router
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.support.signed_in import cookie_header, new_account, seed_member
-
-FETCH = {"accept": "application/json"}
-NAVIGATION = {"accept": "text/html"}
-UNKNOWN_ID = "0" * 32
-
-
-class Skat:
-    def __init__(self, sign_in_settings):
-        self.stores = SignInStores.in_memory()
-        self.store = FakeTableStore()
-        self.app = create_app(
-            sign_in_settings().settings,
-            page_build=fixture_page_build(),
-            tables=TableService(self.store),
-            stores=self.stores,
-        )
-        self.config = installed_web_auth_config(self.app)
-        self.client = TestClient(self.app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
-
-    def member(self):
-        member = seed_member(self.stores, self.config, account=new_account(self.stores, self.config))
-        return {"cookie": cookie_header(member.set_cookie_headers), **FETCH}, member.account
-
-    def create(self, headers, command_id="command-0001", **extra):
-        return self.client.post(
-            TABLES_PATH, json={"command_id": command_id, **extra}, headers={"origin": TEST_PUBLIC_ORIGIN, **headers}
-        )
-
-
-@pytest.fixture
-def skat(sign_in_settings):
-    return Skat(sign_in_settings)
+from tests.web.support.skat import FETCH, NAVIGATION, UNKNOWN_ID
 
 
 class TestCreateTable:
@@ -119,6 +84,29 @@ class TestReadTable:
         created = skat.create(headers).json()
 
         assert skat.client.get(f"{TABLES_PATH}/{created['id']}", headers=headers).json() == created
+
+    def test_reads_who_is_connected_on_the_event_loop_that_owns_the_presence(self, skat):
+        headers, _ = skat.member()
+        table_id = skat.create(headers).json()["id"]
+        threads_with_a_loop = []
+
+        class ProbingPresence(Presence):
+            def connected(self, read_table_id):
+                try:
+                    asyncio.get_running_loop()
+                except RuntimeError:
+                    threads_with_a_loop.append(False)
+                else:
+                    threads_with_a_loop.append(True)
+                return super().connected(read_table_id)
+
+        skat.app.include_router(create_tables_router(TableService(skat.store), fixture_page_build(), ProbingPresence()))
+        # The probing router goes first so that it, not the composed one, answers the read.
+        skat.app.router.routes.insert(0, skat.app.router.routes.pop())
+
+        skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+
+        assert threads_with_a_loop == [True]
 
     @pytest.mark.parametrize("table_id", [UNKNOWN_ID, "not-an-id", "%27%3B--", "A" * 32])
     def test_an_unknown_or_malformed_id_is_not_found_without_a_database_message(self, skat, table_id):

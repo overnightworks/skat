@@ -7,7 +7,7 @@ from skat.host.app import create_app
 from skat.store.migrate import create_store_engine, migrate, require_head
 from skat.store.tables import PostgresTableTransactions
 from skat.table.service import TableService
-from skat.web.constants import UVICORN_LOG_LEVEL
+from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS, UVICORN_LOG_LEVEL
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.secret_files import read_secret_file
 from skat.web.settings import DatabaseSettings, ServerSettings
@@ -23,6 +23,7 @@ class UvicornOptions(TypedDict):
     access_log: bool
     proxy_headers: bool
     log_level: str
+    timeout_graceful_shutdown: int
 
 
 def uvicorn_options(settings: ServerSettings) -> UvicornOptions:
@@ -32,6 +33,7 @@ def uvicorn_options(settings: ServerSettings) -> UvicornOptions:
         access_log=False,
         proxy_headers=False,
         log_level=UVICORN_LOG_LEVEL,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
     )
 
 

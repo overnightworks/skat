@@ -68,6 +68,15 @@ sequenceDiagram
 
 Opening a table is one transaction: the service looks up the receipt under (account, command id), decides with a random 128-bit table id, writes the table with its opener in chair 1, its version and the receipt, and commits. The same command id with the same request returns the first table; another request under it is refused; two identical requests at once end with one table, because the receipt's key is unique and the loser's transaction rolls back and replays the winner's.
 
+### The live view of a table
+
+An open table page holds one server-sent-events stream (`GET /api/tables/{id}/events`, Starlette's streaming response). Admission is the session gate's at open, and an id that is no table is a plain 404 before anything is held open. A stream registers itself in `skat.web`'s in-memory presence registry, then reads and sends the full view built for its own account with `view_of`, then sends a fresh view after each change; no message names an account id or a watcher. The page shows the first view of a table it read once, then lets each message replace it.
+
+- **Presence is process-local.** The registry keys connections per table and account, so an account in two tabs is one watcher; the count is the connected accounts without a chair. It lives only in this process, which is the one replica Skat runs as, and is never stored.
+- **A change publishes with the version unchanged.** Only an account appearing or disappearing at a table wakes the others; a wake carries no data, so a stream that falls behind finds its wakes folded into one and reads the latest state, which is its fresh snapshot. A slow client never queues anything or delays another stream.
+- **Shutdown cancels the streams** after uvicorn's graceful-shutdown timeout, which is shorter than the end-to-end server's stop time.
+- **A lost connection** dims the page's last view and shows "verbinde neu" while the browser reconnects by itself; the first message of the new stream is a full view that replaces it.
+
 Signing out is a POST to `/logout`: Skat ends the session and clears its cookies, and the person's browser posts the ID token hint to Keycloak's end-session endpoint, which returns to `/login`.
 
 ## 4. Deployment View
@@ -89,7 +98,7 @@ The model is Skat's own.
 
 ### Proof strategy
 
-Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table and sign-out. Branch coverage is judged at 100 % over both together, merged with the frontend's.
+Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live and sign-out. Branch coverage is judged at 100 % over both together, merged with the frontend's.
 
 ## 6. Constraints and reasons
 
@@ -104,4 +113,5 @@ Unit tests cover the logic and webauth's wiring through a test client with a fak
 
 ## 8. Risks and Technical Debt
 
+- A stream keeps receiving the table's public view and presence after its session is revoked or expires, until it closes; re-admitting a running stream is not built yet.
 - Accounts and sessions live in memory: a restart signs everyone out, and a second instance would not share them.
