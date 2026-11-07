@@ -1,0 +1,53 @@
+"""Write the browser's typed copy of the paths the Python app owns.
+
+The Python constants own the paths; this generator renders them as TypeScript constants.
+`--check` writes nothing and fails when the committed file differs from the rendering or is
+missing, so CI catches drift.
+"""
+
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+REPOSITORY = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPOSITORY / "src"))
+
+from skat.web.constants import (  # noqa: E402
+    ACCOUNT_CONSOLE_PATH,
+    ACCOUNT_PATH,
+    AUTH_START_PATH,
+    LOGOUT_PATH,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+OUTPUT = Path("frontend/src/lib/wire.ts")
+CHECK_FLAG = "--check"
+HEADER = "// Generated from the Python path owners by scripts/generate_wire.py. Do not edit.\n"
+
+
+def render() -> str:
+    constants = {
+        "AUTH_START_PATH": AUTH_START_PATH,
+        "LOGOUT_PATH": LOGOUT_PATH,
+        "ACCOUNT_PATH": ACCOUNT_PATH,
+        "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
+    }
+    return HEADER + "\n" + "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
+
+
+def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:
+    target = root / OUTPUT
+    rendered = render()
+    if CHECK_FLAG in arguments:
+        if not target.is_file() or target.read_text() != rendered:
+            raise SystemExit(f"generate_wire: {target} out of date; run scripts/generate_wire.py without --check")
+        return 0
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(rendered)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

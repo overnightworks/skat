@@ -1,0 +1,46 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    # why: these are direct git references; Dependabot looks a direct reference
+    # up on PyPI by name, so a published or squatted name would become a
+    # proposal against the git pin. They move by their owners' release items.
+    ignore:
+      - dependency-name: "overnightworks-*"
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    groups:
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+      sveltejs:
+        patterns:
+          - "@sveltejs/kit"
+          - "@sveltejs/adapter-static"
+    # why: svelte-check and typescript-eslint do not yet admit TypeScript 7 in
+    # their peer ranges, so a major bump cannot be installed. This ignore goes
+    # when both admit it.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
