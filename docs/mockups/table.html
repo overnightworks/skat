@@ -370,7 +370,7 @@ body.solo .frame{border-radius:0;border:0}
   .null0{animation:sag 3s ease-in-out infinite}
   @keyframes sag{0%,20%{scale:1;rotate:0deg;translate:0 0}40%{scale:1.08 .7;rotate:-8deg;translate:0 8px}55%{scale:.9 1.1;rotate:6deg;translate:0 -6px}70%,100%{scale:1 .82;rotate:14deg;translate:4px 14px;opacity:.75}}
 }
-/* key moment for the PNGs: ?f=<frame>&key freezes each moment at its peak and shows the end state of everything else */
+/* key moment: ?f=<frame>&key freezes each moment at its peak and shows the end state of everything else */
 body.key .frame *:not(.mo){animation:none!important}
 body.key .frame .mo{animation-play-state:paused!important;animation-delay:calc(var(--k) * -1)!important}
 body.key .frame .orb .think.mo{--k:.4s}
@@ -432,8 +432,8 @@ body.key .frame .orb .think.mo{--k:.4s}
 </head>
 <body>
 <header class="page-head">
-  <h1>Skat am Stammtisch &middot; Bild 3</h1>
-  <p>Bild zum Ansehen, kein Produktcode. Basis ist Variante B aus Bild 2: jedes Video sitzt an seinem Stuhl, Zuschauer oben in der Leiste. Du bist Felix und spielst mit Anna und Nova, deinem Agenten; Ben schaut im Anruf zu. Jeder Moment auf dem Handy (390 px) und am Desktop (1280 px). &bdquo;Nochmal&ldquo; spielt die Bewegung erneut; <code>?f=&lt;bild&gt;</code> zeigt ein Bild allein, <code>&amp;key</code> h&auml;lt den Schl&uuml;sselmoment an. Was neu ist, je eine Zeile:</p>
+  <h1>Skat am Stammtisch</h1>
+  <p>Zum Ansehen, kein Produktcode. Jedes Video sitzt an seinem Stuhl, Zuschauer oben in der Leiste. Du bist Felix und spielst mit Anna und Nova, deinem Agenten; Ben schaut im Anruf zu. Jeder Moment auf dem Handy (390 px) und am Desktop (1280 px). &bdquo;Nochmal&ldquo; spielt die Bewegung erneut; <code>?f=&lt;bild&gt;</code> zeigt ein Bild allein, <code>&amp;key</code> h&auml;lt den Schl&uuml;sselmoment an. Was neu ist, je eine Zeile:</p>
 </header>
 <!-- sprite: kept out of layout with zero size; display:none would break gradient and pattern references in Chrome -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
