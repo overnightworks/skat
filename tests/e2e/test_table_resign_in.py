@@ -106,15 +106,18 @@ def test_a_dropped_connection_dims_the_page_and_never_signs_in_again(
     session_check = f"**{TABLES_PATH}/{table_id_of(path)}"
     opener.route(events, lambda route: route.abort())
     answered = []
+    reloaded = []
 
-    def answer_the_page_load_then_drop(route: Route) -> None:
-        if answered:
+    def answer_the_reloaded_page_load_then_drop(route: Route) -> None:
+        # The page being replaced may still check its own session; only the reloaded page's first read is answered.
+        if answered or not reloaded:
             route.abort()
             return
         answered.append(True)
         route.continue_()
 
-    opener.route(session_check, answer_the_page_load_then_drop)
+    opener.route(session_check, answer_the_reloaded_page_load_then_drop)
+    opener.once("framenavigated", lambda frame: reloaded.append(True))
 
     opener.reload()
 
