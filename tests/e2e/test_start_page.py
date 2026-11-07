@@ -49,6 +49,7 @@ def test_the_start_page_shows_the_wordmark_the_account_button_the_legal_links_an
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
     legal_row = person.locator(".start-legal").get_by_role("link")
     assert {(link.inner_text(), link.get_attribute("href")) for link in legal_row.all()} == set(LEGAL_LINKS.items())
+    expect(person.locator("body")).to_have_css("margin", "0px")
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
