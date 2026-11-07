@@ -1,0 +1,8 @@
+claim_id = "f29a1f11dbf94f39be5390eaa46668f5"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "5ae657208b0647be770f0fbf39fc9aad6d23f7f2"
+branch = "claude/issue-18-s3-2-a-shared-link-survives-sign-in"
+scope = ["frontend/src/lib/ui/SignIn.svelte", "frontend/src/routes/(sign-in)", "tests/e2e/test_shared_link.py", "tests/e2e/test_sign_in.py"]
+opened_commit = "3d0ad18224dc5d098fbd8072d7398da191aabb62"
+whole_reason = "The sign-in button, the page that carries it and its end-to-end proof are one flow; none proves anything without the others."
