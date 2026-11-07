@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_START_PATH, SIGNED_IN_AGAIN_QUERY_NAME, TABLES_PATH } from "#lib/wire.ts";
-import { watchTable } from "./tables.ts";
+import { copyTableLink, createTable, drawingOrder, readTable, tablePath, watchTable, type Chair } from "./tables.ts";
 
 class FakeEventSource {
     static last: FakeEventSource;
@@ -149,5 +149,94 @@ describe("watchTable after a stream error", () => {
         expect(FakeEventSource.last.url).toContain(TABLES_PATH);
         expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID });
         expect(onConnection).toHaveBeenCalledWith(true);
+    });
+});
+
+describe("asking for a table", () => {
+    const reload = vi.fn();
+    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0 };
+
+    beforeEach(() => {
+        reload.mockClear();
+        vi.stubGlobal("location", { reload, search: "" });
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    function answerWith(response: Response | Error) {
+        vi.stubGlobal(
+            "fetch",
+            response instanceof Error ? vi.fn().mockRejectedValue(response) : vi.fn().mockResolvedValue(response),
+        );
+    }
+
+    it("returns the table that was answered", async () => {
+        answerWith(Response.json(table));
+
+        expect(await readTable(TABLE_ID)).toEqual({ kind: "table", table });
+    });
+
+    it("sends the command id when creating a table", async () => {
+        answerWith(Response.json(table));
+        await createTable("command-1");
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(TABLES_PATH);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1" });
+    });
+
+    it("reloads to sign in again when the session ended", async () => {
+        answerWith(new Response(null, { status: 401 }));
+
+        expect(await readTable(TABLE_ID)).toEqual({ kind: "failed" });
+        expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports a table that does not exist as missing", async () => {
+        answerWith(new Response(null, { status: 404 }));
+
+        expect(await readTable(TABLE_ID)).toEqual({ kind: "missing" });
+    });
+
+    it.each([
+        ["a server error", new Response(null, { status: 500 })],
+        ["a body that is not a table", new Response("not json")],
+        ["a lost connection", new TypeError("offline")],
+    ])("reports %s as failed", async (_name, response) => {
+        answerWith(response);
+
+        expect(await readTable(TABLE_ID)).toEqual({ kind: "failed" });
+    });
+});
+
+describe("the table's seats and link", () => {
+    const chair = (seat: number, isMine = false): Chair => ({ seat, occupant_name: null, is_mine: isMine });
+
+    it("draws the viewer's own chair last", () => {
+        expect(drawingOrder([chair(0), chair(1, true), chair(2)]).map((each) => each.seat)).toEqual([2, 0, 1]);
+    });
+
+    it("keeps the order when no chair is the viewer's", () => {
+        expect(drawingOrder([chair(0), chair(1)]).map((each) => each.seat)).toEqual([0, 1]);
+    });
+
+    it("copies the table's link to the clipboard", async () => {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        vi.stubGlobal("navigator", { clipboard: { writeText } });
+        vi.stubGlobal("location", { origin: "https://skat.test" });
+
+        expect(await copyTableLink(TABLE_ID)).toBe(true);
+        expect(writeText).toHaveBeenCalledWith(`https://skat.test${tablePath(TABLE_ID)}`);
+        vi.unstubAllGlobals();
+    });
+
+    it("reports a refused clipboard as not copied", async () => {
+        vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) } });
+        vi.stubGlobal("location", { origin: "https://skat.test" });
+
+        expect(await copyTableLink(TABLE_ID)).toBe(false);
+        vi.unstubAllGlobals();
     });
 });

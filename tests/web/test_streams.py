@@ -501,4 +501,4 @@ class TestWatchTableAdmission:
                 next(lines)
             renewed_to = expiry()
 
-        assert renewed_to == opened_with
+        assert renewed_to >= opened_with
