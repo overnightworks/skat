@@ -5,7 +5,7 @@ import threading
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
 from skat.store.tables import PostgresTableTransactions
@@ -156,6 +156,46 @@ def test_a_stream_the_network_refuses_dims_the_view_with_verbinde_neu_and_the_cu
     expect(watchers_of(opener)).to_have_text("1")
 
 
+@pytest.mark.parametrize("form_factor", [pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")])
+def test_a_stream_that_drops_after_its_view_dims_the_last_view_and_recovers_without_a_reload(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    opener = record_page_errors(open_person(username="anna", **form_factor), page_errors, console=False)
+    path = open_new_table(opener, e2e_server)
+    expect(watchers_of(opener)).to_have_text("0")
+    events = f"**{TABLES_PATH}/{table_id_of(path)}{TABLE_EVENTS_SUFFIX}"
+    view = opener.evaluate(FIRST_EVENT, f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}{TABLE_EVENTS_SUFFIX}")
+    served: list[bool] = []
+
+    def serve_one_view_then_refuse(route: Route) -> None:
+        if served:
+            route.abort()
+            return
+        served.append(True)
+        route.fulfill(content_type="text/event-stream", body=f"data: {view}\n\n")
+
+    opener.route(events, serve_one_view_then_refuse)
+    opener.reload()
+    opener.evaluate("window.sameDocument = true")
+
+    expect(opener.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
+    expect(opener.locator(".stage.stale")).to_have_count(1)
+    expect(opener.locator(".chair")).to_have_count(3)
+    other = record_page_errors(open_person(username="ben", **form_factor), page_errors)
+    watch(other, e2e_server, path)
+    opener.unroute(events)
+
+    expect(opener.get_by_text(RECONNECTING)).to_have_count(0, timeout=RECONNECT_TIMEOUT_MILLISECONDS)
+    expect(opener.locator(".stale")).to_have_count(0)
+    expect(watchers_of(opener)).to_have_text("1")
+    assert opener.evaluate("window.sameDocument === true")
+
+
 def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
     e2e_server: RunningServer, tmp_path: Path
 ) -> None:
@@ -182,7 +222,7 @@ def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
         connection = http.client.HTTPSConnection(
             LOOPBACK_HOST,
             loopback.port,
-            context=ssl._create_unverified_context(),  # noqa: S323, SLF001 - the test certificate is self-signed
+            context=self_signed_tolerant_context(),
         )
         connection.request(
             "GET",
