@@ -1,6 +1,6 @@
 import re
-from urllib.parse import parse_qs, urlsplit
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from playwright.sync_api import Page, Route, expect

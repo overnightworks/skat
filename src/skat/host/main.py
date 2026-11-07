@@ -2,7 +2,6 @@ import argparse
 from typing import TYPE_CHECKING, TypedDict, Unpack
 
 import uvicorn
-from fastapi import FastAPI
 
 from skat.host.app import create_app
 from skat.store.migrate import create_store_engine, migrate, require_head
@@ -17,6 +16,8 @@ if TYPE_CHECKING:
     import socket
     from collections.abc import Callable, Sequence
     from pathlib import Path
+
+    from fastapi import FastAPI
 
 
 class UvicornOptions(TypedDict):

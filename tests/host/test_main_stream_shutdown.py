@@ -36,9 +36,7 @@ def free_port() -> int:
         return int(probe.getsockname()[1])
 
 
-def test_stopping_the_server_with_streams_open_on_several_tables_ends_them_all_and_logs_no_error(
-    sign_in_settings
-):
+def test_stopping_the_server_with_streams_open_on_several_tables_ends_them_all_and_logs_no_error(sign_in_settings):
     port = free_port()
     settings = sign_in_settings(host=LOOPBACK_HOST, port=port).settings
     stores = SignInStores.in_memory()
