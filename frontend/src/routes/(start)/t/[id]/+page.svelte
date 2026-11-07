@@ -6,7 +6,8 @@
     import NewTableButton from "../../NewTableButton.svelte";
     import { copyTableLink, drawingOrder, readTable, type Outcome } from "../../tables.ts";
 
-    const id = $derived(page.params.id ?? "");
+    // The route has an [id] segment, so the parameter is always present.
+    const id = $derived(page.params.id as string);
     let outcome: Outcome | null = $state(null);
     let copyNote = $state("");
 

@@ -192,11 +192,12 @@ def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
 def test_a_table_the_server_cannot_read_says_so(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
 ) -> None:
+    opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
+    path = open_new_table(opener, e2e_server)
     person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
-    open_new_table(person, e2e_server)
     person.route(f"**{TABLES_PATH}/*", lambda route: route.fulfill(status=SERVER_ERROR, body="{}"))
 
-    person.reload()
+    person.goto(f"{e2e_server.base_url}{path}")
 
     expect(person.get_by_role("alert")).to_contain_text("Der Tisch lässt sich gerade nicht laden")
 
