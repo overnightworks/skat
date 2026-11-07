@@ -1,0 +1,8 @@
+claim_id = "89fa1a2b4e3f4c38a88904b0fd7307cc"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "23573a5510be58a614205c093d06dee0d92cad26"
+branch = "claude/issue-23-german-text-catalog"
+scope = ["Makefile", "frontend/src/lib/catalogs", "frontend/src/lib/kitWords.test.ts", "frontend/src/lib/kitWords.ts", "frontend/src/lib/ui/account.svelte.test.ts", "frontend/src/lib/ui/account.svelte.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/+layout.svelte", "frontend/src/routes/(start)/+page.svelte", "frontend/src/routes/(start)/NewTableButton.svelte", "frontend/src/routes/(start)/t/[id]/+page.svelte", "pyproject.toml", "scripts/generate_words.py", "tests/e2e/test_shared_link.py", "tests/e2e/test_start_page.py", "tests/e2e/test_table_watch.py", "tests/e2e/test_tables.py", "tests/scripts", "uv.lock"]
+opened_commit = "abbf05b3127a4d2f8a7d5ac2f4842785b58bf092"
+whole_reason = "The catalog, its generator and the surfaces that read it are one owner change; a catalog without readers is dead, and moving surfaces apart leaves two owners for one text."
