@@ -5,6 +5,7 @@ import pytest
 from skat.table.records import Actor, CreateTable, Receipt, TableId
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.fake_tables import FakeTableStore
+from tests.support.faulty_tables import FaultyTableTransactions
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
@@ -76,15 +77,9 @@ class TestCreate:
 
     def test_loses_a_race_against_an_identical_request_by_returning_the_winners_table(self, service, store):
         winner = service.create(OPENER, CreateTable(command_id="command-1"))
-        original_replay = store.replay
-        lookups = itertools.count()
+        blind = TableService(FaultyTableTransactions(store, blind_first_replay=True))
 
-        def blind_first_lookup(account_id, command_id):
-            return None if next(lookups) == 0 else original_replay(account_id, command_id)
-
-        store.replay = blind_first_lookup
-
-        assert service.create(OPENER, CreateTable(command_id="command-1")) == winner
+        assert blind.create(OPENER, CreateTable(command_id="command-1")) == winner
         assert len(store.tables) == 1
 
 

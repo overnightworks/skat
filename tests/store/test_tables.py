@@ -1,6 +1,5 @@
 import itertools
 import threading
-from contextlib import contextmanager
 
 import pytest
 from sqlalchemy import func, select, table, text
@@ -9,6 +8,7 @@ from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable
 from skat.table.service import CommandIdReusedError, TableService
+from tests.support.faulty_tables import FaultyTableTransactions
 
 pytestmark = pytest.mark.postgres
 
@@ -87,23 +87,26 @@ def test_two_identical_requests_at_once_open_one_table(service, engine):
 
 
 def test_a_failure_between_the_table_write_and_the_receipt_persists_nothing(engine):
-    class FailingReceipts(PostgresTableTransactions):
-        @contextmanager
-        def begin(self):
-            with super().begin() as transaction:
-                transaction.add_receipt = self._fail
-                yield transaction
-
-        @staticmethod
-        def _fail(receipt):
-            raise ConnectionError("lost")
-
-    failing = TableService(FailingReceipts(engine))
+    failing = TableService(
+        FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost"))
+    )
 
     with pytest.raises(ConnectionError):
         failing.create(OPENER, CreateTable(command_id="command-1"))
 
     assert (count(engine, "tables"), count(engine, "chairs"), count(engine, "receipts")) == (0, 0, 0)
+
+
+def test_an_identical_request_that_missed_the_committed_receipt_loses_on_the_unique_key_and_replays_the_winner(
+    engine,
+):
+    winner = TableService(PostgresTableTransactions(engine)).create(OPENER, CreateTable(command_id="command-1"))
+    blind = TableService(FaultyTableTransactions(PostgresTableTransactions(engine), blind_first_replay=True))
+
+    loser = blind.create(OPENER, CreateTable(command_id="command-1"))
+
+    assert loser == winner
+    assert (count(engine, "tables"), count(engine, "chairs"), count(engine, "receipts")) == (1, 3, 1)
 
 
 def test_table_ids_are_distinct_128_bit_hex_and_not_sequential(service):
