@@ -1,0 +1,10 @@
+[gate]
+mandatory_jobs = ["Lint and test", "End-to-end", "Coverage", "Frontend", "Image"]
+
+[[root.allow]]
+entry = "Makefile"
+reason = "make finds its Makefile only in the directory it runs from"
+
+[[root.allow]]
+entry = "frontend/"
+reason = "the SvelteKit project is a toolchain of its own: its manifest, lockfile and configuration must sit in its project directory"
