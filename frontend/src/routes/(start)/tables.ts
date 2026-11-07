@@ -1,7 +1,12 @@
-import { TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH } from "#lib/wire.ts";
+import { AUTH_START_PATH, TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH } from "#lib/wire.ts";
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
+// A second refusal this soon after a sign-in navigation shows the sign-in page instead of navigating again:
+// a session the sign-in just made and the server refuses at once would otherwise loop forever.
+const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
+const RESIGN_IN_STORAGE_KEY = "skat.resignInAt";
+const RETURN_QUERY_NAME = "next";
 
 export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean };
 export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
@@ -42,6 +47,33 @@ export function readTable(id: string): Promise<Outcome> {
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}`);
 }
 
+// The reload of a table address is answered with the sign-in page while the session stays ended.
+function signInAgain(id: string): void {
+    const lastNavigation = Number(sessionStorage.getItem(RESIGN_IN_STORAGE_KEY));
+    if (Date.now() - lastNavigation < RESIGN_IN_WINDOW_MILLISECONDS) {
+        location.reload();
+        return;
+    }
+    sessionStorage.setItem(RESIGN_IN_STORAGE_KEY, String(Date.now()));
+    location.assign(`${AUTH_START_PATH}?${RETURN_QUERY_NAME}=${encodeURIComponent(tablePath(id))}`);
+}
+
+// A stream that ends is a refused session or a dropped connection; the table's own session check tells
+// them apart. Only a 401 signs in again: a drop, or any other answer, leaves the stream to reconnect.
+// The stream closes first: a page that keeps reconnecting would meet a second refusal while the sign-in
+// navigation is still on its way, and the loop guard would cancel that navigation.
+async function signInAgainWhenRefused(id: string, source: EventSource): Promise<void> {
+    try {
+        const answer = await fetch(`${TABLES_PATH}/${encodeURIComponent(id)}`);
+        if (answer.status === SIGNED_OUT_STATUS) {
+            source.close();
+            signInAgain(id);
+        }
+    } catch {
+        // The connection is down: the dimmed page and the stream's own reconnect carry on.
+    }
+}
+
 // The server sends the full view first and a fresh one after every change; a lost connection
 // reconnects by itself and starts again from a full view, so a view always replaces the last.
 // The returned function closes the stream.
@@ -57,6 +89,7 @@ export function watchTable(
     };
     source.onerror = () => {
         onConnection(false);
+        void signInAgainWhenRefused(id, source);
     };
     return () => {
         source.close();
