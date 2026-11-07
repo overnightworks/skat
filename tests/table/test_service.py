@@ -62,16 +62,20 @@ class TestCreate:
             receipt.account_id, receipt.command_id, receipt.command, '{"seats": 4}', receipt.table_id
         )
 
+        command = CreateTable(command_id="command-1")
+
         with pytest.raises(CommandIdReusedError):
-            service.create(OPENER, CreateTable(command_id="command-1"))
+            service.create(OPENER, command)
 
         assert list(store.tables) == [first.id]
 
     def test_a_failure_between_the_table_write_and_the_receipt_persists_nothing(self, service, store):
         faulty = TableService(FaultyTableTransactions(store, receipt_failure=RuntimeError("connection lost")))
 
+        command = CreateTable(command_id="command-1")
+
         with pytest.raises(RuntimeError, match="connection lost"):
-            faulty.create(OPENER, CreateTable(command_id="command-1"))
+            faulty.create(OPENER, command)
 
         assert (store.tables, store.receipts) == ({}, {})
 

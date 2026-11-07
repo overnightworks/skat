@@ -59,7 +59,7 @@ def _actor(request: Request) -> Actor:
 def create_tables_router(tables: TableService, page_build: PageBuild) -> APIRouter:
     router = APIRouter()
 
-    @router.post(TABLES_PATH)
+    @router.post(TABLES_PATH, responses={409: {"description": "The command id came back with another request."}})
     def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
@@ -68,7 +68,7 @@ def create_tables_router(tables: TableService, page_build: PageBuild) -> APIRout
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
 
-    @router.get(TABLES_PATH + "/{table_id}")
+    @router.get(TABLES_PATH + "/{table_id}", responses={404: {"description": "No table has this id."}})
     def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
         response.headers["Cache-Control"] = "no-store"
         view = tables.view(_actor(request), table_id)

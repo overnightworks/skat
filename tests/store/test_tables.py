@@ -61,8 +61,10 @@ def test_a_command_id_reused_with_another_payload_is_refused_and_writes_nothing(
     with engine.begin() as connection:
         connection.execute(text("UPDATE receipts SET payload = '{\"seats\": 4}'"))
 
+    command = CreateTable(command_id="command-1")
+
     with pytest.raises(CommandIdReusedError):
-        service.create(OPENER, CreateTable(command_id="command-1"))
+        service.create(OPENER, command)
 
     assert (count(engine, "tables"), count(engine, "receipts")) == (1, 1)
 
@@ -91,8 +93,10 @@ def test_a_failure_between_the_table_write_and_the_receipt_persists_nothing(engi
         FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost"))
     )
 
+    command = CreateTable(command_id="command-1")
+
     with pytest.raises(ConnectionError):
-        failing.create(OPENER, CreateTable(command_id="command-1"))
+        failing.create(OPENER, command)
 
     assert (count(engine, "tables"), count(engine, "chairs"), count(engine, "receipts")) == (0, 0, 0)
 

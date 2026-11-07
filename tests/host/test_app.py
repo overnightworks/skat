@@ -51,8 +51,9 @@ class TestCreateApp:
         settings = sign_in_settings().settings
         settings.session_secret_file.unlink()
         page_build = fixture_page_build()
+        tables = in_memory_tables()
         with pytest.raises(StartRefusedError, match="session_secret_file"):
-            create_app(settings, page_build=page_build, tables=in_memory_tables())
+            create_app(settings, page_build=page_build, tables=tables)
 
     def test_account_route_reads_the_sessions_the_sign_in_wrote(self, sign_in_settings):
         sign_in = sign_in_settings()
