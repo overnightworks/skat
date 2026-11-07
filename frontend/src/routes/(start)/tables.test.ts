@@ -129,21 +129,16 @@ describe("watchTable after a stream error", () => {
 
     it("reloads instead of navigating when the page was reached by signing in a moment ago", async () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
+        const reading = readTableAfresh(TABLE_ID);
+        answer(0, 200);
+        await reading;
         watchTable(TABLE_ID, vi.fn(), vi.fn());
         fail();
-        answer(0, 401);
+        answer(1, 401);
         await settle();
 
         expect(reload).toHaveBeenCalledTimes(1);
         expect(assign).not.toHaveBeenCalled();
-    });
-
-    it("removes the marker from the address bar when watching starts", () => {
-        location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1&other=2`);
-        watchTable(TABLE_ID, vi.fn(), vi.fn());
-
-        expect(replaceState).toHaveBeenCalledTimes(1);
-        expect(String(replaceState.mock.calls[0]?.[2])).toBe(`https://skat.test/t/${TABLE_ID}?other=2`);
     });
 
     it.each([
@@ -169,9 +164,12 @@ describe("watchTable after a stream error", () => {
     it("signs in again when the page reached by signing in has been open past the window", async () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
         vi.stubGlobal("performance", { now: () => 3_600_000 });
+        const reading = readTableAfresh(TABLE_ID);
+        answer(0, 200);
+        await reading;
         watchTable(TABLE_ID, vi.fn(), vi.fn());
         fail();
-        answer(0, 401);
+        answer(1, 401);
         await settle();
 
         expect(assign).toHaveBeenCalledTimes(1);

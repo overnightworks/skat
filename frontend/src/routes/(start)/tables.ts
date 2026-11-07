@@ -95,7 +95,6 @@ export function watchTable(
     onTable: (table: Table) => void,
     onConnection: (connected: boolean) => void,
 ): () => void {
-    takeSignedInAgainMarker();
     const reachedNow = reachedBySigningIn;
     const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_EVENTS_SUFFIX}`);
     source.onmessage = (event: MessageEvent<string>) => {
