@@ -2,19 +2,20 @@
 
 ## 1. Context and Scope
 
-Skat serves a small circle of signed-in people in a browser. Outside it: the realm's identity provider (Keycloak), which signs people in and says who belongs to the Skat group, and the fleet's central legal pages at hallucinai.de, which the page links and which hal composes from each app's own part; Skat's part lives in `legal/` and hal reads it from each release. Skat builds on the fleet stack, FastAPI and Svelte with webauth for sign-in and appkit for the shared look, and takes a maintained library before writing its own code. Today it holds no tables and no data of its own.
+Skat serves a small circle of signed-in people in a browser. Outside it: the realm's identity provider (Keycloak), which signs people in and says who belongs to the Skat group, Skat's own Postgres database, which holds tables, chairs and command receipts, and the fleet's central legal pages at hallucinai.de, which the page links and which hal composes from each app's own part; Skat's part lives in `legal/` and hal reads it from each release. Skat builds on the fleet stack, FastAPI and Svelte with webauth for sign-in and appkit for the shared look, and takes a maintained library before writing its own code. Accounts and sessions are not in the database; they stay in memory.
 
 ```mermaid
 flowchart LR
     person["Person's browser"] -->|"https: pages and /api/account"| skat["Skat"]
     person -->|"sign in"| keycloak["Keycloak"]
+    skat -->|"tables, chairs, receipts"| database[("Postgres")]
     skat -->|"code exchange, key set"| keycloak
     person -.->|"legal links"| legal["hallucinai.de legal pages"]
 ```
 
 ## 2. Building Block View
 
-One process serves the static SvelteKit build and the few API routes. It refuses to start without the build.
+One process serves the static SvelteKit build and the few API routes. It refuses to start without the build and without a database at the newest migration.
 
 ```mermaid
 flowchart TB
@@ -24,14 +25,21 @@ flowchart TB
     subgraph process["Skat process"]
         host["host: composition and server start"]
         web["web: webauth sign-in, session gate, security headers, routes, page build"]
+        store["store: Postgres adapter, migrations"]
+        table["table: records, rules, views, service"]
         host --> web
+        host --> store
+        web --> table
+        store --> table
     end
     pages --> web
 ```
 
 - **`skat.host`** composes the app from settings and the page build, and starts uvicorn.
 - **`skat.web`** is the adapter: webauth's sign-in routes and session gate, the security headers, the account routes, `/health` and the page build. It decides nobody's rights beyond admission.
-- Layer rule: `host` depends on `web` and never the other way; import-linter enforces it. Domain and application packages join below `web` with their first caller.
+- **`skat.table`** is the table core: records, the rules that decide a command, the views a person is allowed to see, and a service that runs each command as one transaction through a narrow port. It imports no framework, driver or adapter.
+- **`skat.store`** implements that port on Postgres with SQLAlchemy and psycopg 3, and owns the Alembic migrations. `skat migrate` takes an advisory lock and upgrades the database before any other setting or the page build is read; `skat serve` never migrates and refuses a database that is not at the newest migration. Migrations only expand.
+- Layer rule: `host` depends on `web` and `store`, which stand side by side and know nothing of each other, and both depend on `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` free of SQLAlchemy, psycopg, FastAPI, Starlette and webauth.
 - **The frontend** (`frontend/`) is built to `src/skat/web/build`. The path constants it needs are generated from the Python constants.
 
 ## 3. Runtime View
@@ -58,6 +66,8 @@ sequenceDiagram
     S-->>B: start page, then GET /api/account for the name
 ```
 
+Opening a table is one transaction: the service looks up the receipt under (account, command id), decides with a random 128-bit table id, writes the table with its opener in chair 1, its version and the receipt, and commits. The same command id with the same request returns the first table; another request under it is refused; two identical requests at once end with one table, because the receipt's key is unique and the loser's transaction rolls back and replays the winner's.
+
 Signing out is a POST to `/logout`: Skat ends the session and clears its cookies, and the person's browser posts the ID token hint to Keycloak's end-session endpoint, which returns to `/login`.
 
 ## 4. Deployment View
@@ -74,11 +84,12 @@ The model is Skat's own.
 - **Anyone without a session** reaches only `/health`, the sign-in pages, the sign-in routes, the stylesheets and fonts those pages link, and Keycloak's logout POST. A forged, altered or expired session cookie counts as no session.
 - **Keycloak** decides who is a member: the group `/apps/skat` admits, and no group makes anyone an admin. Skat trusts its signed tokens from the one configured issuer. The session store holds each login's ID token, a secret that leaves the server once, in the no-store logout page whose form the browser posts to Keycloak.
 - **The proxy hops** named in `SKAT_TRUSTED_PROXIES` are trusted to state the person's address in `X-Forwarded-For`; empty trusts none.
-- **The operator's settings and secret files** are trusted fully. The two secrets come from files and never enter the environment, and a wrong setting is named, never echoed.
+- **A table's id** is an unguessable link, not a secret: every signed-in member who has it sees the table. A client names only its retry key; the account and the chair always come from the session.
+- **The operator's settings and secret files** are trusted fully. The two secrets and the database URL come from files and never enter the environment, and a wrong setting is named, never echoed.
 
 ### Proof strategy
 
-Unit tests cover the logic and webauth's wiring through a test client with a fake issuer. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page and sign-out. Branch coverage is judged at 100 % over both together, merged with the frontend's.
+Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table and sign-out. Branch coverage is judged at 100 % over both together, merged with the frontend's.
 
 ## 6. Constraints and reasons
 
