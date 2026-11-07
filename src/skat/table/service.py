@@ -15,7 +15,7 @@ class DuplicateReceiptError(Exception):
     """Another transaction stored a receipt under the same (account, command id) first."""
 
 
-class TableTransaction(Protocol):
+class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     def replay(self, account_id: str, command_id: str) -> Replay | None: ...
 
     def table(self, table_id: TableId) -> TableRecord | None: ...
@@ -25,7 +25,7 @@ class TableTransaction(Protocol):
     def add_receipt(self, receipt: Receipt) -> None: ...
 
 
-class TableTransactions(Protocol):
+class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     def begin(self) -> AbstractContextManager[TableTransaction]:
         """One transaction: it commits when the block ends and rolls back when the block raises."""
         ...
