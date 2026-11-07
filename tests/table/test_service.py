@@ -104,6 +104,23 @@ class TestView:
 
         assert service.view(OPENER, created.id) == created
 
+    @pytest.mark.parametrize(
+        ("connected", "watchers"),
+        [
+            pytest.param(frozenset(), 0, id="nobody-connected"),
+            pytest.param({OPENER.account_id}, 0, id="the-seated-opener-is-no-watcher"),
+            pytest.param({VISITOR.account_id}, 1, id="a-connected-member-without-a-chair-watches"),
+            pytest.param({OPENER.account_id, VISITOR.account_id, "account-third"}, 2, id="each-account-counts-once"),
+        ],
+    )
+    def test_counts_the_connected_members_without_a_chair_as_watchers(self, service, connected, watchers):
+        created = service.create(OPENER, CreateTable(command_id="command-1"))
+
+        assert service.view(VISITOR, created.id, connected).watchers == watchers
+
+    def test_a_new_table_has_no_watchers(self, service):
+        assert service.create(OPENER, CreateTable(command_id="command-1")).watchers == 0
+
     @pytest.mark.parametrize("table_id", ["0" * 32, "", "not-an-id", "A" * 32, "0" * 31, "0" * 33, "../" + "0" * 29])
     def test_an_unknown_or_malformed_id_is_no_table(self, service, table_id):
         assert service.view(OPENER, table_id) is None

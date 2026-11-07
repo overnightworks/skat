@@ -49,16 +49,16 @@ class TableService:
         with self._transactions.begin() as transaction:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
-                return view_of(replayed_table(replay), actor.account_id)
+                return view_of(replayed_table(replay), actor.account_id, frozenset())
             table = decide_create(actor, self._new_table_id())
             transaction.add_table(table)
             transaction.add_receipt(create_receipt(actor, command, table))
-            return view_of(table, actor.account_id)
+            return view_of(table, actor.account_id, frozenset())
 
-    def view(self, actor: Actor, table_id: str) -> TableView | None:
+    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str] = frozenset()) -> TableView | None:
         identifier = TableId.parse(table_id)
         if identifier is None:
             return None
         with self._transactions.begin() as transaction:
             table = transaction.table(identifier)
-        return None if table is None else view_of(table, actor.account_id)
+        return None if table is None else view_of(table, actor.account_id, connected_accounts)

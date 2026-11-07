@@ -17,13 +17,19 @@ class TableView:
     id: str
     version: int
     chairs: tuple[ChairView, ...]
+    watchers: int
 
 
-def view_of(table: TableRecord, viewer_account_id: str) -> TableView:
-    """The table as one account sees it: only the viewer's own chair is marked mine."""
+def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
+    """The table as one account sees it: only the viewer's own chair is marked mine.
+
+    The watchers are the connected accounts without a chair, each counted once.
+    """
+    seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     return TableView(
         id=table.id.value,
         version=table.version,
+        watchers=len(connected_accounts - seated),
         chairs=tuple(
             ChairView(
                 seat=chair.seat,
