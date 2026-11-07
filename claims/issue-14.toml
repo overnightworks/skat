@@ -1,8 +1,0 @@
-claim_id = "95c0b4dd6e304af7a95805afcb018169"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "88f95e26e68825e63d9026933b01b383e94bbf68"
-branch = "claude/issue-14-freeze-table-controls"
-scope = ["docs/mockups"]
-opened_commit = "f8fdb1a12bece86508521aab551fd53cb77bb160"
-whole_reason = "Two mockup files of one blessed picture, in one directory that holds nothing else."
