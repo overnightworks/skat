@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "5ae657208b0647be770f0fbf39fc9aad6d23f7f2"
 branch = "claude/issue-20-s3-3a-watch-a-table-live"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/t", "frontend/src/routes/(start)/tables.ts", "src/skat/host", "src/skat/table/views.py", "src/skat/web/presence.py", "src/skat/web/streams.py", "src/skat/web/tables.py", "tests/e2e/conftest.py", "tests/e2e/support", "tests/e2e/test_table_watch.py", "tests/e2e/test_tables.py", "tests/host", "tests/table", "tests/web"]
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/t", "frontend/src/routes/(start)/tables.ts", "src/skat/host", "src/skat/table/views.py", "src/skat/web/presence.py", "src/skat/web/streams.py", "src/skat/web/tables.py", "tests/e2e/conftest.py", "tests/e2e/support", "tests/e2e/test_table_watch.py", "tests/e2e/test_tables.py", "tests/host", "tests/table", "tests/web/test_presence.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
 opened_commit = "2bbed5288f7a0f590925ff8f97ffa28b7bdac43f"
 whole_reason = "The stream, its presence registry and the page that shows the count are one live flow; none proves anything without the others."
