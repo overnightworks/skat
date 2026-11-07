@@ -3,6 +3,6 @@ agent = "Claude 2e72b6fe-6d7c-4638-a8ef-a9980f042336"
 role = "builder"
 base = "22a976db745fad4ebea340ab9a6576464a9ad746"
 branch = "claude/issue-3-s1-reach-skat"
-scope = [".dockerignore", ".github", ".gitignore", ".python-version", "AGENTS.md", "CLAUDE.md", "Dockerfile", "LICENSE", "README.md", "docs", "frontend", "pyproject.toml", "quality", "sonar-project.properties", "src", "tests", "uv.lock"]
+scope = [".dockerignore", ".github", ".gitignore", ".python-version", "AGENTS.md", "CLAUDE.md", "Dockerfile", "LICENSE", "Makefile", "README.md", "docs", "frontend", "pyproject.toml", "quality", "scripts", "sonar-project.properties", "src", "tests", "uv.lock"]
 opened_commit = "1fba79731bfe3a35e16c5483c4757628168dbe2b"
 whole_reason = "The first slice of a new repository creates its skeleton: each file depends on the toolchain choices of the others, and nothing smaller runs end to end through CI and the quality gate."
