@@ -90,6 +90,23 @@ class TestTableViews:
 
         assert (first.watchers, second.watchers) == (1, 2)
 
+    def test_a_change_between_the_registration_and_the_first_read_is_in_the_first_view(self, service, table_id):
+        class ConnectsAnotherRightAfterRegistering(Presence):
+            def subscribe(self, table, account, wake):
+                subscription = super().subscribe(table, account, wake)
+                if account == VISITOR.account_id:
+                    super().subscribe(table, "late", lambda: None)
+                return subscription
+
+        async def scenario():
+            presence = ConnectsAnotherRightAfterRegistering()
+            stream = stream_of(presence, service, VISITOR, table_id)
+            first = await next_view(stream)
+            await stream.aclose()
+            return first
+
+        assert run_on_a_loop_of_its_own(scenario()).watchers == 2
+
     def test_each_stream_gets_the_view_built_for_its_own_account(self, service, table_id):
         async def scenario():
             presence = Presence()
