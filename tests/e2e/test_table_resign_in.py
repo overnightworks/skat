@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from playwright.sync_api import Page, Route, expect
 
-from skat.web.constants import AUTH_START_PATH, LOGIN_PATH
+from skat.web.constants import AUTH_START_PATH, LOGIN_PATH, SIGNED_IN_AGAIN_QUERY_NAME
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, PHONE
@@ -58,11 +58,11 @@ def test_a_watching_member_whose_session_ended_is_back_at_the_table_through_the_
 
     # The marker is gone once the page has been to the sign-in and loaded again.
     ben.wait_for_function("() => window.sameDocument !== true")
-    expect(ben).to_have_url(f"{e2e_server.base_url}{path}")
+    expect(ben).to_have_url(f"{e2e_server.base_url}{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1")
     expect(ben.locator(".chair[data-seat='1'] .plate")).to_have_text("anna")
     expect(ben.locator(".watchers span")).to_have_text("2")
     assert [urlsplit(url).path for url in sign_in_starts] == [AUTH_START_PATH]
-    assert parse_qs(urlsplit(sign_in_starts[0]).query) == {"next": [path]}
+    assert parse_qs(urlsplit(sign_in_starts[0]).query) == {"next": [f"{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1"]}
 
 
 def test_a_second_refusal_soon_after_the_sign_in_shows_the_sign_in_page_instead_of_navigating_again(

@@ -1,6 +1,7 @@
 import {
     AUTH_START_PATH,
     RETURN_PATH_QUERY_NAME,
+    SIGNED_IN_AGAIN_QUERY_NAME,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
@@ -8,10 +9,9 @@ import {
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
-// A second refusal this soon after a sign-in navigation shows the sign-in page instead of navigating again:
-// a session the sign-in just made and the server refuses at once would otherwise loop forever.
+// A refusal this soon after the page was reached through an automatic sign-in shows the sign-in page instead
+// of navigating again: a session the sign-in just made and the server refuses at once would otherwise loop forever.
 const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
-const RESIGN_IN_STORAGE_KEY = "skat.resignInAt";
 
 export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean };
 export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
@@ -52,30 +52,26 @@ export function readTable(id: string): Promise<Outcome> {
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}`);
 }
 
+// The page that the sign-in returns to carries a marker in its address, so nothing is kept on the device.
 // The reload of a table address is answered with the sign-in page while the session stays ended.
 function signInAgain(id: string): void {
-    const lastNavigation = Number(sessionStorage.getItem(RESIGN_IN_STORAGE_KEY));
-    if (Date.now() - lastNavigation < RESIGN_IN_WINDOW_MILLISECONDS) {
+    const reachedBySigningIn = new URLSearchParams(location.search).has(SIGNED_IN_AGAIN_QUERY_NAME);
+    if (reachedBySigningIn && performance.now() < RESIGN_IN_WINDOW_MILLISECONDS) {
         location.reload();
         return;
     }
-    sessionStorage.setItem(RESIGN_IN_STORAGE_KEY, String(Date.now()));
-    location.assign(`${AUTH_START_PATH}?${RETURN_PATH_QUERY_NAME}=${encodeURIComponent(tablePath(id))}`);
+    const returnPath = `${tablePath(id)}?${SIGNED_IN_AGAIN_QUERY_NAME}=1`;
+    location.assign(`${AUTH_START_PATH}?${RETURN_PATH_QUERY_NAME}=${encodeURIComponent(returnPath)}`);
 }
 
 // A stream that ends is a refused session or a dropped connection; the table's own session check tells
 // them apart. Only a 401 signs in again: a drop, or any other answer, leaves the stream to reconnect.
-// The stream closes first: a page that keeps reconnecting would meet a second refusal while the sign-in
-// navigation is still on its way, and the loop guard would cancel that navigation.
-async function signInAgainWhenRefused(id: string, source: EventSource): Promise<void> {
+async function sessionIsRefused(id: string): Promise<boolean> {
     try {
-        const answer = await fetch(`${TABLES_PATH}/${encodeURIComponent(id)}`);
-        if (answer.status === SIGNED_OUT_STATUS) {
-            source.close();
-            signInAgain(id);
-        }
+        return (await fetch(`${TABLES_PATH}/${encodeURIComponent(id)}`)).status === SIGNED_OUT_STATUS;
     } catch {
         // The connection is down: the dimmed page and the stream's own reconnect carry on.
+        return false;
     }
 }
 
@@ -92,11 +88,24 @@ export function watchTable(
         onConnection(true);
         onTable(JSON.parse(event.data) as Table);
     };
+    // One check at a time, and none counts once the page navigates or stops watching: a second 401 would
+    // otherwise reload under the loop guard and cancel the sign-in navigation that the first one started.
+    let checking = false;
+    let finished = false;
     source.onerror = () => {
         onConnection(false);
-        void signInAgainWhenRefused(id, source);
+        if (checking || finished) return;
+        checking = true;
+        void sessionIsRefused(id).then((refused) => {
+            checking = false;
+            if (!refused || finished) return;
+            finished = true;
+            source.close();
+            signInAgain(id);
+        });
     };
     return () => {
+        finished = true;
         source.close();
     };
 }
