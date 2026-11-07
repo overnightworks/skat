@@ -1,9 +1,9 @@
+import re
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, expect
 
 from skat.web.constants import AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_PATH, OIDC_CLIENT_ID
@@ -66,7 +66,7 @@ def test_a_member_the_group_does_not_admit_sees_the_refusal_and_no_start_page(
 
 
 @pytest.mark.parametrize("path", ["/", "/anywhere", "/account"])
-def test_a_visitor_without_a_session_is_sent_to_the_issuer_for_skats_client_and_back_to_skat(
+def test_a_visitor_without_a_session_sees_the_sign_in_page_and_its_link_leads_to_the_issuer_for_skats_client(
     open_person: Callable[..., Page],
     expected_request_failures: list[str],
     e2e_server: RunningServer,
@@ -77,10 +77,12 @@ def test_a_visitor_without_a_session_is_sent_to_the_issuer_for_skats_client_and_
     person = record_page_errors(open_person(signed_in=False), page_errors)
     documents = open_documents(person)
 
-    with pytest.raises(PlaywrightError, match="ERR_NAME_NOT_RESOLVED"):
-        person.goto(f"{e2e_server.base_url}{path}")
+    person.goto(f"{e2e_server.base_url}{path}")
 
-    _opened, start, issuer = documents
+    expect(person).to_have_url(f"{e2e_server.base_url}{LOGIN_PATH}?next={quote(path, safe='')}")
+    with person.expect_event("requestfailed"):
+        person.get_by_role("link", name="Log in", exact=True).click()
+    start, issuer = documents[-2:]
     assert urlsplit(start).path == AUTH_START_PATH
     query = parse_qs(urlsplit(issuer).query)
     assert query["client_id"] == [OIDC_CLIENT_ID]
@@ -90,12 +92,10 @@ def test_a_visitor_without_a_session_is_sent_to_the_issuer_for_skats_client_and_
 @pytest.mark.parametrize("session", ["forged", "expired"])
 def test_a_forged_or_expired_session_cookie_is_treated_as_no_session(
     open_person: Callable[..., Page],
-    expected_request_failures: list[str],
     e2e_server: RunningServer,
     page_errors: list[str],
     session: str,
 ) -> None:
-    expected_request_failures.append(TEST_ISSUER)
     person = record_page_errors(open_person(signed_in=False), page_errors)
     if session == "expired":
         member = seed_member(e2e_server.stores, e2e_server.config, expires_in=timedelta(seconds=-60))
@@ -104,7 +104,7 @@ def test_a_forged_or_expired_session_cookie_is_treated_as_no_session(
         cookies = [{"name": SESSION_COOKIE, "value": "forged", "domain": LOOPBACK_HOST, "path": "/", "secure": True}]
     person.context.add_cookies(cookies)
 
-    with pytest.raises(PlaywrightError, match="ERR_NAME_NOT_RESOLVED"):
-        person.goto(f"{e2e_server.base_url}/")
+    person.goto(f"{e2e_server.base_url}/")
 
+    expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
     expect(person.get_by_text(START_PAGE_LINE)).to_have_count(0)

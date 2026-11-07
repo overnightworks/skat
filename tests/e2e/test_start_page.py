@@ -1,11 +1,12 @@
 import json
+import re
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from playwright.sync_api import Page, Route, expect
 
-from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGIN_PATH
+from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, LOGIN_PATH
 from tests.e2e.support.browser import (
     ACCOUNT_AVATAR,
     ACCOUNT_MENU,
@@ -125,28 +126,28 @@ def test_a_menu_the_account_cannot_name_is_called_account_and_still_logs_out(
     expect(person.locator(ACCOUNT_MENU).get_by_role("button", name="Log out")).to_be_visible()
 
 
-def test_a_session_that_ended_goes_through_the_sign_in_once_when_the_account_answers_401(
+def test_a_session_that_ended_sends_the_page_to_the_sign_in_page_once_when_the_account_answers_401(
     open_person: Callable[..., Page],
-    expected_request_failures: list[str],
     member_of: Callable[[Page], Any],
     e2e_server: RunningServer,
     page_errors: list[str],
 ) -> None:
-    expected_request_failures.append(TEST_ISSUER)
-    person = open_person(**DESKTOP)
-    sign_in_starts: list[str] = []
-    person.on("request", lambda request: sign_in_starts.append(request.url) if AUTH_START_PATH in request.url else None)
+    # The answered 401 is the console error the browser logs for it, so only script errors are recorded.
+    person = record_page_errors(open_person(**DESKTOP), page_errors, console=False)
+    account_requests: list[str] = []
 
     def end_the_session_and_answer_401(route: Route) -> None:
+        account_requests.append(route.request.url)
         e2e_server.stores.sessions.delete(member_of(person).session.id)
         route.fulfill(status=UNAUTHORIZED, body=json.dumps({}))
 
     person.route(ACCOUNT_ROUTE, end_the_session_and_answer_401)
 
-    with person.expect_event("requestfailed"):
-        person.goto(f"{e2e_server.base_url}/")
+    person.goto(f"{e2e_server.base_url}/")
 
-    assert len(sign_in_starts) == 1
+    expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
+    expect(person.get_by_role("link", name="Log in", exact=True)).to_be_visible()
+    assert len(account_requests) == 1
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)

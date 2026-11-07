@@ -42,8 +42,8 @@ sequenceDiagram
     participant S as Skat
     participant K as Keycloak
     B->>S: open a page
-    S-->>B: redirect to /auth/start
-    B->>S: /auth/start
+    S-->>B: redirect to /login
+    B->>S: follow the Log in link to /auth/start
     S-->>B: redirect to Keycloak with a pending-login cookie
     B->>K: sign in
     K-->>B: redirect to /auth/callback with a code

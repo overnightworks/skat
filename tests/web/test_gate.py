@@ -2,7 +2,7 @@ import json
 from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import pytest
 import structlog.testing
@@ -130,15 +130,15 @@ def application(sign_in_settings: Callable[..., SignInSettings]) -> Application:
 
 
 class TestSignedOut:
-    def test_a_navigation_to_the_home_page_is_sent_through_the_sign_in(self, application):
+    def test_a_navigation_to_the_home_page_is_sent_to_the_sign_in_page(self, application):
         response = application.get("/", **BROWSER_ACCEPT)
         assert response.status_code == 302
-        assert response.headers["location"] == "/auth/start?next=%2F"
+        assert urlsplit(response.headers["location"]).path == LOGIN_PATH
 
-    def test_a_navigation_to_the_account_console_is_sent_through_the_sign_in(self, application):
+    def test_a_navigation_to_the_account_console_is_sent_to_the_sign_in_page(self, application):
         response = application.get(ACCOUNT_CONSOLE_PATH, **BROWSER_ACCEPT)
         assert response.status_code == 302
-        assert response.headers["location"] == "/auth/start?next=%2Faccount"
+        assert urlsplit(response.headers["location"]).path == LOGIN_PATH
 
     @pytest.mark.parametrize(
         ("path", "headers"),
@@ -310,11 +310,11 @@ class TestLogout:
         assert response.status_code == 405
         assert application.stores.sessions.load(member.session.id) is not None
 
-    def test_a_get_signed_out_is_sent_through_the_sign_in(self, application):
+    def test_a_get_signed_out_is_sent_to_the_sign_in_page(self, application):
         response = application.get(LOGOUT_PATH, **BROWSER_ACCEPT)
 
         assert response.status_code == 302
-        assert response.headers["location"] == "/auth/start?next=%2Flogout"
+        assert urlsplit(response.headers["location"]).path == LOGIN_PATH
 
 
 class TestBackchannelLogout:
@@ -360,7 +360,7 @@ class TestBackchannelLogout:
         if status == 401:
             assert "location" not in response.headers
         else:
-            assert response.headers["location"].startswith(AUTH_START_PATH)
+            assert urlsplit(response.headers["location"]).path == LOGIN_PATH
 
     def test_a_form_of_32_kib_is_accepted_and_one_byte_over_is_refused(self, application):
         padded = b"logout_token=" + b"a" * (32 * 1024 - len(b"logout_token="))

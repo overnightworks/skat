@@ -17,6 +17,8 @@ AUTH_CALLBACK_PATH = "/auth/callback"
 LOGIN_PATH = "/login"
 NO_ACCESS_PATH = "/no-access"
 LOGOUT_PATH = "/logout"
+# The sign-in page ignores it; the gate's redirect type requires a name for the address the visitor asked for.
+RETURN_PATH_QUERY_NAME = "next"
 BACKCHANNEL_LOGOUT_PATH = "/auth/backchannel-logout"
 SIGN_IN_PATHS = SignInPaths(
     start=AUTH_START_PATH, callback=AUTH_CALLBACK_PATH, logout=LOGOUT_PATH, backchannel_logout=BACKCHANNEL_LOGOUT_PATH

@@ -6,7 +6,7 @@ Skat is the classic German three-player card game for the overnightworks fleet: 
 
 Today a signed-in member reaches Skat's start page: the wordmark, the account menu, the legal links and the line „Tische kommen als Nächstes.“. There are no tables yet.
 
-- A visitor without a session is sent to the sign-in at the issuer.
+- A visitor without a session sees Skat's sign-in page, whose link leads to the issuer.
 - A member of the Keycloak group `/apps/skat` sees the start page.
 - Anyone else who signs in sees a refusal and no app content.
 - Signing out ends the session and returns to the sign-in page.
