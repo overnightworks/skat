@@ -22,7 +22,11 @@ async function ask(path: string, init?: RequestInit): Promise<Outcome> {
     }
     if (answer.status === NOT_FOUND_STATUS) return { kind: "missing" };
     if (!answer.ok) return { kind: "failed" };
-    return { kind: "table", table: (await answer.json()) as Table };
+    try {
+        return { kind: "table", table: (await answer.json()) as Table };
+    } catch {
+        return { kind: "failed" };
+    }
 }
 
 // The command id is the retry key: asking again with the same one returns the table the first ask opened.

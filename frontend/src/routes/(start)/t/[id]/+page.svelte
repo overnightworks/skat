@@ -1,18 +1,19 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
-    import { onMount } from "svelte";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import NewTableButton from "../../NewTableButton.svelte";
     import { copyTableLink, drawingOrder, readTable, type Outcome } from "../../tables.ts";
 
-    const id = page.params.id ?? "";
+    const id = $derived(page.params.id ?? "");
     let outcome: Outcome | null = $state(null);
     let copyNote = $state("");
 
-    onMount(async () => {
-        outcome = await readTable(id);
+    // SvelteKit keeps this component when the address changes from one table to another.
+    $effect(() => {
+        outcome = null;
+        void readTable(id).then((answer) => (outcome = answer));
     });
 
     async function copy(): Promise<void> {

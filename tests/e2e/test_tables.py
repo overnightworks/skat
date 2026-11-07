@@ -22,6 +22,7 @@ TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}[0-9a-f]{{32}}$")
 TABLES_ROUTE = f"**{TABLES_PATH}"
 UNKNOWN_ID = "0" * 32
 SERVER_ERROR = 500
+OK = 200
 UNAUTHORIZED = 401
 
 
@@ -35,11 +36,19 @@ def same_origin(server: RunningServer) -> dict[str, str]:
     return {"origin": server.base_url, "accept": "application/json"}
 
 
-def open_new_table(person: Page, server: RunningServer) -> str:
-    person.goto(f"{server.base_url}/")
+def click_new_table(person: Page) -> str:
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
     expect(person).to_have_url(TABLE_URL)
     return urlsplit(person.url).path
+
+
+def open_new_table(person: Page, server: RunningServer) -> str:
+    person.goto(f"{server.base_url}/")
+    return click_new_table(person)
+
+
+def table_id_of(path: str) -> str:
+    return path.removeprefix(TABLE_PAGE_PREFIX)
 
 
 def expect_a_table_seating(person: Page, opener: str, *, mine: bool) -> None:
@@ -100,7 +109,8 @@ def test_a_member_may_open_any_number_of_tables_each_under_a_link_of_its_own(
     before = table_count(e2e_server)
 
     first = open_new_table(person, e2e_server)
-    second = open_new_table(person, e2e_server)
+    person.get_by_role("link", name="Skat", exact=True).click()
+    second = click_new_table(person)
 
     assert first != second
     assert table_count(e2e_server) == before + 2
@@ -117,8 +127,9 @@ def test_an_unknown_or_malformed_id_shows_not_found_and_offers_a_new_table(
 
     expect(person.get_by_role("heading", name="Tisch nicht gefunden")).to_be_visible()
     expect(person.get_by_text(re.compile("error|sql|postgres", re.IGNORECASE))).to_have_count(0)
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-    expect(person).to_have_url(TABLE_URL)
+    click_new_table(person)
+
+    expect_a_table_seating(person, "anna", mine=True)
 
 
 def test_the_link_control_copies_the_absolute_link_of_the_table(
@@ -150,15 +161,15 @@ def test_a_table_the_server_cannot_read_says_so(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
 ) -> None:
     person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
-    path = open_new_table(person, e2e_server)
+    open_new_table(person, e2e_server)
     person.route(f"**{TABLES_PATH}/*", lambda route: route.fulfill(status=SERVER_ERROR, body="{}"))
 
-    person.goto(f"{e2e_server.base_url}{path}")
+    person.reload()
 
     expect(person.get_by_role("alert")).to_contain_text("Der Tisch lässt sich gerade nicht laden")
 
 
-@pytest.mark.parametrize("failure", ["server error", "lost connection"])
+@pytest.mark.parametrize("failure", ["server error", "lost connection", "unreadable answer"])
 def test_a_table_that_could_not_be_opened_says_so_and_a_retry_opens_it(
     open_person: Callable[..., Page],
     expected_request_failures: list[str],
@@ -176,10 +187,14 @@ def test_a_table_that_could_not_be_opened_says_so_and_a_retry_opens_it(
             route.continue_()
         elif failure == "server error":
             route.fulfill(status=SERVER_ERROR, body="{}")
-        else:
+        elif failure == "lost connection":
             # The server opens the table; only its answer is lost.
             route.fetch()
             route.abort()
+        else:
+            # The server opens the table; its answer arrives with a body that cannot be read.
+            route.fetch()
+            route.fulfill(status=OK, body="{")
 
     person.route(TABLES_ROUTE, fail_the_first_attempt)
     before = table_count(e2e_server)
@@ -245,6 +260,7 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
     outsider.goto(f"{e2e_server.base_url}{path}")
 
     expect(outsider.get_by_text("Warte auf Mitspieler")).to_have_count(0)
+    assert outsider.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}").status == UNAUTHORIZED
     answer = outsider.request.post(
         f"{e2e_server.base_url}{TABLES_PATH}", data={"command_id": "command-0001"}, headers=same_origin(e2e_server)
     )
