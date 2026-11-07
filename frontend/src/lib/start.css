@@ -185,6 +185,10 @@ body {
     transform: translate(-50%, -50%);
 }
 
+.room .reconnect[hidden] {
+    display: none;
+}
+
 .room .spin {
     width: 20px;
     height: 20px;

@@ -114,9 +114,7 @@
             </section>
         {/if}
     </main>
-    {#if !connected}
-        <div class="reconnect" role="status"><span class="spin"></span>verbinde neu</div>
-    {/if}
+    <div class="reconnect" role="status" hidden={connected}><span class="spin"></span>verbinde neu</div>
     <footer class="legal">
         <LegalLinks links={LEGAL_LINKS} />
     </footer>

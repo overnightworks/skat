@@ -151,7 +151,7 @@ def test_a_stream_the_network_refuses_dims_the_view_with_verbinde_neu_and_the_cu
     watch(other, e2e_server, path)
     opener.unroute(events)
 
-    expect(opener.get_by_text(RECONNECTING)).to_have_count(0, timeout=RECONNECT_TIMEOUT_MILLISECONDS)
+    expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_TIMEOUT_MILLISECONDS)
     expect(opener.locator(".stale")).to_have_count(0)
     expect(watchers_of(opener)).to_have_text("1")
 
@@ -190,7 +190,7 @@ def test_a_stream_that_drops_after_its_view_dims_the_last_view_and_recovers_with
     watch(other, e2e_server, path)
     opener.unroute(events)
 
-    expect(opener.get_by_text(RECONNECTING)).to_have_count(0, timeout=RECONNECT_TIMEOUT_MILLISECONDS)
+    expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_TIMEOUT_MILLISECONDS)
     expect(opener.locator(".stale")).to_have_count(0)
     expect(watchers_of(opener)).to_have_text("1")
     assert opener.evaluate("window.sameDocument === true")
