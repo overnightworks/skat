@@ -2,11 +2,9 @@ import http.client
 import json
 import ssl
 import threading
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from babel.messages.pofile import read_po
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
@@ -18,22 +16,16 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.server import LOOPBACK_HOST, loopback_sign_in, running_skat
 from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.words import catalog_text
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
-
-CATALOG = Path(__file__).resolve().parents[2] / "frontend/src/lib/catalogs/de.po"
-
-
-def catalog_text(key: str) -> str:
-    """The German catalog's text for `key`, as the page shows it."""
-    with CATALOG.open("rb") as catalog:
-        return str(read_po(catalog, locale="de")[key].string)
 
 
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}

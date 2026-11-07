@@ -1,9 +1,7 @@
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from babel.messages.pofile import read_po
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
@@ -12,6 +10,7 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
 from tests.e2e.support.tables import TABLE_URL, click_new_table, open_new_table, table_id_of
+from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,14 +18,6 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
-
-CATALOG = Path(__file__).resolve().parents[2] / "frontend/src/lib/catalogs/de.po"
-
-
-def catalog_text(key: str) -> str:
-    """The German catalog's text for `key`, as the page shows it."""
-    with CATALOG.open("rb") as catalog:
-        return str(read_po(catalog, locale="de")[key].string)
 
 
 TABLES_ROUTE = f"**{TABLES_PATH}"

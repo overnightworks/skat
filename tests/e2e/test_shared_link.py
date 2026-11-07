@@ -1,16 +1,15 @@
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import pytest
-from babel.messages.pofile import read_po
 from playwright.sync_api import Page, expect
 
 from skat.web.constants import LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -18,14 +17,6 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
-
-CATALOG = Path(__file__).resolve().parents[2] / "frontend/src/lib/catalogs/de.po"
-
-
-def catalog_text(key: str) -> str:
-    """The German catalog's text for `key`, as the page shows it."""
-    with CATALOG.open("rb") as catalog:
-        return str(read_po(catalog, locale="de")[key].string)
 
 
 NEVER_OPENED_ID = "f" * 32
