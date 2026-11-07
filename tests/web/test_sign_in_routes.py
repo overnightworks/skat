@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import secrets
@@ -30,6 +31,8 @@ from skat.web.constants import (
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
 )
+from skat.web.page_build import BuiltPage
+from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import (
     LOGOUT_LABEL,
     IssuerTransports,
@@ -302,6 +305,38 @@ class TestMemberSignIn:
         response = harness.sign_in_through(browser, next_path=requested)
         assert (response.status_code, response.headers["location"]) == (303, landing)
         assert harness.who(browser)["user"] == {"id": SUBJECT, "username": USERNAME}
+
+    def test_the_signed_out_page_is_served_unchanged_without_a_return_path(self, harness):
+        response = harness.browser().get(LOGIN_PATH)
+        assert response.content == (FIXTURE_DIRECTORY / "login.html").read_bytes()
+
+    @pytest.mark.parametrize(
+        ("requested", "encoded"),
+        [
+            ("/t/abc", "%2Ft%2Fabc"),
+            ('/x"><script>', "%2Fx%22%3E%3Cscript%3E"),
+            ("/a&b=c d", "%2Fa%26b%3Dc%20d"),
+            ("", ""),
+        ],
+    )
+    def test_the_signed_out_page_carries_the_raw_return_path_encoded_onto_its_sign_in_address(
+        self, harness, requested, encoded
+    ):
+        response = harness.browser().get(LOGIN_PATH, params={"next": requested})
+        original = (FIXTURE_DIRECTORY / "login.html").read_bytes()
+        expected = original.replace(b'href="/auth/start"', f'href="/auth/start?next={encoded}"'.encode())
+        assert response.content == expected
+        assert response.headers["etag"] != f'"{hashlib.sha256(original).hexdigest()}"'
+        assert response.headers["etag"] == f'"{hashlib.sha256(expected).hexdigest()}"'
+
+    def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness, monkeypatch):
+        page_build = fixture_page_build()
+        monkeypatch.setattr(
+            "tests.web.test_sign_in_routes.fixture_page_build",
+            lambda: replace(page_build, signed_out=BuiltPage.of(b"<html></html>")),
+        )
+        with pytest.raises(StartRefusedError, match="signed-out page"):
+            make_harness()
 
     def test_two_subjects_with_one_username_both_get_a_session(self, harness):
         first, second = harness.browser(), harness.browser()
