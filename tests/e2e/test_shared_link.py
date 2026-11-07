@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 import pytest
 from playwright.sync_api import Page, expect
 
-from skat.web.constants import LOGIN_PATH
+from skat.web.constants import LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
@@ -28,7 +28,7 @@ def table_opened_by(opener: Page, server: RunningServer) -> str:
             const response = await fetch(path, {
                 method: "POST",
                 headers: {"content-type": "application/json"},
-                body: JSON.stringify({command_id: "shared-link-0001"}),
+                body: JSON.stringify({command_id: crypto.randomUUID()}),
             });
             return (await response.json()).id;
         }""",
@@ -83,6 +83,6 @@ def test_a_signed_out_person_the_group_does_not_admit_reaches_the_no_access_page
     follow_a_shared_link_and_sign_in(outsider, e2e_server, path, username="carl", groups=["/apps/other"])
 
     expect(outsider.get_by_role("button", name="Log out")).to_be_visible()
-    assert urlsplit(outsider.url).path != path
+    assert urlsplit(outsider.url).path == NO_ACCESS_PATH
     expect(outsider.get_by_text("Warte auf Mitspieler")).to_have_count(0)
     expect(outsider.locator(".chair")).to_have_count(0)
