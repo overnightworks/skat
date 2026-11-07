@@ -16,7 +16,7 @@ UNKNOWN_ID = "0" * 32
 
 
 class Skat:
-    def __init__(self, sign_in_settings):
+    def __init__(self, sign_in_settings, **app_options):
         self.stores = SignInStores.in_memory()
         self.store = FakeTableStore()
         self.app = create_app(
@@ -24,6 +24,7 @@ class Skat:
             page_build=fixture_page_build(),
             tables=TableService(self.store),
             stores=self.stores,
+            **app_options,
         )
         self.config = installed_web_auth_config(self.app)
         self.client = TestClient(self.app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
