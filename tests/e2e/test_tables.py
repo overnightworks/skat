@@ -6,7 +6,7 @@ import pytest
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
-from skat.web.constants import LOGIN_PATH
+from skat.web.constants import ACCOUNT_PATH, LOGIN_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
@@ -248,7 +248,9 @@ def test_a_session_that_ended_sends_the_start_page_to_the_sign_in_page_when_a_ta
     page_errors: list[str],
 ) -> None:
     person = record_page_errors(open_person(**DESKTOP), page_errors, console=False)
-    person.goto(f"{e2e_server.base_url}/")
+    # The page asks for the account when it opens; a session that ends before that answer reloads the page by itself.
+    with person.expect_response(f"**{ACCOUNT_PATH}"):
+        person.goto(f"{e2e_server.base_url}/")
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     e2e_server.stores.sessions.delete(member_of(person).session.id)
     before = table_count(e2e_server)
