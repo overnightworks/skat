@@ -30,6 +30,8 @@ from skat.web.constants import (
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
 )
+from skat.web.page_build import BuiltPage, PageBuild
+from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import (
     LOGOUT_LABEL,
     IssuerTransports,
@@ -123,6 +125,7 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
         windows_line_ending: bool = False,
         client_secret: str | None = None,
         audit: LoggingAuditSink | None = None,
+        page_build: PageBuild | None = None,
     ) -> SignInHarness:
         sign_in = sign_in_settings()
         if client_secret is not None:
@@ -142,7 +145,12 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
         transaction = InMemorySignInTransaction(
             sessions, LoggingAuditSink() if audit is None else audit, ProcessWriteLock()
         )
-        install_sign_in(app, build_relying_party(configs, transports), transaction, fixture_page_build())
+        install_sign_in(
+            app,
+            build_relying_party(configs, transports),
+            transaction,
+            fixture_page_build() if page_build is None else page_build,
+        )
 
         @app.get(WHO_AM_I_PATH)
         def who_am_i(request: Request) -> dict[str, object]:
@@ -302,6 +310,33 @@ class TestMemberSignIn:
         response = harness.sign_in_through(browser, next_path=requested)
         assert (response.status_code, response.headers["location"]) == (303, landing)
         assert harness.who(browser)["user"] == {"id": SUBJECT, "username": USERNAME}
+
+    def test_the_signed_out_page_is_served_unchanged_without_a_return_path(self, harness):
+        response = harness.browser().get(LOGIN_PATH)
+        assert response.content == (FIXTURE_DIRECTORY / "login.html").read_bytes()
+
+    @pytest.mark.parametrize(
+        ("requested", "encoded"),
+        [
+            ("/t/abc", "%2Ft%2Fabc"),
+            ('/x"><script>', "%2Fx%22%3E%3Cscript%3E"),
+            ("/a&b=c d", "%2Fa%26b%3Dc%20d"),
+            ("", ""),
+        ],
+    )
+    def test_the_signed_out_page_carries_the_raw_return_path_encoded_onto_its_sign_in_address(
+        self, harness, requested, encoded
+    ):
+        response = harness.browser().get(LOGIN_PATH, params={"next": requested})
+        original = (FIXTURE_DIRECTORY / "login.html").read_bytes()
+        expected = original.replace(b'href="/auth/start"', f'href="/auth/start?next={encoded}"'.encode())
+        assert response.content == expected
+        assert response.headers["etag"] == BuiltPage.of(expected).etag
+
+    def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness):
+        page_build = replace(fixture_page_build(), signed_out=BuiltPage.of(b"<html></html>"))
+        with pytest.raises(StartRefusedError, match="signed-out page"):
+            make_harness(page_build=page_build)
 
     def test_two_subjects_with_one_username_both_get_a_session(self, harness):
         first, second = harness.browser(), harness.browser()
