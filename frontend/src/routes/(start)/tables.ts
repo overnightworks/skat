@@ -1,4 +1,10 @@
-import { AUTH_START_PATH, TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH } from "#lib/wire.ts";
+import {
+    AUTH_START_PATH,
+    RETURN_PATH_QUERY_NAME,
+    TABLE_EVENTS_SUFFIX,
+    TABLE_PAGE_PREFIX,
+    TABLES_PATH,
+} from "#lib/wire.ts";
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
@@ -6,7 +12,6 @@ const NOT_FOUND_STATUS = 404;
 // a session the sign-in just made and the server refuses at once would otherwise loop forever.
 const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
 const RESIGN_IN_STORAGE_KEY = "skat.resignInAt";
-const RETURN_QUERY_NAME = "next";
 
 export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean };
 export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
@@ -55,7 +60,7 @@ function signInAgain(id: string): void {
         return;
     }
     sessionStorage.setItem(RESIGN_IN_STORAGE_KEY, String(Date.now()));
-    location.assign(`${AUTH_START_PATH}?${RETURN_QUERY_NAME}=${encodeURIComponent(tablePath(id))}`);
+    location.assign(`${AUTH_START_PATH}?${RETURN_PATH_QUERY_NAME}=${encodeURIComponent(tablePath(id))}`);
 }
 
 // A stream that ends is a refused session or a dropped connection; the table's own session check tells
