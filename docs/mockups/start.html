@@ -19,8 +19,6 @@
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--font-body);background:#08090b;color:var(--on-stage);padding:28px}
-.page-head h1{font-size:24px;font-weight:600;margin-bottom:6px}
-.page-head p{font-size:14px;color:var(--on-stage-soft);max-width:780px;line-height:1.5}
 section.shot{margin-top:40px}
 section.shot h2{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:600;color:var(--accent-stage);margin-bottom:12px}
 section.shot h2 small{color:var(--on-stage-soft);font-weight:400}
@@ -29,7 +27,7 @@ section.shot h2 small{color:var(--on-stage-soft);font-weight:400}
 .pair{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
 /* single-frame mode for screenshots: ?f=<frame id> */
 body.solo{padding:0;background:#000}
-body.solo .page-head, body.solo section.shot:not(.on){display:none}
+body.solo section.shot:not(.on){display:none}
 body.solo section.shot{margin:0}
 body.solo section.shot h2{display:none}
 body.solo .frame{border-radius:0;border:0}
@@ -201,10 +199,6 @@ body.key .frame *:not(.mo){animation:none!important}
 </style>
 </head>
 <body>
-<header class="page-head">
-  <h1>Skat am Stammtisch &middot; Bild 3</h1>
-  <p>Bild zum Ansehen, kein Produktcode. Basis ist Variante B aus Bild 2: jedes Video sitzt an seinem Stuhl, Zuschauer oben in der Leiste. Du bist Felix und spielst mit Anna und Nova, deinem Agenten; Ben schaut im Anruf zu. Jeder Moment auf dem Handy (390 px) und am Desktop (1280 px). &bdquo;Nochmal&ldquo; spielt die Bewegung erneut; <code>?f=&lt;bild&gt;</code> zeigt ein Bild allein, <code>&amp;key</code> h&auml;lt den Schl&uuml;sselmoment an. Was neu ist, je eine Zeile:</p>
-</header>
 <!-- sprite: kept out of layout with zero size; display:none would break gradient and pattern references in Chrome -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
