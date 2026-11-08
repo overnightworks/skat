@@ -200,17 +200,29 @@ class TestSitDown:
             (None, False),
         ]
 
-    @pytest.mark.parametrize("action", ["sit", "stand"])
-    def test_answers_an_occupant_with_a_connected_stream_as_present(self, skat, table, action):
+    @pytest.mark.parametrize(
+        "act",
+        [
+            pytest.param(
+                lambda skat, headers, table_id: skat.sit(headers, table_id, 2, command_id="command-act"), id="sit"
+            ),
+            pytest.param(
+                lambda skat, headers, table_id: (
+                    skat.sit(headers, table_id, 2),
+                    skat.stand(headers, table_id, command_id="command-act"),
+                )[1],
+                id="stand",
+            ),
+        ],
+    )
+    def test_answers_an_occupant_with_a_connected_stream_as_present(self, skat, table, act):
         table_id, owner = table
         headers, _ = skat.member()
         presence = Presence()
         answering_first(skat, TableService(skat.store), presence)
         presence.subscribe(table_id, owner.id, lambda: None)
-        if action == "stand":
-            skat.sit(headers, table_id, 2)
 
-        answer = getattr(skat, action)(headers, table_id, *([2] if action == "sit" else []), command_id="command-act")
+        answer = act(skat, headers, table_id)
 
         assert answer.json()["chairs"][0]["is_away"] is False
 
