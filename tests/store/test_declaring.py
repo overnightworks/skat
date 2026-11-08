@@ -234,9 +234,10 @@ def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transac
     hand.send(TakeSkat(), command_id=step_id(1))
     before = stored(transactions, hand.table_id)
     rewritten_steps = (herz_declaration(hand=True),)
+    table_id = hand.table_id
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(transactions, hand.table_id, rewritten_steps)
+        _rewrite(transactions, table_id, rewritten_steps)
 
     assert stored(transactions, hand.table_id) == before
 
@@ -245,9 +246,10 @@ def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, trans
     hand.send(TakeSkat(), command_id=step_id(1))
     before = stored(transactions, hand.table_id)
     no_steps: tuple[Declare, ...] = ()
+    table_id = hand.table_id
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(transactions, hand.table_id, no_steps)
+        _rewrite(transactions, table_id, no_steps)
 
     assert stored(transactions, hand.table_id) == before
 

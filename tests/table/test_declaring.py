@@ -108,10 +108,9 @@ class TestDeclaringPayload:
         assert declaring_payload(command_with(other)) != declaring_payload(command_with(herz_declaration()))
 
     def test_a_repeated_request_has_the_same_payload(self):
-        first = declaring_payload(command_with(herz_declaration()))
-        second = declaring_payload(command_with(herz_declaration()))
+        request = command_with(herz_declaration())
 
-        assert first == second
+        assert declaring_payload(request) == declaring_payload(replace(request))
 
 
 class TestDecide:
