@@ -1,11 +1,20 @@
 import asyncio
+import json
 import threading
+from contextlib import contextmanager
+from functools import partial
 
 import pytest
 from structlog.testing import capture_logs
 
+from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, ChairHold, LoopScheduler, Presence
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import idle_presence
+from tests.support.payload_cards import seated_three
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.skat import Skat
 
 TABLE = "t" * 32
 OTHER_TABLE = "o" * 32
@@ -456,6 +465,200 @@ class TestChairHold:
         run(time.advance(HOLD_SECONDS * 2))
 
         assert (time.pending, releases.calls) == (0, [])
+
+
+@pytest.fixture
+def hold(sign_in_settings):
+    return sign_in_settings()
+
+
+@pytest.fixture
+def server(hold, time):
+    """`create_app`'s own wiring and its own routes; only the clock and the timers run on the test's time."""
+    skat = Skat(lambda: hold, chair_clock=time.clock, chair_scheduler=time)
+    with skat.client:
+        yield skat
+
+
+def post_pass(skat, table_id, headers, *, command_id, version):
+    return skat.client.post(
+        f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+        json={"command_id": command_id, "version": version, "action": "pass"},
+        headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+    )
+
+
+def pass_hand_in(skat, table_id, people):
+    """`seated_three` dealt seat 1 the middlehand, seat 2 the rearhand and seat 3 the forehand."""
+    for seat in (1, 2, 3):
+        version = skat.store.tables[table_id].version
+        answer = post_pass(skat, table_id, people[seat - 1][0], command_id=f"pass-seat-{seat}", version=version)
+        assert answer.status_code == 200, answer.text
+
+
+def occupied_seats(skat, table_id):
+    return {chair.seat for chair in skat.store.tables[table_id].chairs if chair.occupant is not None}
+
+
+class OvertakenStore(FakeTableStore):
+    """A store another caller overtakes: `meanwhile` runs once when the next row lock is asked, `after_commit` once
+    when the next transaction has committed."""
+
+    def __init__(self):
+        super().__init__()
+        self.meanwhile = None
+        self.after_commit = None
+
+    @contextmanager
+    def begin(self):
+        with super().begin() as transaction:
+            yield transaction
+        if self.after_commit is not None:
+            action, self.after_commit = self.after_commit, None
+            action()
+
+    def locked_table(self, table_id):
+        if self.meanwhile is not None:
+            action, self.meanwhile = self.meanwhile, None
+            action()
+        return super().locked_table(table_id)
+
+
+@contextmanager
+def one_second_before_the_hold_ends_after_two_passes(hold, time):
+    """A server with three seated, away members and two passes made, one second before the hold would end."""
+    store = OvertakenStore()
+    server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
+    with server.client:
+        table_id, people = seated_three(server)
+        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[0][0]) as s:
+            next(s.iter_lines())
+            s.close()
+        server.client.cookies.clear()
+        for seat in (1, 2):
+            version = store.tables[table_id].version
+            post_pass(server, table_id, people[seat - 1][0], command_id=f"pass-seat-{seat}", version=version)
+        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+        yield server, store, table_id, people
+
+
+def assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time):
+    assert occupied_seats(server, table_id) == {1, 2, 3}
+    server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+    assert occupied_seats(server, table_id) == {1, 2, 3}
+    server.client.portal.call(time.advance, 2)
+    assert occupied_seats(server, table_id) == set()
+
+
+class TestHoldWhenTheHandEnds:
+    def test_a_freeing_waiting_for_the_table_while_the_third_pass_ends_the_hand_leaves_the_fresh_hold_alone(
+        self, hold, time
+    ):
+        with one_second_before_the_hold_ends_after_two_passes(hold, time) as (server, store, table_id, people):
+            store.meanwhile = partial(
+                post_pass,
+                server,
+                table_id,
+                people[2][0],
+                command_id="pass-seat-3",
+                version=store.tables[table_id].version,
+            )
+
+            server.client.portal.call(time.advance, 1)
+
+            assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time)
+
+    def test_an_old_expiry_reaching_the_table_right_after_the_third_pass_committed_leaves_the_fresh_hold_alone(
+        self, hold, time
+    ):
+        with one_second_before_the_hold_ends_after_two_passes(hold, time) as (server, store, table_id, people):
+            store.after_commit = partial(server.client.portal.call, time.advance, 1)
+
+            post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=store.tables[table_id].version)
+
+            assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time)
+
+    def test_a_member_away_when_the_hand_ends_keeps_the_chair_until_a_fresh_hold_has_passed(self, server, hold, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+
+        pass_hand_in(server, table_id, people)
+        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+
+        assert occupied_seats(server, table_id) == {1, 2, 3}
+        server.client.portal.call(time.advance, 2)
+        assert occupied_seats(server, table_id) == set()
+
+    def test_a_member_who_left_during_the_hand_keeps_the_chair_a_full_hold_after_it_ended(self, server, hold, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[0][0]) as s:
+            next(s.iter_lines())
+            s.close()
+        server.client.cookies.clear()
+        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds / 2)
+
+        pass_hand_in(server, table_id, people)
+        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+
+        assert occupied_seats(server, table_id) == {1, 2, 3}
+
+    def test_a_stream_wakes_when_the_hold_after_the_hand_frees_a_chair(self, server, hold, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+
+        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[3][0]) as s:
+            messages = (line for line in s.iter_lines() if line.startswith("data: "))
+            opened = json.loads(next(messages).removeprefix("data: "))
+            server.client.cookies.clear()
+            pass_hand_in(server, table_id, people)
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds + 1)
+            freed = next(
+                line
+                for line in messages
+                if all(chair["occupant_name"] is None for chair in json.loads(line.removeprefix("data: "))["chairs"])
+            )
+
+        assert json.loads(freed.removeprefix("data: "))["version"] > opened["version"]
+
+    def test_a_member_connected_at_the_end_keeps_the_chair_and_starts_no_timer(self, server, hold, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+
+        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[2][0]) as s:
+            lines = s.iter_lines()
+            next(lines)
+            server.client.cookies.clear()
+            pass_hand_in(server, table_id, people)
+            assert time.pending == 2
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds + 1)
+            assert occupied_seats(server, table_id) == {3}
+
+    def test_a_member_back_before_the_hold_ends_keeps_the_chair(self, server, hold, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        pass_hand_in(server, table_id, people)
+        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds * 3 / 5)
+
+        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[1][0]) as s:
+            lines = s.iter_lines()
+            next(lines)
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds)
+            assert occupied_seats(server, table_id) == {2}
+
+    def test_the_same_third_pass_again_starts_no_timer(self, server, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        version = server.store.tables[table_id].version
+        post_pass(server, table_id, people[0][0], command_id="pass-seat-1", version=version)
+        post_pass(server, table_id, people[1][0], command_id="pass-seat-2", version=version + 1)
+        first = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+        pending = time.pending
+
+        again = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+
+        assert (first.status_code, again.status_code) == (200, 200)
+        assert time.pending == pending
 
 
 class TestLoopScheduler:

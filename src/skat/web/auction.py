@@ -61,7 +61,15 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
             value=body.value if isinstance(body, BidRequest) else None,
         )
         return await command_answer(
-            partial(tables.take_auction_step, actor_of(request), command), presence, table_id, response
+            partial(
+                tables.take_auction_step,
+                actor_of(request),
+                command,
+                on_hand_ended=partial(presence.restart_leaves, table_id),
+            ),
+            presence,
+            table_id,
+            response,
         )
 
     return router

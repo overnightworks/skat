@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import Final
 
 from skat.table.records import (
@@ -6,7 +5,8 @@ from skat.table.records import (
     Chair,
     CreateTable,
     Decision,
-    FirstDeal,
+    HandProgress,
+    NewHand,
     Occupant,
     Receipt,
     Refusal,
@@ -80,10 +80,29 @@ def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
 
 
-def decide_sit(table: TableRecord, actor: Actor, seat: int, first_deal: FirstDeal | None) -> Decision:
+def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
+    """Who sat at the table when this change ended its hand; nobody when it ended none."""
+    if not hand_runs(before) or hand_runs(after):
+        return frozenset()
+    return frozenset(chair.occupant.account_id for chair in after.chairs if chair.occupant is not None)
+
+
+def dealt(table: TableRecord, new_hand: NewHand) -> TableRecord:
+    """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
+    return TableRecord(
+        id=table.id,
+        version=table.version,
+        chairs=table.chairs,
+        dealer=new_hand.dealer,
+        hand=new_hand.hand,
+        progress=HandProgress(),
+    )
+
+
+def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:
     """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
 
-    The sit that fills the last chair stores the drawn `first_deal` in the same version bump.
+    The sit that fills the last chair deals `new_hand` in the same version bump.
     """
     if seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)
@@ -91,8 +110,8 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, first_deal: FirstDea
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
     seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name))
-    if first_deal is not None and sit_deals(table):
-        seated = replace(seated, dealer=first_deal.dealer, hand=first_deal.hand)
+    if new_hand is not None and sit_deals(table):
+        seated = dealt(seated, new_hand)
     return Decision(seated)
 
 

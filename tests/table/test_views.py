@@ -19,10 +19,15 @@ REARHAND_CARDS = DECK[20:30]
 KNOWN_DEAL = Deal(forehand=FOREHAND_CARDS, middlehand=MIDDLEHAND_CARDS, rearhand=REARHAND_CARDS, skat=DECK[30:32])
 
 
-def seated_table(dealer: int | None = None, hand: Deal | None = None) -> TableRecord:
+THREE_PASSES = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
+
+
+def seated_table(
+    dealer: int | None = None, hand: Deal | None = None, steps: tuple[Pass | Bid, ...] = ()
+) -> TableRecord:
     people = ((1, ANNA, "Anna"), (2, BEN, "Ben"), (3, CLEO, "Cleo"))
     chairs = tuple(Chair(seat, Occupant(account_id, name)) for seat, account_id, name in people)
-    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand)
+    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps))
 
 
 class TestChairPositions:
@@ -103,6 +108,38 @@ class TestNoHand:
 
         assert view.hand is None
         assert [chair.hand for chair in view.chairs] == [None, None, None]
+
+
+class TestPassedIn:
+    @pytest.mark.parametrize(("dealer", "next_seat"), [(1, 2), (2, 3), (3, 1)])
+    def test_after_three_passes_says_passed_in_and_names_the_next_dealer(self, dealer, next_seat):
+        view = view_of(seated_table(dealer, steps=THREE_PASSES), ANNA, NOBODY_CONNECTED)
+
+        assert view.passed_in is not None
+        assert view.passed_in.next_dealer_seat == next_seat
+
+    def test_names_no_next_dealer_while_a_chair_is_free(self):
+        table = seated_table(1, steps=THREE_PASSES)
+        table = replace(table, chairs=(table.chairs[0], Chair(2, None), table.chairs[2]))
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert view.passed_in is not None
+        assert view.passed_in.next_dealer_seat is None
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(seated_table(), id="never-dealt"),
+            pytest.param(seated_table(1, KNOWN_DEAL), id="a-hand-runs"),
+            pytest.param(seated_table(1, KNOWN_DEAL, THREE_PASSES), id="the-hand-still-on-the-table"),
+            pytest.param(
+                seated_table(1, steps=(Bid(Position.MIDDLEHAND, 18),)), id="the-auction-did-not-end-in-passes"
+            ),
+        ],
+    )
+    def test_says_nothing_of_a_passed_in_hand_otherwise(self, table):
+        assert view_of(table, ANNA, NOBODY_CONNECTED).passed_in is None
 
 
 class TestAuctionInTheHand:

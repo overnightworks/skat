@@ -534,15 +534,20 @@ class TestDealtHandStays:
             middlehand=(hand.forehand[0], *hand.middlehand[1:]),
         )
 
+    @pytest.fixture(params=[False, True], ids=["another hand", "no hand"])
+    def differing_hand(self, request, dealt):
+        _, record = dealt
+        return None if request.param else self.other_hand(record)
+
     def read(self, transactions, record):
         with transactions.begin() as transaction:
             return transaction.table(record.id)
 
-    def test_a_differing_hand_raises_while_the_hand_has_progress(self, dealt):
+    def test_a_differing_hand_raises_while_the_hand_has_progress(self, dealt, differing_hand):
         transactions, record = dealt
         changed = replace(
             record,
-            hand=self.other_hand(record),
+            hand=differing_hand,
             version=record.version + 1,
             progress=HandProgress(auction=(Bid(Position.MIDDLEHAND, 18),)),
         )
@@ -556,9 +561,9 @@ class TestDealtHandStays:
 
         assert self.read(transactions, record) == record
 
-    def test_a_differing_hand_without_progress_leaves_the_stored_hand_alone(self, dealt):
+    def test_a_differing_hand_without_progress_leaves_the_stored_hand_alone(self, dealt, differing_hand):
         transactions, record = dealt
-        changed = replace(record, hand=self.other_hand(record), version=record.version + 1)
+        changed = replace(record, hand=differing_hand, version=record.version + 1)
 
         with transactions.begin() as transaction:
             transaction.save_table(changed)

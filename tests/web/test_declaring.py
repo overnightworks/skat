@@ -339,7 +339,7 @@ class TestRefusedByTheTable:
         table.auction_step(REARHAND, AuctionAction.PASS)
         table.auction_step(FOREHAND, AuctionAction.PASS)
 
-        table.refused(table.at[FOREHAND], DeclaringAction.TAKE, Refusal.WRONG_PHASE)
+        table.refused(table.at[FOREHAND], DeclaringAction.TAKE, Refusal.NO_HAND)
 
     def test_no_hand_is_named_before_not_seated_and_a_stale_version(self, skat):
         opener, _ = skat.member()
@@ -638,7 +638,6 @@ DECLARED = "declared"
 
 MOMENTS = {
     "auction-running": Moment(auction_running),
-    "passed-in": Moment(passed_in),
     "won-choosing": Moment(won_at_twenty, stage="choosing"),
     "after-the-take": Moment(taken, stage="discarding", declarer_cards=TWELVE, skat_count=0),
     "put-back-two-dealt": Moment(put_back_two_of_the_dealt, stage=PICKED, declarer_cards=KEPT_WITH_THE_SKAT),
@@ -755,6 +754,16 @@ class TestEveryViewersAnswer:
         )
 
         assert cards_in_text(answer.text) == set()
+
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    def test_a_passed_in_hand_is_null_on_the_read_and_the_stream_and_names_no_card(self, table, viewer):
+        passed_in(table)
+        headers = viewer.headers_at(table)
+
+        read, first = table.read(headers), table.first_stream_message(headers)
+
+        assert [message_body(read)["hand"], message_body(first)["hand"]] == [None, None]
+        assert [cards_in_text(read), cards_in_text(first)] == [set(), set()]
 
     def test_a_table_without_a_hand_has_no_hand_on_the_read_or_the_stream(self, skat):
         headers, _ = skat.member()
