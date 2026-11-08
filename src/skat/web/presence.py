@@ -123,12 +123,15 @@ class Presence:
         Waits for a freeing of this member's chair whose check already passed to commit first. The leave stays
         recorded while it waits, so a waiter that is cancelled leaves the freeing's retry intact.
         """
+        key = (table_id, account_id)
         with self._state:
-            committing = self._committing.get((table_id, account_id))
+            committing = self._committing.get(key)
+            if committing is None:
+                self._left_at.pop(key, None)
         if committing is not None:
             await committing.wait()
-        with self._state:
-            self._left_at.pop((table_id, account_id), None)
+            with self._state:
+                self._left_at.pop(key, None)
         subscription = Subscription(table_id, account_id, wake)
         already_connected = account_id in self.connected(table_id)
         others = list(self._subscriptions.get(table_id, ()))
@@ -193,9 +196,10 @@ class Presence:
         try:
             yield due
         finally:
-            with self._state:
-                self._committing.pop((table_id, account_id), None)
-            loop.call_soon_threadsafe(committing.set)
+            if due:
+                with self._state:
+                    self._committing.pop((table_id, account_id), None)
+                loop.call_soon_threadsafe(committing.set)
 
     async def finish_writes(self) -> None:
         """Wait until every freeing whose check passed has ended its transaction; call it after `stop`."""
