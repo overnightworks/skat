@@ -1,7 +1,0 @@
-claim_id = "950fdf93ba2d488b9319bdc9aa0a4ac6"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "1eeac5aaa9cfeaefc3ccbc46e3b53763c7a7c59a"
-branch = "claude/issue-50-engine-score"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/score.py", "tests/engine/test_score.py"]
-opened_commit = "56ba011429ce9c3840e93692fbd99d555e6ebb73"
