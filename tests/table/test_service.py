@@ -213,8 +213,10 @@ class TestSit:
     def test_refuses_a_command_id_reused_by_stand_up(self, service, table_id):
         sit(service, VISITOR, table_id, 2)
 
+        reuse = StandUp("command-sit", table_id)
+
         with pytest.raises(CommandIdReusedError):
-            service.stand(VISITOR, StandUp("command-sit", table_id))
+            service.stand(VISITOR, reuse)
 
     @pytest.mark.parametrize("unknown", ["0" * 32, "", "not-an-id"])
     def test_an_unknown_or_malformed_table_is_no_table_and_writes_nothing(self, service, store, unknown):

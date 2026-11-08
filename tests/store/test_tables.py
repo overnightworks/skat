@@ -186,8 +186,10 @@ class TestSeating:
     def test_a_command_id_reused_for_another_chair_is_refused(self, service, table_id):
         service.sit(VISITOR, SitDown("command-sit", table_id, 2))
 
+        reuse = SitDown("command-sit", table_id, 3)
+
         with pytest.raises(CommandIdReusedError):
-            service.sit(VISITOR, SitDown("command-sit", table_id, 3))
+            service.sit(VISITOR, reuse)
 
     def test_two_sits_at_once_on_the_last_chair_seat_exactly_one(self, service, engine, table_id):
         service.sit(VISITOR, SitDown("command-sit", table_id, 2))
@@ -217,8 +219,10 @@ class TestSeating:
             FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost"))
         )
 
+        sitting = SitDown("command-sit", table_id, 2)
+
         with pytest.raises(ConnectionError):
-            failing.sit(VISITOR, SitDown("command-sit", table_id, 2))
+            failing.sit(VISITOR, sitting)
 
         view = TableService(PostgresTableTransactions(engine)).view(OPENER, table_id, frozenset())
         assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)
@@ -238,8 +242,10 @@ class TestSeating:
         blind = TableService(FaultyTableTransactions(PostgresTableTransactions(engine), blind_first_replay=True))
         receipts_before = count(engine, "receipts")
 
+        reuse = SitDown("command-sit", other_id, 2)
+
         with pytest.raises(CommandIdReusedError):
-            blind.sit(VISITOR, SitDown("command-sit", other_id, 2))
+            blind.sit(VISITOR, reuse)
 
         view = service.view(OPENER, other_id, frozenset())
         assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)
