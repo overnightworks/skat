@@ -296,7 +296,7 @@ class TestRefusedByTheTable:
         table.auction_step(REARHAND, AuctionAction.PASS)
         table.auction_step(FOREHAND, AuctionAction.PASS)
 
-        table.refused(table.at[FOREHAND], DeclaringAction.TAKE, Refusal.WRONG_PHASE)
+        table.refused(table.at[FOREHAND], DeclaringAction.TAKE, Refusal.NO_HAND)
 
     def test_a_table_without_a_hand_has_none_to_declare(self, skat):
         headers, _ = skat.member()

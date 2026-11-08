@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import pytest
 
+from skat.engine.deal import next_dealer
 from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_SUFFIX
@@ -15,7 +16,7 @@ from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import idle_hold, idle_presence
-from tests.support.payload_cards import CARDS_BY_SEAT, cards_in_text, seated_three, wire_cards
+from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
@@ -661,7 +662,7 @@ class TestHandOnTheStream:
         assert answer.status_code == 200
         fresh = json.loads(first_fresh.removeprefix("data: "))
         assert fresh["version"] == opened["version"] + 1
-        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand"}
+        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand", "passed_in"}
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1
         assert cards_in_text(first_fresh) == wire_cards(CARDS_BY_SEAT[1])
         assert cards_in_text(second_fresh) == wire_cards(CARDS_BY_SEAT[2])
@@ -688,6 +689,49 @@ class TestHandOnTheStream:
 
         assert opened["hand"]["auction"]["standing"] == BID_VALUE
         assert [word["action"] for word in opened["hand"]["auction"]["words"]] == ["bid"]
+
+    def test_the_third_pass_sends_every_stream_a_fresh_snapshot_that_says_passed_in_and_names_no_card(self, skat):
+        table_id, people = seated_three(skat)
+        skat.client.cookies.clear()
+        middlehand, rearhand, forehand, watcher = (person[0] for person in people)
+
+        with skat.client.stream("GET", self.events(table_id), headers=watcher) as stream:
+            lines = stream.iter_lines()
+            messages = (line for line in lines if line.startswith("data: "))
+            opened = json.loads(next(messages).removeprefix("data: "))
+            skat.client.cookies.clear()
+            for offset, headers in enumerate((middlehand, rearhand, forehand)):
+                answer = skat.client.post(
+                    f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+                    json={"command_id": f"step-{offset:04d}", "version": opened["version"] + offset, "action": "pass"},
+                    headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+                )
+                assert answer.status_code == 200, answer.text
+            final = next(
+                line for line in messages if json.loads(line.removeprefix("data: "))["version"] == opened["version"] + 3
+            )
+
+        payload = json.loads(final.removeprefix("data: "))
+        assert payload["hand"] is None
+        assert payload["passed_in"] == {"next_dealer_seat": next_dealer(DEALER_SEAT)}
+        assert cards_in_text(final) == set()
+
+    def test_a_stream_opened_after_the_hand_ended_says_passed_in_and_names_no_card(self, skat):
+        table_id, people = seated_three(skat)
+        skat.client.cookies.clear()
+        for offset, (headers, _) in enumerate(people[:3]):
+            record = skat.store.tables[table_id]
+            skat.client.post(
+                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+                json={"command_id": f"step-{offset:04d}", "version": record.version, "action": "pass"},
+                headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+            )
+        skat.client.cookies.clear()
+
+        first = self.first_message(skat, people[0][0], table_id)
+
+        assert json.loads(first.removeprefix("data: "))["passed_in"] == {"next_dealer_seat": next_dealer(DEALER_SEAT)}
+        assert cards_in_text(first) == set()
 
     def test_an_accepted_declaring_step_sends_a_fresh_snapshot_with_no_new_field_and_no_skat_card(self, skat):
         table_id, people = seated_three(skat)
@@ -721,7 +765,7 @@ class TestHandOnTheStream:
         assert answer.status_code == 200
         fresh = json.loads(fresh_line.removeprefix("data: "))
         assert fresh["version"] == opened["version"] + 1
-        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand"}
+        assert set(fresh) == set(opened)
         assert cards_in_text(fresh_line) == wire_cards(CARDS_BY_SEAT[1])
         assert fresh["hand"]["skat_count"] == opened["hand"]["skat_count"]
 

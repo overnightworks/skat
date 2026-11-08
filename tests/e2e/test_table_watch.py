@@ -120,7 +120,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
     assert [chair["is_mine"] for chair in seen["opener"]["chairs"]] == [True, False, False]
     assert [chair["is_mine"] for chair in seen["watcher"]["chairs"]] == [False, False, False]
     for person, event in ((opener, seen["opener"]), (watcher, seen["watcher"])):
-        assert set(event) == {"id", "version", "chairs", "watchers", "hand"}
+        assert set(event) == {"id", "version", "chairs", "watchers", "hand", "passed_in"}
         assert {key for chair in event["chairs"] for key in chair} == {
             "seat",
             "occupant_name",

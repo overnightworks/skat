@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from skat.table.auction import AuctionView
     from skat.table.service import CommandResult, TableService
-    from skat.table.views import ChairHand, HandView, TableView
+    from skat.table.views import ChairHand, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -162,12 +162,17 @@ class ChairAnswer(BaseModel):
     hand: ChairHandAnswer | None
 
 
+class PassedInAnswer(BaseModel):
+    next_dealer_seat: int | None
+
+
 class TableAnswer(BaseModel):
     id: str
     version: int
     chairs: list[ChairAnswer]
     watchers: int
     hand: HandAnswer | None
+    passed_in: PassedInAnswer | None
 
 
 class CardChoice(CardAnswer):
@@ -217,6 +222,12 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
     )
 
 
+def passed_in_answer_of(passed_in: PassedInView | None) -> PassedInAnswer | None:
+    if passed_in is None:
+        return None
+    return PassedInAnswer(next_dealer_seat=passed_in.next_dealer_seat)
+
+
 def answer_of(view: TableView) -> TableAnswer:
     return TableAnswer(
         id=view.id,
@@ -233,6 +244,7 @@ def answer_of(view: TableView) -> TableAnswer:
         ],
         watchers=view.watchers,
         hand=hand_answer_of(view.hand),
+        passed_in=passed_in_answer_of(view.passed_in),
     )
 
 
@@ -261,7 +273,7 @@ COMMAND_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
 async def command_answer(
     command: Callable[[frozenset[str]], CommandResult | None], presence: Presence, table_id: str, response: Response
 ) -> Response | TableAnswer:
-    """Run a table command off the event loop; once it committed, wake the table's streams."""
+    """Run a table command off the event loop; once it committed, wake the table's streams and restart the holds."""
     response.headers["Cache-Control"] = "no-store"
     try:
         result = await run_in_threadpool(command, presence.connected(table_id))
@@ -273,6 +285,9 @@ async def command_answer(
         refusal = RefusalAnswer(reason=result.refusal, holder_name=result.holder)
         return JSONResponse(refusal.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
     presence.wake_table(table_id)
+    # A hold frees the chair when it expires, so a member with a connected stream gets none.
+    away = result.seated_when_hand_ended - presence.connected(table_id)
+    presence.hold_chairs((table_id, account_id) for account_id in away)
     return answer_of(result.view)
 
 
