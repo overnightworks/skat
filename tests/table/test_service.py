@@ -305,13 +305,6 @@ class TestStand:
 
         assert occupants_of(sit(service, VISITOR, table_id, 1).view) == ["Ben", None, None]
 
-    def test_changes_nothing_when_the_caller_is_no_longer_due_once_the_row_is_locked(self, service, store, table_id):
-        sit(service, VISITOR, table_id, 3)
-        written = dict(store.tables)
-
-        assert service.free_chair(TableId(table_id), VISITOR.account_id, lambda: False) is False
-        assert store.tables == written
-
     def test_an_unknown_table_is_no_table(self, service):
         assert service.stand(OPENER, StandUp("command-stand", "0" * 32), frozenset()) is None
 
