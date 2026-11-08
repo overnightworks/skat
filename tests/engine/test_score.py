@@ -1,35 +1,61 @@
+from itertools import combinations_with_replacement
+
 import pytest
 
 from skat.engine.bidding import Declared
 from skat.engine.cards import DECK, Card, Rank, Suit
-from skat.engine.deal import Deal
+from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
-from skat.engine.games import GameKind
+from skat.engine.games import GameKind, Trump
 from skat.engine.score import Settlement, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import value_of
-from tests.engine.test_value import (
-    CLUBS_JACK,
-    FOREHAND,
-    HEARTS_JACK,
-    HERZ,
-    KARO,
-    MIDDLEHAND,
-    NULL,
-    REARHAND,
-    SPADES_JACK,
-    WIN_SCHNEIDER,
-    WIN,
-    game,
-    trick_worth,
-)
 
+FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
+KARO, HERZ, NULL = GameKind.KARO, GameKind.HERZ, GameKind.NULL
+CLUBS_JACK, SPADES_JACK = Card(Suit.KREUZ, Rank.JACK), Card(Suit.PIK, Rank.JACK)
+HEARTS_JACK = Card(Suit.HERZ, Rank.JACK)
+CARD_POINTS = (0, 2, 3, 4, 10, 11)
+RANKS_BY_POINTS = {0: Rank.SEVEN, 2: Rank.JACK, 3: Rank.QUEEN, 4: Rank.KING, 10: Rank.TEN, 11: Rank.ACE}
+WIN = (30, 30, 20)  # 80 points, the opponents 40: no Schneider
+WIN_SCHNEIDER = (30, 30, 30, 5)  # 95 points, the opponents 25
 LOST = (30, 20)  # 50 points
 SEVENTY_POINTS = (30, 30, 10)
 
 
+def trick_worth(points: int) -> tuple[Card, Card, Card]:
+    for combination in combinations_with_replacement(CARD_POINTS, 3):
+        if sum(combination) == points:
+            first, second, third = (Card(Suit.KARO, RANKS_BY_POINTS[each]) for each in combination)
+            return first, second, third
+    raise AssertionError(points)
+
+
+def twelve_holding(kind: GameKind, trumps: tuple[Card, ...]) -> tuple[Card, ...]:
+    """The chosen trumps, filled up with plain cards of no points in the skat."""
+    plain = [card for card in DECK if kind.playing_suit(card) is not Trump.TRUMP and card not in trumps]
+    skat = [card for card in plain if card.points == 0][:2]
+    return (*trumps, *(card for card in plain if card not in skat))[:10] + tuple(skat)
+
+
+def game(
+    kind: GameKind,
+    trumps: tuple[Card, ...] = (),
+    declarer_tricks: tuple[int, ...] = (),
+    *,
+    hand: bool = False,
+    ouvert: bool = False,
+) -> PlayedOut:
+    return played_with_twelve(twelve_holding(kind, trumps), kind, declarer_tricks, hand=hand, ouvert=ouvert)
+
+
 def played_with_twelve(
-    twelve: tuple[Card, ...], kind: GameKind, declarer_tricks: tuple[int, ...], *, hand: bool = False
+    twelve: tuple[Card, ...],
+    kind: GameKind,
+    declarer_tricks: tuple[int, ...],
+    *,
+    hand: bool = False,
+    ouvert: bool = False,
 ) -> PlayedOut:
     """Middlehand holds exactly these twelve cards (the last two are the skat) and declares the kind."""
     skat = twelve[10:]
@@ -38,7 +64,7 @@ def played_with_twelve(
     state = Declaring.start(Declared(MIDDLEHAND, 18), the_deal)
     if not hand:
         state = put_back(take_skat(state).state, skat).state
-    outcome = declare(state, kind, hand=hand, ouvert=False, announcement=Announcement.NONE)
+    outcome = declare(state, kind, hand=hand, ouvert=ouvert, announcement=Announcement.NONE)
     assert outcome.refusal is None
     tricks = tuple(CompletedTrick(FOREHAND, trick_worth(points), MIDDLEHAND) for points in declarer_tricks) + tuple(
         CompletedTrick(FOREHAND, trick_worth(0), REARHAND) for _ in range(10 - len(declarer_tricks))
@@ -106,4 +132,3 @@ def test_a_null_below_the_bid_is_lost_as_the_cheapest_game_reaching_the_bid_with
 def test_the_matadors_raise_the_loss_of_a_null_above_the_bid() -> None:
     twelve = tuple(card for card in DECK if card.rank in (Rank.KING, Rank.QUEEN, Rank.NINE))
     assert settle(played_with_twelve(twelve, NULL, ()), 24) == Settlement(won=False, value=63, score=-126)
-
