@@ -1,8 +1,0 @@
-claim_id = "488eef66c5df4212905c0d10c4d67a9b"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "65f9b38ca355685a4acb00d1c0aaa03eeeb76bd7"
-branch = "claude/issue-35-database-password-file"
-scope = ["README.md", "docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host/main.py", "src/skat/web/settings.py", "tests/host/test_main.py", "tests/support/sign_in_settings.py", "tests/web/test_settings.py", "uv.lock"]
-opened_commit = "c80de7202a685558171a125f6050e83e65a2b3dc"
-whole_reason = "The two settings, their composition at start, their tests and the README's table are one configuration contract; none means anything alone."
