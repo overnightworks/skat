@@ -3,13 +3,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from skat.engine.deal import deal, draw_dealer
+from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.records import (
     Actor,
+    CommandRefusal,
     CreateTable,
     Decision,
     FirstDeal,
     Receipt,
-    Refusal,
     Replay,
     SitDown,
     StandUp,
@@ -20,6 +21,7 @@ from skat.table.rules import (
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
     CommandIdReusedError,
+    command_receipt,
     create_receipt,
     decide_create,
     decide_free_chair,
@@ -27,7 +29,6 @@ from skat.table.rules import (
     decide_stand,
     replayed_decision,
     replayed_table,
-    seating_receipt,
     sit_deals,
     sit_payload,
     stand_payload,
@@ -41,9 +42,9 @@ if TYPE_CHECKING:
 
 __all__ = [
     "CommandIdReusedError",
+    "CommandResult",
     "DuplicateReceiptError",
     "OccupiedChair",
-    "SeatingResult",
     "TableService",
     "TableTransaction",
     "TableTransactions",
@@ -60,7 +61,7 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
     def table(self, table_id: TableId) -> TableRecord | None: ...
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
-        """The table, its row locked until the transaction ends; only the commands that change it read this way."""
+        """The table, its row locked exclusively for the transaction; only the commands that change it read this way."""
         ...
 
     def save_table(self, table: TableRecord) -> None:
@@ -87,11 +88,11 @@ class OccupiedChair:
 
 
 @dataclass(frozen=True)
-class SeatingResult:
-    """What a sit or stand command did: the table as the actor sees it, and why it changed nothing if it did not."""
+class CommandResult:
+    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not."""
 
     view: TableView
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None
 
 
@@ -125,8 +126,8 @@ class TableService:
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())
 
-    def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> SeatingResult | None:
-        return self._seat(
+    def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> CommandResult | None:
+        return self._run_command(
             actor,
             connected_accounts,
             command.table_id,
@@ -136,8 +137,8 @@ class TableService:
             lambda table: decide_sit(table, actor, command.seat, self._first_deal(table)),
         )
 
-    def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> SeatingResult | None:
-        return self._seat(
+    def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> CommandResult | None:
+        return self._run_command(
             actor,
             connected_accounts,
             command.table_id,
@@ -145,6 +146,19 @@ class TableService:
             STAND_UP_COMMAND,
             stand_payload(command),
             lambda table: decide_stand(table, actor),
+        )
+
+    def take_auction_step(
+        self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            AUCTION_STEP_COMMAND,
+            auction_payload(command),
+            lambda table: decide_step(table, actor, command),
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
@@ -179,7 +193,7 @@ class TableService:
         hand = deal(self._random_source)
         return FirstDeal(dealer, hand)
 
-    def _seat(
+    def _run_command(
         self,
         actor: Actor,
         connected_accounts: frozenset[str],
@@ -188,15 +202,15 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
-    ) -> SeatingResult | None:
+    ) -> CommandResult | None:
         try:
-            return self._seat_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
+            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
         except DuplicateReceiptError:
             # The same command id committed on another table between this one's lookup and its receipt;
             # the retry finds that receipt and replays it or refuses the reuse.
-            return self._seat_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
+            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
 
-    def _seat_once(
+    def _run_command_once(
         self,
         actor: Actor,
         connected_accounts: frozenset[str],
@@ -205,7 +219,7 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
-    ) -> SeatingResult | None:
+    ) -> CommandResult | None:
         """Lock the table row, replay by actor and command id, decide, write, store the receipt; None for no table."""
         identifier = TableId.parse(table_id)
         if identifier is None:
@@ -219,10 +233,10 @@ class TableService:
                 decision = decide(table)
                 if decision.refusal is None:
                     transaction.save_table(decision.table)
-                transaction.add_receipt(seating_receipt(actor, command_id, command, payload, decision))
+                transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
-            return SeatingResult(
+            return CommandResult(
                 view_of(decision.table, actor.account_id, connected_accounts), decision.refusal, decision.holder
             )
 

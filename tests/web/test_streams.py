@@ -8,12 +8,14 @@ import pytest
 
 from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
+from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import idle_hold, idle_presence
 from tests.support.payload_cards import CARDS_BY_SEAT, cards_in_text, seated_three, wire_cards
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
 
@@ -627,6 +629,40 @@ class TestHandOnTheStream:
             firsts = [next(phone.iter_lines()), next(laptop.iter_lines())]
 
         assert [cards_in_text(first) for first in firsts] == [wire_cards(CARDS_BY_SEAT[1])] * 2
+
+    def test_an_accepted_step_sends_each_open_stream_a_fresh_snapshot_with_the_new_version_and_only_its_own_cards(
+        self, skat
+    ):
+        table_id, people = seated_three(skat)
+        skat.client.cookies.clear()
+        middlehand_headers, rearhand_headers = people[0][0], people[1][0]
+
+        with skat.client.stream("GET", self.events(table_id), headers=middlehand_headers) as first_stream:
+            first_lines = first_stream.iter_lines()
+            opened = json.loads(next(first_lines).removeprefix("data: "))
+            next(first_lines)
+            with skat.client.stream("GET", self.events(table_id), headers=rearhand_headers) as second_stream:
+                second_lines = second_stream.iter_lines()
+                next(second_lines)
+                next(second_lines)
+                # The second stream joining is a change the first stream hears about before the step.
+                next(first_lines)
+                next(first_lines)
+                skat.client.cookies.clear()
+                answer = skat.client.post(
+                    f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+                    json={"command_id": "step-0001", "version": opened["version"], "action": "bid", "value": 18},
+                    headers={"origin": TEST_PUBLIC_ORIGIN, **middlehand_headers},
+                )
+                first_fresh, second_fresh = next(first_lines), next(second_lines)
+
+        assert answer.status_code == 200
+        fresh = json.loads(first_fresh.removeprefix("data: "))
+        assert fresh["version"] == opened["version"] + 1
+        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand"}
+        assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1
+        assert cards_in_text(first_fresh) == wire_cards(CARDS_BY_SEAT[1])
+        assert cards_in_text(second_fresh) == wire_cards(CARDS_BY_SEAT[2])
 
     def test_a_stream_opened_after_the_last_one_dropped_starts_from_the_full_current_hand(self, skat):
         table_id, people = seated_three(skat)

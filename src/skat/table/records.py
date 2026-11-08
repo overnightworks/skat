@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Self
 
+from skat.engine.bidding import BidRefusal
+
 if TYPE_CHECKING:
+    from skat.engine.bidding import AuctionStep
     from skat.engine.deal import Deal
 
 TABLE_ID_BYTES: Final = 16
@@ -59,12 +62,24 @@ class StandUp:
 
 
 class Refusal(StrEnum):
-    """Why a seating command changed nothing."""
+    """Why a table command changed nothing."""
 
     SEAT_TAKEN = "seat-taken"
     ALREADY_SEATED = "already-seated"
     NOT_SEATED = "not-seated"
     HAND_RUNNING = "hand-running"
+    NO_HAND = "no-hand"
+    STALE_VERSION = "stale-version"
+
+
+type CommandRefusal = Refusal | BidRefusal
+
+_REFUSALS_BY_TOKEN: Final[dict[str, CommandRefusal]] = {refusal.value: refusal for refusal in (*Refusal, *BidRefusal)}
+
+
+def parsed_refusal(token: str) -> CommandRefusal:
+    """The refusal a stored receipt names, whichever owner holds the token; a token nobody owns raises."""
+    return _REFUSALS_BY_TOKEN[token]
 
 
 @dataclass(frozen=True)
@@ -80,12 +95,20 @@ class Chair:
 
 
 @dataclass(frozen=True)
+class HandProgress:
+    """What has happened in the running hand so far; a later phase adds its own field."""
+
+    auction: tuple[AuctionStep, ...] = ()
+
+
+@dataclass(frozen=True)
 class TableRecord:
     id: TableId
     version: int
     chairs: tuple[Chair, ...]
     dealer: int | None = None
     hand: Deal | None = None
+    progress: HandProgress = HandProgress()
 
 
 @dataclass(frozen=True)
@@ -98,10 +121,10 @@ class FirstDeal:
 
 @dataclass(frozen=True)
 class Decision:
-    """The table after a seating command; a refusal leaves it as it was and names who holds a taken chair."""
+    """The table after a command; a refusal leaves it as it was and names who holds a taken chair."""
 
     table: TableRecord
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None
 
 
@@ -114,7 +137,7 @@ class Receipt:
     command: str
     payload: str
     table_id: TableId
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None
 
 
@@ -125,5 +148,5 @@ class Replay:
     command: str
     payload: str
     table: TableRecord
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None

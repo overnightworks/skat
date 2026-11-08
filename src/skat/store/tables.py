@@ -1,110 +1,41 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Final, Literal
 
-from sqlalchemy import (
-    CheckConstraint,
-    Column,
-    ForeignKey,
-    ForeignKeyConstraint,
-    Integer,
-    MetaData,
-    SmallInteger,
-    Table,
-    Text,
-    exists,
-    insert,
-    select,
-    update,
-)
+from sqlalchemy import exists, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
-from skat.engine.cards import DECK, Card, Rank, Suit
+from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
-from skat.table.records import Chair, Occupant, Receipt, Refusal, Replay, TableId, TableRecord
+from skat.store.auction import append_steps, read_steps
+from skat.store.schema import (
+    POSITION_TEXT,
+    RANK_TEXT,
+    SKAT_HOLDER,
+    SUIT_TEXT,
+    chairs,
+    hand_cards,
+    metadata,
+    receipts,
+    tables,
+)
+from skat.table.records import Chair, HandProgress, Occupant, Receipt, Replay, TableId, TableRecord, parsed_refusal
 from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Generator
 
     from sqlalchemy.engine import Connection, Engine
 
+__all__ = ["PostgresTableTransactions", "metadata"]
+
 UNIQUE_VIOLATION: Final = "23505"
-
-metadata = MetaData()
-
-
-tables = Table(
-    "tables",
-    metadata,
-    Column("id", Text, primary_key=True),
-    Column("version", Integer, nullable=False),
-    Column("dealer", SmallInteger),
-    CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
-)
-
-chairs = Table(
-    "chairs",
-    metadata,
-    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
-    Column("seat", Integer, primary_key=True),
-    Column("account_id", Text),
-    Column("display_name", Text),
-)
-
-_SKAT_HOLDER: Final = "skat"
-_SUIT_TEXT: Final = {Suit.KARO: "diamonds", Suit.HERZ: "hearts", Suit.PIK: "spades", Suit.KREUZ: "clubs"}
-_RANK_TEXT: Final = {
-    Rank.SEVEN: "seven",
-    Rank.EIGHT: "eight",
-    Rank.NINE: "nine",
-    Rank.TEN: "ten",
-    Rank.JACK: "jack",
-    Rank.QUEEN: "queen",
-    Rank.KING: "king",
-    Rank.ACE: "ace",
-}
-_POSITION_TEXT: Final = {
-    Position.FOREHAND: "forehand",
-    Position.MIDDLEHAND: "middlehand",
-    Position.REARHAND: "rearhand",
-}
-
-
-def _one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
-    return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
-
-
-hand_cards = Table(
-    "hand_cards",
-    metadata,
-    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
-    Column("suit", Text, primary_key=True),
-    Column("rank", Text, primary_key=True),
-    Column("holder", Text, nullable=False),
-    _one_of("suit", _SUIT_TEXT.values(), "hand_cards_suit_is_a_suit"),
-    _one_of("rank", _RANK_TEXT.values(), "hand_cards_rank_is_a_rank"),
-    _one_of("holder", (*_POSITION_TEXT.values(), _SKAT_HOLDER), "hand_cards_holder_is_a_holder"),
-)
-
-receipts = Table(
-    "receipts",
-    metadata,
-    Column("account_id", Text, primary_key=True),
-    Column("command_id", Text, primary_key=True),
-    Column("command", Text, nullable=False),
-    Column("payload", Text, nullable=False),
-    Column("table_id", Text, nullable=False),
-    Column("refusal", Text),
-    Column("holder", Text),
-    ForeignKeyConstraint(["table_id"], [tables.c.id]),
-)
 
 
 def _hand_rows(table_id: str, hand: Deal) -> list[dict[str, str]]:
-    held = [(_POSITION_TEXT[position], cards) for position, cards in hand.hands.items()]
-    held.append((_SKAT_HOLDER, hand.skat))
+    held = [(POSITION_TEXT[position], cards) for position, cards in hand.hands.items()]
+    held.append((SKAT_HOLDER, hand.skat))
     return [
-        {"table_id": table_id, "suit": _SUIT_TEXT[card.suit], "rank": _RANK_TEXT[card.rank], "holder": holder}
+        {"table_id": table_id, "suit": SUIT_TEXT[card.suit], "rank": RANK_TEXT[card.rank], "holder": holder}
         for holder, cards in held
         for card in cards
     ]
@@ -120,14 +51,14 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     }
     if not held:
         return None
-    by_holder: dict[str, list[Card]] = {holder: [] for holder in (*_POSITION_TEXT.values(), _SKAT_HOLDER)}
+    by_holder: dict[str, list[Card]] = {holder: [] for holder in (*POSITION_TEXT.values(), SKAT_HOLDER)}
     for card in DECK:
-        by_holder[held[_SUIT_TEXT[card.suit], _RANK_TEXT[card.rank]]].append(card)
+        by_holder[held[SUIT_TEXT[card.suit], RANK_TEXT[card.rank]]].append(card)
     return Deal(
-        forehand=tuple(by_holder[_POSITION_TEXT[Position.FOREHAND]]),
-        middlehand=tuple(by_holder[_POSITION_TEXT[Position.MIDDLEHAND]]),
-        rearhand=tuple(by_holder[_POSITION_TEXT[Position.REARHAND]]),
-        skat=tuple(by_holder[_SKAT_HOLDER]),
+        forehand=tuple(by_holder[POSITION_TEXT[Position.FOREHAND]]),
+        middlehand=tuple(by_holder[POSITION_TEXT[Position.MIDDLEHAND]]),
+        rearhand=tuple(by_holder[POSITION_TEXT[Position.REARHAND]]),
+        skat=tuple(by_holder[SKAT_HOLDER]),
     )
 
 
@@ -154,6 +85,7 @@ def _table_record(
         ),
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
+        progress=HandProgress(auction=read_steps(connection, table_id)),
     )
 
 
@@ -183,7 +115,7 @@ class _PostgresTableTransaction:
             command=receipt.command,
             payload=receipt.payload,
             table=table,
-            refusal=None if receipt.refusal is None else Refusal(receipt.refusal),
+            refusal=None if receipt.refusal is None else parsed_refusal(receipt.refusal),
             holder=receipt.holder,
         )
 
@@ -203,6 +135,7 @@ class _PostgresTableTransaction:
         )
         if table.hand is not None and not hand_stored:
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
+        append_steps(self._connection, table.id.value, table.progress.auction)
         for chair in table.chairs:
             self._connection.execute(
                 update(chairs)
