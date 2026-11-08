@@ -302,7 +302,8 @@ class TestFromAHandAtRevisionFour:
             _run_in_transaction(migrated, duplicate)
 
 
-_PLAYED_ROW = "INSERT INTO played_cards VALUES ('t', 1, 'forehand', 'hearts', 'ace')"
+def _played_row(*, table_id="'t'", ordinal=1, position="'forehand'", suit="'hearts'", rank="'ace'"):
+    return f"INSERT INTO played_cards VALUES ({table_id}, {ordinal}, {position}, {suit}, {rank})"  # noqa: S608 - only a test's fixed literals reach this text
 
 
 class TestFromAHandAtRevisionFive:
@@ -330,8 +331,8 @@ class TestFromAHandAtRevisionFive:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param(_PLAYED_ROW, id="the-first"),
-            pytest.param("INSERT INTO played_cards VALUES ('t', 30, 'rearhand', 'spades', 'jack')", id="the-last"),
+            pytest.param(_played_row(), id="the-first"),
+            pytest.param(_played_row(ordinal=30, position="'rearhand'", suit="'spades'", rank="'jack'"), id="the-last"),
         ],
     )
     def test_accepts_a_played_card(self, migrated, statement):
@@ -343,12 +344,12 @@ class TestFromAHandAtRevisionFive:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("INSERT INTO played_cards VALUES ('t', 0, 'forehand', 'hearts', 'ace')", id="ordinal-below-the-first"),
-            pytest.param("INSERT INTO played_cards VALUES ('t', 31, 'forehand', 'hearts', 'ace')", id="ordinal-above-the-last"),
-            pytest.param("INSERT INTO played_cards VALUES ('t', 1, 'skat', 'hearts', 'ace')", id="no-position"),
-            pytest.param("INSERT INTO played_cards VALUES ('t', 1, 'forehand', 'lila', 'ace')", id="unknown-suit"),
-            pytest.param("INSERT INTO played_cards VALUES ('t', 1, 'forehand', 'hearts', 'one')", id="unknown-rank"),
-            pytest.param("INSERT INTO played_cards VALUES ('gone', 1, 'forehand', 'hearts', 'ace')", id="unknown-table"),
+            pytest.param(_played_row(ordinal=0), id="ordinal-below-the-first"),
+            pytest.param(_played_row(ordinal=31), id="ordinal-above-the-last"),
+            pytest.param(_played_row(position="'skat'"), id="no-position"),
+            pytest.param(_played_row(suit="'lila'"), id="unknown-suit"),
+            pytest.param(_played_row(rank="'one'"), id="unknown-rank"),
+            pytest.param(_played_row(table_id="'gone'"), id="unknown-table"),
         ],
     )
     def test_the_checks_refuse_a_row_that_is_no_played_card(self, migrated, statement):
@@ -358,15 +359,15 @@ class TestFromAHandAtRevisionFive:
             _run_in_transaction(migrated, refused)
 
     def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
-        _run_in_transaction(migrated, text(_PLAYED_ROW))
-        duplicate = text("INSERT INTO played_cards VALUES ('t', 1, 'middlehand', 'spades', 'seven')")
+        _run_in_transaction(migrated, text(_played_row()))
+        duplicate = text(_played_row(position="'middlehand'", suit="'spades'", rank="'seven'"))
 
         with pytest.raises(IntegrityError):
             _run_in_transaction(migrated, duplicate)
 
     def test_the_schema_holds_each_card_once_per_table(self, migrated):
-        _run_in_transaction(migrated, text(_PLAYED_ROW))
-        duplicate = text("INSERT INTO played_cards VALUES ('t', 2, 'middlehand', 'hearts', 'ace')")
+        _run_in_transaction(migrated, text(_played_row()))
+        duplicate = text(_played_row(ordinal=2, position="'middlehand'"))
 
         with pytest.raises(IntegrityError):
             _run_in_transaction(migrated, duplicate)
