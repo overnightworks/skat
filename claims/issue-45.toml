@@ -1,8 +1,0 @@
-claim_id = "adf9862045664b20b706d51dc2eedef9"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "37e137ed9b27f95cbd83ff0410904b5aabe6cb5f"
-branch = "claude/issue-45-away-mark"
-scope = ["frontend/src/lib/catalogs", "frontend/src/lib/start.css", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/e2e/test_shared_link.py", "tests/e2e/test_table_seats.py", "tests/e2e/test_table_watch.py", "tests/store/test_tables.py", "tests/table/test_service.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "d22408b5ecb0db4cb90cf58a5e893275da32baab"
-whole_reason = "The away flag and the page that shows it are one flow; neither proves line 11 A's mark alone."
