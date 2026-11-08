@@ -2,9 +2,11 @@ import itertools
 
 import pytest
 
-from skat.engine.bidding import Bid, Declared, Hold, Pass, PassedIn
+from skat.engine.bidding import Bid, BidRefusal, Declared, Hold, Pass, PassedIn
 from skat.engine.deal import Position, positions_from
+from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
+from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
@@ -12,8 +14,8 @@ from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FETCH, UNKNOWN_ID
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
-BID, HOLD, PASS, PLAY = "bid", "hold", "pass", "play"
-NOT_YOUR_TURN, OVER, STALE_VERSION = "not-your-turn", "over", "stale-version"
+BID, HOLD, PASS, PLAY = AuctionAction.BID, AuctionAction.HOLD, AuctionAction.PASS, AuctionAction.PLAY
+NOT_YOUR_TURN, OVER, STALE_VERSION = BidRefusal.NOT_YOUR_TURN, BidRefusal.OVER, Refusal.STALE_VERSION
 SAME_COMMAND = "command-same"
 VALUE_FIELD = "value"
 
@@ -149,13 +151,13 @@ class TestRefused:
 
     @pytest.mark.parametrize("value", [17, 265, 19])
     def test_a_value_that_is_no_game_value_is_refused(self, table, value):
-        table.refused(table.at[MIDDLEHAND], BID, value, "invalid-value")
+        table.refused(table.at[MIDDLEHAND], BID, value, BidRefusal.INVALID_VALUE)
 
     @pytest.mark.parametrize("value", [20, 18])
     def test_a_bid_not_above_the_standing_one_is_refused(self, table, value):
         table.play_out([(MIDDLEHAND, BID, 20), (FOREHAND, HOLD)])
 
-        table.refused(table.at[MIDDLEHAND], BID, value, "not-above-standing")
+        table.refused(table.at[MIDDLEHAND], BID, value, BidRefusal.NOT_ABOVE_STANDING)
 
     @pytest.mark.parametrize(
         "step",
@@ -169,16 +171,16 @@ class TestRefused:
     def test_a_passed_player_cannot_take_their_word_back(self, table, step):
         table.accepted(MIDDLEHAND, PASS)
 
-        table.refused(table.at[MIDDLEHAND], *step, "already-passed")
+        table.refused(table.at[MIDDLEHAND], *step, BidRefusal.ALREADY_PASSED)
 
     def test_the_bidder_cannot_answer_their_own_bid(self, table):
-        table.refused(table.at[MIDDLEHAND], HOLD, None, "wrong-action")
+        table.refused(table.at[MIDDLEHAND], HOLD, None, BidRefusal.WRONG_ACTION)
 
     def test_the_responder_cannot_bid_out_of_turn(self, table):
         table.refused(table.at[FOREHAND], BID, 18, NOT_YOUR_TURN)
 
     def test_a_member_without_a_chair_is_refused(self, table):
-        table.refused(table.watcher, BID, 18, "not-seated")
+        table.refused(table.watcher, BID, 18, Refusal.NOT_SEATED)
 
     def test_a_table_without_a_hand_is_refused(self, skat):
         headers, _ = skat.member()
