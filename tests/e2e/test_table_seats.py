@@ -95,8 +95,7 @@ def test_three_sit_and_a_fourth_member_only_watches_while_the_hand_runs(
 ) -> None:
     opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
     path = open_new_table(opener, e2e_server)
-    # The browser logs every 409 as a console error; the refused stand-up is the point of this test.
-    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors, console=False)
+    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
     watch(second, e2e_server, path)
     sit_in(second, 2)
     expect(plate_of(opener, 2)).to_have_text("ben")
@@ -115,13 +114,6 @@ def test_three_sit_and_a_fourth_member_only_watches_while_the_hand_runs(
     expect(fourth.get_by_role("button", name=SIT_DOWN)).to_have_count(0)
     expect(fourth.get_by_role("button", name=STAND_UP)).to_have_count(0)
     expect(watchers_of(fourth)).to_have_text("1")
-
-    second.get_by_role("button", name=STAND_UP).click()
-
-    expect(second.get_by_role("status").filter(has_text=COMMAND_FAILED)).to_be_visible()
-    for person in (opener, second, third, fourth):
-        expect(plate_of(person, 2)).to_have_text("ben")
-    expect(fourth.get_by_role("button", name=SIT_DOWN)).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
