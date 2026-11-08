@@ -4,10 +4,17 @@ from skat.engine.bidding import (
     LOWEST_BID,
     VALID_BIDS,
     Auction,
+    AuctionStep,
+    Bid,
     BidOutcome,
     BidRefusal,
     Declared,
+    Hold,
+    Pass,
     PassedIn,
+    Play,
+    auction_after,
+    auction_step,
     bid,
     hold,
     pass_,
@@ -181,3 +188,43 @@ def test_refusals_are_checked_in_order() -> None:
     assert bid(bid_standing, FORE, 19).refusal is BidRefusal.WRONG_ACTION
     held = run((bid, MID, 20), (hold, FORE)).auction
     assert bid(held, MID, 19).refusal is BidRefusal.INVALID_VALUE
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        pytest.param((Bid(MID, 18), Hold(FORE), Bid(MID, 20), Pass(FORE)), id="bid-and-hold"),
+        pytest.param((Pass(MID), Pass(REAR), Play(FORE)), id="forehand-plays"),
+        pytest.param((Pass(MID), Pass(REAR), Pass(FORE)), id="passed-in"),
+    ],
+)
+def test_a_log_of_steps_leads_to_the_auction_its_steps_lead_to_one_by_one(steps: tuple[AuctionStep, ...]) -> None:
+    one_by_one = Auction.start()
+    for step in steps:
+        outcome = auction_step(one_by_one, step)
+        assert outcome.refusal is None, step
+        one_by_one = outcome.auction
+
+    assert auction_after(steps) == one_by_one
+
+
+@pytest.mark.parametrize(
+    ("step", "reason"),
+    [
+        pytest.param(Pass(FORE), BidRefusal.NOT_YOUR_TURN, id="not-your-turn"),
+        pytest.param(Hold(MID), BidRefusal.WRONG_ACTION, id="wrong-action"),
+        pytest.param(Bid(MID, 19), BidRefusal.INVALID_VALUE, id="invalid-value"),
+        pytest.param(Play(MID), BidRefusal.WRONG_ACTION, id="play-before-both-passed"),
+    ],
+)
+def test_a_step_the_rules_refuse_leaves_the_auction_and_names_why(step: AuctionStep, reason: BidRefusal) -> None:
+    start = Auction.start()
+
+    refused(auction_step(start, step), reason, start)
+
+
+def test_a_log_the_rules_refuse_raises_and_names_the_step_and_the_reason() -> None:
+    corrupt = (Bid(MID, 18), Pass(REAR))
+
+    with pytest.raises(ValueError, match="step 2 refused: not-your-turn"):
+        auction_after(corrupt)
