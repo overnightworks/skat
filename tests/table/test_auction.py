@@ -1,13 +1,35 @@
 import random
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 
 import pytest
 
-from skat.engine.bidding import Auction, AuctionStep, Bid, BidRefusal, Declared, Hold, Pass, PassedIn, Play
+from skat.engine.bidding import (
+    LOWEST_BID,
+    VALID_BIDS,
+    Auction,
+    AuctionStep,
+    Awaiting,
+    Bid,
+    BidRefusal,
+    Declared,
+    Hold,
+    Pass,
+    PassedIn,
+    Play,
+)
 from skat.engine.deal import Position, next_dealer, positions_from
-from skat.table.auction import AuctionAction, AuctionCommand, action_of, step_of
+from skat.table.auction import (
+    AuctionAction,
+    AuctionCommand,
+    AuctionDeclared,
+    AuctionView,
+    AuctionWord,
+    action_of,
+    auction_view_of,
+    step_of,
+)
 from skat.table.hand_state import auction_of
-from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp, TableRecord, parsed_refusal
+from skat.table.records import Actor, CreateTable, Occupant, Refusal, SitDown, StandUp, TableRecord, parsed_refusal
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
 
@@ -293,3 +315,144 @@ class TestStepOfAction:
     ) -> None:
         assert step_of(action, value, Position.MIDDLEHAND) == step
         assert action_of(step) is action
+
+
+class TestAuctionView:
+    def auction_for(self, seated: Seated, viewer: Actor) -> AuctionView:
+        return auction_view_of(seated.table(), viewer.account_id)
+
+    def seat_of(self, seated: Seated, actor: Actor) -> int:
+        return next(chair.seat for chair in seated.table().chairs if chair.occupant == Occupant(*astuple(actor)))
+
+    def play_out(self, seated: Seated, script: list[tuple[str, AuctionAction, int | None]]) -> None:
+        for index, (who, action, value) in enumerate(script):
+            result = seated.send(getattr(seated, who), action, value=value, command_id=f"command-view-{index}")
+            assert result.refusal is None
+
+    def test_a_dealt_hand_awaits_the_middlehands_bid_and_only_they_may_name_every_valid_bid(
+        self, seated: Seated
+    ) -> None:
+        for viewer in (seated.forehand, seated.rearhand, DORA):
+            assert self.auction_for(seated, viewer).values == ()
+
+        view = self.auction_for(seated, seated.middlehand)
+
+        assert view.turn_seat == self.seat_of(seated, seated.middlehand)
+        assert view.awaiting is Awaiting.BID
+        assert view.standing is None
+        assert view.words == ()
+        assert view.declared is None
+        assert view.values == VALID_BIDS
+
+    def test_a_bid_hands_the_turn_to_the_responder_and_lists_no_value_for_anyone(self, seated: Seated) -> None:
+        self.play_out(seated, [("middlehand", AuctionAction.BID, 20)])
+
+        for viewer in (seated.forehand, seated.middlehand, seated.rearhand, DORA):
+            view = self.auction_for(seated, viewer)
+            assert view.turn_seat == self.seat_of(seated, seated.forehand)
+            assert view.awaiting is Awaiting.ANSWER
+            assert view.standing == 20
+            assert view.values == ()
+            assert view.words == (AuctionWord(self.seat_of(seated, seated.middlehand), AuctionAction.BID, 20),)
+
+    def test_a_hold_keeps_the_standing_bid_as_its_value_and_the_next_bid_lists_only_higher_values(
+        self, seated: Seated
+    ) -> None:
+        self.play_out(seated, [("middlehand", AuctionAction.BID, 20), ("forehand", AuctionAction.HOLD, None)])
+
+        view = self.auction_for(seated, seated.middlehand)
+
+        assert view.turn_seat == self.seat_of(seated, seated.middlehand)
+        assert view.awaiting is Awaiting.BID
+        assert view.values == tuple(value for value in VALID_BIDS if value > 20)
+        assert AuctionWord(self.seat_of(seated, seated.forehand), AuctionAction.HOLD, 20) in view.words
+
+    def test_a_chairs_word_is_its_latest_and_a_hold_keeps_the_value_it_answered(self, seated: Seated) -> None:
+        self.play_out(
+            seated,
+            [
+                ("middlehand", AuctionAction.BID, 20),
+                ("forehand", AuctionAction.HOLD, None),
+                ("middlehand", AuctionAction.BID, 23),
+            ],
+        )
+
+        words = self.auction_for(seated, DORA).words
+
+        assert set(words) == {
+            AuctionWord(self.seat_of(seated, seated.middlehand), AuctionAction.BID, 23),
+            AuctionWord(self.seat_of(seated, seated.forehand), AuctionAction.HOLD, 20),
+        }
+        assert [word.seat for word in words] == sorted(word.seat for word in words)
+
+    def test_after_two_passes_forehand_awaits_to_play_and_both_words_are_passes(self, seated: Seated) -> None:
+        self.play_out(seated, [("middlehand", AuctionAction.PASS, None), ("rearhand", AuctionAction.PASS, None)])
+
+        view = self.auction_for(seated, seated.forehand)
+
+        assert view.turn_seat == self.seat_of(seated, seated.forehand)
+        assert view.awaiting is Awaiting.PLAY
+        assert view.values == ()
+        assert {(word.seat, word.action, word.value) for word in view.words} == {
+            (self.seat_of(seated, seated.middlehand), AuctionAction.PASS, None),
+            (self.seat_of(seated, seated.rearhand), AuctionAction.PASS, None),
+        }
+
+    def test_a_played_auction_is_declared_at_the_lowest_bid_and_nobody_has_a_turn(self, seated: Seated) -> None:
+        self.play_out(
+            seated,
+            [
+                ("middlehand", AuctionAction.PASS, None),
+                ("rearhand", AuctionAction.PASS, None),
+                ("forehand", AuctionAction.PLAY, None),
+            ],
+        )
+
+        view = self.auction_for(seated, seated.forehand)
+        forehand_seat = self.seat_of(seated, seated.forehand)
+
+        assert view.turn_seat is None
+        assert view.awaiting is None
+        assert view.declared == AuctionDeclared(forehand_seat, LOWEST_BID)
+        assert AuctionWord(forehand_seat, AuctionAction.PLAY, LOWEST_BID) in view.words
+
+    def test_a_bid_that_won_the_auction_is_declared_at_its_value(self, seated: Seated) -> None:
+        self.play_out(
+            seated,
+            [
+                ("middlehand", AuctionAction.BID, 20),
+                ("forehand", AuctionAction.PASS, None),
+                ("rearhand", AuctionAction.PASS, None),
+            ],
+        )
+
+        view = self.auction_for(seated, DORA)
+
+        assert view.turn_seat is None
+        assert view.declared == AuctionDeclared(self.seat_of(seated, seated.middlehand), 20)
+
+    def test_three_passes_leave_no_turn_no_awaiting_and_no_declarer(self, seated: Seated) -> None:
+        self.play_out(
+            seated,
+            [
+                ("middlehand", AuctionAction.PASS, None),
+                ("rearhand", AuctionAction.PASS, None),
+                ("forehand", AuctionAction.PASS, None),
+            ],
+        )
+
+        view = self.auction_for(seated, seated.forehand)
+
+        assert (view.turn_seat, view.awaiting, view.declared) == (None, None, None)
+        assert len(view.words) == 3
+
+    def test_seated_and_watching_viewers_see_the_same_words_turn_and_standing(self, seated: Seated) -> None:
+        self.play_out(seated, [("middlehand", AuctionAction.BID, 22), ("forehand", AuctionAction.HOLD, None)])
+
+        views = [
+            self.auction_for(seated, viewer) for viewer in (seated.forehand, seated.middlehand, seated.rearhand, DORA)
+        ]
+
+        assert {(view.words, view.turn_seat, view.standing) for view in views} == {
+            (views[0].words, views[0].turn_seat, views[0].standing)
+        }

@@ -2,7 +2,7 @@ import itertools
 
 import pytest
 
-from skat.engine.bidding import Bid, BidRefusal, Declared, Hold, Pass
+from skat.engine.bidding import VALID_BIDS, Bid, BidRefusal, Declared, Hold, Pass
 from skat.engine.deal import Position, next_dealer, positions_from
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
@@ -377,3 +377,52 @@ class TestPassedIn:
 
         assert answer.status_code == 200, answer.text
         assert table.record.progress.auction == (Bid(MIDDLEHAND, 18),)
+
+
+class TestAuctionOnTheWire:
+    def auction_read_by(self, table, headers):
+        answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}", headers=headers)
+        return answer.json()["hand"]["auction"]
+
+    def test_every_viewer_reads_the_auction_of_a_dealt_hand_and_only_the_middlehand_reads_values(self, table):
+        middlehand_seat = positions_from(DEALER_SEAT)
+        seat_of_middlehand = next(seat for seat, position in middlehand_seat.items() if position is MIDDLEHAND)
+
+        auctions = {
+            name: self.auction_read_by(table, headers)
+            for name, headers in [
+                ("forehand", table.at[FOREHAND]),
+                ("middlehand", table.at[MIDDLEHAND]),
+                ("rearhand", table.at[REARHAND]),
+                ("watcher", table.watcher),
+            ]
+        }
+
+        assert auctions["middlehand"] == {
+            "turn_seat": seat_of_middlehand,
+            "awaiting": "bid",
+            "standing": None,
+            "values": list(VALID_BIDS),
+            "words": [],
+            "declared": None,
+        }
+        for name in ("forehand", "rearhand", "watcher"):
+            assert auctions[name] == {**auctions["middlehand"], "values": []}
+
+    def test_a_played_auction_answers_each_chairs_word_and_who_declared(self, table):
+        table.play_out([(MIDDLEHAND, PASS), (REARHAND, PASS), (FOREHAND, PLAY)])
+        seats = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
+
+        auction = self.auction_read_by(table, table.watcher)
+
+        assert auction["turn_seat"] is None
+        assert auction["awaiting"] is None
+        assert auction["declared"] == {"seat": seats[FOREHAND], "value": 18}
+        assert sorted(auction["words"], key=lambda word: word["seat"]) == sorted(
+            [
+                {"seat": seats[MIDDLEHAND], "action": "pass", "value": None},
+                {"seat": seats[REARHAND], "action": "pass", "value": None},
+                {"seat": seats[FOREHAND], "action": "play", "value": 18},
+            ],
+            key=lambda word: word["seat"],
+        )

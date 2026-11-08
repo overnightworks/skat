@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from skat.engine.bidding import Bid, Pass
+from skat.engine.bidding import Awaiting, Bid, Pass
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
@@ -138,3 +138,16 @@ class TestPassedIn:
     )
     def test_says_nothing_of_a_passed_in_hand_otherwise(self, table):
         assert view_of(table, ANNA, NOBODY_CONNECTED).passed_in is None
+
+
+class TestAuctionInTheHand:
+    def test_a_running_hand_carries_the_auction_for_its_viewer(self):
+        view = view_of(seated_table(2, KNOWN_DEAL), ANNA, NOBODY_CONNECTED)
+
+        assert view.hand.auction.awaiting is Awaiting.BID
+        assert view.hand.auction.values != ()
+
+    def test_a_viewer_whose_turn_it_is_not_gets_no_value_to_name(self):
+        view = view_of(seated_table(2, KNOWN_DEAL), BEN, NOBODY_CONNECTED)
+
+        assert view.hand.auction.values == ()

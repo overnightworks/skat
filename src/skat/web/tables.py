@@ -8,8 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
+from skat.engine.bidding import Awaiting
 from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
+from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import Actor, CommandRefusal, CreateTable, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
     from webauth.ports import AuthenticatedUser
 
     from skat.engine.cards import Card
+    from skat.table.auction import AuctionView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
@@ -80,6 +83,12 @@ class PositionToken(StrEnum):
     REARHAND = "rearhand"
 
 
+class AwaitingToken(StrEnum):
+    BID = "bid"
+    ANSWER = "answer"
+    PLAY = "play"
+
+
 # The engine orders cards by number; the wire names them by word, so that order is no public contract.
 SUIT_TOKENS: Final = {
     Suit.KREUZ: SuitToken.KREUZ,
@@ -102,6 +111,11 @@ POSITION_TOKENS: Final = {
     Position.MIDDLEHAND: PositionToken.MIDDLEHAND,
     Position.REARHAND: PositionToken.REARHAND,
 }
+AWAITING_TOKENS: Final = {
+    Awaiting.BID: AwaitingToken.BID,
+    Awaiting.ANSWER: AwaitingToken.ANSWER,
+    Awaiting.PLAY: AwaitingToken.PLAY,
+}
 
 
 class CardAnswer(BaseModel):
@@ -114,10 +128,31 @@ class ChairHandAnswer(BaseModel):
     card_count: int
 
 
+class AuctionWordAnswer(BaseModel):
+    seat: int
+    action: AuctionAction
+    value: int | None
+
+
+class AuctionDeclaredAnswer(BaseModel):
+    seat: int
+    value: int
+
+
+class AuctionAnswer(BaseModel):
+    turn_seat: int | None
+    awaiting: AwaitingToken | None
+    standing: int | None
+    values: list[int]
+    words: list[AuctionWordAnswer]
+    declared: AuctionDeclaredAnswer | None
+
+
 class HandAnswer(BaseModel):
     dealer_seat: int
     own_cards: list[CardAnswer]
     skat_count: int
+    auction: AuctionAnswer
 
 
 class ChairAnswer(BaseModel):
@@ -151,6 +186,18 @@ def chair_hand_answer_of(hand: ChairHand | None) -> ChairHandAnswer | None:
     return ChairHandAnswer(position=POSITION_TOKENS[hand.position], card_count=hand.card_count)
 
 
+def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
+    declared = auction.declared
+    return AuctionAnswer(
+        turn_seat=auction.turn_seat,
+        awaiting=None if auction.awaiting is None else AWAITING_TOKENS[auction.awaiting],
+        standing=auction.standing,
+        values=list(auction.values),
+        words=[AuctionWordAnswer(seat=word.seat, action=word.action, value=word.value) for word in auction.words],
+        declared=None if declared is None else AuctionDeclaredAnswer(seat=declared.seat, value=declared.value),
+    )
+
+
 def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
     if hand is None:
         return None
@@ -158,6 +205,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         dealer_seat=hand.dealer_seat,
         own_cards=[card_answer_of(card) for card in hand.own_cards],
         skat_count=hand.skat_count,
+        auction=auction_answer_of(hand.auction),
     )
 
 

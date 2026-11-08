@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
+from skat.table.auction import AuctionView, auction_view_of
 from skat.table.hand_state import auction_of
 from skat.table.rules import hand_runs
 
@@ -37,6 +38,7 @@ class HandView:
     dealer_seat: int
     own_cards: tuple[Card, ...]
     skat_count: int
+    auction: AuctionView
 
 
 @dataclass(frozen=True)
@@ -76,7 +78,12 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         if _is_occupied_by(chair, viewer_account_id)
         for card in hands[positions[chair.seat]]
     }
-    hand_view = HandView(table.dealer, tuple(card for card in DECK if card in own_cards), len(table.hand.skat))
+    hand_view = HandView(
+        table.dealer,
+        tuple(card for card in DECK if card in own_cards),
+        len(table.hand.skat),
+        auction_view_of(table, viewer_account_id),
+    )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
 

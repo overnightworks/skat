@@ -6,7 +6,7 @@ import pytest
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import delete, update
 
-from skat.store.tables import hand_cards, tables
+from skat.store.schema import hand_cards, tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
