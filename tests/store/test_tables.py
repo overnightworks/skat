@@ -247,6 +247,32 @@ class TestSeating:
         assert view.version == 3
         assert count(engine, "hand_cards") == len(DECK)
 
+    def test_two_commands_reusing_each_others_command_ids_at_two_tables_are_both_refused(
+        self, service, engine, table_id
+    ):
+        other_id = service.create(OPENER, CreateTable(command_id="command-open-other")).id
+        service.sit(VISITOR, SitDown("command-here", table_id, 2), frozenset())
+        service.sit(VISITOR, SitDown("command-there", other_id, 2), frozenset())
+        racing = TableService(BothReadBeforeEitherWrites(PostgresTableTransactions(engine), 2))
+        outcomes = []
+
+        def reuse(command_id, at_table):
+            try:
+                racing.sit(VISITOR, SitDown(command_id, at_table, 3), frozenset())
+            except Exception as error:
+                outcomes.append(type(error))
+
+        threads = [
+            threading.Thread(target=reuse, args=("command-there", table_id)),
+            threading.Thread(target=reuse, args=("command-here", other_id)),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert outcomes == [CommandIdReusedError, CommandIdReusedError]
+
     def test_a_failure_after_the_chair_write_persists_nothing(self, engine, table_id):
         failing = TableService(
             FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost"))
@@ -435,20 +461,19 @@ class TestOneMomentRead:
         reader.join()
         assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (None, None, 1)
 
-    def test_a_writer_waits_for_a_read_and_the_read_keeps_the_state_before_the_write(self, engine, table_id):
+    def test_a_writer_waits_for_a_read_to_finish(self, engine, table_id):
         def write():
             with PostgresTableTransactions(engine).begin() as writer:
                 record = writer.locked_table(TableId(table_id))
                 writer.save_table(replace(record, version=2))
 
         with PostgresTableTransactions(engine).begin() as reading:
-            seen = reading.table(TableId(table_id))
+            reading.table(TableId(table_id))
             writer, _ = run_in_thread(write)
 
             wait_until_a_session_waits_for_a_lock(engine)
 
         writer.join()
-        assert seen.version == 1
         assert self.read(engine, table_id).version == 2
 
     def test_two_reads_at_once_do_not_wait_for_each_other(self, engine, table_id):

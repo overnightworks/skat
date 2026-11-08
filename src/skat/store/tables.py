@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Literal
 
 from sqlalchemy import (
     CheckConstraint,
@@ -131,9 +131,13 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
-def _table_record(connection: Connection, table_id: str, *, lock: bool = False) -> TableRecord | None:
+def _table_record(
+    connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
+) -> TableRecord | None:
     query = select(tables.c.version, tables.c.dealer).where(tables.c.id == table_id)
-    table = connection.execute(query.with_for_update(read=not lock)).one_or_none()
+    if row_lock is not None:
+        query = query.with_for_update(read=row_lock == "share")
+    table = connection.execute(query).one_or_none()
     if table is None:
         return None
     seats = connection.execute(
@@ -169,7 +173,8 @@ class _PostgresTableTransaction:
         ).one_or_none()
         if receipt is None:
             return None
-        table = _table_record(self._connection, receipt.table_id)
+        # No lock: the command holds its own table's row; a lock here could cycle with a command at the receipt's table.
+        table = _table_record(self._connection, receipt.table_id, row_lock=None)
         # The receipt's foreign key guarantees the table.
         assert table is not None  # noqa: S101 - narrows the type for a row the schema guarantees
         return Replay(
@@ -184,7 +189,7 @@ class _PostgresTableTransaction:
         return _table_record(self._connection, table_id.value)
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
-        return _table_record(self._connection, table_id.value, lock=True)
+        return _table_record(self._connection, table_id.value, row_lock="update")
 
     def save_table(self, table: TableRecord) -> None:
         hand_stored = self._connection.execute(
