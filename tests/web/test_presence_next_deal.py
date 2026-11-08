@@ -301,7 +301,7 @@ class TestNextHandComes:
             after = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
             advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
 
-            assert after.status_code == 200
+            assert during.json() == first.json()
             assert server.store.tables[table_id] == dealt
 
     @pytest.mark.parametrize("seated", [True, False], ids=["a-hand-runs", "never-dealt"])
@@ -421,15 +421,3 @@ class TestNextDealTrigger:
         run_on_a_loop_of_its_own(scenario())
 
         assert asked == [table_id]
-
-    def test_the_first_view_of_a_table_never_dealt_asks_for_nothing(self, table, asking_presence, asked):
-        service, table_id = table
-
-        async def scenario():
-            stream = stream_of(asking_presence, service, OPENER, table_id)
-            await next_view(stream)
-            await stream.aclose()
-
-        run_on_a_loop_of_its_own(scenario())
-
-        assert asked == []

@@ -670,9 +670,10 @@ class TestDealNext:
         before = self.read(transactions, table_id)
         failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
         identifier = TableId(table_id)
+        everyone = nullcontext(ALL_THREE)
 
         with pytest.raises(ConnectionError):
-            failing.deal_next(identifier, nullcontext(ALL_THREE))
+            failing.deal_next(identifier, everyone)
 
         assert self.read(transactions, table_id) == before
         assert count(engine, "hand_cards") == 0

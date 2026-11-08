@@ -113,7 +113,7 @@ def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> boo
 
 def dealt_next(table: TableRecord, new_hand: NewHand) -> TableRecord:
     """The table with the next hand, which is its own change and so bumps the version itself."""
-    return dealt(replace(table, version=table.version + 1), new_hand)
+    return replace(dealt(table, new_hand), version=table.version + 1)
 
 
 def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:

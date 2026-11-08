@@ -567,9 +567,10 @@ class TestDealNext:
         written = dict(store.tables)
         failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
         identifier = TableId(table_id)
+        everyone = nullcontext(ALL_THREE)
 
         with pytest.raises(ConnectionError):
-            failing.deal_next(identifier, nullcontext(ALL_THREE))
+            failing.deal_next(identifier, everyone)
 
         assert store.tables == written
 
