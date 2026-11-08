@@ -54,6 +54,12 @@ class _FaultyTransaction:
     def table(self, table_id: TableId) -> TableRecord | None:
         return self._inner.table(table_id)
 
+    def locked_table(self, table_id: TableId) -> TableRecord | None:
+        return self._inner.locked_table(table_id)
+
+    def save_table(self, table: TableRecord) -> None:
+        self._inner.save_table(table)
+
     def add_table(self, table: TableRecord) -> None:
         self._inner.add_table(table)
 

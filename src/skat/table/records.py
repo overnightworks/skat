@@ -1,6 +1,7 @@
 import re
 import secrets
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Final, Self
 
 TABLE_ID_BYTES: Final = 16
@@ -38,6 +39,31 @@ class CreateTable:
 
 
 @dataclass(frozen=True)
+class SitDown:
+    """The command to take a chair; `command_id` is the client's key for retrying it."""
+
+    command_id: str
+    table_id: str
+    seat: int
+
+
+@dataclass(frozen=True)
+class StandUp:
+    """The command to leave one's own chair."""
+
+    command_id: str
+    table_id: str
+
+
+class Refusal(StrEnum):
+    """Why a seating command changed nothing."""
+
+    SEAT_TAKEN = "seat-taken"
+    ALREADY_SEATED = "already-seated"
+    NOT_SEATED = "not-seated"
+
+
+@dataclass(frozen=True)
 class Occupant:
     account_id: str
     display_name: str
@@ -57,6 +83,15 @@ class TableRecord:
 
 
 @dataclass(frozen=True)
+class Decision:
+    """The table after a seating command; a refusal leaves it as it was and names who holds a taken chair."""
+
+    table: TableRecord
+    refusal: Refusal | None = None
+    holder: str | None = None
+
+
+@dataclass(frozen=True)
 class Receipt:
     """What a command did, kept under (account, command id) so a retry answers with the same result."""
 
@@ -65,6 +100,8 @@ class Receipt:
     command: str
     payload: str
     table_id: TableId
+    refusal: Refusal | None = None
+    holder: str | None = None
 
 
 @dataclass(frozen=True)
@@ -74,3 +111,5 @@ class Replay:
     command: str
     payload: str
     table: TableRecord
+    refusal: Refusal | None = None
+    holder: str | None = None

@@ -20,4 +20,8 @@ export const words = {
     tableLoadFailedHint: "Lade die Seite neu, um es noch einmal zu versuchen.",
     watchers: "Zuschauer",
     reconnecting: "verbinde neu",
+    sitDown: "Hinsetzen",
+    standUp: "Aufstehen",
+    seatTaken: "Platz vergeben",
+    commandFailed: "Das hat nicht geklappt",
 } as const;

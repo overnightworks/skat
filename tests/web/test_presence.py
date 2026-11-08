@@ -92,3 +92,18 @@ class TestPublishing:
         presence.subscribe(TABLE, "ben", wakes.callback("ben"))
 
         assert wakes.counts == {"anna": 0, "ben": 0}
+
+
+class TestWakingATable:
+    def test_wakes_every_stream_of_that_table_and_no_other(self, presence, wakes):
+        presence.subscribe(TABLE, "anna", wakes.callback("anna"))
+        presence.subscribe(TABLE, "ben", wakes.callback("ben"))
+        presence.subscribe(OTHER_TABLE, "cem", wakes.callback("cem"))
+        before = dict(wakes.counts)
+
+        presence.wake_table(TABLE)
+
+        assert wakes.counts == {"anna": before["anna"] + 1, "ben": before["ben"] + 1, "cem": before["cem"]}
+
+    def test_waking_a_table_nobody_watches_is_harmless(self, presence):
+        presence.wake_table(TABLE)
