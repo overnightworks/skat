@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from enum import Enum
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.cards import DECK, Card
 
 if TYPE_CHECKING:
     import random
+    from collections.abc import Mapping
 
 SEATS: Final = (1, 2, 3)
 _PACKETS: Final = (3, 2, 4, 3)
@@ -19,8 +21,20 @@ class Position(Enum):
 
 @dataclass(frozen=True)
 class Deal:
-    hands: dict[Position, tuple[Card, ...]]
+    forehand: tuple[Card, ...]
+    middlehand: tuple[Card, ...]
+    rearhand: tuple[Card, ...]
     skat: tuple[Card, ...]
+
+    @property
+    def hands(self) -> Mapping[Position, tuple[Card, ...]]:
+        return MappingProxyType(
+            {
+                Position.FOREHAND: self.forehand,
+                Position.MIDDLEHAND: self.middlehand,
+                Position.REARHAND: self.rearhand,
+            }
+        )
 
 
 def _check_seat(seat: int) -> None:
@@ -61,4 +75,9 @@ def deal(source: random.Random) -> Deal:
         for position in players:
             hands[position] += deck[taken : taken + size]
             taken += size
-    return Deal({position: tuple(cards) for position, cards in hands.items()}, tuple(skat))
+    return Deal(
+        forehand=tuple(hands[Position.FOREHAND]),
+        middlehand=tuple(hands[Position.MIDDLEHAND]),
+        rearhand=tuple(hands[Position.REARHAND]),
+        skat=tuple(skat),
+    )

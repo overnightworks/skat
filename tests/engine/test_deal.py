@@ -79,3 +79,14 @@ def test_over_many_seeded_deals_every_card_reaches_every_position_and_the_skat()
 def test_a_seat_outside_one_to_three_is_refused(dealer):
     with pytest.raises(ValueError, match="not one of"):
         positions_from(dealer=dealer)
+
+
+def test_a_dealt_hand_can_be_neither_replaced_nor_removed_and_the_deal_stays_hashable():
+    dealt = deal(seeded(1))
+    with pytest.raises(TypeError):
+        dealt.hands[Position.FOREHAND] = ()  # type: ignore[index]
+    with pytest.raises(TypeError):
+        del dealt.hands[Position.FOREHAND]  # type: ignore[attr-defined]
+    assert len(dealt.hands) == 3
+    assert hash(dealt) == hash(deal(seeded(1)))
+    assert dealt == deal(seeded(1))
