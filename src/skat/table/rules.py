@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import Final
 
 from skat.table.records import (
@@ -90,7 +89,14 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 def dealt(table: TableRecord, new_hand: NewHand) -> TableRecord:
     """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
-    return replace(table, dealer=new_hand.dealer, hand=new_hand.hand, progress=HandProgress())
+    return TableRecord(
+        id=table.id,
+        version=table.version,
+        chairs=table.chairs,
+        dealer=new_hand.dealer,
+        hand=new_hand.hand,
+        progress=HandProgress(),
+    )
 
 
 def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:
