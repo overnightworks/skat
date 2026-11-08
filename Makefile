@@ -1,4 +1,4 @@
-.PHONY: install lint wire wire-check format test dead check run e2e frontend frontend-check
+.PHONY: install lint wire wire-check words words-check format test dead check run e2e frontend frontend-check
 
 install:
 	uv sync --all-extras
@@ -9,12 +9,19 @@ lint:
 	uv run pyright
 	PYTHONPATH=src uv run lint-imports
 	$(MAKE) wire-check
+	$(MAKE) words-check
 
 wire:
 	uv run python scripts/generate_wire.py
 
 wire-check:
 	uv run python scripts/generate_wire.py --check
+
+words:
+	uv run python scripts/generate_words.py
+
+words-check:
+	uv run python scripts/generate_words.py --check
 
 format:
 	uv run ruff check --fix .

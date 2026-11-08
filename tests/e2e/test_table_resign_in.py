@@ -11,6 +11,7 @@ from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.sessions import end_sessions_of
 from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 WIDTHS = [pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-RECONNECTING = "verbinde neu"
+RECONNECTING = catalog_text("reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
 

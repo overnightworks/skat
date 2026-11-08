@@ -98,6 +98,10 @@ The model is Skat's own.
 - **A table's id** is an unguessable link, not a secret: every signed-in member who has it sees the table. A client names only its retry key; the account and the chair always come from the session.
 - **The operator's settings and secret files** are trusted fully. The two secrets and the database URL come from files and never enter the environment, and a wrong setting is named, never echoed.
 
+### Texts
+
+`frontend/src/lib/catalogs/de.po` owns every visible Skat text. `scripts/generate_words.py` writes the typed `frontend/src/lib/words.ts` from it (`make words`; `make words-check`, part of `make lint`, fails on drift). A missing, empty or fuzzy translation fails the generator and a missing key fails the type check, so nothing fails at runtime. The sign-in pages keep appkit's English. A further language is one more catalog checked against `de.po`'s keys; choosing it is a later item.
+
 ### Proof strategy
 
 Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live and sign-out. Branch coverage is judged at 100 % over both together, merged with the frontend's.

@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from skat.web.constants import AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
+from tests.e2e.support.words import catalog_text
 from tests.support.sign_in_settings import TEST_ISSUER
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ LEGAL_LINKS = {
 ISSUER_END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
 ACCOUNT_AVATAR = ".account-button"
 ACCOUNT_MENU = "#accountMenu"
-NEW_TABLE_BUTTON = "Neuer Tisch"
+NEW_TABLE_BUTTON = catalog_text("newTable")
 
 
 def record_page_errors(page: Page, page_errors: list[str], *, console: bool = True) -> Page:

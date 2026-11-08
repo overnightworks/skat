@@ -1,0 +1,23 @@
+// Generated from the German catalog by scripts/generate_words.py. Do not edit.
+
+export const words = {
+    appName: "Skat",
+    account: "Konto",
+    themeTitle: "Darstellung",
+    themeFollowSystem: "System",
+    themeLight: "Hell",
+    themeDark: "Dunkel",
+    logOut: "Abmelden",
+    newTable: "Neuer Tisch",
+    newTableFailed: "Der Tisch konnte nicht eröffnet werden.",
+    waitingForPlayers: "Warte auf Mitspieler",
+    seatFree: "Frei",
+    copyLink: "Link kopieren",
+    linkCopied: "Link kopiert",
+    linkCopyFailed: "Der Link ließ sich nicht kopieren",
+    tableNotFound: "Tisch nicht gefunden",
+    tableLoadFailed: "Der Tisch lässt sich gerade nicht laden",
+    tableLoadFailedHint: "Lade die Seite neu, um es noch einmal zu versuchen.",
+    watchers: "Zuschauer",
+    reconnecting: "verbinde neu",
+} as const;

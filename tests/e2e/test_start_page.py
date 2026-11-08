@@ -16,6 +16,7 @@ from tests.e2e.support.browser import (
     record_page_errors,
 )
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.words import catalog_text
 from tests.support.sign_in_settings import TEST_ISSUER
 
 if TYPE_CHECKING:
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
+
 
 ACCOUNT_ROUTE = f"**{ACCOUNT_PATH}"
 UNAUTHORIZED = 401
@@ -63,7 +65,7 @@ def test_the_account_button_opens_a_menu_with_the_username_one_log_out_and_the_l
 
     menu = person.locator(ACCOUNT_MENU)
     expect(menu.get_by_role("link").first).to_have_text("felix.hummert")
-    expect(menu.get_by_role("button", name="Log out")).to_have_count(1)
+    expect(menu.get_by_role("button", name=catalog_text("logOut"))).to_have_count(1)
     assert {(link.inner_text(), link.get_attribute("href")) for link in menu.locator("nav a").all()} == set(
         LEGAL_LINKS.items()
     )
@@ -114,6 +116,21 @@ def test_the_name_opens_the_account_console_in_a_new_tab_and_closes_the_menu(
     assert console_answers[0] == (303, f"{TEST_ISSUER}/account")
 
 
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_the_account_button_and_menu_speak_german(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    person = open_start_page(open_person, e2e_server, page_errors, **form_factor)
+
+    expect(person.locator(ACCOUNT_AVATAR)).to_have_attribute("aria-label", catalog_text("account"))
+    person.locator(ACCOUNT_AVATAR).click()
+
+    menu = person.locator(ACCOUNT_MENU)
+    expect(menu.get_by_role("button", name=catalog_text("logOut"))).to_be_visible()
+    expect(menu.get_by_role("button", name="Log out")).to_have_count(0)
+    expect(person.locator("[lang=de]").locator(ACCOUNT_MENU)).to_have_count(1)
+
+
 def test_a_menu_the_account_cannot_name_is_called_account_and_still_logs_out(
     open_person: Callable[..., Page], e2e_server: RunningServer
 ) -> None:
@@ -123,8 +140,8 @@ def test_a_menu_the_account_cannot_name_is_called_account_and_still_logs_out(
     person.goto(f"{e2e_server.base_url}/")
     person.locator(ACCOUNT_AVATAR).click()
 
-    expect(person.locator(ACCOUNT_MENU).get_by_role("link").first).to_have_text("Account")
-    expect(person.locator(ACCOUNT_MENU).get_by_role("button", name="Log out")).to_be_visible()
+    expect(person.locator(ACCOUNT_MENU).get_by_role("link").first).to_have_text(catalog_text("account"))
+    expect(person.locator(ACCOUNT_MENU).get_by_role("button", name=catalog_text("logOut"))).to_be_visible()
 
 
 def test_a_session_that_ended_sends_the_page_to_the_sign_in_page_once_when_the_account_answers_401(
@@ -171,7 +188,7 @@ def test_signing_out_ends_the_session_and_the_sign_in_page_follows(
     person.route(ISSUER_END_SESSION_URL, end_the_session_at_the_issuer)
     person.locator(ACCOUNT_AVATAR).click()
 
-    person.locator(ACCOUNT_MENU).get_by_role("button", name="Log out").click()
+    person.locator(ACCOUNT_MENU).get_by_role("button", name=catalog_text("logOut")).click()
 
     expect(person.get_by_role("link", name="Log in", exact=True)).to_be_visible()
     assert urlsplit(person.url).path == LOGIN_PATH
