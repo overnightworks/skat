@@ -4,6 +4,7 @@ import pytest
 from structlog.testing import capture_logs
 
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, ChairHold, LoopScheduler, Presence
+from tests.support.idle_presence import idle_presence
 
 TABLE = "t" * 32
 OTHER_TABLE = "o" * 32
@@ -31,7 +32,7 @@ def wakes():
 
 @pytest.fixture
 def presence():
-    return Presence()
+    return idle_presence()
 
 
 class TestConnectedAccounts:
@@ -114,7 +115,6 @@ class TestWakingATable:
 
 HOLD_SECONDS = 300
 SERVER_START_SECONDS = 1000.0
-RELEASE_FAILED = "chair release failed"
 
 
 class FakeTime:
@@ -154,12 +154,18 @@ class Releases:
         self.calls = []
         self.failures = []
         self.freed = True
+        self.meanwhile = None
+        self.outcomes = []
 
-    async def free_chair(self, table_id, account_id):
+    async def free_chair(self, table_id, account_id, still_due):
         self.calls.append((table_id, account_id))
         if self.failures:
             raise self.failures.pop(0)
-        return self.freed
+        if self.meanwhile is not None:
+            self.meanwhile()
+        outcome = self.freed and still_due()
+        self.outcomes.append(outcome)
+        return outcome
 
 
 @pytest.fixture
@@ -300,8 +306,40 @@ class TestChairHold:
 
         assert len(releases.calls) == 3
         assert wakes.counts["ben"] == woken_before + 1
-        assert [log["event"] for log in logs] == [RELEASE_FAILED, RELEASE_FAILED]
+        assert [(log["log_level"], log["error"]) for log in logs] == [("error", "ConnectionError")] * 2
         assert "anna" not in str(logs)
+
+    def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        releases.meanwhile = lambda: holding.subscribe(TABLE, "anna", lambda: None)
+
+        run(time.advance(HOLD_SECONDS))
+
+        assert releases.outcomes == [False]
+
+    def test_a_leave_during_the_freeing_keeps_its_own_timer(self, holding, time, releases):
+        returned = []
+
+        def leaves_again():
+            returned.append(holding.subscribe(TABLE, "anna", lambda: None))
+            holding.unsubscribe(returned[0])
+
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        releases.meanwhile = leaves_again
+        run(time.advance(HOLD_SECONDS))
+        releases.meanwhile = None
+        releases.freed = True
+        run(time.advance(HOLD_SECONDS))
+
+        assert releases.calls == [(TABLE, "anna"), (TABLE, "anna")]
+
+    def test_a_freeing_that_waits_while_the_server_stops_frees_nothing(self, holding, time, releases):
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        releases.meanwhile = holding.stop
+
+        run(time.advance(HOLD_SECONDS))
+
+        assert (releases.outcomes, time.pending) == ([False], 0)
 
     def test_stopping_cancels_every_pending_check_and_a_stream_ending_afterwards_schedules_none(
         self, holding, time, releases
@@ -314,13 +352,6 @@ class TestChairHold:
         run(time.advance(HOLD_SECONDS * 2))
 
         assert (time.pending, releases.calls) == (0, [])
-
-    def test_a_presence_without_a_hold_keeps_no_time(self, presence):
-        presence.hold_chairs([(TABLE, "anna")])
-        presence.unsubscribe(presence.subscribe(TABLE, "anna", lambda: None))
-        presence.stop()
-
-        assert presence.connected(TABLE) == frozenset()
 
 
 class TestLoopScheduler:

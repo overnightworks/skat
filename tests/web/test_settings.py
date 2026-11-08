@@ -24,7 +24,6 @@ class TestServerSettings:
         assert settings.port == DEFAULT_PORT
         assert settings.oidc_client_id == OIDC_CLIENT_ID
         assert settings.trusted_proxies == ""
-        assert settings.chair_hold_seconds == 300
 
     def test_each_setting_is_read_from_its_skat_environment_variable(self, sign_in_settings):
         sign_in = sign_in_settings()

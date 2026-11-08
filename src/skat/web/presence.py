@@ -55,13 +55,15 @@ class LoopScheduler:
 class ChairHold:
     """How long an away member keeps the chair, on whose clock and timers, and the command that frees it.
 
-    `free_chair(table_id, account_id)` answers whether it freed the chair, and raises when the store fails.
+    `free_chair(table_id, account_id, still_due)` answers whether it freed the chair, and raises when the
+    store fails. It calls `still_due` from its worker while it holds the table's row lock, and frees nothing
+    when that answers False.
     """
 
     seconds: float
     clock: Callable[[], float]
     scheduler: Scheduler
-    free_chair: Callable[[str, str], Awaitable[bool]]
+    free_chair: Callable[[str, str, Callable[[], bool]], Awaitable[bool]]
 
 
 class Presence:
@@ -71,12 +73,14 @@ class Presence:
     that falls behind finds several changes folded into one wake and reads the latest state, which is its
     fresh snapshot.
 
-    With a `ChairHold`, an account whose last stream on a table ended gets one timer; when it fires the chair
-    is freed unless the account came back or left again since, which a newer leave time shows. Leave times
-    are not stored, so `hold_chairs` counts every seated member as having left when the server starts.
+    An account whose last stream on a table ended gets one timer; when it fires the chair is freed unless the
+    account came back or left again since, which a newer leave time shows, or the presence has stopped. The
+    freeing asks again under the table's row lock, so a reconnect or a stop while the command waits still
+    wins. Leave times are not stored, so `hold_chairs` counts every seated member as having left when the
+    server starts.
     """
 
-    def __init__(self, hold: ChairHold | None = None) -> None:
+    def __init__(self, hold: ChairHold) -> None:
         self._subscriptions: dict[str, list[Subscription]] = {}
         self._stopped = False
         self._hold = hold
@@ -89,8 +93,7 @@ class Presence:
     def stop(self) -> None:
         """Wake every open stream to end and cancel every pending check; a later stream ends at once."""
         self._stopped = True
-        if self._hold is not None:
-            self._hold.scheduler.cancel_all()
+        self._hold.scheduler.cancel_all()
         self._wake_all([subscription for open_ones in self._subscriptions.values() for subscription in open_ones])
 
     def wake_table(self, table_id: str) -> None:
@@ -128,7 +131,7 @@ class Presence:
             self._wake_all(remaining)
 
     def _start_hold(self, table_id: str, account_id: str) -> None:
-        if self._hold is None or self._stopped:
+        if self._stopped:
             return
         left_at = self._hold.clock()
         self._left_at[table_id, account_id] = left_at
@@ -137,10 +140,12 @@ class Presence:
         )
 
     async def _expire(self, hold: ChairHold, table_id: str, account_id: str, left_at: float) -> None:
-        if self._left_at.get((table_id, account_id)) != left_at:
+        if not self._is_latest_leave(table_id, account_id, left_at):
             return
         try:
-            freed = await hold.free_chair(table_id, account_id)
+            freed = await hold.free_chair(
+                table_id, account_id, partial(self._is_latest_leave, table_id, account_id, left_at)
+            )
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
             log.error("chair release failed", table_id=table_id, error=type(failure).__name__)
@@ -148,9 +153,14 @@ class Presence:
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, hold, table_id, account_id, left_at)
             )
             return
-        self._left_at.pop((table_id, account_id), None)
+        if self._left_at.get((table_id, account_id)) == left_at:
+            del self._left_at[table_id, account_id]
         if freed:
             self.wake_table(table_id)
+
+    def _is_latest_leave(self, table_id: str, account_id: str, left_at: float) -> bool:
+        """Safe to call from a worker thread: it only reads."""
+        return not self._stopped and self._left_at.get((table_id, account_id)) == left_at
 
     @staticmethod
     def _wake_all(subscriptions: list[Subscription]) -> None:

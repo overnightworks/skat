@@ -394,7 +394,7 @@ class TestOccupiedChairs:
         service.sit(VISITOR, SitDown("command-ben", table_id, 3), frozenset())
         receipts_before = count(engine, "receipts")
 
-        freed = service.free_chair(TableId(table_id), VISITOR.account_id)
+        freed = service.free_chair(TableId(table_id), VISITOR.account_id, lambda: True)
 
         view = service.view(OPENER, table_id, frozenset())
         assert (freed, [chair.occupant_name for chair in view.chairs], view.version) == (True, ["Anna", None, None], 3)

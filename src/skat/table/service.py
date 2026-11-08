@@ -147,15 +147,16 @@ class TableService:
             lambda table: decide_stand(table, actor),
         )
 
-    def free_chair(self, table_id: TableId, account_id: str) -> bool:
+    def free_chair(self, table_id: TableId, account_id: str, still_due: Callable[[], bool]) -> bool:
         """Free the account's chair on the server's own account, with no actor, command id or receipt.
 
         The decision re-reads the chair under the row lock, so a repeat, or a chair the account left in the
-        meantime, changes nothing. True when it freed the chair.
+        meantime, changes nothing, and so does a `still_due` that answers False once the lock is held.
+        True when it freed the chair.
         """
         with self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            if table is None:
+            if table is None or not still_due():
                 return False
             decision = decide_free_chair(table, account_id)
             if decision.refusal is not None:

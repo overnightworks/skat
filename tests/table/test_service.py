@@ -305,6 +305,13 @@ class TestStand:
 
         assert occupants_of(sit(service, VISITOR, table_id, 1).view) == ["Ben", None, None]
 
+    def test_changes_nothing_when_the_caller_is_no_longer_due_once_the_row_is_locked(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, lambda: False) is False
+        assert store.tables == written
+
     def test_an_unknown_table_is_no_table(self, service):
         assert service.stand(OPENER, StandUp("command-stand", "0" * 32), frozenset()) is None
 
@@ -420,6 +427,10 @@ class TestDeal:
         assert (store.tables[table_id].dealer, store.tables[table_id].hand) == (None, None)
 
 
+def DUE() -> bool:  # noqa: N802
+    return True
+
+
 class TestFreeChair:
     def test_frees_the_chair_of_its_occupant_keeps_every_number_and_bumps_the_version_without_a_receipt(
         self, service, store, table_id
@@ -428,7 +439,7 @@ class TestFreeChair:
         receipts_before = dict(store.receipts)
         version_before = store.tables[table_id].version
 
-        freed = service.free_chair(TableId(table_id), VISITOR.account_id)
+        freed = service.free_chair(TableId(table_id), VISITOR.account_id, DUE)
 
         assert freed is True
         assert occupants_of(service.view(OPENER, table_id, frozenset())) == ["Anna", None, None]
@@ -437,10 +448,10 @@ class TestFreeChair:
 
     def test_a_second_run_changes_nothing(self, service, store, table_id):
         sit(service, VISITOR, table_id, 3)
-        service.free_chair(TableId(table_id), VISITOR.account_id)
+        service.free_chair(TableId(table_id), VISITOR.account_id, DUE)
         written = dict(store.tables)
 
-        assert service.free_chair(TableId(table_id), VISITOR.account_id) is False
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, DUE) is False
         assert store.tables == written
 
     def test_changes_nothing_for_an_account_that_stood_up_before(self, service, store, table_id):
@@ -448,7 +459,7 @@ class TestFreeChair:
         service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
         written = dict(store.tables)
 
-        assert service.free_chair(TableId(table_id), VISITOR.account_id) is False
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, DUE) is False
         assert store.tables == written
 
     def test_changes_nothing_while_a_hand_runs(self, store):
@@ -456,11 +467,18 @@ class TestFreeChair:
         table_id, _ = seated_three(service)
         dealt = store.tables[table_id]
 
-        assert service.free_chair(TableId(table_id), VISITOR.account_id) is False
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, DUE) is False
         assert store.tables[table_id] == dealt
 
+    def test_changes_nothing_when_the_caller_is_no_longer_due_once_the_row_is_locked(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, lambda: False) is False
+        assert store.tables == written
+
     def test_an_unknown_table_is_no_table(self, service):
-        assert service.free_chair(TableId("0" * 32), VISITOR.account_id) is False
+        assert service.free_chair(TableId("0" * 32), VISITOR.account_id, DUE) is False
 
     def test_a_failure_after_the_chair_write_persists_nothing(self, service, store, table_id):
         sit(service, VISITOR, table_id, 3)
@@ -468,7 +486,7 @@ class TestFreeChair:
         failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
 
         with pytest.raises(ConnectionError):
-            failing.free_chair(TableId(table_id), VISITOR.account_id)
+            failing.free_chair(TableId(table_id), VISITOR.account_id, DUE)
 
         assert store.tables == written
 
