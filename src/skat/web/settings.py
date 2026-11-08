@@ -17,10 +17,10 @@ def _require_no_trailing_slash(issuer: str) -> str:
 
 
 # The browser's own serialisation of an https origin: the call page compares `event.origin` with it byte for byte.
-_BROWSER_ORIGIN = re.compile(r"https://(?P<host>[a-z0-9.-]+)(:(?P<port>[1-9]\d{0,4}))?")
-_HOST_LABEL = re.compile(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?")
-_CANONICAL_IPV4_OCTET = re.compile(r"(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)")
-_NUMBER_LABEL = re.compile(r"\d+|0x[0-9a-f]*")
+_BROWSER_ORIGIN = re.compile(r"https://(?P<host>[a-z0-9.-]+)(:(?P<port>[1-9]\d{0,4}))?", re.ASCII)
+_HOST_LABEL = re.compile(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?", re.ASCII)
+_CANONICAL_IPV4_OCTET = re.compile(r"(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)", re.ASCII)
+_NUMBER_LABEL = re.compile(r"\d+|0x[0-9a-f]*", re.ASCII)
 _HIGHEST_PORT = 65535
 _HTTPS_PORT = 443
 _IPV4_OCTET_COUNT = 4

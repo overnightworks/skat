@@ -92,6 +92,8 @@ class TestServerSettings:
             "https://host .example",
             "https://host.example:99999",
             "https://host.example:65536",
+            "https://host.example:8\u0664\u0664\u0663",
+            "https://host.example:1\uff10",
             "https://127.1:8443",
             "https://127.0.0.256",
             "https://127.000.0.1",
