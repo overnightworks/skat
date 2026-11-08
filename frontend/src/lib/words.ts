@@ -25,4 +25,5 @@ export const words = {
     standUp: "Aufstehen",
     seatTaken: "Platz vergeben",
     commandFailed: "Das hat nicht geklappt",
+    biddingFollows: "Reizen folgt",
 } as const;

@@ -3,11 +3,9 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from webauth.admission import AppRole
 
-from skat.store.migrate import create_store_engine
 from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
-from tests.e2e.support.server import RunningServer, loopback_sign_in, running_skat
-from tests.support.postgres import created_database, migrated_template
+from tests.e2e.support.server import RunningServer, skat_on_new_database
 from tests.support.signed_in import SeededMember, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -21,14 +19,8 @@ PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
 @pytest.fixture(scope="session")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake."""
-    loopback = loopback_sign_in(tmp_path_factory.mktemp("sign-in"))
-    with migrated_template() as template, created_database(template) as database_url:
-        engine = create_store_engine(database_url)
-        try:
-            with running_skat(loopback, tmp_path_factory.mktemp("tls"), engine) as server:
-                yield server
-        finally:
-            engine.dispose()
+    with skat_on_new_database(tmp_path_factory) as server:
+        yield server
 
 
 @pytest.fixture(scope="session")
