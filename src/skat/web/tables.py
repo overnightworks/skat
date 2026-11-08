@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from skat.engine.cards import Card
     from skat.table.service import CommandResult, TableService
-    from skat.table.views import ChairHand, HandView, TableView
+    from skat.table.views import ChairHand, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -128,12 +128,17 @@ class ChairAnswer(BaseModel):
     hand: ChairHandAnswer | None
 
 
+class PassedInAnswer(BaseModel):
+    next_dealer_seat: int | None
+
+
 class TableAnswer(BaseModel):
     id: str
     version: int
     chairs: list[ChairAnswer]
     watchers: int
     hand: HandAnswer | None
+    passed_in: PassedInAnswer | None
 
 
 def card_answer_of(card: Card) -> CardAnswer:
@@ -156,6 +161,12 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
     )
 
 
+def passed_in_answer_of(passed_in: PassedInView | None) -> PassedInAnswer | None:
+    if passed_in is None:
+        return None
+    return PassedInAnswer(next_dealer_seat=passed_in.next_dealer_seat)
+
+
 def answer_of(view: TableView) -> TableAnswer:
     return TableAnswer(
         id=view.id,
@@ -172,6 +183,7 @@ def answer_of(view: TableView) -> TableAnswer:
         ],
         watchers=view.watchers,
         hand=hand_answer_of(view.hand),
+        passed_in=passed_in_answer_of(view.passed_in),
     )
 
 

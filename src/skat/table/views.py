@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK
-from skat.engine.deal import positions_from
+from skat.engine.deal import next_dealer, positions_from
+from skat.table.hand_state import auction_of
 
 if TYPE_CHECKING:
     from skat.engine.cards import Card
@@ -37,12 +39,20 @@ class HandView:
 
 
 @dataclass(frozen=True)
+class PassedInView:
+    """The hand was passed in: who deals next, named only while three chairs are occupied."""
+
+    next_dealer_seat: int | None
+
+
+@dataclass(frozen=True)
 class TableView:
     id: str
     version: int
     chairs: tuple[ChairView, ...]
     watchers: int
     hand: HandView | None
+    passed_in: PassedInView | None
 
 
 def _is_occupied_by(chair: Chair, account_id: str) -> bool:
@@ -69,12 +79,21 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
 
+def _passed_in_view(table: TableRecord) -> PassedInView | None:
+    """What the stored steps say between hands: set only while no hand runs and the steps ended in three passes."""
+    if table.hand is not None or table.dealer is None or not isinstance(auction_of(table).result, PassedIn):
+        return None
+    three_seated = all(chair.occupant is not None for chair in table.chairs)
+    return PassedInView(next_dealer(table.dealer) if three_seated else None)
+
+
 def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine.
 
     The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant
     is not the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows
-    its position and card count, and only the viewer's own cards are named; the skat is a count.
+    its position and card count, and only the viewer's own cards are named; the skat is a count. Between hands the
+    view says whether the last hand was passed in and, while three chairs are occupied, who deals next.
     """
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
@@ -95,4 +114,5 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
             for chair in table.chairs
         ),
         hand=hand_view,
+        passed_in=_passed_in_view(table),
     )
