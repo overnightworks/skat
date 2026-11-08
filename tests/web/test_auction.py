@@ -33,7 +33,7 @@ class Table:
 
     def send(self, headers, action, value=None, *, command_id=None, version=None, **extra):
         body = {
-            "command_id": command_id or f"command-{next(self._commands):04d}",
+            "command_id": command_id or f"step-{next(self._commands):04d}",
             "version": self.record.version if version is None else version,
             "action": action,
             **({} if value is None else {"value": value}),
@@ -174,7 +174,7 @@ class TestRefused:
 
         answer = skat.client.post(
             f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-            json={"command_id": "command-0001", "version": 1, "action": PASS},
+            json={"command_id": "step-0001", "version": 1, "action": PASS},
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
 
@@ -187,7 +187,7 @@ class TestRefused:
 
         answer = skat.client.post(
             f"{TABLES_PATH}/{UNKNOWN_ID}{TABLE_AUCTION_SUFFIX}",
-            json={"command_id": "command-0001", "version": 1, "action": PASS},
+            json={"command_id": "step-0001", "version": 1, "action": PASS},
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
 

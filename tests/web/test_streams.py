@@ -637,22 +637,24 @@ class TestHandOnTheStream:
         skat.client.cookies.clear()
         middlehand_headers, rearhand_headers = people[0][0], people[1][0]
 
-        with (
-            skat.client.stream("GET", self.events(table_id), headers=middlehand_headers) as first_stream,
-            skat.client.stream("GET", self.events(table_id), headers=rearhand_headers) as second_stream,
-        ):
-            first_lines, second_lines = first_stream.iter_lines(), second_stream.iter_lines()
+        with skat.client.stream("GET", self.events(table_id), headers=middlehand_headers) as first_stream:
+            first_lines = first_stream.iter_lines()
             opened = json.loads(next(first_lines).removeprefix("data: "))
             next(first_lines)
-            next(second_lines)
-            next(second_lines)
-            skat.client.cookies.clear()
-            answer = skat.client.post(
-                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                json={"command_id": "command-step", "version": opened["version"], "action": "bid", "value": 18},
-                headers={"origin": TEST_PUBLIC_ORIGIN, **middlehand_headers},
-            )
-            first_fresh, second_fresh = next(first_lines), next(second_lines)
+            with skat.client.stream("GET", self.events(table_id), headers=rearhand_headers) as second_stream:
+                second_lines = second_stream.iter_lines()
+                next(second_lines)
+                next(second_lines)
+                # The second stream joining is a change the first stream hears about before the step.
+                next(first_lines)
+                next(first_lines)
+                skat.client.cookies.clear()
+                answer = skat.client.post(
+                    f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+                    json={"command_id": "step-0001", "version": opened["version"], "action": "bid", "value": 18},
+                    headers={"origin": TEST_PUBLIC_ORIGIN, **middlehand_headers},
+                )
+                first_fresh, second_fresh = next(first_lines), next(second_lines)
 
         assert answer.status_code == 200
         fresh = json.loads(first_fresh.removeprefix("data: "))
