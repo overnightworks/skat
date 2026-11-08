@@ -8,5 +8,5 @@ if TYPE_CHECKING:
 
 
 def auction_of(table: TableRecord) -> Auction:
-    """The running hand's auction, replayed through the engine from its stored steps."""
+    """The auction of a table, replayed through the engine from its stored steps."""
     return auction_after(table.progress.auction)
