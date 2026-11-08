@@ -39,7 +39,7 @@ flowchart TB
 - **`skat.host`** composes the app from settings and the page build, and starts uvicorn.
 - **`skat.web`** is the adapter: webauth's sign-in routes and session gate, the security headers, the account routes, the table routes under `/api/tables`, `/health` and the page build, whose `/t/{id}` page opens a table by its link. It decides nobody's rights beyond admission.
 - **`skat.table`** is the table core: records, the rules that decide a command, the views a person is allowed to see, and a service that runs each command as one transaction through a narrow port. It imports no framework, driver or adapter.
-- **`skat.engine`** holds Skat's own rules as pure code below the table. Nothing calls it yet: it is built ahead of its caller, the first game slice (#26). It imports no framework, driver or adapter.
+- **`skat.engine`** holds Skat's own rules as pure code below the table. Nothing calls it yet: it is built ahead of the game slices that call it, and `.aco/ahead-of-caller.toml` names which slice wires which module. It imports no framework, driver or adapter.
 - **`skat.store`** implements that port on Postgres with SQLAlchemy and psycopg 3, and owns the Alembic migrations. `skat migrate` takes an advisory lock and upgrades the database before any other setting or the page build is read; `skat serve` never migrates and refuses a database that is not at the newest migration. Migrations only expand.
 - Layer rule: `host` depends on `web` and `store`, which stand side by side and know nothing of each other, and both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of SQLAlchemy, psycopg, FastAPI, Starlette and webauth.
 - **The frontend** (`frontend/`) is built to `src/skat/web/build`. The path constants it needs are generated from the Python constants.
@@ -98,7 +98,7 @@ The model is Skat's own.
 - **Keycloak** decides who is a member: the group `/apps/skat` admits, and no group makes anyone an admin. Skat trusts its signed tokens from the one configured issuer. The session store holds each login's ID token, a secret that leaves the server once, in the no-store logout page whose form the browser posts to Keycloak.
 - **The proxy hops** named in `SKAT_TRUSTED_PROXIES` are trusted to state the person's address in `X-Forwarded-For`; empty trusts none.
 - **A table's id** is an unguessable link, not a secret: every signed-in member who has it sees the table. A client names only its retry key; the account and the chair always come from the session.
-- **The operator's settings and secret files** are trusted fully. The two secrets and the database URL come from files and never enter the environment, and a wrong setting is named, never echoed.
+- **The operator's settings and secret files** are trusted fully. The two secrets and the database password come from files and never enter the environment; the database URL carries no password and comes from the environment, and a wrong setting is named, never echoed.
 
 ### Texts
 

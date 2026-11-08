@@ -1,10 +1,15 @@
-import pytest
-from sqlalchemy import inspect
+import logging
 
-from skat.host.main import main, uvicorn_options
+import pytest
+from pydantic import ValidationError
+from sqlalchemy import inspect
+from sqlalchemy.engine import make_url
+
+from skat.host.main import create_database_engine, main, uvicorn_options
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine
 from skat.web.constants import UVICORN_LOG_LEVEL
 from skat.web.secret_files import StartRefusedError
+from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
 from tests.support.page_build import FIXTURE_DIRECTORY
 
@@ -24,13 +29,15 @@ def server() -> ServerRecorder:
     return ServerRecorder()
 
 
+def without_password(database_url: str) -> str:
+    return make_url(database_url).set(drivername="postgresql", password=None).render_as_string()
+
+
 @pytest.fixture
 def configured_environment(sign_in_settings, monkeypatch, tmp_path):
     def configure(database_url: str | None = None, **overrides: object) -> None:
         if database_url is not None:
-            database_url_file = tmp_path / "database-url-of-the-test"
-            database_url_file.write_text(database_url + "\n")
-            overrides["database_url_file"] = database_url_file
+            overrides["database_url"] = without_password(database_url)
         for name, value in sign_in_settings(**overrides).environment.items():
             monkeypatch.setenv(name, value)
 
@@ -64,11 +71,59 @@ class TestMain:
 
         assert server.runs == []
 
-    def test_refuses_to_serve_when_the_database_url_file_cannot_be_read(self, server, configured_environment, tmp_path):
-        configured_environment(database_url_file=tmp_path / "missing-file")
+    @pytest.mark.parametrize("state", ["missing", "a directory", "empty"])
+    def test_refuses_to_serve_when_the_database_password_file_cannot_be_read_naming_the_setting_and_not_the_path(
+        self, server, configured_environment, tmp_path, state
+    ):
+        password_file = {
+            "missing": tmp_path / "missing-file",
+            "a directory": tmp_path,
+            "empty": tmp_path / "empty-file",
+        }[state]
+        if state == "empty":
+            password_file.write_text("")
+        configured_environment(database_password_file=password_file)
 
-        with pytest.raises(StartRefusedError, match="database_url_file"):
+        with pytest.raises(StartRefusedError, match="database_password_file") as refusal:
             main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+
+        assert str(password_file) not in str(refusal.value)
+        assert server.runs == []
+
+    @pytest.mark.parametrize("password", ["a-b_c", "-_", "p@ss/w:rd?#%"])
+    def test_builds_the_engine_on_the_database_url_with_the_password_from_its_file_whatever_its_characters(
+        self, sign_in_settings, database_url, tmp_path, password
+    ):
+        password_file = tmp_path / "password-of-the-test"
+        password_file.write_text(password + "\n")
+        settings = sign_in_settings(
+            database_url=without_password(database_url), database_password_file=password_file
+        ).settings
+
+        url = create_database_engine(settings).url
+
+        expected = make_url(database_url)
+        assert (url.password, url.host, url.port, url.username, url.database) == (
+            password,
+            expected.host,
+            expected.port,
+            expected.username,
+            expected.database,
+        )
+
+    def test_logs_and_prints_no_part_of_the_database_password_on_a_start(
+        self, server, configured_environment, database_url, tmp_path, capsys, caplog
+    ):
+        password = "password-in-its-own-file"
+        password_file = tmp_path / "password-of-the-test"
+        password_file.write_text(password + "\n")
+        configured_environment(database_url, database_password_file=password_file)
+        caplog.set_level(logging.DEBUG)
+
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+
+        output = capsys.readouterr()
+        assert password not in output.out + output.err + caplog.text
 
     @pytest.mark.parametrize("arguments", [[], ["frobnicate"]])
     def test_refuses_without_the_serve_command_and_starts_nothing(self, server, arguments, capsys):
@@ -83,10 +138,19 @@ class TestMain:
 class TestMigrate:
     @pytest.fixture
     def only_the_database_setting(self, monkeypatch, tmp_path, unmigrated_database_url):
-        database_url_file = tmp_path / "database-url-of-the-test"
-        database_url_file.write_text(unmigrated_database_url + "\n")
-        monkeypatch.setenv("SKAT_DATABASE_URL_FILE", str(database_url_file))
+        password_file = tmp_path / "password-of-the-test"
+        password_file.write_text("password-of-the-test\n")
+        monkeypatch.setenv("SKAT_DATABASE_URL", without_password(unmigrated_database_url))
+        monkeypatch.setenv("SKAT_DATABASE_PASSWORD_FILE", str(password_file))
         return unmigrated_database_url
+
+    def test_builds_the_migrate_engine_on_the_database_url_with_the_password_from_its_file(
+        self, only_the_database_setting
+    ):
+        url = create_database_engine(DatabaseSettings()).url  # pyright: ignore[reportCallIssue]
+
+        assert url.password == "password-of-the-test"
+        assert url.database == make_url(only_the_database_setting).database
 
     def test_migrates_with_no_other_setting_and_no_page_build(self, only_the_database_setting):
         main(["migrate"])
@@ -103,6 +167,34 @@ class TestMigrate:
         main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
 
         assert len(server.runs) == 1
+
+
+class TestRefusedDatabaseSettings:
+    @pytest.mark.parametrize("command", ["serve", "migrate"])
+    def test_refuses_a_database_url_with_a_password_naming_the_setting_and_echoing_neither(
+        self, command, configured_environment, monkeypatch
+    ):
+        password = "pw-of-the-test_1"
+        url = f"postgresql://skat:{password}@postgres/skat"
+        configured_environment()
+        monkeypatch.setenv("SKAT_DATABASE_URL", url)
+
+        with pytest.raises(ValidationError, match="database_url") as refusal:
+            main([command], build_directory=FIXTURE_DIRECTORY)
+
+        assert password not in str(refusal.value)
+        assert url not in str(refusal.value)
+
+    @pytest.mark.parametrize("command", ["serve", "migrate"])
+    def test_refuses_when_only_the_retired_database_url_file_is_set(
+        self, command, configured_environment, monkeypatch, tmp_path
+    ):
+        configured_environment()
+        monkeypatch.delenv("SKAT_DATABASE_URL")
+        monkeypatch.setenv("SKAT_DATABASE_URL_FILE", str(tmp_path / "database-url"))
+
+        with pytest.raises(ValidationError, match="database_url"):
+            main([command], build_directory=FIXTURE_DIRECTORY)
 
 
 class TestUvicornOptions:
