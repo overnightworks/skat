@@ -5,6 +5,7 @@ from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
 from skat.table.hand_state import auction_of
+from skat.table.rules import hand_runs
 
 if TYPE_CHECKING:
     from skat.engine.cards import Card
@@ -81,7 +82,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
 
 def _passed_in_view(table: TableRecord) -> PassedInView | None:
     """What the stored steps say between hands: set only while no hand runs and the steps ended in three passes."""
-    if table.hand is not None or table.dealer is None or not isinstance(auction_of(table).result, PassedIn):
+    if hand_runs(table) or table.dealer is None or not isinstance(auction_of(table).result, PassedIn):
         return None
     three_seated = all(chair.occupant is not None for chair in table.chairs)
     return PassedInView(next_dealer(table.dealer) if three_seated else None)
