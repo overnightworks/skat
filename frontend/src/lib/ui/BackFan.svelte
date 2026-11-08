@@ -8,7 +8,12 @@
 
     let { count, dim }: { count: number; dim: boolean } = $props();
 
-    const turns = $derived(Array.from({ length: count }, (_, index) => (index - (count - 1) / 2) * SPREAD_DEGREES));
+    const turns = $derived(
+        Array.from(
+            { length: count },
+            (_, index) => `rotate(${(index - (count - 1) / 2) * SPREAD_DEGREES} ${PIVOT_X} ${PIVOT_Y})`,
+        ),
+    );
 </script>
 
 <!-- Each card's turn depends on the count and the page's policy allows no inline style, so the fan is one SVG whose
@@ -16,7 +21,7 @@
 <svg class="fan" class:dim viewBox="0 0 100 140" aria-hidden="true">
     {#each turns as turn, index (index)}
         <g class="deal">
-            <g transform="rotate({turn} {PIVOT_X} {PIVOT_Y})">
+            <g transform={turn}>
                 <CardBack />
             </g>
         </g>
