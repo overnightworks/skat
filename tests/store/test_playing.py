@@ -212,9 +212,10 @@ def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(ga
     before = game.record
     position, card = game.legal_card()
     failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
+    command_id = card_id(1)
 
     with pytest.raises(ConnectionError):
-        game.send(position, card, command_id=card_id(1), service=failing)
+        game.send(position, card, command_id=command_id, service=failing)
 
     assert game.record == before
     assert count_rows(engine) == 0
@@ -275,5 +276,7 @@ def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(game, engine
             {"table_id": game.table_id, "position": wrong_seat.name.lower()},
         )
 
+    command_id = card_id(1)
+
     with pytest.raises(ValueError, match="impossible card log"):
-        game.send(position, card, command_id=card_id(1))
+        game.send(position, card, command_id=command_id)
