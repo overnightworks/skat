@@ -6,6 +6,7 @@ from skat.table.records import (
     Chair,
     CreateTable,
     Decision,
+    FirstDeal,
     Occupant,
     Receipt,
     Refusal,
@@ -58,28 +59,46 @@ def _seat_of(table: TableRecord, account_id: str) -> Chair | None:
 
 
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
-    return TableRecord(
-        id=table.id,
+    return replace(
+        table,
         version=table.version + 1,
         chairs=tuple(replace(chair, occupant=occupant) if chair.seat == seat else chair for chair in table.chairs),
     )
 
 
-def decide_sit(table: TableRecord, actor: Actor, seat: int) -> Decision:
-    """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs."""
+def sit_deals(table: TableRecord) -> bool:
+    """A sit deals when it fills the last free chair and no hand runs."""
+    free_chairs = sum(chair.occupant is None for chair in table.chairs)
+    return free_chairs == 1 and table.hand is None
+
+
+def hand_runs(table: TableRecord) -> bool:
+    return table.hand is not None
+
+
+def decide_sit(table: TableRecord, actor: Actor, seat: int, first_deal: FirstDeal | None) -> Decision:
+    """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
+
+    The sit that fills the last chair stores the drawn `first_deal` in the same version bump.
+    """
     if _seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)
     holder = table.chairs[seat - 1].occupant
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
-    return Decision(_with_occupant(table, seat, Occupant(actor.account_id, actor.display_name)))
+    seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name))
+    if first_deal is not None and sit_deals(table):
+        seated = replace(seated, dealer=first_deal.dealer, hand=first_deal.hand)
+    return Decision(seated)
 
 
 def decide_stand(table: TableRecord, actor: Actor) -> Decision:
-    """The actor leaves their own chair, which keeps its number."""
+    """The actor leaves their own chair, which keeps its number; nobody leaves while a hand runs."""
     own = _seat_of(table, actor.account_id)
     if own is None:
         return Decision(table, Refusal.NOT_SEATED)
+    if hand_runs(table):
+        return Decision(table, Refusal.HAND_RUNNING)
     return Decision(_with_occupant(table, own.seat, None))
 
 
