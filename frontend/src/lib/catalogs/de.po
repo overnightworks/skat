@@ -36,6 +36,9 @@ msgstr "Warte auf Mitspieler"
 msgid "seatFree"
 msgstr "Frei"
 
+msgid "seatAway"
+msgstr "nicht da"
+
 msgid "copyLink"
 msgstr "Link kopieren"
 

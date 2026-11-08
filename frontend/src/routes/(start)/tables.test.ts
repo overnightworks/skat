@@ -303,7 +303,7 @@ describe("asking for a table", () => {
 });
 
 describe("the table's seats and link", () => {
-    const chair = (seat: number, isMine = false): Chair => ({ seat, occupant_name: null, is_mine: isMine });
+    const chair = (seat: number, isMine = false): Chair => ({ seat, occupant_name: null, is_mine: isMine, is_away: false });
 
     afterEach(() => {
         vi.unstubAllGlobals();

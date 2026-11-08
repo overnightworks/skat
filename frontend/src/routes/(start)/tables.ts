@@ -16,7 +16,7 @@ const CONFLICT_STATUS = 409;
 // of navigating again: a session the sign-in just made and the server refuses at once would otherwise loop forever.
 const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
 
-export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean };
+export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean; is_away: boolean };
 export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
