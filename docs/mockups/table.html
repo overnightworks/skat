@@ -458,6 +458,21 @@ body.solo section.shot .rule{display:none}
   @keyframes unlock{from{background:var(--glass);color:rgba(244,246,248,.4)}}
 }
 </style>
+<style>
+/* ---------- the deal: every chair shows its position, the dealer's chair wears the brass badge ---------- */
+.mark.pos{background:var(--glass-dark);color:var(--on-stage);backdrop-filter:blur(12px)}
+.mark.dealer{top:-13px;left:-8px;right:auto;color:#2b1d05;background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f);
+  box-shadow:0 4px 10px -3px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.55)}
+.mark.pos + .mark.away{right:auto;left:calc(var(--pad) + 6px)}
+/* a phone chair is too small to carry both on the camera tile: the marks sit on its top edge, the dealer badge shows the icon alone */
+.seat.sm .mark.pos{top:-11px;right:-4px;height:22px;padding:0 8px;font-size:11.5px}
+.seat.sm .mark.pos + .mark.away{top:calc(var(--pad) + 6px);left:auto;right:calc(var(--pad) + 6px)}
+.seat.sm .mark.dealer{top:-12px;left:-6px;width:26px;padding:0;justify-content:center;font-size:0;gap:0}
+@media (prefers-reduced-motion:no-preference){
+  /* the drawn dealer's badge lands on the chair */
+  .mark.dealer.mo{animation:slam .6s cubic-bezier(.5,0,.7,1.4) var(--d,0s) both}
+}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -830,11 +845,13 @@ const SKAT_SCENES=[
     +(d?ghost(640,432,96):ghost(195,440,70))
     +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,OPPONENT_HAND)+callBar(d)],
 ];
-SKAT_SCENES.forEach(([id,title,draw,rules])=>{frame(`${id}-390`,title,'Handy 390 px','p390',draw(false),rules);frame(`${id}-1280`,title,'Desktop 1280 px','d1280',draw(true),rules);});
+/* a scene drawn at both widths; its rules are the one-line notes under it */
+const scenes=(list)=>list.forEach(([id,title,draw,rules])=>{frame(`${id}-390`,title,'Handy 390 px','p390',draw(false),rules);frame(`${id}-1280`,title,'Desktop 1280 px','d1280',draw(true),rules);});
+scenes(SKAT_SCENES);
 
 /* ===== the ideas, one line each ===== */
 const IDEAS=[
-  ['🂠','Austeilen','Beim Geben fliegen die Karten in Paketen vom Stapel zu jedem Stuhl.','call-bid'],
+  ['🂠','Austeilen','Beim Geben fliegen die Karten in Paketen vom Stapel zu jedem Stuhl.','deal-mine, deal-watch, call-bid'],
   ['↘','Stich einsammeln','Die drei Karten rücken zusammen und gleiten zum Stuhl, der sticht; dort springen die Augen auf, der Stuhl blitzt gold.','call-trick'],
   ['🔥','Emotes werfen','Jeder im Anruf, auch Zuschauer, wirft ein Emoji im Bogen auf den Filz; es hüpft, liegt kurz, verblasst.','call-play'],
   ['👊','Klopfen','Auf den Tisch klopfen wie in der Kneipe: zwei Ringe auf dem Filz, als Gruß oder Respekt.','call-end'],
@@ -867,7 +884,7 @@ MARK.away=`<span class="mark away" title="nicht da">${I.moon}</span>`;
 const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'idle':''}" ${o.idle?'':'role="button" tabindex="0" aria-label="Hinsetzen"'} style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h})}">
   <div class="chair"><div class="tile">${o.idle?'':`<span class="sit">${I.plus}</span>`}</div></div><span class="plate"><b>Frei</b></span></div>`;
 /* the chair stays held: the nameplate keeps the name and says the player is not there */
-const awaySeat=(k,pos)=>seat(k,{...pos,marks:['away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
+const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
 const watching=(n,x,y)=>`<div class="tag-glass" title="Zuschauer" style="${at({left:x,top:y})}">${I.eye}<span>${n}</span></div>`;
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
 const notice=(text,k,x,y)=>{const p=P[k];return `<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
@@ -908,8 +925,54 @@ const S3_SCENES=[
   ['s3-reconnect','Verbinde neu',(d)=>`<div class="stale">${S3.mine(d)}</div>`
     +`<div class="reconnect" role="status" style="${at({left:d?640:195,top:d?330:340})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`],
 ];
-S3_SCENES.forEach(([id,title,draw])=>{frame(`${id}-390`,title,'Handy 390 px','p390',draw(false));frame(`${id}-1280`,title,'Desktop 1280 px','d1280',draw(true));});
-ORDER.push(...S3_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+scenes(S3_SCENES);
+
+/* ===== the deal: the third chair fills and the cards come by themselves; the drawn dealer deals, nobody stands up until the hand is over ===== */
+Object.assign(I,{
+  shuffle:sv('<path d="M3 7h3c4.5 0 6.5 10 11 10h3.5M3 17h3c1.7 0 3-1.4 4.1-3.4M13.9 10.4C15 8.4 16.3 7 18 7h2.5M18 4l3 3-3 3M18 14l3 3-3 3"/>'),
+  cards:sv('<rect x="3" y="7" width="11" height="14.5" rx="2"/><path d="M8 7V4.5A1.5 1.5 0 0 1 9.5 3h10A1.5 1.5 0 0 1 21 4.5v12a1.5 1.5 0 0 1-1.5 1.5H14"/>'),
+});
+/* the dealer is rearhand; forehand sits left of the dealer and gets the first cards, middlehand next */
+const POSITIONS=['Hinterhand','Vorhand','Mittelhand'];
+const CLOCKWISE=['near','left','right'];
+POSITIONS.forEach(p=>{MARK[p]=`<span class="mark pos">${p}</span>`;});
+MARK.dealer=`<span class="mark dealer" title="Geber">${I.shuffle}Geber</span>`;
+MARK.drawn=MARK.dealer.replace('mark dealer','mark dealer mo').replace('title=','style="--k:.6s;--d:.4s" title=');
+const deck=(d)=>{const [x,y,w]=d?[640,330,80]:[195,330,52];return `<div class="stack" style="${at({left:x,top:y})}">${[0,1,2,3].map(i=>back(at({'--w':w,'--rot':`${i%2?3:-2}deg`,'margin-top':-i*2}))).join('')}</div>`;};
+const tableSkat=(d)=>d?skat(584,190,80):skat(154,240,52);
+const dealtSkat=(d)=>tableSkat(d).replaceAll('class="card"','class="card deal"');
+const cardCount=(x,y)=>`<div class="tag-glass" title="Karten" style="${at({left:x,top:y})}">${I.cards}<span>10</span></div>`;
+/* the three chairs: Anna left, Ben right, the near one is yours or, for a watcher, Lena's */
+function dealSeats(d,o){
+  const L=d?DB:PB,place={left:L.anna,right:L.nova,near:L.you},who={left:'anna',right:'ben',near:o.near};
+  const marks=(spot)=>{
+    if(!o.dealer) return [];
+    const step=(CLOCKWISE.indexOf(spot)-CLOCKWISE.indexOf(o.dealer)+3)%3;
+    return [...(step?[]:[o.drawn?'drawn':'dealer']),POSITIONS[step]];};
+  return CLOCKWISE.map(spot=>who[spot]===o.away?awaySeat(who[spot],place[spot],marks(spot))
+    :seat(who[spot],{...place[spot],marks:marks(spot),got:who[spot]===o.sits?'.6s;--d:.25s':undefined})).join('');
+}
+const dealRoom=(d,o)=>room(d,{left:o.left||0,call:false,deal:o.deal,annaOut:o.away==='anna'})+watching(o.watchers,d?16:12,d?14:8);
+/* on the phone a long line drops below the fans to the middle of the felt */
+const tablePlaque=(d,text,phoneY=176)=>plaque(d?640:195,d?98:phoneY,`<div class="game">${text}</div>`);
+const DEAL_SCENES=[
+  ['deal-full','Tisch voll',(d)=>dealRoom(d,{watchers:1})+tablePlaque(d,`Karten kommen${waitDots()}`)+deck(d)
+    +dealSeats(d,{near:'felix',sits:'ben'})+tableBar(d)],
+  ['deal-dealer','Geber gelost',(d)=>dealRoom(d,{watchers:1})+tablePlaque(d,`Ben gibt${waitDots()}`)+deck(d)
+    +dealSeats(d,{near:'felix',dealer:'right',drawn:true})+tableBar(d)],
+  ['deal-mine','Karten da',(d)=>dealRoom(d,{left:10,deal:true,watchers:1})+tablePlaque(d,'Reizen folgt')+dealtSkat(d)
+    +dealSeats(d,{near:'felix',dealer:'right'})+ownHand(d,BID_HAND,{deal:d?470:420})+tableBar(d)],
+  ['deal-watch','Zuschauen beim Geben',(d)=>dealRoom(d,{left:10,deal:true,watchers:3})+tablePlaque(d,'Reizen folgt')+dealtSkat(d)
+    +(d?fan(10,{x:370,y:590,w:42,rot:45,spread:6,deal:260,d0:.2}):fan(10,{x:195,y:476,w:26,rot:0,spread:6,deal:150,d0:.2}))
+    +(d?cardCount(268,340)+cardCount(952,340)+cardCount(420,600):cardCount(26,200)+cardCount(310,200)+cardCount(250,456))
+    +dealSeats(d,{near:'lena',dealer:'right'})+tableBar(d)],
+  ['deal-away','Nicht da',(d)=>dealRoom(d,{left:10,watchers:1,away:'anna'})+tablePlaque(d,`Warte auf Anna${waitDots()}`,356)+tableSkat(d)
+    +dealSeats(d,{near:'felix',dealer:'right',away:'anna'})+ownHand(d,BID_HAND)+tableBar(d),
+    ['Kommt Anna nicht zurück, wartet das Spiel, bis niemand mehr verbunden ist und der Tisch schließt; eine Grenze dafür ist offen.']],
+];
+scenes(DEAL_SCENES);
+/* the story runs in order: the table before any deal, the deal, then the auction and the play */
+ORDER.unshift(...[...S3_SCENES,...DEAL_SCENES].flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
