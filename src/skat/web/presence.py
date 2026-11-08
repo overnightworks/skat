@@ -72,7 +72,8 @@ class ChairHold:
 class Presence:
     """Who is connected to which table, in this process only, and since when each away member has been gone.
 
-    The event loop owns every write, and a worker only reads, inside `due`. A wake carries no data: a stream
+    The event loop owns every write to the subscriptions. A worker touches only the leave times and the
+    committing marker, under `_state`, inside `due`. A wake carries no data: a stream
     that falls behind finds several changes folded into one wake and reads the latest state, which is its
     fresh snapshot.
 
@@ -119,13 +120,15 @@ class Presence:
     async def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
         """Register before the stream reads its view, so a change after this call wakes it.
 
-        Waits for a freeing of this member's chair whose check already passed to commit first.
+        Waits for a freeing of this member's chair whose check already passed to commit first. The leave stays
+        recorded while it waits, so a waiter that is cancelled leaves the freeing's retry intact.
         """
         with self._state:
-            self._left_at.pop((table_id, account_id), None)
             committing = self._committing.get((table_id, account_id))
         if committing is not None:
             await committing.wait()
+        with self._state:
+            self._left_at.pop((table_id, account_id), None)
         subscription = Subscription(table_id, account_id, wake)
         already_connected = account_id in self.connected(table_id)
         others = list(self._subscriptions.get(table_id, ()))
@@ -156,10 +159,11 @@ class Presence:
     async def _expire(self, table_id: str, account_id: str, left_at: float) -> None:
         if not self._is_latest_leave(table_id, account_id, left_at):
             return
-        committing = asyncio.Event()
         try:
             freed = await self._hold.free_chair(
-                table_id, account_id, self._while_latest_leave(table_id, account_id, left_at, committing)
+                table_id,
+                account_id,
+                self._while_latest_leave(table_id, account_id, left_at, asyncio.get_running_loop()),
             )
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
@@ -168,10 +172,6 @@ class Presence:
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, table_id, account_id, left_at)
             )
             return
-        finally:
-            with self._state:
-                self._committing.pop((table_id, account_id), None)
-            committing.set()
         if self._left_at.get((table_id, account_id)) == left_at:
             del self._left_at[table_id, account_id]
         if freed:
@@ -179,14 +179,30 @@ class Presence:
 
     @contextmanager
     def _while_latest_leave(
-        self, table_id: str, account_id: str, left_at: float, committing: asyncio.Event
+        self, table_id: str, account_id: str, left_at: float, loop: asyncio.AbstractEventLoop
     ) -> Generator[bool]:
-        """Enter on a worker: yields whether the freeing is due and, if so, publishes it until the loop ends it."""
+        """Enter on a worker: yields whether the freeing is due; while it is, a reconnect awaits the exit.
+
+        The exit runs on the worker after the commit, so the marker outlives a cancelled event-loop task.
+        """
+        committing = asyncio.Event()
         with self._state:
             due = self._is_latest_leave(table_id, account_id, left_at)
             if due:
                 self._committing[table_id, account_id] = committing
-        yield due
+        try:
+            yield due
+        finally:
+            with self._state:
+                self._committing.pop((table_id, account_id), None)
+            loop.call_soon_threadsafe(committing.set)
+
+    async def finish_writes(self) -> None:
+        """Wait until every freeing whose check passed has ended its transaction; call it after `stop`."""
+        with self._state:
+            writing = list(self._committing.values())
+        for committing in writing:
+            await committing.wait()
 
     def _is_latest_leave(self, table_id: str, account_id: str, left_at: float) -> bool:
         return not self._stopped and self._left_at.get((table_id, account_id)) == left_at

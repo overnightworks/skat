@@ -1,4 +1,5 @@
 import asyncio
+import threading
 
 import pytest
 from structlog.testing import capture_logs
@@ -373,6 +374,64 @@ class TestChairHold:
         waited = run(scenario())
 
         assert (waited, releases.outcomes, order) == (True, [True], ["committed", "returned"])
+
+    def test_a_cancelled_reconnect_during_a_failing_write_leaves_the_chair_to_the_retry(self, holding, time, releases):
+        writing = asyncio.Event()
+        fail = asyncio.Event()
+
+        async def fail_after_reconnect():
+            writing.set()
+            await fail.wait()
+            raise RuntimeError("store down")
+
+        async def scenario():
+            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
+            await writing.wait()
+            returning = asyncio.create_task(holding.subscribe(TABLE, "anna", lambda: None))
+            await asyncio.sleep(0)
+            returning.cancel()
+            fail.set()
+            await expiry
+            releases.within = None
+            await time.advance(CHAIR_RELEASE_RETRY_SECONDS)
+
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
+        releases.within = fail_after_reconnect
+
+        run(scenario())
+
+        assert releases.outcomes == [True]
+
+    def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_check(self):
+        started = threading.Event()
+        release = threading.Event()
+        committed = []
+
+        def worker(due):
+            with due as still_due:
+                started.set()
+                release.wait(5)
+                committed.append(still_due)
+            return still_due
+
+        async def free_on_worker(table_id, account_id, due):
+            return await asyncio.to_thread(worker, due)
+
+        async def scenario():
+            time = FakeTime()
+            presence = Presence(ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker))
+            presence.unsubscribe(await presence.subscribe(TABLE, "anna", lambda: None))
+            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
+            await asyncio.to_thread(started.wait, 5)
+            expiry.cancel()
+            finishing = asyncio.create_task(presence.finish_writes())
+            await asyncio.sleep(0)
+            waited = not finishing.done()
+            release.set()
+            await asyncio.wait_for(finishing, 5)
+            return waited, list(committed)
+
+        assert run(scenario()) == (True, [True])
 
     def test_a_freeing_that_waits_while_the_server_stops_frees_nothing(self, holding, time, releases):
         holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))

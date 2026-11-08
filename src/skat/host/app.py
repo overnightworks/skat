@@ -126,6 +126,7 @@ def create_app(
             yield
         finally:
             presence.stop()
+            await presence.finish_writes()
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=hold_chairs_while_serving)
     app.include_router(create_router(page_build))
