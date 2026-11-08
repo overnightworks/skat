@@ -795,9 +795,16 @@ body {
         top: 90%;
     }
 
+    /* The near chair stands alone at the rim: its fan and tag sit beside it, clear of the skat in the middle. */
+    .room .chair:nth-child(3) .fan-spot {
+        left: calc(100% + 70px);
+        top: 40%;
+        transform: rotate(-30deg);
+    }
+
     .room .chair:nth-child(3) .count-tag {
-        left: calc(100% + 40px);
-        top: -8px;
+        left: calc(100% + 100px);
+        top: 40px;
     }
 
     .room .mark.pos {
@@ -811,6 +818,10 @@ body {
     .room .mark.pos + .mark.away {
         right: auto;
         left: 6px;
+    }
+
+    .room .mark.dealer ~ .mark.away {
+        top: 18px;
     }
 
     .room .mark.dealer {
