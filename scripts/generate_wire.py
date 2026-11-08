@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING
 REPOSITORY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY / "src"))
 
+from skat.engine.bidding import VALID_BIDS  # noqa: E402
+from skat.table.auction import AuctionAction  # noqa: E402
+from skat.web.auction import TABLE_AUCTION_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -26,6 +29,7 @@ from skat.web.tables import (  # noqa: E402
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
+    AwaitingToken,
     PositionToken,
     RankToken,
     SuitToken,
@@ -42,6 +46,8 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "SUIT_TOKENS": SuitToken,
     "RANK_TOKENS": RankToken,
     "POSITION_TOKENS": PositionToken,
+    "AWAITING_TOKENS": AwaitingToken,
+    "AUCTION_ACTION_TOKENS": AuctionAction,
 }
 
 
@@ -63,10 +69,12 @@ def render() -> str:
         "TABLE_EVENTS_SUFFIX": TABLE_EVENTS_SUFFIX,
         "TABLE_SIT_SUFFIX": TABLE_SIT_SUFFIX,
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
+        "TABLE_AUCTION_SUFFIX": TABLE_AUCTION_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
     tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())
-    return HEADER + "\n" + paths + tuples
+    valid_bids = f"export const VALID_BIDS = [{', '.join(map(str, VALID_BIDS))}] as const;\n"
+    return HEADER + "\n" + paths + tuples + valid_bids
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:

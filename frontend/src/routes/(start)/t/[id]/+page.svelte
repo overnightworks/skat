@@ -110,7 +110,7 @@
                     <span>{words.waitingForPlayers}</span>
                     <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                 {:else}
-                    <span>{words.biddingFollows}</span>
+                    <span>{words.bidding}</span>
                 {/if}
             </div>
             <div class="felt" aria-hidden="true"></div>
