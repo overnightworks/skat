@@ -1,0 +1,7 @@
+claim_id = "2ebc668844e64804bec3d448e3f37ade"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "8c1e766780c31941674a71f4d24f5dcedb19417c"
+branch = "claude/issue-70-privacy-tables"
+scope = ["legal/datenschutz.html", "legal/nutzungsbedingungen.html"]
+opened_commit = "227099426080831598d5a0a61d1a672cf5ad433b"
