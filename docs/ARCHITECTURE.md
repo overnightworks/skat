@@ -27,6 +27,7 @@ flowchart TB
         web["web: webauth sign-in, session gate, security headers, routes, page build"]
         store["store: Postgres adapter, migrations"]
         table["table: records, rules, views, service"]
+        engine["engine: Skat's own rules"]
         host --> web
         host --> store
         web --> table
@@ -38,8 +39,9 @@ flowchart TB
 - **`skat.host`** composes the app from settings and the page build, and starts uvicorn.
 - **`skat.web`** is the adapter: webauth's sign-in routes and session gate, the security headers, the account routes, the table routes under `/api/tables`, `/health` and the page build, whose `/t/{id}` page opens a table by its link. It decides nobody's rights beyond admission.
 - **`skat.table`** is the table core: records, the rules that decide a command, the views a person is allowed to see, and a service that runs each command as one transaction through a narrow port. It imports no framework, driver or adapter.
+- **`skat.engine`** holds Skat's own rules as pure code below the table. Nothing calls it yet: it is built ahead of its caller, the first game slice (#26). It imports no framework, driver or adapter.
 - **`skat.store`** implements that port on Postgres with SQLAlchemy and psycopg 3, and owns the Alembic migrations. `skat migrate` takes an advisory lock and upgrades the database before any other setting or the page build is read; `skat serve` never migrates and refuses a database that is not at the newest migration. Migrations only expand.
-- Layer rule: `host` depends on `web` and `store`, which stand side by side and know nothing of each other, and both depend on `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` free of SQLAlchemy, psycopg, FastAPI, Starlette and webauth.
+- Layer rule: `host` depends on `web` and `store`, which stand side by side and know nothing of each other, and both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of SQLAlchemy, psycopg, FastAPI, Starlette and webauth.
 - **The frontend** (`frontend/`) is built to `src/skat/web/build`. The path constants it needs are generated from the Python constants.
 
 ## 3. Runtime View
