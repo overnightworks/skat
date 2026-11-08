@@ -1,7 +1,0 @@
-claim_id = "850926d29eb247208e2950dbe6ab09b2"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "65f9b38ca355685a4acb00d1c0aaa03eeeb76bd7"
-branch = "claude/issue-33-picture-skat-and-declare"
-scope = ["docs/mockups/table.html"]
-opened_commit = "f6365a7c16358ba6f8fa6585431d90564c3a2823"
