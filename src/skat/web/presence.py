@@ -78,8 +78,9 @@ class Presence:
 
     An account whose last stream on a table ended gets one timer; when it fires the chair is freed unless the
     account came back or left again since, which a newer leave time shows, or the presence has stopped. The
-    freeing holds the invalidation lock from its check until its commit, so a reconnect, a newer leave or a
-    stop waits for the write to end, and one before the check wins. The event loop blocks only that long.
+    check inside `due` and a reconnect order themselves under `_state`, which guards only dictionary
+    operations and is never held across the write. A reconnect before the check wins; one after it awaits the
+    commit, so it finds the chair freed instead of losing it unseen, and the event loop is never blocked.
     Leave times are not stored, so `hold_chairs` counts every seated member as having left when the server
     starts.
     """
@@ -89,7 +90,8 @@ class Presence:
         self._stopped = False
         self._hold = hold
         self._left_at: dict[tuple[str, str], float] = {}
-        self._invalidation = threading.Lock()
+        self._state = threading.Lock()
+        self._committing: dict[tuple[str, str], asyncio.Event] = {}
 
     @property
     def stopped(self) -> bool:
@@ -97,7 +99,7 @@ class Presence:
 
     def stop(self) -> None:
         """Wake every open stream to end and cancel every pending check; a later stream ends at once."""
-        with self._invalidation:
+        with self._state:
             self._stopped = True
         self._hold.scheduler.cancel_all()
         self._wake_all([subscription for open_ones in self._subscriptions.values() for subscription in open_ones])
@@ -114,10 +116,16 @@ class Presence:
         for table_id, account_id in occupied:
             self._start_hold(table_id, account_id)
 
-    def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
-        """Register before the stream reads its view, so a change after this call wakes it."""
-        with self._invalidation:
+    async def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
+        """Register before the stream reads its view, so a change after this call wakes it.
+
+        Waits for a freeing of this member's chair whose check already passed to commit first.
+        """
+        with self._state:
             self._left_at.pop((table_id, account_id), None)
+            committing = self._committing.get((table_id, account_id))
+        if committing is not None:
+            await committing.wait()
         subscription = Subscription(table_id, account_id, wake)
         already_connected = account_id in self.connected(table_id)
         others = list(self._subscriptions.get(table_id, ()))
@@ -141,16 +149,17 @@ class Presence:
         if self._stopped:
             return
         left_at = self._hold.clock()
-        with self._invalidation:
+        with self._state:
             self._left_at[table_id, account_id] = left_at
         self._hold.scheduler.schedule(self._hold.seconds, partial(self._expire, table_id, account_id, left_at))
 
     async def _expire(self, table_id: str, account_id: str, left_at: float) -> None:
         if not self._is_latest_leave(table_id, account_id, left_at):
             return
+        committing = asyncio.Event()
         try:
             freed = await self._hold.free_chair(
-                table_id, account_id, self._while_latest_leave(table_id, account_id, left_at)
+                table_id, account_id, self._while_latest_leave(table_id, account_id, left_at, committing)
             )
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
@@ -159,16 +168,25 @@ class Presence:
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, table_id, account_id, left_at)
             )
             return
+        finally:
+            with self._state:
+                self._committing.pop((table_id, account_id), None)
+            committing.set()
         if self._left_at.get((table_id, account_id)) == left_at:
             del self._left_at[table_id, account_id]
         if freed:
             self.wake_table(table_id)
 
     @contextmanager
-    def _while_latest_leave(self, table_id: str, account_id: str, left_at: float) -> Generator[bool]:
-        """Enter on a worker: holds every invalidation off until the block ends, and yields whether it is due."""
-        with self._invalidation:
-            yield self._is_latest_leave(table_id, account_id, left_at)
+    def _while_latest_leave(
+        self, table_id: str, account_id: str, left_at: float, committing: asyncio.Event
+    ) -> Generator[bool]:
+        """Enter on a worker: yields whether the freeing is due and, if so, publishes it until the loop ends it."""
+        with self._state:
+            due = self._is_latest_leave(table_id, account_id, left_at)
+            if due:
+                self._committing[table_id, account_id] = committing
+        yield due
 
     def _is_latest_leave(self, table_id: str, account_id: str, left_at: float) -> bool:
         return not self._stopped and self._left_at.get((table_id, account_id)) == left_at

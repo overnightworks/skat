@@ -113,7 +113,7 @@ class TestTableViews:
             presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id)
             first = await next_view(stream)
-            visitor = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            visitor = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             joined = await next_view(stream)
             presence.unsubscribe(visitor)
             left = await next_view(stream)
@@ -134,7 +134,7 @@ class TestTableViews:
             async def read_while_another_connects(actor, connected):
                 reads.append(connected)
                 if len(reads) == 1:
-                    presence.subscribe(table_id, "late", lambda: None)
+                    await presence.subscribe(table_id, "late", lambda: None)
                 return await read_view(actor, connected)
 
             stream = table_views(
@@ -164,13 +164,13 @@ class TestTableViews:
             presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id)
             first = await next_view(stream)
-            first_tab = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
-            second_tab = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            first_tab = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            second_tab = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             present = await next_view(stream)
             presence.unsubscribe(first_tab)
             presence.unsubscribe(second_tab)
             away = await next_view(stream)
-            presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             back = await next_view(stream)
             await stream.aclose()
             return first, present, away, back
@@ -187,10 +187,10 @@ class TestTableViews:
 
     def test_a_change_between_the_registration_and_the_first_read_is_in_the_first_view(self, service, table_id):
         class ConnectsAnotherRightAfterRegistering(Presence):
-            def subscribe(self, table, account, wake):
-                subscription = super().subscribe(table, account, wake)
+            async def subscribe(self, table, account, wake):
+                subscription = await super().subscribe(table, account, wake)
                 if account == VISITOR.account_id:
-                    super().subscribe(table, "late", lambda: None)
+                    await super().subscribe(table, "late", lambda: None)
                 return subscription
 
         async def scenario():
@@ -226,7 +226,7 @@ class TestTableViews:
             await next_view(quick)
             seen_by_quick = []
             for number in range(5):
-                guest = presence.subscribe(table_id, f"guest-{number}", lambda: None)
+                guest = await presence.subscribe(table_id, f"guest-{number}", lambda: None)
                 seen_by_quick.append((await next_view(quick)).watchers)
                 presence.unsubscribe(guest)
                 await next_view(quick)
@@ -301,7 +301,7 @@ class TestReadmission:
             presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id, admit=Admission(True, True, False))
             first = await next_view(stream)
-            visitor = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            visitor = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             second = await next_view(stream)
             presence.unsubscribe(visitor)
             with pytest.raises(StopAsyncIteration):
@@ -349,7 +349,7 @@ class TestReadmission:
             class ChangesWhileAdmitting(Admission):
                 async def __call__(self):
                     if self.asked == 1:
-                        presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+                        await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
                     return await super().__call__()
 
             admission = ChangesWhileAdmitting()
@@ -385,7 +385,7 @@ class TestReadmission:
                 presence, read_view, admit, table_id, OPENER.account_id, heartbeat_seconds=NO_HEARTBEAT_SECONDS
             )
             await next_view(stream)
-            guest = presence.subscribe(table_id, "guest", lambda: None)
+            guest = await presence.subscribe(table_id, "guest", lambda: None)
             await next_view(stream)
             presence.unsubscribe(guest)
             await stream.aclose()
@@ -410,7 +410,7 @@ class TestReadmission:
             kept = stream_of(presence, service, VISITOR, table_id)
             await next_view(refused)
             await next_view(kept)
-            guest = presence.subscribe(table_id, "guest", lambda: None)
+            guest = await presence.subscribe(table_id, "guest", lambda: None)
             with pytest.raises(StopAsyncIteration):
                 await next_view(refused)
             still_watching = await next_view(kept)

@@ -1,5 +1,4 @@
 import asyncio
-import threading
 
 import pytest
 from structlog.testing import capture_logs
@@ -41,8 +40,8 @@ class TestConnectedAccounts:
         assert presence.connected(TABLE) == frozenset()
 
     def test_an_account_in_two_tabs_is_connected_once_until_its_last_tab_closes(self, presence, wakes):
-        first = presence.subscribe(TABLE, "anna", wakes.callback("first"))
-        second = presence.subscribe(TABLE, "anna", wakes.callback("second"))
+        first = connect(presence, TABLE, "anna", wakes.callback("first"))
+        second = connect(presence, TABLE, "anna", wakes.callback("second"))
 
         presence.unsubscribe(first)
         assert presence.connected(TABLE) == {"anna"}
@@ -50,13 +49,13 @@ class TestConnectedAccounts:
         assert presence.connected(TABLE) == frozenset()
 
     def test_each_table_keeps_its_own_connections(self, presence, wakes):
-        presence.subscribe(TABLE, "anna", wakes.callback("anna"))
+        connect(presence, TABLE, "anna", wakes.callback("anna"))
 
         assert presence.connected(OTHER_TABLE) == frozenset()
 
     def test_unsubscribing_twice_changes_nothing(self, presence, wakes):
-        subscription = presence.subscribe(TABLE, "anna", wakes.callback("anna"))
-        presence.subscribe(TABLE, "ben", wakes.callback("ben"))
+        subscription = connect(presence, TABLE, "anna", wakes.callback("anna"))
+        connect(presence, TABLE, "ben", wakes.callback("ben"))
 
         presence.unsubscribe(subscription)
         presence.unsubscribe(subscription)
@@ -66,25 +65,25 @@ class TestConnectedAccounts:
 
 class TestPublishing:
     def test_a_member_connecting_wakes_every_other_stream_of_the_table_but_not_its_own(self, presence, wakes):
-        presence.subscribe(TABLE, "anna", wakes.callback("anna"))
-        presence.subscribe(TABLE, "ben", wakes.callback("ben"))
+        connect(presence, TABLE, "anna", wakes.callback("anna"))
+        connect(presence, TABLE, "ben", wakes.callback("ben"))
 
         assert wakes.counts == {"anna": 1, "ben": 0}
 
     def test_a_member_leaving_wakes_the_others(self, presence, wakes):
-        presence.subscribe(TABLE, "anna", wakes.callback("anna"))
-        leaving = presence.subscribe(TABLE, "ben", wakes.callback("ben"))
+        connect(presence, TABLE, "anna", wakes.callback("anna"))
+        leaving = connect(presence, TABLE, "ben", wakes.callback("ben"))
 
         presence.unsubscribe(leaving)
 
         assert wakes.counts == {"anna": 2, "ben": 0}
 
     def test_a_second_tab_of_a_connected_account_changes_nobodys_view_and_wakes_nobody(self, presence, wakes):
-        presence.subscribe(TABLE, "anna", wakes.callback("anna"))
-        first = presence.subscribe(TABLE, "ben", wakes.callback("ben"))
+        connect(presence, TABLE, "anna", wakes.callback("anna"))
+        first = connect(presence, TABLE, "ben", wakes.callback("ben"))
         before = dict(wakes.counts)
 
-        second = presence.subscribe(TABLE, "ben", wakes.callback("ben-again"))
+        second = connect(presence, TABLE, "ben", wakes.callback("ben-again"))
         presence.unsubscribe(second)
 
         assert wakes.counts == {**before, "ben-again": 0}
@@ -92,18 +91,18 @@ class TestPublishing:
         assert wakes.counts["anna"] == before["anna"] + 1
 
     def test_another_tables_streams_hear_nothing(self, presence, wakes):
-        presence.subscribe(OTHER_TABLE, "anna", wakes.callback("anna"))
+        connect(presence, OTHER_TABLE, "anna", wakes.callback("anna"))
 
-        presence.subscribe(TABLE, "ben", wakes.callback("ben"))
+        connect(presence, TABLE, "ben", wakes.callback("ben"))
 
         assert wakes.counts == {"anna": 0, "ben": 0}
 
 
 class TestWakingATable:
     def test_wakes_every_stream_of_that_table_and_no_other(self, presence, wakes):
-        presence.subscribe(TABLE, "anna", wakes.callback("anna"))
-        presence.subscribe(TABLE, "ben", wakes.callback("ben"))
-        presence.subscribe(OTHER_TABLE, "cem", wakes.callback("cem"))
+        connect(presence, TABLE, "anna", wakes.callback("anna"))
+        connect(presence, TABLE, "ben", wakes.callback("ben"))
+        connect(presence, OTHER_TABLE, "cem", wakes.callback("cem"))
         before = dict(wakes.counts)
 
         presence.wake_table(TABLE)
@@ -164,11 +163,11 @@ class Releases:
         if self.failures:
             raise self.failures.pop(0)
         if self.meanwhile is not None:
-            self.meanwhile()
+            await self.meanwhile()
         with due as still_due:
             outcome = self.freed and still_due
             if self.within is not None:
-                self.within()
+                await self.within()
         self.outcomes.append(outcome)
         return outcome
 
@@ -192,12 +191,16 @@ def run(scenario):
     return asyncio.run(scenario)
 
 
+def connect(presence, table_id, account_id, wake):
+    return run(presence.subscribe(table_id, account_id, wake))
+
+
 class TestChairHold:
     def test_a_member_whose_last_stream_ended_keeps_the_chair_until_the_hold_has_passed(
         self, holding, time, releases, wakes
     ):
-        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
-        leaving = holding.subscribe(TABLE, "anna", wakes.callback("anna"))
+        connect(holding, TABLE, "ben", wakes.callback("ben"))
+        leaving = connect(holding, TABLE, "anna", wakes.callback("anna"))
         holding.unsubscribe(leaving)
 
         run(time.advance(HOLD_SECONDS - 1))
@@ -207,8 +210,8 @@ class TestChairHold:
     def test_the_chair_is_freed_once_the_hold_has_passed_and_every_stream_is_woken(
         self, holding, time, releases, wakes
     ):
-        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", wakes.callback("anna")))
+        connect(holding, TABLE, "ben", wakes.callback("ben"))
+        holding.unsubscribe(connect(holding, TABLE, "anna", wakes.callback("anna")))
         woken_before = wakes.counts["ben"]
 
         run(time.advance(HOLD_SECONDS))
@@ -217,7 +220,7 @@ class TestChairHold:
         assert wakes.counts["ben"] == woken_before + 1
 
     def test_the_hold_counts_from_the_moment_the_last_stream_ended(self, holding, time, releases):
-        leaving = holding.subscribe(TABLE, "anna", lambda: None)
+        leaving = connect(holding, TABLE, "anna", lambda: None)
         run(time.advance(40))
         holding.unsubscribe(leaving)
 
@@ -227,18 +230,18 @@ class TestChairHold:
         assert releases.calls == [(TABLE, "anna")]
 
     def test_a_member_who_returns_within_the_hold_keeps_the_chair_and_nothing_is_written(self, holding, time, releases):
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
         run(time.advance(200))
-        holding.subscribe(TABLE, "anna", lambda: None)
+        connect(holding, TABLE, "anna", lambda: None)
 
         run(time.advance(HOLD_SECONDS))
 
         assert releases.calls == []
 
     def test_only_the_timer_of_the_latest_leave_frees_the_chair(self, holding, time, releases):
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
         run(time.advance(100))
-        returned = holding.subscribe(TABLE, "anna", lambda: None)
+        returned = connect(holding, TABLE, "anna", lambda: None)
         run(time.advance(50))
         holding.unsubscribe(returned)
 
@@ -248,8 +251,8 @@ class TestChairHold:
         assert releases.calls == [(TABLE, "anna")]
 
     def test_closing_one_of_two_tabs_schedules_no_timer(self, holding, time):
-        first = holding.subscribe(TABLE, "anna", lambda: None)
-        holding.subscribe(TABLE, "anna", lambda: None)
+        first = connect(holding, TABLE, "anna", lambda: None)
+        connect(holding, TABLE, "anna", lambda: None)
 
         holding.unsubscribe(first)
 
@@ -258,8 +261,8 @@ class TestChairHold:
     def test_a_member_standing_up_before_the_hold_ends_is_not_freed_again_and_nobody_is_woken(
         self, holding, time, releases, wakes
     ):
-        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        connect(holding, TABLE, "ben", wakes.callback("ben"))
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
         releases.freed = False
         woken_before = wakes.counts["ben"]
 
@@ -269,7 +272,7 @@ class TestChairHold:
         assert wakes.counts["ben"] == woken_before
 
     def test_a_check_that_found_nothing_to_free_is_not_repeated(self, holding, time, releases):
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
         releases.freed = False
 
         run(time.advance(HOLD_SECONDS * 3))
@@ -286,7 +289,7 @@ class TestChairHold:
 
     def test_a_member_connecting_after_the_start_keeps_the_chair(self, holding, time, releases):
         holding.hold_chairs([(TABLE, "anna")])
-        holding.subscribe(TABLE, "anna", lambda: None)
+        connect(holding, TABLE, "anna", lambda: None)
 
         run(time.advance(HOLD_SECONDS))
 
@@ -295,8 +298,8 @@ class TestChairHold:
     def test_a_failed_freeing_wakes_nobody_logs_by_name_and_is_tried_again_until_it_commits(
         self, holding, time, releases, wakes
     ):
-        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        connect(holding, TABLE, "ben", wakes.callback("ben"))
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
         releases.failures = [ConnectionError("account anna"), ConnectionError("account anna")]
         woken_before = wakes.counts["ben"]
 
@@ -315,8 +318,12 @@ class TestChairHold:
         assert "anna" not in str(logs)
 
     def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
-        releases.meanwhile = lambda: holding.subscribe(TABLE, "anna", lambda: None)
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
+
+        async def returns():
+            await holding.subscribe(TABLE, "anna", lambda: None)
+
+        releases.meanwhile = returns
 
         run(time.advance(HOLD_SECONDS))
 
@@ -325,11 +332,11 @@ class TestChairHold:
     def test_a_leave_during_the_freeing_keeps_its_own_timer(self, holding, time, releases):
         returned = []
 
-        def leaves_again():
-            returned.append(holding.subscribe(TABLE, "anna", lambda: None))
+        async def leaves_again():
+            returned.append(await holding.subscribe(TABLE, "anna", lambda: None))
             holding.unsubscribe(returned[0])
 
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
         releases.meanwhile = leaves_again
         run(time.advance(HOLD_SECONDS))
         releases.meanwhile = None
@@ -337,33 +344,43 @@ class TestChairHold:
 
         assert releases.calls == [(TABLE, "anna"), (TABLE, "anna")]
 
-    @pytest.mark.parametrize("invalidation", ["reconnect", "stop"])
-    def test_a_reconnect_or_a_stop_during_the_write_waits_until_it_is_committed(
-        self, holding, time, releases, invalidation
-    ):
+    def test_a_reconnect_during_the_write_waits_for_its_commit_while_the_loop_stays_free(self, holding, time, releases):
         order = []
-        invalidate = {
-            "reconnect": lambda: holding.subscribe(TABLE, "anna", lambda: None),
-            "stop": holding.stop,
-        }[invalidation]
-        invalidating = threading.Thread(target=lambda: (invalidate(), order.append("invalidated")))
+        writing = asyncio.Event()
+        commit = asyncio.Event()
 
-        def invalidates_from_the_loop_while_the_write_runs():
-            invalidating.start()
-            invalidating.join(timeout=0.05)
+        async def write_until_released():
+            writing.set()
+            await commit.wait()
             order.append("committed")
 
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
-        releases.within = invalidates_from_the_loop_while_the_write_runs
+        async def scenario():
+            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
+            await writing.wait()
+            returning = asyncio.create_task(holding.subscribe(TABLE, "anna", lambda: None))
+            await asyncio.wait_for(holding.subscribe(OTHER_TABLE, "ben", lambda: None), 2)
+            await asyncio.sleep(0)
+            waited = not returning.done()
+            commit.set()
+            await expiry
+            await returning
+            order.append("returned")
+            return waited
 
-        run(time.advance(HOLD_SECONDS))
-        invalidating.join()
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
+        releases.within = write_until_released
 
-        assert (releases.outcomes, order) == ([True], ["committed", "invalidated"])
+        waited = run(scenario())
+
+        assert (waited, releases.outcomes, order) == (True, [True], ["committed", "returned"])
 
     def test_a_freeing_that_waits_while_the_server_stops_frees_nothing(self, holding, time, releases):
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
-        releases.meanwhile = holding.stop
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
+
+        async def stops():
+            holding.stop()
+
+        releases.meanwhile = stops
 
         run(time.advance(HOLD_SECONDS))
 
@@ -372,8 +389,8 @@ class TestChairHold:
     def test_stopping_cancels_every_pending_check_and_a_stream_ending_afterwards_schedules_none(
         self, holding, time, releases
     ):
-        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
-        ending = holding.subscribe(OTHER_TABLE, "ben", lambda: None)
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
+        ending = connect(holding, OTHER_TABLE, "ben", lambda: None)
 
         holding.stop()
         holding.unsubscribe(ending)
