@@ -183,7 +183,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     reload_and_wait(declarer)
     expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
-    expect(declarer.locator(".plaque")).not_to_contain_text(BIDDING_FOLLOWS)
+    expect(declarer.get_by_text(BIDDING_FOLLOWS)).to_have_count(0)
 
     button_of(declarer, TAKE_SKAT).click()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
