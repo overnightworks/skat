@@ -24,6 +24,16 @@ class Presence:
 
     def __init__(self) -> None:
         self._subscriptions: dict[str, list[Subscription]] = {}
+        self._stopped = False
+
+    @property
+    def stopped(self) -> bool:
+        return self._stopped
+
+    def stop(self) -> None:
+        """Wake every open stream to end; a stream that starts afterwards ends at once."""
+        self._stopped = True
+        self._wake_all([subscription for open_ones in self._subscriptions.values() for subscription in open_ones])
 
     def connected(self, table_id: str) -> frozenset[str]:
         return frozenset(subscription.account_id for subscription in self._subscriptions.get(table_id, ()))

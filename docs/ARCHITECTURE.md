@@ -74,7 +74,9 @@ An open table page holds one server-sent-events stream (`GET /api/tables/{id}/ev
 
 - **Presence is process-local.** The registry keys connections per table and account, so an account in two tabs is one watcher; the count is the connected accounts without a chair. It lives only in this process, which is the one replica Skat runs as, and is never stored.
 - **A change publishes with the version unchanged.** Only an account appearing or disappearing at a table wakes the others; a wake carries no data, so a stream that falls behind finds its wakes folded into one and reads the latest state, which is its fresh snapshot. A slow client never queues anything or delays another stream.
-- **Shutdown cancels the streams** after uvicorn's graceful-shutdown timeout, which is shorter than the end-to-end server's stop time.
+- **A stream re-admits its session.** Before each view it sends and on every idle heartbeat (`STREAM_HEARTBEAT_SECONDS`, one tick that sends no view), it calls webauth's `admit_session` off the event loop, which also renews the session. A refusal ends the stream with nothing more sent; a store error ends it loudly. An ended session therefore stops receiving the table within one heartbeat.
+- **A refused page signs in again.** When a stream ends, the page asks the table's session check. On a 401 it navigates to `/auth/start` with the table as `next` and a marker query, and returns to the table without a click while the issuer's own session lives; a refusal within a bounded window of loading a page that carries the marker reloads the table address, which the gate answers with the sign-in page, instead of navigating again. The marker is in the address, so the page keeps nothing on the device, and it removes the marker from the address once its first table request has been made. Checks run one at a time. Any other answer is a lost connection.
+- **Shutdown ends the streams first.** uvicorn runs the lifespan shutdown only after it has waited for connections to close, so `StreamsEndingServer` (`skat.host.main`) stops the presence registry as shutdown begins: every open stream ends, and the wait finishes without cancelling anything or logging an error.
 - **A lost connection** dims the page's last view and shows "verbinde neu" while the browser reconnects by itself; the first message of the new stream is a full view that replaces it.
 
 Signing out is a POST to `/logout`: Skat ends the session and clears its cookies, and the person's browser posts the ID token hint to Keycloak's end-session endpoint, which returns to `/login`.
@@ -113,5 +115,4 @@ Unit tests cover the logic and webauth's wiring through a test client with a fak
 
 ## 8. Risks and Technical Debt
 
-- A stream keeps receiving the table's public view and presence after its session is revoked or expires, until it closes; re-admitting a running stream is not built yet.
 - Accounts and sessions live in memory: a restart signs everyone out, and a second instance would not share them.

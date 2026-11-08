@@ -1,6 +1,8 @@
 import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
+from datetime import timedelta
 
 import pytest
 
@@ -10,11 +12,14 @@ from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
-from tests.web.support.skat import FETCH, UNKNOWN_ID
+from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
 
 OPENER = Actor(account_id="opener", display_name="Anna")
 VISITOR = Actor(account_id="visitor", display_name="Ben")
 ALLOWED_SECONDS = 2
+NO_HEARTBEAT_SECONDS = 3600
+SHORT_HEARTBEAT_SECONDS = 0.01
+IDLE_HEARTBEATS = 3
 
 
 @pytest.fixture
@@ -27,15 +32,64 @@ def table_id(service):
     return service.create(OPENER, CreateTable(command_id="command-1")).id
 
 
-def reader(service, actor, table_id):
-    async def read_view(connected):
+def reader(service, table_id):
+    async def read_view(actor, connected):
         return service.view(actor, table_id, connected)
 
     return read_view
 
 
-def stream_of(presence, service, actor, table_id):
-    return table_views(presence, reader(service, actor, table_id), table_id, actor.account_id)
+def admitting(actor):
+    async def admitted():
+        return actor
+
+    return admitted
+
+
+def stream_of(presence, service, actor, table_id, admit=None, heartbeat_seconds=NO_HEARTBEAT_SECONDS):
+    return table_views(
+        presence,
+        reader(service, table_id),
+        admit or admitting(actor),
+        table_id,
+        actor.account_id,
+        heartbeat_seconds=heartbeat_seconds,
+    )
+
+
+class Admission:
+    """An admission that answers from a script: True admits `actor`, False refuses, an exception is raised."""
+
+    def __init__(self, *answers, then=True, actor=OPENER):
+        self.answers = list(answers)
+        self.then = then
+        self.actor = actor
+        self.asked = 0
+        self._asked_again = asyncio.Event()
+
+    async def __call__(self):
+        self.asked += 1
+        self._asked_again.set()
+        answer = self.answers.pop(0) if self.answers else self.then
+        if isinstance(answer, Exception):
+            raise answer
+        return self.actor if answer else None
+
+    async def asked_at_least(self, count):
+        while self.asked < count:
+            self._asked_again.clear()
+            await self._asked_again.wait()
+
+
+async def stays_pending_through_idle_heartbeats(stream, admission):
+    """Waits until the stream has admitted again three times with nothing changed; True when it sent nothing."""
+    pending = asyncio.ensure_future(anext(stream))
+    await asyncio.wait_for(admission.asked_at_least(admission.asked + IDLE_HEARTBEATS), ALLOWED_SECONDS)
+    sent = pending.done()
+    pending.cancel()
+    with suppress(asyncio.CancelledError):
+        await pending
+    return not sent
 
 
 def run_on_a_loop_of_its_own(scenario):
@@ -71,16 +125,23 @@ class TestTableViews:
     def test_the_stream_registers_before_it_reads_so_a_change_during_the_read_is_not_lost(self, service, table_id):
         async def scenario():
             presence = Presence()
-            read_view = reader(service, VISITOR, table_id)
+            read_view = reader(service, table_id)
             reads = []
 
-            async def read_while_another_connects(connected):
+            async def read_while_another_connects(actor, connected):
                 reads.append(connected)
                 if len(reads) == 1:
                     presence.subscribe(table_id, "late", lambda: None)
-                return await read_view(connected)
+                return await read_view(actor, connected)
 
-            stream = table_views(presence, read_while_another_connects, table_id, VISITOR.account_id)
+            stream = table_views(
+                presence,
+                read_while_another_connects,
+                admitting(VISITOR),
+                table_id,
+                VISITOR.account_id,
+                heartbeat_seconds=NO_HEARTBEAT_SECONDS,
+            )
             first = await next_view(stream)
             second = await next_view(stream)
             await stream.aclose()
@@ -146,17 +207,179 @@ class TestTableViews:
         assert caught_up.watchers == 1
 
     def test_a_table_that_vanishes_under_a_stream_is_an_error_that_still_unregisters_it(self, table_id):
-        async def vanished(_connected):
+        async def vanished(_actor, _connected):
             return None
 
         async def scenario():
             presence = Presence()
-            stream = table_views(presence, vanished, table_id, OPENER.account_id)
+            stream = table_views(
+                presence,
+                vanished,
+                admitting(OPENER),
+                table_id,
+                OPENER.account_id,
+                heartbeat_seconds=NO_HEARTBEAT_SECONDS,
+            )
             with pytest.raises(RuntimeError, match="vanished"):
                 await anext(stream)
             return presence
 
         assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+
+
+class TestReadmission:
+    def test_a_refusal_before_the_first_view_ends_the_stream_without_a_view(self, service, table_id):
+        async def scenario():
+            presence = Presence()
+            stream = stream_of(presence, service, OPENER, table_id, admit=Admission(False))
+            return [view async for view in stream], presence
+
+        views, presence = run_on_a_loop_of_its_own(scenario())
+
+        assert views == []
+        assert presence.connected(table_id) == frozenset()
+
+    def test_a_refusal_at_a_change_ends_the_stream_with_nothing_more_sent(self, service, table_id):
+        async def scenario():
+            presence = Presence()
+            stream = stream_of(presence, service, OPENER, table_id, admit=Admission(True, True, False))
+            first = await next_view(stream)
+            visitor = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            second = await next_view(stream)
+            presence.unsubscribe(visitor)
+            with pytest.raises(StopAsyncIteration):
+                await next_view(stream)
+            return first, second, presence
+
+        first, second, presence = run_on_a_loop_of_its_own(scenario())
+
+        assert (first.watchers, second.watchers) == (0, 1)
+        assert presence.connected(table_id) == frozenset()
+
+    def test_an_idle_heartbeat_admits_again_and_sends_no_view(self, service, table_id):
+        async def scenario():
+            admission = Admission()
+            stream = stream_of(
+                Presence(), service, OPENER, table_id, admit=admission, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS
+            )
+            await next_view(stream)
+            return await stays_pending_through_idle_heartbeats(stream, admission)
+
+        assert run_on_a_loop_of_its_own(scenario())
+
+    def test_a_refusal_at_an_idle_heartbeat_ends_the_stream(self, service, table_id):
+        async def scenario():
+            presence = Presence()
+            stream = stream_of(
+                presence,
+                service,
+                OPENER,
+                table_id,
+                admit=Admission(True, False),
+                heartbeat_seconds=SHORT_HEARTBEAT_SECONDS,
+            )
+            await next_view(stream)
+            with pytest.raises(StopAsyncIteration):
+                await next_view(stream)
+            return presence
+
+        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+
+    def test_a_change_that_lands_during_a_heartbeat_sends_exactly_one_view(self, service, table_id):
+        async def scenario():
+            presence = Presence()
+
+            class ChangesWhileAdmitting(Admission):
+                async def __call__(self):
+                    if self.asked == 1:
+                        presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+                    return await super().__call__()
+
+            admission = ChangesWhileAdmitting()
+            stream = stream_of(
+                presence, service, OPENER, table_id, admit=admission, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS
+            )
+            first = await next_view(stream)
+            second = await next_view(stream)
+            return first, second, await stays_pending_through_idle_heartbeats(stream, admission)
+
+        first, second, sent_nothing_more = run_on_a_loop_of_its_own(scenario())
+
+        assert (first.watchers, second.watchers) == (0, 1)
+        assert sent_nothing_more
+
+    def test_every_view_is_read_as_the_account_the_last_admission_returned(self, service, table_id):
+        renamed = Actor(account_id=OPENER.account_id, display_name="Anna Maria")
+
+        async def scenario():
+            presence = Presence()
+            readers = []
+
+            async def read_view(actor, connected):
+                readers.append(actor)
+                return service.view(actor, table_id, connected)
+
+            admissions = iter([OPENER, renamed])
+
+            async def admit():
+                return next(admissions)
+
+            stream = table_views(
+                presence, read_view, admit, table_id, OPENER.account_id, heartbeat_seconds=NO_HEARTBEAT_SECONDS
+            )
+            await next_view(stream)
+            guest = presence.subscribe(table_id, "guest", lambda: None)
+            await next_view(stream)
+            presence.unsubscribe(guest)
+            await stream.aclose()
+            return readers
+
+        assert run_on_a_loop_of_its_own(scenario()) == [OPENER, renamed]
+
+    def test_a_store_that_raises_during_admission_ends_the_stream_loudly_and_unregisters_it(self, service, table_id):
+        async def scenario():
+            presence = Presence()
+            stream = stream_of(presence, service, OPENER, table_id, admit=Admission(RuntimeError("store down")))
+            with pytest.raises(RuntimeError, match="store down"):
+                await anext(stream)
+            return presence
+
+        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+
+    def test_one_refused_session_ends_only_its_own_stream(self, service, table_id):
+        async def scenario():
+            presence = Presence()
+            refused = stream_of(presence, service, OPENER, table_id, admit=Admission(True, False))
+            kept = stream_of(presence, service, VISITOR, table_id)
+            await next_view(refused)
+            await next_view(kept)
+            guest = presence.subscribe(table_id, "guest", lambda: None)
+            with pytest.raises(StopAsyncIteration):
+                await next_view(refused)
+            still_watching = await next_view(kept)
+            presence.unsubscribe(guest)
+            await kept.aclose()
+            return still_watching
+
+        assert run_on_a_loop_of_its_own(scenario()).watchers == 2
+
+    def test_stopping_the_presence_ends_every_open_stream_without_a_view(self, service, table_id):
+        async def scenario():
+            presence = Presence()
+            streams = [stream_of(presence, service, actor, table_id) for actor in (OPENER, VISITOR)]
+            for stream in streams:
+                await next_view(stream)
+            presence.stop()
+            for stream in streams:
+                with pytest.raises(StopAsyncIteration):
+                    await next_view(stream)
+            late = stream_of(presence, service, OPENER, table_id)
+            return [view async for view in late], presence
+
+        views, presence = run_on_a_loop_of_its_own(scenario())
+
+        assert views == []
+        assert presence.connected(table_id) == frozenset()
 
 
 class TestWatchTableAdmission:
@@ -203,3 +426,79 @@ class TestWatchTableAdmission:
         assert [chair["is_mine"] for chair in event["chairs"]] == [False, False, False]
         assert watcher.id not in first
         assert opener.id not in first
+
+    def test_a_session_ended_server_side_ends_the_stream_at_the_next_heartbeat(self, sign_in_settings):
+        skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+        headers, member = skat.member()
+        table = skat.create(headers).json()
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table["id"]), headers=headers) as answer:
+            lines = answer.iter_lines()
+            first = next(lines)
+            skat.stores.sessions.delete_for_user(member.id)
+            rest = list(lines)
+
+        assert first.startswith("data: ")
+        assert rest == [""]
+
+    def test_a_session_that_reaches_its_expiry_while_the_stream_is_open_ends_the_stream(self, sign_in_settings):
+        skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+        now = [1_800_000_000.0]
+        skat.run_on_clock(now)
+        headers, _ = skat.member()
+        table = skat.create(headers).json()
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table["id"]), headers=headers) as answer:
+            lines = answer.iter_lines()
+            first = next(lines)
+            now[0] += skat.config.session_lifetime.absolute_max_age_seconds + 1
+            rest = list(lines)
+
+        assert first.startswith("data: ")
+        assert rest == [""]
+
+    def test_a_revoked_session_ends_every_stream_that_shares_it(self, sign_in_settings):
+        skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+        headers, member = skat.member()
+        table = skat.create(headers).json()
+        skat.client.cookies.clear()
+
+        with (
+            skat.client.stream("GET", self.events(table["id"]), headers=headers) as one_tab,
+            skat.client.stream("GET", self.events(table["id"]), headers=headers) as another_tab,
+        ):
+            tabs = [one_tab.iter_lines(), another_tab.iter_lines()]
+            first_lines = [next(lines) for lines in tabs]
+            skat.stores.sessions.delete_for_user(member.id)
+            rests = [list(lines) for lines in tabs]
+
+        assert all(line.startswith("data: ") for line in first_lines)
+        assert rests == [[""], [""]]
+
+    def test_admitting_a_view_renews_the_session_of_the_open_stream(self, sign_in_settings):
+        skat = Skat(sign_in_settings, heartbeat_seconds=NO_HEARTBEAT_SECONDS)
+        headers, member = skat.member(expires_in=timedelta(hours=1))
+        table = skat.create(headers).json()
+        skat.client.cookies.clear()
+        sessions = skat.stores.sessions
+
+        def expiry():
+            return next(row.expires_at for row in sessions.snapshot().rows.values() if row.user_id == member.id)
+
+        with skat.client.stream("GET", self.events(table["id"]), headers=headers) as watching:
+            lines = watching.iter_lines()
+            next(lines)
+            next(lines)
+            opened_with = expiry()
+            sessions.touch(next(iter(sessions.snapshot().rows)), expires_at=opened_with - timedelta(hours=1))
+            # A second member joining is the change whose view the stream admits again for.
+            other_headers, _ = skat.member()
+            with skat.client.stream("GET", self.events(table["id"]), headers=other_headers) as other:
+                next(other.iter_lines())
+                next(lines)
+                next(lines)
+            renewed_to = expiry()
+
+        assert renewed_to >= opened_with
