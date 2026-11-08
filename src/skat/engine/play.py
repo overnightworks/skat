@@ -1,5 +1,9 @@
-from skat.engine.cards import Card
+from typing import TYPE_CHECKING
+
 from skat.engine.games import GameKind, Trump
+
+if TYPE_CHECKING:
+    from skat.engine.cards import Card
 
 
 def legal_cards(hand: tuple[Card, ...], first: Card | None, kind: GameKind) -> tuple[Card, ...]:

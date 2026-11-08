@@ -7,7 +7,16 @@ from skat.engine.games import GameKind, Trump
 from skat.engine.play import legal_cards, trick_winner
 
 _SUITS = {"K": Suit.KARO, "H": Suit.HERZ, "P": Suit.PIK, "C": Suit.KREUZ}
-_RANKS = {"A": Rank.ACE, "10": Rank.TEN, "K": Rank.KING, "Q": Rank.QUEEN, "J": Rank.JACK, "9": Rank.NINE, "8": Rank.EIGHT, "7": Rank.SEVEN}
+_RANKS = {
+    "A": Rank.ACE,
+    "10": Rank.TEN,
+    "K": Rank.KING,
+    "Q": Rank.QUEEN,
+    "J": Rank.JACK,
+    "9": Rank.NINE,
+    "8": Rank.EIGHT,
+    "7": Rank.SEVEN,
+}
 
 
 def cards(text: str) -> tuple[Card, ...]:
@@ -101,7 +110,7 @@ def test_plain_suits_rank_by_the_games_order(kind: GameKind, order: list[Rank]) 
 
 @pytest.mark.parametrize("kind", list(GameKind))
 def test_legal_cards_are_a_non_empty_part_of_the_hand_for_many_seeded_hands(kind: GameKind) -> None:
-    generator = random.Random(37)
+    generator = random.Random(37)  # noqa: S311 - seeded for repeatable hands and no secrets
     for _ in range(200):
         dealt = generator.sample(DECK, 11)
         hand, first = tuple(dealt[:10]), dealt[10]
