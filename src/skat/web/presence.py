@@ -1,4 +1,6 @@
 import asyncio
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Final, Protocol
@@ -6,7 +8,8 @@ from typing import TYPE_CHECKING, Final, Protocol
 import structlog
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Iterable
+    from collections.abc import Awaitable, Callable, Generator, Iterable
+    from contextlib import AbstractContextManager
 
 CHAIR_RELEASE_RETRY_SECONDS: Final = 15
 
@@ -55,29 +58,30 @@ class LoopScheduler:
 class ChairHold:
     """How long an away member keeps the chair, on whose clock and timers, and the command that frees it.
 
-    `free_chair(table_id, account_id, still_due)` answers whether it freed the chair, and raises when the
-    store fails. It calls `still_due` from its worker while it holds the table's row lock, and frees nothing
-    when that answers False.
+    `free_chair(table_id, account_id, due)` answers whether it freed the chair, and raises when the store
+    fails. It enters `due` in its worker around the whole write, the commit included, and frees nothing when
+    it yields False.
     """
 
     seconds: float
     clock: Callable[[], float]
     scheduler: Scheduler
-    free_chair: Callable[[str, str, Callable[[], bool]], Awaitable[bool]]
+    free_chair: Callable[[str, str, AbstractContextManager[bool]], Awaitable[bool]]
 
 
 class Presence:
     """Who is connected to which table, in this process only, and since when each away member has been gone.
 
-    Every call runs on the event loop's thread, so no lock guards the state. A wake carries no data: a stream
+    The event loop owns every write, and a worker only reads, inside `due`. A wake carries no data: a stream
     that falls behind finds several changes folded into one wake and reads the latest state, which is its
     fresh snapshot.
 
     An account whose last stream on a table ended gets one timer; when it fires the chair is freed unless the
     account came back or left again since, which a newer leave time shows, or the presence has stopped. The
-    freeing asks again under the table's row lock, so a reconnect or a stop while the command waits still
-    wins. Leave times are not stored, so `hold_chairs` counts every seated member as having left when the
-    server starts.
+    freeing holds the invalidation lock from its check until its commit, so a reconnect, a newer leave or a
+    stop waits for the write to end, and one before the check wins. The event loop blocks only that long.
+    Leave times are not stored, so `hold_chairs` counts every seated member as having left when the server
+    starts.
     """
 
     def __init__(self, hold: ChairHold) -> None:
@@ -85,6 +89,7 @@ class Presence:
         self._stopped = False
         self._hold = hold
         self._left_at: dict[tuple[str, str], float] = {}
+        self._invalidation = threading.Lock()
 
     @property
     def stopped(self) -> bool:
@@ -92,7 +97,8 @@ class Presence:
 
     def stop(self) -> None:
         """Wake every open stream to end and cancel every pending check; a later stream ends at once."""
-        self._stopped = True
+        with self._invalidation:
+            self._stopped = True
         self._hold.scheduler.cancel_all()
         self._wake_all([subscription for open_ones in self._subscriptions.values() for subscription in open_ones])
 
@@ -110,7 +116,8 @@ class Presence:
 
     def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
         """Register before the stream reads its view, so a change after this call wakes it."""
-        self._left_at.pop((table_id, account_id), None)
+        with self._invalidation:
+            self._left_at.pop((table_id, account_id), None)
         subscription = Subscription(table_id, account_id, wake)
         already_connected = account_id in self.connected(table_id)
         others = list(self._subscriptions.get(table_id, ()))
@@ -134,23 +141,22 @@ class Presence:
         if self._stopped:
             return
         left_at = self._hold.clock()
-        self._left_at[table_id, account_id] = left_at
-        self._hold.scheduler.schedule(
-            self._hold.seconds, partial(self._expire, self._hold, table_id, account_id, left_at)
-        )
+        with self._invalidation:
+            self._left_at[table_id, account_id] = left_at
+        self._hold.scheduler.schedule(self._hold.seconds, partial(self._expire, table_id, account_id, left_at))
 
-    async def _expire(self, hold: ChairHold, table_id: str, account_id: str, left_at: float) -> None:
+    async def _expire(self, table_id: str, account_id: str, left_at: float) -> None:
         if not self._is_latest_leave(table_id, account_id, left_at):
             return
         try:
-            freed = await hold.free_chair(
-                table_id, account_id, partial(self._is_latest_leave, table_id, account_id, left_at)
+            freed = await self._hold.free_chair(
+                table_id, account_id, self._while_latest_leave(table_id, account_id, left_at)
             )
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
             log.error("chair release failed", table_id=table_id, error=type(failure).__name__)
-            hold.scheduler.schedule(
-                CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, hold, table_id, account_id, left_at)
+            self._hold.scheduler.schedule(
+                CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, table_id, account_id, left_at)
             )
             return
         if self._left_at.get((table_id, account_id)) == left_at:
@@ -158,8 +164,13 @@ class Presence:
         if freed:
             self.wake_table(table_id)
 
+    @contextmanager
+    def _while_latest_leave(self, table_id: str, account_id: str, left_at: float) -> Generator[bool]:
+        """Enter on a worker: holds every invalidation off until the block ends, and yields whether it is due."""
+        with self._invalidation:
+            yield self._is_latest_leave(table_id, account_id, left_at)
+
     def _is_latest_leave(self, table_id: str, account_id: str, left_at: float) -> bool:
-        """Safe to call from a worker thread: it only reads."""
         return not self._stopped and self._left_at.get((table_id, account_id)) == left_at
 
     @staticmethod

@@ -1,4 +1,5 @@
 import asyncio
+import threading
 
 import pytest
 from structlog.testing import capture_logs
@@ -155,15 +156,19 @@ class Releases:
         self.failures = []
         self.freed = True
         self.meanwhile = None
+        self.within = None
         self.outcomes = []
 
-    async def free_chair(self, table_id, account_id, still_due):
+    async def free_chair(self, table_id, account_id, due):
         self.calls.append((table_id, account_id))
         if self.failures:
             raise self.failures.pop(0)
         if self.meanwhile is not None:
             self.meanwhile()
-        outcome = self.freed and still_due()
+        with due as still_due:
+            outcome = self.freed and still_due
+            if self.within is not None:
+                self.within()
         self.outcomes.append(outcome)
         return outcome
 
@@ -328,10 +333,33 @@ class TestChairHold:
         releases.meanwhile = leaves_again
         run(time.advance(HOLD_SECONDS))
         releases.meanwhile = None
-        releases.freed = True
         run(time.advance(HOLD_SECONDS))
 
         assert releases.calls == [(TABLE, "anna"), (TABLE, "anna")]
+
+    @pytest.mark.parametrize("invalidation", ["reconnect", "stop"])
+    def test_a_reconnect_or_a_stop_during_the_write_waits_until_it_is_committed(
+        self, holding, time, releases, invalidation
+    ):
+        order = []
+        invalidate = {
+            "reconnect": lambda: holding.subscribe(TABLE, "anna", lambda: None),
+            "stop": holding.stop,
+        }[invalidation]
+        invalidating = threading.Thread(target=lambda: (invalidate(), order.append("invalidated")))
+
+        def invalidates_from_the_loop_while_the_write_runs():
+            invalidating.start()
+            invalidating.join(timeout=0.05)
+            order.append("committed")
+
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        releases.within = invalidates_from_the_loop_while_the_write_runs
+
+        run(time.advance(HOLD_SECONDS))
+        invalidating.join()
+
+        assert (releases.outcomes, order) == ([True], ["committed", "invalidated"])
 
     def test_a_freeing_that_waits_while_the_server_stops_frees_nothing(self, holding, time, releases):
         holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))

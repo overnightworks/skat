@@ -46,7 +46,8 @@ from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable
+    from collections.abc import AsyncGenerator
+    from contextlib import AbstractContextManager
 
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
@@ -92,8 +93,8 @@ def _install_web_auth(app: FastAPI, sessions: InMemorySessions, page_build: Page
 
 
 def _chair_hold(settings: ServerSettings, tables: TableService) -> ChairHold:
-    async def free_chair(table_id: str, account_id: str, still_due: Callable[[], bool]) -> bool:
-        return await run_in_threadpool(tables.free_chair, TableId(table_id), account_id, still_due)
+    async def free_chair(table_id: str, account_id: str, due: AbstractContextManager[bool]) -> bool:
+        return await run_in_threadpool(tables.free_chair, TableId(table_id), account_id, due)
 
     return ChairHold(settings.chair_hold_seconds, time.monotonic, LoopScheduler(), free_chair)
 

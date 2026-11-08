@@ -1,7 +1,7 @@
 import itertools
 import random
 import threading
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import replace
 
 import pytest
@@ -394,8 +394,23 @@ class TestOccupiedChairs:
         service.sit(VISITOR, SitDown("command-ben", table_id, 3), frozenset())
         receipts_before = count(engine, "receipts")
 
-        freed = service.free_chair(TableId(table_id), VISITOR.account_id, lambda: True)
+        freed = service.free_chair(TableId(table_id), VISITOR.account_id, nullcontext(enter_result=True))
 
         view = service.view(OPENER, table_id, frozenset())
         assert (freed, [chair.occupant_name for chair in view.chairs], view.version) == (True, ["Anna", None, None], 3)
         assert count(engine, "receipts") == receipts_before
+
+    def test_the_caller_stays_in_charge_until_the_freeing_is_committed(self, service):
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        service.sit(VISITOR, SitDown("command-ben", table_id, 3), frozenset())
+        occupants_when_released = []
+
+        @contextmanager
+        def due_until_released():
+            yield True
+            view = service.view(OPENER, table_id, frozenset())
+            occupants_when_released.append([chair.occupant_name for chair in view.chairs])
+
+        service.free_chair(TableId(table_id), VISITOR.account_id, due_until_released())
+
+        assert occupants_when_released == [["Anna", None, None]]

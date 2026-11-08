@@ -11,7 +11,7 @@ class IdleScheduler:
         pass
 
 
-async def free_no_chair(table_id, account_id, still_due):
+async def free_no_chair(table_id, account_id, due):
     return False
 
 

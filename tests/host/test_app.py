@@ -48,8 +48,8 @@ class FreeingSignal(TableService):
         super().__init__(store)
         self.chair_freed = threading.Event()
 
-    def free_chair(self, table_id, account_id, still_due):
-        freed = super().free_chair(table_id, account_id, still_due)
+    def free_chair(self, table_id, account_id, due):
+        freed = super().free_chair(table_id, account_id, due)
         if freed:
             self.chair_freed.set()
         return freed
