@@ -34,7 +34,7 @@ from skat.web.constants import (
 )
 from skat.web.declaring import create_declaring_router
 from skat.web.gate import session_gate
-from skat.web.presence import ChairHold, LoopScheduler, Presence, Scheduler
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, LoopScheduler, NextDeal, Presence, Scheduler
 from skat.web.routes import create_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
@@ -103,6 +103,13 @@ def _chair_hold(
     return ChairHold(settings.chair_hold_seconds, clock, scheduler, free_chair)
 
 
+def _next_deal(tables: TableService) -> NextDeal:
+    async def deal(table_id: str, connected_accounts: frozenset[str]) -> bool:
+        return await run_in_threadpool(tables.deal_next, TableId(table_id), connected_accounts)
+
+    return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
+
+
 def create_app(
     settings: ServerSettings,
     *,
@@ -122,7 +129,8 @@ def create_app(
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     presence = Presence(
-        _chair_hold(settings, tables, chair_clock, chair_scheduler if chair_scheduler is not None else LoopScheduler())
+        _chair_hold(settings, tables, chair_clock, chair_scheduler if chair_scheduler is not None else LoopScheduler()),
+        _next_deal(tables),
     )
 
     @asynccontextmanager

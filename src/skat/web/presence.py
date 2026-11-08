@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
 CHAIR_RELEASE_RETRY_SECONDS: Final = 15
+# Long enough to read „Eingepasst“.
+NEXT_DEAL_PAUSE_SECONDS: Final = 4
 
 log = structlog.get_logger()
 
@@ -69,6 +71,17 @@ class ChairHold:
     free_chair: Callable[[str, str, AbstractContextManager[bool]], Awaitable[bool]]
 
 
+@dataclass(frozen=True)
+class NextDeal:
+    """How long a table pauses after a passed-in hand, and the command that deals the next one.
+
+    `deal(table_id, connected_accounts)` answers whether it dealt, and raises when the store fails.
+    """
+
+    seconds: float
+    deal: Callable[[str, frozenset[str]], Awaitable[bool]]
+
+
 class Presence:
     """Who is connected to which table, in this process only, and since when each away member has been gone.
 
@@ -84,12 +97,19 @@ class Presence:
     commit, so it finds the chair freed instead of losing it unseen, and the event loop is never blocked.
     Leave times are not stored, so `hold_chairs` counts every seated member as having left when the server
     starts.
+
+    After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
+    then, and a stream's first view of the table starts the next pause if none is pending. Nothing about a pause
+    is stored: after a restart none is pending, and all three being connected can only become true by streams
+    opening, so no sweep is needed.
     """
 
-    def __init__(self, hold: ChairHold) -> None:
+    def __init__(self, hold: ChairHold, next_deal: NextDeal) -> None:
         self._subscriptions: dict[str, list[Subscription]] = {}
         self._stopped = False
         self._hold = hold
+        self._next_deal = next_deal
+        self._pausing: set[str] = set()
         self._left_at: dict[tuple[str, str], float] = {}
         self._state = threading.Lock()
         self._committing: dict[tuple[str, str], asyncio.Event] = {}
@@ -159,6 +179,26 @@ class Presence:
         if subscription.account_id not in self.connected(subscription.table_id):
             self._start_hold(subscription.table_id, subscription.account_id)
             self._wake_all(remaining)
+
+    def deal_soon(self, table_id: str) -> None:
+        """Start the pause before a table's next deal; a request during a pending one neither cuts nor stretches it."""
+        if self._stopped or table_id in self._pausing:
+            return
+        self._pausing.add(table_id)
+        self._hold.scheduler.schedule(self._next_deal.seconds, partial(self._deal_after_pause, table_id))
+
+    async def _deal_after_pause(self, table_id: str) -> None:
+        # The pause is over before the deal is asked for, so a stream that opens while the deal runs and finds the
+        # table still passed in starts the next pause instead of waiting on an answer that left it out.
+        self._pausing.discard(table_id)
+        try:
+            dealt = await self._next_deal.deal(table_id, self.connected(table_id))
+        except Exception as failure:
+            # The failure's message may carry an account id, so only its type is logged.
+            log.error("next deal failed", table_id=table_id, error=type(failure).__name__)
+            return
+        if dealt:
+            self.wake_table(table_id)
 
     def _start_hold(self, table_id: str, account_id: str) -> None:
         if self._stopped:

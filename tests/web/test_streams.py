@@ -7,9 +7,8 @@ from datetime import timedelta
 
 import pytest
 
-from skat.engine.deal import next_dealer
 from skat.engine.bidding import Pass
-from skat.engine.deal import Position
+from skat.engine.deal import Position, next_dealer
 from skat.table.records import Actor, CreateTable, HandProgress, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_SUFFIX

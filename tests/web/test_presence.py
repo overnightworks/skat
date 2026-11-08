@@ -7,9 +7,9 @@ from functools import partial
 import pytest
 from structlog.testing import capture_logs
 
-from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.engine.deal import next_dealer
 from skat.table.records import HandProgress
+from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
     NEXT_DEAL_PAUSE_SECONDS,
@@ -133,6 +133,9 @@ class TestWakingATable:
 
 
 HOLD_SECONDS = 300
+FAILURE_NAMING_AN_ACCOUNT = "account anna"
+NAMED_FAILURE = ("error", "ConnectionError")
+THIRD_PASS_COMMAND = "pass-seat-3"
 
 
 class Releases:
@@ -314,7 +317,7 @@ class TestChairHold:
     ):
         connect(holding, TABLE, "ben", wakes.callback("ben"))
         holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
-        releases.failures = [ConnectionError("account anna"), ConnectionError("account anna")]
+        releases.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT), ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
         woken_before = wakes.counts["ben"]
 
         with capture_logs() as logs:
@@ -328,7 +331,7 @@ class TestChairHold:
 
         assert len(releases.calls) == 3
         assert wakes.counts["ben"] == woken_before + 1
-        assert [(log["log_level"], log["error"]) for log in logs] == [("error", "ConnectionError")] * 2
+        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE] * 2
         assert "anna" not in str(logs)
 
     def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
@@ -567,7 +570,7 @@ class TestHoldWhenTheHandEnds:
                 server,
                 table_id,
                 people[2][0],
-                command_id="pass-seat-3",
+                command_id=THIRD_PASS_COMMAND,
                 version=store.tables[table_id].version,
             )
 
@@ -581,7 +584,9 @@ class TestHoldWhenTheHandEnds:
         with one_second_before_the_hold_ends_after_two_passes(hold, time) as (server, store, table_id, people):
             store.after_commit = partial(server.client.portal.call, time.advance, 1)
 
-            post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=store.tables[table_id].version)
+            post_pass(
+                server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=store.tables[table_id].version
+            )
 
             assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time)
 
@@ -660,10 +665,10 @@ class TestHoldWhenTheHandEnds:
         version = server.store.tables[table_id].version
         post_pass(server, table_id, people[0][0], command_id="pass-seat-1", version=version)
         post_pass(server, table_id, people[1][0], command_id="pass-seat-2", version=version + 1)
-        first = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+        first = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
         pending = time.pending
 
-        again = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+        again = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
 
         assert (first.status_code, again.status_code) == (200, 200)
         assert time.pending == pending
@@ -723,14 +728,14 @@ class TestNextDealPause:
     ):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
-        deals.failures = [ConnectionError("account anna")]
+        deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
 
         holding.deal_soon(TABLE)
         with capture_logs() as logs:
             run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
 
         assert wakes.counts["anna"] == before
-        assert [(log["log_level"], log["error"]) for log in logs] == [("error", "ConnectionError")]
+        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
         assert "anna" not in str(logs)
         holding.deal_soon(TABLE)
         run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
@@ -875,17 +880,17 @@ class TestNextHandComes:
             version = server.store.tables[table_id].version
             post_pass(server, table_id, people[0][0], command_id="pass-seat-1", version=version)
             post_pass(server, table_id, people[1][0], command_id="pass-seat-2", version=version + 1)
-            first = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+            first = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
             pending = time.pending
 
-            during = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+            during = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
             assert (first.status_code, during.status_code, time.pending) == (200, 200, pending)
 
             advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
             dealt = server.store.tables[table_id]
             assert dealt.hand is not None
 
-            after = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+            after = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
             advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
 
             assert after.status_code == 200
@@ -912,7 +917,7 @@ class TestNextHandComes:
         server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
 
         def store_goes_down():
-            raise ConnectionError("account anna")
+            raise ConnectionError(FAILURE_NAMING_AN_ACCOUNT)
 
         with server.client:
             table_id, people = seated_three(server)
@@ -926,7 +931,7 @@ class TestNextHandComes:
                     advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
 
                 assert store.tables[table_id] == passed_in
-                assert [(log["log_level"], log["error"]) for log in logs] == [("error", "ConnectionError")]
+                assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
                 assert "anna" not in str(logs)
 
                 with streams_of(server, table_id, people[3:]):
