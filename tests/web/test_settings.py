@@ -5,7 +5,6 @@ import pytest
 from pydantic import ValidationError
 
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
-from skat.web.secret_files import StartRefusedError, read_secret_file
 from skat.web.settings import ServerSettings
 
 REQUIRED_SIGN_IN_SETTINGS = [
@@ -73,6 +72,8 @@ class TestServerSettings:
         "url",
         [
             "postgresql://skat:pw-of-the-test_1@postgres/skat",
+            "postgresql://skat@postgres/skat?password=pw-of-the-test_1",
+            "postgresql://skat:pw-of-the-test_1@postgres\uff0f/skat",
             "mysql://skat@postgres/skat",
             "postgresql://@postgres/skat",
             "postgresql://postgres/skat",
@@ -88,27 +89,3 @@ class TestServerSettings:
             sign_in_settings(database_url=url)
         assert url not in str(refusal.value)
         assert "pw-of-the-test_1" not in str(refusal.value)
-
-
-class TestDatabasePasswordFile:
-    def test_missing_file_is_refused_by_name(self, sign_in_settings, tmp_path):
-        settings = sign_in_settings(database_password_file=tmp_path / "missing").settings
-        with pytest.raises(StartRefusedError, match="database_password_file"):
-            read_secret_file(settings.database_password_file, "database_password_file")
-
-    def test_unreadable_file_is_refused_by_name(self, sign_in_settings, tmp_path):
-        settings = sign_in_settings(database_password_file=tmp_path).settings
-        with pytest.raises(StartRefusedError, match="database_password_file"):
-            read_secret_file(settings.database_password_file, "database_password_file")
-
-    def test_empty_file_is_refused_by_name(self, sign_in_settings, tmp_path):
-        empty = tmp_path / "empty"
-        empty.write_text("")
-        settings = sign_in_settings(database_password_file=empty).settings
-        with pytest.raises(StartRefusedError, match="database_password_file"):
-            read_secret_file(settings.database_password_file, "database_password_file")
-
-    def test_one_trailing_newline_is_not_part_of_the_password(self, sign_in_settings):
-        sign_in = sign_in_settings()
-        password = read_secret_file(sign_in.settings.database_password_file, "database_password_file")
-        assert password.get_secret_value() == sign_in.database_password

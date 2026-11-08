@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from pydantic import AfterValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,12 +27,16 @@ def _require_absolute_path(path: Path) -> Path:
 
 
 def _require_postgres_url_without_password(url: str) -> str:
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        # The parser's message quotes the authority, which may hold the password.
+        raise ValueError("must be a postgresql URL") from None
     if parts.scheme != "postgresql":
         raise ValueError("must be a postgresql URL")
     if not (parts.hostname and parts.username and parts.path.removeprefix("/")):
         raise ValueError("must name a host, a user and a database")
-    if parts.password is not None:
+    if parts.password is not None or "password" in parse_qs(parts.query):
         raise ValueError("must not carry a password")
     return url
 
