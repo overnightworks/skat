@@ -69,7 +69,7 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
 def sit_deals(table: TableRecord) -> bool:
     """A sit deals when it fills the last free chair and no hand runs."""
     free_chairs = sum(chair.occupant is None for chair in table.chairs)
-    return free_chairs == 1 and table.hand is None
+    return free_chairs == 1 and not hand_runs(table)
 
 
 def hand_runs(table: TableRecord) -> bool:

@@ -96,7 +96,7 @@ class TestDeal:
         assert all(chair.occupant is not None for chair in decision.table.chairs)
         assert decision.table.version == table.version + 1
 
-    @pytest.mark.parametrize("seated", [[(1, ANNA)], [(1, ANNA), (3, BEN)]])
+    @pytest.mark.parametrize("seated", [[], [(1, ANNA)]])
     def test_a_sit_that_leaves_a_chair_free_deals_nothing(self, seated):
         free = next(seat for seat in (1, 2, 3) if seat not in dict(seated))
 
