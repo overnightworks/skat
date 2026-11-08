@@ -8,11 +8,12 @@ from dataclasses import replace
 import pytest
 from sqlalchemy import func, select, table, text
 
+from skat.engine.bidding import Bid
 from skat.engine.cards import DECK
 from skat.engine.deal import SEATS, Position
 from skat.store.migrate import create_store_engine
-from skat.store.tables import PostgresTableTransactions
-from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp, TableId
+from skat.store.tables import DealtHandRewrittenError, PostgresTableTransactions
+from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.faulty_tables import (
     WAIT_DEADLINE_SECONDS,
@@ -24,6 +25,7 @@ pytestmark = pytest.mark.postgres
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
+THIRD_PLAYER = Actor(account_id="account-third", display_name="Cleo")
 
 
 @pytest.fixture
@@ -512,3 +514,49 @@ class TestOccupiedChairs:
         service.free_chair(TableId(table_id), VISITOR.account_id, due_until_released())
 
         assert occupants_when_released == [["Anna", None, None]]
+
+
+class TestDealtHandStays:
+    @pytest.fixture
+    def dealt(self, service, engine):
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        service.sit(VISITOR, SitDown("command-visitor", table_id, 2), frozenset())
+        service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
+        transactions = PostgresTableTransactions(engine)
+        with transactions.begin() as transaction:
+            return transactions, transaction.table(TableId(table_id))
+
+    def other_hand(self, record):
+        hand = record.hand
+        return replace(hand, forehand=(hand.middlehand[0], *hand.forehand[1:]), middlehand=(hand.forehand[0], *hand.middlehand[1:]))
+
+    def read(self, transactions, record):
+        with transactions.begin() as transaction:
+            return transaction.table(record.id)
+
+    def test_a_differing_hand_raises_while_the_hand_has_progress(self, dealt):
+        transactions, record = dealt
+        changed = replace(
+            record,
+            hand=self.other_hand(record),
+            version=record.version + 1,
+            progress=HandProgress(auction=(Bid(Position.MIDDLEHAND, 18),)),
+        )
+
+        def save():
+            with transactions.begin() as transaction:
+                transaction.save_table(changed)
+
+        with pytest.raises(DealtHandRewrittenError):
+            save()
+
+        assert self.read(transactions, record) == record
+
+    def test_a_differing_hand_without_progress_leaves_the_stored_hand_alone(self, dealt):
+        transactions, record = dealt
+        changed = replace(record, hand=self.other_hand(record), version=record.version + 1)
+
+        with transactions.begin() as transaction:
+            transaction.save_table(changed)
+
+        assert self.read(transactions, record).hand == record.hand
