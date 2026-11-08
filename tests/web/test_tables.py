@@ -18,7 +18,8 @@ class TestCreateTable:
 
         assert answer.status_code == 200
         assert answer.headers["cache-control"] == "no-store"
-        assert [(c["seat"], c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]] == [
+        chairs = [(c["seat"], c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]]
+        assert chairs == [
             (1, account.username, True),
             (2, None, False),
             (3, None, False),
@@ -74,7 +75,8 @@ class TestReadTable:
 
         assert answer.status_code == 200
         assert answer.headers["cache-control"] == "no-store"
-        assert [(c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]] == [
+        chairs = [(c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]]
+        assert chairs == [
             (opener.username, False),
             (None, False),
             (None, False),
@@ -115,7 +117,8 @@ class TestReadTable:
 
         answer = skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
 
-        assert (answer.status_code, answer.json()) == (404, {"detail": "table not found"})
+        assert answer.status_code == 404
+        assert answer.json() == {"detail": "table not found"}
 
     def test_signed_out_gets_no_table_data(self, skat):
         headers, _ = skat.member()
@@ -174,7 +177,8 @@ class TestSitDown:
 
         assert answer.status_code == 200
         assert answer.headers["cache-control"] == "no-store"
-        assert [(c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]] == [
+        chairs = [(c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]]
+        assert chairs == [
             (owner.username, False),
             (account.username, True),
             (None, False),
@@ -186,7 +190,8 @@ class TestSitDown:
 
         answer = skat.sit(headers, table_id, 1)
 
-        assert (answer.status_code, answer.json()) == (409, {"reason": "seat-taken", "holder_name": owner.username})
+        assert answer.status_code == 409
+        assert answer.json() == {"reason": "seat-taken", "holder_name": owner.username}
 
     def test_a_seated_member_asking_for_a_second_chair_is_refused_and_keeps_the_first(self, skat, table):
         table_id, _ = table
@@ -195,14 +200,10 @@ class TestSitDown:
 
         answer = skat.sit(headers, table_id, 3, command_id="command-second")
 
-        assert (answer.status_code, answer.json()["reason"]) == (409, "already-seated")
-        assert [
-            c["is_mine"] for c in skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()["chairs"]
-        ] == [
-            False,
-            True,
-            False,
-        ]
+        assert answer.status_code == 409
+        assert answer.json()["reason"] == "already-seated"
+        mine = [c["is_mine"] for c in skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()["chairs"]]
+        assert mine == [False, True, False]
 
     def test_a_retry_with_the_same_command_id_answers_with_the_first_outcome_and_writes_nothing_more(self, skat, table):
         table_id, _ = table
@@ -250,8 +251,10 @@ class TestSitDown:
 
         answer = skat.sit(headers, table_id, 1)
 
-        assert (answer.status_code, answer.json()) == (404, {"detail": "table not found"})
-        assert (skat.store.tables, skat.store.receipts) == ({}, {})
+        assert answer.status_code == 404
+        assert answer.json() == {"detail": "table not found"}
+        assert skat.store.tables == {}
+        assert skat.store.receipts == {}
 
     def test_wakes_every_stream_of_the_table_after_the_commit(self, skat, table):
         table_id, _ = table
@@ -285,7 +288,9 @@ class TestSitDown:
         with pytest.raises(RuntimeError, match="connection lost"):
             skat.sit(headers, table_id, 2)
 
-        assert (presence.woken, (skat.store.tables, skat.store.receipts)) == ([], before)
+        assert presence.woken == []
+        state = (skat.store.tables, skat.store.receipts)
+        assert state == before
 
 
 class TestStandUp:
@@ -297,7 +302,8 @@ class TestStandUp:
         answer = skat.stand(headers, table_id)
 
         assert answer.status_code == 200
-        assert [(c["seat"], c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]] == [
+        chairs = [(c["seat"], c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]]
+        assert chairs == [
             (1, owner.username, False),
             (2, None, False),
             (3, None, False),
@@ -310,7 +316,8 @@ class TestStandUp:
 
         answer = skat.stand(headers, table_id)
 
-        assert (answer.status_code, answer.json()) == (409, {"reason": "not-seated", "holder_name": None})
+        assert answer.status_code == 409
+        assert answer.json() == {"reason": "not-seated", "holder_name": None}
         assert skat.store.tables == before
 
     def test_a_retry_answers_with_the_first_outcome(self, skat, table):
@@ -333,7 +340,8 @@ class TestStandUp:
         before = (dict(skat.store.tables), dict(skat.store.receipts))
 
         assert skat.stand(FETCH, table_id).status_code == 401
-        assert (skat.store.tables, skat.store.receipts) == before
+        state = (skat.store.tables, skat.store.receipts)
+        assert state == before
 
     def test_an_unknown_table_is_not_found(self, skat):
         headers, _ = skat.member()

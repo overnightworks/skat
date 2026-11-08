@@ -26,7 +26,8 @@ class TestCreate:
     def test_seats_the_opener_in_chair_one_with_two_free_chairs(self, service):
         view = service.create(OPENER, CreateTable(command_id="command-1"))
 
-        assert [(chair.seat, chair.occupant_name, chair.is_mine) for chair in view.chairs] == [
+        chairs = [(chair.seat, chair.occupant_name, chair.is_mine) for chair in view.chairs]
+        assert chairs == [
             (1, "Anna", True),
             (2, None, False),
             (3, None, False),
@@ -77,7 +78,8 @@ class TestCreate:
         with pytest.raises(RuntimeError, match="connection lost"):
             faulty.create(OPENER, command)
 
-        assert (store.tables, store.receipts) == ({}, {})
+        assert store.tables == {}
+        assert store.receipts == {}
 
     def test_loses_a_race_against_an_identical_request_by_returning_the_winners_table(self, service, store):
         winner = service.create(OPENER, CreateTable(command_id="command-1"))
@@ -93,7 +95,8 @@ class TestView:
 
         view = service.view(VISITOR, created.id, frozenset())
 
-        assert [(chair.seat, chair.occupant_name, chair.is_mine) for chair in view.chairs] == [
+        chairs = [(chair.seat, chair.occupant_name, chair.is_mine) for chair in view.chairs]
+        assert chairs == [
             (1, "Anna", False),
             (2, None, False),
             (3, None, False),
@@ -154,7 +157,8 @@ class TestSit:
         result = sit(service, VISITOR, table_id, 2)
 
         assert result.refusal is None
-        assert [(chair.occupant_name, chair.is_mine) for chair in result.view.chairs] == [
+        chairs = [(chair.occupant_name, chair.is_mine) for chair in result.view.chairs]
+        assert chairs == [
             ("Anna", False),
             ("Ben", True),
             (None, False),
@@ -168,7 +172,8 @@ class TestSit:
     def test_refuses_a_taken_chair_naming_who_holds_it(self, service, table_id):
         result = sit(service, VISITOR, table_id, 1)
 
-        assert (result.refusal, result.holder) == (Refusal.SEAT_TAKEN, "Anna")
+        assert result.refusal == Refusal.SEAT_TAKEN
+        assert result.holder == "Anna"
         assert occupants_of(result.view) == ["Anna", None, None]
 
     def test_the_loser_of_the_last_chair_is_told_who_got_it(self, service, table_id):
@@ -177,7 +182,8 @@ class TestSit:
 
         late = sit(service, Actor("account-fourth", "Dora"), table_id, 3)
 
-        assert (late.refusal, late.holder) == (Refusal.SEAT_TAKEN, "Cem")
+        assert late.refusal == Refusal.SEAT_TAKEN
+        assert late.holder == "Cem"
 
     def test_refuses_a_second_chair_to_a_seated_member(self, service, table_id):
         result = sit(service, OPENER, table_id, 2)
@@ -198,7 +204,8 @@ class TestSit:
 
         again = sit(service, VISITOR, table_id, 1)
 
-        assert (again.refusal, again.holder) == (first.refusal, first.holder)
+        assert again.refusal == first.refusal
+        assert again.holder == first.holder
         assert occupants_of(again.view) == [None, None, None]
 
     def test_refuses_a_command_id_reused_for_another_chair(self, service, store, table_id):
@@ -223,7 +230,8 @@ class TestSit:
         before = (dict(store.tables), dict(store.receipts))
 
         assert sit(service, VISITOR, unknown, 2) is None
-        assert (store.tables, store.receipts) == before
+        state = (store.tables, store.receipts)
+        assert state == before
 
     def test_a_failure_after_the_decision_persists_nothing(self, store, table_id):
         before = (dict(store.tables), dict(store.receipts))
@@ -232,7 +240,8 @@ class TestSit:
         with pytest.raises(RuntimeError, match="connection lost"):
             sit(faulty, VISITOR, table_id, 2)
 
-        assert (store.tables, store.receipts) == before
+        state = (store.tables, store.receipts)
+        assert state == before
 
     def test_the_same_command_id_on_another_table_is_refused_when_it_races_the_first(self, service, store, table_id):
         other_id = service.create(OPENER, CreateTable(command_id="command-other")).id
@@ -250,7 +259,8 @@ class TestStand:
         result = service.stand(VISITOR, StandUp("command-stand", table_id))
 
         assert result.refusal is None
-        assert [(chair.seat, chair.occupant_name) for chair in result.view.chairs] == [
+        chairs = [(chair.seat, chair.occupant_name) for chair in result.view.chairs]
+        assert chairs == [
             (1, "Anna"),
             (2, None),
             (3, None),
