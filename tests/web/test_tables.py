@@ -15,6 +15,7 @@ from skat.web.tables import (
     create_tables_router,
 )
 from tests.support.faulty_tables import FaultyTableTransactions
+from tests.support.idle_presence import idle_hold, idle_presence
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
 from tests.support.payload_cards import (
     CARDS_BY_SEAT,
@@ -120,7 +121,9 @@ class TestReadTable:
                     threads_with_a_loop.append(True)
                 return super().connected(read_table_id)
 
-        skat.app.include_router(create_tables_router(TableService(skat.store), fixture_page_build(), ProbingPresence()))
+        skat.app.include_router(
+            create_tables_router(TableService(skat.store), fixture_page_build(), ProbingPresence(idle_hold()))
+        )
         # The probing router goes first so that it, not the composed one, answers the read.
         skat.app.router.routes.insert(0, skat.app.router.routes.pop())
 
@@ -190,7 +193,7 @@ def stand_after_sitting(skat, headers, table_id):
 
 class RecordingPresence(Presence):
     def __init__(self):
-        super().__init__()
+        super().__init__(idle_hold())
         self.woken = []
 
     def wake_table(self, table_id):
@@ -232,9 +235,9 @@ class TestSitDown:
     def test_answers_an_occupant_with_a_connected_stream_as_present(self, skat, table, act):
         table_id, owner = table
         headers, _ = skat.member()
-        presence = Presence()
+        presence = idle_presence()
         answering_first(skat, TableService(skat.store), presence)
-        presence.subscribe(table_id, owner.id, lambda: None)
+        asyncio.run(presence.subscribe(table_id, owner.id, lambda: None))
 
         answer = act(skat, headers, table_id)
 

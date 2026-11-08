@@ -42,7 +42,7 @@ async def table_views(
     sent, which recovers a lost wake.
     """
     changed = asyncio.Event()
-    subscription = presence.subscribe(table_id, account_id, changed.set)
+    subscription = await presence.subscribe(table_id, account_id, changed.set)
     sent_version: int | None = None
     heartbeat_read = False
     try:
