@@ -1,8 +1,0 @@
-claim_id = "8c7147917cfe4a2a95c4217f089f5fdb"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "295b5e9df4560b35d64cdc6fbf6a3bccde170158"
-branch = "claude/issue-95-declaring-view"
-scope = ["docs/ARCHITECTURE.md", "src/skat/engine/declaration.py", "src/skat/table/declaring.py", "src/skat/table/views.py", "src/skat/web/declaring.py", "src/skat/web/tables.py", "tests/e2e/test_table_hand.py", "tests/engine/test_declaration.py", "tests/table/test_declaring.py", "tests/table/test_views.py", "tests/web/test_declaring.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "b5a9bba398d971976226e7ad4ffffd7a60915962"
-whole_reason = "The stage, the cards and the wire are one view, and a half of it lets a page lie or leak."
