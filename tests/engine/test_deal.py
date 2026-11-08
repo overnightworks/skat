@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from skat.engine.cards import DECK
-from skat.engine.deal import Position, deal, next_dealer, positions_from
+from skat.engine.deal import SEATS, Position, deal, draw_dealer, next_dealer, positions_from
 
 if TYPE_CHECKING:
     from collections.abc import MutableSequence
@@ -90,3 +90,20 @@ def test_a_dealt_hand_can_be_neither_replaced_nor_removed_and_the_deal_stays_has
     assert len(dealt.hands) == 3
     assert hash(dealt) == hash(deal(seeded(1)))
     assert dealt == deal(seeded(1))
+
+
+def test_the_dealer_is_drawn_from_the_seats_and_the_same_seed_draws_the_same_one():
+    first, second = draw_dealer(seeded(5)), draw_dealer(seeded(5))
+    assert first in SEATS
+    assert first == second
+
+
+def test_over_many_seeded_draws_every_seat_is_dealer_at_least_once():
+    assert {draw_dealer(seeded(seed)) for seed in range(100)} == set(SEATS)
+
+
+def test_the_dealer_is_drawn_first_so_the_deal_after_it_differs_from_a_deal_on_a_fresh_source():
+    source = seeded(11)
+    draw_dealer(source)
+
+    assert deal(source) != deal(seeded(11))

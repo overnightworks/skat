@@ -1,10 +1,13 @@
+import secrets
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
+from skat.engine.deal import deal, draw_dealer
 from skat.table.records import (
     Actor,
     CreateTable,
     Decision,
+    FirstDeal,
     Receipt,
     Refusal,
     Replay,
@@ -24,12 +27,14 @@ from skat.table.rules import (
     replayed_decision,
     replayed_table,
     seating_receipt,
+    sit_deals,
     sit_payload,
     stand_payload,
 )
 from skat.table.views import TableView, view_of
 
 if TYPE_CHECKING:
+    import random
     from collections.abc import Callable
     from contextlib import AbstractContextManager
 
@@ -57,7 +62,7 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         ...
 
     def save_table(self, table: TableRecord) -> None:
-        """Write the table's version and chairs."""
+        """Write the table's version, chairs and dealer, and its hand when one first appears."""
         ...
 
     def add_table(self, table: TableRecord) -> None: ...
@@ -83,9 +88,15 @@ class SeatingResult:
 class TableService:
     """The table commands and views; every command is one transaction."""
 
-    def __init__(self, transactions: TableTransactions, new_table_id: Callable[[], TableId] = TableId.random) -> None:
+    def __init__(
+        self,
+        transactions: TableTransactions,
+        new_table_id: Callable[[], TableId] = TableId.random,
+        random_source: random.Random | None = None,
+    ) -> None:
         self._transactions = transactions
         self._new_table_id = new_table_id
+        self._random_source = secrets.SystemRandom() if random_source is None else random_source
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
         try:
@@ -112,7 +123,7 @@ class TableService:
             command.command_id,
             SIT_DOWN_COMMAND,
             sit_payload(command),
-            lambda table: decide_sit(table, actor, command.seat),
+            lambda table: decide_sit(table, actor, command.seat, self._first_deal(table)),
         )
 
     def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> SeatingResult | None:
@@ -125,6 +136,14 @@ class TableService:
             stand_payload(command),
             lambda table: decide_stand(table, actor),
         )
+
+    def _first_deal(self, table: TableRecord) -> FirstDeal | None:
+        """Randomness enters only here: the dealer, then the shuffle, both from the one source."""
+        if not sit_deals(table):
+            return None
+        dealer = draw_dealer(self._random_source)
+        hand = deal(self._random_source)
+        return FirstDeal(dealer, hand)
 
     def _seat(
         self,

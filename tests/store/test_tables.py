@@ -1,13 +1,17 @@
 import itertools
+import random
 import threading
 from contextlib import contextmanager, suppress
+from dataclasses import replace
 
 import pytest
 from sqlalchemy import func, select, table, text
 
+from skat.engine.cards import DECK
+from skat.engine.deal import SEATS, Position
 from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
-from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp
+from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.faulty_tables import FaultyTableTransactions
 
@@ -157,6 +161,9 @@ class _WaitingTransaction:
         return getattr(self._inner, name)
 
 
+CLEO = Actor(account_id="account-cleo", display_name="Cleo")
+
+
 class TestSeating:
     @pytest.fixture
     def table_id(self, service):
@@ -213,6 +220,7 @@ class TestSeating:
         view = service.view(OPENER, table_id, frozenset())
         assert [chair.occupant_name for chair in view.chairs] == ["Anna", "Ben", winners[0]]
         assert view.version == 3
+        assert count(engine, "hand_cards") == len(DECK)
 
     def test_a_failure_after_the_chair_write_persists_nothing(self, engine, table_id):
         failing = TableService(
@@ -250,3 +258,120 @@ class TestSeating:
         view = service.view(OPENER, other_id, frozenset())
         assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)
         assert count(engine, "receipts") == receipts_before
+
+
+class TestHand:
+    @pytest.fixture
+    def dealing(self, engine):
+        return TableService(
+            PostgresTableTransactions(engine),
+            random_source=random.Random(8),  # noqa: S311 - a seeded source makes the deal reproducible
+        )
+
+    def seat_three(self, service):
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        service.sit(VISITOR, SitDown("command-ben", table_id, 2), frozenset())
+        result = service.sit(CLEO, SitDown("command-cleo", table_id, 3), frozenset())
+        return table_id, result
+
+    def stored(self, engine, table_id):
+        with PostgresTableTransactions(engine).begin() as transaction:
+            return transaction.table(TableId(table_id))
+
+    def cards_by_holder(self, record):
+        held = {position: set(cards) for position, cards in record.hand.hands.items()}
+        return held, set(record.hand.skat)
+
+    def test_the_third_sit_stores_the_dealer_and_all_thirty_two_cards_once(self, dealing, engine):
+        table_id, result = self.seat_three(dealing)
+
+        record = self.stored(engine, table_id)
+        held, skat = self.cards_by_holder(record)
+        assert result.refusal is None
+        assert record.dealer in SEATS
+        assert [len(cards) for cards in held.values()] == [10, 10, 10]
+        assert len(skat) == 2
+        assert set().union(skat, *held.values()) == set(DECK)
+        assert (record.version, count(engine, "hand_cards"), count(engine, "receipts")) == (3, 32, 3)
+
+    def test_a_hand_saved_after_a_dealer_without_a_hand_reads_back(self, dealing, engine):
+        dealt_id, _ = self.seat_three(dealing)
+        dealt = self.stored(engine, dealt_id)
+        other_id = dealing.create(OPENER, CreateTable(command_id="command-other")).id
+        other = self.stored(engine, other_id)
+        with PostgresTableTransactions(engine).begin() as transaction:
+            transaction.save_table(replace(other, dealer=dealt.dealer))
+        with PostgresTableTransactions(engine).begin() as transaction:
+            transaction.save_table(replace(other, dealer=dealt.dealer, hand=dealt.hand))
+
+        record = self.stored(engine, other_id)
+        assert (record.dealer, record.hand) == (dealt.dealer, dealt.hand)
+
+    def test_a_fresh_store_reads_the_identical_hand_and_dealer(self, dealing, engine, database_url):
+        table_id, _ = self.seat_three(dealing)
+        before = self.stored(engine, table_id)
+
+        restarted = create_store_engine(database_url)
+        try:
+            after = self.stored(restarted, table_id)
+        finally:
+            restarted.dispose()
+
+        assert after.dealer == before.dealer
+        assert self.cards_by_holder(after) == self.cards_by_holder(before)
+
+    def test_a_hand_reads_each_holders_cards_in_deck_order(self, dealing, engine):
+        table_id, _ = self.seat_three(dealing)
+
+        record = self.stored(engine, table_id)
+
+        for cards in (*record.hand.hands.values(), record.hand.skat):
+            assert list(cards) == sorted(cards, key=DECK.index)
+        assert set(record.hand.hands) == set(Position)
+
+    def test_a_table_before_its_third_sit_has_no_dealer_and_no_hand(self, dealing, engine):
+        table_id = dealing.create(OPENER, CreateTable(command_id="command-open")).id
+        dealing.sit(VISITOR, SitDown("command-ben", table_id, 2), frozenset())
+
+        record = self.stored(engine, table_id)
+
+        assert (record.dealer, record.hand, count(engine, "hand_cards")) == (None, None, 0)
+
+    def test_a_retry_of_the_third_sit_and_a_fourth_sit_write_no_second_hand(self, dealing, engine):
+        table_id, first = self.seat_three(dealing)
+        dealt = self.stored(engine, table_id)
+
+        again = dealing.sit(CLEO, SitDown("command-cleo", table_id, 3), frozenset())
+        late = dealing.sit(Actor("account-dora", "Dora"), SitDown("command-dora", table_id, 2), frozenset())
+
+        assert again == first
+        assert late.refusal is Refusal.SEAT_TAKEN
+        assert self.stored(engine, table_id) == dealt
+        assert count(engine, "hand_cards") == 32
+
+    def test_standing_up_while_a_hand_runs_is_refused_and_the_stored_table_stays(self, dealing, engine):
+        table_id, _ = self.seat_three(dealing)
+        dealt = self.stored(engine, table_id)
+
+        result = dealing.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
+
+        assert result.refusal is Refusal.HAND_RUNNING
+        assert self.stored(engine, table_id) == dealt
+
+    def test_a_failure_during_the_third_sit_stores_no_chair_no_hand_no_dealer_and_no_receipt(self, engine, dealing):
+        table_id = dealing.create(OPENER, CreateTable(command_id="command-open")).id
+        dealing.sit(VISITOR, SitDown("command-ben", table_id, 2), frozenset())
+        failing = TableService(
+            FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost")),
+            random_source=random.Random(8),  # noqa: S311 - a seeded source makes the deal reproducible
+        )
+
+        sitting = SitDown("command-cleo", table_id, 3)
+
+        with pytest.raises(ConnectionError):
+            failing.sit(CLEO, sitting, frozenset())
+
+        record = self.stored(engine, table_id)
+        assert [chair.occupant is None for chair in record.chairs] == [False, False, True]
+        assert (record.dealer, record.hand, record.version) == (None, None, 2)
+        assert (count(engine, "hand_cards"), count(engine, "receipts")) == (0, 2)

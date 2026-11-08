@@ -4,6 +4,7 @@ import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate, require_head
 from skat.store.tables import metadata
@@ -18,14 +19,19 @@ def engine(unmigrated_database_url):
     engine.dispose()
 
 
+def _run_in_transaction(engine, statement):
+    with engine.begin() as connection:
+        connection.execute(statement)
+
+
 def table_names(engine):
     return set(inspect(engine).get_table_names()) - {"alembic_version"}
 
 
-def test_migrating_an_empty_database_creates_tables_chairs_and_receipts(engine):
+def test_migrating_an_empty_database_creates_tables_chairs_receipts_and_hand_cards(engine):
     migrate(engine)
 
-    assert table_names(engine) == {"tables", "chairs", "receipts"}
+    assert table_names(engine) == {"tables", "chairs", "receipts", "hand_cards"}
 
 
 def test_the_migrated_schema_is_the_one_the_store_writes_to(engine):
@@ -44,7 +50,39 @@ def test_migrating_twice_changes_nothing(engine):
 
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).all() == before
-    assert table_names(engine) == {"tables", "chairs", "receipts"}
+    assert table_names(engine) == {"tables", "chairs", "receipts", "hand_cards"}
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        pytest.param("UPDATE tables SET dealer = 4", id="dealer-above-three"),
+        pytest.param("UPDATE tables SET dealer = 0", id="dealer-below-one"),
+        pytest.param("INSERT INTO hand_cards VALUES ('t', 'swords', 'ace', 'skat')", id="unknown-suit"),
+        pytest.param("INSERT INTO hand_cards VALUES ('t', 'hearts', 'one', 'skat')", id="unknown-rank"),
+        pytest.param("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'dealer')", id="unknown-holder"),
+        pytest.param("INSERT INTO hand_cards VALUES ('missing', 'hearts', 'ace', 'skat')", id="unknown-table"),
+    ],
+)
+def test_the_migrated_schema_refuses_a_dealer_or_a_card_outside_the_game(engine, statement):
+    migrate(engine)
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 1)"))
+
+    refused = text(statement)
+    with pytest.raises(IntegrityError):
+        _run_in_transaction(engine, refused)
+
+
+def test_the_migrated_schema_holds_each_card_once_per_table(engine):
+    migrate(engine)
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 1)"))
+        connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'skat')"))
+
+    refused = text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'forehand')")
+    with pytest.raises(IntegrityError):
+        _run_in_transaction(engine, refused)
 
 
 def test_two_migrations_at_once_serialise_and_both_succeed(unmigrated_database_url):

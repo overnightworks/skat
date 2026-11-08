@@ -2,7 +2,10 @@ import re
 import secrets
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Self
+from typing import TYPE_CHECKING, Final, Self
+
+if TYPE_CHECKING:
+    from skat.engine.deal import Deal
 
 TABLE_ID_BYTES: Final = 16
 _TABLE_ID = re.compile(r"[0-9a-f]{32}")
@@ -61,6 +64,7 @@ class Refusal(StrEnum):
     SEAT_TAKEN = "seat-taken"
     ALREADY_SEATED = "already-seated"
     NOT_SEATED = "not-seated"
+    HAND_RUNNING = "hand-running"
 
 
 @dataclass(frozen=True)
@@ -80,6 +84,16 @@ class TableRecord:
     id: TableId
     version: int
     chairs: tuple[Chair, ...]
+    dealer: int | None = None
+    hand: Deal | None = None
+
+
+@dataclass(frozen=True)
+class FirstDeal:
+    """The dealer drawn and the cards dealt for a table's first hand."""
+
+    dealer: int
+    hand: Deal
 
 
 @dataclass(frozen=True)

@@ -1,12 +1,7 @@
 [[code]]
-path = "src/skat/engine/cards.py"
-item = "overnightworks/skat#26"
-reason = "S4.1 deals these cards at the table once seats land."
-
-[[code]]
 path = "src/skat/engine/deal.py"
 item = "overnightworks/skat#26"
-reason = "S4.1 wires the deal into the table once seats land."
+reason = "S4.1b maps chairs to positions; S5.1 passes the deal on."
 
 [[code]]
 path = "src/skat/engine/games.py"
