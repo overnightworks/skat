@@ -103,8 +103,12 @@
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
             <div class="plaque">
-                <span>{words.waitingForPlayers}</span>
-                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                {#if outcome.table.hand === null}
+                    <span>{words.waitingForPlayers}</span>
+                    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                {:else}
+                    <span>{words.biddingFollows}</span>
+                {/if}
             </div>
             <div class="felt" aria-hidden="true"></div>
             <ul class="chairs">
