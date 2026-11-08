@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 
-from skat.table.records import Actor, CreateTable, TableId
+from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.presence import Presence
 from skat.web.streams import table_views
@@ -225,6 +225,29 @@ class TestTableViews:
             return presence
 
         assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+
+
+class TestLostNotification:
+    def test_a_write_whose_wake_is_lost_reaches_the_stream_with_the_next_heartbeat(self, service, table_id):
+        async def scenario():
+            stream = stream_of(Presence(), service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+            first = await next_view(stream)
+            service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+            recovered = await next_view(stream)
+            service.stand(VISITOR, StandUp("command-stand", table_id))
+            stood = await next_view(stream)
+            await stream.aclose()
+            return first, recovered, stood
+
+        first, recovered, stood = run_on_a_loop_of_its_own(scenario())
+
+        assert [
+            (view.version, [chair.occupant_name for chair in view.chairs]) for view in (first, recovered, stood)
+        ] == [
+            (1, ["Anna", None, None]),
+            (2, ["Anna", "Ben", None]),
+            (3, ["Anna", None, None]),
+        ]
 
 
 class TestReadmission:

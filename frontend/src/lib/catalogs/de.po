@@ -59,3 +59,15 @@ msgstr "Zuschauer"
 
 msgid "reconnecting"
 msgstr "verbinde neu"
+
+msgid "sitDown"
+msgstr "Hinsetzen"
+
+msgid "standUp"
+msgstr "Aufstehen"
+
+msgid "seatTaken"
+msgstr "Platz vergeben"
+
+msgid "commandFailed"
+msgstr "Das hat nicht geklappt"

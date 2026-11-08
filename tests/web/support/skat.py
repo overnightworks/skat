@@ -6,7 +6,7 @@ from webauth.config import install_web_auth_config, installed_web_auth_config
 from skat.host.app import create_app
 from skat.table.service import TableService
 from skat.web.stores import SignInStores
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -43,4 +43,18 @@ class Skat:
     def create(self, headers, command_id="command-0001", **extra):
         return self.client.post(
             TABLES_PATH, json={"command_id": command_id, **extra}, headers={"origin": TEST_PUBLIC_ORIGIN, **headers}
+        )
+
+    def sit(self, headers, table_id, seat, command_id="command-sit", **extra):
+        return self.client.post(
+            f"{TABLES_PATH}/{table_id}{TABLE_SIT_SUFFIX}",
+            json={"command_id": command_id, "seat": seat, **extra},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+        )
+
+    def stand(self, headers, table_id, command_id="command-stand", **extra):
+        return self.client.post(
+            f"{TABLES_PATH}/{table_id}{TABLE_STAND_SUFFIX}",
+            json={"command_id": command_id, **extra},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )

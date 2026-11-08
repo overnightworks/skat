@@ -35,6 +35,10 @@ class Presence:
         self._stopped = True
         self._wake_all([subscription for open_ones in self._subscriptions.values() for subscription in open_ones])
 
+    def wake_table(self, table_id: str) -> None:
+        """Tell every stream of a table that a committed write changed its view; call it after the commit."""
+        self._wake_all(list(self._subscriptions.get(table_id, ())))
+
     def connected(self, table_id: str) -> frozenset[str]:
         return frozenset(subscription.account_id for subscription in self._subscriptions.get(table_id, ()))
 

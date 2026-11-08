@@ -1,10 +1,10 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Final
 
-from sqlalchemy import Column, ForeignKey, ForeignKeyConstraint, Integer, MetaData, Table, Text, insert, select
+from sqlalchemy import Column, ForeignKey, ForeignKeyConstraint, Integer, MetaData, Table, Text, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
-from skat.table.records import Chair, Occupant, Receipt, Replay, TableId, TableRecord
+from skat.table.records import Chair, Occupant, Receipt, Refusal, Replay, TableId, TableRecord
 from skat.table.service import DuplicateReceiptError, TableTransaction
 
 if TYPE_CHECKING:
@@ -40,12 +40,15 @@ receipts = Table(
     Column("command", Text, nullable=False),
     Column("payload", Text, nullable=False),
     Column("table_id", Text, nullable=False),
+    Column("refusal", Text),
+    Column("holder", Text),
     ForeignKeyConstraint(["table_id"], ["tables.id"]),
 )
 
 
-def _table_record(connection: Connection, table_id: str) -> TableRecord | None:
-    table = connection.execute(select(tables.c.version).where(tables.c.id == table_id)).one_or_none()
+def _table_record(connection: Connection, table_id: str, *, lock: bool = False) -> TableRecord | None:
+    query = select(tables.c.version).where(tables.c.id == table_id)
+    table = connection.execute(query.with_for_update() if lock else query).one_or_none()
     if table is None:
         return None
     seats = connection.execute(
@@ -69,19 +72,44 @@ class _PostgresTableTransaction:
 
     def replay(self, account_id: str, command_id: str) -> Replay | None:
         receipt = self._connection.execute(
-            select(receipts.c.command, receipts.c.payload, receipts.c.table_id).where(
-                receipts.c.account_id == account_id, receipts.c.command_id == command_id
-            )
+            select(
+                receipts.c.command,
+                receipts.c.payload,
+                receipts.c.table_id,
+                receipts.c.refusal,
+                receipts.c.holder,
+            ).where(receipts.c.account_id == account_id, receipts.c.command_id == command_id)
         ).one_or_none()
         if receipt is None:
             return None
         table = _table_record(self._connection, receipt.table_id)
         # The receipt's foreign key guarantees the table.
         assert table is not None  # noqa: S101 - narrows the type for a row the schema guarantees
-        return Replay(command=receipt.command, payload=receipt.payload, table=table)
+        return Replay(
+            command=receipt.command,
+            payload=receipt.payload,
+            table=table,
+            refusal=None if receipt.refusal is None else Refusal(receipt.refusal),
+            holder=receipt.holder,
+        )
 
     def table(self, table_id: TableId) -> TableRecord | None:
         return _table_record(self._connection, table_id.value)
+
+    def locked_table(self, table_id: TableId) -> TableRecord | None:
+        return _table_record(self._connection, table_id.value, lock=True)
+
+    def save_table(self, table: TableRecord) -> None:
+        self._connection.execute(update(tables).where(tables.c.id == table.id.value).values(version=table.version))
+        for chair in table.chairs:
+            self._connection.execute(
+                update(chairs)
+                .where(chairs.c.table_id == table.id.value, chairs.c.seat == chair.seat)
+                .values(
+                    account_id=None if chair.occupant is None else chair.occupant.account_id,
+                    display_name=None if chair.occupant is None else chair.occupant.display_name,
+                )
+            )
 
     def add_table(self, table: TableRecord) -> None:
         self._connection.execute(insert(tables).values(id=table.id.value, version=table.version))
@@ -107,6 +135,8 @@ class _PostgresTableTransaction:
                     command=receipt.command,
                     payload=receipt.payload,
                     table_id=receipt.table_id.value,
+                    refusal=receipt.refusal,
+                    holder=receipt.holder,
                 )
             )
         except IntegrityError as failure:
