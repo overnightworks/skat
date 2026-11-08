@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     AUTH_START_PATH,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    TABLE_AUCTION_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
@@ -15,6 +16,7 @@ import {
     sitDown,
     standUp,
     tablePath,
+    takeAuctionStep,
     type Chair,
     type Position,
 } from "./tables.ts";
@@ -258,6 +260,21 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_STAND_SUFFIX}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-2" });
+    });
+
+    it.each([
+        { action: "bid", value: 20, body: { action: "bid", value: 20 } },
+        { action: "hold", value: undefined, body: { action: "hold" } },
+        { action: "pass", value: undefined, body: { action: "pass" } },
+        { action: "play", value: undefined, body: { action: "play" } },
+    ] as const)("sends the version shown with a $action step", async ({ action, value, body }) => {
+        answerWith(Response.json(table));
+
+        expect(await takeAuctionStep(TABLE_ID, "command-3", 7, action, value)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_AUCTION_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...body });
     });
 
     it("reports a taken chair with who holds it", async () => {
