@@ -56,13 +56,16 @@
 
     // A seated or freed chair reaches this page through its stream like every other page's: the answer's table
     // has no watchers, so it never replaces the streamed view.
+    let takenTimer: ReturnType<typeof setTimeout> | undefined;
+
     async function seat(command: Promise<Outcome>): Promise<void> {
         note = "";
         taken = null;
         const answer = await command;
         if (answer.kind === "taken") {
             taken = answer.holder;
-            setTimeout(() => (taken = null), TAKEN_NOTICE_MILLISECONDS);
+            clearTimeout(takenTimer);
+            takenTimer = setTimeout(() => (taken = null), TAKEN_NOTICE_MILLISECONDS);
         } else if (answer.kind !== "table") {
             note = words.commandFailed;
         }
