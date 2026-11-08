@@ -19,6 +19,7 @@ from skat.table.records import (
 )
 
 if TYPE_CHECKING:
+    from skat.engine.cards import Card
     from skat.engine.deal import Position
 
 CHAIRS_PER_TABLE: Final = 3
@@ -128,6 +129,11 @@ def acting_position(table: TableRecord, actor: Actor, version: int) -> Position 
     if version != table.version:
         return Refusal.STALE_VERSION
     return positions_from(table.dealer)[chair.seat]
+
+
+def card_text(card: Card) -> str:
+    """A card as a receipt's payload names it."""
+    return f"{card.suit.name}-{card.rank.name}"
 
 
 def sit_payload(command: SitDown) -> str:

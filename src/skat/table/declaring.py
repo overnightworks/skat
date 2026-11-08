@@ -4,10 +4,9 @@ from typing import TYPE_CHECKING, Final
 from skat.engine.declaration import DeclaringStep, PutBack, TakeSkat, declaring_step
 from skat.table.hand_state import declaring_of
 from skat.table.records import Decision, Refusal
-from skat.table.rules import acting_position
+from skat.table.rules import acting_position, card_text
 
 if TYPE_CHECKING:
-    from skat.engine.cards import Card
     from skat.table.records import Actor, TableRecord
 
 DECLARING_STEP_COMMAND: Final = "declaring-step"
@@ -23,15 +22,11 @@ class DeclaringCommand:
     step: DeclaringStep
 
 
-def _card_text(card: Card) -> str:
-    return f"{card.suit.name}-{card.rank.name}"
-
-
 def _step_text(step: DeclaringStep) -> str:
     if isinstance(step, TakeSkat):
         return "take"
     if isinstance(step, PutBack):
-        return "put-back:" + ",".join(_card_text(card) for card in step.cards)
+        return "put-back:" + ",".join(card_text(card) for card in step.cards)
     return f"declare:{step.kind.name}:{step.hand}:{step.ouvert}:{step.announcement.value}"
 
 

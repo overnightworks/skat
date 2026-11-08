@@ -111,7 +111,9 @@ class TestDecide:
         assert decision.refusal is Refusal.NO_HAND
 
     def test_not_seated_is_named_before_a_stale_version(self):
-        decision = decide_card(table_in(won_and_declared()), actor("account-outsider"), command_with(DECK[0], version=1))
+        decision = decide_card(
+            table_in(won_and_declared()), actor("account-outsider"), command_with(DECK[0], version=1)
+        )
 
         assert decision.refusal is Refusal.NOT_SEATED
 
