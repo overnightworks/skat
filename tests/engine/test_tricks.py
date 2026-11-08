@@ -92,7 +92,7 @@ def play_out(state: Playing) -> Playing:
 
 
 def played_out_game(seed: int, kind: GameKind) -> Playing:
-    the_deal = deal(random.Random(seed))
+    the_deal = deal(random.Random(seed))  # noqa: S311 - seeded shuffle keeps the deal reproducible
     declarer = list(Position)[seed % 3]
     return play_out(start_play(declared_by(the_deal, declarer, kind), the_deal))
 
@@ -272,5 +272,6 @@ def test_over_is_refused_before_not_your_turn_and_not_your_turn_before_not_in_ha
 
 def test_starting_play_before_the_declaration_is_an_error() -> None:
     the_deal = dealt()
+    still_declaring = Declaring.start(Declared(FOREHAND, BID), the_deal)
     with pytest.raises(ValueError, match="declaration"):
-        start_play(Declaring.start(Declared(FOREHAND, BID), the_deal), the_deal)
+        start_play(still_declaring, the_deal)

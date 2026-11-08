@@ -154,7 +154,9 @@ def _refusal(state: Playing, position: Position, card: Card) -> PlayRefusal | No
 
 
 def _complete_trick(state: Playing, cards: tuple[Card, Card, Card]) -> CompletedTrick:
-    taker = _PLAY_ORDER[(_PLAY_ORDER.index(state.leader) + trick_winner(cards, _kind_of(state.declared))) % _TRICK_SIZE]
+    taker = _PLAY_ORDER[
+        (_PLAY_ORDER.index(state.leader) + trick_winner(cards, _kind_of(state.declared))) % len(_PLAY_ORDER)
+    ]
     return CompletedTrick(state.leader, cards, taker)
 
 
