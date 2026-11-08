@@ -1,6 +1,9 @@
-import pytest
+import asyncio
 
-from skat.web.presence import Presence
+import pytest
+from structlog.testing import capture_logs
+
+from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, ChairHold, LoopScheduler, Presence
 
 TABLE = "t" * 32
 OTHER_TABLE = "o" * 32
@@ -107,3 +110,245 @@ class TestWakingATable:
 
     def test_waking_a_table_nobody_watches_is_harmless(self, presence):
         presence.wake_table(TABLE)
+
+
+HOLD_SECONDS = 300
+SERVER_START_SECONDS = 1000.0
+RELEASE_FAILED = "chair release failed"
+
+
+class FakeTime:
+    """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order."""
+
+    def __init__(self, now=SERVER_START_SECONDS):
+        self.now = now
+        self._scheduled = []
+
+    def clock(self):
+        return self.now
+
+    def schedule(self, delay, action):
+        self._scheduled.append((self.now + delay, action))
+
+    def cancel_all(self):
+        self._scheduled.clear()
+
+    @property
+    def pending(self):
+        return len(self._scheduled)
+
+    async def advance(self, seconds):
+        horizon = self.now + seconds
+        while due := [entry for entry in self._scheduled if entry[0] <= horizon]:
+            entry = min(due, key=lambda scheduled: scheduled[0])
+            self._scheduled.remove(entry)
+            self.now = max(self.now, entry[0])
+            await entry[1]()
+        self.now = horizon
+
+
+class Releases:
+    """The freeing command as the presence calls it: what it was asked, and what it answers or raises next."""
+
+    def __init__(self):
+        self.calls = []
+        self.failures = []
+        self.freed = True
+
+    async def free_chair(self, table_id, account_id):
+        self.calls.append((table_id, account_id))
+        if self.failures:
+            raise self.failures.pop(0)
+        return self.freed
+
+
+@pytest.fixture
+def time():
+    return FakeTime()
+
+
+@pytest.fixture
+def releases():
+    return Releases()
+
+
+@pytest.fixture
+def holding(time, releases):
+    return Presence(ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair))
+
+
+def run(scenario):
+    return asyncio.run(scenario)
+
+
+class TestChairHold:
+    def test_a_member_whose_last_stream_ended_keeps_the_chair_until_the_hold_has_passed(
+        self, holding, time, releases, wakes
+    ):
+        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
+        leaving = holding.subscribe(TABLE, "anna", wakes.callback("anna"))
+        holding.unsubscribe(leaving)
+
+        run(time.advance(HOLD_SECONDS - 1))
+
+        assert releases.calls == []
+
+    def test_the_chair_is_freed_once_the_hold_has_passed_and_every_stream_is_woken(
+        self, holding, time, releases, wakes
+    ):
+        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", wakes.callback("anna")))
+        woken_before = wakes.counts["ben"]
+
+        run(time.advance(HOLD_SECONDS))
+
+        assert releases.calls == [(TABLE, "anna")]
+        assert wakes.counts["ben"] == woken_before + 1
+
+    def test_the_hold_counts_from_the_moment_the_last_stream_ended(self, holding, time, releases):
+        leaving = holding.subscribe(TABLE, "anna", lambda: None)
+        run(time.advance(40))
+        holding.unsubscribe(leaving)
+
+        run(time.advance(HOLD_SECONDS - 1))
+        assert releases.calls == []
+        run(time.advance(1))
+        assert releases.calls == [(TABLE, "anna")]
+
+    def test_a_member_who_returns_within_the_hold_keeps_the_chair_and_nothing_is_written(self, holding, time, releases):
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        run(time.advance(200))
+        holding.subscribe(TABLE, "anna", lambda: None)
+
+        run(time.advance(HOLD_SECONDS))
+
+        assert releases.calls == []
+
+    def test_only_the_timer_of_the_latest_leave_frees_the_chair(self, holding, time, releases):
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        run(time.advance(100))
+        returned = holding.subscribe(TABLE, "anna", lambda: None)
+        run(time.advance(50))
+        holding.unsubscribe(returned)
+
+        run(time.advance(HOLD_SECONDS - 150))
+        assert releases.calls == []
+        run(time.advance(150))
+        assert releases.calls == [(TABLE, "anna")]
+
+    def test_closing_one_of_two_tabs_schedules_no_timer(self, holding, time):
+        first = holding.subscribe(TABLE, "anna", lambda: None)
+        holding.subscribe(TABLE, "anna", lambda: None)
+
+        holding.unsubscribe(first)
+
+        assert time.pending == 0
+
+    def test_a_member_standing_up_before_the_hold_ends_is_not_freed_again_and_nobody_is_woken(
+        self, holding, time, releases, wakes
+    ):
+        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        releases.freed = False
+        woken_before = wakes.counts["ben"]
+
+        run(time.advance(HOLD_SECONDS))
+
+        assert releases.calls == [(TABLE, "anna")]
+        assert wakes.counts["ben"] == woken_before
+
+    def test_a_check_that_found_nothing_to_free_is_not_repeated(self, holding, time, releases):
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        releases.freed = False
+
+        run(time.advance(HOLD_SECONDS * 3))
+
+        assert len(releases.calls) == 1
+
+    def test_every_seated_member_counts_as_having_left_when_the_server_starts(self, holding, time, releases):
+        holding.hold_chairs([(TABLE, "anna"), (OTHER_TABLE, "ben")])
+
+        run(time.advance(HOLD_SECONDS - 1))
+        assert releases.calls == []
+        run(time.advance(1))
+        assert set(releases.calls) == {(TABLE, "anna"), (OTHER_TABLE, "ben")}
+
+    def test_a_member_connecting_after_the_start_keeps_the_chair(self, holding, time, releases):
+        holding.hold_chairs([(TABLE, "anna")])
+        holding.subscribe(TABLE, "anna", lambda: None)
+
+        run(time.advance(HOLD_SECONDS))
+
+        assert releases.calls == []
+
+    def test_a_failed_freeing_wakes_nobody_logs_by_name_and_is_tried_again_until_it_commits(
+        self, holding, time, releases, wakes
+    ):
+        holding.subscribe(TABLE, "ben", wakes.callback("ben"))
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        releases.failures = [ConnectionError("account anna"), ConnectionError("account anna")]
+        woken_before = wakes.counts["ben"]
+
+        with capture_logs() as logs:
+            run(time.advance(HOLD_SECONDS))
+            assert wakes.counts["ben"] == woken_before
+            run(time.advance(CHAIR_RELEASE_RETRY_SECONDS - 1))
+            assert len(releases.calls) == 1
+            run(time.advance(1))
+            assert len(releases.calls) == 2
+            run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+
+        assert len(releases.calls) == 3
+        assert wakes.counts["ben"] == woken_before + 1
+        assert [log["event"] for log in logs] == [RELEASE_FAILED, RELEASE_FAILED]
+        assert "anna" not in str(logs)
+
+    def test_stopping_cancels_every_pending_check_and_a_stream_ending_afterwards_schedules_none(
+        self, holding, time, releases
+    ):
+        holding.unsubscribe(holding.subscribe(TABLE, "anna", lambda: None))
+        ending = holding.subscribe(OTHER_TABLE, "ben", lambda: None)
+
+        holding.stop()
+        holding.unsubscribe(ending)
+        run(time.advance(HOLD_SECONDS * 2))
+
+        assert (time.pending, releases.calls) == (0, [])
+
+    def test_a_presence_without_a_hold_keeps_no_time(self, presence):
+        presence.hold_chairs([(TABLE, "anna")])
+        presence.unsubscribe(presence.subscribe(TABLE, "anna", lambda: None))
+        presence.stop()
+
+        assert presence.connected(TABLE) == frozenset()
+
+
+class TestLoopScheduler:
+    def test_runs_the_action_after_its_delay(self):
+        async def scenario():
+            ran = asyncio.Event()
+
+            async def action():
+                ran.set()
+
+            LoopScheduler().schedule(0, action)
+            await asyncio.wait_for(ran.wait(), 2)
+
+        run(scenario())
+
+    def test_cancelling_all_stops_every_pending_action_from_running(self):
+        async def scenario():
+            ran = []
+
+            async def action():
+                ran.append(True)
+
+            scheduler = LoopScheduler()
+            scheduler.schedule(3600, action)
+            scheduler.cancel_all()
+            await asyncio.sleep(0)
+            return ran, len(asyncio.all_tasks())
+
+        ran, open_tasks = run(scenario())
+
+        assert (ran, open_tasks) == ([], 1)

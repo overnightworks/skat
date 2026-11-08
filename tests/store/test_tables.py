@@ -375,3 +375,27 @@ class TestHand:
         assert [chair.occupant is None for chair in record.chairs] == [False, False, True]
         assert (record.dealer, record.hand, record.version) == (None, None, 2)
         assert (count(engine, "hand_cards"), count(engine, "receipts")) == (0, 2)
+
+
+class TestOccupiedChairs:
+    def test_reads_every_occupied_chair_and_no_free_one(self, service, engine):
+        first = service.create(OPENER, CreateTable(command_id="command-first")).id
+        service.sit(VISITOR, SitDown("command-ben", first, 3), frozenset())
+        second = service.create(VISITOR, CreateTable(command_id="command-second")).id
+        service.stand(VISITOR, StandUp("command-stand", second), frozenset())
+
+        assert {(chair.table_id.value, chair.account_id) for chair in service.occupied_chairs()} == {
+            (first, OPENER.account_id),
+            (first, VISITOR.account_id),
+        }
+
+    def test_frees_a_chair_in_the_store_and_keeps_the_receipts(self, service, engine):
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        service.sit(VISITOR, SitDown("command-ben", table_id, 3), frozenset())
+        receipts_before = count(engine, "receipts")
+
+        freed = service.free_chair(TableId(table_id), VISITOR.account_id)
+
+        view = service.view(OPENER, table_id, frozenset())
+        assert (freed, [chair.occupant_name for chair in view.chairs], view.version) == (True, ["Anna", None, None], 3)
+        assert count(engine, "receipts") == receipts_before
