@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "8c1e766780c31941674a71f4d24f5dcedb19417c"
 branch = "claude/issue-72-table-during-deal"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/ui/BackFan.svelte", "frontend/src/lib/ui/CardBack.svelte", "frontend/src/lib/ui/FaceDownSkat.svelte", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "tests/e2e/test_table_deal_marks.py"]
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/ui/BackFan.svelte", "frontend/src/lib/ui/CardBack.svelte", "frontend/src/lib/ui/FaceDownSkat.svelte", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "tests/e2e/test_table_deal_marks.py", "tests/e2e/test_table_seats.py"]
 opened_commit = "0ab49d19a146e781ae07cef3ba014b13eb6349c4"
 whole_reason = "The backs, the skat, the marks and the missing stand-up control are one picture of the table during a deal, drawn on the same chairs from one view."
