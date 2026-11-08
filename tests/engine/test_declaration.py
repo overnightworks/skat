@@ -8,8 +8,14 @@ from skat.engine.declaration import (
     Declaration,
     DeclarationOutcome,
     DeclarationRefusal,
+    Declare,
     Declaring,
+    DeclaringStep,
+    PutBack,
+    TakeSkat,
     declare,
+    declaring_after,
+    declaring_step,
     put_back,
     take_skat,
 )
@@ -270,3 +276,58 @@ def test_a_declaration_with_an_impossible_combination_is_a_programming_fault(
 ) -> None:
     with pytest.raises(ValueError, match="impossible"):
         Declaration(kind, hand=hand, ouvert=ouvert, announcement=announcement)
+
+
+def declare_hand_step() -> Declare:
+    return Declare(HERZ, hand=True, ouvert=False, announcement=NONE)
+
+
+def test_an_empty_declaring_log_replays_to_the_start_state() -> None:
+    assert declaring_after(fresh(), ()) == fresh()
+
+
+def test_a_declaring_log_replays_to_what_the_direct_calls_give() -> None:
+    steps = (TakeSkat(), PutBack((KARO_SEVEN, HERZ_EIGHT)), Declare(HERZ, hand=False, ouvert=False, announcement=NONE))
+    direct = ok(declare(picked(), HERZ, hand=False, ouvert=False, announcement=NONE))
+    assert declaring_after(fresh(), steps) == direct
+
+
+def test_a_hand_declaration_without_taking_replays_to_the_direct_call() -> None:
+    direct = declared_hand()
+    assert declaring_after(fresh(), (declare_hand_step(),)) == direct
+
+
+@pytest.mark.parametrize(
+    ("steps", "reason", "place"),
+    [
+        ((PutBack((KARO_SEVEN, HERZ_EIGHT)),), OUT_OF_ORDER, "step 1"),
+        ((TakeSkat(), PutBack((KARO_SEVEN, Card(Suit.KARO, Rank.ACE)))), NOT_TWO, "step 2"),
+        ((declare_hand_step(), declare_hand_step()), ALREADY, "step 2"),
+    ],
+)
+def test_a_declaring_log_the_rules_refuse_raises_naming_the_refusal_and_the_place(
+    steps: tuple[DeclaringStep, ...], reason: DeclarationRefusal, place: str
+) -> None:
+    start = fresh()
+    with pytest.raises(ValueError, match=f"{place}.*{reason.value}"):
+        declaring_after(start, steps)
+
+
+@pytest.mark.parametrize(
+    "step",
+    [TakeSkat(), PutBack((KARO_SEVEN, HERZ_EIGHT)), declare_hand_step()],
+)
+@pytest.mark.parametrize("state", [fresh(), picked(), declared_hand()])
+def test_a_declaring_step_gives_the_outcome_of_the_direct_function_and_a_refusal_changes_nothing(
+    state: Declaring, step: DeclaringStep
+) -> None:
+    if isinstance(step, TakeSkat):
+        direct = take_skat(state)
+    elif isinstance(step, PutBack):
+        direct = put_back(state, step.cards)
+    else:
+        direct = declare(state, step.kind, hand=step.hand, ouvert=step.ouvert, announcement=step.announcement)
+    outcome = declaring_step(state, step)
+    assert outcome == direct
+    if outcome.refusal is not None:
+        assert outcome.state == state

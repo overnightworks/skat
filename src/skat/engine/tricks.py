@@ -174,3 +174,21 @@ def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
     return PlayOutcome(
         replace(state, hands=MappingProxyType(hands), leader=trick.taker, current=(), tricks=tricks, result=result)
     )
+
+
+@dataclass(frozen=True)
+class CardPlayed:
+    position: Position
+    card: Card
+
+
+def playing_after(start: Playing, steps: tuple[CardPlayed, ...]) -> Playing:
+    """The state a stored log of played cards leads to; a log the rules refuse is corrupt and raises."""
+    state = start
+    for place, step in enumerate(steps, start=1):
+        outcome = play_card(state, step.position, step.card)
+        if outcome.refusal is not None:
+            message = f"impossible card log: step {place} refused: {outcome.refusal.value}"
+            raise ValueError(message)
+        state = outcome.state
+    return state
