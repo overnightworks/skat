@@ -1,8 +1,0 @@
-claim_id = "5c90575716b24a37912a0ac876e3a830"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "70bb8afe0b88e37ad3994bf1e32455c7aaf08258"
-branch = "claude/issue-86-take-webauth"
-scope = ["pyproject.toml", "src/skat/web/stores.py", "tests", "uv.lock"]
-opened_commit = "7dc95150361a23ded9e4774df6017932dba02dbd"
-whole_reason = "One pin bump over three releases with the account-port adaptation it forces; the tests are the store's callers."
