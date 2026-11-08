@@ -1,12 +1,7 @@
 [[code]]
 path = "src/skat/engine/games.py"
 item = "overnightworks/skat#27"
-reason = "S5.1 bids with the values these game kinds make."
-
-[[code]]
-path = "src/skat/engine/bidding.py"
-item = "overnightworks/skat#27"
-reason = "S5.1 runs the auction at the table."
+reason = "S5.2 and S5.3 use its playing_suit and strength, which have no production caller yet."
 
 [[code]]
 path = "src/skat/engine/play.py"
