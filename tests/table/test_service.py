@@ -5,7 +5,7 @@ import pytest
 from skat.table.records import Actor, CreateTable, Receipt, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.faulty_tables import FaultyTableTransactions
-from tests.table.seating_store import SeatingTableStore
+from tests.table.support.seating_store import SeatingTableStore
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")

@@ -11,7 +11,7 @@ from skat.table.service import TableService
 from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from tests.table.seating_store import SeatingTableStore
+from tests.table.support.seating_store import SeatingTableStore
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
 
 OPENER = Actor(account_id="opener", display_name="Anna")

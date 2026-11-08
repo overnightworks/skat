@@ -10,7 +10,7 @@ from skat.web.tables import TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, new_account, seed_member
-from tests.table.seating_store import SeatingTableStore
+from tests.table.support.seating_store import SeatingTableStore
 
 FETCH = {"accept": "application/json"}
 NAVIGATION = {"accept": "text/html"}

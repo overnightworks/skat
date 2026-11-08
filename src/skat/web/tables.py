@@ -1,3 +1,4 @@
+from functools import partial
 from typing import TYPE_CHECKING, Annotated, Final
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -12,6 +13,8 @@ from skat.table.service import CommandIdReusedError
 from skat.web.routes import READ_METHODS, built_page_response
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from webauth.ports import AuthenticatedUser
 
     from skat.table.service import SeatingResult, TableService
@@ -84,8 +87,24 @@ def actor_of(request: Request) -> Actor:
     return actor_for(user)
 
 
-def seating_answer(result: SeatingResult | None, presence: Presence, table_id: str) -> Response | TableAnswer:
-    """The answer to a sit or stand, which runs after its transaction committed: only then are the streams woken."""
+SEATING_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
+    404: {"description": "No table has this id."},
+    409: {
+        "model": SeatRefusal,
+        "description": "The command changed nothing, or its id came back with another request.",
+    },
+}
+
+
+async def seating_answer(
+    command: Callable[[], SeatingResult | None], presence: Presence, table_id: str, response: Response
+) -> Response | TableAnswer:
+    """Run a sit or stand off the event loop; once it committed, wake the table's streams."""
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        result = await run_in_threadpool(command)
+    except CommandIdReusedError:
+        raise HTTPException(status_code=409, detail="command id reused with another request") from None
     if result is None:
         raise HTTPException(status_code=404, detail="table not found")
     if result.refusal is not None:
@@ -107,41 +126,23 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
 
-    seating_responses: dict[int | str, dict[str, object]] = {
-        404: {"description": "No table has this id."},
-        409: {
-            "model": SeatRefusal,
-            "description": "The command changed nothing, or its id came back with another request.",
-        },
-    }
-
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX, response_model=TableAnswer, responses=seating_responses
+        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX, response_model=TableAnswer, responses=SEATING_RESPONSES
     )
     async def sit_down(
         table_id: str, body: SitDownRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
-        response.headers["Cache-Control"] = "no-store"
         command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
-        try:
-            result = await run_in_threadpool(tables.sit, actor_of(request), command)
-        except CommandIdReusedError:
-            raise HTTPException(status_code=409, detail="command id reused with another request") from None
-        return seating_answer(result, presence, table_id)
+        return await seating_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX, response_model=TableAnswer, responses=seating_responses
+        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX, response_model=TableAnswer, responses=SEATING_RESPONSES
     )
     async def stand_up(
         table_id: str, body: CreateTableRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
-        response.headers["Cache-Control"] = "no-store"
         command = StandUp(command_id=body.command_id, table_id=table_id)
-        try:
-            result = await run_in_threadpool(tables.stand, actor_of(request), command)
-        except CommandIdReusedError:
-            raise HTTPException(status_code=409, detail="command id reused with another request") from None
-        return seating_answer(result, presence, table_id)
+        return await seating_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
 
     @router.get(TABLES_PATH + "/{table_id}", responses={404: {"description": "No table has this id."}})
     async def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
