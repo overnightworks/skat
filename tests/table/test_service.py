@@ -410,7 +410,8 @@ class TestDeal:
         sit(service, VISITOR, table_id, 2, "command-ben")
         sit(service, CLEO, other_id, 2, "command-cleo")
         blind = TableService(
-            FaultyTableTransactions(store, blind_first_replay=True), random_source=random.Random(2)  # noqa: S311
+            FaultyTableTransactions(store, blind_first_replay=True),
+            random_source=random.Random(2),  # noqa: S311
         )
 
         with pytest.raises(CommandIdReusedError):

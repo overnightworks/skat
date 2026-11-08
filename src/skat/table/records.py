@@ -2,9 +2,10 @@ import re
 import secrets
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Self
+from typing import TYPE_CHECKING, Final, Self
 
-from skat.engine.deal import Deal
+if TYPE_CHECKING:
+    from skat.engine.deal import Deal
 
 TABLE_ID_BYTES: Final = 16
 _TABLE_ID = re.compile(r"[0-9a-f]{32}")

@@ -53,7 +53,7 @@ def test_migrating_twice_changes_nothing(engine):
     [
         pytest.param("UPDATE tables SET dealer = 4", id="dealer-above-three"),
         pytest.param("UPDATE tables SET dealer = 0", id="dealer-below-one"),
-        pytest.param("INSERT INTO hand_cards VALUES ('t', 'spades', 'ace', 'skat')", id="unknown-suit"),
+        pytest.param("INSERT INTO hand_cards VALUES ('t', 'swords', 'ace', 'skat')", id="unknown-suit"),
         pytest.param("INSERT INTO hand_cards VALUES ('t', 'hearts', 'one', 'skat')", id="unknown-rank"),
         pytest.param("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'dealer')", id="unknown-holder"),
         pytest.param("INSERT INTO hand_cards VALUES ('missing', 'hearts', 'ace', 'skat')", id="unknown-table"),
