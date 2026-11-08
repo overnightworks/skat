@@ -223,7 +223,7 @@ class TestSitDown:
         assert skat.sit(headers, table_id, 3).json() == {"detail": "command id reused with another request"}
 
     @pytest.mark.parametrize("seat", [0, 4, -1, "two", None, "2", 2.0, True])
-    def test_refuses_a_chair_that_does_not_exist_and_writes_nothing(self, skat, table, seat):
+    def test_refuses_a_seat_that_is_no_whole_chair_number_and_writes_nothing(self, skat, table, seat):
         table_id, _ = table
         headers, _ = skat.member()
         before = dict(skat.store.tables)

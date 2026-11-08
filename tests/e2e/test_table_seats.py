@@ -118,31 +118,43 @@ def test_three_sit_and_a_fourth_member_only_watches_until_a_chair_frees_up(
         expect(plate_of(person, 2)).to_have_text("dora")
 
 
+def lose_the_last_chair(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    *,
+    holder_name: str,
+    loser_form: dict[str, Any],
+) -> Page:
+    opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
+    path = open_new_table(opener, e2e_server)
+    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
+    watch(second, e2e_server, path)
+    sit_in(second, 2)
+    winner = record_page_errors(open_person(username=holder_name, **DESKTOP), page_errors)
+    # The browser logs every 409 as a console error; the loser's refusal is the point of these tests.
+    loser = record_page_errors(open_person(username="dora", **loser_form), page_errors, console=False)
+    watch(winner, e2e_server, path)
+    watch(loser, e2e_server, path)
+
+    def let_the_winner_sit_first(route: Route) -> None:
+        sit_in(winner, 3)
+        expect(plate_of(winner, 3)).to_have_text(holder_name)
+        route.continue_()
+
+    loser.route(f"**{TABLES_PATH}/*{TABLE_SIT_SUFFIX}", let_the_winner_sit_first)
+
+    sit_in(loser, 3)
+    return loser
+
+
 def test_two_browsers_taking_the_last_chair_seat_one_and_the_other_is_told_who_got_it(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     expected_request_failures: list[str],
     page_errors: list[str],
 ) -> None:
-    opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
-    path = open_new_table(opener, e2e_server)
-    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
-    watch(second, e2e_server, path)
-    sit_in(second, 2)
-    winner = record_page_errors(open_person(username="cleo", **DESKTOP), page_errors)
-    # The browser logs every 409 as a console error; the loser's refusal is the point of this test.
-    loser = record_page_errors(open_person(username="dora", **DESKTOP), page_errors, console=False)
-    watch(winner, e2e_server, path)
-    watch(loser, e2e_server, path)
-
-    def let_the_winner_sit_first(route: Route) -> None:
-        sit_in(winner, 3)
-        expect(plate_of(winner, 3)).to_have_text("cleo")
-        route.continue_()
-
-    loser.route(f"**{TABLES_PATH}/*{TABLE_SIT_SUFFIX}", let_the_winner_sit_first)
-
-    sit_in(loser, 3)
+    loser = lose_the_last_chair(open_person, e2e_server, page_errors, holder_name="cleo", loser_form=DESKTOP)
 
     notice = loser.locator(".notice")
     expect(notice).to_contain_text(SEAT_TAKEN)
@@ -160,27 +172,9 @@ def test_the_taken_notice_keeps_its_label_on_one_line_when_the_holder_name_is_lo
     page_errors: list[str],
     holder_name: str,
 ) -> None:
-    opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
-    path = open_new_table(opener, e2e_server)
-    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
-    watch(second, e2e_server, path)
-    sit_in(second, 2)
-    winner = record_page_errors(open_person(username=holder_name, **DESKTOP), page_errors)
-    loser = record_page_errors(open_person(username="dora", **SMALL_PHONE), page_errors, console=False)
-    watch(winner, e2e_server, path)
-    watch(loser, e2e_server, path)
+    loser = lose_the_last_chair(open_person, e2e_server, page_errors, holder_name=holder_name, loser_form=SMALL_PHONE)
 
-    def let_the_winner_sit_first(route: Route) -> None:
-        sit_in(winner, 3)
-        expect(plate_of(winner, 3)).to_have_text(holder_name)
-        route.continue_()
-
-    loser.route(f"**{TABLES_PATH}/*{TABLE_SIT_SUFFIX}", let_the_winner_sit_first)
-
-    sit_in(loser, 3)
-
-    notice = loser.locator(".notice")
-    expect(notice).to_contain_text(SEAT_TAKEN)
+    expect(loser.locator(".notice")).to_contain_text(SEAT_TAKEN)
     label_is_one_line = loser.evaluate(
         "() => { const label = document.querySelector('.notice .label');"
         " return label.getBoundingClientRect().height < 1.6 * parseFloat(getComputedStyle(label).fontSize); }"
