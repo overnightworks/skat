@@ -12,11 +12,18 @@ from skat.table.hand_state import declaring_of
 from skat.table.records import Actor, Chair, HandProgress, Occupant, Refusal, TableId, TableRecord, parsed_refusal
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
-DEALER_SEAT = 2
-TABLE_ID = "0123456789abcdef0123456789abcdef"
-FIRST, SECOND, THIRD = DECK[10], DECK[11], DECK[12]
-FOREHAND_ACCOUNT = "account-forehand"
-HERZ_DECLARATION = Declare(GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE)
+
+
+def table_id():
+    return "0123456789abcdef0123456789abcdef"
+
+
+def herz_declaration():
+    return Declare(GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE)
+
+
+def won():
+    return (Bid(MIDDLEHAND, 20), Pass(FOREHAND), Pass(REARHAND))
 
 
 def actor(account_id):
@@ -24,16 +31,14 @@ def actor(account_id):
 
 
 def table_in(progress):
-    seats = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
+    dealer = 2
+    seats = {position: seat for seat, position in positions_from(dealer).items()}
     chairs = tuple(
         Chair(seats[position], Occupant(f"account-{position.name.lower()}", position.name))
         for position in (MIDDLEHAND, REARHAND, FOREHAND)
     )
     deal = Deal(forehand=DECK[0:10], middlehand=DECK[10:20], rearhand=DECK[20:30], skat=DECK[30:32])
-    return TableRecord(id=TableId(TABLE_ID), version=7, chairs=chairs, dealer=DEALER_SEAT, hand=deal, progress=progress)
-
-
-WON = (Bid(MIDDLEHAND, 20), Pass(FOREHAND), Pass(REARHAND))
+    return TableRecord(id=TableId(table_id()), version=7, chairs=chairs, dealer=dealer, hand=deal, progress=progress)
 
 
 class TestDeclaringOf:
@@ -46,24 +51,24 @@ class TestDeclaringOf:
         assert declaring_of(table_in(HandProgress(auction=passed_in))) is None
 
     def test_the_stored_steps_are_replayed_from_the_winner_and_the_deal(self):
-        progress = HandProgress(auction=WON, declaring=(TakeSkat(), PutBack((FIRST, SECOND))))
+        progress = HandProgress(auction=won(), declaring=(TakeSkat(), PutBack((DECK[10], DECK[11]))))
 
         state = declaring_of(table_in(progress))
 
         assert state.declarer is MIDDLEHAND
         assert state.bid == 20
         assert set(state.hand) == set(DECK[12:20]) | set(DECK[30:32])
-        assert state.skat == (FIRST, SECOND)
+        assert state.skat == (DECK[10], DECK[11])
 
     def test_a_stored_log_the_rules_refuse_raises(self):
-        corrupt = table_in(HandProgress(auction=WON, declaring=(PutBack((FIRST, SECOND)),)))
+        corrupt = table_in(HandProgress(auction=won(), declaring=(PutBack((DECK[10], DECK[11])),)))
 
         with pytest.raises(ValueError, match="impossible declaring log"):
             declaring_of(corrupt)
 
 
 def command_with(step, version=7):
-    return DeclaringCommand(command_id="command-1", table_id=TABLE_ID, version=version, step=step)
+    return DeclaringCommand(command_id="command-1", table_id=table_id(), version=version, step=step)
 
 
 class TestDeclaringPayload:
@@ -71,8 +76,8 @@ class TestDeclaringPayload:
         "other",
         [
             pytest.param(command_with(TakeSkat(), version=8), id="another-version"),
-            pytest.param(command_with(PutBack((FIRST, SECOND))), id="put-back"),
-            pytest.param(command_with(HERZ_DECLARATION), id="declare"),
+            pytest.param(command_with(PutBack((DECK[10], DECK[11]))), id="put-back"),
+            pytest.param(command_with(herz_declaration()), id="declare"),
         ],
     )
     def test_each_request_has_its_own_payload(self, other):
@@ -81,12 +86,12 @@ class TestDeclaringPayload:
     @pytest.mark.parametrize(
         "other",
         [
-            pytest.param(PutBack((FIRST, THIRD)), id="another-second-card"),
-            pytest.param(PutBack((THIRD, SECOND)), id="another-first-card"),
+            pytest.param(PutBack((DECK[10], DECK[12])), id="another-second-card"),
+            pytest.param(PutBack((DECK[12], DECK[11])), id="another-first-card"),
         ],
     )
     def test_other_cards_are_another_request(self, other):
-        assert declaring_payload(command_with(other)) != declaring_payload(command_with(PutBack((FIRST, SECOND))))
+        assert declaring_payload(command_with(other)) != declaring_payload(command_with(PutBack((DECK[10], DECK[11]))))
 
     @pytest.mark.parametrize(
         "changed",
@@ -98,17 +103,19 @@ class TestDeclaringPayload:
         ],
     )
     def test_each_field_of_a_declaration_is_part_of_the_request(self, changed):
-        other = replace(HERZ_DECLARATION, **changed)
+        other = replace(herz_declaration(), **changed)
 
-        assert declaring_payload(command_with(other)) != declaring_payload(command_with(HERZ_DECLARATION))
+        assert declaring_payload(command_with(other)) != declaring_payload(command_with(herz_declaration()))
 
     def test_a_repeated_request_has_the_same_payload(self):
-        assert declaring_payload(command_with(HERZ_DECLARATION)) == declaring_payload(command_with(HERZ_DECLARATION))
+        assert declaring_payload(command_with(herz_declaration())) == declaring_payload(
+            command_with(herz_declaration())
+        )
 
 
 class TestDecide:
     def test_an_accepted_step_is_appended_and_raises_the_version(self):
-        table = table_in(HandProgress(auction=WON))
+        table = table_in(HandProgress(auction=won()))
         decision = decide_declaring_step(table, actor("account-middlehand"), command_with(TakeSkat()))
 
         assert decision.refusal is None
@@ -117,9 +124,9 @@ class TestDecide:
         assert decision.table.hand == table.hand
 
     def test_a_refused_step_leaves_the_table_as_it_was(self):
-        table = table_in(HandProgress(auction=WON))
+        table = table_in(HandProgress(auction=won()))
 
-        decision = decide_declaring_step(table, actor(FOREHAND_ACCOUNT), command_with(TakeSkat()))
+        decision = decide_declaring_step(table, actor("account-forehand"), command_with(TakeSkat()))
 
         assert decision.refusal is Refusal.NOT_DECLARER
         assert decision.table == table

@@ -19,13 +19,21 @@ from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableT
 
 pytestmark = pytest.mark.postgres
 
-ANNA = Actor(account_id="account-anna", display_name="Anna")
-BEN = Actor(account_id="account-ben", display_name="Ben")
-CLEO = Actor(account_id="account-cleo", display_name="Cleo")
-NOBODY_CONNECTED: frozenset[str] = frozenset()
-FIRST_STEP, SECOND_STEP, THIRD_STEP = "command-a", "command-b", "command-c"
-HERZ_HAND = Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
-HERZ_AFTER_PICK_UP = Declare(GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE)
+
+def person(name):
+    return Actor(account_id=f"account-{name.lower()}", display_name=name)
+
+
+def nobody_connected() -> frozenset[str]:
+    return frozenset()
+
+
+def step_id(number):
+    return f"command-{number}"
+
+
+def herz_declaration(*, hand):
+    return Declare(GameKind.HERZ, hand=hand, ouvert=False, announcement=Announcement.NONE)
 
 
 @pytest.fixture
@@ -63,7 +71,7 @@ class Hand:
         self.transactions = transactions
         self.table_id = table_id
         record = stored(transactions, table_id)
-        by_seat = {1: ANNA, 2: BEN, 3: CLEO}
+        by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(record.dealer).items()}
         self._auction(Position.MIDDLEHAND, AuctionAction.BID, 20, "bid")
         self._auction(Position.FOREHAND, AuctionAction.PASS, None, "forehand-passes")
@@ -74,7 +82,7 @@ class Hand:
         command = AuctionCommand(
             command_id=command_id, table_id=self.table_id, version=version, action=action, value=value
         )
-        self.service.take_auction_step(self.actors[position], command, NOBODY_CONNECTED)
+        self.service.take_auction_step(self.actors[position], command, nobody_connected())
 
     def twelve_cards(self):
         record = stored(self.transactions, self.table_id)
@@ -89,7 +97,7 @@ class Hand:
             step=step,
         )
         return (service or self.service).take_declaring_step(
-            self.actors[Position.MIDDLEHAND], command, NOBODY_CONNECTED
+            self.actors[Position.MIDDLEHAND], command, nobody_connected()
         )
 
     def steps(self):
@@ -98,26 +106,26 @@ class Hand:
 
 @pytest.fixture
 def hand(service, transactions):
-    table_id = service.create(ANNA, CreateTable(command_id="command-open")).id
-    service.sit(BEN, SitDown("command-ben", table_id, 2), NOBODY_CONNECTED)
-    service.sit(CLEO, SitDown("command-cleo", table_id, 3), NOBODY_CONNECTED)
+    table_id = service.create(person("Anna"), CreateTable(command_id="command-open")).id
+    service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
+    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
     return Hand(service, transactions, table_id)
 
 
 def test_the_steps_read_back_in_the_order_they_were_taken(hand):
     twelve = hand.twelve_cards()
 
-    hand.send(TakeSkat(), command_id=FIRST_STEP)
-    hand.send(PutBack((twelve[0], twelve[11])), command_id=SECOND_STEP)
-    hand.send(HERZ_AFTER_PICK_UP, command_id=THIRD_STEP)
+    hand.send(TakeSkat(), command_id=step_id(1))
+    hand.send(PutBack((twelve[0], twelve[11])), command_id=step_id(2))
+    hand.send(herz_declaration(hand=False), command_id=step_id(3))
 
-    assert hand.steps() == (TakeSkat(), PutBack((twelve[0], twelve[11])), HERZ_AFTER_PICK_UP)
+    assert hand.steps() == (TakeSkat(), PutBack((twelve[0], twelve[11])), herz_declaration(hand=False))
 
 
 def test_every_field_of_a_declaration_reads_back(hand):
     ouvert_suit = Declare(GameKind.GRAND, hand=True, ouvert=True, announcement=Announcement.SCHWARZ)
 
-    hand.send(ouvert_suit, command_id=FIRST_STEP)
+    hand.send(ouvert_suit, command_id=step_id(1))
 
     assert hand.steps() == (ouvert_suit,)
 
@@ -126,8 +134,8 @@ def test_taking_the_skat_and_putting_back_keep_the_dealt_hand_as_dealt(hand, eng
     before = stored(transactions, hand.table_id).hand
     twelve = hand.twelve_cards()
 
-    hand.send(TakeSkat(), command_id=FIRST_STEP)
-    hand.send(PutBack((twelve[10], twelve[11])), command_id=SECOND_STEP)
+    hand.send(TakeSkat(), command_id=step_id(1))
+    hand.send(PutBack((twelve[10], twelve[11])), command_id=step_id(2))
 
     assert stored(transactions, hand.table_id).hand == before
     with engine.connect() as connection:
@@ -139,9 +147,9 @@ def test_taking_the_skat_and_putting_back_keep_the_dealt_hand_as_dealt(hand, eng
 
 def test_a_retry_stores_no_second_step_and_no_second_version(hand, engine, transactions):
     version = stored(transactions, hand.table_id).version
-    first = hand.send(TakeSkat(), command_id=FIRST_STEP, version=version)
+    first = hand.send(TakeSkat(), command_id=step_id(1), version=version)
 
-    again = hand.send(TakeSkat(), command_id=FIRST_STEP, version=version)
+    again = hand.send(TakeSkat(), command_id=step_id(1), version=version)
 
     assert again == first
     assert count_steps(engine) == 1
@@ -149,9 +157,9 @@ def test_a_retry_stores_no_second_step_and_no_second_version(hand, engine, trans
 
 
 def test_a_refused_step_keeps_its_token_in_the_receipt_for_a_retry(hand, engine):
-    first = hand.send(HERZ_AFTER_PICK_UP, command_id=FIRST_STEP)
+    first = hand.send(herz_declaration(hand=False), command_id=step_id(1))
 
-    again = hand.send(HERZ_AFTER_PICK_UP, command_id=FIRST_STEP)
+    again = hand.send(herz_declaration(hand=False), command_id=step_id(1))
 
     assert first.refusal is DeclarationRefusal.OUT_OF_ORDER
     assert again.refusal is first.refusal
@@ -168,7 +176,7 @@ def test_two_takes_at_once_store_exactly_one_step_and_name_the_loser_stale(hand,
     def request(command_id):
         results.append(hand.send(TakeSkat(), command_id=command_id, version=version, service=racing))
 
-    threads = [threading.Thread(target=request, args=(name,)) for name in (FIRST_STEP, SECOND_STEP)]
+    threads = [threading.Thread(target=request, args=(name,)) for name in (step_id(1), step_id(2))]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -180,13 +188,13 @@ def test_two_takes_at_once_store_exactly_one_step_and_name_the_loser_stale(hand,
 
 def test_a_restart_reads_the_identical_steps_and_the_next_step_continues(hand, database_url):
     twelve = hand.twelve_cards()
-    hand.send(TakeSkat(), command_id=FIRST_STEP)
+    hand.send(TakeSkat(), command_id=step_id(1))
 
     restarted_engine = create_store_engine(database_url)
     try:
         restarted = PostgresTableTransactions(restarted_engine)
         assert stored(restarted, hand.table_id).progress.declaring == hand.steps()
-        result = hand.send(PutBack((twelve[0], twelve[1])), command_id=SECOND_STEP, service=TableService(restarted))
+        result = hand.send(PutBack((twelve[0], twelve[1])), command_id=step_id(2), service=TableService(restarted))
     finally:
         restarted_engine.dispose()
 
@@ -199,7 +207,7 @@ def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(h
     failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
 
     with pytest.raises(ConnectionError):
-        hand.send(TakeSkat(), command_id=FIRST_STEP, service=failing)
+        hand.send(TakeSkat(), command_id=step_id(1), service=failing)
 
     assert stored(transactions, hand.table_id) == before
     assert count_steps(engine) == 0
@@ -216,9 +224,9 @@ def _rewrite(transactions, table_id, steps):
 
 
 def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transactions):
-    hand.send(TakeSkat(), command_id=FIRST_STEP)
+    hand.send(TakeSkat(), command_id=step_id(1))
     before = stored(transactions, hand.table_id)
-    rewritten_steps = (HERZ_HAND,)
+    rewritten_steps = (herz_declaration(hand=True),)
 
     with pytest.raises(StepLogRewrittenError):
         _rewrite(transactions, hand.table_id, rewritten_steps)
@@ -227,7 +235,7 @@ def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transac
 
 
 def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, transactions):
-    hand.send(TakeSkat(), command_id=FIRST_STEP)
+    hand.send(TakeSkat(), command_id=step_id(1))
     before = stored(transactions, hand.table_id)
     no_steps: tuple[Declare, ...] = ()
 
@@ -248,4 +256,4 @@ def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(hand, engine
         )
 
     with pytest.raises(ValueError, match="impossible declaring log"):
-        hand.send(TakeSkat(), command_id=FIRST_STEP)
+        hand.send(TakeSkat(), command_id=step_id(1))
