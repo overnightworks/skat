@@ -1,5 +1,3 @@
-from dataclasses import replace
-
 import pytest
 
 from skat.engine.bidding import (
@@ -174,10 +172,12 @@ def test_rearhand_cannot_act_while_middlehand_and_forehand_are_bidding(act) -> N
 
 
 def test_refusals_are_checked_in_order() -> None:
+    over = run((pass_, MID), (pass_, REAR), (pass_, FORE)).auction
+    assert bid(over, FORE, 19).refusal is BidRefusal.OVER
     passed_first = run((bid, MID, 20), (pass_, FORE)).auction
     assert bid(passed_first, FORE, 19).refusal is BidRefusal.ALREADY_PASSED
-    assert bid(Auction.start(), FORE, 19).refusal is BidRefusal.NOT_YOUR_TURN
-    assert bid(Auction.start(), MID, 19).refusal is BidRefusal.INVALID_VALUE
-    over = run((pass_, MID), (pass_, REAR), (pass_, FORE)).auction
-    assert replace(over).result == PassedIn()
-    assert bid(over, FORE, 19).refusal is BidRefusal.OVER
+    assert hold(Auction.start(), FORE).refusal is BidRefusal.NOT_YOUR_TURN
+    bid_standing = run((bid, MID, 20)).auction
+    assert bid(bid_standing, FORE, 19).refusal is BidRefusal.WRONG_ACTION
+    held = run((bid, MID, 20), (hold, FORE)).auction
+    assert bid(held, MID, 19).refusal is BidRefusal.INVALID_VALUE
