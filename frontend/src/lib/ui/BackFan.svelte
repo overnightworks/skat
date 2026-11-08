@@ -3,15 +3,14 @@
 
     const SPREAD_DEGREES = 6;
     // In the card's own 100 x 140 units: the pivot lies below the card, so the cards open like a held hand.
-    const PIVOT_X = 50;
-    const PIVOT_Y = 161;
+    const PIVOT = "50 161";
 
     let { count, dim }: { count: number; dim: boolean } = $props();
 
     const turns = $derived(
         Array.from(
             { length: count },
-            (_, index) => `rotate(${(index - (count - 1) / 2) * SPREAD_DEGREES} ${PIVOT_X} ${PIVOT_Y})`,
+            (_, index) => `rotate(${String((index - (count - 1) / 2) * SPREAD_DEGREES)} ${PIVOT})`,
         ),
     );
 </script>
