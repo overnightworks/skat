@@ -1,8 +1,0 @@
-claim_id = "0abf43b8dbf54f68ac7a98eedf9c3d9d"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "992b4e9b2a783fd1264bbf633520bc91912ae5c5"
-branch = "claude/issue-88-auction-view"
-scope = ["docs/ARCHITECTURE.md", "src/skat/engine/bidding.py", "src/skat/table/auction.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/e2e/test_table_deal_marks.py", "tests/e2e/test_table_hand.py", "tests/engine/test_bidding.py", "tests/table/test_auction.py", "tests/table/test_views.py", "tests/web/test_auction.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "89ba78d3e59d6b84961c172f6d1038de3182cfac"
-whole_reason = "The engine's public name, the view and the wire are one answer, and half of it has no reader."
