@@ -1,6 +1,7 @@
 import itertools
 import random
 import threading
+import time
 from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import replace
 
@@ -133,28 +134,35 @@ class BothReadBeforeEitherWrites:
     """Holds each command after its locking read until its rival has read too, if the rival can.
 
     Without a row lock both rivals read the free chair and both would write; with it the second waits
-    outside, the barrier breaks after its timeout and the first goes on alone.
+    outside, the barrier breaks after its timeout and the first goes on alone. With `rivals_must_meet=True` a broken
+    barrier raises instead, so a test that needs both reads at once fails when a lock keeps them apart.
     """
 
-    def __init__(self, inner, rivals):
+    def __init__(self, inner, rivals, *, rivals_must_meet=False):
         self._inner = inner
-        self._barrier = threading.Barrier(rivals, timeout=BARRIER_TIMEOUT_SECONDS)
+        self._rivals_must_meet = rivals_must_meet
+        timeout = WAIT_DEADLINE_SECONDS if rivals_must_meet else BARRIER_TIMEOUT_SECONDS
+        self._barrier = threading.Barrier(rivals, timeout=timeout)
 
     @contextmanager
     def begin(self):
         with self._inner.begin() as transaction:
-            yield _WaitingTransaction(transaction, self._barrier)
+            yield _WaitingTransaction(transaction, self._barrier, self._rivals_must_meet)
 
 
 class _WaitingTransaction:
-    def __init__(self, inner, barrier):
+    def __init__(self, inner, barrier, rivals_must_meet):
         self._inner = inner
         self._barrier = barrier
+        self._rivals_must_meet = rivals_must_meet
 
     def locked_table(self, table_id):
         table = self._inner.locked_table(table_id)
-        with suppress(threading.BrokenBarrierError):
+        if self._rivals_must_meet:
             self._barrier.wait()
+        else:
+            with suppress(threading.BrokenBarrierError):
+                self._barrier.wait()
         return table
 
     def __getattr__(self, name):
@@ -162,6 +170,30 @@ class _WaitingTransaction:
 
 
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
+
+WAIT_DEADLINE_SECONDS = 10
+
+
+def wait_until_a_session_waits_for_a_lock(engine):
+    deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
+    with engine.connect() as watcher:
+        while time.monotonic() < deadline:
+            waiting = watcher.execute(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity"
+                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
+                )
+            ).scalar_one()
+            if waiting:
+                return
+    pytest.fail("no session waited for a lock")
+
+
+def run_in_thread(work):
+    outcome = []
+    thread = threading.Thread(target=lambda: outcome.append(work()))
+    thread.start()
+    return thread, outcome
 
 
 class TestSeating:
@@ -222,6 +254,32 @@ class TestSeating:
         assert view.version == 3
         assert count(engine, "hand_cards") == len(DECK)
 
+    def test_two_commands_reusing_each_others_command_ids_at_two_tables_are_both_refused(
+        self, service, engine, table_id
+    ):
+        other_id = service.create(OPENER, CreateTable(command_id="command-open-other")).id
+        service.sit(VISITOR, SitDown("command-here", table_id, 2), frozenset())
+        service.sit(VISITOR, SitDown("command-there", other_id, 2), frozenset())
+        racing = TableService(BothReadBeforeEitherWrites(PostgresTableTransactions(engine), 2, rivals_must_meet=True))
+        outcomes = []
+
+        def reuse(command_id, at_table):
+            try:
+                racing.sit(VISITOR, SitDown(command_id, at_table, 3), frozenset())
+            except Exception as error:
+                outcomes.append(type(error))
+
+        threads = [
+            threading.Thread(target=reuse, args=("command-there", table_id)),
+            threading.Thread(target=reuse, args=("command-here", other_id)),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert outcomes == [CommandIdReusedError, CommandIdReusedError]
+
     def test_a_failure_after_the_chair_write_persists_nothing(self, engine, table_id):
         failing = TableService(
             FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost"))
@@ -235,12 +293,6 @@ class TestSeating:
         view = TableService(PostgresTableTransactions(engine)).view(OPENER, table_id, frozenset())
         assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)
         assert count(engine, "receipts") == 1
-
-    def test_a_view_does_not_wait_for_a_command_holding_the_table_row(self, service, engine, table_id):
-        with engine.begin() as holder:
-            holder.execute(text("SELECT id FROM tables WHERE id = :id FOR UPDATE"), {"id": table_id})
-
-            assert service.view(OPENER, table_id, frozenset()) is not None
 
     def test_a_command_id_reused_on_another_table_that_missed_the_receipt_is_refused_on_the_unique_key(
         self, service, engine, table_id
@@ -375,6 +427,91 @@ class TestHand:
         assert [chair.occupant is None for chair in record.chairs] == [False, False, True]
         assert (record.dealer, record.hand, record.version) == (None, None, 2)
         assert (count(engine, "hand_cards"), count(engine, "receipts")) == (0, 2)
+
+
+class TestOneMomentRead:
+    @pytest.fixture
+    def dealt(self, engine):
+        dealing = TableService(PostgresTableTransactions(engine), random_source=random.Random(8))  # noqa: S311 - seeded
+        table_id = dealing.create(OPENER, CreateTable(command_id="command-dealt")).id
+        dealing.sit(VISITOR, SitDown("command-ben", table_id, 2), frozenset())
+        dealing.sit(CLEO, SitDown("command-cleo", table_id, 3), frozenset())
+        return self.read(engine, table_id)
+
+    @pytest.fixture
+    def table_id(self, service):
+        return service.create(OPENER, CreateTable(command_id="command-open")).id
+
+    def read(self, engine, table_id):
+        with PostgresTableTransactions(engine).begin() as transaction:
+            return transaction.table(TableId(table_id))
+
+    def test_a_read_during_the_deal_waits_and_returns_the_dealer_and_every_card_together(self, engine, table_id, dealt):
+        with PostgresTableTransactions(engine).begin() as writer:
+            empty = writer.locked_table(TableId(table_id))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
+
+            wait_until_a_session_waits_for_a_lock(engine)
+
+        reader.join()
+        assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (dealt.dealer, dealt.hand, 2)
+
+    def test_a_read_that_waited_for_a_rolled_back_deal_returns_the_table_as_it_was(self, engine, table_id, dealt):
+        with suppress(RuntimeError), PostgresTableTransactions(engine).begin() as writer:
+            empty = writer.locked_table(TableId(table_id))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
+            wait_until_a_session_waits_for_a_lock(engine)
+            raise RuntimeError("rolled back")
+
+        reader.join()
+        assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (None, None, 1)
+
+    def test_a_replayed_create_during_the_deal_waits_and_returns_the_dealer_and_hand_together(
+        self, engine, table_id, dealt
+    ):
+        def replay_create():
+            with PostgresTableTransactions(engine).begin() as transaction:
+                return transaction.replay(OPENER.account_id, "command-open").table
+
+        with PostgresTableTransactions(engine).begin() as writer:
+            empty = writer.locked_table(TableId(table_id))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            reader, outcome = run_in_thread(replay_create)
+
+            wait_until_a_session_waits_for_a_lock(engine)
+
+        reader.join()
+        assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (dealt.dealer, dealt.hand, 2)
+
+    def test_a_writer_waits_for_a_read_to_finish(self, engine, table_id):
+        def write():
+            with PostgresTableTransactions(engine).begin() as writer:
+                record = writer.locked_table(TableId(table_id))
+                writer.save_table(replace(record, version=2))
+
+        with PostgresTableTransactions(engine).begin() as reading:
+            reading.table(TableId(table_id))
+            writer, _ = run_in_thread(write)
+
+            wait_until_a_session_waits_for_a_lock(engine)
+
+        writer.join()
+        assert self.read(engine, table_id).version == 2
+
+    def test_two_reads_at_once_do_not_wait_for_each_other(self, engine, table_id):
+        with PostgresTableTransactions(engine).begin() as first:
+            first.table(TableId(table_id))
+            second, outcome = run_in_thread(lambda: self.read(engine, table_id))
+
+            second.join(timeout=WAIT_DEADLINE_SECONDS)
+
+            assert not second.is_alive()
+        assert outcome[0].version == 1
+
+    def test_a_read_of_a_table_that_does_not_exist_returns_nothing(self, engine):
+        assert self.read(engine, "0" * 32) is None
 
 
 class TestOccupiedChairs:
