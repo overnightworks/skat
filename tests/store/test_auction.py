@@ -110,11 +110,11 @@ def test_the_steps_read_back_in_the_order_they_were_taken(hand):
     )
 
 
-def pass_in(hand, service=None):
+def pass_in(hand):
     """Three passes end the hand: the middlehand's and rearhand's first, the forehand's last."""
-    hand.send(Position.MIDDLEHAND, AuctionAction.PASS, command_id=FIRST_STEP, service=service)
-    hand.send(Position.REARHAND, AuctionAction.PASS, command_id=SECOND_STEP, service=service)
-    return hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=THIRD_STEP, service=service)
+    hand.send(Position.MIDDLEHAND, AuctionAction.PASS, command_id=FIRST_STEP)
+    hand.send(Position.REARHAND, AuctionAction.PASS, command_id=SECOND_STEP)
+    return hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=THIRD_STEP)
 
 
 def test_the_third_pass_deletes_the_cards_keeps_the_steps_and_bumps_the_version_once(hand, engine, transactions):
@@ -135,9 +135,7 @@ def test_a_reload_and_a_restart_still_say_the_hand_was_passed_in(hand, database_
 
     restarted_engine = create_store_engine(database_url)
     try:
-        view = TableService(PostgresTableTransactions(restarted_engine)).view(
-            ANNA, hand.table_id, NOBODY_CONNECTED
-        )
+        view = TableService(PostgresTableTransactions(restarted_engine)).view(ANNA, hand.table_id, NOBODY_CONNECTED)
     finally:
         restarted_engine.dispose()
 
@@ -158,7 +156,8 @@ def test_a_failure_in_the_third_pass_keeps_the_hand_the_steps_and_the_version(ha
     assert stored(transactions, hand.table_id) == before
     assert count_cards(engine) == CARDS_IN_A_HAND
     with engine.connect() as connection:
-        receipts = connection.execute(text(f"SELECT count(*) FROM receipts WHERE command_id = '{THIRD_STEP}'")).scalar_one()
+        query = text("SELECT count(*) FROM receipts WHERE command_id = :command_id")
+        receipts = connection.execute(query, {"command_id": THIRD_STEP}).scalar_one()
     assert receipts == 0
 
 

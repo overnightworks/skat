@@ -113,7 +113,7 @@ class Presence:
         return frozenset(subscription.account_id for subscription in self._subscriptions.get(table_id, ()))
 
     def hold_chairs(self, occupied: Iterable[tuple[str, str]]) -> None:
-        """Start a fresh hold of every chair given as (table id, account id): at the server's start and when a hand ends."""
+        """Start a fresh hold of each (table id, account id): at the server's start, and when a hand ends."""
         for table_id, account_id in occupied:
             self._start_hold(table_id, account_id)
 

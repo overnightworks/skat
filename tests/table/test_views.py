@@ -131,7 +131,9 @@ class TestPassedIn:
             pytest.param(seated_table(), id="never-dealt"),
             pytest.param(seated_table(1, KNOWN_DEAL), id="a-hand-runs"),
             pytest.param(seated_table(1, KNOWN_DEAL, THREE_PASSES), id="the-hand-still-on-the-table"),
-            pytest.param(seated_table(1, steps=(Bid(Position.MIDDLEHAND, 18),)), id="the-auction-did-not-end-in-passes"),
+            pytest.param(
+                seated_table(1, steps=(Bid(Position.MIDDLEHAND, 18),)), id="the-auction-did-not-end-in-passes"
+            ),
         ],
     )
     def test_says_nothing_of_a_passed_in_hand_otherwise(self, table):

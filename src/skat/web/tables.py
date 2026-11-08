@@ -224,7 +224,7 @@ async def command_answer(
         refusal = RefusalAnswer(reason=result.refusal, holder_name=result.holder)
         return JSONResponse(refusal.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
     presence.wake_table(table_id)
-    # A connected member keeps the chair anyway, and a hold would free it after the connected time.
+    # A hold frees the chair when it expires, so a member with a connected stream gets none.
     away = result.seated_when_hand_ended - presence.connected(table_id)
     presence.hold_chairs((table_id, account_id) for account_id in away)
     return answer_of(result.view)
