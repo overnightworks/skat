@@ -19,6 +19,9 @@ NO_ACCESS_PATH = "/no-access"
 LOGOUT_PATH = "/logout"
 # The sign-in page ignores it; the gate's redirect type requires a name for the address the visitor asked for.
 RETURN_PATH_QUERY_NAME = "next"
+# A table page opened through an automatic sign-in carries it, so the page can tell a refusal right after
+# that sign-in from the first one without keeping anything on the device.
+SIGNED_IN_AGAIN_QUERY_NAME = "signedInAgain"
 BACKCHANNEL_LOGOUT_PATH = "/auth/backchannel-logout"
 SIGN_IN_PATHS = SignInPaths(
     start=AUTH_START_PATH, callback=AUTH_CALLBACK_PATH, logout=LOGOUT_PATH, backchannel_logout=BACKCHANNEL_LOGOUT_PATH
@@ -52,6 +55,10 @@ OIDC_LEEWAY_SECONDS = 30
 SESSION_LIFETIME_SECONDS = 12 * 60 * 60
 SESSION_SWEEP_SECONDS = 10 * 60
 
+# An open table stream admits its session again this often when nothing changes, so an ended session's stream
+# stops within one interval.
+STREAM_HEARTBEAT_SECONDS = 15
+
 UVICORN_LOG_LEVEL = "warning"
-# Open event streams never finish by themselves; after this long the server cancels them so it can stop.
+# The server ends its open event streams itself when it stops; this limit is the backstop for any still open after that.
 GRACEFUL_SHUTDOWN_SECONDS = 3

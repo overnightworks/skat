@@ -16,6 +16,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.server import LOOPBACK_HOST, loopback_sign_in, running_skat
 from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.words import catalog_text
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -26,13 +27,14 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
+
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 FIRST_EVENT = """(url) => new Promise((resolve) => {
     const source = new EventSource(url);
     source.onmessage = (event) => { source.close(); resolve(event.data); };
 })"""
-RECONNECTING = "verbinde neu"
+RECONNECTING = catalog_text("reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
 

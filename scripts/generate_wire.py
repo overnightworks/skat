@@ -17,6 +17,8 @@ from skat.web.constants import (  # noqa: E402
     ACCOUNT_PATH,
     AUTH_START_PATH,
     LOGOUT_PATH,
+    RETURN_PATH_QUERY_NAME,
+    SIGNED_IN_AGAIN_QUERY_NAME,
 )
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH  # noqa: E402
 
@@ -31,6 +33,8 @@ HEADER = "// Generated from the Python path owners by scripts/generate_wire.py. 
 def render() -> str:
     constants = {
         "AUTH_START_PATH": AUTH_START_PATH,
+        "RETURN_PATH_QUERY_NAME": RETURN_PATH_QUERY_NAME,
+        "SIGNED_IN_AGAIN_QUERY_NAME": SIGNED_IN_AGAIN_QUERY_NAME,
         "LOGOUT_PATH": LOGOUT_PATH,
         "ACCOUNT_PATH": ACCOUNT_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,

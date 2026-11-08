@@ -1,0 +1,61 @@
+msgid ""
+msgstr ""
+"Language: de\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "appName"
+msgstr "Skat"
+
+msgid "account"
+msgstr "Konto"
+
+msgid "themeTitle"
+msgstr "Darstellung"
+
+msgid "themeFollowSystem"
+msgstr "System"
+
+msgid "themeLight"
+msgstr "Hell"
+
+msgid "themeDark"
+msgstr "Dunkel"
+
+msgid "logOut"
+msgstr "Abmelden"
+
+msgid "newTable"
+msgstr "Neuer Tisch"
+
+msgid "newTableFailed"
+msgstr "Der Tisch konnte nicht eröffnet werden."
+
+msgid "waitingForPlayers"
+msgstr "Warte auf Mitspieler"
+
+msgid "seatFree"
+msgstr "Frei"
+
+msgid "copyLink"
+msgstr "Link kopieren"
+
+msgid "linkCopied"
+msgstr "Link kopiert"
+
+msgid "linkCopyFailed"
+msgstr "Der Link ließ sich nicht kopieren"
+
+msgid "tableNotFound"
+msgstr "Tisch nicht gefunden"
+
+msgid "tableLoadFailed"
+msgstr "Der Tisch lässt sich gerade nicht laden"
+
+msgid "tableLoadFailedHint"
+msgstr "Lade die Seite neu, um es noch einmal zu versuchen."
+
+msgid "watchers"
+msgstr "Zuschauer"
+
+msgid "reconnecting"
+msgstr "verbinde neu"
