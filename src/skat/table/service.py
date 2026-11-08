@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
+from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.records import (
     Actor,
     CommandRefusal,
@@ -67,7 +68,11 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         ...
 
     def save_table(self, table: TableRecord) -> None:
-        """Write the table's version, chairs and dealer, a new hand's cards and steps; an ended hand's cards go."""
+        """Write the table's version, chairs and dealer, a new hand's cards and steps; an ended hand's cards go.
+
+        A stored hand stays as dealt: a record whose hand differs from it while the hand has progress raises,
+        unless the third pass ended the hand.
+        """
         ...
 
     def add_table(self, table: TableRecord) -> None: ...
@@ -171,6 +176,19 @@ class TableService:
             auction_payload(command),
             lambda table: decide_step(table, actor, command),
             on_hand_ended,
+        )
+
+    def take_declaring_step(
+        self, actor: Actor, command: DeclaringCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            DECLARING_STEP_COMMAND,
+            declaring_payload(command),
+            lambda table: decide_declaring_step(table, actor, command),
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:

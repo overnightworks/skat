@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Final
 from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, delete, insert, select
 
 from skat.engine.bidding import VALID_BIDS, Bid
-from skat.store.schema import POSITION_TEXT, metadata, one_of, tables
+from skat.store.schema import POSITION_TEXT, metadata, one_of, tables, unstored_steps
 from skat.table.auction import AuctionAction, action_of, step_of
 
 if TYPE_CHECKING:
@@ -30,10 +30,6 @@ auction_actions = Table(
 )
 
 
-class AuctionLogRewrittenError(Exception):
-    """The steps being saved do not continue the stored ones: an earlier step would change."""
-
-
 def read_steps(connection: Connection, table_id: str) -> tuple[AuctionStep, ...]:
     rows = connection.execute(
         select(auction_actions.c.position, auction_actions.c.action, auction_actions.c.value)
@@ -51,10 +47,7 @@ def delete_steps(connection: Connection, table_id: str) -> None:
 def append_steps(connection: Connection, table_id: str, steps: tuple[AuctionStep, ...]) -> None:
     """Store the steps not yet stored; stored steps that are no prefix of `steps` raise."""
     stored = read_steps(connection, table_id)
-    if steps[: len(stored)] != stored:
-        message = f"the steps saved for table {table_id} do not continue the stored ones"
-        raise AuctionLogRewrittenError(message)
-    fresh = steps[len(stored) :]
+    fresh = unstored_steps(table_id, stored, steps)
     if fresh:
         connection.execute(
             insert(auction_actions),

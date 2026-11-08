@@ -5,10 +5,12 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Self
 
 from skat.engine.bidding import BidRefusal
+from skat.engine.declaration import DeclarationRefusal
 
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
     from skat.engine.deal import Deal
+    from skat.engine.declaration import DeclaringStep
 
 TABLE_ID_BYTES: Final = 16
 _TABLE_ID = re.compile(r"[0-9a-f]{32}")
@@ -70,11 +72,15 @@ class Refusal(StrEnum):
     HAND_RUNNING = "hand-running"
     NO_HAND = "no-hand"
     STALE_VERSION = "stale-version"
+    WRONG_PHASE = "wrong-phase"
+    NOT_DECLARER = "not-declarer"
 
 
-type CommandRefusal = Refusal | BidRefusal
+type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal
 
-_REFUSALS_BY_TOKEN: Final[dict[str, CommandRefusal]] = {refusal.value: refusal for refusal in (*Refusal, *BidRefusal)}
+_REFUSALS_BY_TOKEN: Final[dict[str, CommandRefusal]] = {
+    refusal.value: refusal for refusal in (*Refusal, *BidRefusal, *DeclarationRefusal)
+}
 
 
 def parsed_refusal(token: str) -> CommandRefusal:
@@ -99,6 +105,7 @@ class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field."""
 
     auction: tuple[AuctionStep, ...] = ()
+    declaring: tuple[DeclaringStep, ...] = ()
 
 
 @dataclass(frozen=True)
