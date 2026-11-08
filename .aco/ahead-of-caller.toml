@@ -22,3 +22,13 @@ reason = "S5.1 runs the auction at the table."
 path = "src/skat/engine/play.py"
 item = "overnightworks/skat#27"
 reason = "S5.3 plays the tricks at the table."
+
+[[code]]
+path = "src/skat/engine/declaration.py"
+item = "overnightworks/skat#27"
+reason = "S5.2 takes the skat, discards and declares at the table."
+
+[[code]]
+path = "src/skat/engine/tricks.py"
+item = "overnightworks/skat#27"
+reason = "S5.3 plays the ten tricks at the table."
