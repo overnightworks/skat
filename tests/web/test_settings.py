@@ -82,6 +82,7 @@ class TestServerSettings:
             "postgresql://skat@postgres",
             "postgresql://skat@postgres/",
             "postgresql://a@b:/x@host/db",
+            "postgresql://skat:pw-of-the-test_1/skat",
         ],
     )
     def test_database_url_with_a_password_or_not_naming_postgresql_host_user_and_database_is_refused_by_name_only(
