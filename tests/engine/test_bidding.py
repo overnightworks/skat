@@ -191,21 +191,32 @@ def test_refusals_are_checked_in_order() -> None:
 
 
 @pytest.mark.parametrize(
-    "steps",
+    ("steps", "result", "standing", "passed"),
     [
-        pytest.param((Bid(MID, 18), Hold(FORE), Bid(MID, 20), Pass(FORE)), id="bid-and-hold"),
-        pytest.param((Pass(MID), Pass(REAR), Play(FORE)), id="forehand-plays"),
-        pytest.param((Pass(MID), Pass(REAR), Pass(FORE)), id="passed-in"),
+        pytest.param(
+            (Bid(MID, 18), Hold(FORE), Bid(MID, 20), Pass(FORE)),
+            None,
+            20,
+            frozenset({FORE}),
+            id="rearhand-still-to-act",
+        ),
+        pytest.param(
+            (Pass(MID), Pass(REAR), Play(FORE)), Declared(FORE, 18), None, frozenset({MID, REAR}), id="forehand-plays"
+        ),
+        pytest.param(
+            (Pass(MID), Pass(REAR), Pass(FORE)), PassedIn(), None, frozenset({MID, REAR, FORE}), id="passed-in"
+        ),
     ],
 )
-def test_a_log_of_steps_leads_to_the_auction_its_steps_lead_to_one_by_one(steps: tuple[AuctionStep, ...]) -> None:
-    one_by_one = Auction.start()
-    for step in steps:
-        outcome = auction_step(one_by_one, step)
-        assert outcome.refusal is None, step
-        one_by_one = outcome.auction
+def test_a_log_of_steps_leads_to_the_auction_it_names(
+    steps: tuple[AuctionStep, ...],
+    result: Declared | PassedIn | None,
+    standing: int | None,
+    passed: frozenset[Position],
+) -> None:
+    auction = auction_after(steps)
 
-    assert auction_after(steps) == one_by_one
+    assert (auction.result, auction.standing, auction.passed) == (result, standing, passed)
 
 
 @pytest.mark.parametrize(
