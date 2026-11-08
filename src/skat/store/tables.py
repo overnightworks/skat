@@ -17,7 +17,7 @@ from skat.store.schema import (
     receipts,
     tables,
 )
-from skat.table.records import Chair, Occupant, Receipt, Refusal, Replay, TableId, TableRecord
+from skat.table.records import Chair, Occupant, Receipt, Replay, TableId, TableRecord, parsed_refusal
 from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
@@ -106,7 +106,7 @@ class _PostgresTableTransaction:
             command=receipt.command,
             payload=receipt.payload,
             table=table,
-            refusal=None if receipt.refusal is None else Refusal(receipt.refusal),
+            refusal=None if receipt.refusal is None else parsed_refusal(receipt.refusal),
             holder=receipt.holder,
         )
 

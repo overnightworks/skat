@@ -10,7 +10,7 @@ from webauth.middleware import admitted_user
 
 from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
-from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp
+from skat.table.records import Actor, CommandRefusal, CreateTable, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.routes import READ_METHODS, built_page_response
@@ -52,7 +52,7 @@ class SitDownRequest(CreateTableRequest):
 class RefusalAnswer(BaseModel):
     """A command that changed nothing; `holder_name` names who sits in a chair that was taken."""
 
-    reason: Refusal
+    reason: CommandRefusal
     holder_name: str | None
 
 

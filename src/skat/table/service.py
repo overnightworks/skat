@@ -3,13 +3,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from skat.engine.deal import deal, draw_dealer
+from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.records import (
     Actor,
+    CommandRefusal,
     CreateTable,
     Decision,
     FirstDeal,
     Receipt,
-    Refusal,
     Replay,
     SitDown,
     StandUp,
@@ -91,7 +92,7 @@ class CommandResult:
     """What a table command did: the table as the actor sees it, and why it changed nothing if it did not."""
 
     view: TableView
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None
 
 
@@ -145,6 +146,19 @@ class TableService:
             STAND_UP_COMMAND,
             stand_payload(command),
             lambda table: decide_stand(table, actor),
+        )
+
+    def take_auction_step(
+        self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            AUCTION_STEP_COMMAND,
+            auction_payload(command),
+            lambda table: decide_step(table, actor, command),
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
