@@ -104,7 +104,7 @@ def _chair_hold(
 
 
 def _next_deal(tables: TableService) -> NextDeal:
-    async def deal(table_id: str, connected_accounts: frozenset[str]) -> bool:
+    async def deal(table_id: str, connected_accounts: AbstractContextManager[frozenset[str]]) -> bool:
         return await run_in_threadpool(tables.deal_next, TableId(table_id), connected_accounts)
 
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)

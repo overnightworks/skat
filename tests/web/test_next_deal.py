@@ -73,6 +73,17 @@ class TestNextDealPause:
 
         assert deals.calls == [(TABLE, frozenset({"anna"}))]
 
+    def test_who_is_connected_is_read_once_the_deal_holds_the_row(self, holding, time, deals):
+        async def anna_returns_while_the_deal_waits():
+            await holding.subscribe(TABLE, "anna", lambda: None)
+
+        deals.meanwhile = anna_returns_while_the_deal_waits
+        holding.deal_soon(TABLE)
+
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+
+        assert deals.calls == [(TABLE, frozenset({"anna"}))]
+
     def test_a_deal_wakes_the_table_and_a_refused_deal_wakes_nobody(self, holding, time, deals, wakes):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
@@ -347,6 +358,22 @@ class TestNextHandComes:
             advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
 
             assert (time.pending, server.store.tables[table_id]) == (0, passed_in)
+
+    def test_the_server_stopping_while_the_deal_waits_for_the_row_writes_no_deal(self, hold, time):
+        store = OvertakenStore()
+        server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
+
+        with server.client:
+            table_id, people = seated_three(server)
+            server.client.cookies.clear()
+            with streams_of(server, table_id, people[:3]):
+                pass_hand_in(server, table_id, people)
+                passed_in = store.tables[table_id]
+                store.meanwhile = lambda: server.client.portal.call(server.app.state.stop_streams)
+
+                advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
+
+                assert store.tables[table_id] == passed_in
 
 
 class TestNextDealTrigger:

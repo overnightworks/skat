@@ -516,7 +516,7 @@ class TestDealNext:
         before = store.tables[table_id]
         receipts_before = dict(store.receipts)
 
-        assert dealing.deal_next(TableId(table_id), ALL_THREE) is True
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is True
 
         after = store.tables[table_id]
         assert after.dealer == next_dealer(before.dealer)
@@ -526,10 +526,10 @@ class TestDealNext:
         assert store.receipts == receipts_before
 
     def test_a_second_run_changes_nothing(self, dealing, store, table_id):
-        dealing.deal_next(TableId(table_id), ALL_THREE)
+        dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE))
         written = dict(store.tables)
 
-        assert dealing.deal_next(TableId(table_id), ALL_THREE) is False
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
         assert store.tables == written
 
     @pytest.mark.parametrize(
@@ -542,14 +542,14 @@ class TestDealNext:
     def test_changes_nothing_while_a_member_is_away(self, dealing, store, table_id, connected):
         written = dict(store.tables)
 
-        assert dealing.deal_next(TableId(table_id), connected) is False
+        assert dealing.deal_next(TableId(table_id), nullcontext(connected)) is False
         assert store.tables == written
 
     def test_changes_nothing_when_a_chair_is_free(self, dealing, store, table_id):
         dealing.stand(CLEO, StandUp("command-stand", table_id), frozenset())
         written = dict(store.tables)
 
-        assert dealing.deal_next(TableId(table_id), ALL_THREE) is False
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
         assert store.tables == written
 
     def test_changes_nothing_while_a_hand_runs(self, store):
@@ -557,11 +557,11 @@ class TestDealNext:
         table_id, _ = seated_three(service)
         written = dict(store.tables)
 
-        assert service.deal_next(TableId(table_id), ALL_THREE) is False
+        assert service.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
         assert store.tables == written
 
     def test_an_unknown_table_is_no_table(self, dealing):
-        assert dealing.deal_next(TableId("0" * 32), ALL_THREE) is False
+        assert dealing.deal_next(TableId("0" * 32), nullcontext(ALL_THREE)) is False
 
     def test_a_failure_after_the_write_persists_nothing(self, store, table_id):
         written = dict(store.tables)
@@ -569,7 +569,7 @@ class TestDealNext:
         identifier = TableId(table_id)
 
         with pytest.raises(ConnectionError):
-            failing.deal_next(identifier, ALL_THREE)
+            failing.deal_next(identifier, nullcontext(ALL_THREE))
 
         assert store.tables == written
 

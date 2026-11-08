@@ -25,7 +25,6 @@ from tests.web.support.presence import (
     OTHER_TABLE,
     TABLE,
     THIRD_PASS_COMMAND,
-    Deals,
     OvertakenStore,
     connect,
     occupied_seats,
@@ -117,6 +116,15 @@ class TestWakingATable:
 
     def test_waking_a_table_nobody_watches_is_harmless(self, presence):
         presence.wake_table(TABLE)
+
+
+async def leaves_her_table(presence):
+    presence.unsubscribe(await presence.subscribe(TABLE, "anna", lambda: None))
+
+
+async def starts_the_pause(presence):
+    await presence.subscribe(TABLE, "anna", lambda: None)
+    presence.deal_soon(TABLE)
 
 
 class TestChairHold:
@@ -325,7 +333,16 @@ class TestChairHold:
 
         assert releases.outcomes == [True]
 
-    def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_check(self):
+    @pytest.mark.parametrize(
+        ("anna_starts_the_write", "seconds", "entered_with"),
+        [
+            pytest.param(leaves_her_table, HOLD_SECONDS, True, id="freeing"),
+            pytest.param(starts_the_pause, NEXT_DEAL_PAUSE_SECONDS, frozenset({"anna"}), id="next-deal"),
+        ],
+    )
+    def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_check(
+        self, anna_starts_the_write, seconds, entered_with
+    ):
         started = threading.Event()
         release = threading.Event()
         committed = []
@@ -340,14 +357,17 @@ class TestChairHold:
         async def free_on_worker(table_id, account_id, due):
             return await asyncio.to_thread(worker, due)
 
+        async def deal_on_worker(table_id, connected_accounts):
+            return await asyncio.to_thread(worker, connected_accounts)
+
         async def scenario():
             time = FakeTime()
             presence = Presence(
                 ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker),
-                NextDeal(NEXT_DEAL_PAUSE_SECONDS, Deals().deal_next),
+                NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_on_worker),
             )
-            presence.unsubscribe(await presence.subscribe(TABLE, "anna", lambda: None))
-            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
+            await anna_starts_the_write(presence)
+            expiry = asyncio.create_task(time.advance(seconds))
             await asyncio.to_thread(started.wait, 5)
             expiry.cancel()
             finishing = asyncio.create_task(presence.finish_writes())
@@ -357,7 +377,7 @@ class TestChairHold:
             await asyncio.wait_for(finishing, 5)
             return waited, list(committed)
 
-        assert run(scenario()) == (True, [True])
+        assert run(scenario()) == (True, [entered_with])
 
     def test_a_freeing_that_waits_while_the_server_stops_frees_nothing(self, holding, time, releases):
         holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))

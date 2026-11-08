@@ -610,7 +610,7 @@ class TestDealNext:
         before = self.read(transactions, table_id)
         receipts_before = count(engine, "receipts")
 
-        assert service.deal_next(TableId(table_id), ALL_THREE) is True
+        assert service.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is True
 
         after = self.read(transactions, table_id)
         assert (after.version, after.dealer) == (before.version + 1, next_dealer(before.dealer))
@@ -618,6 +618,19 @@ class TestDealNext:
         assert count(engine, "hand_cards") == len(DECK)
         assert count(engine, "auction_actions") == 0
         assert count(engine, "receipts") == receipts_before
+
+    def test_the_caller_stays_in_charge_until_the_deal_is_committed(self, service, transactions, table_id):
+        before = self.read(transactions, table_id)
+        versions_when_released = []
+
+        @contextmanager
+        def connected_until_released():
+            yield ALL_THREE
+            versions_when_released.append(self.read(transactions, table_id).version)
+
+        service.deal_next(TableId(table_id), connected_until_released())
+
+        assert versions_when_released == [before.version + 1]
 
     def test_a_stand_and_a_new_sit_during_the_pause_deal_and_the_ending_pause_then_changes_nothing(
         self, service, transactions, engine, table_id
@@ -628,7 +641,7 @@ class TestDealNext:
         service.sit(newcomer, SitDown("command-new", table_id, 3), frozenset())
         dealt = self.read(transactions, table_id)
 
-        dealt_again = service.deal_next(TableId(table_id), ALL_THREE | {newcomer.account_id})
+        dealt_again = service.deal_next(TableId(table_id), nullcontext(ALL_THREE | {newcomer.account_id}))
 
         assert dealt.dealer == next_dealer(before.dealer)
         assert dealt_again is False
@@ -641,7 +654,7 @@ class TestDealNext:
         answers = []
 
         def check():
-            answers.append(racing.deal_next(TableId(table_id), ALL_THREE))
+            answers.append(racing.deal_next(TableId(table_id), nullcontext(ALL_THREE)))
 
         threads = [threading.Thread(target=check), threading.Thread(target=check)]
         for thread in threads:
@@ -659,7 +672,7 @@ class TestDealNext:
         identifier = TableId(table_id)
 
         with pytest.raises(ConnectionError):
-            failing.deal_next(identifier, ALL_THREE)
+            failing.deal_next(identifier, nullcontext(ALL_THREE))
 
         assert self.read(transactions, table_id) == before
         assert count(engine, "hand_cards") == 0

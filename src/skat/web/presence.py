@@ -75,20 +75,22 @@ class ChairHold:
 class NextDeal:
     """How long a table pauses after a passed-in hand, and the command that deals the next one.
 
-    `deal(table_id, connected_accounts)` answers whether it dealt, and raises when the store fails.
+    `deal(table_id, connected_accounts)` answers whether it dealt, and raises when the store fails. It enters
+    `connected_accounts` in its worker once it holds the table and leaves it after the commit; that yields who is
+    connected then, and nobody once the presence has stopped.
     """
 
     seconds: float
-    deal: Callable[[str, frozenset[str]], Awaitable[bool]]
+    deal: Callable[[str, AbstractContextManager[frozenset[str]]], Awaitable[bool]]
 
 
 class Presence:
     """Who is connected to which table, in this process only, and since when each away member has been gone.
 
-    The event loop owns every write to the subscriptions. A worker touches only the leave times and the
-    committing marker, under `_state`, inside `due` and in `restart_leaves`. A wake carries no data: a stream
-    that falls behind finds several changes folded into one wake and reads the latest state, which is its
-    fresh snapshot.
+    The event loop owns every write to the subscriptions and makes it under `_state`, so a deal's worker can read
+    them there. Otherwise a worker touches only the leave times and the committing markers, under `_state`, inside
+    `due` and in `restart_leaves`. A wake carries no data: a stream that falls behind finds several changes folded
+    into one wake and reads the latest state, which is its fresh snapshot.
 
     An account whose last stream on a table ended gets one timer; when it fires the chair is freed unless the
     account came back or left again since, which a newer leave time shows, or the presence has stopped. The
@@ -114,6 +116,7 @@ class Presence:
         self._left_at: dict[tuple[str, str], float] = {}
         self._state = threading.Lock()
         self._committing: dict[tuple[str, str], asyncio.Event] = {}
+        self._dealing: set[asyncio.Event] = set()
 
     @property
     def stopped(self) -> bool:
@@ -165,7 +168,8 @@ class Presence:
         subscription = Subscription(table_id, account_id, wake)
         already_connected = account_id in self.connected(table_id)
         others = list(self._subscriptions.get(table_id, ()))
-        self._subscriptions.setdefault(table_id, []).append(subscription)
+        with self._state:
+            self._subscriptions.setdefault(table_id, []).append(subscription)
         if not already_connected:
             self._wake_all(others)
         return subscription
@@ -174,9 +178,10 @@ class Presence:
         remaining = self._subscriptions.get(subscription.table_id, [])
         if subscription not in remaining:
             return
-        remaining.remove(subscription)
-        if not remaining:
-            del self._subscriptions[subscription.table_id]
+        with self._state:
+            remaining.remove(subscription)
+            if not remaining:
+                del self._subscriptions[subscription.table_id]
         if subscription.account_id not in self.connected(subscription.table_id):
             self._start_hold(subscription.table_id, subscription.account_id)
             self._wake_all(remaining)
@@ -187,7 +192,7 @@ class Presence:
             self.restart_deal_pause(table_id)
 
     def restart_deal_pause(self, table_id: str) -> None:
-        """Start a table's pause from now, whatever pause was pending: a hand ended, and this hand's pause is its own."""
+        """Start a table's pause from now, whatever was pending: a hand ended, and its pause is its own."""
         if self._stopped:
             return
         pause = object()
@@ -201,7 +206,9 @@ class Presence:
         # table still passed in starts the next pause instead of waiting on an answer that left it out.
         del self._pauses[table_id]
         try:
-            dealt = await self._next_deal.deal(table_id, self.connected(table_id))
+            dealt = await self._next_deal.deal(
+                table_id, self._connected_while_dealing(table_id, asyncio.get_running_loop())
+            )
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
             log.error("next deal failed", table_id=table_id, error=type(failure).__name__)
@@ -259,10 +266,32 @@ class Presence:
                     self._committing.pop((table_id, account_id), None)
                 loop.call_soon_threadsafe(committing.set)
 
-    async def finish_writes(self) -> None:
-        """Wait until every freeing whose check passed has ended its transaction; call it after `stop`."""
+    @contextmanager
+    def _connected_while_dealing(self, table_id: str, loop: asyncio.AbstractEventLoop) -> Generator[frozenset[str]]:
+        """Enter on a worker once it holds the table: yields who is connected then, and nobody once stopped.
+
+        The exit runs on the worker after the commit, so `finish_writes` outlives a cancelled event-loop task.
+        """
+        committing = asyncio.Event()
         with self._state:
-            writing = list(self._committing.values())
+            may_deal = not self._stopped
+            connected = self.connected(table_id) if may_deal else frozenset[str]()
+            if may_deal:
+                self._dealing.add(committing)
+        try:
+            yield connected
+        finally:
+            if may_deal:
+                with self._state:
+                    self._dealing.discard(committing)
+                loop.call_soon_threadsafe(committing.set)
+
+    async def finish_writes(self) -> None:
+        """Wait until every freeing whose check passed and every deal that read its accounts has ended its transaction;
+        call it after `stop`.
+        """
+        with self._state:
+            writing = [*self._committing.values(), *self._dealing]
         for committing in writing:
             await committing.wait()
 

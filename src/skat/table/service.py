@@ -211,15 +211,16 @@ class TableService:
             transaction.save_table(decision.table)
             return True
 
-    def deal_next(self, table_id: TableId, connected_accounts: frozenset[str]) -> bool:
+    def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str]]) -> bool:
         """Deal the next hand on the server's own account, with no actor, command id or receipt.
 
-        The decision re-reads the table under the row lock, so a repeat, or a table that changed meanwhile, changes
-        nothing. True when it dealt.
+        `connected_accounts` is entered once the row is locked and left after the commit; it yields who is connected
+        then. The decision re-reads the table under the row lock, so a repeat, or a table that changed meanwhile,
+        changes nothing. True when it dealt.
         """
-        with self._transactions.begin() as transaction:
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            if table is None or not next_deal_due(table, connected_accounts):
+            if table is None or not next_deal_due(table, after_commit.enter_context(connected_accounts)):
                 return False
             transaction.save_table(dealt_next(table, self._new_hand(table)))
             return True

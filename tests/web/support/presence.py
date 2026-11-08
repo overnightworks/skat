@@ -64,11 +64,12 @@ class Deals:
         self.meanwhile = None
 
     async def deal_next(self, table_id, connected_accounts):
-        self.calls.append((table_id, connected_accounts))
         if self.failures:
             raise self.failures.pop(0)
         if self.meanwhile is not None:
             await self.meanwhile()
+        with connected_accounts as connected:
+            self.calls.append((table_id, connected))
         return self.dealt
 
 
