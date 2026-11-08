@@ -45,6 +45,14 @@ DRAWN_TABLE = """() => ({
 EMPTY_CHAIRS = """() => document.querySelectorAll(
     '.fan, .skat-card, .count-tag, .mark.pos, .mark.dealer'
 ).length"""
+PLAQUE_OVERLAPS_A_CHAIR = """() => {
+    const plaque = document.querySelector('.plaque').getBoundingClientRect();
+    return [...document.querySelectorAll('.chair .tile, .chair .mark')].some((part) => {
+        const box = part.getBoundingClientRect();
+        return box.width > 0 && box.left < plaque.right && box.right > plaque.left
+            && box.top < plaque.bottom && box.bottom > plaque.top;
+    });
+}"""
 DEAL_ANIMATIONS = "[...document.querySelectorAll('.deal')].map((card) => getComputedStyle(card).animationName)"
 
 
@@ -149,6 +157,10 @@ def assert_no_horizontal_scroll(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
+def assert_plaque_is_clear_of_the_chairs(person: Page) -> None:
+    assert person.evaluate(PLAQUE_OVERLAPS_A_CHAIR) is False
+
+
 def assert_no_hand_is_drawn(person: Page) -> None:
     assert person.evaluate(EMPTY_CHAIRS) == 0
 
@@ -177,6 +189,7 @@ def test_every_viewer_sees_the_hand_as_the_server_answers_and_again_after_a_relo
         assert {chair["backs"] for chair in drawn["chairs"] if not _is_mine(answer, chair["seat"])} == {10}
         assert drawn["skat"] == 2
         assert_no_horizontal_scroll(person)
+        assert_plaque_is_clear_of_the_chairs(person)
 
         person.reload()
         wait_for_the_hand(person)
