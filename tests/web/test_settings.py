@@ -33,6 +33,7 @@ class TestServerSettings:
             "SKAT_PORT": "9090",
             "SKAT_OIDC_CLIENT_ID": "other-client",
             "SKAT_TRUSTED_PROXIES": "10.0.0.0/8,127.0.0.1",
+            "SKAT_CHAIR_HOLD_SECONDS": "90.5",
         }
         with patch.dict(os.environ, env):
             settings = ServerSettings()
@@ -40,6 +41,7 @@ class TestServerSettings:
             assert settings.port == 9090
             assert settings.oidc_client_id == "other-client"
             assert settings.trusted_proxies == "10.0.0.0/8,127.0.0.1"
+            assert settings.chair_hold_seconds == 90.5
             assert settings.oidc_issuer == sign_in.settings.oidc_issuer
             assert settings.public_origin == sign_in.settings.public_origin
             assert settings.oidc_client_secret_file == sign_in.settings.oidc_client_secret_file
@@ -100,3 +102,9 @@ class TestServerSettings:
             sign_in_settings(database_url=url)
         assert url not in str(refusal.value)
         assert "pw-of-the-test_1" not in str(refusal.value)
+
+
+@pytest.mark.parametrize("value", [0, -5, "abc", "nan", "inf"])
+def test_a_chair_hold_that_is_not_a_positive_number_is_refused_by_name(sign_in_settings, value):
+    with pytest.raises(ValidationError, match="chair_hold_seconds"):
+        sign_in_settings(chair_hold_seconds=value)

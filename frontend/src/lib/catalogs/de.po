@@ -75,6 +75,9 @@ msgstr "Platz vergeben"
 msgid "commandFailed"
 msgstr "Das hat nicht geklappt"
 
+msgid "biddingFollows"
+msgstr "Reizen folgt"
+
 msgid "dealer"
 msgstr "Geber"
 

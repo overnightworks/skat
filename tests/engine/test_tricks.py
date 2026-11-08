@@ -14,7 +14,17 @@ from skat.engine.declaration import (
     take_skat,
 )
 from skat.engine.games import GameKind
-from skat.engine.tricks import CompletedTrick, PlayedOut, Playing, PlayOutcome, PlayRefusal, play_card, start_play
+from skat.engine.tricks import (
+    CardPlayed,
+    CompletedTrick,
+    PlayedOut,
+    Playing,
+    PlayOutcome,
+    PlayRefusal,
+    play_card,
+    playing_after,
+    start_play,
+)
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 HERZ, GRAND, NULL = GameKind.HERZ, GameKind.GRAND, GameKind.NULL
@@ -275,3 +285,66 @@ def test_starting_play_before_the_declaration_is_an_error() -> None:
     still_declaring = Declaring.start(Declared(FOREHAND, BID), the_deal)
     with pytest.raises(ValueError, match="declaration"):
         start_play(still_declaring, the_deal)
+
+
+def card_log(finished: Playing) -> tuple[CardPlayed, ...]:
+    """The cards of a finished game in the order they fell, read from its tricks."""
+    assert finished.result is not None
+    log = []
+    for trick in finished.result.tricks:
+        start = list(Position).index(trick.leader)
+        log.extend(CardPlayed(list(Position)[(start + offset) % 3], card) for offset, card in enumerate(trick.cards))
+    return tuple(log)
+
+
+def test_an_empty_card_log_replays_to_the_start_state() -> None:
+    assert playing_after(started(), ()) == started()
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_a_whole_game_of_thirty_cards_replays_to_the_direct_calls_with_the_result_set(seed: int) -> None:
+    finished = played_out_game(seed, HERZ)
+    log = card_log(finished)
+    the_deal = deal(random.Random(seed))  # noqa: S311 - seeded shuffle keeps the deal reproducible
+    declarer = list(Position)[seed % 3]
+    start = start_play(declared_by(the_deal, declarer, HERZ), the_deal)
+    assert len(log) == 30
+    assert playing_after(start, log) == finished
+    assert finished.result is not None
+
+
+def first_trick_log() -> tuple[CardPlayed, ...]:
+    return (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, KARO_ACE), CardPlayed(REARHAND, KARO_EIGHT))
+
+
+def test_a_card_log_replays_to_the_state_after_the_direct_calls() -> None:
+    assert playing_after(started(), first_trick_log()) == first_trick_taken_by_middlehand()
+
+
+def test_a_card_played_out_of_turn_raises_naming_the_refusal_and_the_place() -> None:
+    start = started()
+    log = (CardPlayed(MIDDLEHAND, KARO_ACE),)
+    with pytest.raises(ValueError, match=r"step 1.*not-your-turn"):
+        playing_after(start, log)
+
+
+def test_a_card_not_in_hand_raises_naming_the_refusal_and_the_place() -> None:
+    start = started()
+    log = (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, KARO_SEVEN))
+    with pytest.raises(ValueError, match=r"step 2.*not-in-hand"):
+        playing_after(start, log)
+
+
+def test_a_card_against_the_duty_to_follow_raises_naming_the_refusal_and_the_place() -> None:
+    start = started()
+    log = (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, PIK_ACE))
+    with pytest.raises(ValueError, match=r"step 2.*must-follow"):
+        playing_after(start, log)
+
+
+def test_a_thirty_first_card_raises_naming_the_refusal_and_the_place() -> None:
+    log = (*card_log(played_out_game(2, HERZ)), CardPlayed(FOREHAND, KARO_SEVEN))
+    the_deal = deal(random.Random(2))  # noqa: S311 - seeded shuffle keeps the deal reproducible
+    start = start_play(declared_by(the_deal, list(Position)[2 % 3], HERZ), the_deal)
+    with pytest.raises(ValueError, match=r"step 31.*over"):
+        playing_after(start, log)

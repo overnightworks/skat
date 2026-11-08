@@ -12,6 +12,7 @@ from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
+from tests.support.idle_presence import idle_hold, idle_presence
 from tests.support.payload_cards import CARDS_BY_SEAT, cards_in_text, seated_three, wire_cards
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
@@ -109,10 +110,10 @@ class TestTableViews:
         self, service, table_id
     ):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id)
             first = await next_view(stream)
-            visitor = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            visitor = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             joined = await next_view(stream)
             presence.unsubscribe(visitor)
             left = await next_view(stream)
@@ -126,14 +127,14 @@ class TestTableViews:
 
     def test_the_stream_registers_before_it_reads_so_a_change_during_the_read_is_not_lost(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             read_view = reader(service, table_id)
             reads = []
 
             async def read_while_another_connects(actor, connected):
                 reads.append(connected)
                 if len(reads) == 1:
-                    presence.subscribe(table_id, "late", lambda: None)
+                    await presence.subscribe(table_id, "late", lambda: None)
                 return await read_view(actor, connected)
 
             stream = table_views(
@@ -160,16 +161,16 @@ class TestTableViews:
         service.sit(VISITOR, sit, frozenset())
 
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id)
             first = await next_view(stream)
-            first_tab = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
-            second_tab = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            first_tab = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            second_tab = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             present = await next_view(stream)
             presence.unsubscribe(first_tab)
             presence.unsubscribe(second_tab)
             away = await next_view(stream)
-            presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             back = await next_view(stream)
             await stream.aclose()
             return first, present, away, back
@@ -186,14 +187,14 @@ class TestTableViews:
 
     def test_a_change_between_the_registration_and_the_first_read_is_in_the_first_view(self, service, table_id):
         class ConnectsAnotherRightAfterRegistering(Presence):
-            def subscribe(self, table, account, wake):
-                subscription = super().subscribe(table, account, wake)
+            async def subscribe(self, table, account, wake):
+                subscription = await super().subscribe(table, account, wake)
                 if account == VISITOR.account_id:
-                    super().subscribe(table, "late", lambda: None)
+                    await super().subscribe(table, "late", lambda: None)
                 return subscription
 
         async def scenario():
-            presence = ConnectsAnotherRightAfterRegistering()
+            presence = ConnectsAnotherRightAfterRegistering(idle_hold())
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)
             await stream.aclose()
@@ -203,7 +204,7 @@ class TestTableViews:
 
     def test_each_stream_gets_the_view_built_for_its_own_account(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             opener_stream = stream_of(presence, service, OPENER, table_id)
             visitor_stream = stream_of(presence, service, VISITOR, table_id)
             views = await next_view(opener_stream), await next_view(visitor_stream)
@@ -218,14 +219,14 @@ class TestTableViews:
 
     def test_a_stalled_stream_delays_nobody_and_catches_up_with_one_fresh_view(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stalled = stream_of(presence, service, OPENER, table_id)
             await next_view(stalled)
             quick = stream_of(presence, service, VISITOR, table_id)
             await next_view(quick)
             seen_by_quick = []
             for number in range(5):
-                guest = presence.subscribe(table_id, f"guest-{number}", lambda: None)
+                guest = await presence.subscribe(table_id, f"guest-{number}", lambda: None)
                 seen_by_quick.append((await next_view(quick)).watchers)
                 presence.unsubscribe(guest)
                 await next_view(quick)
@@ -244,7 +245,7 @@ class TestTableViews:
             return None
 
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stream = table_views(
                 presence,
                 vanished,
@@ -263,7 +264,7 @@ class TestTableViews:
 class TestLostNotification:
     def test_a_write_whose_wake_is_lost_reaches_the_stream_with_the_next_heartbeat(self, service, table_id):
         async def scenario():
-            stream = stream_of(Presence(), service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+            stream = stream_of(idle_presence(), service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
             first = await next_view(stream)
             service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
             recovered = await next_view(stream)
@@ -286,7 +287,7 @@ class TestLostNotification:
 class TestReadmission:
     def test_a_refusal_before_the_first_view_ends_the_stream_without_a_view(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id, admit=Admission(False))
             return [view async for view in stream], presence
 
@@ -297,10 +298,10 @@ class TestReadmission:
 
     def test_a_refusal_at_a_change_ends_the_stream_with_nothing_more_sent(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id, admit=Admission(True, True, False))
             first = await next_view(stream)
-            visitor = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            visitor = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             second = await next_view(stream)
             presence.unsubscribe(visitor)
             with pytest.raises(StopAsyncIteration):
@@ -316,7 +317,7 @@ class TestReadmission:
         async def scenario():
             admission = Admission()
             stream = stream_of(
-                Presence(), service, OPENER, table_id, admit=admission, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS
+                idle_presence(), service, OPENER, table_id, admit=admission, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS
             )
             await next_view(stream)
             return await stays_pending_through_idle_heartbeats(stream, admission)
@@ -325,7 +326,7 @@ class TestReadmission:
 
     def test_a_refusal_at_an_idle_heartbeat_ends_the_stream(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stream = stream_of(
                 presence,
                 service,
@@ -343,12 +344,12 @@ class TestReadmission:
 
     def test_a_change_that_lands_during_a_heartbeat_sends_exactly_one_view(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
 
             class ChangesWhileAdmitting(Admission):
                 async def __call__(self):
                     if self.asked == 1:
-                        presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+                        await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
                     return await super().__call__()
 
             admission = ChangesWhileAdmitting()
@@ -368,7 +369,7 @@ class TestReadmission:
         renamed = Actor(account_id=OPENER.account_id, display_name="Anna Maria")
 
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             readers = []
 
             async def read_view(actor, connected):
@@ -384,7 +385,7 @@ class TestReadmission:
                 presence, read_view, admit, table_id, OPENER.account_id, heartbeat_seconds=NO_HEARTBEAT_SECONDS
             )
             await next_view(stream)
-            guest = presence.subscribe(table_id, "guest", lambda: None)
+            guest = await presence.subscribe(table_id, "guest", lambda: None)
             await next_view(stream)
             presence.unsubscribe(guest)
             await stream.aclose()
@@ -394,7 +395,7 @@ class TestReadmission:
 
     def test_a_store_that_raises_during_admission_ends_the_stream_loudly_and_unregisters_it(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             stream = stream_of(presence, service, OPENER, table_id, admit=Admission(RuntimeError("store down")))
             with pytest.raises(RuntimeError, match="store down"):
                 await anext(stream)
@@ -404,12 +405,12 @@ class TestReadmission:
 
     def test_one_refused_session_ends_only_its_own_stream(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             refused = stream_of(presence, service, OPENER, table_id, admit=Admission(True, False))
             kept = stream_of(presence, service, VISITOR, table_id)
             await next_view(refused)
             await next_view(kept)
-            guest = presence.subscribe(table_id, "guest", lambda: None)
+            guest = await presence.subscribe(table_id, "guest", lambda: None)
             with pytest.raises(StopAsyncIteration):
                 await next_view(refused)
             still_watching = await next_view(kept)
@@ -421,7 +422,7 @@ class TestReadmission:
 
     def test_stopping_the_presence_ends_every_open_stream_without_a_view(self, service, table_id):
         async def scenario():
-            presence = Presence()
+            presence = idle_presence()
             streams = [stream_of(presence, service, actor, table_id) for actor in (OPENER, VISITOR)]
             for stream in streams:
                 await next_view(stream)

@@ -477,9 +477,14 @@ body.solo section.shot .rule{display:none}
 /* ---------- the auction: the bidder's ladder offers every higher value, a held value shows its tick, the winner's star lands ---------- */
 .ladder.up span:not(.held):not(.now){background:var(--glass);color:var(--on-stage)}
 .ladder.up span.more{opacity:.45}
+/* the long ladder: the held value and the next one stay put; the higher ones roll along a strip whose end is the top value */
+.ladder.up .higher{overflow:hidden;width:var(--strip);mask-image:linear-gradient(90deg,transparent,#000 26px)}
+.ladder.up .roll{display:flex;gap:6px;width:max-content;transform:translateX(calc(var(--strip) - 100%))}
 .bubble > svg{width:18px;height:18px;color:var(--ok-stage)}
 @media (prefers-reduced-motion:no-preference){
   .mark.decl.mo{animation:slam .6s cubic-bezier(.5,0,.7,1.4) var(--d,0s) both}
+  .ladder.up .roll{animation:climb 1.6s cubic-bezier(.3,.7,.2,1) .8s both}
+  @keyframes climb{from{transform:none}}
 }
 </style>
 </head>
@@ -984,25 +989,38 @@ scenes(DEAL_SCENES);
 /* ===== the auction around the table: you bid as middlehand, then as rearhand; Nova wins it; all pass and the next dealer deals; a watcher sees every call ===== */
 MARK.won=MARK.decl.replace('mark decl','mark decl mo').replace('<span class','<span style="--d:.3s" class');
 /* the bidder's ladder: the value held so far, the next value lit, every higher one a tap away */
-const bidLadder=(d,held,values)=>`<div class="ladder up" style="${at({left:d?640:195,top:d?344:350})}"><span class="held">${I.check}${held}</span>${
+const ladderAt=(d)=>at({left:d?640:195,top:d?344:350});
+const heldTile=(held)=>held?`<span class="held">${I.check}${held}</span>`:'';
+const bidLadder=(d,held,values)=>`<div class="ladder up" style="${ladderAt(d)}">${heldTile(held)}${
   values.map((v,i)=>i?`<span class="${i===values.length-1?'more':''}" role="button">${v}</span>`:`<span class="now">${v}</span>`).join('')}</div>`;
+/* every value a bid can name: the suit bases times 2 to 18, Grand times 2 to 11, the four Null values */
+const multiples=(base,top)=>Array.from({length:top-1},(_,i)=>base*(i+2));
+const BID_VALUES=[...new Set([...[9,10,11,12].flatMap(base=>multiples(base,18)),...multiples(24,11),23,35,46,59])].sort((a,b)=>a-b);
+const longLadder=(d,held)=>{const [next,...higher]=BID_VALUES.filter(v=>v>held);
+  return `<div class="ladder up" style="${ladderAt(d)}">${heldTile(held)}<span class="now">${next}</span><div class="higher" style="--strip:${d?380:214}px"><div class="roll">${
+    higher.map(v=>`<span role="button">${v}</span>`).join('')}</div></div></div>`;};
 const bidButtons=(d,value)=>row(d?640:195,d?412:414,`<span class="button button-stage">${I.up}${value}</span><span class="button button-glass">${I.cross}Weg</span>`);
 const auction=(d)=>plaque(d?640:195,d?98:176,'<div class="game">Reizen</div>')+tableSkat(d);
 const JUMP_OPEN='Höhere Werte stehen antippbar in der Leiter, man darf also springen wie in ISkO 3.3.2; ob nur der nächste Wert geht, ist offen.';
-const PASS_OPEN='„Weg“ gilt hier sofort und endgültig (ISkO 3.3.8); ob es vor einem Versehen schützt, ist offen.';
 const novaTurn=(d)=>d?glow(980,270,220,260):glow(300,190,190,110);
 const BID_SCENES=[
   ['bid-middle','Du reizt',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
     +bidLadder(d,18,d?[20,22,23,24,27,30,33]:[20,22,23,24,27])+bidButtons(d,20)
     +seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d),
-    [JUMP_OPEN,PASS_OPEN]],
+    [JUMP_OPEN]],
   ['bid-rear','Hinterhand reizt',(d)=>room(d,{left:10,novaOut:true,glow:yourTurn(d)})+auction(d)
     +bidLadder(d,20,d?[22,23,24,27,30,33,35]:[22,23,24,27,30])+bidButtons(d,22)
     +seats(d,{video:true,anna:['Vorhand','waits'],nova:['Mittelhand','pass'],novaOut:true,you:['Hinterhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d),
-    [JUMP_OPEN,PASS_OPEN]],
+    [JUMP_OPEN]],
+  ['bid-long','Hoch gereizt',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
+    +longLadder(d,108)+bidButtons(d,110)
+    +seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
   ['bid-won','Nova spielt',(d)=>room(d,{left:10,annaOut:true,glow:novaTurn(d)})
     +plaque(d?640:195,d?98:176,'<div class="game">Nova spielt, 23</div>')+tableSkat(d)
     +seats(d,{video:true,anna:['pass'],annaOut:true,nova:['won','turn'],you:['pass'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
+  ['bid-fore','Vorhand zu 18',(d)=>room(d,{left:10,annaOut:true,novaOut:true,glow:yourTurn(d)})+auction(d)
+    +bidLadder(d,null,[18])+bidButtons(d,18)
+    +seats(d,{video:true,anna:['Mittelhand','pass'],annaOut:true,nova:['Hinterhand','pass'],novaOut:true,you:['Vorhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
   ['bid-passed','Eingepasst',(d)=>room(d,{left:0})
     +plaque(d?640:195,d?98:176,`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
     +seats(d,{video:true,anna:['pass'],nova:['drawn','pass'],you:['pass'],score:[148,62,55]})+callBar(d)],

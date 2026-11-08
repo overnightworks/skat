@@ -3,7 +3,7 @@ import socket
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING
 
@@ -17,11 +17,13 @@ from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.host.main import uvicorn_options
+from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.service import TableService
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.postgres import created_database, migrated_template
 from tests.support.sign_in_settings import build_sign_in_settings
 
 if TYPE_CHECKING:
@@ -155,3 +157,21 @@ def running_skat(
             loopback.issuer,
             engine,
         )
+
+
+@contextmanager
+def skat_on_new_database(directories: pytest.TempPathFactory, **settings_changes: float) -> Iterator[RunningServer]:
+    """Skat on a free loopback port over a database of its own, its issuer a fake.
+
+    `settings_changes` replace server settings, as a test that needs a short chair hold does.
+    """
+    loopback = loopback_sign_in(directories.mktemp("sign-in"))
+    settings = loopback.sign_in.settings.model_copy(update=settings_changes)
+    loopback = replace(loopback, sign_in=replace(loopback.sign_in, settings=settings))
+    with migrated_template() as template, created_database(template) as database_url:
+        engine = create_store_engine(database_url)
+        try:
+            with running_skat(loopback, directories.mktemp("tls"), engine) as server:
+                yield server
+        finally:
+            engine.dispose()

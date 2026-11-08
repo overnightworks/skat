@@ -5,6 +5,7 @@
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
+    import OwnHand from "#lib/ui/OwnHand.svelte";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
@@ -103,9 +104,14 @@
     </header>
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
+            {@const ownCards = outcome.table.hand?.own_cards ?? []}
             <div class="plaque">
-                <span>{words.waitingForPlayers}</span>
-                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                {#if outcome.table.hand === null}
+                    <span>{words.waitingForPlayers}</span>
+                    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                {:else}
+                    <span>{words.biddingFollows}</span>
+                {/if}
             </div>
             <div class="felt" aria-hidden="true"></div>
             {@const dealerSeat = outcome.table.hand?.dealer_seat}
@@ -213,6 +219,9 @@
                 {/each}
             </ul>
             <div class="controls">
+                {#if ownCards.length > 0}
+                    <OwnHand cards={ownCards} />
+                {/if}
                 <div class="actions">
                     {#if seated && outcome.table.hand === null}
                         <button type="button" class="copy" onclick={() => seat(standUp(id, crypto.randomUUID()))}>

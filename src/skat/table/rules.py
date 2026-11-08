@@ -91,7 +91,15 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, first_deal: FirstDea
 
 def decide_stand(table: TableRecord, actor: Actor) -> Decision:
     """The actor leaves their own chair, which keeps its number; nobody leaves while a hand runs."""
-    own = _seat_of(table, actor.account_id)
+    return decide_free_chair(table, actor.account_id)
+
+
+def decide_free_chair(table: TableRecord, account_id: str) -> Decision:
+    """The account's chair is freed and keeps its number, only while the account still holds it and no hand runs.
+
+    A person standing up and the server ending an away member's hold ask the same question.
+    """
+    own = _seat_of(table, account_id)
     if own is None:
         return Decision(table, Refusal.NOT_SEATED)
     if hand_runs(table):

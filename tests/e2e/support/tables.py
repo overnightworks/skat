@@ -6,12 +6,14 @@ from playwright.sync_api import expect
 
 from skat.web.tables import TABLE_PAGE_PREFIX
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
+from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
     from tests.e2e.support.server import RunningServer
 
+SIT_DOWN = catalog_text("sitDown")
 TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}[0-9a-f]{{32}}$")
 
 
@@ -28,3 +30,26 @@ def open_new_table(person: Page, server: RunningServer) -> str:
 
 def table_id_of(path: str) -> str:
     return path.removeprefix(TABLE_PAGE_PREFIX)
+
+
+def watch(person: Page, server: RunningServer, path: str) -> None:
+    person.goto(f"{server.base_url}{path}")
+    expect(person.locator(".chair")).to_have_count(3)
+
+
+def plate_of(person: Page, seat: int):
+    return person.locator(f".chair[data-seat='{seat}'] .plate")
+
+
+def sit_in(person: Page, seat: int) -> None:
+    person.locator(f".chair[data-seat='{seat}']").get_by_role("button", name=SIT_DOWN).click()
+
+
+def mark_page(person: Page) -> None:
+    person.evaluate("window.keptAcrossUpdates = true")
+
+
+def assert_never_reloaded(*people: Page) -> None:
+    for person in people:
+        assert person.evaluate("window.keptAcrossUpdates") is True
+        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
