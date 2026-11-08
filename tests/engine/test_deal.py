@@ -58,7 +58,9 @@ def test_deal_hands_out_three_then_skat_two_then_four_then_three():
 
 
 def test_the_same_seeded_source_deals_the_same_hand_twice():
-    assert deal(seeded(42)) == deal(seeded(42))
+    first = deal(seeded(42))
+    second = deal(seeded(42))
+    assert first == second
 
 
 def test_over_many_seeded_deals_every_card_reaches_every_position_and_the_skat():
