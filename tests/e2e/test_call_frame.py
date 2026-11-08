@@ -5,7 +5,7 @@ import pytest
 from playwright.sync_api import expect
 
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
-from tests.e2e.support.server import loopback_sign_in, reserve_free_port, running_skat
+from tests.e2e.support.server import loopback_sign_in, running_skat
 from tests.e2e.support.tables import open_new_table, table_id_of
 
 if TYPE_CHECKING:
@@ -23,6 +23,9 @@ pytestmark = pytest.mark.e2e
 SKAT_HOST = "skat.frame.localhost"
 CALL_HOST = "call.frame.localhost"
 OTHER_HOST = "other.frame.localhost"
+# Nothing listens on either port: the page routes answer the call host.
+CALL_PORT = 8444
+OTHER_PORT = CALL_PORT + 1
 HTTP_OK = 200
 HTTP_FORBIDDEN = 403
 # The attributes hopin's call page puts on the frame that holds a Skat table.
@@ -42,7 +45,7 @@ SIMPLE_POST = """([url, body]) => fetch(url, {
 
 @pytest.fixture(scope="module")
 def call_origin() -> str:
-    return f"https://{CALL_HOST}:{reserve_free_port()}"
+    return f"https://{CALL_HOST}:{CALL_PORT}"
 
 
 def serve_on_the_frame_site(
@@ -103,8 +106,8 @@ def table_answer(person: Page, server: RunningServer, path: str) -> dict[str, ob
 
 REFUSED_FRAMES = [
     pytest.param("unframed_server", lambda call_origin: call_origin, id="unset-setting"),
-    pytest.param("framing_server", lambda _call_origin: f"https://{OTHER_HOST}:{reserve_free_port()}", id="other-host"),
-    pytest.param("framing_server", lambda _call_origin: f"https://{CALL_HOST}:{reserve_free_port()}", id="other-port"),
+    pytest.param("framing_server", lambda _call_origin: f"https://{OTHER_HOST}:{CALL_PORT}", id="other-host"),
+    pytest.param("framing_server", lambda _call_origin: f"https://{CALL_HOST}:{OTHER_PORT}", id="other-port"),
 ]
 
 
