@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import Final
 
 from skat.table.records import (
@@ -97,6 +98,22 @@ def dealt(table: TableRecord, new_hand: NewHand) -> TableRecord:
         hand=new_hand.hand,
         progress=HandProgress(),
     )
+
+
+def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
+    """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected."""
+    occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
+    return (
+        not hand_runs(table)
+        and table.dealer is not None
+        and len(occupants) == CHAIRS_PER_TABLE
+        and connected_accounts.issuperset(occupants)
+    )
+
+
+def dealt_next(table: TableRecord, new_hand: NewHand) -> TableRecord:
+    """The table with the next hand, which is its own change and so bumps the version itself."""
+    return dealt(replace(table, version=table.version + 1), new_hand)
 
 
 def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:

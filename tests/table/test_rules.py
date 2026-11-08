@@ -7,10 +7,10 @@ from skat.engine.bidding import Pass
 from skat.engine.deal import Position, deal
 from skat.table.records import Actor, Chair, HandProgress, NewHand, Occupant, Refusal, TableId, TableRecord
 from skat.table.rules import (
+    dealt_next,
     decide_free_chair,
     decide_sit,
     decide_stand,
-    dealt_next,
     hand_runs,
     next_deal_due,
     sit_deals,
