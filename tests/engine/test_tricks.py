@@ -16,7 +16,8 @@ from skat.engine.declaration import (
 from skat.engine.games import GameKind
 from skat.engine.tricks import (
     CardPlayed,
-    CompletedTrick, PlayedOut,
+    CompletedTrick,
+    PlayedOut,
     Playing,
     PlayOutcome,
     PlayRefusal,
@@ -321,17 +322,17 @@ def test_a_card_log_replays_to_the_state_after_the_direct_calls() -> None:
 
 
 def test_a_card_played_out_of_turn_raises_naming_the_refusal_and_the_place() -> None:
-    with pytest.raises(ValueError, match="step 1.*not-your-turn"):
+    with pytest.raises(ValueError, match=r"step 1.*not-your-turn"):
         playing_after(started(), (CardPlayed(MIDDLEHAND, KARO_ACE),))
 
 
 def test_a_card_not_in_hand_raises_naming_the_refusal_and_the_place() -> None:
-    with pytest.raises(ValueError, match="step 2.*not-in-hand"):
+    with pytest.raises(ValueError, match=r"step 2.*not-in-hand"):
         playing_after(started(), (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, KARO_SEVEN)))
 
 
 def test_a_card_against_the_duty_to_follow_raises_naming_the_refusal_and_the_place() -> None:
-    with pytest.raises(ValueError, match="step 2.*must-follow"):
+    with pytest.raises(ValueError, match=r"step 2.*must-follow"):
         playing_after(started(), (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, PIK_ACE)))
 
 
@@ -339,5 +340,5 @@ def test_a_thirty_first_card_raises_naming_the_refusal_and_the_place() -> None:
     log = (*card_log(played_out_game(2, HERZ)), CardPlayed(FOREHAND, KARO_SEVEN))
     the_deal = deal(random.Random(2))  # noqa: S311 - seeded shuffle keeps the deal reproducible
     start = start_play(declared_by(the_deal, list(Position)[2 % 3], HERZ), the_deal)
-    with pytest.raises(ValueError, match="step 31.*over"):
+    with pytest.raises(ValueError, match=r"step 31.*over"):
         playing_after(start, log)
