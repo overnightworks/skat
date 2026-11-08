@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from webauth.admission import AppRole
+from webauth.ports import AccountKind
 
 from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
@@ -92,7 +93,7 @@ def open_person(
                 account = new_account(e2e_server.stores, e2e_server.config)
             else:
                 account = e2e_server.stores.accounts.create_for_subject(
-                    f"subject-{username}", username, role=AppRole.USER
+                    f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
                 )
             member = seed_member(e2e_server.stores, e2e_server.config, account=account)
             context.add_cookies([playwright_cookie(header, e2e_server.config) for header in member.set_cookie_headers])
