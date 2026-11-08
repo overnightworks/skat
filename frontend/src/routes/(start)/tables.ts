@@ -19,7 +19,7 @@ import { words } from "#lib/words.ts";
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
 const CONFLICT_STATUS = 409;
-const SKAT_SIZE = 2;
+export const SKAT_SIZE = 2;
 // A refusal this soon after the page was reached through an automatic sign-in shows the sign-in page instead
 // of navigating again: a session the sign-in just made and the server refuses at once would otherwise loop forever.
 const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
@@ -219,12 +219,44 @@ function sameCard(first: Card, second: Card): boolean {
 
 // A tap picks a card or puts a picked one back; a third card stays where it is while two are picked.
 export function togglePicked(picked: readonly Card[], card: Card): Card[] {
-    if (picked.some((held) => sameCard(held, card))) return picked.filter((held) => !sameCard(held, card));
+    if (isPicked(picked, card)) return picked.filter((held) => !sameCard(held, card));
     return picked.length < SKAT_SIZE ? [...picked, card] : [...picked];
 }
 
 export function isPicked(picked: readonly Card[], card: Card): boolean {
     return picked.some((held) => sameCard(held, card));
+}
+
+// What the hand needs while the declarer picks two cards from the twelve.
+export type Picking = { picked: readonly Card[]; disabled: boolean; toggle: (card: Card) => void };
+
+const GAME_WORDS: Record<Game, string> = {
+    karo: words.gameKaro,
+    herz: words.gameHerz,
+    pik: words.gamePik,
+    kreuz: words.gameKreuz,
+    grand: words.gameGrand,
+    null: words.gameNull,
+};
+
+export function gameWord(game: Game): string {
+    return GAME_WORDS[game];
+}
+
+const RANK_WORDS: Record<Rank, string> = {
+    seven: words.rankSeven,
+    eight: words.rankEight,
+    nine: words.rankNine,
+    ten: words.rankTen,
+    jack: words.rankJack,
+    queen: words.rankQueen,
+    king: words.rankKing,
+    ace: words.rankAce,
+};
+
+// A card's own name: a suit's word is the word of the game of that suit.
+export function cardName(card: Card): string {
+    return `${GAME_WORDS[card.suit]} ${RANK_WORDS[card.rank]}`;
 }
 
 export function positionWord(position: Position): string {

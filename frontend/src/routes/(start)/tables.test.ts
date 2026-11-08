@@ -269,7 +269,15 @@ describe("asking for a table", () => {
 
     it.each([
         { step: { action: "take" } as const },
-        { step: { action: "put_back", cards: [{ suit: "karo", rank: "seven" }, { suit: "herz", rank: "ace" }] } as const },
+        {
+            step: {
+                action: "put_back",
+                cards: [
+                    { suit: "karo", rank: "seven" },
+                    { suit: "herz", rank: "ace" },
+                ],
+            } as const,
+        },
         {
             step: { action: "declare", game: "null", hand: false, ouvert: false, announcement: "none" } as const,
         },

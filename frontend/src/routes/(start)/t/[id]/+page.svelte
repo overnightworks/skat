@@ -4,12 +4,14 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
         copyTableLink,
+        declarerStage,
         drawingOrder,
         positionWord,
         readTable,
@@ -17,6 +19,7 @@
         standUp,
         watchTable,
         type Outcome,
+        type Picking,
     } from "../../tables.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
@@ -27,6 +30,7 @@
     let note = $state("");
     let taken: string | null = $state(null);
     let connected = $state(true);
+    let picking = $state<Picking | undefined>();
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
@@ -105,14 +109,17 @@
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
-            <div class="plaque">
-                {#if outcome.table.hand === null}
-                    <span>{words.waitingForPlayers}</span>
-                    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                {:else}
-                    <span>{words.biddingFollows}</span>
-                {/if}
-            </div>
+            {@const declarerActs = declarerStage(outcome.table) !== null}
+            {#if !outcome.table.hand?.declaring}
+                <div class="plaque">
+                    {#if outcome.table.hand === null}
+                        <span>{words.waitingForPlayers}</span>
+                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                    {:else}
+                        <span>{words.biddingFollows}</span>
+                    {/if}
+                </div>
+            {/if}
             <div class="felt" aria-hidden="true"></div>
             {@const dealerSeat = outcome.table.hand?.dealer_seat}
             {#if outcome.table.hand !== null}
@@ -122,7 +129,13 @@
             {/if}
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
-                    <li class="chair" class:mine={chair.is_mine} class:away={chair.is_away} data-seat={chair.seat}>
+                    <li
+                        class="chair"
+                        class:mine={chair.is_mine}
+                        class:away={chair.is_away}
+                        class:turn={chair.is_mine && declarerActs}
+                        data-seat={chair.seat}
+                    >
                         {#if chair.occupant_name !== null}
                             <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
@@ -218,9 +231,10 @@
                     </li>
                 {/each}
             </ul>
+            <DeclareControls {id} table={outcome.table} bind:picking bind:note />
             <div class="controls">
                 {#if ownCards.length > 0}
-                    <OwnHand cards={ownCards} />
+                    <OwnHand cards={ownCards} {picking} />
                 {/if}
                 <div class="actions">
                     {#if seated && outcome.table.hand === null}

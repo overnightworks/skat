@@ -1,9 +1,9 @@
 <script lang="ts">
     import { inDisplayOrder } from "#lib/handOrder.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
-    import type { Card } from "../../routes/(start)/tables.ts";
+    import { cardName, isPicked, type Card, type Picking } from "../../routes/(start)/tables.ts";
 
-    const { cards }: { cards: readonly Card[] } = $props();
+    const { cards, picking }: { cards: readonly Card[]; picking?: Picking | undefined } = $props();
 
     const ordered = $derived(inDisplayOrder(cards));
 </script>
@@ -61,10 +61,26 @@
     </defs>
 </svg>
 
-<div class="own-hand">
+<div class="own-hand" class:picking={picking !== undefined}>
     {#each ordered as card (`${card.suit}-${card.rank}`)}
         <div class="card">
-            <CardFace {card} />
+            {#if picking === undefined}
+                <CardFace {card} />
+            {:else}
+                <button
+                    type="button"
+                    class="pick"
+                    class:picked={isPicked(picking.picked, card)}
+                    aria-pressed={isPicked(picking.picked, card)}
+                    aria-label={cardName(card)}
+                    disabled={picking.disabled}
+                    onclick={() => {
+                        picking.toggle(card);
+                    }}
+                >
+                    <CardFace {card} />
+                </button>
+            {/if}
         </div>
     {/each}
 </div>
