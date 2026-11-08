@@ -10,16 +10,22 @@ from sqlalchemy import func, select, table, text
 
 from skat.engine.bidding import Bid
 from skat.engine.cards import DECK
-from skat.engine.deal import SEATS, Position
+from skat.engine.deal import SEATS, Position, next_dealer, positions_from
 from skat.store.migrate import create_store_engine
 from skat.store.tables import DealtHandRewrittenError, PostgresTableTransactions
+from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
+from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
+from skat.web.tables import TABLES_PATH
 from tests.support.faulty_tables import (
     WAIT_DEADLINE_SECONDS,
     BothReadBeforeEitherWrites,
     FaultyTableTransactions,
 )
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.skat import FakeTime, Skat, streams_of
 
 pytestmark = pytest.mark.postgres
 
@@ -569,3 +575,144 @@ class TestDealtHandStays:
             transaction.save_table(changed)
 
         assert self.read(transactions, record).hand == record.hand
+
+
+ALL_THREE = frozenset({OPENER.account_id, VISITOR.account_id, THIRD_PLAYER.account_id})
+
+
+class TestDealNext:
+    @pytest.fixture
+    def transactions(self, engine):
+        return PostgresTableTransactions(engine)
+
+    @pytest.fixture
+    def table_id(self, service, transactions):
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        service.sit(VISITOR, SitDown("command-visitor", table_id, 2), frozenset())
+        service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
+        record = self.read(transactions, table_id)
+        by_position = {
+            position: {1: OPENER, 2: VISITOR, 3: THIRD_PLAYER}[seat]
+            for seat, position in positions_from(record.dealer).items()
+        }
+        for step, position in enumerate((Position.MIDDLEHAND, Position.REARHAND, Position.FOREHAND)):
+            command = AuctionCommand(f"command-pass-{step}", table_id, record.version + step, AuctionAction.PASS, None)
+            service.take_auction_step(by_position[position], command, frozenset())
+        return table_id
+
+    def read(self, transactions, table_id):
+        with transactions.begin() as transaction:
+            return transaction.table(TableId(table_id))
+
+    def test_the_deal_stores_the_next_dealers_hand_clears_the_steps_and_writes_no_receipt_in_one_bump(
+        self, service, transactions, engine, table_id
+    ):
+        before = self.read(transactions, table_id)
+        receipts_before = count(engine, "receipts")
+
+        assert service.deal_next(TableId(table_id), ALL_THREE) is True
+
+        after = self.read(transactions, table_id)
+        assert (after.version, after.dealer) == (before.version + 1, next_dealer(before.dealer))
+        assert after.progress == HandProgress()
+        assert count(engine, "hand_cards") == len(DECK)
+        assert count(engine, "auction_actions") == 0
+        assert count(engine, "receipts") == receipts_before
+
+    def test_a_stand_and_a_new_sit_during_the_pause_deal_and_the_ending_pause_then_changes_nothing(
+        self, service, transactions, engine, table_id
+    ):
+        before = self.read(transactions, table_id)
+        newcomer = Actor("account-new", "Nora")
+        service.stand(THIRD_PLAYER, StandUp("command-stand", table_id), frozenset())
+        service.sit(newcomer, SitDown("command-new", table_id, 3), frozenset())
+        dealt = self.read(transactions, table_id)
+
+        dealt_again = service.deal_next(TableId(table_id), ALL_THREE | {newcomer.account_id})
+
+        assert dealt.dealer == next_dealer(before.dealer)
+        assert dealt_again is False
+        assert self.read(transactions, table_id) == dealt
+        assert count(engine, "hand_cards") == len(DECK)
+
+    def test_two_checks_at_once_deal_once_and_bump_the_version_once(self, transactions, engine, table_id):
+        before = self.read(transactions, table_id)
+        racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+        answers = []
+
+        def check():
+            answers.append(racing.deal_next(TableId(table_id), ALL_THREE))
+
+        threads = [threading.Thread(target=check), threading.Thread(target=check)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert sorted(answers) == [False, True]
+        assert self.read(transactions, table_id).version == before.version + 1
+        assert count(engine, "hand_cards") == len(DECK)
+
+    def test_a_failure_in_the_deal_persists_nothing(self, transactions, engine, table_id):
+        before = self.read(transactions, table_id)
+        failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
+        identifier = TableId(table_id)
+
+        with pytest.raises(ConnectionError):
+            failing.deal_next(identifier, ALL_THREE)
+
+        assert self.read(transactions, table_id) == before
+        assert count(engine, "hand_cards") == 0
+
+
+def pass_in_by_turn(server, table_id, people):
+    """Each seated member passes when the view names their turn."""
+    url = f"{TABLES_PATH}/{table_id}"
+    for step in range(3):
+        view = server.client.get(url, headers=people[0][0]).json()
+        server.client.cookies.clear()
+        headers = people[view["hand"]["auction"]["turn_seat"] - 1][0]
+        answer = server.client.post(
+            url + TABLE_AUCTION_SUFFIX,
+            json={"command_id": f"pass-{step:04d}", "version": view["version"], "action": "pass"},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+        )
+        server.client.cookies.clear()
+        assert answer.status_code == 200, answer.text
+
+
+def test_a_restart_during_the_pause_deals_once_when_all_three_streams_reopen_with_no_sweep(sign_in_settings, engine):
+    settings = sign_in_settings()
+    time = FakeTime()
+    transactions = PostgresTableTransactions(engine)
+
+    def server_on(stores):
+        return Skat(lambda: settings, store=transactions, stores=stores, chair_clock=time.clock, chair_scheduler=time)
+
+    before_restart = server_on(None)
+    with before_restart.client:
+        people = [before_restart.member() for _ in range(3)]
+        table_id = before_restart.create(people[0][0]).json()["id"]
+        for seat, (headers, _) in enumerate(people[1:], start=2):
+            before_restart.sit(headers, table_id, seat, command_id=f"command-sit-{seat}")
+        before_restart.client.cookies.clear()
+        pass_in_by_turn(before_restart, table_id, people)
+
+    def table(server):
+        return server.client.get(f"{TABLES_PATH}/{table_id}", headers=people[0][0]).json()
+
+    after_restart = server_on(before_restart.stores)
+    with after_restart.client:
+        after_restart.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS * 2)
+        waiting = table(after_restart)
+        assert waiting["hand"] is None
+        after_restart.client.cookies.clear()
+
+        with streams_of(after_restart, table_id, people):
+            after_restart.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS)
+
+        dealt = table(after_restart)
+        assert (dealt["version"], dealt["passed_in"]) == (waiting["version"] + 1, None)
+        assert dealt["hand"] is not None
+        after_restart.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS * 2)
+        assert table(after_restart)["version"] == dealt["version"]

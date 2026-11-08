@@ -6,7 +6,15 @@ import pytest
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, deal
 from skat.table.records import Actor, Chair, HandProgress, NewHand, Occupant, Refusal, TableId, TableRecord
-from skat.table.rules import decide_free_chair, decide_sit, decide_stand, hand_runs, sit_deals
+from skat.table.rules import (
+    decide_free_chair,
+    decide_sit,
+    decide_stand,
+    dealt_next,
+    hand_runs,
+    next_deal_due,
+    sit_deals,
+)
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
@@ -176,3 +184,40 @@ class TestFreeChair:
 
         assert decision.refusal is Refusal.HAND_RUNNING
         assert decision.table == table
+
+
+ALL_THREE = frozenset({ANNA.account_id, BEN.account_id, CLEO.account_id})
+
+
+def passed_in() -> TableRecord:
+    steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
+    return replace(table_with((1, ANNA), (2, BEN), (3, CLEO)), dealer=2, progress=HandProgress(steps))
+
+
+class TestNextDeal:
+    @pytest.mark.parametrize(
+        ("table", "connected", "due"),
+        [
+            pytest.param(passed_in(), ALL_THREE, True, id="all-three-connected"),
+            pytest.param(passed_in(), ALL_THREE | {DORA.account_id}, True, id="a-watcher-as-well"),
+            pytest.param(passed_in(), ALL_THREE - {CLEO.account_id}, False, id="one-member-away"),
+            pytest.param(
+                replace(passed_in(), chairs=table_with((1, ANNA), (2, BEN)).chairs), ALL_THREE, False, id="a-chair-free"
+            ),
+            pytest.param(running_hand(), ALL_THREE, False, id="a-hand-runs"),
+            pytest.param(replace(passed_in(), dealer=None), ALL_THREE, False, id="never-dealt"),
+        ],
+    )
+    def test_is_due_only_when_no_hand_runs_a_dealer_exists_and_all_three_occupants_are_connected(
+        self, table, connected, due
+    ):
+        assert next_deal_due(table, connected) is due
+
+    def test_the_next_hand_replaces_the_cards_and_steps_keeps_the_chairs_and_bumps_the_version_once(self):
+        table = passed_in()
+
+        next_hand = dealt_next(table, DRAWN)
+
+        assert (next_hand.dealer, next_hand.hand, next_hand.progress) == (DRAWN.dealer, DRAWN.hand, HandProgress())
+        assert next_hand.chairs == table.chairs
+        assert next_hand.version == table.version + 1

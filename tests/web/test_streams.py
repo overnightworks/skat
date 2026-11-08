@@ -2,12 +2,15 @@ import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
 
 from skat.engine.deal import next_dealer
-from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
+from skat.engine.bidding import Pass
+from skat.engine.deal import Position
+from skat.table.records import Actor, CreateTable, HandProgress, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
@@ -796,3 +799,62 @@ class TestHandOnTheStream:
         assert rest == [""]
         assert next_read.status_code == 401
         assert cards_in_text(next_read.text) == set()
+
+
+class TestNextDealTrigger:
+    """The stream's half of the next deal: its first view of a passed-in table asks for the deal."""
+
+    @pytest.fixture
+    def store(self):
+        return FakeTableStore()
+
+    @pytest.fixture
+    def table(self, store):
+        service = TableService(store, new_table_id=lambda: TableId("1" * 32))
+        table_id = service.create(OPENER, CreateTable(command_id="command-1")).id
+        service.sit(VISITOR, SitDown("command-2", table_id, 2), frozenset())
+        return service, table_id
+
+    @pytest.fixture
+    def asked(self):
+        return []
+
+    @pytest.fixture
+    def asking_presence(self, asked):
+        presence = idle_presence()
+        presence.deal_soon = asked.append
+        return presence
+
+    def passed_in(self, store, table_id):
+        steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
+        store.tables[table_id] = replace(store.tables[table_id], dealer=1, hand=None, progress=HandProgress(steps))
+
+    def test_the_first_view_of_a_passed_in_table_asks_once_and_a_later_view_does_not(
+        self, store, table, asking_presence, asked
+    ):
+        service, table_id = table
+        self.passed_in(store, table_id)
+
+        async def scenario():
+            stream = stream_of(asking_presence, service, OPENER, table_id)
+            await next_view(stream)
+            assert asked == [table_id]
+            asking_presence.wake_table(table_id)
+            await next_view(stream)
+            await stream.aclose()
+
+        run_on_a_loop_of_its_own(scenario())
+
+        assert asked == [table_id]
+
+    def test_the_first_view_of_a_table_never_dealt_asks_for_nothing(self, table, asking_presence, asked):
+        service, table_id = table
+
+        async def scenario():
+            stream = stream_of(asking_presence, service, OPENER, table_id)
+            await next_view(stream)
+            await stream.aclose()
+
+        run_on_a_loop_of_its_own(scenario())
+
+        assert asked == []

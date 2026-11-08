@@ -1,12 +1,14 @@
 import itertools
 import random
 from contextlib import AbstractContextManager, nullcontext
+from dataclasses import replace
 
 import pytest
 
+from skat.engine.bidding import Pass
 from skat.engine.cards import DECK
-from skat.engine.deal import SEATS
-from skat.table.records import Actor, CreateTable, Receipt, Refusal, SitDown, StandUp, TableId
+from skat.engine.deal import SEATS, Position, next_dealer
+from skat.table.records import Actor, CreateTable, HandProgress, Receipt, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, OccupiedChair, TableService
 from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
@@ -484,6 +486,90 @@ class TestFreeChair:
 
         with pytest.raises(ConnectionError):
             failing.free_chair(chair_to_free, VISITOR.account_id, due)
+
+        assert store.tables == written
+
+
+ALL_THREE = frozenset({OPENER.account_id, VISITOR.account_id, CLEO.account_id})
+
+
+def passed_in(store, table_id):
+    """The table as the third pass leaves it: no hand, and the three passes still stored."""
+    steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
+    store.tables[table_id] = replace(store.tables[table_id], hand=None, progress=HandProgress(steps))
+
+
+class TestDealNext:
+    @pytest.fixture
+    def table_id(self, store):
+        table_id, _ = seated_three(seeded_service(store, 1))
+        passed_in(store, table_id)
+        return table_id
+
+    @pytest.fixture
+    def dealing(self, store):
+        return seeded_service(store, 2)
+
+    def test_deals_the_next_dealer_a_new_hand_and_clears_the_steps_in_one_bump_without_a_receipt(
+        self, dealing, store, table_id
+    ):
+        before = store.tables[table_id]
+        receipts_before = dict(store.receipts)
+
+        assert dealing.deal_next(TableId(table_id), ALL_THREE) is True
+
+        after = store.tables[table_id]
+        assert after.dealer == next_dealer(before.dealer)
+        assert [len(cards) for cards in after.hand.hands.values()] == [10, 10, 10]
+        assert after.progress == HandProgress()
+        assert after.version == before.version + 1
+        assert store.receipts == receipts_before
+
+    def test_a_second_run_changes_nothing(self, dealing, store, table_id):
+        dealing.deal_next(TableId(table_id), ALL_THREE)
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), ALL_THREE) is False
+        assert store.tables == written
+
+    @pytest.mark.parametrize(
+        "connected",
+        [
+            pytest.param(ALL_THREE - {CLEO.account_id}, id="one-member-away"),
+            pytest.param(frozenset(), id="nobody-connected"),
+        ],
+    )
+    def test_changes_nothing_while_a_member_is_away(self, dealing, store, table_id, connected):
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), connected) is False
+        assert store.tables == written
+
+    def test_changes_nothing_when_a_chair_is_free(self, dealing, store, table_id):
+        dealing.stand(CLEO, StandUp("command-stand", table_id), frozenset())
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), ALL_THREE) is False
+        assert store.tables == written
+
+    def test_changes_nothing_while_a_hand_runs(self, store):
+        service = seeded_service(store, 1)
+        table_id, _ = seated_three(service)
+        written = dict(store.tables)
+
+        assert service.deal_next(TableId(table_id), ALL_THREE) is False
+        assert store.tables == written
+
+    def test_an_unknown_table_is_no_table(self, dealing):
+        assert dealing.deal_next(TableId("0" * 32), ALL_THREE) is False
+
+    def test_a_failure_after_the_write_persists_nothing(self, store, table_id):
+        written = dict(store.tables)
+        failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
+        identifier = TableId(table_id)
+
+        with pytest.raises(ConnectionError):
+            failing.deal_next(identifier, ALL_THREE)
 
         assert store.tables == written
 

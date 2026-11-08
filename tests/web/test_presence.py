@@ -8,13 +8,22 @@ import pytest
 from structlog.testing import capture_logs
 
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, ChairHold, LoopScheduler, Presence
+from skat.engine.deal import next_dealer
+from skat.table.records import HandProgress
+from skat.web.presence import (
+    CHAIR_RELEASE_RETRY_SECONDS,
+    NEXT_DEAL_PAUSE_SECONDS,
+    ChairHold,
+    LoopScheduler,
+    NextDeal,
+    Presence,
+)
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import idle_presence
-from tests.support.payload_cards import seated_three
+from tests.support.payload_cards import DEALER_SEAT, cards_in, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.skat import Skat
+from tests.web.support.skat import FakeTime, Skat, streams_of
 
 TABLE = "t" * 32
 OTHER_TABLE = "o" * 32
@@ -124,37 +133,6 @@ class TestWakingATable:
 
 
 HOLD_SECONDS = 300
-SERVER_START_SECONDS = 1000.0
-
-
-class FakeTime:
-    """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order."""
-
-    def __init__(self, now=SERVER_START_SECONDS):
-        self.now = now
-        self._scheduled = []
-
-    def clock(self):
-        return self.now
-
-    def schedule(self, delay, action):
-        self._scheduled.append((self.now + delay, action))
-
-    def cancel_all(self):
-        self._scheduled.clear()
-
-    @property
-    def pending(self):
-        return len(self._scheduled)
-
-    async def advance(self, seconds):
-        horizon = self.now + seconds
-        while due := [entry for entry in self._scheduled if entry[0] <= horizon]:
-            entry = min(due, key=lambda scheduled: scheduled[0])
-            self._scheduled.remove(entry)
-            self.now = max(self.now, entry[0])
-            await entry[1]()
-        self.now = horizon
 
 
 class Releases:
@@ -192,9 +170,35 @@ def releases():
     return Releases()
 
 
+class Deals:
+    """The deal command as the presence calls it: what it was asked, and what it answers or raises next."""
+
+    def __init__(self):
+        self.calls = []
+        self.failures = []
+        self.dealt = True
+        self.meanwhile = None
+
+    async def deal_next(self, table_id, connected_accounts):
+        self.calls.append((table_id, connected_accounts))
+        if self.failures:
+            raise self.failures.pop(0)
+        if self.meanwhile is not None:
+            await self.meanwhile()
+        return self.dealt
+
+
 @pytest.fixture
-def holding(time, releases):
-    return Presence(ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair))
+def deals():
+    return Deals()
+
+
+@pytest.fixture
+def holding(time, releases, deals):
+    return Presence(
+        ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
+        NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
+    )
 
 
 def run(scenario):
@@ -428,7 +432,10 @@ class TestChairHold:
 
         async def scenario():
             time = FakeTime()
-            presence = Presence(ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker))
+            presence = Presence(
+                ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker),
+                NextDeal(NEXT_DEAL_PAUSE_SECONDS, Deals().deal_next),
+            )
             presence.unsubscribe(await presence.subscribe(TABLE, "anna", lambda: None))
             expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
             await asyncio.to_thread(started.wait, 5)
@@ -630,7 +637,8 @@ class TestHoldWhenTheHandEnds:
             next(lines)
             server.client.cookies.clear()
             pass_hand_in(server, table_id, people)
-            assert time.pending == 2
+            two_holds_and_the_pause = 3
+            assert time.pending == two_holds_and_the_pause
             server.client.portal.call(time.advance, hold.settings.chair_hold_seconds + 1)
             assert occupied_seats(server, table_id) == {3}
 
@@ -659,6 +667,284 @@ class TestHoldWhenTheHandEnds:
 
         assert (first.status_code, again.status_code) == (200, 200)
         assert time.pending == pending
+
+
+class TestNextDealPause:
+    def test_a_second_request_during_the_pause_starts_no_second_timer(self, holding, time, deals):
+        holding.deal_soon(TABLE)
+        holding.deal_soon(TABLE)
+
+        assert time.pending == 1
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        assert len(deals.calls) == 1
+
+    def test_each_table_has_its_own_pause(self, holding, time):
+        holding.deal_soon(TABLE)
+        holding.deal_soon(OTHER_TABLE)
+
+        assert time.pending == 2
+
+    def test_asks_for_the_deal_with_who_is_connected_when_the_pause_ends(self, holding, time, deals):
+        holding.deal_soon(TABLE)
+        connect(holding, TABLE, "anna", lambda: None)
+
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+
+        assert deals.calls == [(TABLE, frozenset({"anna"}))]
+
+    def test_a_deal_wakes_the_table_and_a_refused_deal_wakes_nobody(self, holding, time, deals, wakes):
+        connect(holding, TABLE, "anna", wakes.callback("anna"))
+        before = wakes.counts["anna"]
+
+        holding.deal_soon(TABLE)
+        deals.dealt = False
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        assert wakes.counts["anna"] == before
+
+        holding.deal_soon(TABLE)
+        deals.dealt = True
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        assert wakes.counts["anna"] == before + 1
+
+    def test_a_request_while_the_deal_runs_starts_a_fresh_pause_after_it(self, holding, time, deals):
+        async def another_request():
+            deals.meanwhile = None
+            holding.deal_soon(TABLE)
+
+        deals.meanwhile = another_request
+        holding.deal_soon(TABLE)
+
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+
+        assert time.pending == 1
+
+    def test_a_failed_deal_is_logged_by_name_wakes_nobody_and_leaves_the_next_request_free(
+        self, holding, time, deals, wakes
+    ):
+        connect(holding, TABLE, "anna", wakes.callback("anna"))
+        before = wakes.counts["anna"]
+        deals.failures = [ConnectionError("account anna")]
+
+        holding.deal_soon(TABLE)
+        with capture_logs() as logs:
+            run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+
+        assert wakes.counts["anna"] == before
+        assert [(log["log_level"], log["error"]) for log in logs] == [("error", "ConnectionError")]
+        assert "anna" not in str(logs)
+        holding.deal_soon(TABLE)
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        assert wakes.counts["anna"] == before + 1
+
+    def test_the_server_stopping_during_the_pause_cancels_the_deal_and_a_later_request_starts_none(
+        self, holding, time, deals
+    ):
+        holding.deal_soon(TABLE)
+
+        holding.stop()
+        holding.deal_soon(OTHER_TABLE)
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS * 2))
+
+        assert (time.pending, deals.calls) == (0, [])
+
+
+def view_of_version(messages, version):
+    return next(view for view in messages if view["version"] >= version)
+
+
+def advance(server, time, seconds):
+    server.client.portal.call(time.advance, seconds)
+
+
+class TestNextHandComes:
+    def test_the_next_dealer_deals_when_the_pause_ends_and_not_a_moment_before(self, server, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:3]) as streams:
+            pass_hand_in(server, table_id, people)
+            passed_in = server.store.tables[table_id]
+
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS - 0.001)
+            assert server.store.tables[table_id] == passed_in
+
+            advance(server, time, 0.001)
+            record = server.store.tables[table_id]
+            assert record.dealer == next_dealer(DEALER_SEAT)
+            assert [len(cards) for cards in record.hand.hands.values()] == [10, 10, 10]
+            assert record.progress == HandProgress()
+            assert record.version == passed_in.version + 1
+            for messages in streams:
+                view = view_of_version(messages, record.version)
+                assert view["passed_in"] is None
+                position = next(chair["hand"]["position"] for chair in view["chairs"] if chair["is_mine"])
+                assert cards_in(view) == wire_cards(getattr(record.hand, position))
+
+    def test_a_stream_opening_during_the_pause_neither_cuts_it_short_nor_stretches_it(self, server, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:3]):
+            pass_hand_in(server, table_id, people)
+            passed_in = server.store.tables[table_id]
+            pending = time.pending
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS / 2)
+
+            with streams_of(server, table_id, people[3:]):
+                assert time.pending == pending
+                advance(server, time, NEXT_DEAL_PAUSE_SECONDS / 2 - 0.001)
+                assert server.store.tables[table_id] == passed_in
+
+                advance(server, time, 0.001)
+                assert server.store.tables[table_id].version == passed_in.version + 1
+
+                advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
+                assert server.store.tables[table_id].version == passed_in.version + 1
+
+    def test_a_member_away_when_the_pause_ends_keeps_the_table_waiting_and_their_hold_running(self, server, hold, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:2]):
+            pass_hand_in(server, table_id, people)
+            passed_in = server.store.tables[table_id]
+
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
+            assert server.store.tables[table_id] == passed_in
+
+            advance(server, time, hold.settings.chair_hold_seconds - NEXT_DEAL_PAUSE_SECONDS - 1)
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            assert server.store.tables[table_id] == passed_in
+
+    def test_a_returning_member_gets_a_fresh_pause_and_then_the_deal_and_keeps_the_chair(self, server, hold, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:2]):
+            pass_hand_in(server, table_id, people)
+            passed_in = server.store.tables[table_id]
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS + 10)
+
+            with streams_of(server, table_id, people[2:3]):
+                advance(server, time, NEXT_DEAL_PAUSE_SECONDS - 0.001)
+                assert server.store.tables[table_id] == passed_in
+
+                advance(server, time, 0.001)
+                assert server.store.tables[table_id].version == passed_in.version + 1
+
+                advance(server, time, hold.settings.chair_hold_seconds)
+                assert occupied_seats(server, table_id) == {1, 2, 3}
+
+    def test_the_hold_of_an_away_member_frees_the_chair_with_no_deal_and_the_filling_sit_deals_at_once(
+        self, server, hold, time
+    ):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:2]):
+            pass_hand_in(server, table_id, people)
+            advance(server, time, hold.settings.chair_hold_seconds + 1)
+            assert occupied_seats(server, table_id) == {1, 2}
+            assert server.store.tables[table_id].hand is None
+
+            server.client.cookies.clear()
+            answer = server.sit(people[3][0], table_id, 3, command_id="command-sit-away")
+
+        assert answer.status_code == 200, answer.text
+        record = server.store.tables[table_id]
+        assert record.hand is not None
+        assert record.dealer == next_dealer(DEALER_SEAT)
+
+    def test_standing_up_during_the_pause_is_allowed_and_the_pause_then_deals_nothing(self, server, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:3]):
+            pass_hand_in(server, table_id, people)
+
+            standing = server.stand(people[0][0], table_id)
+            server.client.cookies.clear()
+            assert standing.status_code == 200, standing.text
+            after_standing = server.store.tables[table_id]
+
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
+
+            assert server.store.tables[table_id] == after_standing
+            assert after_standing.hand is None
+
+    def test_a_retry_of_the_third_pass_during_the_pause_and_after_the_deal_starts_no_timer_and_no_deal(
+        self, server, time
+    ):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:3]):
+            version = server.store.tables[table_id].version
+            post_pass(server, table_id, people[0][0], command_id="pass-seat-1", version=version)
+            post_pass(server, table_id, people[1][0], command_id="pass-seat-2", version=version + 1)
+            first = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+            pending = time.pending
+
+            during = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+            assert (first.status_code, during.status_code, time.pending) == (200, 200, pending)
+
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
+            dealt = server.store.tables[table_id]
+            assert dealt.hand is not None
+
+            after = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
+
+            assert after.status_code == 200
+            assert server.store.tables[table_id] == dealt
+
+    @pytest.mark.parametrize("seated", [True, False], ids=["a-hand-runs", "never-dealt"])
+    def test_a_stream_opening_when_no_hand_was_passed_in_changes_nothing(self, server, time, seated):
+        if seated:
+            table_id, people = seated_three(server)
+        else:
+            people = [server.member()]
+            table_id = server.create(people[0][0]).json()["id"]
+        server.client.cookies.clear()
+        before = server.store.tables[table_id]
+
+        with streams_of(server, table_id, people[:1]):
+            assert time.pending == 0
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
+
+            assert server.store.tables[table_id] == before
+
+    def test_a_store_failure_in_the_deal_is_named_changes_nothing_and_the_next_stream_opening_deals(self, hold, time):
+        store = OvertakenStore()
+        server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
+
+        def store_goes_down():
+            raise ConnectionError("account anna")
+
+        with server.client:
+            table_id, people = seated_three(server)
+            server.client.cookies.clear()
+            with streams_of(server, table_id, people[:3]):
+                pass_hand_in(server, table_id, people)
+                passed_in = store.tables[table_id]
+                store.meanwhile = store_goes_down
+
+                with capture_logs() as logs:
+                    advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
+
+                assert store.tables[table_id] == passed_in
+                assert [(log["log_level"], log["error"]) for log in logs] == [("error", "ConnectionError")]
+                assert "anna" not in str(logs)
+
+                with streams_of(server, table_id, people[3:]):
+                    advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
+
+                    assert store.tables[table_id].version == passed_in.version + 1
+
+    def test_the_server_stopping_during_the_pause_deals_nothing(self, server, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:3]):
+            pass_hand_in(server, table_id, people)
+            passed_in = server.store.tables[table_id]
+
+            server.client.portal.call(server.app.state.stop_streams)
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
+
+            assert (time.pending, server.store.tables[table_id]) == (0, passed_in)
 
 
 class TestLoopScheduler:
