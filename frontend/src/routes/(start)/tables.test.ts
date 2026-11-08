@@ -204,7 +204,7 @@ describe("watchTable after a stream error", () => {
 
 describe("asking for a table", () => {
     const reload = vi.fn();
-    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0 };
+    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null };
 
     beforeEach(() => {
         reload.mockClear();
@@ -308,6 +308,7 @@ describe("the table's seats and link", () => {
         occupant_name: null,
         is_mine: isMine,
         is_away: false,
+        hand: null,
     });
 
     afterEach(() => {

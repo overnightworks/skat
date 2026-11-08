@@ -3,6 +3,7 @@
     import { page } from "$app/state";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
+    import OwnHand from "#lib/ui/OwnHand.svelte";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
@@ -100,9 +101,14 @@
     </header>
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
+            {@const ownCards = outcome.table.hand?.own_cards ?? []}
             <div class="plaque">
-                <span>{words.waitingForPlayers}</span>
-                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                {#if outcome.table.hand === null}
+                    <span>{words.waitingForPlayers}</span>
+                    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                {:else}
+                    <span>{words.biddingFollows}</span>
+                {/if}
             </div>
             <div class="felt" aria-hidden="true"></div>
             <ul class="chairs">
@@ -156,6 +162,9 @@
                 {/each}
             </ul>
             <div class="controls">
+                {#if ownCards.length > 0}
+                    <OwnHand cards={ownCards} />
+                {/if}
                 <div class="actions">
                     {#if seated}
                         <button type="button" class="copy" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
