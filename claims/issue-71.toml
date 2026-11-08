@@ -1,8 +1,0 @@
-claim_id = "0d1d23c5d0d74398948a4bd1d95cae2c"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "8c1e766780c31941674a71f4d24f5dcedb19417c"
-branch = "claude/issue-71-own-cards-page"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/handOrder.test.ts", "frontend/src/lib/handOrder.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/CardFace.svelte", "frontend/src/lib/ui/OwnHand.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "tests/e2e/test_table_cards.py", "tests/scripts/test_generate_wire.py"]
-opened_commit = "c5eaf9a4213dbec53332693218186183603d8319"
-whole_reason = "The tokens, the types and the drawn hand are one vertical path from the answer to what a player sees; types no page reads, or a page without its tokens, prove nothing."
