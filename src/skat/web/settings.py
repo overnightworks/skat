@@ -3,6 +3,8 @@ from typing import Annotated
 
 from pydantic import AfterValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
 
@@ -25,19 +27,38 @@ def _require_absolute_path(path: Path) -> Path:
     return path
 
 
+def _require_postgres_url_without_password(url: str) -> str:
+    try:
+        parsed = make_url(url, keep_blank_values=True)
+    except ArgumentError, ValueError:
+        # The parser's messages quote parts of the URL, which may hold the password.
+        raise ValueError("must be a postgresql URL") from None
+    if parsed.drivername != "postgresql":
+        raise ValueError("must be a postgresql URL")
+    if not (parsed.host and parsed.username and parsed.database):
+        raise ValueError("must name a host, a user and a database")
+    if parsed.password is not None:
+        raise ValueError("must not carry a password")
+    # libpq reads query parameters over the authority, so any of them can redirect the password.
+    if parsed.query:
+        raise ValueError("must not carry query parameters")
+    return url
+
+
 IssuerUrl = Annotated[str, AfterValidator(_require_no_trailing_slash)]
 OriginUrl = Annotated[str, AfterValidator(_require_origin_without_path)]
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
+PasswordlessPostgresUrl = Annotated[str, AfterValidator(_require_postgres_url_without_password)]
 
 
 class DatabaseSettings(BaseSettings):
-    """The one setting `skat migrate` needs, so it runs before any other setting or the page build is read."""
+    """The settings `skat migrate` needs, so it runs before any other setting or the page build is read."""
 
     # The settings are secrets or name them, so a refusal never echoes an input.
     model_config = SettingsConfigDict(env_prefix="SKAT_", hide_input_in_errors=True)
 
-    # The file holds a Postgres connection URL.
-    database_url_file: AbsolutePath = Field(repr=False)
+    database_url: PasswordlessPostgresUrl = Field(repr=False)
+    database_password_file: AbsolutePath = Field(repr=False)
 
 
 class ServerSettings(DatabaseSettings):

@@ -12,7 +12,8 @@ REQUIRED_SIGN_IN_SETTINGS = [
     "oidc_client_secret_file",
     "public_origin",
     "session_secret_file",
-    "database_url_file",
+    "database_url",
+    "database_password_file",
 ]
 
 
@@ -43,7 +44,8 @@ class TestServerSettings:
             assert settings.public_origin == sign_in.settings.public_origin
             assert settings.oidc_client_secret_file == sign_in.settings.oidc_client_secret_file
             assert settings.session_secret_file == sign_in.settings.session_secret_file
-            assert settings.database_url_file == sign_in.settings.database_url_file
+            assert settings.database_url == sign_in.settings.database_url
+            assert settings.database_password_file == sign_in.settings.database_password_file
 
     @pytest.mark.parametrize("setting", REQUIRED_SIGN_IN_SETTINGS)
     def test_missing_required_sign_in_setting_is_refused_by_name(self, sign_in_settings, setting):
@@ -58,10 +60,43 @@ class TestServerSettings:
             ("public_origin", "https://skat.test.invalid/apps/skat"),
             ("oidc_client_secret_file", "relative/client-secret"),
             ("session_secret_file", "relative/session-secret"),
-            ("database_url_file", "relative/database-url"),
+            ("database_password_file", "relative/database-password"),
         ],
     )
     def test_malformed_sign_in_setting_is_refused_by_name_and_never_by_value(self, sign_in_settings, setting, value):
         with pytest.raises(ValidationError, match=setting) as refusal:
             sign_in_settings(**{setting: value})
         assert value not in str(refusal.value)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "postgresql://skat:pw-of-the-test_1@postgres/skat",
+            "postgresql://skat@postgres/skat?password=pw-of-the-test_1",
+            "postgresql://skat@postgres/skat?host=evil.invalid",
+            "postgresql://skat@postgres/skat?user=evil",
+            "postgresql://skat@postgres/skat?dbname=other",
+            "postgresql://skat@postgres/skat?port=1",
+            "postgresql://skat@postgres/skat?passfile=/tmp/x",
+            "postgresql://skat@postgres/skat?passfile=",
+            "postgresql://skat@postgres/skat?service=x",
+            "postgresql://skat@postgres/skat?sslpassword=pw-of-the-test_1",
+            "postgresql://skat:pw-of-the-test_1@postgres\uff0f/skat",
+            "mysql://skat@postgres/skat",
+            "not-a-url-pw-of-the-test_1",
+            "postgresql://@postgres/skat",
+            "postgresql://postgres/skat",
+            "postgresql://skat@/skat",
+            "postgresql://skat@postgres",
+            "postgresql://skat@postgres/",
+            "postgresql://a@b:/x@host/db",
+            "postgresql://skat:pw-of-the-test_1/skat",
+        ],
+    )
+    def test_database_url_with_a_password_or_query_or_without_host_user_and_database_is_refused_by_name_only(
+        self, sign_in_settings, url
+    ):
+        with pytest.raises(ValidationError, match="database_url") as refusal:
+            sign_in_settings(database_url=url)
+        assert url not in str(refusal.value)
+        assert "pw-of-the-test_1" not in str(refusal.value)
