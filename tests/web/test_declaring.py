@@ -1,7 +1,7 @@
 import itertools
 import json
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -28,6 +28,9 @@ from tests.support.payload_cards import (
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FETCH, UNKNOWN_ID
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
@@ -716,19 +719,21 @@ class TestEveryViewersAnswer:
     ):
         before(table)
         next_version = table.record.version + 1
-        streams = [table.stream(viewer.headers_at(table)) for viewer in EVERY_VIEWER]
-        for stream in streams:
-            stream.__enter__()
-        lines = [stream.iter_lines() for stream in streams]
-        for stream_lines in lines:
-            next(stream_lines)
+        with (
+            table.stream(DECLARER.headers_at(table)) as declarer_stream,
+            table.stream(FOREHAND_OPPONENT.headers_at(table)) as forehand_stream,
+            table.stream(REARHAND_OPPONENT.headers_at(table)) as rearhand_stream,
+            table.stream(WATCHER.headers_at(table)) as watcher_stream,
+        ):
+            lines = [
+                stream.iter_lines() for stream in (declarer_stream, forehand_stream, rearhand_stream, watcher_stream)
+            ]
+            for stream_lines in lines:
+                next(stream_lines)
 
-        table.accepted(action, **fields)
-        fresh = [message_at_version(stream_lines, next_version) for stream_lines in lines]
+            table.accepted(action, **fields)
+            fresh = [message_at_version(stream_lines, next_version) for stream_lines in lines]
 
-        for stream in reversed(streams):
-            stream.close()
-            stream.__exit__(None, None, None)
         for raw, viewer in zip(fresh, EVERY_VIEWER, strict=True):
             assert_holds_the_moment(raw, after, viewer)
 

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal
 from fastapi import APIRouter, Body, Request, Response
 from pydantic import Field
 
-from skat.engine.declaration import Announcement, Declare, PutBack, TakeSkat
+from skat.engine.declaration import SKAT_SIZE, Announcement, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
 from skat.table.declaring import DeclaringCommand
 from skat.web.tables import (
@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
 # A take, put-back or declaration on a table: `TABLES_PATH/{table_id}` plus this.
 TABLE_DECLARATION_SUFFIX: Final = "/declaration"
-_SKAT_SIZE: Final = 2
 
 
 class DeclaringAction(StrEnum):
@@ -77,7 +76,7 @@ class TakeRequest(_DeclaringRequest):
 
 class PutBackRequest(_DeclaringRequest):
     action: Literal[DeclaringAction.PUT_BACK]
-    cards: Annotated[list[CardChoice], Field(min_length=_SKAT_SIZE, max_length=_SKAT_SIZE)]
+    cards: Annotated[list[CardChoice], Field(min_length=SKAT_SIZE, max_length=SKAT_SIZE)]
 
 
 class DeclareRequest(_DeclaringRequest):
