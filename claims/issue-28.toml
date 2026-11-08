@@ -1,8 +1,0 @@
-claim_id = "5707beaf074a478382d871054eea1a6f"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "23573a5510be58a614205c093d06dee0d92cad26"
-branch = "claude/issue-28-engine-cards-and-deal"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/engine", "tests/engine"]
-opened_commit = "594a5525861d0896549e5e4e40e1bfc7903f7b8a"
-whole_reason = "The package, its layer contract and its tests are one new building block; the layer means nothing without the package and the package nothing without its tests."
