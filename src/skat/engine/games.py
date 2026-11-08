@@ -2,9 +2,18 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
-from skat.engine.cards import Suit
+from skat.engine.cards import Card, Rank, Suit
 
 HIGHEST_LEVEL: Final = 7  # Offen: the highest win level, counted after the matadors
+
+
+class Trump(Enum):
+    """The trump suit as a playing suit."""
+
+    TRUMP = "trump"
+
+
+_SUIT_ORDER: Final = (Rank.SEVEN, Rank.EIGHT, Rank.NINE, Rank.QUEEN, Rank.KING, Rank.TEN, Rank.ACE)
 
 
 @dataclass(frozen=True)
@@ -33,6 +42,22 @@ class GameKind(Enum):
     @property
     def highest_matadors(self) -> int | None:
         return self.value.highest_matadors
+
+    def playing_suit(self, card: Card) -> Suit | Trump:
+        """The suit a card counts as in play: a jack is trump unless the game is Null."""
+        if self is GameKind.NULL:
+            return card.suit
+        if card.rank is Rank.JACK or card.suit == self.suit:
+            return Trump.TRUMP
+        return card.suit
+
+    def strength(self, card: Card) -> int:
+        """The card's rank among the cards of its playing suit; higher beats lower."""
+        if self is GameKind.NULL:
+            return card.rank
+        if card.rank is Rank.JACK:
+            return len(_SUIT_ORDER) + card.suit
+        return _SUIT_ORDER.index(card.rank)
 
     @property
     def highest_faelle(self) -> int | None:
