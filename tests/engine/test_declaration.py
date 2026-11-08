@@ -308,8 +308,9 @@ def test_a_hand_declaration_without_taking_replays_to_the_direct_call() -> None:
 def test_a_declaring_log_the_rules_refuse_raises_naming_the_refusal_and_the_place(
     steps: tuple[DeclaringStep, ...], reason: DeclarationRefusal, place: str
 ) -> None:
+    start = fresh()
     with pytest.raises(ValueError, match=f"{place}.*{reason.value}"):
-        declaring_after(fresh(), steps)
+        declaring_after(start, steps)
 
 
 @pytest.mark.parametrize(

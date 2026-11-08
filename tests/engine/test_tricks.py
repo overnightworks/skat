@@ -322,18 +322,24 @@ def test_a_card_log_replays_to_the_state_after_the_direct_calls() -> None:
 
 
 def test_a_card_played_out_of_turn_raises_naming_the_refusal_and_the_place() -> None:
+    start = started()
+    log = (CardPlayed(MIDDLEHAND, KARO_ACE),)
     with pytest.raises(ValueError, match=r"step 1.*not-your-turn"):
-        playing_after(started(), (CardPlayed(MIDDLEHAND, KARO_ACE),))
+        playing_after(start, log)
 
 
 def test_a_card_not_in_hand_raises_naming_the_refusal_and_the_place() -> None:
+    start = started()
+    log = (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, KARO_SEVEN))
     with pytest.raises(ValueError, match=r"step 2.*not-in-hand"):
-        playing_after(started(), (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, KARO_SEVEN)))
+        playing_after(start, log)
 
 
 def test_a_card_against_the_duty_to_follow_raises_naming_the_refusal_and_the_place() -> None:
+    start = started()
+    log = (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, PIK_ACE))
     with pytest.raises(ValueError, match=r"step 2.*must-follow"):
-        playing_after(started(), (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, PIK_ACE)))
+        playing_after(start, log)
 
 
 def test_a_thirty_first_card_raises_naming_the_refusal_and_the_place() -> None:
