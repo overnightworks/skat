@@ -4,13 +4,14 @@ from dataclasses import replace
 import pytest
 from sqlalchemy import func, select, table, text
 
-from skat.engine.bidding import Bid, Hold, Pass
-from skat.engine.deal import Position, positions_from
+from skat.engine.bidding import Bid, Hold, Pass, PassedIn
+from skat.engine.deal import Position, next_dealer, positions_from
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown
+from skat.table.hand_state import auction_of
+from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp
 from skat.table.service import TableService
 from tests.store.conftest import stored
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
@@ -21,12 +22,22 @@ ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 NOBODY_CONNECTED: frozenset[str] = frozenset()
-FIRST_STEP, SECOND_STEP = "command-a", "command-b"
+DORA = Actor(account_id="account-dora", display_name="Dora")
+FIRST_STEP, SECOND_STEP, THIRD_STEP = "command-a", "command-b", "command-c"
+CARDS_IN_A_HAND = 32
+
+
+def count_rows(engine, name):
+    with engine.connect() as connection:
+        return connection.execute(select(func.count()).select_from(table(name))).scalar_one()
 
 
 def count_steps(engine):
-    with engine.connect() as connection:
-        return connection.execute(select(func.count()).select_from(table("auction_actions"))).scalar_one()
+    return count_rows(engine, "auction_actions")
+
+
+def count_cards(engine):
+    return count_rows(engine, "hand_cards")
 
 
 class Hand:
@@ -77,16 +88,126 @@ def test_the_steps_read_back_in_the_order_they_were_taken(hand):
     )
 
 
-def test_a_passed_in_hand_keeps_its_steps_and_its_cards(hand, transactions):
-    for position, command_id in [
-        (Position.MIDDLEHAND, FIRST_STEP),
-        (Position.REARHAND, SECOND_STEP),
-        (Position.FOREHAND, "command-c"),
-    ]:
-        hand.send(position, AuctionAction.PASS, command_id=command_id)
+def pass_in(hand):
+    """Three passes end the hand: the middlehand's and rearhand's first, the forehand's last."""
+    hand.send(Position.MIDDLEHAND, AuctionAction.PASS, command_id=FIRST_STEP)
+    hand.send(Position.REARHAND, AuctionAction.PASS, command_id=SECOND_STEP)
+    return hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=THIRD_STEP)
 
-    assert len(hand.steps()) == 3
-    assert stored(transactions, hand.table_id).hand is not None
+
+def test_the_third_pass_deletes_the_cards_keeps_the_steps_and_bumps_the_version_once(hand, engine, transactions):
+    hand.send(Position.MIDDLEHAND, AuctionAction.PASS, command_id=FIRST_STEP)
+    hand.send(Position.REARHAND, AuctionAction.PASS, command_id=SECOND_STEP)
+    version = stored(transactions, hand.table_id).version
+
+    hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=THIRD_STEP)
+
+    assert stored(transactions, hand.table_id).hand is None
+    assert count_cards(engine) == 0
+    assert hand.steps() == (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
+    assert stored(transactions, hand.table_id).version == version + 1
+
+
+def test_a_reload_and_a_restart_still_say_the_hand_was_passed_in(hand, database_url):
+    answer = pass_in(hand)
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        view = TableService(PostgresTableTransactions(restarted_engine)).view(ANNA, hand.table_id, NOBODY_CONNECTED)
+    finally:
+        restarted_engine.dispose()
+
+    assert view is not None
+    assert view.passed_in == answer.view.passed_in
+    assert view.passed_in is not None
+
+
+def test_a_failure_in_the_third_pass_keeps_the_hand_the_steps_and_the_version(hand, engine, transactions):
+    hand.send(Position.MIDDLEHAND, AuctionAction.PASS, command_id=FIRST_STEP)
+    hand.send(Position.REARHAND, AuctionAction.PASS, command_id=SECOND_STEP)
+    before = stored(transactions, hand.table_id)
+    failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
+
+    with pytest.raises(ConnectionError):
+        hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=THIRD_STEP, service=failing)
+
+    assert stored(transactions, hand.table_id) == before
+    assert count_cards(engine) == CARDS_IN_A_HAND
+    with engine.connect() as connection:
+        query = text("SELECT count(*) FROM receipts WHERE command_id = :command_id")
+        receipts = connection.execute(query, {"command_id": THIRD_STEP}).scalar_one()
+    assert receipts == 0
+
+
+def test_two_identical_third_passes_at_once_end_the_hand_once_and_the_other_replays(hand, engine, transactions):
+    hand.send(Position.MIDDLEHAND, AuctionAction.PASS, command_id=FIRST_STEP)
+    hand.send(Position.REARHAND, AuctionAction.PASS, command_id=SECOND_STEP)
+    version = stored(transactions, hand.table_id).version
+    racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+    results: list[object] = []
+
+    def request():
+        results.append(
+            hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=THIRD_STEP, version=version, service=racing)
+        )
+
+    threads = [threading.Thread(target=request) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert [result.refusal for result in results] == [None, None]
+    assert sorted(bool(result.seated_when_hand_ended) for result in results) == [False, True]
+    assert count_steps(engine) == 3
+    assert stored(transactions, hand.table_id).version == version + 1
+    assert count_cards(engine) == 0
+
+
+def test_a_stand_up_between_hands_keeps_the_steps_and_the_filling_sit_replaces_them(hand, engine, transactions):
+    old = stored(transactions, hand.table_id)
+    pass_in(hand)
+    standing = hand.actors[Position.FOREHAND]
+    seat = next(chair.seat for chair in old.chairs if chair.occupant.account_id == standing.account_id)
+    hand.service.stand(standing, StandUp("stand", hand.table_id), NOBODY_CONNECTED)
+    assert auction_of(stored(transactions, hand.table_id)).result == PassedIn()
+    assert count_steps(engine) == 3
+    version = stored(transactions, hand.table_id).version
+
+    answer = hand.service.sit(DORA, SitDown("fills-the-third", hand.table_id, seat), NOBODY_CONNECTED)
+
+    after = stored(transactions, hand.table_id)
+    assert after.dealer == next_dealer(old.dealer)
+    assert after.hand is not None
+    assert count_cards(engine) == CARDS_IN_A_HAND
+    assert after.progress == HandProgress()
+    assert count_steps(engine) == 0
+    assert count_rows(engine, "declaring_steps") == 0
+    assert answer.view.passed_in is None
+    assert after.version == version + 1
+
+
+def test_the_auction_of_the_new_hand_starts_empty_in_the_store(hand, engine, transactions):
+    old = stored(transactions, hand.table_id)
+    pass_in(hand)
+    standing = hand.actors[Position.FOREHAND]
+    seat = next(chair.seat for chair in old.chairs if chair.occupant.account_id == standing.account_id)
+    hand.service.stand(standing, StandUp("stand", hand.table_id), NOBODY_CONNECTED)
+    hand.service.sit(DORA, SitDown("fills-the-third", hand.table_id, seat), NOBODY_CONNECTED)
+    after = stored(transactions, hand.table_id)
+    seated_by_seat = {chair.seat: chair.occupant for chair in after.chairs}
+    new_middlehand = next(
+        Actor(seated_by_seat[seat_number].account_id, seated_by_seat[seat_number].display_name)
+        for seat_number, position in positions_from(after.dealer).items()
+        if position is Position.MIDDLEHAND
+    )
+    command = AuctionCommand("new-bid", hand.table_id, after.version, AuctionAction.BID, 18)
+
+    result = hand.service.take_auction_step(new_middlehand, command, NOBODY_CONNECTED)
+
+    assert result.refusal is None
+    assert hand.steps() == (Bid(Position.MIDDLEHAND, 18),)
+    assert count_steps(engine) == 1
 
 
 def test_a_retry_stores_no_second_step_and_no_second_version(hand, engine, transactions):

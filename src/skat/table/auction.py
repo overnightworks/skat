@@ -11,6 +11,7 @@ from skat.engine.bidding import (
     Declared,
     Hold,
     Pass,
+    PassedIn,
     Play,
     auction_step,
 )
@@ -72,7 +73,10 @@ def auction_payload(command: AuctionCommand) -> str:
 
 
 def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> Decision:
-    """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason."""
+    """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason.
+
+    The third pass ends the hand: its cards go, its steps stay until the next deal.
+    """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
         return Decision(table, position)
@@ -81,7 +85,10 @@ def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> De
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     steps = (*table.progress.auction, step)
-    return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, auction=steps)))
+    hand = None if isinstance(outcome.auction.result, PassedIn) else table.hand
+    return Decision(
+        replace(table, version=table.version + 1, hand=hand, progress=replace(table.progress, auction=steps))
+    )
 
 
 @dataclass(frozen=True)

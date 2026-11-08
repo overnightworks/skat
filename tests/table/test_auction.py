@@ -14,9 +14,10 @@ from skat.engine.bidding import (
     Declared,
     Hold,
     Pass,
+    PassedIn,
     Play,
 )
-from skat.engine.deal import Position, positions_from
+from skat.engine.deal import Position, next_dealer, positions_from
 from skat.table.auction import (
     AuctionAction,
     AuctionCommand,
@@ -28,7 +29,7 @@ from skat.table.auction import (
     step_of,
 )
 from skat.table.hand_state import auction_of
-from skat.table.records import Actor, CreateTable, Occupant, Refusal, SitDown, TableRecord, parsed_refusal
+from skat.table.records import Actor, CreateTable, Occupant, Refusal, SitDown, StandUp, TableRecord, parsed_refusal
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
 
@@ -85,8 +86,7 @@ def open_table(service: TableService) -> str:
     return service.create(ANNA, CreateTable(command_id="command-open")).id
 
 
-@pytest.fixture
-def seated(service: TableService, store: FakeTableStore) -> Seated:
+def seat_three(service: TableService, store: FakeTableStore) -> Seated:
     table_id = open_table(service)
     service.sit(BEN, SitDown("command-ben", table_id, 2), NOBODY_CONNECTED)
     service.sit(CLEO, SitDown("command-cleo", table_id, 3), NOBODY_CONNECTED)
@@ -102,6 +102,11 @@ def seated(service: TableService, store: FakeTableStore) -> Seated:
         middlehand=by_position[Position.MIDDLEHAND],
         rearhand=by_position[Position.REARHAND],
     )
+
+
+@pytest.fixture
+def seated(service: TableService, store: FakeTableStore) -> Seated:
+    return seat_three(service, store)
 
 
 class TestRefusalOrder:
@@ -160,6 +165,129 @@ class TestStep:
 
     def test_a_table_without_steps_folds_to_the_start_of_the_auction(self, seated: Seated) -> None:
         assert auction_of(seated.table()) == Auction.start()
+
+
+class AlwaysDrawsSeatOne(random.Random):
+    """Draws seat 1, so a second deal that drew instead of rotating would name seat 1 again."""
+
+    def choice(self, seq):
+        return seq[0]
+
+
+THIRD_PASS = "pass-forehand"
+SEATED_ACCOUNTS = {ANNA.account_id, BEN.account_id, CLEO.account_id}
+
+
+def two_pass(seated: Seated) -> None:
+    seated.send(seated.middlehand, AuctionAction.PASS, command_id="pass-middlehand")
+    seated.send(seated.rearhand, AuctionAction.PASS, command_id="pass-rearhand")
+
+
+def pass_in(seated: Seated):
+    two_pass(seated)
+    return seated.send(seated.forehand, AuctionAction.PASS, command_id=THIRD_PASS)
+
+
+class TestPassedIn:
+    def test_the_third_pass_ends_the_hand_keeps_the_steps_and_bumps_the_version_once(self, seated: Seated) -> None:
+        two_pass(seated)
+        version = seated.table().version
+
+        result = seated.send(seated.forehand, AuctionAction.PASS, command_id=THIRD_PASS)
+
+        assert result.refusal is None
+        assert seated.table().hand is None
+        assert auction_of(seated.table()).result == PassedIn()
+        assert seated.table().version == version + 1
+
+    def test_the_answer_says_passed_in_and_names_the_next_dealer(self, seated: Seated) -> None:
+        result = pass_in(seated)
+
+        assert result.view.hand is None
+        assert result.view.passed_in.next_dealer_seat == next_dealer(seated.table().dealer)
+
+    @pytest.mark.parametrize(
+        ("action", "value"),
+        [
+            pytest.param(AuctionAction.BID, 18, id="bid"),
+            pytest.param(AuctionAction.HOLD, None, id="hold"),
+            pytest.param(AuctionAction.PASS, None, id="pass"),
+            pytest.param(AuctionAction.PLAY, None, id="play"),
+        ],
+    )
+    def test_every_auction_step_after_the_hand_ended_is_no_hand(
+        self, seated: Seated, action: AuctionAction, value: int | None
+    ) -> None:
+        pass_in(seated)
+        before = seated.table()
+
+        result = seated.send(seated.middlehand, action, value=value, command_id="after-the-end")
+
+        assert result.refusal is Refusal.NO_HAND
+        assert seated.table() == before
+
+    def test_the_same_third_pass_again_is_the_same_answer_with_no_bump_and_names_nobody(self, seated: Seated) -> None:
+        two_pass(seated)
+        version = seated.table().version
+        first = seated.send(seated.forehand, AuctionAction.PASS, command_id=THIRD_PASS)
+        after_first = seated.table()
+
+        again = seated.send(seated.forehand, AuctionAction.PASS, version=version, command_id=THIRD_PASS)
+
+        assert (again.view, again.refusal) == (first.view, first.refusal)
+        assert seated.table() == after_first
+        assert again.seated_when_hand_ended == frozenset()
+
+    def test_only_the_command_that_ended_the_hand_names_the_accounts_seated_at_its_end(self, seated: Seated) -> None:
+        first = seated.send(seated.middlehand, AuctionAction.PASS, command_id="pass-middlehand")
+        refused = seated.send(seated.forehand, AuctionAction.PASS, command_id="out-of-turn")
+        second = seated.send(seated.rearhand, AuctionAction.PASS, command_id="pass-rearhand")
+        third = seated.send(seated.forehand, AuctionAction.PASS, command_id=THIRD_PASS)
+
+        assert third.seated_when_hand_ended == SEATED_ACCOUNTS
+        assert first.seated_when_hand_ended == frozenset()
+        assert refused.seated_when_hand_ended == frozenset()
+        assert second.seated_when_hand_ended == frozenset()
+
+    def test_standing_up_works_again_and_the_next_dealer_is_gone(self, seated: Seated) -> None:
+        pass_in(seated)
+
+        result = seated.service.stand(seated.forehand, StandUp("stand", seated.table_id), NOBODY_CONNECTED)
+
+        assert result.refusal is None
+        assert result.view.passed_in is not None
+        assert result.view.passed_in.next_dealer_seat is None
+
+    def test_the_sit_that_fills_the_third_chair_deals_by_the_next_dealer_without_a_draw_and_empties_the_auction(
+        self, store: FakeTableStore
+    ) -> None:
+        seated = seat_three(TableService(store, random_source=AlwaysDrawsSeatOne()), store)
+        first_dealer = seated.table().dealer
+        pass_in(seated)
+        seated.service.stand(seated.forehand, StandUp("stand", seated.table_id), NOBODY_CONNECTED)
+        version = seated.table().version
+
+        result = seated.service.sit(DORA, SitDown("fills-the-third", seated.table_id, 2), NOBODY_CONNECTED)
+
+        assert first_dealer == 1
+        assert seated.table().dealer == 2
+        assert seated.table().hand is not None
+        assert seated.table().progress.auction == ()
+        assert result.view.passed_in is None
+        assert seated.table().version == version + 1
+        assert result.seated_when_hand_ended == frozenset()
+
+    def test_the_new_hand_starts_a_fresh_auction(self, store: FakeTableStore) -> None:
+        seated = seat_three(TableService(store, random_source=AlwaysDrawsSeatOne()), store)
+        pass_in(seated)
+        seated.service.stand(seated.forehand, StandUp("stand", seated.table_id), NOBODY_CONNECTED)
+        seated.service.sit(DORA, SitDown("fills-the-third", seated.table_id, 2), NOBODY_CONNECTED)
+        new_middlehand = ANNA
+
+        result = seated.send(new_middlehand, AuctionAction.BID, value=18, command_id="new-bid")
+
+        assert result.refusal is None
+        assert seated.table().progress.auction == (Bid(Position.MIDDLEHAND, 18),)
 
 
 class TestRefusalParser:

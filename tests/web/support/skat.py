@@ -18,9 +18,9 @@ UNKNOWN_ID = "0" * 32
 
 
 class Skat:
-    def __init__(self, sign_in_settings, **app_options):
+    def __init__(self, sign_in_settings, store=None, **app_options):
         self.stores = SignInStores.in_memory()
-        self.store = FakeTableStore()
+        self.store = store if store is not None else FakeTableStore()
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),

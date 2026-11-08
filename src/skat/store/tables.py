@@ -1,12 +1,13 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Final, Literal
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
+from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
-from skat.store.auction import append_steps, read_steps
+from skat.store.auction import append_steps, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, read_declaring_steps
 from skat.store.playing import append_plays, read_plays
 from skat.store.schema import (
@@ -20,6 +21,7 @@ from skat.store.schema import (
     receipts,
     tables,
 )
+from skat.table.hand_state import auction_of
 from skat.table.records import Chair, HandProgress, Occupant, Receipt, Replay, TableId, TableRecord, parsed_refusal
 from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
 
@@ -138,13 +140,17 @@ class _PostgresTableTransaction:
 
     def save_table(self, table: TableRecord) -> None:
         dealt = _read_hand(self._connection, table.id.value)
-        if dealt is not None and table.hand != dealt and table.progress != HandProgress():
+        hand_ended = dealt is not None and table.hand is None and isinstance(auction_of(table).result, PassedIn)
+        if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not hand_ended:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._connection.execute(
             update(tables).where(tables.c.id == table.id.value).values(version=table.version, dealer=table.dealer)
         )
+        if hand_ended:
+            self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if table.hand is not None and dealt is None:
+            delete_steps(self._connection, table.id.value)
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
         append_steps(self._connection, table.id.value, table.progress.auction)
         append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
