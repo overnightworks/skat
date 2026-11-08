@@ -11,6 +11,7 @@ from sqlalchemy import (
     SmallInteger,
     Table,
     Text,
+    exists,
     insert,
     select,
     update,
@@ -185,13 +186,13 @@ class _PostgresTableTransaction:
         return _table_record(self._connection, table_id.value, lock=True)
 
     def save_table(self, table: TableRecord) -> None:
-        dealt_before = self._connection.execute(
-            select(tables.c.dealer).where(tables.c.id == table.id.value)
+        hand_stored = self._connection.execute(
+            select(exists().where(hand_cards.c.table_id == table.id.value))
         ).scalar_one()
         self._connection.execute(
             update(tables).where(tables.c.id == table.id.value).values(version=table.version, dealer=table.dealer)
         )
-        if table.hand is not None and dealt_before is None:
+        if table.hand is not None and not hand_stored:
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
         for chair in table.chairs:
             self._connection.execute(

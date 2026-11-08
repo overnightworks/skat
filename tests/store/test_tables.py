@@ -2,6 +2,7 @@ import itertools
 import random
 import threading
 from contextlib import contextmanager, suppress
+from dataclasses import replace
 
 import pytest
 from sqlalchemy import func, select, table, text
@@ -292,6 +293,19 @@ class TestHand:
         assert len(skat) == 2
         assert set().union(skat, *held.values()) == set(DECK)
         assert (record.version, count(engine, "hand_cards"), count(engine, "receipts")) == (3, 32, 3)
+
+    def test_a_hand_saved_after_a_dealer_without_a_hand_reads_back(self, dealing, engine):
+        dealt_id, _ = self.seat_three(dealing)
+        dealt = self.stored(engine, dealt_id)
+        other_id = dealing.create(OPENER, CreateTable(command_id="command-other")).id
+        other = self.stored(engine, other_id)
+        with PostgresTableTransactions(engine).begin() as transaction:
+            transaction.save_table(replace(other, dealer=dealt.dealer))
+        with PostgresTableTransactions(engine).begin() as transaction:
+            transaction.save_table(replace(other, dealer=dealt.dealer, hand=dealt.hand))
+
+        record = self.stored(engine, other_id)
+        assert (record.dealer, record.hand) == (dealt.dealer, dealt.hand)
 
     def test_a_fresh_store_reads_the_identical_hand_and_dealer(self, dealing, engine, database_url):
         table_id, _ = self.seat_three(dealing)
