@@ -322,8 +322,7 @@ class TestAuctionView:
         self.play_out(seated, [("middlehand", AuctionAction.BID, 22), ("forehand", AuctionAction.HOLD, None)])
 
         views = [
-            self.auction_for(seated, viewer)
-            for viewer in (seated.forehand, seated.middlehand, seated.rearhand, DORA)
+            self.auction_for(seated, viewer) for viewer in (seated.forehand, seated.middlehand, seated.rearhand, DORA)
         ]
 
         assert {(view.words, view.turn_seat, view.standing) for view in views} == {
