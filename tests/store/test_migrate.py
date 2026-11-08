@@ -33,7 +33,7 @@ def _declaring_row(
     announcement="NULL",
 ):
     values = f"{table_id}, {ordinal}, {action}, {first}, {second}, {game}, {hand}, {ouvert}, {announcement}"
-    return f"INSERT INTO declaring_steps VALUES ({values})"  # noqa: S608 - a test's fixed values, no input
+    return f"INSERT INTO declaring_steps VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
 
 
 TAKE_ROW = _declaring_row()
