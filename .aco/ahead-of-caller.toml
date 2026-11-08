@@ -1,0 +1,4 @@
+[[code]]
+path = "src/skat/engine"
+item = "overnightworks/skat#26"
+reason = "S4.1 wires the deal into the table once seats land."
