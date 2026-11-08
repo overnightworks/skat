@@ -16,7 +16,7 @@ from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import idle_hold, idle_presence
-from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, cards_in_text, seated_three, wire_cards
+from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
@@ -733,7 +733,7 @@ class TestHandOnTheStream:
         assert json.loads(first.removeprefix("data: "))["passed_in"] == {"next_dealer_seat": next_dealer(DEALER_SEAT)}
         assert cards_in_text(first) == set()
 
-    def test_an_accepted_declaring_step_sends_a_fresh_snapshot_with_no_new_field_and_no_skat_card(self, skat):
+    def test_an_accepted_declaring_step_sends_the_declarer_a_fresh_snapshot_with_the_twelve_cards(self, skat):
         table_id, people = seated_three(skat)
         declarer_headers, rearhand_headers, forehand_headers = people[0][0], people[1][0], people[2][0]
         for command_id, headers, action, fields in [
@@ -766,8 +766,8 @@ class TestHandOnTheStream:
         fresh = json.loads(fresh_line.removeprefix("data: "))
         assert fresh["version"] == opened["version"] + 1
         assert set(fresh) == set(opened)
-        assert cards_in_text(fresh_line) == wire_cards(CARDS_BY_SEAT[1])
-        assert fresh["hand"]["skat_count"] == opened["hand"]["skat_count"]
+        assert cards_in_text(fresh_line) == wire_cards((*CARDS_BY_SEAT[1], *SKAT_CARDS))
+        assert fresh["hand"]["skat_count"] == 0
 
     def test_a_stream_opened_after_the_last_one_dropped_starts_from_the_full_current_hand(self, skat):
         table_id, people = seated_three(skat)
