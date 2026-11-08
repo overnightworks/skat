@@ -1,6 +1,6 @@
-"""Write the browser's typed copy of the paths the Python app owns.
+"""Write the browser's typed copy of the paths and answer tokens the Python app owns.
 
-The Python constants own the paths; this generator renders them as TypeScript constants.
+The Python constants own the paths and the enums own the tokens; this generator renders them as TypeScript constants.
 `--check` writes nothing and fails when the committed file differs from the rendering or is
 missing, so CI catches drift.
 """
@@ -26,14 +26,28 @@ from skat.web.tables import (  # noqa: E402
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
+    PositionToken,
+    RankToken,
+    SuitToken,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from enum import StrEnum
 
 OUTPUT = Path("frontend/src/lib/wire.ts")
 CHECK_FLAG = "--check"
-HEADER = "// Generated from the Python path owners by scripts/generate_wire.py. Do not edit.\n"
+HEADER = "// Generated from the Python path and token owners by scripts/generate_wire.py. Do not edit.\n"
+TOKEN_TUPLES: dict[str, type[StrEnum]] = {
+    "SUIT_TOKENS": SuitToken,
+    "RANK_TOKENS": RankToken,
+    "POSITION_TOKENS": PositionToken,
+}
+
+
+def token_tuple(name: str, tokens: type[StrEnum]) -> str:
+    listed = ", ".join(f'"{token.value}"' for token in tokens)
+    return f"export const {name} = [{listed}] as const;\n"
 
 
 def render() -> str:
@@ -50,7 +64,9 @@ def render() -> str:
         "TABLE_SIT_SUFFIX": TABLE_SIT_SUFFIX,
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
     }
-    return HEADER + "\n" + "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
+    paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
+    tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())
+    return HEADER + "\n" + paths + tuples
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:
