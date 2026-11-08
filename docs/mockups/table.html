@@ -69,8 +69,8 @@ body.solo .frame{border-radius:0;border:0}
 .felt::before{content:"";position:absolute;inset:var(--line,16px);border-radius:inherit;border:1.5px solid rgba(240,214,150,.16)}
 .rosette{position:absolute;left:50%;top:var(--ry,50%);width:var(--rs,170px);height:var(--rs,170px);transform:translate(-50%,-50%);
   border-radius:50%;border:1.5px solid rgba(240,214,150,.13);box-shadow:inset 0 0 0 7px rgba(0,0,0,.05)}
-.seatglow{position:absolute;width:var(--gw,180px);height:var(--gh,120px);transform:translate(-50%,-50%);border-radius:50%;
-  background:radial-gradient(closest-side,rgba(122,167,240,.36),rgba(122,167,240,.1) 60%,transparent);pointer-events:none}
+/* the glow fills the frame and paints its ellipse at the seat, so a seat at the edge stays inside the frame */
+.seatglow{inset:0;background:radial-gradient(calc(var(--gw) / 2) calc(var(--gh) / 2) at var(--gx) var(--gy),rgba(122,167,240,.36),rgba(122,167,240,.1) 60%,transparent);pointer-events:none}
 </style>
 <style>
 /* ---------- a seat: leather chair back with brass studs, the video (or avatar) inside, brass nameplate, score coaster ---------- */
@@ -621,7 +621,7 @@ function hand(cards,o){
 const SUITS=['c','s','h','d'];
 const table=(o)=>`<div class="table ${o.thud?'thud':''}" style="${at({left:o.x,top:o.y,width:o.w,height:o.h,'--tr':o.tr,'--rim':o.rim,'--d':o.thud})}"><div class="felt" style="${at({'--line':o.line||16})}">
   <div class="rosette" style="${at({'--ry':o.ry||'50%','--rs':o.rs||170})}"></div></div></div>`;
-const glow=(x,y,w,h)=>`<div class="seatglow" style="${at({left:x,top:y,'--gw':w,'--gh':h})}"></div>`;
+const glow=(x,y,w,h)=>`<div class="seatglow" style="${at({'--gx':x,'--gy':y,'--gw':w,'--gh':h})}"></div>`;
 const gameLine=(s,name,extra='')=>`<div class="game">${s?`<span class="suit">${suitIcon(s)}</span>`:''}${name}${extra}</div>`;
 const points=(d,o,pw,from)=>`<div class="points" style="--pw:${pw}px"><div class="nums"><span class="d">Anna ${d}</span><span class="o">Wir ${o}</span></div>
   <div class="track"><div class="fd" style="width:${(d/120*100).toFixed(1)}%"></div><div class="fo ${from!==undefined?'grow':''}" style="width:${(o/120*100).toFixed(1)}%;--from:${from!==undefined?(from/120*100).toFixed(1):0}%;--d:.75s"></div><span class="t61"></span></div></div>`;
