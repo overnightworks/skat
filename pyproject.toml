@@ -157,16 +157,9 @@ layers = ["host", "web | store", "table", "engine"]
 
 [[tool.importlinter.contracts]]
 id = "table-core"
-name = "The table core imports no framework, driver or adapter"
+name = "The table core and the engine import no framework, driver or adapter"
 type = "forbidden"
-source_modules = ["skat.table"]
-forbidden_modules = ["sqlalchemy", "alembic", "psycopg", "fastapi", "starlette", "webauth"]
-
-[[tool.importlinter.contracts]]
-id = "engine"
-name = "The engine imports no framework, driver or adapter"
-type = "forbidden"
-source_modules = ["skat.engine"]
+source_modules = ["skat.table", "skat.engine"]
 forbidden_modules = ["sqlalchemy", "alembic", "psycopg", "fastapi", "starlette", "webauth"]
 
 [[tool.importlinter.contracts]]
