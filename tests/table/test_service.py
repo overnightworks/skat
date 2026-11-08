@@ -2,10 +2,10 @@ import itertools
 
 import pytest
 
-from skat.table.records import Actor, CreateTable, Receipt, TableId
+from skat.table.records import Actor, CreateTable, Receipt, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
-from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
+from tests.table.seating_store import SeatingTableStore
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
@@ -13,7 +13,7 @@ VISITOR = Actor(account_id="account-visitor", display_name="Ben")
 
 @pytest.fixture
 def store():
-    return FakeTableStore()
+    return SeatingTableStore()
 
 
 @pytest.fixture
@@ -134,3 +134,142 @@ class TestTableId:
         assert all(
             len(identifier.value) == 32 and TableId.parse(identifier.value) == identifier for identifier in identifiers
         )
+
+
+class SeatingFailsAfterTheDecision(SeatingTableStore):
+    def save_table(self, table):
+        raise RuntimeError("connection lost")
+
+
+@pytest.fixture
+def table_id(service):
+    return service.create(OPENER, CreateTable(command_id="command-open")).id
+
+
+def sit(service, actor, table_id, seat, command_id="command-sit"):
+    return service.sit(actor, SitDown(command_id, table_id, seat))
+
+
+def occupants_of(view):
+    return [chair.occupant_name for chair in view.chairs]
+
+
+class TestSit:
+    def test_seats_the_member_in_the_chair_and_marks_it_theirs(self, service, table_id):
+        result = sit(service, VISITOR, table_id, 2)
+
+        assert result.refusal is None
+        assert [(chair.occupant_name, chair.is_mine) for chair in result.view.chairs] == [
+            ("Anna", False),
+            ("Ben", True),
+            (None, False),
+        ]
+
+    def test_the_seat_is_there_for_the_next_read(self, service, table_id):
+        sit(service, VISITOR, table_id, 2)
+
+        assert occupants_of(service.view(OPENER, table_id, frozenset())) == ["Anna", "Ben", None]
+
+    def test_refuses_a_taken_chair_naming_who_holds_it(self, service, table_id):
+        result = sit(service, VISITOR, table_id, 1)
+
+        assert (result.refusal, result.holder) == (Refusal.SEAT_TAKEN, "Anna")
+        assert occupants_of(result.view) == ["Anna", None, None]
+
+    def test_the_loser_of_the_last_chair_is_told_who_got_it(self, service, table_id):
+        sit(service, VISITOR, table_id, 2)
+        sit(service, Actor("account-third", "Cem"), table_id, 3)
+
+        late = sit(service, Actor("account-fourth", "Dora"), table_id, 3)
+
+        assert (late.refusal, late.holder) == (Refusal.SEAT_TAKEN, "Cem")
+
+    def test_refuses_a_second_chair_to_a_seated_member(self, service, table_id):
+        result = sit(service, OPENER, table_id, 2)
+
+        assert result.refusal is Refusal.ALREADY_SEATED
+        assert occupants_of(result.view) == ["Anna", None, None]
+
+    def test_a_retry_returns_the_first_seat_and_writes_nothing_more(self, service, store, table_id):
+        first = sit(service, VISITOR, table_id, 2)
+        written = dict(store.tables)
+
+        assert sit(service, VISITOR, table_id, 2) == first
+        assert store.tables == written
+
+    def test_a_retry_of_a_refusal_returns_the_refusal_even_after_the_chair_frees_up(self, service, table_id):
+        first = sit(service, VISITOR, table_id, 1)
+        service.stand(OPENER, StandUp("command-stand", table_id))
+
+        again = sit(service, VISITOR, table_id, 1)
+
+        assert (again.refusal, again.holder) == (first.refusal, first.holder)
+        assert occupants_of(again.view) == [None, None, None]
+
+    def test_refuses_a_command_id_reused_for_another_chair(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 2)
+        before = dict(store.tables)
+
+        with pytest.raises(CommandIdReusedError):
+            sit(service, VISITOR, table_id, 3)
+
+        assert store.tables == before
+
+    def test_refuses_a_command_id_reused_by_stand_up(self, service, table_id):
+        sit(service, VISITOR, table_id, 2)
+
+        with pytest.raises(CommandIdReusedError):
+            service.stand(VISITOR, StandUp("command-sit", table_id))
+
+    @pytest.mark.parametrize("unknown", ["0" * 32, "", "not-an-id"])
+    def test_an_unknown_or_malformed_table_is_no_table_and_writes_nothing(self, service, store, unknown):
+        before = (dict(store.tables), dict(store.receipts))
+
+        assert sit(service, VISITOR, unknown, 2) is None
+        assert (store.tables, store.receipts) == before
+
+    def test_a_failure_after_the_decision_persists_nothing(self, table_id):
+        broken = SeatingFailsAfterTheDecision()
+        service = TableService(broken)
+        created = service.create(OPENER, CreateTable(command_id="command-open"))
+        before = (dict(broken.tables), dict(broken.receipts))
+
+        with pytest.raises(RuntimeError, match="connection lost"):
+            sit(service, VISITOR, created.id, 2)
+
+        assert (broken.tables, broken.receipts) == before
+
+
+class TestStand:
+    def test_frees_the_own_chair_and_keeps_every_number(self, service, table_id):
+        sit(service, VISITOR, table_id, 3)
+
+        result = service.stand(VISITOR, StandUp("command-stand", table_id))
+
+        assert result.refusal is None
+        assert [(chair.seat, chair.occupant_name) for chair in result.view.chairs] == [
+            (1, "Anna"),
+            (2, None),
+            (3, None),
+        ]
+
+    def test_refuses_a_member_without_a_chair_and_changes_nothing(self, service, table_id):
+        result = service.stand(VISITOR, StandUp("command-stand", table_id))
+
+        assert result.refusal is Refusal.NOT_SEATED
+        assert occupants_of(service.view(OPENER, table_id, frozenset())) == ["Anna", None, None]
+
+    def test_a_retry_returns_the_first_outcome(self, service, store, table_id):
+        first = service.stand(OPENER, StandUp("command-stand", table_id))
+        written = dict(store.tables)
+
+        assert service.stand(OPENER, StandUp("command-stand", table_id)) == first
+        assert store.tables == written
+
+    def test_another_member_may_take_the_freed_chair(self, service, table_id):
+        service.stand(OPENER, StandUp("command-stand", table_id))
+
+        assert occupants_of(sit(service, VISITOR, table_id, 1).view) == ["Ben", None, None]
+
+    def test_an_unknown_table_is_no_table(self, service):
+        assert service.stand(OPENER, StandUp("command-stand", "0" * 32)) is None
