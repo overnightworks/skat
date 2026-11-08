@@ -1,7 +1,0 @@
-claim_id = "32364e3551ae48ad8a30395736bca90b"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "2759fb961834dccbcba11cc5392c7b5d96d5b5c4"
-branch = "claude/issue-38-engine-declaration"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/declaration.py", "tests/engine/test_declaration.py"]
-opened_commit = "4cc503d42c1b2aa87426fe2ddda3139e79df1d57"
