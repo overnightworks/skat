@@ -2,7 +2,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
-from skat.engine.bidding import Bid, Hold, Pass, Play, auction_step
+from skat.engine.bidding import Bid, Hold, Pass, PassedIn, Play, auction_step
 from skat.engine.deal import positions_from
 from skat.table.hand_state import auction_of
 from skat.table.records import Decision, Refusal
@@ -61,7 +61,10 @@ def auction_payload(command: AuctionCommand) -> str:
 
 
 def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> Decision:
-    """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason."""
+    """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason.
+
+    The third pass ends the hand: its cards go, its steps stay until the next deal.
+    """
     if table.dealer is None or not hand_runs(table):
         return Decision(table, Refusal.NO_HAND)
     chair = seat_of(table, actor.account_id)
@@ -74,4 +77,7 @@ def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> De
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     steps = (*table.progress.auction, step)
-    return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, auction=steps)))
+    hand = None if isinstance(outcome.auction.result, PassedIn) else table.hand
+    return Decision(
+        replace(table, version=table.version + 1, hand=hand, progress=replace(table.progress, auction=steps))
+    )

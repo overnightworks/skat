@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Final
 
-from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, insert, select
+from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, delete, insert, select
 
 from skat.engine.bidding import VALID_BIDS, Bid
 from skat.store.schema import POSITION_TEXT, metadata, one_of, tables
@@ -41,6 +41,11 @@ def read_steps(connection: Connection, table_id: str) -> tuple[AuctionStep, ...]
         .order_by(auction_actions.c.ordinal)
     )
     return tuple(step_of(AuctionAction(row.action), row.value, _POSITION_OF_TEXT[row.position]) for row in rows)
+
+
+def delete_steps(connection: Connection, table_id: str) -> None:
+    """Forget the steps of the hand before; only a new hand's write calls this."""
+    connection.execute(delete(auction_actions).where(auction_actions.c.table_id == table_id))
 
 
 def append_steps(connection: Connection, table_id: str, steps: tuple[AuctionStep, ...]) -> None:
