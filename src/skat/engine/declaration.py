@@ -172,13 +172,11 @@ type DeclaringStep = TakeSkat | PutBack | Declare
 
 
 def declaring_step(state: Declaring, step: DeclaringStep) -> DeclarationOutcome:
-    match step:
-        case TakeSkat():
-            return take_skat(state)
-        case PutBack(cards):
-            return put_back(state, cards)
-        case Declare(kind, hand, ouvert, announcement):
-            return declare(state, kind, hand=hand, ouvert=ouvert, announcement=announcement)
+    if isinstance(step, TakeSkat):
+        return take_skat(state)
+    if isinstance(step, PutBack):
+        return put_back(state, step.cards)
+    return declare(state, step.kind, hand=step.hand, ouvert=step.ouvert, announcement=step.announcement)
 
 
 def declaring_after(start: Declaring, steps: tuple[DeclaringStep, ...]) -> Declaring:
