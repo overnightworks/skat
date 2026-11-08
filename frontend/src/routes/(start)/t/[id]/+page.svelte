@@ -3,6 +3,7 @@
     import { page } from "$app/state";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
+    import OwnHand from "#lib/ui/OwnHand.svelte";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
@@ -49,6 +50,7 @@
     });
 
     const seated = $derived(outcome?.kind === "table" && outcome.table.chairs.some((chair) => chair.is_mine));
+    const ownCards = $derived(outcome?.kind === "table" ? (outcome.table.hand?.own_cards ?? []) : []);
 
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
@@ -156,6 +158,9 @@
                 {/each}
             </ul>
             <div class="controls">
+                {#if ownCards.length > 0}
+                    <OwnHand cards={ownCards} />
+                {/if}
                 <div class="actions">
                     {#if seated}
                         <button type="button" class="copy" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
