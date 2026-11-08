@@ -1,6 +1,7 @@
 import asyncio
 import json
 import threading
+from contextlib import contextmanager
 from functools import partial
 
 import pytest
@@ -500,11 +501,21 @@ def occupied_seats(skat, table_id):
 
 
 class OvertakenStore(FakeTableStore):
-    """A store whose row lock is won by another caller first: `meanwhile` runs once, when the next lock is asked."""
+    """A store another caller overtakes: `meanwhile` runs once when the next row lock is asked, `after_commit` once
+    when the next transaction has committed."""
 
     def __init__(self):
         super().__init__()
         self.meanwhile = None
+        self.after_commit = None
+
+    @contextmanager
+    def begin(self):
+        with super().begin() as transaction:
+            yield transaction
+        if self.after_commit is not None:
+            action, self.after_commit = self.after_commit, None
+            action()
 
     def locked_table(self, table_id):
         if self.meanwhile is not None:
@@ -542,6 +553,33 @@ class TestHoldWhenTheHandEnds:
             store.meanwhile = third_pass
 
             server.client.portal.call(time.advance, 1)
+
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            server.client.portal.call(time.advance, 2)
+            assert occupied_seats(server, table_id) == set()
+
+    def test_an_old_expiry_reaching_the_table_right_after_the_third_pass_committed_leaves_the_fresh_hold_alone(
+        self, hold, time
+    ):
+        store = OvertakenStore()
+        server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
+        with server.client:
+            table_id, people = seated_three(server)
+            with server.client.stream(
+                "GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[0][0]
+            ) as s:
+                next(s.iter_lines())
+                s.close()
+            server.client.cookies.clear()
+            for seat in (1, 2):
+                version = store.tables[table_id].version
+                post_pass(server, table_id, people[seat - 1][0], command_id=f"pass-seat-{seat}", version=version)
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+            store.after_commit = partial(server.client.portal.call, time.advance, 1)
+
+            post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=store.tables[table_id].version)
 
             assert occupied_seats(server, table_id) == {1, 2, 3}
             server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)

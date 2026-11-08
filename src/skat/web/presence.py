@@ -73,7 +73,7 @@ class Presence:
     """Who is connected to which table, in this process only, and since when each away member has been gone.
 
     The event loop owns every write to the subscriptions. A worker touches only the leave times and the
-    committing marker, under `_state`, inside `due`. A wake carries no data: a stream
+    committing marker, under `_state`, inside `due` and in `restart_leaves`. A wake carries no data: a stream
     that falls behind finds several changes folded into one wake and reads the latest state, which is its
     fresh snapshot.
 
