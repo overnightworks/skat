@@ -237,7 +237,7 @@ class TestSitDown:
         headers, _ = skat.member()
         presence = idle_presence()
         answering_first(skat, TableService(skat.store), presence)
-        presence.subscribe(table_id, owner.id, lambda: None)
+        asyncio.run(presence.subscribe(table_id, owner.id, lambda: None))
 
         answer = act(skat, headers, table_id)
 
