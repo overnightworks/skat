@@ -1,4 +1,5 @@
 import itertools
+import json
 from dataclasses import replace
 
 import pytest
@@ -12,8 +13,8 @@ from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX, AnnouncementToken, DeclaringAction, GameToken
 from skat.web.playing import TABLE_CARD_SUFFIX
-from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, seated_three
+from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLES_PATH
+from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import UNKNOWN_ID
 
@@ -451,3 +452,22 @@ class TestRetries:
         assert again.json()["version"] == later.version
         assert first.json()["id"] == again.json()["id"]
         assert herz_hand.record == later
+
+
+class TestTheStream:
+    def test_an_accepted_card_sends_a_fresh_snapshot_with_no_foreign_card(self, herz_hand, skat):
+        skat.client.cookies.clear()
+        events = f"{TABLES_PATH}/{herz_hand.table_id}{TABLE_EVENTS_SUFFIX}"
+
+        with skat.client.stream("GET", events, headers=herz_hand.at[REARHAND]) as stream:
+            lines = stream.iter_lines()
+            opened = json.loads(next(lines).removeprefix("data: "))
+            next(lines)
+            skat.client.cookies.clear()
+            answer = herz_hand.send(herz_hand.at[FOREHAND], card("S7"), version=opened["version"])
+            assert answer.status_code == 200, answer.text
+            fresh_line = next(lines)
+
+        fresh = json.loads(fresh_line.removeprefix("data: "))
+        assert fresh["version"] == opened["version"] + 1
+        assert cards_in_text(fresh_line) <= wire_cards(KNOWN_DEAL.rearhand)

@@ -19,7 +19,6 @@ from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, Refusal, SitDown
 from skat.table.service import TableService
-from tests.store.conftest import stored
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 
 pytestmark = pytest.mark.postgres
@@ -47,9 +46,10 @@ def count_rows(engine):
 class Game:
     """A table whose middlehand won at 18 and declared a Herz Hand game; forehand leads."""
 
-    def __init__(self, service, transactions, table_id):
+    def __init__(self, service, transactions, stored, table_id):
         self.service = service
         self.transactions = transactions
+        self.stored = stored
         self.table_id = table_id
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
@@ -65,7 +65,7 @@ class Game:
 
     @property
     def record(self):
-        return stored(self.transactions, self.table_id)
+        return self.stored(self.transactions, self.table_id)
 
     @property
     def plays(self):
@@ -98,11 +98,11 @@ class Game:
 
 
 @pytest.fixture
-def game(service, transactions):
+def game(service, transactions, stored):
     table_id = service.create(person("Anna"), CreateTable(command_id="command-open")).id
     service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
     service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
-    return Game(service, transactions, table_id)
+    return Game(service, transactions, stored, table_id)
 
 
 def test_the_cards_read_back_in_the_order_they_were_played(game):
@@ -192,7 +192,7 @@ def test_two_cards_at_once_store_exactly_one_row_and_name_the_loser_stale(game, 
     assert sorted(str(result.refusal) for result in results) == sorted([str(None), str(Refusal.STALE_VERSION)])
 
 
-def test_a_restart_reads_the_identical_cards_and_play_continues(game, database_url):
+def test_a_restart_reads_the_identical_cards_and_play_continues(game, database_url, stored):
     game.play_legally(1)
     next_position, next_card = game.legal_card()
 
@@ -225,43 +225,43 @@ def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(ga
     assert receipts == 0
 
 
-def _rewrite(transactions, record, plays):
+def _rewrite(stored, transactions, record, plays):
     rewritten = replace(record, version=record.version + 1, progress=replace(record.progress, plays=plays))
     with transactions.begin() as transaction:
         transaction.save_table(rewritten)
 
 
-def test_cards_that_rewrite_a_stored_card_raise_and_change_nothing(game, transactions):
+def test_cards_that_rewrite_a_stored_card_raise_and_change_nothing(game, transactions, stored):
     game.play_legally(1)
     before = game.record
     position, _ = game.legal_card()
     other_play = (CardPlayed(position, before.hand.skat[0]),)
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(transactions, before, other_play)
+        _rewrite(stored, transactions, before, other_play)
 
     assert game.record == before
 
 
-def test_cards_shorter_than_the_stored_ones_raise_and_change_nothing(game, transactions):
+def test_cards_shorter_than_the_stored_ones_raise_and_change_nothing(game, transactions, stored):
     game.play_legally(1)
     before = game.record
     no_plays: tuple[CardPlayed, ...] = ()
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(transactions, before, no_plays)
+        _rewrite(stored, transactions, before, no_plays)
 
     assert game.record == before
 
 
-def test_the_same_card_stored_twice_raises_on_the_unique_key(game, transactions):
+def test_the_same_card_stored_twice_raises_on_the_unique_key(game, transactions, stored):
     game.play_legally(1)
     before = game.record
     first = before.progress.plays[0]
     repeated = (first, CardPlayed(Position.MIDDLEHAND, first.card))
 
     with pytest.raises(IntegrityError):
-        _rewrite(transactions, before, repeated)
+        _rewrite(stored, transactions, before, repeated)
 
     assert game.record == before
 

@@ -25,6 +25,12 @@ def service(transactions):
     return TableService(transactions, random_source=random.Random(8))  # noqa: S311 - a seeded source makes the deal reproducible
 
 
-def stored(transactions, table_id):
-    with transactions.begin() as transaction:
-        return transaction.table(TableId(table_id))
+@pytest.fixture
+def stored():
+    """The reader of a table as a transactions port holds it; a restart test hands it the port it restarted."""
+
+    def read(transactions, table_id):
+        with transactions.begin() as transaction:
+            return transaction.table(TableId(table_id))
+
+    return read
