@@ -1,0 +1,8 @@
+claim_id = "ad9c01bdf1034e49866800e1aedf3677"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "2759fb961834dccbcba11cc5392c7b5d96d5b5c4"
+branch = "claude/issue-37-engine-trumps-and-play"
+scope = [".aco/ahead-of-caller.toml", "src/skat/engine/games.py", "src/skat/engine/play.py", "tests/engine/test_play.py"]
+opened_commit = "f96007034ac1f9d161c682a7f50e411f835e5b21"
+whole_reason = "The trump order, the legal cards and the trick winner are one rule group; legal cards and the winner mean nothing without the order."
