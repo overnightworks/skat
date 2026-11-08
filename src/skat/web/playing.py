@@ -6,10 +6,10 @@ from pydantic import Field
 
 from skat.table.playing import PlayCardCommand
 from skat.web.tables import (
+    COMMAND_ID_PATTERN,
     COMMAND_RESPONSES,
     TABLES_PATH,
     CardChoice,
-    CreateTableRequest,
     TableAnswer,
     actor_of,
     card_of,
@@ -24,9 +24,10 @@ if TYPE_CHECKING:
 TABLE_CARD_SUFFIX: Final = "/card"
 
 
-class PlayCardRequest(CreateTableRequest, CardChoice):
+class PlayCardRequest(CardChoice):
     """A client names only the card and the version it saw: its seat and position come from the session."""
 
+    command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
     version: Annotated[int, Field(strict=True)]
 
 
