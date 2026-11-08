@@ -99,9 +99,10 @@ class Presence:
     starts.
 
     After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
-    then, and a stream's first view of the table starts the next pause if none is pending. Nothing about a pause
-    is stored: after a restart none is pending, and all three being connected can only become true by streams
-    opening, so no sweep is needed.
+    then, and a stream's first view of the table starts the next pause if none is pending. A later hand's end
+    replaces a pending pause, and the replaced timer does nothing when it fires, so a pause that belonged to an
+    earlier hand never shortens this one's. Nothing about a pause is stored: after a restart none is pending, and
+    all three being connected can only become true by streams opening, so no sweep is needed.
     """
 
     def __init__(self, hold: ChairHold, next_deal: NextDeal) -> None:
@@ -109,7 +110,7 @@ class Presence:
         self._stopped = False
         self._hold = hold
         self._next_deal = next_deal
-        self._pausing: set[str] = set()
+        self._pauses: dict[str, object] = {}
         self._left_at: dict[tuple[str, str], float] = {}
         self._state = threading.Lock()
         self._committing: dict[tuple[str, str], asyncio.Event] = {}
@@ -182,15 +183,23 @@ class Presence:
 
     def deal_soon(self, table_id: str) -> None:
         """Start the pause before a table's next deal; a request during a pending one neither cuts nor stretches it."""
-        if self._stopped or table_id in self._pausing:
-            return
-        self._pausing.add(table_id)
-        self._hold.scheduler.schedule(self._next_deal.seconds, partial(self._deal_after_pause, table_id))
+        if table_id not in self._pauses:
+            self.restart_deal_pause(table_id)
 
-    async def _deal_after_pause(self, table_id: str) -> None:
+    def restart_deal_pause(self, table_id: str) -> None:
+        """Start a table's pause from now, whatever pause was pending: a hand ended, and this hand's pause is its own."""
+        if self._stopped:
+            return
+        pause = object()
+        self._pauses[table_id] = pause
+        self._hold.scheduler.schedule(self._next_deal.seconds, partial(self._deal_after_pause, table_id, pause))
+
+    async def _deal_after_pause(self, table_id: str, pause: object) -> None:
+        if self._pauses.get(table_id) is not pause:
+            return
         # The pause is over before the deal is asked for, so a stream that opens while the deal runs and finds the
         # table still passed in starts the next pause instead of waiting on an answer that left it out.
-        self._pausing.discard(table_id)
+        del self._pauses[table_id]
         try:
             dealt = await self._next_deal.deal(table_id, self.connected(table_id))
         except Exception as failure:

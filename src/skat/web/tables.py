@@ -289,7 +289,7 @@ async def command_answer(
     away = result.seated_when_hand_ended - presence.connected(table_id)
     presence.hold_chairs((table_id, account_id) for account_id in away)
     if result.seated_when_hand_ended:
-        presence.deal_soon(table_id)
+        presence.restart_deal_pause(table_id)
     return answer_of(result.view)
 
 

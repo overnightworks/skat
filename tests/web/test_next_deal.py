@@ -45,6 +45,20 @@ class TestNextDealPause:
         run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
         assert len(deals.calls) == 1
 
+    def test_a_restart_replaces_the_pending_pause_and_a_later_request_leaves_the_new_one_alone(
+        self, holding, time, deals
+    ):
+        holding.deal_soon(TABLE)
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS - 1))
+
+        holding.restart_deal_pause(TABLE)
+        holding.deal_soon(TABLE)
+        run(time.advance(NEXT_DEAL_PAUSE_SECONDS - 0.001))
+        assert deals.calls == []
+
+        run(time.advance(0.001))
+        assert len(deals.calls) == 1
+
     def test_each_table_has_its_own_pause(self, holding, time):
         holding.deal_soon(TABLE)
         holding.deal_soon(OTHER_TABLE)
@@ -224,6 +238,35 @@ class TestNextHandComes:
 
             assert server.store.tables[table_id] == after_standing
             assert after_standing.hand is None
+
+    def test_a_later_hands_end_restarts_the_pause_and_the_earlier_hands_timer_does_nothing(self, server, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:3]):
+            pass_hand_in(server, table_id, people)
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS / 4)
+
+            server.stand(people[0][0], table_id)
+            server.client.cookies.clear()
+            server.sit(people[0][0], table_id, 1, command_id="command-sit-again")
+            server.client.cookies.clear()
+            assert server.store.tables[table_id].hand is not None
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS / 2)
+
+            next_dealers_turn_order = (2, 3, 1)
+            pass_hand_in(server, table_id, people, seats_in_turn=next_dealers_turn_order)
+            later_hand_passed_in = server.store.tables[table_id]
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS / 4)
+            assert server.store.tables[table_id] == later_hand_passed_in
+
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 3 / 4 - 0.001)
+            assert server.store.tables[table_id] == later_hand_passed_in
+
+            advance(server, time, 0.001)
+            assert server.store.tables[table_id].version == later_hand_passed_in.version + 1
+
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
+            assert server.store.tables[table_id].version == later_hand_passed_in.version + 1
 
     def test_a_retry_of_the_third_pass_during_the_pause_and_after_the_deal_starts_no_timer_and_no_deal(
         self, server, time

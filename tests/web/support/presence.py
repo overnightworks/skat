@@ -88,11 +88,11 @@ def post_pass(skat, table_id, headers, *, command_id, version):
     )
 
 
-def pass_hand_in(skat, table_id, people):
-    """`seated_three` dealt seat 1 the middlehand, seat 2 the rearhand and seat 3 the forehand."""
-    for seat in (1, 2, 3):
+def pass_hand_in(skat, table_id, people, seats_in_turn=(1, 2, 3)):
+    """By default in `seated_three`'s turn: it dealt seat 1 the middlehand, seat 2 the rearhand, seat 3 the forehand."""
+    for seat in seats_in_turn:
         version = skat.store.tables[table_id].version
-        answer = post_pass(skat, table_id, people[seat - 1][0], command_id=f"pass-seat-{seat}", version=version)
+        answer = post_pass(skat, table_id, people[seat - 1][0], command_id=f"pass-at-{version}", version=version)
         assert answer.status_code == 200, answer.text
 
 
