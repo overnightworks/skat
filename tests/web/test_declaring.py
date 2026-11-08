@@ -633,10 +633,6 @@ def declared_null_ouvert_after_pickup(table):
     table.accepted(DeclaringAction.DECLARE, **declared_body(GameToken.NULL, ouvert=True))
 
 
-GRAND_WIRE = {"game": "grand", "hand": True, "ouvert": True, "announcement": "schwarz"}
-HERZ_WIRE = {"game": "herz", "hand": False, "ouvert": False, "announcement": "none"}
-HERZ_HAND_WIRE = {"game": "herz", "hand": True, "ouvert": False, "announcement": "none"}
-NULL_OUVERT_WIRE = {"game": "null", "hand": False, "ouvert": True, "announcement": "none"}
 PICKED = "picked"
 DECLARED = "declared"
 
@@ -647,16 +643,19 @@ MOMENTS = {
     "after-the-take": Moment(taken, stage="discarding", declarer_cards=TWELVE, skat_count=0),
     "put-back-two-dealt": Moment(put_back_two_of_the_dealt, stage=PICKED, declarer_cards=KEPT_WITH_THE_SKAT),
     "put-back-the-skat": Moment(put_back_the_skat, stage=PICKED),
-    "declared": Moment(declared, stage=DECLARED, declarer_cards=KEPT_WITH_THE_SKAT, declaration=HERZ_WIRE),
-    "hand-declared": Moment(declared_hand, stage=DECLARED, declaration=HERZ_HAND_WIRE),
+    "declared": Moment(declared, stage=DECLARED, declarer_cards=KEPT_WITH_THE_SKAT, declaration=declared_body()),
+    "hand-declared": Moment(declared_hand, stage=DECLARED, declaration=hand_declaration()),
     "ouvert-hand-declared": Moment(
-        declared_ouvert_hand, stage=DECLARED, declaration=GRAND_WIRE, open_cards=MIDDLEHAND_CARDS
+        declared_ouvert_hand,
+        stage=DECLARED,
+        declaration=declared_body(GameToken.GRAND, hand=True, ouvert=True, announcement=AnnouncementToken.SCHWARZ),
+        open_cards=MIDDLEHAND_CARDS,
     ),
     "null-ouvert-after-pickup": Moment(
         declared_null_ouvert_after_pickup,
         stage=DECLARED,
         declarer_cards=KEPT_WITH_THE_SKAT,
-        declaration=NULL_OUVERT_WIRE,
+        declaration=declared_body(GameToken.NULL, ouvert=True),
         open_cards=KEPT_WITH_THE_SKAT,
     ),
 }
