@@ -229,3 +229,31 @@ class TestSeating:
             holder.execute(text("SELECT id FROM tables WHERE id = :id FOR UPDATE"), {"id": table_id})
 
             assert service.view(OPENER, table_id, frozenset()) is not None
+
+    def test_one_command_id_on_two_tables_at_once_seats_one_and_refuses_the_other(self, service, engine, table_id):
+        other_id = service.create(OPENER, CreateTable(command_id="command-other")).id
+        racing = TableService(BothReadBeforeEitherWrites(PostgresTableTransactions(engine), 2))
+        outcomes = {}
+
+        def sit(target):
+            try:
+                outcomes[target] = racing.sit(VISITOR, SitDown("command-sit", target, 2))
+            except CommandIdReusedError as refused:
+                outcomes[target] = refused
+
+        threads = [threading.Thread(target=sit, args=(target,)) for target in (table_id, other_id)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        refused = [target for target, outcome in outcomes.items() if isinstance(outcome, CommandIdReusedError)]
+        assert len(refused) == 1
+        seated = {
+            target: [chair.occupant_name for chair in service.view(OPENER, target, frozenset()).chairs]
+            for target in (table_id, other_id)
+        }
+        versions = {target: service.view(OPENER, target, frozenset()).version for target in (table_id, other_id)}
+        assert seated.pop(refused[0]) == ["Anna", None, None]
+        assert list(seated.values()) == [["Anna", "Ben", None]]
+        assert (versions[refused[0]], count(engine, "receipts")) == (1, 3)
