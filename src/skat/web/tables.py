@@ -10,6 +10,8 @@ from skat.table.service import CommandIdReusedError
 from skat.web.routes import READ_METHODS, built_page_response
 
 if TYPE_CHECKING:
+    from webauth.ports import AuthenticatedUser
+
     from skat.table.service import TableService
     from skat.table.views import TableView
     from skat.web.page_build import PageBuild
@@ -53,13 +55,17 @@ def answer_of(view: TableView) -> TableAnswer:
     )
 
 
+def actor_for(user: AuthenticatedUser) -> Actor:
+    return Actor(account_id=user.id, display_name=user.username)
+
+
 def actor_of(request: Request) -> Actor:
     user = admitted_user(request)
     # The gate refuses a request without a session before the route runs, so a missing user is a wiring fault.
     if user is None:  # pragma: no cover
         message = "A table route ran without an admitted user."
         raise RuntimeError(message)
-    return Actor(account_id=user.id, display_name=user.username)
+    return actor_for(user)
 
 
 def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:

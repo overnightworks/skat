@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
         include: ["src/**/*.test.ts"],
         coverage: {
             provider: "v8",
-            include: ["src/lib/**/*.ts"],
+            include: ["src/lib/**/*.ts", "src/routes/(start)/tables.ts"],
             // wire.ts is generated.
             exclude: ["src/lib/**/wire.ts", "**/*.test.ts"],
             reporter: [
