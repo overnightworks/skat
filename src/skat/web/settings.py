@@ -1,7 +1,8 @@
+import re
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import AfterValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
@@ -15,10 +16,20 @@ def _require_no_trailing_slash(issuer: str) -> str:
     return issuer
 
 
-def _require_origin_without_path(origin: str) -> str:
-    if origin.removeprefix("https://").removeprefix("http://").partition("/")[1]:
-        raise ValueError("must be an origin without a path")
+# The browser's own serialisation of an https origin: the call page compares `event.origin` with it byte for byte.
+_BROWSER_ORIGIN = re.compile(
+    r"https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:(?!443$)[1-9][0-9]{0,4})?"
+)
+
+
+def _require_browser_origin(origin: str) -> str:
+    if not _BROWSER_ORIGIN.fullmatch(origin):
+        raise ValueError("must be an https origin as the browser writes it: lowercase host, no path, no port 443")
     return origin
+
+
+def _unset_when_empty(origin: object) -> object:
+    return None if origin == "" else origin
 
 
 def _require_absolute_path(path: Path) -> Path:
@@ -46,7 +57,8 @@ def _require_postgres_url_without_password(url: str) -> str:
 
 
 IssuerUrl = Annotated[str, AfterValidator(_require_no_trailing_slash)]
-OriginUrl = Annotated[str, AfterValidator(_require_origin_without_path)]
+OriginUrl = Annotated[str, AfterValidator(_require_browser_origin)]
+OptionalOriginUrl = Annotated[OriginUrl | None, BeforeValidator(_unset_when_empty)]
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
 PasswordlessPostgresUrl = Annotated[str, AfterValidator(_require_postgres_url_without_password)]
 
@@ -69,5 +81,7 @@ class ServerSettings(DatabaseSettings):
     oidc_client_secret_file: AbsolutePath = Field(repr=False)
     public_origin: OriginUrl
     session_secret_file: AbsolutePath = Field(repr=False)
+    # The one origin whose pages may frame Skat; unset or empty allows no framing.
+    call_origin: OptionalOriginUrl = None
     # Addresses and CIDR blocks, comma-separated, of the proxies allowed to name the client in X-Forwarded-For.
     trusted_proxies: str = ""

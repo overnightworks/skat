@@ -120,7 +120,7 @@ def _build_web_auth(
         session_secret=session_secret,
         trusted_proxies=trusted_proxies,
         rate_limits=SingleProcessRateLimitBackend(),
-        allowed_hosts_exact=frozenset({urlsplit(settings.public_origin).netloc.lower()}),
+        allowed_hosts_exact=frozenset({urlsplit(settings.public_origin).netloc}),
         session_lifetime=SessionLifetime(
             idle_seconds=SESSION_LIFETIME_SECONDS, absolute_max_age_seconds=SESSION_LIFETIME_SECONDS
         ),
