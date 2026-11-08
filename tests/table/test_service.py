@@ -480,9 +480,10 @@ class TestFreeChair:
         failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
 
         chair_to_free = TableId(table_id)
+        due = always_due()
 
         with pytest.raises(ConnectionError):
-            failing.free_chair(chair_to_free, VISITOR.account_id, always_due())
+            failing.free_chair(chair_to_free, VISITOR.account_id, due)
 
         assert store.tables == written
 
