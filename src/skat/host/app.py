@@ -34,6 +34,7 @@ from skat.web.constants import (
 )
 from skat.web.declaring import create_declaring_router
 from skat.web.gate import session_gate
+from skat.web.playing import create_playing_router
 from skat.web.presence import ChairHold, LoopScheduler, Presence
 from skat.web.routes import create_router
 from skat.web.sign_in import (
@@ -136,6 +137,7 @@ def create_app(
     app.include_router(create_tables_router(tables, page_build, presence))
     app.include_router(create_auction_router(tables, presence))
     app.include_router(create_declaring_router(tables, presence))
+    app.include_router(create_playing_router(tables, presence))
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
     app.state.stop_streams = presence.stop
     install_web_auth_config(app, sign_in_configs.web_auth)

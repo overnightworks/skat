@@ -48,10 +48,10 @@ def reason_of(answer):
     return answer.json()["reason"]
 
 
-def post_card(skat, table_id, headers, *, version=1, **changed):
+def post_card(skat, table_id, headers, **changed):
     return skat.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_CARD_SUFFIX}",
-        json={"command_id": "command-card", "version": version, **card_body(card("S7")), **changed},
+        json={"command_id": "command-card", "version": 1, **card_body(card("S7")), **changed},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 
@@ -72,7 +72,16 @@ def game_of(*tricks):
 
 
 HERZ_GAME = game_of(
-    "S7 S9 D7", "H7 DJ CJ", "S8 ST D8", "SQ D9 C7", "SK DT C8", "SA DQ C9", "SJ HJ CT", "H8 HQ CQ", "HK CK H9", "HA CA HT"
+    "S7 S9 D7",
+    "H7 DJ CJ",
+    "S8 ST D8",
+    "SQ D9 C7",
+    "SK DT C8",
+    "SA DQ C9",
+    "SJ HJ CT",
+    "H8 HQ CQ",
+    "HK CK H9",
+    "HA CA HT",
 )
 HERZ_TAKERS = (
     MIDDLEHAND,
@@ -87,7 +96,16 @@ HERZ_TAKERS = (
     REARHAND,
 )
 GRAND_GAME = game_of(
-    "S7 S9 D7", "H7 HQ C7", "D8 C8 ST", "D9 C9 SQ", "DJ CJ SJ", "CT SK DT", "CQ SA DQ", "S8 H8 HK", "CK H9 HA", "CA HT HJ"
+    "S7 S9 D7",
+    "H7 HQ C7",
+    "D8 C8 ST",
+    "D9 C9 SQ",
+    "DJ CJ SJ",
+    "CT SK DT",
+    "CQ SA DQ",
+    "S8 H8 HK",
+    "CK H9 HA",
+    "CA HT HJ",
 )
 GRAND_TAKERS = (
     MIDDLEHAND,
@@ -102,7 +120,16 @@ GRAND_TAKERS = (
     REARHAND,
 )
 NULL_GAME = game_of(
-    "S7 SJ D7", "S9 D8 S8", "ST D9 C7", "SQ DT C8", "SK DJ C9", "SA DQ CT", "H7 HJ CJ", "HQ CQ H8", "HK CK H9", "HA CA HT"
+    "S7 SJ D7",
+    "S9 D8 S8",
+    "ST D9 C7",
+    "SQ DT C8",
+    "SK DJ C9",
+    "SA DQ CT",
+    "H7 HJ CJ",
+    "HQ CQ H8",
+    "HK CK H9",
+    "HA CA HT",
 )
 NULL_TAKERS = (
     MIDDLEHAND,
@@ -363,7 +390,7 @@ class TestTheBody:
     def test_a_body_outside_the_contract_is_refused_and_changes_nothing(self, herz_hand, skat, changed):
         before = herz_hand.record
 
-        answer = post_card(skat, herz_hand.table_id, herz_hand.at[FOREHAND], version=before.version, **changed)
+        answer = post_card(skat, herz_hand.table_id, herz_hand.at[FOREHAND], **{"version": before.version, **changed})
 
         assert answer.status_code == 422
         assert herz_hand.record == before
@@ -383,7 +410,11 @@ class TestRetries:
     def test_a_refused_retry_returns_the_same_refusal(self, herz_hand):
         version = herz_hand.record.version
         herz_hand.refused(
-            herz_hand.at[MIDDLEHAND], card("S9"), PlayRefusal.NOT_YOUR_TURN, command_id="command-refused", version=version
+            herz_hand.at[MIDDLEHAND],
+            card("S9"),
+            PlayRefusal.NOT_YOUR_TURN,
+            command_id="command-refused",
+            version=version,
         )
 
         again = herz_hand.send(herz_hand.at[MIDDLEHAND], card("S9"), command_id="command-refused", version=version)

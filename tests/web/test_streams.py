@@ -757,12 +757,12 @@ class TestHandOnTheStream:
             skat.client.cookies.clear()
             answer = skat.client.post(
                 f"{TABLES_PATH}/{table_id}{TABLE_CARD_SUFFIX}",
-                json={"command_id": "card-1", "version": opened["version"], "suit": led[0], "rank": led[1]},
+                json={"command_id": "card-0001", "version": opened["version"], "suit": led[0], "rank": led[1]},
                 headers={"origin": TEST_PUBLIC_ORIGIN, **forehand_headers},
             )
+            assert answer.status_code == 200, answer.text
             fresh_line = next(lines)
 
-        assert answer.status_code == 200, answer.text
         fresh = json.loads(fresh_line.removeprefix("data: "))
         assert fresh["version"] == opened["version"] + 1
         assert cards_in_text(fresh_line) <= wire_cards(CARDS_BY_SEAT[2])
