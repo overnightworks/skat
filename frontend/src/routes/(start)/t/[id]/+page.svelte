@@ -5,12 +5,23 @@
     import { LegalLinks } from "overnightworks-appkit";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
-    import { copyTableLink, drawingOrder, readTable, watchTable, type Outcome } from "../../tables.ts";
+    import {
+        copyTableLink,
+        drawingOrder,
+        readTable,
+        sitDown,
+        standUp,
+        watchTable,
+        type Outcome,
+    } from "../../tables.ts";
+
+    const TAKEN_NOTICE_MILLISECONDS = 4000;
 
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
-    let outcome: Outcome | null = $state(null);
-    let copyNote = $state("");
+    let outcome = $state<Outcome | null>(null);
+    let note = $state("");
+    let taken: string | null = $state(null);
     let connected = $state(true);
 
     // SvelteKit keeps this component when the address changes from one table to another.
@@ -37,8 +48,25 @@
         };
     });
 
+    const seated = $derived(outcome?.kind === "table" && outcome.table.chairs.some((chair) => chair.is_mine));
+
     async function copy(): Promise<void> {
-        copyNote = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
+        note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
+    }
+
+    // The stream shows the new table to every page; the answer only makes this page's own change immediate.
+    async function seat(command: Promise<Outcome>): Promise<void> {
+        note = "";
+        taken = null;
+        const answer = await command;
+        if (answer.kind === "table") {
+            outcome = answer;
+        } else if (answer.kind === "taken") {
+            taken = answer.holder;
+            setTimeout(() => (taken = null), TAKEN_NOTICE_MILLISECONDS);
+        } else {
+            note = words.commandFailed;
+        }
     }
 </script>
 
@@ -78,33 +106,80 @@
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
                     <li class="chair" class:mine={chair.is_mine} data-seat={chair.seat}>
-                        <span class="tile" class:empty={chair.occupant_name === null}>
-                            {#if chair.occupant_name !== null}
+                        {#if chair.occupant_name !== null}
+                            <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
-                            {/if}
-                        </span>
+                            </span>
+                        {:else if seated}
+                            <span class="tile empty"></span>
+                        {:else}
+                            <button
+                                type="button"
+                                class="tile empty free"
+                                aria-label={words.sitDown}
+                                onclick={() => seat(sitDown(id, chair.seat, crypto.randomUUID()))}
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                    stroke-linecap="round"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                            </button>
+                        {/if}
                         <span class="plate">{chair.occupant_name ?? words.seatFree}</span>
                     </li>
                 {/each}
             </ul>
             <div class="controls">
-                <button type="button" class="copy" onclick={copy}>
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        aria-hidden="true"
-                    >
-                        <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
-                        <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
-                    </svg>
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                    {`${words.copyLink}`}
-                </button>
-                <p class="note" role="status">{copyNote}</p>
+                <div class="actions">
+                    {#if seated}
+                        <button type="button" class="copy" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M4.5 4v16M4.5 13.5h8.5v6.5" />
+                                <path d="M18.5 15V4M15 7.5l3.5-3.5L22 7.5" />
+                            </svg>
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                            {`${words.standUp}`}
+                        </button>
+                    {/if}
+                    <button type="button" class="copy" onclick={copy}>
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
+                            <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
+                        </svg>
+                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                        {`${words.copyLink}`}
+                    </button>
+                </div>
+                <p class="note" role="status">{note}</p>
             </div>
+            {#if taken !== null}
+                <p class="notice" role="status">
+                    <span class="dot" aria-hidden="true">{taken.slice(0, 1)}</span>
+                    {words.seatTaken}
+                    <b>{taken}</b>
+                </p>
+            {/if}
         {:else if outcome?.kind === "missing"}
             <section class="panel">
                 <h1>{words.tableNotFound}</h1>

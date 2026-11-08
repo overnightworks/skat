@@ -4,18 +4,27 @@ import {
     SIGNED_IN_AGAIN_QUERY_NAME,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
+    TABLE_SIT_SUFFIX,
+    TABLE_STAND_SUFFIX,
     TABLES_PATH,
 } from "#lib/wire.ts";
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
+const CONFLICT_STATUS = 409;
 // A refusal this soon after the page was reached through an automatic sign-in shows the sign-in page instead
 // of navigating again: a session the sign-in just made and the server refuses at once would otherwise loop forever.
 const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
 
 export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean };
 export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
-export type Outcome = { kind: "table"; table: Table } | { kind: "missing" } | { kind: "failed" };
+// A chair that was taken: `holder` is who sits there now.
+export type Outcome =
+    { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };
+
+function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_name: string } {
+    return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
+}
 
 // A session that ended while the page was open goes through the sign-in again; any other failure
 // is shown to the person as it is, and nothing is retried behind their back.
@@ -31,9 +40,12 @@ async function ask(path: string, init?: RequestInit): Promise<Outcome> {
         return { kind: "failed" };
     }
     if (answer.status === NOT_FOUND_STATUS) return { kind: "missing" };
-    if (!answer.ok) return { kind: "failed" };
     try {
-        return { kind: "table", table: (await answer.json()) as Table };
+        const body: unknown = await answer.json();
+        if (answer.ok) return { kind: "table", table: body as Table };
+        // Any other refusal means the page showed a stale table: its stream is about to correct it.
+        if (answer.status === CONFLICT_STATUS && isTakenChair(body)) return { kind: "taken", holder: body.holder_name };
+        return { kind: "failed" };
     } catch {
         return { kind: "failed" };
     }
@@ -46,6 +58,22 @@ export function createTable(commandId: string): Promise<Outcome> {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command_id: commandId }),
     });
+}
+
+function post(id: string, suffix: string, body: object): Promise<Outcome> {
+    return ask(`${TABLES_PATH}/${encodeURIComponent(id)}${suffix}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+}
+
+export function sitDown(id: string, seat: number, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_SIT_SUFFIX, { command_id: commandId, seat });
+}
+
+export function standUp(id: string, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_STAND_SUFFIX, { command_id: commandId });
 }
 
 export function readTable(id: string): Promise<Outcome> {

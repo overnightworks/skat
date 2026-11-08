@@ -1,6 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTH_START_PATH, SIGNED_IN_AGAIN_QUERY_NAME, TABLES_PATH } from "#lib/wire.ts";
-import { copyTableLink, createTable, drawingOrder, readTable, tablePath, type Chair } from "./tables.ts";
+import {
+    AUTH_START_PATH,
+    SIGNED_IN_AGAIN_QUERY_NAME,
+    TABLE_SIT_SUFFIX,
+    TABLE_STAND_SUFFIX,
+    TABLES_PATH,
+} from "#lib/wire.ts";
+import {
+    copyTableLink,
+    createTable,
+    drawingOrder,
+    readTable,
+    sitDown,
+    standUp,
+    tablePath,
+    type Chair,
+} from "./tables.ts";
 
 class FakeEventSource {
     static last: FakeEventSource;
@@ -220,6 +235,47 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(TABLES_PATH);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1" });
+    });
+
+    it("sends the command id and the chair when sitting down", async () => {
+        answerWith(Response.json(table));
+
+        expect(await sitDown(TABLE_ID, 2, "command-1")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_SIT_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1", seat: 2 });
+    });
+
+    it("sends only the command id when standing up", async () => {
+        answerWith(Response.json(table));
+
+        expect(await standUp(TABLE_ID, "command-2")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_STAND_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-2" });
+    });
+
+    it("reports a taken chair with who holds it", async () => {
+        answerWith(Response.json({ reason: "seat-taken", holder_name: "Anna" }, { status: 409 }));
+
+        expect(await sitDown(TABLE_ID, 1, "command-1")).toEqual({
+            kind: "taken",
+            holder: "Anna",
+        });
+    });
+
+    it.each([
+        ["a command id that came back with another request", Response.json({ detail: "reused" }, { status: 409 })],
+        ["a conflict without a body", new Response(null, { status: 409 })],
+        ["a conflict with a null body", Response.json(null, { status: 409 })],
+        ["a conflict with a bare text", Response.json("conflict", { status: 409 })],
+        ["a stand-up refused because nobody sat", Response.json({ reason: "not-seated" }, { status: 409 })],
+    ])("reports %s as failed", async (_name, response) => {
+        answerWith(response);
+
+        expect(await standUp(TABLE_ID, "command-1")).toEqual({ kind: "failed" });
     });
 
     it("reloads to sign in again when the session ended", async () => {
