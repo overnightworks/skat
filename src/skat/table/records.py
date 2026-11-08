@@ -59,7 +59,7 @@ class StandUp:
 
 
 class Refusal(StrEnum):
-    """Why a seating command changed nothing."""
+    """Why a table command changed nothing."""
 
     SEAT_TAKEN = "seat-taken"
     ALREADY_SEATED = "already-seated"
@@ -98,7 +98,7 @@ class FirstDeal:
 
 @dataclass(frozen=True)
 class Decision:
-    """The table after a seating command; a refusal leaves it as it was and names who holds a taken chair."""
+    """The table after a command; a refusal leaves it as it was and names who holds a taken chair."""
 
     table: TableRecord
     refusal: Refusal | None = None
