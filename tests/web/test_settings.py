@@ -78,6 +78,7 @@ class TestServerSettings:
             "postgresql://skat@postgres/skat?dbname=other",
             "postgresql://skat@postgres/skat?port=1",
             "postgresql://skat@postgres/skat?passfile=/tmp/x",
+            "postgresql://skat@postgres/skat?passfile=",
             "postgresql://skat@postgres/skat?service=x",
             "postgresql://skat@postgres/skat?sslpassword=pw-of-the-test_1",
             "postgresql://skat:pw-of-the-test_1@postgres\uff0f/skat",

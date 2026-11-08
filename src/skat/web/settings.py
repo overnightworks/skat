@@ -29,7 +29,7 @@ def _require_absolute_path(path: Path) -> Path:
 
 def _require_postgres_url_without_password(url: str) -> str:
     try:
-        parsed = make_url(url)
+        parsed = make_url(url, keep_blank_values=True)
     except ArgumentError, ValueError:
         # The parser's messages quote parts of the URL, which may hold the password.
         raise ValueError("must be a postgresql URL") from None
