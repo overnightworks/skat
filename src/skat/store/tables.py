@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
+from skat.store.auction import append_steps, read_steps
 from skat.store.schema import (
     POSITION_TEXT,
     RANK_TEXT,
@@ -17,7 +18,7 @@ from skat.store.schema import (
     receipts,
     tables,
 )
-from skat.table.records import Chair, Occupant, Receipt, Replay, TableId, TableRecord, parsed_refusal
+from skat.table.records import Chair, HandProgress, Occupant, Receipt, Replay, TableId, TableRecord, parsed_refusal
 from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
@@ -80,6 +81,7 @@ def _table_record(connection: Connection, table_id: str, *, lock: bool = False) 
         ),
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
+        progress=HandProgress(auction=read_steps(connection, table_id)),
     )
 
 
@@ -125,6 +127,7 @@ class _PostgresTableTransaction:
         )
         if table.hand is not None and not hand_stored:
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
+        append_steps(self._connection, table.id.value, table.progress.auction)
         for chair in table.chairs:
             self._connection.execute(
                 update(chairs)
