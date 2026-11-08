@@ -1,4 +1,5 @@
-from contextlib import contextmanager
+import threading
+from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -6,6 +7,9 @@ if TYPE_CHECKING:
 
     from skat.table.records import Receipt, Replay, TableId, TableRecord
     from skat.table.service import OccupiedChair, TableTransaction, TableTransactions
+
+
+BARRIER_TIMEOUT_SECONDS = 0.5
 
 
 class FaultyTableTransactions:
@@ -79,3 +83,35 @@ class _FaultyTransaction:
         if self._faults.receipt_failure is not None:
             raise self._faults.receipt_failure
         self._inner.add_receipt(receipt)
+
+
+class BothReadBeforeEitherWrites:
+    """Holds each command after its locking read until its rival has read too, if the rival can.
+
+    Without a row lock both rivals read the free chair and both would write; with it the second waits
+    outside, the barrier breaks after its timeout and the first goes on alone.
+    """
+
+    def __init__(self, inner, rivals):
+        self._inner = inner
+        self._barrier = threading.Barrier(rivals, timeout=BARRIER_TIMEOUT_SECONDS)
+
+    @contextmanager
+    def begin(self):
+        with self._inner.begin() as transaction:
+            yield _WaitingTransaction(transaction, self._barrier)
+
+
+class _WaitingTransaction:
+    def __init__(self, inner, barrier):
+        self._inner = inner
+        self._barrier = barrier
+
+    def locked_table(self, table_id):
+        table = self._inner.locked_table(table_id)
+        with suppress(threading.BrokenBarrierError):
+            self._barrier.wait()
+        return table
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)

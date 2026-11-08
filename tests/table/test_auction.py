@@ -86,7 +86,7 @@ def seated(service: TableService, store: FakeTableStore) -> Seated:
 class TestRefusalOrder:
     def test_no_hand_comes_before_not_seated(self, service: TableService) -> None:
         table_id = open_table(service)
-        command = AuctionCommand("command-1", table_id, 1, AuctionAction.PASS, None)
+        command = AuctionCommand("command-1", table_id, 1, AuctionAction.PASS_, None)
 
         result = service.take_auction_step(BEN, command, NOBODY_CONNECTED)
 
@@ -94,17 +94,17 @@ class TestRefusalOrder:
         assert result.refusal is Refusal.NO_HAND
 
     def test_not_seated_comes_before_a_stale_version(self, seated: Seated) -> None:
-        result = seated.send(DORA, AuctionAction.PASS, version=seated.table().version - 1)
+        result = seated.send(DORA, AuctionAction.PASS_, version=seated.table().version - 1)
 
         assert result.refusal is Refusal.NOT_SEATED
 
     def test_a_stale_version_comes_before_the_engines_reason(self, seated: Seated) -> None:
-        result = seated.send(seated.forehand, AuctionAction.PASS, version=seated.table().version - 1)
+        result = seated.send(seated.forehand, AuctionAction.PASS_, version=seated.table().version - 1)
 
         assert result.refusal is Refusal.STALE_VERSION
 
     def test_the_engines_reason_comes_last(self, seated: Seated) -> None:
-        result = seated.send(seated.forehand, AuctionAction.PASS)
+        result = seated.send(seated.forehand, AuctionAction.PASS_)
 
         assert result.refusal is BidRefusal.NOT_YOUR_TURN
 
@@ -131,8 +131,8 @@ class TestStep:
         assert seated.table() == before
 
     def test_the_fold_reads_the_declarer_from_the_steps(self, seated: Seated) -> None:
-        seated.send(seated.middlehand, AuctionAction.PASS, command_id="command-a")
-        seated.send(seated.rearhand, AuctionAction.PASS, command_id="command-b")
+        seated.send(seated.middlehand, AuctionAction.PASS_, command_id="command-a")
+        seated.send(seated.rearhand, AuctionAction.PASS_, command_id="command-b")
         seated.send(seated.forehand, AuctionAction.PLAY, command_id="command-c")
 
         assert auction_of(seated.table()).result == Declared(Position.FOREHAND, 18)
@@ -152,15 +152,15 @@ class TestRetry:
         assert seated.table().progress.auction == (Bid(Position.MIDDLEHAND, 18),)
 
     def test_a_refused_step_retried_gets_the_same_refusal(self, seated: Seated) -> None:
-        first = seated.send(seated.forehand, AuctionAction.PASS)
+        first = seated.send(seated.forehand, AuctionAction.PASS_)
 
-        assert seated.send(seated.forehand, AuctionAction.PASS).refusal is first.refusal
+        assert seated.send(seated.forehand, AuctionAction.PASS_).refusal is first.refusal
 
     @pytest.mark.parametrize(
         ("action", "value", "version_offset"),
         [
             pytest.param(AuctionAction.BID, 20, 0, id="another-value"),
-            pytest.param(AuctionAction.PASS, None, 0, id="another-action"),
+            pytest.param(AuctionAction.PASS_, None, 0, id="another-action"),
             pytest.param(AuctionAction.BID, 18, 1, id="another-version"),
         ],
     )
@@ -180,7 +180,7 @@ class TestStoredLog:
         seated.store.tables[seated.table_id] = replace(seated.table(), progress=corrupt)
 
         with pytest.raises(ValueError, match="impossible auction log"):
-            seated.send(seated.middlehand, AuctionAction.PASS)
+            seated.send(seated.middlehand, AuctionAction.PASS_)
 
 
 class TestRefusalParser:
@@ -199,7 +199,7 @@ class TestStepOfAction:
         [
             pytest.param(AuctionAction.BID, 22, Bid(Position.MIDDLEHAND, 22), id="bid"),
             pytest.param(AuctionAction.HOLD, None, Hold(Position.MIDDLEHAND), id="hold"),
-            pytest.param(AuctionAction.PASS, None, Pass(Position.MIDDLEHAND), id="pass"),
+            pytest.param(AuctionAction.PASS_, None, Pass(Position.MIDDLEHAND), id="pass"),
             pytest.param(AuctionAction.PLAY, None, Play(Position.MIDDLEHAND), id="play"),
         ],
     )

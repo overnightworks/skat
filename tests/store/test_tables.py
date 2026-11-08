@@ -1,7 +1,7 @@
 import itertools
 import random
 import threading
-from contextlib import contextmanager, nullcontext, suppress
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 
 import pytest
@@ -13,11 +13,9 @@ from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
-from tests.support.faulty_tables import FaultyTableTransactions
+from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 
 pytestmark = pytest.mark.postgres
-
-BARRIER_TIMEOUT_SECONDS = 0.5
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
@@ -127,38 +125,6 @@ def test_table_ids_are_distinct_128_bit_hex_and_not_sequential(service):
     assert all(len(table_id) == 32 and int(table_id, 16) >= 0 for table_id in ids)
     numbers = [int(table_id, 16) for table_id in ids]
     assert all(abs(later - earlier) > len(ids) for earlier, later in itertools.pairwise(numbers))
-
-
-class BothReadBeforeEitherWrites:
-    """Holds each command after its locking read until its rival has read too, if the rival can.
-
-    Without a row lock both rivals read the free chair and both would write; with it the second waits
-    outside, the barrier breaks after its timeout and the first goes on alone.
-    """
-
-    def __init__(self, inner, rivals):
-        self._inner = inner
-        self._barrier = threading.Barrier(rivals, timeout=BARRIER_TIMEOUT_SECONDS)
-
-    @contextmanager
-    def begin(self):
-        with self._inner.begin() as transaction:
-            yield _WaitingTransaction(transaction, self._barrier)
-
-
-class _WaitingTransaction:
-    def __init__(self, inner, barrier):
-        self._inner = inner
-        self._barrier = barrier
-
-    def locked_table(self, table_id):
-        table = self._inner.locked_table(table_id)
-        with suppress(threading.BrokenBarrierError):
-            self._barrier.wait()
-        return table
-
-    def __getattr__(self, name):
-        return getattr(self._inner, name)
 
 
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
