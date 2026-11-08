@@ -58,6 +58,18 @@ POSITION_TEXT: Final = {
 }
 
 
+class StepLogRewrittenError(Exception):
+    """The steps being saved do not continue the stored ones: an earlier step would change."""
+
+
+def unstored_steps[Step](table_id: str, stored: tuple[Step, ...], steps: tuple[Step, ...]) -> tuple[Step, ...]:
+    """The steps not yet stored; stored steps that are no prefix of `steps` raise."""
+    if steps[: len(stored)] != stored:
+        message = f"the steps saved for table {table_id} do not continue the stored ones"
+        raise StepLogRewrittenError(message)
+    return steps[len(stored) :]
+
+
 def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
     return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
 
