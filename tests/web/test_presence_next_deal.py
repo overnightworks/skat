@@ -297,7 +297,12 @@ class TestNextHandComes:
             dealt = server.store.tables[table_id]
             assert dealt.hand is not None
 
-            post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
+            pending_after_deal = time.pending
+            after = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
+            assert after.status_code == 200
+            assert after.json()["hand"] is not None
+            assert after.json()["passed_in"] is None
+            assert time.pending == pending_after_deal
             advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
 
             assert during.json() == first.json()
