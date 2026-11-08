@@ -30,7 +30,7 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_OIDC_CLIENT_SECRET_FILE` | required | Absolute path of the file holding the client secret. |
 | `SKAT_PUBLIC_ORIGIN` | required | The https origin people open Skat at, without a path. |
 | `SKAT_SESSION_SECRET_FILE` | required | Absolute path of the file holding the session signing key. |
-| `SKAT_DATABASE_URL` | required | The Postgres connection URL without a password, as `postgresql://user@host/database`; Skat refuses to start if it carries one. |
+| `SKAT_DATABASE_URL` | required | The Postgres connection URL without a password, as `postgresql://user@host/database`; Skat refuses to start if it carries a password or any query parameter. |
 | `SKAT_DATABASE_PASSWORD_FILE` | required | Absolute path of the file holding only the database password. |
 | `SKAT_TRUSTED_PROXIES` | empty | Addresses and CIDR blocks, comma-separated, of the proxies allowed to name the client in `X-Forwarded-For`. |
 | `SKAT_HOST` | `0.0.0.0` | The listen address. |

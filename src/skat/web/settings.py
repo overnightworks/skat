@@ -37,8 +37,11 @@ def _require_postgres_url_without_password(url: str) -> str:
         raise ValueError("must be a postgresql URL")
     if not (parsed.host and parsed.username and parsed.database):
         raise ValueError("must name a host, a user and a database")
-    if parsed.password is not None or "password" in parsed.query:
+    if parsed.password is not None:
         raise ValueError("must not carry a password")
+    # libpq reads query parameters over the authority, so any of them can redirect the password.
+    if parsed.query:
+        raise ValueError("must not carry query parameters")
     return url
 
 

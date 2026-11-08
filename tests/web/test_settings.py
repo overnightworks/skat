@@ -73,6 +73,13 @@ class TestServerSettings:
         [
             "postgresql://skat:pw-of-the-test_1@postgres/skat",
             "postgresql://skat@postgres/skat?password=pw-of-the-test_1",
+            "postgresql://skat@postgres/skat?host=evil.invalid",
+            "postgresql://skat@postgres/skat?user=evil",
+            "postgresql://skat@postgres/skat?dbname=other",
+            "postgresql://skat@postgres/skat?port=1",
+            "postgresql://skat@postgres/skat?passfile=/tmp/x",
+            "postgresql://skat@postgres/skat?service=x",
+            "postgresql://skat@postgres/skat?sslpassword=pw-of-the-test_1",
             "postgresql://skat:pw-of-the-test_1@postgres\uff0f/skat",
             "mysql://skat@postgres/skat",
             "not-a-url-pw-of-the-test_1",
@@ -85,7 +92,7 @@ class TestServerSettings:
             "postgresql://skat:pw-of-the-test_1/skat",
         ],
     )
-    def test_database_url_with_a_password_or_not_naming_postgresql_host_user_and_database_is_refused_by_name_only(
+    def test_database_url_with_a_password_or_query_or_without_host_user_and_database_is_refused_by_name_only(
         self, sign_in_settings, url
     ):
         with pytest.raises(ValidationError, match="database_url") as refusal:
