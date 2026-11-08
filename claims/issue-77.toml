@@ -1,0 +1,8 @@
+claim_id = "0ab693a518504bc1960332fdb3383cc6"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "530136b7d7b812a7eca3f9bf037eeb454037497a"
+branch = "claude/issue-77-replay-logs"
+scope = ["src/skat/engine/declaration.py", "src/skat/engine/tricks.py", "tests/engine/test_declaration.py", "tests/engine/test_tricks.py"]
+opened_commit = "6cab737f5ed0cf59a099237a363226dd81e2c9e1"
+whole_reason = "Both replays are one small engine idea on two neighbouring states, and each is a few lines in its own module; two gated lanes would cost more than they separate."
