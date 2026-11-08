@@ -678,7 +678,7 @@ class TestHandOnTheStream:
             for offset, headers in enumerate((middlehand, rearhand, forehand)):
                 answer = skat.client.post(
                     f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                    json={"command_id": f"step-{offset}", "version": opened["version"] + offset, "action": "pass"},
+                    json={"command_id": f"step-{offset:04d}", "version": opened["version"] + offset, "action": "pass"},
                     headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
                 )
                 assert answer.status_code == 200, answer.text
@@ -698,7 +698,7 @@ class TestHandOnTheStream:
             record = skat.store.tables[table_id]
             skat.client.post(
                 f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                json={"command_id": f"step-{offset}", "version": record.version, "action": "pass"},
+                json={"command_id": f"step-{offset:04d}", "version": record.version, "action": "pass"},
                 headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
             )
         skat.client.cookies.clear()

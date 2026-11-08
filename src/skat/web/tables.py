@@ -212,7 +212,7 @@ COMMAND_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
 async def command_answer(
     command: Callable[[frozenset[str]], CommandResult | None], presence: Presence, table_id: str, response: Response
 ) -> Response | TableAnswer:
-    """Run a table command off the event loop; once it committed, wake the table's streams."""
+    """Run a table command off the event loop; once it committed, wake the table's streams and restart the holds."""
     response.headers["Cache-Control"] = "no-store"
     try:
         result = await run_in_threadpool(command, presence.connected(table_id))
@@ -224,6 +224,9 @@ async def command_answer(
         refusal = RefusalAnswer(reason=result.refusal, holder_name=result.holder)
         return JSONResponse(refusal.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
     presence.wake_table(table_id)
+    # A connected member keeps the chair anyway, and a hold would free it after the connected time.
+    away = result.seated_when_hand_ended - presence.connected(table_id)
+    presence.hold_chairs((table_id, account_id) for account_id in away)
     return answer_of(result.view)
 
 

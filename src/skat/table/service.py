@@ -29,6 +29,7 @@ from skat.table.rules import (
     decide_stand,
     replayed_decision,
     replayed_table,
+    seated_if_hand_ended,
     sit_deals,
     sit_payload,
     stand_payload,
@@ -89,11 +90,16 @@ class OccupiedChair:
 
 @dataclass(frozen=True)
 class CommandResult:
-    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not."""
+    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
+
+    `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
+    retry restarts no timer.
+    """
 
     view: TableView
     refusal: CommandRefusal | None = None
     holder: str | None = None
+    seated_when_hand_ended: frozenset[str] = frozenset()
 
 
 class TableService:
@@ -231,15 +237,20 @@ class TableService:
             if table is None:
                 return None
             replay = transaction.replay(actor.account_id, command_id)
+            seated_when_hand_ended: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
                     transaction.save_table(decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
+                seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
             else:
                 decision = replayed_decision(replay, command, payload)
             return CommandResult(
-                view_of(decision.table, actor.account_id, connected_accounts), decision.refusal, decision.holder
+                view_of(decision.table, actor.account_id, connected_accounts),
+                decision.refusal,
+                decision.holder,
+                seated_when_hand_ended,
             )
 
     def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:

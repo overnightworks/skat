@@ -81,6 +81,13 @@ def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
 
 
+def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
+    """Who sat at the table when this change ended its hand; nobody when it ended none."""
+    if not hand_runs(before) or hand_runs(after):
+        return frozenset()
+    return frozenset(chair.occupant.account_id for chair in after.chairs if chair.occupant is not None)
+
+
 def dealt(table: TableRecord, new_hand: NewHand) -> TableRecord:
     """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
     return replace(table, dealer=new_hand.dealer, hand=new_hand.hand, progress=HandProgress())

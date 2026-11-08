@@ -550,7 +550,8 @@ class TestHoldWhenTheHandEnds:
         server.client.cookies.clear()
 
         with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[2][0]) as s:
-            next(s.iter_lines())
+            lines = s.iter_lines()
+            next(lines)
             server.client.cookies.clear()
             pass_hand_in(server, table_id, people)
             assert time.pending == 2
@@ -564,7 +565,8 @@ class TestHoldWhenTheHandEnds:
         server.client.portal.call(time.advance, hold.settings.chair_hold_seconds * 3 / 5)
 
         with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[1][0]) as s:
-            next(s.iter_lines())
+            lines = s.iter_lines()
+            next(lines)
             server.client.portal.call(time.advance, hold.settings.chair_hold_seconds)
             assert occupied_seats(server, table_id) == {2}
 
