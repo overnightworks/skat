@@ -419,7 +419,7 @@ class TestStandUp:
         assert presence.woken == [table_id]
 
 
-HAND_KEYS = {"dealer_seat", "own_cards", "skat_count"}
+HAND_KEYS = {"dealer_seat", "own_cards", "skat_count", "auction"}
 
 
 def read(skat, headers, table_id):
