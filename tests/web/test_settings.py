@@ -90,6 +90,13 @@ class TestServerSettings:
             "https://h\u00f3st.example",
             "https://host.example;x",
             "https://host .example",
+            "https://host.example:99999",
+            "https://host.example:65536",
+            "https://127.1:8443",
+            "https://127.0.0.256",
+            "https://127.000.0.1",
+            "https://1.2.3.4.5",
+            "https://2130706433",
         ],
     )
     def test_an_origin_setting_not_written_as_the_browser_writes_it_is_refused_by_name_and_never_by_value(
@@ -100,7 +107,15 @@ class TestServerSettings:
         assert "input_value" not in str(refusal.value)
 
     @pytest.mark.parametrize("setting", ["call_origin", "public_origin"])
-    @pytest.mark.parametrize("origin", ["https://hopin.hallucinai.de", "https://hopin.drive.localhost:8443"])
+    @pytest.mark.parametrize(
+        "origin",
+        [
+            "https://hopin.hallucinai.de",
+            "https://hopin.drive.localhost:8443",
+            "https://127.0.0.1:65535",
+            "https://host1.example",
+        ],
+    )
     def test_an_origin_written_as_the_browser_writes_it_is_kept_verbatim(self, sign_in_settings, setting, origin):
         assert getattr(sign_in_settings(**{setting: origin}).settings, setting) == origin
 
