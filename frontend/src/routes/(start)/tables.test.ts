@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     AUTH_START_PATH,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    TABLE_DECLARATION_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
@@ -9,14 +10,20 @@ import {
 import {
     copyTableLink,
     createTable,
+    declarerStage,
     drawingOrder,
     positionWord,
     readTable,
     sitDown,
     standUp,
     tablePath,
+    takeDeclaringStep,
+    togglePicked,
+    type Card,
     type Chair,
     type Position,
+    type Stage,
+    type Table,
 } from "./tables.ts";
 import { words } from "#lib/words.ts";
 
@@ -260,6 +267,22 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-2" });
     });
 
+    it.each([
+        { step: { action: "take" } as const },
+        { step: { action: "put_back", cards: [{ suit: "karo", rank: "seven" }, { suit: "herz", rank: "ace" }] } as const },
+        {
+            step: { action: "declare", game: "null", hand: false, ouvert: false, announcement: "none" } as const,
+        },
+    ])("sends the shown version and a command id with the step $step.action", async ({ step }) => {
+        answerWith(Response.json(table));
+
+        expect(await takeDeclaringStep(TABLE_ID, 7, "command-3", step)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_DECLARATION_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...step });
+    });
+
     it("reports a taken chair with who holds it", async () => {
         answerWith(Response.json({ reason: "seat-taken", holder_name: "Anna" }, { status: 409 }));
 
@@ -302,6 +325,67 @@ describe("asking for a table", () => {
         answerWith(response);
 
         expect(await readTable(TABLE_ID)).toEqual({ kind: "failed" });
+    });
+});
+
+describe("what the declaring stage asks of this viewer", () => {
+    const seats = (mine: number): Chair[] =>
+        [1, 2, 3].map((seat) => ({
+            seat,
+            occupant_name: `player ${String(seat)}`,
+            is_mine: seat === mine,
+            is_away: false,
+            hand: null,
+        }));
+    const tableAt = (stage: Stage, mine: number): Table => ({
+        id: TABLE_ID,
+        version: 1,
+        chairs: seats(mine),
+        watchers: 0,
+        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, declaring: { declarer_seat: 2, stage } },
+    });
+
+    it.each<Stage>(["choosing", "discarding", "picked"])("asks the declarer to act at %s", (stage) => {
+        expect(declarerStage(tableAt(stage, 2))).toBe(stage);
+    });
+
+    it("asks the declarer nothing once the game is declared", () => {
+        expect(declarerStage(tableAt("declared", 2))).toBeNull();
+    });
+
+    it("asks nothing of a chair that did not win the auction", () => {
+        expect(declarerStage(tableAt("choosing", 3))).toBeNull();
+    });
+
+    it("asks nothing of a person with no chair", () => {
+        expect(declarerStage(tableAt("choosing", 0))).toBeNull();
+    });
+
+    it("asks nothing before the auction is over", () => {
+        const table = tableAt("choosing", 2);
+        expect(declarerStage({ ...table, hand: { ...table.hand!, declaring: null } })).toBeNull();
+    });
+
+    it("asks nothing with no hand on the table", () => {
+        expect(declarerStage({ ...tableAt("choosing", 2), hand: null })).toBeNull();
+    });
+});
+
+describe("picking two cards from the twelve", () => {
+    const seven: Card = { suit: "karo", rank: "seven" };
+    const eight: Card = { suit: "karo", rank: "eight" };
+    const nine: Card = { suit: "karo", rank: "nine" };
+
+    it("picks a card that was not picked", () => {
+        expect(togglePicked([seven], eight)).toEqual([seven, eight]);
+    });
+
+    it("puts a picked card back", () => {
+        expect(togglePicked([seven, eight], seven)).toEqual([eight]);
+    });
+
+    it("does not pick a third card while two are picked", () => {
+        expect(togglePicked([seven, eight], nine)).toEqual([seven, eight]);
     });
 });
 
