@@ -89,7 +89,7 @@ def test_the_steps_read_back_in_the_order_they_were_taken(hand):
     hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP)
     hand.send(Position.FOREHAND, AuctionAction.HOLD, command_id=SECOND_STEP)
     hand.send(Position.MIDDLEHAND, AuctionAction.BID, 20, command_id="command-c")
-    hand.send(Position.FOREHAND, AuctionAction.PASS_, command_id="command-d")
+    hand.send(Position.FOREHAND, AuctionAction.PASS, command_id="command-d")
 
     assert hand.steps() == (
         Bid(Position.MIDDLEHAND, 18),
@@ -105,7 +105,7 @@ def test_a_passed_in_hand_keeps_its_steps_and_its_cards(hand, transactions):
         (Position.REARHAND, SECOND_STEP),
         (Position.FOREHAND, "command-c"),
     ]:
-        hand.send(position, AuctionAction.PASS_, command_id=command_id)
+        hand.send(position, AuctionAction.PASS, command_id=command_id)
 
     assert len(hand.steps()) == 3
     assert stored(transactions, hand.table_id).hand is not None
@@ -224,10 +224,10 @@ def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(hand, engine
 
 
 def test_a_refused_step_keeps_its_token_in_the_receipt_for_a_retry(hand, engine):
-    first = hand.send(Position.FOREHAND, AuctionAction.PASS_, command_id=FIRST_STEP)
+    first = hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=FIRST_STEP)
     version = first.view.version
 
-    again = hand.send(Position.FOREHAND, AuctionAction.PASS_, command_id=FIRST_STEP, version=version)
+    again = hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=FIRST_STEP, version=version)
 
     assert again.refusal is first.refusal
     with engine.connect() as connection:

@@ -19,15 +19,15 @@ AUCTION_STEP_COMMAND: Final = "auction-step"
 class AuctionAction(StrEnum):
     BID = "bid"
     HOLD = "hold"
-    PASS_ = "pass"
+    PASS = "pass"  # noqa: S105 - the word for dropping out of the auction and no password
     PLAY = "play"
 
 
-_STEPS_WITHOUT_VALUE: Final = {AuctionAction.HOLD: Hold, AuctionAction.PASS_: Pass, AuctionAction.PLAY: Play}
+_STEPS_WITHOUT_VALUE: Final = {AuctionAction.HOLD: Hold, AuctionAction.PASS: Pass, AuctionAction.PLAY: Play}
 _ACTION_OF_STEP: Final = {
     Bid: AuctionAction.BID,
     Hold: AuctionAction.HOLD,
-    Pass: AuctionAction.PASS_,
+    Pass: AuctionAction.PASS,
     Play: AuctionAction.PLAY,
 }
 

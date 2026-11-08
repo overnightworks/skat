@@ -31,7 +31,7 @@ class HoldRequest(_AuctionStepRequest):
 
 
 class PassRequest(_AuctionStepRequest):
-    action: Literal[AuctionAction.PASS_]
+    action: Literal[AuctionAction.PASS]
 
 
 class PlayRequest(_AuctionStepRequest):
