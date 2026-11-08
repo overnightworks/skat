@@ -125,23 +125,6 @@ def test_table_ids_are_distinct_128_bit_hex_and_not_sequential(service):
     assert all(abs(later - earlier) > len(ids) for earlier, later in itertools.pairwise(numbers))
 
 
-class ReceiptsThatFail:
-    """The real transactions, except that storing a receipt raises: the chair is written by then."""
-
-    def __init__(self, inner):
-        self._inner = inner
-
-    @contextmanager
-    def begin(self):
-        with self._inner.begin() as transaction:
-            transaction.add_receipt = _lose_connection
-            yield transaction
-
-
-def _lose_connection(_receipt):
-    raise ConnectionError("lost")
-
-
 class BothReadBeforeEitherWrites:
     """Holds each command after its locking read until its rival has read too, if the rival can.
 
@@ -224,7 +207,9 @@ class TestSeating:
         assert view.version == 3
 
     def test_a_failure_after_the_chair_write_persists_nothing(self, engine, table_id):
-        failing = TableService(ReceiptsThatFail(PostgresTableTransactions(engine)))
+        failing = TableService(
+            FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost"))
+        )
 
         with pytest.raises(ConnectionError):
             failing.sit(VISITOR, SitDown("command-sit", table_id, 2))
