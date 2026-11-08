@@ -151,6 +151,37 @@ class TestTableViews:
 
         assert (first.watchers, second.watchers) == (1, 2)
 
+    def test_a_seated_member_shows_away_on_every_other_stream_once_all_tabs_close_and_present_when_one_returns(
+        self, service, table_id
+    ):
+        sit = SitDown("command-2", table_id, 2)
+        service.sit(VISITOR, sit, frozenset())
+
+        async def scenario():
+            presence = Presence()
+            stream = stream_of(presence, service, OPENER, table_id)
+            first = await next_view(stream)
+            first_tab = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            second_tab = presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            present = await next_view(stream)
+            presence.unsubscribe(first_tab)
+            presence.unsubscribe(second_tab)
+            away = await next_view(stream)
+            presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            back = await next_view(stream)
+            await stream.aclose()
+            return first, present, away, back
+
+        views = run_on_a_loop_of_its_own(scenario())
+
+        assert [[chair.is_away for chair in view.chairs] for view in views] == [
+            [False, True, False],
+            [False, False, False],
+            [False, True, False],
+            [False, False, False],
+        ]
+        assert {view.version for view in views} == {2}
+
     def test_a_change_between_the_registration_and_the_first_read_is_in_the_first_view(self, service, table_id):
         class ConnectsAnotherRightAfterRegistering(Presence):
             def subscribe(self, table, account, wake):
@@ -232,9 +263,9 @@ class TestLostNotification:
         async def scenario():
             stream = stream_of(Presence(), service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
             first = await next_view(stream)
-            service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+            service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
             recovered = await next_view(stream)
-            service.stand(VISITOR, StandUp("command-stand", table_id))
+            service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
             stood = await next_view(stream)
             await stream.aclose()
             return first, recovered, stood
@@ -449,6 +480,21 @@ class TestWatchTableAdmission:
         assert [chair["is_mine"] for chair in event["chairs"]] == [False, False, False]
         assert watcher.id not in first
         assert opener.id not in first
+
+    def test_the_first_event_marks_a_seated_member_without_a_stream_away_and_names_no_account(self, skat):
+        opener_headers, opener = skat.member()
+        table = skat.create(opener_headers).json()
+        watcher_headers, watcher = skat.member()
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table["id"]), headers=watcher_headers) as answer:
+            first = next(iter(answer.iter_lines()))
+            answer.close()
+
+        event = json.loads(first.removeprefix("data: "))
+        assert [chair["is_away"] for chair in event["chairs"]] == [True, False, False]
+        assert opener.id not in first
+        assert watcher.id not in first
 
     def test_a_session_ended_server_side_ends_the_stream_at_the_next_heartbeat(self, sign_in_settings):
         skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)

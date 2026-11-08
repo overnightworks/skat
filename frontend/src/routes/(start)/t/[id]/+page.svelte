@@ -55,7 +55,7 @@
     }
 
     // A seated or freed chair reaches this page through its stream like every other page's: the answer's table
-    // has no watchers, so it never replaces the streamed view.
+    // is not the streamed view, so it never replaces it.
     let takenTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function seat(command: Promise<Outcome>): Promise<void> {
@@ -107,11 +107,25 @@
             <div class="felt" aria-hidden="true"></div>
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
-                    <li class="chair" class:mine={chair.is_mine} data-seat={chair.seat}>
+                    <li class="chair" class:mine={chair.is_mine} class:away={chair.is_away} data-seat={chair.seat}>
                         {#if chair.occupant_name !== null}
                             <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                             </span>
+                            {#if chair.is_away}
+                                <span class="mark away" aria-hidden="true">
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <path d="M19.5 14.6A7.8 7.8 0 1 1 9.4 4.5a6.3 6.3 0 0 0 10.1 10.1z" />
+                                    </svg>
+                                </span>
+                            {/if}
                         {:else if seated}
                             <span class="tile empty"></span>
                         {:else}
@@ -133,7 +147,11 @@
                                 </svg>
                             </button>
                         {/if}
-                        <span class="plate">{chair.occupant_name ?? words.seatFree}</span>
+                        <span class="plate"
+                            >{chair.occupant_name ?? words.seatFree}{#if chair.is_away}<small class="away-note"
+                                    >{words.seatAway}</small
+                                >{/if}</span
+                        >
                     </li>
                 {/each}
             </ul>

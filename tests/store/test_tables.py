@@ -163,10 +163,10 @@ class TestSeating:
         return service.create(OPENER, CreateTable(command_id="command-open")).id
 
     def test_a_seat_and_a_stand_read_back_after_a_reload(self, service, table_id):
-        service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+        service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
         sitting = service.view(OPENER, table_id, frozenset())
 
-        service.stand(VISITOR, StandUp("command-stand", table_id))
+        service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
         standing = service.view(OPENER, table_id, frozenset())
 
         assert [chair.occupant_name for chair in sitting.chairs] == ["Anna", "Ben", None]
@@ -174,31 +174,31 @@ class TestSeating:
         assert (sitting.version, standing.version) == (2, 3)
 
     def test_a_refusal_and_its_retry_write_no_chair_and_keep_the_first_outcome(self, service, engine, table_id):
-        first = service.sit(VISITOR, SitDown("command-sit", table_id, 1))
-        service.stand(OPENER, StandUp("command-stand", table_id))
+        first = service.sit(VISITOR, SitDown("command-sit", table_id, 1), frozenset())
+        service.stand(OPENER, StandUp("command-stand", table_id), frozenset())
 
-        again = service.sit(VISITOR, SitDown("command-sit", table_id, 1))
+        again = service.sit(VISITOR, SitDown("command-sit", table_id, 1), frozenset())
 
         assert (first.refusal, first.holder) == (Refusal.SEAT_TAKEN, "Anna")
         assert (again.refusal, again.holder) == (Refusal.SEAT_TAKEN, "Anna")
         assert count(engine, "receipts") == 3
 
     def test_a_command_id_reused_for_another_chair_is_refused(self, service, table_id):
-        service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+        service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
 
         reuse = SitDown("command-sit", table_id, 3)
 
         with pytest.raises(CommandIdReusedError):
-            service.sit(VISITOR, reuse)
+            service.sit(VISITOR, reuse, frozenset())
 
     def test_two_sits_at_once_on_the_last_chair_seat_exactly_one(self, service, engine, table_id):
-        service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+        service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
         rivals = [Actor("account-cem", "Cem"), Actor("account-dora", "Dora")]
         racing = TableService(BothReadBeforeEitherWrites(PostgresTableTransactions(engine), len(rivals)))
         results = {}
 
         def sit(rival):
-            results[rival.display_name] = racing.sit(rival, SitDown("command-sit", table_id, 3))
+            results[rival.display_name] = racing.sit(rival, SitDown("command-sit", table_id, 3), frozenset())
 
         threads = [threading.Thread(target=sit, args=(rival,)) for rival in rivals]
         for thread in threads:
@@ -222,7 +222,7 @@ class TestSeating:
         sitting = SitDown("command-sit", table_id, 2)
 
         with pytest.raises(ConnectionError):
-            failing.sit(VISITOR, sitting)
+            failing.sit(VISITOR, sitting, frozenset())
 
         view = TableService(PostgresTableTransactions(engine)).view(OPENER, table_id, frozenset())
         assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)
@@ -238,14 +238,14 @@ class TestSeating:
         self, service, engine, table_id
     ):
         other_id = service.create(OPENER, CreateTable(command_id="command-other")).id
-        service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+        service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
         blind = TableService(FaultyTableTransactions(PostgresTableTransactions(engine), blind_first_replay=True))
         receipts_before = count(engine, "receipts")
 
         reuse = SitDown("command-sit", other_id, 2)
 
         with pytest.raises(CommandIdReusedError):
-            blind.sit(VISITOR, reuse)
+            blind.sit(VISITOR, reuse, frozenset())
 
         view = service.view(OPENER, other_id, frozenset())
         assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)

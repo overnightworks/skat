@@ -23,6 +23,7 @@ STAND_UP = catalog_text("standUp")
 SEAT_TAKEN = catalog_text("seatTaken")
 COMMAND_FAILED = catalog_text("commandFailed")
 SEAT_FREE = catalog_text("seatFree")
+SEAT_AWAY = catalog_text("seatAway")
 # The page hides its notice after a few seconds.
 NOTICE_GONE_TIMEOUT_MILLISECONDS = 10_000
 SEAT_BUTTON = "button.tile.free"
@@ -116,6 +117,34 @@ def test_three_sit_and_a_fourth_member_only_watches_until_a_chair_frees_up(
     sit_in(fourth, 2)
     for person in (opener, second, third, fourth):
         expect(plate_of(person, 2)).to_have_text("dora")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_seated_member_who_closes_the_page_shows_as_away_until_the_page_opens_again(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    opener = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    path = open_new_table(opener, e2e_server)
+    onlooker = record_page_errors(open_person(username="ben", **form_factor), page_errors)
+    watch(onlooker, e2e_server, path)
+    mark_page(onlooker)
+    anna_chair = onlooker.locator(".chair[data-seat='1']")
+    expect(anna_chair.locator(".mark.away")).to_have_count(0)
+
+    returning = record_page_errors(opener.context.new_page(), page_errors)
+    opener.close()
+
+    expect(anna_chair.locator(".mark.away")).to_be_visible()
+    expect(plate_of(onlooker, 1)).to_contain_text(SEAT_AWAY)
+    expect(plate_of(onlooker, 1)).to_contain_text("anna")
+    assert onlooker.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+    watch(returning, e2e_server, path)
+
+    expect(anna_chair.locator(".mark.away")).to_have_count(0)
+    expect(plate_of(onlooker, 1)).to_have_text("anna")
+    expect(returning.locator(".mark.away")).to_have_count(0)
+    assert_never_reloaded(onlooker)
 
 
 def lose_the_last_chair(

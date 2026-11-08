@@ -121,6 +121,24 @@ class TestView:
 
         assert service.view(VISITOR, created.id, connected).watchers == watchers
 
+    @pytest.mark.parametrize(
+        ("viewer", "connected", "away"),
+        [
+            pytest.param(OPENER, frozenset(), [False, True, False], id="the-viewers-own-chair-is-never-away"),
+            pytest.param(OPENER, {VISITOR.account_id}, [False, False, False], id="a-connected-occupant-is-present"),
+            pytest.param(VISITOR, frozenset(), [True, False, False], id="an-occupant-without-a-stream-is-away"),
+            pytest.param(VISITOR, {"account-third"}, [True, False, False], id="a-third-accounts-stream-is-no-help"),
+            pytest.param(VISITOR, {OPENER.account_id}, [False, False, False], id="an-occupant-with-a-stream-is-here"),
+        ],
+    )
+    def test_marks_a_chair_away_when_its_occupant_has_no_connected_stream(self, service, viewer, connected, away):
+        created = service.create(OPENER, CreateTable(command_id="command-1"))
+        service.sit(VISITOR, SitDown("command-2", created.id, 2), frozenset())
+
+        view = service.view(viewer, created.id, frozenset(connected))
+
+        assert [chair.is_away for chair in view.chairs] == away
+
     def test_a_new_table_has_no_watchers(self, service):
         assert service.create(OPENER, CreateTable(command_id="command-1")).watchers == 0
 
@@ -145,7 +163,7 @@ def table_id(service):
 
 
 def sit(service, actor, table_id, seat, command_id="command-sit"):
-    return service.sit(actor, SitDown(command_id, table_id, seat))
+    return service.sit(actor, SitDown(command_id, table_id, seat), frozenset())
 
 
 def occupants_of(view):
@@ -200,7 +218,7 @@ class TestSit:
 
     def test_a_retry_of_a_refusal_returns_the_refusal_even_after_the_chair_frees_up(self, service, table_id):
         first = sit(service, VISITOR, table_id, 1)
-        service.stand(OPENER, StandUp("command-stand", table_id))
+        service.stand(OPENER, StandUp("command-stand", table_id), frozenset())
 
         again = sit(service, VISITOR, table_id, 1)
 
@@ -223,7 +241,7 @@ class TestSit:
         reuse = StandUp("command-sit", table_id)
 
         with pytest.raises(CommandIdReusedError):
-            service.stand(VISITOR, reuse)
+            service.stand(VISITOR, reuse, frozenset())
 
     @pytest.mark.parametrize("unknown", ["0" * 32, "", "not-an-id"])
     def test_an_unknown_or_malformed_table_is_no_table_and_writes_nothing(self, service, store, unknown):
@@ -256,7 +274,7 @@ class TestStand:
     def test_frees_the_own_chair_and_keeps_every_number(self, service, table_id):
         sit(service, VISITOR, table_id, 3)
 
-        result = service.stand(VISITOR, StandUp("command-stand", table_id))
+        result = service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
 
         assert result.refusal is None
         chairs = [(chair.seat, chair.occupant_name) for chair in result.view.chairs]
@@ -267,22 +285,22 @@ class TestStand:
         ]
 
     def test_refuses_a_member_without_a_chair_and_changes_nothing(self, service, table_id):
-        result = service.stand(VISITOR, StandUp("command-stand", table_id))
+        result = service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
 
         assert result.refusal is Refusal.NOT_SEATED
         assert occupants_of(service.view(OPENER, table_id, frozenset())) == ["Anna", None, None]
 
     def test_a_retry_returns_the_first_outcome(self, service, store, table_id):
-        first = service.stand(OPENER, StandUp("command-stand", table_id))
+        first = service.stand(OPENER, StandUp("command-stand", table_id), frozenset())
         written = dict(store.tables)
 
-        assert service.stand(OPENER, StandUp("command-stand", table_id)) == first
+        assert service.stand(OPENER, StandUp("command-stand", table_id), frozenset()) == first
         assert store.tables == written
 
     def test_another_member_may_take_the_freed_chair(self, service, table_id):
-        service.stand(OPENER, StandUp("command-stand", table_id))
+        service.stand(OPENER, StandUp("command-stand", table_id), frozenset())
 
         assert occupants_of(sit(service, VISITOR, table_id, 1).view) == ["Ben", None, None]
 
     def test_an_unknown_table_is_no_table(self, service):
-        assert service.stand(OPENER, StandUp("command-stand", "0" * 32)) is None
+        assert service.stand(OPENER, StandUp("command-stand", "0" * 32), frozenset()) is None
