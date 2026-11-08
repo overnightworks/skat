@@ -112,8 +112,8 @@ class TableRecord:
 
 
 @dataclass(frozen=True)
-class FirstDeal:
-    """The dealer drawn and the cards dealt for a table's first hand."""
+class NewHand:
+    """A hand about to start: the seat that deals it and the cards dealt."""
 
     dealer: int
     hand: Deal

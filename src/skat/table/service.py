@@ -2,14 +2,14 @@ import secrets
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from skat.engine.deal import deal, draw_dealer
+from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.records import (
     Actor,
     CommandRefusal,
     CreateTable,
     Decision,
-    FirstDeal,
+    NewHand,
     Receipt,
     Replay,
     SitDown,
@@ -134,7 +134,7 @@ class TableService:
             command.command_id,
             SIT_DOWN_COMMAND,
             sit_payload(command),
-            lambda table: decide_sit(table, actor, command.seat, self._first_deal(table)),
+            lambda table: decide_sit(table, actor, command.seat, self._new_hand(table)),
         )
 
     def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> CommandResult | None:
@@ -185,13 +185,15 @@ class TableService:
         with self._transactions.begin() as transaction:
             return transaction.occupied_chairs()
 
-    def _first_deal(self, table: TableRecord) -> FirstDeal | None:
-        """Randomness enters only here: the dealer, then the shuffle, both from the one source."""
+    def _new_hand(self, table: TableRecord) -> NewHand | None:
+        """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
+
+        Randomness enters only here, both from the one source.
+        """
         if not sit_deals(table):
             return None
-        dealer = draw_dealer(self._random_source)
-        hand = deal(self._random_source)
-        return FirstDeal(dealer, hand)
+        dealer = draw_dealer(self._random_source) if table.dealer is None else next_dealer(table.dealer)
+        return NewHand(dealer, deal(self._random_source))
 
     def _run_command(
         self,
