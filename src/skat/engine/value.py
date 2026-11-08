@@ -63,13 +63,11 @@ def _level(declaration: Declaration, played: PlayedOut) -> int:
 
 
 def _announcements_reached(declaration: Declaration, played: PlayedOut) -> bool:
-    match declaration.announcement:
-        case Announcement.NONE:
-            return True
-        case Announcement.SCHNEIDER:
-            return played.opponents_schneider
-        case Announcement.SCHWARZ:
-            return played.opponents_schwarz
+    if declaration.announcement is Announcement.NONE:
+        return True
+    if declaration.announcement is Announcement.SCHNEIDER:
+        return played.opponents_schneider
+    return played.opponents_schwarz
 
 
 def value_of(played: PlayedOut) -> Valuation:
