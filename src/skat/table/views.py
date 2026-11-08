@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 from skat.engine.cards import DECK
 from skat.engine.deal import positions_from
 from skat.table.auction import AuctionView, auction_view_of
+from skat.table.declaring import DeclaringView, declaring_view_of
+from skat.table.hand_state import declaring_of
 
 if TYPE_CHECKING:
     from skat.engine.cards import Card
@@ -36,6 +38,7 @@ class HandView:
     own_cards: tuple[Card, ...]
     skat_count: int
     auction: AuctionView
+    declaring: DeclaringView | None
 
 
 @dataclass(frozen=True)
@@ -60,7 +63,8 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         message = f"table {table.id.value} holds a hand and no dealer"
         raise RuntimeError(message)
     positions = positions_from(table.dealer)
-    hands = table.hand.hands
+    state = declaring_of(table)
+    hands = table.hand.hands if state is None else {**table.hand.hands, state.declarer: state.hand}
     own_cards = {
         card
         for chair in table.chairs
@@ -70,8 +74,9 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     hand_view = HandView(
         table.dealer,
         tuple(card for card in DECK if card in own_cards),
-        len(table.hand.skat),
+        len(table.hand.skat if state is None else state.skat),
         auction_view_of(table, viewer_account_id),
+        declaring_view_of(state, table.dealer),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
@@ -81,7 +86,8 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
 
     The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant
     is not the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows
-    its position and card count, and only the viewer's own cards are named; the skat is a count.
+    its position and card count, and only the viewer's own cards are named: the declarer's hold the skat from the
+    take to the put-back, and an ouvert game's cards are open to all. The skat is otherwise a count.
     """
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
