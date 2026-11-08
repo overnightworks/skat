@@ -144,3 +144,57 @@ def play(auction: Auction, position: Position) -> BidOutcome:
     if refusal is not None:
         return _refuse(auction, refusal)
     return BidOutcome(replace(auction, result=Declared(position, LOWEST_BID)))
+
+
+@dataclass(frozen=True)
+class Bid:
+    """The bidder names a value above the standing one."""
+
+    position: Position
+    value: int
+
+
+@dataclass(frozen=True)
+class Hold:
+    """The responder keeps up with the standing bid."""
+
+    position: Position
+
+
+@dataclass(frozen=True)
+class Pass:
+    """The actor drops out of the auction."""
+
+    position: Position
+
+
+@dataclass(frozen=True)
+class Play:
+    """Forehand plays at the lowest bid after both others passed."""
+
+    position: Position
+
+
+type AuctionStep = Bid | Hold | Pass | Play
+
+
+def auction_step(auction: Auction, step: AuctionStep) -> BidOutcome:
+    if isinstance(step, Bid):
+        return bid(auction, step.position, step.value)
+    if isinstance(step, Hold):
+        return hold(auction, step.position)
+    if isinstance(step, Pass):
+        return pass_(auction, step.position)
+    return play(auction, step.position)
+
+
+def auction_after(steps: tuple[AuctionStep, ...]) -> Auction:
+    """The auction a stored log of steps leads to; a log the rules refuse is corrupt and raises."""
+    auction = Auction.start()
+    for place, step in enumerate(steps, start=1):
+        outcome = auction_step(auction, step)
+        if outcome.refusal is not None:
+            message = f"impossible auction log: step {place} refused: {outcome.refusal.value}"
+            raise ValueError(message)
+        auction = outcome.auction
+    return auction
