@@ -22,6 +22,7 @@ ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 NOBODY_CONNECTED: frozenset[str] = frozenset()
+FIRST_STEP, SECOND_STEP = "command-a", "command-b"
 
 
 @pytest.fixture
@@ -86,8 +87,8 @@ def hand(service, transactions):
 
 
 def test_the_steps_read_back_in_the_order_they_were_taken(hand):
-    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a")
-    hand.send(Position.FOREHAND, AuctionAction.HOLD, command_id="command-b")
+    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP)
+    hand.send(Position.FOREHAND, AuctionAction.HOLD, command_id=SECOND_STEP)
     hand.send(Position.MIDDLEHAND, AuctionAction.BID, 20, command_id="command-c")
     hand.send(Position.FOREHAND, AuctionAction.PASS, command_id="command-d")
 
@@ -101,8 +102,8 @@ def test_the_steps_read_back_in_the_order_they_were_taken(hand):
 
 def test_a_passed_in_hand_keeps_its_steps_and_its_cards(hand, transactions):
     for position, command_id in [
-        (Position.MIDDLEHAND, "command-a"),
-        (Position.REARHAND, "command-b"),
+        (Position.MIDDLEHAND, FIRST_STEP),
+        (Position.REARHAND, SECOND_STEP),
         (Position.FOREHAND, "command-c"),
     ]:
         hand.send(position, AuctionAction.PASS, command_id=command_id)
@@ -113,9 +114,9 @@ def test_a_passed_in_hand_keeps_its_steps_and_its_cards(hand, transactions):
 
 def test_a_retry_stores_no_second_step_and_no_second_version(hand, engine, transactions):
     version = stored(transactions, hand.table_id).version
-    first = hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a", version=version)
+    first = hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP, version=version)
 
-    again = hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a", version=version)
+    again = hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP, version=version)
 
     assert again == first
     assert count_steps(engine) == 1
@@ -134,7 +135,7 @@ def test_two_bids_at_once_store_exactly_one_step_and_name_the_loser_stale(hand, 
             )
         )
 
-    threads = [threading.Thread(target=request, args=(name,)) for name in ("command-a", "command-b")]
+    threads = [threading.Thread(target=request, args=(name,)) for name in (FIRST_STEP, SECOND_STEP)]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -144,8 +145,8 @@ def test_two_bids_at_once_store_exactly_one_step_and_name_the_loser_stale(hand, 
     assert sorted(str(result.refusal) for result in results) == sorted([str(None), str(Refusal.STALE_VERSION)])
 
 
-def test_a_restart_reads_the_identical_steps_and_the_next_step_continues(hand, engine, database_url, transactions):
-    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a")
+def test_a_restart_reads_the_identical_steps_and_the_next_step_continues(hand, database_url):
+    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP)
 
     restarted_engine = create_store_engine(database_url)
     try:
@@ -154,7 +155,7 @@ def test_a_restart_reads_the_identical_steps_and_the_next_step_continues(hand, e
         result = hand.send(
             Position.FOREHAND,
             AuctionAction.HOLD,
-            command_id="command-b",
+            command_id=SECOND_STEP,
             service=TableService(restarted),
         )
     finally:
@@ -169,7 +170,7 @@ def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(h
     failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
 
     with pytest.raises(ConnectionError):
-        hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a", service=failing)
+        hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP, service=failing)
 
     assert stored(transactions, hand.table_id) == before
     assert count_steps(engine) == 0
@@ -178,8 +179,8 @@ def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(h
     assert receipts == 0
 
 
-def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, engine, transactions):
-    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a")
+def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transactions):
+    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP)
     before = stored(transactions, hand.table_id)
     rewritten = replace(
         before,
@@ -197,8 +198,8 @@ def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, engine,
     assert stored(transactions, hand.table_id) == before
 
 
-def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, engine, transactions):
-    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a")
+def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, transactions):
+    hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP)
     before = stored(transactions, hand.table_id)
     shortened = replace(before, version=before.version + 1, progress=HandProgress())
 
@@ -220,14 +221,14 @@ def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(hand, engine
         )
 
     with pytest.raises(ValueError, match="impossible auction log"):
-        hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id="command-a")
+        hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP)
 
 
 def test_a_refused_step_keeps_its_token_in_the_receipt_for_a_retry(hand, engine):
-    first = hand.send(Position.FOREHAND, AuctionAction.PASS, command_id="command-a")
+    first = hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=FIRST_STEP)
     version = first.view.version
 
-    again = hand.send(Position.FOREHAND, AuctionAction.PASS, command_id="command-a", version=version)
+    again = hand.send(Position.FOREHAND, AuctionAction.PASS, command_id=FIRST_STEP, version=version)
 
     assert again.refusal is first.refusal
     with engine.connect() as connection:

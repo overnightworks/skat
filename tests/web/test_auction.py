@@ -14,6 +14,20 @@ from tests.web.support.skat import FETCH, UNKNOWN_ID
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 BID, HOLD, PASS, PLAY = "bid", "hold", "pass", "play"
 NOT_YOUR_TURN, OVER, STALE_VERSION = "not-your-turn", "over", "stale-version"
+SAME_COMMAND = "command-same"
+VALUE_FIELD = "value"
+
+
+def post_step(skat, headers, table_id, *, command_id, version, action, **fields):
+    return skat.client.post(
+        f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+        json={"command_id": command_id, "version": version, "action": action, **fields},
+        headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+    )
+
+
+def reason_of(answer):
+    return answer.json()["reason"]
 
 
 class Table:
@@ -32,17 +46,15 @@ class Table:
         return self.skat.store.tables[self.table_id]
 
     def send(self, headers, action, value=None, *, command_id=None, version=None, **extra):
-        body = {
-            "command_id": command_id or f"step-{next(self._commands):04d}",
-            "version": self.record.version if version is None else version,
-            "action": action,
-            **({} if value is None else {"value": value}),
+        return post_step(
+            self.skat,
+            headers,
+            self.table_id,
+            command_id=command_id or f"step-{next(self._commands):04d}",
+            version=self.record.version if version is None else version,
+            action=action,
+            **({} if value is None else {VALUE_FIELD: value}),
             **extra,
-        }
-        return self.skat.client.post(
-            f"{TABLES_PATH}/{self.table_id}{TABLE_AUCTION_SUFFIX}",
-            json=body,
-            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
 
     def accepted(self, position, action, value=None, **options):
@@ -61,7 +73,7 @@ class Table:
         before = self.record
         answer = self.send(headers, action, value, **options)
         assert answer.status_code == 409, answer.text
-        assert answer.json()["reason"] == reason
+        assert reason_of(answer) == reason
         assert self.record == before
         return answer
 
@@ -146,18 +158,18 @@ class TestRefused:
         table.refused(table.at[MIDDLEHAND], BID, value, "not-above-standing")
 
     @pytest.mark.parametrize(
-        ("action", "value"),
+        "step",
         [
-            pytest.param(BID, 18, id="bid"),
-            pytest.param(HOLD, None, id="hold"),
-            pytest.param(PASS, None, id="pass"),
-            pytest.param(PLAY, None, id="play"),
+            pytest.param((BID, 18), id="bid"),
+            pytest.param((HOLD, None), id="hold"),
+            pytest.param((PASS, None), id="pass"),
+            pytest.param((PLAY, None), id="play"),
         ],
     )
-    def test_a_passed_player_cannot_take_their_word_back(self, table, action, value):
+    def test_a_passed_player_cannot_take_their_word_back(self, table, step):
         table.accepted(MIDDLEHAND, PASS)
 
-        table.refused(table.at[MIDDLEHAND], action, value, "already-passed")
+        table.refused(table.at[MIDDLEHAND], *step, "already-passed")
 
     def test_the_bidder_cannot_answer_their_own_bid(self, table):
         table.refused(table.at[MIDDLEHAND], HOLD, None, "wrong-action")
@@ -172,24 +184,16 @@ class TestRefused:
         headers, _ = skat.member()
         table_id = skat.create(headers).json()["id"]
 
-        answer = skat.client.post(
-            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-            json={"command_id": "step-0001", "version": 1, "action": PASS},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
-        )
+        answer = post_step(skat, headers, table_id, command_id="step-0001", version=1, action=PASS)
 
         assert answer.status_code == 409
-        assert answer.json()["reason"] == "no-hand"
+        assert reason_of(answer) == "no-hand"
         assert answer.headers["cache-control"] == "no-store"
 
     def test_an_unknown_table_answers_404(self, skat):
         headers, _ = skat.member()
 
-        answer = skat.client.post(
-            f"{TABLES_PATH}/{UNKNOWN_ID}{TABLE_AUCTION_SUFFIX}",
-            json={"command_id": "step-0001", "version": 1, "action": PASS},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
-        )
+        answer = post_step(skat, headers, UNKNOWN_ID, command_id="step-0001", version=1, action=PASS)
 
         assert answer.status_code == 404
 
@@ -204,11 +208,11 @@ class TestRefused:
     @pytest.mark.parametrize(
         ("action", "extra"),
         [
-            pytest.param(BID, {"value": 18, "seat": 1}, id="names-a-seat"),
-            pytest.param(BID, {"value": 18, "position": "forehand"}, id="names-a-position"),
-            pytest.param(HOLD, {"value": 18}, id="hold-with-a-value"),
-            pytest.param(PASS, {"value": 18}, id="pass-with-a-value"),
-            pytest.param(PLAY, {"value": 18}, id="play-with-a-value"),
+            pytest.param(BID, {VALUE_FIELD: 18, "seat": 1}, id="names-a-seat"),
+            pytest.param(BID, {VALUE_FIELD: 18, "position": "forehand"}, id="names-a-position"),
+            pytest.param(HOLD, {VALUE_FIELD: 18}, id="hold-with-a-value"),
+            pytest.param(PASS, {VALUE_FIELD: 18}, id="pass-with-a-value"),
+            pytest.param(PLAY, {VALUE_FIELD: 18}, id="play-with-a-value"),
             pytest.param(BID, {}, id="bid-without-a-value"),
             pytest.param("raise", {}, id="unknown-action"),
         ],
@@ -225,38 +229,36 @@ class TestRefused:
 class TestRetry:
     def test_a_repeated_acceptance_answers_the_same_and_changes_nothing(self, table):
         version = table.record.version
-        first = table.send(table.at[MIDDLEHAND], BID, 18, command_id="command-same", version=version)
+        first = table.send(table.at[MIDDLEHAND], BID, 18, command_id=SAME_COMMAND, version=version)
         after_first = table.record
 
-        again = table.send(table.at[MIDDLEHAND], BID, 18, command_id="command-same", version=version)
+        again = table.send(table.at[MIDDLEHAND], BID, 18, command_id=SAME_COMMAND, version=version)
 
         assert again.status_code == 200
         assert again.json() == first.json()
         assert table.record == after_first
 
     def test_a_repeated_refusal_answers_the_same_refusal(self, table):
-        first = table.refused(table.at[FOREHAND], PASS, None, NOT_YOUR_TURN, command_id="command-same")
+        first = table.refused(table.at[FOREHAND], PASS, None, NOT_YOUR_TURN, command_id=SAME_COMMAND)
 
-        again = table.refused(table.at[FOREHAND], PASS, None, NOT_YOUR_TURN, command_id="command-same")
+        again = table.refused(table.at[FOREHAND], PASS, None, NOT_YOUR_TURN, command_id=SAME_COMMAND)
 
         assert again.json() == first.json()
 
     @pytest.mark.parametrize(
-        ("action", "value", "version_offset"),
+        ("step", "version_offset"),
         [
-            pytest.param(BID, 20, 0, id="another-value"),
-            pytest.param(PASS, None, 0, id="another-action"),
-            pytest.param(BID, 18, 1, id="another-version"),
+            pytest.param((BID, 20), 0, id="another-value"),
+            pytest.param((PASS, None), 0, id="another-action"),
+            pytest.param((BID, 18), 1, id="another-version"),
         ],
     )
-    def test_the_same_id_with_another_body_is_refused_as_reused(self, table, action, value, version_offset):
+    def test_the_same_id_with_another_body_is_refused_as_reused(self, table, step, version_offset):
         version = table.record.version
-        table.accepted(MIDDLEHAND, BID, 18, command_id="command-same", version=version)
+        table.accepted(MIDDLEHAND, BID, 18, command_id=SAME_COMMAND, version=version)
         after_first = table.record
 
-        answer = table.send(
-            table.at[MIDDLEHAND], action, value, command_id="command-same", version=version + version_offset
-        )
+        answer = table.send(table.at[MIDDLEHAND], *step, command_id=SAME_COMMAND, version=version + version_offset)
 
         assert answer.status_code == 409
         assert "reused" in answer.json()["detail"]
@@ -270,10 +272,10 @@ class TestRetry:
 
     def test_a_retry_with_its_old_version_is_the_replay_not_stale(self, table):
         old_version = table.record.version
-        table.accepted(MIDDLEHAND, BID, 18, command_id="command-same", version=old_version)
+        table.accepted(MIDDLEHAND, BID, 18, command_id=SAME_COMMAND, version=old_version)
         after_first = table.record
 
-        again = table.send(table.at[MIDDLEHAND], BID, 18, command_id="command-same", version=old_version)
+        again = table.send(table.at[MIDDLEHAND], BID, 18, command_id=SAME_COMMAND, version=old_version)
 
         assert again.status_code == 200
         assert table.record == after_first
@@ -286,7 +288,7 @@ class TestOtherCommandsDuringAnAuction:
 
         answer = table.skat.stand(table.at[MIDDLEHAND], table.table_id)
 
-        assert answer.json()["reason"] == "hand-running"
+        assert reason_of(answer) == "hand-running"
         assert table.record == before
 
     def test_a_fourth_member_sitting_while_an_auction_runs_is_refused(self, table):
@@ -295,5 +297,5 @@ class TestOtherCommandsDuringAnAuction:
 
         answer = table.skat.sit(table.watcher, table.table_id, 2)
 
-        assert answer.json()["reason"] == "seat-taken"
+        assert reason_of(answer) == "seat-taken"
         assert table.record == before
