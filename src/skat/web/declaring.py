@@ -5,14 +5,17 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal
 from fastapi import APIRouter, Body, Request, Response
 from pydantic import Field
 
-from skat.engine.declaration import SKAT_SIZE, Announcement, Declare, PutBack, TakeSkat
-from skat.engine.games import GameKind
+from skat.engine.declaration import SKAT_SIZE, Declare, PutBack, TakeSkat
 from skat.table.declaring import DeclaringCommand
 from skat.web.tables import (
+    ANNOUNCEMENT_TOKENS,
     COMMAND_RESPONSES,
+    GAME_TOKENS,
     TABLES_PATH,
+    AnnouncementToken,
     CardChoice,
     CreateTableRequest,
+    GameToken,
     TableAnswer,
     actor_of,
     card_of,
@@ -34,34 +37,8 @@ class DeclaringAction(StrEnum):
     DECLARE = "declare"
 
 
-class GameToken(StrEnum):
-    KARO = "karo"
-    HERZ = "herz"
-    PIK = "pik"
-    KREUZ = "kreuz"
-    GRAND = "grand"
-    NULL = "null"
-
-
-class AnnouncementToken(StrEnum):
-    NONE = "none"
-    SCHNEIDER = "schneider"
-    SCHWARZ = "schwarz"
-
-
-_GAME_KINDS: Final = {
-    GameToken.KARO: GameKind.KARO,
-    GameToken.HERZ: GameKind.HERZ,
-    GameToken.PIK: GameKind.PIK,
-    GameToken.KREUZ: GameKind.KREUZ,
-    GameToken.GRAND: GameKind.GRAND,
-    GameToken.NULL: GameKind.NULL,
-}
-_ANNOUNCEMENTS: Final = {
-    AnnouncementToken.NONE: Announcement.NONE,
-    AnnouncementToken.SCHNEIDER: Announcement.SCHNEIDER,
-    AnnouncementToken.SCHWARZ: Announcement.SCHWARZ,
-}
+_GAME_KINDS: Final = {token: kind for kind, token in GAME_TOKENS.items()}
+_ANNOUNCEMENTS: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
 
 class _DeclaringRequest(CreateTableRequest):

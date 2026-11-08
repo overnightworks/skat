@@ -13,8 +13,15 @@ from skat.table.auction import AuctionAction
 from skat.table.hand_state import declaring_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX, AnnouncementToken, DeclaringAction, GameToken
-from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
+from skat.web.tables import (
+    RANK_TOKENS,
+    SUIT_TOKENS,
+    TABLE_EVENTS_SUFFIX,
+    TABLES_PATH,
+    AnnouncementToken,
+    GameToken,
+)
 from tests.support.payload_cards import (
     DEALER_SEAT,
     FOREHAND_CARDS,
