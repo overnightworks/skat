@@ -1,15 +1,12 @@
 import asyncio
 import json
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from dataclasses import replace
 from datetime import timedelta
 
 import pytest
 
-from skat.engine.bidding import Pass
-from skat.engine.deal import Position, next_dealer
-from skat.table.records import Actor, CreateTable, HandProgress, SitDown, StandUp, TableId
+from skat.engine.deal import next_dealer
+from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
@@ -17,16 +14,23 @@ from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
-from tests.support.idle_presence import idle_hold, idle_presence
+from tests.support.idle_presence import idle_hold, idle_next_deal, idle_presence
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
+from tests.web.support.streams import (
+    ALLOWED_SECONDS,
+    NO_HEARTBEAT_SECONDS,
+    OPENER,
+    VISITOR,
+    admitting,
+    next_view,
+    reader,
+    run_on_a_loop_of_its_own,
+    stream_of,
+)
 
-OPENER = Actor(account_id="opener", display_name="Anna")
-VISITOR = Actor(account_id="visitor", display_name="Ben")
-ALLOWED_SECONDS = 2
-NO_HEARTBEAT_SECONDS = 3600
 SHORT_HEARTBEAT_SECONDS = 0.01
 IDLE_HEARTBEATS = 3
 BID_VALUE = 18
@@ -40,31 +44,6 @@ def service():
 @pytest.fixture
 def table_id(service):
     return service.create(OPENER, CreateTable(command_id="command-1")).id
-
-
-def reader(service, table_id):
-    async def read_view(actor, connected):
-        return service.view(actor, table_id, connected)
-
-    return read_view
-
-
-def admitting(actor):
-    async def admitted():
-        return actor
-
-    return admitted
-
-
-def stream_of(presence, service, actor, table_id, admit=None, heartbeat_seconds=NO_HEARTBEAT_SECONDS):
-    return table_views(
-        presence,
-        reader(service, table_id),
-        admit or admitting(actor),
-        table_id,
-        actor.account_id,
-        heartbeat_seconds=heartbeat_seconds,
-    )
 
 
 class Admission:
@@ -100,16 +79,6 @@ async def stays_pending_through_idle_heartbeats(stream, admission):
     with suppress(asyncio.CancelledError):
         await pending
     return not sent
-
-
-def run_on_a_loop_of_its_own(scenario):
-    """A thread of its own keeps the loop apart from one that a browser driver left running in this one."""
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(asyncio.run, scenario).result()
-
-
-async def next_view(stream):
-    return await asyncio.wait_for(anext(stream), ALLOWED_SECONDS)
 
 
 class TestTableViews:
@@ -201,7 +170,7 @@ class TestTableViews:
                 return subscription
 
         async def scenario():
-            presence = ConnectsAnotherRightAfterRegistering(idle_hold())
+            presence = ConnectsAnotherRightAfterRegistering(idle_hold(), idle_next_deal())
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)
             await stream.aclose()
@@ -798,62 +767,3 @@ class TestHandOnTheStream:
         assert rest == [""]
         assert next_read.status_code == 401
         assert cards_in_text(next_read.text) == set()
-
-
-class TestNextDealTrigger:
-    """The stream's half of the next deal: its first view of a passed-in table asks for the deal."""
-
-    @pytest.fixture
-    def store(self):
-        return FakeTableStore()
-
-    @pytest.fixture
-    def table(self, store):
-        service = TableService(store, new_table_id=lambda: TableId("1" * 32))
-        table_id = service.create(OPENER, CreateTable(command_id="command-1")).id
-        service.sit(VISITOR, SitDown("command-2", table_id, 2), frozenset())
-        return service, table_id
-
-    @pytest.fixture
-    def asked(self):
-        return []
-
-    @pytest.fixture
-    def asking_presence(self, asked):
-        presence = idle_presence()
-        presence.deal_soon = asked.append
-        return presence
-
-    def passed_in(self, store, table_id):
-        steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
-        store.tables[table_id] = replace(store.tables[table_id], dealer=1, hand=None, progress=HandProgress(steps))
-
-    def test_the_first_view_of_a_passed_in_table_asks_once_and_a_later_view_does_not(
-        self, store, table, asking_presence, asked
-    ):
-        service, table_id = table
-        self.passed_in(store, table_id)
-
-        async def scenario():
-            stream = stream_of(asking_presence, service, OPENER, table_id)
-            await next_view(stream)
-            assert asked == [table_id]
-            asking_presence.wake_table(table_id)
-            await next_view(stream)
-            await stream.aclose()
-
-        run_on_a_loop_of_its_own(scenario())
-
-        assert asked == [table_id]
-
-    def test_the_first_view_of_a_table_never_dealt_asks_for_nothing(self, table, asking_presence, asked):
-        service, table_id = table
-
-        async def scenario():
-            stream = stream_of(asking_presence, service, OPENER, table_id)
-            await next_view(stream)
-            await stream.aclose()
-
-        run_on_a_loop_of_its_own(scenario())
-
-        assert asked == []
