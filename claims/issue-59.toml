@@ -1,8 +1,0 @@
-claim_id = "70afd4045baa4042a558206175e8c088"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "8c1e766780c31941674a71f4d24f5dcedb19417c"
-branch = "claude/issue-59-own-cards"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/e2e/support", "tests/e2e/test_table_hand.py", "tests/e2e/test_table_watch.py", "tests/support/payload_cards.py", "tests/table/test_views.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "3a73a3af9870c0eeea195391834ed14286dbee3d"
-whole_reason = "The view, its wire answer and the raw-payload proof are one disclosure rule; a view no payload carries, or a payload no test captures, proves nothing about hidden cards."
