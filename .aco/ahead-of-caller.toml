@@ -17,3 +17,8 @@ reason = "S5.1 bids with the values these game kinds make."
 path = "src/skat/engine/bidding.py"
 item = "overnightworks/skat#27"
 reason = "S5.1 runs the auction at the table."
+
+[[code]]
+path = "src/skat/engine/play.py"
+item = "overnightworks/skat#27"
+reason = "S5.3 plays the tricks at the table."
