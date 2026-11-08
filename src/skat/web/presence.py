@@ -42,7 +42,7 @@ class LoopScheduler:
         task.add_done_callback(self._tasks.discard)
 
     def cancel_all(self) -> None:
-        for task in list(self._tasks):
+        for task in self._tasks:
             task.cancel()
 
     @staticmethod
