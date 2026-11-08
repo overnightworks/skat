@@ -32,3 +32,8 @@ reason = "S5.2 takes the skat, discards and declares at the table."
 path = "src/skat/engine/tricks.py"
 item = "overnightworks/skat#27"
 reason = "S5.3 plays the ten tricks at the table."
+
+[[code]]
+path = "src/skat/engine/value.py"
+item = "overnightworks/skat#27"
+reason = "S5.3 shows the game's value at the table."
