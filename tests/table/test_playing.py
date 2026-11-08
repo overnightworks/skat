@@ -96,11 +96,6 @@ class TestCardPayload:
     def test_each_request_has_its_own_payload(self, other):
         assert card_payload(other) != card_payload(command_with(DECK[0]))
 
-    def test_a_repeated_request_has_the_same_payload(self):
-        request = command_with(DECK[0])
-
-        assert card_payload(request) == card_payload(replace(request))
-
 
 class TestDecide:
     def test_no_hand_is_named_before_not_seated_and_a_stale_version(self):

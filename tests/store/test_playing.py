@@ -225,43 +225,43 @@ def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(ga
     assert receipts == 0
 
 
-def _rewrite(stored, transactions, record, plays):
+def _rewrite(transactions, record, plays):
     rewritten = replace(record, version=record.version + 1, progress=replace(record.progress, plays=plays))
     with transactions.begin() as transaction:
         transaction.save_table(rewritten)
 
 
-def test_cards_that_rewrite_a_stored_card_raise_and_change_nothing(game, transactions, stored):
+def test_cards_that_rewrite_a_stored_card_raise_and_change_nothing(game, transactions):
     game.play_legally(1)
     before = game.record
     position, _ = game.legal_card()
     other_play = (CardPlayed(position, before.hand.skat[0]),)
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(stored, transactions, before, other_play)
+        _rewrite(transactions, before, other_play)
 
     assert game.record == before
 
 
-def test_cards_shorter_than_the_stored_ones_raise_and_change_nothing(game, transactions, stored):
+def test_cards_shorter_than_the_stored_ones_raise_and_change_nothing(game, transactions):
     game.play_legally(1)
     before = game.record
     no_plays: tuple[CardPlayed, ...] = ()
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(stored, transactions, before, no_plays)
+        _rewrite(transactions, before, no_plays)
 
     assert game.record == before
 
 
-def test_the_same_card_stored_twice_raises_on_the_unique_key(game, transactions, stored):
+def test_the_same_card_stored_twice_raises_on_the_unique_key(game, transactions):
     game.play_legally(1)
     before = game.record
     first = before.progress.plays[0]
     repeated = (first, CardPlayed(Position.MIDDLEHAND, first.card))
 
     with pytest.raises(IntegrityError):
-        _rewrite(stored, transactions, before, repeated)
+        _rewrite(transactions, before, repeated)
 
     assert game.record == before
 
