@@ -97,6 +97,11 @@ class TestServerSettings:
             "https://127.000.0.1",
             "https://1.2.3.4.5",
             "https://2130706433",
+            "https://0x7f000001",
+            "https://127.0.0.0x1",
+            "https://0x",
+            "https://host.0x1",
+            "https://0x7f000001:8443",
         ],
     )
     def test_an_origin_setting_not_written_as_the_browser_writes_it_is_refused_by_name_and_never_by_value(

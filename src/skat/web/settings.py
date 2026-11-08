@@ -23,6 +23,7 @@ _BROWSER_ORIGIN = re.compile(
 _CANONICAL_IPV4 = re.compile(
     r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}"
 )
+_NUMBER_LABEL = re.compile(r"[0-9]+|0x[0-9a-f]*")
 _HIGHEST_PORT = 65535
 
 
@@ -35,7 +36,7 @@ def _require_browser_origin(origin: str) -> str:
         raise ValueError(message)
     # A host ending in a number is an IPv4 address to the browser, which writes it as four canonical numbers.
     host = matched["host"]
-    if host.rsplit(".", 1)[-1].isdigit() and not _CANONICAL_IPV4.fullmatch(host):
+    if _NUMBER_LABEL.fullmatch(host.rsplit(".", 1)[-1]) and not _CANONICAL_IPV4.fullmatch(host):
         raise ValueError(message)
     return origin
 
