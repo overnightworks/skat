@@ -1,8 +1,0 @@
-claim_id = "4baf2af2ef3343048105d1ce4d18b589"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "8c1e766780c31941674a71f4d24f5dcedb19417c"
-branch = "claude/issue-46-chair-hold"
-scope = ["README.md", "docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/store/tables.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/presence.py", "src/skat/web/settings.py", "src/skat/web/streams.py", "tests/e2e/conftest.py", "tests/e2e/support/server.py", "tests/e2e/support/tables.py", "tests/e2e/test_chair_hold.py", "tests/e2e/test_table_seats.py", "tests/host/test_app.py", "tests/store/test_tables.py", "tests/support/fake_tables.py", "tests/support/faulty_tables.py", "tests/support/idle_presence.py", "tests/table", "tests/web/test_presence.py", "tests/web/test_settings.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "9d2f71c681521e245df97d5af05da1e565dd2c18"
-whole_reason = "The leave time, the timer and the freeing command are one flow; a command without its timer has no caller, and a timer without the command frees nothing."
