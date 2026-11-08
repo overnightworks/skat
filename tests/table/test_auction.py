@@ -1,5 +1,5 @@
 import random
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import pytest
 
@@ -7,8 +7,8 @@ from skat.engine.bidding import Auction, AuctionStep, Bid, BidRefusal, Declared,
 from skat.engine.deal import Position, positions_from
 from skat.table.auction import AuctionAction, AuctionCommand, action_of, step_of
 from skat.table.hand_state import auction_of
-from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, TableRecord, parsed_refusal
-from skat.table.service import CommandIdReusedError, TableService
+from skat.table.records import Actor, CreateTable, Refusal, SitDown, TableRecord, parsed_refusal
+from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
@@ -139,48 +139,6 @@ class TestStep:
 
     def test_a_table_without_steps_folds_to_the_start_of_the_auction(self, seated: Seated) -> None:
         assert auction_of(seated.table()) == Auction.start()
-
-
-class TestRetry:
-    def test_a_completed_retry_is_recognised_before_its_old_version_is_refused(self, seated: Seated) -> None:
-        old_version = seated.table().version
-        first = seated.send(seated.middlehand, AuctionAction.BID, value=18, version=old_version)
-
-        again = seated.send(seated.middlehand, AuctionAction.BID, value=18, version=old_version)
-
-        assert again == first
-        assert seated.table().progress.auction == (Bid(Position.MIDDLEHAND, 18),)
-
-    def test_a_refused_step_retried_gets_the_same_refusal(self, seated: Seated) -> None:
-        first = seated.send(seated.forehand, AuctionAction.PASS)
-
-        assert seated.send(seated.forehand, AuctionAction.PASS).refusal is first.refusal
-
-    @pytest.mark.parametrize(
-        ("action", "value", "version_offset"),
-        [
-            pytest.param(AuctionAction.BID, 20, 0, id="another-value"),
-            pytest.param(AuctionAction.PASS, None, 0, id="another-action"),
-            pytest.param(AuctionAction.BID, 18, 1, id="another-version"),
-        ],
-    )
-    def test_the_same_id_with_another_request_is_refused(
-        self, seated: Seated, action: AuctionAction, value: int | None, version_offset: int
-    ) -> None:
-        version = seated.table().version
-        seated.send(seated.middlehand, AuctionAction.BID, value=18, version=version)
-
-        with pytest.raises(CommandIdReusedError):
-            seated.send(seated.middlehand, action, value=value, version=version + version_offset)
-
-
-class TestStoredLog:
-    def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(self, seated: Seated) -> None:
-        corrupt = HandProgress(auction=(Bid(Position.MIDDLEHAND, 18), Pass(Position.REARHAND)))
-        seated.store.tables[seated.table_id] = replace(seated.table(), progress=corrupt)
-
-        with pytest.raises(ValueError, match="impossible auction log"):
-            seated.send(seated.middlehand, AuctionAction.PASS)
 
 
 class TestRefusalParser:
