@@ -42,7 +42,7 @@ class CreateTableRequest(BaseModel):
 
 
 class SitDownRequest(CreateTableRequest):
-    seat: Annotated[int, Field(ge=1, le=CHAIRS_PER_TABLE)]
+    seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
 
 
 class SeatRefusal(BaseModel):
