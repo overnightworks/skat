@@ -1,0 +1,8 @@
+claim_id = "556775630bfa4e92bc44b9fe3b6514c4"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "4bc0811b4156b41052cf280eaf6ebbdb5fadd5e3"
+branch = "claude/issue-52-quality-v0-10-0"
+scope = [".github/workflows/ci.yml", ".github/workflows/code-scanning.yml", ".github/workflows/release.yml", "AGENTS.md", "quality/baseline.toml"]
+opened_commit = "e1cc6bfb30286f8ba125404a5634eb0ba6ccaeef"
+whole_reason = "One pin bump: the gate, CodeQL and release workflows move to the same quality release together, with the guidance and the ceiling that name it."
