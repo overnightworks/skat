@@ -254,9 +254,7 @@ class TestFromAHandAtRevisionFour:
                 id="put-back-the-same-card-twice",
             ),
             pytest.param(
-                _declaring_row(
-                    action=_PUT_BACK, first="'hearts', 'ace'", second="'spades', 'ace'", game="'herz'"
-                ),
+                _declaring_row(action=_PUT_BACK, first="'hearts', 'ace'", second="'spades', 'ace'", game="'herz'"),
                 id="put-back-with-a-game",
             ),
             pytest.param(
@@ -265,22 +263,25 @@ class TestFromAHandAtRevisionFour:
             pytest.param(
                 _declaring_row(action=_PUT_BACK, first="'hearts', 'one'", second="'spades', 'ace'"), id="unknown-rank"
             ),
-            pytest.param(_declaring_row(action=_DECLARE, game="'herz'", hand="true", ouvert="false"), id="declare-partly-set"),
             pytest.param(
-                _declaring_row(
-                    action=_DECLARE, game="'ramsch'", hand="false", ouvert="false", announcement="'none'"
-                ),
+                _declaring_row(action=_DECLARE, game="'herz'", hand="true", ouvert="false"), id="declare-partly-set"
+            ),
+            pytest.param(
+                _declaring_row(action=_DECLARE, game="'ramsch'", hand="false", ouvert="false", announcement="'none'"),
                 id="unknown-game",
             ),
             pytest.param(
-                _declaring_row(
-                    action=_DECLARE, game="'herz'", hand="false", ouvert="false", announcement="'kontra'"
-                ),
+                _declaring_row(action=_DECLARE, game="'herz'", hand="false", ouvert="false", announcement="'kontra'"),
                 id="unknown-announcement",
             ),
             pytest.param(
                 _declaring_row(
-                    action=_DECLARE, first="'hearts', 'ace'", game="'herz'", hand="false", ouvert="false", announcement="'none'"
+                    action=_DECLARE,
+                    first="'hearts', 'ace'",
+                    game="'herz'",
+                    hand="false",
+                    ouvert="false",
+                    announcement="'none'",
                 ),
                 id="declare-with-a-card",
             ),

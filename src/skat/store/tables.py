@@ -1,12 +1,13 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Final, Literal
 
-from sqlalchemy import exists, insert, select, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, read_steps
+from skat.store.declaring import append_declaring_steps, read_declaring_steps
 from skat.store.schema import (
     POSITION_TEXT,
     RANK_TEXT,
@@ -26,9 +27,13 @@ if TYPE_CHECKING:
 
     from sqlalchemy.engine import Connection, Engine
 
-__all__ = ["PostgresTableTransactions", "metadata"]
+__all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
 
 UNIQUE_VIOLATION: Final = "23505"
+
+
+class DealtHandRewrittenError(Exception):
+    """The hand being saved differs from the one dealt, while the hand already has progress."""
 
 
 def _hand_rows(table_id: str, hand: Deal) -> list[dict[str, str]]:
@@ -85,7 +90,10 @@ def _table_record(
         ),
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
-        progress=HandProgress(auction=read_steps(connection, table_id)),
+        progress=HandProgress(
+            auction=read_steps(connection, table_id),
+            declaring=read_declaring_steps(connection, table_id),
+        ),
     )
 
 
@@ -127,15 +135,17 @@ class _PostgresTableTransaction:
         return _table_record(self._connection, table_id.value, row_lock="update")
 
     def save_table(self, table: TableRecord) -> None:
-        hand_stored = self._connection.execute(
-            select(exists().where(hand_cards.c.table_id == table.id.value))
-        ).scalar_one()
+        dealt = _read_hand(self._connection, table.id.value)
+        if dealt is not None and table.hand != dealt and table.progress != HandProgress():
+            message = f"the hand saved for table {table.id.value} differs from the one dealt"
+            raise DealtHandRewrittenError(message)
         self._connection.execute(
             update(tables).where(tables.c.id == table.id.value).values(version=table.version, dealer=table.dealer)
         )
-        if table.hand is not None and not hand_stored:
+        if table.hand is not None and dealt is None:
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
         append_steps(self._connection, table.id.value, table.progress.auction)
+        append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
         for chair in table.chairs:
             self._connection.execute(
                 update(chairs)

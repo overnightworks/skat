@@ -528,7 +528,11 @@ class TestDealtHandStays:
 
     def other_hand(self, record):
         hand = record.hand
-        return replace(hand, forehand=(hand.middlehand[0], *hand.forehand[1:]), middlehand=(hand.forehand[0], *hand.middlehand[1:]))
+        return replace(
+            hand,
+            forehand=(hand.middlehand[0], *hand.forehand[1:]),
+            middlehand=(hand.forehand[0], *hand.middlehand[1:]),
+        )
 
     def read(self, transactions, record):
         with transactions.begin() as transaction:

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import func, select, table, text
 
 from skat.engine.deal import Position, positions_from
-from skat.engine.declaration import Announcement, Declare, DeclarationRefusal, PutBack, TakeSkat
+from skat.engine.declaration import Announcement, DeclarationRefusal, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
@@ -71,7 +71,9 @@ class Hand:
 
     def _auction(self, position, action, value, command_id):
         version = stored(self.transactions, self.table_id).version
-        command = AuctionCommand(command_id=command_id, table_id=self.table_id, version=version, action=action, value=value)
+        command = AuctionCommand(
+            command_id=command_id, table_id=self.table_id, version=version, action=action, value=value
+        )
         self.service.take_auction_step(self.actors[position], command, NOBODY_CONNECTED)
 
     def twelve_cards(self):
@@ -86,7 +88,9 @@ class Hand:
             version=record.version if version is None else version,
             step=step,
         )
-        return (service or self.service).take_declaring_step(self.actors[Position.MIDDLEHAND], command, NOBODY_CONNECTED)
+        return (service or self.service).take_declaring_step(
+            self.actors[Position.MIDDLEHAND], command, NOBODY_CONNECTED
+        )
 
     def steps(self):
         return stored(self.transactions, self.table_id).progress.declaring
@@ -206,9 +210,7 @@ def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(h
 
 def _rewrite(transactions, table_id, steps):
     before = stored(transactions, table_id)
-    rewritten = replace(
-        before, version=before.version + 1, progress=replace(before.progress, declaring=steps)
-    )
+    rewritten = replace(before, version=before.version + 1, progress=replace(before.progress, declaring=steps))
     with transactions.begin() as transaction:
         transaction.save_table(rewritten)
 
