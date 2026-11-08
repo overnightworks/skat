@@ -5,9 +5,9 @@ import pytest
 from skat.engine.bidding import Bid, Pass
 from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
-from skat.engine.declaration import Announcement, Declare, DeclarationRefusal, PutBack, TakeSkat
+from skat.engine.declaration import Announcement, DeclarationRefusal, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
-from skat.table.declaring import DeclaringCommand, declaring_payload, decide_declaring_step
+from skat.table.declaring import DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.hand_state import declaring_of
 from skat.table.records import Actor, Chair, HandProgress, Occupant, Refusal, TableId, TableRecord, parsed_refusal
 
