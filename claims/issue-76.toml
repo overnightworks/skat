@@ -1,8 +1,0 @@
-claim_id = "b7f716931f9f4a31a442ae9323e4cdf6"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "9bab1ef1f4bc446c071c1ceebb83608ff3acc5ee"
-branch = "claude/issue-76-auction-store"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/engine/bidding.py", "src/skat/host/app.py", "src/skat/store/auction.py", "src/skat/store/migrations/versions/0004_auction.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/auction.py", "src/skat/table/hand_state.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/auction.py", "src/skat/web/tables.py", "tests/engine/test_bidding.py", "tests/store/test_auction.py", "tests/store/test_migrate.py", "tests/store/test_tables.py", "tests/support/fake_tables.py", "tests/support/faulty_tables.py", "tests/table/test_auction.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/web/test_auction.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "793f616a7b91e0d91de614418b6c91fc04d7c9e3"
-whole_reason = "The stored steps, the decision and the route are one command; a stored auction without a route is dead code, and a route without the store lets the table lie."
