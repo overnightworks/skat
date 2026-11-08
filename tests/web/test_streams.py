@@ -10,6 +10,7 @@ from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
@@ -724,6 +725,47 @@ class TestHandOnTheStream:
         assert set(fresh) == {"id", "version", "chairs", "watchers", "hand"}
         assert cards_in_text(fresh_line) == wire_cards(CARDS_BY_SEAT[1])
         assert fresh["hand"]["skat_count"] == opened["hand"]["skat_count"]
+
+    def test_an_accepted_card_sends_a_fresh_snapshot_with_no_foreign_card(self, skat):
+        table_id, people = seated_three(skat)
+        declarer_headers, rearhand_headers, forehand_headers = people[0][0], people[1][0], people[2][0]
+        for suffix, command_id, headers, fields in [
+            (TABLE_AUCTION_SUFFIX, "auction-1", declarer_headers, {"action": "bid", "value": 18}),
+            (TABLE_AUCTION_SUFFIX, "auction-2", forehand_headers, {"action": "pass"}),
+            (TABLE_AUCTION_SUFFIX, "auction-3", rearhand_headers, {"action": "pass"}),
+            (
+                TABLE_DECLARATION_SUFFIX,
+                "declare-1",
+                declarer_headers,
+                {"action": "declare", "game": "herz", "hand": True, "ouvert": False, "announcement": "none"},
+            ),
+        ]:
+            version = skat.store.tables[table_id].version
+            step = skat.client.post(
+                f"{TABLES_PATH}/{table_id}{suffix}",
+                json={"command_id": command_id, "version": version, **fields},
+                headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+            )
+            assert step.status_code == 200, step.text
+        skat.client.cookies.clear()
+        led = next(iter(wire_cards(CARDS_BY_SEAT[3])))
+
+        with skat.client.stream("GET", self.events(table_id), headers=rearhand_headers) as stream:
+            lines = stream.iter_lines()
+            opened = json.loads(next(lines).removeprefix("data: "))
+            next(lines)
+            skat.client.cookies.clear()
+            answer = skat.client.post(
+                f"{TABLES_PATH}/{table_id}{TABLE_CARD_SUFFIX}",
+                json={"command_id": "card-1", "version": opened["version"], "suit": led[0], "rank": led[1]},
+                headers={"origin": TEST_PUBLIC_ORIGIN, **forehand_headers},
+            )
+            fresh_line = next(lines)
+
+        assert answer.status_code == 200, answer.text
+        fresh = json.loads(fresh_line.removeprefix("data: "))
+        assert fresh["version"] == opened["version"] + 1
+        assert cards_in_text(fresh_line) <= wire_cards(CARDS_BY_SEAT[2])
 
     def test_a_stream_opened_after_the_last_one_dropped_starts_from_the_full_current_hand(self, skat):
         table_id, people = seated_three(skat)
