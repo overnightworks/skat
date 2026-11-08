@@ -5,14 +5,17 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal
 from fastapi import APIRouter, Body, Request, Response
 from pydantic import Field
 
-from skat.engine.declaration import Announcement, Declare, PutBack, TakeSkat
-from skat.engine.games import GameKind
+from skat.engine.declaration import SKAT_SIZE, Declare, PutBack, TakeSkat
 from skat.table.declaring import DeclaringCommand
 from skat.web.tables import (
+    ANNOUNCEMENT_TOKENS,
     COMMAND_RESPONSES,
+    GAME_TOKENS,
     TABLES_PATH,
+    AnnouncementToken,
     CardChoice,
     CreateTableRequest,
+    GameToken,
     TableAnswer,
     actor_of,
     card_of,
@@ -26,7 +29,6 @@ if TYPE_CHECKING:
 
 # A take, put-back or declaration on a table: `TABLES_PATH/{table_id}` plus this.
 TABLE_DECLARATION_SUFFIX: Final = "/declaration"
-_SKAT_SIZE: Final = 2
 
 
 class DeclaringAction(StrEnum):
@@ -35,34 +37,8 @@ class DeclaringAction(StrEnum):
     DECLARE = "declare"
 
 
-class GameToken(StrEnum):
-    KARO = "karo"
-    HERZ = "herz"
-    PIK = "pik"
-    KREUZ = "kreuz"
-    GRAND = "grand"
-    NULL = "null"
-
-
-class AnnouncementToken(StrEnum):
-    NONE = "none"
-    SCHNEIDER = "schneider"
-    SCHWARZ = "schwarz"
-
-
-_GAME_KINDS: Final = {
-    GameToken.KARO: GameKind.KARO,
-    GameToken.HERZ: GameKind.HERZ,
-    GameToken.PIK: GameKind.PIK,
-    GameToken.KREUZ: GameKind.KREUZ,
-    GameToken.GRAND: GameKind.GRAND,
-    GameToken.NULL: GameKind.NULL,
-}
-_ANNOUNCEMENTS: Final = {
-    AnnouncementToken.NONE: Announcement.NONE,
-    AnnouncementToken.SCHNEIDER: Announcement.SCHNEIDER,
-    AnnouncementToken.SCHWARZ: Announcement.SCHWARZ,
-}
+_GAME_KINDS: Final = {token: kind for kind, token in GAME_TOKENS.items()}
+_ANNOUNCEMENTS: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
 
 class _DeclaringRequest(CreateTableRequest):
@@ -77,7 +53,7 @@ class TakeRequest(_DeclaringRequest):
 
 class PutBackRequest(_DeclaringRequest):
     action: Literal[DeclaringAction.PUT_BACK]
-    cards: Annotated[list[CardChoice], Field(min_length=_SKAT_SIZE, max_length=_SKAT_SIZE)]
+    cards: Annotated[list[CardChoice], Field(min_length=SKAT_SIZE, max_length=SKAT_SIZE)]
 
 
 class DeclareRequest(_DeclaringRequest):
