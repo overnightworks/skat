@@ -37,8 +37,9 @@ async def table_views(
     The stream registers before it reads, so a change after registering is never lost. Changes that pile up
     while the consumer is slow fold into one wake and one fresh read, so a slow consumer holds no queue
     and delays no other stream. The session is admitted again before every view and on every idle
-    heartbeat; the stream ends, sending nothing more, when `admit` refuses or the presence stops. A heartbeat
-    sends no view: a change that lands at the same moment is the one wake that brings the one view.
+    heartbeat; the stream ends, sending nothing more, when `admit` refuses or the presence stops. Each idle
+    heartbeat reads the view again and sends it only when the table's version moved since the last view
+    sent, which recovers a lost wake.
     """
     changed = asyncio.Event()
     subscription = presence.subscribe(table_id, account_id, changed.set)
