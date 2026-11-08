@@ -100,6 +100,7 @@ The model is Skat's own.
 - **Keycloak** decides who is a member: the group `/apps/skat` admits, and no group makes anyone an admin. Skat trusts its signed tokens from the one configured issuer. The session store holds each login's ID token, a secret that leaves the server once, in the no-store logout page whose form the browser posts to Keycloak.
 - **The proxy hops** named in `SKAT_TRUSTED_PROXIES` are trusted to state the person's address in `X-Forwarded-For`; empty trusts none.
 - **A table's id** is an unguessable link, not a secret: every signed-in member who has it sees the table. A client names only its retry key; the account and the chair always come from the session.
+- **A table's cards** reach a viewer only through the view built for them: their own cards, the other chairs' counts, never the skat before the declaration.
 - **The operator's settings and secret files** are trusted fully. The two secrets and the database password come from files and never enter the environment; the database URL carries no password and comes from the environment, and a wrong setting is named, never echoed.
 
 ### Texts
