@@ -1,8 +1,0 @@
-claim_id = "c3d66370d4244057b2a2711540f3c749"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "43153b92d19889745c01c548c368e69cde3a46f7"
-branch = "claude/issue-54-deal-store"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/engine/deal.py", "src/skat/store/migrations/versions/0003_hands.py", "src/skat/store/tables.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "tests/e2e/test_table_seats.py", "tests/engine/test_deal.py", "tests/store/test_migrate.py", "tests/store/test_tables.py", "tests/support/fake_tables.py", "tests/support/faulty_tables.py", "tests/table"]
-opened_commit = "86847eda6309ee52217aae2a3e1e38ddd64f59e5"
-whole_reason = "The deal, the stored hand and the stand-up refusal are one flow; a deal the store does not keep lets the table lie, and a stored hand without the refusal can be dealt over."
