@@ -25,4 +25,9 @@ export const words = {
     standUp: "Aufstehen",
     seatTaken: "Platz vergeben",
     commandFailed: "Das hat nicht geklappt",
+    dealer: "Geber",
+    forehand: "Vorhand",
+    middlehand: "Mittelhand",
+    rearhand: "Hinterhand",
+    cardCount: "Karten",
 } as const;

@@ -400,6 +400,219 @@ body {
     color: rgba(43, 29, 5, 0.72);
 }
 
+/* The hand on the table: backs fan toward the felt from each chair, the skat lies in its middle. */
+.room .skat-spot {
+    grid-column: 1 / 3;
+    grid-row: 2 / 4;
+    place-self: center;
+    z-index: 1;
+    --card-width: 52px;
+}
+
+.room .skat {
+    display: flex;
+}
+
+.room .skat-card {
+    transform: rotate(-8deg);
+}
+
+.room .skat-card + .skat-card {
+    margin-top: 4px;
+    margin-left: calc(var(--card-width) * -0.5);
+    transform: rotate(6deg);
+}
+
+.room .skat-card .card-back {
+    width: var(--card-width);
+    height: auto;
+}
+
+.room .card-back {
+    display: block;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+.room .fan-spot {
+    position: absolute;
+    --card-width: 26px;
+}
+
+.room .fan {
+    position: absolute;
+    left: calc(var(--card-width) * -0.5);
+    top: calc(var(--card-width) * -1.4);
+    width: var(--card-width);
+    height: calc(var(--card-width) * 1.4);
+    overflow: visible;
+}
+
+.room .fan.dim {
+    opacity: 0.55;
+}
+
+.room .chair:nth-child(1) .fan-spot {
+    left: 58%;
+    top: calc(100% + 24px);
+    transform: rotate(150deg);
+}
+
+.room .chair:nth-child(2) .fan-spot {
+    --deal-start: 0.1s;
+    left: 42%;
+    top: calc(100% + 24px);
+    transform: rotate(210deg);
+}
+
+.room .chair:nth-child(3) .fan-spot {
+    --deal-start: 0.2s;
+    left: 50%;
+    top: -20px;
+}
+
+.room .count-tag {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(14px);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.room .count-tag svg {
+    width: 16px;
+    height: 16px;
+}
+
+.room .chair:nth-child(1) .count-tag {
+    left: 13%;
+    top: calc(100% + 56px);
+}
+
+.room .chair:nth-child(2) .count-tag {
+    left: 42%;
+    top: calc(100% + 56px);
+}
+
+.room .chair:nth-child(3) .count-tag {
+    left: calc(100% + 2px);
+    top: -40px;
+}
+
+.room .mark.pos,
+.room .mark.dealer {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.room .mark.pos {
+    top: -11px;
+    right: -4px;
+    height: 22px;
+    padding: 0 8px;
+    color: var(--on-stage);
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    font-size: 11.5px;
+}
+
+/* A phone chair is too small for the word: the dealer badge shows the icon alone. */
+.room .mark.dealer {
+    top: -12px;
+    left: -6px;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    color: #2b1d05;
+    background: linear-gradient(180deg, #f1d898, var(--brass) 55%, #a6823f);
+    box-shadow:
+        0 4px 10px -3px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    font-size: 0;
+}
+
+.room .mark.dealer svg {
+    width: 15px;
+    height: 15px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .deal {
+        animation: deal 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) var(--deal-delay, 0s) both;
+    }
+
+    /* A fan's cards fly in units of the card (100 wide), so one distance serves every width. */
+    .room .fan .deal {
+        --deal-y: -600px;
+        --deal-delay: calc(var(--deal-start, 0s) + var(--deal-step, 0) * 0.07s);
+        transform-box: fill-box;
+        transform-origin: center;
+    }
+
+    .room .fan .deal:nth-child(2) {
+        --deal-step: 1;
+    }
+
+    .room .fan .deal:nth-child(3) {
+        --deal-step: 2;
+    }
+
+    .room .fan .deal:nth-child(4) {
+        --deal-step: 3;
+    }
+
+    .room .fan .deal:nth-child(5) {
+        --deal-step: 4;
+    }
+
+    .room .fan .deal:nth-child(6) {
+        --deal-step: 5;
+    }
+
+    .room .fan .deal:nth-child(7) {
+        --deal-step: 6;
+    }
+
+    .room .fan .deal:nth-child(8) {
+        --deal-step: 7;
+    }
+
+    .room .fan .deal:nth-child(9) {
+        --deal-step: 8;
+    }
+
+    .room .fan .deal:nth-child(10) {
+        --deal-step: 9;
+    }
+
+    @keyframes deal {
+        from {
+            translate: 0 var(--deal-y, -160px);
+            scale: 0.55;
+            opacity: 0;
+        }
+
+        20% {
+            opacity: 1;
+        }
+
+        to {
+            translate: 0 0;
+            scale: 1;
+        }
+    }
+}
+
 .room .controls {
     grid-column: 1 / 3;
     grid-row: 4;
@@ -550,6 +763,63 @@ body {
 
     .room .chair {
         width: 160px;
+    }
+
+    .room .skat-spot {
+        --card-width: 80px;
+    }
+
+    .room .fan-spot {
+        --card-width: 42px;
+    }
+
+    .room .chair:nth-child(1) .fan-spot {
+        left: calc(100% + 10px);
+        top: 57%;
+        transform: rotate(90deg);
+    }
+
+    .room .chair:nth-child(2) .fan-spot {
+        left: -10px;
+        top: 57%;
+        transform: rotate(270deg);
+    }
+
+    .room .chair:nth-child(1) .count-tag {
+        left: 104%;
+        top: 90%;
+    }
+
+    .room .chair:nth-child(2) .count-tag {
+        left: -70px;
+        top: 90%;
+    }
+
+    .room .chair:nth-child(3) .count-tag {
+        left: calc(100% + 40px);
+        top: -8px;
+    }
+
+    .room .mark.pos {
+        top: 6px;
+        right: 6px;
+        height: 26px;
+        padding: 0 9px;
+        font-size: 12.5px;
+    }
+
+    .room .mark.pos + .mark.away {
+        right: auto;
+        left: 6px;
+    }
+
+    .room .mark.dealer {
+        gap: 4px;
+        top: -13px;
+        left: -8px;
+        width: auto;
+        padding: 0 9px 0 7px;
+        font-size: 12.5px;
     }
 }
 
