@@ -2,6 +2,7 @@ import argparse
 from typing import TYPE_CHECKING, TypedDict, Unpack
 
 import uvicorn
+from sqlalchemy.engine import make_url
 
 from skat.host.app import create_app
 from skat.store.migrate import create_store_engine, migrate, require_head
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from fastapi import FastAPI
+    from sqlalchemy import Engine
 
 
 class UvicornOptions(TypedDict):
@@ -64,6 +66,14 @@ def serve(app: FastAPI, **options: Unpack[UvicornOptions]) -> None:
     streams_ending_server(app, **options).run()  # pragma: no cover - blocks until a signal stops the server
 
 
+def create_database_engine(settings: DatabaseSettings) -> Engine:
+    """The store's engine on the database URL with the password from its file set into it."""
+    password = read_secret_file(settings.database_password_file, "database_password_file")
+    url = make_url(settings.database_url).set(password=password.get_secret_value())
+    # The store takes a string; the rendered URL goes nowhere but into the engine.
+    return create_store_engine(url.render_as_string(hide_password=False))
+
+
 def command_line_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="skat")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -82,12 +92,10 @@ def main(
     # The required settings come from the environment, which the type checker cannot see.
     if command == "migrate":
         database = DatabaseSettings()  # pyright: ignore[reportCallIssue]
-        migrate(
-            create_store_engine(read_secret_file(database.database_url_file, "database_url_file").get_secret_value())
-        )
+        migrate(create_database_engine(database))
         return
     settings = ServerSettings()  # pyright: ignore[reportCallIssue]
-    engine = create_store_engine(read_secret_file(settings.database_url_file, "database_url_file").get_secret_value())
+    engine = create_database_engine(settings)
     require_head(engine)
     app = create_app(
         settings,

@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,19 +26,31 @@ def _require_absolute_path(path: Path) -> Path:
     return path
 
 
+def _require_postgres_url_without_password(url: str) -> str:
+    parts = urlsplit(url)
+    if parts.scheme != "postgresql":
+        raise ValueError("must be a postgresql URL")
+    if not (parts.hostname and parts.username and parts.path.removeprefix("/")):
+        raise ValueError("must name a host, a user and a database")
+    if parts.password is not None:
+        raise ValueError("must not carry a password")
+    return url
+
+
 IssuerUrl = Annotated[str, AfterValidator(_require_no_trailing_slash)]
 OriginUrl = Annotated[str, AfterValidator(_require_origin_without_path)]
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
+PasswordlessPostgresUrl = Annotated[str, AfterValidator(_require_postgres_url_without_password)]
 
 
 class DatabaseSettings(BaseSettings):
-    """The one setting `skat migrate` needs, so it runs before any other setting or the page build is read."""
+    """The settings `skat migrate` needs, so it runs before any other setting or the page build is read."""
 
     # The settings are secrets or name them, so a refusal never echoes an input.
     model_config = SettingsConfigDict(env_prefix="SKAT_", hide_input_in_errors=True)
 
-    # The file holds a Postgres connection URL.
-    database_url_file: AbsolutePath = Field(repr=False)
+    database_url: PasswordlessPostgresUrl = Field(repr=False)
+    database_password_file: AbsolutePath = Field(repr=False)
 
 
 class ServerSettings(DatabaseSettings):
