@@ -107,7 +107,7 @@ class TestDeal:
     def test_a_sit_while_a_hand_runs_is_seat_taken_and_deals_nothing_more(self):
         table = running_hand()
 
-        decision = decide_sit(table, DORA, 2, FirstDeal(dealer=3, hand=deal(random.Random(4))))  # noqa: S311
+        decision = decide_sit(table, DORA, 2, FirstDeal(dealer=3, hand=deal(random.Random(4))))  # noqa: S311 - a seeded source makes the deal reproducible
 
         assert (decision.refusal, decision.holder) == (Refusal.SEAT_TAKEN, "Ben")
         assert decision.table == table

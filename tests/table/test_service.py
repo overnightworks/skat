@@ -411,7 +411,7 @@ class TestDeal:
         sit(service, CLEO, other_id, 2, "command-cleo")
         blind = TableService(
             FaultyTableTransactions(store, blind_first_replay=True),
-            random_source=random.Random(2),  # noqa: S311
+            random_source=random.Random(2),  # noqa: S311 - a seeded source makes the deal reproducible
         )
 
         with pytest.raises(CommandIdReusedError):

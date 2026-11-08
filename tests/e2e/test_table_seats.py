@@ -95,7 +95,8 @@ def test_three_sit_and_a_fourth_member_only_watches_while_the_hand_runs(
 ) -> None:
     opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
     path = open_new_table(opener, e2e_server)
-    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
+    # The browser logs every 409 as a console error; the refused stand-up is the point of this test.
+    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors, console=False)
     watch(second, e2e_server, path)
     sit_in(second, 2)
     expect(plate_of(opener, 2)).to_have_text("ben")

@@ -349,7 +349,7 @@ class TestHand:
         dealing.sit(VISITOR, SitDown("command-ben", table_id, 2), frozenset())
         failing = TableService(
             FaultyTableTransactions(PostgresTableTransactions(engine), receipt_failure=ConnectionError("lost")),
-            random_source=random.Random(8),  # noqa: S311
+            random_source=random.Random(8),  # noqa: S311 - a seeded source makes the deal reproducible
         )
 
         sitting = SitDown("command-cleo", table_id, 3)
