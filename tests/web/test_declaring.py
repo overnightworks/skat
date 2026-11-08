@@ -4,7 +4,7 @@ import pytest
 
 from skat.engine.cards import DECK
 from skat.engine.deal import Position, positions_from
-from skat.engine.declaration import Announcement, Declaration, Declare, DeclarationRefusal, PutBack, TakeSkat
+from skat.engine.declaration import Announcement, Declaration, DeclarationRefusal, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import declaring_of
@@ -167,7 +167,9 @@ class TestAccepted:
     def test_the_declarer_names_the_game_after_putting_back(self, picked):
         picked.accepted(DECLARE, **ANY_DECLARATION)
 
-        assert picked.declaration == Declaration(GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE)
+        assert picked.declaration == Declaration(
+            GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE
+        )
 
     def test_a_hand_game_is_declared_without_taking_the_skat(self, won):
         won.accepted(DECLARE, **HAND_DECLARATION)
@@ -193,10 +195,14 @@ class TestRefusedByTheEngine:
     @pytest.mark.parametrize(
         ("arrangement", "action", "fields", "reason"),
         [
-            pytest.param("won", PUT_BACK, TWO_OF_THE_TWELVE, DeclarationRefusal.OUT_OF_ORDER, id="put-back-before-take"),
+            pytest.param(
+                "won", PUT_BACK, TWO_OF_THE_TWELVE, DeclarationRefusal.OUT_OF_ORDER, id="put-back-before-take"
+            ),
             pytest.param("won", DECLARE, ANY_DECLARATION, DeclarationRefusal.OUT_OF_ORDER, id="declare-without-hand"),
             pytest.param("after_take", TAKE, {}, DeclarationRefusal.OUT_OF_ORDER, id="take-twice"),
-            pytest.param("after_take", DECLARE, HAND_DECLARATION, DeclarationRefusal.OUT_OF_ORDER, id="declare-holding-twelve"),
+            pytest.param(
+                "after_take", DECLARE, HAND_DECLARATION, DeclarationRefusal.OUT_OF_ORDER, id="declare-holding-twelve"
+            ),
             pytest.param(
                 "after_take",
                 PUT_BACK,
@@ -211,7 +217,13 @@ class TestRefusedByTheEngine:
                 DeclarationRefusal.NOT_TWO_OF_THE_TWELVE,
                 id="same-card-twice",
             ),
-            pytest.param("picked", DECLARE, HAND_DECLARATION, DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP, id="hand-after-pick-up"),
+            pytest.param(
+                "picked",
+                DECLARE,
+                HAND_DECLARATION,
+                DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP,
+                id="hand-after-pick-up",
+            ),
             pytest.param(
                 "picked",
                 DECLARE,
@@ -301,7 +313,9 @@ class TestContract:
             pytest.param(PUT_BACK, cards_body(FIRST_OF_HAND), id="one-card"),
             pytest.param(PUT_BACK, cards_body(*MIDDLEHAND_CARDS[:3]), id="three-cards"),
             pytest.param(PUT_BACK, {}, id="no-cards"),
-            pytest.param(PUT_BACK, {CARDS_FIELD: [{"suit": "lila", "rank": "ace"}, card_body(FIRST_OF_HAND)]}, id="unknown-suit"),
+            pytest.param(
+                PUT_BACK, {CARDS_FIELD: [{"suit": "lila", "rank": "ace"}, card_body(FIRST_OF_HAND)]}, id="unknown-suit"
+            ),
             pytest.param(
                 PUT_BACK,
                 {CARDS_FIELD: [{**card_body(FIRST_OF_HAND), "seat": 1}, card_body(SECOND_OF_HAND)]},
@@ -355,9 +369,13 @@ class TestRetry:
         assert won.record == after_first
 
     def test_a_repeated_refusal_answers_the_same_refusal(self, won):
-        first = won.refused(won.at[MIDDLEHAND], PUT_BACK, DeclarationRefusal.OUT_OF_ORDER, command_id=SAME_COMMAND, **TWO_OF_THE_TWELVE)
+        first = won.refused(
+            won.at[MIDDLEHAND], PUT_BACK, DeclarationRefusal.OUT_OF_ORDER, command_id=SAME_COMMAND, **TWO_OF_THE_TWELVE
+        )
 
-        again = won.refused(won.at[MIDDLEHAND], PUT_BACK, DeclarationRefusal.OUT_OF_ORDER, command_id=SAME_COMMAND, **TWO_OF_THE_TWELVE)
+        again = won.refused(
+            won.at[MIDDLEHAND], PUT_BACK, DeclarationRefusal.OUT_OF_ORDER, command_id=SAME_COMMAND, **TWO_OF_THE_TWELVE
+        )
 
         assert again.json() == first.json()
 
@@ -387,7 +405,11 @@ class TestRetry:
         after_take.accepted(PUT_BACK, command_id=SAME_COMMAND, version=version, **TWO_OF_THE_TWELVE)
 
         answer = after_take.send(
-            after_take.at[MIDDLEHAND], PUT_BACK, command_id=SAME_COMMAND, version=version, **cards_body(SKAT_CARDS[0], SKAT_CARDS[1])
+            after_take.at[MIDDLEHAND],
+            PUT_BACK,
+            command_id=SAME_COMMAND,
+            version=version,
+            **cards_body(SKAT_CARDS[0], SKAT_CARDS[1]),
         )
 
         assert answer.status_code == 409
