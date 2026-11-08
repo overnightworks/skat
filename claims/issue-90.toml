@@ -1,8 +1,0 @@
-claim_id = "47b5184c023c41cdb3c3d9bbc06d7464"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "992b4e9b2a783fd1264bbf633520bc91912ae5c5"
-branch = "claude/issue-90-declaring"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/host/app.py", "src/skat/store/auction.py", "src/skat/store/declaring.py", "src/skat/store/migrations/versions/0005_declaring.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/declaring.py", "src/skat/table/hand_state.py", "src/skat/table/records.py", "src/skat/table/service.py", "src/skat/web/declaring.py", "src/skat/web/tables.py", "tests/store/test_auction.py", "tests/store/test_declaring.py", "tests/store/test_migrate.py", "tests/store/test_tables.py", "tests/support/fake_tables.py", "tests/support/faulty_tables.py", "tests/table/test_declaring.py", "tests/table/test_service.py", "tests/web/test_declaring.py", "tests/web/test_streams.py"]
-opened_commit = "88ae4c30cd4818f398a5851b615b65d427ef517f"
-whole_reason = "A store without a route is dead, and a route without the store lets the table lie."
