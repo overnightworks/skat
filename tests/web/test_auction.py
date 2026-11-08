@@ -2,14 +2,14 @@ import itertools
 
 import pytest
 
-from skat.engine.bidding import Bid, BidRefusal, Declared, Hold, Pass, PassedIn
-from skat.engine.deal import Position, positions_from
+from skat.engine.bidding import Bid, BidRefusal, Declared, Hold, Pass
+from skat.engine.deal import Position, next_dealer, positions_from
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, seated_three
+from tests.support.payload_cards import DEALER_SEAT, cards_in_text, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FETCH, UNKNOWN_ID
 
@@ -17,6 +17,7 @@ FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Positio
 BID, HOLD, PASS, PLAY = AuctionAction.BID, AuctionAction.HOLD, AuctionAction.PASS, AuctionAction.PLAY
 NOT_YOUR_TURN, OVER, STALE_VERSION = BidRefusal.NOT_YOUR_TURN, BidRefusal.OVER, Refusal.STALE_VERSION
 SAME_COMMAND = "command-same"
+PASSES = [(MIDDLEHAND, PASS), (REARHAND, PASS), (FOREHAND, PASS)]
 VALUE_FIELD = "value"
 
 
@@ -39,6 +40,7 @@ class Table:
         self.skat = skat
         self.table_id, people = seated_three(skat)
         by_seat = {seat: people[seat - 1][0] for seat in (1, 2, 3)}
+        self.seats = by_seat
         self.at = {position: by_seat[seat] for seat, position in positions_from(DEALER_SEAT).items()}
         self.watcher = people[3][0]
         self._commands = itertools.count(1)
@@ -126,12 +128,6 @@ class TestAccepted:
 
         assert auction_of(table.record).result == Declared(declarer, value)
         table.refused(table.at[REARHAND], PASS, None, OVER)
-
-    def test_three_passes_pass_the_hand_in_and_the_hand_stays(self, table):
-        table.play_out([(MIDDLEHAND, PASS), (REARHAND, PASS), (FOREHAND, PASS)])
-
-        assert auction_of(table.record).result == PassedIn()
-        assert table.record.hand is not None
 
     def test_a_bidder_may_skip_values(self, table):
         table.accepted(MIDDLEHAND, BID, 22)
@@ -301,3 +297,83 @@ class TestOtherCommandsDuringAnAuction:
 
         assert reason_of(answer) == "seat-taken"
         assert table.record == before
+
+
+class TestPassedIn:
+    def test_the_third_pass_ends_the_hand_and_says_passed_in_with_the_next_dealer(self, table):
+        table.play_out(PASSES[:2])
+        version = table.record.version
+
+        answer = table.accepted(*PASSES[2])
+
+        body = answer.json()
+        assert body["hand"] is None
+        assert body["passed_in"] == {"next_dealer_seat": next_dealer(DEALER_SEAT)}
+        assert table.record.hand is None
+        assert table.record.version == version + 1
+        assert cards_in_text(answer.text) == set()
+
+    def test_a_reload_says_passed_in_with_the_next_dealer(self, table):
+        table.play_out(PASSES)
+
+        answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}", headers=table.watcher)
+
+        assert answer.json()["passed_in"] == {"next_dealer_seat": next_dealer(DEALER_SEAT)}
+
+    def test_a_table_that_never_dealt_says_no_passed_in(self, skat):
+        headers, _ = skat.member()
+
+        assert skat.create(headers).json()["passed_in"] is None
+
+    def test_any_step_after_the_hand_ended_is_refused_as_no_hand(self, table):
+        table.play_out(PASSES)
+
+        table.refused(table.at[MIDDLEHAND], BID, 18, Refusal.NO_HAND)
+
+    def test_the_same_third_pass_again_is_the_same_answer_without_a_bump(self, table):
+        table.play_out(PASSES[:2])
+        version = table.record.version
+        first = table.send(table.at[FOREHAND], PASS, command_id=SAME_COMMAND, version=version)
+        record = table.record
+
+        again = table.send(table.at[FOREHAND], PASS, command_id=SAME_COMMAND, version=version)
+
+        assert (first.status_code, again.status_code) == (200, 200)
+        assert again.json() == first.json()
+        assert table.record == record
+
+    def test_standing_up_works_again_and_no_next_dealer_is_named(self, table):
+        table.play_out(PASSES)
+
+        answer = table.skat.stand(table.at[FOREHAND], table.table_id)
+
+        assert answer.status_code == 200
+        assert answer.json()["passed_in"] == {"next_dealer_seat": None}
+
+    def test_the_sit_that_fills_the_third_chair_deals_for_the_next_dealer_and_clears_the_auction(self, table):
+        table.play_out(PASSES)
+        seat = next(seat for seat, position in positions_from(DEALER_SEAT).items() if position is FOREHAND)
+        table.skat.stand(table.at[FOREHAND], table.table_id)
+        version = table.record.version
+
+        answer = table.skat.sit(table.watcher, table.table_id, seat, command_id="command-fills")
+
+        assert answer.status_code == 200
+        body = answer.json()
+        assert body["passed_in"] is None
+        assert body["hand"]["dealer_seat"] == next_dealer(DEALER_SEAT)
+        assert table.record.progress.auction == ()
+        assert table.record.version == version + 1
+
+    def test_the_new_hand_takes_a_bid_because_its_auction_starts_empty(self, table):
+        table.play_out(PASSES)
+        seat = next(seat for seat, position in positions_from(DEALER_SEAT).items() if position is FOREHAND)
+        table.skat.stand(table.at[FOREHAND], table.table_id)
+        table.skat.sit(table.watcher, table.table_id, seat, command_id="command-fills")
+        table.seats[seat] = table.watcher
+        middle = next(s for s, position in positions_from(table.record.dealer).items() if position is MIDDLEHAND)
+
+        answer = table.send(table.seats[middle], BID, 18)
+
+        assert answer.status_code == 200, answer.text
+        assert table.record.progress.auction == (Bid(MIDDLEHAND, 18),)
