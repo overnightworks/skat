@@ -141,7 +141,9 @@ class TableService:
         """Randomness enters only here: the dealer, then the shuffle, both from the one source."""
         if not sit_deals(table):
             return None
-        return FirstDeal(draw_dealer(self._random_source), deal(self._random_source))
+        dealer = draw_dealer(self._random_source)
+        hand = deal(self._random_source)
+        return FirstDeal(dealer, hand)
 
     def _seat(
         self,
