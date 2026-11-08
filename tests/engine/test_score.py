@@ -7,7 +7,7 @@ from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
-from skat.engine.score import Settlement, settle
+from skat.engine.score import Reckoning, Settlement, reckon, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import value_of
 
@@ -132,3 +132,31 @@ def test_a_null_below_the_bid_is_lost_as_the_cheapest_game_reaching_the_bid_with
 def test_the_matadors_raise_the_loss_of_a_null_above_the_bid() -> None:
     twelve = tuple(card for card in DECK if card.rank in (Rank.KING, Rank.QUEEN, Rank.NINE))
     assert settle(played_with_twelve(twelve, NULL, ()), 24) == Settlement(won=False, value=63, score=-126)
+
+
+@pytest.mark.parametrize(
+    ("settlement", "expected"),
+    [
+        (Settlement(won=True, value=36, score=36), Reckoning(declarer=86, each_opponent=0)),
+        (Settlement(won=False, value=36, score=-72), Reckoning(declarer=-122, each_opponent=40)),
+        (Settlement(won=False, value=23, score=-46), Reckoning(declarer=-96, each_opponent=40)),
+    ],
+)
+def test_a_game_adds_to_the_declarer_and_each_opponent(settlement: Settlement, expected: Reckoning) -> None:
+    assert reckon(settlement) == expected
+
+
+def test_an_overbid_game_is_reckoned_as_a_lost_game() -> None:
+    settlement = settle(game(KARO, (CLUBS_JACK,), SEVENTY_POINTS), 20)
+    assert reckon(settlement) == Reckoning(declarer=-104, each_opponent=40)
+
+
+def test_the_reckonings_of_three_declared_and_three_lost_by_the_others_sum_to_the_contract_total() -> None:
+    own = [
+        Settlement(won=True, value=60, score=60),
+        Settlement(won=True, value=80, score=80),
+        Settlement(won=False, value=20, score=-40),
+    ]
+    others_lost = Settlement(won=False, value=20, score=-40)
+    total = sum(reckon(each).declarer for each in own) + 3 * reckon(others_lost).each_opponent
+    assert total == 270
