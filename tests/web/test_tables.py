@@ -140,3 +140,215 @@ class TestTablePage:
         answer = skat.client.get(f"{TABLE_PAGE_PREFIX}{UNKNOWN_ID}", headers=NAVIGATION)
 
         assert answer.status_code == 302
+
+
+class RecordingPresence(Presence):
+    def __init__(self):
+        super().__init__()
+        self.woken = []
+
+    def wake_table(self, table_id):
+        self.woken.append(table_id)
+        super().wake_table(table_id)
+
+
+def answering_first(skat, tables, presence):
+    """Route requests through a tables router that has this service and presence, ahead of the composed one."""
+    skat.app.include_router(create_tables_router(tables, fixture_page_build(), presence))
+    skat.app.router.routes.insert(0, skat.app.router.routes.pop())
+
+
+@pytest.fixture
+def table(skat):
+    headers, owner = skat.member()
+    return skat.create(headers).json()["id"], owner
+
+
+class TestSitDown:
+    def test_seats_the_member_in_the_chair_and_answers_with_the_table_they_see(self, skat, table):
+        table_id, owner = table
+        headers, account = skat.member()
+
+        answer = skat.sit(headers, table_id, 2)
+
+        assert answer.status_code == 200
+        assert answer.headers["cache-control"] == "no-store"
+        assert [(c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]] == [
+            (owner.username, False),
+            (account.username, True),
+            (None, False),
+        ]
+
+    def test_the_second_one_for_a_chair_is_told_who_got_it(self, skat, table):
+        table_id, owner = table
+        headers, _ = skat.member()
+
+        answer = skat.sit(headers, table_id, 1)
+
+        assert (answer.status_code, answer.json()) == (409, {"reason": "seat-taken", "holder_name": owner.username})
+
+    def test_a_seated_member_asking_for_a_second_chair_is_refused_and_keeps_the_first(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        skat.sit(headers, table_id, 2)
+
+        answer = skat.sit(headers, table_id, 3, command_id="command-second")
+
+        assert (answer.status_code, answer.json()["reason"]) == (409, "already-seated")
+        assert [
+            c["is_mine"] for c in skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()["chairs"]
+        ] == [
+            False,
+            True,
+            False,
+        ]
+
+    def test_a_retry_with_the_same_command_id_answers_with_the_first_outcome_and_writes_nothing_more(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        first = skat.sit(headers, table_id, 2).json()
+        written = dict(skat.store.tables)
+
+        assert skat.sit(headers, table_id, 2).json() == first
+        assert skat.store.tables == written
+
+    def test_refuses_a_command_id_that_comes_back_with_another_chair(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        skat.sit(headers, table_id, 2)
+
+        assert skat.sit(headers, table_id, 3).status_code == 409
+        assert skat.sit(headers, table_id, 3).json() == {"detail": "command id reused with another request"}
+
+    @pytest.mark.parametrize("seat", [0, 4, -1, "two", None])
+    def test_refuses_a_chair_that_does_not_exist_and_writes_nothing(self, skat, table, seat):
+        table_id, _ = table
+        headers, _ = skat.member()
+        before = dict(skat.store.tables)
+
+        assert skat.sit(headers, table_id, seat).status_code == 422
+        assert skat.store.tables == before
+
+    @pytest.mark.parametrize("extra", [{"account_id": "someone-else"}, {"username": "x"}])
+    def test_refuses_a_request_that_names_an_account(self, skat, table, extra):
+        table_id, _ = table
+        headers, _ = skat.member()
+
+        assert skat.sit(headers, table_id, 2, **extra).status_code == 422
+
+    def test_signed_out_writes_nothing(self, skat, table):
+        table_id, _ = table
+        before = dict(skat.store.tables)
+
+        assert skat.sit(FETCH, table_id, 2).status_code == 401
+        assert skat.store.tables == before
+
+    @pytest.mark.parametrize("table_id", [UNKNOWN_ID, "not-an-id", "A" * 32])
+    def test_an_unknown_or_malformed_table_is_not_found_and_writes_nothing(self, skat, table_id):
+        headers, _ = skat.member()
+
+        answer = skat.sit(headers, table_id, 1)
+
+        assert (answer.status_code, answer.json()) == (404, {"detail": "table not found"})
+        assert (skat.store.tables, skat.store.receipts) == ({}, {})
+
+    def test_wakes_every_stream_of_the_table_after_the_commit(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        presence = RecordingPresence()
+        answering_first(skat, TableService(skat.store), presence)
+
+        skat.sit(headers, table_id, 2)
+
+        assert presence.woken == [table_id]
+
+    def test_a_refusal_changes_nothing_and_wakes_nobody(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        presence = RecordingPresence()
+        answering_first(skat, TableService(skat.store), presence)
+
+        skat.sit(headers, table_id, 1)
+
+        assert presence.woken == []
+
+    def test_a_failing_transaction_writes_and_publishes_nothing(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        presence = RecordingPresence()
+
+        class StoreThatFailsAfterTheDecision(type(skat.store)):
+            def save_table(self, table):
+                raise RuntimeError("connection lost")
+
+        broken = StoreThatFailsAfterTheDecision()
+        broken.tables, broken.receipts = skat.store.tables, skat.store.receipts
+        answering_first(skat, TableService(broken), presence)
+        before = dict(skat.store.tables)
+
+        with pytest.raises(RuntimeError, match="connection lost"):
+            skat.sit(headers, table_id, 2)
+
+        assert (presence.woken, skat.store.tables) == ([], before)
+
+
+class TestStandUp:
+    def test_frees_the_own_chair_keeping_every_number(self, skat, table):
+        table_id, owner = table
+        headers, _ = skat.member()
+        skat.sit(headers, table_id, 3)
+
+        answer = skat.stand(headers, table_id)
+
+        assert answer.status_code == 200
+        assert [(c["seat"], c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]] == [
+            (1, owner.username, False),
+            (2, None, False),
+            (3, None, False),
+        ]
+
+    def test_a_member_without_a_chair_is_refused_and_nothing_changes(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        before = dict(skat.store.tables)
+
+        answer = skat.stand(headers, table_id)
+
+        assert (answer.status_code, answer.json()) == (409, {"reason": "not-seated", "holder_name": None})
+        assert skat.store.tables == before
+
+    def test_a_retry_answers_with_the_first_outcome(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        skat.sit(headers, table_id, 2)
+        first = skat.stand(headers, table_id).json()
+
+        assert skat.stand(headers, table_id).json() == first
+
+    def test_refuses_a_command_id_that_a_sit_already_used(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        skat.sit(headers, table_id, 2)
+
+        assert skat.stand(headers, table_id, command_id="command-sit").status_code == 409
+
+    def test_signed_out_writes_nothing(self, skat, table):
+        table_id, _ = table
+
+        assert skat.stand(FETCH, table_id).status_code == 401
+
+    def test_an_unknown_table_is_not_found(self, skat):
+        headers, _ = skat.member()
+
+        assert skat.stand(headers, UNKNOWN_ID).status_code == 404
+
+    def test_wakes_every_stream_of_the_table_after_the_commit(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        skat.sit(headers, table_id, 2)
+        presence = RecordingPresence()
+        answering_first(skat, TableService(skat.store), presence)
+
+        skat.stand(headers, table_id, command_id="command-stand")
+
+        assert presence.woken == [table_id]

@@ -42,6 +42,8 @@ async def table_views(
     """
     changed = asyncio.Event()
     subscription = presence.subscribe(table_id, account_id, changed.set)
+    sent_version: int | None = None
+    heartbeat_read = False
     try:
         while True:
             changed.clear()
@@ -53,14 +55,14 @@ async def table_views(
             if view is None:
                 message = f"table {table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
-            yield view
-            while not changed.is_set():
+            if not heartbeat_read or view.version != sent_version:
+                yield view
+                sent_version = view.version
+            heartbeat_read = False
+            while not changed.is_set() and not heartbeat_read:
                 with suppress(TimeoutError):
                     await asyncio.wait_for(changed.wait(), heartbeat_seconds)
-                if not changed.is_set():
-                    actor = await admit()
-                    if actor is None:
-                        return
+                heartbeat_read = not changed.is_set()
     finally:
         presence.unsubscribe(subscription)
 
