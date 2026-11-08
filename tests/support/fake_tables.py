@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from skat.table.records import Receipt, Replay
-from skat.table.service import DuplicateReceiptError, TableService
+from skat.table.service import DuplicateReceiptError, OccupiedChair, TableService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -46,6 +46,14 @@ class FakeTableStore:
 
     def add_table(self, table: TableRecord) -> None:
         self.tables[table.id.value] = table
+
+    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
+        return tuple(
+            OccupiedChair(table.id, chair.occupant.account_id)
+            for table in self.tables.values()
+            for chair in table.chairs
+            if chair.occupant is not None
+        )
 
     def add_receipt(self, receipt: Receipt) -> None:
         key = (receipt.account_id, receipt.command_id)

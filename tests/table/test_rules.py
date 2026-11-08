@@ -5,7 +5,7 @@ import pytest
 
 from skat.engine.deal import deal
 from skat.table.records import Actor, Chair, FirstDeal, Occupant, Refusal, TableId, TableRecord
-from skat.table.rules import decide_sit, decide_stand, hand_runs, sit_deals
+from skat.table.rules import decide_free_chair, decide_sit, decide_stand, hand_runs, sit_deals
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
@@ -138,3 +138,30 @@ class TestDeal:
 
     def test_a_member_without_a_chair_is_not_seated_even_while_a_hand_runs(self):
         assert decide_stand(running_hand(), DORA).refusal is Refusal.NOT_SEATED
+
+
+class TestFreeChair:
+    def test_frees_only_the_away_members_chair_keeps_every_number_and_bumps_the_version(self):
+        decision = decide_free_chair(table_with((1, ANNA), (2, BEN)), BEN.account_id)
+
+        assert decision.refusal is None
+        assert occupants_of(decision.table) == ["Anna", None, None]
+        assert [chair.seat for chair in decision.table.chairs] == [1, 2, 3]
+        assert decision.table.version == 5
+
+    def test_changes_nothing_for_a_member_who_no_longer_holds_a_chair(self):
+        table = table_with((1, ANNA))
+
+        decision = decide_free_chair(table, BEN.account_id)
+
+        assert decision.refusal is Refusal.NOT_SEATED
+        assert decision.table == table
+
+    @pytest.mark.parametrize("member", [ANNA, BEN, CLEO])
+    def test_changes_nothing_while_a_hand_runs(self, member):
+        table = running_hand()
+
+        decision = decide_free_chair(table, member.account_id)
+
+        assert decision.refusal is Refusal.HAND_RUNNING
+        assert decision.table == table

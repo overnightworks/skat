@@ -144,3 +144,48 @@ def declare(
         announcement = Announcement.SCHWARZ
     declaration = Declaration(kind, hand=hand, ouvert=ouvert, announcement=announcement)
     return DeclarationOutcome(replace(state, stage=_Stage.DECLARED, declaration=declaration))
+
+
+@dataclass(frozen=True)
+class TakeSkat:
+    """The declarer picks up the skat."""
+
+
+@dataclass(frozen=True)
+class PutBack:
+    """The declarer puts two cards back."""
+
+    cards: tuple[Card, ...]
+
+
+@dataclass(frozen=True)
+class Declare:
+    """The declarer names the game."""
+
+    kind: GameKind
+    hand: bool
+    ouvert: bool
+    announcement: Announcement
+
+
+type DeclaringStep = TakeSkat | PutBack | Declare
+
+
+def declaring_step(state: Declaring, step: DeclaringStep) -> DeclarationOutcome:
+    if isinstance(step, TakeSkat):
+        return take_skat(state)
+    if isinstance(step, PutBack):
+        return put_back(state, step.cards)
+    return declare(state, step.kind, hand=step.hand, ouvert=step.ouvert, announcement=step.announcement)
+
+
+def declaring_after(start: Declaring, steps: tuple[DeclaringStep, ...]) -> Declaring:
+    """The state a stored log of steps leads to; a log the rules refuse is corrupt and raises."""
+    state = start
+    for place, step in enumerate(steps, start=1):
+        outcome = declaring_step(state, step)
+        if outcome.refusal is not None:
+            message = f"impossible declaring log: step {place} refused: {outcome.refusal.value}"
+            raise ValueError(message)
+        state = outcome.state
+    return state

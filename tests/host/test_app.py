@@ -1,4 +1,5 @@
 import secrets
+import threading
 from typing import TYPE_CHECKING
 
 import pytest
@@ -9,11 +10,13 @@ from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
 from skat.host.app import create_app
+from skat.table.records import Actor, CreateTable
+from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.secret_files import StartRefusedError
 from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
-from tests.support.fake_tables import in_memory_tables
+from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.page_build import FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -38,7 +41,34 @@ def sign_in_through_issuer(browser: TestClient, issuer: FakeIssuer) -> None:
     browser.get(f"{AUTH_CALLBACK_PATH}?{query}")
 
 
+class FreeingSignal(TableService):
+    """A table service that tells when a chair was freed."""
+
+    def __init__(self, store: FakeTableStore) -> None:
+        super().__init__(store)
+        self.chair_freed = threading.Event()
+
+    def free_chair(self, table_id, account_id, due):
+        freed = super().free_chair(table_id, account_id, due)
+        if freed:
+            self.chair_freed.set()
+        return freed
+
+
 class TestCreateApp:
+    def test_a_chair_seated_when_the_server_starts_turns_free_after_the_hold_when_nobody_connects(
+        self, sign_in_settings
+    ):
+        tables = FreeingSignal(FakeTableStore())
+        tables.create(Actor(account_id="account-anna", display_name="Anna"), CreateTable(command_id="command-open"))
+        settings = sign_in_settings().settings.model_copy(update={"chair_hold_seconds": 0.05})
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+
+        with TestClient(app):
+            assert tables.chair_freed.wait(timeout=10)
+
+        assert tables.occupied_chairs() == ()
+
     def test_installs_the_web_auth_config_built_from_its_settings(self, sign_in_settings):
         sign_in = sign_in_settings()
         config = installed_web_auth_config(
