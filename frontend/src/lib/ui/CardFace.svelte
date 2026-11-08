@@ -41,6 +41,7 @@
     const { card }: { card: Card } = $props();
 
     const symbol = $derived(`#suit-${card.suit}`);
+    const court = $derived(`#court-${card.rank}`);
     const fill = $derived(SUIT_FILL[card.suit]);
     const ink = $derived(SUIT_INK[card.suit]);
     const letter = $derived(RANK_LETTERS[card.rank]);
@@ -89,7 +90,7 @@
             stroke-opacity=".5"
             stroke-width=".8"
         />
-        <use href="#court-{card.rank}" x="32" y="28" width="36" height="25" fill={COURT_GOLD} />
+        <use href={court} x="32" y="28" width="36" height="25" fill={COURT_GOLD} />
         <text class="court" x="50" y="91" text-anchor="middle" fill={ink}>{letter}</text>
         <use href={symbol} x="40.5" y="97" width="19" height="19" {fill} />
     {:else}

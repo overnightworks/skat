@@ -50,7 +50,6 @@
     });
 
     const seated = $derived(outcome?.kind === "table" && outcome.table.chairs.some((chair) => chair.is_mine));
-    const ownCards = $derived(outcome?.kind === "table" ? (outcome.table.hand?.own_cards ?? []) : []);
 
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
@@ -102,6 +101,7 @@
     </header>
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
+            {@const ownCards = outcome.table.hand?.own_cards ?? []}
             <div class="plaque">
                 {#if outcome.table.hand === null}
                     <span>{words.waitingForPlayers}</span>
