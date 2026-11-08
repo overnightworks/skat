@@ -443,7 +443,18 @@ body {
     font-size: 16px;
     font-weight: 700;
     max-width: 100%;
-    overflow-wrap: anywhere;
+}
+
+.room .notice .label {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.room .notice b {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .room .notice .dot {

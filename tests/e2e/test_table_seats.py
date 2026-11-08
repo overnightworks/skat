@@ -152,6 +152,43 @@ def test_two_browsers_taking_the_last_chair_seat_one_and_the_other_is_told_who_g
     expect(notice).to_be_hidden(timeout=NOTICE_GONE_TIMEOUT_MILLISECONDS)
 
 
+@pytest.mark.parametrize("holder_name", ["W" * 64, "Maximilian-Alexander-Bartholomaeus-von-Hohenzollern-Sigmaringen"])
+def test_the_taken_notice_keeps_its_label_on_one_line_when_the_holder_name_is_long(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    page_errors: list[str],
+    holder_name: str,
+) -> None:
+    opener = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
+    path = open_new_table(opener, e2e_server)
+    second = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
+    watch(second, e2e_server, path)
+    sit_in(second, 2)
+    winner = record_page_errors(open_person(username=holder_name, **DESKTOP), page_errors)
+    loser = record_page_errors(open_person(username="dora", **SMALL_PHONE), page_errors, console=False)
+    watch(winner, e2e_server, path)
+    watch(loser, e2e_server, path)
+
+    def let_the_winner_sit_first(route: Route) -> None:
+        sit_in(winner, 3)
+        expect(plate_of(winner, 3)).to_have_text(holder_name)
+        route.continue_()
+
+    loser.route(f"**{TABLES_PATH}/*{TABLE_SIT_SUFFIX}", let_the_winner_sit_first)
+
+    sit_in(loser, 3)
+
+    notice = loser.locator(".notice")
+    expect(notice).to_contain_text(SEAT_TAKEN)
+    label_is_one_line = loser.evaluate(
+        "() => { const label = document.querySelector('.notice .label');"
+        " return label.getBoundingClientRect().height < 1.6 * parseFloat(getComputedStyle(label).fontSize); }"
+    )
+    assert label_is_one_line is True
+    assert loser.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
 def test_a_command_that_cannot_be_sent_says_so_and_changes_nothing(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,

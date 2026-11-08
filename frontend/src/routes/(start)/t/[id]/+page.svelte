@@ -179,7 +179,7 @@
                 <p class="notice" role="status">
                     <span class="dot" aria-hidden="true">{taken.slice(0, 1)}</span>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                    {`${words.seatTaken}`}
+                    <span class="label">{`${words.seatTaken}`}</span>
                     <b>{taken}</b>
                 </p>
             {/if}
