@@ -1,0 +1,8 @@
+claim_id = "a360b4adbe1343d18678333f528ea9e7"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "9ebe005c4ca949dd1416fd616074583e9e368571"
+branch = "claude/issue-61-call-origin"
+scope = ["README.md", "docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/web/settings.py", "src/skat/web/sign_in.py", "tests/e2e/conftest.py", "tests/e2e/support/people.py", "tests/e2e/support/server.py", "tests/e2e/test_call_frame.py", "tests/host/test_app.py", "tests/support/sign_in_settings.py", "tests/web/test_settings.py", "tests/web/test_sign_in_config.py"]
+opened_commit = "4c6b53abf4b650978d50233cd74b6a4dc0fa36ab"
+whole_reason = "The setting, the header it sets and the browser proof are one framing boundary; a setting no browser test drives proves nothing about who may frame Skat."
