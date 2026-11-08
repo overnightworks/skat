@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import parse_qs, urlsplit
 
 from pydantic import AfterValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
 
@@ -28,15 +29,15 @@ def _require_absolute_path(path: Path) -> Path:
 
 def _require_postgres_url_without_password(url: str) -> str:
     try:
-        parts = urlsplit(url)
-    except ValueError:
-        # The parser's message quotes the authority, which may hold the password.
+        parsed = make_url(url)
+    except ArgumentError:
+        # The parser's message quotes the URL, which may hold the password.
         raise ValueError("must be a postgresql URL") from None
-    if parts.scheme != "postgresql":
+    if parsed.drivername != "postgresql":
         raise ValueError("must be a postgresql URL")
-    if not (parts.hostname and parts.username and parts.path.removeprefix("/")):
+    if not (parsed.host and parsed.username and parsed.database):
         raise ValueError("must name a host, a user and a database")
-    if parts.password is not None or "password" in parse_qs(parts.query):
+    if parsed.password is not None or "password" in parsed.query:
         raise ValueError("must not carry a password")
     return url
 
