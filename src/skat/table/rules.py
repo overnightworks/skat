@@ -60,7 +60,7 @@ def _seat_of(table: TableRecord, account_id: str) -> Chair | None:
 
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
     chairs = tuple(Chair(seat, occupant) if chair.seat == seat else chair for chair in table.chairs)
-    return replace(table, version=table.version + 1, chairs=chairs)
+    return TableRecord(table.id, table.version + 1, chairs, table.dealer, table.hand)
 
 
 def sit_deals(table: TableRecord) -> bool:
