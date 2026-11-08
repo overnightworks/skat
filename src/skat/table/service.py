@@ -22,6 +22,7 @@ from skat.table.rules import (
     CommandIdReusedError,
     create_receipt,
     decide_create,
+    decide_free_chair,
     decide_sit,
     decide_stand,
     replayed_decision,
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
 __all__ = [
     "CommandIdReusedError",
     "DuplicateReceiptError",
+    "OccupiedChair",
     "SeatingResult",
     "TableService",
     "TableTransaction",
@@ -69,11 +71,19 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
 
     def add_receipt(self, receipt: Receipt) -> None: ...
 
+    def occupied_chairs(self) -> tuple[OccupiedChair, ...]: ...
+
 
 class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     def begin(self) -> AbstractContextManager[TableTransaction]:
         """One transaction: it commits when the block ends and rolls back when the block raises."""
         ...
+
+
+@dataclass(frozen=True)
+class OccupiedChair:
+    table_id: TableId
+    account_id: str
 
 
 @dataclass(frozen=True)
@@ -136,6 +146,30 @@ class TableService:
             stand_payload(command),
             lambda table: decide_stand(table, actor),
         )
+
+    def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
+        """Free the account's chair on the server's own account, with no actor, command id or receipt.
+
+        `due` is entered before the transaction and left after its commit, and yields whether the caller still
+        wants the chair freed; False changes nothing. The decision re-reads the chair under the row lock, so a
+        repeat, or a chair the account left in the meantime, changes nothing either. True when it freed the chair.
+        """
+        with due as still_due:
+            if not still_due:
+                return False
+            with self._transactions.begin() as transaction:
+                table = transaction.locked_table(table_id)
+                if table is None:
+                    return False
+                decision = decide_free_chair(table, account_id)
+                if decision.refusal is not None:
+                    return False
+                transaction.save_table(decision.table)
+                return True
+
+    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
+        with self._transactions.begin() as transaction:
+            return transaction.occupied_chairs()
 
     def _first_deal(self, table: TableRecord) -> FirstDeal | None:
         """Randomness enters only here: the dealer, then the shuffle, both from the one source."""

@@ -2,7 +2,7 @@ import itertools
 import random
 import threading
 import time
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import replace
 
 import pytest
@@ -511,3 +511,42 @@ class TestOneMomentRead:
 
     def test_a_read_of_a_table_that_does_not_exist_returns_nothing(self, engine):
         assert self.read(engine, "0" * 32) is None
+
+
+class TestOccupiedChairs:
+    def test_reads_every_occupied_chair_and_no_free_one(self, service, engine):
+        first = service.create(OPENER, CreateTable(command_id="command-first")).id
+        service.sit(VISITOR, SitDown("command-ben", first, 3), frozenset())
+        second = service.create(VISITOR, CreateTable(command_id="command-second")).id
+        service.stand(VISITOR, StandUp("command-stand", second), frozenset())
+
+        assert {(chair.table_id.value, chair.account_id) for chair in service.occupied_chairs()} == {
+            (first, OPENER.account_id),
+            (first, VISITOR.account_id),
+        }
+
+    def test_frees_a_chair_in_the_store_and_keeps_the_receipts(self, service, engine):
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        service.sit(VISITOR, SitDown("command-ben", table_id, 3), frozenset())
+        receipts_before = count(engine, "receipts")
+
+        freed = service.free_chair(TableId(table_id), VISITOR.account_id, nullcontext(enter_result=True))
+
+        view = service.view(OPENER, table_id, frozenset())
+        assert (freed, [chair.occupant_name for chair in view.chairs], view.version) == (True, ["Anna", None, None], 3)
+        assert count(engine, "receipts") == receipts_before
+
+    def test_the_caller_stays_in_charge_until_the_freeing_is_committed(self, service):
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        service.sit(VISITOR, SitDown("command-ben", table_id, 3), frozenset())
+        occupants_when_released = []
+
+        @contextmanager
+        def due_until_released():
+            yield True
+            view = service.view(OPENER, table_id, frozenset())
+            occupants_when_released.append([chair.occupant_name for chair in view.chairs])
+
+        service.free_chair(TableId(table_id), VISITOR.account_id, due_until_released())
+
+        assert occupants_when_released == [["Anna", None, None]]

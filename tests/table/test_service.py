@@ -1,12 +1,13 @@
 import itertools
 import random
+from contextlib import AbstractContextManager, nullcontext
 
 import pytest
 
 from skat.engine.cards import DECK
 from skat.engine.deal import SEATS
 from skat.table.records import Actor, CreateTable, Receipt, Refusal, SitDown, StandUp, TableId
-from skat.table.service import CommandIdReusedError, TableService
+from skat.table.service import CommandIdReusedError, OccupiedChair, TableService
 from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
 
@@ -418,3 +419,85 @@ class TestDeal:
             sit(blind, CLEO, table_id, 3, "command-cleo")
 
         assert (store.tables[table_id].dealer, store.tables[table_id].hand) == (None, None)
+
+
+def always_due() -> AbstractContextManager[bool]:
+    return nullcontext(enter_result=True)
+
+
+class TestFreeChair:
+    def test_frees_the_chair_of_its_occupant_keeps_every_number_and_bumps_the_version_without_a_receipt(
+        self, service, store, table_id
+    ):
+        sit(service, VISITOR, table_id, 3)
+        receipts_before = dict(store.receipts)
+        version_before = store.tables[table_id].version
+
+        freed = service.free_chair(TableId(table_id), VISITOR.account_id, always_due())
+
+        assert freed is True
+        assert occupants_of(service.view(OPENER, table_id, frozenset())) == ["Anna", None, None]
+        assert store.tables[table_id].version == version_before + 1
+        assert store.receipts == receipts_before
+
+    def test_a_second_run_changes_nothing(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        service.free_chair(TableId(table_id), VISITOR.account_id, always_due())
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
+        assert store.tables == written
+
+    def test_changes_nothing_for_an_account_that_stood_up_before(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
+        assert store.tables == written
+
+    def test_changes_nothing_while_a_hand_runs(self, store):
+        service = seeded_service(store, 1)
+        table_id, _ = seated_three(service)
+        dealt = store.tables[table_id]
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
+        assert store.tables[table_id] == dealt
+
+    def test_changes_nothing_when_the_caller_is_no_longer_due_once_the_row_is_locked(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, nullcontext(enter_result=False)) is False
+        assert store.tables == written
+
+    def test_an_unknown_table_is_no_table(self, service):
+        assert service.free_chair(TableId("0" * 32), VISITOR.account_id, always_due()) is False
+
+    def test_a_failure_after_the_chair_write_persists_nothing(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        written = dict(store.tables)
+        failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
+
+        chair_to_free = TableId(table_id)
+        due = always_due()
+
+        with pytest.raises(ConnectionError):
+            failing.free_chair(chair_to_free, VISITOR.account_id, due)
+
+        assert store.tables == written
+
+
+class TestOccupiedChairs:
+    def test_lists_every_occupied_chair_of_every_table_and_no_free_one(self, service, table_id):
+        sit(service, VISITOR, table_id, 3)
+        other_id = service.create(VISITOR, CreateTable(command_id="command-other")).id
+
+        assert set(service.occupied_chairs()) == {
+            OccupiedChair(TableId(table_id), OPENER.account_id),
+            OccupiedChair(TableId(table_id), VISITOR.account_id),
+            OccupiedChair(TableId(other_id), VISITOR.account_id),
+        }
+
+    def test_lists_no_chair_when_no_table_exists(self, service):
+        assert service.occupied_chairs() == ()

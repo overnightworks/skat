@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.table.records import Chair, Occupant, Receipt, Refusal, Replay, TableId, TableRecord
-from skat.table.service import DuplicateReceiptError, TableTransaction
+from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -226,6 +226,14 @@ class _PostgresTableTransaction:
                 }
                 for chair in table.chairs
             ],
+        )
+
+    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
+        return tuple(
+            OccupiedChair(TableId(row.table_id), row.account_id)
+            for row in self._connection.execute(
+                select(chairs.c.table_id, chairs.c.account_id).where(chairs.c.account_id.is_not(None))
+            )
         )
 
     def add_receipt(self, receipt: Receipt) -> None:
