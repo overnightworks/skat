@@ -12,6 +12,7 @@ from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
+from tests.support.payload_cards import CARDS_BY_SEAT, cards_in_text, seated_three, wire_cards
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
 
 OPENER = Actor(account_id="opener", display_name="Anna")
@@ -571,3 +572,79 @@ class TestWatchTableAdmission:
             renewed_to = expiry()
 
         assert renewed_to >= opened_with
+
+
+class TestHandOnTheStream:
+    def events(self, table_id):
+        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
+
+    def first_message(self, skat, headers, table_id):
+        with skat.client.stream("GET", self.events(table_id), headers=headers) as answer:
+            first = next(answer.iter_lines())
+            answer.close()
+        return first
+
+    @pytest.mark.parametrize(
+        ("who", "own"),
+        [
+            pytest.param(0, CARDS_BY_SEAT[1], id="anna"),
+            pytest.param(1, CARDS_BY_SEAT[2], id="ben"),
+            pytest.param(2, CARDS_BY_SEAT[3], id="cleo"),
+            pytest.param(3, (), id="dora-without-a-chair"),
+        ],
+    )
+    def test_the_first_message_and_the_one_a_watcher_wakes_carry_exactly_the_viewers_own_cards(self, skat, who, own):
+        table_id, people = seated_three(skat)
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table_id), headers=people[who][0]) as answer:
+            lines = answer.iter_lines()
+            first = next(lines)
+            next(lines)
+            arriving_headers, _ = skat.member()
+            skat.client.cookies.clear()
+            woken = self.first_message(skat, arriving_headers, table_id), next(lines)
+
+        assert cards_in_text(first) == wire_cards(own)
+        assert cards_in_text(woken[1]) == wire_cards(own)
+
+    def test_one_account_on_two_devices_gets_its_own_cards_on_both(self, skat):
+        table_id, people = seated_three(skat)
+        skat.client.cookies.clear()
+        anna_headers, _ = people[0]
+
+        with (
+            skat.client.stream("GET", self.events(table_id), headers=anna_headers) as phone,
+            skat.client.stream("GET", self.events(table_id), headers=anna_headers) as laptop,
+        ):
+            firsts = [next(phone.iter_lines()), next(laptop.iter_lines())]
+
+        assert [cards_in_text(first) for first in firsts] == [wire_cards(CARDS_BY_SEAT[1])] * 2
+
+    def test_a_stream_opened_after_the_last_one_dropped_starts_from_the_full_current_hand(self, skat):
+        table_id, people = seated_three(skat)
+        skat.client.cookies.clear()
+        anna_headers, _ = people[0]
+        self.first_message(skat, anna_headers, table_id)
+
+        again = self.first_message(skat, anna_headers, table_id)
+
+        assert cards_in_text(again) == wire_cards(CARDS_BY_SEAT[1])
+
+    def test_a_revoked_session_gets_no_card_after_the_revocation_and_a_401_on_its_next_read(self, sign_in_settings):
+        skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+        table_id, people = seated_three(skat)
+        anna_headers, anna = people[0]
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table_id), headers=anna_headers) as answer:
+            lines = answer.iter_lines()
+            first = next(lines)
+            skat.stores.sessions.delete_for_user(anna.id)
+            rest = list(lines)
+        next_read = skat.client.get(f"{TABLES_PATH}/{table_id}", headers=anna_headers)
+
+        assert cards_in_text(first) == wire_cards(CARDS_BY_SEAT[1])
+        assert rest == [""]
+        assert next_read.status_code == 401
+        assert cards_in_text(next_read.text) == set()
