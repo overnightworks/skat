@@ -1,8 +1,0 @@
-claim_id = "902c749b1d7742adb6f23442f65f4058"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "65f9b38ca355685a4acb00d1c0aaa03eeeb76bd7"
-branch = "claude/issue-32-engine-bidding"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/engine/bidding.py", "src/skat/engine/games.py", "tests/engine/test_bidding.py", "tests/engine/test_games.py"]
-opened_commit = "501aa7cca678424a1a7997ea8cdbd648c4cf5a15"
-whole_reason = "The game kinds, the bid values made of them and the auction that uses them are one rule group; the auction means nothing without the values."
