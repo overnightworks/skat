@@ -25,22 +25,6 @@ class TestCreateTable:
             (3, None, False),
         ]
 
-    def test_shows_a_seated_member_without_a_stream_as_away_to_every_other_viewer_and_names_no_account(self, skat):
-        headers, account = skat.member()
-        table_id = skat.create(headers).json()["id"]
-        other_headers, other = skat.member()
-
-        answers = [
-            skat.client.get(f"{TABLES_PATH}/{table_id}", headers=viewer_headers)
-            for viewer_headers in (other_headers, headers)
-        ]
-
-        assert [[c["is_away"] for c in answer.json()["chairs"]] for answer in answers] == [
-            [True, False, False],
-            [False, False, False],
-        ]
-        assert all(account.id not in answer.text and other.id not in answer.text for answer in answers)
-
     def test_answers_a_retry_with_the_same_table(self, skat):
         headers, _ = skat.member()
 
@@ -145,6 +129,22 @@ class TestReadTable:
         assert answer.status_code == 401
         assert table_id not in answer.text
 
+    def test_shows_a_seated_member_without_a_stream_as_away_to_every_other_viewer_and_names_no_account(self, skat):
+        headers, account = skat.member()
+        table_id = skat.create(headers).json()["id"]
+        other_headers, other = skat.member()
+
+        answers = [
+            skat.client.get(f"{TABLES_PATH}/{table_id}", headers=viewer_headers)
+            for viewer_headers in (other_headers, headers)
+        ]
+
+        assert [[c["is_away"] for c in answer.json()["chairs"]] for answer in answers] == [
+            [True, False, False],
+            [False, False, False],
+        ]
+        assert all(account.id not in answer.text and other.id not in answer.text for answer in answers)
+
 
 class TestTablePage:
     def test_serves_the_page_shell_to_a_member_for_any_id(self, skat):
@@ -199,6 +199,20 @@ class TestSitDown:
             (account.username, True),
             (None, False),
         ]
+
+    @pytest.mark.parametrize("action", ["sit", "stand"])
+    def test_answers_an_occupant_with_a_connected_stream_as_present(self, skat, table, action):
+        table_id, owner = table
+        headers, _ = skat.member()
+        presence = Presence()
+        answering_first(skat, TableService(skat.store), presence)
+        presence.subscribe(table_id, owner.id, lambda: None)
+        if action == "stand":
+            skat.sit(headers, table_id, 2)
+
+        answer = getattr(skat, action)(headers, table_id, *([2] if action == "sit" else []), command_id="command-act")
+
+        assert answer.json()["chairs"][0]["is_away"] is False
 
     def test_the_second_one_for_a_chair_is_told_who_got_it(self, skat, table):
         table_id, owner = table

@@ -55,7 +55,7 @@
     }
 
     // A seated or freed chair reaches this page through its stream like every other page's: the answer's table
-    // has no watchers, so it never replaces the streamed view.
+    // is not the streamed view, so it never replaces it.
     let takenTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function seat(command: Promise<Outcome>): Promise<void> {

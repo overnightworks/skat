@@ -131,7 +131,7 @@ def test_a_seated_member_who_closes_the_page_shows_as_away_until_the_page_opens_
     anna_chair = onlooker.locator(".chair[data-seat='1']")
     expect(anna_chair.locator(".mark.away")).to_have_count(0)
 
-    returning = opener.context.new_page()
+    returning = record_page_errors(opener.context.new_page(), page_errors)
     opener.close()
 
     expect(anna_chair.locator(".mark.away")).to_be_visible()

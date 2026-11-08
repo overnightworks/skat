@@ -101,12 +101,12 @@ SEATING_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
 
 
 async def seating_answer(
-    command: Callable[[], SeatingResult | None], presence: Presence, table_id: str, response: Response
+    command: Callable[[frozenset[str]], SeatingResult | None], presence: Presence, table_id: str, response: Response
 ) -> Response | TableAnswer:
     """Run a sit or stand off the event loop; once it committed, wake the table's streams."""
     response.headers["Cache-Control"] = "no-store"
     try:
-        result = await run_in_threadpool(command)
+        result = await run_in_threadpool(command, presence.connected(table_id))
     except CommandIdReusedError:
         raise HTTPException(status_code=409, detail="command id reused with another request") from None
     if result is None:

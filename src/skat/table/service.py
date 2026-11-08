@@ -104,9 +104,10 @@ class TableService:
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())
 
-    def sit(self, actor: Actor, command: SitDown) -> SeatingResult | None:
+    def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> SeatingResult | None:
         return self._seat(
             actor,
+            connected_accounts,
             command.table_id,
             command.command_id,
             SIT_DOWN_COMMAND,
@@ -114,9 +115,10 @@ class TableService:
             lambda table: decide_sit(table, actor, command.seat),
         )
 
-    def stand(self, actor: Actor, command: StandUp) -> SeatingResult | None:
+    def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> SeatingResult | None:
         return self._seat(
             actor,
+            connected_accounts,
             command.table_id,
             command.command_id,
             STAND_UP_COMMAND,
@@ -127,6 +129,7 @@ class TableService:
     def _seat(
         self,
         actor: Actor,
+        connected_accounts: frozenset[str],
         table_id: str,
         command_id: str,
         command: str,
@@ -134,15 +137,16 @@ class TableService:
         decide: Callable[[TableRecord], Decision],
     ) -> SeatingResult | None:
         try:
-            return self._seat_once(actor, table_id, command_id, command, payload, decide)
+            return self._seat_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
         except DuplicateReceiptError:
             # The same command id committed on another table between this one's lookup and its receipt;
             # the retry finds that receipt and replays it or refuses the reuse.
-            return self._seat_once(actor, table_id, command_id, command, payload, decide)
+            return self._seat_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
 
     def _seat_once(
         self,
         actor: Actor,
+        connected_accounts: frozenset[str],
         table_id: str,
         command_id: str,
         command: str,
@@ -166,7 +170,7 @@ class TableService:
             else:
                 decision = replayed_decision(replay, command, payload)
             return SeatingResult(
-                view_of(decision.table, actor.account_id, frozenset()), decision.refusal, decision.holder
+                view_of(decision.table, actor.account_id, connected_accounts), decision.refusal, decision.holder
             )
 
     def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:

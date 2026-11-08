@@ -151,9 +151,11 @@ class TestTableViews:
 
         assert (first.watchers, second.watchers) == (1, 2)
 
-    def test_a_seated_member_shows_away_on_every_other_stream_until_the_last_tab_returns(self, service, table_id):
+    def test_a_seated_member_shows_away_on_every_other_stream_once_all_tabs_close_and_present_when_one_returns(
+        self, service, table_id
+    ):
         sit = SitDown("command-2", table_id, 2)
-        service.sit(VISITOR, sit)
+        service.sit(VISITOR, sit, frozenset())
 
         async def scenario():
             presence = Presence()
@@ -261,9 +263,9 @@ class TestLostNotification:
         async def scenario():
             stream = stream_of(Presence(), service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
             first = await next_view(stream)
-            service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+            service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
             recovered = await next_view(stream)
-            service.stand(VISITOR, StandUp("command-stand", table_id))
+            service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
             stood = await next_view(stream)
             await stream.aclose()
             return first, recovered, stood
