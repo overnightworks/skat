@@ -1,18 +1,19 @@
 from dataclasses import replace
-from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.engine.cards import DECK
+from skat.engine.cards import DECK, Card, Rank, Suit
+from skat.engine.deal import Deal
 from skat.table.records import Chair, Occupant, TableId, TableRecord
 from skat.table.views import view_of
-from tests.support.payload_cards import FOREHAND_CARDS, KNOWN_DEAL, MIDDLEHAND_CARDS, REARHAND_CARDS
-
-if TYPE_CHECKING:
-    from skat.engine.deal import Deal
 
 ANNA, BEN, CLEO, DORA = "account-anna", "account-ben", "account-cleo", "account-dora"
 NOBODY_CONNECTED = frozenset[str]()
+
+FOREHAND_CARDS = DECK[0:10]
+MIDDLEHAND_CARDS = DECK[10:20]
+REARHAND_CARDS = DECK[20:30]
+KNOWN_DEAL = Deal(forehand=FOREHAND_CARDS, middlehand=MIDDLEHAND_CARDS, rearhand=REARHAND_CARDS, skat=DECK[30:32])
 
 
 def seated_table(dealer: int | None = None, hand: Deal | None = None) -> TableRecord:
@@ -62,13 +63,35 @@ class TestOwnCards:
 
         assert view.hand.own_cards == ()
         assert [chair.hand.card_count for chair in view.chairs] == [10, 10, 10]
+        assert [chair.hand.position.value for chair in view.chairs] == ["middlehand", "rearhand", "forehand"]
+        assert view.hand.dealer_seat == 2
 
     def test_lists_the_own_cards_in_deck_order_whatever_order_the_deal_holds_them(self):
         shuffled = replace(KNOWN_DEAL, middlehand=tuple(reversed(MIDDLEHAND_CARDS)))
 
         view = view_of(seated_table(2, shuffled), ANNA, NOBODY_CONNECTED)
 
-        assert view.hand.own_cards == DECK[10:20]
+        assert view.hand.own_cards == (
+            Card(Suit.PIK, Rank.NINE),
+            Card(Suit.PIK, Rank.TEN),
+            Card(Suit.PIK, Rank.JACK),
+            Card(Suit.PIK, Rank.QUEEN),
+            Card(Suit.PIK, Rank.KING),
+            Card(Suit.PIK, Rank.ACE),
+            Card(Suit.HERZ, Rank.SEVEN),
+            Card(Suit.HERZ, Rank.EIGHT),
+            Card(Suit.HERZ, Rank.NINE),
+            Card(Suit.HERZ, Rank.TEN),
+        )
+
+
+class TestSkatStaysHidden:
+    @pytest.mark.parametrize("viewer", [ANNA, BEN, CLEO, DORA])
+    def test_no_viewer_gets_the_skats_cards_only_its_count(self, viewer):
+        view = view_of(seated_table(2, KNOWN_DEAL), viewer, frozenset({DORA}))
+
+        assert not set(view.hand.own_cards) & set(KNOWN_DEAL.skat)
+        assert view.hand.skat_count == len(KNOWN_DEAL.skat)
 
 
 class TestNoHand:
