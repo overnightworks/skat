@@ -19,6 +19,11 @@ def engine(unmigrated_database_url):
     engine.dispose()
 
 
+def _run_in_transaction(engine, statement):
+    with engine.begin() as connection:
+        connection.execute(statement)
+
+
 def table_names(engine):
     return set(inspect(engine).get_table_names()) - {"alembic_version"}
 
@@ -64,8 +69,9 @@ def test_the_migrated_schema_refuses_a_dealer_or_a_card_outside_the_game(engine,
     with engine.begin() as connection:
         connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 1)"))
 
-    with engine.begin() as connection, pytest.raises(IntegrityError):
-        connection.execute(text(statement))
+    refused = text(statement)
+    with pytest.raises(IntegrityError):
+        _run_in_transaction(engine, refused)
 
 
 def test_the_migrated_schema_holds_each_card_once_per_table(engine):
@@ -74,8 +80,9 @@ def test_the_migrated_schema_holds_each_card_once_per_table(engine):
         connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 1)"))
         connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'skat')"))
 
-    with engine.begin() as connection, pytest.raises(IntegrityError):
-        connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'forehand')"))
+    refused = text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'forehand')")
+    with pytest.raises(IntegrityError):
+        _run_in_transaction(engine, refused)
 
 
 def test_two_migrations_at_once_serialise_and_both_succeed(unmigrated_database_url):

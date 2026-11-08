@@ -32,7 +32,6 @@ UNIQUE_VIOLATION: Final = "23505"
 
 metadata = MetaData()
 
-_TABLE_ID_COLUMN: Final = "tables.id"
 
 tables = Table(
     "tables",
@@ -46,7 +45,7 @@ tables = Table(
 chairs = Table(
     "chairs",
     metadata,
-    Column("table_id", Text, ForeignKey(_TABLE_ID_COLUMN), primary_key=True),
+    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
     Column("seat", Integer, primary_key=True),
     Column("account_id", Text),
     Column("display_name", Text),
@@ -78,7 +77,7 @@ def _one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
 hand_cards = Table(
     "hand_cards",
     metadata,
-    Column("table_id", Text, ForeignKey(_TABLE_ID_COLUMN), primary_key=True),
+    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
     Column("suit", Text, primary_key=True),
     Column("rank", Text, primary_key=True),
     Column("holder", Text, nullable=False),
@@ -97,7 +96,7 @@ receipts = Table(
     Column("table_id", Text, nullable=False),
     Column("refusal", Text),
     Column("holder", Text),
-    ForeignKeyConstraint(["table_id"], [_TABLE_ID_COLUMN]),
+    ForeignKeyConstraint(["table_id"], [tables.c.id]),
 )
 
 
