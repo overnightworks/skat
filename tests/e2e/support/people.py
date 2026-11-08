@@ -20,14 +20,14 @@ PHONE = {"viewport": {"width": 390, "height": 844}, "is_mobile": True, "has_touc
 FORM_FACTORS = [pytest.param(DESKTOP, id="desktop"), pytest.param(PHONE, id="phone")]
 
 
-def playwright_cookie(set_cookie_header: str, config: WebAuthConfig) -> dict[str, Any]:
+def playwright_cookie(set_cookie_header: str, config: WebAuthConfig, domain: str = LOOPBACK_HOST) -> dict[str, Any]:
     ((name, morsel),) = parsed_set_cookies([set_cookie_header])
     expires = int(config.wall_clock()) + int(morsel["max-age"])
     # The URL form of add_cookies is refused for a __Host- name, so the cookie goes in by domain and path.
     return {
         "name": name,
         "value": morsel.value,
-        "domain": LOOPBACK_HOST,
+        "domain": domain,
         "path": morsel["path"],
         "secure": bool(morsel["secure"]),
         "httpOnly": bool(morsel["httponly"]),

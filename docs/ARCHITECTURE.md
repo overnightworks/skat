@@ -99,6 +99,7 @@ The model is Skat's own.
 - **Anyone without a session** reaches only `/health`, the sign-in pages, the sign-in routes, the stylesheets and fonts those pages link, and Keycloak's logout POST. A forged, altered or expired session cookie counts as no session.
 - **Keycloak** decides who is a member: the group `/apps/skat` admits, and no group makes anyone an admin. Skat trusts its signed tokens from the one configured issuer. The session store holds each login's ID token, a secret that leaves the server once, in the no-store logout page whose form the browser posts to Keycloak.
 - **The proxy hops** named in `SKAT_TRUSTED_PROXIES` are trusted to state the person's address in `X-Forwarded-For`; empty trusts none.
+- **The call origin** named in `SKAT_CALL_ORIGIN` may frame every Skat page (`frame-ancestors`); no other origin may, and unset allows none. Framing grants it nothing in Skat: the framed page keeps its own session and checks, and a request the call page sends is refused like any cross-origin one. The remaining risk is that a compromised call origin could trick people into clicks on a framed Skat page.
 - **A table's id** is an unguessable link, not a secret: every signed-in member who has it sees the table. A client names only its retry key; the account and the chair always come from the session.
 - **The operator's settings and secret files** are trusted fully. The two secrets and the database password come from files and never enter the environment; the database URL carries no password and comes from the environment, and a wrong setting is named, never echoed.
 
@@ -108,7 +109,7 @@ The model is Skat's own.
 
 ### Proof strategy
 
-Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live and sign-out. Branch coverage is judged at 100 % over both together, merged with the frontend's.
+Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live, sign-out and framing (the configured call origin shows a table, every other origin is refused). Branch coverage is judged at 100 % over both together, merged with the frontend's.
 
 ## 6. Constraints and reasons
 
