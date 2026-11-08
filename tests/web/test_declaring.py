@@ -306,6 +306,17 @@ class TestRefusedByTheTable:
 
         assert reason_of(answer) == Refusal.NO_HAND
 
+    def test_no_hand_is_named_before_not_seated_and_a_stale_version(self, skat):
+        opener, _ = skat.member()
+        outsider, _ = skat.member()
+        table_id = skat.create(opener).json()["id"]
+
+        answer = post_declaring(
+            skat, outsider, table_id, command_id="step-0001", version=0, action=DeclaringAction.TAKE
+        )
+
+        assert reason_of(answer) == Refusal.NO_HAND
+
     def test_not_seated_is_named_before_a_stale_version(self, won):
         won.refused(won.watcher, DeclaringAction.TAKE, Refusal.NOT_SEATED, version=won.record.version - 1)
 

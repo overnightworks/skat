@@ -114,6 +114,13 @@ class TestDeclaringPayload:
 
 
 class TestDecide:
+    def test_no_hand_is_named_before_not_seated_and_a_stale_version(self):
+        handless = replace(table_in(HandProgress()), hand=None, dealer=None)
+
+        decision = decide_declaring_step(handless, actor("account-outsider"), command_with(TakeSkat(), version=1))
+
+        assert decision.refusal is Refusal.NO_HAND
+
     def test_an_accepted_step_is_appended_and_raises_the_version(self):
         table = table_in(HandProgress(auction=won()))
         decision = decide_declaring_step(table, actor("account-middlehand"), command_with(TakeSkat()))
