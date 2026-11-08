@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "d82e9c5ca3f29805ea85c97f5c17dbc74dc6a28a"
 branch = "claude/issue-98-next-deal"
-scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/presence.py", "src/skat/web/streams.py", "src/skat/web/tables.py", "tests/store/test_tables.py", "tests/support/idle_presence.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/web/support/skat.py", "tests/web/test_next_deal.py", "tests/web/test_presence.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/presence.py", "src/skat/web/streams.py", "src/skat/web/tables.py", "tests/store/test_tables.py", "tests/support/idle_presence.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/web/conftest.py", "tests/web/support/presence.py", "tests/web/support/skat.py", "tests/web/support/streams.py", "tests/web/test_next_deal.py", "tests/web/test_presence.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
 opened_commit = "2bd6bb7ee3682497462005c6c9ab7e192ff08d45"
 whole_reason = "The decision, the deal and the two triggers are one behaviour: without either trigger the table waits forever or deals during the pause."
