@@ -93,8 +93,9 @@ def test_a_dealt_hand_can_be_neither_replaced_nor_removed_and_the_deal_stays_has
 
 
 def test_the_dealer_is_drawn_from_the_seats_and_the_same_seed_draws_the_same_one():
-    assert draw_dealer(seeded(5)) in SEATS
-    assert draw_dealer(seeded(5)) == draw_dealer(seeded(5))
+    first, second = draw_dealer(seeded(5)), draw_dealer(seeded(5))
+    assert first in SEATS
+    assert first == second
 
 
 def test_over_many_seeded_draws_every_seat_is_dealer_at_least_once():
