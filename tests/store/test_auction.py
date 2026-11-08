@@ -1,4 +1,3 @@
-import random
 import threading
 from dataclasses import replace
 
@@ -11,8 +10,9 @@ from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, TableId
+from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown
 from skat.table.service import TableService
+from tests.store.conftest import stored
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 
 pytestmark = pytest.mark.postgres
@@ -22,28 +22,6 @@ BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 NOBODY_CONNECTED: frozenset[str] = frozenset()
 FIRST_STEP, SECOND_STEP = "command-a", "command-b"
-
-
-@pytest.fixture
-def engine(database_url):
-    engine = create_store_engine(database_url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
-def transactions(engine):
-    return PostgresTableTransactions(engine)
-
-
-@pytest.fixture
-def service(transactions):
-    return TableService(transactions, random_source=random.Random(8))  # noqa: S311 - a seeded source makes the deal reproducible
-
-
-def stored(transactions, table_id):
-    with transactions.begin() as transaction:
-        return transaction.table(TableId(table_id))
 
 
 def count_steps(engine):

@@ -17,7 +17,7 @@ from skat.engine.bidding import (
 from skat.engine.deal import positions_from
 from skat.table.hand_state import auction_of
 from skat.table.records import Decision, Refusal
-from skat.table.rules import hand_runs, seat_of
+from skat.table.rules import acting_position, seat_of
 
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
@@ -73,14 +73,10 @@ def auction_payload(command: AuctionCommand) -> str:
 
 def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> Decision:
     """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason."""
-    if table.dealer is None or not hand_runs(table):
-        return Decision(table, Refusal.NO_HAND)
-    chair = seat_of(table, actor.account_id)
-    if chair is None:
-        return Decision(table, Refusal.NOT_SEATED)
-    if command.version != table.version:
-        return Decision(table, Refusal.STALE_VERSION)
-    step = step_of(command.action, command.value, positions_from(table.dealer)[chair.seat])
+    position = acting_position(table, actor, command.version)
+    if isinstance(position, Refusal):
+        return Decision(table, position)
+    step = step_of(command.action, command.value, position)
     outcome = auction_step(auction_of(table), step)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)

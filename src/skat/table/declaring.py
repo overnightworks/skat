@@ -1,11 +1,10 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
-from skat.engine.deal import positions_from
 from skat.engine.declaration import DeclaringStep, PutBack, TakeSkat, declaring_step
 from skat.table.hand_state import declaring_of
 from skat.table.records import Decision, Refusal
-from skat.table.rules import hand_runs, seat_of
+from skat.table.rules import acting_position
 
 if TYPE_CHECKING:
     from skat.engine.cards import Card
@@ -43,17 +42,13 @@ def declaring_payload(command: DeclaringCommand) -> str:
 
 def decide_declaring_step(table: TableRecord, actor: Actor, command: DeclaringCommand) -> Decision:
     """One step of the declarer: no hand, no chair, a stale version, no declarer yet, not the declarer, the engine."""
-    if table.dealer is None or not hand_runs(table):
-        return Decision(table, Refusal.NO_HAND)
-    chair = seat_of(table, actor.account_id)
-    if chair is None:
-        return Decision(table, Refusal.NOT_SEATED)
-    if command.version != table.version:
-        return Decision(table, Refusal.STALE_VERSION)
+    position = acting_position(table, actor, command.version)
+    if isinstance(position, Refusal):
+        return Decision(table, position)
     state = declaring_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    if state.declarer is not positions_from(table.dealer)[chair.seat]:
+    if state.declarer is not position:
         return Decision(table, Refusal.NOT_DECLARER)
     outcome = declaring_step(state, command.step)
     if outcome.refusal is not None:

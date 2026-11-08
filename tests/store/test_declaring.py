@@ -1,4 +1,3 @@
-import random
 import threading
 from dataclasses import replace
 
@@ -13,8 +12,9 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.records import Actor, CreateTable, Refusal, SitDown, TableId
+from skat.table.records import Actor, CreateTable, Refusal, SitDown
 from skat.table.service import TableService
+from tests.store.conftest import stored
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 
 pytestmark = pytest.mark.postgres
@@ -34,28 +34,6 @@ def step_id(number):
 
 def herz_declaration(*, hand):
     return Declare(GameKind.HERZ, hand=hand, ouvert=False, announcement=Announcement.NONE)
-
-
-@pytest.fixture
-def engine(database_url):
-    engine = create_store_engine(database_url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
-def transactions(engine):
-    return PostgresTableTransactions(engine)
-
-
-@pytest.fixture
-def service(transactions):
-    return TableService(transactions, random_source=random.Random(8))  # noqa: S311 - a seeded source makes the deal reproducible
-
-
-def stored(transactions, table_id):
-    with transactions.begin() as transaction:
-        return transaction.table(TableId(table_id))
 
 
 def count_steps(engine):
