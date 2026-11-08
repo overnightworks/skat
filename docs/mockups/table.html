@@ -474,6 +474,20 @@ body.solo section.shot .rule{display:none}
 }
 </style>
 <style>
+/* ---------- the result of one game: the word with its shape, the game, the value for whoever played it; the next hand comes by itself ---------- */
+.result.end h3{display:flex;align-items:center;gap:10px}
+.result.end h3 svg{width:.8em;height:.8em;flex:none}
+.result.lost h3{color:var(--on-stage-soft)}
+.value{font-family:var(--font-mark);font-size:52px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;color:var(--cream)}
+.value.minus{color:var(--on-stage-soft)}
+.p390 .value{font-size:44px}
+.miss{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.tag-glass.next{height:52px;padding:0 16px;border-radius:26px;font-size:15px;white-space:nowrap}
+.tag-glass.next svg{width:20px;height:20px}
+.p390 .sbar:has(.next){flex-wrap:wrap}
+.p390 .tag-glass.next{flex-basis:100%;justify-content:center;height:30px;background:none;backdrop-filter:none}
+</style>
+<style>
 /* ---------- the auction: the bidder's ladder offers every higher value, a held value shows its tick, the winner's star lands ---------- */
 .ladder.up span:not(.held):not(.now){background:var(--glass);color:var(--on-stage)}
 .ladder.up span.more{opacity:.45}
@@ -980,6 +994,77 @@ const DEAL_SCENES=[
     ['Kommt Anna nicht zurück, wartet das Spiel, bis niemand mehr verbunden ist und der Tisch schließt; eine Grenze dafür ist offen.']],
 ];
 scenes(DEAL_SCENES);
+
+/* ===== the others while the declarer takes the skat: from the opponent's and the watcher's chair no card of hers shows ===== */
+const annaTurn=(d)=>d?glow(300,270,220,260):glow(90,190,190,110);
+const nearTurn=(d)=>d?glow(187,632,300,200):yourTurn(d);
+const sideFans=(d,left,right,o={})=>(d?fan(left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.dim})+fan(right,{x:1012,y:282,w:42,rot:270,spread:6})
+  :fan(left,{x:80,y:168,w:26,rot:150,spread:6,dim:o.dim})+fan(right,{x:310,y:168,w:26,rot:210,spread:6}));
+const nearFan=(d,n)=>d?fan(n,{x:370,y:590,w:42,rot:45,spread:6}):fan(n,{x:195,y:476,w:26,rot:0,spread:6});
+const cardsAt=(n,x,y)=>cardCount(x,y).replace('<span>10</span>',`<span>${n}</span>`);
+const leftCount=(d,n)=>d?cardsAt(n,268,340):cardsAt(n,26,200);
+const skatStep=(d,word)=>plaque(d?640:195,d?98:176,`<div class="game">Reizwert 20</div><div class="game">Anna ${word}${waitDots()}</div>`);
+const annaDecides=(d)=>seats(d,{video:true,anna:['decl','turn'],score:[148,62,55]})+ownHand(d,OPPONENT_HAND)+callBar(d);
+const SKAT_OTHER_SCENES=[
+  ['skat-wait','Anna entscheidet',(d)=>room(d,{left:10,glow:annaTurn(d)})+skatStep(d,'wählt')+tableSkat(d)+annaDecides(d)],
+  ['skat-taken','Anna drückt',(d)=>room(d,{left:0,glow:annaTurn(d)})+sideFans(d,12,10)+skatStep(d,'drückt')+leftCount(d,12)+annaDecides(d)],
+  ['skat-watch','Zuschauen beim Skat',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:annaTurn(d)})+watching(3,d?16:12,d?14:8)
+    +sideFans(d,12,10)+nearFan(d,10)+skatStep(d,'drückt')
+    +leftCount(d,12)+(d?cardCount(952,340)+cardCount(420,600):cardCount(310,200)+cardCount(250,456))
+    +seat('anna',{...L.anna,marks:['decl','turn']})+seat('ben',L.nova)+seat('lena',L.you)+tableBar(d);}],
+];
+scenes(SKAT_OTHER_SCENES);
+ORDER.splice(ORDER.indexOf('skat-declared-390'),0,...SKAT_OTHER_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
+/* ===== a trick seen without a hand of one's own, and a trick that waits for someone who left ===== */
+const TRICK_SLOT={left:(d)=>({x:d?560:136,y:d?276:318,w:d?96:70,rot:d?-11:-9}),right:(d)=>({x:d?720:254,y:d?276:318,w:d?96:70,rot:d?9:8}),near:(d)=>({x:d?640:195,y:d?432:440,w:d?96:70,rot:0})};
+const pointsNamed=(eyes,names,pw)=>points(eyes[0],eyes[1],pw).replace(`Anna ${eyes[0]}`,`${names[0]} ${eyes[0]}`).replace(`Wir ${eyes[1]}`,`${names[1]} ${eyes[1]}`);
+const PLAY_OTHER_SCENES=[
+  ['play-watch','Zuschauen beim Stich',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d?16:12,d?14:8)
+    +sideFans(d,7,7)+nearFan(d,8)
+    +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+pointsNamed([10,21],['Anna','Gegner'],d?220:128))
+    +played('K','s','anna',TRICK_SLOT.left(d))
+    +played('7','s','ben',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})
+    +seat('anna',{...L.anna,marks:['decl']})+seat('ben',L.nova)+seat('lena',{...L.you,marks:['turn']})+tableBar(d);}],
+  ['play-away','Anna ist weg',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false})+watching(1,d?16:12,d?14:8)
+    +sideFans(d,8,7,{dim:true})
+    +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+`<div class="game">Warte auf Anna${waitDots()}</div>`)
+    +played('K','s','ben',TRICK_SLOT.right(d))+played('A','s','felix',TRICK_SLOT.near(d))
+    +awaySeat('anna',L.anna)+seat('ben',{...L.nova,marks:['decl']})+seat('felix',L.you)+ownHand(d,AFTER_HAND)+tableBar(d);}],
+];
+scenes(PLAY_OTHER_SCENES);
+ORDER.splice(ORDER.indexOf('call-play-1280')+1,0,...PLAY_OTHER_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
+/* ===== the result of one game on the table page: no running totals, and the next hand comes by itself ===== */
+const AFTER_GAME='Nach dem Spiel steht nur das Ergebnis dieses einen Spiels, ohne laufenden Stand; so empfohlen, das ist offen.';
+const NEXT_HAND='Die nächste Runde kommt nach einer Pause von selbst, und in der Pause kann man aufstehen; so empfohlen, das ist offen.';
+const END_RULES=[AFTER_GAME,NEXT_HAND];
+const nextHand=`<span class="tag-glass next" role="status" title="Die nächste Runde kommt von selbst">${I.shuffle}<span>Karten kommen${waitDots()}</span></span>`;
+const endBar=(d,seated)=>tableBar(d,{seated}).replace('<div class="sbar">',`<div class="sbar">${nextHand}`);
+const endSeats=(d,near,declarer,winners)=>{const L=d?DB:PB;return [['anna',L.anna],['ben',L.nova],[near,L.you]]
+  .map(([k,pos])=>seat(k,{...pos,marks:k===declarer?['decl']:[],win:winners.includes(k)})).join('');};
+const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:168,width:354})}">
+  <h3>${o.won?I.check:I.cross}${o.word}</h3>
+  <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stamp}</span>`:''}</div>
+  ${o.value?`<div class="value ${o.value.startsWith('−')?'minus':''}">${o.value}</div>`:''}
+  ${o.miss?`<div class="miss">Wert ${o.miss[0]} &lt; Reizwert ${o.miss[1]}</div>`:''}
+  ${pointsNamed(o.eyes,o.names,0)}</div>`;
+const declarerWinsConfetti=(d)=>d?confetti({n:70,box:[240,40,1040,640],origins:[[187,632]],size:18,k:1.25,seed:5}):confetti({n:48,box:[8,60,382,640],origins:[[195,540]],size:12,k:1.25,seed:11});
+const OWN_GAME=['Du','Gegner'];
+const END_SCENES=[
+  ['end-won','Gewonnen',(d)=>dealRoom(d,{watchers:1})+declarerWinsConfetti(d)+endCard(d,{won:true,word:'Gewonnen!',suit:'c',game:'Kreuz',value:'+36',eyes:[78,42],names:OWN_GAME})
+    +endSeats(d,'felix','felix',['felix'])+endBar(d,true),END_RULES],
+  ['end-lost','Verloren',(d)=>dealRoom(d,{watchers:1})+endCard(d,{word:'Verloren',suit:'c',game:'Kreuz',value:'−72',eyes:[54,66],names:OWN_GAME})
+    +endSeats(d,'felix','felix',['anna','ben'])+endBar(d,true),END_RULES],
+  ['end-rival','Als Gegner',(d)=>dealRoom(d,{watchers:1})+endCard(d,{word:'Verloren',suit:'h',game:'Anna, Herz',eyes:[74,46],names:['Anna','Wir']})
+    +endSeats(d,'felix','anna',['anna'])+endBar(d,true),['Hält Anna ihr Spiel nicht, steht dort „Gewonnen!“.',...END_RULES]],
+  ['end-watch','Zuschauen beim Ergebnis',(d)=>dealRoom(d,{watchers:3})+endCard(d,{won:true,word:'Anna gewinnt',suit:'h',game:'Herz',eyes:[74,46],names:['Anna','Gegner']})
+    +endSeats(d,'lena','anna',['anna'])+endBar(d,false),END_RULES],
+  ['end-over','Überreizt',(d)=>dealRoom(d,{watchers:1})+endCard(d,{word:'Verloren',suit:'d',game:'Karo',stamp:'Überreizt',value:'−54',miss:[18,20],eyes:[70,50],names:OWN_GAME})
+    +endSeats(d,'felix','felix',['anna','ben'])+endBar(d,true),END_RULES],
+];
+scenes(END_SCENES);
+ORDER.splice(ORDER.indexOf('call-end-1280')+1,0,...END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
 /* ===== the auction around the table: you bid as middlehand, then as rearhand; Nova wins it; all pass and the next dealer deals; a watcher sees every call ===== */
 MARK.won=MARK.decl.replace('mark decl','mark decl mo').replace('<span class','<span style="--d:.3s" class');
