@@ -121,6 +121,24 @@ class TestView:
 
         assert service.view(VISITOR, created.id, connected).watchers == watchers
 
+    @pytest.mark.parametrize(
+        ("viewer", "connected", "away"),
+        [
+            pytest.param(OPENER, frozenset(), [False, True, False], id="the-viewers-own-chair-is-never-away"),
+            pytest.param(OPENER, {VISITOR.account_id}, [False, False, False], id="a-connected-occupant-is-present"),
+            pytest.param(VISITOR, frozenset(), [True, False, False], id="an-occupant-without-a-stream-is-away"),
+            pytest.param(VISITOR, {"account-third"}, [True, False, False], id="a-third-accounts-stream-is-no-help"),
+            pytest.param(VISITOR, {OPENER.account_id}, [False, False, False], id="an-occupant-with-a-stream-is-here"),
+        ],
+    )
+    def test_marks_a_chair_away_when_its_occupant_has_no_connected_stream(self, service, viewer, connected, away):
+        created = service.create(OPENER, CreateTable(command_id="command-1"))
+        service.sit(VISITOR, SitDown("command-2", created.id, 2))
+
+        view = service.view(viewer, created.id, frozenset(connected))
+
+        assert [chair.is_away for chair in view.chairs] == away
+
     def test_a_new_table_has_no_watchers(self, service):
         assert service.create(OPENER, CreateTable(command_id="command-1")).watchers == 0
 

@@ -25,6 +25,22 @@ class TestCreateTable:
             (3, None, False),
         ]
 
+    def test_shows_a_seated_member_without_a_stream_as_away_to_every_other_viewer_and_names_no_account(self, skat):
+        headers, account = skat.member()
+        table_id = skat.create(headers).json()["id"]
+        other_headers, other = skat.member()
+
+        answers = [
+            skat.client.get(f"{TABLES_PATH}/{table_id}", headers=viewer_headers)
+            for viewer_headers in (other_headers, headers)
+        ]
+
+        assert [[c["is_away"] for c in answer.json()["chairs"]] for answer in answers] == [
+            [True, False, False],
+            [False, False, False],
+        ]
+        assert all(account.id not in answer.text and other.id not in answer.text for answer in answers)
+
     def test_answers_a_retry_with_the_same_table(self, skat):
         headers, _ = skat.member()
 

@@ -56,6 +56,7 @@ class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
     is_mine: bool
+    is_away: bool
 
 
 class TableAnswer(BaseModel):
@@ -69,7 +70,10 @@ def answer_of(view: TableView) -> TableAnswer:
     return TableAnswer(
         id=view.id,
         version=view.version,
-        chairs=[ChairAnswer(seat=c.seat, occupant_name=c.occupant_name, is_mine=c.is_mine) for c in view.chairs],
+        chairs=[
+            ChairAnswer(seat=c.seat, occupant_name=c.occupant_name, is_mine=c.is_mine, is_away=c.is_away)
+            for c in view.chairs
+        ],
         watchers=view.watchers,
     )
 
