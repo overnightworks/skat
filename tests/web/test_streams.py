@@ -13,6 +13,7 @@ from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.payload_cards import CARDS_BY_SEAT, cards_in_text, seated_three, wire_cards
+from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
 
 OPENER = Actor(account_id="opener", display_name="Anna")
@@ -481,6 +482,8 @@ class TestWatchTableAdmission:
         assert [chair["is_mine"] for chair in event["chairs"]] == [False, False, False]
         assert watcher.id not in first
         assert opener.id not in first
+        assert event["hand"] is None
+        assert [chair["hand"] for chair in event["chairs"]] == [None, None, None]
 
     def test_the_first_event_marks_a_seated_member_without_a_stream_away_and_names_no_account(self, skat):
         opener_headers, opener = skat.member()
@@ -603,19 +606,22 @@ class TestHandOnTheStream:
             next(lines)
             arriving_headers, _ = skat.member()
             skat.client.cookies.clear()
-            woken = self.first_message(skat, arriving_headers, table_id), next(lines)
+            self.first_message(skat, arriving_headers, table_id)
+            woken = next(lines)
 
         assert cards_in_text(first) == wire_cards(own)
-        assert cards_in_text(woken[1]) == wire_cards(own)
+        assert cards_in_text(woken) == wire_cards(own)
 
     def test_one_account_on_two_devices_gets_its_own_cards_on_both(self, skat):
         table_id, people = seated_three(skat)
         skat.client.cookies.clear()
-        anna_headers, _ = people[0]
+        anna_headers, anna = people[0]
+        laptop_session = seed_member(skat.stores, skat.config, account=anna)
+        laptop_headers = {"cookie": cookie_header(laptop_session.set_cookie_headers), **FETCH}
 
         with (
             skat.client.stream("GET", self.events(table_id), headers=anna_headers) as phone,
-            skat.client.stream("GET", self.events(table_id), headers=anna_headers) as laptop,
+            skat.client.stream("GET", self.events(table_id), headers=laptop_headers) as laptop,
         ):
             firsts = [next(phone.iter_lines()), next(laptop.iter_lines())]
 
