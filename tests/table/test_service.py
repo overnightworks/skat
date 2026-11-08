@@ -223,7 +223,7 @@ class TestSit:
         assert sit(service, VISITOR, unknown, 2) is None
         assert (store.tables, store.receipts) == before
 
-    def test_a_failure_after_the_decision_persists_nothing(self, service, store, table_id):
+    def test_a_failure_after_the_decision_persists_nothing(self, store, table_id):
         before = (dict(store.tables), dict(store.receipts))
         faulty = TableService(FaultyTableTransactions(store, receipt_failure=RuntimeError("connection lost")))
 

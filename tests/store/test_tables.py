@@ -230,30 +230,17 @@ class TestSeating:
 
             assert service.view(OPENER, table_id, frozenset()) is not None
 
-    def test_one_command_id_on_two_tables_at_once_seats_one_and_refuses_the_other(self, service, engine, table_id):
+    def test_a_command_id_reused_on_another_table_that_missed_the_receipt_is_refused_on_the_unique_key(
+        self, service, engine, table_id
+    ):
         other_id = service.create(OPENER, CreateTable(command_id="command-other")).id
-        racing = TableService(BothReadBeforeEitherWrites(PostgresTableTransactions(engine), 2))
-        outcomes = {}
+        service.sit(VISITOR, SitDown("command-sit", table_id, 2))
+        blind = TableService(FaultyTableTransactions(PostgresTableTransactions(engine), blind_first_replay=True))
+        receipts_before = count(engine, "receipts")
 
-        def sit(target):
-            try:
-                outcomes[target] = racing.sit(VISITOR, SitDown("command-sit", target, 2))
-            except CommandIdReusedError as refused:
-                outcomes[target] = refused
+        with pytest.raises(CommandIdReusedError):
+            blind.sit(VISITOR, SitDown("command-sit", other_id, 2))
 
-        threads = [threading.Thread(target=sit, args=(target,)) for target in (table_id, other_id)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-
-        refused = [target for target, outcome in outcomes.items() if isinstance(outcome, CommandIdReusedError)]
-        assert len(refused) == 1
-        seated = {
-            target: [chair.occupant_name for chair in service.view(OPENER, target, frozenset()).chairs]
-            for target in (table_id, other_id)
-        }
-        versions = {target: service.view(OPENER, target, frozenset()).version for target in (table_id, other_id)}
-        assert seated.pop(refused[0]) == ["Anna", None, None]
-        assert list(seated.values()) == [["Anna", "Ben", None]]
-        assert (versions[refused[0]], count(engine, "receipts")) == (1, 3)
+        view = service.view(OPENER, other_id, frozenset())
+        assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)
+        assert count(engine, "receipts") == receipts_before
