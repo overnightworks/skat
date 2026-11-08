@@ -803,7 +803,7 @@ const games=(d,x,y,chosen)=>row(x,y,SUIT_GAMES.map(([s,n])=>pick(n,gameLine(s,d?
 const levels=(x,y,chosen)=>`<div class="ladder words" style="${at({left:x,top:y})}"><span class="held">${I.check}Hand</span>${['Schneider','Schwarz','Ouvert'].map(l=>`<span class="${l===chosen?'now':''}">${l}</span>`).join('')}</div>`;
 const announce=(x,y)=>row(x,y,`<span class="button button-stage">${I.check}Ansagen</span>`);
 const deciding=(d,hand)=>seats(d,{video:true,anna:['waits'],nova:['waits'],you:['decl','turn'],score:[148,62,55]})+ownHand(d,hand.cards,hand.o)+callBar(d);
-const BELOW_BID='Ein Spiel unter dem Reizwert bleibt wählbar, ohne Warnung (ISkO 3.5.2: es gilt, wird aber überreizt). Ob eine Warnung kommt, ist offen.';
+const BELOW_BID='Ein Spiel unter dem Reizwert bleibt wählbar und wird überreizt (ISkO 3.5.2); ob davor gewarnt wird, ist offen.';
 const SKAT_SCENES=[
   ['skat-choose','Hand oder Skat',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
     +(d?skat(584,190,80):skat(154,240,52))
