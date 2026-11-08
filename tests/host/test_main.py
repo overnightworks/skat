@@ -1,12 +1,15 @@
+import logging
+
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import inspect
 from sqlalchemy.engine import make_url
 
-from skat.host.main import main, uvicorn_options
+from skat.host.main import create_database_engine, main, uvicorn_options
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine
 from skat.web.constants import UVICORN_LOG_LEVEL
 from skat.web.secret_files import StartRefusedError
+from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
 from tests.support.page_build import FIXTURE_DIRECTORY
 
@@ -28,21 +31,6 @@ def server() -> ServerRecorder:
 
 def without_password(database_url: str) -> str:
     return make_url(database_url).set(drivername="postgresql", password=None).render_as_string()
-
-
-@pytest.fixture
-def engine_urls(monkeypatch):
-    """The URLs `main` builds its engines on; the engines are the real ones."""
-    urls = []
-    real_create_store_engine = create_store_engine
-
-    def recording(database_url):
-        engine = real_create_store_engine(database_url)
-        urls.append(engine.url)
-        return engine
-
-    monkeypatch.setattr("skat.host.main.create_store_engine", recording)
-    return urls
 
 
 @pytest.fixture
@@ -83,25 +71,37 @@ class TestMain:
 
         assert server.runs == []
 
-    def test_refuses_to_serve_when_the_database_password_file_cannot_be_read(
-        self, server, configured_environment, tmp_path
+    @pytest.mark.parametrize("state", ["missing", "a directory", "empty"])
+    def test_refuses_to_serve_when_the_database_password_file_cannot_be_read_naming_the_setting_and_not_the_path(
+        self, server, configured_environment, tmp_path, state
     ):
-        configured_environment(database_password_file=tmp_path / "missing-file")
+        password_file = {
+            "missing": tmp_path / "missing-file",
+            "a directory": tmp_path,
+            "empty": tmp_path / "empty-file",
+        }[state]
+        if state == "empty":
+            password_file.write_text("")
+        configured_environment(database_password_file=password_file)
 
-        with pytest.raises(StartRefusedError, match="database_password_file"):
+        with pytest.raises(StartRefusedError, match="database_password_file") as refusal:
             main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
 
+        assert str(password_file) not in str(refusal.value)
+        assert server.runs == []
+
     @pytest.mark.parametrize("password", ["a-b_c", "-_", "p@ss/w:rd?#%"])
-    def test_serves_on_the_database_url_with_the_password_from_its_file_whatever_its_characters(
-        self, server, configured_environment, database_url, engine_urls, tmp_path, password
+    def test_builds_the_engine_on_the_database_url_with_the_password_from_its_file_whatever_its_characters(
+        self, sign_in_settings, database_url, tmp_path, password
     ):
         password_file = tmp_path / "password-of-the-test"
         password_file.write_text(password + "\n")
-        configured_environment(database_url, database_password_file=password_file)
+        settings = sign_in_settings(
+            database_url=without_password(database_url), database_password_file=password_file
+        ).settings
 
-        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+        url = create_database_engine(settings).url
 
-        [url] = engine_urls
         expected = make_url(database_url)
         assert (url.password, url.host, url.port, url.username, url.database) == (
             password,
@@ -112,15 +112,18 @@ class TestMain:
         )
 
     def test_logs_and_prints_no_part_of_the_database_password_on_a_start(
-        self, server, configured_environment, database_url, sign_in_settings, capsys, caplog
+        self, server, configured_environment, database_url, tmp_path, capsys, caplog
     ):
-        sign_in = sign_in_settings()
-        configured_environment(database_url, database_password_file=sign_in.settings.database_password_file)
+        password = "password-in-its-own-file"
+        password_file = tmp_path / "password-of-the-test"
+        password_file.write_text(password + "\n")
+        configured_environment(database_url, database_password_file=password_file)
+        caplog.set_level(logging.DEBUG)
 
         main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
 
         output = capsys.readouterr()
-        assert sign_in.database_password not in output.out + output.err + caplog.text
+        assert password not in output.out + output.err + caplog.text
 
     @pytest.mark.parametrize("arguments", [[], ["frobnicate"]])
     def test_refuses_without_the_serve_command_and_starts_nothing(self, server, arguments, capsys):
@@ -141,10 +144,11 @@ class TestMigrate:
         monkeypatch.setenv("SKAT_DATABASE_PASSWORD_FILE", str(password_file))
         return unmigrated_database_url
 
-    def test_migrates_on_the_database_url_with_the_password_from_its_file(self, only_the_database_setting, engine_urls):
-        main(["migrate"])
+    def test_builds_the_migrate_engine_on_the_database_url_with_the_password_from_its_file(
+        self, only_the_database_setting
+    ):
+        url = create_database_engine(DatabaseSettings()).url  # pyright: ignore[reportCallIssue]
 
-        [url] = engine_urls
         assert url.password == "password-of-the-test"
         assert url.database == make_url(only_the_database_setting).database
 
