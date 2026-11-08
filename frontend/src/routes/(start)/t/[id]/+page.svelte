@@ -3,12 +3,15 @@
     import { page } from "$app/state";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
+    import BackFan from "#lib/ui/BackFan.svelte";
+    import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
         copyTableLink,
         drawingOrder,
+        positionWord,
         readTable,
         sitDown,
         standUp,
@@ -111,6 +114,12 @@
                 {/if}
             </div>
             <div class="felt" aria-hidden="true"></div>
+            {@const dealerSeat = outcome.table.hand?.dealer_seat}
+            {#if outcome.table.hand !== null}
+                <div class="skat-spot">
+                    <FaceDownSkat count={outcome.table.hand.skat_count} />
+                </div>
+            {/if}
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
                     <li class="chair" class:mine={chair.is_mine} class:away={chair.is_away} data-seat={chair.seat}>
@@ -118,6 +127,28 @@
                             <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                             </span>
+                            {#if chair.hand !== null}
+                                {#if chair.seat === dealerSeat}
+                                    <span class="mark dealer" title={words.dealer}>
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            aria-hidden="true"
+                                        >
+                                            <path
+                                                d="M3 7h3c4.5 0 6.5 10 11 10h3.5M3 17h3c1.7 0 3-1.4 4.1-3.4M13.9 10.4C15 8.4 16.3 7 18 7h2.5M18 4l3 3-3 3M18 14l3 3-3 3"
+                                            />
+                                        </svg>
+                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                                        {`${words.dealer}`}
+                                    </span>
+                                {/if}
+                                <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                            {/if}
                             {#if chair.is_away}
                                 <span class="mark away" aria-hidden="true">
                                     <svg
@@ -158,6 +189,32 @@
                                     >{words.seatAway}</small
                                 >{/if}</span
                         >
+                        {#if chair.hand !== null}
+                            {#if !chair.is_mine}
+                                <div class="fan-spot">
+                                    <BackFan count={chair.hand.card_count} dim={chair.is_away} />
+                                </div>
+                            {/if}
+                            {#if !seated}
+                                <span class="count-tag" title={words.cardCount}>
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"
+                                    >
+                                        <rect x="3" y="7" width="11" height="14.5" rx="2" />
+                                        <path
+                                            d="M8 7V4.5A1.5 1.5 0 0 1 9.5 3h10A1.5 1.5 0 0 1 21 4.5v12a1.5 1.5 0 0 1-1.5 1.5H14"
+                                        />
+                                    </svg>
+                                    <span>{chair.hand.card_count}</span>
+                                </span>
+                            {/if}
+                        {/if}
                     </li>
                 {/each}
             </ul>
@@ -166,7 +223,7 @@
                     <OwnHand cards={ownCards} />
                 {/if}
                 <div class="actions">
-                    {#if seated}
+                    {#if seated && outcome.table.hand === null}
                         <button type="button" class="copy" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
                             <svg
                                 viewBox="0 0 24 24"

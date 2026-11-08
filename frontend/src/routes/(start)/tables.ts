@@ -11,6 +11,7 @@ import {
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
 } from "#lib/wire.ts";
+import { words } from "#lib/words.ts";
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
@@ -174,6 +175,16 @@ export function tablePath(id: string): string {
 export function drawingOrder(chairs: Chair[]): Chair[] {
     const afterMine = chairs.findIndex((chair) => chair.is_mine) + 1;
     return [...chairs.slice(afterMine), ...chairs.slice(0, afterMine)];
+}
+
+const POSITION_WORDS: Record<Position, string> = {
+    forehand: words.forehand,
+    middlehand: words.middlehand,
+    rearhand: words.rearhand,
+};
+
+export function positionWord(position: Position): string {
+    return POSITION_WORDS[position];
 }
 
 export async function copyTableLink(id: string): Promise<boolean> {

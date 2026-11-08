@@ -10,12 +10,15 @@ import {
     copyTableLink,
     createTable,
     drawingOrder,
+    positionWord,
     readTable,
     sitDown,
     standUp,
     tablePath,
     type Chair,
+    type Position,
 } from "./tables.ts";
+import { words } from "#lib/words.ts";
 
 class FakeEventSource {
     static last: FakeEventSource;
@@ -321,6 +324,14 @@ describe("the table's seats and link", () => {
 
     it("keeps the order when no chair is the viewer's", () => {
         expect(drawingOrder([chair(0), chair(1)]).map((each) => each.seat)).toEqual([0, 1]);
+    });
+
+    it.each([
+        ["forehand", words.forehand],
+        ["middlehand", words.middlehand],
+        ["rearhand", words.rearhand],
+    ] as [Position, string][])("names the position %s with its word", (position, word) => {
+        expect(positionWord(position)).toBe(word);
     });
 
     it("copies the table's link to the clipboard", async () => {
