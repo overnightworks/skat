@@ -30,9 +30,6 @@ The `Makefile` owns the targets. Traps:
   legacy findings only report; `quality/baseline.toml` holds the size ratchet's
   baseline. The required check is `quality / verdict`; overnightworks/quality's
   README owns the gate's semantics.
-- `release.yml` calls quality's release workflows at a commit of quality's
-  `main`, because no quality tag carries them yet; move the pin to the first
-  tag that does.
 
 ## Scanner exceptions
 
