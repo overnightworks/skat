@@ -134,7 +134,8 @@ class BothReadBeforeEitherWrites:
     """Holds each command after its locking read until its rival has read too, if the rival can.
 
     Without a row lock both rivals read the free chair and both would write; with it the second waits
-    outside, the barrier breaks after its timeout and the first goes on alone.
+    outside, the barrier breaks after its timeout and the first goes on alone. With `rivals_must_meet=True` a broken
+    barrier raises instead, so a test that needs both reads at once fails when a lock keeps them apart.
     """
 
     def __init__(self, inner, rivals, *, rivals_must_meet=False):
