@@ -1,0 +1,7 @@
+claim_id = "706b5a10d6874eff956af52c6a326eaf"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "23e673f2afb3f491e4d64791f8c1021dc2c7658b"
+branch = "claude/issue-48-engine-value"
+scope = [".aco/ahead-of-caller.toml", "src/skat/engine/value.py", "tests/engine/test_value.py"]
+opened_commit = "538049de465b88cff5b1c028003a7d6f6f6bd163"
