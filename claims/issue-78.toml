@@ -1,0 +1,7 @@
+claim_id = "a65bdc2807a941598660d8aa6b9cb839"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "530136b7d7b812a7eca3f9bf037eeb454037497a"
+branch = "claude/issue-78-picture-rest"
+scope = ["docs/mockups/table.html"]
+opened_commit = "9fce7a929d9e79039097213da07993a5d9bb6014"
