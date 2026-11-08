@@ -25,6 +25,7 @@ ALLOWED_SECONDS = 2
 NO_HEARTBEAT_SECONDS = 3600
 SHORT_HEARTBEAT_SECONDS = 0.01
 IDLE_HEARTBEATS = 3
+BID_VALUE = 18
 
 
 @pytest.fixture
@@ -651,7 +652,7 @@ class TestHandOnTheStream:
                 skat.client.cookies.clear()
                 answer = skat.client.post(
                     f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                    json={"command_id": "step-0001", "version": opened["version"], "action": "bid", "value": 18},
+                    json={"command_id": "step-0001", "version": opened["version"], "action": "bid", "value": BID_VALUE},
                     headers={"origin": TEST_PUBLIC_ORIGIN, **middlehand_headers},
                 )
                 first_fresh, second_fresh = next(first_lines), next(second_lines)
@@ -663,6 +664,29 @@ class TestHandOnTheStream:
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1
         assert cards_in_text(first_fresh) == wire_cards(CARDS_BY_SEAT[1])
         assert cards_in_text(second_fresh) == wire_cards(CARDS_BY_SEAT[2])
+        for message in (first_fresh, second_fresh):
+            auction = json.loads(message.removeprefix("data: "))["hand"]["auction"]
+            assert auction["standing"] == BID_VALUE
+            assert auction["awaiting"] == "answer"
+            assert [word["value"] for word in auction["words"]] == [BID_VALUE]
+
+    def test_a_stream_opened_mid_auction_starts_from_the_full_auction(self, skat):
+        table_id, people = seated_three(skat)
+        skat.client.cookies.clear()
+        middlehand_headers, rearhand_headers = people[0][0], people[1][0]
+        version = json.loads(self.first_message(skat, middlehand_headers, table_id).removeprefix("data: "))["version"]
+        skat.client.cookies.clear()
+        skat.client.post(
+            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+            json={"command_id": "step-0001", "version": version, "action": "bid", "value": BID_VALUE},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **middlehand_headers},
+        )
+        skat.client.cookies.clear()
+
+        opened = json.loads(self.first_message(skat, rearhand_headers, table_id).removeprefix("data: "))
+
+        assert opened["hand"]["auction"]["standing"] == BID_VALUE
+        assert [word["action"] for word in opened["hand"]["auction"]["words"]] == ["bid"]
 
     def test_a_stream_opened_after_the_last_one_dropped_starts_from_the_full_current_hand(self, skat):
         table_id, people = seated_three(skat)
