@@ -5,6 +5,7 @@ import pytest
 from skat.table.service import TableService
 from skat.web.presence import Presence
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH, create_tables_router
+from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
 from tests.web.support.skat import FETCH, NAVIGATION, UNKNOWN_ID
 
@@ -277,19 +278,14 @@ class TestSitDown:
         headers, _ = skat.member()
         presence = RecordingPresence()
 
-        class StoreThatFailsAfterTheDecision(type(skat.store)):
-            def save_table(self, table):
-                raise RuntimeError("connection lost")
-
-        broken = StoreThatFailsAfterTheDecision()
-        broken.tables, broken.receipts = skat.store.tables, skat.store.receipts
-        answering_first(skat, TableService(broken), presence)
-        before = dict(skat.store.tables)
+        faulty = TableService(FaultyTableTransactions(skat.store, receipt_failure=RuntimeError("connection lost")))
+        answering_first(skat, faulty, presence)
+        before = (dict(skat.store.tables), dict(skat.store.receipts))
 
         with pytest.raises(RuntimeError, match="connection lost"):
             skat.sit(headers, table_id, 2)
 
-        assert (presence.woken, skat.store.tables) == ([], before)
+        assert (presence.woken, (skat.store.tables, skat.store.receipts)) == ([], before)
 
 
 class TestStandUp:
@@ -334,8 +330,10 @@ class TestStandUp:
 
     def test_signed_out_writes_nothing(self, skat, table):
         table_id, _ = table
+        before = (dict(skat.store.tables), dict(skat.store.receipts))
 
         assert skat.stand(FETCH, table_id).status_code == 401
+        assert (skat.store.tables, skat.store.receipts) == before
 
     def test_an_unknown_table_is_not_found(self, skat):
         headers, _ = skat.member()

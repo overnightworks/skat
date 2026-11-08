@@ -139,16 +139,22 @@ class BothReadBeforeEitherWrites:
     @contextmanager
     def begin(self):
         with self._inner.begin() as transaction:
-            locked_table = transaction.locked_table
+            yield _WaitingTransaction(transaction, self._barrier)
 
-            def read_then_wait(table_id):
-                table = locked_table(table_id)
-                with suppress(threading.BrokenBarrierError):
-                    self._barrier.wait()
-                return table
 
-            transaction.locked_table = read_then_wait
-            yield transaction
+class _WaitingTransaction:
+    def __init__(self, inner, barrier):
+        self._inner = inner
+        self._barrier = barrier
+
+    def locked_table(self, table_id):
+        table = self._inner.locked_table(table_id)
+        with suppress(threading.BrokenBarrierError):
+            self._barrier.wait()
+        return table
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
 
 
 class TestSeating:
