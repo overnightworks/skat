@@ -52,6 +52,17 @@ def test_main_fails_naming_the_key_whose_translation_is_empty(tmp_path: Path, tr
     assert not (tmp_path / generate_words.OUTPUT).exists()
 
 
+def test_main_fails_naming_the_key_whose_translation_is_fuzzy(tmp_path: Path) -> None:
+    write_catalog(tmp_path, {"newTable": "Neuer Tisch"})
+    catalog = tmp_path / generate_words.CATALOG
+    catalog.write_text(catalog.read_text() + '#, fuzzy\nmsgid "seatFree"\nmsgstr "Frei"\n')
+
+    with pytest.raises(SystemExit, match="seatFree"):
+        generate_words.main([], root=tmp_path)
+
+    assert not (tmp_path / generate_words.OUTPUT).exists()
+
+
 @pytest.mark.parametrize("stale_content", [None, "// edited by hand\n"])
 def test_main_check_fails_for_a_missing_or_edited_module(tmp_path: Path, stale_content: str | None) -> None:
     write_catalog(tmp_path, {"newTable": "Neuer Tisch"})

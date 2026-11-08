@@ -1,9 +1,9 @@
 """Write the browser's typed copy of Skat's German texts.
 
 The catalog owns every visible text; this generator renders it as one TypeScript object, so a text a
-component uses but the catalog lacks fails the type check. A key without a translation fails the
-generator and names the key. `--check` writes nothing and fails when the committed file differs from the
-rendering or is missing, so CI catches drift.
+component uses but the catalog lacks fails the type check. A key without a translation, or with an
+unreviewed (fuzzy) one, fails the generator and names the key. `--check` writes nothing and fails when
+the committed file differs from the rendering or is missing, so CI catches drift.
 """
 
 import json
@@ -26,7 +26,9 @@ def render(catalog_path: Path) -> str:
     with catalog_path.open("rb") as catalog_file:
         catalog = read_po(catalog_file, locale="de")
     texts = {str(message.id): str(message.string) for message in catalog if message.id}
-    untranslated = [key for key, text in texts.items() if not text.strip()]
+    untranslated = [
+        str(message.id) for message in catalog if message.id and (message.fuzzy or not str(message.string).strip())
+    ]
     if untranslated:
         raise SystemExit(f"generate_words: {catalog_path} has no translation for: {', '.join(untranslated)}")
     entries = "".join(f"    {key}: {json.dumps(text, ensure_ascii=False)},\n" for key, text in texts.items())
