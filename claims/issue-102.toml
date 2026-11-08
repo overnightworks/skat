@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "9c779fed6a0a0e65ca9d5bb1f862843ad7f10d11"
 branch = "claude/issue-102-declare-page"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/ui/DeclareControls.svelte", "frontend/src/lib/ui/OwnHand.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "tests/e2e/support/words.py", "tests/e2e/test_table_declaring.py", "tests/scripts/test_generate_wire.py"]
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/ui/DeclareControls.svelte", "frontend/src/lib/ui/OwnHand.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "tests/e2e/support/words.py", "tests/e2e/test_table_declaring.py", "tests/scripts/test_generate_wire.py"]
 opened_commit = "1524c509c46c9298d486a6ddc7c8beb528beda31"
 whole_reason = "Controls that send nothing are dead, and a stage the page cannot show strands the declarer."
