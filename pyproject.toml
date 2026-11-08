@@ -150,15 +150,16 @@ type = "layers"
 containers = ["skat"]
 # The host composes the app and starts the server; the web adapter transports and
 # the store persists, side by side and unaware of each other; the table core below
-# both holds the rules and knows neither. Nothing below the host imports it.
+# both holds the table's rules and knows neither; the engine at the bottom holds
+# Skat's own rules and knows nothing above it. Nothing below the host imports it.
 exhaustive = true
-layers = ["host", "web | store", "table"]
+layers = ["host", "web | store", "table", "engine"]
 
 [[tool.importlinter.contracts]]
-id = "table-core"
-name = "The table core imports no framework, driver or adapter"
+id = "pure-layers"
+name = "The table core and the engine import no framework, driver or adapter"
 type = "forbidden"
-source_modules = ["skat.table"]
+source_modules = ["skat.table", "skat.engine"]
 forbidden_modules = ["sqlalchemy", "alembic", "psycopg", "fastapi", "starlette", "webauth"]
 
 [[tool.importlinter.contracts]]
