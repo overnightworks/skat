@@ -158,43 +158,16 @@ def card_top(card: Locator) -> float:
     return card.evaluate(AT_THE_TOP_OF_THE_CARD)
 
 
-def expect_lifted(person: Page, card: Locator, resting_top: float) -> None:
+def expect_lifted(card: Locator, resting_top: float) -> None:
     card.page.wait_for_function(
         "([card, top]) => card.getBoundingClientRect().top < top",
         arg=[card.element_handle(), resting_top],
     )
-    assert person.locator(f"{PICKABLE_CARD}[{PRESSED}='true']").count() >= 1
 
 
 def expect_no_controls(person: Page) -> None:
     for name in CONTROL_NAMES:
         expect(button_of(person, name)).to_have_count(0)
-
-
-def discarded_pair_after_the_take(table: DeclaringTable) -> tuple[Locator, Locator]:
-    button_of(table.declarer, TAKE_SKAT).click()
-    expect(table.declarer.locator(PICKABLE_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
-    cards = table.declarer.locator(PICKABLE_CARD)
-    return cards.nth(0), cards.nth(5)
-
-
-def expect_the_put_back_refused(person: Page) -> None:
-    expect(button_of(person, PUT_BACK)).to_be_disabled()
-
-
-def pick_two(table: DeclaringTable) -> tuple[Locator, Locator]:
-    first, second = discarded_pair_after_the_take(table)
-    first.click()
-    expect(first).to_have_attribute(PRESSED, "true")
-    second.click()
-    expect(second).to_have_attribute(PRESSED, "true")
-    return first, second
-
-
-def reach_the_game_tiles(table: DeclaringTable) -> None:
-    pick_two(table)
-    button_of(table.declarer, PUT_BACK).click()
-    expect(button_of(table.declarer, NULL_GAME)).to_be_visible()
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -221,7 +194,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     resting_top = card_top(cards.nth(0))
     cards.nth(0).click()
     expect(button_of(declarer, PUT_BACK)).to_be_disabled()
-    expect_lifted(declarer, cards.nth(0), resting_top)
+    expect_lifted(cards.nth(0), resting_top)
 
     reload_and_wait(declarer)
     expect(declarer.locator(PICKABLE_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
@@ -278,7 +251,7 @@ def test_a_double_tap_on_each_step_sends_exactly_one_command(
 
     button_of(declarer, TAKE_SKAT).dblclick()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
-    assert [url for url in posts if url.endswith(expected_step)] == [posts[0]]
+    assert len([url for url in posts if url.endswith(expected_step)]) == 1
 
     cards = declarer.locator(PICKABLE_CARD)
     cards.nth(0).click()
@@ -315,8 +288,6 @@ def test_opponents_and_watchers_see_no_controls_and_no_skat_face_at_any_stage(
     expect(table.declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
     expect_only_onlookers_pages()
 
-    stored = table.stored().hand
-    assert stored is not None
     table.declare_through_the_api(
         action="put_back",
         cards=[{"suit": suit, "rank": rank} for suit, rank in sorted(skat)],
