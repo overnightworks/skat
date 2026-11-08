@@ -1,7 +1,0 @@
-claim_id = "ff698dbac8504fe5aa6b2a846dddedee"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "eac5267a3356eea424370922147034007883bb02"
-branch = "claude/issue-42-engine-tricks"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/tricks.py", "tests/engine/test_tricks.py"]
-opened_commit = "dea558b8f47c2caa1594d02dd075ee3ddc44bb99"
