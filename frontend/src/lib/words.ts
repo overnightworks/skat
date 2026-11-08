@@ -12,6 +12,7 @@ export const words = {
     newTableFailed: "Der Tisch konnte nicht eröffnet werden.",
     waitingForPlayers: "Warte auf Mitspieler",
     seatFree: "Frei",
+    seatAway: "nicht da",
     copyLink: "Link kopieren",
     linkCopied: "Link kopiert",
     linkCopyFailed: "Der Link ließ sich nicht kopieren",

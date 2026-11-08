@@ -60,7 +60,7 @@ def test_a_signed_out_member_signs_in_through_a_shared_link_and_lands_at_the_tab
 
     expect(visitor).to_have_url(f"{e2e_server.base_url}{path}")
     expect(visitor.get_by_text(catalog_text("waitingForPlayers"))).to_be_visible()
-    expect(visitor.locator(".chair[data-seat='1'] .plate")).to_have_text("anna")
+    expect(visitor.locator(".chair[data-seat='1'] .plate")).to_contain_text("anna")
 
 
 def test_a_signed_out_member_signs_in_through_a_link_to_an_unknown_table_and_sees_it_is_not_found(

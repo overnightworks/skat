@@ -56,6 +56,7 @@ class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
     is_mine: bool
+    is_away: bool
 
 
 class TableAnswer(BaseModel):
@@ -69,7 +70,10 @@ def answer_of(view: TableView) -> TableAnswer:
     return TableAnswer(
         id=view.id,
         version=view.version,
-        chairs=[ChairAnswer(seat=c.seat, occupant_name=c.occupant_name, is_mine=c.is_mine) for c in view.chairs],
+        chairs=[
+            ChairAnswer(seat=c.seat, occupant_name=c.occupant_name, is_mine=c.is_mine, is_away=c.is_away)
+            for c in view.chairs
+        ],
         watchers=view.watchers,
     )
 
@@ -97,12 +101,12 @@ SEATING_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
 
 
 async def seating_answer(
-    command: Callable[[], SeatingResult | None], presence: Presence, table_id: str, response: Response
+    command: Callable[[frozenset[str]], SeatingResult | None], presence: Presence, table_id: str, response: Response
 ) -> Response | TableAnswer:
     """Run a sit or stand off the event loop; once it committed, wake the table's streams."""
     response.headers["Cache-Control"] = "no-store"
     try:
-        result = await run_in_threadpool(command)
+        result = await run_in_threadpool(command, presence.connected(table_id))
     except CommandIdReusedError:
         raise HTTPException(status_code=409, detail="command id reused with another request") from None
     if result is None:

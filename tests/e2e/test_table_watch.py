@@ -128,7 +128,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
     assert [chair["is_mine"] for chair in seen["watcher"]["chairs"]] == [False, False, False]
     for person, event in ((opener, seen["opener"]), (watcher, seen["watcher"])):
         assert set(event) == {"id", "version", "chairs", "watchers"}
-        assert {key for chair in event["chairs"] for key in chair} == {"seat", "occupant_name", "is_mine"}
+        assert {key for chair in event["chairs"] for key in chair} == {"seat", "occupant_name", "is_mine", "is_away"}
         assert member_of(person).account.id not in json.dumps(event)
     assert "ben" not in json.dumps(seen["opener"])
 
