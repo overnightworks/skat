@@ -174,7 +174,7 @@ body.solo .frame{border-radius:0;border:0}
 .play .tag{position:absolute;left:50%;bottom:calc(var(--w) * -.12);transform:translateX(-50%) rotate(calc(var(--rot,0deg) * -1));z-index:2}
 .tag{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px 0 4px;border-radius:999px;background:rgba(10,12,14,.78);
   font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-.tag .dot{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:9px;font-weight:700}
+.tag .dot,.mark.waits .dot{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:9px;font-weight:700}
 .tag .dot svg{width:11px;height:11px}
 .tag.agent .dot{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
 .ghost{position:absolute;transform:translate(-50%,-50%);width:var(--w);aspect-ratio:100/140;border-radius:calc(var(--w) * .075);
@@ -429,6 +429,35 @@ body.key .frame .orb .think.mo{--k:.4s}
   @keyframes spin{to{rotate:360deg}}
 }
 </style>
+<style>
+/* ---------- after the auction: who waits on the declarer, the two cards to put back, the game choice ---------- */
+section.shot .rule{margin-top:10px;max-width:780px;font-size:13px;line-height:1.45;color:var(--on-stage-soft)}
+body.solo section.shot .rule{display:none}
+/* an opponent's chair waits on you: your face and the hopping dots */
+.mark.waits{gap:0;padding:0 7px 0 5px;background:var(--glass-dark);backdrop-filter:blur(12px)}
+/* the declarer whose turn it is wears both marks: the star stays right, the turn badge moves left */
+.mark.decl + .mark.turn{right:auto;left:calc(var(--pad) + 6px)}
+/* a game to pick: a glass chip; the picked one is lit like the bid on the ladder */
+.button.pick{height:46px;padding:0 18px}
+.button.pick.round{width:52px;height:52px;padding:0}
+.button.pick .game{font-size:16px}
+.button.pick.on{background:var(--cream);color:var(--ink);box-shadow:0 0 0 3px var(--accent-stage),0 8px 18px -6px rgba(0,0,0,.7)}
+.ladder.words span{padding:0 11px}
+.ladder.words span.now{height:42px;font-size:18px}
+.p390 .ladder.words{gap:5px}
+.p390 .ladder.words span{padding:0 7px}
+.p390 .ladder.words span.now{font-size:17px}
+.seat:not(.sm) .mark.waits .dot{width:20px;height:20px;font-size:11px}
+@media (prefers-reduced-motion:no-preference){
+  /* the second card is picked, and only then the button lights */
+  .hand .card.late{animation:lift .3s ease-out 1s both}
+  .hand .card.late svg{animation:ringon .3s ease-out 1s both}
+  @keyframes lift{from{translate:0 calc(var(--w) * .5)}}
+  @keyframes ringon{from{box-shadow:none}}
+  .button.unlock{animation:unlock .3s ease-out 1.3s both}
+  @keyframes unlock{from{background:var(--glass);color:rgba(244,246,248,.4)}}
+}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -581,7 +610,7 @@ function played(r,s,k,o){
     '--gx':sw&&`${sw.gx}px`,'--gy':sw&&`${sw.gy}px`,'--wx':sw&&`${sw.wx}px`,'--wy':sw&&`${sw.wy}px`,'--gr':sw&&`${sw.gr||0}deg`,'--d':sw&&`${sw.d||0}s`,'--k':sw&&`${sw.k}s`,opacity:sw&&sw.op});
   return `<div class="play ${o.fresh?'fresh':''} ${sw?'sweep mo':''}" style="${st}">${o.blank?`<div class="card blank" style="--w:${o.w}px"></div>`:card(r,s,'',at({'--w':o.w}))}${o.notag?'':tag(k,sw?'mo':'',sw?`--k:${sw.k}s`:'')}</div>`;
 }
-const ghost=(x,y,w)=>`<div class="ghost" style="${at({left:x,top:y,'--w':w})}">${I.up}</div>`;
+const ghost=(x,y,w,icon=I.up)=>`<div class="ghost" style="${at({left:x,top:y,'--w':w})}">${icon}</div>`;
 const bubble=(k,text,o)=>{const p=P[k];return `<div class="bubble ${p.agent?'agent':''} ${o.quiet?'quiet':''}" style="${at({left:o.x,top:o.y,'--tail':o.tail,'--tt':o.bottom?'calc(100% - 6px)':undefined})}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
 const stamp=(text,k,o)=>{const p=P[k];return `<div class="shock mo" style="${at({left:o.x,top:o.y,'--ss':o.ss,'--k':`${o.k-.32}s`})}"></div>
   <div class="stamp mo ${p.agent?'agent':''}" style="${at({left:o.x,top:o.y,'--sf':o.sf,'--sr':`${o.sr||-7}deg`,'--k':`${o.k}s`})}"><span class="by" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
@@ -612,7 +641,7 @@ const callBar=(desk,o={})=>desk
   :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb ${o.react?'on':''}">${I.smile}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
 const soloBar=()=>`<div class="sbar"><span class="cb">${I.smile}</span><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
 const FRAMES=[];
-const frame=(id,title,note,size,html)=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${html}</div></section>`]);
+const frame=(id,title,note,size,html,rules=[])=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${html}</div>${rules.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);
 /* the hands: Felix holds ten while bidding; one trick later eight are left, then seven */
 const BID_HAND=[['B','h'],['10','c'],['D','c'],['7','c'],['A','s'],['9','s'],['A','h'],['10','h'],['K','d'],['8','d']];
 const PLAY_HAND=[['B','h','no'],['D','c','no'],['7','c','no'],['A','s','touch'],['9','s','ok'],['10','h','no'],['K','d','no'],['8','d','no']];
@@ -750,6 +779,59 @@ frame('solo-play-1280','Tisch ohne Anruf','Desktop 1280 px','d1280',
   +dbSeats({video:false,anna:['decl'],nova:['turn','think'],score:[148,62,55]})
   +hand(BID_HAND,DESK_HAND)+soloBar());
 
+/* ===== after the auction: you won it at 20, take the skat or play Hand, put two back, declare; then Anna's declaration seen from your chair ===== */
+I.down=sv('<path d="M12 5v14M6 13l6 6 6-6"/>',2.4);
+const waitDots=()=>`<span class="wait">${[.36,.24,.12].map(k=>`<i class="mo" style="--k:${k}s;--d:${(.36-k).toFixed(2)}s"></i>`).join('')}</span>`;
+MARK.waits=`<span class="mark waits" title="wartet auf dich"><span class="dot" style="${dotStyle(P.felix)}">${P.felix.i}</span>${waitDots()}</span>`;
+/* the skat is the ♣ jack and the ♥ seven; you put back the ♦ king and eight */
+const TAKEN_HAND=[['B','c'],['B','h'],['10','c'],['D','c'],['7','c'],['A','s'],['9','s'],['A','h'],['10','h'],['7','h'],['K','d','touch'],['8','d','touch late']];
+const DECLARE_HAND=[['B','c'],['B','h'],['10','c'],['D','c'],['7','c'],['A','s'],['9','s'],['A','h'],['10','h'],['7','h']];
+const OPPONENT_HAND=[['B','d'],['A','c'],['K','c'],['9','c'],['10','s'],['D','s'],['8','s'],['D','h'],['A','d'],['9','d']];
+const SUIT_GAMES=[['d','Karo'],['h','Herz'],['s','Pik'],['c','Kreuz']];
+const room=(d,o)=>d?dbRoom(o):pbRoom(o);
+const seats=(d,o)=>d?dbSeats(o):pbSeats(o);
+const ownHand=(d,cards,o={})=>hand(cards,{...(d?DESK_HAND:PHONE_HAND),...o});
+const yourTurn=(d)=>d?glow(640,640,640,170):glow(195,560,240,120);
+const bid=(d)=>plaque(d?640:195,d?98:176,'<div class="game">Reizwert 20</div>');
+const skat=(x,y,w)=>[[x,y,-8],[x+w*.5,y+4,6]].map(([l,t,r])=>back(at({position:'absolute',left:l,top:t,'--w':w,transform:`rotate(${r}deg)`}))).join('');
+const row=(x,y,html)=>`<div class="btns" style="${at({left:x,top:y})}">${html}</div>`;
+const pick=(label,inner,chosen,cls='')=>`<span class="button button-glass pick ${cls} ${chosen?'on':''}" role="button" aria-pressed="${chosen}" aria-label="${label}">${inner}</span>`;
+/* every game kind on two rows; the phone shows the suits by their pip alone */
+const games=(d,x,y,chosen)=>row(x,y,SUIT_GAMES.map(([s,n])=>pick(n,gameLine(s,d?n:''),n===chosen,d?'':'round')).join(''))
+  +row(x,y+(d?62:60),['Grand','Null','Null ouvert'].map(n=>pick(n,n,n===chosen)).join(''));
+/* the win levels of a Hand game: each step includes the ones below it */
+const levels=(x,y,chosen)=>`<div class="ladder words" style="${at({left:x,top:y})}"><span class="held">${I.check}Hand</span>${['Schneider','Schwarz','Ouvert'].map(l=>`<span class="${l===chosen?'now':''}">${l}</span>`).join('')}</div>`;
+const announce=(x,y)=>row(x,y,`<span class="button button-stage">${I.check}Ansagen</span>`);
+const deciding=(d,hand)=>seats(d,{video:true,anna:['waits'],nova:['waits'],you:['decl','turn'],score:[148,62,55]})+ownHand(d,hand.cards,hand.o)+callBar(d);
+const BELOW_BID='Ein Spiel unter dem Reizwert bleibt wählbar und wird überreizt (ISkO 3.5.2); ob davor gewarnt wird, ist offen.';
+const SKAT_SCENES=[
+  ['skat-choose','Hand oder Skat',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
+    +(d?skat(584,190,80):skat(154,240,52))
+    +row(d?640:195,d?412:380,`<span class="button button-stage">${I.up}Aufnehmen</span><span class="button button-glass">Hand</span>`)
+    +deciding(d,{cards:BID_HAND})],
+  ['skat-discard','Skat drücken',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
+    +(d?ghost(596,300,80,I.down)+ghost(684,300,80,I.down):ghost(163,300,56,I.down)+ghost(227,300,56,I.down))
+    +row(d?640:195,d?420:380,`<span class="button button-stage unlock">${I.down}Drücken</span>`)
+    +deciding(d,{cards:TAKEN_HAND,o:d?{strip:{base:48,touch:70}}:{w:58,strip:{base:25,touch:38}}})],
+  ['skat-declare','Ansage nach Skat',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
+    +(d?skat(330,470,56):skat(52,470,38))
+    +games(d,d?640:195,d?260:262,'Herz')+announce(d?640:195,400)
+    +deciding(d,{cards:DECLARE_HAND}),
+    ['Null ouvert steht hier als Spiel mit Skataufnahme, gelesen aus ISkO-Tabelle 2.1.2; 2.6.5 zählt es zu den offenen Spielen, das ist offen.',BELOW_BID]],
+  ['hand-declare','Ansage Hand',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
+    +(d?skat(870,440,56):skat(296,436,34))
+    +games(d,d?640:195,d?232:262,'Herz')+levels(d?640:195,d?362:378,'Schneider')+announce(d?640:195,d?424:432)
+    +deciding(d,{cards:BID_HAND}),
+    ['Die Stufen bauen aufeinander auf: Schwarz angesagt schließt Schneider angesagt ein, Ouvert zählt als Schwarz angesagt (ISkO 2.5.8).',BELOW_BID]],
+  ['skat-declared','Anna sagt an',(d)=>room(d,{left:10,glow:yourTurn(d)})
+    +plaque(d?640:195,d?98:176,gameLine('h','Herz Hand'))
+    +(d?skat(584,190,80):skat(154,290,52))
+    +(d?bubble('anna','Herz Hand',{x:44,y:392,tail:'50%'}):bubble('anna','Herz Hand',{x:14,y:228,tail:'30%'}))
+    +(d?ghost(640,432,96):ghost(195,440,70))
+    +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,OPPONENT_HAND)+callBar(d)],
+];
+SKAT_SCENES.forEach(([id,title,draw,rules])=>{frame(`${id}-390`,title,'Handy 390 px','p390',draw(false),rules);frame(`${id}-1280`,title,'Desktop 1280 px','d1280',draw(true),rules);});
+
 /* ===== the ideas, one line each ===== */
 const IDEAS=[
   ['🂠','Austeilen','Beim Geben fliegen die Karten in Paketen vom Stapel zu jedem Stuhl.','call-bid'],
@@ -769,7 +851,7 @@ const IDEAS=[
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
 
-const ORDER=['call-bid','call-play','call-trick','call-end','solo-play'].flatMap(f=>[`${f}-390`,`${f}-1280`]);
+const ORDER=['call-bid',...SKAT_SCENES.map(([id])=>id),'call-play','call-trick','call-end','solo-play'].flatMap(f=>[`${f}-390`,`${f}-1280`]);
 /* ===== S3: the table before any deal: three chairs and no hands; sit down, stand up, share the link, close ===== */
 P.lena={n:'Lena',i:'L',c:['#f6b3a6','#d0645a'],v:['#4a3330','#241918'],l:['#6e3d36','#341c19']};
 Object.assign(I,{
@@ -787,7 +869,7 @@ const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'id
 /* the chair stays held: the nameplate keeps the name and says the player is not there */
 const awaySeat=(k,pos)=>seat(k,{...pos,marks:['away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
 const watching=(n,x,y)=>`<div class="tag-glass" title="Zuschauer" style="${at({left:x,top:y})}">${I.eye}<span>${n}</span></div>`;
-const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler<span class="wait">${[.36,.24,.12].map(k=>`<i class="mo" style="--k:${k}s;--d:${(.36-k).toFixed(2)}s"></i>`).join('')}</span></div>`);
+const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
 const notice=(text,k,x,y)=>{const p=P[k];return `<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
 const tableBar=(desk,o={})=>{
   const wide=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
