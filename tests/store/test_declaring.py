@@ -164,7 +164,9 @@ def test_a_refused_step_keeps_its_token_in_the_receipt_for_a_retry(hand, engine)
     assert first.refusal is DeclarationRefusal.OUT_OF_ORDER
     assert again.refusal is first.refusal
     with engine.connect() as connection:
-        token = connection.execute(text("SELECT refusal FROM receipts WHERE command_id = 'command-a'")).scalar_one()
+        token = connection.execute(
+            text("SELECT refusal FROM receipts WHERE command_id = :command_id"), {"command_id": step_id(1)}
+        ).scalar_one()
     assert token == first.refusal.value
 
 
@@ -212,7 +214,9 @@ def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(h
     assert stored(transactions, hand.table_id) == before
     assert count_steps(engine) == 0
     with engine.connect() as connection:
-        receipts = connection.execute(text("SELECT count(*) FROM receipts WHERE command_id = 'command-a'")).scalar_one()
+        receipts = connection.execute(
+            text("SELECT count(*) FROM receipts WHERE command_id = :command_id"), {"command_id": step_id(1)}
+        ).scalar_one()
     assert receipts == 0
 
 
