@@ -102,8 +102,8 @@ class Presence:
 
     After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
     then, and a stream's first view of the table starts the next pause if none is pending. A later hand's end
-    replaces a pending pause, and the replaced timer does nothing when it fires, so a pause that belonged to an
-    earlier hand never shortens this one's. Nothing about a pause is stored: after a restart none is pending, and
+    replaces a pending pause, and the replaced timer does nothing when it fires, so a pending timer of an
+    earlier hand cannot shorten this one's. Nothing about a pause is stored: after a restart none is pending, and
     all three being connected can only become true by streams opening, so no sweep is needed.
     """
 

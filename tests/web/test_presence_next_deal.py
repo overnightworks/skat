@@ -9,7 +9,6 @@ from skat.table.records import CreateTable, HandProgress, SitDown, TableId
 from skat.table.service import TableService
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from tests.support.fake_tables import FakeTableStore
-from tests.support.idle_presence import idle_presence
 from tests.support.payload_cards import DEALER_SEAT, cards_in, seated_three, wire_cards
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
@@ -298,7 +297,7 @@ class TestNextHandComes:
             dealt = server.store.tables[table_id]
             assert dealt.hand is not None
 
-            after = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
+            post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
             advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
 
             assert during.json() == first.json()
@@ -390,34 +389,28 @@ class TestNextDealTrigger:
         service.sit(VISITOR, SitDown("command-2", table_id, 2), frozenset())
         return service, table_id
 
-    @pytest.fixture
-    def asked(self):
-        return []
-
-    @pytest.fixture
-    def asking_presence(self, asked):
-        presence = idle_presence()
-        presence.deal_soon = asked.append
-        return presence
-
     def passed_in(self, store, table_id):
         steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
         store.tables[table_id] = replace(store.tables[table_id], dealer=1, hand=None, progress=HandProgress(steps))
 
-    def test_the_first_view_of_a_passed_in_table_asks_once_and_a_later_view_does_not(
-        self, store, table, asking_presence, asked
+    def test_the_first_view_of_a_passed_in_table_starts_one_pause_and_a_later_view_starts_none(
+        self, store, table, holding, time, deals
     ):
         service, table_id = table
         self.passed_in(store, table_id)
+        deals.dealt = False
 
         async def scenario():
-            stream = stream_of(asking_presence, service, OPENER, table_id)
+            stream = stream_of(holding, service, OPENER, table_id)
             await next_view(stream)
-            assert asked == [table_id]
-            asking_presence.wake_table(table_id)
+            assert time.pending == 1
+            await time.advance(NEXT_DEAL_PAUSE_SECONDS)
+            assert time.pending == 0
+            holding.wake_table(table_id)
             await next_view(stream)
+            assert time.pending == 0
             await stream.aclose()
 
         run_on_a_loop_of_its_own(scenario())
 
-        assert asked == [table_id]
+        assert [call[0] for call in deals.calls] == [table_id]
