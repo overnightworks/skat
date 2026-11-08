@@ -3,9 +3,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.engine.deal import positions_from
+from skat.engine.deal import Position, positions_from
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
+from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession
 from tests.support.payload_cards import cards_in_text, wire_cards
@@ -57,6 +58,18 @@ def test_no_raw_http_body_or_stream_message_carries_a_card_its_reader_may_not_se
         stored = transaction.table(TableId(table_id))
     assert stored is not None
     assert stored.hand is not None
+    assert stored.dealer is not None
+    opener_seat = next(
+        seat for seat, position in positions_from(stored.dealer).items() if position is Position.MIDDLEHAND
+    )
+    middlehand = people[opener_seat - 1]
+    middlehand.post(
+        f"{table_path}{TABLE_AUCTION_SUFFIX}",
+        {"command_id": "hand-bid-0004", "version": stored.version, "action": "bid", "value": 18},
+    )
+    for person in people:
+        person.get(table_path)
+        person.first_stream_message(f"{table_path}{TABLE_EVENTS_SUFFIX}")
     for person in people:
         found = set().union(*(cards_in_text(body) for body in person.bodies))
         assert found == wire_cards(cards_held_by(stored, person.member.account.id))

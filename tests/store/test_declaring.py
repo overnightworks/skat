@@ -208,8 +208,11 @@ def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(h
     before = stored(transactions, hand.table_id)
     failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
 
+    command_id = step_id(1)
+    step = TakeSkat()
+
     with pytest.raises(ConnectionError):
-        hand.send(TakeSkat(), command_id=step_id(1), service=failing)
+        hand.send(step, command_id=command_id, service=failing)
 
     assert stored(transactions, hand.table_id) == before
     assert count_steps(engine) == 0
@@ -259,5 +262,8 @@ def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(hand, engine
             {"table_id": hand.table_id},
         )
 
+    command_id = step_id(1)
+    step = TakeSkat()
+
     with pytest.raises(ValueError, match="impossible declaring log"):
-        hand.send(TakeSkat(), command_id=step_id(1))
+        hand.send(step, command_id=command_id)
