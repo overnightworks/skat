@@ -386,6 +386,7 @@ class TestTheBody:
             pytest.param({"suit": "lila"}, id="an-unknown-suit"),
             pytest.param({"rank": "one"}, id="an-unknown-rank"),
             pytest.param({"version": "3"}, id="a-version-as-text"),
+            pytest.param({"command_id": "short"}, id="a-malformed-retry-key"),
         ],
     )
     def test_a_body_outside_the_contract_is_refused_and_changes_nothing(self, herz_hand, skat, changed):
