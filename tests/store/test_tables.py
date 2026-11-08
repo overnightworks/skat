@@ -1,6 +1,7 @@
 import itertools
 import random
 import threading
+import time
 from contextlib import contextmanager, suppress
 from dataclasses import replace
 
@@ -163,6 +164,27 @@ class _WaitingTransaction:
 
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 
+WAIT_DEADLINE_SECONDS = 10
+
+
+def wait_until_a_session_waits_for_a_lock(engine):
+    deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
+    with engine.connect() as watcher:
+        while time.monotonic() < deadline:
+            waiting = watcher.execute(
+                text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'")
+            ).scalar_one()
+            if waiting:
+                return
+    pytest.fail("no session waited for a lock")
+
+
+def run_in_thread(work):
+    outcome = []
+    thread = threading.Thread(target=lambda: outcome.append(work()))
+    thread.start()
+    return thread, outcome
+
 
 class TestSeating:
     @pytest.fixture
@@ -235,12 +257,6 @@ class TestSeating:
         view = TableService(PostgresTableTransactions(engine)).view(OPENER, table_id, frozenset())
         assert ([chair.occupant_name for chair in view.chairs], view.version) == (["Anna", None, None], 1)
         assert count(engine, "receipts") == 1
-
-    def test_a_view_does_not_wait_for_a_command_holding_the_table_row(self, service, engine, table_id):
-        with engine.begin() as holder:
-            holder.execute(text("SELECT id FROM tables WHERE id = :id FOR UPDATE"), {"id": table_id})
-
-            assert service.view(OPENER, table_id, frozenset()) is not None
 
     def test_a_command_id_reused_on_another_table_that_missed_the_receipt_is_refused_on_the_unique_key(
         self, service, engine, table_id
@@ -375,3 +391,74 @@ class TestHand:
         assert [chair.occupant is None for chair in record.chairs] == [False, False, True]
         assert (record.dealer, record.hand, record.version) == (None, None, 2)
         assert (count(engine, "hand_cards"), count(engine, "receipts")) == (0, 2)
+
+
+class TestOneMomentRead:
+    @pytest.fixture
+    def dealt(self, engine):
+        dealing = TableService(PostgresTableTransactions(engine), random_source=random.Random(8))  # noqa: S311 - seeded
+        table_id = dealing.create(OPENER, CreateTable(command_id="command-dealt")).id
+        dealing.sit(VISITOR, SitDown("command-ben", table_id, 2), frozenset())
+        dealing.sit(CLEO, SitDown("command-cleo", table_id, 3), frozenset())
+        return self.read(engine, table_id)
+
+    @pytest.fixture
+    def table_id(self, service):
+        return service.create(OPENER, CreateTable(command_id="command-open")).id
+
+    def read(self, engine, table_id):
+        with PostgresTableTransactions(engine).begin() as transaction:
+            return transaction.table(TableId(table_id))
+
+    def test_a_read_during_the_deal_waits_and_returns_the_dealer_and_every_card_together(
+        self, engine, table_id, dealt
+    ):
+        with PostgresTableTransactions(engine).begin() as writer:
+            empty = writer.locked_table(TableId(table_id))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
+
+            wait_until_a_session_waits_for_a_lock(engine)
+
+        reader.join()
+        assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (dealt.dealer, dealt.hand, 2)
+
+    def test_a_read_that_waited_for_a_rolled_back_deal_returns_the_table_as_it_was(self, engine, table_id, dealt):
+        with suppress(RuntimeError), PostgresTableTransactions(engine).begin() as writer:
+            empty = writer.locked_table(TableId(table_id))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
+            wait_until_a_session_waits_for_a_lock(engine)
+            raise RuntimeError("rolled back")
+
+        reader.join()
+        assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (None, None, 1)
+
+    def test_a_writer_waits_for_a_read_and_the_read_keeps_the_state_before_the_write(self, engine, table_id):
+        def write():
+            with PostgresTableTransactions(engine).begin() as writer:
+                record = writer.locked_table(TableId(table_id))
+                writer.save_table(replace(record, version=2))
+
+        with PostgresTableTransactions(engine).begin() as reading:
+            seen = reading.table(TableId(table_id))
+            writer, _ = run_in_thread(write)
+
+            wait_until_a_session_waits_for_a_lock(engine)
+
+        writer.join()
+        assert seen.version == 1
+        assert self.read(engine, table_id).version == 2
+
+    def test_two_reads_at_once_do_not_wait_for_each_other(self, engine, table_id):
+        with PostgresTableTransactions(engine).begin() as first:
+            first.table(TableId(table_id))
+            second, outcome = run_in_thread(lambda: self.read(engine, table_id))
+
+            second.join(timeout=WAIT_DEADLINE_SECONDS)
+
+            assert not second.is_alive()
+        assert outcome[0].version == 1
+
+    def test_a_read_of_a_table_that_does_not_exist_returns_nothing(self, engine):
+        assert self.read(engine, "0" * 32) is None

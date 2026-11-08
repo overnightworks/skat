@@ -133,7 +133,7 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
 
 def _table_record(connection: Connection, table_id: str, *, lock: bool = False) -> TableRecord | None:
     query = select(tables.c.version, tables.c.dealer).where(tables.c.id == table_id)
-    table = connection.execute(query.with_for_update() if lock else query).one_or_none()
+    table = connection.execute(query.with_for_update(read=not lock)).one_or_none()
     if table is None:
         return None
     seats = connection.execute(
