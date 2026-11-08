@@ -610,8 +610,8 @@ wheels = [
 
 [[package]]
 name = "overnightworks-webauth"
-version = "0.31.0"
-source = { git = "https://github.com/overnightworks/webauth?rev=v0.31.0#b889f4cc855b4bbbfc93c5735a5b01a52fc58aac" }
+version = "0.34.0"
+source = { git = "https://github.com/overnightworks/webauth?rev=v0.34.0#88bf39b23d08d414fbdcd740b0e48ca31bfbfd1a" }
 dependencies = [
     { name = "anyio" },
     { name = "cryptography" },
@@ -1003,7 +1003,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.16" },
     { name = "fastapi", specifier = ">=0.123.7" },
-    { name = "overnightworks-webauth", git = "https://github.com/overnightworks/webauth?rev=v0.31.0" },
+    { name = "overnightworks-webauth", git = "https://github.com/overnightworks/webauth?rev=v0.34.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },
