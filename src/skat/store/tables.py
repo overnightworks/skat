@@ -1,110 +1,48 @@
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Literal
 
-from sqlalchemy import (
-    CheckConstraint,
-    Column,
-    ForeignKey,
-    ForeignKeyConstraint,
-    Integer,
-    MetaData,
-    SmallInteger,
-    Table,
-    Text,
-    exists,
-    insert,
-    select,
-    update,
-)
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
-from skat.engine.cards import DECK, Card, Rank, Suit
+from skat.engine.bidding import PassedIn
+from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
-from skat.table.records import Chair, Occupant, Receipt, Refusal, Replay, TableId, TableRecord
-from skat.table.service import DuplicateReceiptError, TableTransaction
+from skat.store.auction import append_steps, delete_steps, read_steps
+from skat.store.declaring import append_declaring_steps, read_declaring_steps
+from skat.store.schema import (
+    POSITION_TEXT,
+    RANK_TEXT,
+    SKAT_HOLDER,
+    SUIT_TEXT,
+    chairs,
+    hand_cards,
+    metadata,
+    receipts,
+    tables,
+)
+from skat.table.hand_state import auction_of
+from skat.table.records import Chair, HandProgress, Occupant, Receipt, Replay, TableId, TableRecord, parsed_refusal
+from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Generator
 
     from sqlalchemy.engine import Connection, Engine
 
+__all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
+
 UNIQUE_VIOLATION: Final = "23505"
 
-metadata = MetaData()
 
-
-tables = Table(
-    "tables",
-    metadata,
-    Column("id", Text, primary_key=True),
-    Column("version", Integer, nullable=False),
-    Column("dealer", SmallInteger),
-    CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
-)
-
-chairs = Table(
-    "chairs",
-    metadata,
-    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
-    Column("seat", Integer, primary_key=True),
-    Column("account_id", Text),
-    Column("display_name", Text),
-)
-
-_SKAT_HOLDER: Final = "skat"
-_SUIT_TEXT: Final = {Suit.KARO: "diamonds", Suit.HERZ: "hearts", Suit.PIK: "spades", Suit.KREUZ: "clubs"}
-_RANK_TEXT: Final = {
-    Rank.SEVEN: "seven",
-    Rank.EIGHT: "eight",
-    Rank.NINE: "nine",
-    Rank.TEN: "ten",
-    Rank.JACK: "jack",
-    Rank.QUEEN: "queen",
-    Rank.KING: "king",
-    Rank.ACE: "ace",
-}
-_POSITION_TEXT: Final = {
-    Position.FOREHAND: "forehand",
-    Position.MIDDLEHAND: "middlehand",
-    Position.REARHAND: "rearhand",
-}
-
-
-def _one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
-    return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
-
-
-hand_cards = Table(
-    "hand_cards",
-    metadata,
-    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
-    Column("suit", Text, primary_key=True),
-    Column("rank", Text, primary_key=True),
-    Column("holder", Text, nullable=False),
-    _one_of("suit", _SUIT_TEXT.values(), "hand_cards_suit_is_a_suit"),
-    _one_of("rank", _RANK_TEXT.values(), "hand_cards_rank_is_a_rank"),
-    _one_of("holder", (*_POSITION_TEXT.values(), _SKAT_HOLDER), "hand_cards_holder_is_a_holder"),
-)
-
-receipts = Table(
-    "receipts",
-    metadata,
-    Column("account_id", Text, primary_key=True),
-    Column("command_id", Text, primary_key=True),
-    Column("command", Text, nullable=False),
-    Column("payload", Text, nullable=False),
-    Column("table_id", Text, nullable=False),
-    Column("refusal", Text),
-    Column("holder", Text),
-    ForeignKeyConstraint(["table_id"], [tables.c.id]),
-)
+class DealtHandRewrittenError(Exception):
+    """The hand being saved differs from the one dealt, while the hand already has progress."""
 
 
 def _hand_rows(table_id: str, hand: Deal) -> list[dict[str, str]]:
-    held = [(_POSITION_TEXT[position], cards) for position, cards in hand.hands.items()]
-    held.append((_SKAT_HOLDER, hand.skat))
+    held = [(POSITION_TEXT[position], cards) for position, cards in hand.hands.items()]
+    held.append((SKAT_HOLDER, hand.skat))
     return [
-        {"table_id": table_id, "suit": _SUIT_TEXT[card.suit], "rank": _RANK_TEXT[card.rank], "holder": holder}
+        {"table_id": table_id, "suit": SUIT_TEXT[card.suit], "rank": RANK_TEXT[card.rank], "holder": holder}
         for holder, cards in held
         for card in cards
     ]
@@ -120,20 +58,24 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     }
     if not held:
         return None
-    by_holder: dict[str, list[Card]] = {holder: [] for holder in (*_POSITION_TEXT.values(), _SKAT_HOLDER)}
+    by_holder: dict[str, list[Card]] = {holder: [] for holder in (*POSITION_TEXT.values(), SKAT_HOLDER)}
     for card in DECK:
-        by_holder[held[_SUIT_TEXT[card.suit], _RANK_TEXT[card.rank]]].append(card)
+        by_holder[held[SUIT_TEXT[card.suit], RANK_TEXT[card.rank]]].append(card)
     return Deal(
-        forehand=tuple(by_holder[_POSITION_TEXT[Position.FOREHAND]]),
-        middlehand=tuple(by_holder[_POSITION_TEXT[Position.MIDDLEHAND]]),
-        rearhand=tuple(by_holder[_POSITION_TEXT[Position.REARHAND]]),
-        skat=tuple(by_holder[_SKAT_HOLDER]),
+        forehand=tuple(by_holder[POSITION_TEXT[Position.FOREHAND]]),
+        middlehand=tuple(by_holder[POSITION_TEXT[Position.MIDDLEHAND]]),
+        rearhand=tuple(by_holder[POSITION_TEXT[Position.REARHAND]]),
+        skat=tuple(by_holder[SKAT_HOLDER]),
     )
 
 
-def _table_record(connection: Connection, table_id: str, *, lock: bool = False) -> TableRecord | None:
+def _table_record(
+    connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
+) -> TableRecord | None:
     query = select(tables.c.version, tables.c.dealer).where(tables.c.id == table_id)
-    table = connection.execute(query.with_for_update() if lock else query).one_or_none()
+    if row_lock is not None:
+        query = query.with_for_update(read=row_lock == "share")
+    table = connection.execute(query).one_or_none()
     if table is None:
         return None
     seats = connection.execute(
@@ -150,12 +92,17 @@ def _table_record(connection: Connection, table_id: str, *, lock: bool = False) 
         ),
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
+        progress=HandProgress(
+            auction=read_steps(connection, table_id),
+            declaring=read_declaring_steps(connection, table_id),
+        ),
     )
 
 
 class _PostgresTableTransaction:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
+        self._holds_row = False
 
     def replay(self, account_id: str, command_id: str) -> Replay | None:
         receipt = self._connection.execute(
@@ -169,14 +116,16 @@ class _PostgresTableTransaction:
         ).one_or_none()
         if receipt is None:
             return None
-        table = _table_record(self._connection, receipt.table_id)
+        # A command that already holds its table's row reads the receipt's table unlocked: a lock here could cycle
+        # with a command at that table. A command holding no row reads it under the shared lock.
+        table = _table_record(self._connection, receipt.table_id, row_lock=None if self._holds_row else "share")
         # The receipt's foreign key guarantees the table.
         assert table is not None  # noqa: S101 - narrows the type for a row the schema guarantees
         return Replay(
             command=receipt.command,
             payload=receipt.payload,
             table=table,
-            refusal=None if receipt.refusal is None else Refusal(receipt.refusal),
+            refusal=None if receipt.refusal is None else parsed_refusal(receipt.refusal),
             holder=receipt.holder,
         )
 
@@ -184,17 +133,25 @@ class _PostgresTableTransaction:
         return _table_record(self._connection, table_id.value)
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
-        return _table_record(self._connection, table_id.value, lock=True)
+        self._holds_row = True
+        return _table_record(self._connection, table_id.value, row_lock="update")
 
     def save_table(self, table: TableRecord) -> None:
-        hand_stored = self._connection.execute(
-            select(exists().where(hand_cards.c.table_id == table.id.value))
-        ).scalar_one()
+        dealt = _read_hand(self._connection, table.id.value)
+        hand_ended = dealt is not None and table.hand is None and isinstance(auction_of(table).result, PassedIn)
+        if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not hand_ended:
+            message = f"the hand saved for table {table.id.value} differs from the one dealt"
+            raise DealtHandRewrittenError(message)
         self._connection.execute(
             update(tables).where(tables.c.id == table.id.value).values(version=table.version, dealer=table.dealer)
         )
-        if table.hand is not None and not hand_stored:
+        if hand_ended:
+            self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
+        if table.hand is not None and dealt is None:
+            delete_steps(self._connection, table.id.value)
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
+        append_steps(self._connection, table.id.value, table.progress.auction)
+        append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
         for chair in table.chairs:
             self._connection.execute(
                 update(chairs)
@@ -218,6 +175,14 @@ class _PostgresTableTransaction:
                 }
                 for chair in table.chairs
             ],
+        )
+
+    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
+        return tuple(
+            OccupiedChair(TableId(row.table_id), row.account_id)
+            for row in self._connection.execute(
+                select(chairs.c.table_id, chairs.c.account_id).where(chairs.c.account_id.is_not(None))
+            )
         )
 
     def add_receipt(self, receipt: Receipt) -> None:

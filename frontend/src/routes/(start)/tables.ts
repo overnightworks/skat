@@ -1,13 +1,17 @@
 import {
     AUTH_START_PATH,
+    type POSITION_TOKENS,
+    type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    type SUIT_TOKENS,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
 } from "#lib/wire.ts";
+import { words } from "#lib/words.ts";
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
@@ -16,8 +20,20 @@ const CONFLICT_STATUS = 409;
 // of navigating again: a session the sign-in just made and the server refuses at once would otherwise loop forever.
 const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
 
-export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean; is_away: boolean };
-export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
+export type Suit = (typeof SUIT_TOKENS)[number];
+export type Rank = (typeof RANK_TOKENS)[number];
+export type Position = (typeof POSITION_TOKENS)[number];
+export type Card = { suit: Suit; rank: Rank };
+export type ChairHand = { position: Position; card_count: number };
+export type Hand = { dealer_seat: number; own_cards: Card[]; skat_count: number };
+export type Chair = {
+    seat: number;
+    occupant_name: string | null;
+    is_mine: boolean;
+    is_away: boolean;
+    hand: ChairHand | null;
+};
+export type Table = { id: string; version: number; chairs: Chair[]; watchers: number; hand: Hand | null };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
     { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };
@@ -159,6 +175,16 @@ export function tablePath(id: string): string {
 export function drawingOrder(chairs: Chair[]): Chair[] {
     const afterMine = chairs.findIndex((chair) => chair.is_mine) + 1;
     return [...chairs.slice(afterMine), ...chairs.slice(0, afterMine)];
+}
+
+const POSITION_WORDS: Record<Position, string> = {
+    forehand: words.forehand,
+    middlehand: words.middlehand,
+    rearhand: words.rearhand,
+};
+
+export function positionWord(position: Position): string {
+    return POSITION_WORDS[position];
 }
 
 export async function copyTableLink(id: string): Promise<boolean> {

@@ -1,15 +1,42 @@
 import threading
 
 import pytest
+from alembic import command
 from alembic.autogenerate import compare_metadata
+from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate, require_head
+from skat.store.migrate import MIGRATIONS_DIRECTORY, DatabaseNotAtHeadError, create_store_engine, migrate, require_head
 from skat.store.tables import metadata
 
 pytestmark = pytest.mark.postgres
+
+STORE_TABLES = {"tables", "chairs", "receipts", "hand_cards", "auction_actions", "declaring_steps"}
+
+
+_PUT_BACK = "'put-back'"
+_DECLARE = "'declare'"
+
+
+def _declaring_row(
+    *,
+    table_id="'t'",
+    ordinal=1,
+    action="'take'",
+    first="NULL, NULL",
+    second="NULL, NULL",
+    game="NULL",
+    hand="NULL",
+    ouvert="NULL",
+    announcement="NULL",
+):
+    values = f"{table_id}, {ordinal}, {action}, {first}, {second}, {game}, {hand}, {ouvert}, {announcement}"
+    return f"INSERT INTO declaring_steps VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
+
+
+TAKE_ROW = _declaring_row()
 
 
 @pytest.fixture
@@ -28,10 +55,10 @@ def table_names(engine):
     return set(inspect(engine).get_table_names()) - {"alembic_version"}
 
 
-def test_migrating_an_empty_database_creates_tables_chairs_receipts_and_hand_cards(engine):
+def test_migrating_an_empty_database_creates_every_table_the_store_writes_to(engine):
     migrate(engine)
 
-    assert table_names(engine) == {"tables", "chairs", "receipts", "hand_cards"}
+    assert table_names(engine) == STORE_TABLES
 
 
 def test_the_migrated_schema_is_the_one_the_store_writes_to(engine):
@@ -50,7 +77,7 @@ def test_migrating_twice_changes_nothing(engine):
 
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).all() == before
-    assert table_names(engine) == {"tables", "chairs", "receipts", "hand_cards"}
+    assert table_names(engine) == STORE_TABLES
 
 
 @pytest.mark.parametrize(
@@ -108,6 +135,171 @@ def test_two_migrations_at_once_serialise_and_both_succeed(unmigrated_database_u
         assert len(connection.execute(text("SELECT version_num FROM alembic_version")).all()) == 1
     for engine in engines:
         engine.dispose()
+
+
+def upgrade_to(engine, revision):
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+    with engine.connect() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, revision)
+
+
+class TestFromAHandAtRevisionThree:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0003 holding a table with a hand, then taken to head."""
+        upgrade_to(engine, "0003")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
+            connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'skat')"))
+        migrate(engine)
+        return engine
+
+    def test_keeps_the_table_and_its_hand(self, migrated):
+        with migrated.connect() as connection:
+            dealer = connection.execute(text("SELECT dealer FROM tables WHERE id = 't'")).scalar_one()
+            cards = connection.execute(text("SELECT count(*) FROM hand_cards")).scalar_one()
+
+        assert (dealer, cards) == (2, 1)
+        assert table_names(migrated) == STORE_TABLES
+
+    def test_accepts_a_bid_with_its_value(self, migrated):
+        _run_in_transaction(migrated, text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM auction_actions")).scalar_one() == 1
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'dealer', 'bid', 18)", id="unknown-position"),
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'raise', 18)", id="unknown-action"),
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'bid', NULL)", id="bid-no-value"),
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'hold', 18)", id="hold-with-value"),
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'pass', 18)", id="pass-with-value"),
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'play', 18)", id="play-with-value"),
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'bid', 17)", id="below-the-lowest"),
+            pytest.param("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'bid', 265)", id="above-the-highest"),
+            pytest.param("INSERT INTO auction_actions VALUES ('gone', 1, 'forehand', 'bid', 18)", id="unknown-table"),
+        ],
+    )
+    def test_the_checks_refuse_a_row_that_is_no_auction_step(self, migrated, statement):
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)
+
+    def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
+        _run_in_transaction(migrated, text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
+        duplicate = text("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'hold', NULL)")
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, duplicate)
+
+
+class TestFromAHandAtRevisionFour:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0004 holding a hand in its auction, then taken to head."""
+        upgrade_to(engine, "0004")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 4, 2)"))
+            connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'skat')"))
+            connection.execute(text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
+        migrate(engine)
+        return engine
+
+    def test_keeps_the_hand_and_the_auction(self, migrated):
+        with migrated.connect() as connection:
+            cards = connection.execute(text("SELECT count(*) FROM hand_cards")).scalar_one()
+            bids = connection.execute(text("SELECT count(*) FROM auction_actions")).scalar_one()
+
+        assert (cards, bids) == (1, 1)
+        assert table_names(migrated) == STORE_TABLES
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param(TAKE_ROW, id="a-take"),
+            pytest.param(
+                "INSERT INTO declaring_steps VALUES "
+                "('t', 2, 'put-back', 'hearts', 'ace', 'spades', 'ace', NULL, NULL, NULL, NULL)",
+                id="a-put-back",
+            ),
+            pytest.param(
+                "INSERT INTO declaring_steps VALUES ('t', 3, 'declare', "
+                "NULL, NULL, NULL, NULL, 'null', true, false, 'none')",
+                id="a-declaration",
+            ),
+        ],
+    )
+    def test_accepts_each_kind_of_step(self, migrated, statement):
+        _run_in_transaction(migrated, text(statement))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM declaring_steps")).scalar_one() == 1
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param(_declaring_row(ordinal=0), id="ordinal-below-the-first"),
+            pytest.param(_declaring_row(ordinal=4), id="ordinal-above-the-last"),
+            pytest.param(_declaring_row(action="'reject'"), id="unknown-action"),
+            pytest.param(_declaring_row(first="'hearts', 'ace'"), id="take-with-a-card"),
+            pytest.param(_declaring_row(game="'herz'"), id="take-with-a-game"),
+            pytest.param(_declaring_row(action=_PUT_BACK, second="'hearts', 'ace'"), id="put-back-missing-a-card"),
+            pytest.param(
+                _declaring_row(action=_PUT_BACK, first="'hearts', 'ace'", second="'hearts', 'ace'"),
+                id="put-back-the-same-card-twice",
+            ),
+            pytest.param(
+                _declaring_row(action=_PUT_BACK, first="'hearts', 'ace'", second="'spades', 'ace'", game="'herz'"),
+                id="put-back-with-a-game",
+            ),
+            pytest.param(
+                _declaring_row(action=_PUT_BACK, first="'lila', 'ace'", second="'spades', 'ace'"), id="unknown-suit"
+            ),
+            pytest.param(
+                _declaring_row(action=_PUT_BACK, first="'hearts', 'one'", second="'spades', 'ace'"), id="unknown-rank"
+            ),
+            pytest.param(
+                _declaring_row(action=_DECLARE, game="'herz'", hand="true", ouvert="false"), id="declare-partly-set"
+            ),
+            pytest.param(
+                _declaring_row(action=_DECLARE, game="'ramsch'", hand="false", ouvert="false", announcement="'none'"),
+                id="unknown-game",
+            ),
+            pytest.param(
+                _declaring_row(action=_DECLARE, game="'herz'", hand="false", ouvert="false", announcement="'kontra'"),
+                id="unknown-announcement",
+            ),
+            pytest.param(
+                _declaring_row(
+                    action=_DECLARE,
+                    first="'hearts', 'ace'",
+                    game="'herz'",
+                    hand="false",
+                    ouvert="false",
+                    announcement="'none'",
+                ),
+                id="declare-with-a-card",
+            ),
+            pytest.param(_declaring_row(table_id="'gone'"), id="unknown-table"),
+        ],
+    )
+    def test_the_checks_refuse_a_row_that_is_no_declaring_step(self, migrated, statement):
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)
+
+    def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
+        _run_in_transaction(migrated, text(TAKE_ROW))
+        duplicate = text(TAKE_ROW)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, duplicate)
 
 
 class TestRequireHead:

@@ -31,7 +31,7 @@ class BidRefusal(StrEnum):
     NOT_ABOVE_STANDING = "not-above-standing"
 
 
-class _Awaiting(Enum):
+class Awaiting(Enum):
     BID = "bid"
     ANSWER = "answer"
     PLAY = "play"
@@ -54,7 +54,7 @@ class Auction:
 
     bidder: Position
     responder: Position
-    awaiting: _Awaiting
+    awaiting: Awaiting
     standing: int | None
     passed: frozenset[Position]
     second_pair: bool
@@ -65,7 +65,7 @@ class Auction:
         return cls(
             bidder=Position.MIDDLEHAND,
             responder=Position.FOREHAND,
-            awaiting=_Awaiting.BID,
+            awaiting=Awaiting.BID,
             standing=None,
             passed=frozenset(),
             second_pair=False,
@@ -74,9 +74,9 @@ class Auction:
 
     @property
     def actor(self) -> Position:
-        if self.awaiting is _Awaiting.PLAY:
+        if self.awaiting is Awaiting.PLAY:
             return Position.FOREHAND
-        return self.bidder if self.awaiting is _Awaiting.BID else self.responder
+        return self.bidder if self.awaiting is Awaiting.BID else self.responder
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ def _refuse(auction: Auction, reason: BidRefusal) -> BidOutcome:
     return BidOutcome(auction, reason)
 
 
-def _check_turn(auction: Auction, position: Position, awaiting: set[_Awaiting]) -> BidRefusal | None:
+def _check_turn(auction: Auction, position: Position, awaiting: set[Awaiting]) -> BidRefusal | None:
     if auction.result is not None:
         return BidRefusal.OVER
     if position in auction.passed:
@@ -104,43 +104,97 @@ def _check_turn(auction: Auction, position: Position, awaiting: set[_Awaiting]) 
 
 
 def bid(auction: Auction, position: Position, value: int) -> BidOutcome:
-    refusal = _check_turn(auction, position, {_Awaiting.BID})
+    refusal = _check_turn(auction, position, {Awaiting.BID})
     if refusal is None and value not in VALID_BIDS:
         refusal = BidRefusal.INVALID_VALUE
     if refusal is None and auction.standing is not None and value <= auction.standing:
         refusal = BidRefusal.NOT_ABOVE_STANDING
     if refusal is not None:
         return _refuse(auction, refusal)
-    return BidOutcome(replace(auction, awaiting=_Awaiting.ANSWER, standing=value))
+    return BidOutcome(replace(auction, awaiting=Awaiting.ANSWER, standing=value))
 
 
 def hold(auction: Auction, position: Position) -> BidOutcome:
-    refusal = _check_turn(auction, position, {_Awaiting.ANSWER})
+    refusal = _check_turn(auction, position, {Awaiting.ANSWER})
     if refusal is not None:
         return _refuse(auction, refusal)
-    return BidOutcome(replace(auction, awaiting=_Awaiting.BID))
+    return BidOutcome(replace(auction, awaiting=Awaiting.BID))
 
 
 def pass_(auction: Auction, position: Position) -> BidOutcome:
-    refusal = _check_turn(auction, position, set(_Awaiting))
+    refusal = _check_turn(auction, position, set(Awaiting))
     if refusal is not None:
         return _refuse(auction, refusal)
     passed = auction.passed | {position}
     auction = replace(auction, passed=passed)
-    if auction.awaiting is _Awaiting.PLAY:
+    if auction.awaiting is Awaiting.PLAY:
         return BidOutcome(replace(auction, result=PassedIn()))
     survivor = auction.responder if position is auction.bidder else auction.bidder
     if not auction.second_pair:
         return BidOutcome(
-            replace(auction, bidder=Position.REARHAND, responder=survivor, awaiting=_Awaiting.BID, second_pair=True)
+            replace(auction, bidder=Position.REARHAND, responder=survivor, awaiting=Awaiting.BID, second_pair=True)
         )
     if auction.standing is None:
-        return BidOutcome(replace(auction, awaiting=_Awaiting.PLAY))
+        return BidOutcome(replace(auction, awaiting=Awaiting.PLAY))
     return BidOutcome(replace(auction, result=Declared(survivor, auction.standing)))
 
 
 def play(auction: Auction, position: Position) -> BidOutcome:
-    refusal = _check_turn(auction, position, {_Awaiting.PLAY})
+    refusal = _check_turn(auction, position, {Awaiting.PLAY})
     if refusal is not None:
         return _refuse(auction, refusal)
     return BidOutcome(replace(auction, result=Declared(position, LOWEST_BID)))
+
+
+@dataclass(frozen=True)
+class Bid:
+    """The bidder names a value above the standing one."""
+
+    position: Position
+    value: int
+
+
+@dataclass(frozen=True)
+class Hold:
+    """The responder keeps up with the standing bid."""
+
+    position: Position
+
+
+@dataclass(frozen=True)
+class Pass:
+    """The actor drops out of the auction."""
+
+    position: Position
+
+
+@dataclass(frozen=True)
+class Play:
+    """Forehand plays at the lowest bid after both others passed."""
+
+    position: Position
+
+
+type AuctionStep = Bid | Hold | Pass | Play
+
+
+def auction_step(auction: Auction, step: AuctionStep) -> BidOutcome:
+    if isinstance(step, Bid):
+        return bid(auction, step.position, step.value)
+    if isinstance(step, Hold):
+        return hold(auction, step.position)
+    if isinstance(step, Pass):
+        return pass_(auction, step.position)
+    return play(auction, step.position)
+
+
+def auction_after(steps: tuple[AuctionStep, ...]) -> Auction:
+    """The auction a stored log of steps leads to; a log the rules refuse is corrupt and raises."""
+    auction = Auction.start()
+    for place, step in enumerate(steps, start=1):
+        outcome = auction_step(auction, step)
+        if outcome.refusal is not None:
+            message = f"impossible auction log: step {place} refused: {outcome.refusal.value}"
+            raise ValueError(message)
+        auction = outcome.auction
+    return auction

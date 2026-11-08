@@ -1,3 +1,4 @@
+from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Annotated, Final
 
@@ -7,7 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
-from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp
+from skat.engine.bidding import Awaiting
+from skat.engine.cards import Card, Rank, Suit
+from skat.engine.deal import Position
+from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
+from skat.table.records import Actor, CommandRefusal, CreateTable, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.routes import READ_METHODS, built_page_response
@@ -17,8 +22,9 @@ if TYPE_CHECKING:
 
     from webauth.ports import AuthenticatedUser
 
-    from skat.table.service import SeatingResult, TableService
-    from skat.table.views import TableView
+    from skat.table.auction import AuctionView
+    from skat.table.service import CommandResult, TableService
+    from skat.table.views import ChairHand, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -45,11 +51,107 @@ class SitDownRequest(CreateTableRequest):
     seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
 
 
-class SeatRefusal(BaseModel):
-    """A seating command that changed nothing; `holder_name` names who sits in a chair that was taken."""
+class RefusalAnswer(BaseModel):
+    """A command that changed nothing; `holder_name` names who sits in a chair that was taken."""
 
-    reason: Refusal
+    reason: CommandRefusal
     holder_name: str | None
+
+
+class SuitToken(StrEnum):
+    KREUZ = "kreuz"
+    PIK = "pik"
+    HERZ = "herz"
+    KARO = "karo"
+
+
+class RankToken(StrEnum):
+    SEVEN = "seven"
+    EIGHT = "eight"
+    NINE = "nine"
+    TEN = "ten"
+    JACK = "jack"
+    QUEEN = "queen"
+    KING = "king"
+    ACE = "ace"
+
+
+class PositionToken(StrEnum):
+    FOREHAND = "forehand"
+    MIDDLEHAND = "middlehand"
+    REARHAND = "rearhand"
+
+
+class AwaitingToken(StrEnum):
+    BID = "bid"
+    ANSWER = "answer"
+    PLAY = "play"
+
+
+# The engine orders cards by number; the wire names them by word, so that order is no public contract.
+SUIT_TOKENS: Final = {
+    Suit.KREUZ: SuitToken.KREUZ,
+    Suit.PIK: SuitToken.PIK,
+    Suit.HERZ: SuitToken.HERZ,
+    Suit.KARO: SuitToken.KARO,
+}
+RANK_TOKENS: Final = {
+    Rank.SEVEN: RankToken.SEVEN,
+    Rank.EIGHT: RankToken.EIGHT,
+    Rank.NINE: RankToken.NINE,
+    Rank.TEN: RankToken.TEN,
+    Rank.JACK: RankToken.JACK,
+    Rank.QUEEN: RankToken.QUEEN,
+    Rank.KING: RankToken.KING,
+    Rank.ACE: RankToken.ACE,
+}
+POSITION_TOKENS: Final = {
+    Position.FOREHAND: PositionToken.FOREHAND,
+    Position.MIDDLEHAND: PositionToken.MIDDLEHAND,
+    Position.REARHAND: PositionToken.REARHAND,
+}
+AWAITING_TOKENS: Final = {
+    Awaiting.BID: AwaitingToken.BID,
+    Awaiting.ANSWER: AwaitingToken.ANSWER,
+    Awaiting.PLAY: AwaitingToken.PLAY,
+}
+
+
+class CardAnswer(BaseModel):
+    suit: SuitToken
+    rank: RankToken
+
+
+class ChairHandAnswer(BaseModel):
+    position: PositionToken
+    card_count: int
+
+
+class AuctionWordAnswer(BaseModel):
+    seat: int
+    action: AuctionAction
+    value: int | None
+
+
+class AuctionDeclaredAnswer(BaseModel):
+    seat: int
+    value: int
+
+
+class AuctionAnswer(BaseModel):
+    turn_seat: int | None
+    awaiting: AwaitingToken | None
+    standing: int | None
+    values: list[int]
+    words: list[AuctionWordAnswer]
+    declared: AuctionDeclaredAnswer | None
+
+
+class HandAnswer(BaseModel):
+    dealer_seat: int
+    own_cards: list[CardAnswer]
+    skat_count: int
+    auction: AuctionAnswer
 
 
 class ChairAnswer(BaseModel):
@@ -57,6 +159,11 @@ class ChairAnswer(BaseModel):
     occupant_name: str | None
     is_mine: bool
     is_away: bool
+    hand: ChairHandAnswer | None
+
+
+class PassedInAnswer(BaseModel):
+    next_dealer_seat: int | None
 
 
 class TableAnswer(BaseModel):
@@ -64,6 +171,61 @@ class TableAnswer(BaseModel):
     version: int
     chairs: list[ChairAnswer]
     watchers: int
+    hand: HandAnswer | None
+    passed_in: PassedInAnswer | None
+
+
+class CardChoice(CardAnswer):
+    """A card a client names; a field it should not send is refused."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+_SUITS: Final = {token: suit for suit, token in SUIT_TOKENS.items()}
+_RANKS: Final = {token: rank for rank, token in RANK_TOKENS.items()}
+
+
+def card_answer_of(card: Card) -> CardAnswer:
+    return CardAnswer(suit=SUIT_TOKENS[card.suit], rank=RANK_TOKENS[card.rank])
+
+
+def card_of(choice: CardChoice) -> Card:
+    return Card(_SUITS[choice.suit], _RANKS[choice.rank])
+
+
+def chair_hand_answer_of(hand: ChairHand | None) -> ChairHandAnswer | None:
+    if hand is None:
+        return None
+    return ChairHandAnswer(position=POSITION_TOKENS[hand.position], card_count=hand.card_count)
+
+
+def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
+    declared = auction.declared
+    return AuctionAnswer(
+        turn_seat=auction.turn_seat,
+        awaiting=None if auction.awaiting is None else AWAITING_TOKENS[auction.awaiting],
+        standing=auction.standing,
+        values=list(auction.values),
+        words=[AuctionWordAnswer(seat=word.seat, action=word.action, value=word.value) for word in auction.words],
+        declared=None if declared is None else AuctionDeclaredAnswer(seat=declared.seat, value=declared.value),
+    )
+
+
+def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
+    if hand is None:
+        return None
+    return HandAnswer(
+        dealer_seat=hand.dealer_seat,
+        own_cards=[card_answer_of(card) for card in hand.own_cards],
+        skat_count=hand.skat_count,
+        auction=auction_answer_of(hand.auction),
+    )
+
+
+def passed_in_answer_of(passed_in: PassedInView | None) -> PassedInAnswer | None:
+    if passed_in is None:
+        return None
+    return PassedInAnswer(next_dealer_seat=passed_in.next_dealer_seat)
 
 
 def answer_of(view: TableView) -> TableAnswer:
@@ -71,10 +233,18 @@ def answer_of(view: TableView) -> TableAnswer:
         id=view.id,
         version=view.version,
         chairs=[
-            ChairAnswer(seat=c.seat, occupant_name=c.occupant_name, is_mine=c.is_mine, is_away=c.is_away)
+            ChairAnswer(
+                seat=c.seat,
+                occupant_name=c.occupant_name,
+                is_mine=c.is_mine,
+                is_away=c.is_away,
+                hand=chair_hand_answer_of(c.hand),
+            )
             for c in view.chairs
         ],
         watchers=view.watchers,
+        hand=hand_answer_of(view.hand),
+        passed_in=passed_in_answer_of(view.passed_in),
     )
 
 
@@ -91,19 +261,19 @@ def actor_of(request: Request) -> Actor:
     return actor_for(user)
 
 
-SEATING_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
+COMMAND_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
     404: {"description": "No table has this id."},
     409: {
-        "model": SeatRefusal,
+        "model": RefusalAnswer,
         "description": "The command changed nothing, or its id came back with another request.",
     },
 }
 
 
-async def seating_answer(
-    command: Callable[[frozenset[str]], SeatingResult | None], presence: Presence, table_id: str, response: Response
+async def command_answer(
+    command: Callable[[frozenset[str]], CommandResult | None], presence: Presence, table_id: str, response: Response
 ) -> Response | TableAnswer:
-    """Run a sit or stand off the event loop; once it committed, wake the table's streams."""
+    """Run a table command off the event loop; once it committed, wake the table's streams and restart the holds."""
     response.headers["Cache-Control"] = "no-store"
     try:
         result = await run_in_threadpool(command, presence.connected(table_id))
@@ -112,9 +282,12 @@ async def seating_answer(
     if result is None:
         raise HTTPException(status_code=404, detail="table not found")
     if result.refusal is not None:
-        refusal = SeatRefusal(reason=result.refusal, holder_name=result.holder)
+        refusal = RefusalAnswer(reason=result.refusal, holder_name=result.holder)
         return JSONResponse(refusal.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
     presence.wake_table(table_id)
+    # A hold frees the chair when it expires, so a member with a connected stream gets none.
+    away = result.seated_when_hand_ended - presence.connected(table_id)
+    presence.hold_chairs((table_id, account_id) for account_id in away)
     return answer_of(result.view)
 
 
@@ -131,22 +304,22 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX, response_model=TableAnswer, responses=SEATING_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
     )
     async def sit_down(
         table_id: str, body: SitDownRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
-        return await seating_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
+        return await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX, response_model=TableAnswer, responses=SEATING_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
     )
     async def stand_up(
         table_id: str, body: CreateTableRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         command = StandUp(command_id=body.command_id, table_id=table_id)
-        return await seating_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
+        return await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
 
     @router.get(TABLES_PATH + "/{table_id}", responses={404: {"description": "No table has this id."}})
     async def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:

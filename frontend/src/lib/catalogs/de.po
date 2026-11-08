@@ -74,3 +74,21 @@ msgstr "Platz vergeben"
 
 msgid "commandFailed"
 msgstr "Das hat nicht geklappt"
+
+msgid "biddingFollows"
+msgstr "Reizen folgt"
+
+msgid "dealer"
+msgstr "Geber"
+
+msgid "forehand"
+msgstr "Vorhand"
+
+msgid "middlehand"
+msgstr "Mittelhand"
+
+msgid "rearhand"
+msgstr "Hinterhand"
+
+msgid "cardCount"
+msgstr "Karten"

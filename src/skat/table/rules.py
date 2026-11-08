@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import Final
 
 from skat.table.records import (
@@ -6,7 +5,8 @@ from skat.table.records import (
     Chair,
     CreateTable,
     Decision,
-    FirstDeal,
+    HandProgress,
+    NewHand,
     Occupant,
     Receipt,
     Refusal,
@@ -54,13 +54,20 @@ def _replayed(replay: Replay, command: str, payload: str) -> Replay:
     return replay
 
 
-def _seat_of(table: TableRecord, account_id: str) -> Chair | None:
+def seat_of(table: TableRecord, account_id: str) -> Chair | None:
     return next((chair for chair in table.chairs if chair.occupant and chair.occupant.account_id == account_id), None)
 
 
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
     chairs = tuple(Chair(seat, occupant) if chair.seat == seat else chair for chair in table.chairs)
-    return TableRecord(id=table.id, version=table.version + 1, chairs=chairs, dealer=table.dealer, hand=table.hand)
+    return TableRecord(
+        id=table.id,
+        version=table.version + 1,
+        chairs=chairs,
+        dealer=table.dealer,
+        hand=table.hand,
+        progress=table.progress,
+    )
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -73,25 +80,52 @@ def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
 
 
-def decide_sit(table: TableRecord, actor: Actor, seat: int, first_deal: FirstDeal | None) -> Decision:
+def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
+    """Who sat at the table when this change ended its hand; nobody when it ended none."""
+    if not hand_runs(before) or hand_runs(after):
+        return frozenset()
+    return frozenset(chair.occupant.account_id for chair in after.chairs if chair.occupant is not None)
+
+
+def dealt(table: TableRecord, new_hand: NewHand) -> TableRecord:
+    """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
+    return TableRecord(
+        id=table.id,
+        version=table.version,
+        chairs=table.chairs,
+        dealer=new_hand.dealer,
+        hand=new_hand.hand,
+        progress=HandProgress(),
+    )
+
+
+def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:
     """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
 
-    The sit that fills the last chair stores the drawn `first_deal` in the same version bump.
+    The sit that fills the last chair deals `new_hand` in the same version bump.
     """
-    if _seat_of(table, actor.account_id) is not None:
+    if seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)
     holder = table.chairs[seat - 1].occupant
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
     seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name))
-    if first_deal is not None and sit_deals(table):
-        seated = replace(seated, dealer=first_deal.dealer, hand=first_deal.hand)
+    if new_hand is not None and sit_deals(table):
+        seated = dealt(seated, new_hand)
     return Decision(seated)
 
 
 def decide_stand(table: TableRecord, actor: Actor) -> Decision:
     """The actor leaves their own chair, which keeps its number; nobody leaves while a hand runs."""
-    own = _seat_of(table, actor.account_id)
+    return decide_free_chair(table, actor.account_id)
+
+
+def decide_free_chair(table: TableRecord, account_id: str) -> Decision:
+    """The account's chair is freed and keeps its number, only while the account still holds it and no hand runs.
+
+    A person standing up and the server ending an away member's hold ask the same question.
+    """
+    own = seat_of(table, account_id)
     if own is None:
         return Decision(table, Refusal.NOT_SEATED)
     if hand_runs(table):
@@ -107,11 +141,11 @@ def stand_payload(command: StandUp) -> str:
     return command.table_id
 
 
-def seating_receipt(actor: Actor, command_id: str, command: str, payload: str, decision: Decision) -> Receipt:
+def command_receipt(actor: Actor, command_id: str, command: str, payload: str, decision: Decision) -> Receipt:
     return Receipt(actor.account_id, command_id, command, payload, decision.table.id, decision.refusal, decision.holder)
 
 
 def replayed_decision(replay: Replay, command: str, payload: str) -> Decision:
-    """The outcome a seating request already had; any other request under its key is refused."""
+    """The outcome a command already had; any other request under its key is refused."""
     first = _replayed(replay, command, payload)
     return Decision(first.table, first.refusal, first.holder)
