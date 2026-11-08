@@ -1,3 +1,4 @@
+from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Annotated, Final
 
@@ -7,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
+from skat.engine.cards import Rank, Suit
+from skat.engine.deal import Position
 from skat.table.records import Actor, CreateTable, Refusal, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
@@ -17,8 +20,9 @@ if TYPE_CHECKING:
 
     from webauth.ports import AuthenticatedUser
 
+    from skat.engine.cards import Card
     from skat.table.service import SeatingResult, TableService
-    from skat.table.views import TableView
+    from skat.table.views import ChairHand, HandView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -52,11 +56,76 @@ class SeatRefusal(BaseModel):
     holder_name: str | None
 
 
+class SuitToken(StrEnum):
+    KREUZ = "kreuz"
+    PIK = "pik"
+    HERZ = "herz"
+    KARO = "karo"
+
+
+class RankToken(StrEnum):
+    SEVEN = "seven"
+    EIGHT = "eight"
+    NINE = "nine"
+    TEN = "ten"
+    JACK = "jack"
+    QUEEN = "queen"
+    KING = "king"
+    ACE = "ace"
+
+
+class PositionToken(StrEnum):
+    FOREHAND = "forehand"
+    MIDDLEHAND = "middlehand"
+    REARHAND = "rearhand"
+
+
+# The engine orders cards by number; the wire names them by word, so that order is no public contract.
+SUIT_TOKENS: Final = {
+    Suit.KREUZ: SuitToken.KREUZ,
+    Suit.PIK: SuitToken.PIK,
+    Suit.HERZ: SuitToken.HERZ,
+    Suit.KARO: SuitToken.KARO,
+}
+RANK_TOKENS: Final = {
+    Rank.SEVEN: RankToken.SEVEN,
+    Rank.EIGHT: RankToken.EIGHT,
+    Rank.NINE: RankToken.NINE,
+    Rank.TEN: RankToken.TEN,
+    Rank.JACK: RankToken.JACK,
+    Rank.QUEEN: RankToken.QUEEN,
+    Rank.KING: RankToken.KING,
+    Rank.ACE: RankToken.ACE,
+}
+POSITION_TOKENS: Final = {
+    Position.FOREHAND: PositionToken.FOREHAND,
+    Position.MIDDLEHAND: PositionToken.MIDDLEHAND,
+    Position.REARHAND: PositionToken.REARHAND,
+}
+
+
+class CardAnswer(BaseModel):
+    suit: SuitToken
+    rank: RankToken
+
+
+class ChairHandAnswer(BaseModel):
+    position: PositionToken
+    card_count: int
+
+
+class HandAnswer(BaseModel):
+    dealer_seat: int
+    own_cards: list[CardAnswer]
+    skat_count: int
+
+
 class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
     is_mine: bool
     is_away: bool
+    hand: ChairHandAnswer | None
 
 
 class TableAnswer(BaseModel):
@@ -64,6 +133,27 @@ class TableAnswer(BaseModel):
     version: int
     chairs: list[ChairAnswer]
     watchers: int
+    hand: HandAnswer | None
+
+
+def card_answer_of(card: Card) -> CardAnswer:
+    return CardAnswer(suit=SUIT_TOKENS[card.suit], rank=RANK_TOKENS[card.rank])
+
+
+def chair_hand_answer_of(hand: ChairHand | None) -> ChairHandAnswer | None:
+    if hand is None:
+        return None
+    return ChairHandAnswer(position=POSITION_TOKENS[hand.position], card_count=hand.card_count)
+
+
+def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
+    if hand is None:
+        return None
+    return HandAnswer(
+        dealer_seat=hand.dealer_seat,
+        own_cards=[card_answer_of(card) for card in hand.own_cards],
+        skat_count=hand.skat_count,
+    )
 
 
 def answer_of(view: TableView) -> TableAnswer:
@@ -71,10 +161,17 @@ def answer_of(view: TableView) -> TableAnswer:
         id=view.id,
         version=view.version,
         chairs=[
-            ChairAnswer(seat=c.seat, occupant_name=c.occupant_name, is_mine=c.is_mine, is_away=c.is_away)
+            ChairAnswer(
+                seat=c.seat,
+                occupant_name=c.occupant_name,
+                is_mine=c.is_mine,
+                is_away=c.is_away,
+                hand=chair_hand_answer_of(c.hand),
+            )
             for c in view.chairs
         ],
         watchers=view.watchers,
+        hand=hand_answer_of(view.hand),
     )
 
 
