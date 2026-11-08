@@ -1,4 +1,5 @@
 import secrets
+from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
@@ -155,7 +156,11 @@ class TableService:
         )
 
     def take_auction_step(
-        self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
+        self,
+        actor: Actor,
+        command: AuctionCommand,
+        connected_accounts: frozenset[str],
+        on_hand_ended: Callable[[frozenset[str]], None] | None = None,
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -165,27 +170,26 @@ class TableService:
             AUCTION_STEP_COMMAND,
             auction_payload(command),
             lambda table: decide_step(table, actor, command),
+            on_hand_ended,
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
         """Free the account's chair on the server's own account, with no actor, command id or receipt.
 
-        `due` is entered before the transaction and left after its commit, and yields whether the caller still
-        wants the chair freed; False changes nothing. The decision re-reads the chair under the row lock, so a
-        repeat, or a chair the account left in the meantime, changes nothing either. True when it freed the chair.
+        `due` is entered once the row is locked, so a command that committed meanwhile has had its say, and left
+        after the commit; it yields whether the caller still wants the chair freed, and False changes nothing.
+        The decision re-reads the chair under the row lock, so a repeat, or a chair the account left in the
+        meantime, changes nothing either. True when it freed the chair.
         """
-        with due as still_due:
-            if not still_due:
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            if table is None or not after_commit.enter_context(due):
                 return False
-            with self._transactions.begin() as transaction:
-                table = transaction.locked_table(table_id)
-                if table is None:
-                    return False
-                decision = decide_free_chair(table, account_id)
-                if decision.refusal is not None:
-                    return False
-                transaction.save_table(decision.table)
-                return True
+            decision = decide_free_chair(table, account_id)
+            if decision.refusal is not None:
+                return False
+            transaction.save_table(decision.table)
+            return True
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
@@ -210,13 +214,18 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
+        on_hand_ended: Callable[[frozenset[str]], None] | None = None,
     ) -> CommandResult | None:
         try:
-            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
+            return self._run_command_once(
+                actor, connected_accounts, table_id, command_id, command, payload, decide, on_hand_ended
+            )
         except DuplicateReceiptError:
             # The same command id committed on another table between this one's lookup and its receipt;
             # the retry finds that receipt and replays it or refuses the reuse.
-            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
+            return self._run_command_once(
+                actor, connected_accounts, table_id, command_id, command, payload, decide, on_hand_ended
+            )
 
     def _run_command_once(
         self,
@@ -227,8 +236,13 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
+        on_hand_ended: Callable[[frozenset[str]], None] | None,
     ) -> CommandResult | None:
-        """Lock the table row, replay by actor and command id, decide, write, store the receipt; None for no table."""
+        """Lock the table row, replay by actor and command id, decide, write, store the receipt; None for no table.
+
+        When the command ended the hand, `on_hand_ended` hears who sat at the table and is not connected, before
+        the commit, so no one else locks the row between the end of the hand and what the caller does about it.
+        """
         identifier = TableId.parse(table_id)
         if identifier is None:
             return None
@@ -244,6 +258,8 @@ class TableService:
                     transaction.save_table(decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
                 seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
+                if on_hand_ended is not None:
+                    on_hand_ended(seated_when_hand_ended - connected_accounts)
             else:
                 decision = replayed_decision(replay, command, payload)
             return CommandResult(

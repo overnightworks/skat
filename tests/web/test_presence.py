@@ -1,15 +1,15 @@
 import asyncio
 import json
 import threading
-from types import SimpleNamespace
+from functools import partial
 
 import pytest
 from structlog.testing import capture_logs
 
-import skat.host.app as host_app
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, ChairHold, LoopScheduler, Presence
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import idle_presence
 from tests.support.payload_cards import seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -472,11 +472,9 @@ def hold(sign_in_settings):
 
 
 @pytest.fixture
-def server(hold, monkeypatch, time):
+def server(hold, time):
     """`create_app`'s own wiring and its own routes; only the clock and the timers run on the test's time."""
-    monkeypatch.setattr(host_app, "LoopScheduler", lambda: time)
-    monkeypatch.setattr(host_app, "time", SimpleNamespace(monotonic=time.clock))
-    skat = Skat(lambda: hold)
+    skat = Skat(lambda: hold, chair_clock=time.clock, chair_scheduler=time)
     with skat.client:
         yield skat
 
@@ -501,7 +499,56 @@ def occupied_seats(skat, table_id):
     return {chair.seat for chair in skat.store.tables[table_id].chairs if chair.occupant is not None}
 
 
+class OvertakenStore(FakeTableStore):
+    """A store whose row lock is won by another caller first: `meanwhile` runs once, when the next lock is asked."""
+
+    def __init__(self):
+        super().__init__()
+        self.meanwhile = None
+
+    def locked_table(self, table_id):
+        if self.meanwhile is not None:
+            action, self.meanwhile = self.meanwhile, None
+            action()
+        return super().locked_table(table_id)
+
+
 class TestHoldWhenTheHandEnds:
+    def test_a_freeing_waiting_for_the_table_while_the_third_pass_ends_the_hand_leaves_the_fresh_hold_alone(
+        self, hold, time
+    ):
+        store = OvertakenStore()
+        server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
+        with server.client:
+            table_id, people = seated_three(server)
+            with server.client.stream(
+                "GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[0][0]
+            ) as s:
+                next(s.iter_lines())
+                s.close()
+            server.client.cookies.clear()
+            for seat in (1, 2):
+                version = store.tables[table_id].version
+                post_pass(server, table_id, people[seat - 1][0], command_id=f"pass-seat-{seat}", version=version)
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+            third_pass = partial(
+                post_pass,
+                server,
+                table_id,
+                people[2][0],
+                command_id="pass-seat-3",
+                version=store.tables[table_id].version,
+            )
+            store.meanwhile = third_pass
+
+            server.client.portal.call(time.advance, 1)
+
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            server.client.portal.call(time.advance, 2)
+            assert occupied_seats(server, table_id) == set()
+
     def test_a_member_away_when_the_hand_ends_keeps_the_chair_until_a_fresh_hold_has_passed(self, server, hold, time):
         table_id, people = seated_three(server)
         server.client.cookies.clear()

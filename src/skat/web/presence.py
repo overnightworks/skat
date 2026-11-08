@@ -59,8 +59,8 @@ class ChairHold:
     """How long an away member keeps the chair, on whose clock and timers, and the command that frees it.
 
     `free_chair(table_id, account_id, due)` answers whether it freed the chair, and raises when the store
-    fails. It enters `due` in its worker around the whole write, the commit included, and frees nothing when
-    it yields False.
+    fails. It enters `due` in its worker once it holds the table, leaves it after the commit, and frees nothing
+    when it yields False.
     """
 
     seconds: float
@@ -116,6 +116,15 @@ class Presence:
         """Start a fresh hold of each (table id, account id): at the server's start, and when a hand ends."""
         for table_id, account_id in occupied:
             self._start_hold(table_id, account_id)
+
+    def restart_leaves(self, table_id: str, account_ids: Iterable[str]) -> None:
+        """Give each account a newer leave time than any pending timer knows; call it on a worker inside the
+        transaction that ended a hand, so a freeing that reaches the table after the commit finds itself superseded.
+        """
+        left_at = self._hold.clock()
+        with self._state:
+            for account_id in account_ids:
+                self._left_at[table_id, account_id] = left_at
 
     async def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
         """Register before the stream reads its view, so a change after this call wakes it.

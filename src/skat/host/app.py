@@ -33,7 +33,7 @@ from skat.web.constants import (
     STREAM_HEARTBEAT_SECONDS,
 )
 from skat.web.gate import session_gate
-from skat.web.presence import ChairHold, LoopScheduler, Presence
+from skat.web.presence import ChairHold, LoopScheduler, Presence, Scheduler
 from skat.web.routes import create_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
@@ -47,7 +47,7 @@ from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Callable
     from contextlib import AbstractContextManager
 
     from skat.table.service import TableService
@@ -93,11 +93,13 @@ def _install_web_auth(app: FastAPI, sessions: InMemorySessions, page_build: Page
     )
 
 
-def _chair_hold(settings: ServerSettings, tables: TableService) -> ChairHold:
+def _chair_hold(
+    settings: ServerSettings, tables: TableService, clock: Callable[[], float], scheduler: Scheduler
+) -> ChairHold:
     async def free_chair(table_id: str, account_id: str, due: AbstractContextManager[bool]) -> bool:
         return await run_in_threadpool(tables.free_chair, TableId(table_id), account_id, due)
 
-    return ChairHold(settings.chair_hold_seconds, time.monotonic, LoopScheduler(), free_chair)
+    return ChairHold(settings.chair_hold_seconds, clock, scheduler, free_chair)
 
 
 def create_app(
@@ -108,6 +110,8 @@ def create_app(
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
     stores: SignInStores | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
+    chair_clock: Callable[[], float] = time.monotonic,
+    chair_scheduler: Scheduler | None = None,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
 
@@ -116,7 +120,9 @@ def create_app(
     sign_in_stores = stores if stores is not None else SignInStores.in_memory()
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    presence = Presence(_chair_hold(settings, tables))
+    presence = Presence(
+        _chair_hold(settings, tables, chair_clock, chair_scheduler if chair_scheduler is not None else LoopScheduler())
+    )
 
     @asynccontextmanager
     async def hold_chairs_while_serving(_app: FastAPI) -> AsyncGenerator[None]:
