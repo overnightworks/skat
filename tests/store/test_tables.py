@@ -137,25 +137,31 @@ class BothReadBeforeEitherWrites:
     outside, the barrier breaks after its timeout and the first goes on alone.
     """
 
-    def __init__(self, inner, rivals):
+    def __init__(self, inner, rivals, *, rivals_must_meet=False):
         self._inner = inner
-        self._barrier = threading.Barrier(rivals, timeout=BARRIER_TIMEOUT_SECONDS)
+        self._rivals_must_meet = rivals_must_meet
+        timeout = WAIT_DEADLINE_SECONDS if rivals_must_meet else BARRIER_TIMEOUT_SECONDS
+        self._barrier = threading.Barrier(rivals, timeout=timeout)
 
     @contextmanager
     def begin(self):
         with self._inner.begin() as transaction:
-            yield _WaitingTransaction(transaction, self._barrier)
+            yield _WaitingTransaction(transaction, self._barrier, self._rivals_must_meet)
 
 
 class _WaitingTransaction:
-    def __init__(self, inner, barrier):
+    def __init__(self, inner, barrier, rivals_must_meet):
         self._inner = inner
         self._barrier = barrier
+        self._rivals_must_meet = rivals_must_meet
 
     def locked_table(self, table_id):
         table = self._inner.locked_table(table_id)
-        with suppress(threading.BrokenBarrierError):
+        if self._rivals_must_meet:
             self._barrier.wait()
+        else:
+            with suppress(threading.BrokenBarrierError):
+                self._barrier.wait()
         return table
 
     def __getattr__(self, name):
@@ -253,7 +259,7 @@ class TestSeating:
         other_id = service.create(OPENER, CreateTable(command_id="command-open-other")).id
         service.sit(VISITOR, SitDown("command-here", table_id, 2), frozenset())
         service.sit(VISITOR, SitDown("command-there", other_id, 2), frozenset())
-        racing = TableService(BothReadBeforeEitherWrites(PostgresTableTransactions(engine), 2))
+        racing = TableService(BothReadBeforeEitherWrites(PostgresTableTransactions(engine), 2, rivals_must_meet=True))
         outcomes = []
 
         def reuse(command_id, at_table):
@@ -460,6 +466,23 @@ class TestOneMomentRead:
 
         reader.join()
         assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (None, None, 1)
+
+    def test_a_replayed_create_during_the_deal_waits_and_returns_the_dealer_and_hand_together(
+        self, engine, table_id, dealt
+    ):
+        def replay_create():
+            with PostgresTableTransactions(engine).begin() as transaction:
+                return transaction.replay(OPENER.account_id, "command-open").table
+
+        with PostgresTableTransactions(engine).begin() as writer:
+            empty = writer.locked_table(TableId(table_id))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            reader, outcome = run_in_thread(replay_create)
+
+            wait_until_a_session_waits_for_a_lock(engine)
+
+        reader.join()
+        assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (dealt.dealer, dealt.hand, 2)
 
     def test_a_writer_waits_for_a_read_to_finish(self, engine, table_id):
         def write():

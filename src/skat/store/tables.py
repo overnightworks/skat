@@ -160,6 +160,7 @@ def _table_record(
 class _PostgresTableTransaction:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
+        self._holds_row = False
 
     def replay(self, account_id: str, command_id: str) -> Replay | None:
         receipt = self._connection.execute(
@@ -173,8 +174,9 @@ class _PostgresTableTransaction:
         ).one_or_none()
         if receipt is None:
             return None
-        # No lock: the command holds its own table's row; a lock here could cycle with a command at the receipt's table.
-        table = _table_record(self._connection, receipt.table_id, row_lock=None)
+        # A command that already holds its table's row reads the receipt's table unlocked: a lock here could cycle
+        # with a command at that table. A command holding no row reads it under the shared lock.
+        table = _table_record(self._connection, receipt.table_id, row_lock=None if self._holds_row else "share")
         # The receipt's foreign key guarantees the table.
         assert table is not None  # noqa: S101 - narrows the type for a row the schema guarantees
         return Replay(
@@ -189,6 +191,7 @@ class _PostgresTableTransaction:
         return _table_record(self._connection, table_id.value)
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
+        self._holds_row = True
         return _table_record(self._connection, table_id.value, row_lock="update")
 
     def save_table(self, table: TableRecord) -> None:
