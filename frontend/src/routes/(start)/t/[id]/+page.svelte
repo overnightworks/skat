@@ -54,17 +54,16 @@
         note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
     }
 
-    // The stream shows the new table to every page; the answer only makes this page's own change immediate.
+    // A seated or freed chair reaches this page through its stream like every other page's: the answer's table
+    // has no watchers, so it never replaces the streamed view.
     async function seat(command: Promise<Outcome>): Promise<void> {
         note = "";
         taken = null;
         const answer = await command;
-        if (answer.kind === "table") {
-            outcome = answer;
-        } else if (answer.kind === "taken") {
+        if (answer.kind === "taken") {
             taken = answer.holder;
             setTimeout(() => (taken = null), TAKEN_NOTICE_MILLISECONDS);
-        } else {
+        } else if (answer.kind !== "table") {
             note = words.commandFailed;
         }
     }
