@@ -136,11 +136,6 @@ class TestTableId:
         )
 
 
-class SeatingFailsAfterTheDecision(FakeTableStore):
-    def save_table(self, table):
-        raise RuntimeError("connection lost")
-
-
 @pytest.fixture
 def table_id(service):
     return service.create(OPENER, CreateTable(command_id="command-open")).id
@@ -228,16 +223,22 @@ class TestSit:
         assert sit(service, VISITOR, unknown, 2) is None
         assert (store.tables, store.receipts) == before
 
-    def test_a_failure_after_the_decision_persists_nothing(self, table_id):
-        broken = SeatingFailsAfterTheDecision()
-        service = TableService(broken)
-        created = service.create(OPENER, CreateTable(command_id="command-open"))
-        before = (dict(broken.tables), dict(broken.receipts))
+    def test_a_failure_after_the_decision_persists_nothing(self, service, store, table_id):
+        before = (dict(store.tables), dict(store.receipts))
+        faulty = TableService(FaultyTableTransactions(store, receipt_failure=RuntimeError("connection lost")))
 
         with pytest.raises(RuntimeError, match="connection lost"):
-            sit(service, VISITOR, created.id, 2)
+            sit(faulty, VISITOR, table_id, 2)
 
-        assert (broken.tables, broken.receipts) == before
+        assert (store.tables, store.receipts) == before
+
+    def test_the_same_command_id_on_another_table_is_refused_when_it_races_the_first(self, service, store, table_id):
+        other_id = service.create(OPENER, CreateTable(command_id="command-other")).id
+        sit(service, VISITOR, table_id, 2)
+        blind = TableService(FaultyTableTransactions(store, blind_first_replay=True))
+
+        with pytest.raises(CommandIdReusedError):
+            sit(blind, VISITOR, other_id, 2)
 
 
 class TestStand:

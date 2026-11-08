@@ -133,6 +133,22 @@ class TableService:
         payload: str,
         decide: Callable[[TableRecord], Decision],
     ) -> SeatingResult | None:
+        try:
+            return self._seat_once(actor, table_id, command_id, command, payload, decide)
+        except DuplicateReceiptError:
+            # The same command id committed on another table between this one's lookup and its receipt;
+            # the retry finds that receipt and replays it or refuses the reuse.
+            return self._seat_once(actor, table_id, command_id, command, payload, decide)
+
+    def _seat_once(
+        self,
+        actor: Actor,
+        table_id: str,
+        command_id: str,
+        command: str,
+        payload: str,
+        decide: Callable[[TableRecord], Decision],
+    ) -> SeatingResult | None:
         """Lock the table row, replay by actor and command id, decide, write, store the receipt; None for no table."""
         identifier = TableId.parse(table_id)
         if identifier is None:
