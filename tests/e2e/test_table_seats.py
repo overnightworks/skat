@@ -6,7 +6,7 @@ from playwright.sync_api import Page, Route, expect
 from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
-from tests.e2e.support.tables import assert_never_reloaded, mark_page, open_new_table, plate_of, sit_in, watch
+from tests.e2e.support.tables import SIT_DOWN, assert_never_reloaded, mark_page, open_new_table, plate_of, sit_in, watch
 from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
@@ -18,7 +18,6 @@ pytestmark = pytest.mark.e2e
 
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-SIT_DOWN = catalog_text("sitDown")
 STAND_UP = catalog_text("standUp")
 SEAT_TAKEN = catalog_text("seatTaken")
 COMMAND_FAILED = catalog_text("commandFailed")
