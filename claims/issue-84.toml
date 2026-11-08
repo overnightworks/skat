@@ -1,0 +1,7 @@
+claim_id = "06a8f76a00374b988581829c30cee6f9"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "00232d674d4cab966dc2c6911e90f5c378f5b39c"
+branch = "claude/issue-84-reckoning"
+scope = ["src/skat/engine/score.py", "tests/engine/test_score.py"]
+opened_commit = "bebb9b374e4c20b51ed2580a24c691847324e8ed"
