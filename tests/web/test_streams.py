@@ -9,6 +9,7 @@ import pytest
 from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
@@ -687,6 +688,42 @@ class TestHandOnTheStream:
 
         assert opened["hand"]["auction"]["standing"] == BID_VALUE
         assert [word["action"] for word in opened["hand"]["auction"]["words"]] == ["bid"]
+
+    def test_an_accepted_declaring_step_sends_a_fresh_snapshot_with_no_new_field_and_no_skat_card(self, skat):
+        table_id, people = seated_three(skat)
+        declarer_headers, rearhand_headers, forehand_headers = people[0][0], people[1][0], people[2][0]
+        for command_id, headers, action, fields in [
+            ("auction-1", declarer_headers, "bid", {"value": 18}),
+            ("auction-2", forehand_headers, "pass", {}),
+            ("auction-3", rearhand_headers, "pass", {}),
+        ]:
+            version = skat.store.tables[table_id].version
+            bid = skat.client.post(
+                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
+                json={"command_id": command_id, "version": version, "action": action, **fields},
+                headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+            )
+            assert bid.status_code == 200, bid.text
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table_id), headers=declarer_headers) as stream:
+            lines = stream.iter_lines()
+            opened = json.loads(next(lines).removeprefix("data: "))
+            next(lines)
+            skat.client.cookies.clear()
+            answer = skat.client.post(
+                f"{TABLES_PATH}/{table_id}{TABLE_DECLARATION_SUFFIX}",
+                json={"command_id": "step-0001", "version": opened["version"], "action": "take"},
+                headers={"origin": TEST_PUBLIC_ORIGIN, **declarer_headers},
+            )
+            fresh_line = next(lines)
+
+        assert answer.status_code == 200
+        fresh = json.loads(fresh_line.removeprefix("data: "))
+        assert fresh["version"] == opened["version"] + 1
+        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand"}
+        assert cards_in_text(fresh_line) == wire_cards(CARDS_BY_SEAT[1])
+        assert fresh["hand"]["skat_count"] == opened["hand"]["skat_count"]
 
     def test_a_stream_opened_after_the_last_one_dropped_starts_from_the_full_current_hand(self, skat):
         table_id, people = seated_three(skat)

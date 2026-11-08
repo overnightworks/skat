@@ -9,7 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
 from skat.engine.bidding import Awaiting
-from skat.engine.cards import Rank, Suit
+from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import Actor, CommandRefusal, CreateTable, SitDown, StandUp
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
     from webauth.ports import AuthenticatedUser
 
-    from skat.engine.cards import Card
     from skat.table.auction import AuctionView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, TableView
@@ -171,8 +170,22 @@ class TableAnswer(BaseModel):
     hand: HandAnswer | None
 
 
+class CardChoice(CardAnswer):
+    """A card a client names; a field it should not send is refused."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+_SUITS: Final = {token: suit for suit, token in SUIT_TOKENS.items()}
+_RANKS: Final = {token: rank for rank, token in RANK_TOKENS.items()}
+
+
 def card_answer_of(card: Card) -> CardAnswer:
     return CardAnswer(suit=SUIT_TOKENS[card.suit], rank=RANK_TOKENS[card.rank])
+
+
+def card_of(choice: CardChoice) -> Card:
+    return Card(_SUITS[choice.suit], _RANKS[choice.rank])
 
 
 def chair_hand_answer_of(hand: ChairHand | None) -> ChairHandAnswer | None:

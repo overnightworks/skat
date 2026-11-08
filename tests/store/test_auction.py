@@ -7,8 +7,8 @@ from sqlalchemy import func, select, table, text
 
 from skat.engine.bidding import Bid, Hold, Pass
 from skat.engine.deal import Position, positions_from
-from skat.store.auction import AuctionLogRewrittenError
 from skat.store.migrate import create_store_engine
+from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, TableId
@@ -191,7 +191,7 @@ def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transac
         with transactions.begin() as transaction:
             transaction.save_table(rewritten)
 
-    with pytest.raises(AuctionLogRewrittenError):
+    with pytest.raises(StepLogRewrittenError):
         save()
 
     assert stored(transactions, hand.table_id) == before
@@ -206,7 +206,7 @@ def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, trans
         with transactions.begin() as transaction:
             transaction.save_table(shortened)
 
-    with pytest.raises(AuctionLogRewrittenError):
+    with pytest.raises(StepLogRewrittenError):
         save()
 
     assert stored(transactions, hand.table_id) == before
