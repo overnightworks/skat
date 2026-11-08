@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from skat.engine.cards import Rank, Suit
-from skat.engine.deal import Position
+from skat.engine.deal import Position, positions_from
 from skat.table.service import TableService
 from skat.web.presence import Presence
 from skat.web.tables import (
@@ -417,7 +417,6 @@ class TestStandUp:
 
 
 HAND_KEYS = {"dealer_seat", "own_cards", "skat_count"}
-CHAIR_HAND_KEYS = {"position", "card_count"}
 
 
 def read(skat, headers, table_id):
@@ -434,7 +433,7 @@ class TestHandInPayloads:
 
         stored = skat.store.tables[table_id]
         found = cards_in_text(answer.text)
-        assert [wire_cards(hand) for hand in stored.hand.hands.values()].count(found) == 1
+        assert found == wire_cards(stored.hand.hands[positions_from(stored.dealer)[3]])
         assert not found & wire_cards(stored.hand.skat)
         hand = answer.json()["hand"]
         assert (hand["dealer_seat"], hand["skat_count"]) == (stored.dealer, 2)
@@ -473,6 +472,24 @@ class TestHandInPayloads:
 
         assert cards_in_text(answer.text) == wire_cards(own)
         assert not cards_in_text(answer.text) & wire_cards(SKAT_CARDS)
+
+    @pytest.mark.parametrize("who", [0, 1, 2, 3], ids=["anna", "ben", "cleo", "dora-without-a-chair"])
+    def test_no_viewer_gets_the_skats_cards_only_its_count(self, skat, who):
+        table_id, people = seated_three(skat)
+
+        body = read(skat, people[who][0], table_id)
+
+        assert not cards_in_text(body.text) & wire_cards(SKAT_CARDS)
+        assert body.json()["hand"]["skat_count"] == len(SKAT_CARDS)
+
+    def test_a_viewer_without_a_chair_still_gets_every_position_and_the_dealers_seat(self, skat):
+        table_id, people = seated_three(skat)
+        dora_headers, _ = people[3]
+
+        body = read(skat, dora_headers, table_id).json()
+
+        assert [chair["hand"]["position"] for chair in body["chairs"]] == ["middlehand", "rearhand", "forehand"]
+        assert body["hand"]["dealer_seat"] == DEALER_SEAT
 
     def test_a_replayed_sit_shows_the_replayers_own_cards_and_no_other_card(self, skat):
         table_id, people = seated_three(skat)
