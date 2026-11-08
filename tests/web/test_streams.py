@@ -11,7 +11,7 @@ from skat.table.service import TableService
 from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from tests.table.support.seating_store import SeatingTableStore
+from tests.support.fake_tables import FakeTableStore
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
 
 OPENER = Actor(account_id="opener", display_name="Anna")
@@ -24,7 +24,7 @@ IDLE_HEARTBEATS = 3
 
 @pytest.fixture
 def service():
-    return TableService(SeatingTableStore(), new_table_id=lambda: TableId("1" * 32))
+    return TableService(FakeTableStore(), new_table_id=lambda: TableId("1" * 32))
 
 
 @pytest.fixture

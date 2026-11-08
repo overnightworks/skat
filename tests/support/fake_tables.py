@@ -31,10 +31,18 @@ class FakeTableStore:
         receipt = self.receipts.get((account_id, command_id))
         if receipt is None:
             return None
-        return Replay(receipt.command, receipt.payload, self.tables[receipt.table_id.value])
+        return Replay(
+            receipt.command, receipt.payload, self.tables[receipt.table_id.value], receipt.refusal, receipt.holder
+        )
 
     def table(self, table_id: TableId) -> TableRecord | None:
         return self.tables.get(table_id.value)
+
+    def locked_table(self, table_id: TableId) -> TableRecord | None:
+        return self.table(table_id)
+
+    def save_table(self, table: TableRecord) -> None:
+        self.tables[table.id.value] = table
 
     def add_table(self, table: TableRecord) -> None:
         self.tables[table.id.value] = table
