@@ -2,11 +2,13 @@ import asyncio
 
 import pytest
 
+from skat.engine.bidding import Awaiting
 from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position, positions_from
 from skat.table.service import TableService
 from skat.web.presence import Presence
 from skat.web.tables import (
+    AWAITING_TOKENS,
     POSITION_TOKENS,
     RANK_TOKENS,
     SUIT_TOKENS,
@@ -553,6 +555,7 @@ class TestTokens:
             pytest.param(SUIT_TOKENS, Suit, id="suits"),
             pytest.param(RANK_TOKENS, Rank, id="ranks"),
             pytest.param(POSITION_TOKENS, Position, id="positions"),
+            pytest.param(AWAITING_TOKENS, Awaiting, id="awaiting"),
         ],
     )
     def test_every_member_has_exactly_one_token_and_no_two_share_one(self, tokens, members):
