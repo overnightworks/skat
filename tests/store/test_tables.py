@@ -172,7 +172,10 @@ def wait_until_a_session_waits_for_a_lock(engine):
     with engine.connect() as watcher:
         while time.monotonic() < deadline:
             waiting = watcher.execute(
-                text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'")
+                text(
+                    "SELECT count(*) FROM pg_stat_activity"
+                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
+                )
             ).scalar_one()
             if waiting:
                 return
@@ -410,9 +413,7 @@ class TestOneMomentRead:
         with PostgresTableTransactions(engine).begin() as transaction:
             return transaction.table(TableId(table_id))
 
-    def test_a_read_during_the_deal_waits_and_returns_the_dealer_and_every_card_together(
-        self, engine, table_id, dealt
-    ):
+    def test_a_read_during_the_deal_waits_and_returns_the_dealer_and_every_card_together(self, engine, table_id, dealt):
         with PostgresTableTransactions(engine).begin() as writer:
             empty = writer.locked_table(TableId(table_id))
             writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
