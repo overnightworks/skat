@@ -1,12 +1,10 @@
-import itertools
-import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.playing import TABLE_CARD_SUFFIX
-from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.hands import CARDS_IN_PLAY, TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
 
@@ -18,8 +16,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-WE = catalog_text("sideUs")
-THEY = catalog_text("sideThem")
 COMMAND_FAILED = catalog_text("commandFailed")
 NULL_GAME = catalog_text("gameNull")
 KREUZ = catalog_text("gameKreuz")
@@ -29,10 +25,8 @@ LIFTED_CARD = f"{HAND_CARD}.touch"
 DIMMED_CARD = f"{HAND_CARD}.no"
 PLAYABLE_CARD = f"{HAND_CARD} button"
 FELT_CARD = ".trick .laid"
-TURN_CHAIR = ".chair.turn"
 CARDS_IN_A_HAND = 10
 CARDS_IN_A_TRICK = 3
-CARDS_IN_PLAY = 30
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
 INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 # A card on the felt lies toward its player: seen from the trick's middle, it points at that player's chair
@@ -53,89 +47,6 @@ TOWARD_CHAIR = """(play) => {
     return apart.sort((first, second) => first[0] - second[0])[0][1];
 }"""
 
-command_numbers = itertools.count(1)
-
-type WireCard = tuple[str, str]
-
-
-class PlayingTable:
-    """A declared game, Null unless named: the forehand leads, and every card and turn is read by API."""
-
-    def __init__(self, declaring: DeclaringTable, game: str) -> None:
-        self.declaring = declaring
-        skat = declaring.skat()
-        declaring.declare_through_the_api(action="take")
-        declaring.declare_through_the_api(
-            action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in sorted(skat)]
-        )
-        declaring.declare_through_the_api(action="declare", game=game, hand=False, ouvert=False, announcement="none")
-        self.watcher = declaring.watcher
-        self.declarer_seat = declaring.declarer_seat
-        self.pages = {self.seat_of(person): person for person in (declaring.declarer, *declaring.others)}
-        self.everyone = [*self.pages.values(), self.watcher]
-        chairs = self.view(self.declarer_seat)["chairs"]
-        self.names = {chair["seat"]: chair["occupant_name"] for chair in chairs}
-        self.seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
-        for person in self.everyone:
-            expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(self.seat_at["forehand"]))
-
-    @staticmethod
-    def seat_of(person: Page) -> int:
-        return int(person.locator(".chair.mine").get_attribute("data-seat") or "")
-
-    def view(self, seat: int) -> dict[str, Any]:
-        return json.loads(self.declaring.sessions[seat].get(self.declaring.api_path))
-
-    def playing(self) -> dict[str, Any]:
-        return self.view(self.declarer_seat)["hand"]["playing"]
-
-    def turn_seat(self) -> int:
-        return self.playing()["turn_seat"]
-
-    def own_cards(self, seat: int) -> list[WireCard]:
-        return [(card["suit"], card["rank"]) for card in self.view(seat)["hand"]["own_cards"]]
-
-    def legal_cards(self, seat: int) -> set[WireCard]:
-        return {(card["suit"], card["rank"]) for card in self.view(seat)["hand"]["playing"]["legal_cards"]}
-
-    def led_card(self) -> WireCard:
-        led = self.playing()["current_trick"][0]["card"]
-        return led["suit"], led["rank"]
-
-    def _send(self, seat: int, version: int, card: WireCard) -> dict[str, Any]:
-        suit, rank = card
-        command_id = f"playing-card-{next(command_numbers):04d}"
-        body = {"command_id": command_id, "version": version, "suit": suit, "rank": rank}
-        return json.loads(self.declaring.sessions[seat].post(f"{self.declaring.api_path}{TABLE_CARD_SUFFIX}", body))
-
-    def play_through_the_api(self, card: WireCard) -> None:
-        view = self.view(self.declarer_seat)
-        self._send(view["hand"]["playing"]["turn_seat"], view["version"], card)
-
-    def play_out(self, cards: int) -> None:
-        """Each seat on turn plays its first legal card, two requests a card: the server's budget is per address."""
-        seat = self.turn_seat()
-        for _ in range(cards):
-            view = self.view(seat)
-            legal = sorted((card["suit"], card["rank"]) for card in view["hand"]["playing"]["legal_cards"])
-            seat = self._send(seat, view["version"], legal[0])["hand"]["playing"]["turn_seat"]
-
-    def a_lead_the_middlehand_must_follow(self) -> WireCard:
-        """A forehand card whose suit the middlehand holds beside another suit: in Null a suit is only its suit."""
-        held = {suit for suit, _ in self.own_cards(self.seat_at["middlehand"])}
-        for card in self.own_cards(self.seat_at["forehand"]):
-            if card[0] in held and len(held) > 1:
-                return card
-        pytest.fail("the deal gave the forehand no suit the middlehand must follow")
-
-    def side_names_as_seen_by(self, person: Page) -> tuple[str, str]:
-        declarer = self.names[self.declarer_seat]
-        if person is self.watcher:
-            return declarer, THEY
-        if person is self.pages[self.declarer_seat]:
-            return WE, THEY
-        return declarer, WE
-
 
 @pytest.fixture
 def deal_a_playing_table(
@@ -145,8 +56,8 @@ def deal_a_playing_table(
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
     def deal(form_factor: dict[str, Any], *, console: bool = True, game: str = "null") -> PlayingTable:
-        return PlayingTable(
-            DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, console=console), game
+        return deal_playing_table(
+            open_person, e2e_server, member_of, page_errors, form_factor, console=console, game=game
         )
 
     return deal
