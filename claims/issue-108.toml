@@ -1,8 +1,0 @@
-claim_id = "16465276ff564c12961e6917586118cf"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "e48a53130fb10faa0e09bc7c5e4f8a45a1c2e9b9"
-branch = "claude/issue-108-auction-others"
-scope = ["frontend/src/lib/auctionMarks.test.ts", "frontend/src/lib/auctionMarks.ts", "frontend/src/lib/bidLadder.test.ts", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/ui/SpeechBubble.svelte", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/table/auction.py", "src/skat/web/tables.py", "tests/e2e/support/words.py", "tests/e2e/test_table_bidding.py", "tests/e2e/test_table_deal_marks.py", "tests/table/test_auction.py", "tests/web/test_auction.py"]
-opened_commit = "14b5d0dbc2d7088e4464e183c317352f84b10a96"
-whole_reason = "A bubble without the turn and the pass marks would show who spoke but not who is out or on turn, and the facing seat has no reader but the waits mark."
