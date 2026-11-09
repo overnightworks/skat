@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from skat.engine.deal import SEATS, seats_from
 from skat.engine.score import Settlement, announcement_missed, list_bonus, overbid, reckon, settle
 from skat.engine.tricks import opponents_points_of
-from skat.engine.value import breakdown_of, value_of
+from skat.engine.value import Breakdown, breakdown_of, value_of
 from skat.table.rules import result_pending
 
 if TYPE_CHECKING:
@@ -45,8 +45,12 @@ class ListEntry:
         return overbid(self.game_value, self.bid)
 
     @property
+    def breakdown(self) -> Breakdown:
+        return breakdown_of(self.declaration, self.matadors, schneider=self.schneider, schwarz=self.schwarz)
+
+    @property
     def levels(self) -> tuple[Level, ...]:
-        return breakdown_of(self.declaration, schneider=self.schneider, schwarz=self.schwarz).levels
+        return self.breakdown.levels
 
 
 def _seated(table: TableRecord) -> tuple[Occupant, Occupant, Occupant]:
@@ -182,7 +186,7 @@ def result_view_of(table: TableRecord) -> ResultView | None:
     if not result_pending(table):
         return None
     entry = table.game_list[-1]
-    breakdown = breakdown_of(entry.declaration, entry.matadors, schneider=entry.schneider, schwarz=entry.schwarz)
+    breakdown = entry.breakdown
     return ResultView(
         ordinal=len(table.game_list),
         declarer_seat=entry.declarer_seat,
