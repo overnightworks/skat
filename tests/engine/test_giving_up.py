@@ -663,18 +663,24 @@ def test_the_declarer_shortening_with_every_yes_ends_the_game_valued_by_how_far_
 
 
 @pytest.mark.parametrize(
-    ("scene", "points", "tricks"),
+    ("scene", "declarer_points", "opponents_points", "declarer_tricks", "opponents_tricks"),
     [
-        pytest.param(KREUZ_MIT_2, (120, 0), (10, 0), id="before the first card the declarer claims everything"),
-        pytest.param({**KREUZ_MIT_2, "taken": OPPONENTS_25}, (95, 25), (8, 2), id="the cards still out count for him"),
+        pytest.param(KREUZ_MIT_2, 120, 0, 10, 0, id="before the first card the declarer claims everything"),
+        pytest.param({**KREUZ_MIT_2, "taken": OPPONENTS_25}, 95, 25, 8, 2, id="the cards still out count for him"),
     ],
 )
 def test_a_shortened_game_counts_the_cards_still_out_for_the_declarer(
-    scene: dict[str, object], points: tuple[int, int], tricks: tuple[int, int]
+    scene: dict[str, object],
+    declarer_points: int,
+    opponents_points: int,
+    declarer_tricks: int,
+    opponents_tricks: int,
 ) -> None:
     result = shortened(scenario(**scene))  # type: ignore[arg-type]
-    assert (result.declarer_points, result.opponents_points) == points
-    assert (result.declarer_tricks, result.opponents_tricks) == tricks
+    assert result.declarer_points == declarer_points
+    assert result.opponents_points == opponents_points
+    assert result.declarer_tricks == declarer_tricks
+    assert result.opponents_tricks == opponents_tricks
 
 
 def test_a_shortened_game_reckons_the_declarer_plus_86_and_the_opponents_nothing() -> None:
