@@ -341,8 +341,7 @@ class TestMemberSignIn:
         "requested",
         [
             f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}",
-            f"{TABLE_PAGE_PREFIX}abc?x=1&{MODE_QUERY_NAME}={CALL_MODE}&y=2",
-            f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}=other&{MODE_QUERY_NAME}={CALL_MODE}",
+            f"{TABLE_PAGE_PREFIX}abc?x=1&{MODE_QUERY_NAME}=other&{MODE_QUERY_NAME}={CALL_MODE}&y=2",
         ],
     )
     def test_a_call_mode_table_return_path_leads_to_the_call_sign_in_page_with_it(self, harness, requested):
