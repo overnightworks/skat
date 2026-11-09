@@ -11,10 +11,9 @@ from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, with_known_deal
-from tests.support.played_game import a_whole_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table
-from tests.web.support.presence import end_the_first_game
+from tests.web.support.series import headers_of, play_a_series, tap_weiter
 from tests.web.support.skat import FETCH
 
 SERIES_LENGTH = 12
@@ -65,20 +64,6 @@ def play_through(skat, table_id, people, games):
             assert deal_next(skat, table_id, people)
 
 
-def tap_weiter(skat, headers, table_id, command_id, ordinal=1):
-    return skat.client.post(
-        f"{TABLES_PATH}/{table_id}{TABLE_READY_SUFFIX}",
-        json={"command_id": command_id, "ordinal": ordinal},
-        headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
-    )
-
-
-def at_the_end_of_a_played_series(skat, table_id, length=3):
-    """The first game played out and it was the last of a series of `length`."""
-    record = end_the_first_game(skat.store, table_id)
-    skat.store.tables[table_id] = replace(record, series=Series(length, length))
-
-
 class TestOpening:
     def test_a_table_opened_with_a_length_answers_game_zero_of_that_length(self, skat):
         headers, _ = skat.member()
@@ -86,7 +71,7 @@ class TestOpening:
         answer = skat.create(headers, series_length=SERIES_LENGTH)
 
         assert answer.status_code == 200
-        assert series_of(answer) == {"game_number": 0, "game_count": SERIES_LENGTH, "over": False}
+        assert series_of(answer) == {"game_number": 0, "game_count": SERIES_LENGTH, "over": False, "standings": None}
 
     def test_a_table_opened_without_a_length_has_no_series_and_deals_on(self, skat):
         table_id, people = open_series(skat)
@@ -153,7 +138,12 @@ class TestCounting:
     def test_the_first_deal_is_game_one(self, skat):
         table_id, people = open_series(skat, 36)
 
-        assert series_of(read(skat, people[0][0], table_id)) == {"game_number": 1, "game_count": 36, "over": False}
+        assert series_of(read(skat, people[0][0], table_id)) == {
+            "game_number": 1,
+            "game_count": 36,
+            "over": False,
+            "standings": None,
+        }
 
     def test_a_passed_in_hand_counts_and_leaves_no_list_row(self, skat):
         table_id, people = open_series(skat, SERIES_LENGTH)
@@ -171,7 +161,7 @@ class TestCounting:
         play_through(skat, table_id, people, SERIES_LENGTH)
 
         answer = read(skat, people[0][0], table_id).json()
-        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": True}
+        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": True, "standings": []}
         assert answer["hand"] is None
         assert not deal_next(skat, table_id, people)
         assert series_of(read(skat, people[0][0], table_id))["game_number"] == SERIES_LENGTH
@@ -184,7 +174,7 @@ class TestCounting:
             assert deal_next(skat, table_id, people)
 
         answer = read(skat, people[0][0], table_id).json()
-        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": False}
+        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": False, "standings": None}
         assert answer["hand"] is not None
 
     def test_a_passed_in_last_game_names_no_next_dealer(self, skat):
@@ -203,53 +193,53 @@ class TestCounting:
 
         skat.sit(stranger, table_id, 2, command_id="sit-dora")
 
-        assert series_of(read(skat, people[0][0], table_id)) == {"game_number": 2, "game_count": 36, "over": False}
+        assert series_of(read(skat, people[0][0], table_id)) == {
+            "game_number": 2,
+            "game_count": 36,
+            "over": False,
+            "standings": None,
+        }
 
 
 class TestTheEnd:
     def test_the_last_game_played_through_the_card_route_stands_as_a_result_and_ends_the_series(self, skat):
-        table = Table(skat)
-        skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 3))
-        table.declared_hand_game()
-
-        table.played_out(each.card for each in a_whole_game(table.record))
+        table, _ = play_a_series(skat)
 
         answer = table.read_as(table.watcher).json()
-        assert answer["series"] == {"game_number": 3, "game_count": 3, "over": True}
-        assert answer["result"]["ordinal"] == 1
+        assert (answer["series"]["game_number"], answer["series"]["over"]) == (3, True)
+        assert answer["result"]["ordinal"] == 3
         assert answer["hand"] is None
 
     def test_weiter_after_the_last_game_is_refused_each_time_and_changes_nothing(self, skat):
-        table_id, people = open_series(skat, 3)
-        at_the_end_of_a_played_series(skat, table_id)
-        before = skat.store.tables[table_id]
+        table, _ = play_a_series(skat)
+        before = table.record
 
-        for number, (headers, _) in enumerate(people):
-            answer = tap_weiter(skat, headers, table_id, f"weiter-{number}")
+        for number, headers in enumerate(headers_of(table)):
+            answer = tap_weiter(skat, headers, table.table_id, f"weiter-end-{number}", ordinal=3)
             assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.SERIES_OVER)
 
-        assert skat.store.tables[table_id] == before
+        assert table.record == before
 
     def test_weiter_with_a_stale_ordinal_at_the_end_is_stale_before_it_is_series_over(self, skat):
-        table_id, people = open_series(skat, 3)
-        at_the_end_of_a_played_series(skat, table_id)
+        table, _ = play_a_series(skat)
 
-        answer = tap_weiter(skat, people[0][0], table_id, "weiter-stale", ordinal=2)
+        answer = tap_weiter(skat, headers_of(table)[0], table.table_id, "weiter-stale", ordinal=2)
 
         assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.STALE_RESULT)
 
     def test_a_sitter_at_the_end_is_not_marked_ready_and_nothing_deals(self, skat):
-        table_id, people = open_series(skat, 3)
-        at_the_end_of_a_played_series(skat, table_id)
+        table, _ = play_a_series(skat)
         stranger, newcomer = skat.member()
-        assert skat.stand(people[2][0], table_id, command_id="stand-cleo").status_code == 200
+        assert skat.stand(headers_of(table)[2], table.table_id, command_id="stand-cleo").status_code == 200
 
-        assert skat.sit(stranger, table_id, 3, command_id="sit-dora").status_code == 200
+        assert skat.sit(stranger, table.table_id, 3, command_id="sit-dora").status_code == 200
 
-        record = skat.store.tables[table_id]
+        record = table.record
         assert [chair.ready for chair in record.chairs] == [False, False, False]
         assert record.hand is None
-        assert not deal_next(skat, table_id, [*people[:2], (stranger, newcomer)])
+        accounts = frozenset(chair.occupant.account_id for chair in record.chairs)
+        assert newcomer.id in accounts
+        assert not TableService(skat.store).deal_next(TableId(table.table_id), nullcontext(accounts))
 
     def test_a_sitter_after_a_passed_in_last_game_is_not_marked_ready_and_nothing_deals(self, skat):
         table_id, people = open_series(skat, 3)
@@ -281,4 +271,59 @@ class TestTheAnswer:
         answer = skat.client.get(f"{TABLES_PATH}/{table_id}", headers={**FETCH, **watcher})
 
         assert cards_in(answer.json()) == set()
-        assert set(answer.json()["series"]) == {"game_number", "game_count", "over"}
+        assert set(answer.json()["series"]) == {"game_number", "game_count", "over", "standings"}
+
+
+class TestTheStandings:
+    def test_they_are_absent_while_the_series_runs(self, skat):
+        table = Table(skat)
+        skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
+
+        assert series_of(table.read_as(table.watcher))["standings"] is None
+
+    def test_a_played_series_ends_with_every_person_ranked_by_total_and_the_chairs_totals(self, skat):
+        table, names = play_a_series(skat)
+
+        answer = table.read_as(headers_of(table)[0]).json()
+
+        standings = answer["series"]["standings"]
+        assert {each["display_name"] for each in standings} == set(names)
+        assert [each["total"] for each in standings] == sorted((each["total"] for each in standings), reverse=True)
+        assert standings[0]["place"] == 1
+        assert sorted(each["total"] for each in standings) == sorted(chair["total"] for chair in answer["chairs"])
+        assert sum(each["won"] + each["lost"] for each in standings) == 3
+
+    def test_a_watcher_sees_the_standings_a_player_sees_and_no_card(self, skat):
+        table, _ = play_a_series(skat)
+
+        as_player = table.read_as(headers_of(table)[0]).json()
+        as_watcher = table.read_as(table.watcher).json()
+
+        assert as_watcher["series"] == as_player["series"]
+        assert as_watcher["series"]["standings"] is not None
+        assert cards_in(as_watcher) == set()
+
+    def test_a_person_who_stood_up_mid_series_keeps_a_row_under_their_name_beside_their_replacement(self, skat):
+        table, names = play_a_series(skat, swap_after_first=2)
+
+        answer = table.read_as(table.watcher).json()
+
+        standings = {each["display_name"]: each for each in answer["series"]["standings"]}
+        replacement = table.record.chairs[1].occupant.display_name
+        assert set(standings) == {*names, replacement}
+        assert standings[replacement]["total"] == answer["chairs"][1]["total"]
+        assert (standings[names[1]]["won"], standings[names[1]]["lost"]) == (0, 0)
+
+    def test_a_row_names_nobody_by_account_and_a_nameless_one_has_no_name(self, skat):
+        table, _ = play_a_series(skat)
+        record = skat.store.tables[table.table_id]
+        accounts = {account for entry in record.game_list for account in entry.seat_accounts}
+        nameless = tuple(replace(entry, seat_names=(None, None, None)) for entry in record.game_list)
+        skat.store.tables[table.table_id] = replace(record, game_list=nameless)
+
+        answer = table.read_as(table.watcher)
+
+        standings = answer.json()["series"]["standings"]
+        assert len(standings) == len(accounts)
+        assert [each["display_name"] for each in standings] == [None] * len(accounts)
+        assert all(account not in answer.text for account in accounts)

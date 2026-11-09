@@ -147,6 +147,7 @@ class TestPassedIn:
 def a_played_game() -> ListEntry:
     return ListEntry(
         seat_accounts=(ANNA, BEN, CLEO),
+        seat_names=("Anna", "Ben", "Cleo"),
         declarer_seat=2,
         declaration=Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),
         schneider=False,

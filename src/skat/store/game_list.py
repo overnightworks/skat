@@ -34,6 +34,9 @@ game_list = Table(
     Column("seat_1_account", Text, nullable=False),
     Column("seat_2_account", Text, nullable=False),
     Column("seat_3_account", Text, nullable=False),
+    Column("seat_1_name", Text),
+    Column("seat_2_name", Text),
+    Column("seat_3_name", Text),
     Column("declarer_seat", SmallInteger, nullable=False),
     Column("game", Text, nullable=False),
     Column("hand", Boolean, nullable=False),
@@ -66,6 +69,7 @@ game_list = Table(
 def _entry_of(row: Row[tuple[object, ...]]) -> ListEntry:
     return ListEntry(
         seat_accounts=(row.seat_1_account, row.seat_2_account, row.seat_3_account),
+        seat_names=(row.seat_1_name, row.seat_2_name, row.seat_3_name),
         declarer_seat=row.declarer_seat,
         declaration=Declaration(
             GAME_OF_TEXT[row.game],
@@ -87,11 +91,15 @@ def _entry_of(row: Row[tuple[object, ...]]) -> ListEntry:
 
 def _columns_of(entry: ListEntry) -> dict[str, object]:
     first, second, third = entry.seat_accounts
+    first_name, second_name, third_name = entry.seat_names
     matadors = entry.matadors
     return {
         "seat_1_account": first,
         "seat_2_account": second,
         "seat_3_account": third,
+        "seat_1_name": first_name,
+        "seat_2_name": second_name,
+        "seat_3_name": third_name,
         "declarer_seat": entry.declarer_seat,
         "game": GAME_TEXT[entry.declaration.kind],
         "hand": entry.declaration.hand,
