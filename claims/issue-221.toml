@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "fa828ed7926c6dbdac1ee8948977e9f8108546f9"
 branch = "claude/issue-221-series-standings"
-scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/store/game_list.py", "src/skat/store/migrations/versions/0011_game_list_names.py", "src/skat/table/game_list.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/store/test_game_list.py", "tests/store/test_migrate.py", "tests/store/test_tables_series.py", "tests/table/test_game_list.py", "tests/table/test_views.py", "tests/web/support/series.py", "tests/web/test_mcp.py", "tests/web/test_tables_series.py"]
+scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/store/game_list.py", "src/skat/store/migrations/versions/0011_game_list_names.py", "src/skat/table/game_list.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/store/test_game_list.py", "tests/store/test_migrate.py", "tests/store/test_tables_series.py", "tests/support/played_game.py", "tests/table/test_game_list.py", "tests/table/test_views.py", "tests/web/support/series.py", "tests/web/test_mcp.py", "tests/web/test_tables_series.py"]
 opened_commit = "685014e520f6a44e152785c9a9df22ee41c93c43"
 whole_reason = "The name a departed person is ranked by, the pure standings projection and the two view layers that carry it are one vertical path with no honest shorter proof."
