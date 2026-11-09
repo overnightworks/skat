@@ -42,7 +42,7 @@ export type ChairHand = { position: Position; card_count: number };
 export type Declaring = {
     declarer_seat: number;
     stage: Stage;
-    declaration: { game: Game; hand: boolean; ouvert?: boolean } | null;
+    declaration: { game: Game; hand: boolean; ouvert: boolean } | null;
     open_cards: Card[];
 };
 export type Awaiting = (typeof AWAITING_TOKENS)[number];
@@ -95,6 +95,7 @@ export type Result = {
     declarer_seat: number;
     game: Game;
     hand: boolean;
+    ouvert: boolean;
     won: boolean;
     overbid: boolean;
     bid: number;
@@ -360,7 +361,7 @@ export function gameWord(game: Game): string {
 }
 
 // The one name of a declared game, with its levels: „Grand Hand“. Ouvert includes Hand, so it names the game alone.
-export function gameLabel({ game, hand, ouvert = false }: { game: Game; hand: boolean; ouvert?: boolean }): string {
+export function gameLabel({ game, hand, ouvert }: { game: Game; hand: boolean; ouvert: boolean }): string {
     if (ouvert) return `${gameWord(game)} ${words.ouvert}`;
     return hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
 }

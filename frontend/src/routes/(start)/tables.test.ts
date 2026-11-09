@@ -494,7 +494,7 @@ describe("the auction's value while declaring", () => {
             {
                 declarer_seat: 2,
                 stage: "declared" as const,
-                declaration: { game: "null" as const, hand: false },
+                declaration: { game: "null" as const, hand: false, ouvert: false },
                 open_cards: [],
             },
             { seat: 2, value: 20 },
@@ -580,10 +580,6 @@ describe("the table's seats and link", () => {
         ["an ouvert game, which includes Hand", true, true, `${words.gameGrand} ${words.ouvert}`],
     ])("labels %s", (_name, hand, ouvert, label) => {
         expect(gameLabel({ game: "grand", hand, ouvert })).toBe(label);
-    });
-
-    it("labels a game whose answer names no ouvert as it labels a plain one", () => {
-        expect(gameLabel({ game: "herz", hand: false })).toBe(words.gameHerz);
     });
 
     it.each([

@@ -57,7 +57,12 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
                 words: [],
                 declared: null,
             },
-            declaring: { declarer_seat: DECLARER_SEAT, stage: "declared", declaration: { game: "null", hand: true } },
+            declaring: {
+                declarer_seat: DECLARER_SEAT,
+                stage: "declared",
+                declaration: { game: "null", hand: true, ouvert: false },
+                open_cards: [],
+            },
             playing: changes === null ? null : playing(changes),
         },
         passed_in: null,
@@ -199,7 +204,7 @@ describe("the game in play", () => {
         const declared = table(1, { turn_seat: 1 });
 
         expect(gameInPlay(declared)).toEqual({
-            declaration: { game: "null", hand: true },
+            declaration: { game: "null", hand: true, ouvert: false },
             declarerSeat: DECLARER_SEAT,
             playing: playing({}),
         });
