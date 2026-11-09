@@ -94,7 +94,9 @@ def frame_a_table(
         def frame(*, init_script: str | None = None, **device_options: Any) -> FramedTable:
             path = new_table(open_person, signing_server)
             visitor = record_page_errors(
-                open_person(signed_in=False, server=signing_server, **device_options), page_errors
+                open_person(signed_in=False, server=signing_server, **device_options),
+                page_errors,
+                signed_out_account_check_origin=signing_server.base_url,
             )
             if init_script is not None:
                 visitor.add_init_script(init_script)
