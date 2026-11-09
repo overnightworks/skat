@@ -9,10 +9,11 @@ if TYPE_CHECKING:
 
     from tests.e2e.support.server import RunningServer
 
+LEGAL_ORIGIN = "https://hallucinai.de"
 LEGAL_LINKS = {
-    "Impressum": "https://hallucinai.de/impressum#skat",
-    "Datenschutz": "https://hallucinai.de/datenschutz#skat",
-    "Nutzungsbedingungen": "https://hallucinai.de/nutzungsbedingungen#skat",
+    "Impressum": f"{LEGAL_ORIGIN}/impressum#skat",
+    "Datenschutz": f"{LEGAL_ORIGIN}/datenschutz#skat",
+    "Nutzungsbedingungen": f"{LEGAL_ORIGIN}/nutzungsbedingungen#skat",
 }
 ISSUER_END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
 ACCOUNT_AVATAR = ".account-button"
