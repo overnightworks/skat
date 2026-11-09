@@ -7,7 +7,7 @@ from pydantic import Field
 
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.web.mcp import AUCTION_BID_MARK, AUCTION_HOLD_MARK, AUCTION_PASS_MARK, AUCTION_PLAY_MARK
-from skat.web.tables import COMMAND_RESPONSES, TABLES_PATH, CreateTableRequest, TableAnswer, actor_of, command_answer
+from skat.web.tables import COMMAND_RESPONSES, TABLES_PATH, CommandRequest, TableAnswer, actor_of, command_answer
 
 if TYPE_CHECKING:
     from skat.table.service import TableService
@@ -20,7 +20,7 @@ TABLE_AUCTION_PASS_SUFFIX: Final = "/auction/pass"  # noqa: S105 - the word for 
 TABLE_AUCTION_PLAY_SUFFIX: Final = "/auction/play"
 
 
-class _AuctionStepRequest(CreateTableRequest):
+class _AuctionStepRequest(CommandRequest):
     """A client names only the step and the version it saw: its seat and position come from the session."""
 
     version: Annotated[int, Field(strict=True)]

@@ -29,7 +29,7 @@ def seated_table(
 ) -> TableRecord:
     people = ((1, ANNA, "Anna"), (2, BEN, "Ben"), (3, CLEO, "Cleo"))
     chairs = tuple(Chair(seat, Occupant(account_id, name)) for seat, account_id, name in people)
-    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), ())
+    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None)
 
 
 class TestChairPositions:
