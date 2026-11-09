@@ -224,7 +224,7 @@ class TestWhileTheLeaseRuns:
         person = Agent(skat, issuer, subject=PERSON_SUBJECT)
         advance(skat, time, CALL_EVERY_SECONDS)
         admitted = person.request("tools/list", token_changes=PERSON_AT_THE_AGENTS_PATH)
-        advance(skat, time, LEASE_SECONDS)
+        advance(skat, time, LEASE_SECONDS - 1)
 
         chairs = Agent(skat, issuer).read(table_id).json()["chairs"]
         assert admitted.status_code == 200
@@ -446,7 +446,7 @@ class TestUndealtTable:
         assert not isinstance(waiting, EndedTable)
         assert isinstance(skat.store.tables[table_id], EndedTable)
 
-    def test_an_agent_that_sits_nowhere_does_not_hold_a_table_open_nor_watch_it(self, skat, time, agent, empty_seconds):
+    def test_an_agent_that_sits_nowhere_does_not_hold_a_table_open(self, skat, time, agent, empty_seconds):
         owner, _ = skat.member()
         table_id = skat.create(owner).json()["id"]
         skat.client.cookies.clear()
@@ -523,18 +523,34 @@ class TestWhenTheTablesCannotBeRead:
     def test_a_failed_read_at_a_lapse_is_retried_and_loses_neither_the_wake_nor_the_hold(
         self, skat, time, result_table, hold_seconds
     ):
-        advance(skat, time, CALL_EVERY_SECONDS)
-        self.failing_once(skat.store)
-        with capture_logs() as logs:
-            advance(skat, time, LEASE_SECONDS - CALL_EVERY_SECONDS + 1)
-        advance(skat, time, CHAIR_RELEASE_RETRY_SECONDS)
+        with streams_of(skat, result_table.table_id, [(result_table.watcher, None)]) as (messages,):
+            advance(skat, time, CALL_EVERY_SECONDS)
+            self.failing_once(skat.store)
+            with capture_logs() as logs:
+                advance(skat, time, LEASE_SECONDS - CALL_EVERY_SECONDS + 1)
+            advance(skat, time, CHAIR_RELEASE_RETRY_SECONDS)
+            woken = next(message for message in messages if message["chairs"][AGENT_SEAT - 1]["is_away"])
 
-        advance(skat, time, hold_seconds)
+            advance(skat, time, hold_seconds)
 
         assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+        assert woken["chairs"][AGENT_SEAT - 1]["is_away"] is True
         assert AGENT_SEAT not in occupied_seats(skat, result_table.table_id)
 
-    def test_a_retry_after_the_agent_returned_does_nothing(self, skat, time, agent, result_table, hold_seconds):
+    def test_a_failed_read_at_a_lease_start_is_retried_and_the_deal_still_comes(self, skat, time, agent, result_table):
+        advance(skat, time, LEASE_SECONDS + 1)
+        mark_ready(result_table, MIDDLEHAND, FOREHAND, REARHAND)
+        with persons_streams(result_table):
+            self.failing_once(skat.store)
+            agent.read(UNKNOWN_ID)
+            advance(skat, time, CHAIR_RELEASE_RETRY_SECONDS + NEXT_DEAL_PAUSE_SECONDS - 1)
+            waiting = hand_of(result_table)
+            advance(skat, time, 1)
+
+        assert waiting is None
+        assert hand_of(result_table) is not None
+
+    def test_a_retry_after_the_agent_returned_frees_no_chair(self, skat, time, agent, result_table, hold_seconds):
         advance(skat, time, CALL_EVERY_SECONDS)
         self.failing_once(skat.store)
         advance(skat, time, LEASE_SECONDS - CALL_EVERY_SECONDS + 1)
