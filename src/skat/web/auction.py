@@ -93,7 +93,7 @@ def _add_hold(router: APIRouter, take_step: StepTaker) -> None:
     ) -> Response | TableAnswer:
         """Hold the bid that stands in the auction of a Skat table, on the caller's turn as the responder.
 
-        Use it when `hand.auction.awaiting` in the answer of read_table is "hold" and it is the caller's turn. The
+        Use it when `hand.auction.awaiting` in the answer of read_table is "answer" and it is the caller's turn. The
         table id and the version come from that answer. The command id names this step: the same id with the same
         version is a retry that changes nothing twice. A refusal (a stale version, not the caller's turn, a hold
         where a bid is awaited) comes back as a failed result with its reason, leaves the table as it was and
@@ -114,11 +114,11 @@ def _add_pass(router: APIRouter, take_step: StepTaker) -> None:
     ) -> Response | TableAnswer:
         """Pass in the auction of a Skat table: the caller is out and takes no further step of it.
 
-        Use it on the caller's turn, when `hand.auction.awaiting` in the answer of read_table names the caller's
-        step. The table id and the version come from that answer. The command id names this step: the same id with
-        the same version is a retry that changes nothing twice. A refusal (a stale version, not the caller's turn,
-        already passed) comes back as a failed result with its reason, leaves the table as it was and spends the
-        command id: the next attempt takes a new command id.
+        Use it on the caller's turn, whatever `hand.auction.awaiting` in the answer of read_table holds: no
+        value of it names a pass. The table id and the version come from that answer. The command id names this
+        step: the same id with the same version is a retry that changes nothing twice. A refusal (a stale version,
+        not the caller's turn, already passed) comes back as a failed result with its reason, leaves the table as
+        it was and spends the command id: the next attempt takes a new command id.
         """
         return await take_step(table_id, body, request, response, AuctionAction.PASS)
 
@@ -136,7 +136,7 @@ def _add_play(router: APIRouter, take_step: StepTaker) -> None:
         """Play the lowest game value as the forehand, once both others passed, to end the auction of a Skat table.
 
         This is the forehand's "Spielen" and no card: a card goes through play_card. Use it on the caller's turn when
-        `hand.auction.awaiting` in the answer of read_table names it. The table id and the version come from that
+        `hand.auction.awaiting` in the answer of read_table is "play". The table id and the version come from that
         answer. The command id names this step: the same id with the same version is a retry that changes nothing
         twice. A refusal (a stale version, not the caller's turn) comes back as a failed result with its reason,
         leaves the table as it was and spends the command id: the next attempt takes a new command id.

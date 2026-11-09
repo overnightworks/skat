@@ -236,8 +236,8 @@ class TestRefused:
         assert table.record == before
 
 
-class TestOldUnionRoute:
-    def test_the_union_route_is_gone(self, table):
+class TestAuctionPathWithoutAStep:
+    def test_a_post_to_the_auction_path_without_a_step_is_not_found(self, table):
         before = table.record
 
         answer = table.skat.client.post(

@@ -192,7 +192,6 @@ export function markReady(id: string, commandId: string, ordinal: number): Promi
     return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal });
 }
 
-// The version is the one the page shows, so a step taken on a stale page is refused; there is no retry.
 const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {
     bid: TABLE_AUCTION_BID_SUFFIX,
     hold: TABLE_AUCTION_HOLD_SUFFIX,
@@ -200,6 +199,7 @@ const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {
     play: TABLE_AUCTION_PLAY_SUFFIX,
 };
 
+// The version is the one the page shows, so a step taken on a stale page is refused; there is no retry.
 export function takeAuctionStep(
     id: string,
     commandId: string,

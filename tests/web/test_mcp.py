@@ -6,9 +6,10 @@ import pytest
 from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
 
-from skat.engine.bidding import VALID_BIDS, Bid, BidRefusal, Declared, Hold, Pass
-from skat.engine.deal import Position
+from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass
+from skat.engine.deal import Position, positions_from
 from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
@@ -24,9 +25,15 @@ from skat.web.mcp import (
     READ_TABLE_TOOL,
 )
 from skat.web.ready import TABLE_READY_SUFFIX
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
+from skat.web.tables import (
+    TABLE_EVENTS_SUFFIX,
+    TABLE_SIT_SUFFIX,
+    TABLE_STAND_SUFFIX,
+    TABLES_PATH,
+    AwaitingToken,
+)
 from tests.support.fake_issuer import FakeIssuer
-from tests.support.payload_cards import CARDS_BY_SEAT, SKAT_CARDS, cards_in, wire_cards
+from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table, card, card_body
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, streams_of
@@ -176,6 +183,20 @@ class TestTools:
         descriptions = {tools[name]["description"] for name in AUCTION_TOOLS}
         assert len(descriptions) == len(AUCTION_TOOLS)
 
+    @pytest.mark.parametrize(
+        ("tool", "token"),
+        [
+            pytest.param(AUCTION_BID_TOOL, AwaitingToken.BID, id="bid"),
+            pytest.param(AUCTION_HOLD_TOOL, AwaitingToken.ANSWER, id="hold"),
+            pytest.param(AUCTION_PLAY_TOOL, AwaitingToken.PLAY, id="play"),
+        ],
+    )
+    def test_a_tool_description_names_the_awaiting_value_its_step_fits(self, agent, tool, token):
+        answer = agent.request("tools/list")
+
+        tools = {listed["name"]: listed for listed in answer.json()["result"]["tools"]}
+        assert f'is "{token.value}"' in tools[tool]["description"]
+
     def test_the_resource_metadata_is_public(self, skat):
         answer = skat.client.get(METADATA_PATH)
 
@@ -307,11 +328,14 @@ class TestAuctionSteps:
             assert table.record.version == before + 1
             assert table.record.progress.auction == (Bid(MIDDLEHAND, value),)
             words = next(view["hand"]["auction"]["words"] for view in watcher if view["version"] == before + 1)
-            assert [(word["action"], word["value"]) for word in words] == [("bid", value)]
+            seat = next(seat for seat, held in positions_from(DEALER_SEAT).items() if held is MIDDLEHAND)
+            assert [(word["seat"], word["action"], word["value"]) for word in words] == [
+                (seat, AuctionAction.BID, value)
+            ]
         direct = skat.client.get(f"{TABLES_PATH}/{table.table_id}", headers=table.at[MIDDLEHAND])
         assert agent.read(table.table_id).json() == direct.json()
 
-    def test_a_hold_facing_a_bid_leaves_the_bid_standing_and_moves_the_turn(self, agent, forehand_auction):
+    def test_a_hold_facing_a_bid_leaves_the_bid_standing_and_gives_the_bidder_the_turn(self, agent, forehand_auction):
         table = forehand_auction
         table.middlehand_bids(VALID_BIDS[0])
         table.skat.client.cookies.clear()
@@ -320,6 +344,8 @@ class TestAuctionSteps:
 
         assert not answer.is_error, answer.text
         assert table.record.progress.auction == (Bid(MIDDLEHAND, VALID_BIDS[0]), Hold(FOREHAND))
+        auction = auction_of(table.record)
+        assert (auction.awaiting, auction.actor) == (Awaiting.BID, MIDDLEHAND)
 
     def test_a_pass_takes_the_agent_out_and_a_later_step_is_refused_as_already_passed(self, agent, middlehand_auction):
         table = middlehand_auction
@@ -420,6 +446,7 @@ class TestAuctionSteps:
         assert answer.is_error
         assert answer.json()["reason"] == BidRefusal.NOT_ABOVE_STANDING
         assert stored(table.skat)[0] == before[0]
+        assert (agent_account_id(table.skat), "agent-step-refused") in table.skat.store.receipts
 
     def test_an_agent_without_a_chair_is_refused_as_not_seated(self, skat, agent):
         agent.admitted()
@@ -436,11 +463,14 @@ class TestAuctionSteps:
     def test_a_table_with_no_hand_is_refused_as_no_hand(self, skat, agent):
         headers = agent.admitted()
         table_id = skat.create(headers).json()["id"]
+        before = stored(skat)
 
         answer = agent.call(AUCTION_PASS_TOOL, table_id=table_id, command_id="agent-step-0001", version=1)
 
         assert answer.is_error
         assert answer.json()["reason"] == Refusal.NO_HAND
+        assert stored(skat)[0] == before[0]
+        assert (agent_account_id(skat), "agent-step-0001") in skat.store.receipts
 
     @pytest.mark.parametrize(
         ("tool", "arguments"),
@@ -455,8 +485,9 @@ class TestAuctionSteps:
     ):
         before = stored(skat)
 
-        agent.auction_step(tool, middlehand_auction, **arguments)
+        answer = agent.auction_step(tool, middlehand_auction, **arguments)
 
+        assert answer.is_error
         assert stored(skat) == before
 
     def test_the_step_is_recorded_under_the_agents_own_account_never_its_owners(self, skat, agent, middlehand_auction):
@@ -591,7 +622,7 @@ class TestWhoMayCall:
             pytest.param("POST", TABLE_SIT_SUFFIX, {"seat": 1}, id="sit"),
             pytest.param("POST", TABLE_STAND_SUFFIX, {}, id="stand"),
             pytest.param("POST", TABLE_READY_SUFFIX, {"ordinal": 1}, id="ready"),
-            pytest.param("POST", "/auction", {"action": "pass", "version": 1}, id="the old auction route"),
+            pytest.param("POST", "/auction", {"action": "pass", "version": 1}, id="the auction path without a step"),
             pytest.param("POST", TABLE_DECLARATION_SUFFIX, {"action": "take", "version": 1}, id="declaration"),
             pytest.param("GET", TABLE_EVENTS_SUFFIX, None, id="events"),
         ],
