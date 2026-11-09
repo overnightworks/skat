@@ -9,7 +9,7 @@ from playwright.sync_api import Page, Route, expect
 
 from skat.table.auction import AuctionAction
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
@@ -529,17 +529,17 @@ def test_the_plaque_waits_for_the_player_on_turn_while_they_are_away(
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
     middlehand = table.middlehand
-    path = middlehand.url
     name = next(chair["occupant_name"] for chair in answer_of(middlehand, table)["chairs"] if chair["is_mine"])
     others = (table.forehand, table.rearhand, table.watcher)
 
-    middlehand.goto(f"{table.server.base_url}/")
+    returning = record_page_errors(middlehand.context.new_page(), page_errors)
+    middlehand.close()
 
     for person in others:
         expect(person.locator(PLAQUE)).to_have_text(f"{WAITING_FOR} {name}")
         assert_page_fits(person)
 
-    middlehand.goto(path)
+    watch(returning, table.server, f"{TABLE_PAGE_PREFIX}{table.id}")
 
-    for person in table.everyone:
+    for person in (*others, returning):
         expect(person.locator(PLAQUE)).to_have_text(BIDDING)
