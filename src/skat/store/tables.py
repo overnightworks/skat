@@ -81,7 +81,7 @@ def _table_record(
     if table is None:
         return None
     seats = connection.execute(
-        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name)
+        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.ready)
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
@@ -89,7 +89,11 @@ def _table_record(
         id=TableId(table_id),
         version=table.version,
         chairs=tuple(
-            Chair(seat.seat, None if seat.account_id is None else Occupant(seat.account_id, seat.display_name))
+            Chair(
+                seat.seat,
+                None if seat.account_id is None else Occupant(seat.account_id, seat.display_name),
+                ready=seat.ready,
+            )
             for seat in seats
         ),
         dealer=table.dealer,
@@ -175,6 +179,7 @@ class _PostgresTableTransaction:
                 .values(
                     account_id=None if chair.occupant is None else chair.occupant.account_id,
                     display_name=None if chair.occupant is None else chair.occupant.display_name,
+                    ready=chair.ready,
                 )
             )
 

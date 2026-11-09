@@ -100,8 +100,11 @@ class Occupant:
 
 @dataclass(frozen=True)
 class Chair:
+    """A chair and who sits on it; `ready` says its occupant tapped „Weiter“ after the pending result."""
+
     seat: int
     occupant: Occupant | None
+    ready: bool = False
 
 
 @dataclass(frozen=True)

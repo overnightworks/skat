@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     ForeignKey,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     SmallInteger,
     Table,
     Text,
+    false,
 )
 
 from skat.engine.cards import Rank, Suit
@@ -39,6 +41,8 @@ chairs = Table(
     Column("seat", Integer, primary_key=True),
     Column("account_id", Text),
     Column("display_name", Text),
+    Column("ready", Boolean, nullable=False, server_default=false()),
+    CheckConstraint("account_id IS NOT NULL OR NOT ready", name="chairs_ready_only_when_occupied"),
 )
 
 SKAT_HOLDER: Final = "skat"

@@ -64,6 +64,7 @@ def seat_of(table: TableRecord, account_id: str) -> Chair | None:
 
 
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
+    """The table with a chair's new occupant, the one way a chair changes hands; the chair's mark goes with it."""
     chairs = tuple(Chair(seat, occupant) if chair.seat == seat else chair for chair in table.chairs)
     return TableRecord(
         id=table.id,
