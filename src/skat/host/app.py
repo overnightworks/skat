@@ -149,6 +149,14 @@ def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
     return EmptyTable(settings.empty_table_seconds, end)
 
 
+def _include_table_step_routers(app: FastAPI, tables: TableService, presence: Presence) -> None:
+    app.include_router(create_auction_router(tables, presence))
+    app.include_router(create_declaring_router(tables, presence))
+    app.include_router(create_playing_router(tables, presence))
+    app.include_router(create_ready_router(tables, presence))
+    app.include_router(create_game_list_router(tables))
+
+
 def create_app(
     settings: ServerSettings,
     *,
@@ -195,11 +203,7 @@ def create_app(
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_tables_router(tables, page_build, presence))
-    app.include_router(create_auction_router(tables, presence))
-    app.include_router(create_declaring_router(tables, presence))
-    app.include_router(create_playing_router(tables, presence))
-    app.include_router(create_ready_router(tables, presence))
-    app.include_router(create_game_list_router(tables))
+    _include_table_step_routers(app, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
     app.state.stop_streams = presence.stop
     install_web_auth_config(app, sign_in_configs.web_auth)
