@@ -226,7 +226,7 @@ class SidesAnswer(BaseModel):
 
 
 class PlayingAnswer(BaseModel):
-    turn_seat: int | None
+    turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
     tricks_won: SidesAnswer

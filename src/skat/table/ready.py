@@ -28,8 +28,7 @@ def ready_payload(command: ReadyCommand) -> str:
 def decide_ready(table: TableRecord, actor: Actor, command: ReadyCommand) -> Decision:
     """„Weiter“ marks the actor's chair: no chair, no pending result, then another result than the pending one.
 
-    A chair already ready stays as it is, with no new
-    version, so a tap from a second tab is no error.
+    A chair already ready stays as it is, with no new version, so a tap from a second tab is no error.
     """
     chair = seat_of(table, actor.account_id)
     if chair is None:

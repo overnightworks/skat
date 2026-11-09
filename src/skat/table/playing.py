@@ -49,7 +49,7 @@ class LastTrick:
 class PlayingView:
     """The game in play as one viewer may see it; the turn is the seat that plays next."""
 
-    turn_seat: int | None
+    turn_seat: int
     current_trick: tuple[SeatedCard, ...]
     last_trick: LastTrick | None
     tricks_won: Sides
