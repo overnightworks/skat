@@ -11,7 +11,7 @@ from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
     CardChoice,
-    CreateTableRequest,
+    CommandRequest,
     TableAnswer,
     actor_of,
     card_of,
@@ -35,7 +35,7 @@ class PlayCardRequest(CardChoice):
     version: Annotated[int, Field(strict=True)]
 
 
-class GiveUpRequest(CreateTableRequest):
+class GiveUpRequest(CommandRequest):
     """A client names only the version it saw: it cannot send consent, and its seat comes from the session."""
 
     version: Annotated[int, Field(strict=True)]

@@ -267,6 +267,7 @@ class TestRefusals:
         "body",
         [
             pytest.param({"consented": True}, id="consent-sent"),
+            pytest.param({"series_length": 3}, id="series-length-sent"),
             pytest.param({"version": "3"}, id="version-as-text"),
             pytest.param({"version": None}, id="version-missing"),
         ],
