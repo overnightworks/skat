@@ -20,6 +20,8 @@ pytestmark = pytest.mark.e2e
 WE = catalog_text("sideUs")
 THEY = catalog_text("sideThem")
 COMMAND_FAILED = catalog_text("commandFailed")
+NULL_GAME = catalog_text("gameNull")
+KREUZ = catalog_text("gameKreuz")
 HAND_CARD = ".own-hand .card"
 LEGAL_CARD = f"{HAND_CARD}.ok"
 LIFTED_CARD = f"{HAND_CARD}.touch"
@@ -56,16 +58,16 @@ type WireCard = tuple[str, str]
 
 
 class PlayingTable:
-    """A declared Null game: the forehand leads, and every card and turn is read by API, not by the page."""
+    """A declared game, Null unless named: the forehand leads, and every card and turn is read by API."""
 
-    def __init__(self, declaring: DeclaringTable) -> None:
+    def __init__(self, declaring: DeclaringTable, game: str) -> None:
         self.declaring = declaring
         skat = declaring.skat()
         declaring.declare_through_the_api(action="take")
         declaring.declare_through_the_api(
             action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in sorted(skat)]
         )
-        declaring.declare_through_the_api(action="declare", game="null", hand=False, ouvert=False, announcement="none")
+        declaring.declare_through_the_api(action="declare", game=game, hand=False, ouvert=False, announcement="none")
         self.watcher = declaring.watcher
         self.declarer_seat = declaring.declarer_seat
         self.pages = {self.seat_of(person): person for person in (declaring.declarer, *declaring.others)}
@@ -141,9 +143,9 @@ def deal_a_playing_table(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
-    def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
+    def deal(form_factor: dict[str, Any], *, console: bool = True, game: str = "null") -> PlayingTable:
         return PlayingTable(
-            DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
+            DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, console=console), game
         )
 
     return deal
@@ -193,6 +195,7 @@ def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) ->
 def expect_the_plaque(table: PlayingTable) -> None:
     points = table.playing()["trick_points"]
     for person in table.everyone:
+        expect(person.locator(".plaque .game")).to_have_text(NULL_GAME)
         declarer, opponents = table.side_names_as_seen_by(person)
         expect(person.locator(".plaque .sides .declarer")).to_have_text(f"{declarer} {points['declarer']}")
         expect(person.locator(".plaque .sides .opponents")).to_have_text(f"{opponents} {points['opponents']}")
@@ -335,7 +338,10 @@ def test_the_keyboard_reaches_only_the_legal_cards_and_plays_with_two_presses(
 def test_after_the_thirtieth_card_no_card_can_be_tapped_and_nothing_breathes(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
-    table = deal_a_playing_table(form_factor)
+    table = deal_a_playing_table(form_factor, game="kreuz")
+    for person in table.everyone:
+        expect(person.locator(".plaque .game")).to_have_text(KREUZ)
+        expect(person.locator(".plaque .game .suit.kreuz")).to_be_visible()
     table.play_out(CARDS_IN_PLAY - 1)
     last_player = table.pages[table.turn_seat()]
     expect(last_player.locator(PLAYABLE_CARD)).to_have_count(1)
