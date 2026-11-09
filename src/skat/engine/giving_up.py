@@ -34,3 +34,19 @@ def throw_down(state: Playing, position: Position) -> PlayOutcome:
         return PlayOutcome(state, PlayRefusal.OVER)
     ending = Ending.DECLARER_THREW_DOWN if position is state.declared.declarer else Ending.OPPONENTS_THREW_DOWN
     return PlayOutcome(replace(state, result=_ended(state, ending)))
+
+
+def opponent_gives_up(state: Playing) -> PlayOutcome:
+    """An opponent gives up his side's defence: the game ends at once and no consent is asked.
+
+    A game already won for the declarer ends with his real result, one already lost for him with the opponents' points
+    so far, and an undecided one is won by its declaration and bid.
+    """
+    if state.result is not None:
+        return PlayOutcome(state, PlayRefusal.OVER)
+    bid = state.declared.bid
+    if settle(_ended(state, Ending.DECLARER_THREW_DOWN), bid).won:
+        return PlayOutcome(replace(state, result=_ended(state, Ending.OPPONENT_GAVE_UP)))
+    if not settle(_ended(state, Ending.OPPONENTS_THREW_DOWN), bid).won:
+        return PlayOutcome(replace(state, result=_ended(state, Ending.DECIDED)))
+    return PlayOutcome(replace(state, result=_ended(state, Ending.CONCEDED)))

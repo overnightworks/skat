@@ -122,7 +122,28 @@ def _announcements_reached(declaration: Declaration, played: PlayedOut) -> bool:
     return played.opponents_schwarz
 
 
-def value_of(played: PlayedOut) -> Valuation:
+def _conceded_valuation(played: PlayedOut, bid: int, declaration: Declaration) -> Valuation:
+    """The declared game with the cheapest levels that meet the bid: declared, then Schneider, then Schwarz too."""
+    held = matadors((*played.declared.hand, *played.declared.skat), declaration.kind)
+    base = declaration.kind.base_value
+    assert held is not None  # noqa: S101 - narrows the type; Null is valued before this
+    assert base is not None  # noqa: S101 - narrows the type; Null is valued before this
+    announced_schwarz = declaration.announcement is Announcement.SCHWARZ
+    for schneider, schwarz in (
+        (declaration.announcement is not Announcement.NONE, announced_schwarz),
+        (True, announced_schwarz),
+    ):
+        levels = levels_of(declaration, schneider=schneider, schwarz=schwarz)
+        value = value_reached_by_levels(held.count, levels, base)
+        if value >= bid:
+            return Valuation(won=True, matadors=held, value=value, schneider=schneider, schwarz=schwarz)
+    levels = levels_of(declaration, schneider=True, schwarz=True)
+    value = value_reached_by_levels(held.count, levels, base)
+    return Valuation(won=True, matadors=held, value=value, schneider=True, schwarz=True)
+
+
+def value_of(played: PlayedOut, bid: int | None = None) -> Valuation:
+    """The game's valuation; a conceded game is valued by declaration and bid, so only it needs the bid."""
     declaration = played.declared.declaration
     assert declaration is not None  # noqa: S101 - narrows the type; a played-out game is declared
     null_levels = declaration.null_levels
@@ -134,6 +155,9 @@ def value_of(played: PlayedOut) -> Valuation:
             schneider=False,
             schwarz=False,
         )
+    if played.ending is Ending.CONCEDED:
+        assert bid is not None  # noqa: S101 - narrows the type; a conceded game is valued against its bid
+        return _conceded_valuation(played, bid, declaration)
     held = matadors((*played.declared.hand, *played.declared.skat), declaration.kind)
     base = declaration.kind.base_value
     assert held is not None  # noqa: S101 - narrows the type; only Null has no matadors
