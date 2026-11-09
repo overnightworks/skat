@@ -64,7 +64,7 @@ export function sideNames(chairs: readonly Chair[], declarerSeat: number): SideN
     return { declarer, opponents: words.sideUs };
 }
 
-export type GameInPlay = { game: Game; declarerSeat: number; playing: Playing };
+export type GameInPlay = { declaration: { game: Game; hand: boolean }; declarerSeat: number; playing: Playing };
 
 // The game being played: a hand is played only once its game is declared, so the declaration is there.
 export function gameInPlay(table: Table): GameInPlay | null {
@@ -72,7 +72,7 @@ export function gameInPlay(table: Table): GameInPlay | null {
     if (!hand?.playing) return null;
     const declaring = hand.declaring as Declaring;
     return {
-        game: (declaring.declaration as { game: Game }).game,
+        declaration: declaring.declaration as { game: Game; hand: boolean },
         declarerSeat: declaring.declarer_seat,
         playing: hand.playing,
     };

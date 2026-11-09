@@ -43,20 +43,23 @@ class AddressedSession(RawSession):
 
 
 class PlayingTable:
-    """A declared game, Kreuz unless named: the forehand leads, and every card and turn is read by API."""
+    """A declared game, named or already declared on the page: the forehand leads, and every card is read by API."""
 
-    def __init__(self, declaring: DeclaringTable, game: str) -> None:
+    def __init__(self, declaring: DeclaringTable, game: str | None) -> None:
         self.declaring = declaring
-        self.game = GameKind[game.upper()]
+        self.game = None if game is None else GameKind[game.upper()]
         declaring.sessions = {
             seat: AddressedSession(declaring.server, session.member) for seat, session in declaring.sessions.items()
         }
-        skat = declaring.skat()
-        declaring.declare_through_the_api(action="take")
-        declaring.declare_through_the_api(
-            action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in sorted(skat)]
-        )
-        declaring.declare_through_the_api(action="declare", game=game, hand=False, ouvert=False, announcement="none")
+        if game is not None:
+            skat = declaring.skat()
+            declaring.declare_through_the_api(action="take")
+            declaring.declare_through_the_api(
+                action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in sorted(skat)]
+            )
+            declaring.declare_through_the_api(
+                action="declare", game=game, hand=False, ouvert=False, announcement="none"
+            )
         self.watcher = declaring.watcher
         self.declarer_seat = declaring.declarer_seat
         self.pages = {self.seat_of(person): person for person in (declaring.declarer, *declaring.others)}
@@ -132,6 +135,7 @@ class PlayingTable:
         pytest.fail("the deal gave the forehand no suit the middlehand must follow")
 
     def _playing_suit(self, card: WireCard) -> object:
+        assert self.game is not None, "a table whose game was declared on the page has no named game"
         suits = {token: suit for suit, token in SUIT_TOKENS.items()}
         ranks = {token: rank for rank, token in RANK_TOKENS.items()}
         return self.game.playing_suit(Card(suits[card[0]], ranks[card[1]]))

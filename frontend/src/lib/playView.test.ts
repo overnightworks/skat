@@ -57,7 +57,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
                 words: [],
                 declared: null,
             },
-            declaring: { declarer_seat: DECLARER_SEAT, stage: "declared", declaration: { game: "null" } },
+            declaring: { declarer_seat: DECLARER_SEAT, stage: "declared", declaration: { game: "null", hand: true } },
             playing: changes === null ? null : playing(changes),
         },
         passed_in: null,
@@ -198,7 +198,11 @@ describe("the game in play", () => {
     it("names the declared game, its declarer and the play once the game is declared", () => {
         const declared = table(1, { turn_seat: 1 });
 
-        expect(gameInPlay(declared)).toEqual({ game: "null", declarerSeat: DECLARER_SEAT, playing: playing({}) });
+        expect(gameInPlay(declared)).toEqual({
+            declaration: { game: "null", hand: true },
+            declarerSeat: DECLARER_SEAT,
+            playing: playing({}),
+        });
     });
 
     it("is none before the game is declared", () => {

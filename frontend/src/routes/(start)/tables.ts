@@ -39,7 +39,7 @@ export type Game = (typeof GAME_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
-export type Declaring = { declarer_seat: number; stage: Stage; declaration: { game: Game } | null };
+export type Declaring = { declarer_seat: number; stage: Stage; declaration: { game: Game; hand: boolean } | null };
 export type Awaiting = (typeof AWAITING_TOKENS)[number];
 export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
 export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
@@ -89,6 +89,7 @@ export type Result = {
     ordinal: number;
     declarer_seat: number;
     game: Game;
+    hand: boolean;
     won: boolean;
     overbid: boolean;
     bid: number;
@@ -170,7 +171,7 @@ export function standUp(id: string, commandId: string): Promise<Outcome> {
 export type DeclaringStep =
     | { action: "take" }
     | { action: "put_back"; cards: readonly Card[] }
-    | { action: "declare"; game: Game; hand: false; ouvert: false; announcement: "none" };
+    | { action: "declare"; game: Game; hand: boolean; ouvert: false; announcement: "none" };
 
 // The version is the one the page shows; each tap brings its own command id, and nothing is retried.
 export function takeDeclaringStep(
@@ -351,6 +352,11 @@ export function isSuitGame(game: Game): game is Suit {
 
 export function gameWord(game: Game): string {
     return GAME_WORDS[game];
+}
+
+// The one name of a declared game, with its levels: „Grand Hand“.
+export function gameLabel({ game, hand }: { game: Game; hand: boolean }): string {
+    return hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
 }
 
 const RANK_WORDS: Record<Rank, string> = {
