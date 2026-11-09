@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
 from skat.table.ready import ReadyCommand
+from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
@@ -32,7 +33,10 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_READY_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_READY_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=excluded(Exclusion.NEXT_HAND),
     )
     async def tap_weiter(
         table_id: str, body: ReadyRequest, request: Request, response: Response

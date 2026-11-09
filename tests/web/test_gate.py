@@ -11,7 +11,13 @@ from fastapi.testclient import TestClient
 from webauth.config import WebAuthConfig, install_web_auth_config, installed_web_auth_config
 from webauth.middleware import install_web_auth_middleware
 from webauth.middleware.security_headers import STRICT_TRANSPORT_SECURITY
-from webauth.policies import CsrfPolicy, SecurityHeadersPolicy, default_content_security_policy
+from webauth.policies import (
+    CsrfPolicy,
+    PathRules,
+    PublicRule,
+    SecurityHeadersPolicy,
+    default_content_security_policy,
+)
 from webauth.ports import AccountEventKind
 
 from skat.host.app import create_app
@@ -497,7 +503,7 @@ def install_gate(app: FastAPI, stores: SignInStores) -> None:
             content_security_policy=default_content_security_policy(), permissions_policy=PERMISSIONS_POLICY
         ),
         csrf_origin=CsrfPolicy(),
-        session_gate=session_gate(stores.sessions),
+        session_gate=session_gate(stores.sessions, PublicRule(PathRules(exact=frozenset()))),
     )
 
 

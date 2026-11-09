@@ -12,6 +12,7 @@ from skat.web.constants import (
     IMMUTABLE_ASSET_CACHE_CONTROL,
     IMMUTABLE_ASSET_DIRECTORY,
 )
+from skat.web.mcp import Exclusion, excluded
 
 if TYPE_CHECKING:
     import os
@@ -46,11 +47,11 @@ class _PageBuildFiles(StaticFiles):
 def create_router(page_build: PageBuild) -> APIRouter:
     router = APIRouter()
 
-    @router.api_route(HEALTH_PATH, methods=READ_METHODS)
+    @router.api_route(HEALTH_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.READINESS_PROBE))
     def health() -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
-    @router.api_route(HOME_PATH, methods=READ_METHODS)
+    @router.api_route(HOME_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
     def home_page() -> Response:
         return built_page_response(page_build.shell)
 
