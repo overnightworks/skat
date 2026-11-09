@@ -1,7 +1,0 @@
-claim_id = "22e0ac5cfb4641ed98ef5268b1c50710"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "bfc997cc8ba3a32492d4daa40112d13aaa9506bd"
-branch = "claude/issue-185-deal-marks-settled"
-scope = ["tests/e2e/test_table_deal_marks.py"]
-opened_commit = "ec2c0c865826715501fa37b0530980ca7a522123"
