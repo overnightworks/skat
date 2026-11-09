@@ -502,21 +502,8 @@ async def command_answer(
     return answer_of(result.view)
 
 
-def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
+def _create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
-
-    @router.post(
-        TABLES_PATH,
-        responses={409: {"description": "The command id came back with another request."}},
-        openapi_extra=excluded(Exclusion.OPENING),
-    )
-    def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
-        # The answer names people, so no cache may keep it past the gate.
-        response.headers["Cache-Control"] = "no-store"
-        try:
-            return answer_of(tables.create(actor_of(request), CreateTable(command_id=body.command_id)))
-        except CommandIdReusedError:
-            raise HTTPException(status_code=409, detail="command id reused with another request") from None
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX,
@@ -545,6 +532,27 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
     ) -> Response | TableAnswer:
         command = StandUp(command_id=body.command_id, table_id=table_id)
         return await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
+
+    return router
+
+
+def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
+    router = APIRouter()
+
+    @router.post(
+        TABLES_PATH,
+        responses={409: {"description": "The command id came back with another request."}},
+        openapi_extra=excluded(Exclusion.OPENING),
+    )
+    def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
+        # The answer names people, so no cache may keep it past the gate.
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return answer_of(tables.create(actor_of(request), CreateTable(command_id=body.command_id)))
+        except CommandIdReusedError:
+            raise HTTPException(status_code=409, detail="command id reused with another request") from None
+
+    router.include_router(_create_seating_router(tables, presence))
 
     @router.get(
         TABLES_PATH + "/{table_id}",
