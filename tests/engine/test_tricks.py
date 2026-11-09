@@ -88,16 +88,17 @@ def first_trick_taken_by_middlehand() -> Playing:
     return ok(play_card(state, REARHAND, KARO_EIGHT))
 
 
+def first_accepted(state: Playing) -> Playing:
+    """The player on turn plays the first card of its hand that is accepted."""
+    position = state.turn
+    return next(
+        outcome.state for card in state.hands[position] if (outcome := play_card(state, position, card)).refusal is None
+    )
+
+
 def play_out(state: Playing) -> Playing:
-    """Every player in turn plays the first card of its hand that is accepted."""
     while state.result is None:
-        position = state.turn
-        accepted = [
-            outcome.state
-            for card in state.hands[position]
-            if (outcome := play_card(state, position, card)).refusal is None
-        ]
-        state = accepted[0]
+        state = first_accepted(state)
     return state
 
 
@@ -176,6 +177,20 @@ def test_the_taker_of_a_trick_leads_the_next_one() -> None:
     assert state.leader is MIDDLEHAND
     refused(play_card(state, FOREHAND, state.hands[FOREHAND][0]), NOT_YOUR_TURN, state)
     assert play_card(state, MIDDLEHAND, PIK_ACE).refusal is None
+
+
+def test_each_card_of_the_trick_in_progress_is_named_with_the_position_that_played_it() -> None:
+    state = ok(play_card(started(), FOREHAND, KARO_SEVEN))
+    state = ok(play_card(state, MIDDLEHAND, KARO_ACE))
+    assert state.current_plays == (CardPlayed(FOREHAND, KARO_SEVEN), CardPlayed(MIDDLEHAND, KARO_ACE))
+
+
+def test_the_trick_after_a_taken_one_names_its_cards_from_the_taker_on() -> None:
+    state = first_trick_taken_by_middlehand()
+    assert state.current_plays == ()
+    state = first_accepted(first_accepted(state))
+    assert [play.position for play in state.current_plays] == [MIDDLEHAND, REARHAND]
+    assert tuple(play.card for play in state.current_plays) == state.current
 
 
 @pytest.mark.parametrize("kind", [HERZ, GRAND, NULL])
