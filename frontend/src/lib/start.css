@@ -362,8 +362,8 @@ body {
     --coaster-tilt: -10deg;
 
     position: absolute;
-    right: -30px;
-    bottom: 18px;
+    right: -14px;
+    bottom: -2px;
     z-index: 3;
     display: grid;
     place-items: center;
@@ -387,7 +387,7 @@ body {
     --coaster-tilt: 8deg;
 
     right: auto;
-    left: -30px;
+    left: -14px;
 }
 
 .room .chair:nth-child(3) .coaster {

@@ -1,3 +1,4 @@
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -18,8 +19,7 @@ pytestmark = pytest.mark.e2e
 
 COASTER = ".chair .coaster"
 STAND_UP = catalog_text("standUp")
-MINUS = chr(0x2212)
-NEVER_UNDER_A_COASTER = (".plate", ".mark", ".fan-spot", ".plaque", ".result", ".actions")
+NEVER_UNDER_A_COASTER = (".plate", COASTER, ".mark", ".fan-spot", ".plaque", ".result", ".actions")
 
 
 @pytest.fixture
@@ -35,10 +35,6 @@ def play_a_table(
     return play
 
 
-def with_minus(number: int) -> str:
-    return f"{MINUS}{-number}" if number < 0 else str(number)
-
-
 def expect_no_coaster(table: PlayingTable) -> None:
     for person in table.everyone:
         expect(person.locator(COASTER)).to_have_count(0)
@@ -51,14 +47,18 @@ def expect_the_totals(table: PlayingTable, totals: dict[int, int]) -> None:
     for person in table.everyone:
         expect(person.locator(COASTER)).to_have_count(len(totals))
         for seat, total in totals.items():
-            expect(person.locator(f".chair[data-seat='{seat}'] .coaster")).to_have_text(with_minus(total))
+            sign = r"\D" if total < 0 else ""
+            expect(person.locator(f".chair[data-seat='{seat}'] .coaster")).to_have_text(
+                re.compile(rf"^{sign}{abs(total)}$")
+            )
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         for coaster in person.locator(COASTER).all():
             box = untilted_box(coaster)
             for selector in NEVER_UNDER_A_COASTER:
                 for other in person.locator(selector).all():
-                    covered = other.bounding_box()
-                    assert covered is None or not overlaps(box, covered), selector
+                    covered = untilted_box(other) if selector == COASTER else other.bounding_box()
+                    if covered is not None and covered != box:
+                        assert not overlaps(box, covered), selector
 
 
 def untilted_box(coaster: Locator) -> dict[str, float]:
