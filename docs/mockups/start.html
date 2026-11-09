@@ -30,6 +30,8 @@ body.solo{padding:0;background:#000}
 body.solo section.shot:not(.on){display:none}
 body.solo section.shot{margin:0}
 body.solo section.shot h2{display:none}
+section.shot .note{margin-top:10px;max-width:780px;font-size:13px;line-height:1.45;color:var(--on-stage-soft)}
+body.solo section.shot .note{display:none}
 body.solo .frame{border-radius:0;border:0}
 
 /* ---------- frame = one screen; the room is a pub back room under a warm pendant lamp ---------- */
@@ -483,7 +485,8 @@ const callBar=(desk,o={})=>desk
   :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb ${o.react?'on':''}">${I.smile}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
 const soloBar=()=>`<div class="sbar"><span class="cb">${I.smile}</span><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
 const FRAMES=[];
-const frame=(id,title,note,size,html)=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${html}</div></section>`]);
+const frame=(id,title,note,size,html,notes=[])=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${html}</div>${notes.map(n=>`<p class="note">${n}</p>`).join('')}</section>`]);
+const LENGTH_NOTE=['Die Länge einer Serie ist jede Zahl von 3 bis 99 in Dreierschritten und wird einmal genannt, wenn der Tisch aufgemacht wird.'];
 /* ===== start: wordmark, the four jacks on the felt, one action ===== */
 const JACKS=[['c',-24,-36],['s',-8,-12],['h',8,12],['d',24,36]];
 const jacks=(x,y,w,scale=1)=>`<div class="jacks" style="${at({left:x,top:y,'--w':w})}">${JACKS.map(([s,a,tx],i)=>card('B',s,'',at({'--w':w,'--a':`${a}deg`,'--tx':`${tx*scale}px`,'--d':`${.15+i*.06}s`}))).join('')}</div>`;
@@ -565,8 +568,8 @@ const newTable=(x,y,w,on=[],picked='official',length=36)=>`<div class="scrim"></
 const ruleChips=(on)=>`<span class="chips">${on.length?HOUSE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
 const ruleTables=(pos,size)=>`<div class="tables" style="${at(pos)}">${[['anna',['anna','ben',null],3,[],36],['tom',['tom','lena',null],5,['kontra','ramsch','bock'],12]].map(([k,chairs,watch,on,length])=>entry(k,chairs,watch,size,on,length)).join('')}</div>`;
 
-frame('s3-list-390','Offene Tische','Handy 390 px','p390',LIST.phone());
-frame('s3-list-1280','Offene Tische','Desktop 1280 px','d1280',LIST.desk());
+frame('s3-list-390','Offene Tische','Handy 390 px','p390',LIST.phone(),LENGTH_NOTE);
+frame('s3-list-1280','Offene Tische','Desktop 1280 px','d1280',LIST.desk(),LENGTH_NOTE);
 frame('s3-empty-390','Niemand spielt','Handy 390 px','p390',
   wordmark(195,112,{ws:84,ps:26,rule:44,wg:12})
   +`<div class="account" style="--ar:12px;--at:12px"><span class="av">F</span>${I.chev}</div>`
@@ -581,18 +584,18 @@ frame('s3-empty-1280','Niemand spielt','Desktop 1280 px','d1280',
   +table({x:340,y:318,w:600,h:420,tr:210,rim:16,ry:'44%',rs:200})
   +`<div class="lull" role="status" style="${at({left:640,top:350})}">Gerade spielt niemand</div>`
   +jacks(640,544,100)+cta(640,600)+legal);
-frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',LIST.phone()+newTable(195,100,354));
-frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',LIST.desk()+newTable(640,60,440));
-frame('rules-on-390','Neuer Tisch mit Hausregeln','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['kontra','ramsch']));
-frame('rules-on-1280','Neuer Tisch mit Hausregeln','Desktop 1280 px','d1280',LIST.desk()+newTable(640,24,440,['kontra','ramsch']));
-frame('rules-set-390','Neuer Tisch mit eigenem Regelsatz','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['points','kontra','ramsch','schieben','bock'],'felix'));
-frame('rules-set-1280','Neuer Tisch mit eigenem Regelsatz','Desktop 1280 px','d1280',LIST.desk()+newTable(640,24,440,['points','kontra','ramsch','schieben','bock'],'felix'));
+frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',LIST.phone()+newTable(195,100,354),LENGTH_NOTE);
+frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',LIST.desk()+newTable(640,60,440),LENGTH_NOTE);
+frame('rules-on-390','Neuer Tisch mit Hausregeln','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['kontra','ramsch']),LENGTH_NOTE);
+frame('rules-on-1280','Neuer Tisch mit Hausregeln','Desktop 1280 px','d1280',LIST.desk()+newTable(640,24,440,['kontra','ramsch']),LENGTH_NOTE);
+frame('rules-set-390','Neuer Tisch mit eigenem Regelsatz','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['points','kontra','ramsch','schieben','bock'],'felix'),LENGTH_NOTE);
+frame('rules-set-1280','Neuer Tisch mit eigenem Regelsatz','Desktop 1280 px','d1280',LIST.desk()+newTable(640,24,440,['points','kontra','ramsch','schieben','bock'],'felix'),LENGTH_NOTE);
 frame('rules-list-390','Offene Tische mit Regeln','Handy 390 px','p390',
   wordmark(195,40,{ws:60,ps:20,rule:30,wg:8})+`<div class="account" style="--ar:12px;--at:12px"><span class="av">F</span>${I.chev}</div>`
-  +ruleTables({left:16,top:150},{w:358,cw:92,ch:64,step:119})+cta(195,688)+legal);
+  +ruleTables({left:16,top:150},{w:358,cw:92,ch:64,step:119})+cta(195,688)+legal,LENGTH_NOTE);
 frame('rules-list-1280','Offene Tische mit Regeln','Desktop 1280 px','d1280',
   wordmark(640,64,{ws:100,ps:26,rule:70,wg:12})+`<div class="account" style="--ar:20px;--at:16px"><span class="av">F</span>Felix${I.chev}</div>`
-  +ruleTables({left:640,top:262},{w:372,cw:100,ch:80,step:122})+cta(640,600)+legal);
+  +ruleTables({left:640,top:262},{w:372,cw:100,ch:80,step:122})+cta(640,600)+legal,LENGTH_NOTE);
 ORDER.push(...['s3-list','s3-empty','s3-new','rules-on','rules-set','rules-list'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
