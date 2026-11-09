@@ -1,0 +1,8 @@
+claim_id = "40dc51cf4fa44e588e8c31c0906a9684"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "fa828ed7926c6dbdac1ee8948977e9f8108546f9"
+branch = "claude/issue-223-series-length-page"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/NewTableButton.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/tables.py", "tests/e2e/support/tables.py", "tests/e2e/test_tables.py", "tests/scripts/test_generate_wire.py", "tests/web/support/skat.py", "tests/web/test_tables_series.py"]
+opened_commit = "46c52350a1f73c278c63adcda9507bed2265c9fe"
+whole_reason = "The request that now needs a length, the sheet that offers one, its words and its styles are one UI addition for one field; drawn apart, an API could require what no page sends, or a page could offer what the request would refuse."
