@@ -21,7 +21,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from webauth.https_client import KeySetFetchError
 from webauth.oidc import TokenEndpointAnswer, TokenEndpointError, TokenRequest
 
-from skat.web.constants import LOGIN_GROUP
 from skat.web.mcp import AGENT_GROUP, MCP_CLIENT_ID, MCP_GROUP, MCP_SCOPE
 from skat.web.sign_in import IssuerTransports
 
@@ -119,7 +118,7 @@ class FakeIssuer:
             "exp": issued_at + TOKEN_LIFETIME_SECONDS,
             "azp": MCP_CLIENT_ID,
             "scope": MCP_SCOPE,
-            "groups": [LOGIN_GROUP, MCP_GROUP, AGENT_GROUP],
+            "groups": [MCP_GROUP, AGENT_GROUP],
             "agent_owner": "the-agents-owner",
             "agent_name": "Mozart",
             **changes,

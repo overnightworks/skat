@@ -26,10 +26,10 @@ requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.uv]
-# The overnightworks library is built from its git tag; a named package
+# The overnightworks libraries are built from their git tags; a named package
 # overrides a global --no-build, so every other package still installs as a wheel.
 no-binary-package = ["overnightworks-agent-runtime-client", "overnightworks-webauth"]
-# Its build backend runs with these exact tools, as hatchling is pinned above.
+# Their build backends run with these exact tools, as hatchling is pinned above.
 build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0"]
 
 [tool.hatch.metadata]

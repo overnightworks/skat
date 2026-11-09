@@ -9,7 +9,6 @@ from skat.engine.deal import Position
 from skat.engine.tricks import CardPlayed, PlayRefusal
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.constants import LOGIN_GROUP
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
 from skat.web.mcp import AGENT_GROUP, MCP_GROUP, PLAY_CARD_TOOL, READ_TABLE_TOOL
 from skat.web.ready import TABLE_READY_SUFFIX
@@ -205,8 +204,8 @@ class TestPlayCard:
 
         answer = agent.play(forehand_table, card("S8"))
 
-        assert "reused" in answer.text
         assert answer.is_error
+        assert "reused" in answer.text
         assert stored(forehand_table.skat) == before
 
     @pytest.mark.parametrize(
@@ -235,9 +234,9 @@ class TestWhoMayCall:
     @pytest.mark.parametrize(
         ("changes", "status"),
         [
-            pytest.param({"groups": [LOGIN_GROUP, AGENT_GROUP]}, 403, id="no mcp group"),
+            pytest.param({"groups": [AGENT_GROUP]}, 403, id="no mcp group"),
             pytest.param(
-                {"groups": [LOGIN_GROUP, MCP_GROUP], "azp": "another-client"}, 401, id="foreign client, no agents"
+                {"groups": [MCP_GROUP], "azp": "another-client"}, 401, id="foreign client, no agents"
             ),
             pytest.param({"aud": "https://elsewhere.test.invalid/mcp"}, 401, id="wrong audience"),
             pytest.param({"scope": "another-scope"}, 403, id="missing scope"),
@@ -254,8 +253,8 @@ class TestWhoMayCall:
         assert skat.stores.accounts.get(SUBJECT) is None
 
     def test_the_first_call_creates_the_agents_own_account_never_its_owners(self, skat, agent):
-        agent.request("tools/list")
-        agent.request("tools/list")
+        agent.request("tools/list", token_changes={"agent_owner": OWNER})
+        agent.request("tools/list", token_changes={"agent_owner": OWNER})
 
         account = skat.stores.accounts.get(SUBJECT)
         assert account.kind is AccountKind.AGENT
@@ -264,7 +263,7 @@ class TestWhoMayCall:
     def test_a_cookie_session_without_a_bearer_is_challenged_and_runs_nothing(self, skat, forehand_table):
         headers, body = mcp_message("tools/list")
 
-        answer = skat.client.post(MCP_ENDPOINT_PATH, json=body, headers={**headers, **forehand_table.at[FOREHAND]})
+        answer = skat.client.post(MCP_ENDPOINT_PATH, json=body, headers={**headers, **forehand_table.watcher})
 
         assert answer.status_code == 401
         assert "resource_metadata" in answer.headers["www-authenticate"]
