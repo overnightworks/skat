@@ -344,9 +344,7 @@ class TestMemberSignIn:
             f"{TABLE_PAGE_PREFIX}abc?x=1&{MODE_QUERY_NAME}={CALL_MODE}&y=2",
         ],
     )
-    def test_a_call_mode_table_as_return_path_sends_the_visitor_to_the_call_sign_in_page_with_it(
-        self, harness, requested
-    ):
+    def test_a_call_mode_table_return_path_leads_to_the_call_sign_in_page_with_it(self, harness, requested):
         response = harness.browser().get(LOGIN_PATH, params={"next": requested})
         location = urlsplit(response.headers["location"])
         assert (response.status_code, location.path) == (303, CALL_SIGN_IN_PATH)
