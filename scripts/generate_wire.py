@@ -6,9 +6,11 @@ missing, so CI catches drift.
 """
 
 import sys
+import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+PRETTIER_WIDTH = 120  # the width prettier wraps the generated array at
 REPOSITORY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY / "src"))
 
@@ -73,7 +75,10 @@ def render() -> str:
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
     tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())
-    valid_bids = f"export const VALID_BIDS = [{', '.join(map(str, VALID_BIDS))}] as const;\n"
+    wrapped_bids = textwrap.fill(
+        ", ".join(map(str, VALID_BIDS)) + ",", width=PRETTIER_WIDTH, initial_indent="    ", subsequent_indent="    "
+    )
+    valid_bids = f"export const VALID_BIDS = [\n{wrapped_bids}\n] as const;\n"
     return HEADER + "\n" + paths + tuples + valid_bids
 
 

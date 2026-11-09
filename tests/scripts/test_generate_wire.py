@@ -53,9 +53,9 @@ def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, toke
 
 
 def test_render_lists_every_valid_bid_in_rising_order() -> None:
-    line = next(line for line in generate_wire.render().splitlines() if "VALID_BIDS" in line)
+    declaration = generate_wire.render().partition("VALID_BIDS = [")[2].partition("]")[0]
 
-    assert [int(number) for number in line.partition("[")[2].partition("]")[0].split(", ")] == list(VALID_BIDS)
+    assert [int(number) for number in declaration.replace("\n", " ").replace(",", " ").split()] == list(VALID_BIDS)
 
 
 def test_main_writes_the_module_and_a_following_check_passes(tmp_path: Path) -> None:
