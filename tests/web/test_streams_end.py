@@ -68,6 +68,7 @@ class TestTheStreamRoute:
             lines = [line for line in s.iter_lines() if line.startswith("data: ")]
 
         assert len(lines) == 1
+        assert time.pending == 0
         message = json.loads(lines[0].removeprefix("data: "))
         assert message["ended"] == {"reason": "empty", "empty_seconds": hold.settings.empty_table_seconds}
         assert (message["chairs"], message["hand"], message["result"], message["watchers"]) == ([], None, None, 0)

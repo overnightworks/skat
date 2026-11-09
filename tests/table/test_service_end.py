@@ -82,7 +82,7 @@ def end_empty(service, table_id, connected=NOBODY):
     ],
 )
 def test_a_table_ends_only_while_no_hand_was_dealt_and_nobody_is_connected(table, connected, dealt, ends):
-    table = replace(table, dealer=Position.FOREHAND if dealt else None)
+    table = replace(table, dealer=1 if dealt else None)
 
     assert ends_empty(table, connected) is ends
 

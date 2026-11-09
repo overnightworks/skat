@@ -43,7 +43,7 @@ tables = Table(
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
-        "(empty_seconds IS NOT NULL) = (end_reason IS NOT DISTINCT FROM 'empty')",
+        f"(empty_seconds IS NOT NULL) = (end_reason IS NOT DISTINCT FROM '{EndReason.EMPTY.value}')",
         name="tables_empty_seconds_only_for_an_empty_end",
     ),
     CheckConstraint("empty_seconds > 0", name="tables_empty_seconds_are_positive"),

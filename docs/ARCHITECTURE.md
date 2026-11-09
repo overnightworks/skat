@@ -2,13 +2,13 @@
 
 ## 1. Context and Scope
 
-Skat serves a small circle of signed-in people in a browser. Outside it: the realm's identity provider (Keycloak), which signs people in and says who belongs to the Skat group, Skat's own Postgres database, which holds tables, chairs, dealt cards, auction steps, the declarer's steps, the cards played and command receipts, and the fleet's central legal pages at hallucinai.de, which the page links and which hal composes from each app's own part; Skat's part lives in `legal/` and hal reads it from each release. Skat builds on the fleet stack, FastAPI and Svelte with webauth for sign-in and appkit for the shared look, and takes a maintained library before writing its own code. Accounts and sessions are not in the database; they stay in memory.
+Skat serves a small circle of signed-in people in a browser. Outside it: the realm's identity provider (Keycloak), which signs people in and says who belongs to the Skat group, Skat's own Postgres database, which holds tables, chairs, dealt cards, auction steps, the declarer's steps, the cards played, the table's list of played games, a tombstone row for a table that ended, and command receipts, and the fleet's central legal pages at hallucinai.de, which the page links and which hal composes from each app's own part; Skat's part lives in `legal/` and hal reads it from each release. Skat builds on the fleet stack, FastAPI and Svelte with webauth for sign-in and appkit for the shared look, and takes a maintained library before writing its own code. Accounts and sessions are not in the database; they stay in memory.
 
 ```mermaid
 flowchart LR
     person["Person's browser"] -->|"https: pages, /api/account and /api/tables"| skat["Skat"]
     person -->|"sign in"| keycloak["Keycloak"]
-    skat -->|"tables, chairs, hands, auction steps, declaring steps, played cards, receipts"| database[("Postgres")]
+    skat -->|"tables, chairs, hands, auction steps, declaring steps, played cards, game list, tombstones, receipts"| database[("Postgres")]
     skat -->|"code exchange, key set"| keycloak
     person -.->|"legal links"| legal["hallucinai.de legal pages"]
 ```
