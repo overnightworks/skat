@@ -1,0 +1,7 @@
+claim_id = "8a2289ab8a6044268dc5857ffdc78792"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "822e6a53c2b5f7aa07c6c9f1bdeb9f7b99b9f8e0"
+branch = "claude/issue-169-kontra-engine"
+scope = [".aco/ahead-of-caller.toml", "src/skat/engine/kontra.py", "tests/engine/test_kontra.py"]
+opened_commit = "16c5040106f8851a2e196e7467a1ad1f0652f4c2"
