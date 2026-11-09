@@ -12,6 +12,7 @@ from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX
+from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
@@ -45,6 +46,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_DECLARATION_SUFFIX", TABLE_DECLARATION_SUFFIX),
         ("TABLE_AUCTION_SUFFIX", TABLE_AUCTION_SUFFIX),
         ("TABLE_CARD_SUFFIX", TABLE_CARD_SUFFIX),
+        ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
     ]:
         assert any(name in line and f'"{path}"' in line for line in rendered.splitlines())
 
