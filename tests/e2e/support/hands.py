@@ -140,14 +140,6 @@ class PlayingTable:
         ranks = {token: rank for rank, token in RANK_TOKENS.items()}
         return self.game.playing_suit(Card(suits[card[0]], ranks[card[1]]))
 
-    def side_names_as_seen_by(self, person: Page) -> tuple[str, str]:
-        declarer = self.names[self.declarer_seat]
-        if person is self.watcher:
-            return declarer, THEY
-        if person is self.pages[self.declarer_seat]:
-            return WE, THEY
-        return declarer, WE
-
 
 def deal_playing_table(
     open_person: Callable[..., Page],

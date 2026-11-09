@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
     from webauth.ports import AuthenticatedUser
 
-    from skat.engine.tricks import Sides
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
     from skat.table.game_list import ResultView
@@ -222,17 +221,10 @@ class LastTrickAnswer(BaseModel):
     taker_seat: int
 
 
-class SidesAnswer(BaseModel):
-    declarer: int
-    opponents: int
-
-
 class PlayingAnswer(BaseModel):
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
-    tricks_won: SidesAnswer
-    trick_points: SidesAnswer
     legal_cards: list[CardAnswer]
 
 
@@ -366,10 +358,6 @@ def declaring_answer_of(declaring: DeclaringView | None) -> DeclaringAnswer | No
     )
 
 
-def sides_answer_of(sides: Sides) -> SidesAnswer:
-    return SidesAnswer(declarer=sides.declarer, opponents=sides.opponents)
-
-
 def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
     if playing is None:
         return None
@@ -386,8 +374,6 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
             leader_seat=last.leader_seat,
             taker_seat=last.taker_seat,
         ),
-        tricks_won=sides_answer_of(playing.tricks_won),
-        trick_points=sides_answer_of(playing.trick_points),
         legal_cards=[card_answer_of(card) for card in playing.legal_cards],
     )
 
