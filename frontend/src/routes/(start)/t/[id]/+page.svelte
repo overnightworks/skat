@@ -14,7 +14,7 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { resultView, weiterBar, withMinus } from "#lib/result.ts";
-    import { LegalLinks } from "overnightworks-appkit";
+    import { LegalLinks } from "overnightworks-design";
     import BackFan from "#lib/ui/BackFan.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";

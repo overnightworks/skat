@@ -2,7 +2,7 @@
 
 ## 1. Context and Scope
 
-Skat serves a small circle of signed-in people in a browser. Outside it: the agents of the fleet, which play at Skat's `/mcp` under a token of their own (see Trust); the realm's identity provider (Keycloak), which signs people in, says who belongs to the Skat group and signs the agents' tokens, Skat's own Postgres database, which holds tables, chairs, dealt cards, auction steps, the declarer's steps, the cards played, the table's list of played games, a tombstone row for a table that ended, and command receipts, and the fleet's central legal pages at hallucinai.de, which the page links and which hal composes from each app's own part; Skat's part lives in `legal/` and hal reads it from each release. Skat builds on the fleet stack, FastAPI and Svelte with webauth for sign-in and appkit for the shared look, and takes a maintained library before writing its own code. Accounts and sessions are not in the database; they stay in memory.
+Skat serves a small circle of signed-in people in a browser. Outside it: the agents of the fleet, which play at Skat's `/mcp` under a token of their own (see Trust); the realm's identity provider (Keycloak), which signs people in, says who belongs to the Skat group and signs the agents' tokens, Skat's own Postgres database, which holds tables, chairs, dealt cards, auction steps, the declarer's steps, the cards played, the table's list of played games, a tombstone row for a table that ended, and command receipts, and the fleet's central legal pages at hallucinai.de, which the page links and which hal composes from each app's own part; Skat's part lives in `legal/` and hal reads it from each release. Skat builds on the fleet stack, FastAPI and Svelte with webauth for sign-in and design for the shared look, and takes a maintained library before writing its own code. Accounts and sessions are not in the database; they stay in memory.
 
 ```mermaid
 flowchart LR
@@ -21,7 +21,7 @@ One process serves the static SvelteKit build and the few API routes. It refuses
 ```mermaid
 flowchart TB
     subgraph browser["Browser"]
-        pages["SvelteKit pages (adapter-static) with appkit"]
+        pages["SvelteKit pages (adapter-static) with design"]
     end
     subgraph process["Skat process"]
         host["host: composition and server start"]
@@ -123,7 +123,7 @@ The model is Skat's own.
 
 ### Texts
 
-`frontend/src/lib/catalogs/de.po` owns every visible Skat text. `scripts/generate_words.py` writes the typed `frontend/src/lib/words.ts` from it (`make words`; `make words-check`, part of `make lint`, fails on drift). A missing, empty or fuzzy translation fails the generator and a missing key fails the type check, so nothing fails at runtime. The sign-in pages keep appkit's English. A further language is one more catalog checked against `de.po`'s keys; choosing it is a later item.
+`frontend/src/lib/catalogs/de.po` owns every visible Skat text. `scripts/generate_words.py` writes the typed `frontend/src/lib/words.ts` from it (`make words`; `make words-check`, part of `make lint`, fails on drift). A missing, empty or fuzzy translation fails the generator and a missing key fails the type check, so nothing fails at runtime. The sign-in pages keep design's English. A further language is one more catalog checked against `de.po`'s keys; choosing it is a later item.
 
 ### Proof strategy
 
