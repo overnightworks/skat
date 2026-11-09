@@ -1,18 +1,25 @@
+import itertools
 import json
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 
+from agent_runtime_client.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
+from mcp.shared.inbound import MCP_METHOD_HEADER, MCP_NAME_HEADER, NAME_BEARING_METHODS
+from mcp_types import CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY
 from webauth.config import install_web_auth_config, installed_web_auth_config
 
+from skat.engine.deal import positions_from
 from skat.host.app import create_app
 from skat.table.service import TableService
 from skat.web.stores import SignInStores
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.page_build import fixture_page_build
+from tests.support.payload_cards import DEALER_SEAT, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, new_account, seed_member
+from tests.web.support.playing import Table
 
 FETCH = {"accept": "application/json"}
 NAVIGATION = {"accept": "text/html"}
@@ -69,8 +76,11 @@ class Skat:
         self.config = replace(self.config, wall_clock=lambda: now[0])
         install_web_auth_config(self.app, self.config)
 
-    def member(self, **seed_options):
-        member = seed_member(self.stores, self.config, account=new_account(self.stores, self.config), **seed_options)
+    def member(self, account=None, **seed_options):
+        """A member with a session of their own; with `account`, a further device of that account."""
+        member = seed_member(
+            self.stores, self.config, account=account or new_account(self.stores, self.config), **seed_options
+        )
         return {"cookie": cookie_header(member.set_cookie_headers), **FETCH}, member.account
 
     def create(self, headers, command_id="command-0001", **extra):
@@ -109,3 +119,42 @@ def streams_of(server, table_id, people):
             server.client.cookies.clear()
             decoded.append(messages)
         yield decoded
+
+
+def mcp_message(method, params=None):
+    """The headers and the JSON-RPC body of one request at the served revision, as an agent's client sends them."""
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": method,
+        "params": {
+            **(params or {}),
+            "_meta": {PROTOCOL_VERSION_META_KEY: PROTOCOL_VERSION, CLIENT_CAPABILITIES_META_KEY: {}},
+        },
+    }
+    headers = {PROTOCOL_VERSION_HEADER: PROTOCOL_VERSION, MCP_METHOD_HEADER: method}
+    if method in NAME_BEARING_METHODS:
+        headers[MCP_NAME_HEADER] = body["params"][NAME_BEARING_METHODS[method]]
+    return headers, body
+
+
+class AgentTable(Table):
+    """The known hand dealt at a table where the agent's account holds the chair of `position`.
+
+    Sitting is no tool yet, so the agent sits like a person: with a cookie session for the account its first call at
+    /mcp created, `agent_headers`. The other two chairs are people's, and the watcher is a fourth member.
+    """
+
+    def __init__(self, skat, agent_headers, position):
+        self.skat = skat
+        self._commands = itertools.count(1)
+        agent_seat = next(seat for seat, held in positions_from(DEALER_SEAT).items() if held is position)
+        people = [skat.member() for _ in range(3)]
+        others = iter(headers for headers, _ in people)
+        by_seat = {seat: agent_headers if seat == agent_seat else next(others) for seat in (1, 2, 3)}
+        self.table_id = skat.create(by_seat[1]).json()["id"]
+        for seat in (2, 3):
+            skat.sit(by_seat[seat], self.table_id, seat, command_id=f"command-sit-{seat}")
+        with_known_deal(skat, self.table_id)
+        self.at = {held: by_seat[seat] for seat, held in positions_from(DEALER_SEAT).items()}
+        self.watcher = people[2][0]
