@@ -381,7 +381,7 @@ def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
 
 
 @pytest.mark.parametrize("steps_before_the_lost_answer", [0, 1])
-def test_a_sheet_reopened_after_a_lost_answer_opens_a_table_at_the_default_length_unless_the_length_was_stepped(
+def test_a_sheet_reopened_after_a_lost_answer_replays_the_lost_table_unless_the_length_was_stepped(
     steps_before_the_lost_answer: int,
     open_person: Callable[..., Page],
     expected_request_failures: list[str],
