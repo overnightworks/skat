@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from skat.engine.declaration import Declaration
     from skat.engine.tricks import PlayedOut
     from skat.engine.value import Level, Matadors
-    from skat.table.records import TableRecord
+    from skat.table.records import Occupant, TableRecord
 
 
 @dataclass(frozen=True)
@@ -45,23 +45,13 @@ class ListEntry:
         return overbid(self.game_value, self.bid)
 
 
-def _seat_accounts(table: TableRecord) -> tuple[str, str, str]:
-    accounts = tuple(chair.occupant.account_id for chair in table.chairs if chair.occupant is not None)
+def _seated(table: TableRecord) -> tuple[Occupant, Occupant, Occupant]:
+    occupants = tuple(chair.occupant for chair in table.chairs if chair.occupant is not None)
     # Nobody leaves a chair while a hand runs, so a game ends with three seated people.
-    if len(accounts) != len(table.chairs):  # pragma: no cover
+    if len(occupants) != len(table.chairs):  # pragma: no cover
         message = f"table {table.id.value} ended a game with a free chair"
         raise RuntimeError(message)
-    first, second, third = accounts
-    return first, second, third
-
-
-def _seat_names(table: TableRecord) -> tuple[str, str, str]:
-    names = tuple(chair.occupant.display_name for chair in table.chairs if chair.occupant is not None)
-    # Nobody leaves a chair while a hand runs, so a game ends with three seated people.
-    if len(names) != len(table.chairs):  # pragma: no cover
-        message = f"table {table.id.value} ended a game with a free chair"
-        raise RuntimeError(message)
-    first, second, third = names
+    first, second, third = occupants
     return first, second, third
 
 
@@ -73,11 +63,12 @@ def list_entry_of(played: PlayedOut, table: TableRecord) -> ListEntry:
         message = f"table {table.id.value} ended a game without a declaration or a dealer"
         raise RuntimeError(message)
     seats = seats_from(table.dealer)
+    first, second, third = _seated(table)
     valuation = value_of(played)
     settlement = settle(played, played.declared.bid)
     return ListEntry(
-        seat_accounts=_seat_accounts(table),
-        seat_names=_seat_names(table),
+        seat_accounts=(first.account_id, second.account_id, third.account_id),
+        seat_names=(first.display_name, second.display_name, third.display_name),
         declarer_seat=seats[played.declared.declarer],
         declaration=declaration,
         schneider=valuation.schneider,
