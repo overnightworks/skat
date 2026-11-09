@@ -344,8 +344,13 @@ class TestResumeEmptyWaits:
         assert service.resume_empty_waits(EMPTY_SECONDS) == {}
         assert isinstance(store.tables[table_id.value], EndedTable)
 
-    def test_a_dealt_table_past_its_wait_is_kept(self, service, store, dealt_id):
-        stamp(store, dealt_id, EMPTY_SECONDS + 1)
+    @pytest.mark.parametrize("seconds_ago", [None, EMPTY_SECONDS + 1], ids=["without-a-time", "past-its-wait"])
+    def test_a_dealt_table_is_kept_and_stamped_with_nothing(self, service, store, dealt_id, seconds_ago):
+        store.empty_since_by_table[dealt_id.value] = None
+        if seconds_ago is not None:
+            stamp(store, dealt_id, seconds_ago)
+        before = store.empty_since_by_table[dealt_id.value]
 
-        assert service.resume_empty_waits(EMPTY_SECONDS) == {dealt_id.value: 0}
+        assert service.resume_empty_waits(EMPTY_SECONDS) == {}
         assert isinstance(store.tables[dealt_id.value], TableRecord)
+        assert store.empty_since_by_table[dealt_id.value] == before

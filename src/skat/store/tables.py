@@ -37,7 +37,7 @@ from skat.table.records import (
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
+from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -265,11 +265,13 @@ class _PostgresTableTransaction:
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
         self._connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=since))
 
-    def live_empty_since(self) -> tuple[tuple[TableId, datetime | None], ...]:
+    def live_empty_since(self) -> tuple[LiveWait, ...]:
         return tuple(
-            (TableId(row.id), row.empty_since)
+            LiveWait(TableId(row.id), row.dealer is not None, row.empty_since)
             for row in self._connection.execute(
-                select(tables.c.id, tables.c.empty_since).where(tables.c.end_reason.is_(None))
+                select(tables.c.id, tables.c.dealer, tables.c.empty_since)
+                .where(tables.c.end_reason.is_(None))
+                .with_for_update()
             )
         )
 

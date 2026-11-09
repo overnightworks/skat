@@ -194,7 +194,7 @@ def test_an_ended_table_reads_as_a_tombstone_and_is_no_live_table_and_no_chair_i
         assert isinstance(transaction.locked_table(live), TableRecord)
         assert {chair.table_id for chair in transaction.occupied_chairs()} == {live}
     with transactions.begin() as transaction:
-        assert [table_id for table_id, _ in transaction.live_empty_since()] == [live]
+        assert [wait.table_id for wait in transaction.live_empty_since()] == [live]
     assert isinstance(stored(transactions, ended.value), EndedTable)
 
 
@@ -326,3 +326,12 @@ def test_the_start_stamps_a_table_with_no_time_ends_one_past_its_wait_and_leaves
     assert left[recent.value] == pytest.approx(DEFAULT_EMPTY_TABLE_SECONDS - 60, abs=5)
     assert stored_since(engine, unset) is not None
     assert isinstance(stored(transactions, overdue.value), EndedTable)
+
+
+def test_the_start_leaves_a_dealt_table_with_no_time_unstamped_and_unwaited(service, engine):
+    dealt = seated_table(service, "one")
+    set_since(engine, dealt, None)
+
+    left = service.resume_empty_waits(DEFAULT_EMPTY_TABLE_SECONDS)
+
+    assert (left, stored_since(engine, dealt)) == ({}, None)

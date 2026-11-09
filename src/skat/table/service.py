@@ -38,6 +38,7 @@ from skat.table.rules import (
     STAND_UP_COMMAND,
     CommandIdReusedError,
     PresenceStep,
+    ResumeStep,
     command_receipt,
     create_receipt,
     dealt_next,
@@ -51,6 +52,7 @@ from skat.table.rules import (
     present_at,
     replayed_decision,
     replayed_table,
+    resume_step,
     seated_if_hand_ended,
     sit_deals,
     sit_payload,
@@ -67,6 +69,7 @@ __all__ = [
     "CommandIdReusedError",
     "CommandResult",
     "DuplicateReceiptError",
+    "LiveWait",
     "OccupiedChair",
     "TableService",
     "TableTransaction",
@@ -117,8 +120,10 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         """
         ...
 
-    def live_empty_since(self) -> tuple[tuple[TableId, datetime | None], ...]:
-        """Every live table with its time since when nobody has been there."""
+    def live_empty_since(self) -> tuple[LiveWait, ...]:
+        """Every live table with whether a hand was dealt on it and its time since when nobody has been there, each
+        row locked by this transaction.
+        """
         ...
 
     def add_receipt(self, receipt: Receipt) -> None: ...
@@ -130,6 +135,13 @@ class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies 
     def begin(self) -> AbstractContextManager[TableTransaction]:
         """One transaction: it commits when the block ends and rolls back when the block raises."""
         ...
+
+
+@dataclass(frozen=True)
+class LiveWait:
+    table_id: TableId
+    hand_dealt: bool
+    empty_since: datetime | None
 
 
 @dataclass(frozen=True)
@@ -389,21 +401,28 @@ class TableService:
             return step is PresenceStep.END
 
     def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
-        """At the server's start: stamp every live table with no time to now, end every table whose time is already
-        past `empty_seconds` old, and answer each remaining table's id with the seconds left of its wait.
+        """At the server's start: give every live table on which no hand was dealt and that has no time one, end
+        every such table whose wait is already up, and answer each remaining table's id with the seconds left of its
+        wait; a table with a dealt hand pauses and is left out.
         """
         now = self._now()
         with self._transactions.begin() as transaction:
-            stamped = tuple(
-                (table_id, now if since is None else since) for table_id, since in transaction.live_empty_since()
+            resumed = tuple(
+                (wait.table_id, resume_step(wait.hand_dealt, wait.empty_since, now, empty_seconds))
+                for wait in transaction.live_empty_since()
             )
-            for table_id, since in stamped:
-                transaction.set_empty_since(table_id, since)
+            for table_id, resume in resumed:
+                if resume.step is ResumeStep.STAMP:
+                    transaction.set_empty_since(table_id, now)
         left: dict[str, float] = {}
-        for table_id, since in stamped:
-            seconds_left = empty_seconds - (now - since).total_seconds()
-            if seconds_left > 0 or not self.end_empty_table(table_id, nullcontext(frozenset()), empty_seconds):
-                left[table_id.value] = max(seconds_left, 0.0)
+        for table_id, resume in resumed:
+            if resume.step is ResumeStep.SKIP:
+                continue
+            if resume.step is ResumeStep.END and self.end_empty_table(
+                table_id, nullcontext(frozenset()), empty_seconds
+            ):
+                continue
+            left[table_id.value] = resume.seconds_left
         return left
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:

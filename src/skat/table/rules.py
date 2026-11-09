@@ -1,4 +1,4 @@
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
@@ -186,6 +186,13 @@ class PresenceStep(Enum):
     END = "end"
 
 
+def wait_left(empty_since: datetime, now: datetime, empty_seconds: int) -> timedelta:
+    """What is left of a table's wait of `empty_seconds`, counted from the time since when nobody has been at it; the
+    wait is up when nothing is left.
+    """
+    return timedelta(seconds=empty_seconds) - (now - empty_since)
+
+
 def presence_step(
     table: TableRecord,
     connected_accounts: frozenset[str] | None,
@@ -204,9 +211,39 @@ def presence_step(
         return PresenceStep.STAMP if empty_since is None and not hand_was_dealt(table) else PresenceStep.KEEP
     if empty_since is None:
         return PresenceStep.KEEP
-    if not hand_was_dealt(table) and now - empty_since >= timedelta(seconds=empty_seconds):
+    if not hand_was_dealt(table) and wait_left(empty_since, now, empty_seconds) <= timedelta(0):
         return PresenceStep.END
     return PresenceStep.CLEAR
+
+
+class ResumeStep(Enum):
+    SKIP = "skip"
+    STAMP = "stamp"
+    WAIT = "wait"
+    END = "end"
+
+
+@dataclass(frozen=True)
+class Resume:
+    """What the server's start does with a live table: its step and the seconds left of the wait it starts."""
+
+    step: ResumeStep
+    seconds_left: float
+
+
+def resume_step(hand_dealt: bool, empty_since: datetime | None, now: datetime, empty_seconds: int) -> Resume:
+    """What the server's start does with a live table, by the same rules as `presence_step`: a table with a dealt
+    hand pauses and gets no wait; an undealt table with no time gets one and a full wait; one with a time waits for
+    what is left of it, and ends once nothing is left.
+    """
+    if hand_dealt:
+        return Resume(ResumeStep.SKIP, 0.0)
+    if empty_since is None:
+        return Resume(ResumeStep.STAMP, float(empty_seconds))
+    left = wait_left(empty_since, now, empty_seconds)
+    if left <= timedelta(0):
+        return Resume(ResumeStep.END, 0.0)
+    return Resume(ResumeStep.WAIT, left.total_seconds())
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:

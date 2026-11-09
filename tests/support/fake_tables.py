@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from skat.table.records import EndedTable, EndReason, Receipt, Replay, TableRecord
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, OccupiedChair, TableService
+from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, TableService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -75,9 +75,9 @@ class FakeTableStore:
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
         self.empty_since_by_table[table_id.value] = since
 
-    def live_empty_since(self) -> tuple[tuple[TableId, datetime | None], ...]:
+    def live_empty_since(self) -> tuple[LiveWait, ...]:
         return tuple(
-            (table.id, self.empty_since_by_table.get(table.id.value))
+            LiveWait(table.id, table.dealer is not None, self.empty_since_by_table.get(table.id.value))
             for table in self.tables.values()
             if isinstance(table, TableRecord)
         )

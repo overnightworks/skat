@@ -19,6 +19,7 @@ from skat.table.records import (
 )
 from skat.table.rules import (
     PresenceStep,
+    ResumeStep,
     dealt_next,
     decide_free_chair,
     decide_sit,
@@ -28,6 +29,7 @@ from skat.table.rules import (
     presence_step,
     present_at,
     result_pending,
+    resume_step,
     sit_deals,
 )
 from tests.support.played_game import an_entry
@@ -421,3 +423,21 @@ def test_who_is_present_decides_what_happens_to_the_time_since_when_nobody_was(c
     since = None if seconds_ago is None else NOW - timedelta(seconds=seconds_ago)
 
     assert presence_step(table, connected, since, NOW, EMPTY_SECONDS) is step
+
+
+@pytest.mark.parametrize(
+    ("dealt", "seconds_ago", "step", "seconds_left"),
+    [
+        pytest.param(True, None, ResumeStep.SKIP, 0, id="dealt-without-a-time"),
+        pytest.param(True, 700, ResumeStep.SKIP, 0, id="dealt-with-a-time-up"),
+        pytest.param(False, None, ResumeStep.STAMP, EMPTY_SECONDS, id="undealt-without-a-time"),
+        pytest.param(False, 599, ResumeStep.WAIT, 1, id="undealt-with-a-second-left"),
+        pytest.param(False, 600, ResumeStep.END, 0, id="undealt-when-the-time-is-up"),
+    ],
+)
+def test_the_start_gives_each_table_the_step_the_leave_rule_would(dealt, seconds_ago, step, seconds_left):
+    since = None if seconds_ago is None else NOW - timedelta(seconds=seconds_ago)
+
+    resumed = resume_step(dealt, since, NOW, EMPTY_SECONDS)
+
+    assert (resumed.step, resumed.seconds_left) == (step, seconds_left)

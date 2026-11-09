@@ -12,13 +12,15 @@ from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
 from skat.host.app import create_app
-from skat.table.records import Actor, CreateTable, SitDown
+from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.secret_files import StartRefusedError
 from skat.web.stores import SignInStores
+from skat.web.tables import TABLES_PATH
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
+from tests.support.idle_presence import IdleScheduler
 from tests.support.page_build import CALL_PAGE_SCRIPT_HASH, FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -120,15 +122,25 @@ class TestCreateApp:
         self, sign_in_settings
     ):
         store = FakeTableStore()
-        tables = EndingSignal(store)
-        tables.release_end.set()
+        tables = TableService(store)
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
         settings = sign_in_settings(empty_table_seconds=1800).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+        stores = SignInStores.in_memory()
+        app = create_app(
+            settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            stores=stores,
+            chair_scheduler=IdleScheduler(),
+        )
+        member = seed_member(stores, installed_web_auth_config(app))
+        headers = {"cookie": cookie_header(member.set_cookie_headers), "accept": "application/json"}
 
-        with TestClient(app):
-            assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1800
+        with TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers) as client:
+            answer = client.get(f"{TABLES_PATH}/{opened.id}")
+
+        assert answer.json()["ended"] == {"reason": EndReason.EMPTY, "empty_seconds": 1800}
 
     def test_a_store_failure_when_the_server_starts_fails_the_start(self, sign_in_settings):
         class Unreadable(FakeTableStore):
@@ -142,7 +154,7 @@ class TestCreateApp:
         with pytest.raises(ConnectionError), TestClient(app):
             pass
 
-    def test_a_dealt_table_read_live_when_the_server_starts_is_kept_after_the_wait(self, sign_in_settings):
+    def test_a_dealt_table_is_kept_and_gets_no_wait_when_the_server_starts(self, sign_in_settings):
         tables = EndingSignal(FakeTableStore())
         tables.release_end.set()
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
@@ -152,9 +164,9 @@ class TestCreateApp:
         app = create_app(settings, page_build=fixture_page_build(), tables=tables)
 
         with TestClient(app):
-            assert tables.end_checked.wait(timeout=10)
+            pass
 
-        assert tables.table_ended.is_set() is False
+        assert tables.end_checked.is_set() is False
         assert tables.view(OPENER, opened.id, frozenset()).ended is None
 
     def test_the_lifespan_returns_only_after_an_end_whose_check_passed_has_committed(self, sign_in_settings):
