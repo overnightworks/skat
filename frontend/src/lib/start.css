@@ -358,6 +358,45 @@ body {
     text-transform: uppercase;
 }
 
+.room .coaster {
+    --coaster-size: 34px;
+    --coaster-tilt: -10deg;
+
+    position: absolute;
+    right: -14px;
+    bottom: -2px;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: var(--coaster-size);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, transparent 62%, rgba(45, 107, 79, 0.55) 63% 66%, transparent 67%),
+        repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.05) 0 6deg, transparent 6deg 12deg), #f4ecd9;
+    box-shadow:
+        0 3px 0 #d8ccb0,
+        0 8px 14px -4px rgba(0, 0, 0, 0.8);
+    color: var(--ink);
+    font-size: calc(var(--coaster-size) * 0.34);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    transform: rotate(var(--coaster-tilt));
+}
+
+.room .chair:nth-child(2) .coaster {
+    --coaster-tilt: 8deg;
+
+    right: auto;
+    left: -14px;
+}
+
+.room .chair:nth-child(3) .coaster {
+    --coaster-tilt: -6deg;
+
+    right: -40px;
+}
+
 .room .plate {
     position: absolute;
     left: 50%;
@@ -2103,6 +2142,25 @@ body {
         grid-column: 1;
         justify-self: start;
         margin-left: 40px;
+    }
+
+    .room .coaster {
+        --coaster-size: 50px;
+
+        right: auto;
+        bottom: -8px;
+        left: -22px;
+    }
+
+    .room .chair:nth-child(2) .coaster {
+        right: -22px;
+        left: auto;
+    }
+
+    .room .chair:nth-child(3) .coaster {
+        right: auto;
+        bottom: 16px;
+        left: -58px;
     }
 
     .room .skat-spot {

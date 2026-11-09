@@ -20,6 +20,7 @@ function chairs(mine: number, positions: Record<number, Position> = POSITIONS): 
         is_mine: seat === mine,
         is_away: false,
         ready: false,
+        total: null,
         hand: { position: positions[seat] as Position, card_count: 9 },
     }));
 }
