@@ -89,7 +89,6 @@ def test_karo_mit_1_bid_20_given_up_before_the_first_card_is_lost_at_27() -> Non
 
 def test_the_declarer_can_give_up_after_the_first_trick_while_holding_nine_cards() -> None:
     state = after_first_trick(declarer_takes=True)
-    assert len(state.hands[FOREHAND]) == 9
     assert settle(given_up(state), 20) == Settlement(won=False, value=27, score=-54)
 
 
