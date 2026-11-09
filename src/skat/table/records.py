@@ -77,6 +77,8 @@ class Refusal(StrEnum):
     STALE_VERSION = "stale-version"
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
+    NO_RESULT = "no-result"
+    STALE_RESULT = "stale-result"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal

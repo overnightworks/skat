@@ -7,6 +7,7 @@ from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.playing import PLAY_CARD_COMMAND, PlayCardCommand, card_payload, decide_card
+from skat.table.ready import READY_COMMAND, ReadyCommand, decide_ready, ready_payload
 from skat.table.records import (
     Actor,
     CommandRefusal,
@@ -212,6 +213,19 @@ class TableService:
             card_payload(command),
             lambda table: decide_card(table, actor, command),
             on_hand_ended,
+        )
+
+    def mark_ready(
+        self, actor: Actor, command: ReadyCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            READY_COMMAND,
+            ready_payload(command),
+            lambda table: decide_ready(table, actor, command),
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
