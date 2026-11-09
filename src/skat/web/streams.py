@@ -40,7 +40,8 @@ async def table_views(
     heartbeat; the stream ends, sending nothing more, when `admit` refuses or the presence stops. Each idle
     heartbeat reads the view again and sends it only when the table's version moved since the last view
     sent, which recovers a lost wake. A stream's first view of a passed-in table asks for the next deal, so a
-    member's return, a restart or a lost deal starts a fresh pause.
+    member's return, a restart or a lost deal starts a fresh pause; its first view of a pending result asks for
+    the deal at once, and the marks decide.
     """
     changed = asyncio.Event()
     subscription = await presence.subscribe(table_id, account_id, changed.set)
@@ -59,6 +60,8 @@ async def table_views(
                 raise RuntimeError(message)
             if sent_version is None and view.passed_in is not None:
                 presence.deal_soon(table_id)
+            if sent_version is None and view.result is not None:
+                await presence.deal_now(table_id)
             if not heartbeat_read or view.version != sent_version:
                 yield view
                 sent_version = view.version
