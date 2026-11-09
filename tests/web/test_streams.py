@@ -1,6 +1,5 @@
 import asyncio
 import json
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from datetime import timedelta
 
@@ -15,16 +14,23 @@ from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
-from tests.support.idle_presence import idle_hold, idle_presence
+from tests.support.idle_presence import idle_hold, idle_next_deal, idle_presence
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
+from tests.web.support.streams import (
+    ALLOWED_SECONDS,
+    NO_HEARTBEAT_SECONDS,
+    OPENER,
+    VISITOR,
+    admitting,
+    next_view,
+    reader,
+    run_on_a_loop_of_its_own,
+    stream_of,
+)
 
-OPENER = Actor(account_id="opener", display_name="Anna")
-VISITOR = Actor(account_id="visitor", display_name="Ben")
-ALLOWED_SECONDS = 2
-NO_HEARTBEAT_SECONDS = 3600
 SHORT_HEARTBEAT_SECONDS = 0.01
 IDLE_HEARTBEATS = 3
 BID_VALUE = 18
@@ -38,31 +44,6 @@ def service():
 @pytest.fixture
 def table_id(service):
     return service.create(OPENER, CreateTable(command_id="command-1")).id
-
-
-def reader(service, table_id):
-    async def read_view(actor, connected):
-        return service.view(actor, table_id, connected)
-
-    return read_view
-
-
-def admitting(actor):
-    async def admitted():
-        return actor
-
-    return admitted
-
-
-def stream_of(presence, service, actor, table_id, admit=None, heartbeat_seconds=NO_HEARTBEAT_SECONDS):
-    return table_views(
-        presence,
-        reader(service, table_id),
-        admit or admitting(actor),
-        table_id,
-        actor.account_id,
-        heartbeat_seconds=heartbeat_seconds,
-    )
 
 
 class Admission:
@@ -98,16 +79,6 @@ async def stays_pending_through_idle_heartbeats(stream, admission):
     with suppress(asyncio.CancelledError):
         await pending
     return not sent
-
-
-def run_on_a_loop_of_its_own(scenario):
-    """A thread of its own keeps the loop apart from one that a browser driver left running in this one."""
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(asyncio.run, scenario).result()
-
-
-async def next_view(stream):
-    return await asyncio.wait_for(anext(stream), ALLOWED_SECONDS)
 
 
 class TestTableViews:
@@ -199,7 +170,7 @@ class TestTableViews:
                 return subscription
 
         async def scenario():
-            presence = ConnectsAnotherRightAfterRegistering(idle_hold())
+            presence = ConnectsAnotherRightAfterRegistering(idle_hold(), idle_next_deal())
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)
             await stream.aclose()
