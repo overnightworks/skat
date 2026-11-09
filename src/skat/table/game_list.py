@@ -2,7 +2,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from skat.engine.deal import SEATS, seats_from
-from skat.engine.score import Settlement, overbid, reckon, settle
+from skat.engine.score import Settlement, announcement_missed, list_bonus, overbid, reckon, settle
 from skat.engine.tricks import opponents_points_of
 from skat.engine.value import breakdown_of, value_of
 from skat.table.rules import result_pending
@@ -116,6 +116,9 @@ class ResultView:
     matadors: Matadors | None
     base_value: int | None
     levels: tuple[Level, ...]
+    multiplier: int | None
+    list_bonus: int
+    announcement_missed: bool
     won: bool
     doubled: bool
     overbid: bool
@@ -175,7 +178,7 @@ def result_view_of(table: TableRecord) -> ResultView | None:
     if not result_pending(table):
         return None
     entry = table.game_list[-1]
-    breakdown = breakdown_of(entry.declaration, schneider=entry.schneider, schwarz=entry.schwarz)
+    breakdown = breakdown_of(entry.declaration, entry.matadors, schneider=entry.schneider, schwarz=entry.schwarz)
     return ResultView(
         ordinal=len(table.game_list),
         declarer_seat=entry.declarer_seat,
@@ -185,6 +188,9 @@ def result_view_of(table: TableRecord) -> ResultView | None:
         matadors=entry.matadors,
         base_value=breakdown.base_value,
         levels=breakdown.levels,
+        multiplier=breakdown.multiplier,
+        list_bonus=list_bonus(entry.won),
+        announcement_missed=announcement_missed(entry.declaration.announcement, won=entry.won, overbid=entry.overbid),
         won=entry.won,
         doubled=not entry.won,
         overbid=entry.overbid,
