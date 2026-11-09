@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     AUTH_START_PATH,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    TABLE_CARD_SUFFIX,
     TABLE_DECLARATION_SUFFIX,
     TABLE_AUCTION_SUFFIX,
     TABLE_SIT_SUFFIX,
@@ -16,6 +17,8 @@ import {
     declarerStage,
     drawingOrder,
     gameWord,
+    isSuitGame,
+    playCard,
     positionWord,
     readTable,
     sitDown,
@@ -324,6 +327,24 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...body });
     });
 
+    it("sends the version shown, a command id and only the card when playing a card", async () => {
+        answerWith(Response.json(table));
+
+        expect(await playCard(TABLE_ID, 7, "command-4", { suit: "pik", rank: "queen" })).toEqual({
+            kind: "table",
+            table,
+        });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_CARD_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({
+            command_id: "command-4",
+            version: 7,
+            suit: "pik",
+            rank: "queen",
+        });
+    });
+
     it("reports a taken chair with who holds it", async () => {
         answerWith(Response.json({ reason: "seat-taken", holder_name: "Anna" }, { status: 409 }));
 
@@ -384,9 +405,10 @@ describe("what the declaring stage asks of this viewer", () => {
         version: 1,
         chairs: seats(mine),
         watchers: 0,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring },
+        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring, playing: null },
     });
-    const tableAt = (stage: Stage, mine: number): Table => tableWith({ declarer_seat: 2, stage }, mine);
+    const tableAt = (stage: Stage, mine: number): Table =>
+        tableWith({ declarer_seat: 2, stage, declaration: null }, mine);
 
     it.each<Stage>(["choosing", "discarding", "picked"])("asks the declarer to act at %s", (stage) => {
         expect(declarerStage(tableAt(stage, 2))).toBe(stage);
@@ -419,17 +441,30 @@ describe("the auction's value while declaring", () => {
         version: 1,
         chairs: [],
         watchers: 0,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(declared), declaring },
+        hand: {
+            dealer_seat: 1,
+            own_cards: [],
+            skat_count: 2,
+            auction: auctionWith(declared),
+            declaring,
+            playing: null,
+        },
     });
 
     it.each<Stage>(["choosing", "discarding", "picked"])("is shown at %s", (stage) => {
-        expect(bidValueWhileDeclaring(table({ declarer_seat: 2, stage }, { seat: 2, value: 20 }))).toBe(20);
+        expect(
+            bidValueWhileDeclaring(table({ declarer_seat: 2, stage, declaration: null }, { seat: 2, value: 20 })),
+        ).toBe(20);
     });
 
     it.each([
-        ["once the game is declared", { declarer_seat: 2, stage: "declared" as const }, { seat: 2, value: 20 }],
+        [
+            "once the game is declared",
+            { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const } },
+            { seat: 2, value: 20 },
+        ],
         ["before the auction is over", null, null],
-        ["with no value won", { declarer_seat: 2, stage: "choosing" as const }, null],
+        ["with no value won", { declarer_seat: 2, stage: "choosing" as const, declaration: null }, null],
     ])("is not shown %s", (_name, declaring, declared) => {
         expect(bidValueWhileDeclaring(table(declaring, declared))).toBeNull();
     });
@@ -495,6 +530,17 @@ describe("the table's seats and link", () => {
         ["null", words.gameNull],
     ] as [Game, string][])("names the game %s with its word", (game, word) => {
         expect(gameWord(game)).toBe(word);
+    });
+
+    it.each([
+        ["karo", true],
+        ["herz", true],
+        ["pik", true],
+        ["kreuz", true],
+        ["grand", false],
+        ["null", false],
+    ] as [Game, boolean][])("tells whether the game %s is a suit game", (game, suited) => {
+        expect(isSuitGame(game)).toBe(suited);
     });
 
     it("names a card by its suit's game word and its rank word", () => {

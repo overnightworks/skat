@@ -15,6 +15,7 @@ REPOSITORY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY / "src"))
 
 from skat.engine.bidding import VALID_BIDS  # noqa: E402
+from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.web.auction import TABLE_AUCTION_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
@@ -26,6 +27,7 @@ from skat.web.constants import (  # noqa: E402
     SIGNED_IN_AGAIN_QUERY_NAME,
 )
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX  # noqa: E402
+from skat.web.playing import TABLE_CARD_SUFFIX  # noqa: E402
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
@@ -78,6 +80,7 @@ def render() -> str:
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
         "TABLE_DECLARATION_SUFFIX": TABLE_DECLARATION_SUFFIX,
         "TABLE_AUCTION_SUFFIX": TABLE_AUCTION_SUFFIX,
+        "TABLE_CARD_SUFFIX": TABLE_CARD_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
     tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())
@@ -85,7 +88,8 @@ def render() -> str:
         ", ".join(map(str, VALID_BIDS)) + ",", width=PRETTIER_WIDTH, initial_indent="    ", subsequent_indent="    "
     )
     valid_bids = f"export const VALID_BIDS = [\n{wrapped_bids}\n] as const;\n"
-    return HEADER + "\n" + paths + tuples + valid_bids
+    all_points = f"export const ALL_POINTS = {ALL_POINTS};\n"
+    return HEADER + "\n" + paths + tuples + valid_bids + all_points
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:
