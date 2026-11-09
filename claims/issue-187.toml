@@ -1,0 +1,8 @@
+claim_id = "6c08cefd9aec4c00b271e3d6b70fe8fa"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "bfc997cc8ba3a32492d4daa40112d13aaa9506bd"
+branch = "claude/issue-187-auction-tools"
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/auction.py", "src/skat/web/mcp.py", "tests/e2e/support/declaring.py", "tests/e2e/test_agent_plays.py", "tests/e2e/test_table_bidding.py", "tests/e2e/test_table_hand.py", "tests/e2e/test_table_result.py", "tests/scripts/test_generate_wire.py", "tests/store/test_tables.py", "tests/web/support/playing.py", "tests/web/support/presence.py", "tests/web/test_auction.py", "tests/web/test_declaring.py", "tests/web/test_mcp.py", "tests/web/test_playing_grand_and_hand.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
+opened_commit = "1c06c55d9fbdb6cef0b6064e18c0a96e38357277"
+whole_reason = "A step's route, its tool mark, its generated wire name and the page's call are one public contract: apart, the page or a tool points at a path that does not exist, and the old union route cannot go in the same change."
