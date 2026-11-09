@@ -1,4 +1,5 @@
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, NextDeal, Presence
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
+from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 
 
 class IdleScheduler:
@@ -19,6 +20,14 @@ async def deal_no_hand(table_id, connected_accounts):
     return False
 
 
+async def end_no_table(table_id, connected_accounts):
+    return False
+
+
+def idle_empty_table() -> EmptyTable:
+    return EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table)
+
+
 def idle_next_deal() -> NextDeal:
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_no_hand)
 
@@ -28,4 +37,4 @@ def idle_hold() -> ChairHold:
 
 
 def idle_presence() -> Presence:
-    return Presence(idle_hold(), idle_next_deal())
+    return Presence(idle_hold(), idle_next_deal(), idle_empty_table())

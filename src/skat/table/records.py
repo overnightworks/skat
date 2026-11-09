@@ -132,6 +132,22 @@ class TableRecord:
     game_list: tuple[ListEntry, ...]
 
 
+class EndReason(StrEnum):
+    """Why a table ended; the stored token and the one the answer carries."""
+
+    EMPTY = "empty"
+
+
+@dataclass(frozen=True)
+class EndedTable:
+    """What stays of an ended table: its id, version and reason, and for an empty one how long nobody was there."""
+
+    id: TableId
+    version: int
+    reason: EndReason
+    empty_seconds: int
+
+
 @dataclass(frozen=True)
 class NewHand:
     """A hand about to start: the seat that deals it and the cards dealt."""
@@ -168,6 +184,6 @@ class Replay:
 
     command: str
     payload: str
-    table: TableRecord
+    table: TableRecord | EndedTable
     refusal: CommandRefusal | None = None
     holder: str | None = None
