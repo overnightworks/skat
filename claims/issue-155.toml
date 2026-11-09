@@ -1,8 +1,0 @@
-claim_id = "683cad453617407dbc5576d4f795ec83"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "e4b43b14551716b197dcc5c44d8465e4b7dfbe17"
-branch = "claude/issue-155-hand-on-page"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/DeclareControls.svelte", "frontend/src/lib/ui/ResultCard.svelte", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "tests/e2e/support/hands.py", "tests/e2e/test_table_declaring.py"]
-opened_commit = "ce8c33167b965a2f8a35d01d8de260c8f6bc9eab"
-whole_reason = "The Hand panel and the Hand label are one capability: a Hand game the page can declare must not show as a plain game on the plaque or the result card, and #132's one label function lands together with both its callers."
