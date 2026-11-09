@@ -251,7 +251,13 @@ describe("watchTable after a stream error", () => {
             frame(true);
             location(`${CALL_SEARCH}&${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
             vi.stubGlobal("performance", { now: () => 3_600_000 });
-            await refuse();
+            const reading = readTableAfresh(TABLE_ID);
+            answer(0, 200);
+            await reading;
+            watchTable(TABLE_ID, vi.fn(), vi.fn());
+            fail();
+            answer(1, 401);
+            await settle();
 
             expect(reload).toHaveBeenCalledTimes(1);
             expect(assign).not.toHaveBeenCalled();

@@ -25,7 +25,7 @@
             return { page: "signing-in", tabHref: tablePath(tableId) };
         }
         if (tableId === null) {
-            // A framed page whose script has not run reloads itself, since the issuer refuses to be framed.
+            // Before the script runs, a tap reloads the framed page, since the issuer refuses to be framed.
             return { page: "signed-out", signInHref: mounted ? AUTH_START_PATH : "" };
         }
         return {
