@@ -7,3 +7,8 @@ reason = "S5.4a lets the declarer give up at the table; S5.4b asks an opponent's
 path = "src/skat/engine/kontra.py"
 item = "overnightworks/skat#39"
 reason = "S13.3b wires Kontra and Re to the table's switch through the API."
+
+[[code]]
+path = "src/skat/engine/bock.py"
+item = "overnightworks/skat#39"
+reason = "S13.5b stores the pending Bock games and asks the trigger at both hand ends."
