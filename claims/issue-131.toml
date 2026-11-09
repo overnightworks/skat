@@ -1,0 +1,8 @@
+claim_id = "bfde1c2eb94a464d9518fc96265d4b3b"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "d0681204029064e2372f0fe6f8c8daeb8827d063"
+branch = "claude/issue-131-restart"
+scope = ["docs/ARCHITECTURE.md", "tests/e2e/support/server.py", "tests/e2e/test_table_restart.py", "tests/e2e/test_table_watch.py"]
+opened_commit = "288cb5a95c3dcdc9cdccf13eed67b3c04fd4adcc"
+whole_reason = "The harness's production server class, the restart helper and the restart test are one proof: without the class the stop measures the harness, and without the test the helper has no caller."
