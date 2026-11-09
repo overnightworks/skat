@@ -2513,12 +2513,11 @@ body {
     }
 
     .room .actions.on-result .copy {
+        flex-shrink: 0;
+        height: auto;
+        min-height: 52px;
         padding: 0 16px;
         gap: 8px;
-    }
-
-    .room .actions.on-result .copy {
-        flex-shrink: 0;
     }
 
     .room .actions.on-result .copy.wait {
@@ -2529,11 +2528,6 @@ body {
         font-size: 12px;
         line-height: 1.1;
         align-content: center;
-    }
-
-    .room .actions.on-result .copy {
-        height: auto;
-        min-height: 52px;
     }
 
     /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
