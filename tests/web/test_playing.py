@@ -14,10 +14,12 @@ from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX, AnnouncementToken, DeclaringAction, GameToken
 from skat.web.playing import TABLE_CARD_SUFFIX
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.skat import UNKNOWN_ID
+from tests.web.support.presence import occupied_seats
+from tests.web.support.skat import UNKNOWN_ID, streams_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -369,6 +371,41 @@ class TestAPlayedOutHand:
         assert answer.status_code == 200
         assert [chair["occupant_name"] is None for chair in answer.json()["chairs"]] == [False, False, True]
         assert answer.json()["result"] == result
+
+
+class TestTheTableAfterTheThirtiethCard:
+    def test_with_all_three_connected_no_next_hand_is_dealt_on_a_stream_opening_or_a_reconnect(self, server, time):
+        table = Table(server)
+        table.declared_hand_game()
+        people = [(table.at[position], None) for position in (MIDDLEHAND, REARHAND, FOREHAND)]
+        with streams_of(server, table.table_id, people):
+            table.played_out(HERZ_GAME)
+            ended = table.record
+            server.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS * 2)
+
+            with streams_of(server, table.table_id, people):
+                server.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS * 2)
+
+        assert table.record == ended
+        assert table.record.hand is None
+
+    def test_a_member_away_at_the_thirtieth_card_gets_a_fresh_hold_and_the_connected_keep_their_chairs(
+        self, server, hold, time
+    ):
+        table = Table(server)
+        table.declared_hand_game()
+        hold_seconds = hold.settings.chair_hold_seconds
+        first_stream_message(table, table.at[FOREHAND])
+        connected = [(table.at[position], None) for position in (MIDDLEHAND, REARHAND)]
+        with streams_of(server, table.table_id, connected):
+            server.client.portal.call(time.advance, hold_seconds / 2)
+            table.played_out(HERZ_GAME)
+
+            server.client.portal.call(time.advance, hold_seconds - 1)
+            assert occupied_seats(server, table.table_id) == {1, 2, 3}
+
+            server.client.portal.call(time.advance, 2)
+            assert occupied_seats(server, table.table_id) == {SEATS[MIDDLEHAND], SEATS[REARHAND]}
 
 
 class TestTheWrongMoment:

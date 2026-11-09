@@ -197,7 +197,11 @@ class TableService:
         )
 
     def play_card(
-        self, actor: Actor, command: PlayCardCommand, connected_accounts: frozenset[str]
+        self,
+        actor: Actor,
+        command: PlayCardCommand,
+        connected_accounts: frozenset[str],
+        on_hand_ended: Callable[[frozenset[str]], None] | None = None,
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -207,6 +211,7 @@ class TableService:
             PLAY_CARD_COMMAND,
             card_payload(command),
             lambda table: decide_card(table, actor, command),
+            on_hand_ended,
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
