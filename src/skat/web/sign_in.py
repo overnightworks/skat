@@ -2,10 +2,11 @@ import time
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Annotated
-from urllib.parse import quote, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 import structlog
 from fastapi import APIRouter, FastAPI, Query, Response
+from fastapi.responses import RedirectResponse
 from webauth.admission import AdmissionConfig, AdmissionRefusal, NoAdmins
 from webauth.config import SessionLifetime, WebAuthConfig
 from webauth.https_client import fetch_key_set_over_https
@@ -23,8 +24,11 @@ from webauth.sign_in_routes import (
 from skat.web.constants import (
     AUTH_CALLBACK_PATH,
     AUTH_START_PATH,
+    CALL_MODE,
+    CALL_SIGN_IN_PATH,
     LOGIN_GROUP,
     LOGIN_PATH,
+    MODE_QUERY_NAME,
     NO_ACCESS_PATH,
     OIDC_LEEWAY_SECONDS,
     OIDC_SCOPES,
@@ -35,6 +39,7 @@ from skat.web.constants import (
 from skat.web.page_build import BuiltPage
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.secret_files import StartRefusedError, read_secret_file
+from skat.web.tables import TABLE_PAGE_PREFIX
 
 if TYPE_CHECKING:
     from pydantic import SecretStr
@@ -172,16 +177,35 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
         """Carries the raw `next` onto the sign-in address; webauth is the only validator of it."""
         if next_path is None:
             return built_page_response(signed_out_page)
+        if _is_call_mode_table(next_path):
+            return RedirectResponse(
+                f"{CALL_SIGN_IN_PATH}?{RETURN_PATH_QUERY_NAME}={quote(next_path, safe='')}", HTTPStatus.SEE_OTHER
+            )
         address = f"{AUTH_START_PATH}?{RETURN_PATH_QUERY_NAME}={quote(next_path, safe='')}".encode()
         return built_page_response(
             BuiltPage.of(signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"'))
         )
+
+    @router.api_route(CALL_SIGN_IN_PATH, methods=READ_METHODS)
+    def call_sign_in() -> Response:
+        return built_page_response(page_build.call_sign_in)
 
     @router.api_route(NO_ACCESS_PATH, methods=READ_METHODS)
     def no_access() -> Response:
         return built_page_response(page_build.no_access)
 
     return router
+
+
+def _is_call_mode_table(next_path: str) -> bool:
+    """Only chooses the page; webauth alone validates where a sign-in lands."""
+    address = urlsplit(next_path)
+    return (
+        not address.scheme
+        and not address.netloc
+        and address.path.startswith(TABLE_PAGE_PREFIX)
+        and CALL_MODE in parse_qs(address.query).get(MODE_QUERY_NAME, [])
+    )
 
 
 def _refusal_response(refusal: SignInRefusal, page_build: PageBuild) -> Response:

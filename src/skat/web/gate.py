@@ -5,12 +5,19 @@ from webauth.dependencies import LoginRedirect
 from webauth.middleware import SessionGate
 from webauth.policies import PathRules, PublicRule
 
-from skat.web.constants import HEALTH_PATH, LOGIN_PATH, NO_ACCESS_PATH, RETURN_PATH_QUERY_NAME, SIGN_IN_PATHS
+from skat.web.constants import (
+    CALL_SIGN_IN_PATH,
+    HEALTH_PATH,
+    LOGIN_PATH,
+    NO_ACCESS_PATH,
+    RETURN_PATH_QUERY_NAME,
+    SIGN_IN_PATHS,
+)
 
 if TYPE_CHECKING:
     from webauth.ports import SessionRecordStore
 
-PUBLIC_PATHS = frozenset({HEALTH_PATH, LOGIN_PATH, NO_ACCESS_PATH})
+PUBLIC_PATHS = frozenset({HEALTH_PATH, LOGIN_PATH, CALL_SIGN_IN_PATH, NO_ACCESS_PATH})
 
 
 def session_gate(sessions: SessionRecordStore, sign_in_assets: frozenset[str]) -> SessionGate:

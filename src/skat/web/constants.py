@@ -40,7 +40,7 @@ RATE_LIMIT_EXEMPT_PATH_RULES = PathRules(exact=SIGN_IN_PATHS.backchannel.exact |
 # The immutable files of the page build set their own header on success (routes.py): a rule here would also
 # stamp it onto the 401, 429 and 404 that the same path can answer. Every other build file is revalidated.
 NO_CACHE_PATH_RULES = PathRules(
-    exact=frozenset({HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH}),
+    exact=frozenset({HOME_PATH, LOGIN_PATH, CALL_SIGN_IN_PATH, NO_ACCESS_PATH}),
     patterns=(re.compile(rf"^{APP_ASSET_PATH}/(?!{IMMUTABLE_ASSET_DIRECTORY}/)"),),
 )
 # Private, because the assets sit behind the sign-in and a shared cache would hand them out past it (RFC 9111 5.2.2.9).

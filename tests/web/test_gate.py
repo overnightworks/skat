@@ -21,6 +21,7 @@ from skat.web.constants import (
     AUTH_CALLBACK_PATH,
     AUTH_START_PATH,
     BACKCHANNEL_LOGOUT_PATH,
+    CALL_SIGN_IN_PATH,
     HEALTH_PATH,
     IMMUTABLE_ASSET_CACHE_CONTROL,
     LOGIN_PATH,
@@ -34,6 +35,10 @@ from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import (
+    CALL_PAGE_DYNAMIC_NODE,
+    CALL_PAGE_IMPORTED_CHUNK,
+    CALL_PAGE_MODULE,
+    CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
     IMMUTABLE_FILE,
@@ -57,6 +62,9 @@ LOOKALIKE_PATHS = [
     "/auth/start/",
     "/auth/callback/x",
     "/login/",
+    f"{CALL_SIGN_IN_PATH}/",
+    f"{CALL_SIGN_IN_PATH}.html",
+    CALL_SIGN_IN_PATH.upper(),
     "/LOGIN",
     "/no-access/x",
     "/static/css/skat.css",
@@ -71,7 +79,11 @@ LOOKALIKE_PATHS = [
     f"{BACKCHANNEL_LOGOUT_PATH}x",
     BACKCHANNEL_LOGOUT_PATH.upper(),
 ]
-SIGN_IN_PAGES = {LOGIN_PATH: FIXTURE_DIRECTORY / "login.html", NO_ACCESS_PATH: FIXTURE_DIRECTORY / "no-access.html"}
+SIGN_IN_PAGES = {
+    LOGIN_PATH: FIXTURE_DIRECTORY / "login.html",
+    NO_ACCESS_PATH: FIXTURE_DIRECTORY / "no-access.html",
+    CALL_SIGN_IN_PATH: FIXTURE_DIRECTORY / "login" / "call.html",
+}
 LOGIN_FAILED_PAGE = FIXTURE_DIRECTORY / "login-failed.html"
 FORM_POST = {"content-type": "application/x-www-form-urlencoded"}
 SAME_ORIGIN_FORM_POST = {**FORM_POST, "origin": TEST_PUBLIC_ORIGIN}
@@ -82,7 +94,7 @@ END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
 ANNOUNCER_STYLE_SOURCES = "'unsafe-hashes' 'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='"
 EXPECTED_CONTENT_SECURITY_POLICY = (
     "default-src 'none'; base-uri 'self'; "
-    f"script-src 'self' '{FIXTURE_SCRIPT_HASH}'; "
+    f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASH}'; "
     f"style-src 'self' {ANNOUNCER_STYLE_SOURCES}; "
     "connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; "
     "manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'"
@@ -176,6 +188,18 @@ class TestSignedOut:
             "text/css; charset=utf-8",
             IMMUTABLE_ASSET_CACHE_CONTROL,
         )
+
+    @pytest.mark.parametrize("path", [CALL_PAGE_MODULE, CALL_PAGE_IMPORTED_CHUNK])
+    def test_the_modules_of_the_call_sign_in_page_are_public_as_immutable_files(self, application, path):
+        response = application.get(path, **FETCH_ACCEPT)
+
+        assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_ASSET_CACHE_CONTROL)
+
+    @pytest.mark.parametrize("path", [CALL_PAGE_DYNAMIC_NODE, IMMUTABLE_FILE])
+    def test_a_build_file_the_call_sign_in_page_only_imports_dynamically_stays_behind_the_sign_in(
+        self, application, path
+    ):
+        assert application.get(path, **FETCH_ACCEPT).status_code == 401
 
     def test_a_font_the_sign_in_stylesheet_references_is_public_with_its_content_type(self, application):
         response = application.get(SIGN_IN_FONT, **BROWSER_ACCEPT)
