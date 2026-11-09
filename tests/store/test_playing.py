@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import func, select, table, text
 from sqlalchemy.exc import IntegrityError
 
+from skat.engine.cards import DECK
 from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, Declare
 from skat.engine.games import GameKind
@@ -123,15 +124,14 @@ def test_a_played_card_keeps_the_dealt_hand_as_dealt(game):
     assert game.record.hand == before
 
 
-def test_thirty_cards_are_thirty_rows_and_a_thirty_first_is_refused_as_over(game, engine):
+def test_a_card_after_the_thirtieth_is_refused_as_no_hand_and_leaves_no_row(game, engine):
     game.play_legally(GAME_CARDS)
     before = game.record
 
-    result = game.send(Position.FOREHAND, before.hand.hands[Position.FOREHAND][0], command_id="card-last")
+    result = game.send(Position.FOREHAND, DECK[0], command_id="card-last")
 
-    assert result.refusal.value == PlayRefusal.OVER.value
-    assert count_rows(engine) == GAME_CARDS
-    assert playing_of(game.record).result is not None
+    assert result.refusal == Refusal.NO_HAND
+    assert count_rows(engine) == 0
     assert game.record == before
 
 
