@@ -1,10 +1,11 @@
 import itertools
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.engine.cards import Card, Rank, Suit
+from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.tricks import CardPlayed, PlayRefusal
 from skat.table.auction import AuctionAction
@@ -14,9 +15,12 @@ from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX, AnnouncementToken, DeclaringAction, GameToken
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text, seated_three, wire_cards
+from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import UNKNOWN_ID
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
@@ -179,25 +183,32 @@ class Table:
         )
         assert answer.status_code == 200, answer.text
 
-    def middlehand_wins(self):
+    def middlehand_bids(self):
         self._post(TABLE_AUCTION_SUFFIX, MIDDLEHAND, action=AuctionAction.BID, value=18)
+
+    def middlehand_wins(self):
+        self.middlehand_bids()
         self._post(TABLE_AUCTION_SUFFIX, FOREHAND, action=AuctionAction.PASS)
         self._post(TABLE_AUCTION_SUFFIX, REARHAND, action=AuctionAction.PASS)
 
-    def _declare(self, game, *, hand):
+    def _declare(self, game, *, hand, ouvert=False, announcement=AnnouncementToken.NONE):
         self._post(
             TABLE_DECLARATION_SUFFIX,
             MIDDLEHAND,
             action=DeclaringAction.DECLARE,
             game=game,
             hand=hand,
-            ouvert=False,
-            announcement=AnnouncementToken.NONE,
+            ouvert=ouvert,
+            announcement=announcement,
         )
 
     def declared_hand_game(self, game=GameToken.HERZ):
         self.middlehand_wins()
         self._declare(game, hand=True)
+
+    def declared_grand_ouvert(self):
+        self.middlehand_wins()
+        self._declare(GameToken.GRAND, hand=True, ouvert=True, announcement=AnnouncementToken.SCHWARZ)
 
     def declared_after_putting_back(self, put_back):
         self.middlehand_wins()
@@ -455,20 +466,318 @@ class TestRetries:
         assert herz_hand.record == later
 
 
-class TestTheStream:
-    def test_an_accepted_card_sends_a_fresh_snapshot_with_no_foreign_card(self, herz_hand, skat):
-        skat.client.cookies.clear()
-        events = f"{TABLES_PATH}/{herz_hand.table_id}{TABLE_EVENTS_SUFFIX}"
+SEATS = {MIDDLEHAND: 1, REARHAND: 2, FOREHAND: 3}
+CHAIRS_IN_SEAT_ORDER = (MIDDLEHAND, REARHAND, FOREHAND)
+ALL_POINTS = 120
 
-        with skat.client.stream("GET", events, headers=herz_hand.at[REARHAND]) as stream:
-            lines = stream.iter_lines()
-            opened = json.loads(next(lines).removeprefix("data: "))
-            next(lines)
-            skat.client.cookies.clear()
-            answer = herz_hand.send(herz_hand.at[FOREHAND], card("S7"), version=opened["version"])
-            assert answer.status_code == 200, answer.text
-            fresh_line = next(lines)
 
-        fresh = json.loads(fresh_line.removeprefix("data: "))
-        assert fresh["version"] == opened["version"] + 1
-        assert cards_in_text(fresh_line) <= wire_cards(KNOWN_DEAL.rearhand)
+def message_body(raw):
+    return json.loads(raw.removeprefix("data: "))
+
+
+def message_at_version(lines, version):
+    """The stream's message at a version; someone joining wakes the stream with the old one first."""
+    for line in lines:
+        if line.startswith("data: ") and message_body(line)["version"] == version:
+            return line
+    return pytest.fail(f"the stream ended before version {version}")
+
+
+def in_deck_order(held):
+    return tuple(each for each in DECK if each in held)
+
+
+def remaining(deal, played, position):
+    """What a position still holds; a watcher holds nothing."""
+    if position is None:
+        return ()
+    return in_deck_order(set(deal.hands[position]) - set(played))
+
+
+def table_cards(played):
+    """The played cards anyone may see: the last completed trick and the trick in progress."""
+    completed = len(played) // 3 * 3
+    return played[max(completed - 3, 0) :]
+
+
+def visible_cards(deal, played, position, *, ouvert):
+    open_cards = remaining(deal, played, MIDDLEHAND) if ouvert else ()
+    return {*remaining(deal, played, position), *table_cards(played), *open_cards}
+
+
+def played_body(position, text):
+    return {"seat": SEATS[position], "card": card_body(card(text))}
+
+
+def last_cards(trick):
+    """A completed trick names its cards in playing order without their seats."""
+    return [played["card"] for played in trick]
+
+
+def sides(declarer, opponents):
+    return {"declarer": declarer, "opponents": opponents}
+
+
+@dataclass(frozen=True)
+class Viewer:
+    name: str
+    position: Position | None
+
+    def headers_at(self, table):
+        return table.watcher if self.position is None else table.at[self.position]
+
+
+DECLARER = Viewer("declarer", MIDDLEHAND)
+FOREHAND_OPPONENT = Viewer("forehand", FOREHAND)
+REARHAND_OPPONENT = Viewer("rearhand", REARHAND)
+WATCHER = Viewer("watcher", None)
+EVERY_VIEWER = (DECLARER, FOREHAND_OPPONENT, REARHAND_OPPONENT, WATCHER)
+
+
+def herz_hand_game(table):
+    table.declared_hand_game()
+
+
+def swapped_herz_hand_game(table):
+    table.with_deal(SWAPPED_DEAL)
+    table.declared_hand_game()
+
+
+def grand_ouvert(table):
+    table.declared_grand_ouvert()
+
+
+@dataclass(frozen=True)
+class Moment:
+    """A point in a declared game and the `playing` its answer holds; middlehand is the declarer."""
+
+    declare: Callable[[Table], None]
+    played: tuple[Card, ...]
+    turn: Position | None
+    current: tuple[dict[str, object], ...] = ()
+    last: tuple[tuple[dict[str, object], ...], Position] | None = None
+    tricks_won: tuple[int, int] = (0, 0)
+    trick_points: tuple[int, int] = (0, 0)
+    legal: tuple[Card, ...] = ()
+    deal: Deal = KNOWN_DEAL
+    ouvert: bool = False
+
+    def reach(self, table):
+        self.declare(table)
+        table.played_out(self.played)
+
+    def playing_for(self, viewer):
+        last = None if self.last is None else {"cards": last_cards(self.last[0]), "taker_seat": SEATS[self.last[1]]}
+        legal = self.legal if viewer.position is not None and viewer.position is self.turn else ()
+        return {
+            "turn_seat": None if self.turn is None else SEATS[self.turn],
+            "current_trick": list(self.current),
+            "last_trick": last,
+            "tricks_won": sides(*self.tricks_won),
+            "trick_points": sides(*self.trick_points),
+            "legal_cards": [card_body(each) for each in legal],
+        }
+
+    def own_cards_of(self, viewer):
+        return remaining(self.deal, self.played, viewer.position)
+
+    def open_cards(self):
+        return remaining(self.deal, self.played, MIDDLEHAND) if self.ouvert else ()
+
+    def chair_counts(self):
+        return [len(remaining(self.deal, self.played, position)) for position in CHAIRS_IN_SEAT_ORDER]
+
+    def visible_to(self, viewer):
+        return visible_cards(self.deal, self.played, viewer.position, ouvert=self.ouvert)
+
+
+FIRST_TRICK = (played_body(FOREHAND, "S7"), played_body(MIDDLEHAND, "S9"), played_body(REARHAND, "D7"))
+SECOND_TRICK = (played_body(MIDDLEHAND, "H7"), played_body(REARHAND, "DJ"), played_body(FOREHAND, "CJ"))
+EIGHTH_TRICK = (played_body(MIDDLEHAND, "H8"), played_body(REARHAND, "HQ"), played_body(FOREHAND, "CQ"))
+TENTH_TRICK = (played_body(REARHAND, "HA"), played_body(FOREHAND, "CA"), played_body(MIDDLEHAND, "HT"))
+MOMENTS = {
+    "declared": Moment(herz_hand_game, (), FOREHAND, legal=KNOWN_DEAL.forehand),
+    "one-card": Moment(
+        herz_hand_game, HERZ_GAME[:1], MIDDLEHAND, current=FIRST_TRICK[:1], legal=cards("S9 ST SQ SK SA")
+    ),
+    "a-jack-led-in-pik": Moment(
+        swapped_herz_hand_game,
+        cards("SK"),
+        MIDDLEHAND,
+        current=(played_body(FOREHAND, "SK"),),
+        legal=cards("S7 S9 ST SQ SA"),
+        deal=SWAPPED_DEAL,
+    ),
+    "first-trick": Moment(
+        herz_hand_game,
+        HERZ_GAME[:3],
+        MIDDLEHAND,
+        last=(FIRST_TRICK, MIDDLEHAND),
+        tricks_won=(1, 0),
+        legal=cards("ST SJ SQ SK SA H7 H8 H9 HT"),
+    ),
+    "second-trick": Moment(
+        herz_hand_game,
+        HERZ_GAME[:6],
+        FOREHAND,
+        last=(SECOND_TRICK, FOREHAND),
+        tricks_won=(1, 1),
+        trick_points=(0, 4),
+        legal=cards("C7 C8 C9 CT CQ CK CA S8"),
+    ),
+    "seventh-card": Moment(
+        herz_hand_game,
+        HERZ_GAME[:7],
+        MIDDLEHAND,
+        current=(played_body(FOREHAND, "S8"),),
+        last=(SECOND_TRICK, FOREHAND),
+        tricks_won=(1, 1),
+        trick_points=(0, 4),
+        legal=cards("ST SQ SK SA"),
+    ),
+    "rearhand-leads": Moment(
+        herz_hand_game,
+        HERZ_GAME[:26],
+        MIDDLEHAND,
+        current=(played_body(REARHAND, "HK"), played_body(FOREHAND, "CK")),
+        last=(EIGHTH_TRICK, REARHAND),
+        tricks_won=(6, 2),
+        trick_points=(55, 10),
+        legal=cards("H9 HT"),
+    ),
+    "played-out": Moment(
+        herz_hand_game,
+        HERZ_GAME,
+        None,
+        last=(TENTH_TRICK, REARHAND),
+        tricks_won=(6, 4),
+        trick_points=(55, 50),
+    ),
+    "ouvert-two-cards": Moment(
+        grand_ouvert,
+        GRAND_GAME[:2],
+        REARHAND,
+        current=FIRST_TRICK[:2],
+        legal=KNOWN_DEAL.rearhand,
+        ouvert=True,
+    ),
+}
+MID_TRICK = ("one-card", "seventh-card", "rearhand-leads", "ouvert-two-cards")
+
+
+def every_viewer_at(names):
+    return [
+        pytest.param(MOMENTS[name], viewer, id=f"{name}-{viewer.name}") for name in names for viewer in EVERY_VIEWER
+    ]
+
+
+def assert_holds_the_moment(raw, moment, viewer):
+    body = message_body(raw)
+    hand = body["hand"]
+    assert hand["playing"] == moment.playing_for(viewer)
+    assert hand["own_cards"] == [card_body(each) for each in moment.own_cards_of(viewer)]
+    assert hand["declaring"]["open_cards"] == [card_body(each) for each in moment.open_cards()]
+    assert [chair["hand"]["card_count"] for chair in body["chairs"]] == moment.chair_counts()
+    assert cards_in_text(raw) == wire_cards(moment.visible_to(viewer))
+
+
+def middlehand_won(table):
+    table.middlehand_wins()
+
+
+def auction_running(table):
+    table.middlehand_bids()
+
+
+def read(table, headers):
+    table.skat.client.cookies.clear()
+    answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}", headers=headers)
+    assert answer.status_code == 200, answer.text
+    return answer.text
+
+
+def stream(table, headers):
+    table.skat.client.cookies.clear()
+    return table.skat.client.stream("GET", f"{TABLES_PATH}/{table.table_id}{TABLE_EVENTS_SUFFIX}", headers=headers)
+
+
+def first_stream_message(table, headers):
+    with stream(table, headers) as opened:
+        first = next(opened.iter_lines())
+        opened.close()
+    return first
+
+
+class TestEveryViewersPlaying:
+    @pytest.mark.parametrize("before", [auction_running, middlehand_won], ids=["auction", "declaring"])
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    def test_before_the_declaration_there_is_no_playing(self, table, before, viewer):
+        before(table)
+        headers = viewer.headers_at(table)
+
+        bodies = [message_body(read(table, headers)), message_body(first_stream_message(table, headers))]
+
+        assert [body["hand"]["playing"] for body in bodies] == [None, None]
+
+    @pytest.mark.parametrize(("moment", "viewer"), every_viewer_at(MOMENTS))
+    def test_the_read_and_a_new_streams_first_message_hold_exactly_what_the_moment_allows(self, table, moment, viewer):
+        moment.reach(table)
+
+        headers = viewer.headers_at(table)
+
+        assert_holds_the_moment(read(table, headers), moment, viewer)
+        assert_holds_the_moment(first_stream_message(table, headers), moment, viewer)
+
+    @pytest.mark.parametrize(("moment", "viewer"), every_viewer_at(MID_TRICK))
+    def test_a_reload_and_a_new_stream_give_the_same_view_mid_trick(self, table, moment, viewer):
+        moment.reach(table)
+        headers = viewer.headers_at(table)
+
+        reloads = [message_body(read(table, headers)), message_body(read(table, headers))]
+        streamed = message_body(first_stream_message(table, headers))
+
+        assert [body["hand"] for body in reloads] == [streamed["hand"], streamed["hand"]]
+        assert [body["chairs"] for body in reloads] == [streamed["chairs"], streamed["chairs"]]
+
+    def test_after_thirty_cards_both_sides_trick_points_and_the_skats_make_all_points(self, table):
+        MOMENTS["played-out"].reach(table)
+
+        points = message_body(read(table, table.watcher))["hand"]["playing"]["trick_points"]
+
+        assert points["declarer"] + points["opponents"] + sum(each.points for each in SKAT_CARDS) == ALL_POINTS
+
+    @pytest.mark.parametrize(
+        ("declare", "script", "ouvert"),
+        [
+            pytest.param(herz_hand_game, HERZ_GAME, False, id="hand-game"),
+            pytest.param(grand_ouvert, GRAND_GAME, True, id="grand-ouvert"),
+        ],
+    )
+    def test_every_accepted_card_sends_every_open_stream_a_snapshot_naming_only_what_its_viewer_may_see(
+        self, table, declare, script, ouvert
+    ):
+        declare(table)
+        with (
+            stream(table, DECLARER.headers_at(table)) as declarer_stream,
+            stream(table, FOREHAND_OPPONENT.headers_at(table)) as forehand_stream,
+            stream(table, REARHAND_OPPONENT.headers_at(table)) as rearhand_stream,
+            stream(table, WATCHER.headers_at(table)) as watcher_stream,
+        ):
+            lines = [
+                opened.iter_lines() for opened in (declarer_stream, forehand_stream, rearhand_stream, watcher_stream)
+            ]
+            for stream_lines in lines:
+                next(stream_lines)
+
+            for count, played in enumerate(script, start=1):
+                actor = table.holder_of(played)
+                answer = table.accepted(played)
+                version = table.record.version
+
+                assert cards_in_text(answer.text) == wire_cards(
+                    visible_cards(KNOWN_DEAL, script[:count], actor, ouvert=ouvert)
+                )
+                for stream_lines, viewer in zip(lines, EVERY_VIEWER, strict=True):
+                    allowed = wire_cards(visible_cards(KNOWN_DEAL, script[:count], viewer.position, ouvert=ouvert))
+                    assert cards_in_text(message_at_version(stream_lines, version)) == allowed
+                    assert cards_in_text(read(table, viewer.headers_at(table))) == allowed
