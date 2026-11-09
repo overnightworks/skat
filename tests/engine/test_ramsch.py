@@ -1,4 +1,5 @@
 import random
+from functools import cache
 from itertools import pairwise, permutations
 
 import pytest
@@ -6,12 +7,18 @@ import pytest
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position, deal
 from skat.engine.ramsch import (
+    DurchmarschRule,
+    JungfrauRule,
+    RamschOptions,
+    RamschPlayedOut,
     RamschPlaying,
+    RamschScoring,
     play_ramsch_card,
     ramsch_after,
+    reckon_ramsch,
     start_ramsch,
 )
-from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.engine.tricks import CardPlayed, CompletedTrick, PlayRefusal
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 POSITIONS = (FOREHAND, MIDDLEHAND, REARHAND)
@@ -220,3 +227,224 @@ def test_a_log_the_rules_refuse_raises_naming_the_step_and_the_reason() -> None:
 
     with pytest.raises(ValueError, match="step 2 refused: must-follow"):
         ramsch_after(start, steps)
+
+
+POINT_RANKS = ((11, Rank.ACE), (10, Rank.TEN), (4, Rank.KING), (3, Rank.QUEEN), (2, Rank.JACK))
+DEFAULT_OPTIONS = RamschOptions(RamschScoring.POINTS, JungfrauRule.DOUBLES_LOSER, DurchmarschRule.WINS_120)
+
+
+@cache
+def point_ranks(total: int, slots: int) -> tuple[Rank, ...] | None:
+    if total == 0:
+        return ()
+    if slots == 0:
+        return None
+    for value, rank in POINT_RANKS:
+        rest = point_ranks(total - value, slots - 1) if value <= total else None
+        if rest is not None:
+            return (rank, *rest)
+    return None
+
+
+def cards_worth(total: int, slots: int) -> tuple[Card, ...]:
+    ranks = point_ranks(total, slots)
+    assert ranks is not None
+    return tuple(Card(Suit.KARO, rank) for rank in (*ranks, *[Rank.SEVEN] * (slots - len(ranks))))
+
+
+def played_out(
+    points: tuple[int, int, int],
+    tricks: tuple[int, int, int],
+    skat: int,
+    last: Position | None = None,
+) -> RamschPlayedOut:
+    """A finished Ramsch in which each player took the given tricks worth the given card points."""
+    last = last or next(position for position, count in zip(POSITIONS, tricks, strict=True) if count)
+    takers = [position for position, count in zip(POSITIONS, tricks, strict=True) for _ in range(count)]
+    takers.remove(last)
+    takers.append(last)
+    cards = {
+        position: cards_worth(worth, 3 * count)
+        for position, worth, count in zip(POSITIONS, points, tricks, strict=True)
+    }
+    completed = []
+    for taker in takers:
+        taken, cards[taker] = cards[taker][:3], cards[taker][3:]
+        completed.append(CompletedTrick(leader=FOREHAND, cards=(taken[0], taken[1], taken[2]), taker=taker))
+    return RamschPlayedOut(tuple(completed), cards_worth(skat, 2))
+
+
+def with_options(
+    scoring: RamschScoring = RamschScoring.POINTS,
+    jungfrau: JungfrauRule = JungfrauRule.DOUBLES_LOSER,
+    durchmarsch: DurchmarschRule = DurchmarschRule.WINS_120,
+) -> RamschOptions:
+    return RamschOptions(scoring, jungfrau, durchmarsch)
+
+
+ROW_2 = played_out((57, 30, 23), (5, 3, 2), 10, FOREHAND)
+ROW_10 = played_out((67, 43, 0), (6, 4, 0), 10, MIDDLEHAND)
+ROW_15 = played_out((99, 0, 0), (10, 0, 0), 21, FOREHAND)
+BY_TEN, SKAT_TO_LOSER = RamschScoring.POINTS_BY_TEN, RamschScoring.SKAT_TO_LOSER
+JUNGFRAU_OFF, DURCHMARSCH_OFF = JungfrauRule.OFF, DurchmarschRule.OFF
+
+RECKONINGS = {
+    "the loser is the player with most points, the skat added from the last trick": (
+        played_out((47, 40, 23), (4, 4, 2), 10, MIDDLEHAND),
+        with_options(),
+        1,
+        (0, -50, 0),
+    ),
+    "the skat goes to the last trick's taker, who may then lose": (ROW_2, with_options(), 1, (-67, 0, 0)),
+    "tied players with most points both lose in full": (
+        played_out((50, 40, 20), (4, 4, 2), 10, MIDDLEHAND),
+        with_options(),
+        1,
+        (-50, -50, 0),
+    ),
+    "the skat breaks no tie it did not make": (
+        played_out((45, 45, 20), (4, 4, 2), 10, FOREHAND),
+        with_options(),
+        1,
+        (-55, 0, 0),
+    ),
+    "a three-way tie makes all three lose their own points": (
+        played_out((30, 40, 40), (3, 4, 3), 10, FOREHAND),
+        with_options(),
+        1,
+        (-40, -40, -40),
+    ),
+    "dividing by ten rounds the loser's points down": (
+        played_out((47, 30, 33), (4, 3, 3), 10, MIDDLEHAND),
+        with_options(BY_TEN),
+        1,
+        (-4, 0, 0),
+    ),
+    "the loser is judged on unrounded points when dividing by ten": (
+        played_out((45, 44, 31), (4, 3, 3), 0),
+        with_options(BY_TEN),
+        1,
+        (-4, 0, 0),
+    ),
+    "adding the skat to the points loses the most points without it": (
+        played_out((50, 40, 20), (4, 4, 2), 10, MIDDLEHAND),
+        with_options(SKAT_TO_LOSER),
+        1,
+        (-60, 0, 0),
+    ),
+    "adding the skat makes each tied loser pay it": (
+        played_out((50, 50, 10), (4, 4, 2), 10, REARHAND),
+        with_options(SKAT_TO_LOSER),
+        1,
+        (-60, -60, 0),
+    ),
+    "a player with no trick doubles the loser's score": (ROW_10, with_options(), 1, (-134, 0, 0)),
+    "a player with no trick changes nothing when Jungfrau is off": (
+        ROW_10,
+        with_options(jungfrau=JUNGFRAU_OFF),
+        1,
+        (-67, 0, 0),
+    ),
+    "a player with a trick in hand leaves the score single": (
+        played_out((67, 43, 0), (5, 4, 1), 10, MIDDLEHAND),
+        with_options(),
+        1,
+        (-67, 0, 0),
+    ),
+    "two players with no trick double the tied losers' score once": (
+        played_out((60, 60, 0), (5, 5, 0), 0),
+        with_options(),
+        1,
+        (-120, -120, 0),
+    ),
+    "all ten tricks score 120 for the taker and nothing for the others": (
+        played_out((120, 0, 0), (10, 0, 0), 0),
+        with_options(),
+        1,
+        (120, 0, 0),
+    ),
+    "a Durchmarsch scores 120 whatever the skat holds": (ROW_15, with_options(), 1, (120, 0, 0)),
+    "a Durchmarsch by rearhand scores for rearhand": (
+        played_out((0, 0, 99), (0, 0, 10), 21, REARHAND),
+        with_options(),
+        1,
+        (0, 0, 120),
+    ),
+    "all ten tricks score as a loser when Durchmarsch is off": (
+        ROW_15,
+        with_options(jungfrau=JUNGFRAU_OFF, durchmarsch=DURCHMARSCH_OFF),
+        1,
+        (-120, 0, 0),
+    ),
+    "all ten tricks double as a loser under Jungfrau when Durchmarsch is off": (
+        ROW_15,
+        with_options(durchmarsch=DURCHMARSCH_OFF),
+        1,
+        (-240, 0, 0),
+    ),
+    "a loser with all tricks divides by ten": (
+        ROW_15,
+        with_options(BY_TEN, JUNGFRAU_OFF, DURCHMARSCH_OFF),
+        1,
+        (-12, 0, 0),
+    ),
+    "a loser with all tricks divides by ten before Jungfrau doubles": (
+        ROW_15,
+        with_options(BY_TEN, durchmarsch=DURCHMARSCH_OFF),
+        1,
+        (-24, 0, 0),
+    ),
+    "a loser with all tricks pays the skat added to the points": (
+        ROW_15,
+        with_options(SKAT_TO_LOSER, JUNGFRAU_OFF, DURCHMARSCH_OFF),
+        1,
+        (-120, 0, 0),
+    ),
+    "pushes multiply the loser's score": (ROW_2, with_options(), 8, (-536, 0, 0)),
+    "four pushes multiply the loser's score sixteenfold": (ROW_2, with_options(), 16, (-1072, 0, 0)),
+    "pushes multiply the Jungfrau-doubled score": (ROW_10, with_options(), 16, (-2144, 0, 0)),
+    "Bock's doubling multiplies a Ramsch with no push": (ROW_2, with_options(), 2, (-134, 0, 0)),
+    "pushes and Bock's multiplying setting multiply together": (ROW_2, with_options(), 32, (-2144, 0, 0)),
+    "a Durchmarsch is multiplied by default": (ROW_15, with_options(), 16, (1920, 0, 0)),
+    "a flat Durchmarsch stays 120 under a multiplier": (
+        ROW_15,
+        with_options(durchmarsch=DurchmarschRule.WINS_120_FLAT),
+        16,
+        (120, 0, 0),
+    ),
+    "dividing by ten comes before Jungfrau and the multiplier": (
+        played_out((67, 43, 0), (6, 4, 0), 10, FOREHAND),
+        with_options(BY_TEN),
+        2,
+        (-28, 0, 0),
+    ),
+    "a Durchmarsch scores 120 at a table dividing by ten": (ROW_15, with_options(BY_TEN), 1, (120, 0, 0)),
+}
+
+
+@pytest.mark.parametrize(("played", "options", "multiplier", "gains"), RECKONINGS.values(), ids=RECKONINGS.keys())
+def test_a_ramsch_is_reckoned_as_each_table_sets_it(
+    played: RamschPlayedOut, options: RamschOptions, multiplier: int, gains: tuple[int, int, int]
+) -> None:
+    reckoning = reckon_ramsch(played, options, multiplier=multiplier)
+
+    assert dict(reckoning.gains) == dict(zip(POSITIONS, gains, strict=True))
+
+
+@pytest.mark.parametrize(
+    ("durchmarsch", "jungfrau", "gain", "losers"),
+    [
+        (DurchmarschRule.WINS_120, JungfrauRule.DOUBLES_LOSER, 120, frozenset()),
+        (DurchmarschRule.OFF, JungfrauRule.OFF, -120, frozenset({FOREHAND})),
+    ],
+    ids=["durchmarsch-wins", "durchmarsch-off"],
+)
+def test_the_reckoning_of_real_play_names_the_winner_or_the_loser(
+    durchmarsch: DurchmarschRule, jungfrau: JungfrauRule, gain: int, losers: frozenset[Position]
+) -> None:
+    finished, _ = play_out(start_ramsch(lying_deal()))
+    assert finished.result is not None
+
+    reckoning = reckon_ramsch(finished.result, with_options(jungfrau=jungfrau, durchmarsch=durchmarsch), multiplier=1)
+
+    assert (reckoning.gains[FOREHAND], reckoning.losers) == (gain, losers)
