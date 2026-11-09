@@ -918,6 +918,7 @@ body {
 .room .own-hand {
     --card-width: min(64px, calc(100vw * 64 / 390));
     --strip: calc(var(--card-width) / 2);
+    --strip-lifted: min(56px, calc(100vw * 56 / 390));
     --fan-turn: 1.5deg;
     --fan-drop: 0.8px;
     --deal-distance: -420px;
@@ -935,52 +936,110 @@ body {
     border-radius: calc(var(--card-width) * 0.075);
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
     transform-origin: 50% 100%;
-    transform: translateY(calc(var(--step) * var(--step) * var(--fan-drop))) rotate(calc(var(--step) * var(--fan-turn)));
+    transform: translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
+        rotate(calc(var(--step) * var(--fan-turn)));
+    --step: calc((var(--from-start) - var(--from-end)) / 2);
 }
 
 .room .own-hand .card:first-child {
     margin-left: 0;
 }
 
-/* A dealt hand holds ten cards, and each card's place in the fan is its distance from the middle. */
+/* Each card's place in the fan is its distance from the middle, however many cards the hand holds. */
 .room .own-hand .card:nth-child(1) {
-    --step: -4.5;
+    --from-start: 1;
 }
 
 .room .own-hand .card:nth-child(2) {
-    --step: -3.5;
+    --from-start: 2;
 }
 
 .room .own-hand .card:nth-child(3) {
-    --step: -2.5;
+    --from-start: 3;
 }
 
 .room .own-hand .card:nth-child(4) {
-    --step: -1.5;
+    --from-start: 4;
 }
 
 .room .own-hand .card:nth-child(5) {
-    --step: -0.5;
+    --from-start: 5;
 }
 
 .room .own-hand .card:nth-child(6) {
-    --step: 0.5;
+    --from-start: 6;
 }
 
 .room .own-hand .card:nth-child(7) {
-    --step: 1.5;
+    --from-start: 7;
 }
 
 .room .own-hand .card:nth-child(8) {
-    --step: 2.5;
+    --from-start: 8;
 }
 
 .room .own-hand .card:nth-child(9) {
-    --step: 3.5;
+    --from-start: 9;
 }
 
 .room .own-hand .card:nth-child(10) {
-    --step: 4.5;
+    --from-start: 10;
+}
+
+.room .own-hand .card:nth-child(11) {
+    --from-start: 11;
+}
+
+.room .own-hand .card:nth-child(12) {
+    --from-start: 12;
+}
+
+.room .own-hand .card:nth-last-child(1) {
+    --from-end: 1;
+}
+
+.room .own-hand .card:nth-last-child(2) {
+    --from-end: 2;
+}
+
+.room .own-hand .card:nth-last-child(3) {
+    --from-end: 3;
+}
+
+.room .own-hand .card:nth-last-child(4) {
+    --from-end: 4;
+}
+
+.room .own-hand .card:nth-last-child(5) {
+    --from-end: 5;
+}
+
+.room .own-hand .card:nth-last-child(6) {
+    --from-end: 6;
+}
+
+.room .own-hand .card:nth-last-child(7) {
+    --from-end: 7;
+}
+
+.room .own-hand .card:nth-last-child(8) {
+    --from-end: 8;
+}
+
+.room .own-hand .card:nth-last-child(9) {
+    --from-end: 9;
+}
+
+.room .own-hand .card:nth-last-child(10) {
+    --from-end: 10;
+}
+
+.room .own-hand .card:nth-last-child(11) {
+    --from-end: 11;
+}
+
+.room .own-hand .card:nth-last-child(12) {
+    --from-end: 12;
 }
 
 .room .card-face {
@@ -1010,6 +1069,7 @@ body {
     .room .own-hand {
         --card-width: 96px;
         --strip: 58px;
+        --strip-lifted: 78px;
         --fan-turn: 1.2deg;
         --fan-drop: 0.7px;
         --deal-distance: -470px;
@@ -1039,61 +1099,14 @@ body {
     }
 }
 
-/* Picking two from the twelve: the fan's steps and strips of the discard scene. */
+/* Picking two from the twelve: the cards and strips of the discard scene. */
 .room .own-hand.picking {
     --card-width: min(58px, calc(100vw * 58 / 390));
     --strip: calc(100vw * 25 / 390);
 }
 
-.room .own-hand.picking .card:nth-child(1) {
-    --step: -5.5;
-}
-
-.room .own-hand.picking .card:nth-child(2) {
-    --step: -4.5;
-}
-
-.room .own-hand.picking .card:nth-child(3) {
-    --step: -3.5;
-}
-
-.room .own-hand.picking .card:nth-child(4) {
-    --step: -2.5;
-}
-
-.room .own-hand.picking .card:nth-child(5) {
-    --step: -1.5;
-}
-
-.room .own-hand.picking .card:nth-child(6) {
-    --step: -0.5;
-}
-
-.room .own-hand.picking .card:nth-child(7) {
-    --step: 0.5;
-}
-
-.room .own-hand.picking .card:nth-child(8) {
-    --step: 1.5;
-}
-
-.room .own-hand.picking .card:nth-child(9) {
-    --step: 2.5;
-}
-
-.room .own-hand.picking .card:nth-child(10) {
-    --step: 3.5;
-}
-
-.room .own-hand.picking .card:nth-child(11) {
-    --step: 4.5;
-}
-
-.room .own-hand.picking .card:nth-child(12) {
-    --step: 5.5;
-}
-
-.room .own-hand .pick {
+.room .own-hand .pick,
+.room .own-hand .play {
     display: block;
     width: 100%;
     height: 100%;
@@ -1104,12 +1117,14 @@ body {
     cursor: pointer;
 }
 
-.room .own-hand .pick:focus-visible {
+.room .own-hand .pick:focus-visible,
+.room .own-hand .play:focus-visible {
     outline: 3px solid var(--accent-stage, #7aa7f0);
     outline-offset: 2px;
 }
 
-.room .own-hand .pick:disabled {
+.room .own-hand .pick:disabled,
+.room .own-hand .play:disabled {
     cursor: default;
 }
 
@@ -1118,6 +1133,267 @@ body {
     box-shadow:
         0 0 0 2.5px var(--accent-stage, #7aa7f0),
         0 0 18px rgba(122, 167, 240, 0.5);
+}
+
+/* On turn the legal cards stand lifted with the blue ring, the tapped one higher and wider, the others dimmed. */
+.room .own-hand .card.ok {
+    --lift: calc(var(--card-width) * -0.18);
+}
+
+.room .own-hand .card.touch {
+    --lift: calc(var(--card-width) * -0.5);
+}
+
+.room .own-hand .card.touch + .card {
+    margin-left: calc(var(--strip-lifted) - var(--card-width));
+}
+
+.room .own-hand .card.ok .card-face,
+.room .own-hand .card.touch .card-face {
+    border-radius: calc(var(--card-width) * 0.075);
+    box-shadow:
+        0 0 0 2.5px var(--accent-stage, #7aa7f0),
+        0 0 18px rgba(122, 167, 240, 0.5);
+}
+
+.room .own-hand .card.touch .card-face {
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 0 26px rgba(122, 167, 240, 0.8);
+}
+
+.room .own-hand .card.no {
+    filter: brightness(0.5) saturate(0.55) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+/* While a game is played the trick takes a row of its own between the far chairs and the near one. */
+.room .stage:has(> .trick) {
+    grid-template-rows: auto auto auto auto auto;
+}
+
+.room .stage:has(> .trick) .felt {
+    grid-row: 2 / 5;
+}
+
+.room .stage:has(> .trick) .chair:nth-child(3) {
+    grid-row: 4;
+}
+
+.room .stage:has(> .trick) .controls {
+    grid-row: 5;
+}
+
+/* Each card lies toward its player, as the scenes draw it: the far ones side by side below the far fans,
+   the near one lower down. */
+.room .trick {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+    grid-column: 1 / 3;
+    grid-row: 3;
+    justify-self: stretch;
+    height: calc(var(--card-width) * 3.4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    --card-width: min(64px, calc(100vw * 64 / 390));
+}
+
+.room .laid {
+    position: absolute;
+    width: var(--card-width);
+    aspect-ratio: 100 / 140;
+    transform: translate(-50%, -50%) rotate(var(--lie));
+}
+
+.room .laid.left {
+    left: 34%;
+    top: 52%;
+    --lie: -9deg;
+}
+
+.room .laid.right {
+    left: 66%;
+    top: 52%;
+    --lie: 8deg;
+}
+
+.room .laid.near {
+    left: 50%;
+    top: 82%;
+    --lie: 0deg;
+}
+
+.room .laid .face {
+    display: block;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+.room .laid .tag {
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--card-width) * -0.12);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 9px 0 4px;
+    border-radius: 999px;
+    background: rgba(10, 12, 14, 0.78);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    transform: translateX(-50%) rotate(calc(var(--lie) * -1));
+}
+
+.room .laid .dot {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--brass);
+    color: #111;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+/* While a game is played the plaque carries the game and both sides' points against the 61 line. */
+.room .plaque.in-play {
+    flex-direction: column;
+    gap: 7px;
+    padding: 8px 12px 10px;
+}
+
+.room .plaque .game {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.room .plaque .suit {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fbf8f0;
+    box-shadow: inset 0 0 0 1.5px var(--brass);
+}
+
+.room .plaque .suit svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* The same pips the cards draw. */
+.room .plaque .suit.kreuz {
+    fill: #17191c;
+}
+
+.room .plaque .suit.pik {
+    fill: #14873f;
+}
+
+.room .plaque .suit.herz {
+    fill: #d81f35;
+}
+
+.room .plaque .suit.karo {
+    fill: #ec9800;
+}
+
+.room .points {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 128px;
+}
+
+.room .points .sides {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .points .sides .declarer {
+    color: #edb656;
+}
+
+.room .points .sides .opponents {
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .points .track {
+    position: relative;
+    display: block;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.room .points .track svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.room .points .track rect.declarer {
+    fill: #edb656;
+}
+
+.room .points .track rect.opponents {
+    fill: var(--accent-stage, #7aa7f0);
+}
+
+/* The 61 line, where the picture draws it. */
+.room .points .win-line {
+    position: absolute;
+    left: 50.8%;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--on-stage);
+}
+
+@media (min-width: 900px) {
+    .room .trick {
+        height: calc(var(--card-width) * 2.6);
+        --card-width: 80px;
+    }
+
+    .room .laid.left {
+        left: 41.5%;
+        top: 35%;
+        --lie: -11deg;
+    }
+
+    .room .laid.right {
+        left: 58.5%;
+        top: 35%;
+        --lie: 9deg;
+    }
+
+    .room .laid.near {
+        top: 70%;
+    }
+
+    .room .points {
+        width: 220px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .own-hand .card {
+        transition: transform 0.15s ease-out;
+    }
 }
 
 /* The declarer's controls stand on the felt just above the own chair, clear of the skat in the middle. */

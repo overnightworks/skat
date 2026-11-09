@@ -3,12 +3,16 @@
     import { page } from "$app/state";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
+    import { gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
+    import PlayControls from "#lib/ui/PlayControls.svelte";
+    import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
+    import { ALL_POINTS } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
@@ -16,6 +20,8 @@
         copyTableLink,
         declarerStage,
         drawingOrder,
+        gameWord,
+        isSuitGame,
         positionWord,
         readTable,
         sitDown,
@@ -37,6 +43,7 @@
     let taken: string | null = $state(null);
     let connected = $state(true);
     let picking = $state<Picking | undefined>();
+    let playing = $state<PlayingHand | undefined>();
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
@@ -106,6 +113,58 @@
 </svelte:head>
 
 <div class="room" data-theme="dark">
+    <!-- Kept out of layout with zero size: display:none would break the gradient references in Chrome. -->
+    <svg class="sprite" width="0" height="0" aria-hidden="true">
+        <defs>
+            <symbol id="suit-kreuz" viewBox="0 0 100 100">
+                <circle cx="50" cy="28" r="19" />
+                <circle cx="27" cy="58" r="19" />
+                <circle cx="73" cy="58" r="19" />
+                <circle cx="50" cy="52" r="12" />
+                <path d="M45 58C45 77 40 88 30 96H70C60 88 55 77 55 58Z" />
+            </symbol>
+            <symbol id="suit-pik" viewBox="0 0 100 100">
+                <path
+                    d="M50 4C62 26 93 40 93 63C93 77 82 85 70 85C62 85 56 81 53 75C54 85 58 92 67 96H33C42 92 46 85 47 75C44 81 38 85 30 85C18 85 7 77 7 63C7 40 38 26 50 4Z"
+                />
+            </symbol>
+            <symbol id="suit-herz" viewBox="0 0 100 100">
+                <path
+                    d="M50 92C22 69 5 52 5 32C5 17 16 7 30 7C39 7 46 12 50 21C54 12 61 7 70 7C84 7 95 17 95 32C95 52 78 69 50 92Z"
+                />
+            </symbol>
+            <symbol id="suit-karo" viewBox="0 0 100 100">
+                <path d="M50 3Q68 29 90 50Q68 71 50 97Q32 71 10 50Q32 29 50 3Z" />
+            </symbol>
+            <symbol id="court-king" viewBox="0 0 100 70">
+                <path d="M14 52L8 14L32 34L50 6L68 34L92 14L86 52Z" />
+                <rect x="14" y="56" width="72" height="9" rx="3" />
+                <circle cx="8" cy="12" r="5" />
+                <circle cx="50" cy="5" r="5" />
+                <circle cx="92" cy="12" r="5" />
+            </symbol>
+            <symbol id="court-queen" viewBox="0 0 100 70">
+                <path d="M10 60Q50 8 90 60Q50 42 10 60Z" />
+                <circle cx="50" cy="20" r="7" />
+                <circle cx="27" cy="38" r="5" />
+                <circle cx="73" cy="38" r="5" />
+                <rect x="10" y="60" width="80" height="6" rx="3" />
+            </symbol>
+            <symbol id="court-jack" viewBox="0 0 100 70">
+                <path d="M12 62Q22 30 52 28Q80 28 88 62Z" />
+                <path d="M58 30Q70 6 96 2Q86 18 66 36Z" />
+                <rect x="10" y="60" width="80" height="7" rx="3" />
+            </symbol>
+            <linearGradient id="card-fill" x1="0" y1="0" x2=".4" y2="1">
+                <stop offset="0" stop-color="#fffdf7" />
+                <stop offset="1" stop-color="#efe9da" />
+            </linearGradient>
+            <linearGradient id="court-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#fbf3df" />
+                <stop offset="1" stop-color="#f1e4c4" />
+            </linearGradient>
+        </defs>
+    </svg>
     <header class="bar" class:stale={!connected}>
         <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
         {#if outcome?.kind === "table"}
@@ -131,11 +190,44 @@
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
             {@const declarerActs = declarerStage(outcome.table) !== null}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
+            {@const inPlay = gameInPlay(outcome.table)}
+            {@const turnSeat = inPlay?.playing.turn_seat}
             {#if bidValue !== null}
                 <div class="plaque">
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
                 </div>
-            {:else if !outcome.table.hand?.declaring}
+            {:else if inPlay !== null}
+                {@const names = sideNames(outcome.table.chairs, inPlay.declarerSeat)}
+                {@const points = inPlay.playing.trick_points}
+                <div class="plaque in-play">
+                    <span class="game">
+                        {#if isSuitGame(inPlay.game)}
+                            <span class={`suit ${inPlay.game}`} aria-hidden="true">
+                                <svg viewBox="0 0 100 100"><use href={`#suit-${inPlay.game}`} /></svg>
+                            </span>
+                        {/if}
+                        {gameWord(inPlay.game)}
+                    </span>
+                    <div class="points" role="group" aria-label={words.trickPoints}>
+                        <span class="sides">
+                            <span class="declarer">{`${names.declarer} ${String(points.declarer)}`}</span>
+                            <span class="opponents">{`${names.opponents} ${String(points.opponents)}`}</span>
+                        </span>
+                        <span class="track">
+                            <svg viewBox={`0 0 ${String(ALL_POINTS)} 1`} preserveAspectRatio="none" aria-hidden="true">
+                                <rect class="declarer" width={points.declarer} height="1" />
+                                <rect
+                                    class="opponents"
+                                    x={ALL_POINTS - points.opponents}
+                                    width={points.opponents}
+                                    height="1"
+                                />
+                            </svg>
+                            <i class="win-line"></i>
+                        </span>
+                    </div>
+                </div>
+            {:else}
                 <div class="plaque">
                     {#if outcome.table.hand === null}
                         <span>{words.waitingForPlayers}</span>
@@ -146,8 +238,11 @@
                 </div>
             {/if}
             <div class="felt" aria-hidden="true"></div>
+            {#if inPlay !== null}
+                <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} />
+            {/if}
             {@const dealerSeat = outcome.table.hand?.dealer_seat}
-            {#if outcome.table.hand !== null}
+            {#if outcome.table.hand !== null && inPlay === null}
                 <div class="skat-spot">
                     <FaceDownSkat count={outcome.table.hand.skat_count} />
                 </div>
@@ -158,7 +253,8 @@
                         class="chair"
                         class:mine={chair.is_mine}
                         class:away={chair.is_away}
-                        class:turn={chair.is_mine && (declarerActs || ownTurnLadder !== null)}
+                        class:turn={(chair.is_mine && (declarerActs || ownTurnLadder !== null)) ||
+                            chair.seat === turnSeat}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -186,7 +282,7 @@
                                     </span>
                                 {/if}
                                 <span class="mark pos">{positionWord(chair.hand.position)}</span>
-                                {#if chair.is_mine && ownTurnLadder !== null}
+                                {#if (chair.is_mine && ownTurnLadder !== null) || chair.seat === turnSeat}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path d="M8 5l11 7-11 7z" />
@@ -264,6 +360,7 @@
                 {/each}
             </ul>
             <DeclareControls {id} table={outcome.table} bind:picking bind:note />
+            <PlayControls {id} table={outcome.table} bind:playing bind:note />
             {#if ownTurnLadder !== null}
                 {@const table = outcome.table}
                 <BidControls
@@ -276,7 +373,7 @@
             {/if}
             <div class="controls">
                 {#if ownCards.length > 0}
-                    <OwnHand cards={ownCards} {picking} />
+                    <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}
                 <div class="actions">
                     {#if seated && outcome.table.hand === null}

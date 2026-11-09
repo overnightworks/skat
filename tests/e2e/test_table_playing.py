@@ -1,3 +1,4 @@
+import itertools
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -24,23 +25,32 @@ LEGAL_CARD = f"{HAND_CARD}.ok"
 LIFTED_CARD = f"{HAND_CARD}.touch"
 DIMMED_CARD = f"{HAND_CARD}.no"
 PLAYABLE_CARD = f"{HAND_CARD} button"
-FELT_CARD = ".trick .play"
+FELT_CARD = ".trick .laid"
 TURN_CHAIR = ".chair.turn"
 CARDS_IN_A_HAND = 10
 CARDS_IN_A_TRICK = 3
 CARDS_IN_PLAY = 30
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
 INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
-# A card on the felt lies at its player's side: nearer to that player's chair than to any other chair.
-NEAREST_CHAIR = """(play) => {
-    const middle = (box) => [box.left + box.width / 2, box.top + box.height / 2];
-    const [x, y] = middle(play.getBoundingClientRect());
-    const distances = [...document.querySelectorAll('.chair')].map((chair) => {
-        const [cx, cy] = middle(chair.getBoundingClientRect());
-        return [Math.hypot(cx - x, cy - y), Number(chair.dataset.seat)];
+# A card on the felt lies toward its player: seen from the trick's middle, it points at that player's chair
+# more closely than at any other chair.
+TOWARD_CHAIR = """(play) => {
+    const middle = (element) => {
+        const box = element.getBoundingClientRect();
+        return [box.left + box.width / 2, box.top + box.height / 2];
+    };
+    const [tx, ty] = middle(play.closest('.trick'));
+    const [x, y] = middle(play);
+    const toward = Math.atan2(y - ty, x - tx);
+    const apart = [...document.querySelectorAll('.chair')].map((chair) => {
+        const [cx, cy] = middle(chair);
+        const angle = Math.abs(Math.atan2(cy - ty, cx - tx) - toward);
+        return [Math.min(angle, 2 * Math.PI - angle), Number(chair.dataset.seat)];
     });
-    return distances.sort((first, second) => first[0] - second[0])[0][1];
+    return apart.sort((first, second) => first[0] - second[0])[0][1];
 }"""
+
+command_numbers = itertools.count(1)
 
 type WireCard = tuple[str, str]
 
@@ -89,12 +99,23 @@ class PlayingTable:
         led = self.playing()["current_trick"][0]["card"]
         return led["suit"], led["rank"]
 
-    def play_through_the_api(self, card: WireCard) -> None:
+    def _send(self, seat: int, version: int, card: WireCard) -> dict[str, Any]:
         suit, rank = card
-        self.declaring.step(self.turn_seat(), TABLE_CARD_SUFFIX, suit=suit, rank=rank)
+        command_id = f"playing-card-{next(command_numbers):04d}"
+        body = {"command_id": command_id, "version": version, "suit": suit, "rank": rank}
+        return json.loads(self.declaring.sessions[seat].post(f"{self.declaring.api_path}{TABLE_CARD_SUFFIX}", body))
 
-    def play_any_legal_card(self) -> None:
-        self.play_through_the_api(sorted(self.legal_cards(self.turn_seat()))[0])
+    def play_through_the_api(self, card: WireCard) -> None:
+        view = self.view(self.declarer_seat)
+        self._send(view["hand"]["playing"]["turn_seat"], view["version"], card)
+
+    def play_out(self, cards: int) -> None:
+        """Each seat on turn plays its first legal card, two requests a card: the server's budget is per address."""
+        seat = self.turn_seat()
+        for _ in range(cards):
+            view = self.view(seat)
+            legal = sorted((card["suit"], card["rank"]) for card in view["hand"]["playing"]["legal_cards"])
+            seat = self._send(seat, view["version"], legal[0])["hand"]["playing"]["turn_seat"]
 
     def a_lead_the_middlehand_must_follow(self) -> WireCard:
         """A forehand card whose suit the middlehand holds beside another suit: in Null a suit is only its suit."""
@@ -164,17 +185,17 @@ def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) ->
         expect(person.locator(FELT_CARD)).to_have_count(len(laid))
         for seat, card in laid:
             play = person.locator(f"{FELT_CARD}[data-seat='{seat}']")
-            expect(play.locator(".tag")).to_have_text(table.names[seat])
+            expect(play.locator(".tag .name")).to_have_text(table.names[seat])
             assert faces_of(play) == {card}
-            assert play.evaluate(NEAREST_CHAIR) == seat
+            assert play.evaluate(TOWARD_CHAIR) == seat
 
 
 def expect_the_plaque(table: PlayingTable) -> None:
     points = table.playing()["trick_points"]
     for person in table.everyone:
         declarer, opponents = table.side_names_as_seen_by(person)
-        expect(person.locator(".plaque .declarer")).to_have_text(f"{declarer} {points['declarer']}")
-        expect(person.locator(".plaque .opponents")).to_have_text(f"{opponents} {points['opponents']}")
+        expect(person.locator(".plaque .sides .declarer")).to_have_text(f"{declarer} {points['declarer']}")
+        expect(person.locator(".plaque .sides .opponents")).to_have_text(f"{opponents} {points['opponents']}")
 
 
 def expect_the_turn(table: PlayingTable, seat: int) -> None:
@@ -248,7 +269,7 @@ def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
     expect_the_turn(table, taker)
     expect_the_plaque(table)
 
-    table.play_any_legal_card()
+    table.play_out(1)
     expect_on_the_felt(table, [(taker, table.led_card())])
     expect(table.watcher.locator(".own-hand")).to_have_count(0)
     expect(table.watcher.locator(".card-face")).to_have_count(1)
@@ -315,8 +336,7 @@ def test_after_the_thirtieth_card_no_card_can_be_tapped_and_nothing_breathes(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_playing_table(form_factor)
-    for _ in range(CARDS_IN_PLAY - 1):
-        table.play_any_legal_card()
+    table.play_out(CARDS_IN_PLAY - 1)
     last_player = table.pages[table.turn_seat()]
     expect(last_player.locator(PLAYABLE_CARD)).to_have_count(1)
 

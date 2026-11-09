@@ -17,6 +17,7 @@ import {
     declarerStage,
     drawingOrder,
     gameWord,
+    isSuitGame,
     playCard,
     positionWord,
     readTable,
@@ -528,6 +529,17 @@ describe("the table's seats and link", () => {
         ["null", words.gameNull],
     ] as [Game, string][])("names the game %s with its word", (game, word) => {
         expect(gameWord(game)).toBe(word);
+    });
+
+    it.each([
+        ["karo", true],
+        ["herz", true],
+        ["pik", true],
+        ["kreuz", true],
+        ["grand", false],
+        ["null", false],
+    ] as [Game, boolean][])("tells whether the game %s is a suit game", (game, suited) => {
+        expect(isSuitGame(game)).toBe(suited);
     });
 
     it("names a card by its suit's game word and its rank word", () => {

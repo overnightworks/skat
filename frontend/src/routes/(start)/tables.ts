@@ -8,7 +8,7 @@ import {
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
     type STAGE_TOKENS,
-    type SUIT_TOKENS,
+    SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
     TABLE_DECLARATION_SUFFIX,
     TABLE_AUCTION_SUFFIX,
@@ -296,6 +296,13 @@ const GAME_WORDS: Record<Game, string> = {
     grand: words.gameGrand,
     null: words.gameNull,
 };
+
+const SUIT_GAMES: ReadonlySet<Game> = new Set(SUIT_TOKENS);
+
+// A suit game is named by its trump suit; Grand and Null are not.
+export function isSuitGame(game: Game): game is Suit {
+    return SUIT_GAMES.has(game);
+}
 
 export function gameWord(game: Game): string {
     return GAME_WORDS[game];

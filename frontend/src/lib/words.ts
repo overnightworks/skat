@@ -51,4 +51,8 @@ export const words = {
     rankQueen: "Dame",
     rankKing: "König",
     rankAce: "Ass",
+    sideUs: "Wir",
+    sideThem: "Gegner",
+    trick: "Stich",
+    trickPoints: "Augen",
 } as const;

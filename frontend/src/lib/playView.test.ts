@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardsToPlay, sideNames, trickOnTheFelt } from "#lib/playView.ts";
+import { cardLook, cardsToPlay, gameInPlay, sideNames, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
 import { words } from "#lib/words.ts";
 import type { Card, Chair, Playing, Position, Table } from "../routes/(start)/tables.ts";
 
@@ -11,6 +11,7 @@ const DECLARER_SEAT = 2;
 
 // Seat 3 deals, so seat 1 is forehand, seat 2 middlehand and seat 3 rearhand.
 const POSITIONS: Record<number, Position> = { 1: "forehand", 2: "middlehand", 3: "rearhand" };
+const SEAT_TWO_DEALS: Record<number, Position> = { 1: "middlehand", 2: "rearhand", 3: "forehand" };
 
 function chairs(mine: number, positions: Record<number, Position> = POSITIONS): Chair[] {
     return [1, 2, 3].map((seat) => ({
@@ -85,7 +86,7 @@ describe("the trick on the felt", () => {
         { leader: 3, positions: POSITIONS, seats: [3, 1, 2] },
         {
             leader: 3,
-            positions: { 1: "middlehand", 2: "rearhand", 3: "forehand" } as Record<number, Position>,
+            positions: SEAT_TWO_DEALS,
             seats: [3, 1, 2],
         },
     ])(
@@ -118,10 +119,10 @@ describe("the trick on the felt", () => {
         expect(trickOnTheFelt(chairs(WATCHER), playing({}))).toEqual([]);
     });
 
-    it("tags a card with no name when its chair has none", () => {
+    it("tags a card with an empty name when its chair has none", () => {
         const empty = chairs(WATCHER).map((chair) => ({ ...chair, occupant_name: null }));
 
-        expect(trickOnTheFelt(empty, twoCards).map(({ name }) => name)).toEqual([null, null]);
+        expect(trickOnTheFelt(empty, twoCards).map(({ name }) => name)).toEqual(["", ""]);
     });
 });
 
@@ -159,5 +160,40 @@ describe("the cards the viewer may play", () => {
 
     it("are none with no hand on the table", () => {
         expect(cardsToPlay({ ...table(1, {}), hand: null })).toBeNull();
+    });
+});
+
+describe("how a card of the own hand looks", () => {
+    const onTurn = (lifted: Card | null): PlayingHand => ({
+        legal: [KARO_SEVEN, KARO_ACE],
+        lifted,
+        disabled: false,
+        tap: () => undefined,
+    });
+
+    it.each([
+        { name: "plain while it is not the viewer's turn", playing: undefined, card: KARO_SEVEN, look: "plain" },
+        { name: "legal on turn", playing: onTurn(null), card: KARO_SEVEN, look: "legal" },
+        { name: "dimmed on turn when it may not be played", playing: onTurn(null), card: HERZ_TEN, look: "dimmed" },
+        { name: "lifted after the first tap", playing: onTurn(KARO_ACE), card: KARO_ACE, look: "lifted" },
+        { name: "legal beside the lifted one", playing: onTurn(KARO_ACE), card: KARO_SEVEN, look: "legal" },
+    ])("is $name", ({ playing, card, look }) => {
+        expect(cardLook(playing, card)).toBe(look);
+    });
+});
+
+describe("the game in play", () => {
+    it("names the declared game, its declarer and the play once the game is declared", () => {
+        const declared = table(1, { turn_seat: 1 });
+
+        expect(gameInPlay(declared)).toEqual({ game: "null", declarerSeat: DECLARER_SEAT, playing: playing({}) });
+    });
+
+    it("is none before the game is declared", () => {
+        expect(gameInPlay(table(1, null))).toBeNull();
+    });
+
+    it("is none with no hand on the table", () => {
+        expect(gameInPlay({ ...table(1, {}), hand: null })).toBeNull();
     });
 });

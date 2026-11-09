@@ -152,3 +152,15 @@ msgstr "König"
 
 msgid "rankAce"
 msgstr "Ass"
+
+msgid "sideUs"
+msgstr "Wir"
+
+msgid "sideThem"
+msgstr "Gegner"
+
+msgid "trick"
+msgstr "Stich"
+
+msgid "trickPoints"
+msgstr "Augen"
