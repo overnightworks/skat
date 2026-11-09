@@ -34,6 +34,7 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_DATABASE_PASSWORD_FILE` | required | Absolute path of the file holding only the database password. |
 | `SKAT_TRUSTED_PROXIES` | empty | Addresses and CIDR blocks, comma-separated, of the proxies allowed to name the client in `X-Forwarded-For`. |
 | `SKAT_CHAIR_HOLD_SECONDS` | `300` | How long a seated member whose last stream ended keeps the chair while no hand runs; a positive number. |
+| `SKAT_EMPTY_TABLE_SECONDS` | `1800` | How long a table nobody is connected to stays before it ends; a positive whole number. |
 | `SKAT_HOST` | `0.0.0.0` | The listen address. |
 | `SKAT_PORT` | `8080` | The listen port. |
 
