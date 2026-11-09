@@ -18,7 +18,7 @@
 - Never edit `frontend/src/lib/wire.ts` or `frontend/src/lib/words.ts` by hand; change their source and regenerate.
 - A setting added to or changed in `src/skat/web/settings.py` updates the Configuration table in `README.md` in the same change.
 - A new Python package is placed in a layer of the import-linter contracts in `pyproject.toml`, which are exhaustive.
-- A sonar marker takes the bare rule key, `# NOSONAR(S7503) reason`; a `language:`-prefixed key is a syntax finding itself. A ruff `# noqa: <code>` takes no prose after the code; its reason goes on the line above.
+- A sonar marker takes the bare rule key, `# NOSONAR(S7503) reason`; a `language:`-prefixed key is a syntax finding itself. A ruff `# noqa: <code>` line's prose after the code has no comma, since SonarPython raised python:S7632 on one that did.
 
 ## Owners
 
