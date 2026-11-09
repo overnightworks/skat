@@ -41,7 +41,12 @@ def base_url() -> None:
 def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[str, Any]:
     # The test certificate is self-signed: the per-request waiver of ignore_https_errors restarts a request
     # once per failed handshake, up to Chromium's cap, and a stylesheet that hits it never loads.
-    return {**browser_type_launch_args, "args": ["--ignore-certificate-errors"]}
+    # A page that Playwright answers itself has no address, so Chromium counts it public and blocks its requests
+    # to Skat on loopback; the framing tests serve their call page that way.
+    return {
+        **browser_type_launch_args,
+        "args": ["--ignore-certificate-errors", "--disable-features=LocalNetworkAccessChecks"],
+    }
 
 
 @pytest.fixture(scope="session")
@@ -87,7 +92,13 @@ def open_person(
         if request.failure != PAGE_NAVIGATED_AWAY and not request.url.startswith(tuple(expected_request_failures)):
             failed_requests.append(f"{request.url}: {request.failure}")
 
-    def open_page(*, signed_in: bool = True, username: str | None = None, **device_options: Any) -> Page:
+    def open_page(
+        *,
+        signed_in: bool = True,
+        username: str | None = None,
+        server: RunningServer = e2e_server,
+        **device_options: Any,
+    ) -> Page:
         person_address = PERSON_ADDRESS_BASE + next(person_address_offsets)
         context = browser.new_context(
             **{**browser_context_args, "extra_http_headers": {"X-Forwarded-For": str(person_address)}, **device_options}
@@ -98,13 +109,15 @@ def open_person(
         page = context.new_page()
         if signed_in:
             if username is None:
-                account = new_account(e2e_server.stores, e2e_server.config)
+                account = new_account(server.stores, server.config)
             else:
-                account = e2e_server.stores.accounts.create_for_subject(
+                account = server.stores.accounts.create_for_subject(
                     f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
                 )
-            member = seed_member(e2e_server.stores, e2e_server.config, account=account)
-            context.add_cookies([playwright_cookie(header, e2e_server.config) for header in member.set_cookie_headers])
+            member = seed_member(server.stores, server.config, account=account)
+            context.add_cookies(
+                [playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers]
+            )
             seeded_members[page] = member
         return page
 

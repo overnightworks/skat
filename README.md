@@ -28,7 +28,8 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_OIDC_ISSUER` | required | The realm's issuer URL, without a trailing slash. |
 | `SKAT_OIDC_CLIENT_ID` | `skat` | The issuer's client for Skat. |
 | `SKAT_OIDC_CLIENT_SECRET_FILE` | required | Absolute path of the file holding the client secret. |
-| `SKAT_PUBLIC_ORIGIN` | required | The https origin people open Skat at, without a path. |
+| `SKAT_PUBLIC_ORIGIN` | required | The https origin people open Skat at, written as the browser writes an origin: a lowercase host, no path, no port 443. |
+| `SKAT_CALL_ORIGIN` | unset | The one https origin whose pages may frame Skat, in the same form as `SKAT_PUBLIC_ORIGIN`. Unset or empty, no page may. |
 | `SKAT_SESSION_SECRET_FILE` | required | Absolute path of the file holding the session signing key. |
 | `SKAT_DATABASE_URL` | required | The Postgres connection URL without a password, as `postgresql://user@host/database`; Skat refuses to start if it carries a password or any query parameter. |
 | `SKAT_DATABASE_PASSWORD_FILE` | required | Absolute path of the file holding only the database password. |

@@ -24,6 +24,7 @@ class TestServerSettings:
         assert settings.port == DEFAULT_PORT
         assert settings.oidc_client_id == OIDC_CLIENT_ID
         assert settings.trusted_proxies == ""
+        assert settings.call_origin is None
         assert settings.empty_table_seconds == DEFAULT_EMPTY_TABLE_SECONDS
 
     def test_each_setting_is_read_from_its_skat_environment_variable(self, sign_in_settings):
@@ -34,6 +35,7 @@ class TestServerSettings:
             "SKAT_PORT": "9090",
             "SKAT_OIDC_CLIENT_ID": "other-client",
             "SKAT_TRUSTED_PROXIES": "10.0.0.0/8,127.0.0.1",
+            "SKAT_CALL_ORIGIN": "https://call.test.invalid",
             "SKAT_CHAIR_HOLD_SECONDS": "90.5",
             "SKAT_EMPTY_TABLE_SECONDS": "42",
         }
@@ -43,6 +45,7 @@ class TestServerSettings:
             assert settings.port == 9090
             assert settings.oidc_client_id == "other-client"
             assert settings.trusted_proxies == "10.0.0.0/8,127.0.0.1"
+            assert settings.call_origin == "https://call.test.invalid"
             assert settings.chair_hold_seconds == 90.5
             assert settings.empty_table_seconds == 42
             assert settings.oidc_issuer == sign_in.settings.oidc_issuer
@@ -61,8 +64,6 @@ class TestServerSettings:
         ("setting", "value"),
         [
             ("oidc_issuer", "https://issuer.test.invalid/realms/test/"),
-            ("public_origin", "https://skat.test.invalid/"),
-            ("public_origin", "https://skat.test.invalid/apps/skat"),
             ("oidc_client_secret_file", "relative/client-secret"),
             ("session_secret_file", "relative/session-secret"),
             ("database_password_file", "relative/database-password"),
@@ -72,6 +73,70 @@ class TestServerSettings:
         with pytest.raises(ValidationError, match=setting) as refusal:
             sign_in_settings(**{setting: value})
         assert value not in str(refusal.value)
+
+    @pytest.mark.parametrize("setting", ["call_origin", "public_origin"])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "http://host.example",
+            "https://host.example/",
+            "https://host.example/path",
+            "https://host.example?x=1",
+            "https://host.example#f",
+            "https://user@host.example",
+            "*",
+            "https://*.host.example",
+            "host.example",
+            "https://",
+            "https://Host.example",
+            "https://host.example.",
+            "https://host.example:443",
+            "https://host.example:",
+            "https://h\u00f3st.example",
+            "https://host.example;x",
+            "https://host .example",
+            "https://host.example:99999",
+            "https://host.example:65536",
+            "https://host.example:8\u0664\u0664\u0663",
+            "https://host.example:1\uff10",
+            "https://127.1:8443",
+            "https://127.0.0.256",
+            "https://127.000.0.1",
+            "https://1.2.3.4.5",
+            "https://2130706433",
+            "https://0x7f000001",
+            "https://127.0.0.0x1",
+            "https://0x",
+            "https://host.0x1",
+            "https://0x7f000001:8443",
+        ],
+    )
+    def test_an_origin_setting_not_written_as_the_browser_writes_it_is_refused_by_name_and_never_by_value(
+        self, sign_in_settings, setting, value
+    ):
+        with pytest.raises(ValidationError, match=setting) as refusal:
+            sign_in_settings(**{setting: value})
+        assert "input_value" not in str(refusal.value)
+
+    @pytest.mark.parametrize("setting", ["call_origin", "public_origin"])
+    @pytest.mark.parametrize(
+        "origin",
+        [
+            "https://hopin.hallucinai.de",
+            "https://hopin.drive.localhost:8443",
+            "https://127.0.0.1:65535",
+            "https://host1.example",
+        ],
+    )
+    def test_an_origin_written_as_the_browser_writes_it_is_kept_verbatim(self, sign_in_settings, setting, origin):
+        assert getattr(sign_in_settings(**{setting: origin}).settings, setting) == origin
+
+    def test_an_empty_call_origin_counts_as_unset(self, sign_in_settings):
+        assert sign_in_settings(call_origin="").settings.call_origin is None
+
+    def test_an_empty_public_origin_is_refused_by_name(self, sign_in_settings):
+        with pytest.raises(ValidationError, match="public_origin"):
+            sign_in_settings(public_origin="")
 
     @pytest.mark.parametrize(
         "url",
