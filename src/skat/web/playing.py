@@ -43,7 +43,12 @@ class GiveUpRequest(CreateTableRequest):
 
 def create_playing_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
+    _add_play_card(router, tables, presence)
+    _add_give_up(router, tables, presence)
+    return router
 
+
+def _add_play_card(router: APIRouter, tables: TableService, presence: Presence) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_CARD_SUFFIX,
         response_model=TableAnswer,
@@ -76,6 +81,8 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
             response,
         )
 
+
+def _add_give_up(router: APIRouter, tables: TableService, presence: Presence) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_GIVE_UP_SUFFIX,
         response_model=TableAnswer,
@@ -106,5 +113,3 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
             table_id,
             response,
         )
-
-    return router
