@@ -489,7 +489,7 @@
                                     <BackFan count={chair.hand.card_count} dim={chair.is_away} />
                                 </div>
                             {/if}
-                            {#if !seated}
+                            {#if !chair.is_mine}
                                 <span class="count-tag" title={words.cardCount}>
                                     <svg
                                         viewBox="0 0 24 24"

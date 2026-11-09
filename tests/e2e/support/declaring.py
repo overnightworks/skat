@@ -41,6 +41,7 @@ class DeclaringTable:
         *,
         console: bool = True,
         hold_the_others_clock: bool = False,
+        joiners: tuple[str, str] = ("ben", "cleo"),
     ) -> None:
         self.server = server
         opener = self._person(open_person, "anna", page_errors, form_factor, console)
@@ -48,7 +49,7 @@ class DeclaringTable:
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
-        for seat, username in ((2, "ben"), (3, "cleo")):
+        for seat, username in zip((2, 3), joiners, strict=True):
             person = self._person(open_person, username, page_errors, form_factor, console)
             watch(person, server, path)
             sit_in(person, seat)

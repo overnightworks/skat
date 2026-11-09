@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
 from skat.table.playing import PlayCardCommand
+from skat.web.mcp import PLAY_CARD_MARK
 from skat.web.tables import (
     COMMAND_ID_PATTERN,
     COMMAND_RESPONSES,
@@ -35,11 +36,22 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
     router = APIRouter()
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_CARD_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_CARD_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=PLAY_CARD_MARK,
     )
     async def play_card(
         table_id: str, body: PlayCardRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
+        """Play one card from the caller's own hand on its turn at a Skat table.
+
+        The table id and the version come from the answer of read_table, and the card from its legal cards. The
+        command id names this move: the same id with the same card and the same version is a retry that changes
+        nothing twice. A refusal (a stale version, a card that is not legal, not the caller's turn) comes back as a
+        failed result with its reason, leaves the table as it was and spends the command id: the next attempt takes
+        a new command id.
+        """
         command = PlayCardCommand(
             command_id=body.command_id, table_id=table_id, version=body.version, card=card_of(body)
         )

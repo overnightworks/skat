@@ -58,7 +58,7 @@ def _settled_value(valuation: Valuation, played: PlayedOut, bid: int) -> int:
 
 def settle(played: PlayedOut, bid: int) -> Settlement:
     """A game valued below the bid is lost at least at the bid; a lost game scores minus twice its value."""
-    valuation = value_of(played)
+    valuation = value_of(played, bid)
     value = _settled_value(valuation, played, bid)
     won = valuation.won and not overbid(valuation.value, bid)
     return Settlement(won=won, value=value, score=value if won else -2 * value)

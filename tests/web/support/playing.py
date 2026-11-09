@@ -12,6 +12,8 @@ from tests.support.payload_cards import DEALER_SEAT, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
+# Middlehand declares in every played-out game; seats 1, 2, 3 are middlehand, rearhand, forehand.
+DECLARER_SEAT = 1
 
 
 def card(text):
@@ -43,6 +45,33 @@ def reason_of(answer):
     return answer.json()["reason"]
 
 
+def result_fields(**changed):
+    """A result answer for a plain first game of the declarer in seat 1; a test names what differs."""
+    plain = {
+        "ordinal": 1,
+        "declarer_seat": DECLARER_SEAT,
+        "hand": False,
+        "ouvert": False,
+        "announcement": "none",
+        "schneider": False,
+        "schwarz": False,
+        "doubled": False,
+        "overbid": False,
+        "bid": 18,
+    }
+    return plain | changed
+
+
+def gains(declarer, each_opponent):
+    """The opponents gain only from a lost game, which is the declarer's loss."""
+    declarer_won = each_opponent == 0
+    return [
+        {"seat": 1, "gain": declarer, "won": declarer_won},
+        {"seat": 2, "gain": each_opponent, "won": not declarer_won},
+        {"seat": 3, "gain": each_opponent, "won": not declarer_won},
+    ]
+
+
 class Table:
     """A dealt table with its people told apart by position, and the watcher left over."""
 
@@ -64,6 +93,15 @@ class Table:
 
     def fresh_id(self):
         return f"step-{next(self._commands):04d}"
+
+    def read_as(self, headers):
+        self.skat.client.cookies.clear()
+        return self.skat.client.get(f"{TABLES_PATH}/{self.table_id}", headers=headers)
+
+    def result(self):
+        answer = self.read_as(self.watcher)
+        assert answer.status_code == 200, answer.text
+        return answer.json()["result"]
 
     def with_deal(self, deal):
         self.skat.store.tables[self.table_id] = replace(self.record, hand=deal)
@@ -95,15 +133,15 @@ class Table:
             announcement=announcement,
         )
 
-    def declared_hand_game(self, game=GameToken.HERZ, *, bid=18, announcement=AnnouncementToken.NONE):
+    def declared_hand_game(self, game=GameToken.HERZ, *, bid=18, announcement=AnnouncementToken.NONE, ouvert=False):
         self.middlehand_wins(bid)
-        self._declare(game, hand=True, announcement=announcement)
+        self._declare(game, hand=True, ouvert=ouvert, announcement=announcement)
 
     def declared_grand_ouvert(self):
         self.middlehand_wins()
         self._declare(GameToken.GRAND, hand=True, ouvert=True, announcement=AnnouncementToken.SCHWARZ)
 
-    def declared_after_putting_back(self, put_back, game=GameToken.HERZ):
+    def declared_after_putting_back(self, put_back, game=GameToken.HERZ, *, ouvert=False):
         self.middlehand_wins()
         self._post(TABLE_DECLARATION_SUFFIX, MIDDLEHAND, action=DeclaringAction.TAKE)
         self._post(
@@ -112,7 +150,7 @@ class Table:
             action=DeclaringAction.PUT_BACK,
             cards=[card_body(each) for each in put_back],
         )
-        self._declare(game, hand=False)
+        self._declare(game, hand=False, ouvert=ouvert)
 
     def send(self, headers, played, *, command_id=None, version=None):
         return self.skat.client.post(
@@ -137,7 +175,7 @@ class Table:
         assert answer.status_code == 200, answer.text
         assert self.record.version == before.version + 1
         stored = (len(self.plays), len(self.record.game_list))
-        # The card is stored, or it was the thirtieth: the hand's cards and steps go and the game joins the list.
+        # The card is stored, or it ended the game: the hand's cards and steps go and the game joins the list.
         assert stored in {
             (len(before.progress.plays) + 1, len(before.game_list)),
             (0, len(before.game_list) + 1),

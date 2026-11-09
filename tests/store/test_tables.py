@@ -1,7 +1,6 @@
 import itertools
 import random
 import threading
-import time
 from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import replace
 
@@ -27,6 +26,7 @@ from tests.support.faulty_tables import (
 )
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.table_rows import wait_until_a_session_waits_for_a_lock
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
 pytestmark = pytest.mark.postgres
@@ -143,21 +143,6 @@ def test_table_ids_are_distinct_128_bit_hex_and_not_sequential(service):
 
 
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
-
-
-def wait_until_a_session_waits_for_a_lock(engine):
-    deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
-    with engine.connect() as watcher:
-        while time.monotonic() < deadline:
-            waiting = watcher.execute(
-                text(
-                    "SELECT count(*) FROM pg_stat_activity"
-                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
-                )
-            ).scalar_one()
-            if waiting:
-                return
-    pytest.fail("no session waited for a lock")
 
 
 def run_in_thread(work):

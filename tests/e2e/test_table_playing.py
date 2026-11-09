@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 COMMAND_FAILED = catalog_text("commandFailed")
-NULL_GAME = catalog_text("gameNull")
 KREUZ = catalog_text("gameKreuz")
 HAND_CARD = ".own-hand .card"
 LEGAL_CARD = f"{HAND_CARD}.ok"
@@ -55,7 +54,7 @@ def deal_a_playing_table(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
-    def deal(form_factor: dict[str, Any], *, console: bool = True, game: str = "null") -> PlayingTable:
+    def deal(form_factor: dict[str, Any], *, console: bool = True, game: str = "kreuz") -> PlayingTable:
         return deal_playing_table(
             open_person, e2e_server, member_of, page_errors, form_factor, console=console, game=game
         )
@@ -107,7 +106,7 @@ def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) ->
 def expect_the_plaque(table: PlayingTable) -> None:
     points = table.playing()["trick_points"]
     for person in table.everyone:
-        expect(person.locator(".plaque .game")).to_have_text(NULL_GAME)
+        expect(person.locator(".plaque .game")).to_have_text(KREUZ)
         declarer, opponents = table.side_names_as_seen_by(person)
         expect(person.locator(".plaque .sides .declarer")).to_have_text(f"{declarer} {points['declarer']}")
         expect(person.locator(".plaque .sides .opponents")).to_have_text(f"{opponents} {points['opponents']}")
@@ -202,6 +201,33 @@ def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
     expect_on_the_felt(table, [(taker, table.led_card())])
     expect(table.watcher.locator(".own-hand")).to_have_count(0)
     expect(table.watcher.locator(".card-face")).to_have_count(1)
+    assert page_errors == []
+
+
+# A laid card and its name tag stand clear of every fan, the own hand included; a card on its way out is no fan yet.
+CLEAR_OF_EVERY_FAN = """() => {
+    const boxes = (selector) =>
+        [...document.querySelectorAll(selector)].map((element) => element.getBoundingClientRect());
+    const fans = boxes('.chair .fan, .own-hand .card');
+    return boxes('.trick .face, .trick .tag').every((laid) =>
+        fans.every((fan) =>
+            Math.min(laid.right, fan.right) <= Math.max(laid.left, fan.left)
+            || Math.min(laid.bottom, fan.bottom) <= Math.max(laid.top, fan.top)
+        )
+    );
+}"""
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_playing_table(form_factor, game="kreuz")
+    for played in range(1, CARDS_IN_A_HAND):
+        table.play_out(1)
+        for person in table.everyone:
+            expect(person.locator(FELT_CARD)).to_have_count(played % CARDS_IN_A_TRICK or CARDS_IN_A_TRICK)
+            person.wait_for_function(CLEAR_OF_EVERY_FAN)
     assert page_errors == []
 
 
