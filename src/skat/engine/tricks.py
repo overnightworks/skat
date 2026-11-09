@@ -7,6 +7,7 @@ from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards, trick_winner
+from skat.engine.replay import replay_log
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -299,12 +300,4 @@ def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
 
 
 def playing_after(start: Playing, steps: tuple[CardPlayed, ...]) -> Playing:
-    """The state a stored log of played cards leads to; a log the rules refuse is corrupt and raises."""
-    state = start
-    for place, step in enumerate(steps, start=1):
-        outcome = play_card(state, step.position, step.card)
-        if outcome.refusal is not None:
-            message = f"impossible card log: step {place} refused: {outcome.refusal.value}"
-            raise ValueError(message)
-        state = outcome.state
-    return state
+    return replay_log(start, steps, lambda state, step: play_card(state, step.position, step.card), "card")

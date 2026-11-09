@@ -8,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 from webauth.config import installed_web_auth_config
 from webauth.dependencies import ConnectionRefusal, admit_session, session_id_from_request
 
+from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, actor_for, actor_of, answer_of
 
 if TYPE_CHECKING:
@@ -88,6 +89,7 @@ def create_streams_router(
         TABLES_PATH + "/{table_id}" + TABLE_EVENTS_SUFFIX,
         response_class=StreamingResponse,
         responses={404: {"description": "No table has this id."}},
+        openapi_extra=excluded(Exclusion.LIVE_STREAM),
     )
     async def watch_table(table_id: str, request: Request) -> StreamingResponse:
         opened_as = actor_of(request)

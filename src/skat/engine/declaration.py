@@ -3,6 +3,7 @@ from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.games import GameKind, NullLevels
+from skat.engine.replay import replay_log
 
 if TYPE_CHECKING:
     from skat.engine.bidding import Declared
@@ -180,12 +181,4 @@ def declaring_step(state: Declaring, step: DeclaringStep) -> DeclarationOutcome:
 
 
 def declaring_after(start: Declaring, steps: tuple[DeclaringStep, ...]) -> Declaring:
-    """The state a stored log of steps leads to; a log the rules refuse is corrupt and raises."""
-    state = start
-    for place, step in enumerate(steps, start=1):
-        outcome = declaring_step(state, step)
-        if outcome.refusal is not None:
-            message = f"impossible declaring log: step {place} refused: {outcome.refusal.value}"
-            raise ValueError(message)
-        state = outcome.state
-    return state
+    return replay_log(start, steps, declaring_step, "declaring")
