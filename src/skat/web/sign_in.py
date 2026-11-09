@@ -6,7 +6,7 @@ from urllib.parse import quote, urlsplit
 
 import structlog
 from fastapi import APIRouter, FastAPI, Query, Response
-from webauth.admission import AdmissionConfig, AdmissionRefusal, NoAdmins
+from webauth.admission import AdmissionRefusal
 from webauth.config import SessionLifetime, WebAuthConfig
 from webauth.https_client import fetch_key_set_over_https
 from webauth.oidc import OidcClientConfig, OidcRefusal, OidcRelyingParty, TokenRequestPost
@@ -23,7 +23,6 @@ from webauth.sign_in_routes import (
 from skat.web.constants import (
     AUTH_CALLBACK_PATH,
     AUTH_START_PATH,
-    LOGIN_GROUP,
     LOGIN_PATH,
     NO_ACCESS_PATH,
     OIDC_LEEWAY_SECONDS,
@@ -32,6 +31,8 @@ from skat.web.constants import (
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
 )
+from skat.web.gate import admission_for
+from skat.web.mcp import Exclusion, excluded
 from skat.web.page_build import BuiltPage
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.secret_files import StartRefusedError, read_secret_file
@@ -147,9 +148,7 @@ def install_sign_in(
         app,
         paths=SIGN_IN_PATHS,
         relying_party=lambda _request: relying_party,
-        admission=AdmissionConfig(
-            bound_issuer=relying_party.issuer, login_group=LOGIN_GROUP, admin_group=NoAdmins.IN_THIS_APP
-        ),
+        admission=admission_for(relying_party.issuer),
         transaction=transaction,
         refused=lambda _request, refusal: _refusal_response(refusal, page_build),
         keeps_id_token=True,
@@ -167,7 +166,7 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
             f"The signed-out page lacks its one {AUTH_START_PATH} address; run make frontend"
         )
 
-    @router.api_route(LOGIN_PATH, methods=READ_METHODS)
+    @router.api_route(LOGIN_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
     def signed_out(next_path: Annotated[str | None, Query(alias=RETURN_PATH_QUERY_NAME)] = None) -> Response:
         """Carries the raw `next` onto the sign-in address; webauth is the only validator of it."""
         if next_path is None:
@@ -177,7 +176,7 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
             BuiltPage.of(signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"'))
         )
 
-    @router.api_route(NO_ACCESS_PATH, methods=READ_METHODS)
+    @router.api_route(NO_ACCESS_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
     def no_access() -> Response:
         return built_page_response(page_build.no_access)
 
