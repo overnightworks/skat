@@ -1,0 +1,8 @@
+claim_id = "680c2179c7c745dda11909839f5d8192"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "d0681204029064e2372f0fe6f8c8daeb8827d063"
+branch = "claude/issue-133-grand-hand-api"
+scope = ["tests/support/payload_cards.py", "tests/web/support/playing.py", "tests/web/test_grand_and_hand.py", "tests/web/test_playing.py"]
+opened_commit = "47e01ed2c520a9accfae5c060c2af0ff7896201c"
+whole_reason = "The moved helpers and the new tests are one change: the new tests need the helpers, and moving them out keeps test_playing.py under the size ratchet."
