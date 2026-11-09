@@ -11,6 +11,8 @@ from webauth.middleware import admitted_user
 from skat.engine.bidding import Awaiting
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
+from skat.engine.declaration import Announcement, Stage
+from skat.engine.games import GameKind
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import Actor, CommandRefusal, CreateTable, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
     from webauth.ports import AuthenticatedUser
 
     from skat.table.auction import AuctionView
+    from skat.table.declaring import DeclaringView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
@@ -88,6 +91,28 @@ class AwaitingToken(StrEnum):
     PLAY = "play"
 
 
+class StageToken(StrEnum):
+    CHOOSING = "choosing"
+    DISCARDING = "discarding"
+    PICKED = "picked"
+    DECLARED = "declared"
+
+
+class GameToken(StrEnum):
+    KARO = "karo"
+    HERZ = "herz"
+    PIK = "pik"
+    KREUZ = "kreuz"
+    GRAND = "grand"
+    NULL = "null"
+
+
+class AnnouncementToken(StrEnum):
+    NONE = "none"
+    SCHNEIDER = "schneider"
+    SCHWARZ = "schwarz"
+
+
 # The engine orders cards by number; the wire names them by word, so that order is no public contract.
 SUIT_TOKENS: Final = {
     Suit.KREUZ: SuitToken.KREUZ,
@@ -114,6 +139,25 @@ AWAITING_TOKENS: Final = {
     Awaiting.BID: AwaitingToken.BID,
     Awaiting.ANSWER: AwaitingToken.ANSWER,
     Awaiting.PLAY: AwaitingToken.PLAY,
+}
+STAGE_TOKENS: Final = {
+    Stage.CHOOSING: StageToken.CHOOSING,
+    Stage.DISCARDING: StageToken.DISCARDING,
+    Stage.PICKED: StageToken.PICKED,
+    Stage.DECLARED: StageToken.DECLARED,
+}
+GAME_TOKENS: Final = {
+    GameKind.KARO: GameToken.KARO,
+    GameKind.HERZ: GameToken.HERZ,
+    GameKind.PIK: GameToken.PIK,
+    GameKind.KREUZ: GameToken.KREUZ,
+    GameKind.GRAND: GameToken.GRAND,
+    GameKind.NULL: GameToken.NULL,
+}
+ANNOUNCEMENT_TOKENS: Final = {
+    Announcement.NONE: AnnouncementToken.NONE,
+    Announcement.SCHNEIDER: AnnouncementToken.SCHNEIDER,
+    Announcement.SCHWARZ: AnnouncementToken.SCHWARZ,
 }
 
 
@@ -147,11 +191,26 @@ class AuctionAnswer(BaseModel):
     declared: AuctionDeclaredAnswer | None
 
 
+class DeclarationAnswer(BaseModel):
+    game: GameToken
+    hand: bool
+    ouvert: bool
+    announcement: AnnouncementToken
+
+
+class DeclaringAnswer(BaseModel):
+    declarer_seat: int
+    stage: StageToken
+    declaration: DeclarationAnswer | None
+    open_cards: list[CardAnswer]
+
+
 class HandAnswer(BaseModel):
     dealer_seat: int
     own_cards: list[CardAnswer]
     skat_count: int
     auction: AuctionAnswer
+    declaring: DeclaringAnswer | None
 
 
 class ChairAnswer(BaseModel):
@@ -211,6 +270,25 @@ def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
     )
 
 
+def declaring_answer_of(declaring: DeclaringView | None) -> DeclaringAnswer | None:
+    if declaring is None:
+        return None
+    declaration = declaring.declaration
+    return DeclaringAnswer(
+        declarer_seat=declaring.declarer_seat,
+        stage=STAGE_TOKENS[declaring.stage],
+        declaration=None
+        if declaration is None
+        else DeclarationAnswer(
+            game=GAME_TOKENS[declaration.kind],
+            hand=declaration.hand,
+            ouvert=declaration.ouvert,
+            announcement=ANNOUNCEMENT_TOKENS[declaration.announcement],
+        ),
+        open_cards=[card_answer_of(card) for card in declaring.open_cards],
+    )
+
+
 def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
     if hand is None:
         return None
@@ -219,6 +297,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         own_cards=[card_answer_of(card) for card in hand.own_cards],
         skat_count=hand.skat_count,
         auction=auction_answer_of(hand.auction),
+        declaring=declaring_answer_of(hand.declaring),
     )
 
 

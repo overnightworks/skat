@@ -1,5 +1,6 @@
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
+from skat.engine.deal import positions_from
 from skat.table.records import (
     Actor,
     Chair,
@@ -16,6 +17,10 @@ from skat.table.records import (
     TableId,
     TableRecord,
 )
+
+if TYPE_CHECKING:
+    from skat.engine.cards import Card
+    from skat.engine.deal import Position
 
 CHAIRS_PER_TABLE: Final = 3
 FIRST_VERSION: Final = 1
@@ -131,6 +136,23 @@ def decide_free_chair(table: TableRecord, account_id: str) -> Decision:
     if hand_runs(table):
         return Decision(table, Refusal.HAND_RUNNING)
     return Decision(_with_occupant(table, own.seat, None))
+
+
+def acting_position(table: TableRecord, actor: Actor, version: int) -> Position | Refusal:
+    """The actor's position in the running hand, or why a hand command stops: no hand, no chair, a stale version."""
+    if table.dealer is None or not hand_runs(table):
+        return Refusal.NO_HAND
+    chair = seat_of(table, actor.account_id)
+    if chair is None:
+        return Refusal.NOT_SEATED
+    if version != table.version:
+        return Refusal.STALE_VERSION
+    return positions_from(table.dealer)[chair.seat]
+
+
+def card_text(card: Card) -> str:
+    """A card as a receipt's payload names it."""
+    return f"{card.suit.name}-{card.rank.name}"
 
 
 def sit_payload(command: SitDown) -> str:

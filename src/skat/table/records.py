@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING, Final, Self
 
 from skat.engine.bidding import BidRefusal
 from skat.engine.declaration import DeclarationRefusal
+from skat.engine.tricks import PlayRefusal
 
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
     from skat.engine.deal import Deal
     from skat.engine.declaration import DeclaringStep
+    from skat.engine.tricks import CardPlayed
 
 TABLE_ID_BYTES: Final = 16
 _TABLE_ID = re.compile(r"[0-9a-f]{32}")
@@ -76,10 +78,11 @@ class Refusal(StrEnum):
     NOT_DECLARER = "not-declarer"
 
 
-type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal
+type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal
 
+# `PlayRefusal` shares its `over` and `not-your-turn` tokens with `BidRefusal`: the wire string is the same either way.
 _REFUSALS_BY_TOKEN: Final[dict[str, CommandRefusal]] = {
-    refusal.value: refusal for refusal in (*Refusal, *BidRefusal, *DeclarationRefusal)
+    refusal.value: refusal for refusal in (*Refusal, *PlayRefusal, *BidRefusal, *DeclarationRefusal)
 }
 
 
@@ -106,6 +109,7 @@ class HandProgress:
 
     auction: tuple[AuctionStep, ...] = ()
     declaring: tuple[DeclaringStep, ...] = ()
+    plays: tuple[CardPlayed, ...] = ()
 
 
 @dataclass(frozen=True)

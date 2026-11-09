@@ -1,6 +1,6 @@
 from dataclasses import dataclass, replace
 from enum import Enum, StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from skat.engine.games import GameKind, NullLevels
 
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Deal, Position
 
-_SKAT_SIZE = 2
+SKAT_SIZE: Final = 2
 
 
 class Announcement(Enum):
@@ -58,7 +58,7 @@ class Declaration:
         return NullLevels(hand=self.hand, ouvert=self.ouvert)
 
 
-class _Stage(Enum):
+class Stage(Enum):
     CHOOSING = "choosing"
     DISCARDING = "discarding"
     PICKED = "picked"
@@ -73,7 +73,7 @@ class Declaring:
     bid: int
     hand: tuple[Card, ...]
     skat: tuple[Card, ...]
-    stage: _Stage
+    stage: Stage
     declaration: Declaration | None
 
     @classmethod
@@ -83,7 +83,7 @@ class Declaring:
             bid=auction_result.value,
             hand=deal.hands[auction_result.declarer],
             skat=deal.skat,
-            stage=_Stage.CHOOSING,
+            stage=Stage.CHOOSING,
             declaration=None,
         )
 
@@ -101,33 +101,33 @@ def _refuse(state: Declaring, reason: DeclarationRefusal) -> DeclarationOutcome:
 
 
 def take_skat(state: Declaring) -> DeclarationOutcome:
-    if state.stage is _Stage.DECLARED:
+    if state.stage is Stage.DECLARED:
         return _refuse(state, DeclarationRefusal.ALREADY_DECLARED)
-    if state.stage is not _Stage.CHOOSING:
+    if state.stage is not Stage.CHOOSING:
         return _refuse(state, DeclarationRefusal.OUT_OF_ORDER)
-    return DeclarationOutcome(replace(state, stage=_Stage.DISCARDING, hand=state.hand + state.skat, skat=()))
+    return DeclarationOutcome(replace(state, stage=Stage.DISCARDING, hand=state.hand + state.skat, skat=()))
 
 
 def put_back(state: Declaring, cards: tuple[Card, ...]) -> DeclarationOutcome:
-    if state.stage is _Stage.DECLARED:
+    if state.stage is Stage.DECLARED:
         return _refuse(state, DeclarationRefusal.ALREADY_DECLARED)
-    if state.stage is not _Stage.DISCARDING:
+    if state.stage is not Stage.DISCARDING:
         return _refuse(state, DeclarationRefusal.OUT_OF_ORDER)
-    if len(cards) != _SKAT_SIZE or len(set(cards)) != _SKAT_SIZE or not set(cards) <= set(state.hand):
+    if len(cards) != SKAT_SIZE or len(set(cards)) != SKAT_SIZE or not set(cards) <= set(state.hand):
         return _refuse(state, DeclarationRefusal.NOT_TWO_OF_THE_TWELVE)
     kept = tuple(card for card in state.hand if card not in cards)
-    return DeclarationOutcome(replace(state, stage=_Stage.PICKED, hand=kept, skat=cards))
+    return DeclarationOutcome(replace(state, stage=Stage.PICKED, hand=kept, skat=cards))
 
 
 def _declare_refusal(
     state: Declaring, kind: GameKind, *, hand: bool, ouvert: bool, announcement: Announcement
 ) -> DeclarationRefusal | None:
-    if state.stage is _Stage.DECLARED:
+    if state.stage is Stage.DECLARED:
         return DeclarationRefusal.ALREADY_DECLARED
-    if state.stage is _Stage.DISCARDING or (state.stage is _Stage.CHOOSING and not hand):
+    if state.stage is Stage.DISCARDING or (state.stage is Stage.CHOOSING and not hand):
         return DeclarationRefusal.OUT_OF_ORDER
     higher_level = announcement is not Announcement.NONE or (ouvert and _is_suit_or_grand(kind))
-    if state.stage is _Stage.PICKED and (hand or higher_level):
+    if state.stage is Stage.PICKED and (hand or higher_level):
         return DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP
     if kind is GameKind.NULL and announcement is not Announcement.NONE:
         return DeclarationRefusal.ANNOUNCEMENT_IN_NULL
@@ -143,7 +143,7 @@ def declare(
     if ouvert and _is_suit_or_grand(kind):
         announcement = Announcement.SCHWARZ
     declaration = Declaration(kind, hand=hand, ouvert=ouvert, announcement=announcement)
-    return DeclarationOutcome(replace(state, stage=_Stage.DECLARED, declaration=declaration))
+    return DeclarationOutcome(replace(state, stage=Stage.DECLARED, declaration=declaration))
 
 
 @dataclass(frozen=True)

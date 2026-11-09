@@ -1,4 +1,7 @@
 import itertools
+import json
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,11 +13,31 @@ from skat.table.auction import AuctionAction
 from skat.table.hand_state import declaring_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX, AnnouncementToken, DeclaringAction, GameToken
-from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, MIDDLEHAND_CARDS, SKAT_CARDS, seated_three
+from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
+from skat.web.tables import (
+    RANK_TOKENS,
+    SUIT_TOKENS,
+    TABLE_EVENTS_SUFFIX,
+    TABLES_PATH,
+    AnnouncementToken,
+    GameToken,
+)
+from tests.support.payload_cards import (
+    DEALER_SEAT,
+    FOREHAND_CARDS,
+    KNOWN_DEAL,
+    MIDDLEHAND_CARDS,
+    REARHAND_CARDS,
+    SKAT_CARDS,
+    cards_in_text,
+    seated_three,
+    wire_cards,
+)
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FETCH, UNKNOWN_ID
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
@@ -126,6 +149,26 @@ class Table:
     def picked(self):
         self.accepted(DeclaringAction.TAKE)
         self.accepted(DeclaringAction.PUT_BACK, **two_of_the_twelve())
+
+    @property
+    def path(self):
+        return f"{TABLES_PATH}/{self.table_id}"
+
+    def read(self, headers):
+        self.skat.client.cookies.clear()
+        answer = self.skat.client.get(self.path, headers=headers)
+        assert answer.status_code == 200, answer.text
+        return answer.text
+
+    def stream(self, headers):
+        self.skat.client.cookies.clear()
+        return self.skat.client.stream("GET", f"{self.path}{TABLE_EVENTS_SUFFIX}", headers=headers)
+
+    def first_stream_message(self, headers):
+        with self.stream(headers) as stream:
+            first = next(stream.iter_lines())
+            stream.close()
+        return first
 
 
 @pytest.fixture
@@ -297,14 +340,6 @@ class TestRefusedByTheTable:
         table.auction_step(FOREHAND, AuctionAction.PASS)
 
         table.refused(table.at[FOREHAND], DeclaringAction.TAKE, Refusal.NO_HAND)
-
-    def test_a_table_without_a_hand_has_none_to_declare(self, skat):
-        headers, _ = skat.member()
-        table_id = skat.create(headers).json()["id"]
-
-        answer = post_declaring(skat, headers, table_id, command_id="step-0001", version=1, action=DeclaringAction.TAKE)
-
-        assert reason_of(answer) == Refusal.NO_HAND
 
     def test_no_hand_is_named_before_not_seated_and_a_stale_version(self, skat):
         opener, _ = skat.member()
@@ -484,3 +519,260 @@ class TestRetry:
 
         assert again.status_code == 200
         assert won.record == after_steps
+
+
+def message_body(raw):
+    return json.loads(raw.removeprefix("data: "))
+
+
+def message_at_version(lines, version):
+    """The stream's message at a version; someone joining wakes the stream with the old one first."""
+    for line in lines:
+        if line.startswith("data: ") and message_body(line)["version"] == version:
+            return line
+    return pytest.fail(f"the stream ended before version {version}")
+
+
+@dataclass(frozen=True)
+class Viewer:
+    name: str
+    position: Position | None
+    dealt: tuple[object, ...]
+
+    def headers_at(self, table):
+        return table.watcher if self.position is None else table.at[self.position]
+
+
+DECLARER = Viewer("declarer", MIDDLEHAND, MIDDLEHAND_CARDS)
+FOREHAND_OPPONENT = Viewer("forehand", FOREHAND, FOREHAND_CARDS)
+REARHAND_OPPONENT = Viewer("rearhand", REARHAND, REARHAND_CARDS)
+WATCHER = Viewer("watcher", None, ())
+EVERY_VIEWER = (DECLARER, FOREHAND_OPPONENT, REARHAND_OPPONENT, WATCHER)
+# Seat 1 holds the middlehand at the known deal's dealer, and the middlehand is who wins in these scenarios.
+DECLARER_SEAT = 1
+OTHER_CHAIRS_COUNT = 10
+SKAT_SIZE_ON_THE_TABLE = len(SKAT_CARDS)
+TWELVE = (*MIDDLEHAND_CARDS, *SKAT_CARDS)
+KEPT_WITH_THE_SKAT = (*MIDDLEHAND_CARDS[2:], *SKAT_CARDS)
+
+
+@dataclass(frozen=True)
+class Moment:
+    """A point in a hand and what its answer holds; `declarer_cards` are the middlehand's, who wins here."""
+
+    reach: Callable[[Table], None]
+    stage: str | None = None
+    declarer_cards: tuple[object, ...] = MIDDLEHAND_CARDS
+    skat_count: int = SKAT_SIZE_ON_THE_TABLE
+    declaration: dict[str, object] | None = None
+    open_cards: tuple[object, ...] = ()
+
+    def own_cards_of(self, viewer):
+        return self.declarer_cards if viewer == DECLARER else viewer.dealt
+
+    def declaring(self):
+        if self.stage is None:
+            return None
+        return {
+            "declarer_seat": DECLARER_SEAT,
+            "stage": self.stage,
+            "declaration": self.declaration,
+            "open_cards": [card_body(card) for card in self.open_cards],
+        }
+
+
+def auction_running(table):
+    table.auction_step(MIDDLEHAND, AuctionAction.BID, 18)
+
+
+def passed_in(table):
+    table.auction_step(MIDDLEHAND, AuctionAction.PASS)
+    table.auction_step(REARHAND, AuctionAction.PASS)
+    table.auction_step(FOREHAND, AuctionAction.PASS)
+
+
+def won_at_twenty(table):
+    table.middlehand_wins_at(20)
+
+
+def taken(table):
+    won_at_twenty(table)
+    table.accepted(DeclaringAction.TAKE)
+
+
+def put_back_two_of_the_dealt(table):
+    taken(table)
+    table.accepted(DeclaringAction.PUT_BACK, **two_of_the_twelve())
+
+
+def put_back_the_skat(table):
+    taken(table)
+    table.accepted(DeclaringAction.PUT_BACK, **cards_body(*SKAT_CARDS))
+
+
+def declared(table):
+    put_back_two_of_the_dealt(table)
+    table.accepted(DeclaringAction.DECLARE, **any_declaration())
+
+
+def declared_hand(table):
+    won_at_twenty(table)
+    table.accepted(DeclaringAction.DECLARE, **hand_declaration())
+
+
+def declared_ouvert_hand(table):
+    won_at_twenty(table)
+    table.accepted(
+        DeclaringAction.DECLARE,
+        **declared_body(GameToken.GRAND, hand=True, ouvert=True, announcement=AnnouncementToken.SCHWARZ),
+    )
+
+
+def declared_null_ouvert_after_pickup(table):
+    put_back_two_of_the_dealt(table)
+    table.accepted(DeclaringAction.DECLARE, **declared_body(GameToken.NULL, ouvert=True))
+
+
+PICKED = "picked"
+DECLARED = "declared"
+
+MOMENTS = {
+    "auction-running": Moment(auction_running),
+    "won-choosing": Moment(won_at_twenty, stage="choosing"),
+    "after-the-take": Moment(taken, stage="discarding", declarer_cards=TWELVE, skat_count=0),
+    "put-back-two-dealt": Moment(put_back_two_of_the_dealt, stage=PICKED, declarer_cards=KEPT_WITH_THE_SKAT),
+    "put-back-the-skat": Moment(put_back_the_skat, stage=PICKED),
+    "declared": Moment(declared, stage=DECLARED, declarer_cards=KEPT_WITH_THE_SKAT, declaration=declared_body()),
+    "hand-declared": Moment(declared_hand, stage=DECLARED, declaration=hand_declaration()),
+    "ouvert-hand-declared": Moment(
+        declared_ouvert_hand,
+        stage=DECLARED,
+        declaration=declared_body(GameToken.GRAND, hand=True, ouvert=True, announcement=AnnouncementToken.SCHWARZ),
+        open_cards=MIDDLEHAND_CARDS,
+    ),
+    "null-ouvert-after-pickup": Moment(
+        declared_null_ouvert_after_pickup,
+        stage=DECLARED,
+        declarer_cards=KEPT_WITH_THE_SKAT,
+        declaration=declared_body(GameToken.NULL, ouvert=True),
+        open_cards=KEPT_WITH_THE_SKAT,
+    ),
+}
+EVERY_VIEWER_AT_EVERY_MOMENT = [
+    pytest.param(moment, viewer, id=f"{name}-{viewer.name}")
+    for name, moment in MOMENTS.items()
+    for viewer in EVERY_VIEWER
+]
+
+
+def assert_holds_the_moment(raw, moment, viewer):
+    body = message_body(raw)
+    hand = body["hand"]
+    own = moment.own_cards_of(viewer)
+    assert hand["declaring"] == moment.declaring()
+    assert hand["own_cards"] == [card_body(card) for card in own]
+    assert hand["skat_count"] == moment.skat_count
+    assert [chair["hand"]["card_count"] for chair in body["chairs"]] == [
+        len(moment.declarer_cards),
+        OTHER_CHAIRS_COUNT,
+        OTHER_CHAIRS_COUNT,
+    ]
+    assert cards_in_text(raw) == wire_cards((*own, *moment.open_cards))
+
+
+class TestEveryViewersAnswer:
+    @pytest.mark.parametrize(("moment", "viewer"), EVERY_VIEWER_AT_EVERY_MOMENT)
+    def test_the_read_and_a_new_streams_first_message_hold_exactly_what_the_moment_allows(self, table, moment, viewer):
+        moment.reach(table)
+
+        headers = viewer.headers_at(table)
+
+        assert_holds_the_moment(table.read(headers), moment, viewer)
+        assert_holds_the_moment(table.first_stream_message(headers), moment, viewer)
+
+    @pytest.mark.parametrize(("moment", "viewer"), EVERY_VIEWER_AT_EVERY_MOMENT)
+    def test_a_reload_and_a_new_stream_give_the_same_view(self, table, moment, viewer):
+        moment.reach(table)
+        headers = viewer.headers_at(table)
+
+        reloads = [message_body(table.read(headers)), message_body(table.read(headers))]
+        streamed = message_body(table.first_stream_message(headers))
+
+        assert [body["hand"] for body in reloads] == [streamed["hand"], streamed["hand"]]
+        assert [[chair["hand"] for chair in body["chairs"]] for body in reloads] == [
+            [chair["hand"] for chair in streamed["chairs"]]
+        ] * 2
+
+    @pytest.mark.parametrize(
+        ("before", "action", "fields", "after"),
+        [
+            pytest.param(won_at_twenty, DeclaringAction.TAKE, {}, MOMENTS["after-the-take"], id="the-take"),
+            pytest.param(
+                taken, DeclaringAction.PUT_BACK, two_of_the_twelve(), MOMENTS["put-back-two-dealt"], id="the-put-back"
+            ),
+            pytest.param(
+                put_back_two_of_the_dealt,
+                DeclaringAction.DECLARE,
+                any_declaration(),
+                MOMENTS["declared"],
+                id="the-declaration",
+            ),
+        ],
+    )
+    def test_an_accepted_step_sends_every_open_stream_a_fresh_snapshot_after_the_commit(
+        self, table, before, action, fields, after
+    ):
+        before(table)
+        next_version = table.record.version + 1
+        with (
+            table.stream(DECLARER.headers_at(table)) as declarer_stream,
+            table.stream(FOREHAND_OPPONENT.headers_at(table)) as forehand_stream,
+            table.stream(REARHAND_OPPONENT.headers_at(table)) as rearhand_stream,
+            table.stream(WATCHER.headers_at(table)) as watcher_stream,
+        ):
+            lines = [
+                stream.iter_lines() for stream in (declarer_stream, forehand_stream, rearhand_stream, watcher_stream)
+            ]
+            for stream_lines in lines:
+                next(stream_lines)
+
+            table.accepted(action, **fields)
+            fresh = [message_at_version(stream_lines, next_version) for stream_lines in lines]
+
+        for raw, viewer in zip(fresh, EVERY_VIEWER, strict=True):
+            assert_holds_the_moment(raw, after, viewer)
+
+    def test_the_declarers_answer_to_the_take_holds_the_twelve(self, won):
+        answer = won.accepted(DeclaringAction.TAKE)
+
+        assert cards_in_text(answer.text) == wire_cards(TWELVE)
+
+    @pytest.mark.parametrize("position", [FOREHAND, REARHAND], ids=["forehand", "rearhand"])
+    def test_a_refused_opponents_answer_after_the_take_carries_no_card(self, after_take, position):
+        answer = after_take.refused(
+            after_take.at[position], DeclaringAction.PUT_BACK, Refusal.NOT_DECLARER, **two_of_the_twelve()
+        )
+
+        assert cards_in_text(answer.text) == set()
+
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    def test_a_passed_in_hand_is_null_on_the_read_and_the_stream_and_names_no_card(self, table, viewer):
+        passed_in(table)
+        headers = viewer.headers_at(table)
+
+        read, first = table.read(headers), table.first_stream_message(headers)
+
+        assert [message_body(read)["hand"], message_body(first)["hand"]] == [None, None]
+        assert [cards_in_text(read), cards_in_text(first)] == [set(), set()]
+
+    def test_a_table_without_a_hand_has_no_hand_on_the_read_or_the_stream(self, skat):
+        headers, _ = skat.member()
+        table_id = skat.create(headers).json()["id"]
+        skat.client.cookies.clear()
+        read = skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+        with skat.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=headers) as stream:
+            first = next(stream.iter_lines())
+            stream.close()
+
+        assert read.json()["hand"] is None
+        assert message_body(first)["hand"] is None
