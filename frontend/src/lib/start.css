@@ -2762,6 +2762,95 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* The reckoning: the counted steps, their product, the raise of an overbid game, the doubling of a lost one, the list. */
+.room .result .ladder {
+    flex-wrap: wrap;
+}
+
+.room .result .ladder span {
+    height: 28px;
+    padding: 0 11px;
+    font-size: 13.5px;
+}
+
+.room .result .ladder span.mit {
+    color: #f3cf7a;
+}
+
+.room .result .eq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .eq i {
+    color: var(--on-stage-soft);
+    font-style: normal;
+}
+
+.room .result .eq b {
+    color: var(--cream);
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 24px;
+}
+
+.room .result .value-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.room .result .x2 {
+    display: grid;
+    place-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border: 1.5px solid var(--cream);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    rotate: -4deg;
+}
+
+.room .result .list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px 8px;
+    color: var(--on-stage-soft);
+    font-size: 13.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .list b {
+    color: var(--on-stage);
+}
+
+@media (max-width: 899px) {
+    .room .result .ladder {
+        gap: 5px;
+    }
+
+    .room .result .ladder span {
+        padding: 0 7px;
+    }
+
+    .room .result .value {
+        font-size: 38px;
+    }
+
+    .room .result.snug {
+        gap: 4px;
+        padding: 12px 14px;
+    }
+}
+
 .room .result .points {
     width: 100%;
 }

@@ -32,7 +32,6 @@
         bidValueWhileDeclaring,
         copyTableLink,
         drawingOrder,
-        announcementLabel,
         gameLabel,
         isSuitGame,
         markReady,
@@ -234,7 +233,7 @@
             {@const turnSeat = inPlay?.playing.turn_seat}
             {@const settledDeclarerSeat = outcome.table.result?.declarer_seat ?? inPlay?.declarerSeat}
             {@const view = outcome.table.result === null ? null : resultView(outcome.table)}
-            {@const winners = new Set(view?.rows.filter((row) => row.winner).map((row) => row.seat))}
+            {@const winners = new Set(view?.rows.filter((row) => row.won).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
@@ -257,17 +256,17 @@
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
                 </div>
             {:else if inPlay !== null}
-                {@const announced = announcementLabel(inPlay.declaration)}
-                <div class="plaque" class:wide={announced !== null}>
+                {@const label = gameLabel(inPlay.declaration)}
+                <div class="plaque" class:wide={label.announcement !== null}>
                     <span class="game">
                         {#if isSuitGame(inPlay.declaration.game)}
                             <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
                                 <svg viewBox="0 0 100 100"><use href={`#suit-${inPlay.declaration.game}`} /></svg>
                             </span>
                         {/if}
-                        {gameLabel(inPlay.declaration)}
-                        {#if announced !== null}
-                            <span class="announced">{announced}</span>
+                        {label.name}
+                        {#if label.announcement !== null}
+                            <span class="announced">{label.announcement}</span>
                         {/if}
                     </span>
                 </div>

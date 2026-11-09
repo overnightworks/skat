@@ -17,7 +17,7 @@ import {
 } from "#lib/wire.ts";
 import {
     bidValueWhileDeclaring,
-    announcementLabel,
+    announcedWord,
     cardName,
     copyTableLink,
     createTable,
@@ -604,22 +604,47 @@ describe("the table's seats and link", () => {
     });
 
     it.each([
-        ["a plain game", "grand", false, false, words.gameGrand],
-        ["a Hand game", "grand", true, false, `${words.gameGrand} ${words.hand}`],
-        ["an ouvert game, which includes Hand", "grand", true, true, `${words.gameGrand} ${words.ouvert}`],
-        ["Null ouvert after the take", "null", false, true, `${words.gameNull} ${words.ouvert}`],
-        ["Null ouvert Hand", "null", true, true, `${words.gameNull} ${words.ouvert} ${words.hand}`],
-    ] as const)("labels %s", (_name, game, hand, ouvert, label) => {
-        expect(gameLabel({ game, hand, ouvert })).toBe(label);
+        ["a plain game", "grand", false, false, "none", words.gameGrand, null],
+        ["a Hand game", "grand", true, false, "none", `${words.gameGrand} ${words.hand}`, null],
+        [
+            "an ouvert game, which includes Hand",
+            "grand",
+            true,
+            true,
+            "schwarz",
+            `${words.gameGrand} ${words.ouvert}`,
+            null,
+        ],
+        ["Null ouvert after the take", "null", false, true, "none", `${words.gameNull} ${words.ouvert}`, null],
+        ["Null ouvert Hand", "null", true, true, "none", `${words.gameNull} ${words.ouvert} ${words.hand}`, null],
+        [
+            "a Hand game with Schneider announced",
+            "herz",
+            true,
+            false,
+            "schneider",
+            `${words.gameHerz} ${words.hand}`,
+            words.announcedSchneider,
+        ],
+        [
+            "a Hand game with Schwarz announced",
+            "grand",
+            true,
+            false,
+            "schwarz",
+            `${words.gameGrand} ${words.hand}`,
+            words.announcedSchwarz,
+        ],
+    ] as const)("labels %s", (_name, game, hand, ouvert, announcement, name, announced) => {
+        expect(gameLabel({ game, hand, ouvert, announcement })).toEqual({ name, announcement: announced });
     });
 
     it.each([
-        ["no announcement", false, "none", null],
-        ["Schneider", false, "schneider", words.announcedSchneider],
-        ["Schwarz", false, "schwarz", words.announcedSchwarz],
-        ["an ouvert game, which the game's label already says", true, "schwarz", null],
-    ] as const)("words %s apart from the game's label", (_name, ouvert, announcement, label) => {
-        expect(announcementLabel({ ouvert, announcement })).toBe(label);
+        ["none", null],
+        ["schneider", words.announcedSchneider],
+        ["schwarz", words.announcedSchwarz],
+    ] as const)("words the announcement %s", (announcement, word) => {
+        expect(announcedWord(announcement)).toBe(word);
     });
 
     it.each([

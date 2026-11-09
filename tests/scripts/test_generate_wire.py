@@ -95,10 +95,9 @@ def test_render_names_every_path_the_page_uses() -> None:
     ],
 )
 def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, tokens: type[StrEnum]) -> None:
-    line = next(line for line in generate_wire.render().splitlines() if name in line)
+    declaration = generate_wire.render().partition(f"export const {name} = ")[2].partition("as const;")[0]
 
-    assert line.endswith("as const;")
-    assert all(f'"{token.value}"' in line for token in tokens)
+    assert all(f'"{token.value}"' in declaration for token in tokens)
 
 
 def test_render_lists_every_valid_bid_in_rising_order() -> None:

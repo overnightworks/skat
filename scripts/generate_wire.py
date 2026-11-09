@@ -79,8 +79,12 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
 
 
 def token_tuple(name: str, tokens: type[StrEnum]) -> str:
-    listed = ", ".join(f'"{token.value}"' for token in tokens)
-    return f"export const {name} = [{listed}] as const;\n"
+    values = [f'"{token.value}"' for token in tokens]
+    line = f"export const {name} = [{', '.join(values)}] as const;\n"
+    if len(line.rstrip()) <= PRETTIER_WIDTH:
+        return line
+    stacked = "".join(f"    {value},\n" for value in values)
+    return f"export const {name} = [\n{stacked}] as const;\n"
 
 
 def render() -> str:

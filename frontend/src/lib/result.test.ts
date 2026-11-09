@@ -19,27 +19,54 @@ function chairs(mine: number, changes: Record<number, Partial<Chair>> = {}): Cha
     }));
 }
 
+// Kreuz mit 2, won by the declarer at seat 2: 3 × 12 = 36 plus the list's 50 (ISkO 2.1, 4.1).
+const WON_GAME: Result = {
+    ordinal: 3,
+    declarer_seat: DECLARER_SEAT,
+    game: "kreuz",
+    hand: false,
+    ouvert: false,
+    announcement: "none",
+    matadors: { mit: true, count: 2 },
+    base_value: 12,
+    levels: ["spiel"],
+    multiplier: 3,
+    list_bonus: 50,
+    announcement_missed: false,
+    won: true,
+    doubled: false,
+    overbid: false,
+    bid: 18,
+    game_value: 36,
+    settled_value: 36,
+    score: 36,
+    declarer_points: 78,
+    opponents_points: 42,
+    gains: [
+        { seat: 1, gain: 0, won: false },
+        { seat: 2, gain: 86, won: true },
+        { seat: 3, gain: 0, won: false },
+    ],
+};
+
+// The same game lost: the value doubles to −72, the list takes 50 and each opponent gets 40.
+const LOST_GAME: Partial<Result> = {
+    won: false,
+    doubled: true,
+    list_bonus: -50,
+    score: -72,
+    gains: [
+        { seat: 1, gain: 40, won: true },
+        { seat: 2, gain: -122, won: false },
+        { seat: 3, gain: 40, won: true },
+    ],
+};
+
+// Null counts no matadors, levels or multiplier.
+const NULL_GAME: Partial<Result> = { game: "null", matadors: null, levels: [], multiplier: null, base_value: null };
+
 function result(changes: Partial<Result> = {}): Result {
-    return {
-        ordinal: 3,
-        declarer_seat: DECLARER_SEAT,
-        game: "kreuz",
-        hand: false,
-        ouvert: false,
-        won: true,
-        overbid: false,
-        bid: 18,
-        game_value: 24,
-        score: 36,
-        declarer_points: 78,
-        opponents_points: 42,
-        gains: [
-            { seat: 1, gain: 0 },
-            { seat: 2, gain: 86 },
-            { seat: 3, gain: 0 },
-        ],
-        ...changes,
-    };
+    return { ...WON_GAME, ...changes };
 }
 
 function table(
@@ -73,7 +100,7 @@ describe("the card's words and sides for each viewer", () => {
             good: false,
         },
     ])("gives $viewer the word $word", ({ mine, won, word, good }) => {
-        const view = resultView(table(mine, { won }));
+        const view = resultView(table(mine, won ? {} : LOST_GAME));
 
         expect(view.word).toBe(word);
         expect(view.good).toBe(good);
@@ -94,22 +121,43 @@ describe("the card's words and sides for each viewer", () => {
         expect(resultView(table(2, { hand })).gameLine).toBe(label);
     });
 
+    it("names an announced Hand game without its announcement, which stands as a chip", () => {
+        expect(resultView(table(2, { hand: true, announcement: "schneider" })).gameLine).toBe(
+            `${words.gameKreuz} ${words.hand}`,
+        );
+    });
+
+    it.each([
+        { game: "kreuz", word: words.gameKreuz },
+        { game: "grand", word: words.gameGrand },
+        { game: "null", word: words.gameNull },
+    ] as const)("carries the word $word for the equation", ({ game, word }) => {
+        expect(resultView(table(2, { game })).gameWord).toBe(word);
+    });
+
     it("carries the points of both sides as the server counted them", () => {
         expect(resultView(table(2, {})).points).toEqual({ declarer: 78, opponents: 42 });
     });
 
-    it.each([
-        { won: true, score: 36, text: "+36" },
-        { won: false, score: -72, text: "−72" },
-    ])("shows the declarer the signed score $text", ({ won, score, text }) => {
-        expect(resultView(table(2, { won, score })).score).toBe(text);
+    it("gives a Null game no points bar", () => {
+        expect(resultView(table(2, { game: "null" })).points).toBeNull();
     });
 
     it.each([
+        { name: "two levels", changes: { levels: ["spiel", "hand"] }, snug: false },
+        { name: "three levels", changes: { levels: ["spiel", "hand", "schneider"] }, snug: true },
+        { name: "an overbid", changes: { overbid: true }, snug: true },
+    ] as const)("packs a reckoning with $name snug is $snug", ({ changes, snug }) => {
+        expect(resultView(table(2, { ...changes, levels: [...(changes.levels ?? ["spiel"])] })).snug).toBe(snug);
+    });
+
+    it.each([
+        { viewer: "the declarer", mine: 2 },
         { viewer: "an opponent", mine: 1 },
         { viewer: "a watcher", mine: NOBODY },
-    ])("shows $viewer no score", ({ mine }) => {
-        expect(resultView(table(mine, {})).score).toBeNull();
+    ])("shows $viewer the signed score of a won and a lost game", ({ mine }) => {
+        expect(resultView(table(mine, {})).score).toBe("+36");
+        expect(resultView(table(mine, LOST_GAME)).score).toBe("−72");
     });
 
     it.each([
@@ -135,24 +183,159 @@ describe("a declarer who has left", () => {
 });
 
 describe("the overbid", () => {
-    it("states the worth against the bid", () => {
-        expect(resultView(table(2, { overbid: true, game_value: 18, bid: 20 })).miss).toBe(
-            `${words.gameWorth} 18 < ${words.bidValue} 20`,
-        );
+    // Karo mit 1, bid 20: the value 2 × 9 = 18 falls short and is raised to 27, the next multiple of 9 above 20.
+    const overbid: Partial<Result> = {
+        ...LOST_GAME,
+        overbid: true,
+        bid: 20,
+        game_value: 18,
+        settled_value: 27,
+        score: -54,
+    };
+
+    it("states the worth against the bid and the value it was raised to", () => {
+        expect(resultView(table(2, overbid)).raise).toBe(`${words.gameWorth} 18 < ${words.bidValue} 20 → 27`);
     });
 
     it("states nothing when the game was not overbid", () => {
-        expect(resultView(table(2, { overbid: false })).miss).toBeNull();
+        expect(resultView(table(2, {})).raise).toBeNull();
+    });
+});
+
+describe("the chips", () => {
+    it("ticks each counted level after the unticked matadors", () => {
+        expect(resultView(table(2, {})).chips).toEqual([
+            { word: `${words.matadorsWith} 2`, ticked: false },
+            { word: words.levelSpiel, ticked: true },
+        ]);
+    });
+
+    it("counts the matadors a game is played without", () => {
+        const view = resultView(table(2, { matadors: { mit: false, count: 2 }, game: "grand" }));
+
+        expect(view.chips[0]).toEqual({ word: `${words.matadorsWithout} 2`, ticked: false });
+    });
+
+    it("words every level the answer sends", () => {
+        const levels = [
+            "spiel",
+            "hand",
+            "schneider",
+            "schneider_announced",
+            "schwarz",
+            "schwarz_announced",
+            "ouvert",
+        ] as const;
+
+        expect(
+            resultView(table(2, { levels: [...levels] }))
+                .chips.slice(1)
+                .map(({ word }) => word),
+        ).toEqual([
+            words.levelSpiel,
+            words.hand,
+            words.levelSchneider,
+            words.announcedSchneider,
+            words.levelSchwarz,
+            words.announcedSchwarz,
+            words.levelOuvert,
+        ]);
+    });
+
+    it("gives a Null game no chips", () => {
+        const view = resultView(table(2, NULL_GAME));
+
+        expect(view.chips).toEqual([]);
+    });
+});
+
+describe("the multiplier line", () => {
+    it("shows the multiplier times the base without the value for a won game", () => {
+        expect(resultView(table(2, {})).equation).toEqual({ multiplier: 3, base: 12, product: null });
+    });
+
+    it("adds the value of a lost game", () => {
+        expect(resultView(table(2, LOST_GAME)).equation).toEqual({ multiplier: 3, base: 12, product: 36 });
+    });
+
+    it("shows a won Null game no line", () => {
+        expect(resultView(table(2, { ...NULL_GAME, game_value: 35, score: 35 })).equation).toBeNull();
+    });
+
+    it("shows a lost Null game its fixed value alone", () => {
+        expect(resultView(table(2, { ...NULL_GAME, ...LOST_GAME, game_value: 23, score: -46 })).equation).toEqual({
+            multiplier: null,
+            base: null,
+            product: 23,
+        });
+    });
+});
+
+describe("the doubling and the list line", () => {
+    it("shows no doubling and no share for a won game", () => {
+        const view = resultView(table(2, {}));
+
+        expect(view.doubled).toBe(false);
+        expect(view.list).toEqual({
+            side: words.sideYou,
+            steps: [`${words.levelSpiel} +36`, `${words.listBonus} +50`, "= +86"],
+            share: null,
+        });
+    });
+
+    it("shows the doubling and what each opponent gets for a lost game", () => {
+        const view = resultView(table(2, LOST_GAME));
+
+        expect(view.doubled).toBe(true);
+        expect(view.list).toEqual({
+            side: words.sideYou,
+            steps: [`${words.levelSpiel} −72`, `${words.listBonus} −50`, "= −122"],
+            share: `· ${words.sideThem} ${words.each} +40`,
+        });
+    });
+
+    it.each([
+        { viewer: "an opponent", mine: 1, side: "player 2", opponents: words.sideUs },
+        { viewer: "a watcher", mine: NOBODY, side: "player 2", opponents: words.sideThem },
+    ])("names the sides of the list line for $viewer", ({ mine, side, opponents }) => {
+        const view = resultView(table(mine, LOST_GAME));
+
+        expect(view.list.side).toBe(side);
+        expect(view.list.share).toBe(`· ${opponents} ${words.each} +40`);
+    });
+});
+
+describe("the missed announcement", () => {
+    it.each([
+        { announcement: "schneider", word: words.announcedSchneider },
+        { announcement: "schwarz", word: words.announcedSchwarz },
+    ] as const)("says that $word was not reached", ({ announcement, word }) => {
+        const view = resultView(table(2, { ...LOST_GAME, announcement, announcement_missed: true }));
+
+        expect(view.missed).toBe(`${word}, ${words.notReached}`);
+    });
+
+    it("says Schwarz was not reached for a lost ouvert game, which counts as announced Schwarz", () => {
+        const view = resultView(
+            table(2, { ...LOST_GAME, ouvert: true, game: "grand", announcement: "schwarz", announcement_missed: true }),
+        );
+
+        expect(view.missed).toBe(`${words.announcedSchwarz}, ${words.notReached}`);
+        expect(view.gameLine).toBe(`${words.gameGrand} ${words.ouvert}`);
+    });
+
+    it("says nothing when the announcement was reached or none was made", () => {
+        expect(resultView(table(2, { announcement: "schneider" })).missed).toBeNull();
     });
 });
 
 describe("the reckoning row", () => {
-    it("lists the own chair first and marks the declarer as the winner of a won game", () => {
-        const rows = resultView(table(3, { won: true })).rows;
+    it("lists the own chair first and glows the side the answer says won", () => {
+        const rows = resultView(table(3, {})).rows;
 
         expect(rows.map(({ seat }) => seat)).toEqual([3, 1, 2]);
         expect(rows.map(({ gain }) => gain)).toEqual([0, 0, 86]);
-        expect(rows.map(({ winner }) => winner)).toEqual([false, false, true]);
+        expect(rows.map(({ won }) => won)).toEqual([false, false, true]);
         expect(rows.map(({ name }) => name)).toEqual([words.sideYou, "player 1", "player 2"]);
         expect(rows.map(({ initial }) => initial)).toEqual(["p", "p", "p"]);
     });
@@ -169,9 +352,9 @@ describe("the reckoning row", () => {
         const rows = resultView(
             table(2, {
                 gains: [
-                    { seat: 1, gain: -4 },
-                    { seat: 2, gain: 86 },
-                    { seat: 3, gain: 0 },
+                    { seat: 1, gain: -4, won: false },
+                    { seat: 2, gain: 86, won: true },
+                    { seat: 3, gain: 0, won: false },
                 ],
             }),
         ).rows;
@@ -179,10 +362,10 @@ describe("the reckoning row", () => {
         expect(rows.map(({ gainText }) => gainText)).toEqual(["+86", "\u22124", "0"]);
     });
 
-    it("marks both opponents as the winners of a lost game", () => {
-        const rows = resultView(table(2, { won: false })).rows;
+    it("glows both opponents of a lost game", () => {
+        const rows = resultView(table(2, LOST_GAME)).rows;
 
-        expect(rows.map(({ seat, winner }) => [seat, winner])).toEqual([
+        expect(rows.map(({ seat, won }) => [seat, won])).toEqual([
             [2, false],
             [1, true],
             [3, true],

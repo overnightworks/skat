@@ -140,7 +140,7 @@
                     <div class="tiles">
                         {#each row as tile (`${tile.game}${String(tile.ouvert)}`)}
                             {@const game = tile.game}
-                            {@const label = gameLabel({ ...tile, hand: false })}
+                            {@const label = gameLabel({ ...tile, hand: false, announcement: "none" }).name}
                             <button
                                 type="button"
                                 class="game"

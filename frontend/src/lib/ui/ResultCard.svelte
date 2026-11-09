@@ -3,10 +3,18 @@
     import { ALL_POINTS } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
 
+    import type { Suit } from "../../routes/(start)/tables.ts";
+
     let { view }: { view: ResultView } = $props();
 </script>
 
-<div class="result" class:lost={!view.good} role="status">
+{#snippet suitMark(suit: Suit)}
+    <span class={`suit ${suit}`} aria-hidden="true">
+        <svg viewBox="0 0 100 100"><use href={`#suit-${suit}`} /></svg>
+    </span>
+{/snippet}
+
+<div class="result" class:lost={!view.good} class:snug={view.snug} role="status">
     <h3>
         <svg
             viewBox="0 0 24 24"
@@ -25,46 +33,93 @@
         </svg>
         <span>{view.word}</span>
     </h3>
+    {#if view.missed !== null}
+        <div class="miss missed">{view.missed}</div>
+    {/if}
     <div class="sub">
         <span class="game">
             {#if view.suit !== null}
-                <span class={`suit ${view.suit}`} aria-hidden="true">
-                    <svg viewBox="0 0 100 100"><use href={`#suit-${view.suit}`} /></svg>
-                </span>
+                {@render suitMark(view.suit)}
             {/if}
             <span>{view.gameLine}</span>
         </span>
-        {#if view.miss !== null}
+        {#if view.raise !== null}
             <span class="stamp">{words.overbid}</span>
         {/if}
     </div>
-    {#if view.score !== null}
-        <div class="value" class:minus={!view.good}>{view.score}</div>
+    {#if view.chips.length > 0}
+        <div class="ladder" role="list">
+            {#each view.chips as chip (chip.word)}
+                <span role="listitem" class={chip.ticked ? "held" : "held mit"}>
+                    {#if chip.ticked}
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                    {/if}
+                    {chip.word}
+                </span>
+            {/each}
+        </div>
     {/if}
-    {#if view.miss !== null}
-        <div class="miss">{view.miss}</div>
+    {#if view.equation !== null}
+        <div class="eq">
+            {#if view.equation.multiplier !== null}
+                <span>{view.equation.multiplier}</span>
+                <i>×</i>
+            {/if}
+            {#if view.suit !== null}
+                {@render suitMark(view.suit)}
+            {:else}
+                <span>{view.gameWord}</span>
+            {/if}
+            {#if view.equation.base !== null}
+                <span>{view.equation.base}</span>
+            {/if}
+            {#if view.equation.product !== null}
+                <i>=</i>
+                <b>{view.equation.product}</b>
+            {/if}
+        </div>
     {/if}
-    <div class="points" role="group" aria-label={words.trickPoints}>
-        <span class="sides">
-            <span class="declarer">{`${view.sides.declarer} ${String(view.points.declarer)}`}</span>
-            <span class="opponents">{`${view.sides.opponents} ${String(view.points.opponents)}`}</span>
-        </span>
-        <span class="track">
-            <svg viewBox={`0 0 ${String(ALL_POINTS)} 1`} preserveAspectRatio="none" aria-hidden="true">
-                <rect class="declarer" width={view.points.declarer} height="1" />
-                <rect
-                    class="opponents"
-                    x={ALL_POINTS - view.points.opponents}
-                    width={view.points.opponents}
-                    height="1"
-                />
-            </svg>
-            <i class="win-line"></i>
-        </span>
+    {#if view.raise !== null}
+        <div class="miss">{view.raise}</div>
+    {/if}
+    <div class="value-row">
+        {#if view.doubled}
+            <span class="x2">×2</span>
+        {/if}
+        <div class="value" class:minus={view.doubled}>{view.score}</div>
     </div>
+    <div class="list">
+        <b>{view.list.side}</b>
+        {#each view.list.steps as step (step)}
+            <span>{step}</span>
+        {/each}
+        {#if view.list.share !== null}
+            <span>{view.list.share}</span>
+        {/if}
+    </div>
+    {#if view.points !== null}
+        <div class="points" role="group" aria-label={words.trickPoints}>
+            <span class="sides">
+                <span class="declarer">{`${view.sides.declarer} ${String(view.points.declarer)}`}</span>
+                <span class="opponents">{`${view.sides.opponents} ${String(view.points.opponents)}`}</span>
+            </span>
+            <span class="track">
+                <svg viewBox={`0 0 ${String(ALL_POINTS)} 1`} preserveAspectRatio="none" aria-hidden="true">
+                    <rect class="declarer" width={view.points.declarer} height="1" />
+                    <rect
+                        class="opponents"
+                        x={ALL_POINTS - view.points.opponents}
+                        width={view.points.opponents}
+                        height="1"
+                    />
+                </svg>
+                <i class="win-line"></i>
+            </span>
+        </div>
+    {/if}
     <div class="coasters">
         {#each view.rows as row (row.seat)}
-            <div class="reck" class:win={row.winner} data-seat={row.seat}>
+            <div class="reck" class:win={row.won} data-seat={row.seat}>
                 <span class="dot" aria-hidden="true">{row.initial}</span>
                 <span class="nm">{row.name ?? words.seatFree}</span>
                 <span class="dl" class:minus={row.gain <= 0}>{row.gainText}</span>
