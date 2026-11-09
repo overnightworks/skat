@@ -247,6 +247,7 @@ class ChairAnswer(BaseModel):
     occupant_name: str | None
     is_mine: bool
     is_away: bool
+    ready: bool
     hand: ChairHandAnswer | None
 
 
@@ -431,6 +432,7 @@ def answer_of(view: TableView) -> TableAnswer:
                 occupant_name=c.occupant_name,
                 is_mine=c.is_mine,
                 is_away=c.is_away,
+                ready=c.ready,
                 hand=chair_hand_answer_of(c.hand),
             )
             for c in view.chairs
