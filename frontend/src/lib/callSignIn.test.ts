@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import {
     createCallSignIn,
     RECHECK_DURATION_MILLISECONDS,
     RECHECK_INTERVAL_MILLISECONDS,
     tableIdFromSearch,
     WATCH_INTERVAL_MILLISECONDS,
+    type CallSignInHost,
     type CallSignInView,
     type SignInWindow,
 } from "./callSignIn.ts";
@@ -27,10 +28,15 @@ interface Timer {
     cancelled: boolean;
 }
 
-function signInWindow(pathname: string | Error): SignInWindow & { close: ReturnType<typeof vi.fn> } {
-    const window = {
+interface FakeWindow extends SignInWindow {
+    closed: boolean;
+    close: Mock<() => void>;
+}
+
+function signInWindow(pathname: string | Error): FakeWindow {
+    const window: FakeWindow = {
         closed: false,
-        close: vi.fn(() => {
+        close: vi.fn<() => void>(() => {
             window.closed = true;
         }),
         get location(): { pathname: string } {
@@ -48,16 +54,13 @@ function arrange(options: { opened?: SignInWindow | null; accountStatus?: number
     const timers: Timer[] = [];
     const answers: (number | Error)[] = [];
     const host = {
-        open: vi.fn(() => (options.opened === undefined ? null : options.opened)),
-        replace: vi.fn(),
-        fetchStatus: vi.fn(async (_path: string) => {
+        open: vi.fn<CallSignInHost["open"]>(() => options.opened ?? null),
+        replace: vi.fn<CallSignInHost["replace"]>(),
+        fetchStatus: vi.fn<CallSignInHost["fetchStatus"]>(() => {
             const answer = answers.length > 0 ? answers.shift() : options.accountStatus;
-            if (answer instanceof Error || answer === undefined) {
-                throw answer ?? new Error("no answer");
-            }
-            return answer;
+            return typeof answer === "number" ? Promise.resolve(answer) : Promise.reject(answer ?? new Error("none"));
         }),
-        every: vi.fn((callback: Timer["callback"], milliseconds: number) => {
+        every: vi.fn<CallSignInHost["every"]>((callback, milliseconds) => {
             const timer = { callback, milliseconds, cancelled: false };
             timers.push(timer);
             return () => {
@@ -109,8 +112,8 @@ describe("a tap on Log in", () => {
 
         signIn.logIn();
 
-        const [address, name, features] = host.open.mock.calls[0] as unknown as string[];
-        const opened = new URL(address ?? "", ORIGIN);
+        const [address = "", name, features] = host.open.mock.calls[0] ?? [];
+        const opened = new URL(address, ORIGIN);
         expect(opened.pathname).toBe(AUTH_START_PATH);
         expect(opened.searchParams.get(RETURN_PATH_QUERY_NAME)).toBe(TABLE_PATH);
         expect(name).not.toBe("");
@@ -147,8 +150,7 @@ describe("a tap on Log in", () => {
         await fire(WATCH_INTERVAL_MILLISECONDS);
 
         expect(popup.close).toHaveBeenCalledOnce();
-        const [address] = host.replace.mock.calls[0] as unknown as string[];
-        const replaced = new URL(address ?? "", ORIGIN);
+        const replaced = new URL(host.replace.mock.calls[0]?.[0] ?? "", ORIGIN);
         expect(replaced.pathname).toBe(TABLE_PATH);
         expect(replaced.searchParams.get(MODE_QUERY_NAME)).toBe(CALL_MODE);
         expect(live(WATCH_INTERVAL_MILLISECONDS)).toEqual([]);
