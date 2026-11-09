@@ -38,7 +38,7 @@ _ANNOUNCEMENTS: Final = {token: announcement for announcement, token in ANNOUNCE
 
 
 class _DeclaringRequest(CommandRequest):
-    """A client names only the step and the version it saw: its seat and position come from the session."""
+    """A client names only the version it saw: its seat and position come from the session."""
 
     version: Annotated[int, Field(strict=True)]
 

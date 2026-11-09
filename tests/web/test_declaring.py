@@ -392,6 +392,7 @@ class TestContract:
             ),
             pytest.param(TAKE, {"seat": 1}, id="names-a-seat"),
             pytest.param(TAKE, {"position": "forehand"}, id="names-a-position"),
+            pytest.param(TAKE, {"series_length": 36}, id="names-a-series-length"),
             pytest.param(PUT_BACK, {**two_of_the_twelve(), "game": "herz"}, id="foreign-field"),
             pytest.param(DECLARE, {**any_declaration(), "cards": []}, id="cards-on-declare"),
             pytest.param(DECLARE, {"game": "herz"}, id="missing-declaration-fields"),
