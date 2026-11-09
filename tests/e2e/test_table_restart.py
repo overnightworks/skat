@@ -34,6 +34,8 @@ FELT_CARD = ".trick .laid"
 # What uvicorn logs when its graceful wait ends with a stream still running: a task cancelled, or its error.
 STREAM_CANCELLED = re.compile(r"Cancel [1-9]\d* running task|CancelledError|Exception in ASGI application")
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
+# The reloaded page signs in again and draws the table only after the answer; four workers' load stretches that.
+BACK_AT_THE_TABLE_MILLISECONDS = 30_000
 INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 
 
@@ -116,8 +118,10 @@ def expect_back_at_the_table(table: PlayingTable, restart: Restart, names: list[
     for name in names:
         page = pages[name]
         page.wait_for_function("() => window.sameDocument !== true")
-        expect(page.locator(".chair")).to_have_count(3)
-        expect(page.locator(".plaque")).to_have_text(restart.views_before[name].plaque)
+        expect(page.locator(".chair")).to_have_count(3, timeout=BACK_AT_THE_TABLE_MILLISECONDS)
+        expect(page.locator(".plaque")).to_have_text(
+            restart.views_before[name].plaque, timeout=BACK_AT_THE_TABLE_MILLISECONDS
+        )
         assert view_of(page) == restart.views_before[name]
         expect(page.locator(".stage.stale")).to_have_count(0)
         assert len(restart.sign_in_starts[name]) == 1
