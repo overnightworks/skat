@@ -30,13 +30,17 @@ def headers_of(table):
 def pass_the_hand_in(skat, table):
     """Everyone passes in turn until no hand runs."""
     people = headers_of(table)
-    while (view := table.read_as(table.watcher).json())["hand"] is not None:
+    for _ in range(3):
+        view = table.read_as(table.watcher).json()
+        if view["hand"] is None:
+            break
         answer = skat.client.post(
             f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
             json={"command_id": f"pass-at-{view['version']}", "version": view["version"]},
             headers={"origin": TEST_PUBLIC_ORIGIN, **people[view["hand"]["auction"]["turn_seat"] - 1]},
         )
         assert answer.status_code == 200, answer.text
+    assert table.read_as(table.watcher).json()["hand"] is None
 
 
 def play_a_series(skat, game_count=3, *, swap_after_first=None, passed_in_hand=None):

@@ -268,7 +268,11 @@ class TestGiveUpGame:
         answer = self.give_up(agent, table)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["result"]["won"] is False
+        result = answer.json()["result"]
+        assert result["won"] is False
+        assert (result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (3, -50, False)
+        assert agent.read(table.table_id).json()["result"] == result
+        assert table.read_as(table.at[MIDDLEHAND]).json()["result"] == result
         assert table.record.hand is None
         assert len(table.record.game_list) == 1
 

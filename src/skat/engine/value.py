@@ -99,19 +99,27 @@ class Breakdown:
 
     base_value: int | None
     levels: tuple[Level, ...]
+    multiplier: int | None
 
 
-def breakdown_of(declaration: Declaration, *, schneider: bool, schwarz: bool) -> Breakdown:
-    """The breakdown of what a list entry stores: the declaration and the Schneider and Schwarz the value counted."""
+def breakdown_of(declaration: Declaration, held: Matadors | None, *, schneider: bool, schwarz: bool) -> Breakdown:
+    """The breakdown of what a list entry stores: the declaration, matadors, Schneider and Schwarz."""
+    levels = levels_of(declaration, schneider=schneider, schwarz=schwarz)
     return Breakdown(
         base_value=declaration.kind.base_value,
-        levels=levels_of(declaration, schneider=schneider, schwarz=schwarz),
+        levels=levels,
+        multiplier=None if held is None else multiplier_of(held.count, levels),
     )
+
+
+def multiplier_of(matador_count: int, levels: tuple[Level, ...]) -> int:
+    """The matadors plus the counted levels, which the base value multiplies."""
+    return matador_count + len(levels)
 
 
 def value_reached_by_levels(matador_count: int, levels: tuple[Level, ...], base_value: int) -> int:
     """The one value formula: the matadors and the levels, multiplied by the base value."""
-    return (matador_count + len(levels)) * base_value
+    return multiplier_of(matador_count, levels) * base_value
 
 
 _LEVEL_STEPS: Final = ((False, False), (True, False), (True, True))  # schneider, schwarz
