@@ -1005,9 +1005,10 @@ body {
         top: 18px;
     }
 
-    /* The declarer's mark stands under the chair's letter, clear of the turn mark above it, and a wide chair has room for the word. */
+    /* The declarer's mark stands under the chair's letter, clear of the turn mark above it and of the coaster at the chair's lower corner, and a wide chair has room for the word. */
     .room .mark.declarer {
         top: 80px;
+        left: 32px;
         width: auto;
         height: 28px;
         padding: 0 10px 0 7px;
