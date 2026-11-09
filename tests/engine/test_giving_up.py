@@ -1,54 +1,29 @@
-from dataclasses import replace
-from itertools import combinations
+from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.engine.bidding import Declared
-from skat.engine.cards import DECK, Card, Rank, Suit
-from skat.engine.deal import Deal, Position
-from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
+from skat.engine.cards import Card, Rank, Suit
+from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.giving_up import give_up, opponent_gives_up, shorten, throw_down
 from skat.engine.score import Reckoning, Settlement, reckon, settle
-from skat.engine.tricks import CompletedTrick, Ending, PlayedOut, Playing, PlayRefusal, play_card, start_play
-
-FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
-KARO, KREUZ, HERZ, GRAND, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.HERZ, GameKind.GRAND, GameKind.NULL
-CLUBS_JACK, SPADES_JACK = Card(Suit.KREUZ, Rank.JACK), Card(Suit.PIK, Rank.JACK)
-HEARTS_JACK = Card(Suit.HERZ, Rank.JACK)
-JACKS = (CLUBS_JACK, SPADES_JACK, HEARTS_JACK)
-KARO_ACE, KARO_TEN, KARO_SEVEN, KARO_EIGHT = (
-    Card(Suit.KARO, rank) for rank in (Rank.ACE, Rank.TEN, Rank.SEVEN, Rank.EIGHT)
+from skat.engine.tricks import Ending, PlayedOut, Playing, PlayRefusal, play_card
+from tests.support.playing_scenes import (
+    FOREHAND,
+    JACKS,
+    KARO_EIGHT,
+    KARO_SEVEN,
+    MIDDLEHAND,
+    REARHAND,
+    scenario,
+    started,
 )
 
+if TYPE_CHECKING:
+    from skat.engine.deal import Position
 
-def dealt(forehand: tuple[Card, ...], middlehand: tuple[Card, ...], rearhand: tuple[Card, ...]) -> Deal:
-    """A deal holding the chosen cards first in each hand, the rest filled in deck order."""
-    chosen = {*forehand, *middlehand, *rearhand}
-    rest = iter(card for card in DECK if card not in chosen)
-    hands = [(*prefix, *(next(rest) for _ in range(10 - len(prefix)))) for prefix in (forehand, middlehand, rearhand)]
-    return Deal(*hands, tuple(next(rest) for _ in range(2)))
-
-
-def started(
-    kind: GameKind = KARO,
-    bid: int = 20,
-    *,
-    jacks: tuple[Card, ...] = (CLUBS_JACK,),
-    hand: bool = False,
-    ouvert: bool = False,
-    announcement: Announcement = Announcement.NONE,
-    cards: tuple[tuple[Card, ...], tuple[Card, ...], tuple[Card, ...]] = ((), (), ()),
-) -> Playing:
-    """The forehand declares; he holds exactly `jacks` of the jacks, middlehand holds the others."""
-    forehand, middlehand, rearhand = cards
-    the_deal = dealt((*jacks, *forehand), (*(jack for jack in JACKS if jack not in jacks), *middlehand), rearhand)
-    state = Declaring.start(Declared(FOREHAND, bid), the_deal)
-    if not hand:
-        state = put_back(take_skat(state).state, the_deal.skat).state
-    outcome = declare(state, kind, hand=hand, ouvert=ouvert, announcement=announcement)
-    assert outcome.refusal is None
-    return start_play(outcome.state, the_deal)
+KARO, KREUZ, HERZ, GRAND, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.HERZ, GameKind.GRAND, GameKind.NULL
+KARO_ACE, KARO_TEN = Card(Suit.KARO, Rank.ACE), Card(Suit.KARO, Rank.TEN)
 
 
 def ok(state: Playing, position: Position, card: Card) -> Playing:
@@ -189,21 +164,6 @@ def test_a_given_up_result_keeps_the_tricks_taken_so_far_and_a_played_out_one_is
     while played_out.result is None:
         played_out = next_card(played_out)
     assert played_out.result.ending is Ending.PLAYED_OUT
-
-
-def stand_in_trick(taker: Position, points: int) -> CompletedTrick:
-    """A completed trick worth `points` to its taker; only the points and the taker matter to the count."""
-    cards = next(combo for combo in combinations(DECK, 3) if sum(card.points for card in combo) == points)
-    return CompletedTrick(FOREHAND, cards, taker)
-
-
-def scenario(kind: GameKind, bid: int, taken: tuple[tuple[Position, int], ...] = (), **declaration: object) -> Playing:
-    """A game with a skat of no points, in which the listed tricks are completed and the declarer holds the rest."""
-    state = started(kind, bid, **declaration)  # type: ignore[arg-type]
-    declared = replace(state.declared, skat=(KARO_SEVEN, KARO_EIGHT))
-    tricks = tuple(stand_in_trick(taker, points) for taker, points in taken)
-    declarer_hand = state.hands[FOREHAND][: 10 - len(tricks)]
-    return replace(state, declared=declared, tricks=tricks, hands={**state.hands, FOREHAND: declarer_hand})
 
 
 def thrown_down(state: Playing, position: Position) -> PlayedOut:
