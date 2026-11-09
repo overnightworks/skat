@@ -128,4 +128,4 @@ Unit tests cover the logic and webauth's wiring through a test client with a fak
 
 ## 8. Risks and Technical Debt
 
-- Accounts and sessions live in memory: a restart signs everyone out, and a second instance would not share them.
+- Accounts and sessions live in memory: a restart signs everyone out, and a second instance would not share them. An open table page comes back through the issuer by itself ("A refused page signs in again").
