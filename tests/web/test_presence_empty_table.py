@@ -353,6 +353,17 @@ class TestTheStoredTimeSinceNobodyWasThere:
         assert [(log["error"], log["table_id"]) for log in logs] == [("ConnectionError", TABLE)]
         assert notes.calls[-1] == (TABLE, frozenset())
 
+    def test_a_retried_leave_write_notes_who_is_connected_when_it_runs_after_a_reconnect(self, noting, time, notes):
+        leaving = connect(noting, TABLE, "anna", lambda: None)
+        notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        noting.unsubscribe(leaving)
+        run(time.advance(0))
+        connect(noting, TABLE, "anna", lambda: None)
+
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+
+        assert notes.calls[-1] == (TABLE, frozenset({"anna"}))
+
     def test_a_stopped_presence_writes_no_leave(self, noting, time, notes):
         leaving = connect(noting, TABLE, "anna", lambda: None)
         noting.stop()

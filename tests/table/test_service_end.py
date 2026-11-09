@@ -283,6 +283,14 @@ class TestNotePresence:
     def test_the_sit_that_deals_the_first_hand_clears_the_time_with_no_stream_open(self, store, dealt_id):
         assert store.empty_since_by_table[dealt_id.value] is None
 
+    def test_a_view_and_a_sit_that_deals_nothing_leave_the_time_as_it_is(self, service, store, table_id):
+        stamp(store, table_id, 3)
+
+        service.view(OPENER, table_id.value, NOBODY)
+        service.sit(VISITOR, SitDown("command-sit-ben", table_id.value, 2), NOBODY)
+
+        assert store.empty_since_by_table[table_id.value] == ENDED_AT - timedelta(seconds=3)
+
     def test_the_last_leave_stamps_a_table_with_no_time_and_changes_nothing_else(self, service, store, table_id):
         store.empty_since_by_table[table_id.value] = None
         before = store.tables[table_id.value]

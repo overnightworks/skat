@@ -25,6 +25,8 @@ pytestmark = pytest.mark.e2e
 
 EMPTY_TABLE_SECONDS = 2
 ENDS_WITHIN_SECONDS = EMPTY_TABLE_SECONDS + 20
+# Long enough that a restart happens inside it.
+RESTARTED_WAIT_SECONDS = 10
 POLL_SECONDS = 0.2
 
 
@@ -32,6 +34,13 @@ POLL_SECONDS = 0.2
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """This module's Skat, with an empty-table wait short enough to wait out."""
     with skat_on_new_database(tmp_path_factory, empty_table_seconds=EMPTY_TABLE_SECONDS) as server:
+        yield server
+
+
+@pytest.fixture
+def restarted_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """A Skat of its own, with a wait that outlasts its restart, so restarting it leaves the module's server alone."""
+    with skat_on_new_database(tmp_path_factory, empty_table_seconds=RESTARTED_WAIT_SECONDS) as server:
         yield server
 
 
@@ -98,22 +107,22 @@ def stored_times(server: RunningServer, table_id: str) -> tuple[object, object]:
 
 
 def test_an_undealt_table_left_before_a_restart_ends_no_sooner_than_the_wait_after_its_leave(
-    e2e_server: RunningServer,
+    restarted_server: RunningServer,
 ) -> None:
-    anna = signed_in(e2e_server)
+    anna = signed_in(restarted_server)
     table_id = json.loads(anna.post(TABLES_PATH, {"command_id": "restart-create-0001"}))["id"]
     anna.first_stream_message(f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}")
-    deadline = time.monotonic() + ENDS_WITHIN_SECONDS
-    while stored_times(e2e_server, table_id)[0] is None and time.monotonic() < deadline:
+    deadline = time.monotonic() + RESTARTED_WAIT_SECONDS + 20
+    while stored_times(restarted_server, table_id)[0] is None and time.monotonic() < deadline:
         time.sleep(POLL_SECONDS)
-    left_at = stored_times(e2e_server, table_id)[0]
+    left_at = stored_times(restarted_server, table_id)[0]
 
-    e2e_server.restart(while_stopping=lambda: None)
-    anna = signed_in(e2e_server)
+    restarted_server.restart(while_stopping=lambda: None)
+    anna = signed_in(restarted_server)
     answer = json.loads(anna.get(f"{TABLES_PATH}/{table_id}"))
     while answer["ended"] is None and time.monotonic() < deadline:
         time.sleep(POLL_SECONDS)
         answer = json.loads(anna.get(f"{TABLES_PATH}/{table_id}"))
 
-    assert answer["ended"] == {"reason": "empty", "empty_seconds": EMPTY_TABLE_SECONDS}
-    assert stored_times(e2e_server, table_id)[1] - left_at >= timedelta(seconds=EMPTY_TABLE_SECONDS)
+    assert answer["ended"] == {"reason": "empty", "empty_seconds": RESTARTED_WAIT_SECONDS}
+    assert stored_times(restarted_server, table_id)[1] - left_at >= timedelta(seconds=RESTARTED_WAIT_SECONDS)
