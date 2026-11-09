@@ -1,4 +1,5 @@
 import random
+from dataclasses import dataclass
 from itertools import combinations_with_replacement
 
 import pytest
@@ -14,9 +15,12 @@ from skat.engine.declaration import (
     take_skat,
 )
 from skat.engine.games import GameKind
+from skat.engine.giving_up import give_up, throw_down
+from skat.engine.score import Reckoning, Settlement, reckon, settle
 from skat.engine.tricks import (
     CardPlayed,
     CompletedTrick,
+    Ending,
     PlayedOut,
     Playing,
     PlayOutcome,
@@ -29,7 +33,7 @@ from skat.engine.tricks import (
 )
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
-HERZ, GRAND, NULL = GameKind.HERZ, GameKind.GRAND, GameKind.NULL
+HERZ, GRAND, NULL, KREUZ = GameKind.HERZ, GameKind.GRAND, GameKind.NULL, GameKind.KREUZ
 BID = 30
 OVER, NOT_YOUR_TURN = PlayRefusal.OVER, PlayRefusal.NOT_YOUR_TURN
 NOT_IN_HAND, MUST_FOLLOW = PlayRefusal.NOT_IN_HAND, PlayRefusal.MUST_FOLLOW
@@ -59,12 +63,19 @@ def dealt(
 
 
 def declared_by(
-    the_deal: Deal, declarer: Position = FOREHAND, kind: GameKind = GRAND, *, pick_up: tuple[Card, ...] = ()
+    the_deal: Deal,
+    declarer: Position = FOREHAND,
+    kind: GameKind = GRAND,
+    *,
+    pick_up: tuple[Card, ...] = (),
+    bid: int = BID,
+    ouvert: bool = False,
+    announcement: Announcement = Announcement.NONE,
 ) -> Declaring:
-    state = Declaring.start(Declared(declarer, BID), the_deal)
+    state = Declaring.start(Declared(declarer, bid), the_deal)
     if pick_up:
         state = put_back(take_skat(state).state, pick_up).state
-    outcome = declare(state, kind, hand=not pick_up, ouvert=False, announcement=Announcement.NONE)
+    outcome = declare(state, kind, hand=not pick_up, ouvert=ouvert, announcement=announcement)
     assert outcome.refusal is None
     return outcome.state
 
@@ -125,8 +136,13 @@ def cards_worth(points: int, size: int = 3) -> tuple[Card, ...]:
     raise AssertionError(points)
 
 
-def played_out(takes: tuple[tuple[bool, int], ...], kind: GameKind = HERZ, skat_points: int = 0) -> PlayedOut:
-    """Ten chosen tricks of the declarer (middlehand) and the opponents, each worth the given points."""
+def played_out(
+    takes: tuple[tuple[bool, int], ...],
+    kind: GameKind = HERZ,
+    skat_points: int = 0,
+    ending: Ending = Ending.PLAYED_OUT,
+) -> PlayedOut:
+    """Chosen tricks of the declarer (middlehand) and the opponents, each worth the given points."""
     the_deal = dealt(skat=cards_worth(skat_points, 2))
     declared = declared_by(the_deal, MIDDLEHAND, kind)
     tricks = tuple(
@@ -137,7 +153,7 @@ def played_out(takes: tuple[tuple[bool, int], ...], kind: GameKind = HERZ, skat_
         )
         for by_declarer, points in takes
     )
-    return PlayedOut(declared, tricks)
+    return PlayedOut(declared, tricks, ending)
 
 
 def takes(declarer: tuple[int, ...], opponents: tuple[int, ...] = ()) -> tuple[tuple[bool, int], ...]:
@@ -195,7 +211,7 @@ def test_the_trick_after_a_taken_one_names_its_cards_from_the_taker_on() -> None
     assert tuple(play.card for play in state.current_plays) == state.current
 
 
-@pytest.mark.parametrize("kind", [HERZ, GRAND, NULL])
+@pytest.mark.parametrize("kind", [HERZ, GRAND])
 @pytest.mark.parametrize("seed", range(5))
 def test_a_game_is_ten_tricks_of_three_cards_and_leaves_every_hand_empty(seed: int, kind: GameKind) -> None:
     state = played_out_game(seed, kind)
@@ -224,7 +240,7 @@ def test_the_running_tally_names_each_side_s_tricks_and_their_card_points() -> N
     assert first_trick_taken_by_middlehand().tally == Tally(tricks=Sides(0, 1), points=Sides(0, 11))
 
 
-@pytest.mark.parametrize("kind", [HERZ, GRAND, NULL])
+@pytest.mark.parametrize("kind", [HERZ, GRAND])
 @pytest.mark.parametrize("seed", range(5))
 def test_the_running_tally_after_the_tenth_trick_is_the_result_s_with_the_skat_left_out(
     seed: int, kind: GameKind
@@ -292,17 +308,20 @@ def test_a_side_is_schwarz_when_it_took_no_trick_however_few_points_it_holds(
 
 
 @pytest.mark.parametrize(
-    ("chosen", "won"),
+    ("chosen", "ending", "won"),
     [
-        (tuple((OPPONENTS_TAKE, 0) if index != 3 else (DECLARER_TAKES, 0) for index in range(10)), False),
-        (takes(()), True),
+        (
+            ((OPPONENTS_TAKE, 0),) * 3 + ((DECLARER_TAKES, 0),),
+            Ending.DECIDED,
+            False,
+        ),
+        (takes(()), Ending.PLAYED_OUT, True),
     ],
 )
 def test_a_null_game_is_won_by_play_only_if_the_declarer_takes_no_trick(
-    chosen: tuple[tuple[bool, int], ...], won: bool
+    chosen: tuple[tuple[bool, int], ...], ending: Ending, won: bool
 ) -> None:
-    result = played_out(chosen, NULL)
-    assert len(result.tricks) == 10
+    result = played_out(chosen, NULL, ending=ending)
     assert result.won_by_play is won
 
 
@@ -382,3 +401,249 @@ def test_a_thirty_first_card_raises_naming_the_refusal_and_the_place() -> None:
     start = start_play(declared_by(the_deal, list(Position)[2 % 3], HERZ), the_deal)
     with pytest.raises(ValueError, match=r"step 31.*over"):
         playing_after(start, log)
+
+
+def holding(text: str) -> tuple[Card, ...]:
+    """Cards from a suit letter (C, S, H, D) and a rank letter (7, 8, 9, T, J, Q, K, A); slashes part tricks."""
+    suits = {"C": Suit.KREUZ, "S": Suit.PIK, "H": Suit.HERZ, "D": Suit.KARO}
+    ranks = dict(zip("789TJQKA", Rank, strict=True))
+    return tuple(Card(suits[each[0]], ranks[each[1]]) for each in text.split() if each != "/")
+
+
+@dataclass(frozen=True)
+class Scene:
+    """A declared game; each hand starts with the cards named and the rest is dealt in deck order."""
+
+    kind: GameKind
+    hands: tuple[str, ...]
+    script: str = ""
+    bid: int = 18
+    declarer: Position = FOREHAND
+    picks_up: bool = False
+    ouvert: bool = False
+    announcement: Announcement = Announcement.NONE
+
+    def started(self) -> Playing:
+        the_deal = dealt(*(holding(text) for text in self.hands))
+        declared = declared_by(
+            the_deal,
+            self.declarer,
+            self.kind,
+            pick_up=the_deal.skat if self.picks_up else (),
+            bid=self.bid,
+            ouvert=self.ouvert,
+            announcement=self.announcement,
+        )
+        return start_play(declared, the_deal)
+
+    def played(self) -> Playing:
+        state = self.started()
+        for each in holding(self.script):
+            state = ok(play_card(state, state.turn, each))
+        return state
+
+
+def result_of(state: Playing) -> PlayedOut:
+    assert state.result is not None
+    return state.result
+
+
+@pytest.mark.parametrize(
+    ("scene", "tricks", "settlement", "reckoning"),
+    [
+        pytest.param(
+            Scene(NULL, ("SA", "S7", "S8"), "SA S7 S8", bid=23, picks_up=True),
+            1,
+            Settlement(won=False, value=23, score=-46),
+            Reckoning(declarer=-96, each_opponent=40),
+            id="null: the declarer takes trick 1",
+        ),
+        pytest.param(
+            Scene(
+                NULL,
+                (
+                    "D9 H8 ST S9 DJ C8 CQ CJ CA H7",
+                    "S8 HT DK SQ HK C7 HQ DQ CK SJ",
+                    "HJ HA SK SA CT DA C9 D7 D8 DT",
+                    "H9 S7",
+                ),
+                "D9 DQ DA / DT DJ DK",
+                declarer=MIDDLEHAND,
+            ),
+            2,
+            Settlement(won=False, value=35, score=-70),
+            Reckoning(declarer=-120, each_opponent=40),
+            id="null hand: rearhand takes trick 1, the declarer trick 2",
+        ),
+        pytest.param(
+            Scene(
+                NULL,
+                ("S7 H8 DA", "SK H9 D8", "S8 HQ D7"),
+                "S7 SK S8 / H9 HQ H8 / D7 DA D8",
+                bid=46,
+                picks_up=True,
+                ouvert=True,
+            ),
+            3,
+            Settlement(won=False, value=46, score=-92),
+            Reckoning(declarer=-142, each_opponent=40),
+            id="null ouvert: the declarer's first trick is trick 3",
+        ),
+        pytest.param(
+            Scene(NULL, ("SA", "S7", "S8"), "SA S7 S8", bid=59, ouvert=True),
+            1,
+            Settlement(won=False, value=59, score=-118),
+            Reckoning(declarer=-168, each_opponent=40),
+            id="null ouvert hand: the declarer takes trick 1",
+        ),
+        pytest.param(
+            Scene(
+                GRAND,
+                ("CJ SJ C7", "HJ CA", "C8"),
+                "C7 CA C8",
+                announcement=Announcement.SCHWARZ,
+            ),
+            1,
+            Settlement(won=False, value=192, score=-384),
+            Reckoning(declarer=-434, each_opponent=40),
+            id="grand hand mit 2 announced schwarz: the opponents take trick 1",
+        ),
+        pytest.param(
+            Scene(
+                KREUZ,
+                ("CJ SJ DA HA SA D9", "HJ D7 H7 S7 DT", "D8 H8 S8 DQ"),
+                "DA D7 D8 / HA H7 H8 / SA S7 S8 / D9 DT DQ",
+                announcement=Announcement.SCHWARZ,
+            ),
+            4,
+            Settlement(won=False, value=96, score=-192),
+            Reckoning(declarer=-242, each_opponent=40),
+            id="kreuz hand mit 2 announced schwarz: the opponents take trick 4",
+        ),
+        pytest.param(
+            Scene(
+                KREUZ,
+                ("CJ SJ DA HA S9", "HJ D7 H7 SA", "D8 H8 S8"),
+                "DA D7 D8 / HA H7 H8 / S9 SA S8",
+                ouvert=True,
+            ),
+            3,
+            Settlement(won=False, value=108, score=-216),
+            Reckoning(declarer=-266, each_opponent=40),
+            id="kreuz ouvert mit 2: the opponents take trick 3",
+        ),
+    ],
+)
+class TestAGameDecidedByATrick:
+    def test_it_ends_at_that_trick_and_is_lost_in_the_value_it_was_declared_at(
+        self, scene: Scene, tricks: int, settlement: Settlement, reckoning: Reckoning
+    ) -> None:
+        result = result_of(scene.played())
+        assert (result.ending, len(result.tricks)) == (Ending.DECIDED, tricks)
+        assert settle(result, scene.bid) == settlement
+        assert reckon(settle(result, scene.bid)) == reckoning
+
+    def test_every_further_move_is_refused_as_over_and_changes_nothing(
+        self, scene: Scene, tricks: int, settlement: Settlement, reckoning: Reckoning
+    ) -> None:
+        state = scene.played()
+        refused(play_card(state, state.turn, KARO_SEVEN), OVER, state)
+        refused(give_up(state, consented=True), OVER, state)
+        for position in Position:
+            refused(throw_down(state, position), OVER, state)
+
+
+@pytest.mark.parametrize(
+    ("scene", "declarer_points", "opponents_points", "declarer_tricks", "opponents_tricks"),
+    [
+        pytest.param(Scene(NULL, ("SA", "S7", "S8"), "SA S7 S8", bid=23, picks_up=True), 120, 0, 10, 0, id="null"),
+        pytest.param(
+            Scene(
+                NULL,
+                (
+                    "D9 H8 ST S9 DJ C8 CQ CJ CA H7",
+                    "S8 HT DK SQ HK C7 HQ DQ CK SJ",
+                    "HJ HA SK SA CT DA C9 D7 D8 DT",
+                    "H9 S7",
+                ),
+                "D9 DQ DA / DT DJ DK",
+                declarer=MIDDLEHAND,
+            ),
+            106,
+            14,
+            9,
+            1,
+            id="null hand",
+        ),
+        pytest.param(
+            Scene(GRAND, ("CJ SJ C7", "HJ CA", "C8"), "C7 CA C8", announcement=Announcement.SCHWARZ),
+            109,
+            11,
+            9,
+            1,
+            id="grand hand announced schwarz",
+        ),
+    ],
+)
+def test_after_an_early_end_the_opponents_keep_what_they_took_and_the_rest_counts_for_the_declarer(
+    scene: Scene, declarer_points: int, opponents_points: int, declarer_tricks: int, opponents_tricks: int
+) -> None:
+    result = result_of(scene.played())
+    assert (result.declarer_points, result.opponents_points) == (declarer_points, opponents_points)
+    assert (result.declarer_tricks, result.opponents_tricks) == (declarer_tricks, opponents_tricks)
+
+
+def test_a_null_game_goes_on_when_the_opponents_take_trick_1_and_the_taker_leads_trick_2() -> None:
+    state = Scene(NULL, ("S7", "SK", "S8"), "S7 SK S8", bid=23, picks_up=True).played()
+    assert state.result is None
+    assert state.leader is MIDDLEHAND
+
+
+def test_a_null_game_the_declarer_never_takes_a_trick_in_is_won_after_ten_tricks() -> None:
+    scene = Scene(NULL, ("D7 D8 D9 H7 H8 H9 S7 S8 S9 C7",), bid=23, picks_up=True)
+    result = result_of(play_out(scene.started()))
+    assert (result.ending, len(result.tricks)) == (Ending.PLAYED_OUT, 10)
+    assert settle(result, scene.bid) == Settlement(won=True, value=23, score=23)
+    assert reckon(settle(result, scene.bid)) == Reckoning(declarer=73, each_opponent=0)
+
+
+def test_a_game_announced_schwarz_that_the_declarer_wins_every_trick_of_is_won_after_ten_tricks() -> None:
+    scene = Scene(
+        KREUZ,
+        ("CJ SJ CA CT CK CQ C9 C8 C7 DA", "HJ", "DJ"),
+        announcement=Announcement.SCHWARZ,
+    )
+    result = result_of(play_out(scene.started()))
+    assert (result.ending, len(result.tricks)) == (Ending.PLAYED_OUT, 10)
+    assert settle(result, scene.bid) == Settlement(won=True, value=96, score=96)
+    assert reckon(settle(result, scene.bid)) == Reckoning(declarer=146, each_opponent=0)
+
+
+@pytest.mark.parametrize(
+    "scene",
+    [
+        pytest.param(
+            Scene(KREUZ, ("CJ SJ D7", "HJ DA", "D8"), "D7 DA D8", announcement=Announcement.SCHNEIDER),
+            id="announced schneider, the opponents take trick 1",
+        ),
+        pytest.param(
+            Scene(KREUZ, ("CJ SJ D7", "HJ DA", "D8"), "D7 DA D8", picks_up=True),
+            id="no announcement, the opponents take trick 1",
+        ),
+    ],
+)
+def test_a_game_not_announced_schwarz_plays_on_to_its_tenth_trick_after_an_opponents_trick(scene: Scene) -> None:
+    state = scene.played()
+    assert state.result is None
+    assert len(result_of(play_out(state)).tricks) == 10
+
+
+def test_a_game_the_declarer_already_holds_61_in_plays_on_to_its_tenth_trick() -> None:
+    state = Scene(KREUZ, ("CJ SJ CA CT CK CQ C9 C8 C7 DA", "HJ", "DJ"), picks_up=True).started()
+    states = [state]
+    while states[-1].result is None:
+        states.append(first_accepted(states[-1]))
+    after_nine = next(each for each in states if len(each.tricks) == 9)
+    assert after_nine.result is None
+    assert after_nine.tally.points.declarer + sum(card.points for card in after_nine.declared.skat) >= 61
+    assert len(result_of(states[-1]).tricks) == 10
