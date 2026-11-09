@@ -5,7 +5,10 @@ import {
     TABLE_CARD_SUFFIX,
     TABLE_DECLARATION_SUFFIX,
     TABLE_READY_SUFFIX,
-    TABLE_AUCTION_SUFFIX,
+    TABLE_AUCTION_BID_SUFFIX,
+    TABLE_AUCTION_HOLD_SUFFIX,
+    TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
@@ -17,6 +20,7 @@ import {
     createTable,
     declarerStage,
     drawingOrder,
+    gameLabel,
     gameWord,
     isSuitGame,
     markReady,
@@ -325,19 +329,26 @@ describe("asking for a table", () => {
     });
 
     it.each([
-        { action: "bid", value: 20, body: { action: "bid", value: 20 } },
-        { action: "hold", value: undefined, body: { action: "hold" } },
-        { action: "pass", value: undefined, body: { action: "pass" } },
-        { action: "play", value: undefined, body: { action: "play" } },
-    ] as const)("sends the version shown with a $action step", async ({ action, value, body }) => {
-        answerWith(Response.json(table));
+        { action: "bid", value: 20, suffix: TABLE_AUCTION_BID_SUFFIX, body: { value: 20 } },
+        { action: "hold", value: undefined, suffix: TABLE_AUCTION_HOLD_SUFFIX, body: {} },
+        { action: "pass", value: undefined, suffix: TABLE_AUCTION_PASS_SUFFIX, body: {} },
+        { action: "play", value: undefined, suffix: TABLE_AUCTION_PLAY_SUFFIX, body: {} },
+    ] as const)(
+        "sends the version shown with a $action step to its own path",
+        async ({ action, value, suffix, body }) => {
+            answerWith(Response.json(table));
 
-        expect(await takeAuctionStep(TABLE_ID, "command-3", 7, action, value)).toEqual({ kind: "table", table });
+            expect(await takeAuctionStep(TABLE_ID, "command-3", 7, action, value)).toEqual({ kind: "table", table });
 
-        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_AUCTION_SUFFIX}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...body });
-    });
+            const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+            expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+            expect(JSON.parse((init as { body: string }).body)).toEqual({
+                command_id: "command-3",
+                version: 7,
+                ...body,
+            });
+        },
+    );
 
     it("sends the version shown, a command id and only the card when playing a card", async () => {
         answerWith(Response.json(table));
@@ -478,7 +489,7 @@ describe("the auction's value while declaring", () => {
     it.each([
         [
             "once the game is declared",
-            { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const } },
+            { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const, hand: false } },
             { seat: 2, value: 20 },
         ],
         ["before the auction is over", null, null],
@@ -550,6 +561,13 @@ describe("the table's seats and link", () => {
         ["null", words.gameNull],
     ] as [Game, string][])("names the game %s with its word", (game, word) => {
         expect(gameWord(game)).toBe(word);
+    });
+
+    it.each([
+        ["a plain game", false, words.gameGrand],
+        ["a Hand game", true, `${words.gameGrand} ${words.hand}`],
+    ])("labels %s", (_name, hand, label) => {
+        expect(gameLabel({ game: "grand", hand })).toBe(label);
     });
 
     it.each([

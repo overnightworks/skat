@@ -24,6 +24,7 @@ function result(changes: Partial<Result> = {}): Result {
         ordinal: 3,
         declarer_seat: DECLARER_SEAT,
         game: "kreuz",
+        hand: false,
         won: true,
         overbid: false,
         bid: 18,
@@ -85,6 +86,13 @@ describe("the card's words and sides for each viewer", () => {
         expect(resultView(table(mine, {})).sides).toEqual(sides);
     });
 
+    it.each([
+        { hand: false, label: words.gameKreuz },
+        { hand: true, label: `${words.gameKreuz} ${words.hand}` },
+    ])("names the game with its levels when hand is $hand", ({ hand, label }) => {
+        expect(resultView(table(2, { hand })).gameLine).toBe(label);
+    });
+
     it("carries the points of both sides as the server counted them", () => {
         expect(resultView(table(2, {})).points).toEqual({ declarer: 78, opponents: 42 });
     });
@@ -104,20 +112,24 @@ describe("the card's words and sides for each viewer", () => {
     });
 
     it.each([
-        { viewer: "the declarer", mine: 2, byName: null },
-        { viewer: "an opponent", mine: 1, byName: "player 2" },
-        { viewer: "a watcher", mine: NOBODY, byName: null },
-    ])("names the declarer on the game line for $viewer only when it is not their own game", ({ mine, byName }) => {
+        { viewer: "the declarer", mine: 2, gameLine: words.gameKreuz },
+        { viewer: "an opponent", mine: 1, gameLine: `player 2, ${words.gameKreuz}` },
+        { viewer: "a watcher", mine: NOBODY, gameLine: words.gameKreuz },
+    ])("names the declarer on the game line for $viewer only when it is not their own game", ({ mine, gameLine }) => {
         const view = resultView(table(mine, {}));
 
-        expect(view.game).toBe("kreuz");
-        expect(view.byName).toBe(byName);
+        expect(view.suit).toBe("kreuz");
+        expect(view.gameLine).toBe(gameLine);
+    });
+
+    it.each(["grand", "null"] as const)("gives a %s game no trump suit", (game) => {
+        expect(resultView(table(2, { game })).suit).toBeNull();
     });
 });
 
 describe("a declarer who has left", () => {
     it("leaves their name empty on the opponent's game line", () => {
-        expect(resultView(table(1, {}, { 2: { occupant_name: null } })).byName).toBe("");
+        expect(resultView(table(1, {}, { 2: { occupant_name: null } })).gameLine).toBe(`, ${words.gameKreuz}`);
     });
 });
 
