@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import StrEnum
 from itertools import takewhile
 from typing import TYPE_CHECKING
 
@@ -46,37 +47,65 @@ def matadors(twelve: Collection[Card], kind: GameKind) -> Matadors | None:
     return Matadors(mit=mit, count=len(list(takewhile(lambda card: (card in twelve) is mit, trumps))))
 
 
-@dataclass(frozen=True)
-class _Levels:
-    schneider: bool
-    schwarz: bool
+class Level(StrEnum):
+    """One step of the game value, in the order the rules count them."""
+
+    SPIEL = "spiel"
+    HAND = "hand"
+    SCHNEIDER = "schneider"
+    SCHNEIDER_ANNOUNCED = "schneider_announced"
+    SCHWARZ = "schwarz"
+    SCHWARZ_ANNOUNCED = "schwarz_announced"
+    OUVERT = "ouvert"
 
 
-def _levels(declaration: Declaration, played: PlayedOut) -> _Levels:
-    """Schneider and Schwarz count when the losing side suffered them or the declarer announced them."""
+def _suffered(declaration: Declaration, played: PlayedOut) -> tuple[bool, bool]:
+    """Schneider and Schwarz as the losing side suffered them or the declarer announced them."""
     if played.won_by_play:
         schneider, schwarz = played.opponents_schneider, played.opponents_schwarz
     else:
         schneider, schwarz = played.declarer_schneider, played.declarer_schwarz
-    return _Levels(
-        schneider=schneider or declaration.announcement is not Announcement.NONE,
-        schwarz=schwarz or declaration.announcement is Announcement.SCHWARZ,
+    return (
+        schneider or declaration.announcement is not Announcement.NONE,
+        schwarz or declaration.announcement is Announcement.SCHWARZ,
     )
 
 
-def _level(declaration: Declaration, levels: _Levels) -> int:
-    """One step each: Spiel, Hand, Schneider, Schneider angesagt, Schwarz, Schwarz angesagt, ouvert."""
-    return sum(
-        (
-            True,
-            declaration.hand,
-            levels.schneider,
-            declaration.announcement is not Announcement.NONE,
-            levels.schwarz,
-            declaration.announcement is Announcement.SCHWARZ,
-            declaration.ouvert,
-        )
+def levels_of(declaration: Declaration, *, schneider: bool, schwarz: bool) -> tuple[Level, ...]:
+    """The levels a suit or Grand game counts; Null has none."""
+    if declaration.null_levels is not None:
+        return ()
+    counted = (
+        (Level.SPIEL, True),
+        (Level.HAND, declaration.hand),
+        (Level.SCHNEIDER, schneider),
+        (Level.SCHNEIDER_ANNOUNCED, declaration.announcement is not Announcement.NONE),
+        (Level.SCHWARZ, schwarz),
+        (Level.SCHWARZ_ANNOUNCED, declaration.announcement is Announcement.SCHWARZ),
+        (Level.OUVERT, declaration.ouvert),
     )
+    return tuple(level for level, reached in counted if reached)
+
+
+@dataclass(frozen=True)
+class Breakdown:
+    """What a game's value is made of besides the matadors: its base value and the levels it counts; Null has neither."""
+
+    base_value: int | None
+    levels: tuple[Level, ...]
+
+
+def breakdown_of(declaration: Declaration, *, schneider: bool, schwarz: bool) -> Breakdown:
+    """The breakdown of what a list entry stores: the declaration and the Schneider and Schwarz the value counted."""
+    return Breakdown(
+        base_value=declaration.kind.base_value,
+        levels=levels_of(declaration, schneider=schneider, schwarz=schwarz),
+    )
+
+
+def value_reached_by_levels(matador_count: int, levels: tuple[Level, ...], base_value: int) -> int:
+    """The one value formula: the matadors and the levels, multiplied by the base value."""
+    return (matador_count + len(levels)) * base_value
 
 
 def _announcements_reached(declaration: Declaration, played: PlayedOut) -> bool:
@@ -103,12 +132,12 @@ def value_of(played: PlayedOut) -> Valuation:
     base = declaration.kind.base_value
     assert held is not None  # noqa: S101 - narrows the type; only Null has no matadors
     assert base is not None  # noqa: S101 - narrows the type; only Null has no base value
-    levels = _levels(declaration, played)
-    level = _level(declaration, levels)
+    schneider, schwarz = _suffered(declaration, played)
+    levels = levels_of(declaration, schneider=schneider, schwarz=schwarz)
     return Valuation(
         won=played.won_by_play and _announcements_reached(declaration, played),
         matadors=held,
-        value=(held.count + level) * base,
-        schneider=levels.schneider,
-        schwarz=levels.schwarz,
+        value=value_reached_by_levels(held.count, levels, base),
+        schneider=schneider,
+        schwarz=schwarz,
     )
