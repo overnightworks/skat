@@ -1,12 +1,15 @@
 import pytest
 
+from skat.engine.deal import Position
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.idle_presence import idle_agent_lease
 from tests.web.support.agent import Agent
 from tests.web.support.presence import HOLD_SECONDS, Deals, Releases, Wakes
-from tests.web.support.skat import FakeTime, Skat
+from tests.web.support.skat import AgentTable, FakeTime, Skat
+
+FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
 
 
 @pytest.fixture
@@ -22,6 +25,22 @@ def issuer(hold):
 @pytest.fixture
 def agent(skat, issuer):
     return Agent(skat, issuer)
+
+
+@pytest.fixture
+def middlehand_auction(skat, agent):
+    """A dealt table, no step taken yet, where the agent holds the middlehand chair, whose turn it is."""
+    table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+    skat.client.cookies.clear()
+    return table
+
+
+@pytest.fixture
+def forehand_auction(skat, agent):
+    """A dealt table, no step taken yet, where the agent holds the forehand chair."""
+    table = AgentTable(skat, agent.admitted(), FOREHAND)
+    skat.client.cookies.clear()
+    return table
 
 
 @pytest.fixture

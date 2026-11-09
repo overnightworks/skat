@@ -1,5 +1,3 @@
-import copy
-
 import pytest
 from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
@@ -11,7 +9,7 @@ from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
+from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.mcp import (
     AGENT_GROUP,
     AUCTION_BID_TOOL,
@@ -19,9 +17,12 @@ from skat.web.mcp import (
     AUCTION_PASS_TOOL,
     AUCTION_PLAY_TOOL,
     CONTINUE_AFTER_RESULT_TOOL,
+    DECLARE_GAME_TOOL,
     MCP_GROUP,
     PLAY_CARD_TOOL,
+    PUT_BACK_CARDS_TOOL,
     READ_TABLE_TOOL,
+    TAKE_SKAT_TOOL,
 )
 from skat.web.tables import (
     TABLE_EVENTS_SUFFIX,
@@ -32,12 +33,13 @@ from skat.web.tables import (
 )
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import SUBJECT
+from tests.web.support.agent import SUBJECT, person_passes, person_steps
 from tests.web.support.playing import Table, card, card_body
-from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}
+DECLARING_TOOLS = {TAKE_SKAT_TOOL, PUT_BACK_CARDS_TOOL, DECLARE_GAME_TOOL}
 OWNER = "the-agents-owner"
 METADATA_PATH = f"/.well-known/oauth-protected-resource{MCP_ENDPOINT_PATH}"
 
@@ -50,22 +52,6 @@ def skat(hold, issuer):
 
 
 @pytest.fixture
-def middlehand_auction(skat, agent):
-    """A dealt table, no step taken yet, where the agent holds the middlehand chair, whose turn it is."""
-    table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
-    skat.client.cookies.clear()
-    return table
-
-
-@pytest.fixture
-def forehand_auction(skat, agent):
-    """A dealt table, no step taken yet, where the agent holds the forehand chair."""
-    table = AgentTable(skat, agent.admitted(), FOREHAND)
-    skat.client.cookies.clear()
-    return table
-
-
-@pytest.fixture
 def forehand_table(skat, agent):
     """A Hand game declared at a table where the agent holds the forehand, whose turn it is."""
     table = AgentTable(skat, agent.admitted(), FOREHAND)
@@ -74,26 +60,8 @@ def forehand_table(skat, agent):
     return table
 
 
-def person_steps(table, position, suffix):
-    answer = table.skat.client.post(
-        f"{TABLES_PATH}/{table.table_id}{suffix}",
-        json={"command_id": table.fresh_id(), "version": table.record.version},
-        headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
-    )
-    assert answer.status_code == 200, answer.text
-    table.skat.client.cookies.clear()
-
-
-def person_passes(table, position):
-    person_steps(table, position, TABLE_AUCTION_PASS_SUFFIX)
-
-
 def agent_account_id(skat):
     return skat.stores.accounts.get(SUBJECT).id
-
-
-def stored(skat):
-    return copy.deepcopy((skat.store.tables, skat.store.receipts))
 
 
 class TestTools:
@@ -101,17 +69,20 @@ class TestTools:
         answer = agent.request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
-        assert set(tools) == {READ_TABLE_TOOL, PLAY_CARD_TOOL, CONTINUE_AFTER_RESULT_TOOL} | AUCTION_TOOLS
+        assert (
+            set(tools)
+            == {READ_TABLE_TOOL, PLAY_CARD_TOOL, CONTINUE_AFTER_RESULT_TOOL} | AUCTION_TOOLS | DECLARING_TOOLS
+        )
         assert tools[READ_TABLE_TOOL]["annotations"]["readOnlyHint"] is True
         for name in set(tools) - {READ_TABLE_TOOL}:
             assert "readOnlyHint" not in tools[name].get("annotations", {})
 
-    def test_each_auction_tool_has_a_description_of_its_own(self, agent):
+    def test_each_step_tool_has_a_description_of_its_own(self, agent):
         answer = agent.request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
-        descriptions = {tools[name]["description"] for name in AUCTION_TOOLS}
-        assert len(descriptions) == len(AUCTION_TOOLS)
+        descriptions = {tools[name]["description"] for name in AUCTION_TOOLS | DECLARING_TOOLS}
+        assert len(descriptions) == len(AUCTION_TOOLS | DECLARING_TOOLS)
 
     @pytest.mark.parametrize(
         ("tool", "token"),
@@ -173,8 +144,8 @@ class TestReadTable:
         table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
         table.middlehand_wins()
         skat.client.post(
-            f"{TABLES_PATH}/{table.table_id}{TABLE_DECLARATION_SUFFIX}",
-            json={"command_id": "command-take", "version": table.record.version, "action": DeclaringAction.TAKE},
+            f"{TABLES_PATH}/{table.table_id}{TABLE_DECLARING_TAKE_SUFFIX}",
+            json={"command_id": "command-take", "version": table.record.version},
             headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[MIDDLEHAND]},
         )
 
@@ -261,7 +232,7 @@ class TestAuctionSteps:
             offered = agent.read(table.table_id).json()["hand"]["auction"]["values"]
             assert value in offered
 
-            answer = agent.auction_step(AUCTION_BID_TOOL, table, value=value)
+            answer = agent.take_step(AUCTION_BID_TOOL, table, value=value)
 
             assert not answer.is_error, answer.text
             assert table.record.version == before + 1
@@ -279,7 +250,7 @@ class TestAuctionSteps:
         table.middlehand_bids(VALID_BIDS[0])
         table.skat.client.cookies.clear()
 
-        answer = agent.auction_step(AUCTION_HOLD_TOOL, table)
+        answer = agent.take_step(AUCTION_HOLD_TOOL, table)
 
         assert not answer.is_error, answer.text
         assert table.record.progress.auction == (Bid(MIDDLEHAND, VALID_BIDS[0]), Hold(FOREHAND))
@@ -288,10 +259,10 @@ class TestAuctionSteps:
 
     def test_a_pass_takes_the_agent_out_and_a_later_step_is_refused_as_already_passed(self, agent, middlehand_auction):
         table = middlehand_auction
-        assert not agent.auction_step(AUCTION_PASS_TOOL, table).is_error
+        assert not agent.take_step(AUCTION_PASS_TOOL, table).is_error
         assert table.record.progress.auction == (Pass(MIDDLEHAND),)
 
-        again = agent.auction_step(AUCTION_PASS_TOOL, table, command_id="agent-step-0002")
+        again = agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-step-0002")
 
         assert again.is_error
         assert again.json()["reason"] == BidRefusal.ALREADY_PASSED
@@ -303,7 +274,7 @@ class TestAuctionSteps:
         person_passes(table, MIDDLEHAND)
         person_passes(table, REARHAND)
 
-        answer = agent.auction_step(AUCTION_PLAY_TOOL, table)
+        answer = agent.take_step(AUCTION_PLAY_TOOL, table)
 
         assert not answer.is_error, answer.text
         assert auction_of(table.record).result == Declared(FOREHAND, VALID_BIDS[0])
@@ -313,7 +284,7 @@ class TestAuctionSteps:
         person_passes(table, MIDDLEHAND)
         person_passes(table, REARHAND)
 
-        answer = agent.auction_step(AUCTION_PASS_TOOL, table)
+        answer = agent.take_step(AUCTION_PASS_TOOL, table)
 
         assert not answer.is_error, answer.text
         assert answer.json()["hand"] is None
@@ -323,20 +294,20 @@ class TestAuctionSteps:
     def test_the_same_call_again_answers_the_same_and_steps_nothing_twice(self, agent, middlehand_auction):
         table = middlehand_auction
         version = table.record.version
-        first = agent.auction_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[0])
+        first = agent.take_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[0])
         after_first = stored(table.skat)
 
-        again = agent.auction_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[0], version=version)
+        again = agent.take_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[0], version=version)
 
         assert (again.is_error, again.text) == (first.is_error, first.text)
         assert stored(table.skat) == after_first
 
     def test_the_same_command_id_with_another_value_is_refused_as_reused(self, agent, middlehand_auction):
         table = middlehand_auction
-        agent.auction_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[0])
+        agent.take_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[0])
         before = stored(table.skat)
 
-        answer = agent.auction_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[1])
+        answer = agent.take_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[1])
 
         assert answer.is_error
         assert "reused" in answer.text
@@ -356,7 +327,7 @@ class TestAuctionSteps:
         table = middlehand_auction
         before = stored(skat)
 
-        answer = agent.auction_step(tool, table, command_id="agent-step-refused", **changes)
+        answer = agent.take_step(tool, table, command_id="agent-step-refused", **changes)
 
         assert answer.is_error
         assert answer.json()["reason"] == reason
@@ -367,7 +338,7 @@ class TestAuctionSteps:
         table = forehand_auction
         before = stored(skat)
 
-        answer = agent.auction_step(AUCTION_PASS_TOOL, table, command_id="agent-step-refused")
+        answer = agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-step-refused")
 
         assert answer.is_error
         assert answer.json()["reason"] == BidRefusal.NOT_YOUR_TURN
@@ -376,11 +347,11 @@ class TestAuctionSteps:
 
     def test_a_bid_not_above_the_standing_one_is_refused(self, agent, middlehand_auction):
         table = middlehand_auction
-        agent.auction_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[1])
+        agent.take_step(AUCTION_BID_TOOL, table, value=VALID_BIDS[1])
         person_steps(table, FOREHAND, TABLE_AUCTION_HOLD_SUFFIX)
         before = stored(table.skat)
 
-        answer = agent.auction_step(AUCTION_BID_TOOL, table, command_id="agent-step-refused", value=VALID_BIDS[1])
+        answer = agent.take_step(AUCTION_BID_TOOL, table, command_id="agent-step-refused", value=VALID_BIDS[1])
 
         assert answer.is_error
         assert answer.json()["reason"] == BidRefusal.NOT_ABOVE_STANDING
@@ -392,7 +363,7 @@ class TestAuctionSteps:
         table = Table(skat)
         before = stored(skat)
 
-        answer = agent.auction_step(AUCTION_PASS_TOOL, table, command_id="agent-step-refused")
+        answer = agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-step-refused")
 
         assert answer.is_error
         assert answer.json()["reason"] == Refusal.NOT_SEATED
@@ -424,13 +395,13 @@ class TestAuctionSteps:
     ):
         before = stored(skat)
 
-        answer = agent.auction_step(tool, middlehand_auction, **arguments)
+        answer = agent.take_step(tool, middlehand_auction, **arguments)
 
         assert answer.is_error
         assert stored(skat) == before
 
     def test_the_step_is_recorded_under_the_agents_own_account_never_its_owners(self, skat, agent, middlehand_auction):
-        agent.auction_step(AUCTION_PASS_TOOL, middlehand_auction)
+        agent.take_step(AUCTION_PASS_TOOL, middlehand_auction)
 
         accounts = {account_id for account_id, _ in skat.store.receipts}
         assert agent_account_id(skat) in accounts
@@ -561,7 +532,6 @@ class TestWhoMayCall:
             pytest.param("POST", TABLE_SIT_SUFFIX, {"seat": 1}, id="sit"),
             pytest.param("POST", TABLE_STAND_SUFFIX, {}, id="stand"),
             pytest.param("POST", "/auction", {"action": "pass", "version": 1}, id="the auction path without a step"),
-            pytest.param("POST", TABLE_DECLARATION_SUFFIX, {"action": "take", "version": 1}, id="declaration"),
             pytest.param("GET", TABLE_EVENTS_SUFFIX, None, id="events"),
         ],
     )
