@@ -12,3 +12,8 @@ reason = "S13.3b wires Kontra and Re to the table's switch through the API."
 path = "src/skat/engine/bock.py"
 item = "overnightworks/skat#39"
 reason = "S13.5b stores the pending Bock games and asks the trigger at both hand ends."
+
+[[code]]
+path = "src/skat/engine/ramsch.py"
+item = "overnightworks/skat#39"
+reason = "S13.4c starts a Ramsch at the third pass when the table's switch is on."
