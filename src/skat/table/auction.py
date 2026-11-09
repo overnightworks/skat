@@ -15,7 +15,7 @@ from skat.engine.bidding import (
     Play,
     auction_step,
 )
-from skat.engine.deal import positions_from
+from skat.engine.deal import seats_from
 from skat.table.hand_state import auction_of
 from skat.table.records import Decision, Refusal
 from skat.table.rules import acting_position, seat_of
@@ -155,7 +155,7 @@ def auction_view_of(table: TableRecord, viewer_account_id: str) -> AuctionView:
     if table.dealer is None:  # pragma: no cover
         message = f"table {table.id.value} holds an auction and no dealer"
         raise RuntimeError(message)
-    seats = {position: seat for seat, position in positions_from(table.dealer).items()}
+    seats = seats_from(table.dealer)
     auction = auction_of(table)
     viewer = seat_of(table, viewer_account_id)
     running = auction.result is None

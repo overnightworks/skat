@@ -2,7 +2,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.cards import DECK
-from skat.engine.deal import positions_from
+from skat.engine.deal import seats_from
 from skat.engine.declaration import DeclaringStep, PutBack, TakeSkat, declaring_step
 from skat.table.hand_state import declaring_of
 from skat.table.records import Decision, Refusal
@@ -70,7 +70,7 @@ def declaring_view_of(state: Declaring | None, dealer: int) -> DeclaringView | N
     """The declaring state for every viewer alike; None while the auction has no declarer."""
     if state is None:
         return None
-    seats = {position: seat for seat, position in positions_from(dealer).items()}
+    seats = seats_from(dealer)
     open_cards = state.hand if state.declaration is not None and state.declaration.ouvert else ()
     return DeclaringView(
         declarer_seat=seats[state.declarer],
