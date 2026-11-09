@@ -207,19 +207,12 @@ def expect_the_turn(table: PlayingTable, seat: int) -> None:
         expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(seat))
 
 
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
-    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    table = deal_a_playing_table(form_factor)
-    forehand_seat, middlehand_seat = table.seat_at["forehand"], table.seat_at["middlehand"]
-    forehand, middlehand = table.pages[forehand_seat], table.pages[middlehand_seat]
-    expect_the_plaque(table)
-    expect_on_the_felt(table, [])
-
+def lead_after_moving_the_lift(table: PlayingTable, posts: dict[int, list[str]]) -> WireCard:
+    """The forehand lifts one card, moves the lift to another and back, and plays with a second tap."""
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
     expect(forehand.locator(LEGAL_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(forehand.locator(DIMMED_CARD)).to_have_count(0)
-    posts = {seat: card_posts(person) for seat, person in table.pages.items()}
     for seat, person in table.pages.items():
         if seat != forehand_seat:
             expect(person.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
@@ -240,14 +233,13 @@ def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
     tap(card_in_hand(forehand, lead))
     expect_on_the_felt(table, [(forehand_seat, lead)])
     assert len(posts[forehand_seat]) == 1
-    expect_the_turn(table, middlehand_seat)
-    for person in (forehand, table.watcher):
-        reload_and_wait(person)
-    expect_on_the_felt(table, [(forehand_seat, lead)])
-    expect_the_turn(table, middlehand_seat)
-    expect_the_plaque(table)
-    expect(forehand.locator(PLAYABLE_CARD)).to_have_count(0)
+    return lead
 
+
+def follow_by_a_double_tap(table: PlayingTable, posts: dict[int, list[str]]) -> WireCard:
+    """The middlehand sees only the cards that follow lifted, taps a dimmed one in vain and double-taps a legal one."""
+    middlehand_seat = table.seat_at["middlehand"]
+    middlehand = table.pages[middlehand_seat]
     legal = table.legal_cards(middlehand_seat)
     held = set(table.own_cards(middlehand_seat))
     assert set() < legal < held
@@ -261,13 +253,35 @@ def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
     tap(card_in_hand(middlehand, follow))
     expect(middlehand.locator(LIFTED_CARD)).to_have_count(1)
     card_in_hand(middlehand, follow).dblclick(position=INSIDE_THE_VISIBLE_STRIP)
+    return follow
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_playing_table(form_factor)
+    forehand_seat, middlehand_seat = table.seat_at["forehand"], table.seat_at["middlehand"]
+    expect_the_plaque(table)
+    expect_on_the_felt(table, [])
+    posts = {seat: card_posts(person) for seat, person in table.pages.items()}
+
+    lead = lead_after_moving_the_lift(table, posts)
+    expect_the_turn(table, middlehand_seat)
+    for person in (table.pages[forehand_seat], table.watcher):
+        reload_and_wait(person)
+    expect_on_the_felt(table, [(forehand_seat, lead)])
+    expect_the_turn(table, middlehand_seat)
+    expect_the_plaque(table)
+    expect(table.pages[forehand_seat].locator(PLAYABLE_CARD)).to_have_count(0)
+
+    follow = follow_by_a_double_tap(table, posts)
     expect_on_the_felt(table, [(forehand_seat, lead), (middlehand_seat, follow)])
     assert len(posts[middlehand_seat]) == 1
 
     third = sorted(table.legal_cards(table.seat_at["rearhand"]))[0]
     table.play_through_the_api(third)
-    trick = [(forehand_seat, lead), (middlehand_seat, follow), (table.seat_at["rearhand"], third)]
-    expect_on_the_felt(table, trick)
+    expect_on_the_felt(table, [(forehand_seat, lead), (middlehand_seat, follow), (table.seat_at["rearhand"], third)])
     taker = table.playing()["last_trick"]["taker_seat"]
     expect_the_turn(table, taker)
     expect_the_plaque(table)
