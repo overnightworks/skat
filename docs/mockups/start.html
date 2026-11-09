@@ -606,8 +606,8 @@ ORDER.push(...['s3-list','s3-empty','s3-new','rules-on','rules-set','rules-list'
 I.clock=sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',2);
 /* the viewer's chairs when the table paused; coasters are the series' running totals, turn the chair whose move it was, result a pause between hands */
 const PAUSED=[
-  {opener:'anna',chairs:['anna','felix','ben'],coasters:[142,96,-30],game:9,length:36,days:12,turn:2},
-  {opener:'tom',chairs:['tom','lena','felix'],coasters:[48,210,120],game:5,length:12,days:41,result:true},
+  {opener:'ben',chairs:['anna','felix','ben'],coasters:[142,96,-30],game:9,length:36,days:12,turn:2},
+  {opener:'lena',chairs:['tom','lena','felix'],coasters:[48,210,120],game:5,length:12,days:41,result:true},
 ];
 const standing=(v)=>v<0?`−${-v}`:`${v}`;
 const daysLeft=(d)=>`endet in ${d} ${d===1?'Tag':'Tagen'}`;
@@ -629,12 +629,13 @@ const PAUSED_SIZES={
   390:{cls:'p390',w:390,wm:{ws:60,ps:20,rule:30,wg:8},ar:12,at:12,account:'',switchTop:134,panel:{left:16,top:190,width:358,height:488},o:{w:358,cw:92,ch:64,step:119},cta:688,empty:{x:16,y:200,w:358,h:220,tr:110}},
   1280:{cls:'d1280',w:1280,wm:{ws:100,ps:26,rule:70,wg:12},ar:20,at:16,account:'Felix',switchTop:206,panel:{left:640,top:262},o:{w:372,cw:100,ch:80,step:122},cta:560,empty:{x:340,y:262,w:600,h:240,tr:120}},
 };
-const OPEN_COUNT=OPEN_TABLES.length;
+/* the open list the new scenes draw under the tab, so its count is the list's length */
+const PAUSED_OPEN=OPEN_TABLES.slice(0,2);
 /* tab 'open' keeps the list of open tables as it is; tab 'paused' lists the viewer's paused tables, or says there is none */
 function pausedScene(width,tab,list){
   const z=PAUSED_SIZES[width],cx=z.w/2,desk=width===1280;
   const head=wordmark(cx,desk?64:40,z.wm)+`<div class="account" style="--ar:${z.ar}px;--at:${z.at}px"><span class="av">F</span>${z.account}${I.chev}</div>`
-    +listSwitch(tab==='open'?'open':'paused',tab==='open'?list.length:OPEN_COUNT,tab==='none'?0:PAUSED.length,desk?{left:cx,top:z.switchTop,width:z.o.w,transform:'translateX(-50%)'}:{left:16,top:z.switchTop,width:z.o.w});
+    +listSwitch(tab==='open'?'open':'paused',PAUSED_OPEN.length,tab==='none'?0:PAUSED.length,desk?{left:cx,top:z.switchTop,width:z.o.w,transform:'translateX(-50%)'}:{left:16,top:z.switchTop,width:z.o.w});
   const shown=tab==='open'?list.map(([k,chairs,watch,length,away])=>entry(k,chairs,watch,z.o,undefined,length,away))
     :list.map(t=>pausedEntry(t,z.o));
   const body=tab==='none'
@@ -644,11 +645,11 @@ function pausedScene(width,tab,list){
 }
 const PAUSED_NOTES={
   open:['Der Umschalter über der Liste nennt beide Listen mit ihrer Zahl; die Liste der offenen Tische bleibt, wie sie ist.'],
-  list:['Eigene pausierte Tische: die Stühle zeigen, wer saß, die Untersetzer den Stand der Serie, der Eintrag nennt, wer dran war oder dass das Ergebnis wartet, und die Tage bis zum Ende; ein Tipp öffnet den Tisch, er hat keinen Beitreten-Knopf, und keine Karte ist zu sehen.'],
+  list:['Zeilen 1 A und 2 A: eigene pausierte Tische, ein Tipp öffnet den Tisch.'],
   none:['Wer keinen pausierten Tisch hat, sieht das gesagt; die Liste der offenen Tische ist davon unberührt.'],
   listed:['Ein offener Tisch, der pausierte und einen freien Stuhl hat, steht unter Offen wie jeder andere: die Sitzenden in Stuhlreihenfolge, die freien Stühle, der Knopf zum Hinsetzen; ein stilles „pausiert“ sagt, dass die anderen gerade fort sind.'],
 };
-[['paused-open','Offene Tische mit Umschalter','open',OPEN_TABLES.slice(0,2),'open'],
+[['paused-open','Offene Tische mit Umschalter','open',PAUSED_OPEN,'open'],
  ['paused-open-listed','Offener Tisch, der pausiert hat, mit freiem Stuhl','open',[['anna',['anna','ben',null],0,36,true],['ida',['ida',null,null],0,36]],'listed'],
  ['paused-list','Meine pausierten Tische','paused',PAUSED,'list'],
  ['paused-none','Kein Tisch pausiert','none',[],'none']]
