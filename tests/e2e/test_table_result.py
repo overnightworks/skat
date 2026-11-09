@@ -42,6 +42,8 @@ READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 MINUS = chr(0x2212)
+PHONE_LAYOUT_BELOW = 900
+LONG_NAME = "Bartholom\u00e4us-Maximilian"
 
 
 class ModestBidTable(DeclaringTable):
@@ -229,6 +231,27 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     for person in table.pages.values():
         expect(person.locator(OWN_HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor)
+    person = table.pages[table.declarer_seat]
+    bar = person.locator(".actions")
+    bar.get_by_role("button", name=WEITER).click()
+    expect(bar.get_by_role("status")).to_be_visible()
+    person.evaluate(
+        "(name) => { document.querySelector('.actions .wait').firstChild.textContent = name }",
+        f"{WAITING_FOR} {LONG_NAME} {AND} {next(iter(table.names.values()))}",
+    )
+    heights = bar.evaluate("bar => [...bar.children].map(child => child.getBoundingClientRect().height)")
+    link = bar.locator(".copy.link").bounding_box()
+    assert link is not None
+    if person.evaluate("window.innerWidth") < PHONE_LAYOUT_BELOW:
+        assert link["width"] == link["height"]
+    assert len(set(heights)) == 1
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

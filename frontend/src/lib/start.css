@@ -2450,11 +2450,24 @@ body {
         gap: 8px;
     }
 
+    .room .actions.on-result .copy {
+        flex-shrink: 0;
+    }
+
     .room .actions.on-result .copy.wait {
         flex: 0 1 auto;
         min-width: 0;
-        padding-inline: 14px;
-        font-size: 14px;
+        padding-block: 6px;
+        padding-inline: 12px;
+        font-size: 12px;
+        line-height: 1.1;
+        height: 52px;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow: hidden;
+        align-content: center;
     }
 
     /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
