@@ -24,9 +24,10 @@ if TYPE_CHECKING:
 
     from webauth.ports import AuthenticatedUser
 
+    from skat.engine.tricks import Sides
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
-    from skat.table.playing import PlayingView, Sides
+    from skat.table.playing import PlayingView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild

@@ -167,6 +167,7 @@ def test_a_null_game_has_its_fixed_value_and_no_matadors_and_no_level(hand: bool
     assert valuation.matadors is None
     assert valuation.level is None
     assert valuation.value == NULL_VALUES[NullLevels(hand=hand, ouvert=ouvert)]
+    assert (valuation.schneider, valuation.schwarz) == (False, False)
 
 
 @pytest.mark.parametrize(
@@ -175,6 +176,25 @@ def test_a_null_game_has_its_fixed_value_and_no_matadors_and_no_level(hand: bool
 )
 def test_the_four_null_games_are_worth_23_35_46_and_59(hand: bool, ouvert: bool, value: int) -> None:
     assert value_of(game(NULL, hand=hand, ouvert=ouvert)).value == value
+
+
+@pytest.mark.parametrize(
+    ("declarer_tricks", "announcement", "levels"),
+    [
+        pytest.param(WIN, NONE, (False, False), id="neither"),
+        pytest.param(WIN_SCHNEIDER, NONE, (True, False), id="opponents-schneider"),
+        pytest.param(TAKES_ALL, NONE, (True, True), id="opponents-schwarz"),
+        pytest.param(DECLARER_ENDS_WITH_25, NONE, (True, False), id="declarer-schneider"),
+        pytest.param((), NONE, (True, True), id="declarer-schwarz"),
+        pytest.param((30, 30, 15), SCHNEIDER, (True, False), id="schneider-announced-and-missed"),
+        pytest.param((30, 30, 30, 11), SCHWARZ, (True, True), id="schwarz-announced-and-missed"),
+    ],
+)
+def test_schneider_and_schwarz_name_the_levels_the_value_counts_whichever_side_suffered_them(
+    declarer_tricks: tuple[int, ...], announcement: Announcement, levels: tuple[bool, bool]
+) -> None:
+    valuation = value_of(game(KREUZ, MIT_TWO, declarer_tricks, hand=True, announcement=announcement))
+    assert (valuation.schneider, valuation.schwarz) == levels
 
 
 def test_schneider_counts_for_a_lost_game_too() -> None:

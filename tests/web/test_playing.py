@@ -7,7 +7,7 @@ import pytest
 
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position, positions_from
-from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import playing_of
 from skat.table.records import Refusal
@@ -240,7 +240,12 @@ class Table:
         answer = self.send(self.at[self.holder_of(played)], played, command_id=command_id, version=version)
         assert answer.status_code == 200, answer.text
         assert self.record.version == before.version + 1
-        assert len(self.plays) == len(before.progress.plays) + 1
+        stored = (len(self.plays), len(self.record.game_list))
+        # The card is stored, or it was the thirtieth: the hand's cards and steps go and the game joins the list.
+        assert stored in {
+            (len(before.progress.plays) + 1, len(before.game_list)),
+            (0, len(before.game_list) + 1),
+        }
         return answer
 
     def refused(self, headers, played, reason, *, command_id=None, version=None):
@@ -336,29 +341,34 @@ class TestAPlayedOutHand:
     )
     def test_ten_tricks_end_the_game_with_each_taker(self, table, game, script, takers):
         table.declared_hand_game(game)
+        table.played_out(script[:-1])
+        before_the_last = playing_of(table.record)
 
-        table.played_out(script)
+        table.played_out(script[-1:])
 
-        state = playing_of(table.record)
-        assert tuple(trick.taker for trick in state.tricks) == takers
-        assert state.result is not None
-        assert len(table.plays) == len(script)
+        last = play_card(before_the_last, before_the_last.turn, script[-1]).state
+        assert tuple(trick.taker for trick in last.tricks) == takers
+        assert table.record.hand is None
+        assert len(table.record.game_list) == 1
 
     @pytest.fixture
     def played_out(self, herz_hand):
         herz_hand.played_out(HERZ_GAME)
         return herz_hand
 
-    def test_a_thirty_first_card_is_refused_as_over_and_stores_nothing(self, played_out):
-        played_out.refused(played_out.at[FOREHAND], card("S7"), PlayRefusal.OVER)
+    def test_a_card_after_the_thirtieth_is_refused_as_no_hand_and_stores_nothing(self, played_out):
+        played_out.refused(played_out.at[FOREHAND], card("S7"), Refusal.NO_HAND)
 
-        assert len(played_out.plays) == len(HERZ_GAME)
+        assert len(played_out.record.game_list) == 1
 
-    def test_nobody_stands_up_while_the_played_out_hand_is_not_ended(self, played_out, skat):
+    def test_a_seated_person_stands_up_after_the_thirtieth_card_and_the_result_stays(self, played_out, skat):
+        result = message_body(read(played_out, played_out.watcher))["result"]
+
         answer = skat.stand(played_out.at[FOREHAND], played_out.table_id)
 
-        assert answer.status_code == 409
-        assert reason_of(answer) == Refusal.HAND_RUNNING
+        assert answer.status_code == 200
+        assert [chair["occupant_name"] is None for chair in answer.json()["chairs"]] == [False, False, True]
+        assert answer.json()["result"] == result
 
 
 class TestTheWrongMoment:
@@ -501,6 +511,9 @@ def table_cards(played):
 
 
 def visible_cards(deal, played, position, *, ouvert):
+    """What a viewer may see; once the thirtieth card ends the hand, no card at all."""
+    if len(played) == len(HERZ_GAME):
+        return set()
     open_cards = remaining(deal, played, MIDDLEHAND) if ouvert else ()
     return {*remaining(deal, played, position), *table_cards(played), *open_cards}
 
@@ -594,7 +607,7 @@ class Moment:
 FIRST_TRICK = (played_body(FOREHAND, "S7"), played_body(MIDDLEHAND, "S9"), played_body(REARHAND, "D7"))
 SECOND_TRICK = (played_body(MIDDLEHAND, "H7"), played_body(REARHAND, "DJ"), played_body(FOREHAND, "CJ"))
 EIGHTH_TRICK = (played_body(MIDDLEHAND, "H8"), played_body(REARHAND, "HQ"), played_body(FOREHAND, "CQ"))
-TENTH_TRICK = (played_body(REARHAND, "HA"), played_body(FOREHAND, "CA"), played_body(MIDDLEHAND, "HT"))
+NINTH_TRICK = (played_body(REARHAND, "HK"), played_body(FOREHAND, "CK"), played_body(MIDDLEHAND, "H9"))
 MOMENTS = {
     "declared": Moment(herz_hand_game, (), FOREHAND, legal=KNOWN_DEAL.forehand),
     "one-card": Moment(
@@ -645,13 +658,15 @@ MOMENTS = {
         trick_points=(55, 10),
         legal=cards("H9 HT"),
     ),
-    "played-out": Moment(
+    "last-card-due": Moment(
         herz_hand_game,
-        HERZ_GAME,
-        None,
-        last=(TENTH_TRICK, REARHAND),
-        tricks_won=(6, 4),
-        trick_points=(55, 50),
+        HERZ_GAME[:29],
+        MIDDLEHAND,
+        current=(played_body(REARHAND, "HA"), played_body(FOREHAND, "CA")),
+        last=(NINTH_TRICK, REARHAND),
+        tricks_won=(6, 3),
+        trick_points=(55, 18),
+        legal=cards("HT"),
     ),
     "ouvert-two-cards": Moment(
         grand_ouvert,
@@ -739,12 +754,15 @@ class TestEveryViewersPlaying:
         assert [body["hand"] for body in reloads] == [streamed["hand"], streamed["hand"]]
         assert [body["chairs"] for body in reloads] == [streamed["chairs"], streamed["chairs"]]
 
-    def test_after_thirty_cards_both_sides_trick_points_and_the_skats_make_all_points(self, table):
-        MOMENTS["played-out"].reach(table)
+    def test_after_thirty_cards_the_result_counts_the_skat_for_the_declarer(self, table):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME)
 
-        points = message_body(read(table, table.watcher))["hand"]["playing"]["trick_points"]
+        result = message_body(read(table, table.watcher))["result"]
 
-        assert points["declarer"] + points["opponents"] + sum(each.points for each in SKAT_CARDS) == ALL_POINTS
+        points = MOMENTS["last-card-due"].trick_points
+        assert result["declarer_points"] == points[0] + sum(each.points for each in SKAT_CARDS)
+        assert result["declarer_points"] + result["opponents_points"] == ALL_POINTS
 
     @pytest.mark.parametrize(
         ("declare", "script", "ouvert"),

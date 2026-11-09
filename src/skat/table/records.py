@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal
     from skat.engine.declaration import DeclaringStep
     from skat.engine.tricks import CardPlayed
+    from skat.table.game_list import ListEntry
 
 TABLE_ID_BYTES: Final = 16
 _TABLE_ID = re.compile(r"[0-9a-f]{32}")
@@ -114,12 +115,15 @@ class HandProgress:
 
 @dataclass(frozen=True)
 class TableRecord:
+    """A table as stored; its game list outlives every deal and goes only with the table."""
+
     id: TableId
     version: int
     chairs: tuple[Chair, ...]
     dealer: int | None = None
     hand: Deal | None = None
     progress: HandProgress = HandProgress()
+    game_list: tuple[ListEntry, ...] = ()
 
 
 @dataclass(frozen=True)

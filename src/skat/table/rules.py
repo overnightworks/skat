@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import positions_from
@@ -65,14 +66,7 @@ def seat_of(table: TableRecord, account_id: str) -> Chair | None:
 
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
     chairs = tuple(Chair(seat, occupant) if chair.seat == seat else chair for chair in table.chairs)
-    return TableRecord(
-        id=table.id,
-        version=table.version + 1,
-        chairs=chairs,
-        dealer=table.dealer,
-        hand=table.hand,
-        progress=table.progress,
-    )
+    return replace(table, version=table.version + 1, chairs=chairs)
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -92,23 +86,27 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
     return frozenset(chair.occupant.account_id for chair in after.chairs if chair.occupant is not None)
 
 
-def dealt(table: TableRecord, new_hand: NewHand, version: int | None = None) -> TableRecord:
+def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
-    return TableRecord(
-        id=table.id,
-        version=table.version if version is None else version,
-        chairs=table.chairs,
-        dealer=new_hand.dealer,
-        hand=new_hand.hand,
-        progress=HandProgress(),
-    )
+    return replace(table, version=version, dealer=new_hand.dealer, hand=new_hand.hand, progress=HandProgress())
+
+
+def result_pending(table: TableRecord) -> bool:
+    """A played game's result stands: no hand runs, a dealer and a list entry exist, and no auction steps are kept.
+
+    A passed-in hand keeps its steps until the next deal, which tells it apart from a played one.
+    """
+    return not hand_runs(table) and table.dealer is not None and bool(table.game_list) and not table.progress.auction
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
-    """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected."""
+    """The next hand is due when no hand runs and no result is pending, the table has a dealer and all three
+    occupants are connected.
+    """
     occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
     return (
         not hand_runs(table)
+        and not result_pending(table)
         and table.dealer is not None
         and len(occupants) == CHAIRS_PER_TABLE
         and connected_accounts.issuperset(occupants)
@@ -132,7 +130,7 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
     seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name))
     if new_hand is not None and sit_deals(table):
-        seated = dealt(seated, new_hand)
+        seated = dealt(seated, new_hand, version=seated.version)
     return Decision(seated)
 
 
