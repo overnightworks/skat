@@ -1,0 +1,7 @@
+claim_id = "abdfd597ad63425ca56258125cd4789c"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "ae01c568a926dc7a3dea8ba3604a12dda4143eb0"
+branch = "fix/auction-pass-suffix"
+scope = ["tests/web/test_tables.py"]
+opened_commit = "5ee429a25f7a93e652cc91b7e855f62982ed5f7a"
