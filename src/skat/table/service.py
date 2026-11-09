@@ -36,6 +36,7 @@ from skat.table.rules import (
     decide_stand,
     ends_empty,
     next_deal_due,
+    present_at,
     replayed_decision,
     replayed_table,
     seated_if_hand_ended,
@@ -118,13 +119,14 @@ class CommandResult:
     """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
 
     `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
-    retry restarts no timer.
+    retry restarts no timer. `away_when_hand_ended` names those of them who were not present then.
     """
 
     view: TableView
     refusal: CommandRefusal | None = None
     holder: str | None = None
     seated_when_hand_ended: frozenset[str] = frozenset()
+    away_when_hand_ended: frozenset[str] = frozenset()
 
 
 def _utc_now() -> datetime:
@@ -140,11 +142,20 @@ class TableService:
         new_table_id: Callable[[], TableId] = TableId.random,
         random_source: random.Random | None = None,
         now: Callable[[], datetime] = _utc_now,
+        live_leases: Callable[[], frozenset[str]] = frozenset,
     ) -> None:
         self._transactions = transactions
+        self._live_leases = live_leases
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
+
+    def with_leases(self, live_leases: Callable[[], frozenset[str]]) -> TableService:
+        """The same service where every account with a live lease counts as present at the table it sits at.
+
+        `live_leases` is read under the table's row lock and has no side effect.
+        """
+        return TableService(self._transactions, self._new_table_id, self._random_source, self._now, live_leases)
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
         try:
@@ -268,15 +279,15 @@ class TableService:
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         """Deal the next hand on the server's own account, with no actor, command id or receipt.
 
-        `connected_accounts` is entered once the row is locked and left after the commit; it yields who is connected
-        then, or None once the presence cannot tell, which deals nothing. The decision re-reads the table under the
+        `connected_accounts` is entered once the row is locked and left after the commit; it yields who holds an open
+        stream then, or None once the presence cannot tell, which deals nothing; a live lease counts for its occupant. The decision re-reads the table under the
         row lock, so a repeat, or a table that changed meanwhile, changes nothing. True when it dealt.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
             if table is None:
                 return False
-            connected = after_commit.enter_context(connected_accounts)
+            connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if connected is None or not next_deal_due(table, connected):
                 return False
             transaction.save_table(dealt_next(table, self._new_hand(table)))
@@ -291,14 +302,17 @@ class TableService:
         """End a table nobody is connected to and on which no hand was dealt, on the server's own account, with no
         actor, command id or receipt.
 
-        `connected_accounts` is entered once the row is locked and left after the commit; it yields who is connected
-        then, or None once the presence cannot tell. The decision reads the connected set under the row lock, so a
+        `connected_accounts` is entered once the row is locked and left after the commit; it yields who holds an open
+        stream then, or None once the presence cannot tell. The decision reads who is present under the row lock, so a
         repeat, a table that ended meanwhile, or a stream that opened since changes nothing. `empty_seconds` is the
         wait the answer will name. True when it ended the table.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            if table is None or not ends_empty(table, after_commit.enter_context(connected_accounts)):
+            if table is None:
+                return False
+            present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
+            if not ends_empty(table, present):
                 return False
             transaction.end_table(table_id, self._now(), empty_seconds)
             return True
@@ -366,21 +380,26 @@ class TableService:
                 return None
             replay = transaction.replay(actor.account_id, command_id)
             seated_when_hand_ended: frozenset[str] = frozenset()
+            away_when_hand_ended: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
                     transaction.save_table(decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
-                seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
-                if on_hand_ended is not None:
-                    on_hand_ended(seated_when_hand_ended - connected_accounts)
             else:
                 decision = replayed_decision(replay, command, payload)
+            present = present_at(decision.table, connected_accounts, self._live_leases())
+            if replay is None:
+                seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
+                away_when_hand_ended = seated_when_hand_ended - present
+                if on_hand_ended is not None:
+                    on_hand_ended(away_when_hand_ended)
             return CommandResult(
-                view_of(decision.table, actor.account_id, connected_accounts),
+                view_of(decision.table, actor.account_id, present),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
+                away_when_hand_ended,
             )
 
     def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
@@ -389,4 +408,11 @@ class TableService:
             return None
         with self._transactions.begin() as transaction:
             table = transaction.table(identifier)
-        return None if table is None else view_of(table, actor.account_id, connected_accounts)
+        if table is None:
+            return None
+        present = (
+            connected_accounts
+            if isinstance(table, EndedTable)
+            else present_at(table, connected_accounts, self._live_leases())
+        )
+        return view_of(table, actor.account_id, present)

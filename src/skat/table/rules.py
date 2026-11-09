@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.deal import positions_from
 from skat.table.records import (
@@ -130,6 +130,24 @@ def result_pending(table: TableRecord) -> bool:
     A passed-in hand keeps its steps until the next deal, which tells it apart from a played one.
     """
     return not hand_runs(table) and hand_was_dealt(table) and bool(table.game_list) and not table.progress.auction
+
+
+@overload
+def present_at(table: TableRecord, streams: frozenset[str], leases: frozenset[str]) -> frozenset[str]: ...
+
+
+@overload
+def present_at(table: TableRecord, streams: frozenset[str] | None, leases: frozenset[str]) -> frozenset[str] | None: ...
+
+
+def present_at(table: TableRecord, streams: frozenset[str] | None, leases: frozenset[str]) -> frozenset[str] | None:
+    """Who counts as present at the table: whoever holds an open stream, and every occupant with a live lease; a
+    lease never counts for anyone who does not sit here. None says the presence cannot tell any more.
+    """
+    if streams is None:
+        return None
+    occupants = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
+    return streams | (leases & occupants)
 
 
 def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) -> bool:
