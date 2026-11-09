@@ -153,6 +153,10 @@ describe("the marks on a chair during the auction", () => {
         }
     });
 
+    it("draws nothing before a deal", () => {
+        expect(chairMarks(undefined, FOREHAND, FOREHAND)).toEqual(NO_MARKS);
+    });
+
     it("draws no bubble for the forehand's word to play at 18", () => {
         const state = auction({ words: [{ seat: FOREHAND, action: "play", value: 18 }] });
 

@@ -445,7 +445,7 @@ def assert_chair(person: Page, seat: int, marks: Marks) -> None:
     if marks.bubble is None:
         expect(chair.locator(BUBBLE)).to_have_count(0)
     else:
-        expect(chair.locator(BUBBLE)).to_have_text(marks.bubble)
+        expect(chair.locator(f"{BUBBLE} .said")).to_have_text(marks.bubble)
     expect(chair.locator(".bubble.quiet svg")).to_have_count(int(marks.quiet))
     expect(chair.locator(".mark.pass")).to_have_count(int(marks.passed))
     if marks.passed:
