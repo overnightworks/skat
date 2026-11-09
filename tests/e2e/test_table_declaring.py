@@ -1,16 +1,19 @@
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from tests.e2e.support.declaring import DeclaringTable
+    from tests.e2e.support.server import RunningServer
+    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
@@ -20,6 +23,9 @@ ANNOUNCE = catalog_text("announceGame")
 COMMAND_FAILED = catalog_text("commandFailed")
 BIDDING = catalog_text("bidding")
 BID_VALUE = catalog_text("bidValue")
+PLAYS = catalog_text("plays")
+CHOOSES = catalog_text("chooses")
+DISCARDS = catalog_text("discards")
 GAME_NAMES = [catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand", "gameNull")]
 NULL_GAME = catalog_text("gameNull")
 CONTROL_NAMES = [TAKE_SKAT, PUT_BACK, ANNOUNCE, *GAME_NAMES]
@@ -28,6 +34,9 @@ PICKABLE_CARD = ".own-hand .card button"
 SKAT_BACK = ".skat-spot .skat-card"
 CARDS_IN_A_HAND = 10
 CARDS_AFTER_THE_TAKE = 12
+PLAQUE = ".plaque"
+DECLARER_MARK = ".mark.declarer"
+LONGER_THAN_THE_WON_MOMENT = 10_000
 PRESSED = "aria-pressed"
 # A picked card rises out of its place in the fan, which still moves while the two new cards are dealt.
 RISEN_OUT_OF_ITS_PLACE = (
@@ -259,4 +268,74 @@ def test_the_keyboard_reaches_and_works_every_card_and_game(
     button_of(declarer, ANNOUNCE).focus()
     declarer.keyboard.press("Enter")
     expect_no_controls(declarer)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_others_see_the_declarer_decide_at_every_stage(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, hold_the_others_clock=True)
+    name = table.name_of_the_declarer()
+    value = table.bid_value()
+    onlookers = [*table.others, table.watcher]
+    declarer_chair = f".chair[data-seat='{table.declarer_seat}']"
+    declarer_fan = f"{declarer_chair} .fan .deal"
+
+    def expect_the_plaque(*lines: str) -> None:
+        for onlooker in onlookers:
+            for line in lines:
+                expect(onlooker.locator(PLAQUE)).to_contain_text(line)
+            expect(onlooker.locator(DECLARER_MARK)).to_have_count(1)
+            expect(onlooker.locator(f"{declarer_chair} {DECLARER_MARK}")).to_have_count(1)
+            expect(onlooker.locator(declarer_chair)).to_have_class(re.compile(r"\bturn\b"))
+            expect_no_controls(onlooker)
+
+    expect_the_plaque(f"{name} {PLAYS}, {value}")
+    for onlooker in onlookers:
+        expect(onlooker.locator(".chair.out")).to_have_count(2)
+
+    for onlooker in onlookers:
+        onlooker.clock.run_for(LONGER_THAN_THE_WON_MOMENT)
+        expect(onlooker.locator(".chair.out")).to_have_count(0)
+        expect(onlooker.locator(SKAT_BACK)).to_have_count(2)
+    expect_the_plaque(f"{BID_VALUE} {value}", f"{name} {CHOOSES}")
+
+    table.declare_through_the_api(action="take")
+    expect(table.declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
+    expect_the_plaque(f"{BID_VALUE} {value}", f"{name} {DISCARDS}")
+    for onlooker in onlookers:
+        expect(onlooker.locator(SKAT_BACK)).to_have_count(0)
+        expect(onlooker.locator(declarer_fan)).to_have_count(CARDS_AFTER_THE_TAKE)
+        reload_and_wait(onlooker)
+    expect_the_plaque(f"{BID_VALUE} {value}", f"{name} {DISCARDS}")
+
+    skat = sorted(table.skat())
+    table.declare_through_the_api(action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in skat])
+    expect(table.declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+    expect_the_plaque(f"{name} {DISCARDS}")
+
+    table.declare_through_the_api(action="declare", game="null", hand=False, ouvert=False, announcement="none")
+    for onlooker in onlookers:
+        expect(onlooker.locator(DECLARER_MARK)).to_have_count(0)
+        expect(onlooker.get_by_text(f"{name} {DISCARDS}")).to_have_count(0)
+        assert onlooker.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_declarer_carries_the_mark_and_the_turn_and_keeps_the_own_plaque(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+
+    expect(declarer.locator(DECLARER_MARK)).to_have_count(1)
+    expect(declarer.locator(".chair.mine")).to_have_class(re.compile(r"\bturn\b"))
+    expect(declarer.locator(PLAQUE)).not_to_contain_text(CHOOSES)
+    expect(declarer.locator(PLAQUE)).to_contain_text(f"{BID_VALUE} {table.bid_value()}")
     assert page_errors == []

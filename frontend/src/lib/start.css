@@ -406,7 +406,7 @@ body {
 }
 
 /* A passed-in hand: the verdict above the line that names the next dealer. */
-.room .plaque.hand-over {
+.room .plaque:is(.hand-over, .deciding) {
     flex-direction: column;
     gap: 4px;
 }
@@ -771,6 +771,60 @@ body {
     top: 16px;
 }
 
+/* The declarer's star: a chair is too small for its word, so the star shows alone and the word stays for assistive reading. */
+.room .mark.declarer {
+    position: absolute;
+    z-index: 2;
+    top: 16px;
+    left: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    color: #2a1d00;
+    background: var(--busy-stage, #edb656);
+    font-size: 0;
+    font-weight: 600;
+}
+
+.room .mark.declarer svg {
+    width: 15px;
+    height: 15px;
+}
+
+.room .mark.declarer ~ .mark.turn ~ .mark.away {
+    top: 44px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .mark.declarer.won {
+        animation: slam 0.6s cubic-bezier(0.5, 0, 0.7, 1.4) 0.3s both;
+    }
+}
+
+@keyframes slam {
+    0% {
+        opacity: 0;
+        scale: 2.6;
+    }
+
+    55% {
+        opacity: 1;
+        scale: 0.92;
+    }
+
+    75% {
+        scale: 1.05;
+    }
+
+    100% {
+        scale: 1;
+    }
+}
+
 .room .chair.out .tile {
     filter: saturate(0.45) brightness(0.8);
 }
@@ -909,6 +963,25 @@ body {
 
     .room .mark.dealer ~ .mark:is(.turn, .pass, .waits) {
         top: 18px;
+    }
+
+    /* The declarer's star sits under the turn mark, clear of the chair's letter. */
+    .room .mark.declarer {
+        top: 40px;
+        width: 28px;
+        height: 28px;
+    }
+
+    .room .mark.dealer ~ .mark.declarer {
+        top: 52px;
+    }
+
+    .room .mark.declarer ~ .mark.turn ~ .mark.away {
+        top: 76px;
+    }
+
+    .room .mark.dealer ~ .mark.declarer ~ .mark.turn ~ .mark.away {
+        top: 88px;
     }
 
     .room .mark:is(.turn, .pass, .waits) ~ .mark.away {

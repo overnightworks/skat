@@ -348,16 +348,14 @@ describe("what the others see while the declarer decides", () => {
             }
         });
 
-        it.each([
-            { name: "the game is declared", declaring: declaringAt("declared") },
-            { name: "the auction is not over", declaring: null },
-            { name: "there is no hand", declaring: undefined },
-        ] satisfies { name: string; declaring: Declaring | null | undefined }[])(
-            "are nothing when $name",
-            ({ declaring }) => {
-                expect(decidingMarks(declaring, MIDDLEHAND, true)).toEqual(NO_MARKS);
-            },
-        );
+        it("are nothing once the game is declared", () => {
+            expect(decidingMarks(declaringAt("declared"), MIDDLEHAND, true)).toEqual(NO_MARKS);
+        });
+
+        it("keep the declarer's plain mark after the choosing even while the moment lasts", () => {
+            expect(decidingMarks(declaringAt("discarding"), MIDDLEHAND, true).declarer).toBe("decl");
+            expect(decidingMarks(declaringAt("discarding"), FOREHAND, true).passed).toBe(false);
+        });
     });
 
     describe("the moment the auction ended", () => {

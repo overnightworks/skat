@@ -44,10 +44,11 @@ export function chairMarks(auction: Auction | undefined, seat: number, viewerSea
 
 // While the declarer decides, the declarer carries the mark and the turn for every viewer; at the moment the
 // auction ended the other two carry the pass mark. Nothing once the game is declared.
-export function decidingMarks(declaring: Declaring | null | undefined, seat: number, justWon: boolean): ChairMarks {
-    if (!declaring || declaring.stage === "declared") return NO_MARKS;
-    if (seat !== declaring.declarer_seat) return { ...NO_MARKS, passed: justWon };
-    return { ...NO_MARKS, turn: true, declarer: justWon ? "won" : "decl" };
+export function decidingMarks(declaring: Declaring, seat: number, justWon: boolean): ChairMarks {
+    if (declaring.stage === "declared") return NO_MARKS;
+    const won = justWon && declaring.stage === "choosing";
+    if (seat !== declaring.declarer_seat) return { ...NO_MARKS, passed: won };
+    return { ...NO_MARKS, turn: true, declarer: won ? "won" : "decl" };
 }
 
 // The wait that the others see: the picked stage reads as the discarding, because to them it is the same wait.
