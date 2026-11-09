@@ -10,14 +10,13 @@ from webauth.ports import AccountKind
 
 from skat.engine.deal import Position, seats_from
 from skat.table.records import EndedTable, Refusal
-from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL, MCP_GROUP
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, NEXT_DEAL_PAUSE_SECONDS
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import SUBJECT, Agent
+from tests.web.support.agent import SUBJECT, Agent, person_passes
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     NAMED_FAILURE,
@@ -105,16 +104,6 @@ def mark_ready(table, *positions):
 
 def hand_of(table):
     return table.skat.store.tables[table.table_id].hand
-
-
-def person_passes(table, position):
-    answer = table.skat.client.post(
-        f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
-        json={"command_id": table.fresh_id(), "version": table.record.version},
-        headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
-    )
-    assert answer.status_code == 200, answer.text
-    table.skat.client.cookies.clear()
 
 
 def pass_the_hand_in(table, agent):

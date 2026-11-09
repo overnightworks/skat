@@ -1,5 +1,3 @@
-import copy
-
 import pytest
 from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
@@ -37,7 +35,7 @@ from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, 
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, person_passes, person_steps
 from tests.web.support.playing import Table, card, card_body
-from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}
@@ -64,10 +62,6 @@ def forehand_table(skat, agent):
 
 def agent_account_id(skat):
     return skat.stores.accounts.get(SUBJECT).id
-
-
-def stored(skat):
-    return copy.deepcopy((skat.store.tables, skat.store.receipts))
 
 
 class TestTools:

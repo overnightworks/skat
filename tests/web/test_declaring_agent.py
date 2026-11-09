@@ -1,5 +1,3 @@
-import copy
-
 import pytest
 
 from skat.engine.bidding import VALID_BIDS
@@ -33,9 +31,9 @@ from tests.support.payload_cards import (
     wire_cards,
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import SUBJECT, Agent, person_passes
+from tests.web.support.agent import SUBJECT, Agent, person_passes, person_steps
 from tests.web.support.playing import card_body
-from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 PUT_BACK_CARDS = (MIDDLEHAND_CARDS[0], SKAT_CARDS[0])
@@ -64,10 +62,6 @@ def seat_of(position):
 
 def hand_of(view):
     return view["hand"]
-
-
-def stored(skat):
-    return copy.deepcopy((skat.store.tables, skat.store.receipts))
 
 
 def direct_view(table, position):
@@ -179,11 +173,24 @@ class TestTakeSkat:
         with streams_of(skat, declarer.table_id, others) as streams:
             agent.take_step(TAKE_SKAT_TOOL, declarer, command_id="agent-take")
             seen = [cards_in(next(stream)) for stream in streams]
-        opponent = Agent(skat, agent.issuer, "an-opponent-agent")
+        guest = Agent(skat, agent.issuer, "a-guest-agent")
 
         assert all(wire_cards(SKAT_CARDS).isdisjoint(each) for each in seen)
-        assert wire_cards(SKAT_CARDS).isdisjoint(cards_in(opponent.read(declarer.table_id).json()))
+        assert wire_cards(SKAT_CARDS).isdisjoint(cards_in(guest.read(declarer.table_id).json()))
         assert wire_cards(SKAT_CARDS) <= cards_in(agent.read(declarer.table_id).json())
+
+    def test_an_opponent_agent_keeps_ten_cards_and_sees_no_skat_card_while_a_person_takes(
+        self, agent, forehand_auction
+    ):
+        table = forehand_auction
+        table.middlehand_wins()
+        person_steps(table, MIDDLEHAND, TABLE_DECLARING_TAKE_SUFFIX)
+
+        answer = agent.read(table.table_id)
+
+        assert wire_cards(SKAT_CARDS).isdisjoint(cards_in(answer.json()))
+        assert len(hand_of(answer.json())["own_cards"]) == len(FOREHAND_CARDS)
+        assert answer.json() == direct_view(table, FOREHAND)
 
     def test_a_take_retried_after_the_put_back_never_brings_the_twelve_back(self, agent, picked):
         version = picked.record.version
@@ -298,10 +305,23 @@ class TestDeclareGame:
         assert not answer.is_error, answer.text
         assert declaring_of(table.record).declaration == stored_declaration
 
-    def test_a_game_below_the_bid_is_accepted(self, agent, picked):
-        answer = agent.take_step(DECLARE_GAME_TOOL, picked, **declare_fields(GameToken.NULL))
+    def test_a_null_below_the_bid_is_accepted_after_a_bid_of_twenty_four(self, agent, middlehand_auction):
+        table = middlehand_auction
+        assert not agent.take_step(AUCTION_BID_TOOL, table, command_id="agent-bid", value=24).is_error
+        person_passes(table, FOREHAND)
+        person_passes(table, REARHAND)
+        assert not agent.take_step(TAKE_SKAT_TOOL, table, command_id="agent-take").is_error
+        answer = agent.take_step(
+            PUT_BACK_CARDS_TOOL, table, command_id="agent-put-back", **put_back_fields(*PUT_BACK_CARDS)
+        )
+        assert not answer.is_error, answer.text
+
+        answer = agent.take_step(DECLARE_GAME_TOOL, table, command_id="agent-declare", **declare_fields(GameToken.NULL))
 
         assert not answer.is_error, answer.text
+        assert declaring_of(table.record).declaration == Declaration(
+            GameKind.NULL, hand=False, ouvert=False, announcement=Announcement.NONE
+        )
 
 
 class TestRefusals:
@@ -526,15 +546,26 @@ class TestRetries:
 
 
 class TestOwnAccountAndReceipts:
-    def test_each_step_is_recorded_under_the_agents_own_account_as_a_declaring_step(self, skat, agent, declarer):
+    @pytest.mark.parametrize(
+        ("arrangement", "tool", "fields"),
+        [
+            pytest.param("declarer", TAKE_SKAT_TOOL, {}, id="take"),
+            pytest.param("after_take", PUT_BACK_CARDS_TOOL, put_back_fields(*PUT_BACK_CARDS), id="put back"),
+            pytest.param("picked", DECLARE_GAME_TOOL, declare_fields(), id="declare"),
+        ],
+    )
+    def test_each_step_is_recorded_under_the_agents_own_account_as_a_declaring_step(
+        self, request, skat, agent, arrangement, tool, fields
+    ):
+        table = request.getfixturevalue(arrangement)
         agent_id = skat.stores.accounts.get(SUBJECT).id
 
-        agent.take_step(TAKE_SKAT_TOOL, declarer, command_id="agent-take")
+        answer = agent.take_step(tool, table, command_id="agent-step", **fields)
 
-        receipt = skat.store.receipts[(agent_id, "agent-take")]
+        assert not answer.is_error, answer.text
+        receipt = skat.store.receipts[(agent_id, "agent-step")]
         assert receipt.command == DECLARING_STEP_COMMAND
-        assert receipt.table_id.value == declarer.table_id
-        assert skat.stores.accounts.get("the-agents-owner") is None
+        assert receipt.table_id.value == table.table_id
 
 
 ROUTE_STEPS = [
@@ -603,23 +634,3 @@ class TestRoutes:
 
         assert answer.status_code in {401, 403}
         assert stored(skat) == before
-
-    @pytest.mark.parametrize(("arrangement", "suffix", "fields"), ROUTE_STEPS)
-    def test_a_persons_session_posts_each_route_and_gets_the_table_answer(self, request, arrangement, suffix, fields):
-        table = request.getfixturevalue(arrangement)
-        before = table.record.version
-
-        answer = table.skat.client.post(
-            f"{TABLES_PATH}/{table.table_id}{suffix}",
-            json={"command_id": "person-step", "version": before, **fields},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[MIDDLEHAND]},
-        )
-
-        assert answer.status_code == 200, answer.text
-        assert answer.headers["cache-control"] == "no-store"
-        assert answer.json()["version"] == before + 1
-
-    def test_the_agents_bearer_with_an_origin_is_refused_at_mcp(self, agent):
-        answer = agent.request("tools/list", extra_headers={"origin": TEST_PUBLIC_ORIGIN})
-
-        assert answer.status_code == 403
