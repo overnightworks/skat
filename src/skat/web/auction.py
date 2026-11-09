@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Request, Response
 from pydantic import Field
 
 from skat.table.auction import AuctionAction, AuctionCommand
+from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import COMMAND_RESPONSES, TABLES_PATH, CreateTableRequest, TableAnswer, actor_of, command_answer
 
 if TYPE_CHECKING:
@@ -45,7 +46,10 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
     router = APIRouter()
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_AUCTION_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_AUCTION_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=excluded(Exclusion.UNION_BODY),
     )
     async def take_auction_step(
         table_id: str,
