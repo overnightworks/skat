@@ -235,7 +235,7 @@ describe("watchTable after a stream error", () => {
 
 describe("asking for a table", () => {
     const reload = vi.fn();
-    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null };
+    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null, passed_in: null };
 
     beforeEach(() => {
         reload.mockClear();
@@ -405,6 +405,7 @@ describe("what the declaring stage asks of this viewer", () => {
         version: 1,
         chairs: seats(mine),
         watchers: 0,
+        passed_in: null,
         hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring, playing: null },
     });
     const tableAt = (stage: Stage, mine: number): Table =>
@@ -441,6 +442,7 @@ describe("the auction's value while declaring", () => {
         version: 1,
         chairs: [],
         watchers: 0,
+        passed_in: null,
         hand: {
             dealer_seat: 1,
             own_cards: [],
