@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from datetime import datetime
 
-    from skat.table.records import Receipt, Replay, TableId, TableRecord
+    from skat.table.records import EndedTable, Receipt, Replay, TableId, TableRecord
     from skat.table.service import OccupiedChair, TableTransaction, TableTransactions
 
 
@@ -18,7 +19,7 @@ class FaultyTableTransactions:
 
     `blind_first_replay` makes the first replay lookup find nothing, as when a rival request has not
     committed yet; `receipt_failure` is raised when a receipt is added;
-    `save_failure` is raised after a table is saved.
+    `save_failure` is raised after a table is saved; `end_failure` is raised after a table is ended.
     """
 
     def __init__(
@@ -28,11 +29,13 @@ class FaultyTableTransactions:
         blind_first_replay: bool = False,
         receipt_failure: Exception | None = None,
         save_failure: Exception | None = None,
+        end_failure: Exception | None = None,
     ) -> None:
         self._inner = inner
         self._blind_replays_left = 1 if blind_first_replay else 0
         self._receipt_failure = receipt_failure
         self._save_failure = save_failure
+        self._end_failure = end_failure
 
     @contextmanager
     def begin(self) -> Iterator[_FaultyTransaction]:
@@ -49,6 +52,10 @@ class FaultyTableTransactions:
         return self._save_failure
 
     @property
+    def end_failure(self) -> Exception | None:
+        return self._end_failure
+
+    @property
     def receipt_failure(self) -> Exception | None:
         return self._receipt_failure
 
@@ -63,7 +70,7 @@ class _FaultyTransaction:
             return None
         return self._inner.replay(account_id, command_id)
 
-    def table(self, table_id: TableId) -> TableRecord | None:
+    def table(self, table_id: TableId) -> TableRecord | EndedTable | None:
         return self._inner.table(table_id)
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
@@ -76,6 +83,14 @@ class _FaultyTransaction:
 
     def add_table(self, table: TableRecord) -> None:
         self._inner.add_table(table)
+
+    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
+        self._inner.end_table(table_id, at, empty_seconds)
+        if self._faults.end_failure is not None:
+            raise self._faults.end_failure
+
+    def live_table_ids(self) -> tuple[TableId, ...]:
+        return self._inner.live_table_ids()
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         return self._inner.occupied_chairs()

@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
-from skat.web.settings import ServerSettings
+from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS, ServerSettings
 
 REQUIRED_SIGN_IN_SETTINGS = [
     "oidc_issuer",
@@ -24,6 +24,7 @@ class TestServerSettings:
         assert settings.port == DEFAULT_PORT
         assert settings.oidc_client_id == OIDC_CLIENT_ID
         assert settings.trusted_proxies == ""
+        assert settings.empty_table_seconds == DEFAULT_EMPTY_TABLE_SECONDS
 
     def test_each_setting_is_read_from_its_skat_environment_variable(self, sign_in_settings):
         sign_in = sign_in_settings()
@@ -34,6 +35,7 @@ class TestServerSettings:
             "SKAT_OIDC_CLIENT_ID": "other-client",
             "SKAT_TRUSTED_PROXIES": "10.0.0.0/8,127.0.0.1",
             "SKAT_CHAIR_HOLD_SECONDS": "90.5",
+            "SKAT_EMPTY_TABLE_SECONDS": "42",
         }
         with patch.dict(os.environ, env):
             settings = ServerSettings()
@@ -42,6 +44,7 @@ class TestServerSettings:
             assert settings.oidc_client_id == "other-client"
             assert settings.trusted_proxies == "10.0.0.0/8,127.0.0.1"
             assert settings.chair_hold_seconds == 90.5
+            assert settings.empty_table_seconds == 42
             assert settings.oidc_issuer == sign_in.settings.oidc_issuer
             assert settings.public_origin == sign_in.settings.public_origin
             assert settings.oidc_client_secret_file == sign_in.settings.oidc_client_secret_file
@@ -108,3 +111,9 @@ class TestServerSettings:
 def test_a_chair_hold_that_is_not_a_positive_number_is_refused_by_name(sign_in_settings, value):
     with pytest.raises(ValidationError, match="chair_hold_seconds"):
         sign_in_settings(chair_hold_seconds=value)
+
+
+@pytest.mark.parametrize("value", [0, -5, "abc", "1800.5"])
+def test_an_empty_table_wait_that_is_not_a_positive_whole_number_is_refused_by_name(sign_in_settings, value):
+    with pytest.raises(ValidationError, match="empty_table_seconds"):
+        sign_in_settings(empty_table_seconds=value)

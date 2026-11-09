@@ -36,7 +36,15 @@ from skat.web.declaring import create_declaring_router
 from skat.web.gate import session_gate
 from skat.web.mcp import McpAccess, mount_mcp
 from skat.web.playing import create_playing_router
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, LoopScheduler, NextDeal, Presence, Scheduler
+from skat.web.presence import (
+    NEXT_DEAL_PAUSE_SECONDS,
+    ChairHold,
+    EmptyTable,
+    LoopScheduler,
+    NextDeal,
+    Presence,
+    Scheduler,
+)
 from skat.web.ready import create_ready_router
 from skat.web.routes import create_router
 from skat.web.sign_in import (
@@ -108,10 +116,19 @@ def _chair_hold(
 
 
 def _next_deal(tables: TableService) -> NextDeal:
-    async def deal(table_id: str, connected_accounts: AbstractContextManager[frozenset[str]]) -> bool:
+    async def deal(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         return await run_in_threadpool(tables.deal_next, TableId(table_id), connected_accounts)
 
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
+
+
+def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
+    async def end(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
+        return await run_in_threadpool(
+            tables.end_empty_table, TableId(table_id), connected_accounts, settings.empty_table_seconds
+        )
+
+    return EmptyTable(settings.empty_table_seconds, end)
 
 
 def create_app(
@@ -135,13 +152,17 @@ def create_app(
     presence = Presence(
         _chair_hold(settings, tables, chair_clock, chair_scheduler if chair_scheduler is not None else LoopScheduler()),
         _next_deal(tables),
+        _empty_table(settings, tables),
     )
 
     @asynccontextmanager
     async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
-        # Leave times are not stored, so every chair seated at the start is held for a full hold from now.
+        # Leave times are not stored, so every chair seated at the start is held for a full hold from now,
+        # and every live table waits a full time.
         occupied = await run_in_threadpool(tables.occupied_chairs)
         presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
+        for table_id in await run_in_threadpool(tables.live_table_ids):
+            presence.watch_empty_table(table_id.value)
         try:
             async with serving.state.mcp_front.running():
                 yield

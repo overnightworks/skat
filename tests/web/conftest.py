@@ -1,6 +1,7 @@
 import pytest
 
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, NextDeal, Presence
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
+from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.web.support.presence import HOLD_SECONDS, Deals, Releases, Wakes
 from tests.web.support.skat import FakeTime, Skat
 
@@ -30,11 +31,46 @@ def deals():
     return Deals()
 
 
+class Ends:
+    """The end command as the presence calls it: what it was asked, and what it answers or raises next.
+
+    A call records who was connected when the presence entered its context, or None when the presence had stopped
+    or the check was superseded.
+    """
+
+    def __init__(self):
+        self.calls = []
+        self.outcomes = []
+        self.failures = []
+        self.ended = True
+        self.meanwhile = None
+        self.within = None
+
+    async def end(self, table_id, connected_accounts):
+        if self.failures:
+            raise self.failures.pop(0)
+        if self.meanwhile is not None:
+            await self.meanwhile()
+        with connected_accounts as connected:
+            self.calls.append((table_id, connected))
+            if self.within is not None:
+                await self.within()
+        outcome = self.ended and connected is not None
+        self.outcomes.append(outcome)
+        return outcome
+
+
 @pytest.fixture
-def holding(time, releases, deals):
+def ends():
+    return Ends()
+
+
+@pytest.fixture
+def holding(time, releases, deals, ends):
     return Presence(
         ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
+        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end),
     )
 
 

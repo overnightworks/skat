@@ -8,50 +8,24 @@ from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import AnnouncementToken, GameToken
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND, Table, card, cards, game_of
+from tests.web.support.playing import (
+    FOREHAND,
+    MIDDLEHAND,
+    REARHAND,
+    Table,
+    card,
+    cards,
+    gains,
+    game_of,
+    result_fields,
+)
 
-# Middlehand declares in every game below; seats 1, 2, 3 are middlehand, rearhand, forehand.
-DECLARER_SEAT = 1
 GRAND = "grand"
 
 
 @pytest.fixture
 def table(skat):
     return Table(skat)
-
-
-def result_of(table):
-    table.skat.client.cookies.clear()
-    answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}", headers=table.watcher)
-    assert answer.status_code == 200, answer.text
-    return answer.json()["result"]
-
-
-def result_fields(**changed):
-    """A result answer for a plain first game of the declarer in seat 1; a test names what differs."""
-    plain = {
-        "ordinal": 1,
-        "declarer_seat": DECLARER_SEAT,
-        "hand": False,
-        "ouvert": False,
-        "announcement": "none",
-        "schneider": False,
-        "schwarz": False,
-        "doubled": False,
-        "overbid": False,
-        "bid": 18,
-    }
-    return plain | changed
-
-
-def gains(declarer, each_opponent):
-    """The opponents gain only from a lost game, which is the declarer's loss."""
-    declarer_won = each_opponent == 0
-    return [
-        {"seat": 1, "gain": declarer, "won": declarer_won},
-        {"seat": 2, "gain": each_opponent, "won": not declarer_won},
-        {"seat": 3, "gain": each_opponent, "won": not declarer_won},
-    ]
 
 
 class TestGrandAndHandGamesReachTheirResult:
@@ -76,7 +50,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game=GRAND,
             matadors={"mit": True, "count": 3},
             base_value=24,
@@ -112,7 +86,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game=GRAND,
             hand=True,
             matadors={"mit": False, "count": 1},
@@ -150,7 +124,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game="karo",
             hand=True,
             matadors={"mit": True, "count": 1},
@@ -191,7 +165,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game="kreuz",
             hand=True,
             announcement="schneider",
@@ -230,7 +204,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game=GRAND,
             hand=True,
             ouvert=True,
@@ -270,7 +244,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game="herz",
             matadors={"mit": True, "count": 2},
             base_value=10,
@@ -304,7 +278,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game="herz",
             matadors={"mit": False, "count": 3},
             base_value=10,
@@ -339,7 +313,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game=GRAND,
             hand=True,
             announcement="schneider",
@@ -376,7 +350,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game="herz",
             schneider=True,
             schwarz=True,
@@ -412,7 +386,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game="null",
             hand=True,
             matadors=None,
@@ -444,7 +418,7 @@ class TestGrandAndHandGamesReachTheirResult:
 
         table.played_out(game_of("D9 DQ DA / DT DJ DK"))
 
-        assert result_of(table) == result_fields(
+        assert table.result() == result_fields(
             game="null",
             hand=True,
             matadors=None,
@@ -471,7 +445,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
             assert answer.status_code == 200, answer.text
 
-        assert result_of(table) is None
+        assert table.result() is None
 
 
 class TestAJackInGrand:
