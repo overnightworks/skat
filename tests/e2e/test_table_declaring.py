@@ -171,26 +171,8 @@ def expect_no_controls(person: Page) -> None:
         expect(button_of(person, name)).to_have_count(0)
 
 
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_every_stage(
-    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    table = deal_a_declaring_table(form_factor)
-    declarer = table.declarer
-
-    expect(declarer.locator(SKAT_BACK)).to_have_count(2)
-    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
-    expect(button_of(declarer, "Hand")).to_have_count(0)
-    reload_and_wait(declarer)
-    expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
-    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
-    expect(declarer.get_by_text(BIDDING_FOLLOWS)).to_have_count(0)
-
-    button_of(declarer, TAKE_SKAT).click()
-    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
-    assert table.skat() <= drawn_cards_of(declarer)
-    expect(button_of(declarer, PUT_BACK)).to_be_disabled()
-
+def pick_two_of_the_twelve(declarer: Page) -> None:
+    """Picks the first two cards on the way through every rule of picking, with a reload after the first."""
     cards = declarer.locator(PICKABLE_CARD)
     tap(cards.nth(0))
     expect(button_of(declarer, PUT_BACK)).to_be_disabled()
@@ -217,6 +199,29 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect(button_of(declarer, PUT_BACK)).to_be_disabled()
 
     tap(cards.nth(1))
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_every_stage(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+
+    expect(declarer.locator(SKAT_BACK)).to_have_count(2)
+    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+    expect(button_of(declarer, "Hand")).to_have_count(0)
+    reload_and_wait(declarer)
+    expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
+    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+    expect(declarer.get_by_text(BIDDING_FOLLOWS)).to_have_count(0)
+
+    button_of(declarer, TAKE_SKAT).click()
+    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
+    assert table.skat() <= drawn_cards_of(declarer)
+    expect(button_of(declarer, PUT_BACK)).to_be_disabled()
+
+    pick_two_of_the_twelve(declarer)
     button_of(declarer, PUT_BACK).click()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
