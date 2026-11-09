@@ -1,4 +1,5 @@
 import json
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -29,6 +30,8 @@ STAND_UP = catalog_text("standUp")
 COMMAND_FAILED = catalog_text("commandFailed")
 SEAT_AWAY = catalog_text("seatAway")
 DEALER = catalog_text("dealer")
+USUAL_TIMEOUT_SECONDS = 5
+POLL_MILLISECONDS = 100
 SKAT_CARD = ".skat-card"
 MAIN_STEP = ".bid-buttons .button-stage"
 # The page's chairs reduced to what a hand draws on them; the keys are this test's own, compared with the answer's.
@@ -154,6 +157,18 @@ def picture_of_answer(answer: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def page_and_answer_agree(person: Page, server: RunningServer, table_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Poll the drawn hand against a fresh answer until they are equal; fail with the last pair on timeout."""
+    deadline = time.monotonic() + USUAL_TIMEOUT_SECONDS
+    while True:
+        answer = answer_of(person, server, table_id)
+        drawn = drawn_table(person)
+        if drawn == picture_of_answer(answer) or time.monotonic() >= deadline:
+            assert drawn == picture_of_answer(answer)
+            return answer, drawn
+        person.wait_for_timeout(POLL_MILLISECONDS)
+
+
 def assert_no_horizontal_scroll(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
@@ -184,9 +199,7 @@ def test_every_viewer_sees_the_hand_as_the_server_answers_and_again_after_a_relo
     players = dealt_table(open_person, e2e_server, page_errors, form_factor)
 
     for person in (players.anna, players.watcher):
-        answer = answer_of(person, e2e_server, players.table_id)
-        drawn = drawn_table(person)
-        assert drawn == picture_of_answer(answer)
+        answer, drawn = page_and_answer_agree(person, e2e_server, players.table_id)
         assert {chair["backs"] for chair in drawn["chairs"] if not _is_mine(answer, chair["seat"])} == {10}
         assert drawn["skat"] == 2
         assert_no_horizontal_scroll(person)
