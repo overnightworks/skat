@@ -10,6 +10,8 @@ HOME_PATH = "/"
 HEALTH_PATH = "/health"
 APP_ASSET_PATH = "/_app"
 IMMUTABLE_ASSET_DIRECTORY = "immutable"
+# SvelteKit's client fetches it whenever a page regains focus; it holds only the build's id.
+VERSION_FILE_PATH = f"{APP_ASSET_PATH}/version.json"
 ACCOUNT_PATH = "/api/account"
 ACCOUNT_CONSOLE_PATH = "/account"
 AUTH_START_PATH = "/auth/start"

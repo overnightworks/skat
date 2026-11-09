@@ -71,6 +71,7 @@ LOOKALIKE_PATHS = [
     "/_app/immutable/assets/..%2Ffixture-font.woff2",
     "/_app/immutable/assets/..%2Fx.js",
     "/_app/immutable/assets/%2e%2e/x.js",
+    "/_app/immutable/%2e%2e/version.json",
     "/_app/immutable/",
     "/logout/",
     f"{BACKCHANNEL_LOGOUT_PATH}/",
@@ -192,11 +193,16 @@ class TestSignedOut:
 
         assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_ASSET_CACHE_CONTROL)
 
-    @pytest.mark.parametrize("path", [VERSION_FILE, "/"])
+    @pytest.mark.parametrize("path", ["/_app/env.js", "/_app/immutable", "/"])
     def test_a_build_file_outside_the_immutable_directory_and_every_other_page_stay_behind_the_sign_in(
         self, application, path
     ):
         assert application.get(path, **FETCH_ACCEPT).status_code == 401
+
+    def test_the_version_file_is_public_because_the_page_asks_for_it_on_every_focus(self, application):
+        response = application.get(VERSION_FILE, **FETCH_ACCEPT)
+
+        assert (response.status_code, response.headers["cache-control"]) == (200, "no-cache")
 
     def test_a_font_the_sign_in_stylesheet_references_is_public_with_its_content_type(self, application):
         response = application.get(SIGN_IN_FONT, **BROWSER_ACCEPT)

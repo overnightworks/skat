@@ -13,12 +13,13 @@ from skat.web.constants import (
     NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
     SIGN_IN_PATHS,
+    VERSION_FILE_PATH,
 )
 
 if TYPE_CHECKING:
     from webauth.ports import SessionRecordStore
 
-PUBLIC_PATHS = frozenset({HEALTH_PATH, LOGIN_PATH, CALL_SIGN_IN_PATH, NO_ACCESS_PATH})
+PUBLIC_PATHS = frozenset({HEALTH_PATH, LOGIN_PATH, CALL_SIGN_IN_PATH, NO_ACCESS_PATH, VERSION_FILE_PATH})
 
 
 def session_gate(sessions: SessionRecordStore) -> SessionGate:
