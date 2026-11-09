@@ -321,7 +321,8 @@ def test_the_others_see_the_declarer_decide_at_every_stage(
 
     table.declare_through_the_api(action="declare", game="null", hand=False, ouvert=False, announcement="none")
     for onlooker in onlookers:
-        expect(onlooker.locator(DECLARER_MARK)).to_have_count(0)
+        expect(onlooker.locator(DECLARER_MARK)).to_have_count(1)
+        expect(onlooker.locator(f"{declarer_chair} {DECLARER_MARK}")).to_have_count(1)
         expect(onlooker.get_by_text(f"{name} {DISCARDS}")).to_have_count(0)
         assert onlooker.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert page_errors == []

@@ -14,6 +14,7 @@ import {
     TABLE_AUCTION_SUFFIX,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
+    TABLE_READY_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
@@ -74,7 +75,23 @@ export type Chair = {
     occupant_name: string | null;
     is_mine: boolean;
     is_away: boolean;
+    ready: boolean;
     hand: ChairHand | null;
+};
+export type SeatGain = { seat: number; gain: number };
+// The finished game as the server counted it; the page draws these numbers and decides no rule.
+export type Result = {
+    ordinal: number;
+    declarer_seat: number;
+    game: Game;
+    won: boolean;
+    overbid: boolean;
+    bid: number;
+    game_value: number;
+    score: number;
+    declarer_points: number;
+    opponents_points: number;
+    gains: SeatGain[];
 };
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
@@ -84,6 +101,7 @@ export type Table = {
     chairs: Chair[];
     watchers: number;
     hand: Hand | null;
+    result: Result | null;
     passed_in: PassedIn | null;
 };
 // A chair that was taken: `holder` is who sits there now.
@@ -162,6 +180,11 @@ export function takeDeclaringStep(
 // The client names only the card: the seat that plays it comes from the session.
 export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
     return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
+}
+
+// „Weiter“ names the result it saw, so a tap on a result that has since been replaced is refused.
+export function markReady(id: string, commandId: string, ordinal: number): Promise<Outcome> {
+    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal });
 }
 
 // The version is the one the page shows, so a step taken on a stale page is refused; there is no retry.

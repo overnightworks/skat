@@ -19,6 +19,7 @@ function chairs(mine: number, positions: Record<number, Position> = POSITIONS): 
         occupant_name: `player ${String(seat)}`,
         is_mine: seat === mine,
         is_away: false,
+        ready: false,
         hand: { position: positions[seat] as Position, card_count: 9 },
     }));
 }
@@ -41,6 +42,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
         version: 7,
         chairs: chairs(mine),
         watchers: 0,
+        result: null,
         hand: {
             dealer_seat: 3,
             own_cards: [],

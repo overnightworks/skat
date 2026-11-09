@@ -710,7 +710,7 @@ body {
 
 /* A phone chair carries its position at the top right, so the turn, pass and waits marks sit below it, clear of
    the dealer badge; a chair carries only one of them. */
-.room .mark:is(.turn, .pass, .waits) {
+.room .mark:is(.turn, .pass, .waits, .ready) {
     position: absolute;
     z-index: 2;
     top: 16px;
@@ -765,7 +765,7 @@ body {
     text-transform: uppercase;
 }
 
-.room .mark:is(.turn, .pass, .waits) ~ .mark.away {
+.room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
     right: auto;
     left: 6px;
     top: 16px;
@@ -938,7 +938,7 @@ body {
         height: 170px;
     }
 
-    .room .mark:is(.turn, .pass, .waits) {
+    .room .mark:is(.turn, .pass, .waits, .ready) {
         top: 6px;
         right: auto;
         left: 6px;
@@ -961,7 +961,7 @@ body {
         font-size: 11px;
     }
 
-    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits) {
+    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready) {
         top: 18px;
     }
 
@@ -984,11 +984,11 @@ body {
         top: 88px;
     }
 
-    .room .mark:is(.turn, .pass, .waits) ~ .mark.away {
+    .room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
         top: 42px;
     }
 
-    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits) ~ .mark.away {
+    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
         top: 54px;
     }
 
@@ -2138,5 +2138,267 @@ body {
 
     .account-menu {
         inset: 72px 24px auto auto;
+    }
+}
+
+/* The result: a card on the felt between the chairs, the bar's „Weiter“ and each chair's ready mark. */
+.room .stage:has(> .result) {
+    grid-template-rows: auto auto auto auto auto;
+}
+
+.room .stage:has(> .result) .felt {
+    grid-row: 2 / 5;
+}
+
+.room .stage:has(> .result) .chair:nth-child(3) {
+    grid-row: 4;
+}
+
+.room .stage:has(> .result) .controls {
+    grid-row: 5;
+}
+
+.room .result {
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    grid-column: 1 / 3;
+    grid-row: 3;
+    box-sizing: border-box;
+    width: min(100%, 470px);
+    margin: 12px 0;
+    padding: 16px 14px 14px;
+    border-radius: 24px;
+    background: rgba(12, 14, 17, 0.74);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
+        0 24px 50px -16px rgba(0, 0, 0, 0.9);
+}
+
+.room .result h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: #f3cf7a;
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.room .result h3 svg {
+    width: 0.8em;
+    height: 0.8em;
+    flex: none;
+}
+
+.room .result.lost h3 {
+    color: var(--on-stage-soft);
+}
+
+.room .result .sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--on-stage);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.room .result .game {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.room .result .suit {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fbf8f0;
+    box-shadow: inset 0 0 0 1.5px var(--brass);
+}
+
+.room .result .suit svg {
+    width: 15px;
+    height: 15px;
+}
+
+.room .result .suit.kreuz,
+.room .result .suit.pik {
+    fill: #17191c;
+}
+
+.room .result .suit.herz,
+.room .result .suit.karo {
+    fill: #c8332b;
+}
+
+.room .result .stamp {
+    padding: 5px 11px;
+    border: 2.5px solid #e9776e;
+    border-radius: 12px;
+    color: #e9776e;
+    background: rgba(20, 24, 29, 0.9);
+    font-size: 16px;
+    font-weight: 700;
+    rotate: -5deg;
+}
+
+.room .result .value {
+    color: var(--cream);
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 44px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.room .result .value.minus {
+    color: var(--on-stage-soft);
+}
+
+.room .result .miss {
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .points {
+    width: 100%;
+}
+
+.room .result .coasters {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+.room .result .reck {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: 50% 50% 16px 16px / 34% 34% 16px 16px;
+    color: #14181d;
+    background: #f4ecd9;
+    box-shadow:
+        0 3px 0 #d8ccb0,
+        0 10px 18px -6px rgba(0, 0, 0, 0.8);
+}
+
+.room .result .reck.win {
+    box-shadow:
+        0 0 0 3px #f3cf7a,
+        0 3px 0 #d8ccb0,
+        0 10px 22px -6px rgba(243, 207, 122, 0.5);
+}
+
+.room .result .reck .dot {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .result .reck .nm {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .result .reck .dl {
+    color: #1f7a4d;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .reck .dl.minus {
+    color: #6b6f78;
+}
+
+.room .mark.ready {
+    width: 28px;
+    color: var(--ok-stage);
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+}
+
+.room .mark.ready svg {
+    width: 16px;
+    height: 16px;
+}
+
+.room .chair.win .tile {
+    box-shadow: inset 0 0 0 3px #f3cf7a;
+}
+
+.room .copy.weiter {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--accent-stage, #7aa7f0);
+    backdrop-filter: none;
+}
+
+.room .copy.wait {
+    cursor: default;
+    background: var(--glass-dark);
+    white-space: nowrap;
+}
+
+.room .copy:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* The result's bar is one row: on a phone the link is its icon alone and the buttons close up. */
+@media (max-width: 899px) {
+    .room .actions.on-result {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .room .actions.on-result .copy {
+        padding: 0 16px;
+        gap: 8px;
+    }
+
+    .room .actions.on-result .copy.wait {
+        flex: 0 1 auto;
+        min-width: 0;
+        padding: 0 14px;
+        font-size: 14px;
+        line-height: 1.15;
+        white-space: normal;
+    }
+
+    .room .actions.on-result .copy.link {
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions.on-result .copy.link .label {
+        display: none;
     }
 }

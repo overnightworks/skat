@@ -13,6 +13,7 @@
     import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
+    import { resultView, weiterBar } from "#lib/result.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
@@ -22,6 +23,7 @@
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
+    import ResultCard from "#lib/ui/ResultCard.svelte";
     import { ALL_POINTS } from "#lib/wire.ts";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { words } from "#lib/words.ts";
@@ -32,6 +34,7 @@
         drawingOrder,
         gameWord,
         isSuitGame,
+        markReady,
         positionWord,
         readTable,
         sitDown,
@@ -41,6 +44,7 @@
         type AuctionAction,
         type Outcome,
         type Picking,
+        type Result,
         type Table,
     } from "../../tables.ts";
 
@@ -124,6 +128,13 @@
             note = words.commandFailed;
         }
         return answer;
+    }
+
+    // „Weiter“ names the result on the page; the button stays busy until the stream brings a newer version.
+    async function tapWeiter(table: Table): Promise<void> {
+        sentFromVersion = table.version;
+        const answer = await seat(markReady(id, crypto.randomUUID(), (table.result as Result).ordinal));
+        if (answer.kind !== "table") sentFromVersion = null;
     }
 
     async function takeStep(table: Table, action: AuctionAction, value?: number): Promise<void> {
@@ -220,9 +231,15 @@
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
             {@const turnSeat = inPlay?.playing.turn_seat}
+            {@const settledDeclarerSeat = outcome.table.result?.declarer_seat ?? inPlay?.declarerSeat}
+            {@const view = outcome.table.result === null ? null : resultView(outcome.table)}
+            {@const winners = new Set(view?.rows.filter((row) => row.winner).map((row) => row.seat))}
+            {@const bar = weiterBar(outcome.table)}
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
-            {#if deciding !== null}
+            {#if view !== null}
+                <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
+            {:else if deciding !== null}
                 <div class="plaque deciding">
                     {#if deciding.kind === "won"}
                         <span>{`${deciding.name} ${words.plays}, ${String(deciding.value)}`}</span>
@@ -292,6 +309,9 @@
                 </div>
             {/if}
             <div class="felt" aria-hidden="true"></div>
+            {#if view !== null}
+                <ResultCard {view} />
+            {/if}
             {#if inPlay !== null}
                 <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} />
             {/if}
@@ -326,6 +346,7 @@
                         class:mine={chair.is_mine}
                         class:away={chair.is_away}
                         class:out={marks.passed}
+                        class:win={winners.has(chair.seat)}
                         class:turn={marks.turn || chair.seat === turnSeat}
                         data-seat={chair.seat}
                     >
@@ -333,7 +354,7 @@
                             <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                             </span>
-                            {#if chair.hand !== null || passedIn !== null}
+                            {#if chair.hand !== null || passedIn !== null || view !== null}
                                 {#if chair.seat === dealerSeat}
                                     <span class="mark dealer" title={words.dealer}>
                                         <svg
@@ -356,7 +377,7 @@
                                 {#if chair.hand !== null}
                                     <span class="mark pos">{positionWord(chair.hand.position)}</span>
                                 {/if}
-                                {#if marks.declarer}
+                                {#if marks.declarer || chair.seat === settledDeclarerSeat}
                                     <span class="mark declarer" class:won={marks.declarer === "won"}>
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path
@@ -396,6 +417,27 @@
                                 {/if}
                                 {#if marks.bubble}
                                     <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
+                                {/if}
+                            {/if}
+                            {#if view !== null}
+                                {#if chair.ready}
+                                    <span class="mark ready" title={words.readyMark}>
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="3"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M5 12.5l4.5 4.5L19 7" />
+                                        </svg>
+                                    </span>
+                                {:else}
+                                    <span class="mark waits" title={words.notReadyMark}>
+                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                                    </span>
                                 {/if}
                             {/if}
                             {#if chair.is_away}
@@ -483,7 +525,35 @@
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}
-                <div class="actions">
+                <div class="actions" class:on-result={view !== null}>
+                    {#if bar?.kind === "tap"}
+                        {@const table = outcome.table}
+                        <button
+                            type="button"
+                            class="copy weiter"
+                            disabled={sentFromVersion === table.version && !bar.again}
+                            onclick={() => tapWeiter(table)}
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="3"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M5 12.5l4.5 4.5L19 7" />
+                            </svg>
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                            {`${words.weiter}`}
+                        </button>
+                    {:else if bar !== null}
+                        <span class="copy wait" role="status">
+                            {`${words.waitingFor} ${bar.names}`}
+                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                        </span>
+                    {/if}
                     {#if seated && outcome.table.hand === null}
                         <button type="button" class="copy" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
                             <svg
@@ -502,7 +572,7 @@
                             {`${words.standUp}`}
                         </button>
                     {/if}
-                    <button type="button" class="copy" onclick={copy}>
+                    <button type="button" class="copy link" aria-label={words.copyLink} onclick={copy}>
                         <svg
                             viewBox="0 0 24 24"
                             fill="none"
@@ -515,7 +585,7 @@
                             <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
                         </svg>
                         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                        {`${words.copyLink}`}
+                        <span class="label">{`${words.copyLink}`}</span>
                     </button>
                 </div>
                 <p class="note" role="status">{note}</p>

@@ -173,7 +173,15 @@ describe("the marks on a chair during the auction", () => {
 });
 
 function chair(seat: number, changes: Partial<Chair> = {}): Chair {
-    return { seat, occupant_name: `player-${String(seat)}`, is_mine: false, is_away: false, hand: null, ...changes };
+    return {
+        seat,
+        occupant_name: `player-${String(seat)}`,
+        is_mine: false,
+        is_away: false,
+        ready: false,
+        hand: null,
+        ...changes,
+    };
 }
 
 describe("whom the plaque waits for", () => {
@@ -200,6 +208,7 @@ describe("the scene of a passed-in hand", () => {
         occupant_name: `Name${String(seat)}`,
         is_mine: false,
         is_away: false,
+        ready: false,
         hand: null,
         ...changes,
     });
@@ -236,6 +245,7 @@ describe("what the others see while the declarer decides", () => {
             occupant_name: `Name${String(seat)}`,
             is_mine: seat === mine,
             is_away: false,
+            ready: false,
             hand: null,
             ...(seat === MIDDLEHAND ? changes : {}),
         }));
@@ -250,6 +260,7 @@ describe("what the others see while the declarer decides", () => {
         chairs: chairsAt(mine, chairChanges),
         watchers: 0,
         passed_in: null,
+        result: null,
         hand: {
             dealer_seat: FOREHAND,
             own_cards: [],

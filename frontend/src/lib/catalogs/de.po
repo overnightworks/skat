@@ -185,3 +185,36 @@ msgstr "Stich"
 
 msgid "trickPoints"
 msgstr "Augen"
+
+msgid "sideYou"
+msgstr "Du"
+
+msgid "resultWon"
+msgstr "Gewonnen!"
+
+msgid "resultLost"
+msgstr "Verloren"
+
+msgid "resultWins"
+msgstr "gewinnt"
+
+msgid "resultLoses"
+msgstr "verliert"
+
+msgid "overbid"
+msgstr "Überreizt"
+
+msgid "gameWorth"
+msgstr "Wert"
+
+msgid "weiter"
+msgstr "Weiter"
+
+msgid "readyMark"
+msgstr "Weiter getippt"
+
+msgid "notReadyMark"
+msgstr "noch nicht getippt"
+
+msgid "and"
+msgstr "und"

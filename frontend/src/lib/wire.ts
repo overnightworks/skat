@@ -14,6 +14,7 @@ export const TABLE_STAND_SUFFIX = "/stand";
 export const TABLE_DECLARATION_SUFFIX = "/declaration";
 export const TABLE_AUCTION_SUFFIX = "/auction";
 export const TABLE_CARD_SUFFIX = "/card";
+export const TABLE_READY_SUFFIX = "/ready";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;

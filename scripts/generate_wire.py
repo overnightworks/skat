@@ -28,6 +28,7 @@ from skat.web.constants import (  # noqa: E402
 )
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX  # noqa: E402
 from skat.web.playing import TABLE_CARD_SUFFIX  # noqa: E402
+from skat.web.ready import TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
@@ -81,6 +82,7 @@ def render() -> str:
         "TABLE_DECLARATION_SUFFIX": TABLE_DECLARATION_SUFFIX,
         "TABLE_AUCTION_SUFFIX": TABLE_AUCTION_SUFFIX,
         "TABLE_CARD_SUFFIX": TABLE_CARD_SUFFIX,
+        "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
     tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())
