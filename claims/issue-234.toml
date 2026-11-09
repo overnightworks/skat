@@ -1,7 +1,0 @@
-claim_id = "4b17761e7d734a36ac64348e803ab4bc"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "a8c37e813242970cba37f5c73e8836c0873c23d7"
-branch = "claude/issue-234-ci-time"
-scope = [".github/workflows/ci.yml", ".github/workflows/code-scanning.yml"]
-opened_commit = "c0cc312e57a47ce69fa92dfcceba1d6229bddb3e"
