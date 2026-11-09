@@ -16,10 +16,13 @@ from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote_plus, urlsplit
 
 import jwt
+from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from cryptography.hazmat.primitives.asymmetric import rsa
 from webauth.https_client import KeySetFetchError
 from webauth.oidc import TokenEndpointAnswer, TokenEndpointError, TokenRequest
 
+from skat.web.constants import LOGIN_GROUP
+from skat.web.mcp import AGENT_GROUP, MCP_CLIENT_ID, MCP_GROUP, MCP_SCOPE
 from skat.web.sign_in import IssuerTransports
 
 if TYPE_CHECKING:
@@ -60,6 +63,7 @@ class FakeIssuer:
     def __init__(self, sign_in: SignInSettings) -> None:
         self._key = rsa.generate_private_key(public_exponent=65537, key_size=RSA_KEY_BITS)
         self._issuer = sign_in.settings.oidc_issuer
+        self._resource_url = f"{sign_in.settings.public_origin}{MCP_ENDPOINT_PATH}"
         self._client_id = sign_in.settings.oidc_client_id
         self._client_secret = sign_in.client_secret
         self._codes: dict[str, _IssuedCode] = {}
@@ -100,6 +104,28 @@ class FakeIssuer:
             claims=claims,
         )
         return f"code={code}&state={parameters['state'][0]}"
+
+    def agent_token(self, subject: str, **changes: object) -> str:
+        """An RFC 9068 access token for Skat's MCP resource that an agent of the fleet's client holds.
+
+        A change replaces the claim of its name, and a change of None leaves the claim out.
+        """
+        issued_at = int(time.time())
+        claims: dict[str, object] = {
+            "iss": self._issuer,
+            "sub": subject,
+            "aud": self._resource_url,
+            "iat": issued_at,
+            "exp": issued_at + TOKEN_LIFETIME_SECONDS,
+            "azp": MCP_CLIENT_ID,
+            "scope": MCP_SCOPE,
+            "groups": [LOGIN_GROUP, MCP_GROUP, AGENT_GROUP],
+            "agent_owner": "the-agents-owner",
+            "agent_name": "Mozart",
+            **changes,
+        }
+        present = {name: value for name, value in claims.items() if value is not None}
+        return jwt.encode(present, self._key, algorithm="RS256", headers={"kid": KEY_ID, "typ": "at+jwt"})
 
     def refresh_token_for(self, subject: str) -> str:
         """A refresh token the issuer honours once, for the subject's next grant."""

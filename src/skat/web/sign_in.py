@@ -32,6 +32,7 @@ from skat.web.constants import (
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
 )
+from skat.web.mcp import Exclusion, excluded
 from skat.web.page_build import BuiltPage
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.secret_files import StartRefusedError, read_secret_file
@@ -167,7 +168,7 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
             f"The signed-out page lacks its one {AUTH_START_PATH} address; run make frontend"
         )
 
-    @router.api_route(LOGIN_PATH, methods=READ_METHODS)
+    @router.api_route(LOGIN_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
     def signed_out(next_path: Annotated[str | None, Query(alias=RETURN_PATH_QUERY_NAME)] = None) -> Response:
         """Carries the raw `next` onto the sign-in address; webauth is the only validator of it."""
         if next_path is None:
@@ -177,7 +178,7 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
             BuiltPage.of(signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"'))
         )
 
-    @router.api_route(NO_ACCESS_PATH, methods=READ_METHODS)
+    @router.api_route(NO_ACCESS_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
     def no_access() -> Response:
         return built_page_response(page_build.no_access)
 
