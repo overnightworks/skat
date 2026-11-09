@@ -1,0 +1,8 @@
+claim_id = "4119485e10b342d6a966b3c3a2994021"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "50a2aea90d68508b0e3575b2956b8e517f4562ad"
+branch = "claude/issue-189-ramsch-play"
+scope = [".aco/ahead-of-caller.toml", "src/skat/engine/ramsch.py", "src/skat/engine/tricks.py", "tests/engine/test_ramsch.py"]
+opened_commit = "5d8099a0a66b0ea0eb13c6f6bbb6b6d7748cccc7"
+whole_reason = "The Ramsch shares the suit game's trick step instead of copying it, so tricks.py changes in the same commit that adds ramsch.py, and the ahead-of-caller list gains the new module."
