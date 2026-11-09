@@ -30,6 +30,7 @@
     import NewTableButton from "../../NewTableButton.svelte";
     import {
         bidValueWhileDeclaring,
+        coasterText,
         copyTableLink,
         drawingOrder,
         gameWord,
@@ -480,6 +481,9 @@
                                     >{words.seatAway}</small
                                 >{/if}</span
                         >
+                        {#if chair.total !== null}
+                            <span class="coaster">{coasterText(chair.total)}</span>
+                        {/if}
                         {#if chair.hand !== null}
                             {#if !chair.is_mine}
                                 <div class="fan-spot">

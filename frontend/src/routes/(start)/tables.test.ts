@@ -16,6 +16,7 @@ import {
     copyTableLink,
     createTable,
     declarerStage,
+    coasterText,
     drawingOrder,
     gameWord,
     isSuitGame,
@@ -410,6 +411,7 @@ describe("what the declaring stage asks of this viewer", () => {
             is_mine: seat === mine,
             is_away: false,
             ready: false,
+            total: null,
             hand: null,
         }));
     const bidWon = { seat: 2, value: 20 };
@@ -516,11 +518,20 @@ describe("the table's seats and link", () => {
         is_mine: isMine,
         is_away: false,
         ready: false,
+        total: null,
         hand: null,
     });
 
     afterEach(() => {
         vi.unstubAllGlobals();
+    });
+
+    it.each([
+        [0, "0"],
+        [160, "160"],
+        [-46, "\u221246"],
+    ])("reads the total %i on a coaster as %s", (total, text) => {
+        expect(coasterText(total)).toBe(text);
     });
 
     it("draws the viewer's own chair last", () => {

@@ -13,6 +13,7 @@ function chairs(mine: number, changes: Record<number, Partial<Chair>> = {}): Cha
         is_mine: seat === mine,
         is_away: false,
         ready: false,
+        total: null,
         hand: null,
         ...changes[seat],
     }));

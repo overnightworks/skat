@@ -76,6 +76,8 @@ export type Chair = {
     is_mine: boolean;
     is_away: boolean;
     ready: boolean;
+    // The person's running total; null on a free chair and until the table's first result.
+    total: number | null;
     hand: ChairHand | null;
 };
 export type SeatGain = { seat: number; gain: number };
@@ -281,6 +283,11 @@ export function tablePath(id: string): string {
 export function drawingOrder(chairs: Chair[]): Chair[] {
     const afterMine = chairs.findIndex((chair) => chair.is_mine) + 1;
     return [...chairs.slice(afterMine), ...chairs.slice(0, afterMine)];
+}
+
+// A coaster reads a negative total with the typographic minus.
+export function coasterText(total: number): string {
+    return total < 0 ? `\u2212${String(-total)}` : String(total);
 }
 
 const POSITION_WORDS: Record<Position, string> = {
