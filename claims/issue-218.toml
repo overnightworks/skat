@@ -1,0 +1,7 @@
+claim_id = "4c52e1fdf84d4f0bbf802044606fb5cc"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "7eefbabb8e91a771a4bbe97534b0c322feb113ec"
+branch = "claude/issue-218-ci-shards"
+scope = [".github/workflows/ci.yml", "tests/e2e/conftest.py", "tests/e2e/support/shards.py"]
+opened_commit = "bcc76890e75700540b0606d49959986e073b25b7"
