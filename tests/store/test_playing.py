@@ -17,7 +17,7 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
 from skat.table.hand_state import playing_of
-from skat.table.playing import PlayCardCommand
+from skat.table.playing import GiveUpCommand, PlayCardCommand
 from skat.table.records import Actor, CreateTable, Refusal, SitDown
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
@@ -39,9 +39,9 @@ def card_id(number):
     return f"card-{number}"
 
 
-def count_rows(engine):
+def count_rows(engine, name="played_cards"):
     with engine.connect() as connection:
-        return connection.execute(select(func.count()).select_from(table("played_cards"))).scalar_one()
+        return connection.execute(select(func.count()).select_from(table(name))).scalar_one()
 
 
 class Game:
@@ -206,6 +206,30 @@ def test_a_restart_reads_the_identical_cards_and_play_continues(game, database_u
 
     assert result.refusal is None
     assert len(game.plays) == 2
+
+
+def test_a_given_up_game_stores_its_entry_drops_cards_and_a_new_service_replays_the_receipt(game, engine, database_url):
+    game.play_legally(4)
+    command = GiveUpCommand(command_id="give-up", table_id=game.table_id, version=game.record.version)
+    declarer = game.actors[Position.MIDDLEHAND]
+
+    first = game.service.give_up(declarer, command, nobody_connected(), lambda _accounts: None)
+
+    assert first.refusal is None
+    for hand_table in ("hand_cards", "auction_actions", "declaring_steps", "played_cards"):
+        assert count_rows(engine, hand_table) == 0
+    assert game.record.hand is None
+    assert len(game.record.game_list) == 1
+    restarted_engine = create_store_engine(database_url)
+    try:
+        again = TableService(PostgresTableTransactions(restarted_engine)).give_up(
+            declarer, command, nobody_connected(), lambda _accounts: None
+        )
+    finally:
+        restarted_engine.dispose()
+    assert (again.view, again.refusal) == (first.view, first.refusal)
+    assert again.seated_when_hand_ended == frozenset()
+    assert len(game.record.game_list) == 1
 
 
 def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(game, engine, transactions):
