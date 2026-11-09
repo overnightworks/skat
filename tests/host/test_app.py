@@ -155,13 +155,15 @@ class TestCreateApp:
             pass
 
     def test_a_dealt_table_is_kept_and_gets_no_wait_when_the_server_starts(self, sign_in_settings):
-        tables = EndingSignal(FakeTableStore())
+        store = FakeTableStore()
+        tables = EndingSignal(store)
         tables.release_end.set()
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         tables.sit(VISITOR, SitDown("command-sit-ben", opened.id, 2), frozenset())
         tables.sit(THIRD, SitDown("command-sit-cleo", opened.id, 3), frozenset())
+        store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
         settings = sign_in_settings(empty_table_seconds=1).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables, chair_scheduler=IdleScheduler())
 
         with TestClient(app):
             pass
