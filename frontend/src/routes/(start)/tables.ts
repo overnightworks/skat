@@ -179,7 +179,7 @@ export function standUp(id: string, commandId: string): Promise<Outcome> {
 export type DeclaringStep =
     | { action: "take" }
     | { action: "put_back"; cards: readonly Card[] }
-    | { action: "declare"; game: Game; hand: boolean; ouvert: false; announcement: Announcement };
+    | { action: "declare"; game: Game; hand: boolean; ouvert: boolean; announcement: Announcement };
 
 const DECLARING_STEP_SUFFIXES: Record<DeclaringStep["action"], string> = {
     take: TABLE_DECLARING_TAKE_SUFFIX,
@@ -370,14 +370,26 @@ export function gameWord(game: Game): string {
     return GAME_WORDS[game];
 }
 
-// The one name of a declared game, with its levels: „Grand Hand“. Ouvert includes Hand, so it names the game alone.
+// The one name of a declared game, with its levels: „Grand Hand“. A suit or Grand ouvert game includes Hand, so it
+// names the game alone; Null ouvert is a game of its own, and with Hand it reads „Null ouvert Hand“.
 export function gameLabel({ game, hand, ouvert }: { game: Game; hand: boolean; ouvert: boolean }): string {
-    if (ouvert) return `${gameWord(game)} ${words.ouvert}`;
+    if (ouvert) {
+        const handSuffix = game === "null" && hand ? ` ${words.hand}` : "";
+        return `${gameWord(game)} ${words.ouvert}${handSuffix}`;
+    }
     return hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
 }
 
-// The announcement's own words, apart from the game's label; no announcement has none.
-export function announcementLabel(announcement: Announcement): string | null {
+// The announcement's own words, apart from the game's label; no announcement has none, and an ouvert game's label
+// already says the Schwarz it counts as.
+export function announcementLabel({
+    ouvert,
+    announcement,
+}: {
+    ouvert: boolean;
+    announcement: Announcement;
+}): string | null {
+    if (ouvert) return null;
     if (announcement === "schneider") return words.announcedSchneider;
     return announcement === "schwarz" ? words.announcedSchwarz : null;
 }
