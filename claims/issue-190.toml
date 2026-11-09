@@ -3,5 +3,5 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "50a2aea90d68508b0e3575b2956b8e517f4562ad"
 branch = "claude/issue-190-null-ouvert-results"
-scope = ["tests/web/support/playing.py", "tests/web/test_playing_null_ouvert.py"]
+scope = ["tests/web/support/playing.py", "tests/web/test_playing_grand_and_hand.py", "tests/web/test_playing_null_ouvert.py"]
 opened_commit = "1a63c35d5afafd74307262d5487aa2f9833822db"
