@@ -1,3 +1,4 @@
+from functools import partial
 from typing import TYPE_CHECKING, Annotated, Final
 
 from fastapi import APIRouter, Request, Response
@@ -38,7 +39,7 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
     ) -> Response | TableAnswer:
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal)
         answer = await command_answer(
-            lambda connected: tables.mark_ready(actor_of(request), command, connected), presence, table_id, response
+            partial(tables.mark_ready, actor_of(request), command), presence, table_id, response
         )
         # A replay asks again, so a deal lost after the first commit follows the retry.
         if isinstance(answer, TableAnswer):
