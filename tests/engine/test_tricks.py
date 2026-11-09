@@ -25,8 +25,6 @@ from skat.engine.tricks import (
     Playing,
     PlayOutcome,
     PlayRefusal,
-    Sides,
-    Tally,
     play_card,
     playing_after,
     start_play,
@@ -234,23 +232,6 @@ def test_the_two_sides_add_up_to_120_points_and_ten_tricks(seed: int, kind: Game
     assert result is not None
     assert result.declarer_points + result.opponents_points == 120
     assert result.declarer_tricks + result.opponents_tricks == 10
-
-
-def test_the_running_tally_names_each_side_s_tricks_and_their_card_points() -> None:
-    assert first_trick_taken_by_middlehand().tally == Tally(tricks=Sides(0, 1), points=Sides(0, 11))
-
-
-@pytest.mark.parametrize("kind", [HERZ, GRAND])
-@pytest.mark.parametrize("seed", range(5))
-def test_the_running_tally_after_the_tenth_trick_is_the_result_s_with_the_skat_left_out(
-    seed: int, kind: GameKind
-) -> None:
-    state = played_out_game(seed, kind)
-    assert state.result is not None
-    skat_points = sum(card.points for card in state.result.declared.skat)
-    assert state.tally == state.result.tally
-    assert state.tally.tricks == Sides(state.result.declarer_tricks, state.result.opponents_tricks)
-    assert state.tally.points == Sides(state.result.declarer_points - skat_points, state.result.opponents_points)
 
 
 def test_a_skat_put_back_after_pick_up_counts_for_the_declarer() -> None:
@@ -645,5 +626,7 @@ def test_a_game_the_declarer_already_holds_61_in_plays_on_to_its_tenth_trick() -
         states.append(first_accepted(states[-1]))
     after_nine = next(each for each in states if len(each.tricks) == 9)
     assert after_nine.result is None
-    assert after_nine.tally.points.declarer + sum(card.points for card in after_nine.declared.skat) >= 61
+    declarer = after_nine.declared.declarer
+    declarer_tricks = sum(card.points for trick in after_nine.tricks if trick.taker is declarer for card in trick.cards)
+    assert declarer_tricks + sum(card.points for card in after_nine.declared.skat) >= 61
     assert len(result_of(states[-1]).tricks) == 10

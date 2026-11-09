@@ -104,12 +104,9 @@ def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) ->
 
 
 def expect_the_plaque(table: PlayingTable) -> None:
-    points = table.playing()["trick_points"]
     for person in table.everyone:
-        expect(person.locator(".plaque .game")).to_have_text(KREUZ)
-        declarer, opponents = table.side_names_as_seen_by(person)
-        expect(person.locator(".plaque .sides .declarer")).to_have_text(f"{declarer} {points['declarer']}")
-        expect(person.locator(".plaque .sides .opponents")).to_have_text(f"{opponents} {points['opponents']}")
+        expect(person.locator(".plaque")).to_have_text(KREUZ)
+        expect(person.locator(".plaque .points")).to_have_count(0)
 
 
 def expect_the_turn(table: PlayingTable, seat: int) -> None:

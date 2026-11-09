@@ -30,8 +30,6 @@ function playing(changes: Partial<Playing>): Playing {
         turn_seat: 1,
         current_trick: [],
         last_trick: null,
-        tricks_won: { declarer: 0, opponents: 0 },
-        trick_points: { declarer: 0, opponents: 0 },
         legal_cards: [],
         ...changes,
     };

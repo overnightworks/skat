@@ -65,8 +65,6 @@ export type Playing = {
     turn_seat: number | null;
     current_trick: SeatedCard[];
     last_trick: LastTrick | null;
-    tricks_won: Sides;
-    trick_points: Sides;
     // Only the seated player on turn receives the cards they may play.
     legal_cards: Card[];
 };

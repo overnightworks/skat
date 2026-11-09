@@ -948,6 +948,7 @@ const IDEAS=[
   ['✨','Nova denkt','Zwei Punkte kreisen um Novas Kugel, nur solange Nova am Zug ist.','solo-play'],
   ['🎉','Farben-Konfetti','Ein Sieg wirft Konfetti aus Kreuz, Pik, Herz, Karo aus den Stühlen der Gewinner; Schneider mehr, Schwarz am meisten.','call-end'],
   ['0','Null-Plumps','Eine verlorene Null sackt freundlich in sich zusammen, ohne Spott.','nur hier','null'],
+  ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
@@ -1277,6 +1278,77 @@ scenes(SIGNIN_SCENES);
 ORDER.splice(ORDER.indexOf('call-bid-390'),0,...SIGNIN_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 /* the story runs in order: the table before any deal, the deal, then the auction and the play */
 ORDER.unshift(...[...S3_SCENES,...DEAL_SCENES].flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+/* ===== a series: the count on the felt, the standings at its end, the list of its games ===== */
+const SERIES=36;
+Object.assign(P,{tom:{n:'Tom',i:'T',c:['#9fd0f2','#4b8fc4'],v:['#2e3c4a','#171f27'],l:['#2f4a63','#172533']}});
+/* the count is a quiet mark at the top of the felt; tapping it opens the list of every game */
+const seriesCount=(d,n,o={})=>`<div class="tag-glass series ${o.open?'unfolded':''} ${o.moves?'mo':''}" role="button" aria-expanded="${!!o.open}" aria-label="Liste der Spiele" style="${at({left:d?640:195,top:d?14:8,'--k':'.4s','z-index':o.open?'50':undefined})}"><span>Spiel ${n} von ${SERIES}</span>${I.chev}</div>`;
+const seriesPlay=(d,count)=>room(d,{left:8,glow:yourTurn(d)})+count
+  +plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))+announcedTrick(d)
+  +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d);
+
+/* the standings: place, name, games won and lost as declarer, final total; the winner on top */
+const rankRow=([k,place,total,won,lost,gone],short)=>{const p=P[k];
+  return `<div class="rank ${place===1?'win':''} ${gone?'gone':''}"><span class="place">${place}</span><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>`
+    +`<span class="txt"><b>${p.n}${p.agent?'<span class="ai-badge">KI</span>':''}${gone?'<em>gegangen</em>':''}</b>${short?'':`<small>${won} gewonnen · ${lost} verloren</small>`}</span><span class="sum">${withMinus(total)}</span></div>`;};
+const standings=(d,o)=>`<div class="result standing" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
+  <h3>${I.trophy}Serie zu Ende</h3><div class="sub">${SERIES} Spiele</div><div class="ranks">${o.rows.map(r=>rankRow(r,o.short)).join('')}</div></div>`;
+const seriesSeats=(d,o)=>chairsOf(d,o.near).map(([k,pos])=>seat(k,{...pos,marks:[o.ready.includes(k)?'ready':'notTapped'],win:o.winners.includes(k)})).join('')
+  +chairCoasters(endLayout(d),o.coasters);
+const NEW_SERIES=`<span class="cb wide" role="button">${I.check}Neue Serie</span>`;
+const seriesEnd=(d,o,tap=NEW_SERIES,watchers=1)=>dealRoom(d,{watchers})+standings(d,o)+seriesSeats(d,o)+endBar(d,tap);
+/* each row: [account, place, total, won, lost, left mid-series]; two equal in total, won and lost share the place */
+const SHARED_PLACE={near:'felix',winners:['felix'],ready:[],coasters:[365,365,502],rows:[['felix',1,502,10,4],['anna',2,365,7,3],['ben',2,365,7,3]]};
+const LEFT_MIDWAY={near:'felix',winners:['felix'],ready:[],coasters:[356,233,418],rows:[['felix',1,418,9,3],['anna',2,356,8,2],['ben',3,233,6,3],['tom',4,118,4,1,true]]};
+const WATCHED_END={near:'tom',winners:['anna'],ready:['anna','ben'],coasters:[447,244,391],rows:[['anna',1,447,9,2],['tom',2,391,8,3],['ben',3,244,5,5]]};
+/* a watcher's own mark: an eye where a seated player has the tap button */
+const watcherTag=(d)=>`<div class="tag-glass" role="status" style="${at({left:d?640:195,top:d?610:716,transform:'translateX(-50%)'})}">${I.eye}<span>Du schaust zu</span></div>`;
+
+/* the list of every game: one row per game, newest on top; a passed-in hand leaves no row, so numbers 5 and 13 are missing */
+const GAMES_PLAYED=[[1,'felix','c','Kreuz','mit 2',36,true],[2,'anna','h','Herz','mit 1',20,true],[3,'ben','d','Karo','ohne 2',27,false],[4,'felix','','Grand','mit 1',48,true],
+  [6,'anna','s','Pik','mit 3, Schneider',55,true],[7,'ben','','Null','',23,true],[8,'felix','h','Herz','mit 1, Hand',30,false],[9,'anna','c','Kreuz','ohne 1',24,true],
+  [10,'ben','s','Pik','mit 2',33,true],[11,'felix','d','Karo','mit 1',18,true],[12,'anna','','Grand','ohne 2',72,false],[14,'ben','h','Herz','mit 2, Schneider',40,true],
+  [15,'felix','','Null Hand','',35,true],[16,'anna','c','Kreuz','mit 1',24,true],[17,'ben','d','Karo','mit 2',27,false],[18,'felix','s','Pik','mit 1',22,true],
+  [19,'anna','h','Herz','ohne 1',20,true],[20,'ben','c','Kreuz','mit 4',60,true]];
+const gameRow=([n,k,suit,name,levels,value,won])=>{const p=P[k],gain=won?value+LIST_BONUS:-2*value-LIST_BONUS;
+  return `<div class="grow"><span class="nr">${n}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
+    +`<span class="txt"><b>${p.n}</b><small>${suit?`<span class="pip">${suitIcon(suit)}</span>`:''}${name}${levels?` ${levels}`:''}</small></span><span class="val">${value}</span><span class="gain ${won?'':'minus'}">${signed(gain)}</span></div>`;};
+const gameList=(d)=>`<div class="scrim over"></div>`+seriesCount(d,GAMES_PLAYED.length+3,{open:true})
+  +`<div class="result gamelist" role="dialog" aria-label="Spiele der Serie" style="${at(d?{left:640,top:62,width:560,height:620,'z-index':'50'}:{left:195,top:50,width:354,height:660,'z-index':'50'})}">
+  <h3>Spiele</h3><div class="rows" tabindex="0">${[...GAMES_PLAYED].reverse().map(gameRow).join('')}</div></div>`;
+
+/* between two games a seated member proposes the end; the other two answer, and no standings show yet */
+const askEnd=(d)=>dealRoom(d,{watchers:1})+seriesCount(d,8)
+  +chairsOf(d,'felix').map(([k,pos])=>seat(k,{...pos,marks:[]})).join('')+chairCoasters(endLayout(d),TOTALS_BEFORE)
+  +panel({k:'anna',role:'dialog',x:d?640:195,y:d?190:200,w:d?460:340,text:'Anna will die Serie beenden',buttons:`<span class="button button-stage">${I.check}Ja</span><span class="button button-glass">${I.cross}Nein</span>`})
+  +tableBar(d,{seated:true});
+const SERIES_SCENES=[
+  ['series-play','Spiel 8 von 36',(d)=>seriesPlay(d,seriesCount(d,8)),
+    ['Eine ruhige Marke oben auf dem Tisch zählt „Spiel 8 von 36“; ein Tipp darauf öffnet die Liste aller Spiele.']],
+  ['series-passed','Eingepasst zählt weiter',(d)=>room(d,{left:0})+seriesCount(d,9,{moves:true})
+    +plaque(d?640:195,d?98:176,`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
+    +seats(d,{video:true,anna:['pass'],nova:['drawn','pass'],you:['pass'],score:[148,62,55]})+callBar(d),
+    ['Jedes Geben ist ein Spiel der Serie, ein eingepasstes auch: aus „Spiel 8 von 36“ wird „Spiel 9 von 36“.']],
+  ['series-list','Liste aller Spiele',(d)=>seriesPlay(d,'')+gameList(d),
+    ['Jede Zeile nennt Nummer, Alleinspieler, Spiel, Wert und Gewinn oder Verlust, die neueste oben; ein eingepasstes Geben hat keine Zeile, darum fehlen 5 und 13, und nur die Liste rollt, nicht die Seite.']],
+  ['series-end-ask','Beenden vorgeschlagen',askEnd,
+    ['Wenn beide anderen mit Ja antworten, kommt das Ende sofort mit dem Stand bis dahin; ein Nein oder das nächste Geben räumt den Vorschlag weg.']],
+  ['series-end','Rangliste mit geteiltem Platz',(d)=>seriesEnd(d,SHARED_PLACE),
+    ['Alle sehen dieselbe Rangliste mit dem Sieger oben, und sie zeigt keine Karte; gleicher Stand, gleich viele gewonnene und gleich viele verlorene Spiele teilen den Platz.']],
+  ['series-end-left','Rangliste mit einem vierten Namen',(d)=>seriesEnd(d,LEFT_MIDWAY),
+    ['Wer mitten in der Serie ging, steht mit seinen eigenen Spielen in der Rangliste, die darum mehr als drei Namen haben kann.']],
+  ['series-end-watch','Zuschauen bei der Rangliste',(d)=>seriesEnd(d,WATCHED_END,null,3)+watcherTag(d),
+    ['Ein Zuschauer sieht die Marken, wer schon getippt hat, und die Rangliste, und er kann nicht tippen.']],
+  ['series-end-short','Nur Platz und Stand',(d)=>seriesEnd(d,{...SHARED_PLACE,short:true}),
+    ['Die schlichte Möglichkeit zur Rangliste: nur Platz und Endstand je Person, gleicher Stand teilt den Platz.']],
+  ['series-next','Neue Serie getippt',(d)=>seriesEnd(d,{...SHARED_PLACE,ready:['felix','anna']},waitButton('Ben')),
+    ['Wie „Weiter“ nach jedem Spiel: Die neue Serie beginnt erst, wenn alle drei „Neue Serie“ getippt haben, und die Marken zeigen, wer schon getippt hat.']],
+  ['series-fresh','Neue Serie, alle bei null',(d)=>dealRoom(d,{watchers:1})+seriesCount(d,1)+tablePlaque(d,`Ben gibt${waitDots()}`)+deck(d)
+    +dealSeats(d,{near:'felix',dealer:'right',drawn:true})+chairCoasters(d?DB:PB,[0,0,0])+tableBar(d),
+    ['Nach dem Tipp stehen alle Bierdeckel bei 0, die Marke zählt wieder „Spiel 1 von 36“, und die Länge bleibt, die der Tisch beim Öffnen bekam.']],
+];
+scenes(SERIES_SCENES);
+ORDER.push(...SERIES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
@@ -1313,6 +1385,45 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 @media (prefers-reduced-motion:no-preference){
   .signin.back{animation:leave 1.4s ease-out both}
   @keyframes leave{0%,40%{opacity:1}100%{opacity:0}}
+}
+</style>
+<style>
+/* ---------- a series: the count on the felt, the standings at its end, the list of its games ---------- */
+.tag-glass.series{transform:translateX(-50%);gap:4px;padding:0 8px 0 12px;z-index:30;font-variant-numeric:tabular-nums;color:var(--on-stage-soft);cursor:pointer}
+.tag-glass.series.unfolded{color:var(--on-stage);box-shadow:inset 0 0 0 1.5px rgba(122,167,240,.7)}
+.tag-glass.series.unfolded svg{rotate:180deg;color:var(--accent-stage)}
+.scrim.over{z-index:45}
+.result.standing h3{display:flex;align-items:center;gap:10px}
+.result.standing h3 svg{width:.8em;height:.8em;flex:none}
+.ranks{display:flex;flex-direction:column;gap:8px;width:100%}
+.rank{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px 8px 10px;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
+.rank.win{background:rgba(243,207,122,.12);box-shadow:inset 0 0 0 2px #f3cf7a,0 0 18px -4px rgba(243,207,122,.45)}
+.rank.gone{opacity:.7}
+.rank .place{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#f4ecd9;color:var(--ink);font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 2px 0 #d8ccb0}
+.rank .dot,.grow .dot{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:13px;font-weight:700}
+.rank .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rank b{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600}
+.rank b em{font-size:12px;font-style:normal;font-weight:600;color:var(--on-stage-soft)}
+.rank small{font-size:12.5px;color:var(--on-stage-soft);font-variant-numeric:tabular-nums}
+.rank .sum{font-family:var(--font-mark);font-size:26px;font-weight:700;color:var(--cream);font-variant-numeric:tabular-nums}
+.p390 .rank{gap:10px;min-height:52px;padding:6px 14px 6px 8px}
+.p390 .rank .place{width:32px;height:32px}
+/* the list of every game scrolls inside its panel, never the page */
+.result.gamelist{align-items:stretch;padding:16px 8px 12px 14px}
+.result.gamelist h3{text-align:center}
+.gamelist .rows{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:6px;scrollbar-width:thin;scrollbar-color:rgba(240,214,150,.45) transparent}
+.grow{flex:none;display:grid;grid-template-columns:24px 30px 1fr auto 56px;align-items:center;gap:8px;min-height:50px;padding:6px 10px 6px 4px;border-radius:14px;background:rgba(255,255,255,.07)}
+.grow .nr{text-align:center;font-size:12.5px;font-weight:600;color:var(--on-stage-soft);font-variant-numeric:tabular-nums}
+.grow .txt{min-width:0;display:flex;flex-direction:column;gap:1px}
+.grow b{font-size:14px;font-weight:600}
+.grow small{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--on-stage-soft);white-space:nowrap}
+.grow .pip svg{display:block;width:12px;height:12px}
+.grow .val{font-family:var(--font-mark);font-size:18px;font-weight:700;color:var(--cream);font-variant-numeric:tabular-nums}
+.grow .gain{text-align:right;font-size:15px;font-weight:700;color:var(--ok-stage);font-variant-numeric:tabular-nums}
+.grow .gain.minus{color:var(--on-stage-soft)}
+@media (prefers-reduced-motion:no-preference){
+  /* the count moves on with a small slam */
+  .tag-glass.series.mo{animation:slam .6s cubic-bezier(.5,0,.7,1.4) var(--d,0s) both}
 }
 </style>
 <style>

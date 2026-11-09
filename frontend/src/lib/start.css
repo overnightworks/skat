@@ -1700,13 +1700,6 @@ body {
     font-weight: 700;
 }
 
-/* While a game is played the plaque carries the game and both sides' points against the 61 line. */
-.room .plaque.in-play {
-    flex-direction: column;
-    gap: 7px;
-    padding: 8px 12px 10px;
-}
-
 .room .plaque .game {
     display: flex;
     align-items: center;

@@ -23,7 +23,13 @@ from skat.web.tables import (
     create_tables_router,
 )
 from tests.support.faulty_tables import FaultyTableTransactions
-from tests.support.idle_presence import idle_empty_table, idle_hold, idle_next_deal, idle_presence
+from tests.support.idle_presence import (
+    idle_agent_lease,
+    idle_empty_table,
+    idle_hold,
+    idle_next_deal,
+    idle_presence,
+)
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
 from tests.support.payload_cards import (
     CARDS_BY_SEAT,
@@ -135,7 +141,7 @@ class TestReadTable:
             create_tables_router(
                 TableService(skat.store),
                 fixture_page_build(),
-                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table()),
+                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease()),
             )
         )
         # The probing router goes first so that it, not the composed one, answers the read.
@@ -215,7 +221,7 @@ def stand_after_sitting(skat, headers, table_id):
 
 class RecordingPresence(Presence):
     def __init__(self):
-        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table())
+        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease())
         self.woken = []
 
     def wake_table(self, table_id):
