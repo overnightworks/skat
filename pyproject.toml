@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.16",
     "fastapi>=0.123.7",
+    "overnightworks-agent-runtime-client[mcp-server] @ git+https://github.com/overnightworks/agent-runtime@v0.27.1",
     "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.34.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
@@ -27,7 +28,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 # The overnightworks library is built from its git tag; a named package
 # overrides a global --no-build, so every other package still installs as a wheel.
-no-binary-package = ["overnightworks-webauth"]
+no-binary-package = ["overnightworks-agent-runtime-client", "overnightworks-webauth"]
 # Its build backend runs with these exact tools, as hatchling is pinned above.
 build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0"]
 
@@ -162,7 +163,16 @@ id = "table-core"
 name = "The table core imports no framework, driver or adapter"
 type = "forbidden"
 source_modules = ["skat.table", "skat.engine"]
-forbidden_modules = ["sqlalchemy", "alembic", "psycopg", "fastapi", "starlette", "webauth"]
+forbidden_modules = [
+    "sqlalchemy",
+    "alembic",
+    "psycopg",
+    "fastapi",
+    "starlette",
+    "webauth",
+    "agent_runtime_client",
+    "mcp",
+]
 
 [[tool.importlinter.contracts]]
 id = "host-layers"
