@@ -10,6 +10,7 @@ from sqlalchemy import text
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable
 from skat.table.service import TableService
+from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
@@ -246,5 +247,5 @@ def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
         reader = threading.Thread(target=read_until_the_stream_ends, args=(response,), daemon=True)
         reader.start()
 
-    assert ended.wait(timeout=5)
+    assert ended.wait(timeout=GRACEFUL_SHUTDOWN_SECONDS)
     connection.close()
