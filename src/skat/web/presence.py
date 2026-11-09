@@ -77,11 +77,24 @@ class NextDeal:
 
     `deal(table_id, connected_accounts)` answers whether it dealt, and raises when the store fails. It enters
     `connected_accounts` in its worker once it holds the table and leaves it after the commit; that yields who is
-    connected then, and nobody once the presence has stopped.
+    connected then, and None once the presence has stopped.
     """
 
     seconds: float
-    deal: Callable[[str, AbstractContextManager[frozenset[str]]], Awaitable[bool]]
+    deal: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
+
+
+@dataclass(frozen=True)
+class EmptyTable:
+    """How long a table nobody is connected to stays, and the command that ends it.
+
+    `end(table_id, connected_accounts)` answers whether it ended the table, and raises when the store fails. It
+    enters `connected_accounts` in its worker once it holds the table and leaves it after the commit; that yields
+    who is connected then, and None once the presence has stopped or a stream opened since the wait began.
+    """
+
+    seconds: float
+    end: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
 
 
 class Presence:
@@ -106,18 +119,25 @@ class Presence:
     replaces a pending pause, and the replaced timer does nothing when it fires, so a pending timer of an
     earlier hand cannot shorten this one's. Nothing about a pause is stored: after a restart none is pending, and
     all three being connected can only become true by streams opening, so no sweep is needed.
+
+    A table gets one wait when it is created or found at the server's start, and another each time its last stream
+    ends; a stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it
+    fires, the end is asked for with who is connected then, and a failure is retried while the wait stays the table's
+    latest. Nothing about a wait is stored either: after a restart every live table waits a full time.
     """
 
-    def __init__(self, hold: ChairHold, next_deal: NextDeal) -> None:
+    def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable) -> None:
         self._subscriptions: dict[str, list[Subscription]] = {}
         self._stopped = False
         self._hold = hold
         self._next_deal = next_deal
+        self._empty_table = empty_table
         self._pauses: dict[str, object] = {}
+        self._empty_waits: dict[str, object] = {}
         self._left_at: dict[tuple[str, str], float] = {}
         self._state = threading.Lock()
         self._committing: dict[tuple[str, str], asyncio.Event] = {}
-        self._dealing: set[asyncio.Event] = set()
+        self._writing: set[asyncio.Event] = set()
 
     @property
     def stopped(self) -> bool:
@@ -159,6 +179,7 @@ class Presence:
         """
         key = (table_id, account_id)
         with self._state:
+            self._empty_waits.pop(table_id, None)
             committing = self._committing.get(key)
             if committing is None:
                 self._left_at.pop(key, None)
@@ -186,6 +207,15 @@ class Presence:
         if subscription.account_id not in self.connected(subscription.table_id):
             self._start_hold(subscription.table_id, subscription.account_id)
             self._wake_all(remaining)
+        if subscription.table_id not in self._subscriptions:
+            self._start_empty_wait(subscription.table_id)
+
+    def watch_empty_table(self, table_id: str) -> None:
+        """Start a table's wait if nobody is connected and none is pending: a create retry neither restarts nor
+        stretches it. Call it on the event loop's thread after a create, and for each live table at the server's start.
+        """
+        if table_id not in self._subscriptions and table_id not in self._empty_waits:
+            self._start_empty_wait(table_id)
 
     def deal_soon(self, table_id: str) -> None:
         """Start the pause before a table's next deal; a request during a pending one neither cuts nor stretches it."""
@@ -215,7 +245,7 @@ class Presence:
         """
         try:
             dealt = await self._next_deal.deal(
-                table_id, self._connected_while_dealing(table_id, asyncio.get_running_loop())
+                table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
             )
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
@@ -223,6 +253,36 @@ class Presence:
             return
         if dealt:
             self.wake_table(table_id)
+
+    def _start_empty_wait(self, table_id: str) -> None:
+        if self._stopped:
+            return
+        wait = object()
+        with self._state:
+            self._empty_waits[table_id] = wait
+        self._hold.scheduler.schedule(self._empty_table.seconds, partial(self._end_if_empty, table_id, wait))
+
+    async def _end_if_empty(self, table_id: str, wait: object) -> None:
+        if not self._is_latest_wait(table_id, wait):
+            return
+        loop = asyncio.get_running_loop()
+        try:
+            ended = await self._empty_table.end(
+                table_id, self._connected_while_writing(table_id, loop, partial(self._is_latest_wait, table_id, wait))
+            )
+        except Exception as failure:
+            # The failure's message may carry an account id, so only its type is logged.
+            log.error("empty table end failed", table_id=table_id, error=type(failure).__name__)
+            self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self._end_if_empty, table_id, wait))
+            return
+        with self._state:
+            if self._empty_waits.get(table_id) is wait:
+                del self._empty_waits[table_id]
+        if ended:
+            self.wake_table(table_id)
+
+    def _is_latest_wait(self, table_id: str, wait: object) -> bool:
+        return not self._stopped and self._empty_waits.get(table_id) is wait
 
     def _start_hold(self, table_id: str, account_id: str) -> None:
         if self._stopped:
@@ -275,31 +335,34 @@ class Presence:
                 loop.call_soon_threadsafe(committing.set)
 
     @contextmanager
-    def _connected_while_dealing(self, table_id: str, loop: asyncio.AbstractEventLoop) -> Generator[frozenset[str]]:
-        """Enter on a worker once it holds the table: yields who is connected then, and nobody once stopped.
+    def _connected_while_writing(
+        self, table_id: str, loop: asyncio.AbstractEventLoop, is_due: Callable[[], bool] = lambda: True
+    ) -> Generator[frozenset[str] | None]:
+        """Enter on a worker once it holds the table: yields who is connected then, and None once stopped or when
+        `is_due` says the caller's request has been superseded.
 
         The exit runs on the worker after the commit, so `finish_writes` outlives a cancelled event-loop task.
         """
         committing = asyncio.Event()
         with self._state:
-            may_deal = not self._stopped
-            connected = self.connected(table_id) if may_deal else frozenset[str]()
-            if may_deal:
-                self._dealing.add(committing)
+            due = not self._stopped and is_due()
+            connected = self.connected(table_id) if due else None
+            if due:
+                self._writing.add(committing)
         try:
             yield connected
         finally:
-            if may_deal:
+            if due:
                 with self._state:
-                    self._dealing.discard(committing)
+                    self._writing.discard(committing)
                 loop.call_soon_threadsafe(committing.set)
 
     async def finish_writes(self) -> None:
-        """Wait until every freeing whose check passed and every deal that read its accounts has ended its transaction;
-        call it after `stop`.
+        """Wait until every freeing whose check passed and every deal or end that read its accounts has ended its
+        transaction; call it after `stop`.
         """
         with self._state:
-            writing = [*self._committing.values(), *self._dealing]
+            writing = [*self._committing.values(), *self._writing]
         for committing in writing:
             await committing.wait()
 

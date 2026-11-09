@@ -1,5 +1,6 @@
 import secrets
 import threading
+from contextlib import nullcontext
 from typing import TYPE_CHECKING
 
 import pytest
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from skat.web.settings import ServerSettings
 
 SESSION_COOKIE = "__Host-session_id"
+OPENER = Actor(account_id="account-anna", display_name="Anna")
 
 
 def signed_in_client(settings: ServerSettings) -> TestClient:
@@ -55,6 +57,25 @@ class FreeingSignal(TableService):
         return freed
 
 
+class EndingSignal(TableService):
+    """A table service that tells when a table was ended, and can hold an end inside its transaction."""
+
+    def __init__(self, store: FakeTableStore) -> None:
+        super().__init__(store)
+        self.table_ended = threading.Event()
+        self.end_entered = threading.Event()
+        self.release_end = threading.Event()
+
+    def end_empty_table(self, table_id, connected_accounts, empty_seconds):
+        with connected_accounts as connected:
+            self.end_entered.set()
+            assert self.release_end.wait(timeout=10)
+        ended = super().end_empty_table(table_id, nullcontext(connected), empty_seconds)
+        if ended:
+            self.table_ended.set()
+        return ended
+
+
 class TestCreateApp:
     def test_a_chair_seated_when_the_server_starts_turns_free_after_the_hold_when_nobody_connects(
         self, sign_in_settings
@@ -68,6 +89,38 @@ class TestCreateApp:
             assert tables.chair_freed.wait(timeout=10)
 
         assert tables.occupied_chairs() == ()
+
+    def test_a_table_read_live_when_the_server_starts_ends_after_the_wait_when_nobody_connects(self, sign_in_settings):
+        tables = EndingSignal(FakeTableStore())
+        tables.release_end.set()
+        opened = tables.create(OPENER, CreateTable(command_id="command-open"))
+        settings = sign_in_settings(empty_table_seconds=1).settings
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+
+        with TestClient(app):
+            assert tables.table_ended.wait(timeout=10)
+
+        assert tables.live_table_ids() == ()
+        assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1
+
+    def test_the_lifespan_returns_only_after_an_end_whose_check_passed_has_committed(self, sign_in_settings):
+        tables = EndingSignal(FakeTableStore())
+        tables.create(OPENER, CreateTable(command_id="command-open"))
+        settings = sign_in_settings(empty_table_seconds=1).settings
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+        client = TestClient(app)
+        client.__enter__()
+        assert tables.end_entered.wait(timeout=10)
+        app.state.stop_streams()
+
+        closing = threading.Thread(target=client.__exit__, args=(None, None, None))
+        closing.start()
+        closing.join(timeout=0.3)
+        waited_for_the_end = closing.is_alive()
+        tables.release_end.set()
+        closing.join(timeout=10)
+
+        assert (waited_for_the_end, closing.is_alive(), tables.table_ended.is_set()) == (True, False, True)
 
     def test_installs_the_web_auth_config_built_from_its_settings(self, sign_in_settings):
         sign_in = sign_in_settings()

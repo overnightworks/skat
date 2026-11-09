@@ -17,7 +17,7 @@ from skat.web.tables import (
     create_tables_router,
 )
 from tests.support.faulty_tables import FaultyTableTransactions
-from tests.support.idle_presence import idle_hold, idle_next_deal, idle_presence
+from tests.support.idle_presence import idle_empty_table, idle_hold, idle_next_deal, idle_presence
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
 from tests.support.payload_cards import (
     CARDS_BY_SEAT,
@@ -125,7 +125,9 @@ class TestReadTable:
 
         skat.app.include_router(
             create_tables_router(
-                TableService(skat.store), fixture_page_build(), ProbingPresence(idle_hold(), idle_next_deal())
+                TableService(skat.store),
+                fixture_page_build(),
+                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table()),
             )
         )
         # The probing router goes first so that it, not the composed one, answers the read.
@@ -205,7 +207,7 @@ def stand_after_sitting(skat, headers, table_id):
 
 class RecordingPresence(Presence):
     def __init__(self):
-        super().__init__(idle_hold(), idle_next_deal())
+        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table())
         self.woken = []
 
     def wake_table(self, table_id):
@@ -571,3 +573,55 @@ class TestTokens:
     def test_every_member_has_exactly_one_token_and_no_two_share_one(self, tokens, members):
         assert set(tokens) == set(members)
         assert len(set(tokens.values())) == len(members)
+
+
+class TestAnEmptyTableEnds:
+    @pytest.fixture
+    def ended(self, server, time, hold):
+        """A table its opener left alone for the whole wait: the opener's headers, the table's id and the wait."""
+        headers, _ = server.member()
+        table_id = server.create(headers).json()["id"]
+        server.client.portal.call(time.advance, hold.settings.empty_table_seconds)
+        return headers, table_id, hold.settings.empty_table_seconds
+
+    def test_a_created_table_starts_one_wait_and_a_retry_neither_restarts_nor_adds_one(self, server, time):
+        headers, _ = server.member()
+
+        first = server.create(headers)
+        again = server.create(headers)
+
+        assert (again.json(), time.pending) == (first.json(), 1)
+        assert first.json()["ended"] is None
+
+    def test_the_ended_table_answers_with_the_reason_and_the_wait_and_names_nobody(self, server, ended):
+        headers, table_id, seconds = ended
+
+        answer = server.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
+
+        assert answer["ended"] == {"reason": "empty", "empty_seconds": seconds}
+        assert (answer["chairs"], answer["watchers"], answer["hand"], answer["result"], answer["passed_in"]) == (
+            [],
+            0,
+            None,
+            None,
+            None,
+        )
+
+    def test_a_create_retry_returns_the_ended_table_and_starts_no_wait(self, server, time, ended):
+        headers, table_id, seconds = ended
+        tables_before = dict(server.store.tables)
+
+        again = server.create(headers).json()
+
+        assert (again["id"], again["ended"]["empty_seconds"]) == (table_id, seconds)
+        assert (server.store.tables, time.pending) == (tables_before, 0)
+
+    @pytest.mark.parametrize("command", ["sit", "stand"])
+    def test_a_command_at_the_ended_table_is_not_found_and_writes_nothing(self, server, ended, command):
+        headers, table_id, _ = ended
+        written = (dict(server.store.tables), dict(server.store.receipts))
+
+        answer = server.sit(headers, table_id, 2) if command == "sit" else server.stand(headers, table_id)
+
+        assert answer.status_code == 404
+        assert (server.store.tables, server.store.receipts) == written

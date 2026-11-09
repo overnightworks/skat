@@ -48,7 +48,7 @@ async def table_views(
     heartbeat reads the view again and sends it only when the table's version moved since the last view
     sent, which recovers a lost wake. A stream's first view of a passed-in table asks for the next deal, so a
     member's return, a restart or a lost deal starts a fresh pause; its first view of a pending result asks for
-    the deal at once, and the marks decide.
+    the deal at once, and the marks decide. A stream that finds its table ended sends that view as its last.
     """
     changed = asyncio.Event()
     subscription = await presence.subscribe(table_id, account_id, changed.set)
@@ -65,6 +65,9 @@ async def table_views(
             if view is None:
                 message = f"table {table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
+            if view.ended is not None:
+                yield view
+                return
             if sent_version is None:
                 await _ask_for_next_deal(presence, table_id, view)
             if not heartbeat_read or view.version != sent_version:
@@ -96,7 +99,8 @@ def create_streams_router(
             return await run_in_threadpool(tables.view, actor, table_id, connected)
 
         # Nothing is registered or held open for an id that is no table.
-        if await read_view(opened_as, frozenset()) is None:
+        first_view = await read_view(opened_as, frozenset())
+        if first_view is None:
             raise HTTPException(status_code=404, detail="table not found")
 
         # The gate admitted this request by its cookie, so a missing session id is a wiring fault.
@@ -114,6 +118,10 @@ def create_streams_router(
             return actor_for(admission)
 
         async def messages() -> AsyncIterator[str]:
+            # An ended table has nobody to watch: its one message is its answer, and nothing registers.
+            if first_view.ended is not None:
+                yield f"data: {answer_of(first_view).model_dump_json()}\n\n"
+                return
             async for view in table_views(
                 presence, read_view, admit, table_id, opened_as.account_id, heartbeat_seconds=heartbeat_seconds
             ):

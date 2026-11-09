@@ -15,7 +15,7 @@ from skat.engine.declaration import Announcement, Stage
 from skat.engine.games import GameKind
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.records import Actor, CommandRefusal, CreateTable, SitDown, StandUp
+from skat.table.records import Actor, CommandRefusal, CreateTable, EndReason, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.routes import READ_METHODS, built_page_response
@@ -293,6 +293,11 @@ class ResultAnswer(BaseModel):
     gains: list[SeatGainAnswer]
 
 
+class EndedAnswer(BaseModel):
+    reason: EndReason
+    empty_seconds: int
+
+
 class TableAnswer(BaseModel):
     id: str
     version: int
@@ -301,6 +306,7 @@ class TableAnswer(BaseModel):
     hand: HandAnswer | None
     passed_in: PassedInAnswer | None
     result: ResultAnswer | None
+    ended: EndedAnswer | None
 
 
 class CardChoice(CardAnswer):
@@ -453,6 +459,9 @@ def answer_of(view: TableView) -> TableAnswer:
         hand=hand_answer_of(view.hand),
         passed_in=passed_in_answer_of(view.passed_in),
         result=result_answer_of(view.result),
+        ended=None
+        if view.ended is None
+        else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
     )
 
 
@@ -505,13 +514,17 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
     router = APIRouter()
 
     @router.post(TABLES_PATH, responses={409: {"description": "The command id came back with another request."}})
-    def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
+    async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            return answer_of(tables.create(actor_of(request), CreateTable(command_id=body.command_id)))
+            view = await run_in_threadpool(tables.create, actor_of(request), CreateTable(command_id=body.command_id))
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
+        # Presence belongs to the event loop's thread, so the wait starts here and not on the worker.
+        if view.ended is None:
+            presence.watch_empty_table(view.id)
+        return answer_of(view)
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
