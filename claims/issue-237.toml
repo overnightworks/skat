@@ -1,0 +1,8 @@
+claim_id = "2c3f6fdf32bc451c9b96346cfa82fdd8"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "58c0b1f37dbc34d6f34e4ed847bd182ec1e7962f"
+branch = "claude/issue-237-result-reckoning"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/DeclareControls.svelte", "frontend/src/lib/ui/ResultCard.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "tests/e2e/support/declaring.py", "tests/e2e/support/hands.py", "tests/e2e/test_table_declaring.py", "tests/e2e/test_table_ouvert.py", "tests/e2e/test_table_result.py", "tests/scripts/test_generate_wire.py", "tests/support/played_game.py"]
+opened_commit = "ee15dd47270e1baa5008a7a2786ae0ead0e17a08"
+whole_reason = "The card's reckoning, the fold that names its game line and the deletion of the page's own winner, overbid line and score are one blessed picture; drawn apart, the card would show the server's reckoning beside the page's own."
