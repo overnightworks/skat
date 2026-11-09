@@ -185,7 +185,7 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
             BuiltPage.of(signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"'))
         )
 
-    @router.api_route(CALL_SIGN_IN_PATH, methods=READ_METHODS)
+    @router.api_route(CALL_SIGN_IN_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
     def call_sign_in() -> Response:
         return built_page_response(page_build.call_sign_in)
 
