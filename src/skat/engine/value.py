@@ -89,7 +89,7 @@ def levels_of(declaration: Declaration, *, schneider: bool, schwarz: bool) -> tu
 
 @dataclass(frozen=True)
 class Breakdown:
-    """What a game's value is made of besides the matadors: its base value and the levels it counts; Null has neither."""
+    """What a game value is made of besides the matadors: its base value and its levels; Null has neither."""
 
     base_value: int | None
     levels: tuple[Level, ...]

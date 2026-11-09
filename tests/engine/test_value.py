@@ -274,7 +274,9 @@ SCHWARZ_LEVEL, SCHWARZ_ANNOUNCED, OUVERT_LEVEL = Level.SCHWARZ, Level.SCHWARZ_AN
         pytest.param(game(KREUZ, MIT_TWO, WIN), (SPIEL,), id="plain"),
         pytest.param(game(KREUZ, MIT_TWO, WIN, hand=True), (SPIEL, HAND_LEVEL), id="hand"),
         pytest.param(game(KREUZ, MIT_TWO, WIN_SCHNEIDER), (SPIEL, SCHNEIDER_LEVEL), id="schneider-reached"),
-        pytest.param(game(KREUZ, MIT_TWO, TAKES_ALL), (SPIEL, SCHNEIDER_LEVEL, SCHWARZ_LEVEL), id="schwarz-unannounced"),
+        pytest.param(
+            game(KREUZ, MIT_TWO, TAKES_ALL), (SPIEL, SCHNEIDER_LEVEL, SCHWARZ_LEVEL), id="schwarz-unannounced"
+        ),
         pytest.param(
             game(KREUZ, MIT_TWO, WIN_SCHNEIDER, hand=True, announcement=SCHNEIDER),
             (SPIEL, HAND_LEVEL, SCHNEIDER_LEVEL, SCHNEIDER_ANNOUNCED),
@@ -300,9 +302,7 @@ SCHWARZ_LEVEL, SCHWARZ_ANNOUNCED, OUVERT_LEVEL = Level.SCHWARZ, Level.SCHWARZ_AN
         ),
     ],
 )
-def test_the_levels_a_game_counts_come_in_the_order_of_the_rules(
-    played: PlayedOut, levels: tuple[Level, ...]
-) -> None:
+def test_the_levels_a_game_counts_come_in_the_order_of_the_rules(played: PlayedOut, levels: tuple[Level, ...]) -> None:
     declaration = played.declared.declaration
     assert declaration is not None
     valuation = value_of(played)
