@@ -1,0 +1,8 @@
+claim_id = "084856728a36436cb9bba06ce42169a7"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "4988d7cdd6586cafb84a7910368e19028171e751"
+branch = "claude/issue-114-played-game"
+scope = ["tests/store/test_declaring.py", "tests/store/test_tables.py", "tests/support/played_game.py", "tests/table/test_declaring.py", "tests/table/test_playing.py", "tests/table/test_ready.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/web/support/presence.py", "tests/web/test_presence_next_deal.py"]
+opened_commit = "9ab54c8cb3db67c1956d130a3bb16ad90a9c495b"
+whole_reason = "One builder and its callers: the builder without its callers is code ahead of its caller, and each caller alone keeps a copy."
