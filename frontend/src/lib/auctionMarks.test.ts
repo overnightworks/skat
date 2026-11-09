@@ -273,7 +273,12 @@ describe("what the others see while the declarer decides", () => {
             playing: null,
         },
     });
-    const declaringAt = (stage: Stage): Declaring => ({ declarer_seat: MIDDLEHAND, stage, declaration: null });
+    const declaringAt = (stage: Stage): Declaring => ({
+        declarer_seat: MIDDLEHAND,
+        stage,
+        declaration: null,
+        open_cards: [],
+    });
 
     describe("the plaque", () => {
         it.each([
