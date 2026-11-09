@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from enum import StrEnum
 
 
-class StepOutcome[State](Protocol):
+class StepOutcome[State](Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     @property
     def state(self) -> State: ...
 
