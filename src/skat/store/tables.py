@@ -175,14 +175,8 @@ class _PostgresTableTransaction:
         table = _table_record(self._connection, table_id.value, row_lock="update")
         return table if isinstance(table, TableRecord) else None
 
-    def save_table(self, table: TableRecord) -> None:
-        dealt = _read_hand(self._connection, table.id.value)
-        ended = dealt is not None and table.hand is None
-        passed_in = ended and isinstance(auction_of(table).result, PassedIn)
-        played_out = ended and len(table.game_list) > len(read_game_list(self._connection, table.id.value))
-        if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not passed_in:
-            message = f"the hand saved for table {table.id.value} differs from the one dealt"
-            raise DealtHandRewrittenError(message)
+    def _write_table_row(self, table: TableRecord) -> None:
+        """The row's changing columns: the series length is written once, by `add_table`, and never here."""
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table.id.value)
@@ -192,6 +186,16 @@ class _PostgresTableTransaction:
                 series_deals=None if table.series is None else table.series.deals,
             )
         )
+
+    def save_table(self, table: TableRecord) -> None:
+        dealt = _read_hand(self._connection, table.id.value)
+        ended = dealt is not None and table.hand is None
+        passed_in = ended and isinstance(auction_of(table).result, PassedIn)
+        played_out = ended and len(table.game_list) > len(read_game_list(self._connection, table.id.value))
+        if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not passed_in:
+            message = f"the hand saved for table {table.id.value} differs from the one dealt"
+            raise DealtHandRewrittenError(message)
+        self._write_table_row(table)
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if played_out:
