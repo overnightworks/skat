@@ -7,7 +7,6 @@ import {
     type Chair,
     type ChairHand,
     type Declaring,
-    type Game,
     type LastTrick,
     type Playing,
     type SeatedCard,
