@@ -10,7 +10,9 @@ import {
     type STAGE_TOKENS,
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
-    TABLE_DECLARATION_SUFFIX,
+    TABLE_DECLARING_DECLARE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
@@ -171,14 +173,22 @@ export type DeclaringStep =
     | { action: "put_back"; cards: readonly Card[] }
     | { action: "declare"; game: Game; hand: boolean; ouvert: false; announcement: "none" };
 
+const DECLARING_STEP_SUFFIXES: Record<DeclaringStep["action"], string> = {
+    take: TABLE_DECLARING_TAKE_SUFFIX,
+    put_back: TABLE_DECLARING_PUT_BACK_SUFFIX,
+    declare: TABLE_DECLARING_DECLARE_SUFFIX,
+};
+
 // The version is the one the page shows; each tap brings its own command id, and nothing is retried.
+// The action only picks the path: the body carries the step's fields.
 export function takeDeclaringStep(
     id: string,
     version: number,
     commandId: string,
     step: DeclaringStep,
 ): Promise<Outcome> {
-    return post(id, TABLE_DECLARATION_SUFFIX, { command_id: commandId, version, ...step });
+    const { action, ...fields } = step;
+    return post(id, DECLARING_STEP_SUFFIXES[action], { command_id: commandId, version, ...fields });
 }
 
 // The client names only the card: the seat that plays it comes from the session.

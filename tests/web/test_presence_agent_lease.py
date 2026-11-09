@@ -118,7 +118,7 @@ def person_passes(table, position):
 
 
 def pass_the_hand_in(table, agent):
-    agent.auction_step(AUCTION_PASS_TOOL, table, command_id="agent-pass")
+    agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-pass")
     person_passes(table, REARHAND)
     person_passes(table, FOREHAND)
 
@@ -266,7 +266,7 @@ class TestWhenTheLeaseLapses:
         assert is_away(hand_table, AGENT_SEAT)
 
     def test_a_hand_that_ends_after_the_lapse_starts_a_fresh_hold(self, skat, time, agent, hand_table, hold_seconds):
-        agent.auction_step(AUCTION_PASS_TOOL, hand_table, command_id="agent-pass")
+        agent.take_step(AUCTION_PASS_TOOL, hand_table, command_id="agent-pass")
         advance(skat, time, LEASE_SECONDS + hold_seconds + 10)
         person_passes(hand_table, REARHAND)
         person_passes(hand_table, FOREHAND)

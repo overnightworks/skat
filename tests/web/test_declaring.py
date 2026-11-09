@@ -12,7 +12,11 @@ from skat.engine.games import GameKind
 from skat.table.hand_state import declaring_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
+from skat.web.declaring import (
+    TABLE_DECLARING_DECLARE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_TAKE_SUFFIX,
+)
 from skat.web.tables import (
     RANK_TOKENS,
     SUIT_TOKENS,
@@ -39,6 +43,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
+TAKE, PUT_BACK, DECLARE = (
+    TABLE_DECLARING_TAKE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_DECLARE_SUFFIX,
+)
 
 
 def card_body(card):
@@ -65,10 +74,10 @@ def hand_declaration():
     return declared_body(hand=True)
 
 
-def post_declaring(skat, headers, table_id, *, command_id, version, action, **fields):
+def post_declaring(skat, headers, table_id, *, command_id, version, suffix, **fields):
     return skat.client.post(
-        f"{TABLES_PATH}/{table_id}{TABLE_DECLARATION_SUFFIX}",
-        json={"command_id": command_id, "version": version, "action": action, **fields},
+        f"{TABLES_PATH}/{table_id}{suffix}",
+        json={"command_id": command_id, "version": version, **fields},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 
@@ -118,36 +127,36 @@ class Table:
         self.auction_step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
         self.auction_step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
 
-    def send(self, headers, action, *, command_id=None, version=None, **fields):
+    def send(self, headers, suffix, *, command_id=None, version=None, **fields):
         return post_declaring(
             self.skat,
             headers,
             self.table_id,
             command_id=command_id or self.fresh_id(),
             version=self.record.version if version is None else version,
-            action=action,
+            suffix=suffix,
             **fields,
         )
 
-    def accepted(self, action, **fields):
+    def accepted(self, suffix, **fields):
         before = self.record
-        answer = self.send(self.at[MIDDLEHAND], action, **fields)
+        answer = self.send(self.at[MIDDLEHAND], suffix, **fields)
         assert answer.status_code == 200, answer.text
         assert self.record.version == before.version + 1
         assert len(self.steps) == len(before.progress.declaring) + 1
         return answer
 
-    def refused(self, headers, action, reason, **fields):
+    def refused(self, headers, suffix, reason, **fields):
         before = self.record
-        answer = self.send(headers, action, **fields)
+        answer = self.send(headers, suffix, **fields)
         assert answer.status_code == 409, answer.text
         assert reason_of(answer) == reason
         assert self.record == before
         return answer
 
     def picked(self):
-        self.accepted(DeclaringAction.TAKE)
-        self.accepted(DeclaringAction.PUT_BACK, **two_of_the_twelve())
+        self.accepted(TAKE)
+        self.accepted(PUT_BACK, **two_of_the_twelve())
 
     @property
     def path(self):
@@ -183,7 +192,7 @@ def won(table):
 
 @pytest.fixture
 def after_take(won):
-    won.accepted(DeclaringAction.TAKE)
+    won.accepted(TAKE)
     return won
 
 
@@ -195,33 +204,33 @@ def picked(won):
 
 class TestAccepted:
     def test_taking_the_skat_stores_a_step_and_raises_the_version(self, won):
-        answer = won.accepted(DeclaringAction.TAKE)
+        answer = won.accepted(TAKE)
 
         assert won.steps == (TakeSkat(),)
         assert answer.json()["version"] == won.record.version
         assert answer.headers["cache-control"] == "no-store"
 
     def test_putting_back_two_of_the_twelve_leaves_the_dealt_hand_as_dealt(self, after_take):
-        after_take.accepted(DeclaringAction.PUT_BACK, **cards_body(SKAT_CARDS[0], MIDDLEHAND_CARDS[0]))
+        after_take.accepted(PUT_BACK, **cards_body(SKAT_CARDS[0], MIDDLEHAND_CARDS[0]))
 
         assert after_take.steps == (TakeSkat(), PutBack((SKAT_CARDS[0], MIDDLEHAND_CARDS[0])))
         assert after_take.record.hand == KNOWN_DEAL
 
     def test_the_declarer_names_the_game_after_putting_back(self, picked):
-        picked.accepted(DeclaringAction.DECLARE, **any_declaration())
+        picked.accepted(DECLARE, **any_declaration())
 
         assert picked.declaration == Declaration(
             GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE
         )
 
     def test_a_hand_game_is_declared_without_taking_the_skat(self, won):
-        won.accepted(DeclaringAction.DECLARE, **hand_declaration())
+        won.accepted(DECLARE, **hand_declaration())
 
         assert won.steps == (Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),)
         assert won.declaration == Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
 
     def test_null_ouvert_may_be_declared_after_taking_the_skat(self, picked):
-        picked.accepted(DeclaringAction.DECLARE, **declared_body(GameToken.NULL, ouvert=True))
+        picked.accepted(DECLARE, **declared_body(GameToken.NULL, ouvert=True))
 
         assert picked.declaration == Declaration(GameKind.NULL, hand=False, ouvert=True, announcement=Announcement.NONE)
 
@@ -229,179 +238,173 @@ class TestAccepted:
         table.middlehand_wins_at(24)
         table.picked()
 
-        table.accepted(DeclaringAction.DECLARE, **declared_body(GameToken.NULL))
+        table.accepted(DECLARE, **declared_body(GameToken.NULL))
 
         assert table.declaration == Declaration(GameKind.NULL, hand=False, ouvert=False, announcement=Announcement.NONE)
 
 
 class TestRefusedByTheEngine:
     @pytest.mark.parametrize(
-        ("arrangement", "action", "fields", "reason"),
+        ("arrangement", "suffix", "fields", "reason"),
         [
             pytest.param(
                 "won",
-                DeclaringAction.PUT_BACK,
+                PUT_BACK,
                 two_of_the_twelve(),
                 DeclarationRefusal.OUT_OF_ORDER,
                 id="put-back-before-take",
             ),
             pytest.param(
                 "won",
-                DeclaringAction.DECLARE,
+                DECLARE,
                 any_declaration(),
                 DeclarationRefusal.OUT_OF_ORDER,
                 id="declare-without-hand",
             ),
-            pytest.param("after_take", DeclaringAction.TAKE, {}, DeclarationRefusal.OUT_OF_ORDER, id="take-twice"),
+            pytest.param("after_take", TAKE, {}, DeclarationRefusal.OUT_OF_ORDER, id="take-twice"),
             pytest.param(
                 "after_take",
-                DeclaringAction.DECLARE,
+                DECLARE,
                 hand_declaration(),
                 DeclarationRefusal.OUT_OF_ORDER,
                 id="declare-holding-twelve",
             ),
             pytest.param(
                 "after_take",
-                DeclaringAction.PUT_BACK,
+                PUT_BACK,
                 cards_body(DECK[0], MIDDLEHAND_CARDS[0]),
                 DeclarationRefusal.NOT_TWO_OF_THE_TWELVE,
                 id="card-outside-the-twelve",
             ),
             pytest.param(
                 "after_take",
-                DeclaringAction.PUT_BACK,
+                PUT_BACK,
                 cards_body(MIDDLEHAND_CARDS[0], MIDDLEHAND_CARDS[0]),
                 DeclarationRefusal.NOT_TWO_OF_THE_TWELVE,
                 id="same-card-twice",
             ),
             pytest.param(
                 "picked",
-                DeclaringAction.DECLARE,
+                DECLARE,
                 hand_declaration(),
                 DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP,
                 id="hand-after-pick-up",
             ),
             pytest.param(
                 "picked",
-                DeclaringAction.DECLARE,
+                DECLARE,
                 declared_body(announcement=AnnouncementToken.SCHNEIDER),
                 DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP,
                 id="announcement-after-pick-up",
             ),
             pytest.param(
                 "picked",
-                DeclaringAction.DECLARE,
+                DECLARE,
                 declared_body(ouvert=True),
                 DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP,
                 id="ouvert-suit-after-pick-up",
             ),
             pytest.param(
                 "won",
-                DeclaringAction.DECLARE,
+                DECLARE,
                 declared_body(GameToken.NULL, hand=True, announcement=AnnouncementToken.SCHNEIDER),
                 DeclarationRefusal.ANNOUNCEMENT_IN_NULL,
                 id="null-hand-with-an-announcement",
             ),
         ],
     )
-    def test_the_rules_refuse_the_step_by_name(self, request, arrangement, action, fields, reason):
+    def test_the_rules_refuse_the_step_by_name(self, request, arrangement, suffix, fields, reason):
         table = request.getfixturevalue(arrangement)
 
-        table.refused(table.at[MIDDLEHAND], action, reason, **fields)
+        table.refused(table.at[MIDDLEHAND], suffix, reason, **fields)
 
     @pytest.mark.parametrize(
-        ("action", "fields"),
+        ("suffix", "fields"),
         [
-            pytest.param(DeclaringAction.TAKE, {}, id="take"),
-            pytest.param(DeclaringAction.PUT_BACK, two_of_the_twelve(), id="put-back"),
-            pytest.param(DeclaringAction.DECLARE, hand_declaration(), id="declare"),
+            pytest.param(TAKE, {}, id="take"),
+            pytest.param(PUT_BACK, two_of_the_twelve(), id="put-back"),
+            pytest.param(DECLARE, hand_declaration(), id="declare"),
         ],
     )
-    def test_once_declared_every_step_is_already_declared(self, won, action, fields):
-        won.accepted(DeclaringAction.DECLARE, **hand_declaration())
+    def test_once_declared_every_step_is_already_declared(self, won, suffix, fields):
+        won.accepted(DECLARE, **hand_declaration())
 
-        won.refused(won.at[MIDDLEHAND], action, DeclarationRefusal.ALREADY_DECLARED, **fields)
+        won.refused(won.at[MIDDLEHAND], suffix, DeclarationRefusal.ALREADY_DECLARED, **fields)
 
 
 class TestRefusedByTheTable:
     def test_an_opponent_is_not_the_declarer(self, won):
-        won.refused(won.at[FOREHAND], DeclaringAction.TAKE, Refusal.NOT_DECLARER)
+        won.refused(won.at[FOREHAND], TAKE, Refusal.NOT_DECLARER)
 
     def test_a_watcher_is_not_seated(self, won):
-        won.refused(won.watcher, DeclaringAction.TAKE, Refusal.NOT_SEATED)
+        won.refused(won.watcher, TAKE, Refusal.NOT_SEATED)
 
     def test_during_the_auction_the_step_is_the_wrong_phase(self, table):
-        table.refused(table.at[MIDDLEHAND], DeclaringAction.TAKE, Refusal.WRONG_PHASE)
+        table.refused(table.at[MIDDLEHAND], TAKE, Refusal.WRONG_PHASE)
 
     def test_a_passed_in_hand_has_no_declarer(self, table):
         table.auction_step(MIDDLEHAND, TABLE_AUCTION_PASS_SUFFIX)
         table.auction_step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
         table.auction_step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
 
-        table.refused(table.at[FOREHAND], DeclaringAction.TAKE, Refusal.NO_HAND)
+        table.refused(table.at[FOREHAND], TAKE, Refusal.NO_HAND)
 
     def test_no_hand_is_named_before_not_seated_and_a_stale_version(self, skat):
         opener, _ = skat.member()
         outsider, _ = skat.member()
         table_id = skat.create(opener).json()["id"]
 
-        answer = post_declaring(
-            skat, outsider, table_id, command_id="step-0001", version=0, action=DeclaringAction.TAKE
-        )
+        answer = post_declaring(skat, outsider, table_id, command_id="step-0001", version=0, suffix=TAKE)
 
         assert reason_of(answer) == Refusal.NO_HAND
 
     def test_not_seated_is_named_before_a_stale_version(self, won):
-        won.refused(won.watcher, DeclaringAction.TAKE, Refusal.NOT_SEATED, version=won.record.version - 1)
+        won.refused(won.watcher, TAKE, Refusal.NOT_SEATED, version=won.record.version - 1)
 
     def test_a_stale_version_is_named_before_the_wrong_phase(self, table):
         table.auction_step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, 18)
 
-        table.refused(
-            table.at[MIDDLEHAND], DeclaringAction.TAKE, Refusal.STALE_VERSION, version=table.record.version - 1
-        )
+        table.refused(table.at[MIDDLEHAND], TAKE, Refusal.STALE_VERSION, version=table.record.version - 1)
 
     def test_the_wrong_phase_is_named_before_not_the_declarer(self, table):
-        table.refused(table.at[REARHAND], DeclaringAction.TAKE, Refusal.WRONG_PHASE)
+        table.refused(table.at[REARHAND], TAKE, Refusal.WRONG_PHASE)
 
     def test_not_the_declarer_is_named_before_the_engines_reason(self, won):
-        won.refused(won.at[FOREHAND], DeclaringAction.PUT_BACK, Refusal.NOT_DECLARER, **two_of_the_twelve())
+        won.refused(won.at[FOREHAND], PUT_BACK, Refusal.NOT_DECLARER, **two_of_the_twelve())
 
 
 class TestContract:
     @pytest.mark.parametrize(
-        ("action", "fields"),
+        ("suffix", "fields"),
         [
-            pytest.param(DeclaringAction.PUT_BACK, cards_body(MIDDLEHAND_CARDS[0]), id="one-card"),
-            pytest.param(DeclaringAction.PUT_BACK, cards_body(*MIDDLEHAND_CARDS[:3]), id="three-cards"),
-            pytest.param(DeclaringAction.PUT_BACK, {}, id="no-cards"),
+            pytest.param(PUT_BACK, cards_body(MIDDLEHAND_CARDS[0]), id="one-card"),
+            pytest.param(PUT_BACK, cards_body(*MIDDLEHAND_CARDS[:3]), id="three-cards"),
+            pytest.param(PUT_BACK, {}, id="no-cards"),
             pytest.param(
-                DeclaringAction.PUT_BACK,
+                PUT_BACK,
                 {"cards": [{"suit": "lila", "rank": "ace"}, card_body(MIDDLEHAND_CARDS[0])]},
                 id="unknown-suit",
             ),
             pytest.param(
-                DeclaringAction.PUT_BACK,
+                PUT_BACK,
                 {"cards": [{**card_body(MIDDLEHAND_CARDS[0]), "seat": 1}, card_body(MIDDLEHAND_CARDS[1])]},
                 id="a-card-with-a-foreign-field",
             ),
-            pytest.param(DeclaringAction.TAKE, {"seat": 1}, id="names-a-seat"),
-            pytest.param(DeclaringAction.TAKE, {"position": "forehand"}, id="names-a-position"),
-            pytest.param(DeclaringAction.PUT_BACK, {**two_of_the_twelve(), "game": "herz"}, id="foreign-field"),
-            pytest.param(DeclaringAction.DECLARE, {**any_declaration(), "cards": []}, id="cards-on-declare"),
-            pytest.param(DeclaringAction.DECLARE, {"game": "herz"}, id="missing-declaration-fields"),
-            pytest.param(DeclaringAction.DECLARE, {**any_declaration(), "game": "ramsch"}, id="unknown-game"),
-            pytest.param(
-                DeclaringAction.DECLARE, {**any_declaration(), "announcement": "kontra"}, id="unknown-announcement"
-            ),
-            pytest.param(DeclaringAction.DECLARE, {**any_declaration(), "hand": "yes"}, id="hand-not-a-boolean"),
-            pytest.param("reject", {}, id="unknown-action"),
+            pytest.param(TAKE, {"seat": 1}, id="names-a-seat"),
+            pytest.param(TAKE, {"position": "forehand"}, id="names-a-position"),
+            pytest.param(PUT_BACK, {**two_of_the_twelve(), "game": "herz"}, id="foreign-field"),
+            pytest.param(DECLARE, {**any_declaration(), "cards": []}, id="cards-on-declare"),
+            pytest.param(DECLARE, {"game": "herz"}, id="missing-declaration-fields"),
+            pytest.param(DECLARE, {**any_declaration(), "game": "ramsch"}, id="unknown-game"),
+            pytest.param(DECLARE, {**any_declaration(), "announcement": "kontra"}, id="unknown-announcement"),
+            pytest.param(DECLARE, {**any_declaration(), "hand": "yes"}, id="hand-not-a-boolean"),
+            pytest.param(TAKE, {"action": "take"}, id="names-an-action"),
         ],
     )
-    def test_a_body_that_breaks_the_contract_is_refused_and_stores_nothing(self, won, action, fields):
+    def test_a_body_that_breaks_the_contract_is_refused_and_stores_nothing(self, won, suffix, fields):
         before = won.record
 
-        answer = won.send(won.at[MIDDLEHAND], action, **fields)
+        answer = won.send(won.at[MIDDLEHAND], suffix, **fields)
 
         assert answer.status_code == 422
         assert won.record == before
@@ -409,16 +412,14 @@ class TestContract:
     def test_an_unknown_table_answers_404(self, skat):
         headers, _ = skat.member()
 
-        answer = post_declaring(
-            skat, headers, UNKNOWN_ID, command_id="step-0001", version=1, action=DeclaringAction.TAKE
-        )
+        answer = post_declaring(skat, headers, UNKNOWN_ID, command_id="step-0001", version=1, suffix=TAKE)
 
         assert answer.status_code == 404
 
     def test_signed_out_is_refused_and_changes_nothing(self, won):
         before = won.record
 
-        answer = won.send(FETCH, DeclaringAction.TAKE)
+        answer = won.send(FETCH, TAKE)
 
         assert answer.status_code == 401
         assert won.record == before
@@ -427,10 +428,10 @@ class TestContract:
 class TestRetry:
     def test_a_repeated_acceptance_answers_the_same_and_changes_nothing(self, won):
         version = won.record.version
-        first = won.send(won.at[MIDDLEHAND], DeclaringAction.TAKE, command_id=won.same_command, version=version)
+        first = won.send(won.at[MIDDLEHAND], TAKE, command_id=won.same_command, version=version)
         after_first = won.record
 
-        again = won.send(won.at[MIDDLEHAND], DeclaringAction.TAKE, command_id=won.same_command, version=version)
+        again = won.send(won.at[MIDDLEHAND], TAKE, command_id=won.same_command, version=version)
 
         assert again.status_code == 200
         assert again.json() == first.json()
@@ -439,7 +440,7 @@ class TestRetry:
     def test_a_repeated_refusal_answers_the_same_refusal(self, won):
         first = won.refused(
             won.at[MIDDLEHAND],
-            DeclaringAction.PUT_BACK,
+            PUT_BACK,
             DeclarationRefusal.OUT_OF_ORDER,
             command_id=won.same_command,
             **two_of_the_twelve(),
@@ -447,7 +448,7 @@ class TestRetry:
 
         again = won.refused(
             won.at[MIDDLEHAND],
-            DeclaringAction.PUT_BACK,
+            PUT_BACK,
             DeclarationRefusal.OUT_OF_ORDER,
             command_id=won.same_command,
             **two_of_the_twelve(),
@@ -456,25 +457,25 @@ class TestRetry:
         assert again.json() == first.json()
 
     @pytest.mark.parametrize(
-        ("action", "fields"),
+        ("suffix", "fields"),
         [
-            pytest.param(DeclaringAction.DECLARE, declared_body(GameToken.PIK), id="another-game"),
-            pytest.param(DeclaringAction.DECLARE, declared_body(hand=True), id="another-hand-flag"),
-            pytest.param(DeclaringAction.DECLARE, declared_body(ouvert=True), id="another-ouvert-flag"),
+            pytest.param(DECLARE, declared_body(GameToken.PIK), id="another-game"),
+            pytest.param(DECLARE, declared_body(hand=True), id="another-hand-flag"),
+            pytest.param(DECLARE, declared_body(ouvert=True), id="another-ouvert-flag"),
             pytest.param(
-                DeclaringAction.DECLARE,
+                DECLARE,
                 declared_body(announcement=AnnouncementToken.SCHWARZ),
                 id="another-announcement",
             ),
-            pytest.param(DeclaringAction.TAKE, {}, id="another-action"),
+            pytest.param(TAKE, {}, id="another-step"),
         ],
     )
-    def test_the_same_id_with_another_body_is_refused_as_reused(self, picked, action, fields):
+    def test_the_same_id_with_another_body_is_refused_as_reused(self, picked, suffix, fields):
         version = picked.record.version
-        picked.accepted(DeclaringAction.DECLARE, command_id=picked.same_command, version=version, **any_declaration())
+        picked.accepted(DECLARE, command_id=picked.same_command, version=version, **any_declaration())
         after_first = picked.record
 
-        answer = picked.send(picked.at[MIDDLEHAND], action, command_id=picked.same_command, version=version, **fields)
+        answer = picked.send(picked.at[MIDDLEHAND], suffix, command_id=picked.same_command, version=version, **fields)
 
         assert answer.status_code == 409
         assert "reused" in answer.json()["detail"]
@@ -482,13 +483,11 @@ class TestRetry:
 
     def test_the_same_id_with_other_cards_is_refused_as_reused(self, after_take):
         version = after_take.record.version
-        after_take.accepted(
-            DeclaringAction.PUT_BACK, command_id=after_take.same_command, version=version, **two_of_the_twelve()
-        )
+        after_take.accepted(PUT_BACK, command_id=after_take.same_command, version=version, **two_of_the_twelve())
 
         answer = after_take.send(
             after_take.at[MIDDLEHAND],
-            DeclaringAction.PUT_BACK,
+            PUT_BACK,
             command_id=after_take.same_command,
             version=version,
             **cards_body(SKAT_CARDS[0], SKAT_CARDS[1]),
@@ -498,11 +497,11 @@ class TestRetry:
 
     def test_a_fresh_id_with_the_old_version_is_stale(self, won):
         old_version = won.record.version
-        won.accepted(DeclaringAction.TAKE)
+        won.accepted(TAKE)
 
         won.refused(
             won.at[MIDDLEHAND],
-            DeclaringAction.PUT_BACK,
+            PUT_BACK,
             Refusal.STALE_VERSION,
             version=old_version,
             **two_of_the_twelve(),
@@ -510,11 +509,11 @@ class TestRetry:
 
     def test_a_retry_with_its_old_version_is_the_replay_not_stale(self, won):
         old_version = won.record.version
-        won.accepted(DeclaringAction.TAKE, command_id=won.same_command, version=old_version)
-        won.accepted(DeclaringAction.PUT_BACK, **two_of_the_twelve())
+        won.accepted(TAKE, command_id=won.same_command, version=old_version)
+        won.accepted(PUT_BACK, **two_of_the_twelve())
         after_steps = won.record
 
-        again = won.send(won.at[MIDDLEHAND], DeclaringAction.TAKE, command_id=won.same_command, version=old_version)
+        again = won.send(won.at[MIDDLEHAND], TAKE, command_id=won.same_command, version=old_version)
 
         assert again.status_code == 200
         assert won.record == after_steps
@@ -596,40 +595,40 @@ def won_at_twenty(table):
 
 def taken(table):
     won_at_twenty(table)
-    table.accepted(DeclaringAction.TAKE)
+    table.accepted(TAKE)
 
 
 def put_back_two_of_the_dealt(table):
     taken(table)
-    table.accepted(DeclaringAction.PUT_BACK, **two_of_the_twelve())
+    table.accepted(PUT_BACK, **two_of_the_twelve())
 
 
 def put_back_the_skat(table):
     taken(table)
-    table.accepted(DeclaringAction.PUT_BACK, **cards_body(*SKAT_CARDS))
+    table.accepted(PUT_BACK, **cards_body(*SKAT_CARDS))
 
 
 def declared(table):
     put_back_two_of_the_dealt(table)
-    table.accepted(DeclaringAction.DECLARE, **any_declaration())
+    table.accepted(DECLARE, **any_declaration())
 
 
 def declared_hand(table):
     won_at_twenty(table)
-    table.accepted(DeclaringAction.DECLARE, **hand_declaration())
+    table.accepted(DECLARE, **hand_declaration())
 
 
 def declared_ouvert_hand(table):
     won_at_twenty(table)
     table.accepted(
-        DeclaringAction.DECLARE,
+        DECLARE,
         **declared_body(GameToken.GRAND, hand=True, ouvert=True, announcement=AnnouncementToken.SCHWARZ),
     )
 
 
 def declared_null_ouvert_after_pickup(table):
     put_back_two_of_the_dealt(table)
-    table.accepted(DeclaringAction.DECLARE, **declared_body(GameToken.NULL, ouvert=True))
+    table.accepted(DECLARE, **declared_body(GameToken.NULL, ouvert=True))
 
 
 PICKED = "picked"
@@ -703,15 +702,13 @@ class TestEveryViewersAnswer:
         ] * 2
 
     @pytest.mark.parametrize(
-        ("before", "action", "fields", "after"),
+        ("before", "suffix", "fields", "after"),
         [
-            pytest.param(won_at_twenty, DeclaringAction.TAKE, {}, MOMENTS["after-the-take"], id="the-take"),
-            pytest.param(
-                taken, DeclaringAction.PUT_BACK, two_of_the_twelve(), MOMENTS["put-back-two-dealt"], id="the-put-back"
-            ),
+            pytest.param(won_at_twenty, TAKE, {}, MOMENTS["after-the-take"], id="the-take"),
+            pytest.param(taken, PUT_BACK, two_of_the_twelve(), MOMENTS["put-back-two-dealt"], id="the-put-back"),
             pytest.param(
                 put_back_two_of_the_dealt,
-                DeclaringAction.DECLARE,
+                DECLARE,
                 any_declaration(),
                 MOMENTS["declared"],
                 id="the-declaration",
@@ -719,7 +716,7 @@ class TestEveryViewersAnswer:
         ],
     )
     def test_an_accepted_step_sends_every_open_stream_a_fresh_snapshot_after_the_commit(
-        self, table, before, action, fields, after
+        self, table, before, suffix, fields, after
     ):
         before(table)
         next_version = table.record.version + 1
@@ -735,22 +732,20 @@ class TestEveryViewersAnswer:
             for stream_lines in lines:
                 next(stream_lines)
 
-            table.accepted(action, **fields)
+            table.accepted(suffix, **fields)
             fresh = [message_at_version(stream_lines, next_version) for stream_lines in lines]
 
         for raw, viewer in zip(fresh, EVERY_VIEWER, strict=True):
             assert_holds_the_moment(raw, after, viewer)
 
     def test_the_declarers_answer_to_the_take_holds_the_twelve(self, won):
-        answer = won.accepted(DeclaringAction.TAKE)
+        answer = won.accepted(TAKE)
 
         assert cards_in_text(answer.text) == wire_cards(TWELVE)
 
     @pytest.mark.parametrize("position", [FOREHAND, REARHAND], ids=["forehand", "rearhand"])
     def test_a_refused_opponents_answer_after_the_take_carries_no_card(self, after_take, position):
-        answer = after_take.refused(
-            after_take.at[position], DeclaringAction.PUT_BACK, Refusal.NOT_DECLARER, **two_of_the_twelve()
-        )
+        answer = after_take.refused(after_take.at[position], PUT_BACK, Refusal.NOT_DECLARER, **two_of_the_twelve())
 
         assert cards_in_text(answer.text) == set()
 
