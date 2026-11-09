@@ -49,6 +49,10 @@ body.solo .frame{border-radius:0;border:0}
     repeating-linear-gradient(90deg,rgba(255,225,190,.03) 0 1px,transparent 1px 88px),
     linear-gradient(180deg,#22170f 0%,#170f0a 55%,#0e0907 100%);}
 .p390{width:390px;height:844px}
+/* a 360 px phone shows the 390 px layout fitted to its width */
+.p360{width:360px;height:779px}
+.p360 > .fit{left:0;top:0;transform:scale(.923077);transform-origin:0 0}
+.fit > *{position:absolute}
 .d1280{width:1280px;height:800px}
 .frame > *{position:absolute}
 
@@ -408,6 +412,7 @@ body.key .frame .orb .think.mo{--k:.4s}
   font-family:var(--font-mark);font-weight:700;font-size:26px;box-shadow:0 0 0 2px var(--cream),0 8px 16px -6px rgba(0,0,0,.8)}
 .result.closed .by.glyph{background:rgba(255,255,255,.08);color:var(--brass-hi);box-shadow:inset 0 0 0 1.5px rgba(240,214,150,.45)}
 .result.closed .by svg{width:28px;height:28px}
+.result.closed .sub{justify-content:center;text-align:center;font-weight:400;line-height:1.4}
 .p390 .result.closed h3{font-size:22px}
 /* an ended table: the chairs stand empty and pushed back */
 .chair.empty{opacity:.85;rotate:var(--cr,0deg)}
@@ -978,9 +983,10 @@ const tableBar=(desk,o={})=>{
   const wide=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
   const round=(cls,icon,label)=>`<span class="cb ${cls}" role="button" title="${label}" aria-label="${label}">${icon}</span>`;
   const copy=desk||!o.seated?wide('glass',I.link,'Link kopieren'):round('',I.link,'Link kopieren');
-  const close=o.opener?(desk?wide('leave',I.power,'Tisch schließen'):round('leave',I.power,'Tisch schließen')):'';
+  const closeLabel=o.opener?'Tisch schließen':o.together,closeIcon=o.opener?I.power:I.people;
+  const close=closeLabel?(desk?wide('leave',closeIcon,closeLabel):round('leave',closeIcon,closeLabel)):'';
   return `<div class="sbar">${o.seated?wide('glass',I.stand,'Aufstehen'):''}${copy}${close}</div>`;};
-const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3><div class="btns">${o.buttons}</div></div>`;
+const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3>${o.sub?`<div class="sub">${o.sub}</div>`:''}<div class="btns">${o.buttons}</div></div>`;
 const NEW_TABLE=`<span class="button button-stage">${I.plus}Neuer Tisch</span>`;
 const CONFIRM=`<span class="button button-leave">${I.power}Schließen</span><span class="button button-glass">Abbrechen</span>`;
 const emptyChair=(pos,k,cr)=>`<div class="chair empty" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h,'--l1':P[k].l[0],'--l2':P[k].l[1],'--cr':`${cr}deg`})}"></div>`;
@@ -1348,7 +1354,48 @@ const SERIES_SCENES=[
     ['Nach dem Tipp stehen alle Bierdeckel bei 0, die Marke zählt wieder „Spiel 1 von 36“, und die Länge bleibt, die der Tisch beim Öffnen bekam.']],
 ];
 scenes(SERIES_SCENES);
+
+/* ===== ending a table together: the proposal beside the series' early end, the answers, the end ===== */
+/* between two games; the chairs named in o.away are held but empty, o.marks gives each chair's answer marks */
+const betweenGames=(d,o={})=>dealRoom(d,{watchers:1})+seriesCount(d,8)
+  +chairsOf(d,'felix').map(([k,pos])=>{const marks=(o.marks||{})[k]||[];return (o.away||[]).includes(k)?awaySeat(k,pos,marks):seat(k,{...pos,marks});}).join('')
+  +chairCoasters(endLayout(d),TOTALS_BEFORE);
+const YES_NO=`<span class="button button-stage">${I.check}Ja</span><span class="button button-glass">${I.cross}Nein</span>`;
+const CANCEL=`<span class="button button-glass">Abbrechen</span>`;
+const dialogAt=(d,o)=>'<div class="scrim"></div>'+panel({...(d?{x:640,y:200,w:480}:{x:195,y:240,w:340}),role:'dialog',...o});
+const GONE='Danach sind Tisch, Liste und Link weg.';
+const TABLE_END_SCENES=[
+  ['tend-propose','Tisch beenden vorschlagen',(d)=>betweenGames(d)+tableBar(d,{seated:true,together:'Tisch beenden'})
+    +dialogAt(d,{icon:I.people,text:'Tisch gemeinsam beenden?',sub:`Alle drei müssen zustimmen. ${GONE}`,buttons:`<span class="button button-leave">${I.power}Vorschlagen</span>${CANCEL}`}),
+    ['Zwischen zwei Spielen schlägt ein Sitzender das Ende des Tisches vor, getrennt vom Ende der Serie: die Serie zu beenden lässt den Tisch stehen, den Tisch zu beenden nimmt Stühle, Liste und Link mit.']],
+  ['tend-propose-merged','Beenden als eine Aktion',(d)=>betweenGames(d)+tableBar(d,{seated:true,together:'Beenden'})
+    +dialogAt(d,{icon:I.people,text:'Beenden vorschlagen?',sub:'Die Rangliste der Serie erscheint, danach sind Tisch, Liste und Link weg.',buttons:`<span class="button button-leave">${I.power}Vorschlagen</span>${CANCEL}`}),
+    ['Die andere Antwort der Frage nach einer oder zwei Aktionen: ein Knopf „Beenden“ für beides, die Serie allein zu beenden gibt es dann nicht mehr, und nach einer neuen Serie wird nicht gefragt.']],
+  ['tend-answer','Die Antwort am laufenden Tisch',(d)=>betweenGames(d,{marks:{anna:['ready'],ben:['notTapped'],felix:['notTapped']}})
+    +tableBar(d,{seated:true,together:'Tisch beenden'})
+    +panel({k:'anna',role:'dialog',x:d?640:195,y:d?190:200,w:d?460:340,text:'Anna will den Tisch beenden',sub:GONE,buttons:YES_NO}),
+    ['Anders als die Serie endet der Tisch erst, wenn alle drei Ja gesagt haben; die Marken zeigen, wer schon zugestimmt hat, und ein Nein räumt den Vorschlag weg.']],
+  ['tend-answer-back','Nach der Pause zurück',(d)=>betweenGames(d,{away:['anna','ben'],marks:{anna:['ready'],ben:['notTapped'],felix:['notTapped']}})
+    +tableBar(d,{seated:true,together:'Tisch beenden'})
+    +panel({k:'anna',role:'dialog',x:d?640:195,y:d?190:200,w:d?460:340,text:'Anna will den Tisch beenden',sub:'Ben hat noch nicht geantwortet.',buttons:YES_NO}),
+    ['Wer nach einer Pause zurückkommt, findet den offenen Vorschlag und antwortet; das Ende wartet auf jeden, der einen Stuhl hält, auch wenn er nicht da ist, höchstens bis zum Ende nach 90 Tagen.']],
+  ['tend-alone','Allein zurück',(d)=>betweenGames(d,{away:['anna','ben']})+tableBar(d,{seated:true,together:'Tisch beenden'})
+    +dialogAt(d,{icon:I.people,text:'Tisch jetzt beenden?',sub:`Anna und Ben sind nicht da. Du beendest den Tisch allein. ${GONE}`,buttons:`<span class="button button-leave">${I.power}Beenden</span>${CANCEL}`}),
+    ['Die andere Antwort der Frage, wer bei wenigen Anwesenden entscheidet: nur wer da ist; ist sonst niemand da, endet der Tisch auf diesen einen Tipp.']],
+  ['tend-opener','Eröffner nach dem Geben',(d)=>betweenGames(d)+tableBar(d,{seated:true,together:'Tisch beenden'})
+    +`<div class="tag-glass" role="status" style="${at({left:d?640:195,top:d?610:690,transform:'translateX(-50%)','white-space':'nowrap'})}"><span>Allein schließen geht nur am leeren Tisch</span></div>`,
+    ['Hat der Tisch einmal gegeben, ersetzt „Tisch beenden“ das Schließen des Eröffners: sein eigener Knopf ist weg, und das Ende braucht die anderen; am leeren Tisch schließt er weiter allein.']],
+  ['tend-opener-alone','Eröffner schließt allein',(d)=>betweenGames(d)+tableBar(d,{seated:true,opener:true})
+    +dialogAt(d,{icon:I.power,text:'Tisch für alle schließen?',sub:'Anna und Ben verlieren die laufende Serie.',buttons:CONFIRM}),
+    ['Die andere Antwort: der Eröffner behält „Tisch schließen“ auch am gespielten Tisch und schließt allein nach einer Rückfrage; die anderen sehen danach nur, wer geschlossen hat.']],
+  ['tend-ended','Gemeinsam beendet',(d)=>S3.ended(d,{icon:I.people,text:'Gemeinsam beendet: Tisch geschlossen',buttons:NEW_TABLE}),
+    ['Auf jeder noch offenen Seite erscheint dieselbe Tafel wie beim Schließen, mit eigenem Grund; ein beendeter Tisch kommt nicht zurück, und keine Karte ist zu sehen.']],
+];
+/* each scene also at 360 px: the 390 px drawing fitted to the narrower frame */
+TABLE_END_SCENES.forEach(([id,title,draw,rules])=>frame(`${id}-360`,title,'Handy 360 px','p360',`<div class="fit p390">${draw(false)}</div>`,rules));
+scenes(TABLE_END_SCENES);
 ORDER.push(...SERIES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+ORDER.splice(ORDER.indexOf('series-end-ask-1280')+1,0,...TABLE_END_SCENES.flatMap(([id])=>[`${id}-360`,`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
