@@ -39,14 +39,17 @@ class PlayRefusal(StrEnum):
     NOT_YOUR_TURN = "not-your-turn"
     NOT_IN_HAND = "not-in-hand"
     MUST_FOLLOW = "must-follow"
-    TOO_LATE_TO_GIVE_UP = "too-late-to-give-up"
+    ALREADY_WON = "already-won"
+    NEEDS_CONSENT = "needs-consent"
 
 
 class Ending(StrEnum):
-    """How a game ended: with its tenth trick or by the declarer giving it up."""
+    """How a game ended: with its tenth trick, by the declarer giving it up, or by a side throwing its cards down."""
 
     PLAYED_OUT = "played-out"
     GIVEN_UP = "given-up"
+    DECLARER_THREW_DOWN = "declarer-threw-down"
+    OPPONENTS_THREW_DOWN = "opponents-threw-down"
 
 
 def _kind_of(declared: Declaring) -> GameKind:
@@ -93,7 +96,11 @@ def _tally(declarer: Position, tricks: tuple[CompletedTrick, ...]) -> Tally:
 
 @dataclass(frozen=True)
 class PlayedOut:
-    """The finished game: the ended declaration state and its tricks (ten unless given up), the rest derived."""
+    """The finished game: the ended declaration state and its completed tricks, the rest derived.
+
+    A trick not completed when the game ended counts for the opponents,
+    or for the declarer when the opponents threw down.
+    """
 
     declared: Declaring
     tricks: tuple[CompletedTrick, ...]
@@ -104,16 +111,29 @@ class PlayedOut:
         return _tally(self.declared.declarer, self.tricks)
 
     @property
+    def _tricks_left(self) -> int:
+        return _TRICKS_IN_A_GAME - len(self.tricks)
+
+    @property
     def declarer_tricks(self) -> int:
+        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+            return self.tally.tricks.declarer + self._tricks_left
         return self.tally.tricks.declarer
 
     @property
     def opponents_tricks(self) -> int:
-        return self.tally.tricks.opponents
+        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+            return self.tally.tricks.opponents
+        return self.tally.tricks.opponents + self._tricks_left
 
     @property
     def declarer_points(self) -> int:
-        """The declarer's tricks plus the skat, which counts for the declarer in every game."""
+        """The declarer's tricks plus the skat, which counts for the declarer in every game.
+
+        When the opponents threw down, every point outside their completed tricks is his.
+        """
+        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+            return opponents_points_of(self.tally.points.opponents)
         return sum(card.points for card in self.declared.skat) + self.tally.points.declarer
 
     @property
@@ -125,7 +145,7 @@ class PlayedOut:
         if self.ending is Ending.GIVEN_UP:
             return False
         if _kind_of(self.declared) is GameKind.NULL:
-            return self.declarer_tricks == 0
+            return self.ending is not Ending.DECLARER_THREW_DOWN and self.tally.tricks.declarer == 0
         return self.declarer_points >= _WINNING_POINTS
 
     @property
@@ -153,7 +173,7 @@ class CardPlayed:
 
 @dataclass(frozen=True)
 class Playing:
-    """The ten tricks in progress; the result is empty until the tenth trick is taken."""
+    """The ten tricks in progress; the result is empty until the tenth trick is taken or the game ends early."""
 
     declared: Declaring
     hands: Mapping[Position, tuple[Card, ...]]
