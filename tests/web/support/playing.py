@@ -126,6 +126,9 @@ class Table:
         )
 
     def holder_of(self, played):
+        """Whoever plays the card; a skat card the declarer kept is his."""
+        if played in self.record.hand.skat:
+            return MIDDLEHAND
         return next(position for position, held in self.record.hand.hands.items() if played in held)
 
     def accepted(self, played, *, command_id=None, version=None):
