@@ -1,0 +1,8 @@
+claim_id = "94de3cb9bfcc4faab92ff7565794d955"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "407dc9ecc0d9cb9cc9f1eca4c8e60824f71d1fa7"
+branch = "claude/issue-178-declarer-shortens"
+scope = ["src/skat/engine/giving_up.py", "src/skat/engine/tricks.py", "src/skat/engine/value.py", "tests/engine/test_giving_up.py"]
+opened_commit = "f98082082aa400e43b7e3ea1304c300316c28255"
+whole_reason = "One rule and its one valuation: shorten needs tricks.py's ending, refusal and rest count and value.py's level steps, and the test module proves them together; split apart, the ending has no value and the entry has no ending."
