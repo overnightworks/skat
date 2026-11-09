@@ -2527,19 +2527,20 @@ body {
         padding-inline: 12px;
         font-size: 12px;
         line-height: 1.1;
-        height: 52px;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 3;
-        line-clamp: 3;
-        overflow: hidden;
         align-content: center;
+    }
+
+    .room .actions.on-result .copy {
+        height: auto;
+        min-height: 52px;
     }
 
     /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
     .room .actions.on-result:has(> .copy:not(.link)) .copy.link {
         justify-content: center;
+        align-self: center;
         width: 52px;
+        height: 52px;
         padding: 0;
     }
 

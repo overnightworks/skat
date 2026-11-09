@@ -44,6 +44,11 @@ CARDS_IN_A_HAND = 10
 MINUS = chr(0x2212)
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
 
+PILL_HEIGHTS = (
+    "bar => [...bar.children].filter(child => !child.matches('.link'))"
+    ".map(child => child.getBoundingClientRect().height)"
+)
+
 
 class ModestBidTable(DeclaringTable):
     """The middlehand bids the lowest value, so the game declared lies above it and is never overbid."""
@@ -245,11 +250,28 @@ def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
     person = table.pages[table.declarer_seat]
     bar = person.locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
-    expect(bar.get_by_role("status")).to_contain_text(next(name for name in LONG_NAMES if name in table.names.values()))
-    heights = bar.evaluate("bar => [...bar.children].map(child => child.getBoundingClientRect().height)")
+    expect(bar.get_by_role("status")).to_contain_text(awaited(table, {table.declarer_seat}))
+    heights = bar.evaluate(PILL_HEIGHTS)
     link = bar.locator(".copy.link").bounding_box()
     assert link is not None
     assert link["width"] >= link["height"]
+    assert len(set(heights)) == 1
+    expect_the_bars_inside_the_pages(table)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_wait_pill_holds_its_whole_text_with_a_25_character_name(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor, joiners=("Maximiliane-Bartholomaea1", "cleo"))
+    bar = table.pages[table.declarer_seat].locator(".actions")
+    bar.get_by_role("button", name=WEITER).click()
+    pill = bar.get_by_role("status")
+    expect(pill).to_be_visible()
+    assert pill.evaluate(
+        "pill => pill.scrollHeight <= pill.clientHeight + 1 && pill.scrollWidth <= pill.clientWidth + 1"
+    )
+    heights = bar.evaluate(PILL_HEIGHTS)
     assert len(set(heights)) == 1
     expect_the_bars_inside_the_pages(table)
 
