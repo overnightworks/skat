@@ -184,7 +184,7 @@ def test_a_given_up_result_keeps_the_tricks_taken_so_far_and_a_played_out_one_is
     state = after_first_trick(declarer_takes=True)
     result = given_up(state)
     assert (result.ending, result.tricks, result.won_by_play) == (Ending.GIVEN_UP, state.tricks, False)
-    assert len(result.tricks) == 1
+    assert len(state.tricks) == 1
     played_out = started()
     while played_out.result is None:
         played_out = next_card(played_out)
