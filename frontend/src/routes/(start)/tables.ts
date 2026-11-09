@@ -41,7 +41,12 @@ export type Game = (typeof GAME_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
-export type Declaring = { declarer_seat: number; stage: Stage; declaration: { game: Game; hand: boolean } | null };
+export type Declaring = {
+    declarer_seat: number;
+    stage: Stage;
+    declaration: { game: Game; hand: boolean; ouvert: boolean } | null;
+    open_cards: Card[];
+};
 export type Awaiting = (typeof AWAITING_TOKENS)[number];
 export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
 export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
@@ -90,6 +95,7 @@ export type Result = {
     declarer_seat: number;
     game: Game;
     hand: boolean;
+    ouvert: boolean;
     won: boolean;
     overbid: boolean;
     bid: number;
@@ -362,8 +368,9 @@ export function gameWord(game: Game): string {
     return GAME_WORDS[game];
 }
 
-// The one name of a declared game, with its levels: „Grand Hand“.
-export function gameLabel({ game, hand }: { game: Game; hand: boolean }): string {
+// The one name of a declared game, with its levels: „Grand Hand“. Ouvert includes Hand, so it names the game alone.
+export function gameLabel({ game, hand, ouvert }: { game: Game; hand: boolean; ouvert: boolean }): string {
+    if (ouvert) return `${gameWord(game)} ${words.ouvert}`;
     return hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
 }
 

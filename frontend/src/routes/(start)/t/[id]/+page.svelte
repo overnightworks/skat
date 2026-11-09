@@ -16,6 +16,7 @@
     import { resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import OpenHand from "#lib/ui/OpenHand.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
@@ -320,6 +321,7 @@
                             : declaring
                               ? decidingMarks(declaring, chair.seat, justWon)
                               : chairMarks(auction, chair.seat, ownChair?.seat)}
+                    {@const openCards = chair.seat === declaring?.declarer_seat ? declaring.open_cards : []}
                     <li
                         class="chair"
                         class:mine={chair.is_mine}
@@ -463,12 +465,32 @@
                             <span class="coaster">{withMinus(chair.total)}</span>
                         {/if}
                         {#if chair.hand !== null}
-                            {#if !chair.is_mine}
+                            {#if openCards.length > 0}
+                                {#if chair.is_mine}
+                                    <span class="open-tag" title={words.openForAll}>
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        <span>{words.open}</span>
+                                    </span>
+                                {:else}
+                                    <OpenHand cards={openCards} />
+                                {/if}
+                            {:else if !chair.is_mine}
                                 <div class="fan-spot">
                                     <BackFan count={chair.hand.card_count} dim={chair.is_away} />
                                 </div>
                             {/if}
-                            {#if !chair.is_mine}
+                            {#if !chair.is_mine && openCards.length === 0}
                                 <span class="count-tag" title={words.cardCount}>
                                     <svg
                                         viewBox="0 0 24 24"

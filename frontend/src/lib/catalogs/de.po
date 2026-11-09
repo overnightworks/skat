@@ -135,6 +135,15 @@ msgstr "Ansagen"
 msgid "hand"
 msgstr "Hand"
 
+msgid "ouvert"
+msgstr "ouvert"
+
+msgid "open"
+msgstr "Offen"
+
+msgid "openForAll"
+msgstr "Offen für alle"
+
 msgid "gameKaro"
 msgstr "Karo"
 

@@ -7,7 +7,6 @@ import {
     type Chair,
     type ChairHand,
     type Declaring,
-    type Game,
     type LastTrick,
     type Playing,
     type SeatedCard,
@@ -64,7 +63,7 @@ export function sideNames(chairs: readonly Chair[], declarerSeat: number): SideN
     return { declarer, opponents: words.sideUs };
 }
 
-export type GameInPlay = { declaration: { game: Game; hand: boolean }; declarerSeat: number; playing: Playing };
+export type GameInPlay = { declaration: NonNullable<Declaring["declaration"]>; declarerSeat: number; playing: Playing };
 
 // The game being played: a hand is played only once its game is declared, so the declaration is there.
 export function gameInPlay(table: Table): GameInPlay | null {
@@ -72,7 +71,7 @@ export function gameInPlay(table: Table): GameInPlay | null {
     if (!hand?.playing) return null;
     const declaring = hand.declaring as Declaring;
     return {
-        declaration: declaring.declaration as { game: Game; hand: boolean },
+        declaration: declaring.declaration as NonNullable<Declaring["declaration"]>,
         declarerSeat: declaring.declarer_seat,
         playing: hand.playing,
     };

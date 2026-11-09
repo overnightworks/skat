@@ -42,6 +42,7 @@ def table_in(progress):
         hand=deal,
         progress=progress,
         game_list=(),
+        series=None,
     )
 
 

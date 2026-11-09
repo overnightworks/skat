@@ -15,7 +15,7 @@ from skat.web.tables import (
     TABLES_PATH,
     AnnouncementToken,
     CardChoice,
-    CreateTableRequest,
+    CommandRequest,
     GameToken,
     TableAnswer,
     actor_of,
@@ -37,8 +37,8 @@ _GAME_KINDS: Final = {token: kind for kind, token in GAME_TOKENS.items()}
 _ANNOUNCEMENTS: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
 
-class _DeclaringRequest(CreateTableRequest):
-    """A client names only the version it saw: its seat and position come from the session."""
+class _DeclaringRequest(CommandRequest):
+    """A client names only the step and the version it saw: its seat and position come from the session."""
 
     version: Annotated[int, Field(strict=True)]
 

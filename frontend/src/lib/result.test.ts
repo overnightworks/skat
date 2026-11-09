@@ -25,6 +25,7 @@ function result(changes: Partial<Result> = {}): Result {
         declarer_seat: DECLARER_SEAT,
         game: "kreuz",
         hand: false,
+        ouvert: false,
         won: true,
         overbid: false,
         bid: 18,
