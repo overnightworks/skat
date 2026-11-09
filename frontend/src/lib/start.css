@@ -926,7 +926,7 @@ body {
 @media (min-width: 900px) {
     /* A desktop's far chairs stand wide apart: the skat lies low between them, as the scenes draw it. */
     .room .stage:has(> .bid) {
-        grid-template-rows: auto minmax(180px, 1fr) auto auto auto auto;
+        grid-template-rows: auto minmax(160px, 1fr) auto auto auto auto;
     }
 
     .room .stage:has(> .bid) .skat-spot {
@@ -2076,11 +2076,17 @@ body {
     /* The far chairs stand at the felt's rim, the near one at its lower left, as bid-watch draws them. */
     .room .stage {
         width: min(100%, 1180px);
-        grid-template-rows: auto minmax(180px, 1fr) minmax(180px, 1fr) auto;
+        grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
         --chair-width: 160px;
     }
     .room .felt {
         margin-inline: 120px;
+    }
+
+    /* While a hand is played the near chair lies beside the trick, so the hand and the bar stay on the screen. */
+    .room .stage:has(> .trick) .chair:nth-child(3) {
+        grid-row: 3;
+        align-self: end;
     }
 
     .room .stage {
