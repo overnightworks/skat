@@ -4,7 +4,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from skat.web.declaring import (
+    TABLE_DECLARING_DECLARE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_TAKE_SUFFIX,
+)
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import CARDS_IN_PLAY, PlayingTable
 from tests.e2e.support.people import WIDTHS
@@ -170,11 +174,10 @@ def test_a_double_tap_on_each_step_sends_exactly_one_command(
     declarer = table.declarer
     posts: list[str] = []
     declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
-    expected_step = f"{table.api_path}{TABLE_DECLARATION_SUFFIX}"
 
     button_of(declarer, TAKE_SKAT).dblclick()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
-    assert len([url for url in posts if url.endswith(expected_step)]) == 1
+    assert len([url for url in posts if url.endswith(f"{table.api_path}{TABLE_DECLARING_TAKE_SUFFIX}")]) == 1
 
     cards = declarer.locator(PICKABLE_CARD)
     tap(cards.nth(0))
@@ -182,13 +185,13 @@ def test_a_double_tap_on_each_step_sends_exactly_one_command(
     posts.clear()
     button_of(declarer, PUT_BACK).dblclick()
     expect(button_of(declarer, ANNOUNCE)).to_be_visible()
-    assert len([url for url in posts if url.endswith(expected_step)]) == 1
+    assert len([url for url in posts if url.endswith(f"{table.api_path}{TABLE_DECLARING_PUT_BACK_SUFFIX}")]) == 1
 
     button_of(declarer, NULL_GAME).click()
     posts.clear()
     button_of(declarer, ANNOUNCE).dblclick()
     expect_no_controls(declarer)
-    assert len([url for url in posts if url.endswith(expected_step)]) == 1
+    assert len([url for url in posts if url.endswith(f"{table.api_path}{TABLE_DECLARING_DECLARE_SUFFIX}")]) == 1
     assert page_errors == []
 
 
@@ -236,7 +239,7 @@ def test_a_stale_page_shows_the_refusal_and_the_stream_corrects_it(
         table.declare_through_the_api(action="take")
         route.continue_()
 
-    declarer.route(f"**{table.api_path}{TABLE_DECLARATION_SUFFIX}", take_through_the_api_first)
+    declarer.route(f"**{table.api_path}{TABLE_DECLARING_TAKE_SUFFIX}", take_through_the_api_first)
     button_of(declarer, TAKE_SKAT).click()
 
     expect(declarer.locator(".note")).to_have_text(COMMAND_FAILED)
@@ -435,7 +438,7 @@ def test_a_double_tap_on_hand_sends_nothing_and_on_announce_exactly_one_command(
     button_of(declarer, NULL_GAME).click()
     button_of(declarer, ANNOUNCE).dblclick()
     expect_no_controls(declarer)
-    assert len([url for url in posts if url.endswith(f"{table.api_path}{TABLE_DECLARATION_SUFFIX}")]) == 1
+    assert len([url for url in posts if url.endswith(f"{table.api_path}{TABLE_DECLARING_DECLARE_SUFFIX}")]) == 1
     assert page_errors == []
 
 

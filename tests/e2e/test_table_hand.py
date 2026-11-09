@@ -7,7 +7,11 @@ from skat.engine.deal import Position, positions_from
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from skat.web.declaring import (
+    TABLE_DECLARING_DECLARE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_TAKE_SUFFIX,
+)
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession
 from tests.support.payload_cards import cards_in_text, wire_cards
@@ -115,20 +119,17 @@ def test_the_skat_reaches_only_the_declarer_after_the_take_and_no_other_raw_payl
     table = DealtTable(e2e_server)
     declarer = table.middlehand_wins()
     table.look_at_it_all()
-    table.step(declarer, TABLE_DECLARATION_SUFFIX, action="take")
+    table.step(declarer, TABLE_DECLARING_TAKE_SUFFIX)
     table.look_at_it_all()
     assert table.stored.hand is not None
     dealt = cards_held_by(table.stored, declarer.member.account.id)
     table.step(
         declarer,
-        TABLE_DECLARATION_SUFFIX,
-        action="put_back",
+        TABLE_DECLARING_PUT_BACK_SUFFIX,
         cards=[card_on_the_wire(card) for card in dealt[:2]],
     )
     table.look_at_it_all()
-    table.step(
-        declarer, TABLE_DECLARATION_SUFFIX, action="declare", game="herz", hand=False, ouvert=False, announcement="none"
-    )
+    table.step(declarer, TABLE_DECLARING_DECLARE_SUFFIX, game="herz", hand=False, ouvert=False, announcement="none")
     table.look_at_it_all()
 
     for person in table.people:
@@ -142,9 +143,7 @@ def test_a_hand_games_skat_stays_out_of_every_raw_payload_at_every_stage(e2e_ser
     table = DealtTable(e2e_server)
     declarer = table.middlehand_wins()
     table.look_at_it_all()
-    table.step(
-        declarer, TABLE_DECLARATION_SUFFIX, action="declare", game="herz", hand=True, ouvert=False, announcement="none"
-    )
+    table.step(declarer, TABLE_DECLARING_DECLARE_SUFFIX, game="herz", hand=True, ouvert=False, announcement="none")
     table.look_at_it_all()
 
     for person in table.people:
