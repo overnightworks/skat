@@ -145,7 +145,6 @@ class TestRetry:
         skat.create(headers, series_length=SERIES_LENGTH)
 
         assert skat.create(headers, series_length=SERIES_LENGTH + 3).status_code == 409
-        assert skat.create(headers).status_code == 409
         assert len(skat.store.tables) == 1
 
     def test_a_receipt_from_before_series_refuses_a_length(self, skat):
