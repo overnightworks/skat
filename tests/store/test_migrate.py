@@ -631,3 +631,29 @@ class TestFromAGameListRowAtRevisionTen:
             ).one()
 
         assert tuple(row) == ("account-anna", None, None, None)
+
+
+class TestFromALiveTableAtRevisionEleven:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0011 holding a live table, then taken to head."""
+        upgrade_to(engine, "0011")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 1)"))
+        migrate(engine)
+        return engine
+
+    def test_reads_the_table_with_no_time_since_when_nobody_was_there(self, migrated):
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT empty_since FROM tables")).scalar_one() is None
+
+    def test_stores_a_time_on_a_live_and_on_an_ended_table(self, migrated):
+        _run_in_transaction(migrated, text("UPDATE tables SET empty_since = now()"))
+        _run_in_transaction(
+            migrated, text("UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 1800")
+        )
+
+        with migrated.connect() as connection:
+            assert (
+                connection.execute(text("SELECT count(*) FROM tables WHERE empty_since IS NOT NULL")).scalar_one() == 1
+            )

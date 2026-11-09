@@ -1,6 +1,7 @@
 import secrets
 import threading
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -114,6 +115,32 @@ class TestCreateApp:
             assert tables.table_ended.wait(timeout=10)
 
         assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1
+
+    def test_a_table_already_past_its_wait_when_the_server_starts_has_ended_before_the_first_request(
+        self, sign_in_settings
+    ):
+        store = FakeTableStore()
+        tables = EndingSignal(store)
+        tables.release_end.set()
+        opened = tables.create(OPENER, CreateTable(command_id="command-open"))
+        store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
+        settings = sign_in_settings(empty_table_seconds=1800).settings
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+
+        with TestClient(app):
+            assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1800
+
+    def test_a_store_failure_when_the_server_starts_fails_the_start(self, sign_in_settings):
+        class Unreadable(FakeTableStore):
+            def live_empty_since(self):
+                raise ConnectionError
+
+        app = create_app(
+            sign_in_settings().settings, page_build=fixture_page_build(), tables=TableService(Unreadable())
+        )
+
+        with pytest.raises(ConnectionError), TestClient(app):
+            pass
 
     def test_a_dealt_table_read_live_when_the_server_starts_is_kept_after_the_wait(self, sign_in_settings):
         tables = EndingSignal(FakeTableStore())

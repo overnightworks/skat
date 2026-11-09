@@ -1,9 +1,9 @@
 import threading
 from contextlib import contextmanager, nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from skat.store.schema import tables
@@ -237,3 +237,92 @@ def test_the_end_enters_the_presence_once_the_row_is_locked_and_leaves_it_after_
     assert service.end_empty_table(table_id, presence(), DEFAULT_EMPTY_TABLE_SECONDS) is True
 
     assert seen["ended_at"] is not None
+
+
+SOMEBODY_CONNECTED = frozenset({OPENER.account_id})
+
+
+def stored_since(engine, table_id):
+    with engine.connect() as connection:
+        return connection.execute(select(tables.c.empty_since).where(tables.c.id == table_id.value)).scalar_one()
+
+
+def set_since(engine, table_id, since):
+    with engine.begin() as connection:
+        connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=since))
+
+
+def note(service, table_id, connected):
+    return service.note_presence(table_id, nullcontext(connected), DEFAULT_EMPTY_TABLE_SECONDS)
+
+
+def test_a_created_table_stores_its_creation_as_the_time_since_nobody_was_there(service, engine):
+    before = datetime.now(UTC)
+
+    table_id = undealt_table(service, "one")
+
+    assert before <= stored_since(engine, table_id) <= datetime.now(UTC)
+
+
+def test_a_leave_and_an_arrival_write_and_clear_the_time_and_change_no_version_or_receipt(
+    service, transactions, stored, engine
+):
+    table_id = undealt_table(service, "one")
+    before = stored(transactions, table_id.value)
+    receipts = rows_of(engine, table_id.value)["receipts"]
+
+    note(service, table_id, SOMEBODY_CONNECTED)
+    cleared = stored_since(engine, table_id)
+    note(service, table_id, NOBODY_CONNECTED)
+    stamped = stored_since(engine, table_id)
+
+    assert (cleared, stamped is not None) == (None, True)
+    assert stored(transactions, table_id.value) == before
+    assert rows_of(engine, table_id.value)["receipts"] == receipts
+
+
+def test_an_arrival_after_the_wait_ends_the_table_and_a_dealt_table_keeps_no_time(
+    service, transactions, stored, engine
+):
+    overdue = undealt_table(service, "one")
+    dealt = seated_table(service, "two")
+    set_since(engine, overdue, datetime.now(UTC) - timedelta(seconds=DEFAULT_EMPTY_TABLE_SECONDS))
+    set_since(engine, dealt, None)
+
+    assert note(service, overdue, SOMEBODY_CONNECTED) is True
+    assert note(service, dealt, NOBODY_CONNECTED) is False
+
+    assert isinstance(stored(transactions, overdue.value), EndedTable)
+    assert stored_since(engine, dealt) is None
+
+
+def test_the_note_enters_the_presence_once_the_row_is_locked_so_a_rival_leave_or_arrival_waits(service, engine):
+    table_id = undealt_table(service, "one")
+    lock_attempt = select(tables.c.id).where(tables.c.id == table_id.value).with_for_update(nowait=True)
+
+    @contextmanager
+    def presence():
+        with engine.connect() as other, pytest.raises(OperationalError):
+            other.execute(lock_attempt)
+        yield NOBODY_CONNECTED
+
+    note_inside = service.note_presence(table_id, presence(), DEFAULT_EMPTY_TABLE_SECONDS)
+
+    assert (note_inside, stored_since(engine, table_id) is not None) == (False, True)
+
+
+def test_the_start_stamps_a_table_with_no_time_ends_one_past_its_wait_and_leaves_the_rest_their_time_left(
+    service, transactions, stored, engine
+):
+    unset, overdue, recent = (undealt_table(service, name) for name in ("one", "two", "three"))
+    set_since(engine, unset, None)
+    set_since(engine, overdue, datetime.now(UTC) - timedelta(seconds=DEFAULT_EMPTY_TABLE_SECONDS + 1))
+    set_since(engine, recent, datetime.now(UTC) - timedelta(seconds=60))
+
+    left = service.resume_empty_waits(DEFAULT_EMPTY_TABLE_SECONDS)
+
+    assert left.keys() == {unset.value, recent.value}
+    assert left[unset.value] == pytest.approx(DEFAULT_EMPTY_TABLE_SECONDS, abs=5)
+    assert left[recent.value] == pytest.approx(DEFAULT_EMPTY_TABLE_SECONDS - 60, abs=5)
+    assert stored_since(engine, unset) is not None
+    assert isinstance(stored(transactions, overdue.value), EndedTable)

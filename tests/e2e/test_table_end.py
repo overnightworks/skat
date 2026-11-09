@@ -1,11 +1,14 @@
 import http.client
 import json
 import time
+from datetime import timedelta
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
+from sqlalchemy import select
 
+from skat.store.schema import tables
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession, self_signed_tolerant_context
@@ -62,8 +65,8 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
     watched = open_stream(e2e_server, ben, f"{TABLES_PATH}/{watched_id}")
     try:
         watched_before = rows_of(e2e_server.engine, watched_id)
-        dealt_before = rows_of(e2e_server.engine, dealt_id)
         anna.first_stream_message(f"{dealt_path}{TABLE_EVENTS_SUFFIX}")
+        dealt_before = rows_of(e2e_server.engine, dealt_id)
         anna.first_stream_message(f"{left_path}{TABLE_EVENTS_SUFFIX}")
 
         deadline = time.monotonic() + ENDS_WITHIN_SECONDS
@@ -85,3 +88,32 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
         assert rows_of(e2e_server.engine, watched_id) == watched_before
     finally:
         watched.close()
+
+
+def stored_times(server: RunningServer, table_id: str) -> tuple[object, object]:
+    with server.engine.connect() as connection:
+        return tuple(
+            connection.execute(select(tables.c.empty_since, tables.c.ended_at).where(tables.c.id == table_id)).one()
+        )
+
+
+def test_an_undealt_table_left_before_a_restart_ends_no_sooner_than_the_wait_after_its_leave(
+    e2e_server: RunningServer,
+) -> None:
+    anna = signed_in(e2e_server)
+    table_id = json.loads(anna.post(TABLES_PATH, {"command_id": "restart-create-0001"}))["id"]
+    anna.first_stream_message(f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}")
+    deadline = time.monotonic() + ENDS_WITHIN_SECONDS
+    while stored_times(e2e_server, table_id)[0] is None and time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+    left_at = stored_times(e2e_server, table_id)[0]
+
+    e2e_server.restart(while_stopping=lambda: None)
+    anna = signed_in(e2e_server)
+    answer = json.loads(anna.get(f"{TABLES_PATH}/{table_id}"))
+    while answer["ended"] is None and time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+        answer = json.loads(anna.get(f"{TABLES_PATH}/{table_id}"))
+
+    assert answer["ended"] == {"reason": "empty", "empty_seconds": EMPTY_TABLE_SECONDS}
+    assert stored_times(e2e_server, table_id)[1] - left_at >= timedelta(seconds=EMPTY_TABLE_SECONDS)
