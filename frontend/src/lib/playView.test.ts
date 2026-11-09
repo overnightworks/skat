@@ -57,6 +57,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             declaring: { declarer_seat: DECLARER_SEAT, stage: "declared", declaration: { game: "null" } },
             playing: changes === null ? null : playing(changes),
         },
+        passed_in: null,
     };
 }
 

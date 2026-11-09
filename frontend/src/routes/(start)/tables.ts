@@ -76,7 +76,16 @@ export type Chair = {
     is_away: boolean;
     hand: ChairHand | null;
 };
-export type Table = { id: string; version: number; chairs: Chair[]; watchers: number; hand: Hand | null };
+// Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
+export type PassedIn = { next_dealer_seat: number | null };
+export type Table = {
+    id: string;
+    version: number;
+    chairs: Chair[];
+    watchers: number;
+    hand: Hand | null;
+    passed_in: PassedIn | null;
+};
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
     { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };

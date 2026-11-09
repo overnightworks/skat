@@ -31,6 +31,8 @@ WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
 PASS = catalog_text("pass")
 WAITING_FOR = catalog_text("waitingFor")
 WAITS_FOR_YOU = catalog_text("waitsForYou")
+PASSED_IN = catalog_text("passedIn")
+GIVES = catalog_text("gives")
 LOWEST_BID = 18
 SKAT_CARD = ".skat-card"
 LADDER = ".ladder"
@@ -43,6 +45,10 @@ TURN_CHAIR = ".chair.mine.turn"
 PLAQUE = ".plaque"
 CARD_FACE = ".card-face"
 BUBBLE = ".bubble"
+VERDICT = ".plaque .verdict"
+GIVES_LINE = ".plaque .gives"
+DEALER_MARK = ".mark.dealer"
+DECK = ".deck"
 OUT = re.compile(r"\bout\b")
 TOP_BID = "264"
 FIRST_HIGHER_BID = "20"
@@ -542,4 +548,83 @@ def test_the_plaque_waits_for_the_player_on_turn_while_they_are_away(
     watch(returning, table.server, f"{TABLE_PAGE_PREFIX}{table.id}")
 
     for person in (*others, returning):
+        expect(person.locator(PLAQUE)).to_have_text(BIDDING)
+
+
+def passed_in_table(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> Table:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    step(table.middlehand, table, AuctionAction.PASS)
+    step(table.rearhand, table, AuctionAction.PASS)
+    step(table.forehand, table, AuctionAction.PASS)
+    return table
+
+
+def next_dealer(table: Table) -> tuple[int, str]:
+    answer = answer_of(table.watcher, table)
+    seat = answer["passed_in"]["next_dealer_seat"]
+    return seat, next(chair["occupant_name"] for chair in answer["chairs"] if chair["seat"] == seat)
+
+
+def assert_the_hand_is_passed_in(person: Page, dealer: tuple[int, str] | None) -> None:
+    expect(person.locator(VERDICT)).to_have_text(PASSED_IN)
+    expect(person.locator(DECK)).to_have_count(1)
+    expect(person.locator(".chair .mark.pass")).to_have_count(3)
+    expect(person.locator(".chair.out")).to_have_count(3)
+    if dealer is None:
+        expect(person.locator(GIVES_LINE)).to_have_count(0)
+        expect(person.locator(DEALER_MARK)).to_have_count(0)
+    else:
+        seat, name = dealer
+        expect(person.locator(GIVES_LINE)).to_have_text(f"{name} {GIVES}")
+        expect(person.locator(DEALER_MARK)).to_have_count(1)
+        expect(person.locator(f".chair[data-seat='{seat}'] {DEALER_MARK}")).to_have_count(1)
+    assert_page_fits(person)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_after_three_passes_every_viewer_sees_eingepasst_and_the_next_dealer_then_the_new_hand(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = passed_in_table(open_person, e2e_server, page_errors, form_factor)
+    dealer = next_dealer(table)
+
+    for person in table.everyone:
+        assert_the_hand_is_passed_in(person, dealer)
+    table.watcher.reload()
+    assert_the_hand_is_passed_in(table.watcher, dealer)
+
+    for person in table.everyone:
+        expect(person.locator(PLAQUE)).to_have_text(BIDDING)
+        expect(person.locator(DECK)).to_have_count(0)
+        expect(person.locator(SKAT_CARD)).to_have_count(2)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_while_a_member_is_away_eingepasst_stays_without_a_dealer_until_they_return(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    step(table.middlehand, table, AuctionAction.PASS)
+    step(table.rearhand, table, AuctionAction.PASS)
+    returning = record_page_errors(table.rearhand.context.new_page(), page_errors)
+    away_seat = next(chair["seat"] for chair in answer_of(table.rearhand, table)["chairs"] if chair["is_mine"])
+    table.rearhand.close()
+    present = (table.forehand, table.middlehand, table.watcher)
+    for person in present:
+        expect(person.locator(f".chair[data-seat='{away_seat}'].away")).to_have_count(1)
+
+    step(table.forehand, table, AuctionAction.PASS)
+
+    for person in present:
+        assert_the_hand_is_passed_in(person, None)
+        expect(person.locator(f".chair[data-seat='{away_seat}'].away .mark.pass")).to_have_count(1)
+
+    watch(returning, table.server, f"{TABLE_PAGE_PREFIX}{table.id}")
+
+    dealer = next_dealer(table)
+    for person in (*present, returning):
+        expect(person.locator(GIVES_LINE)).to_have_text(f"{dealer[1]} {GIVES}")
+    for person in (*present, returning):
         expect(person.locator(PLAQUE)).to_have_text(BIDDING)

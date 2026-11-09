@@ -1,12 +1,13 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
-    import { awayOnTurn, chairMarks } from "#lib/auctionMarks.ts";
+    import { awayOnTurn, chairMarks, PASSED_IN_MARKS, passedInScene } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import CardBack from "#lib/ui/CardBack.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
@@ -197,6 +198,7 @@
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
             {@const turnSeat = inPlay?.playing.turn_seat}
+            {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
             {#if bidValue !== null}
                 <div class="plaque">
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
@@ -234,8 +236,16 @@
                 </div>
             {:else if !outcome.table.hand?.declaring}
                 {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
-                <div class="plaque">
-                    {#if outcome.table.hand === null}
+                <div class="plaque" class:hand-over={passedIn !== null}>
+                    {#if passedIn !== null}
+                        <span class="verdict">{words.passedIn}</span>
+                        {#if passedIn.dealerName !== null}
+                            <span class="gives">
+                                {`${passedIn.dealerName} ${words.gives}`}
+                                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                            </span>
+                        {/if}
+                    {:else if outcome.table.hand === null}
                         <span>{words.waitingForPlayers}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else if awayName}
@@ -250,16 +260,27 @@
             {#if inPlay !== null}
                 <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} />
             {/if}
-            {@const dealerSeat = outcome.table.hand?.dealer_seat}
+            {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
             {@const auction = outcome.table.hand?.auction}
             {#if outcome.table.hand !== null && inPlay === null}
                 <div class="skat-spot">
                     <FaceDownSkat count={outcome.table.hand.skat_count} />
                 </div>
+            {:else if passedIn !== null}
+                <div class="skat-spot">
+                    <div class="deck">
+                        {#each [0, 1, 2, 3] as layer (layer)}
+                            <div class="deck-card">
+                                <CardBack />
+                            </div>
+                        {/each}
+                    </div>
+                </div>
             {/if}
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
-                    {@const marks = chairMarks(auction, chair.seat, ownChair?.seat)}
+                    {@const marks =
+                        passedIn === null ? chairMarks(auction, chair.seat, ownChair?.seat) : PASSED_IN_MARKS}
                     <li
                         class="chair"
                         class:mine={chair.is_mine}
@@ -272,7 +293,7 @@
                             <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                             </span>
-                            {#if chair.hand !== null}
+                            {#if chair.hand !== null || passedIn !== null}
                                 {#if chair.seat === dealerSeat}
                                     <span class="mark dealer" title={words.dealer}>
                                         <svg
@@ -292,7 +313,9 @@
                                         {`${words.dealer}`}
                                     </span>
                                 {/if}
-                                <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                                {#if chair.hand !== null}
+                                    <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                                {/if}
                                 {#if marks.turn || chair.seat === turnSeat}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
