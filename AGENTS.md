@@ -4,7 +4,7 @@
 
 `make -n <target>` prints a target; the targets are the `.PHONY` line of the `Makefile`.
 
-- `make check`: lint, unit tests, dead-code scan and frontend checks; the local gate. Needs `make install` once and Node 26 or 24 with pnpm.
+- `make check`: lint, unit tests, dead-code scan and frontend checks; the local gate. Needs `make install` once and the Node and pnpm the frontend declares.
 - `make lint`: ruff, pyright, import-linter and the generated-file checks.
 - `make test`: the unit tests against a throwaway Postgres container, so Docker must run.
 - `make e2e`: the end-to-end tests in Chromium; builds the page first, needs Playwright's Chromium installed once and Docker, and runs under the probe-stack `flock` of the global contract.
