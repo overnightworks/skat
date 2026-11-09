@@ -30,6 +30,7 @@ from skat.web.declaring import (
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
+from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
@@ -71,6 +72,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_AUCTION_PASS_SUFFIX", TABLE_AUCTION_PASS_SUFFIX),
         ("TABLE_AUCTION_PLAY_SUFFIX", TABLE_AUCTION_PLAY_SUFFIX),
         ("TABLE_CARD_SUFFIX", TABLE_CARD_SUFFIX),
+        ("TABLE_LIST_SUFFIX", TABLE_LIST_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
         ("NO_ACCESS_PATH", NO_ACCESS_PATH),
         ("MODE_QUERY_NAME", MODE_QUERY_NAME),

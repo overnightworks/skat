@@ -23,6 +23,7 @@ export const TABLE_AUCTION_HOLD_SUFFIX = "/auction/hold";
 export const TABLE_AUCTION_PASS_SUFFIX = "/auction/pass";
 export const TABLE_AUCTION_PLAY_SUFFIX = "/auction/play";
 export const TABLE_CARD_SUFFIX = "/card";
+export const TABLE_LIST_SUFFIX = "/list";
 export const TABLE_READY_SUFFIX = "/ready";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;

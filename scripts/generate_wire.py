@@ -41,6 +41,7 @@ from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
+from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
 from skat.web.playing import TABLE_CARD_SUFFIX  # noqa: E402
 from skat.web.ready import TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.tables import (  # noqa: E402
@@ -112,6 +113,7 @@ def render() -> str:
         "TABLE_AUCTION_PASS_SUFFIX": TABLE_AUCTION_PASS_SUFFIX,
         "TABLE_AUCTION_PLAY_SUFFIX": TABLE_AUCTION_PLAY_SUFFIX,
         "TABLE_CARD_SUFFIX": TABLE_CARD_SUFFIX,
+        "TABLE_LIST_SUFFIX": TABLE_LIST_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
