@@ -2383,6 +2383,15 @@ body {
         gap: 8px;
     }
 
+    .room .actions.on-result .copy.wait {
+        flex: 0 1 auto;
+        min-width: 0;
+        padding: 0 14px;
+        font-size: 14px;
+        line-height: 1.15;
+        white-space: normal;
+    }
+
     .room .actions.on-result .copy.link {
         justify-content: center;
         width: 52px;

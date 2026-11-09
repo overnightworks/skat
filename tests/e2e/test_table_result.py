@@ -159,6 +159,15 @@ def expect_the_page_around_the_card(table: PlayingTable) -> None:
         assert card["y"] + card["height"] <= bar["y"]
 
 
+def expect_the_bars_inside_the_pages(table: PlayingTable) -> None:
+    for person in table.everyone:
+        bar = person.locator(".actions").bounding_box()
+        assert bar is not None
+        assert bar["x"] >= 0
+        assert bar["x"] + bar["width"] <= person.evaluate("window.innerWidth")
+        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
 def expect_the_marks(table: PlayingTable, ready: set[int]) -> None:
     for person in table.everyone:
         expect(person.locator(".chair .mark.declarer")).to_have_count(1)
@@ -207,6 +216,7 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     table.pages[first].locator(".actions").get_by_role("button", name=WEITER).click()
     expect_the_marks(table, {first})
     expect_the_buttons(table, {first})
+    expect_the_bars_inside_the_pages(table)
     reload_everyone(table)
     expect_the_card(table)
     expect_the_marks(table, {first})
