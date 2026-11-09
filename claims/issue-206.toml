@@ -1,0 +1,7 @@
+claim_id = "04fa39348b80419e8ea58d424a6ea258"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "a506ccbcf94e0d4e2a55f88ff14625d9cc8de086"
+branch = "claude/issue-206-ramsch-score"
+scope = ["src/skat/engine/ramsch.py", "tests/engine/test_ramsch.py"]
+opened_commit = "bfebec2a3dbe2080cd07db21a3ff3cd7257bd9f4"
