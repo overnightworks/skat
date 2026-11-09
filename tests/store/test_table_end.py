@@ -2,7 +2,7 @@ from contextlib import nullcontext
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from skat.store.schema import metadata, tables
@@ -54,10 +54,9 @@ def rows_of(engine, table_id):
     with engine.connect() as connection:
         return {
             each.name: connection.execute(
-                text(
-                    f"SELECT * FROM {each.name} WHERE {'id' if each is tables else 'table_id'} = :id ORDER BY 1, 2, 3"
-                ),  # noqa: S608 - the names come from the schema
-                {"id": table_id.value},
+                select(each)
+                .where((each.c.id if each is tables else each.c.table_id) == table_id.value)
+                .order_by(*each.primary_key.columns)
             ).all()
             for each in metadata.sorted_tables
         }

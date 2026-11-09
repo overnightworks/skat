@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select
 
 from skat.store.schema import metadata, tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
@@ -44,10 +44,9 @@ def rows_of(server: RunningServer, table_id: str) -> dict[str, list[tuple[object
             each.name: [
                 tuple(row)
                 for row in connection.execute(
-                    text(
-                        f"SELECT * FROM {each.name} WHERE {'id' if each is tables else 'table_id'} = :id ORDER BY 1, 2"
-                    ),  # noqa: S608 - the names come from the schema
-                    {"id": table_id},
+                    select(each)
+                    .where((each.c.id if each is tables else each.c.table_id) == table_id)
+                    .order_by(*each.primary_key.columns)
                 )
             ]
             for each in metadata.sorted_tables
