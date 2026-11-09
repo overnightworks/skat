@@ -9,7 +9,17 @@ from skat.engine.bidding import VALID_BIDS
 from skat.table.auction import AuctionAction
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
-from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH, AwaitingToken, PositionToken, RankToken, SuitToken
+from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from skat.web.tables import (
+    TABLE_PAGE_PREFIX,
+    TABLES_PATH,
+    AwaitingToken,
+    GameToken,
+    PositionToken,
+    RankToken,
+    StageToken,
+    SuitToken,
+)
 
 if TYPE_CHECKING:
     from enum import StrEnum
@@ -30,6 +40,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("ACCOUNT_CONSOLE_PATH", ACCOUNT_CONSOLE_PATH),
         ("TABLES_PATH", TABLES_PATH),
         ("TABLE_PAGE_PREFIX", TABLE_PAGE_PREFIX),
+        ("TABLE_DECLARATION_SUFFIX", TABLE_DECLARATION_SUFFIX),
         ("TABLE_AUCTION_SUFFIX", TABLE_AUCTION_SUFFIX),
     ]:
         assert any(name in line and f'"{path}"' in line for line in rendered.splitlines())
@@ -41,6 +52,8 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("SUIT_TOKENS", SuitToken),
         ("RANK_TOKENS", RankToken),
         ("POSITION_TOKENS", PositionToken),
+        ("GAME_TOKENS", GameToken),
+        ("STAGE_TOKENS", StageToken),
         ("AWAITING_TOKENS", AwaitingToken),
         ("AUCTION_ACTION_TOKENS", AuctionAction),
     ],
