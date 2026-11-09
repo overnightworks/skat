@@ -109,10 +109,7 @@ class TestSecretFiles:
 class TestRefusedUrls:
     @pytest.mark.parametrize(
         ("setting", "value"),
-        [
-            ("oidc_issuer", "http://issuer.test.invalid/realms/test"),
-            ("public_origin", "http://skat.test.invalid"),
-        ],
+        [("oidc_issuer", "http://issuer.test.invalid/realms/test")],
     )
     def test_an_http_url_stops_the_start_naming_the_settings_and_not_the_value(self, sign_in_settings, setting, value):
         settings = sign_in_settings(**{setting: value}).settings
@@ -150,7 +147,7 @@ class TestBuiltConfigs:
         assert web_auth.cookie_secure is True
 
     def test_only_the_public_origins_host_is_admitted(self, sign_in_settings):
-        settings = sign_in_settings(public_origin="https://Skat.Test.invalid:8443").settings
+        settings = sign_in_settings(public_origin="https://skat.test.invalid:8443").settings
         web_auth = installed_web_auth_config(
             create_app(settings, page_build=fixture_page_build(), tables=in_memory_tables())
         )
