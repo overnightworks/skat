@@ -525,7 +525,7 @@ const LIST={
 };
 /* the house rules of a new table, in the order of how common they are; each is off until switched on */
 const HOUSE_RULES=[
-  {id:'points',ic:I.points,name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel'},
+  {id:'points',ic:I.points,name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel',chip:'Augen'},
   {id:'kontra',ic:I.kontra,name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',chip:'Kontra'},
   {id:'ramsch',ic:I.ramsch,name:'Ramsch beim Einpassen',line:'Alle passen: jeder gegen jeden',chip:'Ramsch',sub:{id:'schieben',ic:I.schieben,name:'Schieberamsch',line:'Den Skat weiterschieben'}},
   {id:'bock',ic:I.bock,name:'Bockrunden',line:'Manche Spiele zählen doppelt',chip:'Bock'},
@@ -571,8 +571,8 @@ frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',LIST.phone()+newTable(195
 frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',LIST.desk()+newTable(640,60,440));
 frame('rules-on-390','Neuer Tisch mit Hausregeln','Handy 390 px','p390',LIST.phone()+newTable(195,70,354,['kontra','ramsch']));
 frame('rules-on-1280','Neuer Tisch mit Hausregeln','Desktop 1280 px','d1280',LIST.desk()+newTable(640,40,440,['kontra','ramsch']));
-frame('rules-set-390','Neuer Tisch mit eigenem Regelsatz','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['kontra','ramsch','schieben','bock'],'felix'));
-frame('rules-set-1280','Neuer Tisch mit eigenem Regelsatz','Desktop 1280 px','d1280',LIST.desk()+newTable(640,40,440,['kontra','ramsch','schieben','bock'],'felix'));
+frame('rules-set-390','Neuer Tisch mit eigenem Regelsatz','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['points','kontra','ramsch','schieben','bock'],'felix'));
+frame('rules-set-1280','Neuer Tisch mit eigenem Regelsatz','Desktop 1280 px','d1280',LIST.desk()+newTable(640,40,440,['points','kontra','ramsch','schieben','bock'],'felix'));
 frame('rules-list-390','Offene Tische mit Regeln','Handy 390 px','p390',
   wordmark(195,40,{ws:60,ps:20,rule:30,wg:8})+`<div class="account" style="--ar:12px;--at:12px"><span class="av">F</span>${I.chev}</div>`
   +ruleTables({left:16,top:150},{w:358,cw:92,ch:64,step:119})+cta(195,688)+legal);
