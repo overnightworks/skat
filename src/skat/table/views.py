@@ -6,6 +6,7 @@ from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
 from skat.table.auction import AuctionView, auction_view_of
 from skat.table.declaring import DeclaringView, declaring_view_of
+from skat.table.game_list import ResultView, result_view_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.rules import hand_runs
@@ -64,6 +65,7 @@ class TableView:
     watchers: int
     hand: HandView | None
     passed_in: PassedInView | None
+    result: ResultView | None
 
 
 def _is_occupied_by(chair: Chair, account_id: str) -> bool:
@@ -123,8 +125,8 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
     its position and card count, and only the viewer's own cards are named: the declarer's hold the skat from the
     take to the put-back, and an ouvert game's cards are open to all. The skat is otherwise a count. While a game
     is played, the cards and counts are those still held, and played cards are shown only in the trick in progress
-    and the last completed one. Between hands
-    the view says whether the last hand was passed in and, while three chairs are occupied, who deals next.
+    and the last completed one. Between hands the view says whether the last hand was passed in and, while three
+    chairs are occupied, who deals next; after a played game it carries the result, the same for every viewer.
     """
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
@@ -146,4 +148,5 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
         ),
         hand=hand_view,
         passed_in=_passed_in_view(table),
+        result=result_view_of(table),
     )

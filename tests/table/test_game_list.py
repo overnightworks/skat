@@ -1,16 +1,17 @@
+from dataclasses import replace
 from itertools import combinations_with_replacement
 
 import pytest
 
-from skat.engine.bidding import Declared
+from skat.engine.bidding import Declared, Pass
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Matadors
-from skat.table.game_list import list_entry_of
-from skat.table.records import Chair, Occupant, TableId, TableRecord
+from skat.table.game_list import list_entry_of, result_view_of
+from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, KREUZ, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.NULL
@@ -171,3 +172,51 @@ class TestTheEntrysGame:
 
     def test_a_null_game_has_no_matadors(self):
         assert entry_of(played(NULL)).matadors is None
+
+
+def pending_result(*games):
+    """The table after its games: no hand, no steps, and one list entry per game."""
+    table = seated_table()
+    return replace(table, game_list=tuple(list_entry_of(game, table) for game in games))
+
+
+class TestTheResult:
+    @pytest.mark.parametrize(
+        ("game", "gains"),
+        [
+            pytest.param(played(KREUZ, MIT_TWO, (30, 30, 18)), (86, 0, 0), id="end-won"),
+            pytest.param(played(KREUZ, MIT_TWO, (30, 24)), (-122, 40, 40), id="end-lost"),
+            pytest.param(played(KARO, MIT_ONE, (30, 30, 10), bid=20), (-104, 40, 40), id="end-over"),
+            pytest.param(played(NULL, declarer_tricks=(12,)), (-96, 40, 40), id="null-lost"),
+        ],
+    )
+    def test_each_chair_gains_what_the_reckoning_adds_the_declarer_in_seat_one(self, game, gains):
+        result = result_view_of(pending_result(game))
+
+        assert tuple(gain.gain for gain in result.gains) == gains
+        assert tuple(gain.seat for gain in result.gains) == (DECLARER_SEAT, 2, 3)
+
+    def test_reads_the_last_entry_and_numbers_it_by_its_place_in_the_list(self):
+        won, lost = played(KREUZ, MIT_TWO, (30, 30, 18)), played(KREUZ, MIT_TWO, (30, 24))
+
+        result = result_view_of(pending_result(won, lost))
+
+        assert (result.ordinal, result.won, result.score) == (2, False, -72)
+
+    def test_names_the_game_its_levels_and_both_sides_points(self):
+        result = result_view_of(pending_result(played(KARO, MIT_ONE, (30, 30, 10), bid=20)))
+
+        assert result.declaration == Declaration(KARO, hand=False, ouvert=False, announcement=NONE)
+        assert (result.schneider, result.schwarz, result.matadors) == (False, False, Matadors(mit=True, count=1))
+        assert (result.overbid, result.bid, result.game_value, result.settled_value) == (True, 20, 18, 27)
+        assert (result.declarer_points, result.opponents_points) == (70, 50)
+
+    @pytest.mark.parametrize(
+        "changed",
+        [
+            pytest.param({"game_list": ()}, id="no-game-played"),
+            pytest.param({"progress": HandProgress(auction=(Pass(MIDDLEHAND),))}, id="steps-of-a-pass-in-kept"),
+        ],
+    )
+    def test_there_is_none_while_no_result_is_pending(self, changed):
+        assert result_view_of(replace(pending_result(played(NULL)), **changed)) is None

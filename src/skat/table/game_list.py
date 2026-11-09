@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from skat.engine.deal import positions_from
-from skat.engine.score import settle
+from skat.engine.deal import SEATS, positions_from
+from skat.engine.score import Settlement, reckon, settle
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import value_of
+from skat.table.rules import result_pending
 
 if TYPE_CHECKING:
     from skat.engine.declaration import Declaration
@@ -75,4 +76,64 @@ def list_entry_of(played: PlayedOut, table: TableRecord) -> ListEntry:
         settled_value=settlement.value,
         score=settlement.score,
         declarer_points=played.declarer_points,
+    )
+
+
+@dataclass(frozen=True)
+class SeatGain:
+    """What a game adds to one chair's total."""
+
+    seat: int
+    gain: int
+
+
+@dataclass(frozen=True)
+class ResultView:
+    """The last game's result while it stands, the same for every viewer; it names no account and no card."""
+
+    ordinal: int
+    declarer_seat: int
+    declaration: Declaration
+    schneider: bool
+    schwarz: bool
+    matadors: Matadors | None
+    won: bool
+    overbid: bool
+    bid: int
+    game_value: int
+    settled_value: int
+    score: int
+    declarer_points: int
+    opponents_points: int
+    gains: tuple[SeatGain, ...]
+
+
+def _gains(entry: ListEntry) -> tuple[SeatGain, ...]:
+    reckoning = reckon(Settlement(won=entry.won, value=entry.settled_value, score=entry.score))
+    return tuple(
+        SeatGain(seat, reckoning.declarer if seat == entry.declarer_seat else reckoning.each_opponent) for seat in SEATS
+    )
+
+
+def result_view_of(table: TableRecord) -> ResultView | None:
+    """The list's last entry while its result is pending, numbered by its place in the list; None otherwise."""
+    if not result_pending(table):
+        return None
+    entry = table.game_list[-1]
+    return ResultView(
+        ordinal=len(table.game_list),
+        declarer_seat=entry.declarer_seat,
+        declaration=entry.declaration,
+        schneider=entry.schneider,
+        schwarz=entry.schwarz,
+        matadors=entry.matadors,
+        won=entry.won,
+        overbid=entry.overbid,
+        bid=entry.bid,
+        game_value=entry.game_value,
+        settled_value=entry.settled_value,
+        score=entry.score,
+        declarer_points=entry.declarer_points,
+        opponents_points=entry.opponents_points,
+        gains=_gains(entry),
     )

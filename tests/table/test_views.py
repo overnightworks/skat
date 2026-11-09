@@ -5,8 +5,10 @@ import pytest
 from skat.engine.bidding import Awaiting, Bid, Pass
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
-from skat.engine.declaration import Announcement, Declare, Stage, TakeSkat
+from skat.engine.declaration import Announcement, Declaration, Declare, Stage, TakeSkat
 from skat.engine.games import GameKind
+from skat.engine.value import Matadors
+from skat.table.game_list import ListEntry
 from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
 from skat.table.views import view_of
 
@@ -140,6 +142,51 @@ class TestPassedIn:
     )
     def test_says_nothing_of_a_passed_in_hand_otherwise(self, table):
         assert view_of(table, ANNA, NOBODY_CONNECTED).passed_in is None
+
+
+def a_played_game() -> ListEntry:
+    return ListEntry(
+        seat_accounts=(ANNA, BEN, CLEO),
+        declarer_seat=2,
+        declaration=Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),
+        schneider=False,
+        schwarz=False,
+        matadors=Matadors(mit=False, count=1),
+        won=True,
+        bid=18,
+        game_value=30,
+        settled_value=30,
+        score=30,
+        declarer_points=70,
+    )
+
+
+class TestResult:
+    def test_after_a_played_game_every_viewer_gets_the_same_result_and_no_passed_in(self):
+        table = replace(seated_table(1), game_list=(a_played_game(),))
+
+        views = [view_of(table, viewer, frozenset({DORA})) for viewer in (ANNA, BEN, CLEO, DORA)]
+
+        assert views[0].result is not None
+        assert [view.result for view in views] == [views[0].result] * 4
+        assert [view.passed_in for view in views] == [None] * 4
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(seated_table(1, steps=THREE_PASSES), id="a-pass-in"),
+            pytest.param(replace(seated_table(1, KNOWN_DEAL), game_list=(a_played_game(),)), id="the-next-hand-runs"),
+        ],
+    )
+    def test_there_is_none_otherwise(self, table):
+        assert view_of(table, ANNA, NOBODY_CONNECTED).result is None
+
+    def test_a_pass_in_after_a_played_game_says_passed_in_and_shows_no_result(self):
+        table = replace(seated_table(1, steps=THREE_PASSES), game_list=(a_played_game(),))
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert (view.passed_in is not None, view.result) == (True, None)
 
 
 class TestAuctionInTheHand:

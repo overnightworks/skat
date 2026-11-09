@@ -597,6 +597,10 @@ def grand_ouvert(table):
     table.declared_grand_ouvert()
 
 
+def skat_put_back(table):
+    table.declared_after_putting_back(SKAT_CARDS)
+
+
 @dataclass(frozen=True)
 class Moment:
     """A point in a declared game and the `playing` its answer holds; middlehand is the declarer."""
@@ -617,7 +621,10 @@ class Moment:
         table.played_out(self.played)
 
     def playing_for(self, viewer):
-        last = None if self.last is None else {"cards": last_cards(self.last[0]), "taker_seat": SEATS[self.last[1]]}
+        last = None
+        if self.last is not None:
+            trick, taker = self.last
+            last = {"cards": last_cards(trick), "leader_seat": trick[0]["seat"], "taker_seat": SEATS[taker]}
         legal = self.legal if viewer.position is not None and viewer.position is self.turn else ()
         return {
             "turn_seat": None if self.turn is None else SEATS[self.turn],
@@ -806,6 +813,7 @@ class TestEveryViewersPlaying:
         [
             pytest.param(herz_hand_game, HERZ_GAME, False, id="hand-game"),
             pytest.param(grand_ouvert, GRAND_GAME, True, id="grand-ouvert"),
+            pytest.param(skat_put_back, HERZ_GAME, False, id="the-skat-put-back"),
         ],
     )
     def test_every_accepted_card_sends_every_open_stream_a_snapshot_naming_only_what_its_viewer_may_see(
@@ -836,3 +844,64 @@ class TestEveryViewersPlaying:
                     allowed = wire_cards(visible_cards(KNOWN_DEAL, script[:count], viewer.position, ouvert=ouvert))
                     assert cards_in_text(message_at_version(stream_lines, version)) == allowed
                     assert cards_in_text(read(table, viewer.headers_at(table))) == allowed
+
+
+# Middlehand's Herz Hand game at 18: ohne 1, Spiel and Hand make 30, and 55 trick points plus the skat's 15 win it.
+HERZ_RESULT = {
+    "ordinal": 1,
+    "declarer_seat": SEATS[MIDDLEHAND],
+    "game": "herz",
+    "hand": True,
+    "ouvert": False,
+    "announcement": "none",
+    "schneider": False,
+    "schwarz": False,
+    "matadors": {"mit": False, "count": 1},
+    "won": True,
+    "overbid": False,
+    "bid": 18,
+    "game_value": 30,
+    "settled_value": 30,
+    "score": 30,
+    "declarer_points": 70,
+    "opponents_points": 50,
+    "gains": [{"seat": 1, "gain": 80}, {"seat": 2, "gain": 0}, {"seat": 3, "gain": 0}],
+}
+
+
+class TestEveryViewersResult:
+    def test_before_the_thirtieth_card_there_is_no_result(self, table):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME[:-1])
+
+        assert message_body(read(table, table.watcher))["result"] is None
+
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    def test_the_read_and_a_new_stream_carry_the_same_result_and_no_hand(self, table, viewer):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME)
+        headers = viewer.headers_at(table)
+
+        bodies = [message_body(read(table, headers)), message_body(first_stream_message(table, headers))]
+
+        assert [body["result"] for body in bodies] == [HERZ_RESULT, HERZ_RESULT]
+        assert [body["hand"] for body in bodies] == [None, None]
+
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    def test_the_result_names_no_account_and_no_card(self, table, viewer):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME)
+        accounts = {chair.occupant.account_id for chair in table.record.chairs}
+
+        raws = [read(table, viewer.headers_at(table)), first_stream_message(table, viewer.headers_at(table))]
+
+        assert [cards_in_text(raw) for raw in raws] == [set(), set()]
+        assert [account for account in accounts for raw in raws if account in raw] == []
+
+    def test_the_thirtieth_card_s_own_answer_carries_the_result(self, table):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME[:-1])
+
+        answer = table.accepted(HERZ_GAME[-1])
+
+        assert answer.json()["result"] == HERZ_RESULT

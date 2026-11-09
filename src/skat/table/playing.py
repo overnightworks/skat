@@ -38,9 +38,10 @@ class SeatedCard:
 
 @dataclass(frozen=True)
 class LastTrick:
-    """The last completed trick: its cards in playing order and who took it."""
+    """The last completed trick: its cards in playing order from the seat that led it, and who took it."""
 
     cards: tuple[Card, ...]
+    leader_seat: int
     taker_seat: int
 
 
@@ -111,7 +112,7 @@ def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozen
     return PlayingView(
         turn_seat=None if state.result is not None else seats[state.turn],
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
-        last_trick=None if last is None else LastTrick(last.cards, seats[last.taker]),
+        last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
         tricks_won=state.tally.tricks,
         trick_points=state.tally.points,
         legal_cards=_legal_cards(state, viewer_positions),

@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from skat.engine.tricks import Sides
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
+    from skat.table.game_list import ResultView
     from skat.table.playing import PlayingView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, TableView
@@ -214,6 +215,7 @@ class SeatedCardAnswer(BaseModel):
 
 class LastTrickAnswer(BaseModel):
     cards: list[CardAnswer]
+    leader_seat: int
     taker_seat: int
 
 
@@ -252,6 +254,37 @@ class PassedInAnswer(BaseModel):
     next_dealer_seat: int | None
 
 
+class MatadorsAnswer(BaseModel):
+    mit: bool
+    count: int
+
+
+class SeatGainAnswer(BaseModel):
+    seat: int
+    gain: int
+
+
+class ResultAnswer(BaseModel):
+    ordinal: int
+    declarer_seat: int
+    game: GameToken
+    hand: bool
+    ouvert: bool
+    announcement: AnnouncementToken
+    schneider: bool
+    schwarz: bool
+    matadors: MatadorsAnswer | None
+    won: bool
+    overbid: bool
+    bid: int
+    game_value: int
+    settled_value: int
+    score: int
+    declarer_points: int
+    opponents_points: int
+    gains: list[SeatGainAnswer]
+
+
 class TableAnswer(BaseModel):
     id: str
     version: int
@@ -259,6 +292,7 @@ class TableAnswer(BaseModel):
     watchers: int
     hand: HandAnswer | None
     passed_in: PassedInAnswer | None
+    result: ResultAnswer | None
 
 
 class CardChoice(CardAnswer):
@@ -331,7 +365,11 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
         ],
         last_trick=None
         if last is None
-        else LastTrickAnswer(cards=[card_answer_of(card) for card in last.cards], taker_seat=last.taker_seat),
+        else LastTrickAnswer(
+            cards=[card_answer_of(card) for card in last.cards],
+            leader_seat=last.leader_seat,
+            taker_seat=last.taker_seat,
+        ),
         tricks_won=sides_answer_of(playing.tricks_won),
         trick_points=sides_answer_of(playing.trick_points),
         legal_cards=[card_answer_of(card) for card in playing.legal_cards],
@@ -357,6 +395,32 @@ def passed_in_answer_of(passed_in: PassedInView | None) -> PassedInAnswer | None
     return PassedInAnswer(next_dealer_seat=passed_in.next_dealer_seat)
 
 
+def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
+    if result is None:
+        return None
+    declaration, matadors = result.declaration, result.matadors
+    return ResultAnswer(
+        ordinal=result.ordinal,
+        declarer_seat=result.declarer_seat,
+        game=GAME_TOKENS[declaration.kind],
+        hand=declaration.hand,
+        ouvert=declaration.ouvert,
+        announcement=ANNOUNCEMENT_TOKENS[declaration.announcement],
+        schneider=result.schneider,
+        schwarz=result.schwarz,
+        matadors=None if matadors is None else MatadorsAnswer(mit=matadors.mit, count=matadors.count),
+        won=result.won,
+        overbid=result.overbid,
+        bid=result.bid,
+        game_value=result.game_value,
+        settled_value=result.settled_value,
+        score=result.score,
+        declarer_points=result.declarer_points,
+        opponents_points=result.opponents_points,
+        gains=[SeatGainAnswer(seat=gain.seat, gain=gain.gain) for gain in result.gains],
+    )
+
+
 def answer_of(view: TableView) -> TableAnswer:
     return TableAnswer(
         id=view.id,
@@ -374,6 +438,7 @@ def answer_of(view: TableView) -> TableAnswer:
         watchers=view.watchers,
         hand=hand_answer_of(view.hand),
         passed_in=passed_in_answer_of(view.passed_in),
+        result=result_answer_of(view.result),
     )
 
 
