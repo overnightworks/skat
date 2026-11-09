@@ -42,8 +42,7 @@ READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 MINUS = chr(0x2212)
-PHONE_LAYOUT_BELOW = 900
-LONG_NAME = "Bartholom\u00e4us-Maximilian"
+LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
 
 
 class ModestBidTable(DeclaringTable):
@@ -66,7 +65,11 @@ def deal_a_finished_hand(
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
     def deal(
-        form_factor: dict[str, Any], *, declaring: type[DeclaringTable] = DeclaringTable, console: bool = True
+        form_factor: dict[str, Any],
+        *,
+        declaring: type[DeclaringTable] = DeclaringTable,
+        console: bool = True,
+        joiners: tuple[str, str] = ("ben", "cleo"),
     ) -> PlayingTable:
         table = deal_playing_table(
             open_person,
@@ -77,6 +80,7 @@ def deal_a_finished_hand(
             console=console,
             game="kreuz",
             declaring=declaring,
+            joiners=joiners,
         )
         table.play_out(CARDS_IN_PLAY)
         return table
@@ -237,21 +241,17 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
 def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
-    table = deal_a_finished_hand(form_factor)
+    table = deal_a_finished_hand(form_factor, joiners=LONG_NAMES)
     person = table.pages[table.declarer_seat]
     bar = person.locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
-    expect(bar.get_by_role("status")).to_be_visible()
-    person.evaluate(
-        "(name) => { document.querySelector('.actions .wait').firstChild.textContent = name }",
-        f"{WAITING_FOR} {LONG_NAME} {AND} {next(iter(table.names.values()))}",
-    )
+    expect(bar.get_by_role("status")).to_contain_text(next(name for name in LONG_NAMES if name in table.names.values()))
     heights = bar.evaluate("bar => [...bar.children].map(child => child.getBoundingClientRect().height)")
     link = bar.locator(".copy.link").bounding_box()
     assert link is not None
-    if person.evaluate("window.innerWidth") < PHONE_LAYOUT_BELOW:
-        assert link["width"] == link["height"]
+    assert link["width"] >= link["height"]
     assert len(set(heights)) == 1
+    expect_the_bars_inside_the_pages(table)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
