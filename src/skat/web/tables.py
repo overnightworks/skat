@@ -293,6 +293,9 @@ class ResultAnswer(BaseModel):
     matadors: MatadorsAnswer | None
     base_value: int | None
     levels: list[Level]
+    multiplier: int | None
+    list_bonus: int
+    announcement_missed: bool
     won: bool
     doubled: bool
     overbid: bool
@@ -469,6 +472,9 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
         matadors=None if matadors is None else MatadorsAnswer(mit=matadors.mit, count=matadors.count),
         base_value=result.base_value,
         levels=list(result.levels),
+        multiplier=result.multiplier,
+        list_bonus=result.list_bonus,
+        announcement_missed=result.announcement_missed,
         won=result.won,
         doubled=result.doubled,
         overbid=result.overbid,
