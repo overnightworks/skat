@@ -8,8 +8,8 @@ from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.table.auction import AuctionAction
-from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.table.records import TABLE_ID_PATTERN
+from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.constants import (
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
