@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -8,6 +9,7 @@ from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
+from tests.e2e.support.shards import select_shard
 from tests.support.signed_in import SeededMember, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -16,6 +18,10 @@ if TYPE_CHECKING:
     from playwright.sync_api import Browser, BrowserContext, Page, Request
 
 PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    select_shard(config, items, Path(__file__).parent)
 
 
 @pytest.fixture(scope="session")

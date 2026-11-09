@@ -43,6 +43,7 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
         hand=None,
         progress=HandProgress(),
         game_list=tuple(an_entry() for _ in range(games)),
+        series=None,
     )
 
 

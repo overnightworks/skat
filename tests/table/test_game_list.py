@@ -69,6 +69,7 @@ def seated_table():
         hand=None,
         progress=HandProgress(),
         game_list=(),
+        series=None,
     )
 
 
