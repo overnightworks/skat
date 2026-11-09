@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 COMMAND_FAILED = catalog_text("commandFailed")
-NULL_GAME = catalog_text("gameNull")
 KREUZ = catalog_text("gameKreuz")
 HAND_CARD = ".own-hand .card"
 LEGAL_CARD = f"{HAND_CARD}.ok"
@@ -55,7 +54,7 @@ def deal_a_playing_table(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
-    def deal(form_factor: dict[str, Any], *, console: bool = True, game: str = "null") -> PlayingTable:
+    def deal(form_factor: dict[str, Any], *, console: bool = True, game: str = "kreuz") -> PlayingTable:
         return deal_playing_table(
             open_person, e2e_server, member_of, page_errors, form_factor, console=console, game=game
         )
@@ -107,7 +106,7 @@ def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) ->
 def expect_the_plaque(table: PlayingTable) -> None:
     points = table.playing()["trick_points"]
     for person in table.everyone:
-        expect(person.locator(".plaque .game")).to_have_text(NULL_GAME)
+        expect(person.locator(".plaque .game")).to_have_text(KREUZ)
         declarer, opponents = table.side_names_as_seen_by(person)
         expect(person.locator(".plaque .sides .declarer")).to_have_text(f"{declarer} {points['declarer']}")
         expect(person.locator(".plaque .sides .opponents")).to_have_text(f"{opponents} {points['opponents']}")

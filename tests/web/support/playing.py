@@ -137,7 +137,7 @@ class Table:
         assert answer.status_code == 200, answer.text
         assert self.record.version == before.version + 1
         stored = (len(self.plays), len(self.record.game_list))
-        # The card is stored, or it was the thirtieth: the hand's cards and steps go and the game joins the list.
+        # The card is stored, or it ended the game: the hand's cards and steps go and the game joins the list.
         assert stored in {
             (len(before.progress.plays) + 1, len(before.game_list)),
             (0, len(before.game_list) + 1),

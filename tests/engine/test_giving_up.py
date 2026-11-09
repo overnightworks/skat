@@ -307,12 +307,6 @@ def test_a_game_already_won_cannot_be_given_up_and_nothing_changes(
             id="opponents at 60 points: the declarer reaches 60 and wins nothing",
         ),
         pytest.param(
-            {**KREUZ_MIT_2, "hand": True, "announcement": Announcement.SCHWARZ, "taken": ((MIDDLEHAND, 0),)},
-            MIDDLEHAND,
-            Settlement(won=False, value=96, score=-192),
-            id="announced schwarz is lost once the opponents hold a trick: (2 + 6) * 12",
-        ),
-        pytest.param(
             {"kind": NULL, "bid": 23, "jacks": ()},
             FOREHAND,
             Settlement(won=False, value=23, score=-46),
@@ -323,12 +317,6 @@ def test_a_game_already_won_cannot_be_given_up_and_nothing_changes(
             MIDDLEHAND,
             Settlement(won=True, value=23, score=23),
             id="null won when an opponent throws and the declarer has no trick",
-        ),
-        pytest.param(
-            {"kind": NULL, "bid": 23, "jacks": (), "taken": ((FOREHAND, 0),)},
-            REARHAND,
-            Settlement(won=False, value=23, score=-46),
-            id="null lost when an opponent throws after the declarer took a trick",
         ),
     ],
 )
@@ -461,6 +449,18 @@ NULL_23 = {"kind": NULL, "bid": 23, "jacks": ()}
             Settlement(won=False, value=36, score=-72),
             Ending.DECIDED,
             id="decided against: the declarer reaches only 60 with every remaining card",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": Announcement.SCHNEIDER, "taken": OPPONENTS_35},
+            Settlement(won=False, value=72, score=-144),
+            Ending.DECIDED,
+            id="decided against: announced schneider after the opponents have missed it, (2 + 4) * 12",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 45, "hand": True, "taken": ((MIDDLEHAND, 10),)},
+            Settlement(won=False, value=45, score=-90),
+            Ending.DECIDED,
+            id="decided against: the forced schwarz of a hand game is out of reach after one opponent trick",
         ),
         pytest.param(
             {"kind": KARO, "bid": 20, "taken": DECLARER_90},
