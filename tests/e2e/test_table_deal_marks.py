@@ -157,19 +157,22 @@ def picture_of_answer(answer: dict[str, Any]) -> dict[str, Any]:
 
 
 def page_and_answer_agree(person: Page, server: RunningServer, table_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Poll the drawn hand against a fresh answer until they are equal; fail with the last pair on timeout."""
+    """Poll the drawn hand against a fresh answer until they are equal and nobody is away; fail with both on timeout."""
     deadline = time.monotonic() + USUAL_TIMEOUT_SECONDS
     while True:
         answer = answer_of(person, server, table_id)
         drawn = drawn_table(person)
-        if drawn == picture_of_answer(answer) or time.monotonic() >= deadline:
+        # A reloading player has no stream for a moment and shows away to the others; the snapshot waits for all four.
+        settled = drawn == picture_of_answer(answer) and not any(chair["away"] for chair in drawn["chairs"])
+        if settled or time.monotonic() >= deadline:
             assert drawn == picture_of_answer(answer)
+            assert not any(chair["away"] for chair in drawn["chairs"])
             return answer, drawn
         person.wait_for_timeout(POLL_MILLISECONDS)
 
 
 def assert_drawn_again(person: Page, drawn: dict[str, Any]) -> None:
-    """Poll a reloaded page until it draws what it drew before; its own chair shows away until its stream is back."""
+    """Poll a reloaded page until it draws what it drew before; another player's reload can show as away for a moment."""
     deadline = time.monotonic() + USUAL_TIMEOUT_SECONDS
     while drawn_table(person) != drawn and time.monotonic() < deadline:
         person.wait_for_timeout(POLL_MILLISECONDS)
