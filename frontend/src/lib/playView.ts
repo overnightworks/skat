@@ -81,8 +81,8 @@ export function gameInPlay(table: Table): GameInPlay | null {
 // The cards the viewer may play now, or null when it is not the viewer's turn to play.
 export function cardsToPlay(table: Table): readonly Card[] | null {
     const playing = table.hand?.playing;
-    const mine = table.chairs.find((chair) => chair.is_mine);
-    if (!playing || mine === undefined || playing.turn_seat !== mine.seat) return null;
+    const mineSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
+    if (mineSeat === undefined || playing?.turn_seat !== mineSeat) return null;
     return playing.legal_cards;
 }
 
