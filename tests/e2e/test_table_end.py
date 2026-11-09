@@ -110,7 +110,7 @@ def test_an_undealt_table_left_before_a_restart_ends_no_sooner_than_the_wait_aft
     restarted_server: RunningServer,
 ) -> None:
     anna = signed_in(restarted_server)
-    table_id = json.loads(anna.post(TABLES_PATH, {"command_id": "restart-create-0001"}))["id"]
+    table_id = json.loads(anna.post(TABLES_PATH, {"command_id": "restart-create-0001", "series_length": 36}))["id"]
     anna.first_stream_message(f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}")
     deadline = time.monotonic() + RESTARTED_WAIT_SECONDS + 20
     while stored_times(restarted_server, table_id)[0] is None and time.monotonic() < deadline:
