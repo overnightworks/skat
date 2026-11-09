@@ -1,5 +1,6 @@
 import itertools
 import json
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page, expect
@@ -39,6 +40,7 @@ class DeclaringTable:
         form_factor: dict[str, Any],
         *,
         console: bool = True,
+        hold_the_others_clock: bool = False,
     ) -> None:
         self.server = server
         opener = self._person(open_person, "anna", page_errors, form_factor, console)
@@ -59,6 +61,8 @@ class DeclaringTable:
         self.declarer_seat = seat_at["middlehand"]
         self.declarer = people[self.declarer_seat]
         self.others = [person for seat, person in people.items() if seat != self.declarer_seat]
+        if hold_the_others_clock:
+            self._hold_the_clock_of(*self.others, self.watcher)
         self._win_the_auction(seat_at)
         expect(self.declarer.get_by_role("button", name=TAKE_SKAT)).to_be_visible()
 
@@ -71,6 +75,14 @@ class DeclaringTable:
         console: bool,
     ) -> Page:
         return record_page_errors(open_person(username=username, **form_factor), page_errors, console=console)
+
+    @staticmethod
+    def _hold_the_clock_of(*people: Page) -> None:
+        """Stops the page's timers, so the moment the auction ends lasts until the test lets time run."""
+        stopped_at = datetime.now(UTC) + timedelta(seconds=1)
+        for person in people:
+            person.clock.install(time=stopped_at)
+            person.clock.pause_at(stopped_at + timedelta(seconds=1))
 
     def _win_the_auction(self, seat_at: dict[str, int]) -> None:
         """The middlehand holds the highest bid there is, so any game the page declares lies below it."""
@@ -102,6 +114,10 @@ class DeclaringTable:
 
     def declaring_as_the_declarer_sees_it(self) -> dict[str, Any]:
         return json.loads(self.sessions[self.declarer_seat].get(self.api_path))["hand"]["declaring"]
+
+    def name_of_the_declarer(self) -> str:
+        chairs = json.loads(self.sessions[self.declarer_seat].get(self.api_path))["chairs"]
+        return next(chair["occupant_name"] for chair in chairs if chair["seat"] == self.declarer_seat)
 
     def bid_value(self) -> int:
         return json.loads(self.sessions[self.declarer_seat].get(self.api_path))["hand"]["auction"]["declared"]["value"]

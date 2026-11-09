@@ -1,7 +1,15 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
-    import { awayOnTurn, chairMarks, PASSED_IN_MARKS, passedInScene } from "#lib/auctionMarks.ts";
+    import {
+        auctionJustEnded,
+        awayOnTurn,
+        chairMarks,
+        decidingMarks,
+        decidingPlaque,
+        PASSED_IN_MARKS,
+        passedInScene,
+    } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
@@ -23,7 +31,6 @@
     import {
         bidValueWhileDeclaring,
         copyTableLink,
-        declarerStage,
         drawingOrder,
         gameWord,
         isSuitGame,
@@ -42,6 +49,7 @@
     } from "../../tables.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
+    const WON_MOMENT_MILLISECONDS = 2500;
 
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
@@ -51,27 +59,42 @@
     let connected = $state(true);
     let picking = $state<Picking | undefined>();
     let playing = $state<PlayingHand | undefined>();
+    // The first moment of the declaring, which only a page that sees the auction end shows.
+    let justWon = $state(false);
+    let wonTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function showTable(previous: Table, table: Table): void {
+        if (auctionJustEnded(previous, table)) {
+            justWon = true;
+            clearTimeout(wonTimer);
+            wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
+        }
+        outcome = { kind: "table", table };
+    }
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
         outcome = null;
         connected = true;
+        justWon = false;
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
             if (!current) return;
             outcome = answer;
             if (answer.kind === "table") {
-                stopWatching = watchTable(
-                    id,
-                    (table) => (outcome = { kind: "table", table }),
-                    (isConnected) => (connected = isConnected),
-                );
+                let shown = answer.table;
+                const show = (table: Table): void => {
+                    showTable(shown, table);
+                    shown = table;
+                };
+                stopWatching = watchTable(id, show, (isConnected) => (connected = isConnected));
             }
         });
         // An answer for an address the person has left must not replace the current table.
         return () => {
             current = false;
+            clearTimeout(wonTimer);
             stopWatching();
         };
     });
@@ -205,7 +228,6 @@
             <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
             {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
-            {@const declarerActs = declarerStage(outcome.table) !== null}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
             {@const turnSeat = inPlay?.playing.turn_seat}
@@ -213,8 +235,21 @@
             {@const winners = new Set(view?.rows.filter((row) => row.winner).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
+            {@const deciding = decidingPlaque(outcome.table, justWon)}
             {#if view !== null}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
+            {:else if deciding !== null}
+                <div class="plaque deciding">
+                    {#if deciding.kind === "won"}
+                        <span>{`${deciding.name} ${words.plays}, ${String(deciding.value)}`}</span>
+                    {:else}
+                        <span>{`${words.bidValue} ${String(deciding.value)}`}</span>
+                        <span class="gives">
+                            {`${deciding.name} ${deciding.kind === "choosing" ? words.chooses : words.discards}`}
+                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                        </span>
+                    {/if}
+                </div>
             {:else if bidValue !== null}
                 <div class="plaque">
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
@@ -281,6 +316,7 @@
             {/if}
             {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
             {@const auction = outcome.table.hand?.auction}
+            {@const declaring = outcome.table.hand?.declaring}
             {#if outcome.table.hand !== null && inPlay === null}
                 <div class="skat-spot">
                     <FaceDownSkat count={outcome.table.hand.skat_count} />
@@ -299,14 +335,18 @@
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
                     {@const marks =
-                        passedIn === null ? chairMarks(auction, chair.seat, ownChair?.seat) : PASSED_IN_MARKS}
+                        passedIn !== null
+                            ? PASSED_IN_MARKS
+                            : declaring
+                              ? decidingMarks(declaring, chair.seat, justWon)
+                              : chairMarks(auction, chair.seat, ownChair?.seat)}
                     <li
                         class="chair"
                         class:mine={chair.is_mine}
                         class:away={chair.is_away}
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
-                        class:turn={(chair.is_mine && declarerActs) || marks.turn || chair.seat === turnSeat}
+                        class:turn={marks.turn || chair.seat === turnSeat}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -335,6 +375,17 @@
                                 {/if}
                                 {#if chair.hand !== null}
                                     <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                                {/if}
+                                {#if marks.declarer}
+                                    <span class="mark declarer" class:won={marks.declarer === "won"}>
+                                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                            <path
+                                                d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.5 6 20.9l1.3-6.7-5-4.7 6.8-.8z"
+                                            />
+                                        </svg>
+                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                                        {`${words.plays}`}
+                                    </span>
                                 {/if}
                                 {#if marks.turn || chair.seat === turnSeat}
                                     <span class="mark turn" aria-hidden="true">
