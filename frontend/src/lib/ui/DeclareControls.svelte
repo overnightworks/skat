@@ -69,7 +69,7 @@
 </script>
 
 {#if stage !== null}
-    <div class="declare">
+    <div class="declare {stage}">
         {#if stage === "choosing"}
             <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
