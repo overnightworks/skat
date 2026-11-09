@@ -1,8 +1,0 @@
-claim_id = "4f75727bd7784d7d9328d1e692e2b334"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "89aaa3e4687a2a915b3dcb5df3f8f983f17c9c54"
-branch = "claude/issue-113-one-owner"
-scope = ["src/skat/engine/deal.py", "src/skat/engine/tricks.py", "src/skat/table/auction.py", "src/skat/table/declaring.py", "src/skat/table/game_list.py", "src/skat/table/playing.py", "src/skat/table/ready.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/engine/test_deal.py", "tests/table/test_auction.py", "tests/table/test_declaring.py", "tests/table/test_game_list.py", "tests/table/test_playing.py", "tests/table/test_ready.py", "tests/table/test_rules.py", "tests/table/test_views.py", "tests/web/test_playing.py"]
-opened_commit = "11ff28c73495d440039c29b4d6a8453c1bb9f645"
-whole_reason = "Each change is a one-line or signature change seen only by its own callers; split apart it would buy six reviews of a few lines each."
