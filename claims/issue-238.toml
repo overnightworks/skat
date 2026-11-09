@@ -1,8 +1,0 @@
-claim_id = "81f4cb5bf0db41c59f46850f26899e1a"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "5c4e7b8ddea0b7e05c4cf541c13c58cefb45ae00"
-branch = "claude/issue-238-framed-sign-in-again"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/callSignIn.test.ts", "frontend/src/lib/callSignIn.ts", "frontend/src/lib/ui/CallSignIn.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "tests/e2e/support/call_frame.py", "tests/e2e/test_call_sign_in.py", "tests/web/test_sign_in_routes.py"]
-opened_commit = "793c5cbacd5c9121bed4bf17e80b17cd4992d1a1"
-whole_reason = "The framed reload, its call-mode predicate, the call face's frame-safe links, their docs and their proofs keep one rule, that a framed Skat page never leaves for an origin that refuses framing, and none keeps it alone."
