@@ -21,6 +21,7 @@ import {
     togglePicked,
     type Card,
     type Chair,
+    type Declaring,
     type Position,
     type Stage,
     type Table,
@@ -345,13 +346,14 @@ describe("what the declaring stage asks of this viewer", () => {
             is_away: false,
             hand: null,
         }));
-    const tableAt = (stage: Stage, mine: number): Table => ({
+    const tableWith = (declaring: Declaring | null, mine: number): Table => ({
         id: TABLE_ID,
         version: 1,
         chairs: seats(mine),
         watchers: 0,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, declaring: { declarer_seat: 2, stage } },
+        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, declaring },
     });
+    const tableAt = (stage: Stage, mine: number): Table => tableWith({ declarer_seat: 2, stage }, mine);
 
     it.each<Stage>(["choosing", "discarding", "picked"])("asks the declarer to act at %s", (stage) => {
         expect(declarerStage(tableAt(stage, 2))).toBe(stage);
@@ -370,8 +372,7 @@ describe("what the declaring stage asks of this viewer", () => {
     });
 
     it("asks nothing before the auction is over", () => {
-        const table = tableAt("choosing", 2);
-        expect(declarerStage({ ...table, hand: { ...table.hand!, declaring: null } })).toBeNull();
+        expect(declarerStage(tableWith(null, 2))).toBeNull();
     });
 
     it("asks nothing with no hand on the table", () => {
