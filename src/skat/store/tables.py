@@ -237,7 +237,8 @@ class _PostgresTableTransaction:
 
     def live_table_ids(self) -> tuple[TableId, ...]:
         return tuple(
-            TableId(row.id) for row in self._connection.execute(select(tables.c.id).where(tables.c.ended_at.is_(None)))
+            TableId(row.id)
+            for row in self._connection.execute(select(tables.c.id).where(tables.c.end_reason.is_(None)))
         )
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
