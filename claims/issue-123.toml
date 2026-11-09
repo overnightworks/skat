@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "d0681204029064e2372f0fe6f8c8daeb8827d063"
 branch = "claude/issue-123-pictures"
-scope = ["frontend/src/lib/start.css", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/test_table_cards.py", "tests/e2e/test_table_deal_marks.py", "tests/e2e/test_table_playing.py", "tests/e2e/test_table_result.py"]
+scope = ["frontend/src/lib/start.css", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/support/declaring.py", "tests/e2e/support/hands.py", "tests/e2e/test_table_cards.py", "tests/e2e/test_table_deal_marks.py", "tests/e2e/test_table_playing.py", "tests/e2e/test_table_result.py"]
 opened_commit = "7a7fe963e23812a445e4f16acca84fb41d8b32a6"
 whole_reason = "One stylesheet and the page it lays out: the fixes share the same media blocks, so split apart they would conflict with each other."
