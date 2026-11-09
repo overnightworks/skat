@@ -235,9 +235,7 @@ class TestWhoMayCall:
         ("changes", "status"),
         [
             pytest.param({"groups": [AGENT_GROUP]}, 403, id="no mcp group"),
-            pytest.param(
-                {"groups": [MCP_GROUP], "azp": "another-client"}, 401, id="foreign client, no agents"
-            ),
+            pytest.param({"groups": [MCP_GROUP], "azp": "another-client"}, 401, id="foreign client, no agents"),
             pytest.param({"aud": "https://elsewhere.test.invalid/mcp"}, 401, id="wrong audience"),
             pytest.param({"scope": "another-scope"}, 403, id="missing scope"),
             pytest.param({"iat": 0, "exp": 1}, 401, id="expired"),
