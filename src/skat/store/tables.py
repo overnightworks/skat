@@ -7,9 +7,10 @@ from sqlalchemy.exc import IntegrityError
 from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
-from skat.store.auction import append_steps, delete_steps, read_steps
-from skat.store.declaring import append_declaring_steps, read_declaring_steps
-from skat.store.playing import append_plays, read_plays
+from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
+from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
+from skat.store.game_list import append_game_list, read_game_list
+from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
     POSITION_TEXT,
     RANK_TEXT,
@@ -98,7 +99,14 @@ def _table_record(
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
         ),
+        game_list=read_game_list(connection, table_id),
     )
+
+
+def _forget_played_hand(connection: Connection, table_id: str) -> None:
+    """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
+    for rows in (hand_cards, auction_actions, declaring_steps, played_cards):
+        connection.execute(delete(rows).where(rows.c.table_id == table_id))
 
 
 class _PostgresTableTransaction:
@@ -140,15 +148,20 @@ class _PostgresTableTransaction:
 
     def save_table(self, table: TableRecord) -> None:
         dealt = _read_hand(self._connection, table.id.value)
-        hand_ended = dealt is not None and table.hand is None and isinstance(auction_of(table).result, PassedIn)
-        if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not hand_ended:
+        ended = dealt is not None and table.hand is None
+        passed_in = ended and isinstance(auction_of(table).result, PassedIn)
+        played_out = ended and len(table.game_list) > len(read_game_list(self._connection, table.id.value))
+        if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not passed_in:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._connection.execute(
             update(tables).where(tables.c.id == table.id.value).values(version=table.version, dealer=table.dealer)
         )
-        if hand_ended:
+        if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
+        if played_out:
+            _forget_played_hand(self._connection, table.id.value)
+        append_game_list(self._connection, table.id.value, table.game_list)
         if table.hand is not None and dealt is None:
             delete_steps(self._connection, table.id.value)
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))

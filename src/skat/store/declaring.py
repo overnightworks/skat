@@ -1,12 +1,24 @@
 from enum import StrEnum
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, insert, select
 
-from skat.engine.cards import Card, Rank, Suit
-from skat.engine.declaration import Announcement, Declare, DeclaringStep, PutBack, TakeSkat
-from skat.engine.games import GameKind
-from skat.store.schema import RANK_TEXT, SUIT_TEXT, metadata, one_of, tables, unstored_steps
+from skat.engine.cards import Card
+from skat.engine.declaration import Declare, DeclaringStep, PutBack, TakeSkat
+from skat.store.schema import (
+    ANNOUNCEMENT_OF_TEXT,
+    ANNOUNCEMENT_TEXT,
+    GAME_OF_TEXT,
+    GAME_TEXT,
+    RANK_OF_TEXT,
+    RANK_TEXT,
+    SUIT_OF_TEXT,
+    SUIT_TEXT,
+    metadata,
+    one_of,
+    tables,
+    unstored_steps,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy import Row
@@ -18,18 +30,6 @@ class _Action(StrEnum):
     PUT_BACK = "put-back"
     DECLARE = "declare"
 
-
-_GAME_TEXT: Final = {
-    GameKind.KARO: "karo",
-    GameKind.HERZ: "herz",
-    GameKind.PIK: "pik",
-    GameKind.KREUZ: "kreuz",
-    GameKind.GRAND: "grand",
-    GameKind.NULL: "null",
-}
-_KIND_OF_TEXT: Final = {text: kind for kind, text in _GAME_TEXT.items()}
-_SUIT_OF_TEXT: Final[dict[str, Suit]] = {text: suit for suit, text in SUIT_TEXT.items()}
-_RANK_OF_TEXT: Final[dict[str, Rank]] = {text: rank for rank, text in RANK_TEXT.items()}
 
 declaring_steps = Table(
     "declaring_steps",
@@ -51,12 +51,8 @@ declaring_steps = Table(
     one_of("first_rank", RANK_TEXT.values(), "declaring_steps_first_rank_is_a_rank"),
     one_of("second_suit", SUIT_TEXT.values(), "declaring_steps_second_suit_is_a_suit"),
     one_of("second_rank", RANK_TEXT.values(), "declaring_steps_second_rank_is_a_rank"),
-    one_of("game", _GAME_TEXT.values(), "declaring_steps_game_is_a_game"),
-    one_of(
-        "announcement",
-        (announcement.value for announcement in Announcement),
-        "declaring_steps_announcement_is_an_announcement",
-    ),
+    one_of("game", GAME_TEXT.values(), "declaring_steps_game_is_a_game"),
+    one_of("announcement", ANNOUNCEMENT_TEXT.values(), "declaring_steps_announcement_is_an_announcement"),
     CheckConstraint(
         "num_nonnulls(first_suit, first_rank, second_suit, second_rank) "
         f"= CASE WHEN action = '{_Action.PUT_BACK.value}' THEN 4 ELSE 0 END",
@@ -74,7 +70,7 @@ declaring_steps = Table(
 
 
 def _card_of(suit: str, rank: str) -> Card:
-    return Card(_SUIT_OF_TEXT[suit], _RANK_OF_TEXT[rank])
+    return Card(SUIT_OF_TEXT[suit], RANK_OF_TEXT[rank])
 
 
 def _step_of(row: Row[tuple[str, ...]]) -> DeclaringStep:
@@ -84,10 +80,10 @@ def _step_of(row: Row[tuple[str, ...]]) -> DeclaringStep:
     if action is _Action.PUT_BACK:
         return PutBack((_card_of(row.first_suit, row.first_rank), _card_of(row.second_suit, row.second_rank)))
     return Declare(
-        _KIND_OF_TEXT[row.game],
+        GAME_OF_TEXT[row.game],
         hand=row.hand,
         ouvert=row.ouvert,
-        announcement=Announcement(row.announcement),
+        announcement=ANNOUNCEMENT_OF_TEXT[row.announcement],
     )
 
 
@@ -105,10 +101,10 @@ def _columns_of(step: DeclaringStep) -> dict[str, object]:
         }
     return {
         "action": _Action.DECLARE.value,
-        "game": _GAME_TEXT[step.kind],
+        "game": GAME_TEXT[step.kind],
         "hand": step.hand,
         "ouvert": step.ouvert,
-        "announcement": step.announcement.value,
+        "announcement": ANNOUNCEMENT_TEXT[step.announcement],
     }
 
 
