@@ -10,14 +10,14 @@ from skat.engine.play import legal_cards, trick_winner
 from skat.engine.replay import replay_log
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
     from skat.engine.cards import Card
     from skat.engine.deal import Deal
     from skat.engine.declaration import Declaration, Declaring
 
 _TRICK_SIZE: Final = 3
-_TRICKS_IN_A_GAME: Final = 10
+TRICKS_IN_A_GAME: Final = 10
 _WINNING_POINTS: Final = 61
 ALL_POINTS: Final = 120
 _SCHNEIDER_POINTS: Final = 30
@@ -136,7 +136,7 @@ class PlayedOut:
 
     @property
     def _tricks_left(self) -> int:
-        return _TRICKS_IN_A_GAME - len(self.tricks)
+        return TRICKS_IN_A_GAME - len(self.tricks)
 
     @property
     def declarer_tricks(self) -> int:
@@ -196,23 +196,18 @@ class CardPlayed:
 
 
 @dataclass(frozen=True)
-class Playing:
-    """The ten tricks in progress; the result is empty until the tenth trick is taken or the game ends early."""
+class TenTricks:
+    """The cards, the trick in progress and the tricks taken, whoever plays them; a game narrows the result."""
 
-    declared: Declaring
     hands: Mapping[Position, tuple[Card, ...]]
     leader: Position
     current: tuple[Card, ...]
     tricks: tuple[CompletedTrick, ...]
-    result: PlayedOut | None
+    result: object
 
     @property
     def turn(self) -> Position:
         return _position_after(self.leader, len(self.current))
-
-    @property
-    def tally(self) -> Tally:
-        return _tally(self.declared.declarer, self.tricks)
 
     @property
     def current_plays(self) -> tuple[CardPlayed, ...]:
@@ -221,10 +216,22 @@ class Playing:
 
 
 @dataclass(frozen=True)
-class PlayOutcome:
+class Playing(TenTricks):
+    """The ten tricks in progress; the result is empty until the tenth trick is taken or the game ends early."""
+
+    declared: Declaring
+    result: PlayedOut | None
+
+    @property
+    def tally(self) -> Tally:
+        return _tally(self.declared.declarer, self.tricks)
+
+
+@dataclass(frozen=True)
+class PlayOutcome[State: TenTricks = Playing]:
     """The state after a card; a refusal leaves it as it was."""
 
-    state: Playing
+    state: State
     refusal: PlayRefusal | None = None
 
 
@@ -241,7 +248,7 @@ def start_play(declared: Declaring, deal: Deal) -> Playing:
     )
 
 
-def _refusal(state: Playing, position: Position, card: Card) -> PlayRefusal | None:
+def _refusal(state: TenTricks, position: Position, card: Card, kind: GameKind) -> PlayRefusal | None:
     if state.result is not None:
         return PlayRefusal.OVER
     if position is not state.turn:
@@ -250,14 +257,13 @@ def _refusal(state: Playing, position: Position, card: Card) -> PlayRefusal | No
     if card not in hand:
         return PlayRefusal.NOT_IN_HAND
     first = state.current[0] if state.current else None
-    if card not in legal_cards(hand, first, _kind_of(state.declared)):
+    if card not in legal_cards(hand, first, kind):
         return PlayRefusal.MUST_FOLLOW
     return None
 
 
-def _complete_trick(state: Playing, cards: tuple[Card, Card, Card]) -> CompletedTrick:
-    taker = _position_after(state.leader, trick_winner(cards, _kind_of(state.declared)))
-    return CompletedTrick(state.leader, cards, taker)
+def _complete_trick(leader: Position, cards: tuple[Card, Card, Card], kind: GameKind) -> CompletedTrick:
+    return CompletedTrick(leader, cards, _position_after(leader, trick_winner(cards, kind)))
 
 
 def _decides_the_game(declared: Declaring, trick: CompletedTrick) -> bool:
@@ -268,24 +274,31 @@ def _decides_the_game(declared: Declaring, trick: CompletedTrick) -> bool:
     return not taken_by_declarer and _declaration_of(declared).announcement is Announcement.SCHWARZ
 
 
-def _result_after(declared: Declaring, tricks: tuple[CompletedTrick, ...]) -> PlayedOut | None:
+def _game_result(state: Playing, tricks: tuple[CompletedTrick, ...]) -> PlayedOut | None:
     """The tenth trick ends every game; before it only the trick just completed can decide one."""
-    if len(tricks) == _TRICKS_IN_A_GAME:
-        return PlayedOut(declared, tricks)
-    if _decides_the_game(declared, tricks[-1]):
-        return PlayedOut(declared, tricks, Ending.DECIDED)
+    if len(tricks) == TRICKS_IN_A_GAME:
+        return PlayedOut(state.declared, tricks)
+    if _decides_the_game(state.declared, tricks[-1]):
+        return PlayedOut(state.declared, tricks, Ending.DECIDED)
     return None
 
 
-def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
-    refusal = _refusal(state, position, card)
+def trick_step[State: TenTricks](
+    state: State,
+    position: Position,
+    card: Card,
+    kind: GameKind,
+    result_of: Callable[[State, tuple[CompletedTrick, ...]], object],
+) -> PlayOutcome[State]:
+    """One card of the ten tricks; `result_of` is asked after every completed trick."""
+    refusal = _refusal(state, position, card, kind)
     if refusal is not None:
         return PlayOutcome(state, refusal)
     hands = {**state.hands, position: tuple(each for each in state.hands[position] if each != card)}
     current = (*state.current, card)
     if len(current) < _TRICK_SIZE:
         return PlayOutcome(replace(state, hands=MappingProxyType(hands), current=current))
-    trick = _complete_trick(state, (current[0], current[1], current[2]))
+    trick = _complete_trick(state.leader, (current[0], current[1], current[2]), kind)
     tricks = (*state.tricks, trick)
     return PlayOutcome(
         replace(
@@ -294,10 +307,23 @@ def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
             leader=trick.taker,
             current=(),
             tricks=tricks,
-            result=_result_after(state.declared, tricks),
+            result=result_of(state, tricks),
         )
     )
 
 
+def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
+    return trick_step(state, position, card, _kind_of(state.declared), _game_result)
+
+
+def replay_cards[State: TenTricks](
+    start: State,
+    steps: tuple[CardPlayed, ...],
+    play: Callable[[State, Position, Card], PlayOutcome[State]],
+) -> State:
+    """The state a stored log of cards leads to; a log the rules refuse raises."""
+    return replay_log(start, steps, lambda state, step: play(state, step.position, step.card), "card")
+
+
 def playing_after(start: Playing, steps: tuple[CardPlayed, ...]) -> Playing:
-    return replay_log(start, steps, lambda state, step: play_card(state, step.position, step.card), "card")
+    return replay_cards(start, steps, play_card)
