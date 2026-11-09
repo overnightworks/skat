@@ -13,8 +13,10 @@
         onstep: (action: AuctionAction, value?: number) => void;
     } = $props();
 
+    // Only keyboard focus scrolls: a strip that moved under a pressed pointer would lose the tap.
     function revealInStrip(event: FocusEvent): void {
-        (event.currentTarget as HTMLElement).scrollIntoView({ block: "nearest", inline: "center" });
+        const value = event.currentTarget as HTMLElement;
+        if (value.matches(":focus-visible")) value.scrollIntoView({ block: "nearest", inline: "center" });
     }
 </script>
 
