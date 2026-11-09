@@ -47,6 +47,7 @@ def before_the_last_card(table: TableRecord) -> tuple[TableRecord, CardPlayed]:
 def an_entry(seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO) -> ListEntry:
     return ListEntry(
         seat_accounts=seat_accounts,
+        seat_names=("Anna", "Ben", "Cleo"),
         declarer_seat=1,
         declaration=Declaration(GameKind.KREUZ, hand=False, ouvert=False, announcement=Announcement.NONE),
         schneider=False,

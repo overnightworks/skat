@@ -1,5 +1,5 @@
 <script lang="ts">
-    import "overnightworks-appkit/appkit.css";
+    import "overnightworks-design/design.css";
     import "#lib/start.css";
     import type { Snippet } from "svelte";
 

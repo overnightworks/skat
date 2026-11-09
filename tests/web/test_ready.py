@@ -23,7 +23,10 @@ from tests.web.support.skat import FakeTime, Skat, streams_of
 FIRST_RESULT = 1
 
 
-def weiter(server, headers, table_id, *, command_id="weiter-0001", ordinal=FIRST_RESULT, **extra):
+WEITER_COMMAND_ID = "weiter-0001"
+
+
+def weiter(server, headers, table_id, *, command_id=WEITER_COMMAND_ID, ordinal=FIRST_RESULT, **extra):
     answer = server.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_READY_SUFFIX}",
         json={"command_id": command_id, "ordinal": ordinal, **extra},
@@ -184,7 +187,10 @@ class TestRetry:
             server.client.cookies.clear()
             before = end_the_first_game(server.store, table_id, 1, 2)
             with streams_of(server, table_id, people[:3]):
-                store.after_commit = lambda: setattr(store, "meanwhile", store_goes_down)
+                store.after_commit_of_command = (
+                    WEITER_COMMAND_ID,
+                    lambda: setattr(store, "meanwhile", store_goes_down),
+                )
                 with capture_logs() as logs:
                     first = weiter(server, people[2][0], table_id)
                 assert first.status_code == 200, first.text

@@ -611,3 +611,23 @@ class TestFromADealtTableAtRevisionNine:
 
         with pytest.raises(IntegrityError):
             _run_in_transaction(migrated, refused)
+
+
+class TestFromAGameListRowAtRevisionTen:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0010 holding a game list row, then taken to head."""
+        upgrade_to(engine, "0010")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
+            connection.execute(text(_list_row()))
+        migrate(engine)
+        return engine
+
+    def test_the_old_row_keeps_its_accounts_and_has_no_names(self, migrated):
+        with migrated.connect() as connection:
+            row = connection.execute(
+                text("SELECT seat_1_account, seat_1_name, seat_2_name, seat_3_name FROM game_list")
+            ).one()
+
+        assert tuple(row) == ("account-anna", None, None, None)

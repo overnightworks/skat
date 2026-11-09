@@ -11,7 +11,7 @@ from skat.engine.declaration import Announcement, Declaration, Declaring, declar
 from skat.engine.games import GameKind, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Level, Matadors
-from skat.table.game_list import list_entry_of, result_view_of, total_of
+from skat.table.game_list import Standing, list_entry_of, result_view_of, standings_of, total_of
 from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -151,6 +151,11 @@ class TestTheEntrysGame:
         assert entry.declarer_seat == DECLARER_SEAT
         assert entry.seat_accounts == SEAT_ACCOUNTS
 
+    def test_keeps_the_display_names_seated_beside_their_accounts(self):
+        entry = entry_of(played(KREUZ, MIT_TWO, (30, 30, 18)))
+
+        assert entry.seat_names == tuple(account.title() for account in SEAT_ACCOUNTS)
+
     def test_names_the_declared_game_and_its_matadors(self):
         entry = entry_of(played(KREUZ, MIT_TWO, (30, 30, 18)))
 
@@ -286,3 +291,86 @@ class TestTheTotal:
         won = game_by(2, played(KREUZ, MIT_TWO, (30, 30, 18)))
 
         assert total_of((won,), DORA) == 0
+
+
+def game_for(seat, *, won, score, accounts=(ANNA, BEN, CLEO), names=None):
+    """A game the person on `seat` declared, with the score it was settled at."""
+    names = names or tuple(account.title() for account in accounts)
+    return replace(
+        entry_of(played(KREUZ, MIT_TWO, (30, 30, 18))),
+        declarer_seat=seat,
+        seat_accounts=accounts,
+        seat_names=names,
+        won=won,
+        score=score,
+    )
+
+
+def standing_rows(game_list):
+    return [(each.account_id, each.place, each.total, each.won, each.lost) for each in standings_of(game_list)]
+
+
+class TestTheStandings:
+    def test_nobody_has_a_place_before_any_game(self):
+        assert standings_of(()) == ()
+
+    @pytest.mark.parametrize(
+        ("game_list", "rows"),
+        [
+            pytest.param(
+                (game_for(2, won=True, score=36),),
+                [(BEN, 1, 86, 1, 0), (ANNA, 2, 0, 0, 0), (CLEO, 2, 0, 0, 0)],
+                id="ranked-by-total",
+            ),
+            pytest.param(
+                (game_for(1, won=True, score=50), game_for(2, won=True, score=0), game_for(2, won=True, score=0)),
+                [(BEN, 1, 100, 2, 0), (ANNA, 2, 100, 1, 0), (CLEO, 3, 0, 0, 0)],
+                id="a-tie-on-total-goes-to-more-won",
+            ),
+            pytest.param(
+                (game_for(1, won=True, score=90), game_for(1, won=False, score=0), game_for(2, won=True, score=0)),
+                [(BEN, 1, 90, 1, 0), (ANNA, 2, 90, 1, 1), (CLEO, 3, 40, 0, 0)],
+                id="a-tie-on-total-and-won-goes-to-fewer-lost",
+            ),
+            pytest.param(
+                (game_for(3, won=False, score=-72),),
+                [(ANNA, 1, 40, 0, 0), (BEN, 1, 40, 0, 0), (CLEO, 3, -122, 0, 1)],
+                id="a-full-tie-shares-the-place-and-the-next-counts-everyone-above",
+            ),
+        ],
+    )
+    def test_ranks_by_total_then_more_won_then_fewer_lost(self, game_list, rows):
+        assert standing_rows(game_list) == rows
+
+    def test_a_person_who_left_keeps_a_row_under_their_own_name_and_their_own_games(self):
+        stayed = game_for(2, won=True, score=36)
+        replaced = game_for(2, won=True, score=0, accounts=(ANNA, DORA, CLEO), names=("Anna", "Dora", "Cleo"))
+
+        standings = standings_of((stayed, replaced))
+
+        assert [(each.display_name, each.total, each.won) for each in standings] == [
+            ("Ben", 86, 1),
+            ("Dora", 50, 1),
+            ("Anna", 0, 0),
+            ("Cleo", 0, 0),
+        ]
+
+    def test_an_account_that_sat_again_on_another_seat_has_one_row_with_all_its_games(self):
+        first = game_for(1, won=True, score=36)
+        moved = game_for(2, won=True, score=36, accounts=(BEN, ANNA, CLEO))
+
+        assert standing_rows((first, moved)) == [(ANNA, 1, 172, 2, 0), (BEN, 2, 0, 0, 0), (CLEO, 2, 0, 0, 0)]
+
+    def test_names_a_person_by_the_last_entry_that_seated_them(self):
+        earlier = game_for(1, won=True, score=36, names=("Anna", "Ben", "Cleo"))
+        later = game_for(1, won=True, score=36, names=("Anna", "Benno", "Cleo"))
+
+        assert {each.account_id: each.display_name for each in standings_of((earlier, later))}[BEN] == "Benno"
+
+    def test_a_row_stored_without_names_has_no_name_and_never_the_account(self):
+        nameless = game_for(1, won=True, score=36, names=(None, None, None))
+
+        assert {each.display_name for each in standings_of((nameless,))} == {None}
+
+    def test_a_standing_is_its_account_name_total_record_and_place(self):
+        assert standings_of((game_for(1, won=True, score=36),))[0] == Standing(ANNA, "Anna", 86, 1, 0, 1)

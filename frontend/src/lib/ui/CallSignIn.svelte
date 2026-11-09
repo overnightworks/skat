@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { SignInPage, type SignInState } from "overnightworks-appkit";
+    import { SignInPage, type SignInState } from "overnightworks-design";
     import { onMount } from "svelte";
     import {
         createCallSignIn,
@@ -72,7 +72,7 @@
     }
 </script>
 
-<!-- The wrapper only hears the plain link's tap on its way down; the link keeps appkit's behaviour. -->
+<!-- The wrapper only hears the plain link's tap on its way down; the link keeps design's behaviour. -->
 <div class="sign-in" onclickcapture={tabOpened}>
     <SignInPage appName="Skat" state={signInState} legalLinks={LEGAL_LINKS} />
 </div>

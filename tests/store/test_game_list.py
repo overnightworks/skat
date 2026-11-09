@@ -17,7 +17,7 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.game_list import ListEntry
+from skat.table.game_list import ListEntry, standings_of
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, SitDown
@@ -85,6 +85,7 @@ class Game:
 def an_entry(declaration, **numbers):
     fields = {
         "seat_accounts": tuple(actor.account_id for actor in SEATED),
+        "seat_names": tuple(actor.display_name for actor in SEATED),
         "declarer_seat": 2,
         "schneider": False,
         "schwarz": False,
@@ -189,6 +190,9 @@ class TestTheThirtiethCard:
         assert attrgetter("seat_1_account", "seat_2_account", "seat_3_account")(row) == tuple(
             actor.account_id for actor in SEATED
         )
+        assert attrgetter("seat_1_name", "seat_2_name", "seat_3_name")(row) == tuple(
+            actor.display_name for actor in SEATED
+        )
         assert attrgetter("ordinal", "declarer_seat", "game", "hand", "ouvert", "announcement")(row) == (
             1,
             entry.declarer_seat,
@@ -239,6 +243,28 @@ class TestTheList:
         with pytest.raises(StepLogRewrittenError):
             save()
         assert ended.record == before
+
+    def test_a_person_who_left_is_ranked_by_the_name_the_list_stored_for_them(self, ended, transactions):
+        record = ended.record
+        first = record.game_list[0]
+        sat_again = replace(first, seat_accounts=(*first.seat_accounts[:1], "account-dora", first.seat_accounts[2]))
+        sat_again = replace(sat_again, seat_names=("Anna", "Dora", "Cleo"))
+
+        with transactions.begin() as transaction:
+            transaction.save_table(replace(record, version=record.version + 1, game_list=(first, sat_again)))
+
+        names = {each.account_id: each.display_name for each in standings_of(ended.record.game_list)}
+        assert names == {"account-anna": "Anna", "account-ben": "Ben", "account-cleo": "Cleo", "account-dora": "Dora"}
+
+    def test_an_entry_stored_without_names_reads_back_without_names(self, ended, transactions):
+        record = ended.record
+        nameless = replace(record.game_list[0], seat_names=(None, None, None))
+
+        with transactions.begin() as transaction:
+            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, nameless)))
+
+        assert ended.record.game_list[1].seat_names == (None, None, None)
+        assert {each.display_name for each in standings_of(ended.record.game_list)} == {None}
 
     @pytest.mark.parametrize("entry", [END_OVER, A_NULL, OUVERT_HAND], ids=["end-over", "null", "ouvert-hand"])
     def test_an_entry_reads_back_as_built_with_its_own_numbers_in_the_row(self, ended, transactions, engine, entry):

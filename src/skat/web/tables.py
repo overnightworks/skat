@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
-    from skat.table.game_list import ResultView
+    from skat.table.game_list import ResultView, Standing
     from skat.table.playing import PlayingView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, SeriesView, TableView
@@ -309,10 +309,19 @@ class EndedAnswer(BaseModel):
     empty_seconds: int
 
 
+class StandingAnswer(BaseModel):
+    display_name: str | None
+    total: int
+    won: int
+    lost: int
+    place: int
+
+
 class SeriesAnswer(BaseModel):
     game_number: int
     game_count: int
     over: bool
+    standings: list[StandingAnswer] | None
 
 
 class TableAnswer(BaseModel):
@@ -422,10 +431,25 @@ def passed_in_answer_of(passed_in: PassedInView | None) -> PassedInAnswer | None
     return PassedInAnswer(next_dealer_seat=passed_in.next_dealer_seat)
 
 
+def standing_answer_of(standing: Standing) -> StandingAnswer:
+    return StandingAnswer(
+        display_name=standing.display_name,
+        total=standing.total,
+        won=standing.won,
+        lost=standing.lost,
+        place=standing.place,
+    )
+
+
 def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
     if series is None:
         return None
-    return SeriesAnswer(game_number=series.game_number, game_count=series.game_count, over=series.over)
+    return SeriesAnswer(
+        game_number=series.game_number,
+        game_count=series.game_count,
+        over=series.over,
+        standings=None if series.standings is None else [standing_answer_of(each) for each in series.standings],
+    )
 
 
 def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
