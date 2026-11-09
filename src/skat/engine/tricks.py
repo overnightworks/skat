@@ -22,6 +22,11 @@ _SCHNEIDER_POINTS: Final = 30
 _PLAY_ORDER: Final = tuple(Position)
 
 
+def _position_after(leader: Position, places: int) -> Position:
+    """The position that many places after the leader in the order of play."""
+    return _PLAY_ORDER[(_PLAY_ORDER.index(leader) + places) % len(_PLAY_ORDER)]
+
+
 class PlayRefusal(StrEnum):
     """Why a card changed nothing, in the order the reasons are checked."""
 
@@ -103,6 +108,12 @@ class PlayedOut:
 
 
 @dataclass(frozen=True)
+class CardPlayed:
+    position: Position
+    card: Card
+
+
+@dataclass(frozen=True)
 class Playing:
     """The ten tricks in progress; the result is empty until the tenth trick is taken."""
 
@@ -115,7 +126,12 @@ class Playing:
 
     @property
     def turn(self) -> Position:
-        return _PLAY_ORDER[(_PLAY_ORDER.index(self.leader) + len(self.current)) % len(_PLAY_ORDER)]
+        return _position_after(self.leader, len(self.current))
+
+    @property
+    def current_plays(self) -> tuple[CardPlayed, ...]:
+        """The cards of the trick in progress, each with the position that played it, in playing order."""
+        return tuple(CardPlayed(_position_after(self.leader, place), card) for place, card in enumerate(self.current))
 
 
 @dataclass(frozen=True)
@@ -154,9 +170,7 @@ def _refusal(state: Playing, position: Position, card: Card) -> PlayRefusal | No
 
 
 def _complete_trick(state: Playing, cards: tuple[Card, Card, Card]) -> CompletedTrick:
-    taker = _PLAY_ORDER[
-        (_PLAY_ORDER.index(state.leader) + trick_winner(cards, _kind_of(state.declared))) % len(_PLAY_ORDER)
-    ]
+    taker = _position_after(state.leader, trick_winner(cards, _kind_of(state.declared)))
     return CompletedTrick(state.leader, cards, taker)
 
 
@@ -174,12 +188,6 @@ def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
     return PlayOutcome(
         replace(state, hands=MappingProxyType(hands), leader=trick.taker, current=(), tricks=tricks, result=result)
     )
-
-
-@dataclass(frozen=True)
-class CardPlayed:
-    position: Position
-    card: Card
 
 
 def playing_after(start: Playing, steps: tuple[CardPlayed, ...]) -> Playing:
