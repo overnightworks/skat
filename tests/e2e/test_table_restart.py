@@ -1,4 +1,6 @@
 import logging
+import re
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -28,6 +30,8 @@ CARDS_PLAYED_BEFORE = 4
 ISSUER_LOGIN_FORM = "issuer login form"
 FACES = "(faces) => faces.map((face) => face.dataset.suit + face.dataset.rank).sort()"
 FELT_CARD = ".trick .laid"
+# What uvicorn logs when its graceful wait ends with a stream still running: a task cancelled, or its error.
+STREAM_CANCELLED = re.compile(r"Cancel [1-9]\d* running task|CancelledError|Exception in ASGI application")
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
 INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 
@@ -42,7 +46,7 @@ class View:
 
 @dataclass
 class Restart:
-    stop_seconds: float
+    server_log: str
     views_before: dict[str, View]
     sign_in_starts: dict[str, list[str]]
     loads: dict[str, list[str]]
@@ -57,6 +61,8 @@ def restart_under_open_pages(
     table: PlayingTable, server: RunningServer, caplog: LogCaptureFixture, *, issuer_session_ended: set[str]
 ) -> Restart:
     """Skat stops with every page open at the running hand and a new one starts; the issuer's sessions live.
+
+    Every page shows the table dimmed within the graceful wait of the stop, so the server ended its streams.
 
     The sign-in start of a person whose issuer session ended is answered with the issuer's login form, where
     only a person can go on.
@@ -83,18 +89,25 @@ def restart_under_open_pages(
     views_before = {name: view_of(page) for name, page in people.items()}
     dimmed_views: dict[str, View] = {}
 
-    def look_while_stopped() -> None:
+    def look_while_stopping() -> None:
+        deadline = time.monotonic() + GRACEFUL_SHUTDOWN_SECONDS
         for name, page in people.items():
-            expect(page.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
-            expect(page.locator(".stage.stale")).to_have_count(1)
+            remaining_milliseconds = max(1.0, (deadline - time.monotonic()) * 1000)
+            expect(page.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible(
+                timeout=remaining_milliseconds
+            )
+            expect(page.locator(".stage.stale")).to_have_count(1, timeout=remaining_milliseconds)
             dimmed_views[name] = view_of(page)
 
-    logging.getLogger("uvicorn.error").addHandler(caplog.handler)
+    uvicorn_log = logging.getLogger("uvicorn.error")
+    uvicorn_log.addHandler(caplog.handler)
     try:
-        stop_seconds = server.restart(while_stopped=look_while_stopped)
+        server.restart(while_stopping=look_while_stopping)
     finally:
-        logging.getLogger("uvicorn.error").removeHandler(caplog.handler)
-    return Restart(stop_seconds, views_before, sign_in_starts, loads, dimmed_views)
+        uvicorn_log.removeHandler(caplog.handler)
+    formatter = logging.Formatter()
+    server_log = "\n".join(formatter.format(record) for record in caplog.records if record.name == "uvicorn.error")
+    return Restart(server_log, views_before, sign_in_starts, loads, dimmed_views)
 
 
 def expect_back_at_the_table(table: PlayingTable, restart: Restart, names: list[str]) -> None:
@@ -149,8 +162,7 @@ def test_open_pages_come_back_through_the_issuer_without_a_click_after_skat_rest
 
     restart = restart_under_open_pages(table, e2e_server, caplog, issuer_session_ended=set())
 
-    assert restart.stop_seconds <= GRACEFUL_SHUTDOWN_SECONDS
-    assert [record for record in caplog.records if record.name == "uvicorn.error"] == []
+    assert STREAM_CANCELLED.search(restart.server_log) is None
     assert restart.dimmed_views == restart.views_before
     expect_back_at_the_table(table, restart, names)
     assert stored_session_tables(e2e_server) == []

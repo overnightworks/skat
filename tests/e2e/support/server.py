@@ -135,24 +135,25 @@ class RunningServer:
                 pytest.fail(f"Skat did not start within {READINESS_DEADLINE_SECONDS} seconds")
             time.sleep(READINESS_POLL_INTERVAL_SECONDS)
 
-    def stop(self) -> float:
-        """Stops the process and returns the seconds the stop took."""
-        stopping = time.monotonic()
+    def stop(self, *, while_stopping: Callable[[], None] = lambda: None) -> None:
+        """Signals the process to stop, runs `while_stopping`, and waits until the process has ended.
+
+        Over https the process also waits for each browser to answer the close of its connection, which Skat's
+        plain http behind the ingress does not, so how long the stop takes is not a property of Skat.
+        """
         self._server.should_exit = True
+        while_stopping()
         self._thread.join(timeout=SERVER_STOP_TIMEOUT_SECONDS)
         assert not self._thread.is_alive(), f"Skat did not stop within {SERVER_STOP_TIMEOUT_SECONDS} seconds"
-        return time.monotonic() - stopping
 
-    def restart(self, *, while_stopped: Callable[[], None]) -> float:
-        """Stops Skat, runs `while_stopped`, and starts a new process on the same database, address and issuer.
+    def restart(self, *, while_stopping: Callable[[], None]) -> None:
+        """Stops Skat, then starts a new process on the same database, address and issuer.
 
-        The new process starts with no session, as after an update. Returns the seconds the stop took.
+        The new process starts with no session, as after an update. `while_stopping` runs as in `stop`.
         """
-        stop_seconds = self.stop()
-        while_stopped()
+        self.stop(while_stopping=while_stopping)
         self.stores = SignInStores.in_memory()
         self.start()
-        return stop_seconds
 
 
 @contextmanager
