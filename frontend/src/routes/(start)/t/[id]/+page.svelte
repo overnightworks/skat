@@ -1,9 +1,11 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
+    import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import { words } from "#lib/words.ts";
@@ -15,8 +17,11 @@
         readTable,
         sitDown,
         standUp,
+        takeAuctionStep,
         watchTable,
+        type AuctionAction,
         type Outcome,
+        type Table,
     } from "../../tables.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
@@ -53,6 +58,13 @@
     });
 
     const seated = $derived(outcome?.kind === "table" && outcome.table.chairs.some((chair) => chair.is_mine));
+    const ownTurnLadder = $derived.by(() => {
+        if (outcome?.kind !== "table" || outcome.table.hand === null) return null;
+        const viewerSeat = outcome.table.chairs.find((chair) => chair.is_mine)?.seat;
+        return bidLadder(outcome.table.hand.auction, viewerSeat);
+    });
+    // The version a step was sent from: the controls stay off until a newer version arrives or the step fails.
+    let sentFromVersion: number | null = $state(null);
 
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
@@ -62,7 +74,7 @@
     // is not the streamed view, so it never replaces it.
     let takenTimer: ReturnType<typeof setTimeout> | undefined;
 
-    async function seat(command: Promise<Outcome>): Promise<void> {
+    async function seat(command: Promise<Outcome>): Promise<Outcome> {
         note = "";
         taken = null;
         const answer = await command;
@@ -73,6 +85,13 @@
         } else if (answer.kind !== "table") {
             note = words.commandFailed;
         }
+        return answer;
+    }
+
+    async function takeStep(table: Table, action: AuctionAction, value?: number): Promise<void> {
+        sentFromVersion = table.version;
+        const answer = await seat(takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
+        if (answer.kind !== "table") sentFromVersion = null;
     }
 </script>
 
@@ -110,7 +129,7 @@
                     <span>{words.waitingForPlayers}</span>
                     <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                 {:else}
-                    <span>{words.biddingFollows}</span>
+                    <span>{words.bidding}</span>
                 {/if}
             </div>
             <div class="felt" aria-hidden="true"></div>
@@ -122,7 +141,13 @@
             {/if}
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
-                    <li class="chair" class:mine={chair.is_mine} class:away={chair.is_away} data-seat={chair.seat}>
+                    <li
+                        class="chair"
+                        class:mine={chair.is_mine}
+                        class:away={chair.is_away}
+                        class:turn={chair.is_mine && ownTurnLadder !== null}
+                        data-seat={chair.seat}
+                    >
                         {#if chair.occupant_name !== null}
                             <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
@@ -148,6 +173,13 @@
                                     </span>
                                 {/if}
                                 <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                                {#if chair.is_mine && ownTurnLadder !== null}
+                                    <span class="mark turn" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                            <path d="M8 5l11 7-11 7z" />
+                                        </svg>
+                                    </span>
+                                {/if}
                             {/if}
                             {#if chair.is_away}
                                 <span class="mark away" aria-hidden="true">
@@ -218,6 +250,16 @@
                     </li>
                 {/each}
             </ul>
+            {#if ownTurnLadder !== null}
+                {@const table = outcome.table}
+                <BidControls
+                    ladder={ownTurnLadder}
+                    disabled={sentFromVersion === table.version}
+                    onstep={(action: AuctionAction, value?: number) => {
+                        void takeStep(table, action, value);
+                    }}
+                />
+            {/if}
             <div class="controls">
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} />

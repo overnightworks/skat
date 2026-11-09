@@ -5,8 +5,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 from scripts import generate_wire
+from skat.engine.bidding import VALID_BIDS
+from skat.table.auction import AuctionAction
+from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
-from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH, PositionToken, RankToken, SuitToken
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH, AwaitingToken, PositionToken, RankToken, SuitToken
 
 if TYPE_CHECKING:
     from enum import StrEnum
@@ -27,19 +30,32 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("ACCOUNT_CONSOLE_PATH", ACCOUNT_CONSOLE_PATH),
         ("TABLES_PATH", TABLES_PATH),
         ("TABLE_PAGE_PREFIX", TABLE_PAGE_PREFIX),
+        ("TABLE_AUCTION_SUFFIX", TABLE_AUCTION_SUFFIX),
     ]:
         assert any(name in line and f'"{path}"' in line for line in rendered.splitlines())
 
 
 @pytest.mark.parametrize(
     ("name", "tokens"),
-    [("SUIT_TOKENS", SuitToken), ("RANK_TOKENS", RankToken), ("POSITION_TOKENS", PositionToken)],
+    [
+        ("SUIT_TOKENS", SuitToken),
+        ("RANK_TOKENS", RankToken),
+        ("POSITION_TOKENS", PositionToken),
+        ("AWAITING_TOKENS", AwaitingToken),
+        ("AUCTION_ACTION_TOKENS", AuctionAction),
+    ],
 )
 def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, tokens: type[StrEnum]) -> None:
     line = next(line for line in generate_wire.render().splitlines() if name in line)
 
     assert line.endswith("as const;")
     assert all(f'"{token.value}"' in line for token in tokens)
+
+
+def test_render_lists_every_valid_bid_in_rising_order() -> None:
+    declaration = generate_wire.render().partition("VALID_BIDS = [")[2].partition("]")[0]
+
+    assert [int(number) for number in declaration.replace("\n", " ").replace(",", " ").split()] == list(VALID_BIDS)
 
 
 def test_main_writes_the_module_and_a_following_check_passes(tmp_path: Path) -> None:
