@@ -80,7 +80,7 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
 
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
-    """The tenth trick ends the hand: its cards and steps go, its entry joins the list, the chairs stay."""
+    """The trick that ends the game ends the hand: its cards and steps go, its entry joins the list, the chairs stay."""
     return TableRecord(
         id=table.id,
         version=table.version + 1,

@@ -5,8 +5,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.engine.cards import Card
+from skat.engine.games import GameKind
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets
 from tests.e2e.support.raw_http import RawSession
@@ -40,10 +43,11 @@ class AddressedSession(RawSession):
 
 
 class PlayingTable:
-    """A declared game, named or already declared on the page: the forehand leads, and every card is read by API."""
+    """A declared game, named or already declared on the page: the forehand leads, and every card and turn is read by API."""
 
     def __init__(self, declaring: DeclaringTable, game: str | None) -> None:
         self.declaring = declaring
+        self.game = None if game is None else GameKind[game.upper()]
         declaring.sessions = {
             seat: AddressedSession(declaring.server, session.member) for seat, session in declaring.sessions.items()
         }
@@ -123,12 +127,18 @@ class PlayingTable:
         self.declaring.sessions[seat].post(f"{self.declaring.api_path}{TABLE_READY_SUFFIX}", body)
 
     def a_lead_the_middlehand_must_follow(self) -> WireCard:
-        """A forehand card whose suit the middlehand holds beside another suit: in Null a suit is only its suit."""
-        held = {suit for suit, _ in self.own_cards(self.seat_at["middlehand"])}
+        """A forehand card whose playing suit the middlehand holds beside another (Kreuz: jacks and Kreuz are trump)."""
+        held = {self._playing_suit(card) for card in self.own_cards(self.seat_at["middlehand"])}
         for card in self.own_cards(self.seat_at["forehand"]):
-            if card[0] in held and len(held) > 1:
+            if self._playing_suit(card) in held and len(held) > 1:
                 return card
         pytest.fail("the deal gave the forehand no suit the middlehand must follow")
+
+    def _playing_suit(self, card: WireCard) -> object:
+        assert self.game is not None, "a table whose game was declared on the page has no named game"
+        suits = {token: suit for suit, token in SUIT_TOKENS.items()}
+        ranks = {token: rank for rank, token in RANK_TOKENS.items()}
+        return self.game.playing_suit(Card(suits[card[0]], ranks[card[1]]))
 
     def side_names_as_seen_by(self, person: Page) -> tuple[str, str]:
         declarer = self.names[self.declarer_seat]
@@ -147,7 +157,7 @@ def deal_playing_table(
     form_factor: dict[str, Any],
     *,
     console: bool = True,
-    game: str = "null",
+    game: str = "kreuz",
     declaring: type[DeclaringTable] = DeclaringTable,
     joiners: tuple[str, str] = ("ben", "cleo"),
 ) -> PlayingTable:
