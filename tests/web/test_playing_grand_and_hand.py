@@ -430,7 +430,8 @@ class TestGrandAndHandGamesReachTheirResult:
     def test_an_overbid_null_hand_game_is_lost_at_the_cheapest_game_that_reaches_the_bid(self, table):
         # Null Hand is worth 35, the bid 36 is more. The twelve cards hold only the Pik jack, so every game is ohne 1
         # and Spiel adds 1: Kreuz (2 x 12 raised to 3 x 12) and Karo (2 x 9 raised to 4 x 9) reach 36, the others
-        # more. The value rises to 36, lost and doubled, score -72; the declarer gains -72 - 50.
+        # more. The value rises to 36, lost and doubled, score -72; the declarer gains -72 - 50. Rearhand takes the
+        # first trick (DA, 14 points) and middlehand the second with DK, which ends the Null: 120 - 14 = 106 points.
         table.with_deal(
             Deal(
                 forehand=cards("D9 H8 ST S9 DJ C8 CQ CJ CA H7"),
@@ -441,12 +442,7 @@ class TestGrandAndHandGamesReachTheirResult:
         )
         table.declared_hand_game(GameToken.NULL, bid=36)
 
-        table.played_out(
-            game_of(
-                "D9 DQ DA / DT DJ DK / C7 C9 CQ / C8 CK CT / S8 SK S9",
-                "D7 H7 HT / HA H8 HQ / HJ CA HK / SJ SA ST / D8 CJ SQ",
-            )
-        )
+        table.played_out(game_of("D9 DQ DA / DT DJ DK"))
 
         assert result_of(table) == result_fields(
             game="null",
@@ -461,8 +457,8 @@ class TestGrandAndHandGamesReachTheirResult:
             game_value=35,
             settled_value=36,
             score=-72,
-            declarer_points=47,
-            opponents_points=73,
+            declarer_points=106,
+            opponents_points=14,
             gains=gains(-122, 40),
         )
 
