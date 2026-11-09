@@ -47,7 +47,7 @@ class LastTrick:
 
 @dataclass(frozen=True)
 class PlayingView:
-    """The game in play as one viewer may see it; the turn is None once all thirty cards are played."""
+    """The game in play as one viewer may see it; the turn is the seat that plays next."""
 
     turn_seat: int | None
     current_trick: tuple[SeatedCard, ...]
@@ -112,7 +112,7 @@ def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozen
     seats = {position: seat for seat, position in positions_from(dealer).items()}
     last = state.tricks[-1] if state.tricks else None
     return PlayingView(
-        turn_seat=None if state.result is not None else seats[state.turn],
+        turn_seat=seats[state.turn],
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
         last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
         tricks_won=state.tally.tricks,

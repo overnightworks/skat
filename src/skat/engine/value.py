@@ -24,7 +24,7 @@ class Matadors:
 
 @dataclass(frozen=True)
 class Valuation:
-    """The game's value: the matadors and level are empty for Null, which has a fixed value.
+    """The game's value: the matadors are empty for Null, which has a fixed value.
 
     Schneider and Schwarz are the levels the value counts, whichever side suffered them and whether announced or
     reached; both are false in Null.
@@ -32,7 +32,6 @@ class Valuation:
 
     won: bool
     matadors: Matadors | None
-    level: int | None
     value: int
     schneider: bool
     schwarz: bool
@@ -96,7 +95,6 @@ def value_of(played: PlayedOut) -> Valuation:
         return Valuation(
             won=played.won_by_play,
             matadors=None,
-            level=None,
             value=NULL_VALUES[null_levels],
             schneider=False,
             schwarz=False,
@@ -110,7 +108,6 @@ def value_of(played: PlayedOut) -> Valuation:
     return Valuation(
         won=played.won_by_play and _announcements_reached(declaration, played),
         matadors=held,
-        level=level,
         value=(held.count + level) * base,
         schneider=levels.schneider,
         schwarz=levels.schwarz,

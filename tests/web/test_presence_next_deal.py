@@ -1,4 +1,5 @@
 from dataclasses import replace
+from functools import partial
 
 import pytest
 from structlog.testing import capture_logs
@@ -388,9 +389,10 @@ class TestNextHandComes:
                 assert store.tables[table_id] == passed_in
 
 
-def last_card_played(server, table_id, people):
+def twenty_nine_cards_played(server, table_id, people):
     """Seat 1, the middlehand, plays a Herz Hand game at 18 to its end; each card is the first in deck order the
-    engine accepts. The first twenty-nine are stored directly, the thirtieth goes through the card route."""
+    engine accepts. The first twenty-nine are stored directly; the returned call plays the thirtieth through the
+    card route."""
     record = server.store.tables[table_id]
     declared = HandProgress(
         auction=(Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Position.REARHAND)),
@@ -406,19 +408,27 @@ def last_card_played(server, table_id, people):
     server.store.tables[table_id] = replace(record, progress=replace(declared, plays=tuple(plays[:-1])))
     last = plays[-1]
     seat = {position: seat for seat, position in positions_from(record.dealer).items()}[last.position]
-    answer = server.client.post(
-        f"{TABLES_PATH}/{table_id}{TABLE_CARD_SUFFIX}",
-        json={
-            "command_id": "card-last",
-            "version": server.store.tables[table_id].version,
-            "suit": SUIT_TOKENS[last.card.suit],
-            "rank": RANK_TOKENS[last.card.rank],
-        },
-        headers={"origin": TEST_PUBLIC_ORIGIN, **people[seat - 1][0]},
-    )
-    server.client.cookies.clear()
-    assert answer.status_code == 200, answer.text
-    assert server.store.tables[table_id].hand is None
+
+    def play_last():
+        answer = server.client.post(
+            f"{TABLES_PATH}/{table_id}{TABLE_CARD_SUFFIX}",
+            json={
+                "command_id": "card-last",
+                "version": server.store.tables[table_id].version,
+                "suit": SUIT_TOKENS[last.card.suit],
+                "rank": RANK_TOKENS[last.card.rank],
+            },
+            headers={"origin": TEST_PUBLIC_ORIGIN, **people[seat - 1][0]},
+        )
+        server.client.cookies.clear()
+        assert answer.status_code == 200, answer.text
+        assert server.store.tables[table_id].hand is None
+
+    return play_last
+
+
+def last_card_played(server, table_id, people):
+    twenty_nine_cards_played(server, table_id, people)()
 
 
 class TestAfterAPlayedGame:
@@ -452,6 +462,30 @@ class TestAfterAPlayedGame:
 
             advance(server, time, 2)
             assert occupied_seats(server, table_id) == {1, 2}
+
+
+class TestHoldWhenAPlayedGameEnds:
+    def test_an_old_expiry_reaching_the_table_right_after_the_thirtieth_card_committed_leaves_the_fresh_hold_alone(
+        self, hold, time
+    ):
+        store = OvertakenStore()
+        server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
+        with server.client:
+            table_id, people = seated_three(server)
+            with streams_of(server, table_id, people[:1]):
+                pass
+            server.client.cookies.clear()
+            play_last = twenty_nine_cards_played(server, table_id, people)
+            advance(server, time, hold.settings.chair_hold_seconds - 1)
+            store.after_commit = partial(advance, server, time, 1)
+
+            play_last()
+
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            advance(server, time, hold.settings.chair_hold_seconds - 1)
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            advance(server, time, 2)
+            assert occupied_seats(server, table_id) == set()
 
 
 class TestNextDealTrigger:
