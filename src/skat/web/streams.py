@@ -30,6 +30,16 @@ async def _ask_for_next_deal(presence: Presence, table_id: str, view: TableView)
         await presence.deal_now(table_id)
 
 
+async def _wait_for_change_or_heartbeat(changed: asyncio.Event, heartbeat_seconds: float) -> bool:
+    """Wait until a change is set or one heartbeat passes idle; true when the heartbeat passed idle."""
+    heartbeat_read = False
+    while not changed.is_set() and not heartbeat_read:
+        with suppress(TimeoutError):
+            await asyncio.wait_for(changed.wait(), heartbeat_seconds)
+        heartbeat_read = not changed.is_set()
+    return heartbeat_read
+
+
 async def table_views(
     presence: Presence,
     read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
@@ -73,11 +83,7 @@ async def table_views(
             if not heartbeat_read or view.version != sent_version:
                 yield view
                 sent_version = view.version
-            heartbeat_read = False
-            while not changed.is_set() and not heartbeat_read:
-                with suppress(TimeoutError):
-                    await asyncio.wait_for(changed.wait(), heartbeat_seconds)
-                heartbeat_read = not changed.is_set()
+            heartbeat_read = await _wait_for_change_or_heartbeat(changed, heartbeat_seconds)
     finally:
         presence.unsubscribe(subscription)
 
