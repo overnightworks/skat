@@ -3,7 +3,9 @@ import {
     AUTH_START_PATH,
     SIGNED_IN_AGAIN_QUERY_NAME,
     TABLE_CARD_SUFFIX,
-    TABLE_DECLARATION_SUFFIX,
+    TABLE_DECLARING_DECLARE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_READY_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -305,7 +307,7 @@ describe("asking for a table", () => {
     });
 
     it.each([
-        { step: { action: "take" } as const },
+        { step: { action: "take" } as const, suffix: TABLE_DECLARING_TAKE_SUFFIX, body: {} },
         {
             step: {
                 action: "put_back",
@@ -314,19 +316,35 @@ describe("asking for a table", () => {
                     { suit: "herz", rank: "ace" },
                 ],
             } as const,
+            suffix: TABLE_DECLARING_PUT_BACK_SUFFIX,
+            body: {
+                cards: [
+                    { suit: "karo", rank: "seven" },
+                    { suit: "herz", rank: "ace" },
+                ],
+            },
         },
         {
             step: { action: "declare", game: "null", hand: false, ouvert: false, announcement: "none" } as const,
+            suffix: TABLE_DECLARING_DECLARE_SUFFIX,
+            body: { game: "null", hand: false, ouvert: false, announcement: "none" },
         },
-    ])("sends the shown version and a command id with the step $step.action", async ({ step }) => {
-        answerWith(Response.json(table));
+    ])(
+        "sends the shown version and a command id with the step $step.action to its own path",
+        async ({ step, suffix, body }) => {
+            answerWith(Response.json(table));
 
-        expect(await takeDeclaringStep(TABLE_ID, 7, "command-3", step)).toEqual({ kind: "table", table });
+            expect(await takeDeclaringStep(TABLE_ID, 7, "command-3", step)).toEqual({ kind: "table", table });
 
-        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_DECLARATION_SUFFIX}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...step });
-    });
+            const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+            expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+            expect(JSON.parse((init as { body: string }).body)).toEqual({
+                command_id: "command-3",
+                version: 7,
+                ...body,
+            });
+        },
+    );
 
     it.each([
         { action: "bid", value: 20, suffix: TABLE_AUCTION_BID_SUFFIX, body: { value: 20 } },

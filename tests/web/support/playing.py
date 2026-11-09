@@ -4,7 +4,13 @@ from dataclasses import replace
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position, positions_from
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX, AnnouncementToken, DeclaringAction, GameToken
+from skat.web.declaring import (
+    TABLE_DECLARING_DECLARE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_TAKE_SUFFIX,
+    AnnouncementToken,
+    GameToken,
+)
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
@@ -123,9 +129,8 @@ class Table:
 
     def _declare(self, game, *, hand, ouvert=False, announcement=AnnouncementToken.NONE):
         self._post(
-            TABLE_DECLARATION_SUFFIX,
+            TABLE_DECLARING_DECLARE_SUFFIX,
             MIDDLEHAND,
-            action=DeclaringAction.DECLARE,
             game=game,
             hand=hand,
             ouvert=ouvert,
@@ -142,11 +147,10 @@ class Table:
 
     def declared_after_putting_back(self, put_back, game=GameToken.HERZ, *, ouvert=False):
         self.middlehand_wins()
-        self._post(TABLE_DECLARATION_SUFFIX, MIDDLEHAND, action=DeclaringAction.TAKE)
+        self._post(TABLE_DECLARING_TAKE_SUFFIX, MIDDLEHAND)
         self._post(
-            TABLE_DECLARATION_SUFFIX,
+            TABLE_DECLARING_PUT_BACK_SUFFIX,
             MIDDLEHAND,
-            action=DeclaringAction.PUT_BACK,
             cards=[card_body(each) for each in put_back],
         )
         self._declare(game, hand=False, ouvert=ouvert)

@@ -52,6 +52,9 @@ AUCTION_PASS_TOOL: Final = "auction_pass"  # noqa: S105 - the word for dropping 
 AUCTION_PLAY_TOOL: Final = "auction_play"
 GIVE_UP_GAME_TOOL: Final = "give_up_game"
 CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
+TAKE_SKAT_TOOL: Final = "take_skat"
+PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
+DECLARE_GAME_TOOL: Final = "declare_game"
 
 
 class Exclusion(StrEnum):
@@ -61,7 +64,6 @@ class Exclusion(StrEnum):
     READINESS_PROBE = "the edge's readiness probe, no action of an agent"
     ACCOUNT_NAME = "the page's name for its person; an agent's name is in its token"
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
-    UNION_BODY = "its body has several shapes that no tool can express as one"
     OPENING = "opening a table is not yet a tool"
     SEATING = "taking a chair is not yet a tool"
 
@@ -79,6 +81,9 @@ AUCTION_PASS_MARK: Final = agent_tool(name=AUCTION_PASS_TOOL, effect=ToolEffect.
 AUCTION_PLAY_MARK: Final = agent_tool(name=AUCTION_PLAY_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 GIVE_UP_GAME_MARK: Final = agent_tool(name=GIVE_UP_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
 class _LeaseRenewingFront:
