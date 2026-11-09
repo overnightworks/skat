@@ -2,10 +2,13 @@ import pytest
 
 from skat.engine.deal import Deal
 from skat.engine.tricks import PlayRefusal
+from skat.table.auction import AuctionAction
 from skat.table.hand_state import playing_of
+from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import AnnouncementToken, GameToken
 from skat.web.tables import TABLES_PATH
-from tests.web.support.playing import MIDDLEHAND, Table, card, cards, game_of
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND, Table, card, cards, game_of
 
 # Middlehand declares in every game below; seats 1, 2, 3 are middlehand, rearhand, forehand.
 DECLARER_SEAT = 1
@@ -34,6 +37,7 @@ def result_fields(**changed):
         "announcement": "none",
         "schneider": False,
         "schwarz": False,
+        "doubled": False,
         "overbid": False,
         "bid": 18,
     }
@@ -41,10 +45,12 @@ def result_fields(**changed):
 
 
 def gains(declarer, each_opponent):
+    """The opponents gain only from a lost game, which is the declarer's loss."""
+    declarer_won = each_opponent == 0
     return [
-        {"seat": 1, "gain": declarer},
-        {"seat": 2, "gain": each_opponent},
-        {"seat": 3, "gain": each_opponent},
+        {"seat": 1, "gain": declarer, "won": declarer_won},
+        {"seat": 2, "gain": each_opponent, "won": not declarer_won},
+        {"seat": 3, "gain": each_opponent, "won": not declarer_won},
     ]
 
 
@@ -73,6 +79,8 @@ class TestGrandAndHandGamesReachTheirResult:
         assert result_of(table) == result_fields(
             game=GRAND,
             matadors={"mit": True, "count": 3},
+            base_value=24,
+            levels=["spiel"],
             won=True,
             game_value=96,
             settled_value=96,
@@ -108,6 +116,8 @@ class TestGrandAndHandGamesReachTheirResult:
             game=GRAND,
             hand=True,
             matadors={"mit": False, "count": 1},
+            base_value=24,
+            levels=["spiel", "hand"],
             won=True,
             game_value=72,
             settled_value=72,
@@ -144,6 +154,9 @@ class TestGrandAndHandGamesReachTheirResult:
             game="karo",
             hand=True,
             matadors={"mit": True, "count": 1},
+            base_value=9,
+            levels=["spiel", "hand"],
+            doubled=True,
             won=False,
             overbid=True,
             bid=54,
@@ -184,6 +197,9 @@ class TestGrandAndHandGamesReachTheirResult:
             announcement="schneider",
             schneider=True,
             matadors={"mit": True, "count": 2},
+            base_value=12,
+            levels=["spiel", "hand", "schneider", "schneider_announced"],
+            doubled=True,
             won=False,
             game_value=72,
             settled_value=72,
@@ -222,6 +238,9 @@ class TestGrandAndHandGamesReachTheirResult:
             schneider=True,
             schwarz=True,
             matadors={"mit": True, "count": 2},
+            base_value=24,
+            levels=["spiel", "hand", "schneider", "schneider_announced", "schwarz", "schwarz_announced", "ouvert"],
+            doubled=True,
             won=False,
             game_value=216,
             settled_value=216,
@@ -230,6 +249,233 @@ class TestGrandAndHandGamesReachTheirResult:
             opponents_points=13,
             gains=gains(-482, 40),
         )
+
+    def test_a_won_suit_game_mit_two_counts_the_spiel_level_only(self, table):
+        # Herz is mit 2 (Kreuz and Pik jacks, no Herz jack). Spiel adds 1: (2 + 1) x 10 = 30; won, so the score is 30
+        # and the declarer gains 30 + 50 = 80. Declarer points: 78; opponents 120 - 78.
+        table.with_deal(
+            Deal(
+                forehand=cards("DK HK HA C9 CQ SQ CA DA S8 HQ"),
+                middlehand=cards("D9 DJ H7 SJ CJ SK C8 S7 ST C7"),
+                rearhand=cards("CT DQ S9 HT D7 CK H8 D8 HJ SA"),
+                skat=cards("DT H9"),
+            )
+        )
+        table.declared_after_putting_back(cards("D9 C8"))
+
+        table.played_out(
+            game_of(
+                "S8 ST S9 / CJ HJ HQ / SJ HT HA / DJ H8 HK / H9 CK DA",
+                "H7 D7 CQ / DT D8 DK / SK SA SQ / DQ C9 S7 / CT CA C7",
+            )
+        )
+
+        assert result_of(table) == result_fields(
+            game="herz",
+            matadors={"mit": True, "count": 2},
+            base_value=10,
+            levels=["spiel"],
+            won=True,
+            game_value=30,
+            settled_value=30,
+            score=30,
+            declarer_points=78,
+            opponents_points=42,
+            gains=gains(80, 0),
+        )
+
+    def test_a_lost_suit_game_ohne_three_counts_doubled_and_the_opponents_gain_forty_each(self, table):
+        # Herz is ohne 3 (no Kreuz, Pik or Herz jack). Spiel adds 1: (3 + 1) x 10 = 40. The declarer has 31 points, so
+        # the game is lost without Schneider: score -80, he gains -80 - 50 = -130 and each opponent 40.
+        table.with_deal(
+            Deal(
+                forehand=cards("CA HA SJ DA DK CK HQ HJ DT S7"),
+                middlehand=cards("C8 DJ H8 SK SQ HT DQ H9 CQ HK"),
+                rearhand=cards("C9 S9 H7 CT CJ D9 SA ST D8 D7"),
+                skat=cards("S8 C7"),
+            )
+        )
+        table.declared_after_putting_back(cards("C8 S8"))
+
+        table.played_out(
+            game_of(
+                "SJ DJ CJ / ST S7 SK / C9 CA CQ / DK DQ D9 / DT HT D7",
+                "HK H7 HJ / CK C7 CT / D8 DA H9 / H8 S9 HQ / HA SQ SA",
+            )
+        )
+
+        assert result_of(table) == result_fields(
+            game="herz",
+            matadors={"mit": False, "count": 3},
+            base_value=10,
+            levels=["spiel"],
+            doubled=True,
+            won=False,
+            game_value=40,
+            settled_value=40,
+            score=-80,
+            declarer_points=31,
+            opponents_points=89,
+            gains=gains(-130, 40),
+        )
+
+    def test_a_grand_hand_game_with_schneider_announced_and_reached_counts_both_schneider_levels(self, table):
+        # Grand Hand is mit 1 (Kreuz jack, no Pik jack). Spiel, Hand, Schneider and Schneider angesagt make 4:
+        # (1 + 4) x 24 = 120. The declarer has 93 points, the opponents 27: Schneider reached, won, he gains 170.
+        table.with_deal(
+            Deal(
+                forehand=cards("C8 SQ CQ C9 D8 HT H7 CA DA D9"),
+                middlehand=cards("D7 HQ CJ DK S7 CK HA DT DQ SA"),
+                rearhand=cards("H9 S9 SJ H8 S8 ST DJ HK SK CT"),
+                skat=cards("C7 HJ"),
+            )
+        )
+        table.declared_hand_game(GameToken.GRAND, announcement=AnnouncementToken.SCHNEIDER)
+
+        table.played_out(
+            game_of(
+                "CA CK CT / HT HA HK / CJ SJ DA / SA SK SQ / DT H8 D8",
+                "DK ST D9 / HQ H9 H7 / DQ S8 C9 / D7 S9 CQ / S7 DJ C8",
+            )
+        )
+
+        assert result_of(table) == result_fields(
+            game=GRAND,
+            hand=True,
+            announcement="schneider",
+            schneider=True,
+            matadors={"mit": True, "count": 1},
+            base_value=24,
+            levels=["spiel", "hand", "schneider", "schneider_announced"],
+            won=True,
+            game_value=120,
+            settled_value=120,
+            score=120,
+            declarer_points=93,
+            opponents_points=27,
+            gains=gains(170, 0),
+        )
+
+    def test_a_won_suit_game_in_which_the_opponents_take_no_trick_counts_schneider_and_schwarz_unannounced(self, table):
+        # Herz is mit 3 (Kreuz, Pik and Herz jacks, the Karo jack is missing). Spiel, Schneider and Schwarz
+        # make 3: (3 + 3) x 10 = 60. The declarer takes all 120 points, so he gains 60 + 50 = 110.
+        table.with_deal(
+            Deal(
+                forehand=cards("SQ C9 HT DT DJ HQ SK CK CQ SA"),
+                middlehand=cards("SJ H9 CA C8 DK HJ H8 DA CJ CT"),
+                rearhand=cards("HK C7 D7 H7 D8 HA DQ S7 ST S9"),
+                skat=cards("S8 D9"),
+            )
+        )
+        table.declared_after_putting_back(cards("C8 S8"))
+
+        table.played_out(
+            game_of(
+                "CQ CA C7 / CJ HA DJ / SJ HK HQ / HJ H7 HT / H9 S7 DT",
+                "H8 ST SA / DA D8 C9 / CT D7 CK / DK DQ SQ / D9 S9 SK",
+            )
+        )
+
+        assert result_of(table) == result_fields(
+            game="herz",
+            schneider=True,
+            schwarz=True,
+            matadors={"mit": True, "count": 3},
+            base_value=10,
+            levels=["spiel", "schneider", "schwarz"],
+            won=True,
+            game_value=60,
+            settled_value=60,
+            score=60,
+            declarer_points=120,
+            opponents_points=0,
+            gains=gains(110, 0),
+        )
+
+    def test_a_won_null_hand_game_has_a_fixed_value_and_no_base_matadors_or_levels(self, table):
+        # Null Hand is worth 35 whatever the hand. The declarer takes two points only (no trick), so he wins:
+        # score 35, he gains 35 + 50 = 85.
+        table.with_deal(
+            Deal(
+                forehand=cards("HK SK DT CA HJ HA DQ HQ C9 H7"),
+                middlehand=cards("DK C8 D7 HT H8 SA ST SJ CT S7"),
+                rearhand=cards("D9 SQ DA CJ H9 S9 CK CQ C7 S8"),
+                skat=cards("DJ D8"),
+            )
+        )
+        table.declared_hand_game(GameToken.NULL)
+
+        table.played_out(
+            game_of(
+                "HA H8 H9 / DQ D7 D9 / HJ HT S9 / H7 S7 CQ / C9 C8 CK",
+                "DA DT DK / C7 CA CT / SK ST SQ / HQ SJ CJ / HK SA S8",
+            )
+        )
+
+        assert result_of(table) == result_fields(
+            game="null",
+            hand=True,
+            matadors=None,
+            base_value=None,
+            levels=[],
+            won=True,
+            game_value=35,
+            settled_value=35,
+            score=35,
+            declarer_points=2,
+            opponents_points=118,
+            gains=gains(85, 0),
+        )
+
+    def test_an_overbid_null_hand_game_is_lost_at_the_cheapest_game_that_reaches_the_bid(self, table):
+        # Null Hand is worth 35, the bid 36 is more. The twelve cards hold only the Pik jack, so every game is ohne 1
+        # and Spiel adds 1: Kreuz (2 x 12 raised to 3 x 12) and Karo (2 x 9 raised to 4 x 9) reach 36, the others
+        # more. The value rises to 36, lost and doubled, score -72; the declarer gains -72 - 50.
+        table.with_deal(
+            Deal(
+                forehand=cards("D9 H8 ST S9 DJ C8 CQ CJ CA H7"),
+                middlehand=cards("S8 HT DK SQ HK C7 HQ DQ CK SJ"),
+                rearhand=cards("HJ HA SK SA CT DA C9 D7 D8 DT"),
+                skat=cards("H9 S7"),
+            )
+        )
+        table.declared_hand_game(GameToken.NULL, bid=36)
+
+        table.played_out(
+            game_of(
+                "D9 DQ DA / DT DJ DK / C7 C9 CQ / C8 CK CT / S8 SK S9",
+                "D7 H7 HT / HA H8 HQ / HJ CA HK / SJ SA ST / D8 CJ SQ",
+            )
+        )
+
+        assert result_of(table) == result_fields(
+            game="null",
+            hand=True,
+            matadors=None,
+            base_value=None,
+            levels=[],
+            doubled=True,
+            won=False,
+            overbid=True,
+            bid=36,
+            game_value=35,
+            settled_value=36,
+            score=-72,
+            declarer_points=47,
+            opponents_points=73,
+            gains=gains(-122, 40),
+        )
+
+    def test_a_passed_in_hand_has_no_result(self, table):
+        for position in (MIDDLEHAND, REARHAND, FOREHAND):
+            answer = table.skat.client.post(
+                f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_SUFFIX}",
+                json={"command_id": table.fresh_id(), "version": table.record.version, "action": AuctionAction.PASS},
+                headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
+            )
+            assert answer.status_code == 200, answer.text
+
+        assert result_of(table) is None
 
 
 class TestAJackInGrand:
