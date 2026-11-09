@@ -72,6 +72,18 @@ class ChairHold:
 
 
 @dataclass(frozen=True)
+class AgentLease:
+    """How long an agent's admitted call counts as its presence, and how to read where it sits.
+
+    `seated_tables(account_id)` answers the ids of the tables the account holds a chair at, and raises when the
+    store fails; the presence reads it only when a lease starts or lapses.
+    """
+
+    seconds: float
+    seated_tables: Callable[[str], Awaitable[Iterable[str]]]
+
+
+@dataclass(frozen=True)
 class NextDeal:
     """How long a table pauses after a passed-in hand, and the command that deals the next one.
 
@@ -115,10 +127,17 @@ class Presence:
 
     After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
     then, and a stream's first view of the table starts the next pause if none is pending. After a played game
-    the deal is asked for at once, with no pause, whenever a caller may have made it due. A later hand's end
-    replaces a pending pause, and the replaced timer does nothing when it fires, so a pending timer of an
-    earlier hand cannot shorten this one's. Nothing about a pause is stored: after a restart none is pending, and
-    all three being connected can only become true by streams opening, so no sweep is needed.
+    the deal is asked for at once, with no pause, whenever a caller may have made it due; so is the deal of an
+    agent's table when its lease starts, after a pause. A later hand's end replaces a pending pause, and the
+    replaced timer does nothing when it fires, so a pending timer of an earlier hand cannot shorten this one's.
+    Nothing about a pause is stored: after a restart none is pending, and all three being connected can only become
+    true by streams opening or an agent's call starting its lease, so no sweep is needed.
+
+    An agent holds no stream: every admitted call of it renews its lease, and while the lease runs the agent counts
+    as present at the tables it sits at (`live_leases`; the table's rule intersects them with its occupants). One
+    timer per lease re-arms itself to the lease's end. A lapse is the agent's leave from each of its tables: the
+    streams are woken, a hold starts as for a person and a table with no stream open waits afresh; a pending hold
+    never frees a chair while a lease runs. Leases are in this process only, like streams, and gone at a restart.
 
     A table gets one wait when it is created or found at the server's start, and another each time its last stream
     ends; a stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it
@@ -126,7 +145,9 @@ class Presence:
     latest. Nothing about a wait is stored either: after a restart every live table waits a full time.
     """
 
-    def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable) -> None:
+    def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease) -> None:
+        self._lease = lease
+        self._lease_ends: dict[str, float] = {}
         self._subscriptions: dict[str, list[Subscription]] = {}
         self._stopped = False
         self._hold = hold
@@ -157,10 +178,68 @@ class Presence:
     def connected(self, table_id: str) -> frozenset[str]:
         return frozenset(subscription.account_id for subscription in self._subscriptions.get(table_id, ()))
 
+    def live_leases(self) -> frozenset[str]:
+        """The agents whose lease runs: a read with no side effect, which a worker may call under a table's lock."""
+        with self._state:
+            return frozenset(self._lease_ends)
+
     def hold_chairs(self, occupied: Iterable[tuple[str, str]]) -> None:
         """Start a fresh hold of each (table id, account id): at the server's start, and when a hand ends."""
         for table_id, account_id in occupied:
             self._start_hold(table_id, account_id)
+
+    def renew_lease(self, account_id: str) -> None:
+        """Count the account as present at every table it sits at for one more lease; call it on the event loop's
+        thread for every admitted call of an agent.
+
+        A lease that starts has its tables woken and their next deal asked for; one timer per lease re-arms itself
+        until the lease has run out without a renewal.
+        """
+        if self._stopped:
+            return
+        ends = self._hold.clock() + self._lease.seconds
+        with self._state:
+            starts = account_id not in self._lease_ends
+            self._lease_ends[account_id] = ends
+        if starts:
+            self._hold.scheduler.schedule(self._lease.seconds, partial(self._check_lease, account_id))
+            self._hold.scheduler.schedule(0, partial(self._settle_lease, account_id, lapsed=False))
+
+    async def _check_lease(self, account_id: str) -> None:
+        remaining = self._lease_ends[account_id] - self._hold.clock()
+        if remaining > 0:
+            self._hold.scheduler.schedule(remaining, partial(self._check_lease, account_id))
+            return
+        with self._state:
+            del self._lease_ends[account_id]
+        await self._settle_lease(account_id, lapsed=True)
+
+    async def _settle_lease(self, account_id: str, *, lapsed: bool) -> None:
+        """Act on every table the account sits at after its lease started or lapsed, from one read of them.
+
+        A lapse wakes the streams, starts the chair's hold and, where no stream is open, a fresh wait for the empty
+        table; a start wakes them and asks for the next deal. A failed read is retried while the lease still is in
+        the state that was acted on.
+        """
+        if self._stopped or (account_id in self._lease_ends) == lapsed:
+            return
+        try:
+            table_ids = list(await self._lease.seated_tables(account_id))
+        except Exception as failure:
+            # The failure's message may carry the account id, so only its type is logged.
+            log.error("lease tables read failed", error=type(failure).__name__)
+            self._hold.scheduler.schedule(
+                CHAIR_RELEASE_RETRY_SECONDS, partial(self._settle_lease, account_id, lapsed=lapsed)
+            )
+            return
+        for table_id in table_ids:
+            self.wake_table(table_id)
+            if not lapsed:
+                self.deal_soon(table_id)
+                continue
+            self._start_hold(table_id, account_id)
+            if table_id not in self._subscriptions:
+                self._start_empty_wait(table_id)
 
     def restart_leaves(self, table_id: str, account_ids: Iterable[str]) -> None:
         """Give each account a newer leave time than any pending timer knows; call it on a worker inside the
@@ -367,7 +446,11 @@ class Presence:
             await committing.wait()
 
     def _is_latest_leave(self, table_id: str, account_id: str, left_at: float) -> bool:
-        return not self._stopped and self._left_at.get((table_id, account_id)) == left_at
+        return (
+            not self._stopped
+            and account_id not in self._lease_ends
+            and self._left_at.get((table_id, account_id)) == left_at
+        )
 
     @staticmethod
     def _wake_all(subscriptions: list[Subscription]) -> None:

@@ -280,8 +280,9 @@ class TableService:
         """Deal the next hand on the server's own account, with no actor, command id or receipt.
 
         `connected_accounts` is entered once the row is locked and left after the commit; it yields who holds an open
-        stream then, or None once the presence cannot tell, which deals nothing; a live lease counts for its occupant. The decision re-reads the table under the
-        row lock, so a repeat, or a table that changed meanwhile, changes nothing. True when it dealt.
+        stream then, or None once the presence cannot tell, which deals nothing; a live lease counts for its occupant.
+        The decision re-reads the table under the row lock, so a repeat, or a table that changed meanwhile, changes
+        nothing. True when it dealt.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)

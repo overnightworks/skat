@@ -133,11 +133,15 @@ def result_pending(table: TableRecord) -> bool:
 
 
 @overload
-def present_at(table: TableRecord, streams: frozenset[str], leases: frozenset[str]) -> frozenset[str]: ...
+def present_at(
+    table: TableRecord, streams: frozenset[str], leases: frozenset[str]
+) -> frozenset[str]: ...  # pragma: no cover - an overload's body is its signature
 
 
 @overload
-def present_at(table: TableRecord, streams: frozenset[str] | None, leases: frozenset[str]) -> frozenset[str] | None: ...
+def present_at(
+    table: TableRecord, streams: frozenset[str] | None, leases: frozenset[str]
+) -> frozenset[str] | None: ...  # pragma: no cover - an overload's body is its signature
 
 
 def present_at(table: TableRecord, streams: frozenset[str] | None, leases: frozenset[str]) -> frozenset[str] | None:
