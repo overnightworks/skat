@@ -1,7 +1,0 @@
-claim_id = "1415dd3c73a6406492464dbdec3ccb60"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "054d27c8bbfd6ea52466c4860b1e5f482cfa10ec"
-branch = "claude/issue-150-agents-shape"
-scope = ["AGENTS.md", "docs/ARCHITECTURE.md"]
-opened_commit = "32f55a568a6038c8648c2ce3c5abc564a752e176"
