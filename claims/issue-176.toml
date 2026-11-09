@@ -1,7 +1,0 @@
-claim_id = "d75184e99a534f8e8989d07029e3d02c"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "407dc9ecc0d9cb9cc9f1eca4c8e60824f71d1fa7"
-branch = "claude/issue-176-bock-engine"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/bock.py", "tests/engine/test_bock.py"]
-opened_commit = "1f0842933ff144398cd0c70be40d9292db91aa6d"
