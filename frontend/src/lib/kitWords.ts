@@ -1,4 +1,4 @@
-import type { AccountMenuWords } from "overnightworks-appkit";
+import type { AccountMenuWords } from "overnightworks-design";
 import { words } from "#lib/words.ts";
 
 export const accountMenuWords: AccountMenuWords = {

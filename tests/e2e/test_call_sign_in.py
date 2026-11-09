@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-# The words are appkit's English: the sign-in pages keep them.
+# The words are design's English: the sign-in pages keep them.
 LOG_IN = "Log in"
 UNFINISHED_NOTICE = "Sign-in did not finish."
 SIGNING_IN = "Signing in"
