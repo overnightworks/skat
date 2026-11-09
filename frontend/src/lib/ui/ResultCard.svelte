@@ -33,7 +33,7 @@
                     <svg viewBox="0 0 100 100"><use href={`#suit-${view.game}`} /></svg>
                 </span>
             {/if}
-            {view.byName === null ? view.label : `${view.byName}, ${view.label}`}
+            {view.gameLine}
         </span>
         {#if view.miss !== null}
             <span class="stamp">{words.overbid}</span>
