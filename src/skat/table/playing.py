@@ -115,7 +115,7 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
 
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
-    """The trick that ends the game ends the hand: its cards and steps go, its entry joins the list, the chairs stay."""
+    """The card or the give-up that ends the game ends the hand: its cards and steps go, its entry joins the list."""
     return TableRecord(
         id=table.id,
         version=table.version + 1,

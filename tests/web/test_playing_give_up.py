@@ -187,7 +187,7 @@ class TestTheDeclarerGivesUp:
             False,
             None,
             value,
-            -2 * value,
+            score,
         )
 
     def test_an_ouvert_declarers_open_cards_go_with_the_hand(self, table):
