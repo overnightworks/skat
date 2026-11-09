@@ -18,6 +18,7 @@ from skat.web.mcp import (
     AUCTION_PLAY_TOOL,
     CONTINUE_AFTER_RESULT_TOOL,
     DECLARE_GAME_TOOL,
+    GIVE_UP_GAME_TOOL,
     MCP_GROUP,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
@@ -72,7 +73,9 @@ class TestTools:
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
         assert (
             set(tools)
-            == {READ_TABLE_TOOL, PLAY_CARD_TOOL, CONTINUE_AFTER_RESULT_TOOL} | AUCTION_TOOLS | DECLARING_TOOLS
+            == {READ_TABLE_TOOL, PLAY_CARD_TOOL, GIVE_UP_GAME_TOOL, CONTINUE_AFTER_RESULT_TOOL}
+            | AUCTION_TOOLS
+            | DECLARING_TOOLS
         )
         assert tools[READ_TABLE_TOOL]["annotations"]["readOnlyHint"] is True
         for name in set(tools) - {READ_TABLE_TOOL}:
@@ -231,6 +234,38 @@ class TestPlayCard:
         assert answer.is_error
         assert answer.json()["reason"] == reason
         assert stored(forehand_table.skat)[0] == before[0]
+
+
+class TestGiveUpGame:
+    def give_up(self, agent, table, *, command_id="agent-give-up-0001", **changes):
+        return agent.call(
+            GIVE_UP_GAME_TOOL,
+            table_id=table.table_id,
+            command_id=command_id,
+            **{"version": table.record.version, **changes},
+        )
+
+    def test_an_agent_declarer_loses_the_game_at_once_under_its_own_account(self, skat, agent):
+        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+
+        answer = self.give_up(agent, table)
+
+        assert not answer.is_error, answer.text
+        assert answer.json()["result"]["won"] is False
+        assert table.record.hand is None
+        assert len(table.record.game_list) == 1
+
+    def test_a_refused_give_up_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, forehand_table):
+        before = stored(forehand_table.skat)
+
+        answer = self.give_up(agent, forehand_table)
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.NOT_DECLARER
+        assert stored(forehand_table.skat)[0] == before[0]
+        assert "reused" in self.give_up(agent, forehand_table, version=0).text
 
 
 class TestAuctionSteps:
