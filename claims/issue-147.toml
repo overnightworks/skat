@@ -1,0 +1,8 @@
+claim_id = "2ffc34165ac44b36baea4b42b2b1a37e"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "054d27c8bbfd6ea52466c4860b1e5f482cfa10ec"
+branch = "claude/issue-147-e2e-parallel"
+scope = [".github/workflows/ci.yml", "pyproject.toml", "tests/e2e/conftest.py", "tests/e2e/support/people.py", "tests/e2e/support/server.py", "uv.lock"]
+opened_commit = "e063db8040e5ea9f067a985c77d98fe093c572d3"
+whole_reason = "The dependency, the CI command and any per-worker fix in the harness are one proof: CI green with the suite on the runner's cores."
