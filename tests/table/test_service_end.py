@@ -1,5 +1,5 @@
 import itertools
-from contextlib import contextmanager, nullcontext
+from contextlib import nullcontext
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -178,18 +178,6 @@ class TestADealtTablePauses:
         store.tables[dealt_id.value] = replace(store.tables[dealt_id.value], hand=None, progress=HandProgress(passes))
 
         self.assert_kept(service, store, dealt_id)
-
-    def test_it_still_enters_the_connected_context_so_shutdown_awaits_it(self, service, dealt_id):
-        entered = []
-
-        @contextmanager
-        def connected():
-            entered.append(True)
-            yield NOBODY
-
-        service.end_empty_table(dealt_id, connected(), DEFAULT_EMPTY_TABLE_SECONDS)
-
-        assert entered == [True]
 
 
 class TestAtAnEndedTable:

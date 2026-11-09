@@ -119,19 +119,24 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     )
 
 
+def hand_was_dealt(table: TableRecord) -> bool:
+    """A hand was dealt on the table at some time: the store writes the dealer with the first hand."""
+    return table.dealer is not None
+
+
 def result_pending(table: TableRecord) -> bool:
     """A played game's result stands: no hand runs, a dealer and a list entry exist, and no auction steps are kept.
 
     A passed-in hand keeps its steps until the next deal, which tells it apart from a played one.
     """
-    return not hand_runs(table) and table.dealer is not None and bool(table.game_list) and not table.progress.auction
+    return not hand_runs(table) and hand_was_dealt(table) and bool(table.game_list) and not table.progress.auction
 
 
 def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) -> bool:
     """A table ends for being empty only while no hand was dealt on it and nobody is connected; a table with a dealer
     pauses and is kept. None says the presence cannot tell any more.
     """
-    return table.dealer is None and connected_accounts is not None and not connected_accounts
+    return not hand_was_dealt(table) and connected_accounts is not None and not connected_accounts
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
@@ -141,7 +146,7 @@ def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> boo
     occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
     return (
         not hand_runs(table)
-        and table.dealer is not None
+        and hand_was_dealt(table)
         and len(occupants) == CHAIRS_PER_TABLE
         and connected_accounts.issuperset(occupants)
         and (not result_pending(table) or all(chair.ready for chair in table.chairs))
