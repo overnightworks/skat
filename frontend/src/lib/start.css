@@ -1497,19 +1497,19 @@ body {
 
 .room .laid.left {
     left: 28%;
-    top: 38%;
+    top: 48%;
     --lie: -9deg;
 }
 
 .room .laid.right {
     left: 72%;
-    top: 38%;
+    top: 48%;
     --lie: 8deg;
 }
 
 .room .laid.near {
     left: 50%;
-    top: 72%;
+    top: 56%;
     --lie: 0deg;
 }
 
@@ -1671,7 +1671,7 @@ body {
     }
 
     .room .laid.near {
-        top: 70%;
+        top: 64%;
     }
 
     .room .points {

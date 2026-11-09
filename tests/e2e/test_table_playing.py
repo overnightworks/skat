@@ -205,6 +205,33 @@ def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
     assert page_errors == []
 
 
+# A laid card and its name tag stand clear of every fan, the own hand included; a card on its way out is no fan yet.
+CLEAR_OF_EVERY_FAN = """() => {
+    const boxes = (selector) =>
+        [...document.querySelectorAll(selector)].map((element) => element.getBoundingClientRect());
+    const fans = boxes('.chair .fan, .own-hand .card');
+    return boxes('.trick .face, .trick .tag').every((laid) =>
+        fans.every((fan) =>
+            Math.min(laid.right, fan.right) <= Math.max(laid.left, fan.left)
+            || Math.min(laid.bottom, fan.bottom) <= Math.max(laid.top, fan.top)
+        )
+    );
+}"""
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_playing_table(form_factor, game="kreuz")
+    for played in range(1, CARDS_IN_A_HAND):
+        table.play_out(1)
+        for person in table.everyone:
+            expect(person.locator(FELT_CARD)).to_have_count(played % CARDS_IN_A_TRICK or CARDS_IN_A_TRICK)
+            person.wait_for_function(CLEAR_OF_EVERY_FAN)
+    assert page_errors == []
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_stale_page_shows_the_refusal_and_the_stream_corrects_it(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
