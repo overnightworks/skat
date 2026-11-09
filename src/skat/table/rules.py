@@ -83,7 +83,8 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
-    return replace(table, version=table.version + 1, chairs=chairs)
+    seated: TableRecord = replace(table, version=table.version + 1, chairs=chairs)
+    return seated
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -112,7 +113,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
     in its series; every deal goes through here.
     """
-    return replace(
+    with_hand: TableRecord = replace(
         table,
         version=version,
         chairs=tuple(replace(chair, ready=False) for chair in table.chairs),
@@ -121,6 +122,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         progress=HandProgress(),
         series=None if table.series is None else replace(table.series, deals=table.series.deals + 1),
     )
+    return with_hand
 
 
 def hand_was_dealt(table: TableRecord) -> bool:

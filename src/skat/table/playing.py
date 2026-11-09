@@ -81,13 +81,14 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
     """The trick that ends the game ends the hand: its cards and steps go, its entry joins the list, the chairs stay."""
-    return replace(
+    ended: TableRecord = replace(
         table,
         version=table.version + 1,
         hand=None,
         progress=HandProgress(),
         game_list=(*table.game_list, list_entry_of(played, table)),
     )
+    return ended
 
 
 def _legal_cards(state: Playing, viewer_positions: frozenset[Position]) -> tuple[Card, ...]:
