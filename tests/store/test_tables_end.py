@@ -264,6 +264,12 @@ def test_a_created_table_stores_its_creation_as_the_time_since_nobody_was_there(
     assert before <= stored_since(engine, table_id) <= datetime.now(UTC)
 
 
+def test_the_sit_that_deals_the_first_hand_clears_the_time_with_no_stream_open(service, engine):
+    table_id = seated_table(service, "one")
+
+    assert stored_since(engine, table_id) is None
+
+
 def test_a_leave_and_an_arrival_write_and_clear_the_time_and_change_no_version_or_receipt(
     service, transactions, stored, engine
 ):

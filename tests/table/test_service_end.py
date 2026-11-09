@@ -280,6 +280,9 @@ class TestNotePresence:
     def test_a_created_table_is_stamped_with_the_service_clock(self, store, table_id):
         assert store.empty_since_by_table[table_id.value] == ENDED_AT
 
+    def test_the_sit_that_deals_the_first_hand_clears_the_time_with_no_stream_open(self, store, dealt_id):
+        assert store.empty_since_by_table[dealt_id.value] is None
+
     def test_the_last_leave_stamps_a_table_with_no_time_and_changes_nothing_else(self, service, store, table_id):
         store.empty_since_by_table[table_id.value] = None
         before = store.tables[table_id.value]

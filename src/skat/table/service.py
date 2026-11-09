@@ -47,6 +47,7 @@ from skat.table.rules import (
     decide_sit,
     decide_stand,
     ends_empty,
+    hand_was_dealt,
     next_deal_due,
     presence_step,
     present_at,
@@ -489,6 +490,8 @@ class TableService:
                 decision = decide(table)
                 if decision.refusal is None:
                     transaction.save_table(decision.table)
+                    if hand_was_dealt(decision.table) and not hand_was_dealt(table):
+                        transaction.set_empty_since(identifier, None)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
