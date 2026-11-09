@@ -9,6 +9,7 @@ from skat.table.declaring import DeclaringView, declaring_view_of
 from skat.table.game_list import ResultView, result_view_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
 from skat.table.playing import PlayingView, playing_view_of
+from skat.table.records import EndedTable, EndReason
 from skat.table.rules import hand_runs
 
 if TYPE_CHECKING:
@@ -63,7 +64,17 @@ class PassedInView:
 
 
 @dataclass(frozen=True)
+class EndedView:
+    """Why the table ended and, for an empty one, the whole seconds nobody was there."""
+
+    reason: EndReason
+    empty_seconds: int
+
+
+@dataclass(frozen=True)
 class TableView:
+    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result or passed-in fact."""
+
     id: str
     version: int
     chairs: tuple[ChairView, ...]
@@ -71,6 +82,7 @@ class TableView:
     hand: HandView | None
     passed_in: PassedInView | None
     result: ResultView | None
+    ended: EndedView | None = None
 
 
 def _is_occupied_by(chair: Chair, account_id: str) -> bool:
@@ -128,7 +140,7 @@ def _passed_in_view(table: TableRecord) -> PassedInView | None:
     return PassedInView(next_dealer(table.dealer) if three_seated else None)
 
 
-def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
+def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine.
 
     The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant
@@ -138,7 +150,19 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
     is played, the cards and counts are those still held, and played cards are shown only in the trick in progress
     and the last completed one. Between hands the view says whether the last hand was passed in and, while three
     chairs are occupied, who deals next; after a played game it carries the result, the same for every viewer.
+    An ended table names nobody and holds nothing of a hand.
     """
+    if isinstance(table, EndedTable):
+        return TableView(
+            id=table.id.value,
+            version=table.version,
+            chairs=(),
+            watchers=0,
+            hand=None,
+            passed_in=None,
+            result=None,
+            ended=EndedView(table.reason, table.empty_seconds),
+        )
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
     return TableView(

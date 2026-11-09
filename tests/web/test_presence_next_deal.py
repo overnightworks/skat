@@ -176,13 +176,13 @@ class TestDealNow:
         assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
         assert "anna" not in str(logs)
 
-    def test_once_the_server_stopped_it_asks_with_nobody_connected(self, holding, deals):
+    def test_once_the_server_stopped_it_asks_with_none_connected_to_say_so(self, holding, deals):
         connect(holding, TABLE, "anna", lambda: None)
         holding.stop()
 
         run(holding.deal_now(TABLE))
 
-        assert deals.calls == [(TABLE, frozenset())]
+        assert deals.calls == [(TABLE, None)]
 
 
 class TestNextHandComes:
@@ -363,9 +363,10 @@ class TestNextHandComes:
             table_id = server.create(people[0][0]).json()["id"]
         server.client.cookies.clear()
         before = server.store.tables[table_id]
+        waiting = time.pending
 
         with streams_of(server, table_id, people[:1]):
-            assert time.pending == 0
+            assert time.pending == waiting
             advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
 
             assert server.store.tables[table_id] == before

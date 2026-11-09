@@ -14,7 +14,7 @@ from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
-from tests.support.idle_presence import idle_hold, idle_next_deal, idle_presence
+from tests.support.idle_presence import idle_empty_table, idle_hold, idle_next_deal, idle_presence
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -170,7 +170,7 @@ class TestTableViews:
                 return subscription
 
         async def scenario():
-            presence = ConnectsAnotherRightAfterRegistering(idle_hold(), idle_next_deal())
+            presence = ConnectsAnotherRightAfterRegistering(idle_hold(), idle_next_deal(), idle_empty_table())
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)
             await stream.aclose()
@@ -633,7 +633,7 @@ class TestHandOnTheStream:
         assert answer.status_code == 200
         fresh = json.loads(first_fresh.removeprefix("data: "))
         assert fresh["version"] == opened["version"] + 1
-        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand", "passed_in", "result"}
+        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand", "passed_in", "result", "ended"}
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1
         assert cards_in_text(first_fresh) == wire_cards(CARDS_BY_SEAT[1])
         assert cards_in_text(second_fresh) == wire_cards(CARDS_BY_SEAT[2])

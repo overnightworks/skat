@@ -524,3 +524,49 @@ class TestRequireHead:
 
         with pytest.raises(DatabaseNotAtHeadError, match="older"):
             require_head(engine)
+
+
+class TestFromATableAtRevisionEight:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0008 holding a table, then taken to head."""
+        upgrade_to(engine, "0008")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
+        migrate(engine)
+        return engine
+
+    def test_reads_the_table_as_live(self, migrated):
+        with migrated.connect() as connection:
+            row = connection.execute(text("SELECT ended_at, end_reason, empty_seconds FROM tables")).one()
+
+        assert tuple(row) == (None, None, None)
+
+    def test_accepts_an_end_with_its_time_reason_and_wait(self, migrated):
+        _run_in_transaction(
+            migrated, text("UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 1800")
+        )
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM tables WHERE ended_at IS NOT NULL")).scalar_one() == 1
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("UPDATE tables SET end_reason = 'empty', empty_seconds = 1", id="reason-without-time"),
+            pytest.param("UPDATE tables SET ended_at = now(), empty_seconds = 1", id="time-without-reason"),
+            pytest.param("UPDATE tables SET ended_at = now(), end_reason = 'empty'", id="empty-without-seconds"),
+            pytest.param("UPDATE tables SET empty_seconds = 1", id="seconds-without-reason"),
+            pytest.param(
+                "UPDATE tables SET ended_at = now(), end_reason = 'closed', empty_seconds = 1", id="unknown-reason"
+            ),
+            pytest.param(
+                "UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 0", id="no-seconds-waited"
+            ),
+        ],
+    )
+    def test_the_checks_refuse_a_row_that_is_no_end(self, migrated, statement):
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)
