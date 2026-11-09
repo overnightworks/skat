@@ -127,7 +127,8 @@ class PlayedOut:
     """The finished game: the ended declaration state and its completed tricks, the rest derived.
 
     A trick not completed when the game ended counts for the opponents,
-    or for the declarer when the opponents threw down, the game ended decided against him, an opponent conceded it or he shortened it:
+    or for the declarer when the opponents threw down, the game ended decided against him,
+    an opponent conceded it or he shortened it:
     then the opponents keep only the tricks and points they completed.
     `claimed` is the level the declarer demanded with his shortening; no other ending reads it.
     """
