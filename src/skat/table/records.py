@@ -17,6 +17,9 @@ if TYPE_CHECKING:
 
 TABLE_ID_BYTES: Final = 16
 TABLE_ID_PATTERN: Final = "[0-9a-f]{32}"
+SERIES_LENGTH_STEP: Final = 3
+SERIES_LENGTH_MIN: Final = 3
+SERIES_LENGTH_MAX: Final = 99
 _TABLE_ID = re.compile(TABLE_ID_PATTERN)
 
 
@@ -45,9 +48,12 @@ class Actor:
 
 @dataclass(frozen=True)
 class CreateTable:
-    """The command to open a table; `command_id` is the client's key for retrying it."""
+    """The command to open a table; `command_id` is the client's key for retrying it, `series_length` the number of
+    games its series runs, or None for a table that plays on.
+    """
 
     command_id: str
+    series_length: int | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +86,7 @@ class Refusal(StrEnum):
     NOT_DECLARER = "not-declarer"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
+    SERIES_OVER = "series-over"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal
@@ -121,6 +128,24 @@ class HandProgress:
 
 
 @dataclass(frozen=True)
+class Series:
+    """A table's series: its fixed `length` in games and the `deals` made so far, a passed-in hand included."""
+
+    length: int
+    deals: int
+
+    def __post_init__(self) -> None:
+        if not SERIES_LENGTH_MIN <= self.length <= SERIES_LENGTH_MAX or self.length % SERIES_LENGTH_STEP:
+            message = (
+                f"a series length is a multiple of {SERIES_LENGTH_STEP} from {SERIES_LENGTH_MIN} to {SERIES_LENGTH_MAX}"
+            )
+            raise ValueError(message)
+        if not 0 <= self.deals <= self.length:
+            message = f"a series of {self.length} games has no {self.deals} deals"
+            raise ValueError(message)
+
+
+@dataclass(frozen=True)
 class TableRecord:
     """A table as stored; its game list outlives every deal and goes only with the table."""
 
@@ -131,6 +156,7 @@ class TableRecord:
     hand: Deal | None
     progress: HandProgress
     game_list: tuple[ListEntry, ...]
+    series: Series | None
 
 
 class EndReason(StrEnum):

@@ -9,7 +9,7 @@ from skat.web.mcp import CONTINUE_AFTER_RESULT_MARK
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
-    CreateTableRequest,
+    CommandRequest,
     TableAnswer,
     actor_of,
     command_answer,
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 TABLE_READY_SUFFIX: Final = "/ready"
 
 
-class ReadyRequest(CreateTableRequest):
+class ReadyRequest(CommandRequest):
     """A client names only the result it saw, by its number in the table's list: its chair comes from the session."""
 
     ordinal: Annotated[int, Field(strict=True, ge=1)]
@@ -41,15 +41,17 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
     async def tap_weiter(
         table_id: str, body: ReadyRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
-        """Say „Weiter“ after a result of a Skat table: the caller's chair is ready for the next hand.
+        """Say „Weiter“ after a result of a Skat table: the caller's chair is ready for the next hand of the series.
 
-        Use it when read_table shows a `result` and the caller's own chair (`is_mine`) has `ready: false`. The
-        `ordinal` is `result.ordinal` and the table id comes from the same read. The command id names this
-        step: the same id with the same ordinal is a retry that changes nothing twice. A refusal (not seated, no
-        result, a stale ordinal) comes back as a failed result with its reason and spends the command id: the next
-        attempt takes a new command id. After a passed-in hand (`passed_in`) there is nothing to do: the next hand
-        follows once all three are there. The answer still shows the result; the next hand appears in a later
-        read_table, once all three chairs are ready.
+        Use it when read_table shows a `result`, the series is not over (`series` is null or `series.over` is false),
+        and the caller's own chair (`is_mine`) has `ready: false`. The `ordinal` is `result.ordinal` and the table id
+        comes from the same read. The command id names this step: the same id with the same ordinal is a retry that
+        changes nothing twice. A refusal (not seated, no result, a stale ordinal, the series is over) comes back as a
+        failed result with its reason and spends the command id: the next attempt takes a new command id. Once
+        read_table shows `series.over: true` no next hand follows and there is nothing to do, also after a passed-in
+        last game (`passed_in`). After any other passed-in hand the next hand follows once all three are there. The
+        answer still shows the result; the next hand appears in a later read_table, once all three chairs are ready and
+        the series is not over.
         """
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal)
         answer = await command_answer(

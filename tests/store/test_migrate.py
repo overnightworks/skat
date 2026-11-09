@@ -570,3 +570,44 @@ class TestFromATableAtRevisionEight:
 
         with pytest.raises(IntegrityError):
             _run_in_transaction(migrated, refused)
+
+
+class TestFromADealtTableAtRevisionNine:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0009 holding a dealt table, then taken to head."""
+        upgrade_to(engine, "0009")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
+        migrate(engine)
+        return engine
+
+    def test_the_old_table_has_no_series(self, migrated):
+        with migrated.connect() as connection:
+            row = connection.execute(text("SELECT series_length, series_deals FROM tables")).one()
+
+        assert tuple(row) == (None, None)
+
+    def test_accepts_a_series_with_its_deals(self, migrated):
+        _run_in_transaction(migrated, text("UPDATE tables SET series_length = 36, series_deals = 36"))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM tables WHERE series_deals = 36")).scalar_one() == 1
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("UPDATE tables SET series_length = 12", id="length-without-deals"),
+            pytest.param("UPDATE tables SET series_deals = 0", id="deals-without-length"),
+            pytest.param("UPDATE tables SET series_length = 0, series_deals = 0", id="no-games"),
+            pytest.param("UPDATE tables SET series_length = 4, series_deals = 0", id="not-a-multiple-of-three"),
+            pytest.param("UPDATE tables SET series_length = 102, series_deals = 0", id="beyond-the-largest"),
+            pytest.param("UPDATE tables SET series_length = 12, series_deals = 13", id="more-deals-than-games"),
+            pytest.param("UPDATE tables SET series_length = 12, series_deals = -1", id="negative-deals"),
+        ],
+    )
+    def test_the_checks_refuse_a_row_that_is_no_series(self, migrated, statement):
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)

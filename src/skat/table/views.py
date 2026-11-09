@@ -10,7 +10,7 @@ from skat.table.game_list import ResultView, result_view_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.records import EndedTable, EndReason
-from skat.table.rules import hand_runs
+from skat.table.rules import hand_runs, series_over
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -58,7 +58,7 @@ class HandView:
 
 @dataclass(frozen=True)
 class PassedInView:
-    """The hand was passed in: who deals next, named only while three chairs are occupied."""
+    """The hand was passed in: who deals next, named only while three chairs are occupied and the series goes on."""
 
     next_dealer_seat: int | None
 
@@ -72,8 +72,17 @@ class EndedView:
 
 
 @dataclass(frozen=True)
+class SeriesView:
+    """Which game of how many the table runs, 0 before the first deal, and whether its last game is over."""
+
+    game_number: int
+    game_count: int
+    over: bool
+
+
+@dataclass(frozen=True)
 class TableView:
-    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result or passed-in fact."""
+    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact or series."""
 
     id: str
     version: int
@@ -82,6 +91,7 @@ class TableView:
     hand: HandView | None
     passed_in: PassedInView | None
     result: ResultView | None
+    series: SeriesView | None
     ended: EndedView | None = None
 
 
@@ -137,7 +147,13 @@ def _passed_in_view(table: TableRecord) -> PassedInView | None:
     if hand_runs(table) or table.dealer is None or not isinstance(auction_of(table).result, PassedIn):
         return None
     three_seated = all(chair.occupant is not None for chair in table.chairs)
-    return PassedInView(next_dealer(table.dealer) if three_seated else None)
+    return PassedInView(next_dealer(table.dealer) if three_seated and not series_over(table) else None)
+
+
+def _series_view(table: TableRecord) -> SeriesView | None:
+    if table.series is None:
+        return None
+    return SeriesView(table.series.deals, table.series.length, series_over(table))
 
 
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
@@ -149,7 +165,8 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     take to the put-back, and an ouvert game's cards are open to all. The skat is otherwise a count. While a game
     is played, the cards and counts are those still held, and played cards are shown only in the trick in progress
     and the last completed one. Between hands the view says whether the last hand was passed in and, while three
-    chairs are occupied, who deals next; after a played game it carries the result, the same for every viewer.
+    chairs are occupied and the series goes on, who deals next; after a played game it carries the result, the same
+    for every viewer. A table with a series says which game of how many runs and whether the series is over.
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
@@ -161,6 +178,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             hand=None,
             passed_in=None,
             result=None,
+            series=None,
             ended=EndedView(table.reason, table.empty_seconds),
         )
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
@@ -186,4 +204,5 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
         hand=hand_view,
         passed_in=_passed_in_view(table),
         result=result_view_of(table),
+        series=_series_view(table),
     )
