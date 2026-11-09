@@ -246,7 +246,7 @@ body.key .frame *:not(.mo){animation:none!important}
 .button svg{width:20px;height:20px}
 .button-stage{background:var(--accent-stage);color:var(--stage)}
 .button-glass{background:var(--glass);color:var(--on-stage);backdrop-filter:blur(14px)}
-/* the rules part of a new table: the official rules first, one switch per house rule, all off */
+/* the rules part of a new table: one switch per house rule, each off until switched on */
 .rules{display:flex;flex-direction:column;gap:8px;width:100%}
 .rule{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
 .rule .ic{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--glass);color:var(--on-stage-soft)}
@@ -255,10 +255,6 @@ body.key .frame *:not(.mo){animation:none!important}
 .rule .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .rule b{font-size:15px;font-weight:600;line-height:1.2}
 .rule small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
-.rule.official{min-height:48px;background:rgba(244,236,217,.1);box-shadow:inset 0 0 0 1px rgba(240,214,150,.32)}
-.rule.official.on .ic{background:#f4ecd9;color:#2d6b4f}
-.rule.official .count{flex:none;height:24px;padding:0 9px;border-radius:999px;display:inline-flex;align-items:center;background:var(--glass);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
-.rule.official:not(.on) b{color:var(--on-stage-soft)}
 .rule.sub{margin-left:26px;min-height:46px;position:relative}
 .rule.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
 .rule.sub .ic{width:30px;height:30px}
@@ -536,18 +532,20 @@ const HOUSE_RULES=[
 ];
 const ruleRow=(r,on,sub)=>`<div class="rule ${sub?'sub':''} ${on.includes(r.id)?'on':''}" role="group" aria-label="${r.name}"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.line}</small></span>
   <span class="sw ${on.includes(r.id)?'on':''}" role="switch" tabindex="0" aria-checked="${on.includes(r.id)}" aria-label="${r.name}"><i>${I.check}</i></span></div>`;
-const rulesPart=(on)=>`<div class="rules"><div class="rule official ${on.length?'':'on'}"><span class="ic">${I.check}</span><span class="txt"><b>Offizielle Skatordnung</b></span>${on.length?`<span class="count">+${on.length}</span>`:''}</div>
-  ${HOUSE_RULES.map(r=>ruleRow(r,on)+(r.sub&&on.includes(r.id)?ruleRow(r.sub,on,true):'')).join('')}</div>`;
+const rulesPart=(on)=>`<div class="rules">${HOUSE_RULES.map(r=>ruleRow(r,on)+(r.sub&&on.includes(r.id)?ruleRow(r.sub,on,true):'')).join('')}</div>`;
 /* the sets a person can pick when opening a table; the official one is the default */
-const RULE_SETS=[{id:'official',name:'Offiziell'},{id:'felix',name:'Felix'},{id:'skatabend',name:'Skatabend'}];
+const RULE_SETS=[{id:'official',name:'Offiziell',on:[]},{id:'felix',name:'Felix',on:['kontra','ramsch','schieben','bock']},{id:'skatabend',name:'Skatabend',on:[]}];
 const setChoice=(picked)=>`<div class="sets" role="radiogroup" aria-label="Regeln">${RULE_SETS.map(t=>`<span class="set ${t.id===picked?'on':''}" role="radio" aria-checked="${t.id===picked}" tabindex="0">${t.id===picked?I.check:''}${t.name}</span>`).join('')}</div>`;
 const saveOffer=(name)=>`<div class="save" role="group" aria-label="Als eigene Regeln speichern"><span class="ic">${I.plus}</span><span class="txt"><b>Als eigene Regeln speichern</b><span class="name" aria-label="Name">${name}</span></span></div>`;
-const newTable=(x,y,w,on=[],set={})=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
+/* a switch changed away from the picked set offers to save the result as the person's own rules */
+const savedName=(picked,on)=>{const set=RULE_SETS.find(t=>t.id===picked),added=HOUSE_RULES.filter(r=>r.chip&&on.includes(r.id)&&!set.on.includes(r.id)).map(r=>r.chip);
+  return on.length===set.on.length&&on.every(id=>set.on.includes(id))?'':`${set.name}, mit ${added.join(' und ')}`};
+const newTable=(x,y,w,on=[],picked='official')=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
   <span class="info" role="button" tabindex="0" title="Offen: steht in der Liste. Privat: nur mit dem Link." aria-label="Info">i</span>
   <div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
   <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
-  ${setChoice(set.picked||'official')}
-  ${rulesPart(on)}${set.save?saveOffer(set.save):''}
+  ${setChoice(picked)}
+  ${rulesPart(on)}${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
   <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
 /* a listed table names its house rules under its name; a table without plays the official rules */
 const ruleChips=(on)=>`<span class="chips">${on.length?HOUSE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
@@ -573,8 +571,8 @@ frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',LIST.phone()+newTable(195
 frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',LIST.desk()+newTable(640,60,440));
 frame('rules-on-390','Neuer Tisch mit Hausregeln','Handy 390 px','p390',LIST.phone()+newTable(195,70,354,['kontra','ramsch']));
 frame('rules-on-1280','Neuer Tisch mit Hausregeln','Desktop 1280 px','d1280',LIST.desk()+newTable(640,40,440,['kontra','ramsch']));
-frame('rules-set-390','Neuer Tisch mit eigenem Regelsatz','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['points','kontra','bock'],{picked:'felix',save:'Felix, mit Bock'}));
-frame('rules-set-1280','Neuer Tisch mit eigenem Regelsatz','Desktop 1280 px','d1280',LIST.desk()+newTable(640,40,440,['points','kontra','bock'],{picked:'felix',save:'Felix, mit Bock'}));
+frame('rules-set-390','Neuer Tisch mit eigenem Regelsatz','Handy 390 px','p390',LIST.phone()+newTable(195,40,354,['kontra','ramsch','schieben','bock'],'felix'));
+frame('rules-set-1280','Neuer Tisch mit eigenem Regelsatz','Desktop 1280 px','d1280',LIST.desk()+newTable(640,40,440,['kontra','ramsch','schieben','bock'],'felix'));
 frame('rules-list-390','Offene Tische mit Regeln','Handy 390 px','p390',
   wordmark(195,40,{ws:60,ps:20,rule:30,wg:8})+`<div class="account" style="--ar:12px;--at:12px"><span class="av">F</span>${I.chev}</div>`
   +ruleTables({left:16,top:150},{w:358,cw:92,ch:64,step:119})+cta(195,688)+legal);
