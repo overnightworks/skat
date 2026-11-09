@@ -1,0 +1,8 @@
+claim_id = "0251eee4cffe4e449ea0ab82a87d5f13"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "67f6005413b561a10d88ad7901760439e3062228"
+branch = "claude/issue-143-reckoning"
+scope = ["src/skat/engine/score.py", "src/skat/engine/value.py", "src/skat/table/game_list.py", "src/skat/web/tables.py", "tests/engine/test_score.py", "tests/engine/test_value.py", "tests/table/test_game_list.py", "tests/web/test_playing.py", "tests/web/test_playing_grand_and_hand.py"]
+opened_commit = "75b7470383e1e349a19b0dc11b03df6c91cad136"
+whole_reason = "The engine's reckoning, its view and its answer are one proof through the API; split apart, the engine function has no caller."
