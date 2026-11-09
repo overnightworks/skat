@@ -143,9 +143,9 @@ def _deal_with(deal: Deal, position: Position, hand: tuple[Card, ...], skat: tup
 
 def _then_next(state: Pushing, *, deal: Deal, pushes: int) -> Pushing:
     if state.turn is _SEATING[-1]:
-        return replace(state, deal=deal, holds_twelve=False, pushes=pushes, result=RamschOn())
+        return Pushing(turn=state.turn, deal=deal, holds_twelve=False, pushes=pushes, result=RamschOn())
     following = _SEATING[_SEATING.index(state.turn) + 1]
-    return replace(state, turn=following, deal=deal, holds_twelve=False, pushes=pushes)
+    return Pushing(turn=following, deal=deal, holds_twelve=False, pushes=pushes, result=state.result)
 
 
 def take(state: Pushing, position: Position) -> PushOutcome:
