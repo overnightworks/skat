@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "7eefbabb8e91a771a4bbe97534b0c322feb113ec"
 branch = "claude/issue-209-give-up"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/giving_up.py", "src/skat/engine/tricks.py", "src/skat/table/playing.py", "src/skat/table/service.py", "src/skat/web/mcp.py", "src/skat/web/playing.py", "tests/engine/test_giving_up.py", "tests/engine/test_tricks.py", "tests/store/test_playing.py", "tests/web/test_mcp.py", "tests/web/test_playing_give_up.py", "tests/web/test_tables.py"]
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/engine/giving_up.py", "src/skat/engine/tricks.py", "src/skat/table/playing.py", "src/skat/table/service.py", "src/skat/web/mcp.py", "src/skat/web/playing.py", "tests/engine/test_giving_up.py", "tests/engine/test_tricks.py", "tests/store/test_playing.py", "tests/web/test_mcp.py", "tests/web/test_playing_give_up.py", "tests/web/test_tables.py"]
 opened_commit = "43aa4d41eee2357e9bf2b99995d0314076c4bf0b"
 whole_reason = "Route, tool mark, command, runner and the points fix are one path: an unmarked route fails the build, a command nothing routes is dead, and a route without the count fix ships the skat's points."
