@@ -55,8 +55,8 @@ class Exclusion(StrEnum):
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
     NEXT_HAND = "the next hand comes only once an agent's presence counts"
     UNION_BODY = "its body has several shapes that no tool can express as one"
-    OPENING = "opening a table waits for the ruling on who may open one"
-    SEATING = "an agent's chair comes by invitation"
+    OPENING = "opening a table is not yet a tool"
+    SEATING = "taking a chair is not yet a tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
