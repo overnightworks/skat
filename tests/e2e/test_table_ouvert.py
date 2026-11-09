@@ -267,8 +267,7 @@ def test_null_ouvert_after_the_take_is_offered_without_levels_and_declared_with_
     assert len(sent) == 1
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
     assert declaration == {"game": "null", "hand": False, "ouvert": True, "announcement": "none"}
-    skat = taken - {(card["suit"], card["rank"]) for card in the_view(table, table.declarer_seat)["hand"]["own_cards"]}
-    cards_put_back = skat
+    cards_put_back = taken - {(card["suit"], card["rank"]) for card in the_view(table, table.declarer_seat)["hand"]["own_cards"]}
     assert len(cards_put_back) == 2
     expect_open_cards_without_the_skat(table, cards_put_back)
     for person in (*onlookers(table), declarer):

@@ -373,7 +373,10 @@ export function gameWord(game: Game): string {
 // The one name of a declared game, with its levels: „Grand Hand“. A suit or Grand ouvert game includes Hand, so it
 // names the game alone; Null ouvert is a game of its own, and with Hand it reads „Null ouvert Hand“.
 export function gameLabel({ game, hand, ouvert }: { game: Game; hand: boolean; ouvert: boolean }): string {
-    if (ouvert) return `${gameWord(game)} ${words.ouvert}${game === "null" && hand ? ` ${words.hand}` : ""}`;
+    if (ouvert) {
+        const handSuffix = game === "null" && hand ? ` ${words.hand}` : "";
+        return `${gameWord(game)} ${words.ouvert}${handSuffix}`;
+    }
     return hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
 }
 
