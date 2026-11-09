@@ -2,12 +2,12 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from webauth.admission import AppRole
+from webauth.ports import AccountKind
 
-from skat.store.migrate import create_store_engine
 from tests.e2e.support.browser_coverage import BrowserCoverage
+from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
-from tests.e2e.support.server import RunningServer, loopback_sign_in, running_skat
-from tests.support.postgres import created_database, migrated_template
+from tests.e2e.support.server import RunningServer, skat_on_new_database
 from tests.support.signed_in import SeededMember, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -21,19 +21,14 @@ PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
 @pytest.fixture(scope="session")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake."""
-    loopback = loopback_sign_in(tmp_path_factory.mktemp("sign-in"))
-    with migrated_template() as template, created_database(template) as database_url:
-        engine = create_store_engine(database_url)
-        try:
-            with running_skat(loopback, tmp_path_factory.mktemp("tls"), engine) as server:
-                yield server
-        finally:
-            engine.dispose()
+    with skat_on_new_database(tmp_path_factory) as server:
+        yield server
 
 
 @pytest.fixture(scope="session")
-def base_url(e2e_server: RunningServer) -> str:
-    return e2e_server.base_url
+def base_url() -> None:
+    # Every test opens its server's absolute address, so no session-wide address ties the browser to one server.
+    return None
 
 
 @pytest.fixture(scope="session")
@@ -110,7 +105,9 @@ def open_person(
             if username is None:
                 account = new_account(server.stores, server.config)
             else:
-                account = server.stores.accounts.create_for_subject(f"subject-{username}", username, role=AppRole.USER)
+                account = server.stores.accounts.create_for_subject(
+                    f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
+                )
             member = seed_member(server.stores, server.config, account=account)
             context.add_cookies(
                 [playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers]
@@ -130,3 +127,16 @@ def page_errors() -> Iterator[list[str]]:
     errors: list[str] = []
     yield errors
     assert errors == []
+
+
+@pytest.fixture
+def deal_a_declaring_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> Callable[..., DeclaringTable]:
+    def deal(form_factor: dict[str, Any], *, console: bool = True) -> DeclaringTable:
+        return DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
+
+    return deal

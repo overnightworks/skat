@@ -164,7 +164,7 @@ jobs:
           COVERAGE_FILE: .coverage.e2e
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
           SKAT_BROWSER_COVERAGE_DIR: ${{ runner.temp }}/browser-coverage-raw
-        run: pytest -m e2e --tracing retain-on-failure --screenshot only-on-failure --output test-results
+        run: pytest -m e2e -n auto --tracing retain-on-failure --screenshot only-on-failure --output test-results
 
       - name: Upload the end-to-end coverage data
         if: ${{ !cancelled() }}

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from skat.engine.cards import DECK
-from skat.engine.deal import Position, deal, next_dealer, positions_from
+from skat.engine.deal import SEATS, Position, deal, draw_dealer, next_dealer, positions_from, seats_from
 
 if TYPE_CHECKING:
     from collections.abc import MutableSequence
@@ -30,6 +30,12 @@ def test_forehand_is_left_of_the_dealer_and_the_dealer_is_rearhand():
         3: Position.MIDDLEHAND,
         1: Position.REARHAND,
     }
+
+
+@pytest.mark.parametrize("dealer", SEATS)
+def test_seats_from_is_the_inverse_of_positions_from_for_every_dealer(dealer):
+    seats = seats_from(dealer)
+    assert {seat: position for position, seat in seats.items()} == positions_from(dealer)
 
 
 def test_next_deal_goes_to_the_next_seat_and_rotates_through_every_seat():
@@ -90,3 +96,20 @@ def test_a_dealt_hand_can_be_neither_replaced_nor_removed_and_the_deal_stays_has
     assert len(dealt.hands) == 3
     assert hash(dealt) == hash(deal(seeded(1)))
     assert dealt == deal(seeded(1))
+
+
+def test_the_dealer_is_drawn_from_the_seats_and_the_same_seed_draws_the_same_one():
+    first, second = draw_dealer(seeded(5)), draw_dealer(seeded(5))
+    assert first in SEATS
+    assert first == second
+
+
+def test_over_many_seeded_draws_every_seat_is_dealer_at_least_once():
+    assert {draw_dealer(seeded(seed)) for seed in range(100)} == set(SEATS)
+
+
+def test_the_dealer_is_drawn_first_so_the_deal_after_it_differs_from_a_deal_on_a_fresh_source():
+    source = seeded(11)
+    draw_dealer(source)
+
+    assert deal(source) != deal(seeded(11))

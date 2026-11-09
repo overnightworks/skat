@@ -1,23 +1,111 @@
 import {
+    type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
+    type GAME_TOKENS,
+    type AWAITING_TOKENS,
+    type POSITION_TOKENS,
+    type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    type STAGE_TOKENS,
+    SUIT_TOKENS,
+    TABLE_CARD_SUFFIX,
+    TABLE_DECLARATION_SUFFIX,
+    TABLE_AUCTION_SUFFIX,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
+    TABLE_READY_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
 } from "#lib/wire.ts";
+import { words } from "#lib/words.ts";
 
 const SIGNED_OUT_STATUS = 401;
 const NOT_FOUND_STATUS = 404;
 const CONFLICT_STATUS = 409;
+export const SKAT_SIZE = 2;
 // A refusal this soon after the page was reached through an automatic sign-in shows the sign-in page instead
 // of navigating again: a session the sign-in just made and the server refuses at once would otherwise loop forever.
 const RESIGN_IN_WINDOW_MILLISECONDS = 30_000;
 
-export type Chair = { seat: number; occupant_name: string | null; is_mine: boolean; is_away: boolean };
-export type Table = { id: string; version: number; chairs: Chair[]; watchers: number };
+export type Suit = (typeof SUIT_TOKENS)[number];
+export type Rank = (typeof RANK_TOKENS)[number];
+export type Position = (typeof POSITION_TOKENS)[number];
+export type Game = (typeof GAME_TOKENS)[number];
+export type Stage = (typeof STAGE_TOKENS)[number];
+export type Card = { suit: Suit; rank: Rank };
+export type ChairHand = { position: Position; card_count: number };
+export type Declaring = { declarer_seat: number; stage: Stage; declaration: { game: Game } | null };
+export type Awaiting = (typeof AWAITING_TOKENS)[number];
+export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
+export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
+export type Auction = {
+    turn_seat: number | null;
+    facing_seat: number | null;
+    awaiting: Awaiting | null;
+    standing: number | null;
+    values: number[];
+    words: AuctionWord[];
+    declared: { seat: number; value: number } | null;
+};
+export type SeatedCard = { seat: number; card: Card };
+export type Sides = { declarer: number; opponents: number };
+// The last trick's cards lie in playing order from the seat that led it.
+export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number };
+export type Playing = {
+    turn_seat: number | null;
+    current_trick: SeatedCard[];
+    last_trick: LastTrick | null;
+    tricks_won: Sides;
+    trick_points: Sides;
+    // Only the seated player on turn receives the cards they may play.
+    legal_cards: Card[];
+};
+export type Hand = {
+    dealer_seat: number;
+    own_cards: Card[];
+    skat_count: number;
+    auction: Auction;
+    declaring: Declaring | null;
+    playing: Playing | null;
+};
+export type Chair = {
+    seat: number;
+    occupant_name: string | null;
+    is_mine: boolean;
+    is_away: boolean;
+    ready: boolean;
+    // The person's running total; null on a free chair and until the table's first result.
+    total: number | null;
+    hand: ChairHand | null;
+};
+export type SeatGain = { seat: number; gain: number };
+// The finished game as the server counted it; the page draws these numbers and decides no rule.
+export type Result = {
+    ordinal: number;
+    declarer_seat: number;
+    game: Game;
+    won: boolean;
+    overbid: boolean;
+    bid: number;
+    game_value: number;
+    score: number;
+    declarer_points: number;
+    opponents_points: number;
+    gains: SeatGain[];
+};
+// Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
+export type PassedIn = { next_dealer_seat: number | null };
+export type Table = {
+    id: string;
+    version: number;
+    chairs: Chair[];
+    watchers: number;
+    hand: Hand | null;
+    result: Result | null;
+    passed_in: PassedIn | null;
+};
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
     { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };
@@ -74,6 +162,42 @@ export function sitDown(id: string, seat: number, commandId: string): Promise<Ou
 
 export function standUp(id: string, commandId: string): Promise<Outcome> {
     return post(id, TABLE_STAND_SUFFIX, { command_id: commandId });
+}
+
+export type DeclaringStep =
+    | { action: "take" }
+    | { action: "put_back"; cards: readonly Card[] }
+    | { action: "declare"; game: Game; hand: false; ouvert: false; announcement: "none" };
+
+// The version is the one the page shows; each tap brings its own command id, and nothing is retried.
+export function takeDeclaringStep(
+    id: string,
+    version: number,
+    commandId: string,
+    step: DeclaringStep,
+): Promise<Outcome> {
+    return post(id, TABLE_DECLARATION_SUFFIX, { command_id: commandId, version, ...step });
+}
+
+// The client names only the card: the seat that plays it comes from the session.
+export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
+    return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
+}
+
+// „Weiter“ names the result it saw, so a tap on a result that has since been replaced is refused.
+export function markReady(id: string, commandId: string, ordinal: number): Promise<Outcome> {
+    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal });
+}
+
+// The version is the one the page shows, so a step taken on a stale page is refused; there is no retry.
+export function takeAuctionStep(
+    id: string,
+    commandId: string,
+    version: number,
+    action: AuctionAction,
+    value?: number,
+): Promise<Outcome> {
+    return post(id, TABLE_AUCTION_SUFFIX, { command_id: commandId, version, action, value });
 }
 
 export function readTable(id: string): Promise<Outcome> {
@@ -159,6 +283,84 @@ export function tablePath(id: string): string {
 export function drawingOrder(chairs: Chair[]): Chair[] {
     const afterMine = chairs.findIndex((chair) => chair.is_mine) + 1;
     return [...chairs.slice(afterMine), ...chairs.slice(0, afterMine)];
+}
+
+const POSITION_WORDS: Record<Position, string> = {
+    forehand: words.forehand,
+    middlehand: words.middlehand,
+    rearhand: words.rearhand,
+};
+
+// The auction's value, shown to everyone until the game is declared.
+export function bidValueWhileDeclaring(table: Table): number | null {
+    const hand = table.hand;
+    if (!hand?.declaring || hand.declaring.stage === "declared") return null;
+    return hand.auction.declared?.value ?? null;
+}
+
+// The stage this viewer must act on: only the declarer acts, and only until the game is declared.
+export function declarerStage(table: Table): Exclude<Stage, "declared"> | null {
+    const declaring = table.hand?.declaring;
+    if (!declaring || declaring.stage === "declared") return null;
+    const mine = table.chairs.some((chair) => chair.is_mine && chair.seat === declaring.declarer_seat);
+    return mine ? declaring.stage : null;
+}
+
+function sameCard(first: Card, second: Card): boolean {
+    return first.suit === second.suit && first.rank === second.rank;
+}
+
+// A tap picks a card or puts a picked one back; a third card stays where it is while two are picked.
+export function togglePicked(picked: readonly Card[], card: Card): Card[] {
+    if (includesCard(picked, card)) return picked.filter((held) => !sameCard(held, card));
+    return picked.length < SKAT_SIZE ? [...picked, card] : [...picked];
+}
+
+export function includesCard(cards: readonly Card[], card: Card): boolean {
+    return cards.some((held) => sameCard(held, card));
+}
+
+// What the hand needs while the declarer picks two cards from the twelve.
+export type Picking = { picked: readonly Card[]; disabled: boolean; toggle: (card: Card) => void };
+
+const GAME_WORDS: Record<Game, string> = {
+    karo: words.gameKaro,
+    herz: words.gameHerz,
+    pik: words.gamePik,
+    kreuz: words.gameKreuz,
+    grand: words.gameGrand,
+    null: words.gameNull,
+};
+
+const SUIT_GAMES: ReadonlySet<Game> = new Set(SUIT_TOKENS);
+
+// A suit game is named by its trump suit; Grand and Null are not.
+export function isSuitGame(game: Game): game is Suit {
+    return SUIT_GAMES.has(game);
+}
+
+export function gameWord(game: Game): string {
+    return GAME_WORDS[game];
+}
+
+const RANK_WORDS: Record<Rank, string> = {
+    seven: words.rankSeven,
+    eight: words.rankEight,
+    nine: words.rankNine,
+    ten: words.rankTen,
+    jack: words.rankJack,
+    queen: words.rankQueen,
+    king: words.rankKing,
+    ace: words.rankAce,
+};
+
+// A card's own name: a suit's word is the word of the game of that suit.
+export function cardName(card: Card): string {
+    return `${GAME_WORDS[card.suit]} ${RANK_WORDS[card.rank]}`;
+}
+
+export function positionWord(position: Position): string {
+    return POSITION_WORDS[position];
 }
 
 export async function copyTableLink(id: string): Promise<boolean> {

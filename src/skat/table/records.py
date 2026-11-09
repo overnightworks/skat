@@ -2,7 +2,18 @@ import re
 import secrets
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Self
+from typing import TYPE_CHECKING, Final, Self
+
+from skat.engine.bidding import BidRefusal
+from skat.engine.declaration import DeclarationRefusal
+from skat.engine.tricks import PlayRefusal
+
+if TYPE_CHECKING:
+    from skat.engine.bidding import AuctionStep
+    from skat.engine.deal import Deal
+    from skat.engine.declaration import DeclaringStep
+    from skat.engine.tricks import CardPlayed
+    from skat.table.game_list import ListEntry
 
 TABLE_ID_BYTES: Final = 16
 _TABLE_ID = re.compile(r"[0-9a-f]{32}")
@@ -56,11 +67,31 @@ class StandUp:
 
 
 class Refusal(StrEnum):
-    """Why a seating command changed nothing."""
+    """Why a table command changed nothing."""
 
     SEAT_TAKEN = "seat-taken"
     ALREADY_SEATED = "already-seated"
     NOT_SEATED = "not-seated"
+    HAND_RUNNING = "hand-running"
+    NO_HAND = "no-hand"
+    STALE_VERSION = "stale-version"
+    WRONG_PHASE = "wrong-phase"
+    NOT_DECLARER = "not-declarer"
+    NO_RESULT = "no-result"
+    STALE_RESULT = "stale-result"
+
+
+type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal
+
+# `PlayRefusal` shares its `over` and `not-your-turn` tokens with `BidRefusal`: the wire string is the same either way.
+_REFUSALS_BY_TOKEN: Final[dict[str, CommandRefusal]] = {
+    refusal.value: refusal for refusal in (*Refusal, *PlayRefusal, *BidRefusal, *DeclarationRefusal)
+}
+
+
+def parsed_refusal(token: str) -> CommandRefusal:
+    """The refusal a stored receipt names, whichever owner holds the token; a token nobody owns raises."""
+    return _REFUSALS_BY_TOKEN[token]
 
 
 @dataclass(frozen=True)
@@ -71,23 +102,50 @@ class Occupant:
 
 @dataclass(frozen=True)
 class Chair:
+    """A chair and who sits on it; `ready` says its occupant is ready for the next hand,
+    by a tap of „Weiter“ or by sitting down while a result is pending."""
+
     seat: int
     occupant: Occupant | None
+    ready: bool = False
+
+
+@dataclass(frozen=True)
+class HandProgress:
+    """What has happened in the running hand so far; a later phase adds its own field."""
+
+    auction: tuple[AuctionStep, ...] = ()
+    declaring: tuple[DeclaringStep, ...] = ()
+    plays: tuple[CardPlayed, ...] = ()
 
 
 @dataclass(frozen=True)
 class TableRecord:
+    """A table as stored; its game list outlives every deal and goes only with the table."""
+
     id: TableId
     version: int
     chairs: tuple[Chair, ...]
+    dealer: int | None
+    hand: Deal | None
+    progress: HandProgress
+    game_list: tuple[ListEntry, ...]
+
+
+@dataclass(frozen=True)
+class NewHand:
+    """A hand about to start: the seat that deals it and the cards dealt."""
+
+    dealer: int
+    hand: Deal
 
 
 @dataclass(frozen=True)
 class Decision:
-    """The table after a seating command; a refusal leaves it as it was and names who holds a taken chair."""
+    """The table after a command; a refusal leaves it as it was and names who holds a taken chair."""
 
     table: TableRecord
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None
 
 
@@ -100,7 +158,7 @@ class Receipt:
     command: str
     payload: str
     table_id: TableId
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None
 
 
@@ -111,5 +169,5 @@ class Replay:
     command: str
     payload: str
     table: TableRecord
-    refusal: Refusal | None = None
+    refusal: CommandRefusal | None = None
     holder: str | None = None

@@ -1,11 +1,21 @@
 import itertools
+import random
+from contextlib import AbstractContextManager, nullcontext
+from dataclasses import replace
 
 import pytest
 
-from skat.table.records import Actor, CreateTable, Receipt, Refusal, SitDown, StandUp, TableId
-from skat.table.service import CommandIdReusedError, TableService
+from skat.engine.bidding import Pass
+from skat.engine.cards import DECK
+from skat.engine.deal import SEATS, Position, next_dealer, positions_from
+from skat.engine.tricks import CardPlayed
+from skat.table.hand_state import playing_of
+from skat.table.playing import PlayCardCommand
+from skat.table.records import Actor, CreateTable, HandProgress, Receipt, Refusal, SitDown, StandUp, TableId
+from skat.table.service import CommandIdReusedError, OccupiedChair, TableService
 from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
+from tests.support.played_game import after_the_first_game, before_the_last_card, declared_herz_hand
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
@@ -304,3 +314,384 @@ class TestStand:
 
     def test_an_unknown_table_is_no_table(self, service):
         assert service.stand(OPENER, StandUp("command-stand", "0" * 32), frozenset()) is None
+
+
+CLEO = Actor("account-cleo", "Cleo")
+DORA = Actor("account-dora", "Dora")
+
+
+def seeded_service(store, seed):
+    numbers = itertools.count(1)
+    return TableService(
+        store,
+        new_table_id=lambda: TableId(f"{next(numbers):032x}"),
+        random_source=random.Random(seed),  # noqa: S311 - a seeded source makes the deal reproducible
+    )
+
+
+def seated_three(service, last=3):
+    table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+    sit(service, VISITOR, table_id, 2, "command-ben")
+    return table_id, sit(service, CLEO, table_id, last, "command-cleo")
+
+
+class TestDeal:
+    def test_the_third_sit_stores_a_dealer_and_a_hand_of_ten_ten_ten_and_two_covering_the_deck(self, store):
+        table_id, result = seated_three(seeded_service(store, 1))
+
+        stored = store.tables[table_id]
+        assert result.refusal is None
+        assert stored.dealer in SEATS
+        assert [len(cards) for cards in stored.hand.hands.values()] == [10, 10, 10]
+        assert len(stored.hand.skat) == 2
+        dealt = [card for cards in stored.hand.hands.values() for card in cards] + list(stored.hand.skat)
+        assert sorted(dealt, key=DECK.index) == list(DECK)
+
+    def test_the_third_sit_is_one_version_bump_and_one_receipt(self, store):
+        table_id, _ = seated_three(seeded_service(store, 1))
+
+        assert store.tables[table_id].version == 3
+        assert len(store.receipts) == 3
+
+    def test_a_chair_freed_earlier_is_dealt_as_the_last_chair_too(self, store):
+        service = seeded_service(store, 1)
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        sit(service, VISITOR, table_id, 2, "command-ben")
+        service.stand(OPENER, StandUp("command-stand", table_id), frozenset())
+        sit(service, CLEO, table_id, 3, "command-cleo")
+
+        assert store.tables[table_id].hand is None
+
+        sit(service, DORA, table_id, 1, "command-dora")
+
+        assert store.tables[table_id].hand is not None
+
+    def test_the_same_seed_on_fresh_tables_deals_the_same_dealer_and_hand(self):
+        first_store, second_store = FakeTableStore(), FakeTableStore()
+        first_id, _ = seated_three(seeded_service(first_store, 9))
+        second_id, _ = seated_three(seeded_service(second_store, 9))
+
+        first, second = first_store.tables[first_id], second_store.tables[second_id]
+        assert (first.dealer, first.hand) == (second.dealer, second.hand)
+
+    def test_a_retry_of_the_third_sit_returns_its_first_outcome_and_deals_nothing_again(self, store):
+        service = seeded_service(store, 1)
+        table_id, first = seated_three(service)
+        dealt = store.tables[table_id]
+
+        assert sit(service, CLEO, table_id, 3, "command-cleo") == first
+        assert store.tables[table_id] == dealt
+
+    def test_two_or_fewer_seated_have_no_hand(self, store):
+        service = seeded_service(store, 1)
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        sit(service, VISITOR, table_id, 2, "command-ben")
+        service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
+
+        assert (store.tables[table_id].dealer, store.tables[table_id].hand) == (None, None)
+
+    def test_a_fourth_member_gets_seat_taken_and_no_second_deal(self, store):
+        service = seeded_service(store, 1)
+        table_id, _ = seated_three(service)
+        dealt = store.tables[table_id]
+
+        late = sit(service, DORA, table_id, 2, "command-dora")
+
+        assert late.refusal is Refusal.SEAT_TAKEN
+        assert store.tables[table_id] == dealt
+
+    def test_standing_up_while_a_hand_runs_is_refused_and_changes_nothing(self, store):
+        service = seeded_service(store, 1)
+        table_id, _ = seated_three(service)
+        dealt = store.tables[table_id]
+
+        result = service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
+
+        assert result.refusal is Refusal.HAND_RUNNING
+        assert store.tables[table_id] == dealt
+
+    def test_a_third_sit_rolled_back_after_a_duplicate_receipt_leaves_no_hand(self, store):
+        service = seeded_service(store, 1)
+        table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
+        other_id = service.create(OPENER, CreateTable(command_id="command-other")).id
+        sit(service, VISITOR, table_id, 2, "command-ben")
+        sit(service, CLEO, other_id, 2, "command-cleo")
+        blind = TableService(
+            FaultyTableTransactions(store, blind_first_replay=True),
+            random_source=random.Random(2),  # noqa: S311 - a seeded source makes the deal reproducible
+        )
+
+        with pytest.raises(CommandIdReusedError):
+            sit(blind, CLEO, table_id, 3, "command-cleo")
+
+        assert (store.tables[table_id].dealer, store.tables[table_id].hand) == (None, None)
+
+
+def always_due() -> AbstractContextManager[bool]:
+    return nullcontext(enter_result=True)
+
+
+class TestFreeChair:
+    def test_frees_the_chair_of_its_occupant_keeps_every_number_and_bumps_the_version_without_a_receipt(
+        self, service, store, table_id
+    ):
+        sit(service, VISITOR, table_id, 3)
+        receipts_before = dict(store.receipts)
+        version_before = store.tables[table_id].version
+
+        freed = service.free_chair(TableId(table_id), VISITOR.account_id, always_due())
+
+        assert freed is True
+        assert occupants_of(service.view(OPENER, table_id, frozenset())) == ["Anna", None, None]
+        assert store.tables[table_id].version == version_before + 1
+        assert store.receipts == receipts_before
+
+    def test_a_second_run_changes_nothing(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        service.free_chair(TableId(table_id), VISITOR.account_id, always_due())
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
+        assert store.tables == written
+
+    def test_changes_nothing_for_an_account_that_stood_up_before(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
+        assert store.tables == written
+
+    def test_changes_nothing_while_a_hand_runs(self, store):
+        service = seeded_service(store, 1)
+        table_id, _ = seated_three(service)
+        dealt = store.tables[table_id]
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
+        assert store.tables[table_id] == dealt
+
+    def test_changes_nothing_when_the_caller_is_no_longer_due_once_the_row_is_locked(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, nullcontext(enter_result=False)) is False
+        assert store.tables == written
+
+    def test_an_unknown_table_is_no_table(self, service):
+        assert service.free_chair(TableId("0" * 32), VISITOR.account_id, always_due()) is False
+
+    def test_a_failure_after_the_chair_write_persists_nothing(self, service, store, table_id):
+        sit(service, VISITOR, table_id, 3)
+        written = dict(store.tables)
+        failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
+
+        chair_to_free = TableId(table_id)
+        due = always_due()
+
+        with pytest.raises(ConnectionError):
+            failing.free_chair(chair_to_free, VISITOR.account_id, due)
+
+        assert store.tables == written
+
+
+ALL_THREE = frozenset({OPENER.account_id, VISITOR.account_id, CLEO.account_id})
+
+
+def passed_in(store, table_id):
+    """The table as the third pass leaves it: no hand, and the three passes still stored."""
+    steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
+    store.tables[table_id] = replace(store.tables[table_id], hand=None, progress=HandProgress(steps))
+
+
+class TestDealNext:
+    @pytest.fixture
+    def table_id(self, store):
+        table_id, _ = seated_three(seeded_service(store, 1))
+        passed_in(store, table_id)
+        return table_id
+
+    @pytest.fixture
+    def dealing(self, store):
+        return seeded_service(store, 2)
+
+    def test_deals_the_next_dealer_a_new_hand_and_clears_the_steps_in_one_bump_without_a_receipt(
+        self, dealing, store, table_id
+    ):
+        before = store.tables[table_id]
+        receipts_before = dict(store.receipts)
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is True
+
+        after = store.tables[table_id]
+        assert after.dealer == next_dealer(before.dealer)
+        assert [len(cards) for cards in after.hand.hands.values()] == [10, 10, 10]
+        assert after.progress == HandProgress()
+        assert after.version == before.version + 1
+        assert store.receipts == receipts_before
+
+    def test_a_second_run_changes_nothing(self, dealing, store, table_id):
+        dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE))
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
+        assert store.tables == written
+
+    @pytest.mark.parametrize(
+        "connected",
+        [
+            pytest.param(ALL_THREE - {CLEO.account_id}, id="one-member-away"),
+            pytest.param(frozenset(), id="nobody-connected"),
+        ],
+    )
+    def test_changes_nothing_while_a_member_is_away(self, dealing, store, table_id, connected):
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(connected)) is False
+        assert store.tables == written
+
+    def test_changes_nothing_when_a_chair_is_free(self, dealing, store, table_id):
+        dealing.stand(CLEO, StandUp("command-stand", table_id), frozenset())
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
+        assert store.tables == written
+
+    def test_changes_nothing_while_a_hand_runs(self, store):
+        service = seeded_service(store, 1)
+        table_id, _ = seated_three(service)
+        written = dict(store.tables)
+
+        assert service.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
+        assert store.tables == written
+
+    def test_an_unknown_table_is_no_table(self, dealing):
+        assert dealing.deal_next(TableId("0" * 32), nullcontext(ALL_THREE)) is False
+
+    def test_a_failure_after_the_write_persists_nothing(self, store, table_id):
+        written = dict(store.tables)
+        failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
+        identifier = TableId(table_id)
+        everyone = nullcontext(ALL_THREE)
+
+        with pytest.raises(ConnectionError):
+            failing.deal_next(identifier, everyone)
+
+        assert store.tables == written
+
+
+def end_the_first_game(store, table_id, *ready_seats):
+    store.tables[table_id] = after_the_first_game(store.tables[table_id], *ready_seats)
+
+
+class TestDealNextAfterAResult:
+    @pytest.fixture
+    def table_id(self, store):
+        table_id, _ = seated_three(seeded_service(store, 1))
+        return table_id
+
+    @pytest.fixture
+    def dealing(self, store):
+        return seeded_service(store, 2)
+
+    def test_all_three_ready_deal_the_next_dealer_clear_every_mark_and_end_the_result_in_one_bump(
+        self, dealing, store, table_id
+    ):
+        end_the_first_game(store, table_id, 1, 2, 3)
+        before = store.tables[table_id]
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is True
+
+        after = store.tables[table_id]
+        view = dealing.view(OPENER, table_id, ALL_THREE)
+        assert (after.dealer, after.version) == (next_dealer(before.dealer), before.version + 1)
+        assert [chair.ready for chair in after.chairs] == [False, False, False]
+        assert (view.result, after.game_list) == (None, before.game_list)
+
+    def test_two_marks_deal_nothing(self, dealing, store, table_id):
+        end_the_first_game(store, table_id, 1, 2)
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
+        assert store.tables == written
+
+    def test_a_sit_in_the_free_chair_marks_the_sitter_and_deals_nothing(self, dealing, store, table_id):
+        end_the_first_game(store, table_id, 1, 2)
+        dealing.stand(CLEO, StandUp("command-stand", table_id), frozenset())
+
+        result = dealing.sit(DORA, SitDown("command-dora", table_id, 3), ALL_THREE)
+
+        after = store.tables[table_id]
+        assert result.refusal is None
+        assert after.hand is None
+        assert [chair.ready for chair in after.chairs] == [True, True, True]
+        assert result.view.result is not None
+
+
+def declared(store, table_id):
+    """The table once middlehand won at 18 and declared a Herz Hand game; forehand leads."""
+    store.tables[table_id] = replace(store.tables[table_id], progress=declared_herz_hand())
+
+
+def at_the_last_card(store, table_id):
+    """The declared table one card before the end; returns that last card."""
+    store.tables[table_id], last = before_the_last_card(store.tables[table_id])
+    return last
+
+
+class TestPlayCard:
+    @pytest.fixture
+    def table_id(self, store):
+        table_id, _ = seated_three(seeded_service(store, 1))
+        return table_id
+
+    def play(self, service, store, table_id, played, heard, version):
+        """Only the opener is connected; the card comes from whoever holds its position."""
+        seat = {position: seat for seat, position in positions_from(store.tables[table_id].dealer).items()}
+        actor = (OPENER, VISITOR, CLEO)[seat[played.position] - 1]
+        command = PlayCardCommand("command-card", table_id, version, played.card)
+        return service.play_card(actor, command, frozenset({OPENER.account_id}), on_hand_ended=heard.append)
+
+    def test_the_thirtieth_card_names_who_sat_and_tells_the_caller_who_was_away(self, service, store, table_id):
+        last = at_the_last_card(store, table_id)
+        heard = []
+
+        result = self.play(service, store, table_id, last, heard, store.tables[table_id].version)
+
+        assert result.seated_when_hand_ended == {OPENER.account_id, VISITOR.account_id, CLEO.account_id}
+        assert heard == [{VISITOR.account_id, CLEO.account_id}]
+
+    def test_a_card_before_the_thirtieth_ends_no_hand(self, service, store, table_id):
+        declared(store, table_id)
+        lead = CardPlayed(Position.FOREHAND, playing_of(store.tables[table_id]).hands[Position.FOREHAND][0])
+        heard = []
+
+        result = self.play(service, store, table_id, lead, heard, store.tables[table_id].version)
+
+        assert result.seated_when_hand_ended == frozenset()
+        assert heard == [frozenset()]
+
+    def test_a_retry_of_the_thirtieth_card_restarts_no_hold(self, service, store, table_id):
+        last = at_the_last_card(store, table_id)
+        version = store.tables[table_id].version
+        self.play(service, store, table_id, last, [], version)
+        heard = []
+
+        again = self.play(service, store, table_id, last, heard, version)
+
+        assert again.seated_when_hand_ended == frozenset()
+        assert heard == []
+
+
+class TestOccupiedChairs:
+    def test_lists_every_occupied_chair_of_every_table_and_no_free_one(self, service, table_id):
+        sit(service, VISITOR, table_id, 3)
+        other_id = service.create(VISITOR, CreateTable(command_id="command-other")).id
+
+        assert set(service.occupied_chairs()) == {
+            OccupiedChair(TableId(table_id), OPENER.account_id),
+            OccupiedChair(TableId(table_id), VISITOR.account_id),
+            OccupiedChair(TableId(other_id), VISITOR.account_id),
+        }
+
+    def test_lists_no_chair_when_no_table_exists(self, service):
+        assert service.occupied_chairs() == ()

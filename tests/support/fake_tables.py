@@ -3,12 +3,16 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from skat.table.records import Receipt, Replay
-from skat.table.service import DuplicateReceiptError, TableService
+from skat.table.service import DuplicateReceiptError, OccupiedChair, TableService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from skat.table.records import TableId, TableRecord
+
+
+class FreeChairReadyError(Exception):
+    """The store's check refuses a free chair that is ready."""
 
 
 class FakeTableStore:
@@ -42,10 +46,21 @@ class FakeTableStore:
         return self.table(table_id)
 
     def save_table(self, table: TableRecord) -> None:
+        if any(chair.ready and chair.occupant is None for chair in table.chairs):
+            message = f"table {table.id.value} would keep a free chair ready"
+            raise FreeChairReadyError(message)
         self.tables[table.id.value] = table
 
     def add_table(self, table: TableRecord) -> None:
         self.tables[table.id.value] = table
+
+    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
+        return tuple(
+            OccupiedChair(table.id, chair.occupant.account_id)
+            for table in self.tables.values()
+            for chair in table.chairs
+            if chair.occupant is not None
+        )
 
     def add_receipt(self, receipt: Receipt) -> None:
         key = (receipt.account_id, receipt.command_id)

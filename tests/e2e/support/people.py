@@ -17,7 +17,10 @@ person_address_offsets = itertools.count(1)
 DESKTOP = {"viewport": {"width": 1280, "height": 800}}
 PHONE = {"viewport": {"width": 390, "height": 844}, "is_mobile": True, "has_touch": True}
 
+SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
+
 FORM_FACTORS = [pytest.param(DESKTOP, id="desktop"), pytest.param(PHONE, id="phone")]
+WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 
 
 def playwright_cookie(set_cookie_header: str, config: WebAuthConfig, domain: str = LOOPBACK_HOST) -> dict[str, Any]:

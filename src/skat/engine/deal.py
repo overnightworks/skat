@@ -47,6 +47,11 @@ def next_dealer(dealer: int) -> int:
     return dealer % len(SEATS) + 1
 
 
+def draw_dealer(source: random.Random) -> int:
+    """The seat that deals first, drawn from `source` before the shuffle."""
+    return source.choice(SEATS)
+
+
 def positions_from(dealer: int) -> dict[int, Position]:
     """Forehand sits left of the dealer, middlehand next, and the dealer is rearhand."""
     _check_seat(dealer)
@@ -57,6 +62,11 @@ def positions_from(dealer: int) -> dict[int, Position]:
         middlehand: Position.MIDDLEHAND,
         dealer: Position.REARHAND,
     }
+
+
+def seats_from(dealer: int) -> dict[Position, int]:
+    """The seat holding each position, the inverse of `positions_from`."""
+    return {position: seat for seat, position in positions_from(dealer).items()}
 
 
 def deal(source: random.Random) -> Deal:

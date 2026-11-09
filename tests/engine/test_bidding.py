@@ -4,10 +4,17 @@ from skat.engine.bidding import (
     LOWEST_BID,
     VALID_BIDS,
     Auction,
+    AuctionStep,
+    Bid,
     BidOutcome,
     BidRefusal,
     Declared,
+    Hold,
+    Pass,
     PassedIn,
+    Play,
+    auction_after,
+    auction_step,
     bid,
     hold,
     pass_,
@@ -181,3 +188,54 @@ def test_refusals_are_checked_in_order() -> None:
     assert bid(bid_standing, FORE, 19).refusal is BidRefusal.WRONG_ACTION
     held = run((bid, MID, 20), (hold, FORE)).auction
     assert bid(held, MID, 19).refusal is BidRefusal.INVALID_VALUE
+
+
+@pytest.mark.parametrize(
+    ("steps", "result", "standing", "passed"),
+    [
+        pytest.param(
+            (Bid(MID, 18), Hold(FORE), Bid(MID, 20), Pass(FORE)),
+            None,
+            20,
+            frozenset({FORE}),
+            id="rearhand-still-to-act",
+        ),
+        pytest.param(
+            (Pass(MID), Pass(REAR), Play(FORE)), Declared(FORE, 18), None, frozenset({MID, REAR}), id="forehand-plays"
+        ),
+        pytest.param(
+            (Pass(MID), Pass(REAR), Pass(FORE)), PassedIn(), None, frozenset({MID, REAR, FORE}), id="passed-in"
+        ),
+    ],
+)
+def test_a_log_of_steps_leads_to_the_auction_it_names(
+    steps: tuple[AuctionStep, ...],
+    result: Declared | PassedIn | None,
+    standing: int | None,
+    passed: frozenset[Position],
+) -> None:
+    auction = auction_after(steps)
+
+    assert (auction.result, auction.standing, auction.passed) == (result, standing, passed)
+
+
+@pytest.mark.parametrize(
+    ("step", "reason"),
+    [
+        pytest.param(Pass(FORE), BidRefusal.NOT_YOUR_TURN, id="not-your-turn"),
+        pytest.param(Hold(MID), BidRefusal.WRONG_ACTION, id="wrong-action"),
+        pytest.param(Bid(MID, 19), BidRefusal.INVALID_VALUE, id="invalid-value"),
+        pytest.param(Play(MID), BidRefusal.WRONG_ACTION, id="play-before-both-passed"),
+    ],
+)
+def test_a_step_the_rules_refuse_leaves_the_auction_and_names_why(step: AuctionStep, reason: BidRefusal) -> None:
+    start = Auction.start()
+
+    refused(auction_step(start, step), reason, start)
+
+
+def test_a_log_the_rules_refuse_raises_and_names_the_step_and_the_reason() -> None:
+    corrupt = (Bid(MID, 18), Pass(REAR))
+
+    with pytest.raises(ValueError, match="step 2 refused: not-your-turn"):
+        auction_after(corrupt)

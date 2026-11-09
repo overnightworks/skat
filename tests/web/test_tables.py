@@ -2,11 +2,31 @@ import asyncio
 
 import pytest
 
+from skat.engine.bidding import Awaiting
+from skat.engine.cards import Rank, Suit
+from skat.engine.deal import Position, positions_from
 from skat.table.service import TableService
 from skat.web.presence import Presence
-from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH, create_tables_router
+from skat.web.tables import (
+    AWAITING_TOKENS,
+    POSITION_TOKENS,
+    RANK_TOKENS,
+    SUIT_TOKENS,
+    TABLE_PAGE_PREFIX,
+    TABLES_PATH,
+    create_tables_router,
+)
 from tests.support.faulty_tables import FaultyTableTransactions
+from tests.support.idle_presence import idle_hold, idle_next_deal, idle_presence
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
+from tests.support.payload_cards import (
+    CARDS_BY_SEAT,
+    DEALER_SEAT,
+    SKAT_CARDS,
+    cards_in_text,
+    seated_three,
+    wire_cards,
+)
 from tests.web.support.skat import FETCH, NAVIGATION, UNKNOWN_ID
 
 
@@ -75,11 +95,11 @@ class TestReadTable:
 
         assert answer.status_code == 200
         assert answer.headers["cache-control"] == "no-store"
-        chairs = [(c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]]
+        chairs = [(c["occupant_name"], c["is_mine"], c["ready"]) for c in answer.json()["chairs"]]
         assert chairs == [
-            (opener.username, False),
-            (None, False),
-            (None, False),
+            (opener.username, False, False),
+            (None, False, False),
+            (None, False, False),
         ]
 
     def test_shows_the_opener_the_same_table_after_a_reload(self, skat):
@@ -103,7 +123,11 @@ class TestReadTable:
                     threads_with_a_loop.append(True)
                 return super().connected(read_table_id)
 
-        skat.app.include_router(create_tables_router(TableService(skat.store), fixture_page_build(), ProbingPresence()))
+        skat.app.include_router(
+            create_tables_router(
+                TableService(skat.store), fixture_page_build(), ProbingPresence(idle_hold(), idle_next_deal())
+            )
+        )
         # The probing router goes first so that it, not the composed one, answers the read.
         skat.app.router.routes.insert(0, skat.app.router.routes.pop())
 
@@ -145,6 +169,14 @@ class TestReadTable:
         ]
         assert all(account.id not in answer.text and other.id not in answer.text for answer in answers)
 
+    def test_gives_no_chair_a_total_before_the_first_game(self, skat):
+        headers, _ = skat.member()
+        table_id = skat.create(headers).json()["id"]
+
+        answer = skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+
+        assert [chair["total"] for chair in answer.json()["chairs"]] == [None, None, None]
+
 
 class TestTablePage:
     def test_serves_the_page_shell_to_a_member_for_any_id(self, skat):
@@ -162,9 +194,18 @@ class TestTablePage:
         assert answer.status_code == 302
 
 
+def sit_at_seat_two(skat, headers, table_id):
+    return skat.sit(headers, table_id, 2, command_id="command-act")
+
+
+def stand_after_sitting(skat, headers, table_id):
+    skat.sit(headers, table_id, 2)
+    return skat.stand(headers, table_id, command_id="command-act")
+
+
 class RecordingPresence(Presence):
     def __init__(self):
-        super().__init__()
+        super().__init__(idle_hold(), idle_next_deal())
         self.woken = []
 
     def wake_table(self, table_id):
@@ -201,26 +242,14 @@ class TestSitDown:
         ]
 
     @pytest.mark.parametrize(
-        "act",
-        [
-            pytest.param(
-                lambda skat, headers, table_id: skat.sit(headers, table_id, 2, command_id="command-act"), id="sit"
-            ),
-            pytest.param(
-                lambda skat, headers, table_id: (
-                    skat.sit(headers, table_id, 2),
-                    skat.stand(headers, table_id, command_id="command-act"),
-                )[1],
-                id="stand",
-            ),
-        ],
+        "act", [pytest.param(sit_at_seat_two, id="sit"), pytest.param(stand_after_sitting, id="stand")]
     )
     def test_answers_an_occupant_with_a_connected_stream_as_present(self, skat, table, act):
         table_id, owner = table
         headers, _ = skat.member()
-        presence = Presence()
+        presence = idle_presence()
         answering_first(skat, TableService(skat.store), presence)
-        presence.subscribe(table_id, owner.id, lambda: None)
+        asyncio.run(presence.subscribe(table_id, owner.id, lambda: None))
 
         answer = act(skat, headers, table_id)
 
@@ -400,3 +429,145 @@ class TestStandUp:
         skat.stand(headers, table_id, command_id="command-stand")
 
         assert presence.woken == [table_id]
+
+
+HAND_KEYS = {"dealer_seat", "own_cards", "skat_count", "auction", "declaring", "playing"}
+
+
+def read(skat, headers, table_id):
+    return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+
+
+class TestHandInPayloads:
+    def test_the_sit_that_deals_answers_the_sitter_with_their_own_ten_cards_and_no_other_card(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        skat.sit(skat.member()[0], table_id, 2, command_id="command-second")
+
+        answer = skat.sit(headers, table_id, 3)
+
+        stored = skat.store.tables[table_id]
+        found = cards_in_text(answer.text)
+        assert found == wire_cards(stored.hand.hands[positions_from(stored.dealer)[3]])
+        assert not found & wire_cards(stored.hand.skat)
+        hand = answer.json()["hand"]
+        assert (hand["dealer_seat"], hand["skat_count"]) == (stored.dealer, 2)
+        assert [(c["hand"]["card_count"]) for c in answer.json()["chairs"]] == [10, 10, 10]
+        assert all(c["hand"]["position"] for c in answer.json()["chairs"])
+
+    def test_writes_each_card_and_each_position_as_a_word_and_gives_the_hand_its_keys(self, skat):
+        table_id, people = seated_three(skat)
+        cleo_headers, _ = people[2]
+
+        body = read(skat, cleo_headers, table_id).json()
+
+        assert set(body["hand"]) == HAND_KEYS
+        assert body["hand"]["own_cards"][0] == {"suit": "kreuz", "rank": "seven"}
+        assert body["hand"]["own_cards"][-1] == {"suit": "pik", "rank": "eight"}
+        assert [chair["hand"] for chair in body["chairs"]] == [
+            {"position": "middlehand", "card_count": 10},
+            {"position": "rearhand", "card_count": 10},
+            {"position": "forehand", "card_count": 10},
+        ]
+        assert body["hand"]["dealer_seat"] == DEALER_SEAT
+
+    @pytest.mark.parametrize(
+        ("who", "own"),
+        [
+            pytest.param(0, CARDS_BY_SEAT[1], id="anna"),
+            pytest.param(1, CARDS_BY_SEAT[2], id="ben"),
+            pytest.param(2, CARDS_BY_SEAT[3], id="cleo"),
+            pytest.param(3, (), id="dora-without-a-chair"),
+        ],
+    )
+    def test_a_read_carries_exactly_the_readers_own_cards(self, skat, who, own):
+        table_id, people = seated_three(skat)
+
+        answer = read(skat, people[who][0], table_id)
+
+        assert cards_in_text(answer.text) == wire_cards(own)
+        assert not cards_in_text(answer.text) & wire_cards(SKAT_CARDS)
+
+    @pytest.mark.parametrize("who", [0, 1, 2, 3], ids=["anna", "ben", "cleo", "dora-without-a-chair"])
+    def test_no_viewer_gets_the_skats_cards_only_its_count(self, skat, who):
+        table_id, people = seated_three(skat)
+
+        body = read(skat, people[who][0], table_id)
+
+        assert not cards_in_text(body.text) & wire_cards(SKAT_CARDS)
+        assert body.json()["hand"]["skat_count"] == len(SKAT_CARDS)
+
+    def test_a_viewer_without_a_chair_still_gets_every_position_and_the_dealers_seat(self, skat):
+        table_id, people = seated_three(skat)
+        dora_headers, _ = people[3]
+
+        body = read(skat, dora_headers, table_id).json()
+
+        assert [chair["hand"]["position"] for chair in body["chairs"]] == ["middlehand", "rearhand", "forehand"]
+        assert body["hand"]["dealer_seat"] == DEALER_SEAT
+
+    def test_a_replayed_sit_shows_the_replayers_own_cards_and_no_other_card(self, skat):
+        table_id, people = seated_three(skat)
+        cleo_headers, _ = people[2]
+
+        answer = skat.sit(cleo_headers, table_id, 3, command_id="command-sit-3")
+
+        assert cards_in_text(answer.text) == wire_cards(CARDS_BY_SEAT[3])
+
+    def test_a_replayed_create_shows_the_creators_own_cards_and_no_other_card(self, skat):
+        table_id, people = seated_three(skat)
+
+        answer = skat.create(people[0][0])
+
+        assert answer.json()["id"] == table_id
+        assert cards_in_text(answer.text) == wire_cards(CARDS_BY_SEAT[1])
+
+    def test_a_replayed_sit_of_someone_who_has_since_stood_up_carries_no_card(self, skat, table):
+        table_id, _ = table
+        dora_headers, _ = skat.member()
+        skat.sit(dora_headers, table_id, 2, command_id="command-dora-sit")
+        skat.stand(dora_headers, table_id)
+        skat.sit(skat.member()[0], table_id, 2, command_id="command-ben")
+        skat.sit(skat.member()[0], table_id, 3, command_id="command-cleo")
+
+        answer = skat.sit(dora_headers, table_id, 2, command_id="command-dora-sit")
+
+        assert answer.json()["hand"]["own_cards"] == []
+        assert cards_in_text(answer.text) == set()
+
+    def test_standing_up_during_a_hand_is_refused_with_only_the_reason_and_the_holder(self, skat):
+        table_id, people = seated_three(skat)
+
+        answer = skat.stand(people[0][0], table_id, command_id="command-leave")
+
+        assert answer.status_code == 409
+        assert set(answer.json()) == {"reason", "holder_name"}
+        assert answer.json()["reason"] == "hand-running"
+        assert cards_in_text(answer.text) == set()
+
+    def test_a_table_without_a_hand_has_no_hand_on_the_table_or_on_any_chair(self, skat, table):
+        table_id, _ = table
+        headers, _ = skat.member()
+        skat.sit(headers, table_id, 2)
+
+        answers = [skat.create(headers), read(skat, headers, table_id), skat.stand(headers, table_id)]
+
+        for answer in answers:
+            body = answer.json()
+            assert body["hand"] is None
+            assert [chair["hand"] for chair in body["chairs"]] == [None, None, None]
+
+
+class TestTokens:
+    @pytest.mark.parametrize(
+        ("tokens", "members"),
+        [
+            pytest.param(SUIT_TOKENS, Suit, id="suits"),
+            pytest.param(RANK_TOKENS, Rank, id="ranks"),
+            pytest.param(POSITION_TOKENS, Position, id="positions"),
+            pytest.param(AWAITING_TOKENS, Awaiting, id="awaiting"),
+        ],
+    )
+    def test_every_member_has_exactly_one_token_and_no_two_share_one(self, tokens, members):
+        assert set(tokens) == set(members)
+        assert len(set(tokens.values())) == len(members)

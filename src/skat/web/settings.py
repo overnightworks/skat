@@ -104,3 +104,5 @@ class ServerSettings(DatabaseSettings):
     call_origin: OptionalOriginUrl = None
     # Addresses and CIDR blocks, comma-separated, of the proxies allowed to name the client in X-Forwarded-For.
     trusted_proxies: str = ""
+    # How long a seated member whose last stream ended keeps the chair while no hand runs.
+    chair_hold_seconds: float = Field(default=300, gt=0, allow_inf_nan=False)

@@ -121,6 +121,9 @@ body {
     --on-stage-soft: rgba(244, 246, 248, 0.72);
     --glass-dark: rgba(12, 14, 17, 0.55);
     --brass: #c9a464;
+    --cream: #fbf8f0;
+    --ink: #14181d;
+    --ok-stage: #4cc38a;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -231,6 +234,7 @@ body {
     margin: 0 auto;
     padding: 8px 24px 24px;
     box-sizing: border-box;
+    --chair-width: clamp(88px, 28vw, 120px);
 }
 
 .room .plaque {
@@ -240,6 +244,7 @@ body {
     align-items: center;
     gap: 8px;
     height: fit-content;
+    margin-bottom: 28px;
     padding: 8px 16px;
     border-radius: 16px;
     background: rgba(12, 14, 17, 0.55);
@@ -305,7 +310,7 @@ body {
 .room .chair {
     position: relative;
     z-index: 1;
-    width: clamp(88px, 28vw, 120px);
+    width: var(--chair-width);
     aspect-ratio: 4 / 3;
 }
 
@@ -350,6 +355,45 @@ body {
     font-size: 36px;
     font-weight: 700;
     text-transform: uppercase;
+}
+
+.room .coaster {
+    --coaster-size: 34px;
+    --coaster-tilt: -10deg;
+
+    position: absolute;
+    right: -14px;
+    bottom: -2px;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: var(--coaster-size);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, transparent 62%, rgba(45, 107, 79, 0.55) 63% 66%, transparent 67%),
+        repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.05) 0 6deg, transparent 6deg 12deg), #f4ecd9;
+    box-shadow:
+        0 3px 0 #d8ccb0,
+        0 8px 14px -4px rgba(0, 0, 0, 0.8);
+    color: var(--ink);
+    font-size: calc(var(--coaster-size) * 0.34);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    transform: rotate(var(--coaster-tilt));
+}
+
+.room .chair:nth-child(2) .coaster {
+    --coaster-tilt: 8deg;
+
+    right: auto;
+    left: -14px;
+}
+
+.room .chair:nth-child(3) .coaster {
+    --coaster-tilt: -6deg;
+
+    right: -40px;
 }
 
 .room .plate {
@@ -400,6 +444,773 @@ body {
     color: rgba(43, 29, 5, 0.72);
 }
 
+/* A passed-in hand: the verdict above the line that names the next dealer. */
+.room .plaque:is(.hand-over, .deciding) {
+    flex-direction: column;
+    gap: 4px;
+}
+
+.room .plaque .gives {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The deck lies as one slightly crooked stack in the middle of the felt. */
+.room .deck {
+    display: grid;
+}
+
+.room .deck-card {
+    grid-area: 1 / 1;
+    transform: translateY(calc(var(--layer) * -2px)) rotate(var(--tilt));
+}
+
+.room .deck-card:nth-child(1) {
+    --layer: 0;
+    --tilt: -2deg;
+}
+
+.room .deck-card:nth-child(2) {
+    --layer: 1;
+    --tilt: 3deg;
+}
+
+.room .deck-card:nth-child(3) {
+    --layer: 2;
+    --tilt: -2deg;
+}
+
+.room .deck-card:nth-child(4) {
+    --layer: 3;
+    --tilt: 3deg;
+}
+
+.room .deck-card .card-back {
+    width: var(--card-width);
+    height: auto;
+}
+
+/* The hand on the table: backs fan toward the felt from each chair, the skat lies in its middle. */
+.room .skat-spot {
+    grid-column: 1 / 3;
+    grid-row: 2 / 4;
+    place-self: center;
+    z-index: 1;
+    --card-width: 52px;
+}
+
+.room .skat {
+    display: flex;
+}
+
+.room .skat-card {
+    transform: rotate(-8deg);
+}
+
+.room .skat-card + .skat-card {
+    margin-top: 4px;
+    margin-left: calc(var(--card-width) * -0.5);
+    transform: rotate(6deg);
+}
+
+.room .skat-card .card-back {
+    width: var(--card-width);
+    height: auto;
+}
+
+.room .card-back {
+    display: block;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+.room .fan-spot {
+    position: absolute;
+    --card-width: 26px;
+}
+
+.room .fan {
+    position: absolute;
+    left: calc(var(--card-width) * -0.5);
+    top: calc(var(--card-width) * -1.4);
+    width: var(--card-width);
+    height: calc(var(--card-width) * 1.4);
+    overflow: visible;
+}
+
+.room .fan.dim {
+    opacity: 0.55;
+}
+
+.room .chair:nth-child(1) .fan-spot {
+    left: 58%;
+    top: calc(100% + 24px);
+    transform: rotate(150deg);
+}
+
+.room .chair:nth-child(2) .fan-spot {
+    --deal-start: 0.1s;
+    left: 42%;
+    top: calc(100% + 24px);
+    transform: rotate(210deg);
+}
+
+.room .chair:nth-child(3) .fan-spot {
+    --deal-start: 0.2s;
+    left: 50%;
+    top: -20px;
+}
+
+.room .count-tag {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(14px);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.room .count-tag svg {
+    width: 16px;
+    height: 16px;
+}
+
+.room .chair:nth-child(1) .count-tag {
+    left: 13%;
+    top: calc(100% + 56px);
+}
+
+.room .chair:nth-child(2) .count-tag {
+    left: 42%;
+    top: calc(100% + 56px);
+}
+
+.room .chair:nth-child(3) .count-tag {
+    left: calc(100% + 2px);
+    top: -40px;
+}
+
+.room .mark.pos,
+.room .mark.dealer {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.room .mark.pos {
+    top: -11px;
+    right: -4px;
+    height: 22px;
+    padding: 0 8px;
+    color: var(--on-stage);
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    font-size: 11.5px;
+}
+
+/* A phone chair is too small for the word: the dealer badge shows the icon alone. */
+.room .mark.dealer {
+    top: -12px;
+    left: -6px;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    color: #2b1d05;
+    background: linear-gradient(180deg, #f1d898, var(--brass) 55%, #a6823f);
+    box-shadow:
+        0 4px 10px -3px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    font-size: 0;
+}
+
+.room .mark.dealer svg {
+    width: 15px;
+    height: 15px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .deal {
+        animation: deal 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) var(--deal-delay, 0s) both;
+    }
+
+    /* A fan's cards fly in units of the card (100 wide), so one distance serves every width. */
+    .room .fan .deal {
+        --deal-y: -600px;
+        --deal-delay: calc(var(--deal-start, 0s) + var(--deal-step, 0) * 0.07s);
+        transform-box: fill-box;
+        transform-origin: center;
+    }
+
+    .room .fan .deal:nth-child(2) {
+        --deal-step: 1;
+    }
+
+    .room .fan .deal:nth-child(3) {
+        --deal-step: 2;
+    }
+
+    .room .fan .deal:nth-child(4) {
+        --deal-step: 3;
+    }
+
+    .room .fan .deal:nth-child(5) {
+        --deal-step: 4;
+    }
+
+    .room .fan .deal:nth-child(6) {
+        --deal-step: 5;
+    }
+
+    .room .fan .deal:nth-child(7) {
+        --deal-step: 6;
+    }
+
+    .room .fan .deal:nth-child(8) {
+        --deal-step: 7;
+    }
+
+    .room .fan .deal:nth-child(9) {
+        --deal-step: 8;
+    }
+
+    .room .fan .deal:nth-child(10) {
+        --deal-step: 9;
+    }
+
+    @keyframes deal {
+        from {
+            translate: 0 var(--deal-y, -160px);
+            scale: 0.55;
+            opacity: 0;
+        }
+
+        20% {
+            opacity: 1;
+        }
+
+        to {
+            translate: 0 0;
+            scale: 1;
+        }
+    }
+}
+
+/* The own turn: the ladder takes a row of its own between the skat and the own chair, so no control covers a card,
+   and the skat's row is only as tall as the skat, so the whole own hand stays on the screen. */
+.room .stage:has(> .bid) {
+    grid-template-rows: auto minmax(136px, 1fr) auto auto auto auto;
+}
+
+.room .stage:has(> .bid) .felt {
+    grid-row: 2 / 6;
+}
+
+.room .stage:has(> .bid) .skat-spot {
+    grid-row: 3;
+}
+
+.room .stage:has(> .bid) .chair:nth-child(3) {
+    grid-row: 5;
+}
+
+.room .stage:has(> .bid) .controls {
+    grid-row: 6;
+}
+
+.room .chair.turn .tile {
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 0 28px 4px rgba(122, 167, 240, 0.5),
+        0 18px 30px -12px rgba(0, 0, 0, 0.9);
+}
+
+.room .chair.turn::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 50%;
+    top: 50%;
+    width: 240px;
+    height: 120px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(122, 167, 240, 0.36), rgba(122, 167, 240, 0.1) 60%, transparent);
+    pointer-events: none;
+}
+
+/* A phone chair carries its position at the top right, so the turn, pass and waits marks sit below it, clear of
+   the dealer badge; a chair carries only one of them. */
+.room .mark:is(.turn, .pass, .waits, .ready) {
+    position: absolute;
+    z-index: 2;
+    top: 16px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    border-radius: 999px;
+}
+
+.room .mark.turn {
+    width: 26px;
+    background: var(--accent-stage, #7aa7f0);
+    color: #0d1013;
+}
+
+.room .mark:is(.turn, .pass) svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* A phone chair is too small for the word: the pass mark shows the cross alone. */
+.room .mark.pass {
+    width: 26px;
+    gap: 4px;
+    color: var(--on-stage);
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    font-size: 0;
+    font-weight: 600;
+}
+
+.room .mark.waits {
+    gap: 4px;
+    padding: 0 7px 0 5px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+}
+
+.room .mark.waits .dot,
+.room .bubble .dot {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
+    right: auto;
+    left: 6px;
+    top: 16px;
+}
+
+/* The declarer's star: a chair is too small for its word, so the star shows alone and the word stays for assistive reading. */
+.room .mark.declarer {
+    position: absolute;
+    z-index: 2;
+    top: 16px;
+    left: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    color: #2a1d00;
+    background: var(--busy-stage, #edb656);
+    font-size: 0;
+    font-weight: 600;
+}
+
+.room .mark.declarer svg {
+    width: 15px;
+    height: 15px;
+}
+
+.room .mark.declarer ~ .mark.turn ~ .mark.away {
+    top: 44px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .mark.declarer.won {
+        animation: slam 0.6s cubic-bezier(0.5, 0, 0.7, 1.4) 0.3s both;
+    }
+}
+
+@keyframes slam {
+    0% {
+        opacity: 0;
+        scale: 2.6;
+    }
+
+    55% {
+        opacity: 1;
+        scale: 0.92;
+    }
+
+    75% {
+        scale: 1.05;
+    }
+
+    100% {
+        scale: 1;
+    }
+}
+
+.room .chair.out .tile {
+    filter: saturate(0.45) brightness(0.8);
+}
+
+/* A call comes out of its chair as a speech bubble, toward the middle of the table. */
+.room .bubble {
+    position: absolute;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px 4px 6px;
+    border-radius: 999px;
+    color: var(--ink);
+    background: var(--cream);
+    box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.7);
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    --bubble-fill: var(--cream);
+}
+
+.room .bubble::after {
+    content: "";
+    position: absolute;
+    left: var(--tail, 50%);
+    top: -6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background: var(--bubble-fill);
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.room .bubble .dot {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+}
+
+.room .bubble.quiet {
+    padding: 3px 12px 3px 4px;
+    color: var(--on-stage-soft);
+    background: #3a3f45;
+    font-size: 15px;
+    --bubble-fill: #3a3f45;
+}
+
+.room .bubble.quiet .dot {
+    width: 22px;
+    height: 22px;
+}
+
+.room .bubble.quiet svg {
+    width: 18px;
+    height: 18px;
+    color: var(--ok-stage);
+}
+
+/* A phone's far bubbles hang below their fans, beside the skat, and below a watcher's card counts. */
+.room .chair:nth-child(1) .bubble {
+    right: 15%;
+    top: calc(100% + 64px);
+    --tail: 70%;
+}
+
+.room .chair:nth-child(2) .bubble {
+    left: 15%;
+    top: calc(100% + 64px);
+    --tail: 30%;
+}
+
+.room .chair:is(:nth-child(1), :nth-child(2)):has(.count-tag) .bubble {
+    top: calc(100% + 94px);
+}
+
+/* The near chair speaks to its left, clear of its fan above and of the own controls. */
+.room .chair:nth-child(3) .bubble {
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.room .chair:nth-child(3) .bubble::after {
+    left: auto;
+    right: -6px;
+    top: calc(50% - 6px);
+    transform: rotate(45deg);
+}
+
+/* The glow of a far chair on turn stays around that chair. */
+.room .chair.turn:not(.mine)::before {
+    width: 190px;
+    height: 110px;
+}
+
+@media (min-width: 900px) {
+    /* A desktop's far chairs stand wide apart: the skat lies low between them, as the scenes draw it. */
+    .room .stage:has(> .bid) {
+        grid-template-rows: auto minmax(180px, 1fr) auto auto auto auto;
+    }
+
+    .room .stage:has(> .bid) .skat-spot {
+        grid-row: 2;
+        align-self: end;
+    }
+
+    .room .chair.turn::before {
+        width: 640px;
+        height: 170px;
+    }
+
+    .room .mark:is(.turn, .pass, .waits, .ready) {
+        top: 6px;
+        right: auto;
+        left: 6px;
+        height: 28px;
+    }
+
+    .room .mark.turn {
+        width: 28px;
+    }
+
+    .room .mark.pass {
+        width: auto;
+        padding: 0 9px 0 7px;
+        font-size: 12.5px;
+    }
+
+    .room .mark.waits .dot {
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+    }
+
+    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready) {
+        top: 18px;
+    }
+
+    /* The declarer's star sits under the turn mark, clear of the chair's letter. */
+    .room .mark.declarer {
+        top: 40px;
+        width: 28px;
+        height: 28px;
+    }
+
+    .room .mark.dealer ~ .mark.declarer {
+        top: 52px;
+    }
+
+    .room .mark.declarer ~ .mark.turn ~ .mark.away {
+        top: 76px;
+    }
+
+    .room .mark.dealer ~ .mark.declarer ~ .mark.turn ~ .mark.away {
+        top: 88px;
+    }
+
+    .room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
+        top: 42px;
+    }
+
+    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
+        top: 54px;
+    }
+
+    .room .chair:is(:nth-child(1), :nth-child(2)) .bubble,
+    .room .chair:is(:nth-child(1), :nth-child(2)):has(.count-tag) .bubble {
+        right: auto;
+        left: 50%;
+        top: calc(100% + 26px);
+        transform: translateX(-50%);
+        --tail: 50%;
+    }
+
+    .room .chair.turn:not(.mine)::before {
+        width: 300px;
+        height: 200px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .chair.turn .tile {
+        animation: breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+        50% {
+            box-shadow:
+                0 0 0 4px var(--accent-stage, #7aa7f0),
+                0 0 40px 10px rgba(122, 167, 240, 0.62),
+                0 18px 30px -12px rgba(0, 0, 0, 0.9);
+        }
+    }
+}
+
+.room .bid {
+    --glass: rgba(255, 255, 255, 0.15);
+    --strip: 214px;
+    grid-column: 1 / 3;
+    grid-row: 4;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin: 12px 0 24px;
+    width: 100%;
+    min-width: 0;
+}
+
+.room .ladder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.room .ladder span,
+.room .higher button {
+    flex: none;
+    box-sizing: border-box;
+    min-width: 40px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    background: rgba(0, 0, 0, 0.28);
+    color: rgba(244, 246, 248, 0.45);
+}
+
+.room .ladder span.held {
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--on-stage);
+    display: inline-flex;
+    gap: 3px;
+}
+
+.room .ladder span.held svg {
+    width: 13px;
+    height: 13px;
+    color: var(--ok-stage);
+}
+
+.room .ladder span.now {
+    min-width: 62px;
+    height: 48px;
+    font-size: 26px;
+    background: var(--cream);
+    color: var(--ink);
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 8px 18px -6px rgba(0, 0, 0, 0.7);
+}
+
+.room .higher {
+    flex: 0 1 var(--strip);
+    min-width: 0;
+    display: flex;
+    gap: 6px;
+    padding: 4px 26px 4px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* The fade sits where higher values continue; the padding above keeps the last value clear of it. */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+    scrollbar-width: none;
+}
+
+.room .higher button {
+    border: 0;
+    font-family: inherit;
+    background: var(--glass);
+    color: var(--on-stage);
+    cursor: pointer;
+}
+
+.room .higher button:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: -2px;
+}
+
+.room .higher button:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .room .higher {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(244, 246, 248, 0.45) transparent;
+    }
+}
+
+.room .bid-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.room .button {
+    height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.room .button:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.room .button svg {
+    width: 22px;
+    height: 22px;
+}
+
+.room .button-stage {
+    background: var(--accent-stage, #7aa7f0);
+    color: #0d1013;
+}
+
+.room .button-glass {
+    background: var(--glass);
+    color: var(--on-stage);
+    backdrop-filter: blur(14px);
+}
+
+@media (min-width: 900px) {
+    .room .bid {
+        --strip: 380px;
+    }
+}
+
 .room .controls {
     grid-column: 1 / 3;
     grid-row: 4;
@@ -432,6 +1243,737 @@ body {
     flex-wrap: wrap;
     justify-content: center;
     gap: 10px;
+}
+
+.room .sprite {
+    position: absolute;
+}
+
+/* The phone frame is drawn for 390 px; below that the fan shrinks with the viewport so all ten cards fit. */
+.room .own-hand {
+    --card-width: min(64px, calc(100vw * 64 / 390));
+    --strip: calc(var(--card-width) / 2);
+    --strip-lifted: min(56px, calc(100vw * 56 / 390));
+    --fan-turn: 1.5deg;
+    --fan-drop: 0.8px;
+    --deal-distance: -420px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin-bottom: 22px;
+}
+
+.room .own-hand .card {
+    flex: none;
+    width: var(--card-width);
+    aspect-ratio: 100 / 140;
+    margin-left: calc(var(--strip) - var(--card-width));
+    border-radius: calc(var(--card-width) * 0.075);
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+    transform-origin: 50% 100%;
+    transform: translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
+        rotate(calc(var(--step) * var(--fan-turn)));
+    --step: calc((var(--from-start) - var(--from-end)) / 2);
+}
+
+.room .own-hand .card:first-child {
+    margin-left: 0;
+}
+
+/* Each card's place in the fan is its distance from the middle, however many cards the hand holds. */
+.room .own-hand .card:nth-child(1) {
+    --from-start: 1;
+}
+
+.room .own-hand .card:nth-child(2) {
+    --from-start: 2;
+}
+
+.room .own-hand .card:nth-child(3) {
+    --from-start: 3;
+}
+
+.room .own-hand .card:nth-child(4) {
+    --from-start: 4;
+}
+
+.room .own-hand .card:nth-child(5) {
+    --from-start: 5;
+}
+
+.room .own-hand .card:nth-child(6) {
+    --from-start: 6;
+}
+
+.room .own-hand .card:nth-child(7) {
+    --from-start: 7;
+}
+
+.room .own-hand .card:nth-child(8) {
+    --from-start: 8;
+}
+
+.room .own-hand .card:nth-child(9) {
+    --from-start: 9;
+}
+
+.room .own-hand .card:nth-child(10) {
+    --from-start: 10;
+}
+
+.room .own-hand .card:nth-child(11) {
+    --from-start: 11;
+}
+
+.room .own-hand .card:nth-child(12) {
+    --from-start: 12;
+}
+
+.room .own-hand .card:nth-last-child(1) {
+    --from-end: 1;
+}
+
+.room .own-hand .card:nth-last-child(2) {
+    --from-end: 2;
+}
+
+.room .own-hand .card:nth-last-child(3) {
+    --from-end: 3;
+}
+
+.room .own-hand .card:nth-last-child(4) {
+    --from-end: 4;
+}
+
+.room .own-hand .card:nth-last-child(5) {
+    --from-end: 5;
+}
+
+.room .own-hand .card:nth-last-child(6) {
+    --from-end: 6;
+}
+
+.room .own-hand .card:nth-last-child(7) {
+    --from-end: 7;
+}
+
+.room .own-hand .card:nth-last-child(8) {
+    --from-end: 8;
+}
+
+.room .own-hand .card:nth-last-child(9) {
+    --from-end: 9;
+}
+
+.room .own-hand .card:nth-last-child(10) {
+    --from-end: 10;
+}
+
+.room .own-hand .card:nth-last-child(11) {
+    --from-end: 11;
+}
+
+.room .own-hand .card:nth-last-child(12) {
+    --from-end: 12;
+}
+
+.room .card-face {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.room .card-face .index {
+    font-family: "Open Sans", Arial, sans-serif;
+    font-size: 21px;
+    font-weight: 600;
+}
+
+.room .card-face .index.ten {
+    font-size: 19px;
+    letter-spacing: -2px;
+}
+
+.room .card-face .court {
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 40px;
+    font-weight: 700;
+}
+
+@media (min-width: 900px) {
+    .room .own-hand {
+        --card-width: 96px;
+        --strip: 58px;
+        --strip-lifted: 78px;
+        --fan-turn: 1.2deg;
+        --fan-drop: 0.7px;
+        --deal-distance: -470px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .own-hand .card {
+        animation: deal 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) calc((var(--step) + 4.5) * 0.06s) both;
+    }
+
+    @keyframes deal {
+        from {
+            translate: calc(var(--step) * -1 * var(--strip)) var(--deal-distance);
+            scale: 0.55;
+            opacity: 0;
+        }
+
+        20% {
+            opacity: 1;
+        }
+
+        to {
+            translate: 0 0;
+            scale: 1;
+        }
+    }
+}
+
+/* Picking two from the twelve: the cards and strips of the discard scene. */
+.room .own-hand.picking {
+    --card-width: min(58px, calc(100vw * 58 / 390));
+    --strip: calc(100vw * 25 / 390);
+}
+
+.room .own-hand .pick,
+.room .own-hand .play {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: calc(var(--card-width) * 0.075);
+    background: none;
+    cursor: pointer;
+}
+
+.room .own-hand .pick:focus-visible,
+.room .own-hand .play:focus-visible {
+    outline: 3px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+.room .own-hand .pick:disabled,
+.room .own-hand .play:disabled {
+    cursor: default;
+}
+
+.room .own-hand .pick.picked {
+    translate: 0 calc(var(--card-width) * -0.4);
+    box-shadow:
+        0 0 0 2.5px var(--accent-stage, #7aa7f0),
+        0 0 18px rgba(122, 167, 240, 0.5);
+}
+
+/* On turn the legal cards stand lifted with the blue ring, the tapped one higher and wider, the others dimmed. */
+.room .own-hand .card.ok {
+    --lift: calc(var(--card-width) * -0.18);
+}
+
+.room .own-hand .card.touch {
+    --lift: calc(var(--card-width) * -0.5);
+}
+
+.room .own-hand .card.touch + .card {
+    margin-left: calc(var(--strip-lifted) - var(--card-width));
+}
+
+.room .own-hand .card.ok .card-face,
+.room .own-hand .card.touch .card-face {
+    border-radius: calc(var(--card-width) * 0.075);
+    box-shadow:
+        0 0 0 2.5px var(--accent-stage, #7aa7f0),
+        0 0 18px rgba(122, 167, 240, 0.5);
+}
+
+.room .own-hand .card.touch .card-face {
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 0 26px rgba(122, 167, 240, 0.8);
+}
+
+.room .own-hand .card.no {
+    filter: brightness(0.5) saturate(0.55) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+/* While a game is played the trick takes a row of its own between the far chairs and the near one. */
+.room .stage:has(> .trick) {
+    grid-template-rows: auto auto auto auto auto;
+}
+
+.room .stage:has(> .trick) .felt {
+    grid-row: 2 / 5;
+}
+
+.room .stage:has(> .trick) .chair:nth-child(3) {
+    grid-row: 4;
+}
+
+.room .stage:has(> .trick) .controls {
+    grid-row: 5;
+}
+
+/* Each card lies toward its player, as the scenes draw it: the far ones side by side below the far fans,
+   the near one lower down. */
+.room .trick {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+    grid-column: 1 / 3;
+    grid-row: 3;
+    justify-self: stretch;
+    height: calc(var(--card-width) * 3.4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    --card-width: min(64px, calc(100vw * 64 / 390));
+}
+
+.room .laid {
+    position: absolute;
+    width: var(--card-width);
+    aspect-ratio: 100 / 140;
+    transform: translate(-50%, -50%) rotate(var(--lie));
+}
+
+.room .laid.left {
+    left: 34%;
+    top: 52%;
+    --lie: -9deg;
+}
+
+.room .laid.right {
+    left: 66%;
+    top: 52%;
+    --lie: 8deg;
+}
+
+.room .laid.near {
+    left: 50%;
+    top: 82%;
+    --lie: 0deg;
+}
+
+.room .laid .face {
+    display: block;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+.room .laid .tag {
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--card-width) * -0.12);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 9px 0 4px;
+    border-radius: 999px;
+    background: rgba(10, 12, 14, 0.78);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    transform: translateX(-50%) rotate(calc(var(--lie) * -1));
+}
+
+.room .laid .dot {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--brass);
+    color: #111;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+/* While a game is played the plaque carries the game and both sides' points against the 61 line. */
+.room .plaque.in-play {
+    flex-direction: column;
+    gap: 7px;
+    padding: 8px 12px 10px;
+}
+
+.room .plaque .game {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.room .plaque .suit {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fbf8f0;
+    box-shadow: inset 0 0 0 1.5px var(--brass);
+}
+
+.room .plaque .suit svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* The same pips the cards draw. */
+.room .plaque .suit.kreuz {
+    fill: #17191c;
+}
+
+.room .plaque .suit.pik {
+    fill: #14873f;
+}
+
+.room .plaque .suit.herz {
+    fill: #d81f35;
+}
+
+.room .plaque .suit.karo {
+    fill: #ec9800;
+}
+
+.room .points {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 128px;
+}
+
+.room .points .sides {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .points .sides .declarer {
+    color: #edb656;
+}
+
+.room .points .sides .opponents {
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .points .track {
+    position: relative;
+    display: block;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.room .points .track svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.room .points .track rect.declarer {
+    fill: #edb656;
+}
+
+.room .points .track rect.opponents {
+    fill: var(--accent-stage, #7aa7f0);
+}
+
+/* The 61 line, where the picture draws it. */
+.room .points .win-line {
+    position: absolute;
+    left: 50.8%;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--on-stage);
+}
+
+@media (min-width: 900px) {
+    .room .trick {
+        height: calc(var(--card-width) * 2.6);
+        --card-width: 80px;
+    }
+
+    .room .laid.left {
+        left: 41.5%;
+        top: 35%;
+        --lie: -11deg;
+    }
+
+    .room .laid.right {
+        left: 58.5%;
+        top: 35%;
+        --lie: 9deg;
+    }
+
+    .room .laid.near {
+        top: 70%;
+    }
+
+    .room .points {
+        width: 220px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .own-hand .card {
+        transition: transform 0.15s ease-out;
+    }
+}
+
+/* The declarer's controls stand on the felt just above the own chair, clear of the skat in the middle. */
+.room .declare {
+    grid-column: 1 / 3;
+    grid-row: 2 / 4;
+    place-self: end center;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: calc(var(--chair-width) * 0.75 + 12px);
+}
+
+.room .declare .step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    color: var(--stage-ink, #0c0e11);
+    background: var(--accent-stage, #7aa7f0);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.room .declare .step:disabled {
+    color: var(--on-stage);
+    background: #3a4350;
+    cursor: default;
+}
+
+.room .declare .step svg,
+.room .declare .slot svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.room .declare .slots {
+    display: flex;
+    gap: 8px;
+}
+
+.room .declare .slot {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    aspect-ratio: 100 / 140;
+    border: 2px dashed var(--accent-stage, #7aa7f0);
+    border-radius: 5px;
+    color: var(--accent-stage, #7aa7f0);
+    background: rgba(122, 167, 240, 0.08);
+}
+
+.room .declare .games {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    max-width: 284px;
+}
+
+.room .declare .game {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 46px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(14px);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.room .declare .game.suited {
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+}
+
+.room .declare .game.suited .name {
+    display: none;
+}
+
+.room .declare .game[aria-pressed="true"] {
+    color: #17191c;
+    background: #f6efe0;
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 8px 18px -6px rgba(0, 0, 0, 0.7);
+}
+
+.room .declare .game:disabled {
+    cursor: default;
+}
+
+.room .declare .pip {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #f6efe0;
+    box-shadow: inset 0 0 0 1.5px var(--brass);
+}
+
+.room .declare .pip svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* While the declarer picks a game, the two cards put back lie small at the lower left of the felt. */
+.room .stage:has(.declare.picked) .skat-spot {
+    justify-self: start;
+    align-self: end;
+    margin-bottom: 24px;
+    --card-width: 38px;
+}
+
+.room .chair.mine.turn .tile {
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 18px 30px -12px rgba(0, 0, 0, 0.9);
+}
+
+/* The smallest phones keep the controls between the far fans and the own chair: the games stand in one row. */
+@media (max-width: 379px) {
+    .room .declare.picked {
+        gap: 8px;
+    }
+
+    .room .declare .games {
+        flex-wrap: nowrap;
+        gap: 5px;
+        max-width: none;
+    }
+
+    .room .declare .game {
+        height: 40px;
+        padding: 0 12px;
+        font-size: 14px;
+    }
+
+    .room .declare .game.suited {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+    }
+
+    .room .declare .slot {
+        width: 48px;
+    }
+
+    .room .declare .step {
+        height: 46px;
+    }
+}
+
+/* The wide felt is short: the controls stand in one row through its middle, beside the skat or its slots. */
+@media (min-width: 900px) {
+    .room .own-hand.picking {
+        --card-width: 96px;
+        --strip: 48px;
+    }
+
+    .room .declare {
+        flex-direction: row;
+        place-self: center;
+        margin-bottom: 0;
+    }
+
+    .room .declare.choosing,
+    .room .declare.discarding {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .room .declare.choosing {
+        margin-left: 76px;
+    }
+
+    .room .declare.discarding {
+        margin-left: -68px;
+    }
+
+    .room .declare .games {
+        flex-wrap: nowrap;
+        max-width: none;
+    }
+
+    .room .declare .slot {
+        width: 64px;
+    }
+
+    .room .stage:has(.declare.picked) .skat-spot {
+        --card-width: 56px;
+    }
+
+    .room .declare .game.suited {
+        width: auto;
+        height: 46px;
+        padding: 0 18px;
+    }
+
+    .room .declare .game.suited .name {
+        display: inline;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .own-hand .pick {
+        transition:
+            translate 0.15s ease-out,
+            box-shadow 0.15s ease-out;
+    }
+
+    .room .chair.mine.turn .tile {
+        animation: breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+        50% {
+            box-shadow:
+                0 0 0 4px var(--accent-stage, #7aa7f0),
+                0 0 40px 10px rgba(122, 167, 240, 0.62),
+                0 18px 30px -12px rgba(0, 0, 0, 0.9);
+        }
+    }
 }
 
 .room .tile.free {
@@ -544,12 +2086,100 @@ body {
         padding: 22px 24px;
     }
 
-    .room .stage {
-        width: min(100%, 900px);
+    .room .plaque {
+        margin-bottom: 0;
     }
 
-    .room .chair {
-        width: 160px;
+    .room .stage {
+        width: min(100%, 900px);
+        --chair-width: 160px;
+    }
+
+    .room .coaster {
+        --coaster-size: 50px;
+
+        right: auto;
+        bottom: -8px;
+        left: -22px;
+    }
+
+    .room .chair:nth-child(2) .coaster {
+        right: -22px;
+        left: auto;
+    }
+
+    .room .chair:nth-child(3) .coaster {
+        right: auto;
+        bottom: 16px;
+        left: -58px;
+    }
+
+    .room .skat-spot {
+        --card-width: 80px;
+    }
+
+    .room .fan-spot {
+        --card-width: 42px;
+    }
+
+    .room .chair:nth-child(1) .fan-spot {
+        left: calc(100% + 10px);
+        top: 57%;
+        transform: rotate(90deg);
+    }
+
+    .room .chair:nth-child(2) .fan-spot {
+        left: -10px;
+        top: 57%;
+        transform: rotate(270deg);
+    }
+
+    .room .chair:nth-child(1) .count-tag {
+        left: 104%;
+        top: 90%;
+    }
+
+    .room .chair:nth-child(2) .count-tag {
+        left: -70px;
+        top: 90%;
+    }
+
+    /* The near chair stands alone at the rim: its fan and tag sit beside it, clear of the skat in the middle. */
+    .room .chair:nth-child(3) .fan-spot {
+        left: calc(100% + 70px);
+        top: 40%;
+        transform: rotate(-30deg);
+    }
+
+    .room .chair:nth-child(3) .count-tag {
+        left: calc(100% + 100px);
+        top: 40px;
+    }
+
+    .room .mark.pos {
+        top: 6px;
+        right: 6px;
+        height: 26px;
+        padding: 0 9px;
+        font-size: 12.5px;
+    }
+
+    .room .mark.pos + .mark.away {
+        right: auto;
+        left: 6px;
+    }
+
+    .room .mark.dealer ~ .mark.away {
+        top: 18px;
+    }
+
+    .room .mark.dealer {
+        gap: 4px;
+        top: -13px;
+        left: -8px;
+        width: auto;
+        padding: 0 9px 0 7px;
+        font-size: 12.5px;
     }
 }
 
@@ -566,5 +2196,267 @@ body {
 
     .account-menu {
         inset: 72px 24px auto auto;
+    }
+}
+
+/* The result: a card on the felt between the chairs, the bar's „Weiter“ and each chair's ready mark. */
+.room .stage:has(> .result) {
+    grid-template-rows: auto auto auto auto auto;
+}
+
+.room .stage:has(> .result) .felt {
+    grid-row: 2 / 5;
+}
+
+.room .stage:has(> .result) .chair:nth-child(3) {
+    grid-row: 4;
+}
+
+.room .stage:has(> .result) .controls {
+    grid-row: 5;
+}
+
+.room .result {
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    grid-column: 1 / 3;
+    grid-row: 3;
+    box-sizing: border-box;
+    width: min(100%, 470px);
+    margin: 12px 0;
+    padding: 16px 14px 14px;
+    border-radius: 24px;
+    background: rgba(12, 14, 17, 0.74);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
+        0 24px 50px -16px rgba(0, 0, 0, 0.9);
+}
+
+.room .result h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: #f3cf7a;
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.room .result h3 svg {
+    width: 0.8em;
+    height: 0.8em;
+    flex: none;
+}
+
+.room .result.lost h3 {
+    color: var(--on-stage-soft);
+}
+
+.room .result .sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--on-stage);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.room .result .game {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.room .result .suit {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fbf8f0;
+    box-shadow: inset 0 0 0 1.5px var(--brass);
+}
+
+.room .result .suit svg {
+    width: 15px;
+    height: 15px;
+}
+
+.room .result .suit.kreuz,
+.room .result .suit.pik {
+    fill: #17191c;
+}
+
+.room .result .suit.herz,
+.room .result .suit.karo {
+    fill: #c8332b;
+}
+
+.room .result .stamp {
+    padding: 5px 11px;
+    border: 2.5px solid #e9776e;
+    border-radius: 12px;
+    color: #e9776e;
+    background: rgba(20, 24, 29, 0.9);
+    font-size: 16px;
+    font-weight: 700;
+    rotate: -5deg;
+}
+
+.room .result .value {
+    color: var(--cream);
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 44px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.room .result .value.minus {
+    color: var(--on-stage-soft);
+}
+
+.room .result .miss {
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .points {
+    width: 100%;
+}
+
+.room .result .coasters {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+.room .result .reck {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: 50% 50% 16px 16px / 34% 34% 16px 16px;
+    color: #14181d;
+    background: #f4ecd9;
+    box-shadow:
+        0 3px 0 #d8ccb0,
+        0 10px 18px -6px rgba(0, 0, 0, 0.8);
+}
+
+.room .result .reck.win {
+    box-shadow:
+        0 0 0 3px #f3cf7a,
+        0 3px 0 #d8ccb0,
+        0 10px 22px -6px rgba(243, 207, 122, 0.5);
+}
+
+.room .result .reck .dot {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .result .reck .nm {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .result .reck .dl {
+    color: #1f7a4d;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .reck .dl.minus {
+    color: #6b6f78;
+}
+
+.room .mark.ready {
+    width: 28px;
+    color: var(--ok-stage);
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+}
+
+.room .mark.ready svg {
+    width: 16px;
+    height: 16px;
+}
+
+.room .chair.win .tile {
+    box-shadow: inset 0 0 0 3px #f3cf7a;
+}
+
+.room .copy.weiter {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--accent-stage, #7aa7f0);
+    backdrop-filter: none;
+}
+
+.room .copy.wait {
+    cursor: default;
+    background: var(--glass-dark);
+    white-space: nowrap;
+}
+
+.room .copy:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* The result's bar is one row: on a phone the link is its icon alone and the buttons close up. */
+@media (max-width: 899px) {
+    .room .actions.on-result {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .room .actions.on-result .copy {
+        padding: 0 16px;
+        gap: 8px;
+    }
+
+    .room .actions.on-result .copy.wait {
+        flex: 0 1 auto;
+        min-width: 0;
+        padding: 0 14px;
+        font-size: 14px;
+        line-height: 1.15;
+        white-space: normal;
+    }
+
+    .room .actions.on-result .copy.link {
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions.on-result .copy.link .label {
+        display: none;
     }
 }

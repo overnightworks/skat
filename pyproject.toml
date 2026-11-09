@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.16",
     "fastapi>=0.123.7",
-    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.31.0",
+    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.34.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
@@ -184,6 +184,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "pytest-playwright>=0.10.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.17.0",
     "vulture>=2.15",
 ]

@@ -1,6 +1,5 @@
 import http.client
 import json
-import ssl
 import threading
 from typing import TYPE_CHECKING, Any
 
@@ -11,9 +10,11 @@ from sqlalchemy import text
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable
 from skat.table.service import TableService
+from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
+from tests.e2e.support.raw_http import self_signed_tolerant_context
 from tests.e2e.support.server import LOOPBACK_HOST, loopback_sign_in, running_skat
 from tests.e2e.support.tables import open_new_table, table_id_of
 from tests.e2e.support.words import catalog_text
@@ -37,13 +38,6 @@ FIRST_EVENT = """(url) => new Promise((resolve) => {
 RECONNECTING = catalog_text("reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
-
-
-def self_signed_tolerant_context() -> ssl.SSLContext:
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    return context
 
 
 def watchers_of(person: Page):
@@ -127,8 +121,24 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
     assert [chair["is_mine"] for chair in seen["opener"]["chairs"]] == [True, False, False]
     assert [chair["is_mine"] for chair in seen["watcher"]["chairs"]] == [False, False, False]
     for person, event in ((opener, seen["opener"]), (watcher, seen["watcher"])):
-        assert set(event) == {"id", "version", "chairs", "watchers"}
-        assert {key for chair in event["chairs"] for key in chair} == {"seat", "occupant_name", "is_mine", "is_away"}
+        assert set(event) == {
+            "id",
+            "version",
+            "chairs",
+            "watchers",
+            "hand",
+            "passed_in",
+            "result",
+        }
+        assert {key for chair in event["chairs"] for key in chair} == {
+            "seat",
+            "occupant_name",
+            "is_mine",
+            "is_away",
+            "ready",
+            "hand",
+            "total",
+        }
         assert member_of(person).account.id not in json.dumps(event)
     assert "ben" not in json.dumps(seen["opener"])
 
@@ -237,5 +247,5 @@ def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
         reader = threading.Thread(target=read_until_the_stream_ends, args=(response,), daemon=True)
         reader.start()
 
-    assert ended.wait(timeout=5)
+    assert ended.wait(timeout=GRACEFUL_SHUTDOWN_SECONDS)
     connection.close()

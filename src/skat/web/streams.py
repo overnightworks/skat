@@ -23,6 +23,13 @@ if TYPE_CHECKING:
 EVENT_STREAM: Final = "text/event-stream"
 
 
+async def _ask_for_next_deal(presence: Presence, table_id: str, view: TableView) -> None:
+    if view.passed_in is not None:
+        presence.deal_soon(table_id)
+    if view.result is not None:
+        await presence.deal_now(table_id)
+
+
 async def table_views(
     presence: Presence,
     read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
@@ -39,10 +46,12 @@ async def table_views(
     and delays no other stream. The session is admitted again before every view and on every idle
     heartbeat; the stream ends, sending nothing more, when `admit` refuses or the presence stops. Each idle
     heartbeat reads the view again and sends it only when the table's version moved since the last view
-    sent, which recovers a lost wake.
+    sent, which recovers a lost wake. A stream's first view of a passed-in table asks for the next deal, so a
+    member's return, a restart or a lost deal starts a fresh pause; its first view of a pending result asks for
+    the deal at once, and the marks decide.
     """
     changed = asyncio.Event()
-    subscription = presence.subscribe(table_id, account_id, changed.set)
+    subscription = await presence.subscribe(table_id, account_id, changed.set)
     sent_version: int | None = None
     heartbeat_read = False
     try:
@@ -56,6 +65,8 @@ async def table_views(
             if view is None:
                 message = f"table {table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
+            if sent_version is None:
+                await _ask_for_next_deal(presence, table_id, view)
             if not heartbeat_read or view.version != sent_version:
                 yield view
                 sent_version = view.version

@@ -17,9 +17,19 @@ if TYPE_CHECKING:
 _TRICK_SIZE: Final = 3
 _TRICKS_IN_A_GAME: Final = 10
 _WINNING_POINTS: Final = 61
-_ALL_POINTS: Final = 120
+ALL_POINTS: Final = 120
 _SCHNEIDER_POINTS: Final = 30
 _PLAY_ORDER: Final = tuple(Position)
+
+
+def opponents_points_of(declarer_points: int) -> int:
+    """The card points the opponents hold when the declarer holds `declarer_points`."""
+    return ALL_POINTS - declarer_points
+
+
+def _position_after(leader: Position, places: int) -> Position:
+    """The position that many places after the leader in the order of play."""
+    return _PLAY_ORDER[(_PLAY_ORDER.index(leader) + places) % len(_PLAY_ORDER)]
 
 
 class PlayRefusal(StrEnum):
@@ -46,38 +56,60 @@ class CompletedTrick:
 
 
 @dataclass(frozen=True)
+class Sides:
+    """One count for the declarer and one for the two opponents together."""
+
+    declarer: int
+    opponents: int
+
+
+@dataclass(frozen=True)
+class Tally:
+    """Each side's tricks taken so far and the card points in them; the skat is not in it."""
+
+    tricks: Sides
+    points: Sides
+
+
+def _tally(declarer: Position, tricks: tuple[CompletedTrick, ...]) -> Tally:
+    taken = [trick for trick in tricks if trick.taker is declarer]
+    lost = [trick for trick in tricks if trick.taker is not declarer]
+    return Tally(
+        tricks=Sides(declarer=len(taken), opponents=len(lost)),
+        points=Sides(
+            declarer=sum(card.points for trick in taken for card in trick.cards),
+            opponents=sum(card.points for trick in lost for card in trick.cards),
+        ),
+    )
+
+
+@dataclass(frozen=True)
 class PlayedOut:
     """The finished game: the ended declaration state and its ten tricks, the rest derived."""
 
     declared: Declaring
     tricks: tuple[CompletedTrick, ...]
 
-    def _taken_by(self, positions: set[Position]) -> tuple[CompletedTrick, ...]:
-        return tuple(trick for trick in self.tricks if trick.taker in positions)
-
     @property
-    def _opponents(self) -> set[Position]:
-        return set(Position) - {self.declared.declarer}
+    def tally(self) -> Tally:
+        return _tally(self.declared.declarer, self.tricks)
 
     @property
     def declarer_tricks(self) -> int:
-        return len(self._taken_by({self.declared.declarer}))
+        return self.tally.tricks.declarer
 
     @property
     def opponents_tricks(self) -> int:
-        return len(self._taken_by(self._opponents))
+        return self.tally.tricks.opponents
 
     @property
     def declarer_points(self) -> int:
         """The declarer's tricks plus the skat, which counts for the declarer in every game."""
-        taken = self._taken_by({self.declared.declarer})
-        return sum(card.points for card in self.declared.skat) + sum(
-            card.points for trick in taken for card in trick.cards
-        )
+        return sum(card.points for card in self.declared.skat) + self.tally.points.declarer
 
     @property
     def opponents_points(self) -> int:
-        return _ALL_POINTS - self.declarer_points
+        return opponents_points_of(self.declarer_points)
 
     @property
     def won_by_play(self) -> bool:
@@ -103,6 +135,12 @@ class PlayedOut:
 
 
 @dataclass(frozen=True)
+class CardPlayed:
+    position: Position
+    card: Card
+
+
+@dataclass(frozen=True)
 class Playing:
     """The ten tricks in progress; the result is empty until the tenth trick is taken."""
 
@@ -115,7 +153,16 @@ class Playing:
 
     @property
     def turn(self) -> Position:
-        return _PLAY_ORDER[(_PLAY_ORDER.index(self.leader) + len(self.current)) % len(_PLAY_ORDER)]
+        return _position_after(self.leader, len(self.current))
+
+    @property
+    def tally(self) -> Tally:
+        return _tally(self.declared.declarer, self.tricks)
+
+    @property
+    def current_plays(self) -> tuple[CardPlayed, ...]:
+        """The cards of the trick in progress, each with the position that played it, in playing order."""
+        return tuple(CardPlayed(_position_after(self.leader, place), card) for place, card in enumerate(self.current))
 
 
 @dataclass(frozen=True)
@@ -154,9 +201,7 @@ def _refusal(state: Playing, position: Position, card: Card) -> PlayRefusal | No
 
 
 def _complete_trick(state: Playing, cards: tuple[Card, Card, Card]) -> CompletedTrick:
-    taker = _PLAY_ORDER[
-        (_PLAY_ORDER.index(state.leader) + trick_winner(cards, _kind_of(state.declared))) % len(_PLAY_ORDER)
-    ]
+    taker = _position_after(state.leader, trick_winner(cards, _kind_of(state.declared)))
     return CompletedTrick(state.leader, cards, taker)
 
 
@@ -174,3 +219,15 @@ def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
     return PlayOutcome(
         replace(state, hands=MappingProxyType(hands), leader=trick.taker, current=(), tricks=tricks, result=result)
     )
+
+
+def playing_after(start: Playing, steps: tuple[CardPlayed, ...]) -> Playing:
+    """The state a stored log of played cards leads to; a log the rules refuse is corrupt and raises."""
+    state = start
+    for place, step in enumerate(steps, start=1):
+        outcome = play_card(state, step.position, step.card)
+        if outcome.refusal is not None:
+            message = f"impossible card log: step {place} refused: {outcome.refusal.value}"
+            raise ValueError(message)
+        state = outcome.state
+    return state
