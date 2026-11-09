@@ -15,14 +15,19 @@
 
     function choose(): void {
         failed = false;
-        length = DEFAULT_LENGTH;
+        setLength(DEFAULT_LENGTH);
         choosing = true;
     }
 
-    function step(by: number): void {
-        length += by;
+    function setLength(next: number): void {
+        if (next === length) return;
+        length = next;
         // Another length is another command, so a retry never sends two requests under one id.
         commandId = crypto.randomUUID();
+    }
+
+    function step(by: number): void {
+        setLength(length + by);
     }
 
     function close(): void {
@@ -123,7 +128,8 @@
                 >
                     <path d="M5 12.5l4.5 4.5L19 7.5" />
                 </svg>
-                {words.openTable}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                {`${words.openTable}`}
             </button>
             <button type="button" class="cancel" disabled={opening} onclick={close}>
                 {words.cancelNewTable}

@@ -366,7 +366,44 @@ def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
 
     expect(person).to_have_url(TABLE_URL)
     answer = person.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(urlsplit(person.url).path)}")
-    assert answer.json()["series"]["game_count"] == attempts[1]["series_length"] == attempts[0]["series_length"] - 3
+    assert (
+        answer.json()["series"]["game_count"]
+        == attempts[1]["series_length"]
+        == attempts[0]["series_length"] - SERIES_LENGTH_STEP
+    )
+    assert attempts[1]["command_id"] != attempts[0]["command_id"]
+
+
+def test_a_sheet_reopened_after_a_lost_answer_at_another_length_opens_a_table_at_the_default_length(
+    open_person: Callable[..., Page],
+    expected_request_failures: list[str],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
+    person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
+    attempts: list[dict[str, Any]] = []
+
+    def lose_the_first_answer(route: Route) -> None:
+        attempts.append(json.loads(route.request.post_data or "{}"))
+        if len(attempts) > 1:
+            route.continue_()
+        else:
+            route.fetch()
+            route.abort()
+
+    person.route(TABLES_ROUTE, lose_the_first_answer)
+    a_sheet(person, e2e_server)
+    person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
+
+    person.get_by_role("button", name=catalog_text("cancelNewTable")).click()
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+
+    expect(person).to_have_url(TABLE_URL)
+    assert attempts[1]["series_length"] == attempts[0]["series_length"] + SERIES_LENGTH_STEP
     assert attempts[1]["command_id"] != attempts[0]["command_id"]
 
 
