@@ -1,4 +1,6 @@
 from dataclasses import replace
+from functools import partial
+from operator import attrgetter
 
 import pytest
 from sqlalchemy import text
@@ -94,6 +96,7 @@ def an_entry(declaration, **numbers):
 
 END_OVER = an_entry(
     Declaration(GameKind.KARO, hand=False, ouvert=False, announcement=Announcement.NONE),
+    matadors=Matadors(mit=True, count=1),
     won=False,
     bid=20,
     game_value=18,
@@ -108,7 +111,7 @@ A_NULL = an_entry(
     bid=23,
     game_value=23,
     settled_value=23,
-    score=73,
+    score=23,
     declarer_points=0,
 )
 OUVERT_HAND = an_entry(
@@ -118,9 +121,9 @@ OUVERT_HAND = an_entry(
     schwarz=True,
     won=True,
     bid=24,
-    game_value=96,
-    settled_value=96,
-    score=146,
+    game_value=110,
+    settled_value=110,
+    score=110,
     declarer_points=120,
 )
 
@@ -162,7 +165,7 @@ def ended(game, last):
 class TestTheThirtiethCard:
     def test_writes_one_list_row_and_leaves_no_row_of_the_hand(self, ended, engine):
         assert len(stored_list_rows(engine, ended.table_id)) == 1
-        assert [rows_of(engine, ended.table_id, name) for name in HAND_TABLES] == [0, 0, 0, 0]
+        assert list(map(partial(rows_of, engine, ended.table_id), HAND_TABLES)) == [0, 0, 0, 0]
 
     def test_the_stored_table_has_no_hand_no_progress_and_one_entry(self, ended):
         record = ended.record
@@ -183,10 +186,10 @@ class TestTheThirtiethCard:
         (row,) = stored_list_rows(engine, ended.table_id)
         entry = ended.record.game_list[0]
 
-        assert (row.seat_1_account, row.seat_2_account, row.seat_3_account) == tuple(
+        assert attrgetter("seat_1_account", "seat_2_account", "seat_3_account")(row) == tuple(
             actor.account_id for actor in SEATED
         )
-        assert (row.ordinal, row.declarer_seat, row.game, row.hand, row.ouvert, row.announcement) == (
+        assert attrgetter("ordinal", "declarer_seat", "game", "hand", "ouvert", "announcement")(row) == (
             1,
             entry.declarer_seat,
             "herz",
@@ -194,9 +197,9 @@ class TestTheThirtiethCard:
             False,
             "none",
         )
-        assert (row.matadors_mit, row.matadors_count) == (entry.matadors.mit, entry.matadors.count)
-        assert (row.schneider, row.schwarz, row.won, row.bid) == (entry.schneider, entry.schwarz, entry.won, 18)
-        assert (row.game_value, row.settled_value, row.score, row.declarer_points) == (
+        assert attrgetter("matadors_mit", "matadors_count")(row) == (entry.matadors.mit, entry.matadors.count)
+        assert attrgetter("schneider", "schwarz", "won", "bid")(row) == (entry.schneider, entry.schwarz, entry.won, 18)
+        assert attrgetter("game_value", "settled_value", "score", "declarer_points")(row) == (
             entry.game_value,
             entry.settled_value,
             entry.score,
@@ -222,7 +225,7 @@ class TestTheList:
         with transactions.begin() as transaction:
             transaction.save_table(replace(record, version=record.version + 1, game_list=(first, second)))
 
-        assert [row.ordinal for row in stored_list_rows(engine, ended.table_id)] == [1, 2]
+        assert list(map(attrgetter("ordinal"), stored_list_rows(engine, ended.table_id))) == [1, 2]
         assert ended.record.game_list == (first, second)
 
     def test_a_list_that_does_not_continue_the_stored_one_raises_and_writes_nothing(self, ended, transactions):
@@ -246,7 +249,7 @@ class TestTheList:
 
         assert ended.record.game_list[1] == entry
         row = stored_list_rows(engine, ended.table_id)[1]
-        assert (row.ordinal, row.bid, row.game_value, row.settled_value, row.score) == (
+        assert attrgetter("ordinal", "bid", "game_value", "settled_value", "score")(row) == (
             2,
             entry.bid,
             entry.game_value,

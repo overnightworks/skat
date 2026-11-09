@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import positions_from
@@ -66,7 +65,15 @@ def seat_of(table: TableRecord, account_id: str) -> Chair | None:
 
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
     chairs = tuple(Chair(seat, occupant) if chair.seat == seat else chair for chair in table.chairs)
-    return replace(table, version=table.version + 1, chairs=chairs)
+    return TableRecord(
+        id=table.id,
+        version=table.version + 1,
+        chairs=chairs,
+        dealer=table.dealer,
+        hand=table.hand,
+        progress=table.progress,
+        game_list=table.game_list,
+    )
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -88,7 +95,15 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
-    return replace(table, version=version, dealer=new_hand.dealer, hand=new_hand.hand, progress=HandProgress())
+    return TableRecord(
+        id=table.id,
+        version=version,
+        chairs=table.chairs,
+        dealer=new_hand.dealer,
+        hand=new_hand.hand,
+        progress=HandProgress(),
+        game_list=table.game_list,
+    )
 
 
 def result_pending(table: TableRecord) -> bool:

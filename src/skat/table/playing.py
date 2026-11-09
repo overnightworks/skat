@@ -6,14 +6,14 @@ from skat.engine.deal import positions_from
 from skat.engine.tricks import CardPlayed, play_card
 from skat.table.game_list import list_entry_of
 from skat.table.hand_state import playing_of
-from skat.table.records import Decision, HandProgress, Refusal
+from skat.table.records import Decision, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
 
 if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
     from skat.engine.tricks import PlayedOut, Playing, Sides
-    from skat.table.records import Actor, TableRecord
+    from skat.table.records import Actor
 
 PLAY_CARD_COMMAND: Final = "play-card"
 
@@ -81,9 +81,11 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
     """The tenth trick ends the hand: its cards and steps go, its entry joins the list, the chairs stay."""
-    return replace(
-        table,
+    return TableRecord(
+        id=table.id,
         version=table.version + 1,
+        chairs=table.chairs,
+        dealer=table.dealer,
         hand=None,
         progress=HandProgress(),
         game_list=(*table.game_list, list_entry_of(played, table)),

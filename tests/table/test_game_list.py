@@ -1,5 +1,6 @@
 from dataclasses import replace
 from itertools import combinations_with_replacement
+from operator import attrgetter
 
 import pytest
 
@@ -161,13 +162,13 @@ class TestTheEntrysGame:
     def test_schneider_and_schwarz_are_the_levels_the_valuation_counted(self, game, levels):
         entry = entry_of(game)
 
-        assert (entry.schneider, entry.schwarz) == levels
+        assert attrgetter("schneider", "schwarz")(entry) == levels
 
     def test_hand_ouvert_and_the_announcement_read_back_and_each_level_counts_once(self):
         entry = entry_of(played(KREUZ, MIT_TWO, (12,) * 10, hand=True, ouvert=True, announcement=SCHWARZ))
 
         assert entry.declaration == Declaration(KREUZ, hand=True, ouvert=True, announcement=SCHWARZ)
-        assert (entry.schneider, entry.schwarz) == (True, True)
+        assert attrgetter("schneider", "schwarz")(entry) == (True, True)
         assert entry.game_value == (2 + 7) * 12
 
     def test_a_null_game_has_no_matadors(self):
@@ -201,15 +202,15 @@ class TestTheResult:
 
         result = result_view_of(pending_result(won, lost))
 
-        assert (result.ordinal, result.won, result.score) == (2, False, -72)
+        assert attrgetter("ordinal", "won", "score")(result) == (2, False, -72)
 
     def test_names_the_game_its_levels_and_both_sides_points(self):
         result = result_view_of(pending_result(played(KARO, MIT_ONE, (30, 30, 10), bid=20)))
 
         assert result.declaration == Declaration(KARO, hand=False, ouvert=False, announcement=NONE)
-        assert (result.schneider, result.schwarz, result.matadors) == (False, False, Matadors(mit=True, count=1))
-        assert (result.overbid, result.bid, result.game_value, result.settled_value) == (True, 20, 18, 27)
-        assert (result.declarer_points, result.opponents_points) == (70, 50)
+        assert attrgetter("schneider", "schwarz", "matadors")(result) == (False, False, Matadors(mit=True, count=1))
+        assert attrgetter("overbid", "bid", "game_value", "settled_value")(result) == (True, 20, 18, 27)
+        assert attrgetter("declarer_points", "opponents_points")(result) == (70, 50)
 
     @pytest.mark.parametrize(
         "changed",
