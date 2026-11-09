@@ -10,12 +10,15 @@ from skat.engine.games import GameKind
 from skat.engine.giving_up import give_up, throw_down
 from skat.engine.kontra import (
     Doubling,
+    KontraDeadline,
     KontraOptions,
     KontraReach,
     KontraRefusal,
     KontraSayer,
     Word,
+    awaits_words,
     bidders_of,
+    decline,
     doubled_reckoning,
     say,
 )
@@ -37,6 +40,8 @@ OVER, BEYOND_REACH, NOT_YOUR_WORD, DID_NOT_BID, TOO_LATE = (
     KontraRefusal.DID_NOT_BID,
     KontraRefusal.TOO_LATE,
 )
+OWN_CARD, FIRST_CARD = KontraDeadline.OWN_CARD, KontraDeadline.FIRST_CARD
+DECLINE = None
 CARD = "a card is played by whoever is on turn"
 TENTH_TRICK = "the game is played to its tenth trick"
 GIVE_UP = "the declarer gives up"
@@ -98,8 +103,8 @@ def said_in(
     return doubling, refusal
 
 
-def options_of(sayer: KontraSayer, reach: KontraReach) -> KontraOptions:
-    return KontraOptions(sayer=sayer, reach=reach)
+def options_of(sayer: KontraSayer, reach: KontraReach, deadline: KontraDeadline = OWN_CARD) -> KontraOptions:
+    return KontraOptions(sayer=sayer, reach=reach, deadline=deadline)
 
 
 @pytest.mark.parametrize(
@@ -316,6 +321,251 @@ def test_a_word_is_accepted_or_refused_as_the_table_rules_say(
     else:
         assert refusal is None
         assert doubling.factor == expected
+
+
+def answered_in(
+    options: KontraOptions, steps: tuple[AuctionStep, ...], events: tuple[object, ...]
+) -> tuple[Doubling, KontraRefusal | None, bool]:
+    """The doubling, the refusal of the last event and whether the lead waits; every event but the last is accepted."""
+    state, doubling, refusal = playing_with(MIDDLEHAND), Doubling.start(), None
+    bidders = bidders_of(steps)
+    for event in events:
+        assert refusal is None
+        if isinstance(event, str):
+            state = advanced(state, event)
+            continue
+        position, word = event
+        if word is DECLINE:
+            outcome = decline(doubling, options, state, bidders, position)
+        else:
+            outcome = say(doubling, options, state, bidders, position, word)
+        doubling, refusal = outcome.doubling, outcome.refusal
+    return doubling, refusal, awaits_words(doubling, options, bidders, MIDDLEHAND)
+
+
+@pytest.mark.parametrize(
+    ("sayer", "reach", "deadline", "steps", "events", "expected", "waits"),
+    [
+        pytest.param(ANY, KONTRA_RE, FIRST_CARD, MIDDLEHAND_DECLARES, (), 1, True, id="1-no-word-yet"),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, DECLINE), (REARHAND, DECLINE)),
+            1,
+            False,
+            id="2-both-decline",
+        ),
+        pytest.param(
+            BIDDERS,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, DECLINE),),
+            1,
+            False,
+            id="3-the-one-who-did-not-bid-is-not-awaited",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((REARHAND, DECLINE), (FOREHAND, KONTRA)),
+            2,
+            True,
+            id="4-kontra-after-a-decline-awaits-the-declarer",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE)),
+            2,
+            True,
+            id="4-decline-after-a-kontra-awaits-the-declarer",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE), (MIDDLEHAND, RE)),
+            4,
+            False,
+            id="5-re",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE), (MIDDLEHAND, DECLINE)),
+            2,
+            False,
+            id="6-declarer-declines",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            (CARD, (FOREHAND, KONTRA)),
+            TOO_LATE,
+            None,
+            id="7-kontra-after-a-card",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            (CARD, (FOREHAND, DECLINE)),
+            TOO_LATE,
+            None,
+            id="7-decline-after-a-card",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), CARD, (MIDDLEHAND, RE)),
+            TOO_LATE,
+            None,
+            id="7-re-after-a-card",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, DECLINE), (FOREHAND, DECLINE)),
+            NOT_YOUR_WORD,
+            None,
+            id="8-second-decline",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, DECLINE), (FOREHAND, KONTRA)),
+            NOT_YOUR_WORD,
+            None,
+            id="8-kontra-after-a-decline",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((MIDDLEHAND, DECLINE),),
+            NOT_YOUR_WORD,
+            None,
+            id="8-declarer-without-a-kontra",
+        ),
+        pytest.param(
+            BIDDERS,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((REARHAND, DECLINE),),
+            DID_NOT_BID,
+            None,
+            id="8-decline-by-one-who-did-not-bid",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            (TENTH_TRICK, (FOREHAND, DECLINE)),
+            OVER,
+            None,
+            id="15-decline-after-the-game-is-over",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            OWN_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, DECLINE),),
+            NOT_YOUR_WORD,
+            None,
+            id="9-no-decline-before-the-own-card",
+        ),
+        pytest.param(ANY, KONTRA_RE, OWN_CARD, MIDDLEHAND_DECLARES, (), 1, False, id="9-play-never-waits"),
+        pytest.param(
+            ANY,
+            UP_TO_HIRSCH,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE), (MIDDLEHAND, RE)),
+            4,
+            True,
+            id="10-supra-is-awaited",
+        ),
+        pytest.param(
+            ANY,
+            UP_TO_HIRSCH,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE), (MIDDLEHAND, RE), (FOREHAND, DECLINE)),
+            4,
+            False,
+            id="10-supra-declined",
+        ),
+        pytest.param(
+            ANY,
+            UP_TO_HIRSCH,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE), (MIDDLEHAND, RE), (FOREHAND, SUPRA)),
+            8,
+            True,
+            id="10-hirsch-is-awaited",
+        ),
+        pytest.param(
+            ANY,
+            UP_TO_HIRSCH,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE), (MIDDLEHAND, RE), (FOREHAND, SUPRA), (MIDDLEHAND, DECLINE)),
+            8,
+            False,
+            id="10-hirsch-declined",
+        ),
+        pytest.param(
+            ANY,
+            UP_TO_HIRSCH,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (REARHAND, DECLINE), (MIDDLEHAND, RE), (FOREHAND, SUPRA), (MIDDLEHAND, HIRSCH)),
+            16,
+            False,
+            id="10-hirsch",
+        ),
+    ],
+)
+def test_play_waits_for_each_answer_when_the_words_end_with_the_first_card(
+    sayer: KontraSayer,
+    reach: KontraReach,
+    deadline: KontraDeadline,
+    steps: tuple[AuctionStep, ...],
+    events: tuple[object, ...],
+    expected: KontraRefusal | int,
+    waits: bool | None,
+) -> None:
+    doubling, refusal, awaiting = answered_in(options_of(sayer, reach, deadline), steps, events)
+    if isinstance(expected, KontraRefusal):
+        assert refusal is expected
+        return
+    assert refusal is None
+    assert doubling.factor == expected
+    assert awaiting is waits
 
 
 def test_a_refused_word_leaves_the_doubling_as_it_was() -> None:
