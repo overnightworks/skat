@@ -2,12 +2,23 @@ import re
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 import pytest
-from playwright.sync_api import FrameLocator, Locator, Page, expect
+from playwright.sync_api import FrameLocator, Locator, Page, Route, expect
 
-from skat.web.constants import AUTH_START_PATH, CALL_SIGN_IN_PATH, LOGIN_PATH, RETURN_PATH_QUERY_NAME
+from skat.web.constants import (
+    ACCOUNT_PATH,
+    APP_ASSET_PATH,
+    AUTH_START_PATH,
+    CALL_MODE,
+    CALL_SIGN_IN_PATH,
+    IMMUTABLE_ASSET_DIRECTORY,
+    LOGIN_PATH,
+    MODE_QUERY_NAME,
+    RETURN_PATH_QUERY_NAME,
+    SIGNED_IN_AGAIN_QUERY_NAME,
+)
 from tests.e2e.support.browser import LEGAL_LINKS, LEGAL_ORIGIN, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
@@ -24,6 +35,8 @@ from tests.e2e.support.call_frame import (
     table_url,
 )
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, SMALL_PHONE, WIDTHS, playwright_cookie
+from tests.e2e.support.sessions import end_sessions_of
+from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
 from tests.support.signed_in import seed_member
 
@@ -49,6 +62,13 @@ FRAMED_STYLE = "position:fixed;inset:0;width:100%;height:100%;border:0"
 # The sandboxed frame that cannot open a window.
 WINDOW_BLOCKED = "window.open = () => null;"
 FITS_ITS_WIDTH = "page => page.scrollWidth <= page.clientWidth"
+# The build's module files, which a test withholds so that a page loads without its script.
+MODULE_FILES = f"**{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/**"
+MODULE_FETCH_FAILED = "Failed to fetch dynamically imported module: "
+# Virtual time well past any interval at which the page asks again whether the person signed in.
+LONGER_THAN_ANY_RE_CHECK_MILLISECONDS = 60_000
+# The legal origin refuses to be framed, as hallucinai.de does.
+NOT_FRAMEABLE = {"content-security-policy": "frame-ancestors 'none'"}
 
 
 @dataclass(frozen=True)
@@ -56,6 +76,12 @@ class FramedTable:
     visitor: Page
     path: str
     session_cookie: str
+    requests: list[str]
+    release_script: Callable[[], None]
+
+    @property
+    def sign_in_starts(self) -> list[str]:
+        return [url for url in self.requests if AUTH_START_PATH in url]
 
     @property
     def frame(self) -> FrameLocator:
@@ -71,6 +97,15 @@ class FramedTable:
 
     def has_session(self) -> bool:
         return any(cookie["name"] == self.session_cookie for cookie in self.visitor.context.cookies())
+
+
+def abort_module_file(route: Route) -> None:
+    route.abort()
+
+
+def wait_for_script(framed: FramedTable) -> None:
+    """The link carries the return address only once the page's script has run, so a tap before it is no window."""
+    expect(framed.log_in).to_have_attribute("href", re.compile(re.escape(RETURN_PATH_QUERY_NAME)))
 
 
 @pytest.fixture(scope="module")
@@ -90,21 +125,49 @@ def frame_a_table(
     expected_request_failures.append(TEST_ISSUER)
     with ExitStack() as stack:
 
-        def frame(*, init_script: str | None = None, **device_options: Any) -> FramedTable:
+        def frame(
+            *,
+            init_script: str | None = None,
+            username: str | None = None,
+            console: bool = True,
+            script_withheld: bool = False,
+            clock: bool = False,
+            **device_options: Any,
+        ) -> FramedTable:
+            """A signed-out person, or `username` signed in; `script_withheld` loads no page script,
+            `clock` lets a test run virtual time."""
             path = new_table(open_person, signing_server)
             visitor = record_page_errors(
-                open_person(signed_in=False, server=signing_server, **device_options),
+                open_person(signed_in=username is not None, username=username, server=signing_server, **device_options),
                 page_errors,
+                console=console,
                 signed_out_account_check_origin=signing_server.base_url,
             )
+            requests: list[str] = []
+            visitor.on("request", lambda request: requests.append(request.url))
             if init_script is not None:
                 visitor.add_init_script(init_script)
             body = page_holding(table_url(signing_server, path), FRAMED_STYLE)
             stack.enter_context(served_from(CALL_ORIGIN, visitor, browser_coverage, body))
+            if clock:
+                visitor.clock.install()
+            if script_withheld:
+                expected_request_failures.append(
+                    f"{signing_server.base_url}{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/"
+                )
+                visitor.context.route(MODULE_FILES, abort_module_file)
             visitor.goto(f"{CALL_ORIGIN}/")
-            framed = FramedTable(visitor, path, signing_server.config.session_cookie_name)
-            # The link carries the return address only once the page's script has run, so a tap before it is no window.
-            expect(framed.log_in).to_have_attribute("href", re.compile(re.escape(RETURN_PATH_QUERY_NAME)))
+            framed = FramedTable(
+                visitor,
+                path,
+                signing_server.config.session_cookie_name,
+                requests,
+                lambda: visitor.context.unroute(MODULE_FILES, abort_module_file),
+            )
+            if username is not None:
+                expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+            elif not script_withheld:
+                wait_for_script(framed)
             return framed
 
         yield frame
@@ -297,3 +360,173 @@ def test_a_legal_link_of_the_table_opens_the_central_page_in_a_new_tab_and_the_t
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
         if framed:
             assert visitor.frames[1].url == table_url(signing_server, path)
+
+
+def lose_the_session(
+    framed: FramedTable, open_person: Callable[..., Page], server: RunningServer, username: str
+) -> None:
+    """Skat ends the person's session; another person's change at the table is the disclosure it no longer gets."""
+    end_sessions_of(server, username)
+    changer = open_person(server=server)
+    changer.goto(f"{server.base_url}{framed.path}")
+
+
+def expect_the_call_sign_in_face(framed: FramedTable) -> None:
+    """The reload led the frame to the call sign-in page with the call-mode table as its return address."""
+    expect(framed.log_in).to_be_visible(timeout=WAIT_MILLISECONDS)
+    address = urlsplit(framed.frame_address)
+    assert address.path == CALL_SIGN_IN_PATH
+    assert parse_qs(address.query) == {RETURN_PATH_QUERY_NAME: [f"{framed.path}?{MODE_QUERY_NAME}={CALL_MODE}"]}
+    wait_for_script(framed)
+    assert framed.sign_in_starts == []
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_framed_table_whose_session_ended_shows_the_sign_in_face_and_one_tap_brings_the_table_back(
+    frame_a_table: Callable[..., FramedTable],
+    open_person: Callable[..., Page],
+    signing_server: RunningServer,
+    form_factor: dict[str, Any],
+) -> None:
+    framed = frame_a_table(username="gina", console=False, **form_factor)
+    sign_in_at_issuer(framed.visitor, signing_server, username="gina")
+
+    lose_the_session(framed, open_person, signing_server, "gina")
+
+    expect_the_call_sign_in_face(framed)
+    expect(framed.frame.locator(CHAIR)).to_have_count(0)
+    window = start_sign_in(framed)
+    expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS, timeout=WAIT_MILLISECONDS)
+    assert window.is_closed()
+    assert framed.frame_address == table_url(signing_server, framed.path)
+    assert framed.has_session()
+    assert framed.sign_in_starts == []
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_framed_table_whose_issuer_session_ended_too_signs_in_again_in_the_window_on_the_second_tap(
+    frame_a_table: Callable[..., FramedTable],
+    open_person: Callable[..., Page],
+    signing_server: RunningServer,
+    form_factor: dict[str, Any],
+) -> None:
+    framed = frame_a_table(username="hugo", console=False, **form_factor)
+    lose_the_session(framed, open_person, signing_server, "hugo")
+    expect_the_call_sign_in_face(framed)
+
+    window = start_sign_in(framed)
+    expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
+    expect(framed.frame.get_by_role("link", name=OPEN_IN_TAB)).to_have_attribute("href", framed.path)
+    window.close()
+
+    expect(framed.frame.get_by_text(UNFINISHED_NOTICE)).to_be_visible(timeout=WAIT_MILLISECONDS)
+    assert not any(row.user_id == "subject-hugo" for row in signing_server.stores.sessions.snapshot().rows.values())
+    sign_in_at_issuer(framed.visitor, signing_server, username="hugo")
+    start_sign_in(framed)
+
+    expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS, timeout=WAIT_MILLISECONDS)
+    assert framed.frame_address == table_url(signing_server, framed.path)
+    assert framed.sign_in_starts == []
+
+
+def test_the_face_of_a_framed_table_whose_session_ended_fits_the_frame_of_the_smallest_phone(
+    frame_a_table: Callable[..., FramedTable], open_person: Callable[..., Page], signing_server: RunningServer
+) -> None:
+    framed = frame_a_table(username="ines", console=False, **SMALL_PHONE)
+
+    lose_the_session(framed, open_person, signing_server, "ines")
+
+    expect_the_call_sign_in_face(framed)
+    assert framed.frame.locator("html").evaluate(FITS_ITS_WIDTH)
+
+
+@pytest.mark.parametrize("link_name", LEGAL_LINKS)
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_legal_link_of_the_framed_sign_in_face_opens_in_a_new_tab_and_starts_no_account_check(
+    frame_a_table: Callable[..., FramedTable], link_name: str, form_factor: dict[str, Any]
+) -> None:
+    framed = frame_a_table(clock=True, **form_factor)
+    framed.visitor.context.route(
+        f"{LEGAL_ORIGIN}/**",
+        lambda route: route.fulfill(status=200, content_type="text/html", headers=NOT_FRAMEABLE, body="legal"),
+    )
+    face_address = framed.frame_address
+    framed.requests.clear()
+
+    with framed.visitor.context.expect_page() as opened:
+        framed.frame.get_by_role("link", name=link_name, exact=True).click()
+
+    assert opened.value.url == LEGAL_LINKS[link_name]
+    assert framed.frame_address == face_address
+    expect(framed.log_in).to_be_visible()
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+    assert not any(ACCOUNT_PATH in url for url in framed.requests)
+    assert not any(url.startswith(LEGAL_ORIGIN) for url in framed.requests)
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_tap_on_log_in_before_the_script_has_run_reloads_the_face_and_a_legal_link_stays_out_of_the_frame(
+    frame_a_table: Callable[..., FramedTable],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    framed = frame_a_table(script_withheld=True, console=False, **form_factor)
+    framed.visitor.context.route(
+        f"{LEGAL_ORIGIN}/**",
+        lambda route: route.fulfill(status=200, content_type="text/html", headers=NOT_FRAMEABLE, body="legal"),
+    )
+    expect(framed.log_in).to_be_visible()
+    face_address = framed.frame_address
+    assert RETURN_PATH_QUERY_NAME in face_address
+
+    with framed.visitor.context.expect_page() as opened:
+        framed.frame.get_by_role("link", name="Datenschutz", exact=True).click()
+    assert opened.value.url == LEGAL_LINKS["Datenschutz"]
+    assert framed.frame_address == face_address
+
+    with framed.visitor.expect_event("framenavigated", lambda frame: frame.parent_frame is not None):
+        framed.log_in.click()
+    assert framed.frame_address == face_address
+    expect(framed.log_in).to_be_visible()
+
+    framed.release_script()
+    with framed.visitor.expect_event("framenavigated", lambda frame: frame.parent_frame is not None):
+        framed.log_in.click()
+    wait_for_script(framed)
+    assert framed.frame_address == face_address
+
+    start_sign_in(framed)
+
+    expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
+    assert framed.sign_in_starts == []
+    assert not any(url.startswith(LEGAL_ORIGIN) for url in framed.requests)
+    # The only script errors are the withheld module files that the test named.
+    page_errors[:] = [error for error in page_errors if not error.startswith(MODULE_FETCH_FAILED)]
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_top_level_call_mode_table_whose_session_ended_signs_in_again_through_the_issuer_without_a_click(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    path = open_new_table(open_person(username="jana", **form_factor), e2e_server)
+    ben = record_page_errors(open_person(username="ben", **form_factor), page_errors, console=False)
+    sign_in_at_issuer(ben, e2e_server, username="ben")
+    sign_in_starts: list[str] = []
+    ben.on("request", lambda request: sign_in_starts.append(request.url) if AUTH_START_PATH in request.url else None)
+    ben.goto(table_url(e2e_server, path))
+    expect(ben.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    ben.evaluate("window.sameDocument = true")
+    end_sessions_of(e2e_server, "ben")
+
+    open_person(**form_factor).goto(f"{e2e_server.base_url}{path}")
+
+    ben.wait_for_function("() => window.sameDocument !== true")
+    expect(ben).to_have_url(f"{e2e_server.base_url}{path}")
+    expect(ben.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    assert [urlsplit(url).path for url in sign_in_starts] == [AUTH_START_PATH]
+    return_path = f"{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1"
+    assert parse_qs(urlsplit(sign_in_starts[0]).query) == {RETURN_PATH_QUERY_NAME: [return_path]}
+    assert CALL_SIGN_IN_PATH not in ben.url
