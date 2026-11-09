@@ -186,10 +186,7 @@ def create_app(
         # A table already past its wait has ended before the first request; every other waits what is left of it.
         occupied = await run_in_threadpool(tables.occupied_chairs)
         presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
-        for table_id, seconds_left in (
-            await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
-        ).items():
-            presence.watch_empty_table(table_id, seconds_left)
+        presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
         try:
             async with serving.state.mcp_front.running():
                 yield

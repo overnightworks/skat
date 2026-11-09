@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Final, Protocol
 import structlog
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Generator, Iterable
+    from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping
     from contextlib import AbstractContextManager
 
 CHAIR_RELEASE_RETRY_SECONDS: Final = 15
@@ -318,6 +318,11 @@ class Presence:
         """
         if table_id not in self._subscriptions and table_id not in self._empty_waits:
             self._start_empty_wait(table_id, self._empty_table.seconds if seconds_left is None else seconds_left)
+
+    def watch_empty_tables(self, seconds_left_by_table: Mapping[str, float]) -> None:
+        """Start the wait of each live table found at the server's start with what is left of it."""
+        for table_id, seconds_left in seconds_left_by_table.items():
+            self.watch_empty_table(table_id, seconds_left)
 
     def deal_soon(self, table_id: str) -> None:
         """Start the pause before a table's next deal; a request during a pending one neither cuts nor stretches it."""
