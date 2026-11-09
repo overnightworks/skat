@@ -57,6 +57,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
     ben = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
     watch(ben, e2e_server, path)
     sit_in(ben, 2)
+    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text("ben")
     api_path = f"{TABLES_PATH}/{table_id_of(path)}"
     sessions = {
         1: AddressedSession(e2e_server, member_of(anna)),
@@ -64,7 +65,9 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
         AGENT_SEAT: AddressedSession(e2e_server, seed_member(e2e_server.stores, e2e_server.config, account=account)),
     }
     # Sitting is no tool yet, so the agent sits like a person with the cookie session of its account.
-    sessions[AGENT_SEAT].post(f"{api_path}{TABLE_SIT_SUFFIX}", {"command_id": next_command_id(), "seat": AGENT_SEAT})
+    sit_body = {"command_id": next_command_id(), "seat": AGENT_SEAT}
+    sat = json.loads(sessions[AGENT_SEAT].post(f"{api_path}{TABLE_SIT_SUFFIX}", sit_body))
+    assert "chairs" in sat
     chairs = json.loads(sessions[1].get(api_path))["chairs"]
     seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
     step(sessions[seat_at["middlehand"]], api_path, TABLE_AUCTION_SUFFIX, action="bid", value=VALID_BIDS[-1])
