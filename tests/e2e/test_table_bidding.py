@@ -1,13 +1,14 @@
+import json
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from skat.table.auction import AuctionAction
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
@@ -24,6 +25,8 @@ SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "ha
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 BIDDING = catalog_text("bidding")
 HOLD = catalog_text("hold")
+COMMAND_FAILED = catalog_text("commandFailed")
+WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
 PASS = catalog_text("pass")
 LOWEST_BID = 18
 SKAT_CARD = ".skat-card"
@@ -32,6 +35,18 @@ HELD = ".ladder .held"
 LIT = ".ladder .now"
 HIGHER = ".ladder .higher button"
 MAIN = ".bid-buttons .button-stage"
+STRIP = ".ladder .higher"
+TURN_CHAIR = ".chair.mine.turn"
+PLAQUE = ".plaque"
+TOP_BID = "264"
+FIRST_HIGHER_BID = "20"
+HIGHER_BID_TAPPED = "30"
+BID_TO_ANSWER = 20
+NOT_OBSCURED_BY_THE_STRIP = """(button) => {
+    const strip = button.closest('.higher').getBoundingClientRect();
+    const box = button.getBoundingClientRect();
+    return box.left >= strip.left - 1 && box.right <= strip.right + 1;
+}"""
 
 
 @dataclass(frozen=True)
@@ -93,16 +108,19 @@ def step(person: Page, table: Table, action: AuctionAction, value: int | None = 
     if value is not None:
         payload["value"] = value
     response = person.request.post(
-        f"{table.server.base_url}{TABLES_PATH}/{table.id}{TABLE_AUCTION_SUFFIX}", data=payload
+        f"{table.server.base_url}{TABLES_PATH}/{table.id}{TABLE_AUCTION_SUFFIX}",
+        data=payload,
+        headers={"Origin": table.server.base_url},
     )
     assert response.ok, response.text()
 
 
-def word_of(person: Page, table: Table, viewer: Page) -> dict[str, Any] | None:
-    """`person`'s last word in the auction, read through `viewer`'s answer."""
-    answer = answer_of(viewer, table)
-    seat = next(chair["seat"] for chair in answer_of(person, table)["chairs"] if chair["is_mine"])
-    return next((word for word in answer["hand"]["auction"]["words"] if word["seat"] == seat), None)
+def own_word(person: Page, table: Table) -> tuple[str, int | None]:
+    """`person`'s last word in the auction, from their own answer."""
+    answer = answer_of(person, table)
+    seat = next(chair["seat"] for chair in answer["chairs"] if chair["is_mine"])
+    word = next(word for word in answer["hand"]["auction"]["words"] if word["seat"] == seat)
+    return word["action"], word["value"]
 
 
 def assert_no_controls(person: Page) -> None:
@@ -114,27 +132,261 @@ def assert_page_fits(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
+def assert_the_opening_ladder(person: Page) -> None:
+    expect(person.locator(HELD)).to_have_count(0)
+    expect(person.locator(LIT)).to_have_text(str(LOWEST_BID))
+    expect(person.locator(MAIN)).to_have_text(str(LOWEST_BID))
+    expect(person.get_by_role("button", name=PASS)).to_be_visible()
+    expect(person.locator(HIGHER).first).to_have_text(FIRST_HIGHER_BID)
+    expect(person.locator(HIGHER).last).to_have_text(TOP_BID)
+    assert_page_fits(person)
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_middlehand_opens_the_auction_and_the_forehand_answers(
+def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_controls(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
     middlehand = table.middlehand
 
-    expect(middlehand.locator(HELD)).to_have_count(0)
-    expect(middlehand.locator(LIT)).to_have_text(str(LOWEST_BID))
-    expect(middlehand.locator(MAIN)).to_have_text(str(LOWEST_BID))
-    expect(middlehand.get_by_role("button", name=PASS)).to_be_visible()
-    assert middlehand.locator(HIGHER).first.inner_text() == "20"
-    assert middlehand.locator(HIGHER).last.inner_text() == "264"
-    assert_page_fits(middlehand)
+    assert_the_opening_ladder(middlehand)
+    expect(middlehand.locator(TURN_CHAIR)).to_have_count(1)
+    for other in (table.forehand, table.rearhand, table.watcher):
+        expect(other.locator(PLAQUE)).to_have_text(BIDDING)
+        assert_no_controls(other)
+        expect(other.locator(TURN_CHAIR)).to_have_count(0)
+
+    middlehand.reload()
+    assert_the_opening_ladder(middlehand)
 
     middlehand.locator(MAIN).click()
 
     expect(table.forehand.get_by_role("button", name=HOLD)).to_be_visible()
     assert_no_controls(middlehand)
-    assert word_of(middlehand, table, table.watcher) == {
-        "seat": word_of(middlehand, table, table.watcher)["seat"],
-        "action": AuctionAction.BID.value,
-        "value": LOWEST_BID,
-    }
+    assert own_word(middlehand, table) == (AuctionAction.BID.value, LOWEST_BID)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_forehand_answers_a_bid_and_the_bidder_climbs_on(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    step(table.middlehand, table, AuctionAction.BID, BID_TO_ANSWER)
+    forehand = table.forehand
+
+    expect(forehand.locator(LIT)).to_have_text(str(BID_TO_ANSWER))
+    expect(forehand.locator(HELD)).to_have_count(0)
+    assert forehand.locator(".ladder > span").all_inner_texts()[1:] == ["22", "23", "24"]
+    expect(forehand.locator(HIGHER)).to_have_count(0)
+    expect(forehand.locator(MAIN)).to_have_text(HOLD)
+    expect(forehand.get_by_role("button", name=PASS)).to_be_visible()
+    assert_page_fits(forehand)
+
+    forehand.reload()
+    expect(forehand.locator(MAIN)).to_have_text(HOLD)
+
+    forehand.locator(MAIN).click()
+
+    expect(table.middlehand.locator(LIT)).to_have_text("22")
+    expect(table.middlehand.locator(HELD)).to_have_text(str(BID_TO_ANSWER))
+    assert_no_controls(forehand)
+    assert own_word(forehand, table) == (AuctionAction.HOLD.value, BID_TO_ANSWER)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_tap_on_a_higher_value_bids_that_value_at_once(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+
+    table.middlehand.locator(STRIP).get_by_role("button", name=HIGHER_BID_TAPPED, exact=True).click()
+
+    expect(table.forehand.locator(LIT)).to_have_text(HIGHER_BID_TAPPED)
+    assert own_word(table.middlehand, table) == (AuctionAction.BID.value, int(HIGHER_BID_TAPPED))
+
+
+def test_a_mouse_scrolls_the_strip_to_the_top_value_and_clicks_it(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, DESKTOP)
+    middlehand = table.middlehand
+    strip = middlehand.locator(STRIP)
+    assert strip.evaluate("(strip) => getComputedStyle(strip).scrollbarWidth") == "thin"
+    assert strip.evaluate("(strip) => strip.scrollLeft") == 0
+
+    box = strip.bounding_box()
+    middlehand.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    middlehand.mouse.wheel(10_000, 0)
+    middlehand.wait_for_function(
+        "() => { const strip = document.querySelector('.higher');"
+        " return strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1; }"
+    )
+    top = middlehand.locator(HIGHER).last
+    expect(top).to_have_text(TOP_BID)
+    place = top.bounding_box()
+    middlehand.mouse.click(place["x"] + place["width"] / 2, place["y"] + place["height"] / 2)
+
+    expect(table.forehand.locator(LIT)).to_have_text(TOP_BID)
+    assert own_word(middlehand, table) == (AuctionAction.BID.value, int(TOP_BID))
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_keyboard_walks_the_strip_and_enter_bids_the_focused_value(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    middlehand = table.middlehand
+    values = middlehand.locator(HIGHER)
+    expect(values.first).to_be_visible()
+    last_index = values.count() - 1
+
+    values.first.focus()
+    for index in range(last_index + 1):
+        expect(values.nth(index)).to_be_focused()
+        assert values.nth(index).evaluate(NOT_OBSCURED_BY_THE_STRIP) is True
+        if index < last_index:
+            middlehand.keyboard.press("Tab")
+    middlehand.keyboard.press("Enter")
+
+    expect(table.forehand.locator(LIT)).to_have_text(TOP_BID)
+    assert own_word(middlehand, table) == (AuctionAction.BID.value, int(TOP_BID))
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize("awaiting", ["bid", "answer", "play"])
+def test_a_tap_on_weg_counts_at_once_at_any_own_turn(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    awaiting: str,
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    if awaiting == "bid":
+        tapper = table.middlehand
+    elif awaiting == "answer":
+        step(table.middlehand, table, AuctionAction.BID, LOWEST_BID)
+        tapper = table.forehand
+    else:
+        step(table.middlehand, table, AuctionAction.PASS)
+        step(table.rearhand, table, AuctionAction.PASS)
+        tapper = table.forehand
+
+    tapper.get_by_role("button", name=PASS).click()
+
+    assert_no_controls(tapper)
+    if awaiting == "play":
+        assert answer_of(tapper, table)["hand"] is None
+        assert answer_of(tapper, table)["passed_in"] is not None
+    else:
+        assert own_word(tapper, table) == (AuctionAction.PASS.value, None)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_forehand_plays_at_18_after_two_passes(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    step(table.middlehand, table, AuctionAction.PASS)
+    step(table.rearhand, table, AuctionAction.PASS)
+    forehand = table.forehand
+
+    expect(forehand.locator(LIT)).to_have_text(str(LOWEST_BID))
+    expect(forehand.locator(HELD)).to_have_count(0)
+    assert forehand.locator(".ladder > span").all_inner_texts()[1:] == []
+    expect(forehand.locator(MAIN)).to_have_text(str(LOWEST_BID))
+    assert_page_fits(forehand)
+
+    forehand.locator(MAIN).click()
+
+    assert_no_controls(forehand)
+    assert own_word(forehand, table) == (AuctionAction.PLAY.value, LOWEST_BID)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_at_the_top_of_the_ladder_only_weg_shows(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    step(table.middlehand, table, AuctionAction.BID, int(TOP_BID))
+    step(table.forehand, table, AuctionAction.HOLD)
+    middlehand = table.middlehand
+
+    expect(middlehand.get_by_role("button", name=PASS)).to_be_visible()
+    expect(middlehand.locator(LADDER)).to_have_count(0)
+    expect(middlehand.locator(MAIN)).to_have_count(0)
+    assert_page_fits(middlehand)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_double_tap_takes_exactly_one_step(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    middlehand = table.middlehand
+    steps_sent: list[str] = []
+    middlehand.on(
+        "request",
+        lambda request: (
+            steps_sent.append(request.url)
+            if request.method == "POST" and request.url.endswith(TABLE_AUCTION_SUFFIX)
+            else None
+        ),
+    )
+
+    middlehand.locator(MAIN).dblclick()
+
+    expect(table.forehand.locator(LIT)).to_have_text(str(LOWEST_BID))
+    assert_no_controls(middlehand)
+    assert len(steps_sent) == 1
+    assert own_word(middlehand, table) == (AuctionAction.BID.value, LOWEST_BID)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_step_from_a_stale_page_shows_the_refusal_and_the_stream_corrects_it(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor, console=False)
+    middlehand = table.middlehand
+    stale_view = json.dumps(answer_of(middlehand, table))
+
+    def replay_the_view_before_the_step(route: Route) -> None:
+        route.fulfill(status=200, content_type="text/event-stream", body=f"data: {stale_view}\n\n")
+
+    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
+    middlehand.route(events, replay_the_view_before_the_step)
+    middlehand.reload()
+    expect(middlehand.locator(MAIN)).to_be_visible()
+    step(middlehand, table, AuctionAction.BID, LOWEST_BID)
+
+    # The replayed stream keeps ending, so the stage is dimmed for pointers; the click still has to count.
+    middlehand.locator(MAIN).dispatch_event("click")
+
+    expect(middlehand.get_by_role("status").filter(has_text=COMMAND_FAILED)).to_be_visible()
+    expect(middlehand.locator(MAIN)).to_be_enabled()
+
+    middlehand.unroute(events)
+
+    assert_no_controls(middlehand)
+
+
+def test_no_controls_and_no_auction_word_before_a_hand(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
+) -> None:
+    anna = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
+    open_new_table(anna, e2e_server)
+
+    expect(anna.locator(PLAQUE)).to_have_text(WAITING_FOR_PLAYERS)
+    expect(anna.get_by_text(BIDDING)).to_have_count(0)
+    assert_no_controls(anna)
+
+
+@pytest.mark.parametrize(("motion", "animated"), [("no-preference", True), ("reduce", False)])
+def test_the_own_turn_ring_breathes_and_holds_still_for_reduced_motion(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], motion: str, animated: bool
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, {**DESKTOP, "reduced_motion": motion})
+
+    expect(table.middlehand.locator(TURN_CHAIR)).to_have_count(1)
+    tile = table.middlehand.locator(f"{TURN_CHAIR} .tile")
+    assert ("breathe" in tile.evaluate("(tile) => getComputedStyle(tile).animationName")) is animated
