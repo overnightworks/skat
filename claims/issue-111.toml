@@ -1,0 +1,8 @@
+claim_id = "c97641951ffe438b94da4fdb1a6c11cc"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "86b39ff846e3080ab31b9ab2592d62b210eb623c"
+branch = "claude/issue-111-weiter"
+scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/host/app.py", "src/skat/store/migrations/versions/0008_chair_ready.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/ready.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/presence.py", "src/skat/web/ready.py", "src/skat/web/streams.py", "src/skat/web/tables.py", "tests/e2e/test_table_watch.py", "tests/host/test_app.py", "tests/store/test_migrate.py", "tests/store/test_tables.py", "tests/support/fake_tables.py", "tests/table/test_ready.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/table/test_views.py", "tests/web/conftest.py", "tests/web/support/presence.py", "tests/web/test_presence_next_deal.py", "tests/web/test_ready.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
+opened_commit = "c391f0351ca9df10e7b11cbd8af60149f57ee86e"
+whole_reason = "The mark, the command and the relaxed guard are one rule: a mark without the deal strands the table, and a deal without the marks deals before anyone has read the result."
