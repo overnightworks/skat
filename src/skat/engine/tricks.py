@@ -228,10 +228,10 @@ class Playing(TenTricks):
 
 
 @dataclass(frozen=True)
-class PlayOutcome[State: TenTricks = Playing]:
+class PlayOutcome[GameState: TenTricks = Playing]:
     """The state after a card; a refusal leaves it as it was."""
 
-    state: State
+    state: GameState
     refusal: PlayRefusal | None = None
 
 
@@ -283,13 +283,13 @@ def _game_result(state: Playing, tricks: tuple[CompletedTrick, ...]) -> PlayedOu
     return None
 
 
-def trick_step[State: TenTricks](
-    state: State,
+def trick_step[GameState: TenTricks](
+    state: GameState,
     position: Position,
     card: Card,
     kind: GameKind,
-    result_of: Callable[[State, tuple[CompletedTrick, ...]], object],
-) -> PlayOutcome[State]:
+    result_of: Callable[[GameState, tuple[CompletedTrick, ...]], object],
+) -> PlayOutcome[GameState]:
     """One card of the ten tricks; `result_of` is asked after every completed trick."""
     refusal = _refusal(state, position, card, kind)
     if refusal is not None:
@@ -316,11 +316,11 @@ def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
     return trick_step(state, position, card, _kind_of(state.declared), _game_result)
 
 
-def replay_cards[State: TenTricks](
-    start: State,
+def replay_cards[GameState: TenTricks](
+    start: GameState,
     steps: tuple[CardPlayed, ...],
-    play: Callable[[State, Position, Card], PlayOutcome[State]],
-) -> State:
+    play: Callable[[GameState, Position, Card], PlayOutcome[GameState]],
+) -> GameState:
     """The state a stored log of cards leads to; a log the rules refuse raises."""
     return replay_log(start, steps, lambda state, step: play(state, step.position, step.card), "card")
 

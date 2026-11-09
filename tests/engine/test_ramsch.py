@@ -207,7 +207,7 @@ def test_a_card_after_the_tenth_trick_is_refused_as_over() -> None:
 
 @pytest.mark.parametrize("seed", range(3))
 def test_a_stored_log_of_thirty_cards_replays_to_the_same_state(seed: int) -> None:
-    start = start_ramsch(deal(random.Random(seed)))
+    start = start_ramsch(deal(random.Random(seed)))  # noqa: S311 - seeded shuffle keeps the deal reproducible
     played, steps = play_out(start)
 
     assert len(steps) == 30
