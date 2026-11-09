@@ -7,6 +7,7 @@ from pydantic import Field
 
 from skat.engine.declaration import SKAT_SIZE, Declare, PutBack, TakeSkat
 from skat.table.declaring import DeclaringCommand
+from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import (
     ANNOUNCEMENT_TOKENS,
     COMMAND_RESPONSES,
@@ -83,7 +84,10 @@ def create_declaring_router(tables: TableService, presence: Presence) -> APIRout
     router = APIRouter()
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_DECLARATION_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_DECLARATION_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=excluded(Exclusion.UNION_BODY),
     )
     async def take_declaring_step(
         table_id: str,

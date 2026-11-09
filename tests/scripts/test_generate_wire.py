@@ -8,7 +8,12 @@ from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.table.auction import AuctionAction
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import (
+    TABLE_AUCTION_BID_SUFFIX,
+    TABLE_AUCTION_HOLD_SUFFIX,
+    TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAY_SUFFIX,
+)
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX
@@ -44,7 +49,10 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLES_PATH", TABLES_PATH),
         ("TABLE_PAGE_PREFIX", TABLE_PAGE_PREFIX),
         ("TABLE_DECLARATION_SUFFIX", TABLE_DECLARATION_SUFFIX),
-        ("TABLE_AUCTION_SUFFIX", TABLE_AUCTION_SUFFIX),
+        ("TABLE_AUCTION_BID_SUFFIX", TABLE_AUCTION_BID_SUFFIX),
+        ("TABLE_AUCTION_HOLD_SUFFIX", TABLE_AUCTION_HOLD_SUFFIX),
+        ("TABLE_AUCTION_PASS_SUFFIX", TABLE_AUCTION_PASS_SUFFIX),
+        ("TABLE_AUCTION_PLAY_SUFFIX", TABLE_AUCTION_PLAY_SUFFIX),
         ("TABLE_CARD_SUFFIX", TABLE_CARD_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
     ]:

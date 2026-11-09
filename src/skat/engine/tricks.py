@@ -4,18 +4,20 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import Position
+from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards, trick_winner
+from skat.engine.replay import replay_log
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
     from skat.engine.cards import Card
     from skat.engine.deal import Deal
-    from skat.engine.declaration import Declaring
+    from skat.engine.declaration import Declaration, Declaring
 
 _TRICK_SIZE: Final = 3
-_TRICKS_IN_A_GAME: Final = 10
+TRICKS_IN_A_GAME: Final = 10
 _WINNING_POINTS: Final = 61
 ALL_POINTS: Final = 120
 _SCHNEIDER_POINTS: Final = 30
@@ -40,23 +42,44 @@ class PlayRefusal(StrEnum):
     NOT_IN_HAND = "not-in-hand"
     MUST_FOLLOW = "must-follow"
     ALREADY_WON = "already-won"
+    CLAIM_OUT_OF_REACH = "claim-out-of-reach"
     NEEDS_CONSENT = "needs-consent"
 
 
 class Ending(StrEnum):
-    """How a game ended: with its tenth trick, by the declarer giving it up, or by a side throwing its cards down."""
+    """How a game ended: with its tenth trick, by the declarer giving it up, by a side throwing its cards down,
+    by an opponent giving it up, by the declarer shortening it with every opponent's yes, or at the trick that
+    decided it.
+
+    A trick decides a Null game when its declarer takes it, and a game announced Schwarz when the opponents take it;
+    the game is then `DECIDED` against the declarer. A give-up or a shortening is `DECIDED_WON` when the game was
+    already won for the declarer, `DECIDED` when it was already lost for him. An undecided one is `CONCEDED` after an
+    opponent's give-up, valued by its declaration and bid, and `SHORTENED` after the declarer's shortening, valued by
+    its declaration and the level he demanded.
+    """
 
     PLAYED_OUT = "played-out"
     GIVEN_UP = "given-up"
     DECLARER_THREW_DOWN = "declarer-threw-down"
     OPPONENTS_THREW_DOWN = "opponents-threw-down"
+    DECIDED = "decided"
+    DECIDED_WON = "decided-won"
+    CONCEDED = "conceded"
+    SHORTENED = "shortened"
 
 
-def _kind_of(declared: Declaring) -> GameKind:
+_REST_COUNTS_FOR_DECLARER: Final = frozenset({Ending.OPPONENTS_THREW_DOWN, Ending.DECIDED, Ending.SHORTENED})
+
+
+def _declaration_of(declared: Declaring) -> Declaration:
     if declared.declaration is None:
         message = "play starts after the declaration"
         raise ValueError(message)
-    return declared.declaration.kind
+    return declared.declaration
+
+
+def _kind_of(declared: Declaring) -> GameKind:
+    return _declaration_of(declared).kind
 
 
 @dataclass(frozen=True)
@@ -99,30 +122,37 @@ class PlayedOut:
     """The finished game: the ended declaration state and its completed tricks, the rest derived.
 
     A trick not completed when the game ended counts for the opponents,
-    or for the declarer when the opponents threw down.
+    or for the declarer when the opponents threw down, the game ended decided against him or he shortened it:
+    then the opponents keep only the tricks and points they completed.
+    `claimed` is the level the declarer demanded with his shortening; no other ending reads it.
     """
 
     declared: Declaring
     tricks: tuple[CompletedTrick, ...]
     ending: Ending = Ending.PLAYED_OUT
+    claimed: Announcement = Announcement.NONE
 
     @property
     def tally(self) -> Tally:
         return _tally(self.declared.declarer, self.tricks)
 
     @property
+    def _opponents_keep_only_their_completed_tricks(self) -> bool:
+        return self.ending in _REST_COUNTS_FOR_DECLARER
+
+    @property
     def _tricks_left(self) -> int:
-        return _TRICKS_IN_A_GAME - len(self.tricks)
+        return TRICKS_IN_A_GAME - len(self.tricks)
 
     @property
     def declarer_tricks(self) -> int:
-        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+        if self._opponents_keep_only_their_completed_tricks:
             return self.tally.tricks.declarer + self._tricks_left
         return self.tally.tricks.declarer
 
     @property
     def opponents_tricks(self) -> int:
-        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+        if self._opponents_keep_only_their_completed_tricks:
             return self.tally.tricks.opponents
         return self.tally.tricks.opponents + self._tricks_left
 
@@ -130,9 +160,9 @@ class PlayedOut:
     def declarer_points(self) -> int:
         """The declarer's tricks plus the skat, which counts for the declarer in every game.
 
-        When the opponents threw down, every point outside their completed tricks is his.
+        When the opponents keep only their completed tricks, every point outside them is his.
         """
-        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+        if self._opponents_keep_only_their_completed_tricks:
             return opponents_points_of(self.tally.points.opponents)
         return sum(card.points for card in self.declared.skat) + self.tally.points.declarer
 
@@ -172,23 +202,18 @@ class CardPlayed:
 
 
 @dataclass(frozen=True)
-class Playing:
-    """The ten tricks in progress; the result is empty until the tenth trick is taken or the game ends early."""
+class TenTricks:
+    """The cards, the trick in progress and the tricks taken, whoever plays them; a game narrows the result."""
 
-    declared: Declaring
     hands: Mapping[Position, tuple[Card, ...]]
     leader: Position
     current: tuple[Card, ...]
     tricks: tuple[CompletedTrick, ...]
-    result: PlayedOut | None
+    result: object
 
     @property
     def turn(self) -> Position:
         return _position_after(self.leader, len(self.current))
-
-    @property
-    def tally(self) -> Tally:
-        return _tally(self.declared.declarer, self.tricks)
 
     @property
     def current_plays(self) -> tuple[CardPlayed, ...]:
@@ -197,10 +222,22 @@ class Playing:
 
 
 @dataclass(frozen=True)
-class PlayOutcome:
+class Playing(TenTricks):
+    """The ten tricks in progress; the result is empty until the tenth trick is taken or the game ends early."""
+
+    declared: Declaring
+    result: PlayedOut | None
+
+    @property
+    def tally(self) -> Tally:
+        return _tally(self.declared.declarer, self.tricks)
+
+
+@dataclass(frozen=True)
+class PlayOutcome[GameState: TenTricks = Playing]:
     """The state after a card; a refusal leaves it as it was."""
 
-    state: Playing
+    state: GameState
     refusal: PlayRefusal | None = None
 
 
@@ -217,7 +254,7 @@ def start_play(declared: Declaring, deal: Deal) -> Playing:
     )
 
 
-def _refusal(state: Playing, position: Position, card: Card) -> PlayRefusal | None:
+def _refusal(state: TenTricks, position: Position, card: Card, kind: GameKind) -> PlayRefusal | None:
     if state.result is not None:
         return PlayRefusal.OVER
     if position is not state.turn:
@@ -226,39 +263,73 @@ def _refusal(state: Playing, position: Position, card: Card) -> PlayRefusal | No
     if card not in hand:
         return PlayRefusal.NOT_IN_HAND
     first = state.current[0] if state.current else None
-    if card not in legal_cards(hand, first, _kind_of(state.declared)):
+    if card not in legal_cards(hand, first, kind):
         return PlayRefusal.MUST_FOLLOW
     return None
 
 
-def _complete_trick(state: Playing, cards: tuple[Card, Card, Card]) -> CompletedTrick:
-    taker = _position_after(state.leader, trick_winner(cards, _kind_of(state.declared)))
-    return CompletedTrick(state.leader, cards, taker)
+def _complete_trick(leader: Position, cards: tuple[Card, Card, Card], kind: GameKind) -> CompletedTrick:
+    return CompletedTrick(leader, cards, _position_after(leader, trick_winner(cards, kind)))
 
 
-def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
-    refusal = _refusal(state, position, card)
+def _decides_the_game(declared: Declaring, trick: CompletedTrick) -> bool:
+    """A Null game is decided by the declarer's first trick, a game announced Schwarz by the opponents' first."""
+    taken_by_declarer = trick.taker is declared.declarer
+    if _kind_of(declared) is GameKind.NULL:
+        return taken_by_declarer
+    return not taken_by_declarer and _declaration_of(declared).announcement is Announcement.SCHWARZ
+
+
+def _game_result(state: Playing, tricks: tuple[CompletedTrick, ...]) -> PlayedOut | None:
+    """The tenth trick ends every game; before it only the trick just completed can decide one."""
+    if len(tricks) == TRICKS_IN_A_GAME:
+        return PlayedOut(state.declared, tricks)
+    if _decides_the_game(state.declared, tricks[-1]):
+        return PlayedOut(state.declared, tricks, Ending.DECIDED)
+    return None
+
+
+def trick_step[GameState: TenTricks](
+    state: GameState,
+    position: Position,
+    card: Card,
+    kind: GameKind,
+    result_of: Callable[[GameState, tuple[CompletedTrick, ...]], object],
+) -> PlayOutcome[GameState]:
+    """One card of the ten tricks; `result_of` is asked after every completed trick."""
+    refusal = _refusal(state, position, card, kind)
     if refusal is not None:
         return PlayOutcome(state, refusal)
     hands = {**state.hands, position: tuple(each for each in state.hands[position] if each != card)}
     current = (*state.current, card)
     if len(current) < _TRICK_SIZE:
         return PlayOutcome(replace(state, hands=MappingProxyType(hands), current=current))
-    trick = _complete_trick(state, (current[0], current[1], current[2]))
+    trick = _complete_trick(state.leader, (current[0], current[1], current[2]), kind)
     tricks = (*state.tricks, trick)
-    result = PlayedOut(state.declared, tricks) if len(tricks) == _TRICKS_IN_A_GAME else None
     return PlayOutcome(
-        replace(state, hands=MappingProxyType(hands), leader=trick.taker, current=(), tricks=tricks, result=result)
+        replace(
+            state,
+            hands=MappingProxyType(hands),
+            leader=trick.taker,
+            current=(),
+            tricks=tricks,
+            result=result_of(state, tricks),
+        )
     )
 
 
+def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
+    return trick_step(state, position, card, _kind_of(state.declared), _game_result)
+
+
+def replay_cards[GameState: TenTricks](
+    start: GameState,
+    steps: tuple[CardPlayed, ...],
+    play: Callable[[GameState, Position, Card], PlayOutcome[GameState]],
+) -> GameState:
+    """The state a stored log of cards leads to; a log the rules refuse raises."""
+    return replay_log(start, steps, lambda state, step: play(state, step.position, step.card), "card")
+
+
 def playing_after(start: Playing, steps: tuple[CardPlayed, ...]) -> Playing:
-    """The state a stored log of played cards leads to; a log the rules refuse is corrupt and raises."""
-    state = start
-    for place, step in enumerate(steps, start=1):
-        outcome = play_card(state, step.position, step.card)
-        if outcome.refusal is not None:
-            message = f"impossible card log: step {place} refused: {outcome.refusal.value}"
-            raise ValueError(message)
-        state = outcome.state
-    return state
+    return replay_cards(start, steps, play_card)

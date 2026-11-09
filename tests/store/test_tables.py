@@ -1,7 +1,6 @@
 import itertools
 import random
 import threading
-import time
 from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import replace
 
@@ -17,7 +16,7 @@ from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import TABLES_PATH
 from tests.support.faulty_tables import (
@@ -27,6 +26,7 @@ from tests.support.faulty_tables import (
 )
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.table_rows import wait_until_a_session_waits_for_a_lock
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
 pytestmark = pytest.mark.postgres
@@ -143,21 +143,6 @@ def test_table_ids_are_distinct_128_bit_hex_and_not_sequential(service):
 
 
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
-
-
-def wait_until_a_session_waits_for_a_lock(engine):
-    deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
-    with engine.connect() as watcher:
-        while time.monotonic() < deadline:
-            waiting = watcher.execute(
-                text(
-                    "SELECT count(*) FROM pg_stat_activity"
-                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
-                )
-            ).scalar_one()
-            if waiting:
-                return
-    pytest.fail("no session waited for a lock")
 
 
 def run_in_thread(work):
@@ -737,8 +722,8 @@ def pass_in_by_turn(server, table_id, people):
         server.client.cookies.clear()
         headers = people[view["hand"]["auction"]["turn_seat"] - 1][0]
         answer = server.client.post(
-            url + TABLE_AUCTION_SUFFIX,
-            json={"command_id": f"pass-{step:04d}", "version": view["version"], "action": "pass"},
+            url + TABLE_AUCTION_PASS_SUFFIX,
+            json={"command_id": f"pass-{step:04d}", "version": view["version"]},
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
         server.client.cookies.clear()

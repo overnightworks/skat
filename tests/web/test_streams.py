@@ -8,13 +8,13 @@ import pytest
 from skat.engine.deal import next_dealer
 from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
-from tests.support.idle_presence import idle_hold, idle_next_deal, idle_presence
+from tests.support.idle_presence import idle_empty_table, idle_hold, idle_next_deal, idle_presence
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -170,7 +170,7 @@ class TestTableViews:
                 return subscription
 
         async def scenario():
-            presence = ConnectsAnotherRightAfterRegistering(idle_hold(), idle_next_deal())
+            presence = ConnectsAnotherRightAfterRegistering(idle_hold(), idle_next_deal(), idle_empty_table())
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)
             await stream.aclose()
@@ -624,8 +624,8 @@ class TestHandOnTheStream:
                 next(first_lines)
                 skat.client.cookies.clear()
                 answer = skat.client.post(
-                    f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                    json={"command_id": "step-0001", "version": opened["version"], "action": "bid", "value": BID_VALUE},
+                    f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_BID_SUFFIX}",
+                    json={"command_id": "step-0001", "version": opened["version"], "value": BID_VALUE},
                     headers={"origin": TEST_PUBLIC_ORIGIN, **middlehand_headers},
                 )
                 first_fresh, second_fresh = next(first_lines), next(second_lines)
@@ -633,7 +633,7 @@ class TestHandOnTheStream:
         assert answer.status_code == 200
         fresh = json.loads(first_fresh.removeprefix("data: "))
         assert fresh["version"] == opened["version"] + 1
-        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand", "passed_in", "result"}
+        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand", "passed_in", "result", "ended"}
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1
         assert cards_in_text(first_fresh) == wire_cards(CARDS_BY_SEAT[1])
         assert cards_in_text(second_fresh) == wire_cards(CARDS_BY_SEAT[2])
@@ -650,8 +650,8 @@ class TestHandOnTheStream:
         version = json.loads(self.first_message(skat, middlehand_headers, table_id).removeprefix("data: "))["version"]
         skat.client.cookies.clear()
         skat.client.post(
-            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-            json={"command_id": "step-0001", "version": version, "action": "bid", "value": BID_VALUE},
+            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_BID_SUFFIX}",
+            json={"command_id": "step-0001", "version": version, "value": BID_VALUE},
             headers={"origin": TEST_PUBLIC_ORIGIN, **middlehand_headers},
         )
         skat.client.cookies.clear()
@@ -673,8 +673,8 @@ class TestHandOnTheStream:
             skat.client.cookies.clear()
             for offset, headers in enumerate((middlehand, rearhand, forehand)):
                 answer = skat.client.post(
-                    f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                    json={"command_id": f"step-{offset:04d}", "version": opened["version"] + offset, "action": "pass"},
+                    f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+                    json={"command_id": f"step-{offset:04d}", "version": opened["version"] + offset},
                     headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
                 )
                 assert answer.status_code == 200, answer.text
@@ -693,8 +693,8 @@ class TestHandOnTheStream:
         for offset, (headers, _) in enumerate(people[:3]):
             record = skat.store.tables[table_id]
             skat.client.post(
-                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                json={"command_id": f"step-{offset:04d}", "version": record.version, "action": "pass"},
+                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+                json={"command_id": f"step-{offset:04d}", "version": record.version},
                 headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
             )
         skat.client.cookies.clear()
@@ -707,15 +707,15 @@ class TestHandOnTheStream:
     def test_an_accepted_declaring_step_sends_the_declarer_a_fresh_snapshot_with_the_twelve_cards(self, skat):
         table_id, people = seated_three(skat)
         declarer_headers, rearhand_headers, forehand_headers = people[0][0], people[1][0], people[2][0]
-        for command_id, headers, action, fields in [
-            ("auction-1", declarer_headers, "bid", {"value": 18}),
-            ("auction-2", forehand_headers, "pass", {}),
-            ("auction-3", rearhand_headers, "pass", {}),
+        for command_id, headers, suffix, fields in [
+            ("auction-1", declarer_headers, TABLE_AUCTION_BID_SUFFIX, {"value": 18}),
+            ("auction-2", forehand_headers, TABLE_AUCTION_PASS_SUFFIX, {}),
+            ("auction-3", rearhand_headers, TABLE_AUCTION_PASS_SUFFIX, {}),
         ]:
             version = skat.store.tables[table_id].version
             bid = skat.client.post(
-                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-                json={"command_id": command_id, "version": version, "action": action, **fields},
+                f"{TABLES_PATH}/{table_id}{suffix}",
+                json={"command_id": command_id, "version": version, **fields},
                 headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
             )
             assert bid.status_code == 200, bid.text

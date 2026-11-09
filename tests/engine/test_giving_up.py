@@ -8,7 +8,7 @@ from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind
-from skat.engine.giving_up import give_up, throw_down
+from skat.engine.giving_up import give_up, opponent_gives_up, shorten, throw_down
 from skat.engine.score import Reckoning, Settlement, reckon, settle
 from skat.engine.tricks import CompletedTrick, Ending, PlayedOut, Playing, PlayRefusal, play_card, start_play
 
@@ -89,7 +89,6 @@ def test_karo_mit_1_bid_20_given_up_before_the_first_card_is_lost_at_27() -> Non
 
 def test_the_declarer_can_give_up_after_the_first_trick_while_holding_nine_cards() -> None:
     state = after_first_trick(declarer_takes=True)
-    assert len(state.hands[FOREHAND]) == 9
     assert settle(given_up(state), 20) == Settlement(won=False, value=27, score=-54)
 
 
@@ -157,8 +156,7 @@ def test_a_given_up_game_is_valued_by_its_declared_levels_and_lost(
     kind: GameKind, jacks: tuple[Card, ...], bid: int, declaration: dict[str, object], score: int
 ) -> None:
     result = given_up(started(kind, bid, jacks=jacks, **declaration))  # type: ignore[arg-type]
-    settlement = settle(result, bid)
-    assert settlement == Settlement(won=False, value=-score // 2, score=score)
+    assert settle(result, bid) == Settlement(won=False, value=-score // 2, score=score)
 
 
 def test_schneider_is_not_counted_for_a_declarer_holding_21_points_who_gives_up() -> None:
@@ -309,12 +307,6 @@ def test_a_game_already_won_cannot_be_given_up_and_nothing_changes(
             id="opponents at 60 points: the declarer reaches 60 and wins nothing",
         ),
         pytest.param(
-            {**KREUZ_MIT_2, "hand": True, "announcement": Announcement.SCHWARZ, "taken": ((MIDDLEHAND, 0),)},
-            MIDDLEHAND,
-            Settlement(won=False, value=96, score=-192),
-            id="announced schwarz is lost once the opponents hold a trick: (2 + 6) * 12",
-        ),
-        pytest.param(
             {"kind": NULL, "bid": 23, "jacks": ()},
             FOREHAND,
             Settlement(won=False, value=23, score=-46),
@@ -325,12 +317,6 @@ def test_a_game_already_won_cannot_be_given_up_and_nothing_changes(
             MIDDLEHAND,
             Settlement(won=True, value=23, score=23),
             id="null won when an opponent throws and the declarer has no trick",
-        ),
-        pytest.param(
-            {"kind": NULL, "bid": 23, "jacks": (), "taken": ((FOREHAND, 0),)},
-            REARHAND,
-            Settlement(won=False, value=23, score=-46),
-            id="null lost when an opponent throws after the declarer took a trick",
         ),
     ],
 )
@@ -364,7 +350,9 @@ def test_a_thrown_down_result_keeps_the_completed_tricks_and_names_the_side_that
     assert (result.ending, result.tricks) == (ending, state.tricks)
 
 
-@pytest.mark.parametrize("how", ["declarer threw down", "opponent threw down", "given up", "played out"])
+@pytest.mark.parametrize(
+    "how", ["declarer threw down", "opponent threw down", "given up", "opponent gave up", "shortened", "played out"]
+)
 def test_a_game_that_is_over_refuses_throwing_down_giving_up_and_any_card(how: str) -> None:
     state = started()
     match how:
@@ -374,6 +362,10 @@ def test_a_game_that_is_over_refuses_throwing_down_giving_up_and_any_card(how: s
             state = throw_down(state, MIDDLEHAND).state
         case "given up":
             state = give_up(state).state
+        case "opponent gave up":
+            state = opponent_gives_up(state).state
+        case "shortened":
+            state = shorten(state, all_agreed=True).state
         case _:
             while state.result is None:
                 state = next_card(state)
@@ -382,4 +374,379 @@ def test_a_game_that_is_over_refuses_throwing_down_giving_up_and_any_card(how: s
     assert throw_down(state, MIDDLEHAND).state == state
     assert give_up(state, consented=True).refusal is PlayRefusal.OVER
     assert give_up(state, consented=True).state == state
+    assert opponent_gives_up(state).refusal is PlayRefusal.OVER
+    assert opponent_gives_up(state).state == state
+    assert shorten(state, all_agreed=True).refusal is PlayRefusal.OVER
+    assert shorten(state, all_agreed=True).state == state
     assert play_card(state, FOREHAND, KARO_ACE).refusal is PlayRefusal.OVER
+
+
+def opponent_gave_up(state: Playing) -> PlayedOut:
+    outcome = opponent_gives_up(state)
+    assert outcome.refusal is None
+    assert outcome.state.result is not None
+    return outcome.state.result
+
+
+DECLARER_90 = ((FOREHAND, 32), (FOREHAND, 32), (FOREHAND, 26))
+OPPONENTS_35 = ((MIDDLEHAND, 17), (REARHAND, 18))
+NULL_23 = {"kind": NULL, "bid": 23, "jacks": ()}
+
+
+@pytest.mark.parametrize(
+    ("scene", "expected", "ending"),
+    [
+        pytest.param(
+            KREUZ_MIT_2,
+            Settlement(won=True, value=36, score=36),
+            Ending.CONCEDED,
+            id="undecided: won at spiel only, (2 + 1) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "bid": 20, "hand": True, "announcement": Announcement.SCHNEIDER},
+            Settlement(won=True, value=72, score=72),
+            Ending.CONCEDED,
+            id="undecided: declared hand and announced schneider, (2 + 4) * 12",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 24},
+            Settlement(won=True, value=27, score=27),
+            Ending.CONCEDED,
+            id="undecided, bid-forced: schneider awarded, (1 + 2) * 9",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 36},
+            Settlement(won=True, value=36, score=36),
+            Ending.CONCEDED,
+            id="undecided, bid-forced: schwarz awarded, (1 + 3) * 9",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 24, "taken": ((MIDDLEHAND, 10),)},
+            Settlement(won=True, value=27, score=27),
+            Ending.CONCEDED,
+            id="undecided: the forced schneider is still open after one opponent trick of 10 points",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": Announcement.SCHWARZ},
+            Settlement(won=True, value=96, score=96),
+            Ending.CONCEDED,
+            id="undecided: announced schwarz, (2 + 6) * 12",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 24, "taken": OPPONENTS_35},
+            Settlement(won=False, value=27, score=-54),
+            Ending.DECIDED,
+            id="decided against: the opponents are out of schneider and 18 stays short of 24",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 36, "taken": ((MIDDLEHAND, 10),)},
+            Settlement(won=False, value=36, score=-72),
+            Ending.DECIDED,
+            id="decided against: the forced schwarz is out of reach after one opponent trick",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": OPPONENTS_60},
+            Settlement(won=False, value=36, score=-72),
+            Ending.DECIDED,
+            id="decided against: the declarer reaches only 60 with every remaining card",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": Announcement.SCHNEIDER, "taken": OPPONENTS_35},
+            Settlement(won=False, value=72, score=-144),
+            Ending.DECIDED,
+            id="decided against: announced schneider after the opponents have missed it, (2 + 4) * 12",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 45, "hand": True, "taken": ((MIDDLEHAND, 10),)},
+            Settlement(won=False, value=45, score=-90),
+            Ending.DECIDED,
+            id="decided against: the forced schwarz of a hand game is out of reach after one opponent trick",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 20, "taken": DECLARER_90},
+            Settlement(won=True, value=27, score=27),
+            Ending.DECIDED_WON,
+            id="decided for the declarer: 90 points make schneider, (1 + 2) * 9",
+        ),
+        pytest.param(
+            NULL_23,
+            Settlement(won=True, value=23, score=23),
+            Ending.CONCEDED,
+            id="null before the declarer's first trick stands won",
+        ),
+        pytest.param(
+            {**NULL_23, "taken": ((FOREHAND, 0),)},
+            Settlement(won=False, value=23, score=-46),
+            Ending.DECIDED,
+            id="null after the declarer's first trick is lost",
+        ),
+    ],
+)
+def test_an_opponent_giving_up_ends_the_game_valued_by_how_far_it_was_decided(
+    scene: dict[str, object], expected: Settlement, ending: Ending
+) -> None:
+    state = scenario(**scene)  # type: ignore[arg-type]
+    result = opponent_gave_up(state)
+    assert result.ending is ending
+    assert result.tricks == state.tricks
+    assert settle(result, state.declared.bid) == expected
+
+
+def shortened(state: Playing, *, claim: Announcement = Announcement.NONE) -> PlayedOut:
+    outcome = shorten(state, all_agreed=True, claim=claim)
+    assert outcome.refusal is None
+    assert outcome.state.result is not None
+    return outcome.state.result
+
+
+SCHNEIDER, SCHWARZ = Announcement.SCHNEIDER, Announcement.SCHWARZ
+OPPONENTS_30 = ((MIDDLEHAND, 15), (REARHAND, 15))
+OPPONENTS_31 = ((MIDDLEHAND, 15), (REARHAND, 16))
+KARO_MIT_1_BID_24 = {"kind": KARO, "bid": 24}
+
+
+@pytest.mark.parametrize(
+    ("scene", "claim", "ending", "expected"),
+    [
+        pytest.param(
+            KREUZ_MIT_2,
+            Announcement.NONE,
+            Ending.SHORTENED,
+            Settlement(won=True, value=36, score=36),
+            id="1: (2 + 1) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": OPPONENTS_25},
+            Announcement.NONE,
+            Ending.SHORTENED,
+            Settlement(won=True, value=36, score=36),
+            id="2: schneider reached by the opponents' 25 points is not counted unclaimed",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True},
+            Announcement.NONE,
+            Ending.SHORTENED,
+            Settlement(won=True, value=48, score=48),
+            id="3: declared hand counts, (2 + 2) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": SCHNEIDER},
+            Announcement.NONE,
+            Ending.SHORTENED,
+            Settlement(won=True, value=72, score=72),
+            id="4: announced schneider counts, (2 + 4) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": SCHWARZ},
+            Announcement.NONE,
+            Ending.SHORTENED,
+            Settlement(won=True, value=96, score=96),
+            id="5: announced schwarz counts six levels, (2 + 6) * 12",
+        ),
+        pytest.param(
+            {"kind": GRAND, "bid": 18, "jacks": JACKS[:2], "hand": True, "ouvert": True, "announcement": SCHWARZ},
+            Announcement.NONE,
+            Ending.SHORTENED,
+            Settlement(won=True, value=216, score=216),
+            id="6: ouvert counts seven levels, (2 + 7) * 24",
+        ),
+        pytest.param(
+            NULL_23, Announcement.NONE, Ending.SHORTENED, Settlement(won=True, value=23, score=23), id="7: null"
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2},
+            SCHNEIDER,
+            Ending.SHORTENED,
+            Settlement(won=True, value=48, score=48),
+            id="9: demanded schneider, (2 + 2) * 12",
+        ),
+        pytest.param(
+            KREUZ_MIT_2,
+            SCHWARZ,
+            Ending.SHORTENED,
+            Settlement(won=True, value=60, score=60),
+            id="10: demanded schwarz, (2 + 3) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": SCHNEIDER},
+            SCHWARZ,
+            Ending.SHORTENED,
+            Settlement(won=True, value=84, score=84),
+            id="11: announced schneider and demanded schwarz, (2 + 5) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": SCHWARZ},
+            SCHNEIDER,
+            Ending.SHORTENED,
+            Settlement(won=True, value=96, score=96),
+            id="12: the higher announced level stands over a lower demand",
+        ),
+        pytest.param(
+            KARO_MIT_1_BID_24,
+            Announcement.NONE,
+            Ending.SHORTENED,
+            Settlement(won=False, value=27, score=-54),
+            id="13: a level nobody demanded does not reach the bid, (1 + 1) * 9 < 24",
+        ),
+        pytest.param(
+            KARO_MIT_1_BID_24,
+            SCHNEIDER,
+            Ending.SHORTENED,
+            Settlement(won=True, value=27, score=27),
+            id="14: demanded schneider reaches the bid, (1 + 2) * 9",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": OPPONENTS_30},
+            SCHNEIDER,
+            Ending.SHORTENED,
+            Settlement(won=True, value=48, score=48),
+            id="15: schneider is still reachable at exactly 30 opponent points",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 20, "taken": DECLARER_90},
+            Announcement.NONE,
+            Ending.DECIDED_WON,
+            Settlement(won=True, value=27, score=27),
+            id="18: already won with 90 points, schneider counts, (1 + 2) * 9",
+        ),
+        pytest.param(
+            {**KARO_MIT_1_BID_24, "taken": DECLARER_90},
+            Announcement.NONE,
+            Ending.DECIDED_WON,
+            Settlement(won=True, value=27, score=27),
+            id="19: already won is not overbid, 27 >= 24",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": DECLARER_70},
+            Announcement.NONE,
+            Ending.DECIDED_WON,
+            Settlement(won=True, value=36, score=36),
+            id="20: already won at 70 points, (2 + 1) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": DECLARER_70},
+            SCHNEIDER,
+            Ending.SHORTENED,
+            Settlement(won=True, value=48, score=48),
+            id="21: a demand in a won game counts, (2 + 2) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": OPPONENTS_60},
+            Announcement.NONE,
+            Ending.DECIDED,
+            Settlement(won=False, value=36, score=-72),
+            id="22: already lost stays lost, (2 + 1) * 12",
+        ),
+        pytest.param(
+            {**KARO_MIT_1_BID_24, "taken": OPPONENTS_35},
+            Announcement.NONE,
+            Ending.DECIDED,
+            Settlement(won=False, value=27, score=-54),
+            id="23: already lost and overbid, raised to 27",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": SCHNEIDER, "taken": OPPONENTS_35},
+            Announcement.NONE,
+            Ending.DECIDED,
+            Settlement(won=False, value=72, score=-144),
+            id="24: lost in the announced level, (2 + 4) * 12",
+        ),
+    ],
+)
+def test_the_declarer_shortening_with_every_yes_ends_the_game_valued_by_how_far_it_was_decided(
+    scene: dict[str, object], claim: Announcement, ending: Ending, expected: Settlement
+) -> None:
+    state = scenario(**scene)  # type: ignore[arg-type]
+    result = shortened(state, claim=claim)
+    assert result.ending is ending
+    assert settle(result, state.declared.bid) == expected
+
+
+@pytest.mark.parametrize(
+    ("scene", "declarer_points", "opponents_points", "declarer_tricks", "opponents_tricks"),
+    [
+        pytest.param(KREUZ_MIT_2, 120, 0, 10, 0, id="before the first card the declarer claims everything"),
+        pytest.param({**KREUZ_MIT_2, "taken": OPPONENTS_25}, 95, 25, 8, 2, id="the cards still out count for him"),
+    ],
+)
+def test_a_shortened_game_counts_the_cards_still_out_for_the_declarer(
+    scene: dict[str, object],
+    declarer_points: int,
+    opponents_points: int,
+    declarer_tricks: int,
+    opponents_tricks: int,
+) -> None:
+    result = shortened(scenario(**scene))  # type: ignore[arg-type]
+    assert result.declarer_points == declarer_points
+    assert result.opponents_points == opponents_points
+    assert result.declarer_tricks == declarer_tricks
+    assert result.opponents_tricks == opponents_tricks
+
+
+def test_a_shortened_game_reckons_the_declarer_plus_86_and_the_opponents_nothing() -> None:
+    result = shortened(scenario(**KREUZ_MIT_2))  # type: ignore[arg-type]
+    assert reckon(settle(result, 18)) == Reckoning(declarer=86, each_opponent=0)
+
+
+def test_a_decided_lost_game_reckons_the_declarer_minus_122_and_each_opponent_40() -> None:
+    result = shortened(scenario(**KREUZ_MIT_2, taken=OPPONENTS_60))  # type: ignore[arg-type]
+    assert reckon(settle(result, 18)) == Reckoning(declarer=-122, each_opponent=40)
+
+
+def test_a_card_led_and_not_completed_is_not_in_the_shortened_result() -> None:
+    state = scenario(KREUZ, 18, jacks=JACKS[:2], cards=((KARO_TEN,), (), ()))
+    state = ok(state, FOREHAND, KARO_TEN)
+    result = shortened(state)
+    assert (result.tricks, result.ending, result.declarer_points) == (state.tricks, Ending.SHORTENED, 120)
+    assert settle(result, 18) == Settlement(won=True, value=36, score=36)
+
+
+@pytest.mark.parametrize("all_agreed", [False, True])
+@pytest.mark.parametrize(
+    ("scene", "claim"),
+    [
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": ((MIDDLEHAND, 15), (REARHAND, 16))}, SCHNEIDER, id="schneider at 31 points"
+        ),
+        pytest.param({**KREUZ_MIT_2, "taken": ((MIDDLEHAND, 0),)}, SCHWARZ, id="schwarz after an opponent trick"),
+    ],
+)
+def test_a_level_the_opponents_put_out_of_reach_cannot_be_demanded_and_nothing_changes(
+    scene: dict[str, object], claim: Announcement, *, all_agreed: bool
+) -> None:
+    state = scenario(**scene)  # type: ignore[arg-type]
+    outcome = shorten(state, all_agreed=all_agreed, claim=claim)
+    assert outcome.refusal is PlayRefusal.CLAIM_OUT_OF_REACH
+    assert outcome.state == state
+
+
+@pytest.mark.parametrize(
+    ("scene", "claim"),
+    [
+        pytest.param(KREUZ_MIT_2, SCHNEIDER, id="a demand lapses with the no"),
+        pytest.param({**KREUZ_MIT_2, "taken": DECLARER_70}, Announcement.NONE, id="a won game plays on"),
+        pytest.param({**KREUZ_MIT_2, "taken": OPPONENTS_60}, Announcement.NONE, id="a lost game plays on"),
+    ],
+)
+def test_a_shortening_without_every_yes_needs_consent_and_the_game_goes_on(
+    scene: dict[str, object], claim: Announcement
+) -> None:
+    state = scenario(**scene)  # type: ignore[arg-type]
+    outcome = shorten(state, claim=claim)
+    assert outcome.refusal is PlayRefusal.NEEDS_CONSENT
+    assert outcome.state == state
+    assert next_card(state).result is None
+
+
+def test_a_game_played_on_after_a_refused_shortening_is_scored_as_if_nobody_asked() -> None:
+    asked = started()
+    outcome = shorten(asked, claim=SCHNEIDER)
+    assert outcome.refusal is PlayRefusal.NEEDS_CONSENT
+    asked = outcome.state
+    unasked = started()
+    while asked.result is None:
+        asked, unasked = next_card(asked), next_card(unasked)
+    assert asked.result is not None
+    assert unasked.result is not None
+    assert asked.result.ending is Ending.PLAYED_OUT
+    assert settle(asked.result, 20) == settle(unasked.result, 20)

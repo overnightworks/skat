@@ -1,6 +1,14 @@
 import { words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
-import type { Chair, Game, Sides, SeatGain, Table } from "../routes/(start)/tables.ts";
+import {
+    gameLabel,
+    isSuitGame,
+    type Chair,
+    type Sides,
+    type SeatGain,
+    type Suit,
+    type Table,
+} from "../routes/(start)/tables.ts";
 
 export type ReckoningRow = {
     seat: number;
@@ -14,9 +22,10 @@ export type ResultView = {
     word: string;
     // The mark's shape: a tick when the word is good news for this viewer, a cross when it is not.
     good: boolean;
-    game: Game;
-    // An opponent's game line names whose game it was.
-    byName: string | null;
+    // The trump suit of a suit game; Grand and Null have none.
+    suit: Suit | null;
+    // The game's name with its levels; an opponent's line names whose game it was first.
+    gameLine: string;
     // The line under the stamp: what the game was worth against what was bid.
     miss: string | null;
     // Only the declarer carries a score, signed.
@@ -63,8 +72,8 @@ export function resultView(table: Table): ResultView {
     return {
         word,
         good,
-        game: result.game,
-        byName: own !== undefined && !isDeclarer ? declarerName : null,
+        suit: isSuitGame(result.game) ? result.game : null,
+        gameLine: own !== undefined && !isDeclarer ? `${declarerName}, ${gameLabel(result)}` : gameLabel(result),
         miss: result.overbid
             ? `${words.gameWorth} ${String(result.game_value)} < ${words.bidValue} ${String(result.bid)}`
             : null,

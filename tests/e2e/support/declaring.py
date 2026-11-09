@@ -8,7 +8,7 @@ from playwright.sync_api import Page, expect
 from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
@@ -41,6 +41,7 @@ class DeclaringTable:
         *,
         console: bool = True,
         hold_the_others_clock: bool = False,
+        joiners: tuple[str, str] = ("ben", "cleo"),
     ) -> None:
         self.server = server
         opener = self._person(open_person, "anna", page_errors, form_factor, console)
@@ -48,7 +49,7 @@ class DeclaringTable:
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
-        for seat, username in ((2, "ben"), (3, "cleo")):
+        for seat, username in zip((2, 3), joiners, strict=True):
             person = self._person(open_person, username, page_errors, form_factor, console)
             watch(person, server, path)
             sit_in(person, seat)
@@ -86,9 +87,9 @@ class DeclaringTable:
 
     def _win_the_auction(self, seat_at: dict[str, int]) -> None:
         """The middlehand holds the highest bid there is, so any game the page declares lies below it."""
-        self.step(seat_at["middlehand"], TABLE_AUCTION_SUFFIX, action="bid", value=VALID_BIDS[-1])
-        self.step(seat_at["forehand"], TABLE_AUCTION_SUFFIX, action="pass")
-        self.step(seat_at["rearhand"], TABLE_AUCTION_SUFFIX, action="pass")
+        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[-1])
+        self.step(seat_at["forehand"], TABLE_AUCTION_PASS_SUFFIX)
+        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
 
     def step(self, seat: int, suffix: str, **fields: object) -> None:
         session = self.sessions[seat]

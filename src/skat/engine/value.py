@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 from itertools import takewhile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from skat.engine.cards import DECK
 from skat.engine.declaration import Announcement
@@ -114,15 +114,51 @@ def value_reached_by_levels(matador_count: int, levels: tuple[Level, ...], base_
     return (matador_count + len(levels)) * base_value
 
 
-def _announcements_reached(declaration: Declaration, played: PlayedOut) -> bool:
-    if declaration.announcement is Announcement.NONE:
+_LEVEL_STEPS: Final = ((False, False), (True, False), (True, True))  # schneider, schwarz
+_FIRST_STEP_OF: Final = {Announcement.NONE: 0, Announcement.SCHNEIDER: 1, Announcement.SCHWARZ: 2}
+
+
+def _steps_from(*announcements: Announcement) -> tuple[tuple[bool, bool], ...]:
+    return _LEVEL_STEPS[max(_FIRST_STEP_OF[each] for each in announcements) :]
+
+
+def announcement_reached(announcement: Announcement, played: PlayedOut) -> bool:
+    """Whether the opponents' tricks and points still allow the level, which is the game's fixed 30-point boundary."""
+    if announcement is Announcement.NONE:
         return True
-    if declaration.announcement is Announcement.SCHNEIDER:
+    if announcement is Announcement.SCHNEIDER:
         return played.opponents_schneider
     return played.opponents_schwarz
 
 
-def value_of(played: PlayedOut) -> Valuation:
+def _matadors_and_base(played: PlayedOut, declaration: Declaration) -> tuple[Matadors, int]:
+    held = matadors((*played.declared.hand, *played.declared.skat), declaration.kind)
+    base = declaration.kind.base_value
+    assert held is not None  # noqa: S101 - narrows the type; Null is valued before this
+    assert base is not None  # noqa: S101 - narrows the type; Null is valued before this
+    return held, base
+
+
+def _won_at(played: PlayedOut, declaration: Declaration, step: tuple[bool, bool]) -> Valuation:
+    held, base = _matadors_and_base(played, declaration)
+    schneider, schwarz = step
+    levels = levels_of(declaration, schneider=schneider, schwarz=schwarz)
+    value = value_reached_by_levels(held.count, levels, base)
+    return Valuation(won=True, matadors=held, value=value, schneider=schneider, schwarz=schwarz)
+
+
+def _conceded_valuation(played: PlayedOut, bid: int, declaration: Declaration) -> Valuation:
+    """The declared game with the cheapest levels that meet the bid: declared, then Schneider, then Schwarz too."""
+    *cheaper, dearest = _steps_from(declaration.announcement)
+    for step in cheaper:
+        valuation = _won_at(played, declaration, step)
+        if valuation.value >= bid:
+            return valuation
+    return _won_at(played, declaration, dearest)
+
+
+def value_of(played: PlayedOut, bid: int | None = None) -> Valuation:
+    """The game's valuation; a conceded game is valued by declaration and bid, so only it needs the bid."""
     declaration = played.declared.declaration
     assert declaration is not None  # noqa: S101 - narrows the type; a played-out game is declared
     null_levels = declaration.null_levels
@@ -134,14 +170,16 @@ def value_of(played: PlayedOut) -> Valuation:
             schneider=False,
             schwarz=False,
         )
-    held = matadors((*played.declared.hand, *played.declared.skat), declaration.kind)
-    base = declaration.kind.base_value
-    assert held is not None  # noqa: S101 - narrows the type; only Null has no matadors
-    assert base is not None  # noqa: S101 - narrows the type; only Null has no base value
+    if played.ending is Ending.CONCEDED:
+        assert bid is not None  # noqa: S101 - narrows the type; a conceded game is valued against its bid
+        return _conceded_valuation(played, bid, declaration)
+    if played.ending is Ending.SHORTENED:
+        return _won_at(played, declaration, _steps_from(declaration.announcement, played.claimed)[0])
+    held, base = _matadors_and_base(played, declaration)
     schneider, schwarz = _suffered(declaration, played)
     levels = levels_of(declaration, schneider=schneider, schwarz=schwarz)
     return Valuation(
-        won=played.won_by_play and _announcements_reached(declaration, played),
+        won=played.won_by_play and announcement_reached(declaration.announcement, played),
         matadors=held,
         value=value_reached_by_levels(held.count, levels, base),
         schneider=schneider,
