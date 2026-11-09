@@ -16,6 +16,7 @@ from tests.web.support.presence import (
     OvertakenStore,
     end_the_first_game,
     occupied_seats,
+    view_of_version,
 )
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
@@ -38,10 +39,6 @@ def marks(view):
 
 def stored_marks(server, table_id):
     return [chair.ready for chair in server.store.tables[table_id].chairs]
-
-
-def view_of_version(messages, version):
-    return next(view for view in messages if view["version"] >= version)
 
 
 def advance(server, time, seconds):

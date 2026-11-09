@@ -31,7 +31,8 @@ class ChairHand:
 
 @dataclass(frozen=True)
 class ChairView:
-    """A chair as one viewer sees it; `ready` says its occupant tapped „Weiter“, the same for every viewer."""
+    """A chair as one viewer sees it; `ready` says its occupant is ready for the next hand,
+    by a tap of „Weiter“ or by sitting down while a result is pending, the same for every viewer."""
 
     seat: int
     occupant_name: str | None

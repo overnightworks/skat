@@ -582,7 +582,7 @@ class TestDealNext:
         assert store.tables == written
 
 
-def result_pending(store, table_id, *ready_seats):
+def end_the_first_game(store, table_id, *ready_seats):
     """The table as the thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
     record = store.tables[table_id]
     entry = ListEntry(
@@ -616,7 +616,7 @@ class TestDealNextAfterAResult:
     def test_all_three_ready_deal_the_next_dealer_clear_every_mark_and_end_the_result_in_one_bump(
         self, dealing, store, table_id
     ):
-        result_pending(store, table_id, 1, 2, 3)
+        end_the_first_game(store, table_id, 1, 2, 3)
         before = store.tables[table_id]
 
         assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is True
@@ -628,14 +628,14 @@ class TestDealNextAfterAResult:
         assert (view.result, after.game_list) == (None, before.game_list)
 
     def test_two_marks_deal_nothing(self, dealing, store, table_id):
-        result_pending(store, table_id, 1, 2)
+        end_the_first_game(store, table_id, 1, 2)
         written = dict(store.tables)
 
         assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
         assert store.tables == written
 
     def test_a_sit_in_the_free_chair_marks_the_sitter_and_deals_nothing(self, dealing, store, table_id):
-        result_pending(store, table_id, 1, 2)
+        end_the_first_game(store, table_id, 1, 2)
         dealing.stand(CLEO, StandUp("command-stand", table_id), frozenset())
 
         result = dealing.sit(DORA, SitDown("command-dora", table_id, 3), ALL_THREE)

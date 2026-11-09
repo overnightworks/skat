@@ -20,6 +20,10 @@ NAMED_FAILURE = ("error", "ConnectionError")
 THIRD_PASS_COMMAND = "pass-seat-3"
 
 
+def view_of_version(messages, version):
+    return next(view for view in messages if view["version"] >= version)
+
+
 class Wakes:
     """What each subscriber was told: one counter per name."""
 

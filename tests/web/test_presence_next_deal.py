@@ -32,15 +32,12 @@ from tests.web.support.presence import (
     pass_hand_in,
     post_pass,
     run,
+    view_of_version,
 )
 from tests.web.support.skat import Skat, streams_of
 from tests.web.support.streams import OPENER, VISITOR, next_view, run_on_a_loop_of_its_own, stream_of
 
 CLEO = Actor(account_id="cleo", display_name="Cleo")
-
-
-def view_of_version(messages, version):
-    return next(view for view in messages if view["version"] >= version)
 
 
 def advance(server, time, seconds):

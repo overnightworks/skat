@@ -102,7 +102,8 @@ class Occupant:
 
 @dataclass(frozen=True)
 class Chair:
-    """A chair and who sits on it; `ready` says its occupant tapped „Weiter“ after the pending result."""
+    """A chair and who sits on it; `ready` says its occupant is ready for the next hand,
+    by a tap of „Weiter“ or by sitting down while a result is pending."""
 
     seat: int
     occupant: Occupant | None
