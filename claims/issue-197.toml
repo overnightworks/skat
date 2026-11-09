@@ -1,0 +1,8 @@
+claim_id = "7ac9cd9143694d538800405448576feb"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "5530656ebdb22b888426679206152a1d9ef6f2f4"
+branch = "claude/issue-197-agent-lease"
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/mcp.py", "src/skat/web/presence.py", "src/skat/web/ready.py", "src/skat/web/tables.py", "tests/e2e/test_agent_plays.py", "tests/host/test_app.py", "tests/support/idle_presence.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/table/test_service_end.py", "tests/web/conftest.py", "tests/web/support/agent.py", "tests/web/support/presence.py", "tests/web/test_agent_lease.py", "tests/web/test_mcp.py", "tests/web/test_presence.py", "tests/web/test_presence_next_deal.py", "tests/web/test_ready.py", "tests/web/test_tables.py"]
+opened_commit = "29aed31322a569553c39b88cc25866a53169fa60"
+whole_reason = "A lease without its lapse would say an agent is there when it has gone, and the lease has one owner across presence, the table rule and the MCP front."
