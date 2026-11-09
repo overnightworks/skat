@@ -66,7 +66,7 @@
     <div class="coasters">
         {#each view.rows as row (row.seat)}
             <div class="reck" class:win={row.winner} data-seat={row.seat}>
-                <span class="dot" aria-hidden="true">{(row.name ?? "").slice(0, 1)}</span>
+                <span class="dot" aria-hidden="true">{row.initial}</span>
                 <span class="nm">{row.name ?? words.seatFree}</span>
                 <span class="dl" class:minus={row.gain <= 0}>{row.gainText}</span>
             </div>

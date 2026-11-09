@@ -2,7 +2,14 @@ import { words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
 import type { Chair, Game, Sides, SeatGain, Table } from "../routes/(start)/tables.ts";
 
-export type ReckoningRow = { seat: number; name: string | null; gain: number; gainText: string; winner: boolean };
+export type ReckoningRow = {
+    seat: number;
+    name: string | null;
+    initial: string;
+    gain: number;
+    gainText: string;
+    winner: boolean;
+};
 export type ResultView = {
     word: string;
     // The mark's shape: a tick when the word is good news for this viewer, a cross when it is not.
@@ -68,9 +75,10 @@ export function resultView(table: Table): ResultView {
             const { gain } = result.gains.find((one) => one.seat === seat) as SeatGain;
             return {
                 seat,
-                name: nameOf(chairs, seat),
+                initial: (nameOf(chairs, seat) ?? "").slice(0, 1),
+                name: seat === own?.seat ? words.sideYou : nameOf(chairs, seat),
                 gain,
-                gainText: withMinus(gain),
+                gainText: gain > 0 ? signed(gain) : withMinus(gain),
                 winner: (seat === result.declarer_seat) === result.won,
             };
         }),

@@ -139,10 +139,19 @@ describe("the reckoning row", () => {
         expect(rows.map(({ seat }) => seat)).toEqual([3, 1, 2]);
         expect(rows.map(({ gain }) => gain)).toEqual([0, 0, 86]);
         expect(rows.map(({ winner }) => winner)).toEqual([false, false, true]);
-        expect(rows.map(({ name }) => name)).toEqual(["player 3", "player 1", "player 2"]);
+        expect(rows.map(({ name }) => name)).toEqual([words.sideYou, "player 1", "player 2"]);
+        expect(rows.map(({ initial }) => initial)).toEqual(["p", "p", "p"]);
     });
 
-    it("writes a loss with a minus sign and a gain without a plus", () => {
+    it("names every row of a watcher by its occupant", () => {
+        expect(resultView(table(NOBODY, {})).rows.map(({ name }) => name)).toEqual([
+            "player 1",
+            "player 2",
+            "player 3",
+        ]);
+    });
+
+    it("writes a gain with a plus, a loss with a minus sign and nothing with a bare zero", () => {
         const rows = resultView(
             table(2, {
                 gains: [
@@ -153,7 +162,7 @@ describe("the reckoning row", () => {
             }),
         ).rows;
 
-        expect(rows.map(({ gainText }) => gainText)).toEqual(["86", "\u22124", "0"]);
+        expect(rows.map(({ gainText }) => gainText)).toEqual(["+86", "\u22124", "0"]);
     });
 
     it("marks both opponents as the winners of a lost game", () => {
