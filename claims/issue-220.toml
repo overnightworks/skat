@@ -1,0 +1,8 @@
+claim_id = "39aeeb1366d24e9590fcbdd277bf1074"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "076d8495c574e030d910e410a46aeaf59666b57c"
+branch = "claude/issue-220-hand-announcement-page"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/ui/DeclareControls.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "tests/e2e/test_table_declaring.py", "tests/scripts/test_generate_wire.py"]
+opened_commit = "8106cdf7a5e8b7ae40ebf90665bf1aef7857359d"
+whole_reason = "The ladder, its token on the wire, its words and the plaque that shows the choice are one view of one declaration field; drawn apart, a person could announce what no plaque shows, or the plaque would name what nobody can choose."
