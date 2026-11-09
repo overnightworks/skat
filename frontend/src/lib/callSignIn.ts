@@ -56,6 +56,11 @@ export function signInAddress(tableId: string): string {
     return `${AUTH_START_PATH}?${RETURN_PATH_QUERY_NAME}=${encodeURIComponent(tablePath(tableId))}`;
 }
 
+/** Whether a page address's query asks for the call mode; the server judges a return path by the same rule. */
+export function isCallMode(search: string): boolean {
+    return new URLSearchParams(search).getAll(MODE_QUERY_NAME).includes(CALL_MODE);
+}
+
 function callTableAddress(tableId: string): string {
     return `${tablePath(tableId)}?${MODE_QUERY_NAME}=${CALL_MODE}`;
 }

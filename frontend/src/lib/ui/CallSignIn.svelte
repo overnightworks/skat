@@ -14,6 +14,7 @@
 
     let view = $state<CallSignInView>("signed-out");
     let tableId = $state<string | null>(null);
+    let mounted = $state(false);
     let signIn: CallSignIn | null = null;
 
     const signInState = $derived.by((): SignInState => {
@@ -24,7 +25,8 @@
             return { page: "signing-in", tabHref: tablePath(tableId) };
         }
         if (tableId === null) {
-            return { page: "signed-out", signInHref: AUTH_START_PATH };
+            // A framed page whose script has not run reloads itself, since the issuer refuses to be framed.
+            return { page: "signed-out", signInHref: mounted ? AUTH_START_PATH : "" };
         }
         return {
             page: "signed-out",
@@ -37,6 +39,7 @@
     });
 
     onMount(() => {
+        mounted = true;
         const id = tableIdFromSearch(window.location.search);
         if (id === null) {
             return undefined;
@@ -66,13 +69,16 @@
     });
 
     function tabOpened(event: MouseEvent): void {
-        if (event.target instanceof Element && event.target.closest("a[target=_blank]") !== null) {
+        if (tableId === null || !(event.target instanceof Element)) {
+            return;
+        }
+        if (event.target.closest("a[target=_blank]")?.getAttribute("href") === tablePath(tableId)) {
             signIn?.recheck();
         }
     }
 </script>
 
-<!-- The wrapper only hears the plain link's tap on its way down; the link keeps design's behaviour. -->
+<!-- The wrapper recognises the tab link by its address and hears its tap on the way down; the link keeps design's behaviour. -->
 <div class="sign-in" onclickcapture={tabOpened}>
-    <SignInPage appName="Skat" state={signInState} legalLinks={LEGAL_LINKS} />
+    <SignInPage appName="Skat" state={signInState} legalLinks={LEGAL_LINKS} legalLinksNewTab />
 </div>

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     AUTH_START_PATH,
+    CALL_MODE,
+    MODE_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
     TABLE_CARD_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
@@ -228,6 +230,44 @@ describe("watchTable after a stream error", () => {
         await settle();
 
         expect(assign).toHaveBeenCalledTimes(1);
+    });
+
+    describe("in a frame", () => {
+        const CALL_SEARCH = `?${MODE_QUERY_NAME}=${CALL_MODE}`;
+
+        function frame(framed: boolean) {
+            const top = {};
+            vi.stubGlobal("window", { self: framed ? {} : top, top });
+        }
+
+        async function refuse() {
+            watchTable(TABLE_ID, vi.fn(), vi.fn());
+            fail();
+            answer(0, 401);
+            await settle();
+        }
+
+        it("reloads and never navigates when a framed call-mode page is refused", async () => {
+            frame(true);
+            location(`${CALL_SEARCH}&${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
+            vi.stubGlobal("performance", { now: () => 3_600_000 });
+            await refuse();
+
+            expect(reload).toHaveBeenCalledTimes(1);
+            expect(assign).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ["a framed page without the call mode", true, ""],
+            ["a top-level call-mode page", false, CALL_SEARCH],
+        ])("signs in through the issuer for %s", async (_name, framed, search) => {
+            frame(framed);
+            location(search);
+            await refuse();
+
+            expect(assign).toHaveBeenCalledTimes(1);
+            expect(reload).not.toHaveBeenCalled();
+        });
     });
 
     it("hands messages to the page and marks the connection", () => {
