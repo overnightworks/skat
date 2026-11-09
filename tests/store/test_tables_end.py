@@ -1,10 +1,10 @@
 import threading
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from skat.store.schema import tables
 from skat.table.records import Actor, CreateTable, EndedTable, EndReason, SitDown, TableId, TableRecord
@@ -211,3 +211,22 @@ def test_an_ended_tables_id_is_never_issued_again(service, transactions):
 
     with pytest.raises(IntegrityError):
         reusing.create(OPENER, CreateTable(command_id="open-new"))
+
+
+def test_the_end_enters_the_presence_once_the_row_is_locked_and_leaves_it_after_the_commit(service, engine):
+    table_id = undealt_table(service, "one")
+    seen = {}
+
+    @contextmanager
+    def presence():
+        with engine.connect() as other, pytest.raises(OperationalError):
+            other.execute(select(tables.c.id).where(tables.c.id == table_id.value).with_for_update(nowait=True))
+        yield NOBODY_CONNECTED
+        with engine.connect() as other:
+            other.execute(text("SET lock_timeout = '2s'"))
+            ended_at = select(tables.c.ended_at).where(tables.c.id == table_id.value)
+            seen["ended_at"] = other.execute(ended_at).scalar_one()
+
+    assert service.end_empty_table(table_id, presence(), DEFAULT_EMPTY_TABLE_SECONDS) is True
+
+    assert seen["ended_at"] is not None

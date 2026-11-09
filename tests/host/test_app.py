@@ -1,6 +1,6 @@
 import secrets
 import threading
-from contextlib import nullcontext
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import pytest
@@ -70,10 +70,14 @@ class EndingSignal(TableService):
         self.release_end = threading.Event()
 
     def end_empty_table(self, table_id, connected_accounts, empty_seconds):
-        with connected_accounts as connected:
-            self.end_entered.set()
-            assert self.release_end.wait(timeout=10)
-        ended = super().end_empty_table(table_id, nullcontext(connected), empty_seconds)
+        @contextmanager
+        def held_inside_the_end():
+            with connected_accounts as connected:
+                self.end_entered.set()
+                assert self.release_end.wait(timeout=10)
+                yield connected
+
+        ended = super().end_empty_table(table_id, held_inside_the_end(), empty_seconds)
         if ended:
             self.table_ended.set()
         self.end_checked.set()
@@ -124,7 +128,7 @@ class TestCreateApp:
 
     def test_the_lifespan_returns_only_after_an_end_whose_check_passed_has_committed(self, sign_in_settings):
         tables = EndingSignal(FakeTableStore())
-        tables.create(OPENER, CreateTable(command_id="command-open"))
+        opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         settings = sign_in_settings(empty_table_seconds=1).settings
         app = create_app(settings, page_build=fixture_page_build(), tables=tables)
         client = TestClient(app)
@@ -139,7 +143,8 @@ class TestCreateApp:
         tables.release_end.set()
         closing.join(timeout=10)
 
-        assert (waited_for_the_end, closing.is_alive(), tables.table_ended.is_set()) == (True, False, True)
+        ended = tables.view(OPENER, opened.id, frozenset()).ended
+        assert (waited_for_the_end, closing.is_alive(), ended is not None) == (True, False, True)
 
     def test_installs_the_web_auth_config_built_from_its_settings(self, sign_in_settings):
         sign_in = sign_in_settings()
