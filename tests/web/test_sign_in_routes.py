@@ -362,6 +362,8 @@ class TestMemberSignIn:
             f"https://evil.example{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}",
             f"//evil.example{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}",
             f"{TABLE_PAGE_PREFIX}abc#{MODE_QUERY_NAME}={CALL_MODE}",
+            "//[",
+            f"//[abc]{TABLE_PAGE_PREFIX}x?{MODE_QUERY_NAME}={CALL_MODE}",
         ],
     )
     def test_any_other_return_path_gets_the_plain_signed_out_page(self, harness, requested):

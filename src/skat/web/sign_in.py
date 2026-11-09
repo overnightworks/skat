@@ -198,7 +198,10 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
 
 def _is_call_mode_table(next_path: str) -> bool:
     """Only chooses the page; webauth alone validates where a sign-in lands."""
-    address = urlsplit(next_path)
+    try:
+        address = urlsplit(next_path)
+    except ValueError:
+        return False
     return (
         not address.scheme
         and not address.netloc
