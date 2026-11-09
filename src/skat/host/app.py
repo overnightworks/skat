@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import structlog
+from agent_runtime_client.member import LEASE_SECONDS
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config
@@ -38,6 +39,7 @@ from skat.web.mcp import McpAccess, mount_mcp
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
     NEXT_DEAL_PAUSE_SECONDS,
+    AgentLease,
     ChairHold,
     EmptyTable,
     LoopScheduler,
@@ -122,6 +124,14 @@ def _chair_hold(
     return ChairHold(settings.chair_hold_seconds, clock, scheduler, free_chair)
 
 
+def _agent_lease(tables: TableService) -> AgentLease:
+    async def seated_tables(account_id: str) -> list[str]:
+        occupied = await run_in_threadpool(tables.occupied_chairs)
+        return [chair.table_id.value for chair in occupied if chair.account_id == account_id]
+
+    return AgentLease(LEASE_SECONDS, seated_tables)
+
+
 def _next_deal(tables: TableService) -> NextDeal:
     async def deal(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         return await run_in_threadpool(tables.deal_next, TableId(table_id), connected_accounts)
@@ -156,10 +166,13 @@ def create_app(
     sign_in_stores = stores if stores is not None else SignInStores.in_memory()
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
+    # Wrapped first, so the timers' commands capture the service that counts a lease as presence.
+    tables = tables.with_leases(lambda: presence.live_leases())
     presence = Presence(
         _chair_hold(settings, tables, chair_clock, chair_scheduler if chair_scheduler is not None else LoopScheduler()),
         _next_deal(tables),
         _empty_table(settings, tables),
+        _agent_lease(tables),
     )
 
     @asynccontextmanager
@@ -189,7 +202,7 @@ def create_app(
     app.state.stop_streams = presence.stop
     install_web_auth_config(app, sign_in_configs.web_auth)
     install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
-    mcp = mount_mcp(app, relying_party, sign_in_stores.transaction, settings.public_origin)
+    mcp = mount_mcp(app, relying_party, sign_in_stores.transaction, settings.public_origin, presence.renew_lease)
     app.state.mcp_front = mcp.front
     _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)
 

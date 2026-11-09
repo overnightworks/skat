@@ -322,10 +322,6 @@ def last_cards(trick):
     return [played["card"] for played in trick]
 
 
-def sides(declarer, opponents):
-    return {"declarer": declarer, "opponents": opponents}
-
-
 @dataclass(frozen=True)
 class Viewer:
     name: str
@@ -372,8 +368,6 @@ class Moment:
     turn: Position
     current: tuple[dict[str, object], ...] = ()
     last: tuple[tuple[dict[str, object], ...], Position] | None = None
-    tricks_won: tuple[int, int] = (0, 0)
-    trick_points: tuple[int, int] = (0, 0)
     legal: tuple[Card, ...] = ()
     deal: Deal = KNOWN_DEAL
     ouvert: bool = False
@@ -392,8 +386,6 @@ class Moment:
             "turn_seat": SEATS[self.turn],
             "current_trick": list(self.current),
             "last_trick": last,
-            "tricks_won": sides(*self.tricks_won),
-            "trick_points": sides(*self.trick_points),
             "legal_cards": [card_body(each) for each in legal],
         }
 
@@ -432,7 +424,6 @@ MOMENTS = {
         HERZ_GAME[:3],
         MIDDLEHAND,
         last=(FIRST_TRICK, MIDDLEHAND),
-        tricks_won=(1, 0),
         legal=cards("ST SJ SQ SK SA H7 H8 H9 HT"),
     ),
     "second-trick": Moment(
@@ -440,8 +431,6 @@ MOMENTS = {
         HERZ_GAME[:6],
         FOREHAND,
         last=(SECOND_TRICK, FOREHAND),
-        tricks_won=(1, 1),
-        trick_points=(0, 4),
         legal=cards("C7 C8 C9 CT CQ CK CA S8"),
     ),
     "seventh-card": Moment(
@@ -450,8 +439,6 @@ MOMENTS = {
         MIDDLEHAND,
         current=(played_body(FOREHAND, "S8"),),
         last=(SECOND_TRICK, FOREHAND),
-        tricks_won=(1, 1),
-        trick_points=(0, 4),
         legal=cards("ST SQ SK SA"),
     ),
     "rearhand-leads": Moment(
@@ -460,8 +447,6 @@ MOMENTS = {
         MIDDLEHAND,
         current=(played_body(REARHAND, "HK"), played_body(FOREHAND, "CK")),
         last=(EIGHTH_TRICK, REARHAND),
-        tricks_won=(6, 2),
-        trick_points=(55, 10),
         legal=cards("H9 HT"),
     ),
     "last-card-due": Moment(
@@ -470,8 +455,6 @@ MOMENTS = {
         MIDDLEHAND,
         current=(played_body(REARHAND, "HA"), played_body(FOREHAND, "CA")),
         last=(NINTH_TRICK, REARHAND),
-        tricks_won=(6, 3),
-        trick_points=(55, 18),
         legal=cards("HT"),
     ),
     "ouvert-two-cards": Moment(
@@ -566,8 +549,13 @@ class TestEveryViewersPlaying:
 
         result = message_body(read(table, table.watcher))["result"]
 
-        points = MOMENTS["last-card-due"].trick_points
-        assert result["declarer_points"] == points[0] + sum(each.points for each in SKAT_CARDS)
+        declarer_tricks = sum(
+            each.points
+            for number, taker in enumerate(HERZ_TAKERS)
+            if taker is MIDDLEHAND
+            for each in HERZ_GAME[3 * number : 3 * number + 3]
+        )
+        assert result["declarer_points"] == declarer_tricks + sum(each.points for each in SKAT_CARDS)
         assert result["declarer_points"] + result["opponents_points"] == ALL_POINTS
 
     @pytest.mark.parametrize(

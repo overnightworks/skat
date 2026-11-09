@@ -3,7 +3,14 @@ from typing import TYPE_CHECKING
 
 from skat.engine.declaration import Announcement
 from skat.engine.score import settle
-from skat.engine.tricks import Ending, PlayedOut, Playing, PlayOutcome, PlayRefusal
+from skat.engine.tricks import (
+    Ending,
+    PlayedOut,
+    Playing,
+    PlayOutcome,
+    PlayRefusal,
+    declarer_takes_no_further_trick,
+)
 from skat.engine.value import announcement_reached
 
 if TYPE_CHECKING:
@@ -59,6 +66,19 @@ def opponent_gives_up(state: Playing) -> PlayOutcome:
     if _already_lost(state):
         return PlayOutcome(replace(state, result=_ended(state, Ending.DECIDED)))
     return PlayOutcome(replace(state, result=_ended(state, Ending.CONCEDED)))
+
+
+def opponent_plays_open(state: Playing, position: Position) -> PlayOutcome:
+    """An opponent plays open: if the declarer could take no further trick, the game ends and the rest goes to the
+    opponents; otherwise the open play was wrong and the game ends as an opponent's give-up.
+    """
+    if state.result is not None:
+        return PlayOutcome(state, PlayRefusal.OVER)
+    if position is state.declared.declarer:
+        return PlayOutcome(state, PlayRefusal.NOT_AN_OPPONENT)
+    if declarer_takes_no_further_trick(state, position):
+        return PlayOutcome(replace(state, result=_ended(state, Ending.REST_TO_OPPONENTS)))
+    return opponent_gives_up(state)
 
 
 def shorten(state: Playing, *, all_agreed: bool = False, claim: Announcement = Announcement.NONE) -> PlayOutcome:
