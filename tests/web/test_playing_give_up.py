@@ -5,7 +5,7 @@ import pytest
 
 from skat.engine.deal import Position, next_dealer
 from skat.engine.tricks import ALL_POINTS, PlayRefusal
-from skat.table.records import Refusal
+from skat.table.records import SERIES_LENGTH_MIN, Refusal
 from skat.web.declaring import GameToken
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
@@ -267,7 +267,7 @@ class TestRefusals:
         "body",
         [
             pytest.param({"consented": True}, id="consent-sent"),
-            pytest.param({"series_length": 3}, id="series-length-sent"),
+            pytest.param({"series_length": SERIES_LENGTH_MIN}, id="series-length-sent"),
             pytest.param({"version": "3"}, id="version-as-text"),
             pytest.param({"version": None}, id="version-missing"),
         ],
