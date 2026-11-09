@@ -6,10 +6,12 @@ import pytest
 
 from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
+from skat.engine.tricks import ALL_POINTS
 from skat.table.auction import AuctionAction
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
@@ -42,6 +44,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_PAGE_PREFIX", TABLE_PAGE_PREFIX),
         ("TABLE_DECLARATION_SUFFIX", TABLE_DECLARATION_SUFFIX),
         ("TABLE_AUCTION_SUFFIX", TABLE_AUCTION_SUFFIX),
+        ("TABLE_CARD_SUFFIX", TABLE_CARD_SUFFIX),
     ]:
         assert any(name in line and f'"{path}"' in line for line in rendered.splitlines())
 
@@ -69,6 +72,10 @@ def test_render_lists_every_valid_bid_in_rising_order() -> None:
     declaration = generate_wire.render().partition("VALID_BIDS = [")[2].partition("]")[0]
 
     assert [int(number) for number in declaration.replace("\n", " ").replace(",", " ").split()] == list(VALID_BIDS)
+
+
+def test_render_names_the_card_points_of_a_whole_deck() -> None:
+    assert f"export const ALL_POINTS = {ALL_POINTS};" in generate_wire.render().splitlines()
 
 
 def test_main_writes_the_module_and_a_following_check_passes(tmp_path: Path) -> None:
