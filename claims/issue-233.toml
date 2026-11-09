@@ -1,0 +1,8 @@
+claim_id = "415828fa177a4c7ba7bef3e8a7cfe2ba"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "b3ff87257e8dcb2eb0bdf1801de6c4c52b3ecce3"
+branch = "claude/issue-233-ouvert-on-the-page"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/ui/DeclareControls.svelte", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "tests/e2e/support/declaring.py", "tests/e2e/test_table_declaring.py", "tests/e2e/test_table_ouvert.py"]
+opened_commit = "94cd7c8ff1185bdd8aa4eada3665491279bd5b77"
+whole_reason = "The Ouvert rung, the Null ouvert tile, the step type that carries ouvert and the label that names the declared game are one declaration field seen from the declarer and from the table; drawn apart, a person could declare an ouvert game the plaque misnames."
