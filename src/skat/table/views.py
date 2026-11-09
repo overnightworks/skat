@@ -6,7 +6,7 @@ from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
 from skat.table.auction import AuctionView, auction_view_of
 from skat.table.declaring import DeclaringView, declaring_view_of
-from skat.table.game_list import ResultView, result_view_of, total_of
+from skat.table.game_list import ResultView, Standing, result_view_of, standings_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.records import EndedTable, EndReason
@@ -73,11 +73,15 @@ class EndedView:
 
 @dataclass(frozen=True)
 class SeriesView:
-    """Which game of how many the table runs, 0 before the first deal, and whether its last game is over."""
+    """Which game of how many the table runs, 0 before the first deal, and whether its last game is over.
+
+    Once it is over, `standings` ranks every account the list seated, the same for every viewer.
+    """
 
     game_number: int
     game_count: int
     over: bool
+    standings: tuple[Standing, ...] | None
 
 
 @dataclass(frozen=True)
@@ -153,7 +157,8 @@ def _passed_in_view(table: TableRecord) -> PassedInView | None:
 def _series_view(table: TableRecord) -> SeriesView | None:
     if table.series is None:
         return None
-    return SeriesView(table.series.deals, table.series.length, series_over(table))
+    over = series_over(table)
+    return SeriesView(table.series.deals, table.series.length, over, standings_of(table.game_list) if over else None)
 
 
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:

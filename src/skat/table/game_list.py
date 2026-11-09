@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from skat.engine.deal import SEATS, seats_from
@@ -18,10 +18,12 @@ if TYPE_CHECKING:
 class ListEntry:
     """One finished game in the table's list: who sat where, what was played, and what it scored.
 
-    Schneider and Schwarz are the levels the valuation counted; the matadors are None exactly in Null.
+    Schneider and Schwarz are the levels the valuation counted; the matadors are None exactly in Null. Each seat's
+    display name is the one held at the end of the game, None for an entry stored before names were kept.
     """
 
     seat_accounts: tuple[str, str, str]
+    seat_names: tuple[str | None, str | None, str | None]
     declarer_seat: int
     declaration: Declaration
     schneider: bool
@@ -53,6 +55,16 @@ def _seat_accounts(table: TableRecord) -> tuple[str, str, str]:
     return first, second, third
 
 
+def _seat_names(table: TableRecord) -> tuple[str, str, str]:
+    names = tuple(chair.occupant.display_name for chair in table.chairs if chair.occupant is not None)
+    # Nobody leaves a chair while a hand runs, so a game ends with three seated people.
+    if len(names) != len(table.chairs):  # pragma: no cover
+        message = f"table {table.id.value} ended a game with a free chair"
+        raise RuntimeError(message)
+    first, second, third = names
+    return first, second, third
+
+
 def list_entry_of(played: PlayedOut, table: TableRecord) -> ListEntry:
     """The entry a played-out game writes: its numbers come from the engine, its seats from the table."""
     declaration = played.declared.declaration
@@ -65,6 +77,7 @@ def list_entry_of(played: PlayedOut, table: TableRecord) -> ListEntry:
     settlement = settle(played, played.declared.bid)
     return ListEntry(
         seat_accounts=_seat_accounts(table),
+        seat_names=_seat_names(table),
         declarer_seat=seats[played.declared.declarer],
         declaration=declaration,
         schneider=valuation.schneider,
@@ -86,6 +99,18 @@ class SeatGain:
     seat: int
     gain: int
     won: bool
+
+
+@dataclass(frozen=True)
+class Standing:
+    """One account's place at the end of a series, named as the list last seated it; None if no name was stored."""
+
+    account_id: str
+    display_name: str | None
+    total: int
+    won: int
+    lost: int
+    place: int
 
 
 @dataclass(frozen=True)
@@ -129,6 +154,29 @@ def total_of(game_list: tuple[ListEntry, ...], account_id: str) -> int:
     return sum(
         gain.gain for entry in game_list for gain in _gains(entry) if entry.seat_accounts[gain.seat - 1] == account_id
     )
+
+
+def _standing_without_place(game_list: tuple[ListEntry, ...], account_id: str) -> Standing:
+    declared = [entry for entry in game_list if entry.seat_accounts[entry.declarer_seat - 1] == account_id]
+    last = next(entry for entry in reversed(game_list) if account_id in entry.seat_accounts)
+    won = sum(entry.won for entry in declared)
+    name = last.seat_names[last.seat_accounts.index(account_id)]
+    return Standing(account_id, name, total_of(game_list, account_id), won, len(declared) - won, place=0)
+
+
+def _rank_key(standing: Standing) -> tuple[int, int, int]:
+    return -standing.total, -standing.won, standing.lost
+
+
+def standings_of(game_list: tuple[ListEntry, ...]) -> tuple[Standing, ...]:
+    """Every account the list seated, ranked by total, then more games won, then fewer lost as declarer.
+
+    Accounts with all three equal share a place, and the next place counts everyone above it.
+    """
+    accounts = dict.fromkeys(account for entry in game_list for account in entry.seat_accounts)
+    standings = sorted((_standing_without_place(game_list, account) for account in accounts), key=_rank_key)
+    keys = [_rank_key(each) for each in standings]
+    return tuple(replace(each, place=1 + sum(key < _rank_key(each) for key in keys)) for each in standings)
 
 
 def result_view_of(table: TableRecord) -> ResultView | None:

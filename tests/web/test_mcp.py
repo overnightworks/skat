@@ -35,6 +35,7 @@ from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT
 from tests.web.support.playing import Table, card, card_body
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, streams_of
+from tests.web.test_tables_series import play_a_series
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}
@@ -156,8 +157,17 @@ class TestReadTable:
 
         view = agent.read(table_id).json()
 
-        assert view["series"] == {"game_number": 0, "game_count": 12, "over": False}
+        assert view["series"] == {"game_number": 0, "game_count": 12, "over": False, "standings": None}
         assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
+
+    def test_the_standings_of_an_ended_series_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
+        agent.admitted()
+        table, _ = play_a_series(skat)
+
+        view = agent.read(table.table_id).json()
+
+        assert view["series"]["standings"]
+        assert view["series"] == table.read_as(table.watcher).json()["series"]
 
     def test_an_agent_without_a_chair_gets_the_watchers_view_without_any_card(self, skat, agent):
         agent.admitted()
