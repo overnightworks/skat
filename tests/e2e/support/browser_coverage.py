@@ -1,4 +1,4 @@
-"""Chromium's precise V8 coverage of every page an end-to-end test opens, written for the CI report.
+"""Chromium's precise V8 coverage of every top-level page an end-to-end test opens, written for the CI report.
 
 Collecting is off unless the environment names a directory, so local runs pay nothing.
 A page-started document navigation would drop its page's counters, so the collector cancels it
@@ -135,6 +135,7 @@ class BrowserCoverage:
     def _start(self, page: Page) -> None:
         # A popup shares its opener's renderer when it returns to Skat's origin. Chromium's profiler counts
         # per renderer, so ending the popup's session when it closes itself would drop the opener's counts.
+        # Popups, the sign-in window and the rel=noopener tab alike (Playwright still sets its opener), get no profiler.
         if page.opener() is not None:
             return
         session = page.context.new_cdp_session(page)
