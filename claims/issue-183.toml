@@ -1,0 +1,7 @@
+claim_id = "dbb16df86ffd4438baca2be65989438e"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "bfc997cc8ba3a32492d4daa40112d13aaa9506bd"
+branch = "claude/issue-183-schieberamsch"
+scope = [".aco/ahead-of-caller.toml", "src/skat/engine/schieberamsch.py", "tests/engine/test_schieberamsch.py"]
+opened_commit = "78704af6da6eecb42ad77afebc94a0d8a6fa9280"
