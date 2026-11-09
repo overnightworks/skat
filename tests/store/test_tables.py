@@ -11,9 +11,13 @@ from sqlalchemy import func, select, table, text
 from skat.engine.bidding import Bid
 from skat.engine.cards import DECK
 from skat.engine.deal import SEATS, Position, next_dealer, positions_from
+from skat.engine.declaration import Announcement, Declaration
+from skat.engine.games import GameKind
 from skat.store.migrate import create_store_engine
 from skat.store.tables import DealtHandRewrittenError, PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
+from skat.table.game_list import ListEntry
+from skat.table.ready import ReadyCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
 from skat.web.auction import TABLE_AUCTION_SUFFIX
@@ -585,11 +589,16 @@ class TestDealNext:
     def transactions(self, engine):
         return PostgresTableTransactions(engine)
 
-    @pytest.fixture
-    def table_id(self, service, transactions):
+    @staticmethod
+    def seated(service):
         table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
         service.sit(VISITOR, SitDown("command-visitor", table_id, 2), frozenset())
         service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
+        return table_id
+
+    @pytest.fixture
+    def table_id(self, service, transactions):
+        table_id = self.seated(service)
         record = self.read(transactions, table_id)
         by_position = {
             position: {1: OPENER, 2: VISITOR, 3: THIRD_PLAYER}[seat]
@@ -677,6 +686,54 @@ class TestDealNext:
 
         assert self.read(transactions, table_id) == before
         assert count(engine, "hand_cards") == 0
+
+
+class TestReadyMarks:
+    @pytest.fixture
+    def table_id(self, service, transactions, stored):
+        """Three seated after their first game, its result pending."""
+        table_id = TestDealNext.seated(service)
+        null_hand = Declaration(GameKind.NULL, hand=True, ouvert=False, announcement=Announcement.NONE)
+        accounts = (OPENER.account_id, VISITOR.account_id, THIRD_PLAYER.account_id)
+        values = {"bid": 18, "game_value": 35, "settled_value": 35, "score": 35, "declarer_points": 0}
+        entry = ListEntry(accounts, 1, null_hand, schneider=False, schwarz=False, matadors=None, won=True, **values)
+        with transactions.begin() as transaction:
+            ended = replace(stored(transactions, table_id), hand=None, progress=HandProgress(), game_list=(entry,))
+            transaction.save_table(ended)
+        return table_id
+
+    def tap(self, service, actor, table_id, command_id):
+        return service.mark_ready(actor, ReadyCommand(command_id, table_id, 1), frozenset())
+
+    def test_the_marks_read_back_and_standing_up_clears_only_the_own(self, service, transactions, stored, table_id):
+        self.tap(service, OPENER, table_id, "weiter-anna")
+        self.tap(service, VISITOR, table_id, "weiter-ben")
+        marked = [chair.ready for chair in stored(transactions, table_id).chairs]
+        service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
+
+        after = stored(transactions, table_id).chairs
+        assert (marked, [chair.ready for chair in after]) == ([True, True, False], [True, False, False])
+
+    def test_the_last_tap_and_a_repeated_one_at_once_deal_once(self, service, transactions, engine, stored, table_id):
+        self.tap(service, OPENER, table_id, "weiter-anna")
+        self.tap(service, VISITOR, table_id, "weiter-ben")
+        before = stored(transactions, table_id)
+        racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+
+        def tap_and_deal(actor):
+            self.tap(racing, actor, table_id, "weiter-again")
+            racing.deal_next(TableId(table_id), nullcontext(ALL_THREE))
+
+        threads = [threading.Thread(target=tap_and_deal, args=(actor,)) for actor in (THIRD_PLAYER, VISITOR)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        after = stored(transactions, table_id)
+        assert after.version == before.version + 2
+        assert [chair.ready for chair in after.chairs] == [False, False, False]
+        assert count(engine, "hand_cards") == len(DECK)
 
 
 def pass_in_by_turn(server, table_id, people):

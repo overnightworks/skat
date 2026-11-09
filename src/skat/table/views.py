@@ -31,10 +31,14 @@ class ChairHand:
 
 @dataclass(frozen=True)
 class ChairView:
+    """A chair as one viewer sees it; `ready` says its occupant is ready for the next hand,
+    by a tap of „Weiter“ or by sitting down while a result is pending, the same for every viewer."""
+
     seat: int
     occupant_name: str | None
     is_mine: bool
     is_away: bool
+    ready: bool
     hand: ChairHand | None
     total: int | None
 
@@ -143,6 +147,7 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
                 is_away=chair.occupant is not None
                 and chair.occupant.account_id != viewer_account_id
                 and chair.occupant.account_id not in connected_accounts,
+                ready=chair.ready,
                 hand=chair_hands.get(chair.seat),
                 total=None if chair.occupant is None else total_of(table.game_list, chair.occupant.account_id),
             )

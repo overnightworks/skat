@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from skat.table.records import TableId, TableRecord
 
 
+class FreeChairReadyError(Exception):
+    """The store's check refuses a free chair that is ready."""
+
+
 class FakeTableStore:
     """The transaction port in memory: a block that raises leaves the store as it found it."""
 
@@ -42,6 +46,9 @@ class FakeTableStore:
         return self.table(table_id)
 
     def save_table(self, table: TableRecord) -> None:
+        if any(chair.ready and chair.occupant is None for chair in table.chairs):
+            message = f"table {table.id.value} would keep a free chair ready"
+            raise FreeChairReadyError(message)
         self.tables[table.id.value] = table
 
     def add_table(self, table: TableRecord) -> None:

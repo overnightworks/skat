@@ -479,6 +479,34 @@ class TestFromAPlayedCardAtRevisionSix:
             _run_in_transaction(migrated, duplicate)
 
 
+class TestFromChairsAtRevisionSeven:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0007 holding a table with one occupied and one free chair, then taken to head."""
+        upgrade_to(engine, "0007")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 7)"))
+            connection.execute(text("INSERT INTO chairs VALUES ('t', 1, 'account-anna', 'Anna'), ('t', 2, NULL, NULL)"))
+        migrate(engine)
+        return engine
+
+    def test_no_chair_is_ready(self, migrated):
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT ready FROM chairs ORDER BY seat")).scalars().all() == [False, False]
+
+    def test_an_occupied_chair_may_be_ready(self, migrated):
+        _run_in_transaction(migrated, text("UPDATE chairs SET ready = true WHERE seat = 1"))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM chairs WHERE ready")).scalar_one() == 1
+
+    def test_the_check_refuses_a_free_chair_that_is_ready(self, migrated):
+        refused = text("UPDATE chairs SET ready = true WHERE seat = 2")
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)
+
+
 class TestRequireHead:
     def test_accepts_a_database_at_head(self, engine):
         migrate(engine)

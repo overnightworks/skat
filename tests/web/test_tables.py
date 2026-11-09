@@ -95,11 +95,11 @@ class TestReadTable:
 
         assert answer.status_code == 200
         assert answer.headers["cache-control"] == "no-store"
-        chairs = [(c["occupant_name"], c["is_mine"]) for c in answer.json()["chairs"]]
+        chairs = [(c["occupant_name"], c["is_mine"], c["ready"]) for c in answer.json()["chairs"]]
         assert chairs == [
-            (opener.username, False),
-            (None, False),
-            (None, False),
+            (opener.username, False, False),
+            (None, False, False),
+            (None, False, False),
         ]
 
     def test_shows_the_opener_the_same_table_after_a_reload(self, skat):

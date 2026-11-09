@@ -247,6 +247,7 @@ class ChairAnswer(BaseModel):
     occupant_name: str | None
     is_mine: bool
     is_away: bool
+    ready: bool
     hand: ChairHandAnswer | None
     total: int | None
 
@@ -432,6 +433,7 @@ def answer_of(view: TableView) -> TableAnswer:
                 occupant_name=c.occupant_name,
                 is_mine=c.is_mine,
                 is_away=c.is_away,
+                ready=c.ready,
                 hand=chair_hand_answer_of(c.hand),
                 total=c.total,
             )
@@ -508,7 +510,11 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         table_id: str, body: SitDownRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
-        return await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
+        answer = await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
+        # A sit while a result is pending marks the sitter ready, which may complete the marks.
+        if isinstance(answer, TableAnswer) and answer.result is not None:
+            await presence.deal_now(table_id)
+        return answer
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES

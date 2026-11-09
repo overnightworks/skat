@@ -8,9 +8,11 @@ import pytest
 from skat.engine.bidding import Bid, Pass
 from skat.engine.cards import DECK
 from skat.engine.deal import SEATS, Position, next_dealer, positions_from
-from skat.engine.declaration import Announcement, Declare
+from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed, play_card
+from skat.engine.value import Matadors
+from skat.table.game_list import ListEntry
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Receipt, Refusal, SitDown, StandUp, TableId
@@ -578,6 +580,71 @@ class TestDealNext:
             failing.deal_next(identifier, everyone)
 
         assert store.tables == written
+
+
+def end_the_first_game(store, table_id, *ready_seats):
+    """The table as the thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
+    record = store.tables[table_id]
+    entry = ListEntry(
+        seat_accounts=(OPENER.account_id, VISITOR.account_id, CLEO.account_id),
+        declarer_seat=1,
+        declaration=Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),
+        schneider=False,
+        schwarz=False,
+        matadors=Matadors(mit=False, count=1),
+        won=True,
+        bid=18,
+        game_value=30,
+        settled_value=30,
+        score=30,
+        declarer_points=70,
+    )
+    chairs = tuple(replace(chair, ready=chair.seat in ready_seats) for chair in record.chairs)
+    store.tables[table_id] = replace(record, chairs=chairs, hand=None, progress=HandProgress(), game_list=(entry,))
+
+
+class TestDealNextAfterAResult:
+    @pytest.fixture
+    def table_id(self, store):
+        table_id, _ = seated_three(seeded_service(store, 1))
+        return table_id
+
+    @pytest.fixture
+    def dealing(self, store):
+        return seeded_service(store, 2)
+
+    def test_all_three_ready_deal_the_next_dealer_clear_every_mark_and_end_the_result_in_one_bump(
+        self, dealing, store, table_id
+    ):
+        end_the_first_game(store, table_id, 1, 2, 3)
+        before = store.tables[table_id]
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is True
+
+        after = store.tables[table_id]
+        view = dealing.view(OPENER, table_id, ALL_THREE)
+        assert (after.dealer, after.version) == (next_dealer(before.dealer), before.version + 1)
+        assert [chair.ready for chair in after.chairs] == [False, False, False]
+        assert (view.result, after.game_list) == (None, before.game_list)
+
+    def test_two_marks_deal_nothing(self, dealing, store, table_id):
+        end_the_first_game(store, table_id, 1, 2)
+        written = dict(store.tables)
+
+        assert dealing.deal_next(TableId(table_id), nullcontext(ALL_THREE)) is False
+        assert store.tables == written
+
+    def test_a_sit_in_the_free_chair_marks_the_sitter_and_deals_nothing(self, dealing, store, table_id):
+        end_the_first_game(store, table_id, 1, 2)
+        dealing.stand(CLEO, StandUp("command-stand", table_id), frozenset())
+
+        result = dealing.sit(DORA, SitDown("command-dora", table_id, 3), ALL_THREE)
+
+        after = store.tables[table_id]
+        assert result.refusal is None
+        assert after.hand is None
+        assert [chair.ready for chair in after.chairs] == [True, True, True]
+        assert result.view.result is not None
 
 
 def declared(store, table_id):
