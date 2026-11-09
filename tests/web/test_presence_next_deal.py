@@ -3,13 +3,21 @@ from dataclasses import replace
 import pytest
 from structlog.testing import capture_logs
 
-from skat.engine.bidding import Pass
-from skat.engine.deal import Position, next_dealer
+from skat.engine.bidding import Bid, Pass
+from skat.engine.cards import DECK
+from skat.engine.deal import Position, next_dealer, positions_from
+from skat.engine.declaration import Announcement, Declare
+from skat.engine.games import GameKind
+from skat.engine.tricks import CardPlayed, play_card
+from skat.table.hand_state import playing_of
 from skat.table.records import CreateTable, HandProgress, SitDown, TableId
 from skat.table.service import TableService
+from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
+from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.payload_cards import DEALER_SEAT, cards_in, seated_three, wire_cards
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     NAMED_FAILURE,
@@ -378,6 +386,72 @@ class TestNextHandComes:
                 advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
 
                 assert store.tables[table_id] == passed_in
+
+
+def last_card_played(server, table_id, people):
+    """Seat 1, the middlehand, plays a Herz Hand game at 18 to its end; each card is the first in deck order the
+    engine accepts. The first twenty-nine are stored directly, the thirtieth goes through the card route."""
+    record = server.store.tables[table_id]
+    declared = HandProgress(
+        auction=(Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Position.REARHAND)),
+        declaring=(Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),),
+    )
+    state = playing_of(replace(record, progress=declared))
+    plays = []
+    while state.result is None:
+        held = state.hands[state.turn]
+        card = next(each for each in DECK if each in held and play_card(state, state.turn, each).refusal is None)
+        plays.append(CardPlayed(state.turn, card))
+        state = play_card(state, state.turn, card).state
+    server.store.tables[table_id] = replace(record, progress=replace(declared, plays=tuple(plays[:-1])))
+    last = plays[-1]
+    seat = {position: seat for seat, position in positions_from(record.dealer).items()}[last.position]
+    answer = server.client.post(
+        f"{TABLES_PATH}/{table_id}{TABLE_CARD_SUFFIX}",
+        json={
+            "command_id": "card-last",
+            "version": server.store.tables[table_id].version,
+            "suit": SUIT_TOKENS[last.card.suit],
+            "rank": RANK_TOKENS[last.card.rank],
+        },
+        headers={"origin": TEST_PUBLIC_ORIGIN, **people[seat - 1][0]},
+    )
+    server.client.cookies.clear()
+    assert answer.status_code == 200, answer.text
+    assert server.store.tables[table_id].hand is None
+
+
+class TestAfterAPlayedGame:
+    def test_with_all_three_connected_no_next_hand_is_dealt_on_a_stream_opening_or_a_reconnect(self, server, time):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        with streams_of(server, table_id, people[:3]):
+            last_card_played(server, table_id, people)
+            ended = server.store.tables[table_id]
+            advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
+
+            with streams_of(server, table_id, people[:3]):
+                advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
+
+        assert server.store.tables[table_id] == ended
+
+    def test_a_member_away_at_the_last_card_gets_a_fresh_hold_and_the_connected_keep_their_chairs(
+        self, server, hold, time
+    ):
+        table_id, people = seated_three(server)
+        server.client.cookies.clear()
+        hold_seconds = hold.settings.chair_hold_seconds
+        with streams_of(server, table_id, people[2:3]):
+            pass
+        with streams_of(server, table_id, people[:2]):
+            advance(server, time, hold_seconds / 2)
+            last_card_played(server, table_id, people)
+
+            advance(server, time, hold_seconds - 1)
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+
+            advance(server, time, 2)
+            assert occupied_seats(server, table_id) == {1, 2}
 
 
 class TestNextDealTrigger:
