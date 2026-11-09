@@ -144,7 +144,9 @@ class TestEndEmptyTable:
         end_empty(service, table_id)
 
         view = service.view(OPENER, table_id.value, NOBODY)
-        assert (view.chairs, view.hand, view.result, view.passed_in, view.watchers) == ((), None, None, None, 0)
+        assert view.chairs == ()
+        assert [view.hand, view.result, view.passed_in] == [None, None, None]
+        assert view.watchers == 0
         assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS)
 
     def test_the_wait_is_stored_with_the_end(self, service, table_id):
@@ -158,7 +160,8 @@ class TestADealtTablePauses:
         written = (dict(store.tables), dict(store.receipts))
 
         assert end_empty(service, table_id) is False
-        assert (store.tables, store.receipts) == written
+        assert store.tables == written[0]
+        assert store.receipts == written[1]
         assert isinstance(store.tables[table_id.value], TableRecord)
 
     def test_a_running_hand_is_kept_with_every_row(self, service, store, dealt_id):
@@ -187,7 +190,8 @@ class TestAtAnEndedTable:
     def test_a_create_retry_returns_the_ended_table_and_makes_no_second_one(self, service, store, ended_id):
         again = service.create(OPENER, CreateTable(command_id="command-open"))
 
-        assert (again.id, again.ended) == (ended_id.value, EndedView(EndReason.EMPTY, EMPTY_SECONDS))
+        assert again.id == ended_id.value
+        assert again.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS)
         assert list(store.tables) == [ended_id.value]
 
     @pytest.mark.parametrize(
@@ -227,7 +231,8 @@ class TestAtAnEndedTable:
         written = (dict(store.tables), dict(store.receipts))
 
         assert command(service, ended_id.value) is None
-        assert (store.tables, store.receipts) == written
+        assert store.tables == written[0]
+        assert store.receipts == written[1]
 
     def test_the_server_frees_no_chair_and_deals_nothing(self, service, store, ended_id):
         written = dict(store.tables)
@@ -239,8 +244,10 @@ class TestAtAnEndedTable:
     def test_the_create_command_id_is_refused_for_another_request(self, service, ended_id):
         other = service.create(VISITOR, CreateTable(command_id="command-other"))
 
+        sit_down = SitDown("command-open", other.id, 2)
+
         with pytest.raises(CommandIdReusedError):
-            service.sit(OPENER, SitDown("command-open", other.id, 2), NOBODY)
+            service.sit(OPENER, sit_down, NOBODY)
 
     def test_lists_no_live_table_for_it(self, service, ended_id):
         live = TableId(service.create(VISITOR, CreateTable(command_id="command-other")).id)

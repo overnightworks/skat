@@ -3,7 +3,7 @@ from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from skat.store.schema import tables
@@ -78,7 +78,8 @@ def test_the_end_step_deletes_the_chairs_hand_and_steps_of_a_running_hand_and_ke
     end_at_the_store(transactions, table_id)
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+    kept = {name for name, rows in after.items() if rows}
+    assert kept == {"tables", "receipts"}
     assert len(after["tables"]) == 1
 
 
@@ -100,9 +101,10 @@ def test_an_end_whose_store_fails_after_it_writes_leaves_the_table_live_with_all
     table_id = undealt_table(service, "one")
     before = rows_of(engine, table_id.value)
     failing = TableService(FaultyTableTransactions(transactions, end_failure=ConnectionError("lost")))
+    nobody_connected = nullcontext(NOBODY_CONNECTED)
 
     with pytest.raises(ConnectionError):
-        failing.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), DEFAULT_EMPTY_TABLE_SECONDS)
+        failing.end_empty_table(table_id, nobody_connected, DEFAULT_EMPTY_TABLE_SECONDS)
 
     assert rows_of(engine, table_id.value) == before
     assert isinstance(stored(transactions, table_id.value), TableRecord)
@@ -199,7 +201,8 @@ def test_a_create_retry_under_an_ended_tables_command_id_returns_it_and_makes_no
 
     again = service.create(OPENER, CreateTable(command_id="open-one"))
 
-    assert (again.id, again.ended.reason) == (ended.value, EndReason.EMPTY)
+    assert again.id == ended.value
+    assert again.ended.reason == EndReason.EMPTY
     with engine.connect() as connection:
         assert connection.execute(select(tables.c.id)).all() == [(ended.value,)]
 
@@ -208,22 +211,23 @@ def test_an_ended_tables_id_is_never_issued_again(service, transactions):
     ended = undealt_table(service, "one")
     end(service, ended)
     reusing = TableService(transactions, new_table_id=lambda: ended)
+    command = CreateTable(command_id="open-new")
 
     with pytest.raises(IntegrityError):
-        reusing.create(OPENER, CreateTable(command_id="open-new"))
+        reusing.create(OPENER, command)
 
 
 def test_the_end_enters_the_presence_once_the_row_is_locked_and_leaves_it_after_the_commit(service, engine):
     table_id = undealt_table(service, "one")
     seen = {}
+    lock_attempt = select(tables.c.id).where(tables.c.id == table_id.value).with_for_update(nowait=True)
 
     @contextmanager
     def presence():
         with engine.connect() as other, pytest.raises(OperationalError):
-            other.execute(select(tables.c.id).where(tables.c.id == table_id.value).with_for_update(nowait=True))
+            other.execute(lock_attempt)
         yield NOBODY_CONNECTED
         with engine.connect() as other:
-            other.execute(text("SET lock_timeout = '2s'"))
             ended_at = select(tables.c.ended_at).where(tables.c.id == table_id.value)
             seen["ended_at"] = other.execute(ended_at).scalar_one()
 

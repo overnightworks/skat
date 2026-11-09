@@ -599,7 +599,8 @@ class TestAnEmptyTableEnds:
         first = server.create(headers)
         again = server.create(headers)
 
-        assert (again.json(), time.pending) == (first.json(), 1)
+        assert again.json() == first.json()
+        assert time.pending == 1
         assert first.json()["ended"] is None
 
     def test_the_ended_table_answers_with_the_reason_and_the_wait_and_names_nobody(self, server, ended):
@@ -608,13 +609,9 @@ class TestAnEmptyTableEnds:
         answer = server.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
         assert answer["ended"] == {"reason": "empty", "empty_seconds": seconds}
-        assert (answer["chairs"], answer["watchers"], answer["hand"], answer["result"], answer["passed_in"]) == (
-            [],
-            0,
-            None,
-            None,
-            None,
-        )
+        assert answer["chairs"] == []
+        assert answer["watchers"] == 0
+        assert [answer["hand"], answer["result"], answer["passed_in"]] == [None, None, None]
 
     def test_a_create_retry_returns_the_ended_table_and_starts_no_wait(self, server, time, ended):
         headers, table_id, seconds = ended
@@ -622,8 +619,10 @@ class TestAnEmptyTableEnds:
 
         again = server.create(headers).json()
 
-        assert (again["id"], again["ended"]["empty_seconds"]) == (table_id, seconds)
-        assert (server.store.tables, time.pending) == (tables_before, 0)
+        assert again["id"] == table_id
+        assert again["ended"]["empty_seconds"] == seconds
+        assert server.store.tables == tables_before
+        assert time.pending == 0
 
     @pytest.mark.parametrize(
         ("suffix", "body"),
@@ -647,4 +646,5 @@ class TestAnEmptyTableEnds:
         )
 
         assert answer.status_code == 404
-        assert (server.store.tables, server.store.receipts) == written
+        assert server.store.tables == written[0]
+        assert server.store.receipts == written[1]
