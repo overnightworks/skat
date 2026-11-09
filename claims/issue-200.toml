@@ -1,0 +1,8 @@
+claim_id = "9dda4d289992411da1f9757d7f240f77"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "a506ccbcf94e0d4e2a55f88ff14625d9cc8de086"
+branch = "claude/issue-200-series-count"
+scope = ["docs/ARCHITECTURE.md", "src/skat/store/migrations/versions/0010_series.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/playing.py", "src/skat/table/ready.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/auction.py", "src/skat/web/declaring.py", "src/skat/web/ready.py", "src/skat/web/tables.py", "tests/e2e/test_table_watch.py", "tests/store/test_migrate.py", "tests/store/test_tables.py", "tests/store/test_tables_series.py", "tests/table/test_auction.py", "tests/table/test_declaring.py", "tests/table/test_game_list.py", "tests/table/test_playing.py", "tests/table/test_ready.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/table/test_views.py", "tests/web/test_mcp.py", "tests/web/test_streams.py", "tests/web/test_tables.py", "tests/web/test_tables_series.py"]
+opened_commit = "a0ec402d4e08c4dc07c9414842010d4d0da5ab98"
+whole_reason = "The count, the end and the answer that says so are one vertical path: a count nothing reads or an end nothing shows would be dead."
