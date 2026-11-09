@@ -1,18 +1,19 @@
 import re
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, quote, urlsplit
 
 import pytest
 from playwright.sync_api import FrameLocator, Locator, Page, Route, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from skat.web.constants import (
     ACCOUNT_PATH,
+    APP_ASSET_PATH,
     AUTH_START_PATH,
     CALL_MODE,
     CALL_SIGN_IN_PATH,
+    IMMUTABLE_ASSET_DIRECTORY,
     LOGIN_PATH,
     MODE_QUERY_NAME,
     RETURN_PATH_QUERY_NAME,
@@ -62,10 +63,10 @@ FRAMED_STYLE = "position:fixed;inset:0;width:100%;height:100%;border:0"
 WINDOW_BLOCKED = "window.open = () => null;"
 FITS_ITS_WIDTH = "page => page.scrollWidth <= page.clientWidth"
 # The build's module files, which a test withholds so that a page loads without its script.
-MODULE_FILES = "**/_app/immutable/**"
+MODULE_FILES = f"**{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/**"
 MODULE_FETCH_FAILED = "Failed to fetch dynamically imported module: "
-# A bound on waiting for a request that must not come; the re-check would ask within two seconds.
-NO_ACCOUNT_CHECK_MILLISECONDS = 3_000
+# Virtual time well past any interval at which the page asks again whether the person signed in.
+LONGER_THAN_ANY_RE_CHECK_MILLISECONDS = 60_000
 # The legal origin refuses to be framed, as hallucinai.de does.
 NOT_FRAMEABLE = {"content-security-policy": "frame-ancestors 'none'"}
 
@@ -75,8 +76,8 @@ class FramedTable:
     visitor: Page
     path: str
     session_cookie: str
-    requests: list[str] = field(default_factory=list)
-    release_script: Callable[[], None] = lambda: None
+    requests: list[str]
+    release_script: Callable[[], None]
 
     @property
     def sign_in_starts(self) -> list[str]:
@@ -121,7 +122,7 @@ def frame_a_table(
     expected_request_failures: list[str],
 ) -> Iterator[Callable[..., FramedTable]]:
     """Opens a table, then a signed-out person's call page that frames it."""
-    expected_request_failures.extend([TEST_ISSUER, f"{signing_server.base_url}/_app/immutable/"])
+    expected_request_failures.append(TEST_ISSUER)
     with ExitStack() as stack:
 
         def frame(
@@ -130,9 +131,11 @@ def frame_a_table(
             username: str | None = None,
             console: bool = True,
             script_withheld: bool = False,
+            clock: bool = False,
             **device_options: Any,
         ) -> FramedTable:
-            """A signed-out person, or `username` signed in; `script_withheld` loads no page script."""
+            """A signed-out person, or `username` signed in; `script_withheld` loads no page script,
+            `clock` lets a test run virtual time."""
             path = new_table(open_person, signing_server)
             visitor = record_page_errors(
                 open_person(signed_in=username is not None, username=username, server=signing_server, **device_options),
@@ -146,7 +149,12 @@ def frame_a_table(
                 visitor.add_init_script(init_script)
             body = page_holding(table_url(signing_server, path), FRAMED_STYLE)
             stack.enter_context(served_from(CALL_ORIGIN, visitor, browser_coverage, body))
+            if clock:
+                visitor.clock.install()
             if script_withheld:
+                expected_request_failures.append(
+                    f"{signing_server.base_url}{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/"
+                )
                 visitor.context.route(MODULE_FILES, abort_module_file)
             visitor.goto(f"{CALL_ORIGIN}/")
             framed = FramedTable(
@@ -437,7 +445,7 @@ def test_the_face_of_a_framed_table_whose_session_ended_fits_the_frame_of_the_sm
 def test_a_legal_link_of_the_framed_sign_in_face_opens_in_a_new_tab_and_starts_no_account_check(
     frame_a_table: Callable[..., FramedTable], link_name: str, form_factor: dict[str, Any]
 ) -> None:
-    framed = frame_a_table(**form_factor)
+    framed = frame_a_table(clock=True, **form_factor)
     framed.visitor.context.route(
         f"{LEGAL_ORIGIN}/**",
         lambda route: route.fulfill(status=200, content_type="text/html", headers=NOT_FRAMEABLE, body="legal"),
@@ -451,10 +459,8 @@ def test_a_legal_link_of_the_framed_sign_in_face_opens_in_a_new_tab_and_starts_n
     assert opened.value.url == LEGAL_LINKS[link_name]
     assert framed.frame_address == face_address
     expect(framed.log_in).to_be_visible()
-    with pytest.raises(PlaywrightTimeoutError):
-        framed.visitor.wait_for_event(
-            "request", lambda request: ACCOUNT_PATH in request.url, timeout=NO_ACCOUNT_CHECK_MILLISECONDS
-        )
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+    assert not any(ACCOUNT_PATH in url for url in framed.requests)
     assert not any(url.startswith(LEGAL_ORIGIN) for url in framed.requests)
 
 
@@ -521,5 +527,6 @@ def test_a_top_level_call_mode_table_whose_session_ended_signs_in_again_through_
     expect(ben).to_have_url(f"{e2e_server.base_url}{path}")
     expect(ben.locator(CHAIR)).to_have_count(THREE_CHAIRS)
     assert [urlsplit(url).path for url in sign_in_starts] == [AUTH_START_PATH]
-    assert parse_qs(urlsplit(sign_in_starts[0]).query) == {"next": [f"{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1"]}
+    return_path = f"{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1"
+    assert parse_qs(urlsplit(sign_in_starts[0]).query) == {RETURN_PATH_QUERY_NAME: [return_path]}
     assert CALL_SIGN_IN_PATH not in ben.url
