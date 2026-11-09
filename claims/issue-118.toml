@@ -1,7 +1,0 @@
-claim_id = "1b34dea08b664610b79ab62b0d117ef5"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "89aaa3e4687a2a915b3dcb5df3f8f983f17c9c54"
-branch = "claude/issue-118-deal-marks-wait"
-scope = ["tests/e2e/test_table_deal_marks.py"]
-opened_commit = "260f40d8d1affdd8783b0855a65690a9305cde0e"
