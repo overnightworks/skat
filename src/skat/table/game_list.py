@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from skat.engine.deal import SEATS, seats_from
 from skat.engine.score import Settlement, overbid, reckon, settle
-from skat.engine.tricks import ALL_POINTS
+from skat.engine.tricks import opponents_points_of
 from skat.engine.value import value_of
 from skat.table.rules import result_pending
 
@@ -36,7 +36,7 @@ class ListEntry:
 
     @property
     def opponents_points(self) -> int:
-        return ALL_POINTS - self.declarer_points
+        return opponents_points_of(self.declarer_points)
 
     @property
     def overbid(self) -> bool:
