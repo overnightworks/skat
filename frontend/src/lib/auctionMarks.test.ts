@@ -245,6 +245,7 @@ describe("what the others see while the declarer decides", () => {
             occupant_name: `Name${String(seat)}`,
             is_mine: seat === mine,
             is_away: false,
+            ready: false,
             hand: null,
             ...(seat === MIDDLEHAND ? changes : {}),
         }));
@@ -259,6 +260,7 @@ describe("what the others see while the declarer decides", () => {
         chairs: chairsAt(mine, chairChanges),
         watchers: 0,
         passed_in: null,
+        result: null,
         hand: {
             dealer_seat: FOREHAND,
             own_cards: [],
