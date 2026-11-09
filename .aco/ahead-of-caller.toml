@@ -1,0 +1,4 @@
+[[code]]
+path = "src/skat/engine/giving_up.py"
+item = "overnightworks/skat#27"
+reason = "S5.4a lets the declarer give up at the table; S5.4b asks an opponent's consent and lets a side throw its cards down."
