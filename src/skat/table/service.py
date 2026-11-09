@@ -143,10 +143,9 @@ class TableService:
         new_table_id: Callable[[], TableId] = TableId.random,
         random_source: random.Random | None = None,
         now: Callable[[], datetime] = _utc_now,
-        live_leases: Callable[[], frozenset[str]] = frozenset,
     ) -> None:
         self._transactions = transactions
-        self._live_leases = live_leases
+        self._live_leases: Callable[[], frozenset[str]] = frozenset
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
