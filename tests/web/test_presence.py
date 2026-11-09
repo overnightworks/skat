@@ -18,7 +18,7 @@ from skat.web.presence import (
 )
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from tests.support.idle_presence import idle_presence
+from tests.support.idle_presence import idle_agent_lease, idle_presence
 from tests.support.payload_cards import seated_three
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
@@ -376,6 +376,7 @@ class TestChairHold:
                 ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker),
                 NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_on_worker),
                 EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_on_worker),
+                idle_agent_lease(),
             )
             await anna_starts_the_write(presence)
             expiry = asyncio.create_task(time.advance(seconds))

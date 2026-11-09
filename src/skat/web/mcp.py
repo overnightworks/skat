@@ -28,8 +28,10 @@ from webauth.policies import AuthorizedParties
 from skat.web.gate import admission_for
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from fastapi import FastAPI
-    from starlette.types import Scope
+    from starlette.types import ASGIApp, Receive, Scope, Send
     from webauth.oidc import OidcRelyingParty
     from webauth.policies import PublicRule
     from webauth.ports import SignInTransaction
@@ -48,6 +50,7 @@ AUCTION_BID_TOOL: Final = "auction_bid"
 AUCTION_HOLD_TOOL: Final = "auction_hold"
 AUCTION_PASS_TOOL: Final = "auction_pass"  # noqa: S105 - the word for dropping out of the auction and no password
 AUCTION_PLAY_TOOL: Final = "auction_play"
+CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
 
 
 class Exclusion(StrEnum):
@@ -57,7 +60,6 @@ class Exclusion(StrEnum):
     READINESS_PROBE = "the edge's readiness probe, no action of an agent"
     ACCOUNT_NAME = "the page's name for its person; an agent's name is in its token"
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
-    NEXT_HAND = "the next hand comes only once an agent's presence counts"
     UNION_BODY = "its body has several shapes that no tool can express as one"
     OPENING = "opening a table is not yet a tool"
     SEATING = "taking a chair is not yet a tool"
@@ -74,6 +76,26 @@ AUCTION_BID_MARK: Final = agent_tool(name=AUCTION_BID_TOOL, effect=ToolEffect.SI
 AUCTION_HOLD_MARK: Final = agent_tool(name=AUCTION_HOLD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_PASS_MARK: Final = agent_tool(name=AUCTION_PASS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_PLAY_MARK: Final = agent_tool(name=AUCTION_PLAY_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+
+
+class _LeaseRenewingFront:
+    """The front, after it renews the lease of the agent whose call the gate admitted.
+
+    Every call that reaches here counts, a refusal by the front included: only the token's holder can make one. The
+    routes a tool calls in-process do not pass through here, so a request renews once. A person's token renews
+    nothing.
+    """
+
+    def __init__(self, front: ASGIApp, renew_lease: Callable[[str], None]) -> None:
+        self._front = front
+        self._renew_lease = renew_lease
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        person = resource_person(HTTPConnection(scope))
+        if person.agent is not None:
+            self._renew_lease(person.id)
+        await self._front(scope, receive, send)
 
 
 @dataclass(frozen=True)
@@ -86,11 +108,16 @@ class McpAccess:
 
 
 def mount_mcp(
-    app: FastAPI, relying_party: OidcRelyingParty, transaction: SignInTransaction, public_origin: str
+    app: FastAPI,
+    relying_party: OidcRelyingParty,
+    transaction: SignInTransaction,
+    public_origin: str,
+    renew_lease: Callable[[str], None],
 ) -> McpAccess:
     """Serve /mcp and the resource's metadata document; call it after the last route of the schema is registered.
 
-    The front serves only inside `running()`, which the host's lifespan enters.
+    The front serves only inside `running()`, which the host's lifespan enters. `renew_lease(account_id)` hears every
+    admitted call of an agent.
     """
     with warnings.catch_warnings():
         # A route for GET and HEAD gives both operations one id, which the tool generator never reads.
@@ -113,7 +140,7 @@ def mount_mcp(
 
     front = McpPersonFront(tools.tools, resolve_person=resolve_person)
     # No methods named, so every method reaches the front, which refuses all but POST itself.
-    app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=front))
+    app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=_LeaseRenewingFront(front, renew_lease)))
     install_resource_metadata(app, resource, issuer=issuer)
     admission = admission_for(issuer)
     return McpAccess(front, BearerGate(relying_party, admission, resource=resource), resource.public_rule)

@@ -1,13 +1,11 @@
 import copy
-import json
-from dataclasses import dataclass
 
 import pytest
 from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
 
 from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass
-from skat.engine.deal import Position, positions_from
+from skat.engine.deal import Position, seats_from
 from skat.engine.tricks import CardPlayed, PlayRefusal
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
@@ -20,11 +18,11 @@ from skat.web.mcp import (
     AUCTION_HOLD_TOOL,
     AUCTION_PASS_TOOL,
     AUCTION_PLAY_TOOL,
+    CONTINUE_AFTER_RESULT_TOOL,
     MCP_GROUP,
     PLAY_CARD_TOOL,
     READ_TABLE_TOOL,
 )
-from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
     TABLE_EVENTS_SUFFIX,
     TABLE_SIT_SUFFIX,
@@ -32,79 +30,16 @@ from skat.web.tables import (
     TABLES_PATH,
     AwaitingToken,
 )
-from tests.support.fake_issuer import FakeIssuer
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.agent import SUBJECT
 from tests.web.support.playing import Table, card, card_body
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}
-SUBJECT = "agent-subject"
 OWNER = "the-agents-owner"
 METADATA_PATH = f"/.well-known/oauth-protected-resource{MCP_ENDPOINT_PATH}"
-
-
-@dataclass(frozen=True)
-class ToolAnswer:
-    """What a tool call gave back: whether it failed, and the text the route answered."""
-
-    is_error: bool
-    text: str
-
-    def json(self):
-        return json.loads(self.text)
-
-
-class Agent:
-    """An agent's client against the app in this process: a token of its own at every request."""
-
-    def __init__(self, skat, issuer, subject=SUBJECT):
-        self.skat = skat
-        self.issuer = issuer
-        self.subject = subject
-
-    def request(self, method, params=None, *, token_changes=None, extra_headers=None):
-        headers, body = mcp_message(method, params)
-        token = self.issuer.agent_token(self.subject, **(token_changes or {}))
-        self.skat.client.cookies.clear()
-        return self.skat.client.post(
-            MCP_ENDPOINT_PATH,
-            json=body,
-            headers={"authorization": f"Bearer {token}", **headers, **(extra_headers or {})},
-        )
-
-    def call(self, tool, **arguments):
-        answer = self.request("tools/call", {"name": tool, "arguments": arguments})
-        assert answer.status_code == 200, answer.text
-        result = answer.json()["result"]
-        return ToolAnswer(result.get("isError", False), result["content"][0]["text"])
-
-    def read(self, table_id):
-        return self.call(READ_TABLE_TOOL, table_id=table_id)
-
-    def play(self, table, played, *, command_id="agent-move-0001", **changes):
-        return self.call(
-            PLAY_CARD_TOOL,
-            table_id=table.table_id,
-            command_id=command_id,
-            **{"version": table.record.version, **card_body(played), **changes},
-        )
-
-    def auction_step(self, tool, table, *, command_id="agent-step-0001", **changes):
-        return self.call(
-            tool, table_id=table.table_id, command_id=command_id, **{"version": table.record.version, **changes}
-        )
-
-    def admitted(self):
-        """The first call, which creates the agent's account; returns the headers of a cookie session for it."""
-        assert self.request("tools/list").status_code == 200
-        return self.skat.member(self.skat.stores.accounts.get(self.subject))[0]
-
-
-@pytest.fixture
-def issuer(hold):
-    return FakeIssuer(hold)
 
 
 @pytest.fixture
@@ -112,11 +47,6 @@ def skat(hold, issuer):
     skat = Skat(lambda: hold, issuer_transports=issuer.transports)
     with skat.client:
         yield skat
-
-
-@pytest.fixture
-def agent(skat, issuer):
-    return Agent(skat, issuer)
 
 
 @pytest.fixture
@@ -171,7 +101,7 @@ class TestTools:
         answer = agent.request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
-        assert set(tools) == {READ_TABLE_TOOL, PLAY_CARD_TOOL} | AUCTION_TOOLS
+        assert set(tools) == {READ_TABLE_TOOL, PLAY_CARD_TOOL, CONTINUE_AFTER_RESULT_TOOL} | AUCTION_TOOLS
         assert tools[READ_TABLE_TOOL]["annotations"]["readOnlyHint"] is True
         for name in set(tools) - {READ_TABLE_TOOL}:
             assert "readOnlyHint" not in tools[name].get("annotations", {})
@@ -328,7 +258,7 @@ class TestAuctionSteps:
             assert table.record.version == before + 1
             assert table.record.progress.auction == (Bid(MIDDLEHAND, value),)
             words = next(view["hand"]["auction"]["words"] for view in watcher if view["version"] == before + 1)
-            seat = next(seat for seat, held in positions_from(DEALER_SEAT).items() if held is MIDDLEHAND)
+            seat = seats_from(DEALER_SEAT)[MIDDLEHAND]
             assert [(word["seat"], word["action"], word["value"]) for word in words] == [
                 (seat, AuctionAction.BID, value)
             ]
@@ -621,7 +551,6 @@ class TestWhoMayCall:
             pytest.param("POST", "", {}, id="open a table"),
             pytest.param("POST", TABLE_SIT_SUFFIX, {"seat": 1}, id="sit"),
             pytest.param("POST", TABLE_STAND_SUFFIX, {}, id="stand"),
-            pytest.param("POST", TABLE_READY_SUFFIX, {"ordinal": 1}, id="ready"),
             pytest.param("POST", "/auction", {"action": "pass", "version": 1}, id="the auction path without a step"),
             pytest.param("POST", TABLE_DECLARATION_SUFFIX, {"action": "take", "version": 1}, id="declaration"),
             pytest.param("GET", TABLE_EVENTS_SUFFIX, None, id="events"),
