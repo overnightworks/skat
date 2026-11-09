@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import TYPE_CHECKING, Annotated, Final
 
@@ -29,9 +30,12 @@ class BidRequest(_AuctionStepRequest):
     value: Annotated[int, Field(strict=True)]
 
 
-def create_auction_router(tables: TableService, presence: Presence) -> APIRouter:
-    router = APIRouter()
+type StepTaker = Callable[
+    [str, _AuctionStepRequest, Request, Response, AuctionAction], Awaitable[Response | TableAnswer]
+]
 
+
+def _step_taker(tables: TableService, presence: Presence) -> StepTaker:
     async def take_step(
         table_id: str, body: _AuctionStepRequest, request: Request, response: Response, action: AuctionAction
     ) -> Response | TableAnswer:
@@ -54,6 +58,10 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
             response,
         )
 
+    return take_step
+
+
+def _add_bid(router: APIRouter, take_step: StepTaker) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_AUCTION_BID_SUFFIX,
         response_model=TableAnswer,
@@ -72,6 +80,8 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
         """
         return await take_step(table_id, body, request, response, AuctionAction.BID)
 
+
+def _add_hold(router: APIRouter, take_step: StepTaker) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_AUCTION_HOLD_SUFFIX,
         response_model=TableAnswer,
@@ -91,6 +101,8 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
         """
         return await take_step(table_id, body, request, response, AuctionAction.HOLD)
 
+
+def _add_pass(router: APIRouter, take_step: StepTaker) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_AUCTION_PASS_SUFFIX,
         response_model=TableAnswer,
@@ -110,6 +122,8 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
         """
         return await take_step(table_id, body, request, response, AuctionAction.PASS)
 
+
+def _add_play(router: APIRouter, take_step: StepTaker) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_AUCTION_PLAY_SUFFIX,
         response_model=TableAnswer,
@@ -129,4 +143,12 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
         """
         return await take_step(table_id, body, request, response, AuctionAction.PLAY)
 
+
+def create_auction_router(tables: TableService, presence: Presence) -> APIRouter:
+    router = APIRouter()
+    take_step = _step_taker(tables, presence)
+    _add_bid(router, take_step)
+    _add_hold(router, take_step)
+    _add_pass(router, take_step)
+    _add_play(router, take_step)
     return router
