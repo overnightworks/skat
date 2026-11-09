@@ -168,6 +168,14 @@ def page_and_answer_agree(person: Page, server: RunningServer, table_id: str) ->
         person.wait_for_timeout(POLL_MILLISECONDS)
 
 
+def assert_drawn_again(person: Page, drawn: dict[str, Any]) -> None:
+    """Poll a reloaded page until it draws what it drew before; its own chair shows away until its stream is back."""
+    deadline = time.monotonic() + USUAL_TIMEOUT_SECONDS
+    while drawn_table(person) != drawn and time.monotonic() < deadline:
+        person.wait_for_timeout(POLL_MILLISECONDS)
+    assert drawn_table(person) == drawn
+
+
 def assert_no_horizontal_scroll(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
@@ -207,7 +215,7 @@ def test_every_viewer_sees_the_hand_as_the_server_answers_and_again_after_a_relo
         person.reload()
         wait_for_the_hand(person)
 
-        assert drawn_table(person) == drawn
+        assert_drawn_again(person, drawn)
     assert answer_of(players.watcher, e2e_server, players.table_id)["hand"]["own_cards"] == []
 
 
