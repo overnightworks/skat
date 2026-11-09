@@ -7,6 +7,7 @@ import pytest
 from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
+from skat.engine.value import Level
 from skat.table.auction import AuctionAction
 from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN
 from skat.web.auction import (
@@ -90,6 +91,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("STAGE_TOKENS", StageToken),
         ("AWAITING_TOKENS", AwaitingToken),
         ("AUCTION_ACTION_TOKENS", AuctionAction),
+        ("LEVEL_TOKENS", Level),
     ],
 )
 def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, tokens: type[StrEnum]) -> None:
