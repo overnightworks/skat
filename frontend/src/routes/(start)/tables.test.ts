@@ -8,10 +8,12 @@ import {
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
+    cardName,
     copyTableLink,
     createTable,
     declarerStage,
     drawingOrder,
+    gameWord,
     positionWord,
     readTable,
     sitDown,
@@ -22,6 +24,7 @@ import {
     type Card,
     type Chair,
     type Declaring,
+    type Game,
     type Position,
     type Stage,
     type Table,
@@ -425,6 +428,21 @@ describe("the table's seats and link", () => {
         ["rearhand", words.rearhand],
     ] as [Position, string][])("names the position %s with its word", (position, word) => {
         expect(positionWord(position)).toBe(word);
+    });
+
+    it.each([
+        ["karo", words.gameKaro],
+        ["herz", words.gameHerz],
+        ["pik", words.gamePik],
+        ["kreuz", words.gameKreuz],
+        ["grand", words.gameGrand],
+        ["null", words.gameNull],
+    ] as [Game, string][])("names the game %s with its word", (game, word) => {
+        expect(gameWord(game)).toBe(word);
+    });
+
+    it("names a card by its suit's game word and its rank word", () => {
+        expect(cardName({ suit: "herz", rank: "ace" })).toBe(`${words.gameHerz} ${words.rankAce}`);
     });
 
     it("copies the table's link to the clipboard", async () => {
