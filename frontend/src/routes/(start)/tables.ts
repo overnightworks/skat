@@ -285,11 +285,6 @@ export function drawingOrder(chairs: Chair[]): Chair[] {
     return [...chairs.slice(afterMine), ...chairs.slice(0, afterMine)];
 }
 
-// A coaster reads a negative total with the typographic minus.
-export function coasterText(total: number): string {
-    return total < 0 ? `\u2212${String(-total)}` : String(total);
-}
-
 const POSITION_WORDS: Record<Position, string> = {
     forehand: words.forehand,
     middlehand: words.middlehand,

@@ -13,7 +13,7 @@
     import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
-    import { resultView, weiterBar } from "#lib/result.ts";
+    import { resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
@@ -30,7 +30,6 @@
     import NewTableButton from "../../NewTableButton.svelte";
     import {
         bidValueWhileDeclaring,
-        coasterText,
         copyTableLink,
         drawingOrder,
         gameWord,
@@ -482,7 +481,7 @@
                                 >{/if}</span
                         >
                         {#if chair.total !== null}
-                            <span class="coaster">{coasterText(chair.total)}</span>
+                            <span class="coaster">{withMinus(chair.total)}</span>
                         {/if}
                         {#if chair.hand !== null}
                             {#if !chair.is_mine}

@@ -16,7 +16,6 @@ import {
     copyTableLink,
     createTable,
     declarerStage,
-    coasterText,
     drawingOrder,
     gameWord,
     isSuitGame,
@@ -524,14 +523,6 @@ describe("the table's seats and link", () => {
 
     afterEach(() => {
         vi.unstubAllGlobals();
-    });
-
-    it.each([
-        [0, "0"],
-        [160, "160"],
-        [-46, "\u221246"],
-    ])("reads the total %i on a coaster as %s", (total, text) => {
-        expect(coasterText(total)).toBe(text);
     });
 
     it("draws the viewer's own chair last", () => {
