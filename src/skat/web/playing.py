@@ -43,6 +43,16 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
         command = PlayCardCommand(
             command_id=body.command_id, table_id=table_id, version=body.version, card=card_of(body)
         )
-        return await command_answer(partial(tables.play_card, actor_of(request), command), presence, table_id, response)
+        return await command_answer(
+            partial(
+                tables.play_card,
+                actor_of(request),
+                command,
+                on_hand_ended=partial(presence.restart_leaves, table_id),
+            ),
+            presence,
+            table_id,
+            response,
+        )
 
     return router

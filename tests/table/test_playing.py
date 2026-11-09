@@ -7,7 +7,7 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import Announcement, Declare, TakeSkat
 from skat.engine.games import GameKind
-from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand, card_payload, decide_card
 from skat.table.records import Actor, Chair, HandProgress, Occupant, Refusal, TableId, TableRecord, parsed_refusal
@@ -15,6 +15,7 @@ from skat.table.records import Actor, Chair, HandProgress, Occupant, Refusal, Ta
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 TABLE_VERSION = 7
 FOREHAND_ACCOUNT = "account-forehand"
+CARDS_IN_A_GAME = 30
 
 
 def table_id():
@@ -149,6 +150,69 @@ class TestDecide:
 
         assert decision.refusal is PlayRefusal.NOT_YOUR_TURN
         assert decision.table == table
+
+
+def a_whole_game(table):
+    """All thirty cards, each the first in deck order the engine accepts from the player on turn."""
+    state = playing_of(table)
+    plays = []
+    while state.result is None:
+        position = state.turn
+        accepted = next(
+            each for each in DECK if each in state.hands[position] and play_card(state, position, each).refusal is None
+        )
+        state = play_card(state, position, accepted).state
+        plays.append(CardPlayed(position, accepted))
+    return tuple(plays)
+
+
+def before_the_last_card():
+    """A declared table holding every card but the last, and that last card's command and actor."""
+    declared = table_in(won_and_declared())
+    plays = a_whole_game(declared)
+    table = replace(declared, progress=replace(declared.progress, plays=plays[:-1]))
+    last = plays[-1]
+    return table, actor(f"account-{last.position.name.lower()}"), command_with(last.card)
+
+
+class TestTheLastCard:
+    def test_a_card_before_the_thirtieth_writes_no_entry_and_the_hand_runs(self):
+        table = table_in(won_and_declared())
+
+        decision = decide_card(table, actor(FOREHAND_ACCOUNT), command_with(DECK[8]))
+
+        assert decision.table.game_list == ()
+        assert decision.table.hand == table.hand
+
+    def test_the_thirtieth_card_ends_the_hand_with_one_entry_in_one_version_bump(self):
+        table, last_actor, last_card = before_the_last_card()
+        assert len(table.progress.plays) == CARDS_IN_A_GAME - 1
+
+        decision = decide_card(table, last_actor, last_card)
+
+        assert decision.refusal is None
+        assert decision.table.hand is None
+        assert decision.table.progress == HandProgress()
+        assert len(decision.table.game_list) == 1
+        assert decision.table.version == table.version + 1
+        assert (decision.table.dealer, decision.table.chairs) == (table.dealer, table.chairs)
+
+    def test_the_entry_names_the_seated_accounts_and_the_declarer_s_seat(self):
+        table, last_actor, last_card = before_the_last_card()
+
+        entry = decide_card(table, last_actor, last_card).table.game_list[0]
+
+        assert entry.seat_accounts == tuple(chair.occupant.account_id for chair in table.chairs)
+        assert positions_from(table.dealer)[entry.declarer_seat] is MIDDLEHAND
+
+    def test_a_second_game_appends_its_entry_after_the_first_unchanged(self):
+        table, last_actor, last_card = before_the_last_card()
+        first = decide_card(table, last_actor, last_card).table.game_list[0]
+
+        decision = decide_card(replace(table, game_list=(first,)), last_actor, last_card)
+
+        assert decision.table.game_list[0] == first
+        assert len(decision.table.game_list) == 2
 
 
 class TestParsedRefusal:

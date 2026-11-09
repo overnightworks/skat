@@ -13,7 +13,16 @@ from skat.store.tables import metadata
 
 pytestmark = pytest.mark.postgres
 
-STORE_TABLES = {"tables", "chairs", "receipts", "hand_cards", "auction_actions", "declaring_steps", "played_cards"}
+STORE_TABLES = {
+    "tables",
+    "chairs",
+    "receipts",
+    "hand_cards",
+    "auction_actions",
+    "declaring_steps",
+    "played_cards",
+    "game_list",
+}
 
 
 _PUT_BACK = "'put-back'"
@@ -368,6 +377,103 @@ class TestFromAHandAtRevisionFive:
     def test_the_schema_holds_each_card_once_per_table(self, migrated):
         _run_in_transaction(migrated, text(_played_row()))
         duplicate = text(_played_row(ordinal=2, position="'middlehand'"))
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, duplicate)
+
+
+def _list_row(**changed):
+    columns = {
+        "table_id": "'t'",
+        "ordinal": 1,
+        "seat_1_account": "'account-anna'",
+        "seat_2_account": "'account-ben'",
+        "seat_3_account": "'account-cleo'",
+        "declarer_seat": 1,
+        "game": "'kreuz'",
+        "hand": "false",
+        "ouvert": "false",
+        "announcement": "'none'",
+        "schneider": "true",
+        "schwarz": "false",
+        "matadors_mit": "true",
+        "matadors_count": 2,
+        "won": "true",
+        "bid": 18,
+        "game_value": 48,
+        "settled_value": 48,
+        "score": 48,
+        "declarer_points": 95,
+        **changed,
+    }
+    names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
+    return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
+
+
+class TestFromAPlayedCardAtRevisionSix:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0006 holding a hand with one played card, then taken to head."""
+        upgrade_to(engine, "0006")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 6, 2)"))
+            connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'skat')"))
+            connection.execute(text(_played_row()))
+        migrate(engine)
+        return engine
+
+    def test_keeps_the_hand_and_the_played_card(self, migrated):
+        with migrated.connect() as connection:
+            cards = connection.execute(text("SELECT count(*) FROM hand_cards")).scalar_one()
+            plays = connection.execute(text("SELECT count(*) FROM played_cards")).scalar_one()
+
+        assert (cards, plays) == (1, 1)
+        assert table_names(migrated) == STORE_TABLES
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param(_list_row(), id="kreuz-mit-2-schneider"),
+            pytest.param(
+                _list_row(game="'null'", matadors_mit="NULL", matadors_count="NULL", schneider="false"), id="null"
+            ),
+            pytest.param(
+                _list_row(game="'karo'", won="false", bid=20, game_value=18, settled_value=27, score=-54), id="overbid"
+            ),
+        ],
+    )
+    def test_accepts_a_list_entry(self, migrated, statement):
+        _run_in_transaction(migrated, text(statement))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM game_list")).scalar_one() == 1
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param(_list_row(ordinal=0), id="ordinal-below-the-first"),
+            pytest.param(_list_row(declarer_seat=4), id="no-seat"),
+            pytest.param(_list_row(game="'lila'"), id="unknown-game"),
+            pytest.param(_list_row(announcement="'maybe'"), id="unknown-announcement"),
+            pytest.param(_list_row(matadors_mit="NULL", matadors_count="NULL"), id="no-matadors-outside-null"),
+            pytest.param(_list_row(game="'null'"), id="matadors-in-null"),
+            pytest.param(_list_row(matadors_count="NULL"), id="matadors-without-a-count"),
+            pytest.param(_list_row(matadors_count=12), id="more-matadors-than-trumps"),
+            pytest.param(_list_row(bid=17), id="no-bid"),
+            pytest.param(_list_row(declarer_points=121), id="more-than-all-card-points"),
+            pytest.param(_list_row(seat_2_account="NULL"), id="a-seat-without-its-account"),
+            pytest.param(_list_row(table_id="'gone'"), id="unknown-table"),
+        ],
+    )
+    def test_the_checks_refuse_a_row_that_is_no_list_entry(self, migrated, statement):
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)
+
+    def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
+        _run_in_transaction(migrated, text(_list_row()))
+        duplicate = text(_list_row(score=-96))
 
         with pytest.raises(IntegrityError):
             _run_in_transaction(migrated, duplicate)

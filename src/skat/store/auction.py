@@ -1,17 +1,15 @@
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, delete, insert, select
 
 from skat.engine.bidding import VALID_BIDS, Bid
-from skat.store.schema import POSITION_TEXT, metadata, one_of, tables, unstored_steps
+from skat.store.schema import POSITION_OF_TEXT, POSITION_TEXT, metadata, one_of, tables, unstored_steps
 from skat.table.auction import AuctionAction, action_of, step_of
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
     from skat.engine.bidding import AuctionStep
-
-_POSITION_OF_TEXT: Final = {text: position for position, text in POSITION_TEXT.items()}
 
 auction_actions = Table(
     "auction_actions",
@@ -36,7 +34,7 @@ def read_steps(connection: Connection, table_id: str) -> tuple[AuctionStep, ...]
         .where(auction_actions.c.table_id == table_id)
         .order_by(auction_actions.c.ordinal)
     )
-    return tuple(step_of(AuctionAction(row.action), row.value, _POSITION_OF_TEXT[row.position]) for row in rows)
+    return tuple(step_of(AuctionAction(row.action), row.value, POSITION_OF_TEXT[row.position]) for row in rows)
 
 
 def delete_steps(connection: Connection, table_id: str) -> None:

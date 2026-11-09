@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 _TRICK_SIZE: Final = 3
 _TRICKS_IN_A_GAME: Final = 10
 _WINNING_POINTS: Final = 61
-_ALL_POINTS: Final = 120
+ALL_POINTS: Final = 120
 _SCHNEIDER_POINTS: Final = 30
 _PLAY_ORDER: Final = tuple(Position)
 
@@ -51,38 +51,60 @@ class CompletedTrick:
 
 
 @dataclass(frozen=True)
+class Sides:
+    """One count for the declarer and one for the two opponents together."""
+
+    declarer: int
+    opponents: int
+
+
+@dataclass(frozen=True)
+class Tally:
+    """Each side's tricks taken so far and the card points in them; the skat is not in it."""
+
+    tricks: Sides
+    points: Sides
+
+
+def _tally(declarer: Position, tricks: tuple[CompletedTrick, ...]) -> Tally:
+    taken = [trick for trick in tricks if trick.taker is declarer]
+    lost = [trick for trick in tricks if trick.taker is not declarer]
+    return Tally(
+        tricks=Sides(declarer=len(taken), opponents=len(lost)),
+        points=Sides(
+            declarer=sum(card.points for trick in taken for card in trick.cards),
+            opponents=sum(card.points for trick in lost for card in trick.cards),
+        ),
+    )
+
+
+@dataclass(frozen=True)
 class PlayedOut:
     """The finished game: the ended declaration state and its ten tricks, the rest derived."""
 
     declared: Declaring
     tricks: tuple[CompletedTrick, ...]
 
-    def _taken_by(self, positions: set[Position]) -> tuple[CompletedTrick, ...]:
-        return tuple(trick for trick in self.tricks if trick.taker in positions)
-
     @property
-    def _opponents(self) -> set[Position]:
-        return set(Position) - {self.declared.declarer}
+    def tally(self) -> Tally:
+        return _tally(self.declared.declarer, self.tricks)
 
     @property
     def declarer_tricks(self) -> int:
-        return len(self._taken_by({self.declared.declarer}))
+        return self.tally.tricks.declarer
 
     @property
     def opponents_tricks(self) -> int:
-        return len(self._taken_by(self._opponents))
+        return self.tally.tricks.opponents
 
     @property
     def declarer_points(self) -> int:
         """The declarer's tricks plus the skat, which counts for the declarer in every game."""
-        taken = self._taken_by({self.declared.declarer})
-        return sum(card.points for card in self.declared.skat) + sum(
-            card.points for trick in taken for card in trick.cards
-        )
+        return sum(card.points for card in self.declared.skat) + self.tally.points.declarer
 
     @property
     def opponents_points(self) -> int:
-        return _ALL_POINTS - self.declarer_points
+        return ALL_POINTS - self.declarer_points
 
     @property
     def won_by_play(self) -> bool:
@@ -127,6 +149,10 @@ class Playing:
     @property
     def turn(self) -> Position:
         return _position_after(self.leader, len(self.current))
+
+    @property
+    def tally(self) -> Tally:
+        return _tally(self.declared.declarer, self.tricks)
 
     @property
     def current_plays(self) -> tuple[CardPlayed, ...]:

@@ -1,4 +1,5 @@
 from itertools import combinations_with_replacement
+from operator import attrgetter
 
 import pytest
 
@@ -6,7 +7,7 @@ from skat.engine.bidding import Declared
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
-from skat.engine.games import HIGHEST_LEVEL, NULL_VALUES, GameKind, NullLevels, Trump
+from skat.engine.games import NULL_VALUES, GameKind, NullLevels, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Matadors, matadors, value_of
 
@@ -154,19 +155,18 @@ def test_a_class_two_game_counts_hand_in_its_spiel_and_schneider_on_top(
 
 def test_a_class_two_game_counts_an_unannounced_schwarz_as_level_four() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, TAKES_ALL, hand=True))
-    assert valuation.level == 4
     assert valuation.value == 72
 
 
 @pytest.mark.parametrize("won_play", [True, False])
 @pytest.mark.parametrize(("hand", "ouvert"), [(False, False), (True, False), (False, True), (True, True)])
-def test_a_null_game_has_its_fixed_value_and_no_matadors_and_no_level(hand: bool, ouvert: bool, won_play: bool) -> None:
+def test_a_null_game_has_its_fixed_value_and_no_matadors(hand: bool, ouvert: bool, won_play: bool) -> None:
     played = game(NULL, hand=hand, ouvert=ouvert, declarer_tricks=() if won_play else (12,))
     valuation = value_of(played)
     assert valuation.won is won_play
     assert valuation.matadors is None
-    assert valuation.level is None
     assert valuation.value == NULL_VALUES[NullLevels(hand=hand, ouvert=ouvert)]
+    assert attrgetter("schneider", "schwarz")(valuation) == (False, False)
 
 
 @pytest.mark.parametrize(
@@ -177,41 +177,56 @@ def test_the_four_null_games_are_worth_23_35_46_and_59(hand: bool, ouvert: bool,
     assert value_of(game(NULL, hand=hand, ouvert=ouvert)).value == value
 
 
+@pytest.mark.parametrize(
+    ("declarer_tricks", "announcement", "levels"),
+    [
+        pytest.param(WIN, NONE, (False, False), id="neither"),
+        pytest.param(WIN_SCHNEIDER, NONE, (True, False), id="opponents-schneider"),
+        pytest.param(TAKES_ALL, NONE, (True, True), id="opponents-schwarz"),
+        pytest.param(DECLARER_ENDS_WITH_25, NONE, (True, False), id="declarer-schneider"),
+        pytest.param((), NONE, (True, True), id="declarer-schwarz"),
+        pytest.param((30, 30, 15), SCHNEIDER, (True, False), id="schneider-announced-and-missed"),
+        pytest.param((30, 30, 30, 11), SCHWARZ, (True, True), id="schwarz-announced-and-missed"),
+    ],
+)
+def test_schneider_and_schwarz_name_the_levels_the_value_counts_whichever_side_suffered_them(
+    declarer_tricks: tuple[int, ...], announcement: Announcement, levels: tuple[bool, bool]
+) -> None:
+    valuation = value_of(game(KREUZ, MIT_TWO, declarer_tricks, hand=True, announcement=announcement))
+    assert attrgetter("schneider", "schwarz")(valuation) == levels
+
+
 def test_schneider_counts_for_a_lost_game_too() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, DECLARER_ENDS_WITH_25))
     assert not valuation.won
-    assert valuation.level == 2
     assert valuation.value == 48
 
 
 def test_schwarz_counts_for_a_lost_game_too() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, ()))
     assert not valuation.won
-    assert valuation.level == 3
     assert valuation.value == 60
 
 
 def test_a_hand_game_without_announcement_that_reaches_schwarz_counts_level_four_not_six() -> None:
-    assert value_of(game(KREUZ, MIT_TWO, TAKES_ALL, hand=True)).level == 4
+    assert value_of(game(KREUZ, MIT_TWO, TAKES_ALL, hand=True)).value == 72
 
 
 def test_a_missed_schneider_angesagt_is_lost_at_the_announced_level_and_not_counted_twice() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, (30, 30, 15), hand=True, announcement=SCHNEIDER))
     assert not valuation.won
-    assert valuation.level == 4
     assert valuation.value == 72
 
 
 def test_a_won_schneider_angesagt_game_counts_level_four() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, WIN_SCHNEIDER, hand=True, announcement=SCHNEIDER))
     assert valuation.won
-    assert valuation.level == 4
+    assert valuation.value == 72
 
 
 def test_a_higher_level_than_announced_counts_the_higher_one() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, TAKES_ALL, hand=True, announcement=SCHNEIDER))
     assert valuation.won
-    assert valuation.level == 5
     assert valuation.value == 84
 
 
@@ -219,21 +234,18 @@ def test_an_announced_schwarz_counts_every_step_up_to_level_six() -> None:
     valuation = value_of(game(GRAND, JACKS, TAKES_ALL, hand=True, announcement=SCHWARZ))
     assert valuation.won
     assert valuation.matadors == Matadors(mit=True, count=4)
-    assert valuation.level == 6
     assert valuation.value == 240
 
 
 def test_an_ouvert_game_lost_by_one_trick_counts_as_schwarz_angesagt_plus_ouvert() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, LOSS_BY_ONE_TRICK, hand=True, ouvert=True))
     assert not valuation.won
-    assert valuation.level == 7
     assert valuation.value == 108
 
 
 def test_an_ouvert_game_taking_every_trick_is_won_at_level_seven() -> None:
     valuation = value_of(game(KREUZ, MIT_TWO, TAKES_ALL, hand=True, ouvert=True))
     assert valuation.won
-    assert valuation.level == 7
     assert valuation.value == 108
 
 
@@ -242,11 +254,10 @@ def test_a_reached_ouvert_game_at_the_full_run_is_the_highest_level_and_the_most
     kind: GameKind, trumps: tuple[Card, ...]
 ) -> None:
     valuation = value_of(game(kind, trumps, TAKES_ALL, hand=True, ouvert=True))
-    assert valuation.level == HIGHEST_LEVEL
     assert valuation.value == kind.base_value * kind.highest_faelle
 
 
 def test_a_suit_game_won_by_play_but_missing_its_announced_schwarz_is_lost_at_the_announced_level() -> None:
     valuation = value_of(game(GRAND, JACKS, (30, 30, 30, 11), hand=True, announcement=SCHWARZ))
     assert not valuation.won
-    assert valuation.level == 6
+    assert valuation.value == 240

@@ -4,17 +4,16 @@ from typing import TYPE_CHECKING, Final
 from skat.engine.cards import DECK
 from skat.engine.deal import positions_from
 from skat.engine.tricks import CardPlayed, play_card
+from skat.table.game_list import list_entry_of
 from skat.table.hand_state import playing_of
-from skat.table.records import Decision, Refusal
+from skat.table.records import Decision, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.engine.tricks import CompletedTrick, Playing
-    from skat.table.records import Actor, TableRecord
+    from skat.engine.tricks import PlayedOut, Playing, Sides
+    from skat.table.records import Actor
 
 PLAY_CARD_COMMAND: Final = "play-card"
 
@@ -39,21 +38,16 @@ class SeatedCard:
 
 @dataclass(frozen=True)
 class LastTrick:
-    """The last completed trick: its cards in playing order and who took it."""
+    """The last completed trick: its cards in playing order from the seat that led it, and who took it."""
 
     cards: tuple[Card, ...]
+    leader_seat: int
     taker_seat: int
 
 
 @dataclass(frozen=True)
-class Sides:
-    declarer: int
-    opponents: int
-
-
-@dataclass(frozen=True)
 class PlayingView:
-    """The game in play as one viewer may see it; the turn is None once all thirty cards are played."""
+    """The game in play as one viewer may see it; the turn is the seat that plays next."""
 
     turn_seat: int | None
     current_trick: tuple[SeatedCard, ...]
@@ -80,19 +74,22 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     plays = (*table.progress.plays, CardPlayed(position, command.card))
-    return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, plays=plays)))
+    if outcome.state.result is None:
+        return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, plays=plays)))
+    return Decision(_ended(table, outcome.state.result))
 
 
-def _sides(state: Playing, measure: Callable[[CompletedTrick], int]) -> Sides:
-    declarer = state.declared.declarer
-    return Sides(
-        declarer=sum(measure(trick) for trick in state.tricks if trick.taker is declarer),
-        opponents=sum(measure(trick) for trick in state.tricks if trick.taker is not declarer),
+def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
+    """The tenth trick ends the hand: its cards and steps go, its entry joins the list, the chairs stay."""
+    return TableRecord(
+        id=table.id,
+        version=table.version + 1,
+        chairs=table.chairs,
+        dealer=table.dealer,
+        hand=None,
+        progress=HandProgress(),
+        game_list=(*table.game_list, list_entry_of(played, table)),
     )
-
-
-def _trick_points(trick: CompletedTrick) -> int:
-    return sum(card.points for card in trick.cards)
 
 
 def _legal_cards(state: Playing, viewer_positions: frozenset[Position]) -> tuple[Card, ...]:
@@ -115,10 +112,10 @@ def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozen
     seats = {position: seat for seat, position in positions_from(dealer).items()}
     last = state.tricks[-1] if state.tricks else None
     return PlayingView(
-        turn_seat=None if state.result is not None else seats[state.turn],
+        turn_seat=seats[state.turn],
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
-        last_trick=None if last is None else LastTrick(last.cards, seats[last.taker]),
-        tricks_won=_sides(state, lambda _trick: 1),
-        trick_points=_sides(state, _trick_points),
+        last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
+        tricks_won=state.tally.tricks,
+        trick_points=state.tally.points,
         legal_cards=_legal_cards(state, viewer_positions),
     )
