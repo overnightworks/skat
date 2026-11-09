@@ -30,7 +30,7 @@ def table_opened_by(opener: Page, server: RunningServer) -> str:
             const response = await fetch(path, {
                 method: "POST",
                 headers: {"content-type": "application/json"},
-                body: JSON.stringify({command_id: crypto.randomUUID()}),
+                body: JSON.stringify({command_id: crypto.randomUUID(), series_length: 36}),
             });
             return (await response.json()).id;
         }""",

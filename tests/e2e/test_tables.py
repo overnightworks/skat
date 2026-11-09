@@ -1,15 +1,18 @@
+import json
 import re
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
+from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP
 from skat.web.constants import ACCOUNT_PATH, LOGIN_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
-from tests.e2e.support.people import DESKTOP, FORM_FACTORS
-from tests.e2e.support.tables import TABLE_URL, click_new_table, open_new_table, table_id_of
+from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
+from tests.e2e.support.tables import OPEN_TABLE, TABLE_URL, click_new_table, open_new_table, table_id_of
 from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
@@ -62,6 +65,112 @@ def test_a_member_opens_a_table_and_sits_in_chair_one_with_two_free_chairs(
     assert person.evaluate("document.querySelector('.chair.mine').getBoundingClientRect().top") > person.evaluate(
         "document.querySelector('.chair:not(.mine)').getBoundingClientRect().top"
     )
+
+
+def a_sheet(person: Page, server: RunningServer) -> None:
+    person.goto(f"{server.base_url}/")
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+
+
+def series_length_reading(length: int) -> str:
+    return f"{length} {catalog_text('seriesGames')}"
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_sheet_offers_a_series_of_thirty_six_steps_by_three_and_stops_at_both_ends(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    fewer = person.get_by_role("button", name=catalog_text("seriesFewer"))
+    more = person.get_by_role("button", name=catalog_text("seriesMore"))
+    reading = person.get_by_role("spinbutton", name=catalog_text("seriesGames"))
+
+    a_sheet(person, e2e_server)
+
+    expect(person.get_by_role("dialog")).to_be_visible()
+    expect(reading).to_have_text(series_length_reading(36), use_inner_text=True)
+    fewer.click()
+    expect(reading).to_have_text(series_length_reading(36 - SERIES_LENGTH_STEP), use_inner_text=True)
+    for _ in range((36 - SERIES_LENGTH_MIN) // SERIES_LENGTH_STEP - 1):
+        fewer.click()
+    expect(reading).to_have_text(series_length_reading(SERIES_LENGTH_MIN), use_inner_text=True)
+    expect(fewer).to_be_disabled()
+    for _ in range((SERIES_LENGTH_MAX - SERIES_LENGTH_MIN) // SERIES_LENGTH_STEP):
+        more.click()
+    expect(reading).to_have_text(series_length_reading(SERIES_LENGTH_MAX), use_inner_text=True)
+    expect(more).to_be_disabled()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_sheet_fits_inside_the_screen(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+
+    a_sheet(person, e2e_server)
+
+    expect(person.get_by_role("dialog")).to_be_visible()
+    box = person.get_by_role("dialog").bounding_box()
+    assert box is not None
+    assert box["y"] >= 0
+    assert box["y"] + box["height"] <= form_factor["viewport"]["height"]
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_sheet_reopened_after_cancelling_reads_thirty_six_again(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    a_sheet(person, e2e_server)
+    person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+
+    person.get_by_role("button", name=catalog_text("cancelNewTable")).click()
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+
+    expect(person.get_by_role("spinbutton", name=catalog_text("seriesGames"))).to_have_text(
+        series_length_reading(36), use_inner_text=True
+    )
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_table_opens_with_the_chosen_length_in_one_request_even_when_the_button_is_double_tapped(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    requests: list[str] = []
+    person.on("request", lambda request: requests.append(request.post_data or "") if request.method == "POST" else None)
+    before = table_count(e2e_server)
+    a_sheet(person, e2e_server)
+    for _ in range(2):
+        person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+
+    person.get_by_role("button", name=OPEN_TABLE).dblclick()
+
+    expect(person).to_have_url(TABLE_URL)
+    assert len(requests) == 1
+    assert '"series_length":30' in requests[0]
+    answer = person.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(urlsplit(person.url).path)}")
+    series = answer.json()["series"]
+    assert (series["game_number"], series["game_count"], series["over"]) == (0, 30, False)
+    assert table_count(e2e_server) == before + 1
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_cancelling_the_sheet_closes_it_and_sends_nothing(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    requests: list[str] = []
+    person.on("request", lambda request: requests.append(request.url) if request.method == "POST" else None)
+    before = table_count(e2e_server)
+    a_sheet(person, e2e_server)
+
+    person.get_by_role("button", name=catalog_text("cancelNewTable")).click()
+
+    expect(person.get_by_role("dialog")).to_have_count(0)
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    assert requests == []
+    assert table_count(e2e_server) == before
 
 
 def test_a_reload_shows_the_same_table_with_the_opener_still_in_chair_one(
@@ -220,12 +329,86 @@ def test_a_table_that_could_not_be_opened_says_so_and_a_retry_opens_it(
     person.goto(f"{e2e_server.base_url}/")
 
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
 
     expect(person).to_have_url(TABLE_URL)
     assert attempts[0] == attempts[1]
     assert table_count(e2e_server) == before + 1
+
+
+def lose_the_first_answer_of_opening_a_table(person: Page) -> list[dict[str, Any]]:
+    """Routes the table request so the server opens the table but its first answer is lost; returns every attempt."""
+    attempts: list[dict[str, Any]] = []
+
+    def lose_the_first_answer(route: Route) -> None:
+        attempts.append(json.loads(route.request.post_data or "{}"))
+        if len(attempts) > 1:
+            route.continue_()
+        else:
+            route.fetch()
+            route.abort()
+
+    person.route(TABLES_ROUTE, lose_the_first_answer)
+    return attempts
+
+
+def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
+    open_person: Callable[..., Page],
+    expected_request_failures: list[str],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
+    person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
+    attempts = lose_the_first_answer_of_opening_a_table(person)
+    a_sheet(person, e2e_server)
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
+
+    person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+
+    expect(person).to_have_url(TABLE_URL)
+    answer = person.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(urlsplit(person.url).path)}")
+    assert (
+        answer.json()["series"]["game_count"]
+        == attempts[1]["series_length"]
+        == attempts[0]["series_length"] - SERIES_LENGTH_STEP
+    )
+    assert attempts[1]["command_id"] != attempts[0]["command_id"]
+
+
+@pytest.mark.parametrize("steps_before_the_lost_answer", [0, 1])
+def test_a_sheet_reopened_after_a_lost_answer_replays_the_lost_table_unless_the_length_was_stepped(
+    steps_before_the_lost_answer: int,
+    open_person: Callable[..., Page],
+    expected_request_failures: list[str],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
+    person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
+    attempts = lose_the_first_answer_of_opening_a_table(person)
+    before = table_count(e2e_server)
+    a_sheet(person, e2e_server)
+    for _ in range(steps_before_the_lost_answer):
+        person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
+
+    person.get_by_role("button", name=catalog_text("cancelNewTable")).click()
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+
+    expect(person).to_have_url(TABLE_URL)
+    if steps_before_the_lost_answer:
+        assert attempts[1]["series_length"] == attempts[0]["series_length"] + SERIES_LENGTH_STEP
+        assert attempts[1]["command_id"] != attempts[0]["command_id"]
+    else:
+        assert attempts[1] == attempts[0]
+        assert table_count(e2e_server) == before + 1
 
 
 def test_a_session_that_ended_sends_the_start_page_to_the_sign_in_page_when_a_table_is_opened(
@@ -243,6 +426,7 @@ def test_a_session_that_ended_sends_the_start_page_to_the_sign_in_page_when_a_ta
     before = table_count(e2e_server)
 
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
 
     expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
     assert table_count(e2e_server) == before
@@ -261,7 +445,9 @@ def test_a_visitor_without_a_session_gets_the_sign_in_page_for_a_link_and_no_tab
     expect(visitor).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
     expect(visitor.get_by_text(catalog_text("waitingForPlayers"))).to_have_count(0)
     answer = visitor.request.post(
-        f"{e2e_server.base_url}{TABLES_PATH}", data={"command_id": "command-0001"}, headers=same_origin(e2e_server)
+        f"{e2e_server.base_url}{TABLES_PATH}",
+        data={"command_id": "command-0001", "series_length": 36},
+        headers=same_origin(e2e_server),
     )
     assert answer.status == UNAUTHORIZED
     assert table_count(e2e_server) == before
@@ -285,7 +471,9 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
     events = f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}{TABLE_EVENTS_SUFFIX}"
     assert outsider.request.get(events).status == UNAUTHORIZED
     answer = outsider.request.post(
-        f"{e2e_server.base_url}{TABLES_PATH}", data={"command_id": "command-0001"}, headers=same_origin(e2e_server)
+        f"{e2e_server.base_url}{TABLES_PATH}",
+        data={"command_id": "command-0001", "series_length": 36},
+        headers=same_origin(e2e_server),
     )
     assert answer.status == UNAUTHORIZED
     assert table_count(e2e_server) == before

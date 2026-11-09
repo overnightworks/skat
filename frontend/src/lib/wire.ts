@@ -38,3 +38,6 @@ export const VALID_BIDS = [
     170, 176, 180, 187, 192, 198, 204, 216, 240, 264,
 ] as const;
 export const ALL_POINTS = 120;
+export const SERIES_LENGTH_MIN = 3;
+export const SERIES_LENGTH_MAX = 99;
+export const SERIES_LENGTH_STEP = 3;

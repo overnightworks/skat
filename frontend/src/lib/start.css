@@ -116,6 +116,165 @@ body {
     text-align: center;
 }
 
+/* The sheet that opens over the list to name the length of a new table's series. */
+.scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 9, 11, 0.62);
+}
+
+.sheet {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    box-sizing: border-box;
+    width: min(354px, calc(100vw - 24px));
+    padding: 20px 16px 16px;
+    border-radius: 24px;
+    color: var(--on-stage);
+    background: rgba(12, 14, 17, 0.8);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
+        0 24px 50px -16px rgba(0, 0, 0, 0.9);
+}
+
+@media (min-width: 900px) {
+    .sheet {
+        width: 440px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .sheet {
+        animation: rise 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+    }
+}
+
+@keyframes rise {
+    from {
+        translate: 0 30px;
+        opacity: 0;
+        scale: 0.94;
+    }
+}
+
+.sheet h3 {
+    margin: 0;
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    color: #f3cf7a;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.sheet p {
+    margin: 0;
+    color: var(--on-stage-soft);
+    text-align: center;
+}
+
+.stepper {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.stepper .step,
+.stepper .value {
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.22);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.stepper .step {
+    flex: none;
+    width: 56px;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.stepper .step:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.stepper .step svg {
+    width: 16px;
+    height: 16px;
+}
+
+.stepper .value {
+    flex: 1;
+    min-width: 0;
+}
+
+.stepper .value small {
+    font-size: 15px;
+    font-weight: 600;
+    opacity: 0.75;
+}
+
+.sheet .btns {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+.sheet .btns button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.sheet .btns button svg {
+    width: 20px;
+    height: 20px;
+}
+
+.sheet .btns .open {
+    color: #0d1013;
+    background: #7aa7f0;
+}
+
+.sheet .btns .cancel {
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.sheet .btns button:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
 .room {
     --on-stage: #f4f6f8;
     --on-stage-soft: rgba(244, 246, 248, 0.72);

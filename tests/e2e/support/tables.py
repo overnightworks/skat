@@ -13,12 +13,14 @@ if TYPE_CHECKING:
 
     from tests.e2e.support.server import RunningServer
 
+OPEN_TABLE = catalog_text("openTable")
 SIT_DOWN = catalog_text("sitDown")
 TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}[0-9a-f]{{32}}$")
 
 
 def click_new_table(person: Page) -> str:
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person).to_have_url(TABLE_URL)
     return urlsplit(person.url).path
 
