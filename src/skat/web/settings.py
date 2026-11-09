@@ -75,5 +75,6 @@ class ServerSettings(DatabaseSettings):
     trusted_proxies: str = ""
     # How long a seated member whose last stream ended keeps the chair while no hand runs.
     chair_hold_seconds: float = Field(default=300, gt=0, allow_inf_nan=False)
-    # How long a table nobody is connected to stays before it ends; whole seconds, which the ended table's answer names.
+    # How long a table on which no hand was dealt stays after nobody is connected to it, before it ends; whole seconds,
+    # which the ended table's answer names.
     empty_table_seconds: int = Field(default=DEFAULT_EMPTY_TABLE_SECONDS, gt=0)

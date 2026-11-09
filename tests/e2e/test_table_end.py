@@ -47,17 +47,23 @@ def open_stream(server: RunningServer, person: RawSession, path: str) -> http.cl
     return connection
 
 
-def test_a_table_left_by_its_only_stream_ends_and_keeps_only_its_row_and_create_receipt_beside_a_table_still_watched(
+def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_beside_a_table_still_watched(
     e2e_server: RunningServer,
 ) -> None:
     anna, ben, cleo = (signed_in(e2e_server) for _ in range(3))
     left_id = json.loads(anna.post(TABLES_PATH, {"command_id": "end-create-0001"}))["id"]
     left_path = f"{TABLES_PATH}/{left_id}"
     cleo.post(f"{left_path}{TABLE_SIT_SUFFIX}", {"command_id": "end-sit-0002", "seat": 2})
+    dealt_id = json.loads(anna.post(TABLES_PATH, {"command_id": "end-create-0004"}))["id"]
+    dealt_path = f"{TABLES_PATH}/{dealt_id}"
+    cleo.post(f"{dealt_path}{TABLE_SIT_SUFFIX}", {"command_id": "end-sit-0005", "seat": 2})
+    ben.post(f"{dealt_path}{TABLE_SIT_SUFFIX}", {"command_id": "end-sit-0006", "seat": 3})
     watched_id = json.loads(ben.post(TABLES_PATH, {"command_id": "end-create-0003"}))["id"]
     watched = open_stream(e2e_server, ben, f"{TABLES_PATH}/{watched_id}")
     try:
         watched_before = rows_of(e2e_server.engine, watched_id)
+        dealt_before = rows_of(e2e_server.engine, dealt_id)
+        anna.first_stream_message(f"{dealt_path}{TABLE_EVENTS_SUFFIX}")
         anna.first_stream_message(f"{left_path}{TABLE_EVENTS_SUFFIX}")
 
         deadline = time.monotonic() + ENDS_WITHIN_SECONDS
@@ -73,6 +79,9 @@ def test_a_table_left_by_its_only_stream_ends_and_keeps_only_its_row_and_create_
         assert [row[:3] for row in left["receipts"]] == [
             (anna.member.account.id, "end-create-0001", CREATE_TABLE_COMMAND)
         ]
+        dealt = json.loads(anna.get(dealt_path))
+        assert (dealt["ended"], dealt["hand"] is not None) == (None, True)
+        assert rows_of(e2e_server.engine, dealt_id) == dealt_before
         assert rows_of(e2e_server.engine, watched_id) == watched_before
     finally:
         watched.close()

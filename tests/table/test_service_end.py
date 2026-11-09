@@ -1,5 +1,5 @@
 import itertools
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -22,16 +22,19 @@ from skat.table.records import (
     SitDown,
     StandUp,
     TableId,
+    TableRecord,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.fake_tables import FakeTableStore
+from tests.support.played_game import after_the_first_game
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
 NOBODY = frozenset[str]()
+THIRD = Actor(account_id="account-third", display_name="Cleo")
 ENDED_AT = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
 
 
@@ -51,21 +54,37 @@ def table_id(service):
     return TableId(service.create(OPENER, CreateTable(command_id="command-open")).id)
 
 
+@pytest.fixture
+def table(store, table_id):
+    return store.tables[table_id.value]
+
+
+@pytest.fixture
+def dealt_id(service, table_id):
+    """The table after a third person sat down and the first hand was dealt."""
+    service.sit(VISITOR, SitDown("command-sit-ben", table_id.value, 2), NOBODY)
+    service.sit(THIRD, SitDown("command-sit-cleo", table_id.value, 3), NOBODY)
+    return table_id
+
+
 def end_empty(service, table_id, connected=NOBODY):
     return service.end_empty_table(table_id, nullcontext(connected), DEFAULT_EMPTY_TABLE_SECONDS)
 
 
 @pytest.mark.parametrize(
-    ("connected", "ends"),
+    ("connected", "dealt", "ends"),
     [
-        pytest.param(frozenset(), True, id="nobody"),
-        pytest.param(frozenset({"account-opener"}), False, id="a-member"),
-        pytest.param(frozenset({"account-visitor"}), False, id="a-watcher"),
-        pytest.param(None, False, id="presence-stopped"),
+        pytest.param(frozenset(), False, True, id="nobody-and-no-hand-dealt"),
+        pytest.param(frozenset({"account-opener"}), False, False, id="a-member"),
+        pytest.param(frozenset({"account-visitor"}), False, False, id="a-watcher"),
+        pytest.param(None, False, False, id="presence-stopped"),
+        pytest.param(frozenset(), True, False, id="nobody-and-a-hand-dealt"),
     ],
 )
-def test_a_table_ends_only_for_an_empty_connected_set(connected, ends):
-    assert ends_empty(connected) is ends
+def test_a_table_ends_only_while_no_hand_was_dealt_and_nobody_is_connected(table, connected, dealt, ends):
+    table = replace(table, dealer=Position.FOREHAND if dealt else None)
+
+    assert ends_empty(table, connected) is ends
 
 
 class TestEndEmptyTable:
@@ -134,6 +153,43 @@ class TestEndEmptyTable:
         service.end_empty_table(table_id, nullcontext(NOBODY), 7)
 
         assert service.view(OPENER, table_id.value, NOBODY).ended.empty_seconds == 7
+
+
+class TestADealtTablePauses:
+    def assert_kept(self, service, store, table_id):
+        written = (dict(store.tables), dict(store.receipts))
+
+        assert end_empty(service, table_id) is False
+        assert (store.tables, store.receipts) == written
+        assert isinstance(store.tables[table_id.value], TableRecord)
+
+    def test_a_running_hand_is_kept_with_every_row(self, service, store, dealt_id):
+        assert store.tables[dealt_id.value].hand is not None
+
+        self.assert_kept(service, store, dealt_id)
+
+    def test_a_pending_result_and_its_list_are_kept(self, service, store, dealt_id):
+        store.tables[dealt_id.value] = after_the_first_game(store.tables[dealt_id.value])
+
+        self.assert_kept(service, store, dealt_id)
+
+    def test_a_passed_in_hand_is_kept(self, service, store, dealt_id):
+        passes = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
+        store.tables[dealt_id.value] = replace(store.tables[dealt_id.value], hand=None, progress=HandProgress(passes))
+
+        self.assert_kept(service, store, dealt_id)
+
+    def test_it_still_enters_the_connected_context_so_shutdown_awaits_it(self, service, dealt_id):
+        entered = []
+
+        @contextmanager
+        def connected():
+            entered.append(True)
+            yield NOBODY
+
+        service.end_empty_table(dealt_id, connected(), DEFAULT_EMPTY_TABLE_SECONDS)
+
+        assert entered == [True]
 
 
 class TestAtAnEndedTable:
@@ -206,10 +262,8 @@ class TestAtAnEndedTable:
         assert service.live_table_ids() == (live,)
 
 
-def test_a_deal_asked_for_with_presence_stopped_deals_nothing(service, store, table_id):
-    third = Actor(account_id="account-third", display_name="Cleo")
-    service.sit(VISITOR, SitDown("command-sit-ben", table_id.value, 2), NOBODY)
-    service.sit(third, SitDown("command-sit-cleo", table_id.value, 3), NOBODY)
+def test_a_deal_asked_for_with_presence_stopped_deals_nothing(service, store, dealt_id):
+    table_id = dealt_id
     passes = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
     store.tables[table_id.value] = replace(store.tables[table_id.value], hand=None, progress=HandProgress(passes))
     written = dict(store.tables)

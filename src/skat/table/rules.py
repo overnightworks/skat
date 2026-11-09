@@ -127,9 +127,11 @@ def result_pending(table: TableRecord) -> bool:
     return not hand_runs(table) and table.dealer is not None and bool(table.game_list) and not table.progress.auction
 
 
-def ends_empty(connected_accounts: frozenset[str] | None) -> bool:
-    """A table ends for being empty only when nobody is connected; None says the presence cannot tell any more."""
-    return connected_accounts is not None and not connected_accounts
+def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) -> bool:
+    """A table ends for being empty only while no hand was dealt on it and nobody is connected; a table with a dealer
+    pauses and is kept. None says the presence cannot tell any more.
+    """
+    return table.dealer is None and connected_accounts is not None and not connected_accounts
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:

@@ -11,7 +11,7 @@ from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
 from skat.host.app import create_app
-from skat.table.records import Actor, CreateTable
+from skat.table.records import Actor, CreateTable, SitDown, TableId
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.secret_files import StartRefusedError
@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
 SESSION_COOKIE = "__Host-session_id"
 OPENER = Actor(account_id="account-anna", display_name="Anna")
+VISITOR = Actor(account_id="account-ben", display_name="Ben")
+THIRD = Actor(account_id="account-cleo", display_name="Cleo")
 
 
 def signed_in_client(settings: ServerSettings) -> TestClient:
@@ -63,6 +65,7 @@ class EndingSignal(TableService):
     def __init__(self, store: FakeTableStore) -> None:
         super().__init__(store)
         self.table_ended = threading.Event()
+        self.end_checked = threading.Event()
         self.end_entered = threading.Event()
         self.release_end = threading.Event()
 
@@ -73,6 +76,7 @@ class EndingSignal(TableService):
         ended = super().end_empty_table(table_id, nullcontext(connected), empty_seconds)
         if ended:
             self.table_ended.set()
+        self.end_checked.set()
         return ended
 
 
@@ -102,6 +106,21 @@ class TestCreateApp:
 
         assert tables.live_table_ids() == ()
         assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1
+
+    def test_a_dealt_table_read_live_when_the_server_starts_is_kept_after_the_wait(self, sign_in_settings):
+        tables = EndingSignal(FakeTableStore())
+        tables.release_end.set()
+        opened = tables.create(OPENER, CreateTable(command_id="command-open"))
+        tables.sit(VISITOR, SitDown("command-sit-ben", opened.id, 2), frozenset())
+        tables.sit(THIRD, SitDown("command-sit-cleo", opened.id, 3), frozenset())
+        settings = sign_in_settings(empty_table_seconds=1).settings
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+
+        with TestClient(app):
+            assert tables.end_checked.wait(timeout=10)
+
+        assert (tables.table_ended.is_set(), tables.live_table_ids()) == (False, (TableId(opened.id),))
+        assert tables.view(OPENER, opened.id, frozenset()).ended is None
 
     def test_the_lifespan_returns_only_after_an_end_whose_check_passed_has_committed(self, sign_in_settings):
         tables = EndingSignal(FakeTableStore())

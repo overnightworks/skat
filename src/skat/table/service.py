@@ -288,7 +288,8 @@ class TableService:
         connected_accounts: AbstractContextManager[frozenset[str] | None],
         empty_seconds: int,
     ) -> bool:
-        """End a table nobody is connected to, on the server's own account, with no actor, command id or receipt.
+        """End a table nobody is connected to and on which no hand was dealt, on the server's own account, with no
+        actor, command id or receipt.
 
         `connected_accounts` is entered once the row is locked and left after the commit; it yields who is connected
         then, or None once the presence cannot tell. The decision reads the connected set under the row lock, so a
@@ -297,7 +298,7 @@ class TableService:
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            if table is None or not ends_empty(after_commit.enter_context(connected_accounts)):
+            if table is None or not ends_empty(table, after_commit.enter_context(connected_accounts)):
                 return False
             transaction.end_table(table_id, self._now(), empty_seconds)
             return True
