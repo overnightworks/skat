@@ -62,6 +62,7 @@ def result_fields(**changed):
         "schwarz": False,
         "doubled": False,
         "overbid": False,
+        "announcement_missed": False,
         "bid": 18,
     }
     return plain | changed

@@ -42,7 +42,9 @@ class NullOuvertGame:
 
 
 def null_ouvert_result(**changed):
-    return result_fields(game="null", ouvert=True, matadors=None, base_value=None, levels=[], **changed)
+    return result_fields(
+        game="null", ouvert=True, matadors=None, base_value=None, levels=[], multiplier=None, **changed
+    )
 
 
 def declared_picked_up(put_back):
@@ -70,6 +72,7 @@ PICKED_UP_WON = NullOuvertGame(
     # The declarer takes the two put-back cards' points only: ace 11 and king 4.
     result=null_ouvert_result(
         won=True,
+        list_bonus=50,
         game_value=46,
         settled_value=46,
         score=46,
@@ -93,6 +96,7 @@ PICKED_UP_LOST = NullOuvertGame(
     result=null_ouvert_result(
         doubled=True,
         won=False,
+        list_bonus=-50,
         game_value=46,
         settled_value=46,
         score=-92,
@@ -118,6 +122,7 @@ HAND_WON = NullOuvertGame(
     result=null_ouvert_result(
         hand=True,
         won=True,
+        list_bonus=50,
         game_value=59,
         settled_value=59,
         score=59,
@@ -141,6 +146,7 @@ HAND_LOST = NullOuvertGame(
         hand=True,
         doubled=True,
         won=False,
+        list_bonus=-50,
         game_value=59,
         settled_value=59,
         score=-118,
