@@ -138,11 +138,13 @@ def test_ending_one_table_changes_no_row_of_another_table_of_the_same_opener_or_
     ended = undealt_table(service, "one")
     kept = played_hand(service, transactions, stored, "two")
     other = listed_game(service, transactions, stored, "three")
-    before = (rows_of(engine, kept.value), rows_of(engine, other.value))
+    kept_before = rows_of(engine, kept.value)
+    other_before = rows_of(engine, other.value)
 
     assert end(service, ended) is True
 
-    assert (rows_of(engine, kept.value), rows_of(engine, other.value)) == before
+    assert rows_of(engine, kept.value) == kept_before
+    assert rows_of(engine, other.value) == other_before
 
 
 def test_the_end_stores_the_time_the_reason_and_the_wait_and_bumps_the_version_once(transactions, stored, engine):
