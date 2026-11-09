@@ -11,7 +11,7 @@ from skat.engine.declaration import Announcement, Declare
 from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed, play_card
 from skat.table.hand_state import playing_of
-from skat.table.records import CreateTable, HandProgress, SitDown, TableId
+from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableId
 from skat.table.service import TableService
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
@@ -27,17 +27,17 @@ from tests.web.support.presence import (
     THIRD_PASS_COMMAND,
     OvertakenStore,
     connect,
+    end_the_first_game,
     occupied_seats,
     pass_hand_in,
     post_pass,
     run,
+    view_of_version,
 )
 from tests.web.support.skat import Skat, streams_of
 from tests.web.support.streams import OPENER, VISITOR, next_view, run_on_a_loop_of_its_own, stream_of
 
-
-def view_of_version(messages, version):
-    return next(view for view in messages if view["version"] >= version)
+CLEO = Actor(account_id="cleo", display_name="Cleo")
 
 
 def advance(server, time, seconds):
@@ -146,6 +146,47 @@ class TestNextDealPause:
         run(time.advance(NEXT_DEAL_PAUSE_SECONDS * 2))
 
         assert (time.pending, deals.calls) == (0, [])
+
+
+class TestDealNow:
+    def test_asks_for_the_deal_at_once_with_who_is_connected_and_starts_no_timer(self, holding, time, deals):
+        connect(holding, TABLE, "anna", lambda: None)
+
+        run(holding.deal_now(TABLE))
+
+        assert (deals.calls, time.pending) == ([(TABLE, frozenset({"anna"}))], 0)
+
+    def test_a_deal_wakes_the_table_and_a_refused_deal_wakes_nobody(self, holding, deals, wakes):
+        connect(holding, TABLE, "anna", wakes.callback("anna"))
+        before = wakes.counts["anna"]
+
+        deals.dealt = False
+        run(holding.deal_now(TABLE))
+        assert wakes.counts["anna"] == before
+
+        deals.dealt = True
+        run(holding.deal_now(TABLE))
+        assert wakes.counts["anna"] == before + 1
+
+    def test_a_failed_deal_is_logged_by_name_and_wakes_nobody(self, holding, deals, wakes):
+        connect(holding, TABLE, "anna", wakes.callback("anna"))
+        before = wakes.counts["anna"]
+        deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+
+        with capture_logs() as logs:
+            run(holding.deal_now(TABLE))
+
+        assert wakes.counts["anna"] == before
+        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+        assert "anna" not in str(logs)
+
+    def test_once_the_server_stopped_it_asks_with_nobody_connected(self, holding, deals):
+        connect(holding, TABLE, "anna", lambda: None)
+        holding.stop()
+
+        run(holding.deal_now(TABLE))
+
+        assert deals.calls == [(TABLE, frozenset())]
 
 
 class TestNextHandComes:
@@ -527,3 +568,23 @@ class TestNextDealTrigger:
         run_on_a_loop_of_its_own(scenario())
 
         assert [call[0] for call in deals.calls] == [table_id]
+
+    def test_the_first_view_of_a_pending_result_asks_for_the_deal_at_once_and_a_later_view_does_not(
+        self, store, table, holding, time, deals
+    ):
+        service, table_id = table
+        service.sit(CLEO, SitDown("command-3", table_id, 3), frozenset())
+        end_the_first_game(store, table_id)
+        deals.dealt = False
+
+        async def scenario():
+            stream = stream_of(holding, service, OPENER, table_id)
+            await next_view(stream)
+            assert (len(deals.calls), time.pending) == (1, 0)
+            holding.wake_table(table_id)
+            await next_view(stream)
+            await stream.aclose()
+
+        run_on_a_loop_of_its_own(scenario())
+
+        assert deals.calls == [(table_id, frozenset({OPENER.account_id}))]

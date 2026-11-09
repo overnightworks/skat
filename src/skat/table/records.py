@@ -77,6 +77,8 @@ class Refusal(StrEnum):
     STALE_VERSION = "stale-version"
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
+    NO_RESULT = "no-result"
+    STALE_RESULT = "stale-result"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal
@@ -100,8 +102,12 @@ class Occupant:
 
 @dataclass(frozen=True)
 class Chair:
+    """A chair and who sits on it; `ready` says its occupant is ready for the next hand,
+    by a tap of „Weiter“ or by sitting down while a result is pending."""
+
     seat: int
     occupant: Occupant | None
+    ready: bool = False
 
 
 @dataclass(frozen=True)

@@ -189,6 +189,16 @@ class TestResult:
         assert (view.passed_in is not None, view.result) == (True, None)
 
 
+class TestReadyMarks:
+    def test_every_viewer_sees_which_chairs_are_ready(self):
+        table = replace(seated_table(1), game_list=(a_played_game(),))
+        marked = replace(table, chairs=tuple(replace(chair, ready=chair.seat != 2) for chair in table.chairs))
+
+        views = [view_of(marked, viewer, frozenset({DORA})) for viewer in (ANNA, BEN, CLEO, DORA)]
+
+        assert [[chair.ready for chair in view.chairs] for view in views] == [[True, False, True]] * 4
+
+
 class TestAuctionInTheHand:
     def test_a_running_hand_carries_the_auction_for_its_viewer(self):
         view = view_of(seated_table(2, KNOWN_DEAL), ANNA, NOBODY_CONNECTED)
