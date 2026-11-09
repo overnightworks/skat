@@ -423,7 +423,7 @@ class TestStandUp:
         assert presence.woken == [table_id]
 
 
-HAND_KEYS = {"dealer_seat", "own_cards", "skat_count", "auction"}
+HAND_KEYS = {"dealer_seat", "own_cards", "skat_count", "auction", "declaring"}
 
 
 def read(skat, headers, table_id):
@@ -447,7 +447,7 @@ class TestHandInPayloads:
         assert [(c["hand"]["card_count"]) for c in answer.json()["chairs"]] == [10, 10, 10]
         assert all(c["hand"]["position"] for c in answer.json()["chairs"])
 
-    def test_writes_each_card_and_each_position_as_a_word_and_gives_the_hand_three_keys(self, skat):
+    def test_writes_each_card_and_each_position_as_a_word_and_gives_the_hand_its_keys(self, skat):
         table_id, people = seated_three(skat)
         cleo_headers, _ = people[2]
 

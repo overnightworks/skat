@@ -5,6 +5,8 @@ import pytest
 from skat.engine.bidding import Awaiting, Bid, Pass
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
+from skat.engine.declaration import Announcement, Declare, Stage, TakeSkat
+from skat.engine.games import GameKind
 from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
 from skat.table.views import view_of
 
@@ -151,3 +153,34 @@ class TestAuctionInTheHand:
         view = view_of(seated_table(2, KNOWN_DEAL), BEN, NOBODY_CONNECTED)
 
         assert view.hand.auction.values == ()
+
+
+def middlehand_won(*steps) -> HandProgress:
+    won = (Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Position.REARHAND))
+    return HandProgress(auction=won, declaring=tuple(steps))
+
+
+class TestDeclaringInTheHand:
+    def test_a_hand_with_no_declarer_has_no_declaring(self):
+        view = view_of(seated_table(2, KNOWN_DEAL), ANNA, NOBODY_CONNECTED)
+
+        assert view.hand.declaring is None
+
+    def test_the_declarers_twelve_are_listed_in_deck_order_after_the_take(self):
+        shuffled = replace(KNOWN_DEAL, middlehand=tuple(reversed(MIDDLEHAND_CARDS)))
+        table = replace(seated_table(2, shuffled), progress=middlehand_won(TakeSkat()))
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert view.hand.own_cards == (*MIDDLEHAND_CARDS, *KNOWN_DEAL.skat)
+        assert view.hand.skat_count == 0
+        assert view.hand.declaring.stage is Stage.DISCARDING
+
+    def test_the_declarers_open_cards_are_listed_in_deck_order(self):
+        shuffled = replace(KNOWN_DEAL, middlehand=tuple(reversed(MIDDLEHAND_CARDS)))
+        ouvert = Declare(GameKind.GRAND, hand=True, ouvert=True, announcement=Announcement.SCHWARZ)
+        table = replace(seated_table(2, shuffled), progress=middlehand_won(ouvert))
+
+        view = view_of(table, BEN, NOBODY_CONNECTED)
+
+        assert view.hand.declaring.open_cards == MIDDLEHAND_CARDS

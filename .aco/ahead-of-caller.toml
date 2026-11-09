@@ -1,19 +1,4 @@
 [[code]]
-path = "src/skat/engine/games.py"
-item = "overnightworks/skat#27"
-reason = "S5.2 and S5.3 use its playing_suit and strength, which have no production caller yet."
-
-[[code]]
-path = "src/skat/engine/play.py"
-item = "overnightworks/skat#27"
-reason = "S5.3 plays the tricks at the table."
-
-[[code]]
-path = "src/skat/engine/tricks.py"
-item = "overnightworks/skat#27"
-reason = "S5.3 plays the ten tricks at the table."
-
-[[code]]
 path = "src/skat/engine/value.py"
 item = "overnightworks/skat#27"
 reason = "S5.3 shows the game's value at the table."
