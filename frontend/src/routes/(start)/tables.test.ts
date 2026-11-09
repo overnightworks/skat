@@ -4,6 +4,7 @@ import {
     SIGNED_IN_AGAIN_QUERY_NAME,
     TABLE_CARD_SUFFIX,
     TABLE_DECLARATION_SUFFIX,
+    TABLE_READY_SUFFIX,
     TABLE_AUCTION_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
@@ -18,6 +19,7 @@ import {
     drawingOrder,
     gameWord,
     isSuitGame,
+    markReady,
     playCard,
     positionWord,
     readTable,
@@ -288,6 +290,16 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-2" });
     });
 
+    it("sends the command id and the result's ordinal when ready", async () => {
+        answerWith(Response.json(table));
+
+        expect(await markReady(TABLE_ID, "command-3", 4)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_READY_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", ordinal: 4 });
+    });
+
     it.each([
         { step: { action: "take" } as const },
         {
@@ -397,6 +409,7 @@ describe("what the declaring stage asks of this viewer", () => {
             occupant_name: `player ${String(seat)}`,
             is_mine: seat === mine,
             is_away: false,
+            ready: false,
             hand: null,
         }));
     const bidWon = { seat: 2, value: 20 };
@@ -405,6 +418,7 @@ describe("what the declaring stage asks of this viewer", () => {
         version: 1,
         chairs: seats(mine),
         watchers: 0,
+        result: null,
         hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring, playing: null },
     });
     const tableAt = (stage: Stage, mine: number): Table =>
@@ -441,6 +455,7 @@ describe("the auction's value while declaring", () => {
         version: 1,
         chairs: [],
         watchers: 0,
+        result: null,
         hand: {
             dealer_seat: 1,
             own_cards: [],
@@ -498,6 +513,7 @@ describe("the table's seats and link", () => {
         occupant_name: null,
         is_mine: isMine,
         is_away: false,
+        ready: false,
         hand: null,
     });
 

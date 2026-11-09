@@ -165,7 +165,7 @@ describe("the marks on a chair during the auction", () => {
 });
 
 function chair(seat: number, changes: Partial<Chair> = {}): Chair {
-    return { seat, occupant_name: `player-${String(seat)}`, is_mine: false, is_away: false, hand: null, ...changes };
+    return { seat, occupant_name: `player-${String(seat)}`, is_mine: false, is_away: false, ready: false, hand: null, ...changes };
 }
 
 describe("whom the plaque waits for", () => {
