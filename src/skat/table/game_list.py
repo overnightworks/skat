@@ -115,6 +115,13 @@ def _gains(entry: ListEntry) -> tuple[SeatGain, ...]:
     )
 
 
+def total_of(game_list: tuple[ListEntry, ...], account_id: str) -> int:
+    """What the account has gained over the list, on whichever chair it held in each game."""
+    return sum(
+        gain.gain for entry in game_list for gain in _gains(entry) if entry.seat_accounts[gain.seat - 1] == account_id
+    )
+
+
 def result_view_of(table: TableRecord) -> ResultView | None:
     """The list's last entry while its result is pending, numbered by its place in the list; None otherwise."""
     if not result_pending(table):
