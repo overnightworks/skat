@@ -2,7 +2,6 @@
     import type { ResultView } from "#lib/result.ts";
     import { ALL_POINTS } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
-    import { isSuitGame } from "../../routes/(start)/tables.ts";
 
     let { view }: { view: ResultView } = $props();
 </script>
@@ -28,12 +27,12 @@
     </h3>
     <div class="sub">
         <span class="game">
-            {#if isSuitGame(view.game)}
-                <span class={`suit ${view.game}`} aria-hidden="true">
-                    <svg viewBox="0 0 100 100"><use href={`#suit-${view.game}`} /></svg>
+            {#if view.suit !== null}
+                <span class={`suit ${view.suit}`} aria-hidden="true">
+                    <svg viewBox="0 0 100 100"><use href={`#suit-${view.suit}`} /></svg>
                 </span>
             {/if}
-            {view.gameLine}
+            <span>{view.gameLine}</span>
         </span>
         {#if view.miss !== null}
             <span class="stamp">{words.overbid}</span>

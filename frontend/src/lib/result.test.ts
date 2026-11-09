@@ -118,8 +118,12 @@ describe("the card's words and sides for each viewer", () => {
     ])("names the declarer on the game line for $viewer only when it is not their own game", ({ mine, gameLine }) => {
         const view = resultView(table(mine, {}));
 
-        expect(view.game).toBe("kreuz");
+        expect(view.suit).toBe("kreuz");
         expect(view.gameLine).toBe(gameLine);
+    });
+
+    it.each(["grand", "null"] as const)("gives a %s game no trump suit", (game) => {
+        expect(resultView(table(2, { game })).suit).toBeNull();
     });
 });
 

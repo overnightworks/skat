@@ -43,7 +43,7 @@ class AddressedSession(RawSession):
 
 
 class PlayingTable:
-    """A declared game, named or already declared on the page: the forehand leads, and every card and turn is read by API."""
+    """A declared game, named or already declared on the page: the forehand leads, every card and turn is read by API."""
 
     def __init__(self, declaring: DeclaringTable, game: str | None) -> None:
         self.declaring = declaring
