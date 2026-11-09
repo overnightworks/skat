@@ -515,8 +515,6 @@ body.solo section.shot .rule{display:none}
 /* ---------- announced and open games: the announced level ticks or crosses on the result, the declarer's open cards lie in two rows ---------- */
 .result .ladder{transform:none}
 .plaque.wide{width:max-content}
-.ladder span.missed{background:rgba(0,0,0,.35);color:var(--on-stage-soft);display:inline-flex;gap:3px}
-.ladder span.missed svg{width:13px;height:13px}
 .open{display:flex;flex-direction:column}
 .open-row{display:flex}
 .open-row .card + .card{margin-left:calc(var(--step) - var(--w))}
@@ -812,7 +810,7 @@ frame('call-trick-1280','Stich geht an dich','Desktop 1280 px','d1280',
 /* ===== end of hand: Anna's Kreuz game falls Schneider; you and Nova win, Anna knocks the table ===== */
 /* ===== the reckoning of a game: its steps, its value, what the list adds ===== */
 const withMinus=(n)=>n<0?`−${-n}`:n;
-const levelRow=(list)=>`<div class="ladder words">${list.map(([name,state])=>`<span class="${state==='mit'?'held mit':state}">${state==='missed'?I.cross:state==='mit'?'':I.check}${name}</span>`).join('')}</div>`;
+const levelRow=(list)=>`<div class="ladder words">${list.map(([name,state])=>`<span class="${state==='mit'?'held mit':state}">${state==='mit'?'':I.check}${name}</span>`).join('')}</div>`;
 /* the reckoning is derived from the declared parts, so every number on a card agrees with the engine's value rules; a scene whose coasters disagree fails loud */
 const LIST_BONUS=50,LIST_SHARE=40;
 const signed=(n)=>n>0?`+${n}`:withMinus(n);
@@ -825,8 +823,8 @@ function reckonOf(o){
   return {value,settled,final,total};
 }
 const calcRows=(o,compact=false)=>{
-  const c=o.calc,r=reckonOf(o),mark=(name)=>[name,name===c.missed?'missed':'held'];
-  const chips=levelRow([...(c.fixed?[]:[[`${c.mit?'mit':'ohne'} ${c.count}`,'mit']]),...c.steps.map(mark)]);
+  const c=o.calc,r=reckonOf(o),mark=(name)=>[name,'held'];
+  const chips=c.fixed?'':levelRow([[`${c.mit?'mit':'ohne'} ${c.count}`,'mit'],...c.steps.map(mark)]);
   const twice=compact&&!c.won?'<span class="x2">×2</span>':'';
   const product=r.final===r.value&&!compact?'':`<i>=</i><b>${r.value}</b>`;
   const raise=r.settled!==r.value?`<div class="miss">Wert ${r.value} &lt; Reizwert ${c.bid} → ${r.settled}${twice}</div>`:'';
@@ -1112,6 +1110,7 @@ const waitButton=(names)=>`<span class="cb wide glass" role="status">Warte auf $
 const endBar=(d,tap)=>tap?tableBar(d,{seated:true}).replace('<div class="sbar">',`<div class="sbar">${tap}`):tableBar(d);
 const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
   <h3>${o.won?I.check:I.cross}${o.word}</h3>
+  ${o.calc.missed?`<div class="miss">${o.calc.missed}, nicht erreicht</div>`:''}
   <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stamp}</span>`:''}</div>
   ${calcRows(o)}
   ${o.eyes?pointsNamed(o.eyes,o.names,0):''}
@@ -1136,7 +1135,7 @@ const END_SCENES=[
   ['end-ready','Weiter getippt',(d)=>endScene(d,{...OWN_WIN,ready:['felix','anna']},waitButton('Ben'))],
 ];
 /* a won Null Hand has a fixed value and no matadors; a Grand without two Bauern counts „ohne 2“; neither has an existing scene */
-const NULL_HAND={near:'felix',declarer:'felix',winners:['felix'],adds:[0,0,85],won:true,word:'Gewonnen!',game:'Null Hand',calc:{label:'Null Hand',fixed:35,steps:['Spiel','Hand'],won:true},names:OWN_GAME,ready:[]};
+const NULL_HAND={near:'felix',declarer:'felix',winners:['felix'],adds:[0,0,85],won:true,word:'Gewonnen!',game:'Null Hand',calc:{label:'Null Hand',fixed:35,steps:[],won:true},names:OWN_GAME,ready:[]};
 const GRAND_OHNE={...OWN_WIN,adds:[0,0,122],suit:'',game:'Grand',calc:{label:'Grand',base:24,mit:false,count:2,steps:['Spiel'],won:true},eyes:[74,46]};
 END_SCENES.push(
   ['null-won','Null gewonnen',(d)=>endScene(d,NULL_HAND,tapButton,1,declarerWinsConfetti(d)),['Null hat einen festen Wert (23, 35, 46 oder 59) und keine Matadore; Augen zählen hier nicht, das Spiel ist gewonnen, wenn kein Stich fällt.']],
