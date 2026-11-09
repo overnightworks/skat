@@ -18,7 +18,7 @@ from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
 from tests.support.signed_in import seed_member
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from playwright.sync_api import Page
 
@@ -42,7 +42,9 @@ def step(session: AddressedSession, api_path: str, suffix: str, **fields: object
     return json.loads(session.post(f"{api_path}{suffix}", body))
 
 
-def play_until_the_agents_turn(sessions: dict[int, AddressedSession], api_path: str, seat_at: dict[str, int]) -> None:
+def play_until_the_agents_turn(
+    sessions: Mapping[int, AddressedSession], api_path: str, seat_at: Mapping[str, int]
+) -> None:
     step(sessions[seat_at["middlehand"]], api_path, TABLE_AUCTION_SUFFIX, action="bid", value=VALID_BIDS[-1])
     step(sessions[seat_at["forehand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
     step(sessions[seat_at["rearhand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
