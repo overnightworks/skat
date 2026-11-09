@@ -87,6 +87,12 @@ msgstr "Weg"
 msgid "waitingFor"
 msgstr "Warte auf"
 
+msgid "passedIn"
+msgstr "Eingepasst"
+
+msgid "gives"
+msgstr "gibt"
+
 msgid "waitsForYou"
 msgstr "wartet auf dich"
 
