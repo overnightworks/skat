@@ -179,7 +179,6 @@ class Presence:
         """
         key = (table_id, account_id)
         with self._state:
-            self._empty_waits.pop(table_id, None)
             committing = self._committing.get(key)
             if committing is None:
                 self._left_at.pop(key, None)
@@ -191,6 +190,7 @@ class Presence:
         already_connected = account_id in self.connected(table_id)
         others = list(self._subscriptions.get(table_id, ()))
         with self._state:
+            self._empty_waits.pop(table_id, None)
             self._subscriptions.setdefault(table_id, []).append(subscription)
         if not already_connected:
             self._wake_all(others)

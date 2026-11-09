@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from structlog.testing import capture_logs
 
@@ -5,6 +7,7 @@ from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
+    HOLD_SECONDS,
     NAMED_FAILURE,
     OTHER_TABLE,
     TABLE,
@@ -122,6 +125,33 @@ class TestWhenTheCheckRuns:
         run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
 
         assert wakes.counts["ben"] == woken
+
+    def test_a_stream_cancelled_while_it_waits_for_a_freeing_leaves_the_table_to_end(
+        self, holding, time, releases, ends
+    ):
+        writing = asyncio.Event()
+        commit = asyncio.Event()
+
+        async def write_until_released():
+            writing.set()
+            await commit.wait()
+
+        async def scenario():
+            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
+            await writing.wait()
+            returning = asyncio.create_task(holding.subscribe(TABLE, "anna", lambda: None))
+            await asyncio.sleep(0)
+            returning.cancel()
+            commit.set()
+            await expiry
+            await time.advance(DEFAULT_EMPTY_TABLE_SECONDS)
+
+        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
+        releases.within = write_until_released
+
+        run(scenario())
+
+        assert ends.calls == [(TABLE, frozenset())]
 
     def test_presence_stopped_before_the_check_enters_its_context_ends_nothing(self, holding, time, ends):
         async def stops():
