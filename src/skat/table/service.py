@@ -8,7 +8,16 @@ from typing import TYPE_CHECKING, Protocol
 from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
-from skat.table.playing import PLAY_CARD_COMMAND, PlayCardCommand, card_payload, decide_card
+from skat.table.playing import (
+    GIVE_UP_COMMAND,
+    PLAY_CARD_COMMAND,
+    GiveUpCommand,
+    PlayCardCommand,
+    card_payload,
+    decide_card,
+    decide_give_up,
+    give_up_payload,
+)
 from skat.table.ready import READY_COMMAND, ReadyCommand, decide_ready, ready_payload
 from skat.table.records import (
     Actor,
@@ -244,6 +253,24 @@ class TableService:
             PLAY_CARD_COMMAND,
             card_payload(command),
             lambda table: decide_card(table, actor, command),
+            on_hand_ended,
+        )
+
+    def give_up(
+        self,
+        actor: Actor,
+        command: GiveUpCommand,
+        connected_accounts: frozenset[str],
+        on_hand_ended: Callable[[frozenset[str]], None],
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            GIVE_UP_COMMAND,
+            give_up_payload(command),
+            lambda table: decide_give_up(table, actor, command),
             on_hand_ended,
         )
 

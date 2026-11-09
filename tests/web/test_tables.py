@@ -8,7 +8,7 @@ from skat.engine.deal import Position, positions_from
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
-from skat.web.playing import TABLE_CARD_SUFFIX
+from skat.web.playing import TABLE_CARD_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.presence import Presence
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
@@ -637,6 +637,7 @@ class TestAnEmptyTableEnds:
             pytest.param(TABLE_AUCTION_PASS_SUFFIX, {"version": 1}, id="auction"),
             pytest.param(TABLE_DECLARATION_SUFFIX, {"version": 1, "action": DeclaringAction.TAKE}, id="declaring"),
             pytest.param(TABLE_CARD_SUFFIX, {"version": 1, **card_body(card("C7"))}, id="card"),
+            pytest.param(TABLE_GIVE_UP_SUFFIX, {"version": 1}, id="give-up"),
             pytest.param(TABLE_READY_SUFFIX, {"ordinal": 1}, id="ready"),
         ],
     )

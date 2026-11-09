@@ -4,13 +4,14 @@ from typing import TYPE_CHECKING, Annotated, Final
 from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
-from skat.table.playing import PlayCardCommand
-from skat.web.mcp import PLAY_CARD_MARK
+from skat.table.playing import GiveUpCommand, PlayCardCommand
+from skat.web.mcp import GIVE_UP_GAME_MARK, PLAY_CARD_MARK
 from skat.web.tables import (
     COMMAND_ID_PATTERN,
     COMMAND_RESPONSES,
     TABLES_PATH,
     CardChoice,
+    CreateTableRequest,
     TableAnswer,
     actor_of,
     card_of,
@@ -23,12 +24,20 @@ if TYPE_CHECKING:
 
 # A card played on a table: `TABLES_PATH/{table_id}` plus this.
 TABLE_CARD_SUFFIX: Final = "/card"
+# The declarer's give-up on a table: `TABLES_PATH/{table_id}` plus this.
+TABLE_GIVE_UP_SUFFIX: Final = "/give-up"
 
 
 class PlayCardRequest(CardChoice):
     """A client names only the card and the version it saw: its seat and position come from the session."""
 
     command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
+    version: Annotated[int, Field(strict=True)]
+
+
+class GiveUpRequest(CreateTableRequest):
+    """A client names only the version it saw: it cannot send consent, and its seat comes from the session."""
+
     version: Annotated[int, Field(strict=True)]
 
 
@@ -58,6 +67,37 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
         return await command_answer(
             partial(
                 tables.play_card,
+                actor_of(request),
+                command,
+                on_hand_ended=partial(presence.restart_leaves, table_id),
+            ),
+            presence,
+            table_id,
+            response,
+        )
+
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_GIVE_UP_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=GIVE_UP_GAME_MARK,
+    )
+    async def give_up_game(
+        table_id: str, body: GiveUpRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Give up the game the caller declared and lose it at once, valued as declared; this cannot be undone.
+
+        Use it when `hand.declaring.declarer_seat` in the answer of read_table is the chair marked `is_mine`, once
+        `hand.playing` is set and while the caller's chair holds nine or more cards, on anyone's turn. The table id and
+        the version come from that answer. The command id names this step: the same id with the same version is a
+        retry that changes nothing twice. A refusal (a stale version, not the declarer, fewer than nine cards) comes
+        back as a failed result with its reason, leaves the table as it was and spends the command id: the next
+        attempt takes a new command id.
+        """
+        command = GiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
+        return await command_answer(
+            partial(
+                tables.give_up,
                 actor_of(request),
                 command,
                 on_hand_ended=partial(presence.restart_leaves, table_id),

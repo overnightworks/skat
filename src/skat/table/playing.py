@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
+from skat.engine.giving_up import give_up
 from skat.engine.tricks import CardPlayed, play_card
 from skat.table.game_list import list_entry_of
 from skat.table.hand_state import playing_of
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from skat.table.records import Actor
 
 PLAY_CARD_COMMAND: Final = "play-card"
+GIVE_UP_COMMAND: Final = "give-up"
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,15 @@ class PlayCardCommand:
     table_id: str
     version: int
     card: Card
+
+
+@dataclass(frozen=True)
+class GiveUpCommand:
+    """The declarer gives up the game; the actor's seat and position come from the session, never from the client."""
+
+    command_id: str
+    table_id: str
+    version: int
 
 
 @dataclass(frozen=True)
@@ -75,6 +86,29 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
     if outcome.state.result is None:
         return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, plays=plays)))
     return Decision(_ended(table, outcome.state.result))
+
+
+def give_up_payload(command: GiveUpCommand) -> str:
+    """The receipt's payload: a retry repeats its original version, so another version is another request."""
+    return f"{command.table_id}:{command.version}"
+
+
+def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> Decision:
+    """The declarer gives up without consent: no hand, no chair, a stale version, the wrong phase, then the engine."""
+    position = acting_position(table, actor, command.version)
+    if isinstance(position, Refusal):
+        return Decision(table, position)
+    state = playing_of(table)
+    if state is None:
+        return Decision(table, Refusal.WRONG_PHASE)
+    if position is not state.declared.declarer:
+        return Decision(table, Refusal.NOT_DECLARER)
+    outcome = give_up(state)
+    if outcome.refusal is not None:
+        return Decision(table, outcome.refusal)
+    played = outcome.state.result
+    assert played is not None  # noqa: S101 - an accepted give-up always ends the game
+    return Decision(_ended(table, played))
 
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:

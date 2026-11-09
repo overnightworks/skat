@@ -50,6 +50,7 @@ AUCTION_BID_TOOL: Final = "auction_bid"
 AUCTION_HOLD_TOOL: Final = "auction_hold"
 AUCTION_PASS_TOOL: Final = "auction_pass"  # noqa: S105 - the word for dropping out of the auction and no password
 AUCTION_PLAY_TOOL: Final = "auction_play"
+GIVE_UP_GAME_TOOL: Final = "give_up_game"
 CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
 
 
@@ -76,6 +77,7 @@ AUCTION_BID_MARK: Final = agent_tool(name=AUCTION_BID_TOOL, effect=ToolEffect.SI
 AUCTION_HOLD_MARK: Final = agent_tool(name=AUCTION_HOLD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_PASS_MARK: Final = agent_tool(name=AUCTION_PASS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_PLAY_MARK: Final = agent_tool(name=AUCTION_PLAY_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+GIVE_UP_GAME_MARK: Final = agent_tool(name=GIVE_UP_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 

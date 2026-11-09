@@ -166,8 +166,11 @@ class PlayedOut:
     def declarer_points(self) -> int:
         """The declarer's tricks plus the skat, which counts for the declarer in every game.
 
-        When the opponents keep only their completed tricks, every point outside them is his.
+        When the opponents keep only their completed tricks, every point outside them is his. A given-up game counts
+        his completed tricks alone: it ends before the skat is known to anyone but a declarer who picked it up.
         """
+        if self.ending is Ending.GIVEN_UP:
+            return self.tally.points.declarer
         if self._opponents_keep_only_their_completed_tricks:
             return opponents_points_of(self.tally.points.opponents)
         return sum(card.points for card in self.declared.skat) + self.tally.points.declarer
