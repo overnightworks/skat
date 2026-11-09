@@ -1,3 +1,4 @@
+import threading
 from contextlib import nullcontext
 from datetime import UTC, datetime
 
@@ -10,10 +11,9 @@ from skat.table.records import Actor, CreateTable, EndedTable, EndReason, SitDow
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from tests.store.test_tables import run_in_thread, wait_until_a_session_waits_for_a_lock
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game, before_the_last_card
-from tests.support.table_rows import rows_of
+from tests.support.table_rows import rows_of, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
 
@@ -145,7 +145,9 @@ def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_en
 
     with transactions.begin() as ending:
         ending.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), DEFAULT_EMPTY_TABLE_SECONDS)
-        reading, views = run_in_thread(lambda: service.view(OPENER, table_id.value, NOBODY_CONNECTED))
+        views = []
+        reading = threading.Thread(target=lambda: views.append(service.view(OPENER, table_id.value, NOBODY_CONNECTED)))
+        reading.start()
         wait_until_a_session_waits_for_a_lock(engine)
 
     reading.join()
