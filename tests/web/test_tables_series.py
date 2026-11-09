@@ -230,6 +230,14 @@ class TestTheEnd:
 
         assert skat.store.tables[table_id] == before
 
+    def test_weiter_with_a_stale_ordinal_at_the_end_is_stale_before_it_is_series_over(self, skat):
+        table_id, people = open_series(skat, 3)
+        at_the_end_of_a_played_series(skat, table_id)
+
+        answer = tap_weiter(skat, people[0][0], table_id, "weiter-stale", ordinal=2)
+
+        assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.STALE_RESULT)
+
     def test_a_sitter_at_the_end_is_not_marked_ready_and_nothing_deals(self, skat):
         table_id, people = open_series(skat, 3)
         at_the_end_of_a_played_series(skat, table_id)
