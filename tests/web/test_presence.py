@@ -11,10 +11,12 @@ from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
     NEXT_DEAL_PAUSE_SECONDS,
     ChairHold,
+    EmptyTable,
     LoopScheduler,
     NextDeal,
     Presence,
 )
+from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.idle_presence import idle_presence
 from tests.support.payload_cards import seated_three
@@ -125,6 +127,10 @@ async def leaves_her_table(presence):
 async def starts_the_pause(presence):
     await presence.subscribe(TABLE, "anna", lambda: None)
     presence.deal_soon(TABLE)
+
+
+async def waits_for_nobody(presence):
+    presence.watch_empty_table(TABLE)
 
 
 class TestChairHold:
@@ -338,6 +344,7 @@ class TestChairHold:
         [
             pytest.param(leaves_her_table, HOLD_SECONDS, True, id="freeing"),
             pytest.param(starts_the_pause, NEXT_DEAL_PAUSE_SECONDS, frozenset({"anna"}), id="next-deal"),
+            pytest.param(waits_for_nobody, DEFAULT_EMPTY_TABLE_SECONDS, frozenset(), id="empty-table"),
         ],
     )
     def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_check(
@@ -360,11 +367,15 @@ class TestChairHold:
         async def deal_on_worker(table_id, connected_accounts):
             return await asyncio.to_thread(worker, connected_accounts)
 
+        async def end_on_worker(table_id, connected_accounts):
+            return await asyncio.to_thread(worker, connected_accounts)
+
         async def scenario():
             time = FakeTime()
             presence = Presence(
                 ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker),
                 NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_on_worker),
+                EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_on_worker),
             )
             await anna_starts_the_write(presence)
             expiry = asyncio.create_task(time.advance(seconds))
@@ -512,8 +523,8 @@ class TestHoldWhenTheHandEnds:
             next(lines)
             server.client.cookies.clear()
             pass_hand_in(server, table_id, people)
-            two_holds_and_the_pause = 3
-            assert time.pending == two_holds_and_the_pause
+            two_holds_the_pause_and_the_tables_empty_wait = 4
+            assert time.pending == two_holds_the_pause_and_the_tables_empty_wait
             server.client.portal.call(time.advance, hold.settings.chair_hold_seconds + 1)
             assert occupied_seats(server, table_id) == {3}
 
