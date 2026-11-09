@@ -1,7 +1,0 @@
-claim_id = "9e3bd7e0a1344aba95ad981156249ba8"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "f16c5f548c77e7cad96f5f7d28872e2f8b16703d"
-branch = "claude/issue-154-series-picture"
-scope = ["docs/mockups/start.html", "docs/mockups/table.html"]
-opened_commit = "9dc41817687770d97bdb3f18e051984d899f6318"
