@@ -1,37 +1,33 @@
-# Skat - Agent Guidance
-
-This file holds Skat's own facts on top of the global contract. `CLAUDE.md`
-imports it.
+# skat
 
 ## Commands
 
-The `Makefile` owns the targets. Traps:
+`make -n <target>` prints a target; the targets are the `.PHONY` line of the `Makefile`.
 
-- `make e2e` and `make run` build the page first (`make frontend`, which needs
-  Node 26 or 24, and pnpm), and the server refuses to start without that build.
-  `make e2e` takes no lock itself: run it under the `flock` rule in the global
-  contract's section "Machine load and local runs". It needs Playwright's
-  Chromium installed once; the `End-to-end` job in `.github/workflows/ci.yml`
-  owns that install step.
-- `make wire-check` (part of `make lint`) fails when `frontend/src/lib/wire.ts`
-  drifts from the Python path constants; regenerate it with `make wire`.
-- CI's `Coverage` job judges 100 % over unit and end-to-end data together, and
-  the merged frontend report (Vitest and the browser) at 100 % lines, branches
-  and functions; no local run judges it.
-- pyright runs strict over `src` and `scripts`; `tests` are not type-checked.
+- `make check`: lint, unit tests, dead-code scan and frontend checks; the local gate. Needs `make install` once and the Node and pnpm the frontend declares.
+- `make lint`: ruff, pyright, import-linter and the generated-file checks.
+- `make test`: the unit tests against a throwaway Postgres container, so Docker must run.
+- `make e2e`: the end-to-end tests in Chromium; builds the page first, needs Playwright's Chromium installed once and Docker, and runs under the probe-stack `flock` of the global contract.
+- `make run`: builds the page, then serves the app; the server refuses to start without that build.
+- `make frontend-check`: svelte-check, the frontend linter and Vitest.
+- `make wire`: regenerates `frontend/src/lib/wire.ts` from the Python path constants.
+- `make words`: regenerates `frontend/src/lib/words.ts` from `frontend/src/lib/catalogs/de.po`.
 
-## Where things live
+## Rules
 
-- A setting added to or changed in `src/skat/web/settings.py` updates README's
-  Configuration table in the same change.
-- Layers are `skat.host` above `skat.web`; `pyproject.toml` holds the
-  import-linter contracts, and a new package is placed in a layer there.
-- `quality/config.toml` configures the shared gate and has no `legacy` key, so
-  legacy findings only report; `quality/baseline.toml` holds the size ratchet's
-  baseline. The required check is `quality / verdict`; overnightworks/quality's
-  README owns the gate's semantics.
+- Never edit `frontend/src/lib/wire.ts` or `frontend/src/lib/words.ts` by hand; change their source and regenerate.
+- A setting added to or changed in `src/skat/web/settings.py` updates the Configuration table in `README.md` in the same change.
+- A new Python package is placed in a layer of the import-linter contracts in `pyproject.toml`, which are exhaustive.
+- A sonar marker takes the bare rule key, `# NOSONAR(S7503) reason`; a `language:`-prefixed key is a syntax finding itself. A ruff `# noqa: <code>` line's prose after the code has no comma.
 
-## Scanner exceptions
+## Owners
 
-- The scanner marker traps are in the `sonar-distributor` skill, section
-  "Marker grammar".
+- overnightworks/quality owns the shared gate, `quality / verdict`; its README owns the gate's semantics, and `quality/config.toml` configures it here.
+
+## Documents
+
+- `README.md`: read when changing a setting, the release or how to run Skat.
+- `docs/VISION.md`: read when judging what Skat should do or look like.
+- `docs/ARCHITECTURE.md`: read when changing a part, a boundary, the trust model or a runtime flow; it holds the layer rule and its reasons.
+- `docs/mockups/`: read when building a surface; the frozen pictures, one file per surface.
+- `legal/`: read when the app processes new data; hal reads these two pages from each release at exactly these paths.

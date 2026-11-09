@@ -39,6 +39,14 @@ class PlayRefusal(StrEnum):
     NOT_YOUR_TURN = "not-your-turn"
     NOT_IN_HAND = "not-in-hand"
     MUST_FOLLOW = "must-follow"
+    TOO_LATE_TO_GIVE_UP = "too-late-to-give-up"
+
+
+class Ending(StrEnum):
+    """How a game ended: with its tenth trick or by the declarer giving it up."""
+
+    PLAYED_OUT = "played-out"
+    GIVEN_UP = "given-up"
 
 
 def _kind_of(declared: Declaring) -> GameKind:
@@ -85,10 +93,11 @@ def _tally(declarer: Position, tricks: tuple[CompletedTrick, ...]) -> Tally:
 
 @dataclass(frozen=True)
 class PlayedOut:
-    """The finished game: the ended declaration state and its ten tricks, the rest derived."""
+    """The finished game: the ended declaration state and its tricks (ten unless given up), the rest derived."""
 
     declared: Declaring
     tricks: tuple[CompletedTrick, ...]
+    ending: Ending = Ending.PLAYED_OUT
 
     @property
     def tally(self) -> Tally:
@@ -113,6 +122,8 @@ class PlayedOut:
 
     @property
     def won_by_play(self) -> bool:
+        if self.ending is Ending.GIVEN_UP:
+            return False
         if _kind_of(self.declared) is GameKind.NULL:
             return self.declarer_tricks == 0
         return self.declarer_points >= _WINNING_POINTS
