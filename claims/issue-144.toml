@@ -1,8 +1,0 @@
-claim_id = "29c0d27277304894908bc27701d23aba"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "ae01c568a926dc7a3dea8ba3604a12dda4143eb0"
-branch = "claude/issue-144-no-running-points"
-scope = ["frontend/src/lib/playView.test.ts", "frontend/src/lib/start.css", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.ts", "src/skat/engine/tricks.py", "src/skat/table/playing.py", "src/skat/web/tables.py", "tests/e2e/support/hands.py", "tests/e2e/test_table_playing.py", "tests/engine/test_tricks.py", "tests/web/test_playing.py"]
-opened_commit = "668ba21910630c659b36507b458bf655c8e3bef9"
-whole_reason = "The answer stops carrying the running points and the plaque stops drawing them; apart, one would draw a number the other no longer sends or send one nobody is shown."
