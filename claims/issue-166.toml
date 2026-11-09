@@ -1,8 +1,0 @@
-claim_id = "dc1a8cea4f7f40b4bf6416fde5f88000"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "4a678f42d5748784be9f4a0da662d578fbc3123e"
-branch = "claude/issue-166-engine-throw-down"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/giving_up.py", "src/skat/engine/tricks.py", "tests/engine/test_giving_up.py"]
-opened_commit = "c89da19e8db19d9d7cb40f50e2f40474e7e8b84e"
-whole_reason = "One owner for how a side ends the game early: the consent, the already-won limit and the throw-down share giving_up.py, tricks.py's ending and counts, and one test module; split apart, the throw-down has no count and the already-won check has no valuation."
