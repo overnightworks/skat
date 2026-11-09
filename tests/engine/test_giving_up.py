@@ -8,7 +8,7 @@ from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind
-from skat.engine.giving_up import give_up, throw_down
+from skat.engine.giving_up import give_up, opponent_gives_up, throw_down
 from skat.engine.score import Reckoning, Settlement, reckon, settle
 from skat.engine.tricks import CompletedTrick, Ending, PlayedOut, Playing, PlayRefusal, play_card, start_play
 
@@ -364,7 +364,9 @@ def test_a_thrown_down_result_keeps_the_completed_tricks_and_names_the_side_that
     assert (result.ending, result.tricks) == (ending, state.tricks)
 
 
-@pytest.mark.parametrize("how", ["declarer threw down", "opponent threw down", "given up", "played out"])
+@pytest.mark.parametrize(
+    "how", ["declarer threw down", "opponent threw down", "given up", "opponent gave up", "played out"]
+)
 def test_a_game_that_is_over_refuses_throwing_down_giving_up_and_any_card(how: str) -> None:
     state = started()
     match how:
@@ -374,6 +376,8 @@ def test_a_game_that_is_over_refuses_throwing_down_giving_up_and_any_card(how: s
             state = throw_down(state, MIDDLEHAND).state
         case "given up":
             state = give_up(state).state
+        case "opponent gave up":
+            state = opponent_gives_up(state).state
         case _:
             while state.result is None:
                 state = next_card(state)
@@ -382,4 +386,105 @@ def test_a_game_that_is_over_refuses_throwing_down_giving_up_and_any_card(how: s
     assert throw_down(state, MIDDLEHAND).state == state
     assert give_up(state, consented=True).refusal is PlayRefusal.OVER
     assert give_up(state, consented=True).state == state
+    assert opponent_gives_up(state).refusal is PlayRefusal.OVER
+    assert opponent_gives_up(state).state == state
     assert play_card(state, FOREHAND, KARO_ACE).refusal is PlayRefusal.OVER
+
+
+def opponent_gave_up(state: Playing) -> PlayedOut:
+    outcome = opponent_gives_up(state)
+    assert outcome.refusal is None
+    assert outcome.state.result is not None
+    return outcome.state.result
+
+
+DECLARER_90 = ((FOREHAND, 32), (FOREHAND, 32), (FOREHAND, 26))
+OPPONENTS_35 = ((MIDDLEHAND, 17), (REARHAND, 18))
+NULL_23 = {"kind": NULL, "bid": 23, "jacks": ()}
+
+
+@pytest.mark.parametrize(
+    ("scene", "expected", "ending"),
+    [
+        pytest.param(
+            KREUZ_MIT_2,
+            Settlement(won=True, value=36, score=36),
+            Ending.CONCEDED,
+            id="undecided: won at spiel only, (2 + 1) * 12",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "bid": 20, "hand": True, "announcement": Announcement.SCHNEIDER},
+            Settlement(won=True, value=72, score=72),
+            Ending.CONCEDED,
+            id="undecided: declared hand and announced schneider, (2 + 4) * 12",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 24},
+            Settlement(won=True, value=27, score=27),
+            Ending.CONCEDED,
+            id="undecided, bid-forced: schneider awarded, (1 + 2) * 9",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 36},
+            Settlement(won=True, value=36, score=36),
+            Ending.CONCEDED,
+            id="undecided, bid-forced: schwarz awarded, (1 + 3) * 9",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 24, "taken": ((MIDDLEHAND, 10),)},
+            Settlement(won=True, value=27, score=27),
+            Ending.CONCEDED,
+            id="undecided: the forced schneider is still open after one opponent trick of 10 points",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "hand": True, "announcement": Announcement.SCHWARZ},
+            Settlement(won=True, value=96, score=96),
+            Ending.CONCEDED,
+            id="undecided: announced schwarz, (2 + 6) * 12",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 24, "taken": OPPONENTS_35},
+            Settlement(won=False, value=27, score=-54),
+            Ending.DECIDED,
+            id="decided against: the opponents are out of schneider and 18 stays short of 24",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 36, "taken": ((MIDDLEHAND, 10),)},
+            Settlement(won=False, value=36, score=-72),
+            Ending.DECIDED,
+            id="decided against: the forced schwarz is out of reach after one opponent trick",
+        ),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": OPPONENTS_60},
+            Settlement(won=False, value=36, score=-72),
+            Ending.DECIDED,
+            id="decided against: the declarer reaches only 60 with every remaining card",
+        ),
+        pytest.param(
+            {"kind": KARO, "bid": 20, "taken": DECLARER_90},
+            Settlement(won=True, value=27, score=27),
+            Ending.OPPONENT_GAVE_UP,
+            id="decided for the declarer: 90 points make schneider, (1 + 2) * 9",
+        ),
+        pytest.param(
+            NULL_23,
+            Settlement(won=True, value=23, score=23),
+            Ending.CONCEDED,
+            id="null before the declarer's first trick stands won",
+        ),
+        pytest.param(
+            {**NULL_23, "taken": ((FOREHAND, 0),)},
+            Settlement(won=False, value=23, score=-46),
+            Ending.DECIDED,
+            id="null after the declarer's first trick is lost",
+        ),
+    ],
+)
+def test_an_opponent_giving_up_ends_the_game_valued_by_how_far_it_was_decided(
+    scene: dict[str, object], expected: Settlement, ending: Ending
+) -> None:
+    state = scenario(**scene)  # type: ignore[arg-type]
+    result = opponent_gave_up(state)
+    assert result.ending is ending
+    assert result.tricks == state.tricks
+    assert settle(result, state.declared.bid) == expected

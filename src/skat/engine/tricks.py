@@ -44,12 +44,23 @@ class PlayRefusal(StrEnum):
 
 
 class Ending(StrEnum):
-    """How a game ended: with its tenth trick, by the declarer giving it up, or by a side throwing its cards down."""
+    """How a game ended: with its tenth trick, by the declarer giving it up, by a side throwing its cards down,
+    or by an opponent giving it up.
+
+    An opponent's give-up is `OPPONENT_GAVE_UP` when the game was already won for the declarer, `DECIDED` when it
+    was already lost for him and `CONCEDED` when it was undecided, which is valued by its declaration and bid.
+    """
 
     PLAYED_OUT = "played-out"
     GIVEN_UP = "given-up"
     DECLARER_THREW_DOWN = "declarer-threw-down"
     OPPONENTS_THREW_DOWN = "opponents-threw-down"
+    DECIDED = "decided"
+    OPPONENT_GAVE_UP = "opponent-gave-up"
+    CONCEDED = "conceded"
+
+
+_REST_COUNTS_FOR_DECLARER: Final = frozenset({Ending.OPPONENTS_THREW_DOWN, Ending.DECIDED})
 
 
 def _kind_of(declared: Declaring) -> GameKind:
@@ -99,7 +110,7 @@ class PlayedOut:
     """The finished game: the ended declaration state and its completed tricks, the rest derived.
 
     A trick not completed when the game ended counts for the opponents,
-    or for the declarer when the opponents threw down.
+    or for the declarer when the opponents threw down or the game ended decided against him.
     """
 
     declared: Declaring
@@ -116,13 +127,13 @@ class PlayedOut:
 
     @property
     def declarer_tricks(self) -> int:
-        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+        if self.ending in _REST_COUNTS_FOR_DECLARER:
             return self.tally.tricks.declarer + self._tricks_left
         return self.tally.tricks.declarer
 
     @property
     def opponents_tricks(self) -> int:
-        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+        if self.ending in _REST_COUNTS_FOR_DECLARER:
             return self.tally.tricks.opponents
         return self.tally.tricks.opponents + self._tricks_left
 
@@ -132,7 +143,7 @@ class PlayedOut:
 
         When the opponents threw down, every point outside their completed tricks is his.
         """
-        if self.ending is Ending.OPPONENTS_THREW_DOWN:
+        if self.ending in _REST_COUNTS_FOR_DECLARER:
             return opponents_points_of(self.tally.points.opponents)
         return sum(card.points for card in self.declared.skat) + self.tally.points.declarer
 
