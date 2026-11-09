@@ -135,6 +135,11 @@ describe("the card's words and sides for each viewer", () => {
         expect(resultView(table(2, { game })).gameWord).toBe(word);
     });
 
+    it("names a Null game with its levels in the equation", () => {
+        const nullOuvertHand = { game: "null", hand: true, ouvert: true } as const;
+        expect(resultView(table(2, nullOuvertHand)).gameWord).toBe(`${words.gameNull} ${words.ouvert} ${words.hand}`);
+    });
+
     it("carries the points of both sides as the server counted them", () => {
         expect(resultView(table(2, {})).points).toEqual({ declarer: 78, opponents: 42 });
     });

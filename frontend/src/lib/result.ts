@@ -35,7 +35,7 @@ export type ResultView = {
     good: boolean;
     // The trump suit of a suit game; Grand and Null have none.
     suit: Suit | null;
-    // The word of a game that is no suit: Grand or Null.
+    // The word a game that is no suit stands for in the equation: Grand, or a Null game's whole name.
     gameWord: string;
     // The game's name with its levels; an opponent's line names whose game it was first.
     gameLine: string;
@@ -137,7 +137,7 @@ export function resultView(table: Table): ResultView {
         word,
         good,
         suit: isSuitGame(result.game) ? result.game : null,
-        gameWord: gameWord(result.game),
+        gameWord: result.game === "null" ? name : gameWord(result.game),
         gameLine: own !== undefined && !isDeclarer ? `${declarerName}, ${name}` : name,
         missed: result.announcement_missed
             ? `${announcedWord(result.announcement) as string}, ${words.notReached}`

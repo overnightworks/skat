@@ -1,9 +1,15 @@
+import json
+import re
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
+from skat.engine.declaration import Announcement, Declaration
+from skat.engine.games import GameKind
+from skat.engine.value import Matadors
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from tests.e2e.support.declaring import DeclaringTable
@@ -11,10 +17,12 @@ from tests.e2e.support.hands import CARDS_IN_PLAY, THEY, WE, PlayingTable, deal_
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.tables import SIT_DOWN
 from tests.e2e.support.words import catalog_text
+from tests.support.played_game import an_entry
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from skat.table.game_list import ListEntry
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
@@ -26,6 +34,24 @@ LOST = catalog_text("resultLost")
 WINS = catalog_text("resultWins")
 LOSES = catalog_text("resultLoses")
 OVERBID = catalog_text("overbid")
+SPIEL = catalog_text("levelSpiel")
+HAND = catalog_text("hand")
+SCHNEIDER = catalog_text("levelSchneider")
+SCHWARZ = catalog_text("levelSchwarz")
+OUVERT_CHIP = catalog_text("levelOuvert")
+SCHNEIDER_ANNOUNCED = catalog_text("announcedSchneider")
+SCHWARZ_ANNOUNCED = catalog_text("announcedSchwarz")
+MIT = catalog_text("matadorsWith")
+OHNE = catalog_text("matadorsWithout")
+LIST_BONUS = catalog_text("listBonus")
+EACH = catalog_text("each")
+NOT_REACHED = catalog_text("notReached")
+OUVERT = catalog_text("ouvert")
+GAME_KARO = catalog_text("gameKaro")
+GAME_HERZ = catalog_text("gameHerz")
+GAME_KREUZ = catalog_text("gameKreuz")
+GAME_GRAND = catalog_text("gameGrand")
+GAME_NULL = catalog_text("gameNull")
 WORTH = catalog_text("gameWorth")
 BID_VALUE = catalog_text("bidValue")
 WEITER = catalog_text("weiter")
@@ -42,6 +68,7 @@ READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 MINUS = chr(0x2212)
+TIMES = chr(0x00D7)
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
 
 PILL_HEIGHTS = (
@@ -119,6 +146,11 @@ def expected_word(table: PlayingTable, person: Page) -> str:
     return WON if won == (role == "declarer") else LOST
 
 
+def loosely(*parts: str) -> re.Pattern[str]:
+    """The parts in order, whatever whitespace the page puts between its elements."""
+    return re.compile(r"^\s*" + r"\s*".join(re.escape(part) for part in parts) + r"\s*$")
+
+
 def expect_the_card(table: PlayingTable) -> None:
     """Every viewer reads the card as the answer counted it, from their own side."""
     result = table.result()
@@ -127,21 +159,38 @@ def expect_the_card(table: PlayingTable) -> None:
         card = person.locator(CARD)
         expect(card).to_have_count(1)
         expect(card.locator("h3")).to_have_text(expected_word(table, person))
-        if role == "declarer":
-            expect(card.locator(".value")).to_have_text(signed(result["score"]))
-        else:
-            expect(card.locator(".value")).to_have_count(0)
+        expect(card.locator(".value")).to_have_text(signed(result["score"]))
+        expect(card.locator(".x2")).to_have_count(1 if result["doubled"] else 0)
+        expect(card.locator(".ladder > *")).to_have_count(len(result["levels"]) + 1)
+        equation = [str(result["multiplier"]), TIMES, str(result["base_value"])]
+        if result["doubled"]:
+            equation += ["=", str(result["game_value"])]
+        expect(card.locator(".eq")).to_have_text(loosely(*equation))
+        expect(card.locator(".miss.missed")).to_have_count(1 if result["announcement_missed"] else 0)
         if result["overbid"]:
             expect(card.locator(".stamp")).to_have_text(OVERBID)
-            expect(card.locator(".miss")).to_have_text(f"{WORTH} {result['game_value']} < {BID_VALUE} {result['bid']}")
+            expect(card.locator(".miss:not(.missed)")).to_have_text(
+                f"{WORTH} {result['game_value']} < {BID_VALUE} {result['bid']} \u2192 {result['settled_value']}"
+            )
         else:
             expect(card.locator(".stamp")).to_have_count(0)
-            expect(card.locator(".miss")).to_have_count(0)
+            expect(card.locator(".miss:not(.missed)")).to_have_count(0)
         names = {"declarer": (YOU, THEY), "opponent": (table.names[table.declarer_seat], WE)}.get(
             role, (table.names[table.declarer_seat], THEY)
         )
         expect(card.locator(".sides .declarer")).to_have_text(f"{names[0]} {result['declarer_points']}")
         expect(card.locator(".sides .opponents")).to_have_text(f"{names[1]} {result['opponents_points']}")
+        declarer_gain = next(gain for gain in result["gains"] if gain["seat"] == result["declarer_seat"])["gain"]
+        opponent_gain = next(gain for gain in result["gains"] if gain["seat"] != result["declarer_seat"])["gain"]
+        steps = [
+            names[0],
+            f"{SPIEL} {signed(result['score'])}",
+            f"{LIST_BONUS} {signed(result['list_bonus'])}",
+            f"= {signed(declarer_gain)}",
+        ]
+        if result["doubled"]:
+            steps.append(f"\u00b7 {names[1]} {EACH} {signed(opponent_gain)}")
+        expect(card.locator(".list")).to_have_text(loosely(*steps))
         rows = card.locator(".reck")
         expect(rows).to_have_count(3)
         for gain in result["gains"]:
@@ -149,16 +198,11 @@ def expect_the_card(table: PlayingTable) -> None:
             expect(row.locator(".dl")).to_have_text(signed(gain["gain"]) if gain["gain"] else "0")
             own = role != "watcher" and person is table.pages[gain["seat"]]
             expect(row.locator(".nm")).to_have_text(YOU if own else table.names[gain["seat"]])
-        winners = (
-            [result["declarer_seat"]] if result["won"] else [s for s in table.names if s != result["declarer_seat"]]
-        )
-        for seat in table.names:
-            expected = 1 if seat in winners else 0
-            expect(card.locator(f".reck.win[data-seat='{seat}']")).to_have_count(expected)
+            expect(card.locator(f".reck.win[data-seat='{gain['seat']}']")).to_have_count(1 if gain["won"] else 0)
 
 
-def expect_the_page_around_the_card(table: PlayingTable) -> None:
-    for person in table.everyone:
+def expect_the_page_around_the_card(people: list[Page]) -> None:
+    for person in people:
         expect(person.locator(".card-face")).to_have_count(0)
         expect(person.locator("body")).not_to_contain_text(WAITING_FOR_PLAYERS)
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
@@ -220,7 +264,7 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     table = deal_a_finished_hand(form_factor, declaring=declaring)
     first, second = (seat for seat in table.names if seat != table.declarer_seat)
     expect_the_card(table)
-    expect_the_page_around_the_card(table)
+    expect_the_page_around_the_card(table.everyone)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
 
@@ -340,4 +384,486 @@ def test_the_next_hand_waits_for_an_away_member_who_tapped_until_they_are_back(
     back.goto(declarer.url)
     for person in (declarer, other, table.watcher, back):
         expect(person.locator(CARD)).to_have_count(0)
+    assert page_errors == []
+
+
+@dataclass(frozen=True)
+class Reckoning:
+    """One listed game and the card every viewer reads for it, counted by hand from the ISkO value rules."""
+
+    id: str
+    entry: ListEntry
+    game: str
+    chips: tuple[str, ...]
+    equation: tuple[str, ...] | None
+    value: str
+    steps: tuple[str, str, str]
+    opponent_gain: str
+    raised: str | None = None
+    missed: str | None = None
+    points: bool = True
+
+
+def listed(
+    kind: GameKind,
+    *,
+    matadors: Matadors | None,
+    hand: bool = False,
+    ouvert: bool = False,
+    announcement: Announcement = Announcement.NONE,
+    **numbers: int | bool,
+) -> ListEntry:
+    declaration = Declaration(kind, hand=hand, ouvert=ouvert, announcement=announcement)
+    return replace(an_entry(), declaration=declaration, matadors=matadors, **numbers)
+
+
+def steps_of(score: str, bonus: str, gain: str) -> tuple[str, str, str]:
+    return f"{SPIEL} {score}", f"{LIST_BONUS} {bonus}", f"= {gain}"
+
+
+MIT_2 = Matadors(mit=True, count=2)
+MIT_1 = Matadors(mit=True, count=1)
+KREUZ_MIT_2 = (f"{MIT} 2", SPIEL)
+HERZ_HAND_MIT_1 = (f"{MIT} 1", SPIEL, HAND)
+HERZ_HAND_SCHNEIDER = (*HERZ_HAND_MIT_1, SCHNEIDER, SCHNEIDER_ANNOUNCED)
+GRAND_HAND_SCHWARZ = (*HERZ_HAND_SCHNEIDER, SCHWARZ, SCHWARZ_ANNOUNCED)
+GRAND_OUVERT_CHIPS = (*GRAND_HAND_SCHWARZ, OUVERT_CHIP)
+GRAND_OUVERT_WORDS = f"{GAME_GRAND} {OUVERT}"
+NULL_OUVERT_HAND_WORDS = f"{GAME_NULL} {OUVERT} {HAND}"
+SCHNEIDER_MISSED = f"{SCHNEIDER_ANNOUNCED}, {NOT_REACHED}"
+SCHWARZ_MISSED = f"{SCHWARZ_ANNOUNCED}, {NOT_REACHED}"
+LOST_GAME_SHARE = "+40"
+
+RECKONINGS = [
+    Reckoning(
+        "kreuz-mit-2-won",
+        listed(
+            GameKind.KREUZ,
+            matadors=MIT_2,
+            won=True,
+            bid=18,
+            game_value=36,
+            settled_value=36,
+            score=36,
+            declarer_points=78,
+        ),
+        GAME_KREUZ,
+        KREUZ_MIT_2,
+        ("3", TIMES, "12"),
+        "+36",
+        steps_of("+36", "+50", "+86"),
+        "0",
+    ),
+    Reckoning(
+        "kreuz-mit-2-lost",
+        listed(
+            GameKind.KREUZ,
+            matadors=MIT_2,
+            won=False,
+            bid=18,
+            game_value=36,
+            settled_value=36,
+            score=-72,
+            declarer_points=50,
+        ),
+        GAME_KREUZ,
+        KREUZ_MIT_2,
+        ("3", TIMES, "12", "=", "36"),
+        f"{MINUS}72",
+        steps_of(f"{MINUS}72", f"{MINUS}50", f"{MINUS}122"),
+        LOST_GAME_SHARE,
+    ),
+    Reckoning(
+        "karo-mit-1-overbid",
+        listed(
+            GameKind.KARO,
+            matadors=MIT_1,
+            won=False,
+            bid=20,
+            game_value=18,
+            settled_value=27,
+            score=-54,
+            declarer_points=70,
+        ),
+        GAME_KARO,
+        (f"{MIT} 1", SPIEL),
+        ("2", TIMES, "9", "=", "18"),
+        f"{MINUS}54",
+        steps_of(f"{MINUS}54", f"{MINUS}50", f"{MINUS}104"),
+        LOST_GAME_SHARE,
+        raised=f"{WORTH} 18 < {BID_VALUE} 20 \u2192 27",
+    ),
+    Reckoning(
+        "null-hand-won",
+        listed(
+            GameKind.NULL,
+            matadors=None,
+            hand=True,
+            won=True,
+            bid=23,
+            game_value=35,
+            settled_value=35,
+            score=35,
+            declarer_points=0,
+        ),
+        f"{GAME_NULL} {HAND}",
+        (),
+        None,
+        "+35",
+        steps_of("+35", "+50", "+85"),
+        "0",
+        points=False,
+    ),
+    Reckoning(
+        "null-lost",
+        listed(
+            GameKind.NULL,
+            matadors=None,
+            won=False,
+            bid=23,
+            game_value=23,
+            settled_value=23,
+            score=-46,
+            declarer_points=11,
+        ),
+        GAME_NULL,
+        (),
+        (GAME_NULL, "=", "23"),
+        f"{MINUS}46",
+        steps_of(f"{MINUS}46", f"{MINUS}50", f"{MINUS}96"),
+        LOST_GAME_SHARE,
+        points=False,
+    ),
+    Reckoning(
+        "grand-ohne-2-won",
+        listed(
+            GameKind.GRAND,
+            matadors=Matadors(mit=False, count=2),
+            won=True,
+            bid=18,
+            game_value=72,
+            settled_value=72,
+            score=72,
+            declarer_points=70,
+        ),
+        GAME_GRAND,
+        (f"{OHNE} 2", SPIEL),
+        ("3", TIMES, GAME_GRAND, "24"),
+        "+72",
+        steps_of("+72", "+50", "+122"),
+        "0",
+    ),
+    Reckoning(
+        "herz-hand-mit-1-won",
+        listed(
+            GameKind.HERZ,
+            matadors=MIT_1,
+            hand=True,
+            won=True,
+            bid=18,
+            game_value=30,
+            settled_value=30,
+            score=30,
+            declarer_points=80,
+        ),
+        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_MIT_1,
+        ("3", TIMES, "10"),
+        "+30",
+        steps_of("+30", "+50", "+80"),
+        "0",
+    ),
+    Reckoning(
+        "schneider-announced-and-reached",
+        listed(
+            GameKind.HERZ,
+            matadors=MIT_1,
+            hand=True,
+            announcement=Announcement.SCHNEIDER,
+            schneider=True,
+            won=True,
+            bid=18,
+            game_value=50,
+            settled_value=50,
+            score=50,
+            declarer_points=95,
+        ),
+        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_SCHNEIDER,
+        ("5", TIMES, "10"),
+        "+50",
+        steps_of("+50", "+50", "+100"),
+        "0",
+    ),
+    Reckoning(
+        "schneider-announced-and-missed",
+        listed(
+            GameKind.HERZ,
+            matadors=MIT_1,
+            hand=True,
+            announcement=Announcement.SCHNEIDER,
+            schneider=True,
+            won=False,
+            bid=18,
+            game_value=50,
+            settled_value=50,
+            score=-100,
+            declarer_points=75,
+        ),
+        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_SCHNEIDER,
+        ("5", TIMES, "10", "=", "50"),
+        f"{MINUS}100",
+        steps_of(f"{MINUS}100", f"{MINUS}50", f"{MINUS}150"),
+        LOST_GAME_SHARE,
+        missed=SCHNEIDER_MISSED,
+    ),
+    Reckoning(
+        "grand-hand-schwarz-announced-and-missed",
+        listed(
+            GameKind.GRAND,
+            matadors=MIT_1,
+            hand=True,
+            announcement=Announcement.SCHWARZ,
+            schneider=True,
+            schwarz=True,
+            won=False,
+            bid=18,
+            game_value=168,
+            settled_value=168,
+            score=-336,
+            declarer_points=90,
+        ),
+        f"{GAME_GRAND} {HAND}",
+        GRAND_HAND_SCHWARZ,
+        ("7", TIMES, GAME_GRAND, "24", "=", "168"),
+        f"{MINUS}336",
+        steps_of(f"{MINUS}336", f"{MINUS}50", f"{MINUS}386"),
+        LOST_GAME_SHARE,
+        missed=SCHWARZ_MISSED,
+    ),
+    Reckoning(
+        "announced-game-overbid",
+        listed(
+            GameKind.HERZ,
+            matadors=MIT_1,
+            hand=True,
+            announcement=Announcement.SCHNEIDER,
+            schneider=True,
+            won=False,
+            bid=60,
+            game_value=50,
+            settled_value=60,
+            score=-120,
+            declarer_points=75,
+        ),
+        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_SCHNEIDER,
+        ("5", TIMES, "10", "=", "50"),
+        f"{MINUS}120",
+        steps_of(f"{MINUS}120", f"{MINUS}50", f"{MINUS}170"),
+        LOST_GAME_SHARE,
+        raised=f"{WORTH} 50 < {BID_VALUE} 60 \u2192 60",
+    ),
+    Reckoning(
+        "grand-ouvert-won",
+        listed(
+            GameKind.GRAND,
+            matadors=MIT_1,
+            hand=True,
+            ouvert=True,
+            announcement=Announcement.SCHWARZ,
+            schneider=True,
+            schwarz=True,
+            won=True,
+            bid=18,
+            game_value=192,
+            settled_value=192,
+            score=192,
+            declarer_points=120,
+        ),
+        GRAND_OUVERT_WORDS,
+        GRAND_OUVERT_CHIPS,
+        ("8", TIMES, GAME_GRAND, "24"),
+        "+192",
+        steps_of("+192", "+50", "+242"),
+        "0",
+    ),
+    Reckoning(
+        "grand-ouvert-lost",
+        listed(
+            GameKind.GRAND,
+            matadors=MIT_1,
+            hand=True,
+            ouvert=True,
+            announcement=Announcement.SCHWARZ,
+            schneider=True,
+            schwarz=True,
+            won=False,
+            bid=18,
+            game_value=192,
+            settled_value=192,
+            score=-384,
+            declarer_points=100,
+        ),
+        GRAND_OUVERT_WORDS,
+        GRAND_OUVERT_CHIPS,
+        ("8", TIMES, GAME_GRAND, "24", "=", "192"),
+        f"{MINUS}384",
+        steps_of(f"{MINUS}384", f"{MINUS}50", f"{MINUS}434"),
+        LOST_GAME_SHARE,
+        missed=SCHWARZ_MISSED,
+    ),
+    Reckoning(
+        "null-ouvert-hand-won",
+        listed(
+            GameKind.NULL,
+            matadors=None,
+            hand=True,
+            ouvert=True,
+            won=True,
+            bid=23,
+            game_value=59,
+            settled_value=59,
+            score=59,
+            declarer_points=0,
+        ),
+        NULL_OUVERT_HAND_WORDS,
+        (),
+        None,
+        "+59",
+        steps_of("+59", "+50", "+109"),
+        "0",
+        points=False,
+    ),
+    Reckoning(
+        "null-ouvert-hand-lost",
+        listed(
+            GameKind.NULL,
+            matadors=None,
+            hand=True,
+            ouvert=True,
+            won=False,
+            bid=23,
+            game_value=59,
+            settled_value=59,
+            score=-118,
+            declarer_points=11,
+        ),
+        NULL_OUVERT_HAND_WORDS,
+        (),
+        (NULL_OUVERT_HAND_WORDS, "=", "59"),
+        f"{MINUS}118",
+        steps_of(f"{MINUS}118", f"{MINUS}50", f"{MINUS}168"),
+        LOST_GAME_SHARE,
+        points=False,
+    ),
+]
+
+
+def expect_the_reckoning(person: Page, role: str, declarer_name: str, reckoning: Reckoning) -> None:
+    """One viewer's card for a listed game: the parts the ISkO value rules make of it, from the viewer's side."""
+    entry = reckoning.entry
+    card = person.locator(CARD)
+    expect(card).to_have_count(1)
+    if role == "watcher":
+        heading = f"{declarer_name} {WINS if entry.won else LOSES}"
+    else:
+        heading = WON if entry.won == (role == "declarer") else LOST
+    expect(card.locator("h3")).to_have_text(heading)
+    declarer_side, opponents_side = {
+        "declarer": (YOU, THEY),
+        "opponent": (declarer_name, WE),
+        "watcher": (declarer_name, THEY),
+    }[role]
+    game = f"{declarer_name}, {reckoning.game}" if role == "opponent" else reckoning.game
+    expect(card.locator(".sub .game")).to_have_text(game)
+    if reckoning.chips:
+        expect(card.locator(".ladder > *")).to_have_text(list(reckoning.chips))
+    else:
+        expect(card.locator(".ladder")).to_have_count(0)
+    if reckoning.equation is None:
+        expect(card.locator(".eq")).to_have_count(0)
+    else:
+        expect(card.locator(".eq")).to_have_text(loosely(*reckoning.equation))
+    if reckoning.raised is None:
+        expect(card.locator(".stamp")).to_have_count(0)
+        expect(card.locator(".miss:not(.missed)")).to_have_count(0)
+    else:
+        expect(card.locator(".stamp")).to_have_text(OVERBID)
+        expect(card.locator(".miss:not(.missed)")).to_have_text(reckoning.raised)
+    if reckoning.missed is None:
+        expect(card.locator(".miss.missed")).to_have_count(0)
+    else:
+        expect(card.locator(".miss.missed")).to_have_text(reckoning.missed)
+    expect(card.locator(".x2")).to_have_count(0 if entry.won else 1)
+    expect(card.locator(".value")).to_have_text(reckoning.value)
+    steps = [declarer_side, *reckoning.steps]
+    if not entry.won:
+        steps.append(f"\u00b7 {opponents_side} {EACH} {reckoning.opponent_gain}")
+    expect(card.locator(".list")).to_have_text(loosely(*steps))
+    expect(card.locator(".points")).to_have_count(1 if reckoning.points else 0)
+    for seat in (1, 2, 3):
+        row = card.locator(f".reck[data-seat='{seat}']")
+        declares = seat == entry.declarer_seat
+        expect(row.locator(".dl")).to_have_text(
+            reckoning.steps[2].removeprefix("= ") if declares else reckoning.opponent_gain
+        )
+        expect(row).to_have_class(re.compile(r"\bwin\b" if entry.won == declares else r"^(?!.*\bwin\b)"))
+
+
+@pytest.fixture
+def deal_a_declared_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> Callable[..., DeclaringTable]:
+    def deal(form_factor: dict[str, Any]) -> DeclaringTable:
+        return DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor)
+
+    return deal
+
+
+def viewers_of(table: DeclaringTable) -> list[tuple[str, Page]]:
+    return [
+        ("declarer", table.declarer),
+        *(("opponent", person) for person in table.others),
+        ("watcher", table.watcher),
+    ]
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_every_viewer_reads_the_reckoning_of_each_listed_game_above_the_bar(
+    deal_a_declared_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declared_table(form_factor)
+    declarer_name = table.name_of_the_declarer()
+    viewers = viewers_of(table)
+    for reckoning in RECKONINGS:
+        table.list_the_game(replace(reckoning.entry, declarer_seat=table.declarer_seat))
+        try:
+            for role, person in viewers:
+                expect_the_reckoning(person, role, declarer_name, reckoning)
+            expect_the_page_around_the_card([person for _, person in viewers])
+        except AssertionError as failure:
+            failure.add_note(f"the listed game {reckoning.id}")
+            raise
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_watcher_who_opens_the_table_while_the_result_stands_reads_the_same_card_and_no_skat(
+    deal_a_declared_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declared_table(form_factor)
+    reckoning = next(each for each in RECKONINGS if each.id == "herz-hand-mit-1-won")
+    table.list_the_game(replace(reckoning.entry, declarer_seat=table.declarer_seat))
+    arriving = table.watcher.context.new_page()
+    arriving.goto(table.watcher.url)
+    expect(arriving.locator(".chair")).to_have_count(3)
+
+    expect_the_reckoning(arriving, "watcher", table.name_of_the_declarer(), reckoning)
+    for seat in table.sessions:
+        assert "skat" not in json.dumps(table.result_as_sent(seat))
     assert page_errors == []
