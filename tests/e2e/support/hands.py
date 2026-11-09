@@ -146,5 +146,7 @@ def deal_playing_table(
     console: bool = True,
     game: str = "null",
     declaring: type[DeclaringTable] = DeclaringTable,
+    joiners: tuple[str, str] = ("ben", "cleo"),
 ) -> PlayingTable:
-    return PlayingTable(declaring(open_person, server, member_of, page_errors, form_factor, console=console), game)
+    table = declaring(open_person, server, member_of, page_errors, form_factor, console=console, joiners=joiners)
+    return PlayingTable(table, game)

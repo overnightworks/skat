@@ -140,14 +140,13 @@ def drawn_table(person: Page) -> dict[str, Any]:
 
 def picture_of_answer(answer: dict[str, Any]) -> dict[str, Any]:
     """What the page must draw from the server's answer, for the viewer that answer belongs to."""
-    viewer_is_seated = any(chair["is_mine"] for chair in answer["chairs"])
     return {
         "skat": answer["hand"]["skat_count"],
         "chairs": [
             {
                 "seat": chair["seat"],
                 "backs": 0 if chair["is_mine"] else chair["hand"]["card_count"],
-                "count": None if viewer_is_seated else str(chair["hand"]["card_count"]),
+                "count": None if chair["is_mine"] else str(chair["hand"]["card_count"]),
                 "position": catalog_text(chair["hand"]["position"]),
                 "dealer": DEALER if chair["seat"] == answer["hand"]["dealer_seat"] else None,
                 "away": chair["is_away"],
