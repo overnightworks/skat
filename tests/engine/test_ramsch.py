@@ -186,7 +186,7 @@ def test_the_tenth_trick_ends_the_ramsch_with_every_count() -> None:
 
 @pytest.mark.parametrize("seed", range(5))
 def test_all_card_points_are_the_players_or_the_skats(seed: int) -> None:
-    cards = deal(random.Random(seed))
+    cards = deal(random.Random(seed))  # noqa: S311 - seeded shuffle keeps the deal reproducible
 
     state, _ = play_out(start_ramsch(cards))
 
