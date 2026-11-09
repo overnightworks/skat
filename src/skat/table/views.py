@@ -6,7 +6,7 @@ from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
 from skat.table.auction import AuctionView, auction_view_of
 from skat.table.declaring import DeclaringView, declaring_view_of
-from skat.table.game_list import ResultView, result_view_of
+from skat.table.game_list import ResultView, result_view_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.rules import hand_runs
@@ -39,6 +39,7 @@ class ChairView:
     is_away: bool
     ready: bool
     hand: ChairHand | None
+    total: int | None
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,7 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
                 and chair.occupant.account_id not in connected_accounts,
                 ready=chair.ready,
                 hand=chair_hands.get(chair.seat),
+                total=None if chair.occupant is None else total_of(table.game_list, chair.occupant.account_id),
             )
             for chair in table.chairs
         ),

@@ -241,3 +241,21 @@ class TestDeclaringInTheHand:
         view = view_of(table, BEN, NOBODY_CONNECTED)
 
         assert view.hand.declaring.open_cards == MIDDLEHAND_CARDS
+
+
+class TestChairTotals:
+    def test_every_occupied_chair_carries_its_persons_total_the_same_for_every_viewer(self):
+        table = replace(seated_table(1), game_list=(a_played_game(), a_played_game()))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, DORA)]
+
+        assert [[chair.total for chair in view.chairs] for view in views] == [[0, 160, 0]] * 3
+
+    def test_a_free_chair_carries_none_and_a_newcomer_starts_at_zero(self):
+        table = seated_table(1)
+        newcomer = Chair(2, Occupant(DORA, "Dora"))
+        table = replace(table, chairs=(table.chairs[0], newcomer, Chair(3, None)), game_list=(a_played_game(),))
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert [chair.total for chair in view.chairs] == [0, 0, None]

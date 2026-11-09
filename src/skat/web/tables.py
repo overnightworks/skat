@@ -249,6 +249,7 @@ class ChairAnswer(BaseModel):
     is_away: bool
     ready: bool
     hand: ChairHandAnswer | None
+    total: int | None
 
 
 class PassedInAnswer(BaseModel):
@@ -434,6 +435,7 @@ def answer_of(view: TableView) -> TableAnswer:
                 is_away=c.is_away,
                 ready=c.ready,
                 hand=chair_hand_answer_of(c.hand),
+                total=c.total,
             )
             for c in view.chairs
         ],
