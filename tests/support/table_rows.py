@@ -27,11 +27,11 @@ def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
         }
 
 
-def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread | None = None) -> None:
+def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> None:
     """Returns when a session waits for a lock; fails when the reader ends without that, or hangs elsewhere."""
     hang_deadline = time.monotonic() + HANG_DEADLINE_SECONDS
     with engine.connect() as watcher:
-        while (reader is None or reader.is_alive()) and time.monotonic() < hang_deadline:
+        while reader.is_alive() and time.monotonic() < hang_deadline:
             waiting = watcher.execute(
                 text(
                     "SELECT count(*) FROM pg_stat_activity"
