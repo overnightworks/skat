@@ -20,7 +20,7 @@ SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "ha
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 SIT_DOWN = catalog_text("sitDown")
 WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
-BIDDING_FOLLOWS = catalog_text("biddingFollows")
+BIDDING = catalog_text("bidding")
 CARD_FACE = ".card-face"
 HAND_CARD = ".own-hand .card"
 WATCHER_COUNT = ".watchers span"
@@ -107,7 +107,7 @@ def test_each_seated_player_sees_their_own_ten_cards_after_the_deal_and_a_reload
 
     for person in players:
         expect(card_faces_of(person)).to_have_count(CARDS_IN_A_HAND)
-        expect(note_of(person)).to_have_text(BIDDING_FOLLOWS)
+        expect(note_of(person)).to_have_text(BIDDING)
         person.wait_for_function(HAND_HAS_SETTLED)
         assert_whole_hand_inside_the_viewport(person)
     for person in players:
@@ -142,7 +142,7 @@ def test_a_watcher_sees_no_card_and_a_stream_message_leaves_a_players_hand_as_it
 
     expect(watcher.locator(WATCHER_COUNT)).to_have_text("1")
     expect(opener.locator(WATCHER_COUNT)).to_have_text("1")
-    expect(note_of(watcher)).to_have_text(BIDDING_FOLLOWS)
+    expect(note_of(watcher)).to_have_text(BIDDING)
     expect(card_faces_of(watcher)).to_have_count(0)
     expect(first_card).to_have_attribute("data-kept-across-messages", "yes")
     assert drawn_cards_of(opener) == cards_before_the_message
