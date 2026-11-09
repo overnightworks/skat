@@ -4,6 +4,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import Position
+from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards, trick_winner
 
@@ -40,15 +41,17 @@ class PlayRefusal(StrEnum):
     NOT_IN_HAND = "not-in-hand"
     MUST_FOLLOW = "must-follow"
     ALREADY_WON = "already-won"
+    CLAIM_OUT_OF_REACH = "claim-out-of-reach"
     NEEDS_CONSENT = "needs-consent"
 
 
 class Ending(StrEnum):
     """How a game ended: with its tenth trick, by the declarer giving it up, by a side throwing its cards down,
-    or by an opponent giving it up.
+    by an opponent giving it up or by the declarer shortening it with every opponent's yes.
 
-    An opponent's give-up is `OPPONENT_GAVE_UP` when the game was already won for the declarer, `DECIDED` when it
-    was already lost for him and `CONCEDED` when it was undecided, which is valued by its declaration and bid.
+    A give-up or a shortening is `DECIDED_WON` when the game was already won for the declarer, `DECIDED` when it was
+    already lost for him. An undecided one is `CONCEDED` after an opponent's give-up, valued by its declaration and
+    bid, and `SHORTENED` after the declarer's shortening, valued by its declaration and the level he demanded.
     """
 
     PLAYED_OUT = "played-out"
@@ -56,11 +59,12 @@ class Ending(StrEnum):
     DECLARER_THREW_DOWN = "declarer-threw-down"
     OPPONENTS_THREW_DOWN = "opponents-threw-down"
     DECIDED = "decided"
-    OPPONENT_GAVE_UP = "opponent-gave-up"
+    DECIDED_WON = "decided-won"
     CONCEDED = "conceded"
+    SHORTENED = "shortened"
 
 
-_REST_COUNTS_FOR_DECLARER: Final = frozenset({Ending.OPPONENTS_THREW_DOWN, Ending.DECIDED})
+_REST_COUNTS_FOR_DECLARER: Final = frozenset({Ending.OPPONENTS_THREW_DOWN, Ending.DECIDED, Ending.SHORTENED})
 
 
 def _kind_of(declared: Declaring) -> GameKind:
@@ -110,12 +114,14 @@ class PlayedOut:
     """The finished game: the ended declaration state and its completed tricks, the rest derived.
 
     A trick not completed when the game ended counts for the opponents,
-    or for the declarer when the opponents threw down or the game ended decided against him.
+    or for the declarer when the opponents threw down, the game ended decided against him or he shortened it.
+    `claimed` is the level the declarer demanded with his shortening; no other ending reads it.
     """
 
     declared: Declaring
     tricks: tuple[CompletedTrick, ...]
     ending: Ending = Ending.PLAYED_OUT
+    claimed: Announcement = Announcement.NONE
 
     @property
     def tally(self) -> Tally:
