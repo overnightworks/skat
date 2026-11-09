@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "ae01c568a926dc7a3dea8ba3604a12dda4143eb0"
 branch = "claude/issue-156-ouvert-open-cards"
-scope = ["frontend/src/lib/auctionMarks.test.ts", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/OpenHand.svelte", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "tests/e2e/test_table_ouvert.py"]
+scope = ["frontend/src/lib/auctionMarks.test.ts", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/result.test.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/OpenHand.svelte", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "tests/e2e/test_table_ouvert.py"]
 opened_commit = "7e5149901cfbe967d3f2f87b47811a213ce4a2ba"
 whole_reason = "The open rows, their place at each chair, the declarer's tag and the plaque's label are one view of one answer field; drawn apart, an ouvert game would show either open cards under a plain plaque or a plaque over closed fans."
