@@ -3,14 +3,14 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import RawSession
@@ -43,8 +43,12 @@ SKAT_BACK = ".skat-spot .skat-card"
 CARDS_IN_A_HAND = 10
 CARDS_AFTER_THE_TAKE = 12
 PRESSED = "aria-pressed"
-AT_THE_TOP_OF_THE_CARD = "(card) => card.getBoundingClientRect().top"
-STREAM_BACK_TIMEOUT_MILLISECONDS = 15_000
+# A picked card rises out of its place in the fan, which still moves while the two new cards are dealt.
+RISEN_OUT_OF_ITS_PLACE = (
+    "(card) => card.getBoundingClientRect().top < card.closest('.card').getBoundingClientRect().top"
+)
+# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
+INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 command_numbers = itertools.count(1)
 
 
@@ -154,15 +158,12 @@ def reload_and_wait(person: Page) -> None:
     expect(person.locator(".chair")).to_have_count(3)
 
 
-def card_top(card: Locator) -> float:
-    return card.evaluate(AT_THE_TOP_OF_THE_CARD)
+def tap(card: Locator) -> None:
+    card.click(position=INSIDE_THE_VISIBLE_STRIP)
 
 
-def expect_lifted(card: Locator, resting_top: float) -> None:
-    card.page.wait_for_function(
-        "([card, top]) => card.getBoundingClientRect().top < top",
-        arg=[card.element_handle(), resting_top],
-    )
+def expect_lifted(card: Locator) -> None:
+    card.page.wait_for_function(RISEN_OUT_OF_ITS_PLACE, arg=card.element_handle())
 
 
 def expect_no_controls(person: Page) -> None:
@@ -191,30 +192,31 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect(button_of(declarer, PUT_BACK)).to_be_disabled()
 
     cards = declarer.locator(PICKABLE_CARD)
-    resting_top = card_top(cards.nth(0))
-    cards.nth(0).click()
+    tap(cards.nth(0))
     expect(button_of(declarer, PUT_BACK)).to_be_disabled()
-    expect_lifted(cards.nth(0), resting_top)
+    expect_lifted(cards.nth(0))
 
     reload_and_wait(declarer)
     expect(declarer.locator(PICKABLE_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
     expect(declarer.locator(f"{PICKABLE_CARD}[{PRESSED}='true']")).to_have_count(0)
     expect(button_of(declarer, PUT_BACK)).to_be_disabled()
 
-    cards.nth(0).click()
-    cards.nth(1).click()
+    tap(cards.nth(0))
+    tap(cards.nth(1))
     expect(cards.nth(1)).to_have_attribute(PRESSED, "true")
     expect(button_of(declarer, PUT_BACK)).to_be_enabled()
+    expect_lifted(cards.nth(0))
+    expect_lifted(cards.nth(1))
 
-    cards.nth(2).click()
+    tap(cards.nth(2))
     expect(cards.nth(2)).to_have_attribute(PRESSED, "false")
     expect(declarer.locator(f"{PICKABLE_CARD}[{PRESSED}='true']")).to_have_count(2)
 
-    cards.nth(1).click()
+    tap(cards.nth(1))
     expect(cards.nth(1)).to_have_attribute(PRESSED, "false")
     expect(button_of(declarer, PUT_BACK)).to_be_disabled()
 
-    cards.nth(1).click()
+    tap(cards.nth(1))
     button_of(declarer, PUT_BACK).click()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
@@ -254,8 +256,8 @@ def test_a_double_tap_on_each_step_sends_exactly_one_command(
     assert len([url for url in posts if url.endswith(expected_step)]) == 1
 
     cards = declarer.locator(PICKABLE_CARD)
-    cards.nth(0).click()
-    cards.nth(1).click()
+    tap(cards.nth(0))
+    tap(cards.nth(1))
     posts.clear()
     button_of(declarer, PUT_BACK).dblclick()
     expect(button_of(declarer, ANNOUNCE)).to_be_visible()
@@ -303,29 +305,21 @@ def test_opponents_and_watchers_see_no_controls_and_no_skat_face_at_any_stage(
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_stale_page_shows_the_refusal_and_the_stream_corrects_it(
-    deal_a_declaring_table: Callable[..., DeclaringTable],
-    e2e_server: RunningServer,
-    expected_request_failures: list[str],
-    page_errors: list[str],
-    form_factor: dict[str, Any],
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     # The browser logs the refused step as a console error; that refusal is the point of this test.
     table = deal_a_declaring_table(form_factor, console=False)
     declarer = table.declarer
-    events = f"{e2e_server.base_url}{table.api_path}{TABLE_EVENTS_SUFFIX}"
-    expected_request_failures.append(events)
-    declarer.route(events, lambda route: route.abort())
-    reload_and_wait(declarer)
-    expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
 
-    table.declare_through_the_api(action="take")
+    def take_through_the_api_first(route: Route) -> None:
+        table.declare_through_the_api(action="take")
+        route.continue_()
+
+    declarer.route(f"**{table.api_path}{TABLE_DECLARATION_SUFFIX}", take_through_the_api_first)
     button_of(declarer, TAKE_SKAT).click()
 
     expect(declarer.locator(".note")).to_have_text(COMMAND_FAILED)
-    expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
-
-    declarer.unroute(events)
-    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE, timeout=STREAM_BACK_TIMEOUT_MILLISECONDS)
+    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
     assert page_errors == []
 
 
