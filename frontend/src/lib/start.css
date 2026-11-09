@@ -247,7 +247,7 @@ body {
     margin-bottom: 28px;
     padding: 8px 16px;
     border-radius: 16px;
-    background: rgba(12, 14, 17, 0.55);
+    background: rgba(6, 40, 27, 0.82);
     box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.18);
     font-size: 15px;
     font-weight: 600;
@@ -263,7 +263,8 @@ body {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--brass);
+    background: var(--accent-stage, #7aa7f0);
+    box-shadow: 0 0 6px var(--accent-stage, #7aa7f0);
     animation: pulse 1.2s ease-in-out infinite;
 }
 
@@ -964,7 +965,7 @@ body {
 @media (min-width: 900px) {
     /* A desktop's far chairs stand wide apart: the skat lies low between them, as the scenes draw it. */
     .room .stage:has(> .bid) {
-        grid-template-rows: auto minmax(180px, 1fr) auto auto auto auto;
+        grid-template-rows: auto minmax(160px, 1fr) auto auto auto auto;
     }
 
     .room .stage:has(> .bid) .skat-spot {
@@ -1004,23 +1005,15 @@ body {
         top: 18px;
     }
 
-    /* The declarer's star sits under the turn mark, clear of the chair's letter. */
+    /* The declarer's mark stands under the chair's letter, clear of the turn mark above it and of the coaster at the chair's lower corner, and a wide chair has room for the word. */
     .room .mark.declarer {
-        top: 40px;
-        width: 28px;
+        top: 80px;
+        left: 32px;
+        width: auto;
         height: 28px;
-    }
-
-    .room .mark.dealer ~ .mark.declarer {
-        top: 52px;
-    }
-
-    .room .mark.declarer ~ .mark.turn ~ .mark.away {
-        top: 76px;
-    }
-
-    .room .mark.dealer ~ .mark.declarer ~ .mark.turn ~ .mark.away {
-        top: 88px;
+        padding: 0 10px 0 7px;
+        font-size: 12.5px;
+        text-transform: capitalize;
     }
 
     .room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
@@ -1464,10 +1457,11 @@ body {
 }
 
 .room .own-hand .pick.picked {
-    translate: 0 calc(var(--card-width) * -0.4);
+    translate: 0 calc(var(--card-width) * -0.6);
+    scale: 1.06;
     box-shadow:
-        0 0 0 2.5px var(--accent-stage, #7aa7f0),
-        0 0 18px rgba(122, 167, 240, 0.5);
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 0 26px 2px rgba(122, 167, 240, 0.8);
 }
 
 /* On turn the legal cards stand lifted with the blue ring, the tapped one higher and wider, the others dimmed. */
@@ -1527,7 +1521,7 @@ body {
     grid-column: 1 / 3;
     grid-row: 3;
     justify-self: stretch;
-    height: calc(var(--card-width) * 3.4);
+    height: calc(var(--card-width) * 3.9);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -1542,20 +1536,20 @@ body {
 }
 
 .room .laid.left {
-    left: 34%;
-    top: 52%;
+    left: 28%;
+    top: 48%;
     --lie: -9deg;
 }
 
 .room .laid.right {
-    left: 66%;
-    top: 52%;
+    left: 72%;
+    top: 48%;
     --lie: 8deg;
 }
 
 .room .laid.near {
     left: 50%;
-    top: 82%;
+    top: 56%;
     --lie: 0deg;
 }
 
@@ -1574,6 +1568,7 @@ body {
     align-items: center;
     gap: 5px;
     height: 24px;
+    max-width: calc(var(--card-width) * 1.1);
     padding: 0 9px 0 4px;
     border-radius: 999px;
     background: rgba(10, 12, 14, 0.78);
@@ -1584,7 +1579,14 @@ body {
     transform: translateX(-50%) rotate(calc(var(--lie) * -1));
 }
 
+.room .laid .name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .room .laid .dot {
+    flex: none;
     display: grid;
     place-items: center;
     width: 16px;
@@ -1717,7 +1719,7 @@ body {
     }
 
     .room .laid.near {
-        top: 70%;
+        top: 64%;
     }
 
     .room .points {
@@ -1871,6 +1873,37 @@ body {
         0 18px 30px -12px rgba(0, 0, 0, 0.9);
 }
 
+/* A phone's felt is tall enough for the controls to stand clear of the far fans. */
+@media (max-width: 899px) {
+    .room .stage:has(> .declare) {
+        grid-template-rows: auto minmax(215px, 1fr) minmax(215px, 1fr) auto;
+    }
+
+    /* The card counts hang below the far fans, where the controls and the trick lie while a hand is declared or played. */
+    .room .stage:has(> :is(.declare, .trick)) .count-tag {
+        display: none;
+    }
+}
+
+/* A short phone gives up its gaps, so the bar under the hand stays on the screen. */
+@media (max-width: 899px) and (max-height: 780px) {
+    .room .stage {
+        padding-bottom: 8px;
+    }
+
+    .room .plaque {
+        margin-bottom: 14px;
+    }
+
+    .room .controls {
+        margin-top: 10px;
+    }
+
+    .room .own-hand {
+        margin-bottom: 8px;
+    }
+}
+
 /* The smallest phones keep the controls between the far fans and the own chair: the games stand in one row. */
 @media (max-width: 379px) {
     .room .declare.picked {
@@ -1917,23 +1950,20 @@ body {
         margin-bottom: 0;
     }
 
-    .room .declare.choosing,
-    .room .declare.discarding {
+    .room .declare.choosing {
         grid-column: 2;
         justify-self: start;
-    }
-
-    .room .declare.choosing {
         margin-left: 76px;
     }
 
-    .room .declare.discarding {
-        margin-left: -68px;
+    /* The drop slots stand over their button, and the games on two rows over theirs: the four suits, then the rest. */
+    .room .declare:is(.discarding, .picked) {
+        flex-direction: column;
     }
 
     .room .declare .games {
-        flex-wrap: nowrap;
-        max-width: none;
+        flex-wrap: wrap;
+        max-width: 460px;
     }
 
     .room .declare .slot {
@@ -1942,6 +1972,7 @@ body {
 
     .room .stage:has(.declare.picked) .skat-spot {
         --card-width: 56px;
+        margin-left: 260px;
     }
 
     .room .declare .game.suited {
@@ -2090,9 +2121,36 @@ body {
         margin-bottom: 0;
     }
 
+    /* The far chairs stand at the felt's rim, the near one at its lower left, as bid-watch draws them. */
     .room .stage {
-        width: min(100%, 900px);
+        width: min(100%, 1180px);
+        grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
         --chair-width: 160px;
+        padding-bottom: 8px;
+    }
+    .room .felt {
+        margin-inline: 120px;
+    }
+
+    /* While a hand is played the near chair lies beside the trick, so the hand and the bar stay on the screen. */
+    .room .stage:has(> .trick) .chair:nth-child(3) {
+        grid-row: 3;
+        align-self: end;
+    }
+
+    .room .controls {
+        margin-top: 12px;
+    }
+    .room .chair:nth-child(1) {
+        justify-self: start;
+    }
+    .room .chair:nth-child(2) {
+        justify-self: end;
+    }
+    .room .chair:nth-child(3) {
+        grid-column: 1;
+        justify-self: start;
+        margin-left: 40px;
     }
 
     .room .coaster {
@@ -2304,10 +2362,15 @@ body {
     padding: 5px 11px;
     border: 2.5px solid #e9776e;
     border-radius: 12px;
+    outline: 1.5px solid #e9776e;
+    outline-offset: 2px;
     color: #e9776e;
     background: rgba(20, 24, 29, 0.9);
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
     font-size: 16px;
     font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
     rotate: -5deg;
 }
 
@@ -2419,9 +2482,22 @@ body {
 }
 
 .room .copy.wait {
+    display: block;
+    height: auto;
+    min-height: 52px;
+    box-sizing: border-box;
+    padding-block: 14px;
+    border-radius: 26px;
     cursor: default;
-    background: var(--glass-dark);
-    white-space: nowrap;
+    line-height: 1.2;
+    text-align: center;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+}
+
+.room .copy.wait .dots {
+    margin-left: 6px;
+    vertical-align: middle;
 }
 
 .room .copy:disabled {
@@ -2437,6 +2513,9 @@ body {
     }
 
     .room .actions.on-result .copy {
+        flex-shrink: 0;
+        height: auto;
+        min-height: 52px;
         padding: 0 16px;
         gap: 8px;
     }
@@ -2444,19 +2523,23 @@ body {
     .room .actions.on-result .copy.wait {
         flex: 0 1 auto;
         min-width: 0;
-        padding: 0 14px;
-        font-size: 14px;
-        line-height: 1.15;
-        white-space: normal;
+        padding-block: 6px;
+        padding-inline: 12px;
+        font-size: 12px;
+        line-height: 1.1;
+        align-content: center;
     }
 
-    .room .actions.on-result .copy.link {
+    /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
+    .room .actions.on-result:has(> .copy:not(.link)) .copy.link {
         justify-content: center;
+        align-self: center;
         width: 52px;
+        height: 52px;
         padding: 0;
     }
 
-    .room .actions.on-result .copy.link .label {
+    .room .actions.on-result:has(> .copy:not(.link)) .copy.link .label {
         display: none;
     }
 }
