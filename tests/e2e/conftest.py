@@ -5,6 +5,7 @@ from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
 from tests.e2e.support.browser_coverage import BrowserCoverage
+from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
 from tests.support.signed_in import SeededMember, new_account, seed_member
@@ -112,3 +113,16 @@ def page_errors() -> Iterator[list[str]]:
     errors: list[str] = []
     yield errors
     assert errors == []
+
+
+@pytest.fixture
+def deal_a_declaring_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> Callable[..., DeclaringTable]:
+    def deal(form_factor: dict[str, Any], *, console: bool = True) -> DeclaringTable:
+        return DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
+
+    return deal

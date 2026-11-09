@@ -6,8 +6,9 @@ import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.playing import TABLE_CARD_SUFFIX
+from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
-from tests.e2e.test_table_declaring import WIDTHS, DeclaringTable
 
 if TYPE_CHECKING:
     from collections.abc import Callable
