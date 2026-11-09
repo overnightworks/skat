@@ -68,6 +68,12 @@ sequenceDiagram
     S-->>B: start page, then GET /api/account for the name
 ```
 
+### A framed table signs in through a separate window
+
+The call's frame cannot take the person to the issuer, which refuses to be framed, and its sandbox lets no framed page submit a form. A signed-out visit to `/t/{id}` with `mode=call` (`CALL_MODE`) therefore leaves the gate for `/login`, which answers 303 to `/login/call` with the same `next`; every other return address gets the plain sign-in page. The call sign-in page reads `next` from its own address and keeps only an id that matches `TABLE_ID_PATTERN` under `TABLE_PAGE_PREFIX`; anything else leaves the plain `/auth/start` link and opens no window.
+
+"Log in" opens `/auth/start` in a separate window that returns to the plain table, and the frame shows that sign-in runs there, with a plain link that opens the table in a tab of its own. Every 500 ms the frame reads the window's address, which throws while the window shows another origin. The window ending at the table closes and the frame reloads into the call-mode table; ending at `/no-access` closes it and the frame shows No access, without a log-out action, because a log-out would end the person's session in the call too. A window closed first leaves the frame to ask `/api/account`: a 200 brings the table, anything else shows the sign-in face with a notice and asks again every 2 s for 3 minutes, which also covers a sign-in finished in the plain link's tab. The frame sends and reads no message to the call, and `window.open` returning null leaves the plain link as the way on. `frontend/src/lib/callSignIn.ts` owns these decisions.
+
 Opening a table is one transaction: the service looks up the receipt under (account, command id), decides with a random 128-bit table id, writes the table with its opener in chair 1, its version and the receipt, and commits. The same command id with the same request returns the first table; another request under it is refused; two identical requests at once end with one table, because the receipt's key is unique and the loser's transaction rolls back and replays the winner's.
 
 ### The live view of a table
@@ -100,7 +106,7 @@ Skat is not deployed. CI builds the image from `Dockerfile` without pushing it; 
 The model is Skat's own.
 
 - **A person's browser** controls everything it sends. Skat trusts only the session: the name shown comes from the Keycloak account, and a state-changing request needs same-origin provenance. HTTP requests are rate-limited per address, and the sign-in routes have their own budget; `/health` is exempt.
-- **Anyone without a session** reaches only `/health`, the sign-in pages, the sign-in routes, the stylesheets and fonts those pages link, and Keycloak's logout POST. A forged, altered or expired session cookie counts as no session.
+- **Anyone without a session** reaches only `/health`, the sign-in pages, the sign-in routes, the stylesheets and fonts those pages link, the call sign-in page's module files (its `modulepreload` links, the files its bootstrap names and their static imports, never a dynamic import target), and Keycloak's logout POST. A forged, altered or expired session cookie counts as no session.
 - **Keycloak** decides who is a member: the group `/apps/skat` admits, and no group makes anyone an admin. Skat trusts its signed tokens from the one configured issuer. The session store holds each login's ID token, a secret that leaves the server once, in the no-store logout page whose form the browser posts to Keycloak.
 - **The proxy hops** named in `SKAT_TRUSTED_PROXIES` are trusted to state the person's address in `X-Forwarded-For`; empty trusts none.
 - **The call origin** named in `SKAT_CALL_ORIGIN` may frame every Skat page (`frame-ancestors`); no other origin may, and unset allows none. Framing grants it nothing in Skat: the framed page keeps its own session and checks, and a request the call page sends is refused like any cross-origin one. The remaining risk is that a compromised call origin could trick people into clicks on a framed Skat page.
@@ -114,12 +120,12 @@ The model is Skat's own.
 
 ### Proof strategy
 
-Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live, sign-out and framing (the configured call origin shows a table, every other origin is refused). Branch coverage is judged at 100 % over both together, merged with the frontend's.
+Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live, sign-out, framing (the configured call origin shows a table, every other origin is refused) and signing in from a frame through the separate window. Branch coverage is judged at 100 % over both together, merged with the frontend's.
 
 ## 6. Constraints and reasons
 
-- Skat's markup holds no inline script, `<style>`, `style=` or `on*=` attribute: the page runs under webauth's content security policy, which admits only the SvelteKit bootstrap script and the route announcer's style by hash.
-- The sign-in pages are prerendered with `csr = false`, so they carry no script.
+- Skat's markup holds no inline script, `<style>`, `style=` or `on*=` attribute: the page runs under webauth's content security policy, which admits only the SvelteKit bootstrap scripts of the shell and of the call sign-in page, and the route announcer's style, by hash.
+- The plain sign-in pages are prerendered with `csr = false`, so they carry no script, and the page build refuses to start when one does; the call sign-in page alone runs a script, admitted by hash.
 - The Python path constants own the browser's paths, and `make wire` generates the TypeScript, so a drifting path fails `make wire-check` instead of showing at runtime.
 - The test issuer exists only in tests and is never wired into the production composition.
 
