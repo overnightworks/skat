@@ -84,6 +84,9 @@ msgstr "Halten"
 msgid "pass"
 msgstr "Weg"
 
+msgid "bidValue"
+msgstr "Reizwert"
+
 msgid "dealer"
 msgstr "Geber"
 
@@ -98,3 +101,54 @@ msgstr "Hinterhand"
 
 msgid "cardCount"
 msgstr "Karten"
+
+msgid "takeSkat"
+msgstr "Aufnehmen"
+
+msgid "putBack"
+msgstr "Drücken"
+
+msgid "announceGame"
+msgstr "Ansagen"
+
+msgid "gameKaro"
+msgstr "Karo"
+
+msgid "gameHerz"
+msgstr "Herz"
+
+msgid "gamePik"
+msgstr "Pik"
+
+msgid "gameKreuz"
+msgstr "Kreuz"
+
+msgid "gameGrand"
+msgstr "Grand"
+
+msgid "gameNull"
+msgstr "Null"
+
+msgid "rankSeven"
+msgstr "Sieben"
+
+msgid "rankEight"
+msgstr "Acht"
+
+msgid "rankNine"
+msgstr "Neun"
+
+msgid "rankTen"
+msgstr "Zehn"
+
+msgid "rankJack"
+msgstr "Bube"
+
+msgid "rankQueen"
+msgstr "Dame"
+
+msgid "rankKing"
+msgstr "König"
+
+msgid "rankAce"
+msgstr "Ass"
