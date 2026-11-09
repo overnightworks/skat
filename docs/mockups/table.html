@@ -1278,7 +1278,7 @@ scenes(SIGNIN_SCENES);
 ORDER.splice(ORDER.indexOf('call-bid-390'),0,...SIGNIN_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 /* the story runs in order: the table before any deal, the deal, then the auction and the play */
 ORDER.unshift(...[...S3_SCENES,...DEAL_SCENES].flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
-/* ===== a series: the count on the felt, the standings at its end, the list of its games, the length chosen at the table ===== */
+/* ===== a series: the count on the felt, the standings at its end, the list of its games ===== */
 const SERIES=36;
 Object.assign(P,{tom:{n:'Tom',i:'T',c:['#9fd0f2','#4b8fc4'],v:['#2e3c4a','#171f27'],l:['#2f4a63','#172533']}});
 /* the count is a quiet mark at the top of the felt; tapping it opens the list of every game */
@@ -1286,9 +1286,6 @@ const seriesCount=(d,n,o={})=>`<div class="tag-glass series ${o.open?'unfolded':
 const seriesPlay=(d,count)=>room(d,{left:8,glow:yourTurn(d)})+count
   +plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))+announcedTrick(d)
   +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d);
-/* the length chosen at the table, before the first deal; 36 stands when nobody chose */
-const lengthPicks=(d)=>plaque(d?640:195,d?246:262,'<div class="game">Länge der Serie</div>')
-  +row(d?640:195,d?298:312,pick('3 Spiele weniger','−',false,'round')+pick('Länge der Serie',`${SERIES} Spiele`,true)+pick('3 Spiele mehr',I.plus,false,'round'));
 
 /* the standings: place, name, games won and lost as declarer, final total; the winner on top */
 const rankRow=([k,place,total,won,lost,gone],short)=>{const p=P[k];
@@ -1303,7 +1300,9 @@ const seriesEnd=(d,o,tap=NEW_SERIES,watchers=1)=>dealRoom(d,{watchers})+standing
 /* each row: [account, place, total, won, lost, left mid-series]; two equal in total, won and lost share the place */
 const SHARED_PLACE={near:'felix',winners:['felix'],ready:[],coasters:[365,365,502],rows:[['felix',1,502,10,4],['anna',2,365,7,3],['ben',2,365,7,3]]};
 const LEFT_MIDWAY={near:'felix',winners:['felix'],ready:[],coasters:[356,233,418],rows:[['felix',1,418,9,3],['anna',2,356,8,2],['ben',3,233,6,3],['tom',4,118,4,1,true]]};
-const WATCHED_END={near:'lena',winners:['anna'],ready:['anna','ben'],coasters:[447,244,391],rows:[['anna',1,447,9,2],['lena',2,391,8,3],['ben',3,244,5,5]]};
+const WATCHED_END={near:'tom',winners:['anna'],ready:['anna','ben'],coasters:[447,244,391],rows:[['anna',1,447,9,2],['tom',2,391,8,3],['ben',3,244,5,5]]};
+/* a watcher's own mark: an eye where a seated player has the tap button */
+const watcherTag=(d)=>`<div class="tag-glass" role="status" style="${at({left:d?640:195,top:d?610:716,transform:'translateX(-50%)'})}">${I.eye}<span>Du schaust zu</span></div>`;
 
 /* the list of every game: one row per game, newest on top; a passed-in hand leaves no row, so numbers 5 and 13 are missing */
 const GAMES_PLAYED=[[1,'felix','c','Kreuz','mit 2',36,true],[2,'anna','h','Herz','mit 1',20,true],[3,'ben','d','Karo','ohne 2',27,false],[4,'felix','','Grand','mit 1',48,true],
@@ -1318,9 +1317,12 @@ const gameList=(d)=>`<div class="scrim over"></div>`+seriesCount(d,GAMES_PLAYED.
   +`<div class="result gamelist" role="dialog" aria-label="Spiele der Serie" style="${at(d?{left:640,top:62,width:560,height:620,'z-index':'50'}:{left:195,top:50,width:354,height:660,'z-index':'50'})}">
   <h3>Spiele</h3><div class="rows" tabindex="0">${[...GAMES_PLAYED].reverse().map(gameRow).join('')}</div></div>`;
 
+/* between two games a seated member proposes the end; the other two answer, and no standings show yet */
+const askEnd=(d)=>dealRoom(d,{watchers:1})+seriesCount(d,8)
+  +chairsOf(d,'felix').map(([k,pos])=>seat(k,{...pos,marks:[]})).join('')+chairCoasters(endLayout(d),TOTALS_BEFORE)
+  +panel({k:'anna',role:'dialog',x:d?640:195,y:d?190:200,w:d?460:340,text:'Anna will die Serie beenden',buttons:`<span class="button button-stage">${I.check}Ja</span><span class="button button-glass">${I.cross}Nein</span>`})
+  +tableBar(d,{seated:true});
 const SERIES_SCENES=[
-  ['series-length','Länge am Tisch wählen',(d)=>S3.mine(d)+lengthPicks(d),
-    ['Die andere Möglichkeit zur Wahl beim Öffnen des Tischs: Wer sitzt, stellt vor dem ersten Geben in Dreierschritten jede Zahl von 3 bis 99 ein, mit dem ersten Geben steht die Länge fest, und 36 gilt, wenn niemand wählt.']],
   ['series-play','Spiel 8 von 36',(d)=>seriesPlay(d,seriesCount(d,8)),
     ['Eine ruhige Marke oben auf dem Tisch zählt „Spiel 8 von 36“; ein Tipp darauf öffnet die Liste aller Spiele.']],
   ['series-passed','Eingepasst zählt weiter',(d)=>room(d,{left:0})+seriesCount(d,9,{moves:true})
@@ -1329,12 +1331,14 @@ const SERIES_SCENES=[
     ['Jedes Geben ist ein Spiel der Serie, ein eingepasstes auch: aus „Spiel 8 von 36“ wird „Spiel 9 von 36“.']],
   ['series-list','Liste aller Spiele',(d)=>seriesPlay(d,'')+gameList(d),
     ['Jede Zeile nennt Nummer, Alleinspieler, Spiel, Wert und Gewinn oder Verlust, die neueste oben; ein eingepasstes Geben hat keine Zeile, darum fehlen 5 und 13, und nur die Liste rollt, nicht die Seite.']],
+  ['series-end-ask','Beenden vorgeschlagen',askEnd,
+    ['Wenn beide anderen mit Ja antworten, kommt das Ende sofort mit dem Stand bis dahin; ein Nein oder das nächste Geben räumt den Vorschlag weg.']],
   ['series-end','Rangliste mit geteiltem Platz',(d)=>seriesEnd(d,SHARED_PLACE),
     ['Alle sehen dieselbe Rangliste mit dem Sieger oben, und sie zeigt keine Karte; gleicher Stand, gleich viele gewonnene und gleich viele verlorene Spiele teilen den Platz.']],
   ['series-end-left','Rangliste mit einem vierten Namen',(d)=>seriesEnd(d,LEFT_MIDWAY),
     ['Wer mitten in der Serie ging, steht mit seinen eigenen Spielen in der Rangliste, die darum mehr als drei Namen haben kann.']],
-  ['series-end-watch','Zuschauen bei der Rangliste',(d)=>seriesEnd(d,WATCHED_END,null,3),
-    ['Ein Zuschauer sieht dieselbe Rangliste wie die am Tisch; „Neue Serie“ tippen kann er nicht.']],
+  ['series-end-watch','Zuschauen bei der Rangliste',(d)=>seriesEnd(d,WATCHED_END,null,3)+watcherTag(d),
+    ['Ein Zuschauer sieht die Marken, wer schon getippt hat, und die Rangliste, und er kann nicht tippen.']],
   ['series-end-short','Nur Platz und Stand',(d)=>seriesEnd(d,{...SHARED_PLACE,short:true}),
     ['Die schlichte Möglichkeit zur Rangliste: nur Platz und Endstand je Person, gleicher Stand teilt den Platz.']],
   ['series-next','Neue Serie getippt',(d)=>seriesEnd(d,{...SHARED_PLACE,ready:['felix','anna']},waitButton('Ben')),
