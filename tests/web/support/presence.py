@@ -113,12 +113,15 @@ def end_the_first_game(store, table_id, *ready_seats):
 
 class OvertakenStore(FakeTableStore):
     """A store another caller overtakes: `meanwhile` runs once when the next row lock is asked, `after_commit` once
-    when the next transaction has committed."""
+    when the next transaction has committed, `after_commit_of_command` once when the transaction that recorded the
+    receipt of the named command has committed, whatever other transactions commit before it."""
 
     def __init__(self):
         super().__init__()
         self.meanwhile = None
         self.after_commit = None
+        self.after_commit_of_command = None
+        self._command_recorded = False
 
     @contextmanager
     def begin(self):
@@ -127,6 +130,15 @@ class OvertakenStore(FakeTableStore):
         if self.after_commit is not None:
             action, self.after_commit = self.after_commit, None
             action()
+        if self._command_recorded:
+            self._command_recorded = False
+            action, self.after_commit_of_command = self.after_commit_of_command[1], None
+            action()
+
+    def add_receipt(self, receipt):
+        super().add_receipt(receipt)
+        if self.after_commit_of_command is not None and receipt.command_id == self.after_commit_of_command[0]:
+            self._command_recorded = True
 
     def locked_table(self, table_id):
         if self.meanwhile is not None:

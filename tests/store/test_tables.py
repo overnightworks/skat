@@ -408,7 +408,7 @@ class TestOneMomentRead:
             writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
             reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
 
-            wait_until_a_session_waits_for_a_lock(engine)
+            wait_until_a_session_waits_for_a_lock(engine, reader)
 
         reader.join()
         assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (dealt.dealer, dealt.hand, 2)
@@ -418,7 +418,7 @@ class TestOneMomentRead:
             empty = writer.locked_table(TableId(table_id))
             writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
             reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
-            wait_until_a_session_waits_for_a_lock(engine)
+            wait_until_a_session_waits_for_a_lock(engine, reader)
             raise RuntimeError("rolled back")
 
         reader.join()
@@ -436,7 +436,7 @@ class TestOneMomentRead:
             writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
             reader, outcome = run_in_thread(replay_create)
 
-            wait_until_a_session_waits_for_a_lock(engine)
+            wait_until_a_session_waits_for_a_lock(engine, reader)
 
         reader.join()
         assert (outcome[0].dealer, outcome[0].hand, outcome[0].version) == (dealt.dealer, dealt.hand, 2)
@@ -451,7 +451,7 @@ class TestOneMomentRead:
             reading.table(TableId(table_id))
             writer, _ = run_in_thread(write)
 
-            wait_until_a_session_waits_for_a_lock(engine)
+            wait_until_a_session_waits_for_a_lock(engine, writer)
 
         writer.join()
         assert self.read(engine, table_id).version == 2

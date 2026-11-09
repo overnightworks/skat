@@ -175,7 +175,7 @@ def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_en
         views = []
         reading = threading.Thread(target=lambda: views.append(service.view(OPENER, table_id.value, NOBODY_CONNECTED)))
         reading.start()
-        wait_until_a_session_waits_for_a_lock(engine)
+        wait_until_a_session_waits_for_a_lock(engine, reading)
 
     reading.join()
     assert views[0].ended.reason == EndReason.EMPTY

@@ -1,10 +1,14 @@
 import time
+from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy import select, text
 
 from skat.store.schema import metadata, tables
-from tests.support.faulty_tables import WAIT_DEADLINE_SECONDS
+from tests.support.faulty_tables import HANG_DEADLINE_SECONDS
+
+if TYPE_CHECKING:
+    import threading
 
 
 def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
@@ -23,10 +27,11 @@ def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
         }
 
 
-def wait_until_a_session_waits_for_a_lock(engine) -> None:
-    deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
+def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> None:
+    """Returns when a session waits for a lock; fails when the reader ends without that, or hangs elsewhere."""
+    hang_deadline = time.monotonic() + HANG_DEADLINE_SECONDS
     with engine.connect() as watcher:
-        while time.monotonic() < deadline:
+        while reader.is_alive() and time.monotonic() < hang_deadline:
             waiting = watcher.execute(
                 text(
                     "SELECT count(*) FROM pg_stat_activity"
