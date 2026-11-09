@@ -30,6 +30,11 @@
               ]
             : [{ game, ouvert: false }],
     );
+    // The tiles stand on two rows, as the picture draws them: the four suits, then the rest.
+    const TILE_ROWS: readonly (readonly Tile[])[] = [
+        TILES.filter((tile) => SUITS.has(tile.game)),
+        TILES.filter((tile) => !SUITS.has(tile.game)),
+    ];
     // One rung of Hand's ladder is chosen at a time; the engine adds Schwarz to an ouvert game.
     type Rung = Announcement | "ouvert";
 
@@ -131,30 +136,34 @@
             </button>
         {:else}
             <div class="games">
-                {#each TILES as tile (`${tile.game}${String(tile.ouvert)}`)}
-                    {@const game = tile.game}
-                    {@const label = gameLabel({ ...tile, hand: false })}
-                    <button
-                        type="button"
-                        class="game"
-                        class:suited={isSuit(game)}
-                        aria-pressed={chosen?.game === game && chosen.ouvert === tile.ouvert}
-                        aria-label={label}
-                        disabled={busy}
-                        onclick={() => {
-                            chosen = tile;
-                            if (game === "null") level = "none";
-                        }}
-                    >
-                        {#if isSuit(game)}
-                            <span class="pip" aria-hidden="true">
-                                <svg viewBox="0 0 100 100" fill={SUIT_FILL[game]}>
-                                    <use href={`#suit-${game}`} />
-                                </svg>
-                            </span>
-                        {/if}
-                        <span class="name">{label}</span>
-                    </button>
+                {#each TILE_ROWS as row, rowIndex (rowIndex)}
+                    <div class="tiles">
+                        {#each row as tile (`${tile.game}${String(tile.ouvert)}`)}
+                            {@const game = tile.game}
+                            {@const label = gameLabel({ ...tile, hand: false })}
+                            <button
+                                type="button"
+                                class="game"
+                                class:suited={isSuit(game)}
+                                aria-pressed={chosen?.game === game && chosen.ouvert === tile.ouvert}
+                                aria-label={label}
+                                disabled={busy}
+                                onclick={() => {
+                                    chosen = tile;
+                                    if (game === "null") level = "none";
+                                }}
+                            >
+                                {#if isSuit(game)}
+                                    <span class="pip" aria-hidden="true">
+                                        <svg viewBox="0 0 100 100" fill={SUIT_FILL[game]}>
+                                            <use href={`#suit-${game}`} />
+                                        </svg>
+                                    </span>
+                                {/if}
+                                <span class="name">{label}</span>
+                            </button>
+                        {/each}
+                    </div>
                 {/each}
             </div>
             <div class="confirm">

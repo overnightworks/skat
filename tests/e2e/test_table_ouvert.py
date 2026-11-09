@@ -42,6 +42,8 @@ ANNOUNCED_MARK = ".plaque .announced"
 LADDER = ".declare .ladder"
 RESULT_CARD = ".result"
 PRESSED = "aria-pressed"
+SUIT_TILES = 4
+OTHER_TILES = 3
 NULL_OUVERT_VALUE = 46
 NULL_OUVERT_HAND_VALUE = 59
 PLAQUE = ".plaque"
@@ -235,6 +237,15 @@ def give_up_and_read_the_result(table: DeclaringTable, label: str, value: int) -
     assert the_view(table, table.declarer_seat)["result"]["game_value"] == value
 
 
+def expect_the_tiles_on_two_rows_of_four_and_three(person: Page) -> None:
+    tiles = person.locator(".declare .game")
+    expect(tiles).to_have_count(SUIT_TILES + OTHER_TILES)
+    rows = [round(box["y"]) for box in (tile.bounding_box() for tile in tiles.all()) if box is not None]
+    assert len(set(rows[:SUIT_TILES])) == 1
+    assert len(set(rows[SUIT_TILES:])) == 1
+    assert rows[SUIT_TILES] > rows[0]
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_null_ouvert_after_the_take_is_offered_without_levels_and_declared_with_one_command(
     deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
@@ -252,6 +263,7 @@ def test_null_ouvert_after_the_take_is_offered_without_levels_and_declared_with_
     button_of(declarer, PUT_BACK).click()
 
     expect(button_of(declarer, NULL_OUVERT)).to_be_visible()
+    expect_the_tiles_on_two_rows_of_four_and_three(declarer)
     for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
         expect(button_of(declarer, level)).to_have_count(0)
     reload_and_wait(declarer)
@@ -304,6 +316,7 @@ def test_null_ouvert_in_the_hand_panel_hides_the_levels_and_is_named_null_ouvert
     declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
     button_of(declarer, HAND).click()
     expect(declarer.locator(LADDER)).to_contain_text(OUVERT_RUNG)
+    expect_the_tiles_on_two_rows_of_four_and_three(declarer)
     button_of(declarer, SCHWARZ).click()
     button_of(declarer, OUVERT_RUNG).click()
     button_of(declarer, NULL_OUVERT).click()

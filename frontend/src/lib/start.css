@@ -1995,10 +1995,15 @@ body {
 
 .room .declare .games {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     gap: 8px;
-    max-width: 320px;
+}
+
+.room .declare .tiles {
+    display: flex;
+    justify-content: center;
+    gap: inherit;
 }
 
 .room .declare .game {
@@ -2113,7 +2118,6 @@ body {
 
     .room .declare .games {
         gap: 5px;
-        max-width: 100%;
     }
 
     .room .declare .game {
@@ -2160,14 +2164,9 @@ body {
         margin-left: 76px;
     }
 
-    /* The drop slots stand over their button, and the games on two rows over theirs: the four suits, then the rest. */
+    /* The drop slots stand over their button. */
     .room .declare:is(.discarding, .picked, .hand) {
         flex-direction: column;
-    }
-
-    .room .declare .games {
-        flex-wrap: wrap;
-        max-width: 460px;
     }
 
     .room .declare .slot {
