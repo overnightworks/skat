@@ -1,0 +1,8 @@
+claim_id = "b5fb4278724a4ae6af353d9402ad829f"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "de253cd8142073cf0a7b425907e63aab71abe785"
+branch = "claude/issue-196-design-v0-19-0"
+scope = ["docs/ARCHITECTURE.md", "frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/kitWords.ts", "frontend/src/lib/ui/CallSignIn.svelte", "frontend/src/lib/ui/SignIn.svelte", "frontend/src/routes/(start)/+page.svelte", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/+layout.svelte", "tests/e2e/test_call_sign_in.py"]
+opened_commit = "efbc043296b247677936dd41be3d48f3fc2e20c8"
+whole_reason = "One package name across its pin, lockfile, imports, stylesheet import and the words that name it, which cannot build half renamed."
