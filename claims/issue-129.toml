@@ -1,0 +1,8 @@
+claim_id = "b9547f321de34ff98f0005bcf4b91650"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "d0681204029064e2372f0fe6f8c8daeb8827d063"
+branch = "claude/issue-129-coasters"
+scope = ["frontend/src/lib/auctionMarks.test.ts", "frontend/src/lib/playView.test.ts", "frontend/src/lib/result.test.ts", "frontend/src/lib/start.css", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/table/views.py", "tests/e2e/test_table_coasters.py", "tests/table/test_views.py", "tests/web/test_tables.py"]
+opened_commit = "6501f4e60c6e193cda6785b2c937a56f275340c7"
+whole_reason = "The server's null before the first entry and the page's coaster are one rule: either half alone shows a number line 9 A rules out or hides the total."
