@@ -39,7 +39,7 @@ export interface CallSignInHost {
 export interface CallSignIn {
     logIn(): void;
     recheck(): void;
-    stop(): void;
+    stop: () => void;
 }
 
 /** The id of the table the page was asked to return to, or null for anything that is not one. */

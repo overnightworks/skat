@@ -41,7 +41,7 @@
         if (id === null) {
             return undefined;
         }
-        signIn = createCallSignIn(
+        const created = createCallSignIn(
             id,
             {
                 open: (address, name, features) => window.open(address, name, features),
@@ -60,10 +60,9 @@
                 view = next;
             },
         );
+        signIn = created;
         tableId = id;
-        return () => {
-            signIn?.stop();
-        };
+        return created.stop;
     });
 
     function tabOpened(event: MouseEvent): void {
