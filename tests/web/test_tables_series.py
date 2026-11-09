@@ -313,3 +313,17 @@ class TestTheStandings:
         assert set(standings) == {*names, replacement}
         assert standings[replacement]["total"] == answer["chairs"][1]["total"]
         assert (standings[names[1]]["won"], standings[names[1]]["lost"]) == (0, 0)
+
+    def test_a_row_names_nobody_by_account_and_a_nameless_one_has_no_name(self, skat):
+        table, _ = play_a_series(skat)
+        record = skat.store.tables[table.table_id]
+        accounts = {account for entry in record.game_list for account in entry.seat_accounts}
+        nameless = tuple(replace(entry, seat_names=(None, None, None)) for entry in record.game_list)
+        skat.store.tables[table.table_id] = replace(record, game_list=nameless)
+
+        answer = table.read_as(table.watcher)
+
+        standings = answer.json()["series"]["standings"]
+        assert len(standings) == len(accounts)
+        assert [each["display_name"] for each in standings] == [None] * len(accounts)
+        assert all(account not in answer.text for account in accounts)
