@@ -6,6 +6,7 @@ from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.hands import CARDS_IN_PLAY, PlayingTable
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
 
@@ -20,6 +21,7 @@ pytestmark = pytest.mark.e2e
 TAKE_SKAT = catalog_text("takeSkat")
 PUT_BACK = catalog_text("putBack")
 ANNOUNCE = catalog_text("announceGame")
+HAND = catalog_text("hand")
 COMMAND_FAILED = catalog_text("commandFailed")
 BIDDING = catalog_text("bidding")
 BID_VALUE = catalog_text("bidValue")
@@ -28,13 +30,16 @@ CHOOSES = catalog_text("chooses")
 DISCARDS = catalog_text("discards")
 GAME_NAMES = [catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand", "gameNull")]
 NULL_GAME = catalog_text("gameNull")
-CONTROL_NAMES = [TAKE_SKAT, PUT_BACK, ANNOUNCE, *GAME_NAMES]
+CONTROL_NAMES = [TAKE_SKAT, HAND, PUT_BACK, ANNOUNCE, *GAME_NAMES]
 HAND_CARD = ".own-hand .card"
 PICKABLE_CARD = ".own-hand .card button"
 SKAT_BACK = ".skat-spot .skat-card"
 CARDS_IN_A_HAND = 10
 CARDS_AFTER_THE_TAKE = 12
 PLAQUE = ".plaque"
+HELD_LEVEL = ".declare .held"
+RESULT_CARD = ".result"
+NULL_OUVERT = "Null ouvert"
 DECLARER_MARK = ".mark.declarer"
 LONGER_THAN_THE_WON_MOMENT = 10_000
 PRESSED = "aria-pressed"
@@ -114,7 +119,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
 
     expect(declarer.locator(SKAT_BACK)).to_have_count(2)
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
-    expect(button_of(declarer, "Hand")).to_have_count(0)
+    expect(button_of(declarer, HAND)).to_be_enabled()
     reload_and_wait(declarer)
     expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
@@ -134,7 +139,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(declarer.get_by_text(bid_plaque)).to_have_count(1)
     expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
-    expect(button_of(declarer, "Null ouvert")).to_have_count(0)
+    expect(button_of(declarer, NULL_OUVERT)).to_have_count(0)
     for name in GAME_NAMES:
         expect(button_of(declarer, name)).to_be_visible()
 
@@ -150,6 +155,8 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect_no_controls(declarer)
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
     assert declaration == {"game": "null", "hand": False, "ouvert": False, "announcement": "none"}
+    expect(declarer.locator(PLAQUE)).to_contain_text(NULL_GAME)
+    expect(declarer.locator(PLAQUE)).not_to_contain_text(HAND)
     reload_and_wait(declarer)
     expect_no_controls(declarer)
     assert page_errors == []
@@ -339,4 +346,162 @@ def test_the_declarer_carries_the_mark_and_the_turn_and_keeps_the_own_plaque(
     expect(declarer.locator(".chair.mine")).to_have_class(re.compile(r"\bturn\b"))
     expect(declarer.locator(PLAQUE)).not_to_contain_text(CHOOSES)
     expect(declarer.locator(PLAQUE)).to_contain_text(f"{BID_VALUE} {table.bid_value()}")
+    assert page_errors == []
+
+
+HAND_GAMES = [("herz", "gameHerz"), ("grand", "gameGrand"), ("null", "gameNull")]
+
+
+def expect_the_choice(declarer: Page) -> None:
+    expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
+    expect(button_of(declarer, HAND)).to_be_enabled()
+    expect(declarer.locator(SKAT_BACK)).to_have_count(2)
+    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+
+
+def expect_the_hand_panel(declarer: Page) -> None:
+    for name in GAME_NAMES:
+        expect(button_of(declarer, name)).to_be_visible()
+    expect(declarer.locator(HELD_LEVEL)).to_have_text(HAND)
+    expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
+    expect(button_of(declarer, NULL_OUVERT)).to_have_count(0)
+    expect(button_of(declarer, TAKE_SKAT)).to_have_count(0)
+    expect(declarer.locator(SKAT_BACK)).to_have_count(2)
+    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+
+
+def overlaps(first: dict[str, float], second: dict[str, float]) -> bool:
+    return (
+        first["x"] < second["x"] + second["width"]
+        and second["x"] < first["x"] + first["width"]
+        and first["y"] < second["y"] + second["height"]
+        and second["y"] < first["y"] + first["height"]
+    )
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize(("token", "word_key"), HAND_GAMES)
+def test_the_declarer_declares_each_game_as_hand_after_a_page_step_and_a_reload_returns_to_the_choice(
+    deal_a_declaring_table: Callable[..., DeclaringTable],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    token: str,
+    word_key: str,
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    posts: list[str] = []
+    declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
+    expect_the_choice(declarer)
+
+    button_of(declarer, HAND).click()
+    expect_the_hand_panel(declarer)
+    assert posts == []
+    assert table.declaring_as_the_declarer_sees_it()["stage"] == "choosing"
+    for onlooker in (*table.others, table.watcher):
+        expect_no_controls(onlooker)
+        expect(onlooker.locator(PLAQUE)).to_contain_text(CHOOSES)
+
+    reload_and_wait(declarer)
+    expect_the_choice(declarer)
+    assert table.declaring_as_the_declarer_sees_it()["stage"] == "choosing"
+
+    button_of(declarer, HAND).click()
+    button_of(declarer, catalog_text(word_key)).click()
+    expect(button_of(declarer, ANNOUNCE)).to_be_enabled()
+    for far_fan in declarer.locator(".chair:not(.mine) .fan").all():
+        assert not overlaps(far_fan.bounding_box(), declarer.locator(".declare").bounding_box())
+    assert declarer.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    button_of(declarer, ANNOUNCE).click()
+    expect_no_controls(declarer)
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": token, "hand": True, "ouvert": False, "announcement": "none"}
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_double_tap_on_hand_sends_nothing_and_on_announce_exactly_one_command(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    posts: list[str] = []
+    declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
+
+    button_of(declarer, HAND).dblclick()
+    expect_the_hand_panel(declarer)
+    assert posts == []
+
+    button_of(declarer, NULL_GAME).click()
+    button_of(declarer, ANNOUNCE).dblclick()
+    expect_no_controls(declarer)
+    assert len([url for url in posts if url.endswith(f"{table.api_path}{TABLE_DECLARATION_SUFFIX}")]) == 1
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_keyboard_reaches_and_works_hand_every_game_and_announce(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    button_of(declarer, HAND).focus()
+    declarer.keyboard.press("Enter")
+    expect_the_hand_panel(declarer)
+
+    for name in GAME_NAMES:
+        tile = button_of(declarer, name)
+        tile.focus()
+        declarer.keyboard.press("Enter")
+        expect(tile).to_have_attribute(PRESSED, "true")
+    button_of(declarer, ANNOUNCE).focus()
+    declarer.keyboard.press("Enter")
+    expect_no_controls(declarer)
+    assert table.declaring_as_the_declarer_sees_it()["declaration"]["hand"] is True
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_hand_panel_and_its_game_stay_through_a_new_view_and_give_way_to_a_take_elsewhere(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    button_of(declarer, HAND).click()
+    button_of(declarer, NULL_GAME).click()
+    version = table.declaring_as_the_declarer_sees_it()
+    reload_and_wait(table.others[0])
+    expect(table.others[0].locator(".chair.mine")).to_be_visible()
+    assert table.declaring_as_the_declarer_sees_it() == version
+    expect(button_of(declarer, NULL_GAME)).to_have_attribute(PRESSED, "true")
+    expect(declarer.locator(HELD_LEVEL)).to_have_text(HAND)
+    expect(button_of(declarer, ANNOUNCE)).to_be_enabled()
+
+    table.declare_through_the_api(action="take")
+    expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
+    expect(button_of(declarer, PUT_BACK)).to_be_visible()
+    expect(declarer.locator(HELD_LEVEL)).to_have_count(0)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_grand_hand_game_is_named_on_every_plaque_and_result_card(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    declaring = deal_a_declaring_table(form_factor)
+    button_of(declaring.declarer, HAND).click()
+    button_of(declaring.declarer, catalog_text("gameGrand")).click()
+    button_of(declaring.declarer, ANNOUNCE).click()
+    expect_no_controls(declaring.declarer)
+    table = PlayingTable(declaring, None)
+
+    grand_hand = f"{catalog_text('gameGrand')} {HAND}"
+    for person in table.everyone:
+        expect(person.locator(PLAQUE)).to_contain_text(grand_hand)
+    assert table.declaring.declaring_as_the_declarer_sees_it()["declaration"]["hand"] is True
+    table.play_out(CARDS_IN_PLAY)
+    for person in table.everyone:
+        expect(person.locator(RESULT_CARD)).to_contain_text(grand_hand)
+        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    assert table.result()["hand"] is True
     assert page_errors == []
