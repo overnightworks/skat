@@ -43,8 +43,14 @@ NO_CACHE_PATH_RULES = PathRules(
     exact=frozenset({HOME_PATH, LOGIN_PATH, CALL_SIGN_IN_PATH, NO_ACCESS_PATH}),
     patterns=(re.compile(rf"^{APP_ASSET_PATH}/(?!{IMMUTABLE_ASSET_DIRECTORY}/)"),),
 )
-# Private, because the assets sit behind the sign-in and a shared cache would hand them out past it (RFC 9111 5.2.2.9).
-IMMUTABLE_ASSET_CACHE_CONTROL = "private, max-age=31536000, immutable"
+IMMUTABLE_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
+# Every file of the build's immutable directory is public; a segment never starts with a dot or holds an escape.
+_IMMUTABLE_SEGMENT = r"[A-Za-z0-9_-][A-Za-z0-9._-]*"
+IMMUTABLE_ASSET_PATH_RULES = PathRules(
+    patterns=(
+        re.compile(rf"^{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/(?:{_IMMUTABLE_SEGMENT}/)*{_IMMUTABLE_SEGMENT}\Z"),
+    )
+)
 
 # The page asks for no device; every capability a browser could grant stays off.
 PERMISSIONS_POLICY = "camera=(), microphone=(), display-capture=(), geolocation=()"

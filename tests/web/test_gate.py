@@ -35,8 +35,6 @@ from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import (
-    CALL_PAGE_DYNAMIC_NODE,
-    CALL_PAGE_IMPORTED_CHUNK,
     CALL_PAGE_MODULE,
     CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
@@ -69,11 +67,11 @@ LOOKALIKE_PATHS = [
     "/no-access/x",
     "/static/css/skat.css",
     f"{SIGN_IN_STYLESHEET}/",
-    f"{SIGN_IN_STYLESHEET}x",
     f"{SIGN_IN_FONT}/",
-    f"{SIGN_IN_FONT}x",
     "/_app/immutable/assets/..%2Ffixture-font.woff2",
     "/_app/immutable/assets/..%2Fx.js",
+    "/_app/immutable/assets/%2e%2e/x.js",
+    "/_app/immutable/",
     "/logout/",
     f"{BACKCHANNEL_LOGOUT_PATH}/",
     f"{BACKCHANNEL_LOGOUT_PATH}x",
@@ -99,7 +97,6 @@ EXPECTED_CONTENT_SECURITY_POLICY = (
     "connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; "
     "manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'"
 )
-IMMUTABLE_CACHE_CONTROL = "private, max-age=31536000, immutable"
 SESSION_LIFETIME = timedelta(hours=12)
 
 
@@ -189,14 +186,14 @@ class TestSignedOut:
             IMMUTABLE_ASSET_CACHE_CONTROL,
         )
 
-    @pytest.mark.parametrize("path", [CALL_PAGE_MODULE, CALL_PAGE_IMPORTED_CHUNK])
-    def test_the_modules_of_the_call_sign_in_page_are_public_as_immutable_files(self, application, path):
+    @pytest.mark.parametrize("path", [CALL_PAGE_MODULE, IMMUTABLE_FILE, SIGN_IN_FONT])
+    def test_every_immutable_file_is_public_and_kept_a_year_by_any_cache(self, application, path):
         response = application.get(path, **FETCH_ACCEPT)
 
         assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_ASSET_CACHE_CONTROL)
 
-    @pytest.mark.parametrize("path", [CALL_PAGE_DYNAMIC_NODE, IMMUTABLE_FILE])
-    def test_a_build_file_the_call_sign_in_page_only_imports_dynamically_stays_behind_the_sign_in(
+    @pytest.mark.parametrize("path", [VERSION_FILE, "/"])
+    def test_a_build_file_outside_the_immutable_directory_and_every_other_page_stay_behind_the_sign_in(
         self, application, path
     ):
         assert application.get(path, **FETCH_ACCEPT).status_code == 401
@@ -462,16 +459,10 @@ class TestSessionLifetime:
 
 
 class TestPageBuildAssets:
-    def test_a_signed_out_fetch_of_an_immutable_file_is_refused_and_stored_for_no_long_time(self, application):
-        response = application.get(IMMUTABLE_FILE, **FETCH_ACCEPT)
-
-        assert response.status_code == 401
-        assert "max-age" not in response.headers.get("cache-control", "")
-
     def test_a_signed_in_fetch_of_an_immutable_file_is_kept_a_year_by_the_browser_alone(self, application):
         response = application.get(IMMUTABLE_FILE, application.seed(), **FETCH_ACCEPT)
 
-        assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_CACHE_CONTROL)
+        assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_ASSET_CACHE_CONTROL)
 
     def test_the_not_modified_answer_for_an_immutable_file_carries_the_same_cache_control(self, application):
         member = application.seed()
@@ -479,7 +470,7 @@ class TestPageBuildAssets:
 
         response = application.get(IMMUTABLE_FILE, member, **{"if-none-match": etag})
 
-        assert (response.status_code, response.headers["cache-control"]) == (304, IMMUTABLE_CACHE_CONTROL)
+        assert (response.status_code, response.headers["cache-control"]) == (304, IMMUTABLE_ASSET_CACHE_CONTROL)
 
     def test_a_signed_in_miss_below_the_immutable_directory_is_stored_for_no_long_time(self, application):
         response = application.get("/_app/immutable/absent.js", application.seed(), **FETCH_ACCEPT)
@@ -500,7 +491,7 @@ def install_gate(app: FastAPI, stores: SignInStores) -> None:
             content_security_policy=default_content_security_policy(), permissions_policy=PERMISSIONS_POLICY
         ),
         csrf_origin=CsrfPolicy(),
-        session_gate=session_gate(stores.sessions, frozenset()),
+        session_gate=session_gate(stores.sessions),
     )
 
 
@@ -509,7 +500,7 @@ class TestSecurityHeaders:
         ("method", "path", "signed_in", "headers", "status"),
         [
             ("GET", "/", False, BROWSER_ACCEPT, 302),
-            ("GET", IMMUTABLE_FILE, False, FETCH_ACCEPT, 401),
+            ("GET", IMMUTABLE_FILE, False, FETCH_ACCEPT, 200),
             ("GET", "/", False, FETCH_ACCEPT, 401),
             ("GET", ACCOUNT_PATH, False, FETCH_ACCEPT, 401),
             ("GET", ACCOUNT_CONSOLE_PATH, False, BROWSER_ACCEPT, 302),

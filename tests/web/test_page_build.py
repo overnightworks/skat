@@ -2,18 +2,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.web.page_build import PageBuild, _css_asset_urls
+from skat.web.page_build import PageBuild
 from skat.web.secret_files import StartRefusedError
 from tests.support.page_build import (
-    CALL_PAGE_DYNAMIC_NODE,
-    CALL_PAGE_IMPORTED_CHUNK,
-    CALL_PAGE_MODULE,
     CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
-    IMMUTABLE_FILE,
-    SIGN_IN_FONT,
-    SIGN_IN_STYLESHEET,
 )
 
 if TYPE_CHECKING:
@@ -122,84 +116,6 @@ class TestLoad:
         assert page.etag.startswith('"')
         assert page.etag.endswith('"')
 
-    @pytest.mark.parametrize(
-        "call_page",
-        [
-            f'<script>go("{CALL_PAGE_MODULE}");</script>',
-            f'<link rel="modulepreload" href="{CALL_PAGE_MODULE}">',
-        ],
-        ids=["bootstrap", "modulepreload"],
-    )
-    def test_the_call_page_hashes_its_bootstrap_and_admits_the_module_it_names(self, tmp_path, call_page):
-        root = build_with_shell(tmp_path, EMPTY_PAGE, call_page=call_page)
-        module = root / CALL_PAGE_MODULE.removeprefix("/")
-        module.parent.mkdir(parents=True)
-        module.write_text("", encoding="utf-8")
-
-        assert PageBuild.load(root).sign_in_assets == {CALL_PAGE_MODULE}
-
-    def test_the_sign_in_assets_hold_the_call_page_closure_of_static_imports_and_no_other_file(self):
-        assets = PageBuild.load(FIXTURE_DIRECTORY).sign_in_assets
-
-        assert {SIGN_IN_STYLESHEET, SIGN_IN_FONT, CALL_PAGE_MODULE, CALL_PAGE_IMPORTED_CHUNK} <= assets
-        assert assets.isdisjoint({CALL_PAGE_DYNAMIC_NODE, IMMUTABLE_FILE})
-
-    @pytest.mark.parametrize(
-        "declaration",
-        [
-            'import{a as b}from"../chunks/c.js";',
-            "import { a } from '../chunks/c.js';",
-            'import"../chunks/c.js";',
-            'export{a}from"../chunks/c.js";',
-            'export*from"../chunks/c.js";',
-            'import d,{a}from"../chunks/c.js";',
-            'import*as ns from"../chunks/c.js";',
-        ],
-    )
-    def test_every_form_of_static_import_names_a_module_of_the_closure(self, tmp_path, declaration):
-        root = self.call_page_with_module(tmp_path, declaration)
-        chunk = root / "_app/immutable/chunks/c.js"
-        chunk.parent.mkdir()
-        chunk.write_text("", encoding="utf-8")
-
-        assert PageBuild.load(root).sign_in_assets == {CALL_PAGE_MODULE, "/_app/immutable/chunks/c.js"}
-
-    @pytest.mark.parametrize(
-        "text",
-        ['import("../chunks/c.js");', "import(`../chunks/c.js`);", 'const c = "../chunks/c.js";', "import.meta.url;"],
-    )
-    def test_a_dynamic_import_or_a_plain_string_names_no_module_of_the_closure(self, tmp_path, text):
-        root = self.call_page_with_module(tmp_path, text)
-
-        assert PageBuild.load(root).sign_in_assets == {CALL_PAGE_MODULE}
-
-    def test_a_module_named_outside_the_app_directory_is_no_module_of_the_closure(self, tmp_path):
-        root = self.call_page_with_module(tmp_path, 'import"../../../outside.js";')
-
-        assert PageBuild.load(root).sign_in_assets == {CALL_PAGE_MODULE}
-
-    @pytest.mark.parametrize("named_by", ["the call page", "a module of the closure"])
-    def test_a_module_named_but_missing_from_the_build_refuses_the_start_and_names_the_build_command(
-        self, tmp_path, named_by
-    ):
-        if named_by == "the call page":
-            root = build_with_shell(
-                tmp_path, EMPTY_PAGE, call_page=f'<link rel="modulepreload" href="{CALL_PAGE_MODULE}">'
-            )
-        else:
-            root = self.call_page_with_module(tmp_path, 'import"./gone.js";')
-
-        with pytest.raises(StartRefusedError, match="make frontend"):
-            PageBuild.load(root)
-
-    @staticmethod
-    def call_page_with_module(root: Path, module_text: str) -> Path:
-        build_with_shell(root, EMPTY_PAGE, call_page=f'<link rel="modulepreload" href="{CALL_PAGE_MODULE}">')
-        module = root / CALL_PAGE_MODULE.removeprefix("/")
-        module.parent.mkdir(parents=True)
-        module.write_text(module_text, encoding="utf-8")
-        return root
-
     @pytest.mark.parametrize("page", SIGN_IN_PAGES)
     @pytest.mark.parametrize("script", ["<script>go();</script>", '<script src="/_app/a.js"></script>'])
     def test_a_plain_sign_in_page_with_a_script_refuses_the_start(self, tmp_path, page, script):
@@ -209,23 +125,6 @@ class TestLoad:
         with pytest.raises(StartRefusedError, match=page):
             PageBuild.load(root)
 
-    def test_the_sign_in_assets_are_the_app_stylesheets_the_sign_in_pages_link_and_the_files_they_reference(
-        self, tmp_path
-    ):
-        root = build_with_shell(tmp_path, "<html></html>")
-        links = {
-            "login.html": ("/_app/a.css", "/static/css/x.css"),
-            "login-failed.html": ("/_app/a.css", "/_app/b.css"),
-            "no-access.html": ("/_app/c.css",),
-        }
-        for name, hrefs in links.items():
-            (root / name).write_text("".join(f'<link rel="stylesheet" href="{href}">' for href in hrefs))
-        for stylesheet in ("a.css", "b.css", "c.css"):
-            (root / "_app" / stylesheet).write_text("")
-        (root / "_app" / "b.css").write_text("@font-face { src: url(/_app/f.woff2) }")
-
-        assert PageBuild.load(root).sign_in_assets == {"/_app/a.css", "/_app/b.css", "/_app/c.css", "/_app/f.woff2"}
-
     @pytest.mark.parametrize("missing", [*SIGN_IN_PAGES, CALL_PAGE])
     def test_a_directory_without_a_sign_in_page_refuses_the_start_and_names_the_build_command(self, tmp_path, missing):
         root = build_with_shell(tmp_path, "<html></html>")
@@ -233,31 +132,3 @@ class TestLoad:
 
         with pytest.raises(StartRefusedError, match="make frontend"):
             PageBuild.load(root)
-
-    def test_a_linked_app_stylesheet_missing_from_the_build_refuses_the_start_and_names_the_build_command(
-        self, tmp_path
-    ):
-        root = build_with_shell(tmp_path, "<html></html>", '<link rel="stylesheet" href="/_app/gone.css">')
-
-        with pytest.raises(StartRefusedError, match="make frontend"):
-            PageBuild.load(root)
-
-
-class TestCssAssetUrls:
-    @pytest.mark.parametrize(
-        "css",
-        [
-            b"a{src:url(/_app/f.woff2)}",
-            b"a{src:url('/_app/f.woff2')}",
-            b'a{src:url("/_app/f.woff2")}',
-            b"a{src:url( /_app/f.woff2 )}",
-        ],
-    )
-    def test_a_build_url_is_extracted_however_it_is_quoted(self, css):
-        assert _css_asset_urls(css) == {"/_app/f.woff2"}
-
-    @pytest.mark.parametrize(
-        "other", [b"url(/static/f.woff2)", b"url(data:font/woff2;base64,AAAA)", b"url(fonts/f.woff2)", b"url(//_app/f)"]
-    )
-    def test_a_url_outside_the_build_is_not_extracted_beside_a_build_url(self, other):
-        assert _css_asset_urls(b"a{src:url(/_app/f.woff2)}" + other) == {"/_app/f.woff2"}
