@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import contextmanager
 
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import after_the_first_game
@@ -88,8 +88,8 @@ def connect(presence, table_id, account_id, wake):
 
 def post_pass(skat, table_id, headers, *, command_id, version):
     return skat.client.post(
-        f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-        json={"command_id": command_id, "version": version, "action": "pass"},
+        f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+        json={"command_id": command_id, "version": version},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 

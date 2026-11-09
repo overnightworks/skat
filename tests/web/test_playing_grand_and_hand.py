@@ -2,9 +2,8 @@ import pytest
 
 from skat.engine.deal import Deal
 from skat.engine.tricks import PlayRefusal
-from skat.table.auction import AuctionAction
 from skat.table.hand_state import playing_of
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import AnnouncementToken, GameToken
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -469,8 +468,8 @@ class TestGrandAndHandGamesReachTheirResult:
     def test_a_passed_in_hand_has_no_result(self, table):
         for position in (MIDDLEHAND, REARHAND, FOREHAND):
             answer = table.skat.client.post(
-                f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_SUFFIX}",
-                json={"command_id": table.fresh_id(), "version": table.record.version, "action": AuctionAction.PASS},
+                f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+                json={"command_id": table.fresh_id(), "version": table.record.version},
                 headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
             )
             assert answer.status_code == 200, answer.text

@@ -7,7 +7,12 @@ from skat.engine.deal import Position, next_dealer, positions_from
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
 from skat.table.records import Refusal
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import (
+    TABLE_AUCTION_BID_SUFFIX,
+    TABLE_AUCTION_HOLD_SUFFIX,
+    TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAY_SUFFIX,
+)
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, cards_in_text, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -19,12 +24,18 @@ NOT_YOUR_TURN, OVER, STALE_VERSION = BidRefusal.NOT_YOUR_TURN, BidRefusal.OVER, 
 SAME_COMMAND = "command-same"
 PASSES = [(MIDDLEHAND, PASS), (REARHAND, PASS), (FOREHAND, PASS)]
 VALUE_FIELD = "value"
+STEP_SUFFIXES = {
+    BID: TABLE_AUCTION_BID_SUFFIX,
+    HOLD: TABLE_AUCTION_HOLD_SUFFIX,
+    PASS: TABLE_AUCTION_PASS_SUFFIX,
+    PLAY: TABLE_AUCTION_PLAY_SUFFIX,
+}
 
 
-def post_step(skat, headers, table_id, *, command_id, version, action, **fields):
+def post_step(skat, headers, table_id, *, command_id, version, step, **fields):
     return skat.client.post(
-        f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-        json={"command_id": command_id, "version": version, "action": action, **fields},
+        f"{TABLES_PATH}/{table_id}{STEP_SUFFIXES[step]}",
+        json={"command_id": command_id, "version": version, **fields},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 
@@ -49,14 +60,14 @@ class Table:
     def record(self):
         return self.skat.store.tables[self.table_id]
 
-    def send(self, headers, action, value=None, *, command_id=None, version=None, **extra):
+    def send(self, headers, step, value=None, *, command_id=None, version=None, **extra):
         return post_step(
             self.skat,
             headers,
             self.table_id,
             command_id=command_id or f"step-{next(self._commands):04d}",
             version=self.record.version if version is None else version,
-            action=action,
+            step=step,
             **({} if value is None else {VALUE_FIELD: value}),
             **extra,
         )
@@ -182,7 +193,7 @@ class TestRefused:
         headers, _ = skat.member()
         table_id = skat.create(headers).json()["id"]
 
-        answer = post_step(skat, headers, table_id, command_id="step-0001", version=1, action=PASS)
+        answer = post_step(skat, headers, table_id, command_id="step-0001", version=1, step=PASS)
 
         assert answer.status_code == 409
         assert reason_of(answer) == "no-hand"
@@ -191,7 +202,7 @@ class TestRefused:
     def test_an_unknown_table_answers_404(self, skat):
         headers, _ = skat.member()
 
-        answer = post_step(skat, headers, UNKNOWN_ID, command_id="step-0001", version=1, action=PASS)
+        answer = post_step(skat, headers, UNKNOWN_ID, command_id="step-0001", version=1, step=PASS)
 
         assert answer.status_code == 404
 
@@ -212,7 +223,8 @@ class TestRefused:
             pytest.param(PASS, {VALUE_FIELD: 18}, id="pass-with-a-value"),
             pytest.param(PLAY, {VALUE_FIELD: 18}, id="play-with-a-value"),
             pytest.param(BID, {}, id="bid-without-a-value"),
-            pytest.param("raise", {}, id="unknown-action"),
+            pytest.param(PASS, {"action": PASS}, id="pass-names-an-action"),
+            pytest.param(BID, {VALUE_FIELD: 18, "action": BID}, id="bid-names-an-action"),
         ],
     )
     def test_a_body_that_breaks_the_contract_is_refused_and_stores_nothing(self, table, action, extra):
@@ -221,6 +233,20 @@ class TestRefused:
         answer = table.send(table.at[MIDDLEHAND], action, **extra)
 
         assert answer.status_code == 422
+        assert table.record == before
+
+
+class TestOldUnionRoute:
+    def test_the_union_route_is_gone(self, table):
+        before = table.record
+
+        answer = table.skat.client.post(
+            f"{TABLES_PATH}/{table.table_id}/auction",
+            json={"command_id": "step-0001", "version": before.version, "action": PASS},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[MIDDLEHAND]},
+        )
+
+        assert answer.status_code == 404
         assert table.record == before
 
 

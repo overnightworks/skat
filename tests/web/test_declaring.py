@@ -9,10 +9,9 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, DeclarationRefusal, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
-from skat.table.auction import AuctionAction
 from skat.table.hand_state import declaring_of
 from skat.table.records import Refusal
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
 from skat.web.tables import (
     RANK_TOKENS,
@@ -105,19 +104,19 @@ class Table:
     def fresh_id(self):
         return f"step-{next(self._commands):04d}"
 
-    def auction_step(self, position, action, value=None):
+    def auction_step(self, position, suffix, value=None):
         fields = {} if value is None else {"value": value}
         answer = self.skat.client.post(
-            f"{TABLES_PATH}/{self.table_id}{TABLE_AUCTION_SUFFIX}",
-            json={"command_id": self.fresh_id(), "version": self.record.version, "action": action, **fields},
+            f"{TABLES_PATH}/{self.table_id}{suffix}",
+            json={"command_id": self.fresh_id(), "version": self.record.version, **fields},
             headers={"origin": TEST_PUBLIC_ORIGIN, **self.at[position]},
         )
         assert answer.status_code == 200, answer.text
 
     def middlehand_wins_at(self, value):
-        self.auction_step(MIDDLEHAND, AuctionAction.BID, value)
-        self.auction_step(FOREHAND, AuctionAction.PASS)
-        self.auction_step(REARHAND, AuctionAction.PASS)
+        self.auction_step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, value)
+        self.auction_step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
+        self.auction_step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
 
     def send(self, headers, action, *, command_id=None, version=None, **fields):
         return post_declaring(
@@ -335,9 +334,9 @@ class TestRefusedByTheTable:
         table.refused(table.at[MIDDLEHAND], DeclaringAction.TAKE, Refusal.WRONG_PHASE)
 
     def test_a_passed_in_hand_has_no_declarer(self, table):
-        table.auction_step(MIDDLEHAND, AuctionAction.PASS)
-        table.auction_step(REARHAND, AuctionAction.PASS)
-        table.auction_step(FOREHAND, AuctionAction.PASS)
+        table.auction_step(MIDDLEHAND, TABLE_AUCTION_PASS_SUFFIX)
+        table.auction_step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
+        table.auction_step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
 
         table.refused(table.at[FOREHAND], DeclaringAction.TAKE, Refusal.NO_HAND)
 
@@ -356,7 +355,7 @@ class TestRefusedByTheTable:
         won.refused(won.watcher, DeclaringAction.TAKE, Refusal.NOT_SEATED, version=won.record.version - 1)
 
     def test_a_stale_version_is_named_before_the_wrong_phase(self, table):
-        table.auction_step(MIDDLEHAND, AuctionAction.BID, 18)
+        table.auction_step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, 18)
 
         table.refused(
             table.at[MIDDLEHAND], DeclaringAction.TAKE, Refusal.STALE_VERSION, version=table.record.version - 1
@@ -582,13 +581,13 @@ class Moment:
 
 
 def auction_running(table):
-    table.auction_step(MIDDLEHAND, AuctionAction.BID, 18)
+    table.auction_step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, 18)
 
 
 def passed_in(table):
-    table.auction_step(MIDDLEHAND, AuctionAction.PASS)
-    table.auction_step(REARHAND, AuctionAction.PASS)
-    table.auction_step(FOREHAND, AuctionAction.PASS)
+    table.auction_step(MIDDLEHAND, TABLE_AUCTION_PASS_SUFFIX)
+    table.auction_step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
+    table.auction_step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
 
 
 def won_at_twenty(table):

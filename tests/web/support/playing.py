@@ -3,8 +3,7 @@ from dataclasses import replace
 
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position, positions_from
-from skat.table.auction import AuctionAction
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX, AnnouncementToken, DeclaringAction, GameToken
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
@@ -77,12 +76,12 @@ class Table:
         assert answer.status_code == 200, answer.text
 
     def middlehand_bids(self, value=18):
-        self._post(TABLE_AUCTION_SUFFIX, MIDDLEHAND, action=AuctionAction.BID, value=value)
+        self._post(TABLE_AUCTION_BID_SUFFIX, MIDDLEHAND, value=value)
 
     def middlehand_wins(self, bid=18):
         self.middlehand_bids(bid)
-        self._post(TABLE_AUCTION_SUFFIX, FOREHAND, action=AuctionAction.PASS)
-        self._post(TABLE_AUCTION_SUFFIX, REARHAND, action=AuctionAction.PASS)
+        self._post(TABLE_AUCTION_PASS_SUFFIX, FOREHAND)
+        self._post(TABLE_AUCTION_PASS_SUFFIX, REARHAND)
 
     def _declare(self, game, *, hand, ouvert=False, announcement=AnnouncementToken.NONE):
         self._post(

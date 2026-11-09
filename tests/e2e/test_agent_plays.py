@@ -6,9 +6,9 @@ import pytest
 from playwright.sync_api import expect
 
 from skat.engine.bidding import VALID_BIDS
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
-from skat.web.mcp import PLAY_CARD_TOOL, READ_TABLE_TOOL
+from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_PASS_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
@@ -42,12 +42,40 @@ def step(session: AddressedSession, api_path: str, suffix: str, **fields: object
     return json.loads(session.post(f"{api_path}{suffix}", body))
 
 
-def play_until_the_agents_turn(
-    sessions: Mapping[int, AddressedSession], api_path: str, seat_at: Mapping[str, int]
+def take_auction_step(
+    sessions: Mapping[int, AddressedSession],
+    api_path: str,
+    seat: int,
+    agent: McpAgent,
+    suffix: str,
+    tool: str,
+    **fields: object,
 ) -> None:
-    step(sessions[seat_at["middlehand"]], api_path, TABLE_AUCTION_SUFFIX, action="bid", value=VALID_BIDS[-1])
-    step(sessions[seat_at["forehand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
-    step(sessions[seat_at["rearhand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
+    """The step at `seat`: through the agent's tool when the agent sits there, else through the person's route."""
+    if seat != AGENT_SEAT:
+        step(sessions[seat], api_path, suffix, **fields)
+        return
+    version = json.loads(sessions[seat].get(api_path))["version"]
+    failed, text = agent.call(
+        tool, table_id=api_path.rsplit("/", 1)[1], command_id=next_command_id(), version=version, **fields
+    )
+    assert not failed, text
+
+
+def play_until_the_agents_turn(
+    sessions: Mapping[int, AddressedSession], api_path: str, seat_at: Mapping[str, int], agent: McpAgent
+) -> None:
+    take_auction_step(
+        sessions,
+        api_path,
+        seat_at["middlehand"],
+        agent,
+        TABLE_AUCTION_BID_SUFFIX,
+        AUCTION_BID_TOOL,
+        value=VALID_BIDS[-1],
+    )
+    for position in ("forehand", "rearhand"):
+        take_auction_step(sessions, api_path, seat_at[position], agent, TABLE_AUCTION_PASS_SUFFIX, AUCTION_PASS_TOOL)
     step(
         sessions[seat_at["middlehand"]],
         api_path,
@@ -93,7 +121,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
     assert "chairs" in sat
     chairs = json.loads(sessions[1].get(api_path))["chairs"]
     seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
-    play_until_the_agents_turn(sessions, api_path, seat_at)
+    play_until_the_agents_turn(sessions, api_path, seat_at, agent)
 
     failed, text = agent.call(READ_TABLE_TOOL, table_id=table_id_of(path))
     view = json.loads(text)
