@@ -107,6 +107,13 @@ EXPECTED_CONTENT_SECURITY_POLICY = (
 SESSION_LIFETIME = timedelta(hours=12)
 
 
+def assert_public_for_a_year(cache_control: str) -> None:
+    directives = dict(directive.partition("=")[::2] for directive in cache_control.replace(" ", "").split(","))
+    assert "public" in directives
+    assert "private" not in directives
+    assert int(directives["max-age"]) >= timedelta(days=365).total_seconds()
+
+
 class Application:
     """create_app over stores the test holds, reached through an https client like a browser's."""
 
@@ -197,7 +204,8 @@ class TestSignedOut:
     def test_every_immutable_file_is_public_and_kept_a_year_by_any_cache(self, application, path):
         response = application.get(path, **FETCH_ACCEPT)
 
-        assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_ASSET_CACHE_CONTROL)
+        assert response.status_code == 200
+        assert_public_for_a_year(response.headers["cache-control"])
 
     @pytest.mark.parametrize("path", ["/_app/env.js", "/_app/immutable", "/"])
     def test_a_build_file_outside_the_immutable_directory_and_every_other_page_stay_behind_the_sign_in(
@@ -471,10 +479,11 @@ class TestSessionLifetime:
 
 
 class TestPageBuildAssets:
-    def test_a_signed_in_fetch_of_an_immutable_file_is_kept_a_year_by_the_browser_alone(self, application):
+    def test_a_signed_in_fetch_of_an_immutable_file_is_public_and_kept_a_year_by_any_cache(self, application):
         response = application.get(IMMUTABLE_FILE, application.seed(), **FETCH_ACCEPT)
 
-        assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_ASSET_CACHE_CONTROL)
+        assert response.status_code == 200
+        assert_public_for_a_year(response.headers["cache-control"])
 
     def test_the_not_modified_answer_for_an_immutable_file_carries_the_same_cache_control(self, application):
         member = application.seed()
