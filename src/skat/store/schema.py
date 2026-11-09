@@ -19,7 +19,7 @@ from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
-from skat.table.records import EndReason
+from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, EndReason
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -40,6 +40,8 @@ tables = Table(
     Column("ended_at", DateTime(timezone=True)),
     Column("end_reason", Text),
     Column("empty_seconds", Integer),
+    Column("series_length", SmallInteger),
+    Column("series_deals", SmallInteger),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -47,6 +49,13 @@ tables = Table(
         name="tables_empty_seconds_only_for_an_empty_end",
     ),
     CheckConstraint("empty_seconds > 0", name="tables_empty_seconds_are_positive"),
+    CheckConstraint("(series_length IS NULL) = (series_deals IS NULL)", name="tables_series_is_both_or_neither"),
+    CheckConstraint(
+        f"series_length BETWEEN {SERIES_LENGTH_MIN} AND {SERIES_LENGTH_MAX}"
+        f" AND series_length % {SERIES_LENGTH_STEP} = 0",
+        name="tables_series_length_is_a_length",
+    ),
+    CheckConstraint("series_deals BETWEEN 0 AND series_length", name="tables_series_deals_are_within_the_length"),
     one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
 )
 

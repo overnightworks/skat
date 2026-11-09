@@ -124,6 +124,7 @@ def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
         hand=None,
         progress=HandProgress(),
         game_list=(*table.game_list, list_entry_of(played, table)),
+        series=table.series,
     )
 
 

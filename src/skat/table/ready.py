@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Final
 
 from skat.table.game_list import result_view_of
 from skat.table.records import Decision, Refusal
-from skat.table.rules import seat_of
+from skat.table.rules import seat_of, series_over
 
 if TYPE_CHECKING:
     from skat.table.records import Actor, TableRecord
@@ -26,7 +26,8 @@ def ready_payload(command: ReadyCommand) -> str:
 
 
 def decide_ready(table: TableRecord, actor: Actor, command: ReadyCommand) -> Decision:
-    """„Weiter“ marks the actor's chair: no chair, no pending result, then another result than the pending one.
+    """„Weiter“ marks the actor's chair: no chair, no pending result, another result than the pending one, then no
+    game left in the series.
 
     A chair already ready stays as it is, with no new version, so a tap from a second tab is no error.
     """
@@ -38,6 +39,8 @@ def decide_ready(table: TableRecord, actor: Actor, command: ReadyCommand) -> Dec
         return Decision(table, Refusal.NO_RESULT)
     if command.ordinal != result.ordinal:
         return Decision(table, Refusal.STALE_RESULT)
+    if series_over(table):
+        return Decision(table, Refusal.SERIES_OVER)
     if chair.ready:
         return Decision(table)
     chairs = tuple(replace(each, ready=True) if each.seat == chair.seat else each for each in table.chairs)

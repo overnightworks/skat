@@ -179,8 +179,8 @@ class TableService:
         with self._transactions.begin() as transaction:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
-                return view_of(replayed_table(replay), actor.account_id, frozenset())
-            table = decide_create(actor, self._new_table_id())
+                return view_of(replayed_table(replay, command), actor.account_id, frozenset())
+            table = decide_create(actor, self._new_table_id(), command.series_length)
             transaction.add_table(table)
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())

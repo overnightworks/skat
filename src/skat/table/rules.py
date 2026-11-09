@@ -13,6 +13,7 @@ from skat.table.records import (
     Receipt,
     Refusal,
     Replay,
+    Series,
     SitDown,
     StandUp,
     TableId,
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
 CHAIRS_PER_TABLE: Final = 3
 FIRST_VERSION: Final = 1
 CREATE_TABLE_COMMAND: Final = "create-table"
-CREATE_TABLE_PAYLOAD: Final = "{}"
 SIT_DOWN_COMMAND: Final = "sit-down"
 STAND_UP_COMMAND: Final = "stand-up"
 
@@ -36,8 +36,8 @@ class CommandIdReusedError(Exception):
     """A command id came back with a request other than the one it first carried."""
 
 
-def decide_create(actor: Actor, table_id: TableId) -> TableRecord:
-    """A new table with its opener in chair 1 and the other chairs free."""
+def decide_create(actor: Actor, table_id: TableId, series_length: int | None) -> TableRecord:
+    """A new table with its opener in chair 1 and the other chairs free, and a series of no deals if it has a length."""
     opener = Chair(1, Occupant(actor.account_id, actor.display_name))
     return TableRecord(
         id=table_id,
@@ -47,16 +47,22 @@ def decide_create(actor: Actor, table_id: TableId) -> TableRecord:
         hand=None,
         progress=HandProgress(),
         game_list=(),
+        series=None if series_length is None else Series(series_length, 0),
     )
 
 
+def create_payload(command: CreateTable) -> str:
+    """The receipt's payload: a table with no length keeps the text it always had, so older receipts replay."""
+    return "{}" if command.series_length is None else f'{{"series_length":{command.series_length}}}'
+
+
 def create_receipt(actor: Actor, command: CreateTable, table: TableRecord) -> Receipt:
-    return Receipt(actor.account_id, command.command_id, CREATE_TABLE_COMMAND, CREATE_TABLE_PAYLOAD, table.id)
+    return Receipt(actor.account_id, command.command_id, CREATE_TABLE_COMMAND, create_payload(command), table.id)
 
 
-def replayed_table(replay: Replay) -> TableRecord | EndedTable:
+def replayed_table(replay: Replay, command: CreateTable) -> TableRecord | EndedTable:
     """The table a create request already made; any other request under its key is refused."""
-    return _replayed(replay, CREATE_TABLE_COMMAND, CREATE_TABLE_PAYLOAD).table
+    return _replayed(replay, CREATE_TABLE_COMMAND, create_payload(command)).table
 
 
 def _replayed(replay: Replay, command: str, payload: str) -> Replay:
@@ -72,9 +78,10 @@ def seat_of(table: TableRecord, account_id: str) -> Chair | None:
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
     """The table with a chair's new occupant, the one way a chair changes hands.
 
-    A freed chair is never ready, and whoever sits while a result is pending counts as ready.
+    A freed chair is never ready, and whoever sits while a result is pending counts as ready, unless the series is
+    over: no deal follows, so no tap is consent to anything.
     """
-    ready = occupant is not None and result_pending(table)
+    ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
     return TableRecord(
         id=table.id,
@@ -84,17 +91,23 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
         hand=table.hand,
         progress=table.progress,
         game_list=table.game_list,
+        series=table.series,
     )
 
 
 def sit_deals(table: TableRecord) -> bool:
-    """A sit deals when it fills the last free chair, no hand runs and no result is pending."""
+    """A sit deals when it fills the last free chair, no hand runs, no result is pending and the series is not over."""
     free_chairs = sum(chair.occupant is None for chair in table.chairs)
-    return free_chairs == 1 and not hand_runs(table) and not result_pending(table)
+    return free_chairs == 1 and not hand_runs(table) and not result_pending(table) and not series_over(table)
 
 
 def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
+
+
+def series_over(table: TableRecord) -> bool:
+    """The series ran its last game and no hand runs any more; a table with no series never ends."""
+    return table.series is not None and table.series.deals == table.series.length and not hand_runs(table)
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
@@ -105,8 +118,8 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
-    """The table with a new hand: its dealer, its cards, an empty auction and no chair ready; every deal goes through
-    here.
+    """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
+    in its series; every deal goes through here.
     """
     return TableRecord(
         id=table.id,
@@ -116,6 +129,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         hand=new_hand.hand,
         progress=HandProgress(),
         game_list=table.game_list,
+        series=None if table.series is None else replace(table.series, deals=table.series.deals + 1),
     )
 
 
@@ -163,11 +177,12 @@ def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) ->
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
     """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected; while a
-    result is pending, all three chairs must be ready too.
+    result is pending, all three chairs must be ready too; a series that ran its last game deals no more.
     """
     occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
     return (
         not hand_runs(table)
+        and not series_over(table)
         and hand_was_dealt(table)
         and len(occupants) == CHAIRS_PER_TABLE
         and connected_accounts.issuperset(occupants)
@@ -184,7 +199,7 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
     """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
 
     The sit that fills the last chair deals `new_hand` in the same version bump, unless a result is pending; then
-    the sitter counts as ready instead.
+    the sitter counts as ready instead. At a series end nothing deals and the sitter is not ready.
     """
     if seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)
