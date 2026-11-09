@@ -75,14 +75,18 @@ export function createCallSignIn(
 ): CallSignIn {
     const recheckAsks = RECHECK_DURATION_MILLISECONDS / RECHECK_INTERVAL_MILLISECONDS;
     let round = 0;
+    let recheckRound = 0;
     let cancelTimers: (() => void)[] = [];
+    let cancelRecheck: () => void = () => undefined;
 
     function endRound(): number {
         for (const cancel of cancelTimers) {
             cancel();
         }
         cancelTimers = [];
+        cancelRecheck();
         round += 1;
+        recheckRound += 1;
         return round;
     }
 
@@ -94,20 +98,23 @@ export function createCallSignIn(
         }
     }
 
+    /** Ends only an earlier re-check; a live window's watch keeps running beside it. */
     function recheck(): void {
-        const own = endRound();
+        cancelRecheck();
+        recheckRound += 1;
+        const own = recheckRound;
         let asked = 0;
         const cancel = host.every(async () => {
             asked += 1;
             if (asked >= recheckAsks) {
                 cancel();
             }
-            if ((await isSignedIn()) && own === round) {
+            if ((await isSignedIn()) && own === recheckRound) {
                 endRound();
                 host.replace(callTableAddress(tableId));
             }
         }, RECHECK_INTERVAL_MILLISECONDS);
-        cancelTimers.push(cancel);
+        cancelRecheck = cancel;
     }
 
     async function popupClosed(own: number): Promise<void> {

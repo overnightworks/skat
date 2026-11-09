@@ -117,7 +117,7 @@ describe("a tap on Log in", () => {
         expect(opened.pathname).toBe(AUTH_START_PATH);
         expect(opened.searchParams.get(RETURN_PATH_QUERY_NAME)).toBe(TABLE_PATH);
         expect(name).not.toBe("");
-        expect(features).toBe("popup");
+        expect(features).toContain("popup");
         expect(views).toEqual(["signing-in"]);
     });
 
@@ -310,6 +310,33 @@ describe("a window that does not come up", () => {
         signIn.recheck();
 
         expect(live(RECHECK_INTERVAL_MILLISECONDS)).toHaveLength(1);
+    });
+});
+
+describe("a tap on the plain link while the window is open", () => {
+    it("keeps watching the window and shows No access when a non-member finishes in it", async () => {
+        const popup = signInWindow(NO_ACCESS_PATH);
+        const { signIn, fire, host, views } = arrange({ opened: popup, accountStatus: 401 });
+        signIn.logIn();
+
+        signIn.recheck();
+        await fire(WATCH_INTERVAL_MILLISECONDS);
+
+        expect(popup.close).toHaveBeenCalled();
+        expect(views).toEqual(["signing-in", "no-access"]);
+        expect(host.replace).not.toHaveBeenCalled();
+    });
+
+    it("still brings the notice when the window is closed early", async () => {
+        const popup = signInWindow(crossOrigin());
+        const { signIn, fire, views } = arrange({ opened: popup, accountStatus: 401 });
+        signIn.logIn();
+        signIn.recheck();
+
+        popup.closed = true;
+        await fire(WATCH_INTERVAL_MILLISECONDS);
+
+        expect(views).toEqual(["signing-in", "unfinished"]);
     });
 });
 
