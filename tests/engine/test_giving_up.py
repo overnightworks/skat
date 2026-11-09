@@ -208,7 +208,6 @@ def test_a_declarer_whose_game_is_not_yet_won_gives_up_with_consent_lost_by_its_
     assert settle(given_up(state, consented=True), state.declared.bid) == expected
 
 
-@pytest.mark.parametrize("consented", [False, True])
 @pytest.mark.parametrize(
     "scene",
     [
@@ -219,12 +218,17 @@ def test_a_declarer_whose_game_is_not_yet_won_gives_up_with_consent_lost_by_its_
         ),
     ],
 )
-def test_a_game_already_won_cannot_be_given_up_and_nothing_changes(
-    scene: dict[str, object], *, consented: bool
-) -> None:
+def test_a_game_already_won_cannot_be_given_up_with_consent_and_nothing_changes(scene: dict[str, object]) -> None:
     state = scenario(**scene)  # type: ignore[arg-type]
-    outcome = give_up(state, consented=consented)
+    outcome = give_up(state, consented=True)
     assert outcome.refusal is PlayRefusal.ALREADY_WON
+    assert outcome.state == state
+
+
+def test_a_game_already_won_under_nine_cards_asks_for_consent_before_it_tells_whether_the_game_is_won() -> None:
+    state = scenario(KARO, 20, taken=((FOREHAND, 32), (FOREHAND, 32), (FOREHAND, 26)))
+    outcome = give_up(state)
+    assert outcome.refusal is PlayRefusal.NEEDS_CONSENT
     assert outcome.state == state
 
 
