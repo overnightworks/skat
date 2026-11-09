@@ -43,6 +43,11 @@ MCP_CLIENT_ID: Final = "agents"
 
 READ_TABLE_TOOL: Final = "read_table"
 PLAY_CARD_TOOL: Final = "play_card"
+# The `auction_` prefix keeps the forehand's "Spielen" apart from `play_card`.
+AUCTION_BID_TOOL: Final = "auction_bid"
+AUCTION_HOLD_TOOL: Final = "auction_hold"
+AUCTION_PASS_TOOL: Final = "auction_pass"  # noqa: S105 - the word for dropping out of the auction and no password
+AUCTION_PLAY_TOOL: Final = "auction_play"
 
 
 class Exclusion(StrEnum):
@@ -65,6 +70,10 @@ def excluded(reason: Exclusion) -> dict[str, object]:
 
 READ_TABLE_MARK: Final = agent_tool(name=READ_TABLE_TOOL, effect=ToolEffect.READ_ONLY)
 PLAY_CARD_MARK: Final = agent_tool(name=PLAY_CARD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+AUCTION_BID_MARK: Final = agent_tool(name=AUCTION_BID_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+AUCTION_HOLD_MARK: Final = agent_tool(name=AUCTION_HOLD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+AUCTION_PASS_MARK: Final = agent_tool(name=AUCTION_PASS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+AUCTION_PLAY_MARK: Final = agent_tool(name=AUCTION_PLAY_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
 @dataclass(frozen=True)

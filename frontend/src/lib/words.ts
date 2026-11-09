@@ -44,6 +44,7 @@ export const words = {
     takeSkat: "Aufnehmen",
     putBack: "Drücken",
     announceGame: "Ansagen",
+    hand: "Hand",
     gameKaro: "Karo",
     gameHerz: "Herz",
     gamePik: "Pik",

@@ -18,7 +18,12 @@ from skat.engine.bidding import VALID_BIDS  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.records import TABLE_ID_PATTERN  # noqa: E402
-from skat.web.auction import TABLE_AUCTION_SUFFIX  # noqa: E402
+from skat.web.auction import (  # noqa: E402
+    TABLE_AUCTION_BID_SUFFIX,
+    TABLE_AUCTION_HOLD_SUFFIX,
+    TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAY_SUFFIX,
+)
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -88,7 +93,10 @@ def render() -> str:
         "TABLE_SIT_SUFFIX": TABLE_SIT_SUFFIX,
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
         "TABLE_DECLARATION_SUFFIX": TABLE_DECLARATION_SUFFIX,
-        "TABLE_AUCTION_SUFFIX": TABLE_AUCTION_SUFFIX,
+        "TABLE_AUCTION_BID_SUFFIX": TABLE_AUCTION_BID_SUFFIX,
+        "TABLE_AUCTION_HOLD_SUFFIX": TABLE_AUCTION_HOLD_SUFFIX,
+        "TABLE_AUCTION_PASS_SUFFIX": TABLE_AUCTION_PASS_SUFFIX,
+        "TABLE_AUCTION_PLAY_SUFFIX": TABLE_AUCTION_PLAY_SUFFIX,
         "TABLE_CARD_SUFFIX": TABLE_CARD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
     }

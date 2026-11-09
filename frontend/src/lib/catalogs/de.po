@@ -132,6 +132,9 @@ msgstr "Drücken"
 msgid "announceGame"
 msgstr "Ansagen"
 
+msgid "hand"
+msgstr "Hand"
+
 msgid "gameKaro"
 msgstr "Karo"
 

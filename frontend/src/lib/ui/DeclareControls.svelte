@@ -29,6 +29,9 @@
     const stage = $derived(declarerStage(table));
     let picked = $state<Card[]>([]);
     let chosenGame = $state<Game | null>(null);
+    // Choosing Hand is a page step: nothing is sent, and a reload returns to the choice.
+    let handChosen = $state(false);
+    const panel = $derived(stage === "choosing" && handChosen ? "hand" : stage);
     // A step is under way from the tap until the stream brings a new version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
     const busy = $derived(sentAtVersion === table.version);
@@ -36,7 +39,8 @@
     // Whatever was picked belongs to its stage and does not outlive it, as a reload does not either.
     $effect(() => {
         if (stage !== "discarding") picked = [];
-        if (stage !== "picked") chosenGame = null;
+        if (stage !== "choosing") handChosen = false;
+        if (panel !== "hand" && panel !== "picked") chosenGame = null;
     });
 
     // Only this component knows what is picked; the hand on the table draws it through the page.
@@ -68,15 +72,19 @@
     }
 </script>
 
-{#if stage !== null}
-    <div class={`declare ${stage}`}>
-        {#if stage === "choosing"}
+{#if panel !== null}
+    <div class={`declare ${panel}`}>
+        {#if panel === "choosing"}
             <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
                 <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
                 {`${words.takeSkat}`}
             </button>
-        {:else if stage === "discarding"}
+            <button type="button" class="step hand" disabled={busy} onclick={() => (handChosen = true)}>
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                {`${words.hand}`}
+            </button>
+        {:else if panel === "discarding"}
             <div class="slots" aria-hidden="true">
                 {#each [0, 1] as slot (slot)}
                     <span class="slot">
@@ -117,23 +125,32 @@
                     </button>
                 {/each}
             </div>
-            <button
-                type="button"
-                class="step"
-                disabled={busy || chosenGame === null}
-                onclick={() =>
-                    send({
-                        action: "declare",
-                        game: chosenGame as Game,
-                        hand: false,
-                        ouvert: false,
-                        announcement: "none",
-                    })}
-            >
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                {`${words.announceGame}`}
-            </button>
+            <div class="confirm">
+                {#if panel === "hand"}
+                    <span class="held">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                        {`${words.hand}`}
+                    </span>
+                {/if}
+                <button
+                    type="button"
+                    class="step"
+                    disabled={busy || chosenGame === null}
+                    onclick={() =>
+                        send({
+                            action: "declare",
+                            game: chosenGame as Game,
+                            hand: panel === "hand",
+                            ouvert: false,
+                            announcement: "none",
+                        })}
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                    {`${words.announceGame}`}
+                </button>
+            </div>
         {/if}
     </div>
 {/if}

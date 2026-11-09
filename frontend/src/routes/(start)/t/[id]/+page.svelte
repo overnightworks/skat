@@ -32,7 +32,7 @@
         bidValueWhileDeclaring,
         copyTableLink,
         drawingOrder,
-        gameWord,
+        gameLabel,
         isSuitGame,
         markReady,
         positionWord,
@@ -260,12 +260,12 @@
                 {@const points = inPlay.playing.trick_points}
                 <div class="plaque in-play">
                     <span class="game">
-                        {#if isSuitGame(inPlay.game)}
-                            <span class={`suit ${inPlay.game}`} aria-hidden="true">
-                                <svg viewBox="0 0 100 100"><use href={`#suit-${inPlay.game}`} /></svg>
+                        {#if isSuitGame(inPlay.declaration.game)}
+                            <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
+                                <svg viewBox="0 0 100 100"><use href={`#suit-${inPlay.declaration.game}`} /></svg>
                             </span>
                         {/if}
-                        {gameWord(inPlay.game)}
+                        {gameLabel(inPlay.declaration)}
                     </span>
                     <div class="points" role="group" aria-label={words.trickPoints}>
                         <span class="sides">
