@@ -435,7 +435,7 @@ describe("what the declaring stage asks of this viewer", () => {
         hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring, playing: null },
     });
     const tableAt = (stage: Stage, mine: number): Table =>
-        tableWith({ declarer_seat: 2, stage, declaration: null }, mine);
+        tableWith({ declarer_seat: 2, stage, declaration: null, open_cards: [] }, mine);
 
     it.each<Stage>(["choosing", "discarding", "picked"])("asks the declarer to act at %s", (stage) => {
         expect(declarerStage(tableAt(stage, 2))).toBe(stage);
@@ -482,18 +482,29 @@ describe("the auction's value while declaring", () => {
 
     it.each<Stage>(["choosing", "discarding", "picked"])("is shown at %s", (stage) => {
         expect(
-            bidValueWhileDeclaring(table({ declarer_seat: 2, stage, declaration: null }, { seat: 2, value: 20 })),
+            bidValueWhileDeclaring(
+                table({ declarer_seat: 2, stage, declaration: null, open_cards: [] }, { seat: 2, value: 20 }),
+            ),
         ).toBe(20);
     });
 
     it.each([
         [
             "once the game is declared",
-            { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const, hand: false } },
+            {
+                declarer_seat: 2,
+                stage: "declared" as const,
+                declaration: { game: "null" as const, hand: false },
+                open_cards: [],
+            },
             { seat: 2, value: 20 },
         ],
         ["before the auction is over", null, null],
-        ["with no value won", { declarer_seat: 2, stage: "choosing" as const, declaration: null }, null],
+        [
+            "with no value won",
+            { declarer_seat: 2, stage: "choosing" as const, declaration: null, open_cards: [] },
+            null,
+        ],
     ])("is not shown %s", (_name, declaring, declared) => {
         expect(bidValueWhileDeclaring(table(declaring, declared))).toBeNull();
     });
@@ -564,10 +575,15 @@ describe("the table's seats and link", () => {
     });
 
     it.each([
-        ["a plain game", false, words.gameGrand],
-        ["a Hand game", true, `${words.gameGrand} ${words.hand}`],
-    ])("labels %s", (_name, hand, label) => {
-        expect(gameLabel({ game: "grand", hand })).toBe(label);
+        ["a plain game", false, false, words.gameGrand],
+        ["a Hand game", true, false, `${words.gameGrand} ${words.hand}`],
+        ["an ouvert game, which includes Hand", true, true, `${words.gameGrand} ${words.ouvert}`],
+    ])("labels %s", (_name, hand, ouvert, label) => {
+        expect(gameLabel({ game: "grand", hand, ouvert })).toBe(label);
+    });
+
+    it("labels a game whose answer names no ouvert as it labels a plain one", () => {
+        expect(gameLabel({ game: "herz", hand: false })).toBe(words.gameHerz);
     });
 
     it.each([
