@@ -217,7 +217,7 @@ class TestPlayCard:
             pytest.param(("S7",), card_body(card("S8")), PlayRefusal.NOT_YOUR_TURN, id="not its turn"),
         ],
     )
-    def test_a_refused_move_is_a_failed_result_with_the_routes_reason_and_changes_nothing(
+    def test_a_refused_move_is_a_failed_result_with_the_routes_reason_and_leaves_the_table_unchanged(
         self, agent, forehand_table, earlier, changes, reason
     ):
         for earlier_card in earlier:

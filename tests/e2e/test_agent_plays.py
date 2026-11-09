@@ -42,6 +42,27 @@ def step(session: AddressedSession, api_path: str, suffix: str, **fields: object
     return json.loads(session.post(f"{api_path}{suffix}", body))
 
 
+def play_until_the_agents_turn(sessions: dict[int, AddressedSession], api_path: str, seat_at: dict[str, int]) -> None:
+    step(sessions[seat_at["middlehand"]], api_path, TABLE_AUCTION_SUFFIX, action="bid", value=VALID_BIDS[-1])
+    step(sessions[seat_at["forehand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
+    step(sessions[seat_at["rearhand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
+    step(
+        sessions[seat_at["middlehand"]],
+        api_path,
+        TABLE_DECLARATION_SUFFIX,
+        action="declare",
+        game="herz",
+        hand=True,
+        ouvert=False,
+        announcement="none",
+    )
+    turn_seat = json.loads(sessions[1].get(api_path))["hand"]["playing"]["turn_seat"]
+    while turn_seat != AGENT_SEAT:
+        legal = json.loads(sessions[turn_seat].get(api_path))["hand"]["playing"]["legal_cards"]
+        played = step(sessions[turn_seat], api_path, TABLE_CARD_SUFFIX, **legal[0])
+        turn_seat = played["hand"]["playing"]["turn_seat"]
+
+
 def test_an_agents_card_lands_in_the_trick_a_person_sees(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
@@ -70,24 +91,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
     assert "chairs" in sat
     chairs = json.loads(sessions[1].get(api_path))["chairs"]
     seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
-    step(sessions[seat_at["middlehand"]], api_path, TABLE_AUCTION_SUFFIX, action="bid", value=VALID_BIDS[-1])
-    step(sessions[seat_at["forehand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
-    step(sessions[seat_at["rearhand"]], api_path, TABLE_AUCTION_SUFFIX, action="pass")
-    step(
-        sessions[seat_at["middlehand"]],
-        api_path,
-        TABLE_DECLARATION_SUFFIX,
-        action="declare",
-        game="herz",
-        hand=True,
-        ouvert=False,
-        announcement="none",
-    )
-    turn_seat = json.loads(sessions[1].get(api_path))["hand"]["playing"]["turn_seat"]
-    while turn_seat != AGENT_SEAT:
-        legal = json.loads(sessions[turn_seat].get(api_path))["hand"]["playing"]["legal_cards"]
-        played = step(sessions[turn_seat], api_path, TABLE_CARD_SUFFIX, **legal[0])
-        turn_seat = played["hand"]["playing"]["turn_seat"]
+    play_until_the_agents_turn(sessions, api_path, seat_at)
 
     failed, text = agent.call(READ_TABLE_TOOL, table_id=table_id_of(path))
     view = json.loads(text)

@@ -49,7 +49,8 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
         The table id and the version come from the answer of read_table, and the card from its legal cards. The
         command id names this move: the same id with the same card and the same version is a retry that changes
         nothing twice. A refusal (a stale version, a card that is not legal, not the caller's turn) comes back as a
-        failed result with its reason and changes nothing.
+        failed result with its reason, leaves the table as it was and spends the command id: the next attempt takes
+        a new command id.
         """
         command = PlayCardCommand(
             command_id=body.command_id, table_id=table_id, version=body.version, card=card_of(body)
