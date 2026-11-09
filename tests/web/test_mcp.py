@@ -205,6 +205,7 @@ class TestPlayCard:
 
         answer = agent.play(forehand_table, card("S8"))
 
+        assert "reused" in answer.text
         assert answer.is_error
         assert stored(forehand_table.skat) == before
 
