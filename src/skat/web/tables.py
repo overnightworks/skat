@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
+    from skat.table.playing import PlayingView, Sides
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
@@ -205,12 +206,37 @@ class DeclaringAnswer(BaseModel):
     open_cards: list[CardAnswer]
 
 
+class SeatedCardAnswer(BaseModel):
+    seat: int
+    card: CardAnswer
+
+
+class LastTrickAnswer(BaseModel):
+    cards: list[CardAnswer]
+    taker_seat: int
+
+
+class SidesAnswer(BaseModel):
+    declarer: int
+    opponents: int
+
+
+class PlayingAnswer(BaseModel):
+    turn_seat: int | None
+    current_trick: list[SeatedCardAnswer]
+    last_trick: LastTrickAnswer | None
+    tricks_won: SidesAnswer
+    trick_points: SidesAnswer
+    legal_cards: list[CardAnswer]
+
+
 class HandAnswer(BaseModel):
     dealer_seat: int
     own_cards: list[CardAnswer]
     skat_count: int
     auction: AuctionAnswer
     declaring: DeclaringAnswer | None
+    playing: PlayingAnswer | None
 
 
 class ChairAnswer(BaseModel):
@@ -289,6 +315,28 @@ def declaring_answer_of(declaring: DeclaringView | None) -> DeclaringAnswer | No
     )
 
 
+def sides_answer_of(sides: Sides) -> SidesAnswer:
+    return SidesAnswer(declarer=sides.declarer, opponents=sides.opponents)
+
+
+def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
+    if playing is None:
+        return None
+    last = playing.last_trick
+    return PlayingAnswer(
+        turn_seat=playing.turn_seat,
+        current_trick=[
+            SeatedCardAnswer(seat=played.seat, card=card_answer_of(played.card)) for played in playing.current_trick
+        ],
+        last_trick=None
+        if last is None
+        else LastTrickAnswer(cards=[card_answer_of(card) for card in last.cards], taker_seat=last.taker_seat),
+        tricks_won=sides_answer_of(playing.tricks_won),
+        trick_points=sides_answer_of(playing.trick_points),
+        legal_cards=[card_answer_of(card) for card in playing.legal_cards],
+    )
+
+
 def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
     if hand is None:
         return None
@@ -298,6 +346,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         skat_count=hand.skat_count,
         auction=auction_answer_of(hand.auction),
         declaring=declaring_answer_of(hand.declaring),
+        playing=playing_answer_of(hand.playing),
     )
 
 

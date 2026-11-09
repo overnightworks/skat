@@ -506,7 +506,12 @@ def visible_cards(deal, played, position, *, ouvert):
 
 
 def played_body(position, text):
-    return {"seat": SEATS[position], **card_body(card(text))}
+    return {"seat": SEATS[position], "card": card_body(card(text))}
+
+
+def last_cards(trick):
+    """A completed trick names its cards in playing order without their seats."""
+    return [played["card"] for played in trick]
 
 
 def sides(declarer, opponents):
@@ -562,7 +567,7 @@ class Moment:
         table.played_out(self.played)
 
     def playing_for(self, viewer):
-        last = None if self.last is None else {"cards": list(self.last[0]), "taker_seat": SEATS[self.last[1]]}
+        last = None if self.last is None else {"cards": last_cards(self.last[0]), "taker_seat": SEATS[self.last[1]]}
         legal = self.legal if viewer.position is not None and viewer.position is self.turn else ()
         return {
             "turn_seat": None if self.turn is None else SEATS[self.turn],
