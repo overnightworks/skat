@@ -1783,6 +1783,13 @@ body {
     background: #3a4350;
 }
 
+/* A Hand game's held level stands beside the button that declares it, so the panel stays as low as a game after the skat. */
+.room .declare .confirm {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 /* The held level of a Hand game: the one step the page can declare beyond the game itself. */
 .room .declare .held {
     display: inline-flex;

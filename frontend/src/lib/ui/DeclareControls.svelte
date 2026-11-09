@@ -125,30 +125,32 @@
                     </button>
                 {/each}
             </div>
-            {#if panel === "hand"}
-                <span class="held">
+            <div class="confirm">
+                {#if panel === "hand"}
+                    <span class="held">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                        {`${words.hand}`}
+                    </span>
+                {/if}
+                <button
+                    type="button"
+                    class="step"
+                    disabled={busy || chosenGame === null}
+                    onclick={() =>
+                        send({
+                            action: "declare",
+                            game: chosenGame as Game,
+                            hand: panel === "hand",
+                            ouvert: false,
+                            announcement: "none",
+                        })}
+                >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                    {`${words.hand}`}
-                </span>
-            {/if}
-            <button
-                type="button"
-                class="step"
-                disabled={busy || chosenGame === null}
-                onclick={() =>
-                    send({
-                        action: "declare",
-                        game: chosenGame as Game,
-                        hand: panel === "hand",
-                        ouvert: false,
-                        announcement: "none",
-                    })}
-            >
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                {`${words.announceGame}`}
-            </button>
+                    {`${words.announceGame}`}
+                </button>
+            </div>
         {/if}
     </div>
 {/if}
