@@ -26,8 +26,9 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServ
 
 
 @pytest.fixture(scope="session")
-def base_url(e2e_server: RunningServer) -> str:
-    return e2e_server.base_url
+def base_url() -> None:
+    # Every test opens its server's absolute address, so no session-wide address ties the browser to one server.
+    return None
 
 
 @pytest.fixture(scope="session")
