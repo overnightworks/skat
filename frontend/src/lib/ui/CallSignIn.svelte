@@ -45,11 +45,15 @@
             id,
             {
                 open: (address, name, features) => window.open(address, name, features),
-                replace: (address) => window.location.replace(address),
+                replace: (address) => {
+                    window.location.replace(address);
+                },
                 fetchStatus: async (path) => (await fetch(path)).status,
                 every: (callback, milliseconds) => {
                     const timer = setInterval(() => void callback(), milliseconds);
-                    return () => clearInterval(timer);
+                    return () => {
+                        clearInterval(timer);
+                    };
                 },
             },
             (next) => {
