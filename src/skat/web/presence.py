@@ -152,9 +152,9 @@ class Presence:
     A table gets one wait when it is created or found at the server's start, and another each time its last stream
     ends; a stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it
     fires, the end is asked for with who is connected then, and a failure is retried while the wait stays the table's
-    latest. Since when nobody has been at a table is stored: a table's last leave, a lapsed lease and the first
-    arrival note who is present, each on the table's row, and the server's start seeds each table's wait with what is
-    left of it, so a restart never gives a table a fresh wait it had already begun.
+    latest. Since when nobody has been at a table is stored: a table's last leave, a lease starting or lapsing and
+    the first arrival note who is present, each on the table's row, and the server's start seeds each table's wait
+    with what is left of it, so a restart never gives a table a fresh wait it had already begun.
     """
 
     def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease) -> None:
@@ -286,12 +286,16 @@ class Presence:
             self._subscriptions.setdefault(table_id, []).append(subscription)
         if not others:
             try:
-                await self._empty_table.note(
+                ended = await self._empty_table.note(
                     table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
                 )
             except BaseException:
                 self.unsubscribe(subscription)
+                if table_id in self._subscriptions:
+                    self._note_soon(table_id)
                 raise
+            if ended:
+                self.wake_table(table_id)
         if not already_connected:
             self._wake_all(others)
         return subscription
@@ -317,7 +321,7 @@ class Presence:
         start with what is left of its wait.
         """
         if table_id not in self._subscriptions and table_id not in self._empty_waits:
-            self._start_empty_wait(table_id, self._empty_table.seconds if seconds_left is None else seconds_left)
+            self._start_empty_wait(table_id, seconds_left)
 
     def watch_empty_tables(self, seconds_left_by_table: Mapping[str, float]) -> None:
         """Start the wait of each live table found at the server's start with what is left of it."""
@@ -378,8 +382,6 @@ class Presence:
 
     async def _note_presence(self, table_id: str) -> None:
         """Store who is present now, read once the row is locked; a failure is retried while the presence runs."""
-        if self._stopped:
-            return
         try:
             ended = await self._empty_table.note(
                 table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
