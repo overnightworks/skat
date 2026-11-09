@@ -152,12 +152,12 @@ async function ask(path: string, init?: RequestInit): Promise<Outcome> {
     }
 }
 
-// The command id is the retry key: asking again with the same one returns the table the first ask opened.
-export function createTable(commandId: string): Promise<Outcome> {
+// The command id is the retry key: asking again with the same one and the same length returns the table the first ask opened.
+export function createTable(commandId: string, seriesLength: number): Promise<Outcome> {
     return ask(TABLES_PATH, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command_id: commandId }),
+        body: JSON.stringify({ command_id: commandId, series_length: seriesLength }),
     });
 }
 

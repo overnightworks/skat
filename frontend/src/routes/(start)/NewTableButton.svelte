@@ -1,28 +1,55 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
+    import { SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
     import { createTable } from "./tables.ts";
 
+    const DEFAULT_LENGTH = 36;
+
+    let choosing = $state(false);
+    let length = $state(DEFAULT_LENGTH);
     let opening = $state(false);
     let failed = $state(false);
     let commandId = crypto.randomUUID();
 
+    function choose(): void {
+        failed = false;
+        setLength(DEFAULT_LENGTH);
+        choosing = true;
+    }
+
+    function setLength(next: number): void {
+        if (next === length) return;
+        length = next;
+        // Another length is another command, so a retry never sends two requests under one id.
+        commandId = crypto.randomUUID();
+    }
+
+    function step(by: number): void {
+        setLength(length + by);
+    }
+
+    function close(): void {
+        choosing = false;
+    }
+
     async function open(): Promise<void> {
         opening = true;
-        const outcome = await createTable(commandId);
+        const outcome = await createTable(commandId, length);
         opening = false;
         failed = outcome.kind !== "table";
         if (outcome.kind === "table") {
             // The next table is another command, even when the browser restores this page from its cache.
             commandId = crypto.randomUUID();
+            choosing = false;
             await goto(resolve("/(start)/t/[id]", { id: outcome.table.id }));
         }
     }
 </script>
 
 <div class="new-table">
-    <button type="button" disabled={opening} onclick={open}>
+    <button type="button" onclick={choose}>
         <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -36,7 +63,77 @@
         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
         {`${words.newTable}`}
     </button>
-    {#if failed}
-        <p role="alert">{words.newTableFailed}</p>
-    {/if}
 </div>
+{#if choosing}
+    <div class="scrim"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label={words.newTable}>
+        <h3>{words.newTable}</h3>
+        <div class="stepper" role="group" aria-label={words.seriesLength}>
+            <button
+                type="button"
+                class="step"
+                aria-label={words.seriesFewer}
+                disabled={length <= SERIES_LENGTH_MIN || opening}
+                onclick={() => {
+                    step(-SERIES_LENGTH_STEP);
+                }}
+            >
+                −
+            </button>
+            <span
+                class="value"
+                role="spinbutton"
+                tabindex="0"
+                aria-valuemin={SERIES_LENGTH_MIN}
+                aria-valuemax={SERIES_LENGTH_MAX}
+                aria-valuenow={length}
+                aria-label={words.seriesGames}
+            >
+                {length}<small>{words.seriesGames}</small>
+            </span>
+            <button
+                type="button"
+                class="step"
+                aria-label={words.seriesMore}
+                disabled={length >= SERIES_LENGTH_MAX || opening}
+                onclick={() => {
+                    step(SERIES_LENGTH_STEP);
+                }}
+            >
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.6"
+                    stroke-linecap="round"
+                    aria-hidden="true"
+                >
+                    <path d="M12 5v14M5 12h14" />
+                </svg>
+            </button>
+        </div>
+        {#if failed}
+            <p role="alert">{words.newTableFailed}</p>
+        {/if}
+        <div class="btns">
+            <button type="button" class="open" disabled={opening} onclick={open}>
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                >
+                    <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                {`${words.openTable}`}
+            </button>
+            <button type="button" class="cancel" disabled={opening} onclick={close}>
+                {words.cancelNewTable}
+            </button>
+        </div>
+    </div>
+{/if}

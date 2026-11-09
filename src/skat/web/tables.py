@@ -65,12 +65,11 @@ class CommandRequest(BaseModel):
 
 
 class CreateTableRequest(CommandRequest):
-    """The opener may name the series length; the table plays on without one."""
+    """The opener names the series length."""
 
     series_length: Annotated[
-        int | None,
-        Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP),
-    ] = None
+        int, Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP)
+    ]
 
 
 class SitDownRequest(CommandRequest):
