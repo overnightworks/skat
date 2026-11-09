@@ -330,7 +330,8 @@ class TestNotePresence:
         written = dict(store.empty_since_by_table), dict(store.tables)
 
         assert note(service, table_id, connected) is False
-        assert (dict(store.empty_since_by_table), dict(store.tables)) == written
+        assert dict(store.empty_since_by_table) == written[0]
+        assert dict(store.tables) == written[1]
 
     def test_changes_nothing_for_a_table_that_does_not_exist(self, service, store):
         assert note(service, TableId("0" * 32), NOBODY) is False
