@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from skat.engine.deal import SEATS, positions_from
-from skat.engine.score import Settlement, reckon, settle
+from skat.engine.score import Settlement, overbid, reckon, settle
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import value_of
 from skat.table.rules import result_pending
@@ -40,7 +40,7 @@ class ListEntry:
 
     @property
     def overbid(self) -> bool:
-        return self.game_value < self.bid
+        return overbid(self.game_value, self.bid)
 
 
 def _seat_accounts(table: TableRecord) -> tuple[str, str, str]:
