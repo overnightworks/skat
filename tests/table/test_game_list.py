@@ -12,7 +12,6 @@ from skat.engine.games import GameKind, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Level, Matadors
 from skat.table.game_list import (
-    SeriesEntryView,
     Standing,
     list_entry_of,
     result_view_of,
@@ -405,10 +404,10 @@ class TestTheSeriesList:
 
         rows = series_list_view_of(pending_result(won, lost, overbid))
 
-        assert [(row.declaration, row.settled_value, row.score) for row in rows] == [
-            (Declaration(KREUZ, hand=False, ouvert=False, announcement=NONE), 48, 48),
-            (Declaration(KREUZ, hand=False, ouvert=False, announcement=NONE), 36, -72),
-            (Declaration(KARO, hand=False, ouvert=False, announcement=NONE), 27, -54),
+        assert [(row.declaration, row.levels, row.settled_value, row.score) for row in rows] == [
+            (Declaration(KREUZ, hand=False, ouvert=False, announcement=NONE), (Level.SPIEL, Level.SCHNEIDER), 48, 48),
+            (Declaration(KREUZ, hand=False, ouvert=False, announcement=NONE), (Level.SPIEL,), 36, -72),
+            (Declaration(KARO, hand=False, ouvert=False, announcement=NONE), (Level.SPIEL,), 27, -54),
         ]
 
     def test_the_levels_are_those_the_result_of_the_same_game_shows(self):
@@ -431,5 +430,11 @@ class TestTheSeriesList:
 
         rows = series_list_view_of(replace(table, chairs=(replaced, *table.chairs[1:])))
 
-        assert rows == (replace(rows[0], declarer_name="Account-Anna"),)
-        assert isinstance(rows[0], SeriesEntryView)
+        assert [row.declarer_name for row in rows] == ["Account-Anna"]
+
+    @pytest.mark.parametrize("seat", [1, 2, 3])
+    def test_a_row_names_the_person_who_sat_on_the_declarer_s_seat(self, seat):
+        names = ("Anna", "Ben", "Cleo")
+        table = replace(seated_table(), game_list=(game_for(seat, won=True, score=48, names=names),))
+
+        assert [row.declarer_name for row in series_list_view_of(table)] == [names[seat - 1]]

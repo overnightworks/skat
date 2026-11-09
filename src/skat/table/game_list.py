@@ -44,6 +44,10 @@ class ListEntry:
     def overbid(self) -> bool:
         return overbid(self.game_value, self.bid)
 
+    @property
+    def levels(self) -> tuple[Level, ...]:
+        return breakdown_of(self.declaration, schneider=self.schneider, schwarz=self.schwarz).levels
+
 
 def _seated(table: TableRecord) -> tuple[Occupant, Occupant, Occupant]:
     occupants = tuple(chair.occupant for chair in table.chairs if chair.occupant is not None)
@@ -184,7 +188,7 @@ def result_view_of(table: TableRecord) -> ResultView | None:
         schwarz=entry.schwarz,
         matadors=entry.matadors,
         base_value=breakdown.base_value,
-        levels=breakdown.levels,
+        levels=entry.levels,
         won=entry.won,
         doubled=not entry.won,
         overbid=entry.overbid,
@@ -220,7 +224,7 @@ def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView, ...]:
             number=number,
             declarer_name=entry.seat_names[entry.declarer_seat - 1],
             declaration=entry.declaration,
-            levels=breakdown_of(entry.declaration, schneider=entry.schneider, schwarz=entry.schwarz).levels,
+            levels=entry.levels,
             settled_value=entry.settled_value,
             score=entry.score,
         )

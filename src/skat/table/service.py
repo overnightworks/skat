@@ -435,12 +435,15 @@ class TableService:
                 away_when_hand_ended,
             )
 
-    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
+    def _table_read(self, table_id: str) -> TableRecord | EndedTable | None:
         identifier = TableId.parse(table_id)
         if identifier is None:
             return None
         with self._transactions.begin() as transaction:
-            table = transaction.table(identifier)
+            return transaction.table(identifier)
+
+    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
+        table = self._table_read(table_id)
         if table is None:
             return None
         present = (
@@ -452,11 +455,7 @@ class TableService:
 
     def series_list(self, table_id: str) -> tuple[SeriesEntryView, ...] | None:
         """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""
-        identifier = TableId.parse(table_id)
-        if identifier is None:
-            return None
-        with self._transactions.begin() as transaction:
-            table = transaction.table(identifier)
+        table = self._table_read(table_id)
         if table is None:
             return None
         return () if isinstance(table, EndedTable) else series_list_view_of(table)
