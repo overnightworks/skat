@@ -511,6 +511,8 @@ body.solo section.shot .rule{display:none}
 .list{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 8px;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--on-stage-soft)}
 .list b{color:var(--on-stage)}
 .p390 .result.end{gap:8px}
+/* a long reckoning (an overbid game, a run of announced steps) packs tighter so the card ends above the own chair */
+.p390 .result.end.snug{gap:4px;padding:12px 14px}
 .p390 .value{font-size:38px}
 /* ---------- announced and open games: the announced level ticks or crosses on the result, the declarer's open cards lie in two rows ---------- */
 .result .ladder{transform:none}
@@ -1108,7 +1110,7 @@ const reckoning=(o)=>`<div class="coasters">${[[o.near,o.adds[2]],['anna',o.adds
 const tapButton=`<span class="cb wide" role="button">${I.check}Weiter</span>`;
 const waitButton=(names)=>`<span class="cb wide glass" role="status">Warte auf ${names}${waitDots()}</span>`;
 const endBar=(d,tap)=>tap?tableBar(d,{seated:true}).replace('<div class="sbar">',`<div class="sbar">${tap}`):tableBar(d);
-const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
+const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'} ${o.calc.bid||o.calc.steps.length>2?'snug':''}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
   <h3>${o.won?I.check:I.cross}${o.word}</h3>
   ${o.calc.missed?`<div class="miss">${o.calc.missed}, nicht erreicht</div>`:''}
   <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stamp}</span>`:''}</div>
