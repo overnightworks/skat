@@ -282,3 +282,80 @@ class TestNextDeal:
         table = replace(passed_in(), game_list=(an_entry(),))
 
         assert dealt_next(table, DRAWN).game_list == table.game_list
+
+
+def ready_at(table: TableRecord, *seats: int) -> TableRecord:
+    return replace(table, chairs=tuple(replace(chair, ready=chair.seat in seats) for chair in table.chairs))
+
+
+def ready_seats(table: TableRecord) -> list[int]:
+    return [chair.seat for chair in table.chairs if chair.ready]
+
+
+class TestNextDealAfterAResult:
+    @pytest.mark.parametrize(
+        ("table", "connected", "due"),
+        [
+            pytest.param(ready_at(played_out(), 1, 2, 3), ALL_THREE, True, id="all-three-ready-and-connected"),
+            pytest.param(ready_at(played_out(), 1, 2), ALL_THREE, False, id="one-not-ready"),
+            pytest.param(played_out(), ALL_THREE, False, id="nobody-ready"),
+            pytest.param(ready_at(played_out(), 1, 2, 3), ALL_THREE - {BEN.account_id}, False, id="all-ready-one-away"),
+            pytest.param(
+                replace(ready_at(played_out(), 1, 3), chairs=ready_at(table_with((1, ANNA), (3, CLEO)), 1, 3).chairs),
+                ALL_THREE,
+                False,
+                id="a-chair-free",
+            ),
+        ],
+    )
+    def test_is_due_only_with_all_three_ready_and_connected(self, table, connected, due):
+        assert next_deal_due(table, connected) is due
+
+    def test_a_passed_in_hand_needs_no_mark(self):
+        assert next_deal_due(replace(passed_in(), game_list=(an_entry(),)), ALL_THREE) is True
+
+    def test_the_next_hand_clears_every_mark(self):
+        assert ready_seats(dealt_next(ready_at(played_out(), 1, 2, 3), DRAWN)) == []
+
+    def test_the_sit_that_deals_clears_every_mark(self):
+        table = ready_at(table_with((1, ANNA), (2, BEN)), 1, 2)
+
+        decision = decide_sit(table, CLEO, 3, DRAWN)
+
+        assert decision.table.hand == DRAWN.hand
+        assert ready_seats(decision.table) == []
+
+
+def a_free_chair_during_a_result(*ready: int) -> TableRecord:
+    return replace(played_out(), chairs=ready_at(table_with((1, ANNA), (2, BEN)), *ready).chairs)
+
+
+class TestSitDuringAResult:
+    def test_no_sit_deals_while_a_result_is_pending(self):
+        assert sit_deals(a_free_chair_during_a_result()) is False
+
+    def test_the_sitter_counts_as_ready_and_the_others_keep_their_marks(self):
+        decision = decide_sit(a_free_chair_during_a_result(1), DORA, 3, None)
+
+        assert decision.refusal is None
+        assert (decision.table.hand, ready_seats(decision.table)) == (None, [1, 3])
+        assert decision.table.version == played_out().version + 1
+
+    def test_a_sit_outside_a_result_sets_no_mark(self):
+        decision = decide_sit(table_with((1, ANNA)), BEN, 2, None)
+
+        assert ready_seats(decision.table) == []
+
+
+class TestLeavingClearsOnlyTheOwnMark:
+    def test_standing_up_frees_the_chair_and_its_mark_and_keeps_the_others(self):
+        decision = decide_stand(ready_at(played_out(), 1, 2, 3), ANNA)
+
+        assert occupants_of(decision.table)[0] is None
+        assert ready_seats(decision.table) == [2, 3]
+
+    def test_the_server_freeing_an_away_members_chair_clears_its_mark(self):
+        decision = decide_free_chair(ready_at(played_out(), 1, 2), ANNA.account_id)
+
+        assert occupants_of(decision.table)[0] is None
+        assert ready_seats(decision.table) == [2]

@@ -134,6 +134,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
             "occupant_name",
             "is_mine",
             "is_away",
+            "ready",
             "hand",
         }
         assert member_of(person).account.id not in json.dumps(event)

@@ -1,6 +1,12 @@
 import asyncio
 from contextlib import contextmanager
+from dataclasses import replace
 
+from skat.engine.declaration import Announcement, Declaration
+from skat.engine.games import GameKind
+from skat.engine.value import Matadors
+from skat.table.game_list import ListEntry
+from skat.table.records import HandProgress
 from skat.web.auction import TABLE_AUCTION_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
@@ -99,6 +105,28 @@ def pass_hand_in(skat, table_id, people, seats_in_turn=(1, 2, 3)):
 
 def occupied_seats(skat, table_id):
     return {chair.seat for chair in skat.store.tables[table_id].chairs if chair.occupant is not None}
+
+
+def result_pending(store, table_id, *ready_seats):
+    """The seated table as its first game's thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
+    record = store.tables[table_id]
+    entry = ListEntry(
+        seat_accounts=tuple(chair.occupant.account_id for chair in record.chairs),
+        declarer_seat=1,
+        declaration=Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),
+        schneider=False,
+        schwarz=False,
+        matadors=Matadors(mit=False, count=1),
+        won=True,
+        bid=18,
+        game_value=30,
+        settled_value=30,
+        score=30,
+        declarer_points=70,
+    )
+    chairs = tuple(replace(chair, ready=chair.seat in ready_seats) for chair in record.chairs)
+    store.tables[table_id] = replace(record, chairs=chairs, hand=None, progress=HandProgress(), game_list=(entry,))
+    return store.tables[table_id]
 
 
 class OvertakenStore(FakeTableStore):
