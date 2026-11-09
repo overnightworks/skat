@@ -1,8 +1,8 @@
 import { words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
-import type { Chair, Game, Sides, Table } from "../routes/(start)/tables.ts";
+import type { Chair, Game, Sides, SeatGain, Table } from "../routes/(start)/tables.ts";
 
-export type ReckoningRow = { seat: number; name: string | null; gain: number; winner: boolean };
+export type ReckoningRow = { seat: number; name: string | null; gain: number; gainText: string; winner: boolean };
 export type ResultView = {
     word: string;
     // The mark's shape: a tick when the word is good news for this viewer, a cross when it is not.
@@ -18,12 +18,17 @@ export type ResultView = {
     points: Sides;
     rows: ReckoningRow[];
 };
-export type WeiterBar = { kind: "tap" } | { kind: "wait"; names: string };
+// `again` marks a tap that asks for a deal that failed: it stays tappable however often it is tapped.
+export type WeiterBar = { kind: "tap"; again: boolean } | { kind: "wait"; names: string };
 
 const MINUS = "−";
 
+function withMinus(number: number): string {
+    return number < 0 ? `${MINUS}${String(-number)}` : String(number);
+}
+
 function signed(score: number): string {
-    return score < 0 ? `${MINUS}${String(-score)}` : `+${String(score)}`;
+    return score < 0 ? withMinus(score) : `+${String(score)}`;
 }
 
 function nameOf(chairs: readonly Chair[], seat: number): string | null {
@@ -59,12 +64,16 @@ export function resultView(table: Table): ResultView {
         score: isDeclarer ? signed(result.score) : null,
         sides: isDeclarer ? { declarer: words.sideYou, opponents: words.sideThem } : sides,
         points: { declarer: result.declarer_points, opponents: result.opponents_points },
-        rows: ownFirst(chairs).map(({ seat }) => ({
-            seat,
-            name: nameOf(chairs, seat),
-            gain: (result.gains.find((gain) => gain.seat === seat) as { gain: number }).gain,
-            winner: (seat === result.declarer_seat) === result.won,
-        })),
+        rows: ownFirst(chairs).map(({ seat }) => {
+            const { gain } = result.gains.find((one) => one.seat === seat) as SeatGain;
+            return {
+                seat,
+                name: nameOf(chairs, seat),
+                gain,
+                gainText: withMinus(gain),
+                winner: (seat === result.declarer_seat) === result.won,
+            };
+        }),
     };
 }
 
@@ -81,6 +90,7 @@ export function weiterBar(table: Table): WeiterBar | null {
     const own = table.chairs.find((chair) => chair.is_mine);
     if (own === undefined || table.result === null) return null;
     const awaited = awaitedNames(table.chairs);
-    if (!own.ready || awaited.length === 0) return { kind: "tap" };
+    if (!own.ready) return { kind: "tap", again: false };
+    if (awaited.length === 0) return { kind: "tap", again: true };
     return { kind: "wait", names: awaited.join(` ${words.and} `) };
 }

@@ -6,7 +6,10 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.playing import TABLE_CARD_SUFFIX
+from skat.web.ready import TABLE_READY_SUFFIX
 from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets
+from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
@@ -25,11 +28,25 @@ command_numbers = itertools.count(1)
 type WireCard = tuple[str, str]
 
 
+class AddressedSession(RawSession):
+    """A raw session from an address of its own, as a person behind a proxy: the server's budget is per address."""
+
+    def __init__(self, server: RunningServer, member: SeededMember) -> None:
+        super().__init__(server, member)
+        self._address = str(PERSON_ADDRESS_BASE + next(person_address_offsets))
+
+    def _headers(self) -> dict[str, str]:
+        return {**super()._headers(), "x-forwarded-for": self._address}
+
+
 class PlayingTable:
     """A declared game, Null unless named: the forehand leads, and every card and turn is read by API."""
 
     def __init__(self, declaring: DeclaringTable, game: str) -> None:
         self.declaring = declaring
+        declaring.sessions = {
+            seat: AddressedSession(declaring.server, session.member) for seat, session in declaring.sessions.items()
+        }
         skat = declaring.skat()
         declaring.declare_through_the_api(action="take")
         declaring.declare_through_the_api(
@@ -80,12 +97,27 @@ class PlayingTable:
         self._send(view["hand"]["playing"]["turn_seat"], view["version"], card)
 
     def play_out(self, cards: int) -> None:
-        """Each seat on turn plays its first legal card, two requests a card: the server's budget is per address."""
+        """Each seat on turn plays its first legal card, two requests a card.
+
+        The thirtieth card ends the hand, and nothing is left to play.
+        """
         seat = self.turn_seat()
         for _ in range(cards):
             view = self.view(seat)
             legal = sorted((card["suit"], card["rank"]) for card in view["hand"]["playing"]["legal_cards"])
-            seat = self._send(seat, view["version"], legal[0])["hand"]["playing"]["turn_seat"]
+            hand = self._send(seat, view["version"], legal[0])["hand"]
+            if hand is None:
+                return
+            seat = hand["playing"]["turn_seat"]
+
+    def result(self) -> dict[str, Any]:
+        return self.view(self.declarer_seat)["result"]
+
+    def ready_through_the_api(self, seat: int) -> None:
+        """„Weiter“ for the result the seat's own view shows."""
+        command_id = f"playing-ready-{next(command_numbers):04d}"
+        body = {"command_id": command_id, "ordinal": self.view(seat)["result"]["ordinal"]}
+        self.declaring.sessions[seat].post(f"{self.declaring.api_path}{TABLE_READY_SUFFIX}", body)
 
     def a_lead_the_middlehand_must_follow(self) -> WireCard:
         """A forehand card whose suit the middlehand holds beside another suit: in Null a suit is only its suit."""

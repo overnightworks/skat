@@ -141,6 +141,20 @@ describe("the reckoning row", () => {
         expect(rows.map(({ name }) => name)).toEqual(["player 3", "player 1", "player 2"]);
     });
 
+    it("writes a loss with a minus sign and a gain without a plus", () => {
+        const rows = resultView(
+            table(2, {
+                gains: [
+                    { seat: 1, gain: -4 },
+                    { seat: 2, gain: 86 },
+                    { seat: 3, gain: 0 },
+                ],
+            }),
+        ).rows;
+
+        expect(rows.map(({ gainText }) => gainText)).toEqual(["86", "\u22124", "0"]);
+    });
+
     it("marks both opponents as the winners of a lost game", () => {
         const rows = resultView(table(2, { won: false })).rows;
 
@@ -188,7 +202,7 @@ describe("the bar's Weiter", () => {
     });
 
     it("offers the button to a seated viewer who has not tapped", () => {
-        expect(weiterBar(table(1, {}))).toEqual({ kind: "tap" });
+        expect(weiterBar(table(1, {}))).toEqual({ kind: "tap", again: false });
     });
 
     it("names the others the viewer waits for, joined with und", () => {
@@ -209,6 +223,6 @@ describe("the bar's Weiter", () => {
     it("keeps the button when the viewer tapped and nobody is awaited, so a tap asks for the deal again", () => {
         const everyoneReady = { 1: { ready: true }, 2: { ready: true }, 3: { ready: true } };
 
-        expect(weiterBar(table(1, {}, everyoneReady))).toEqual({ kind: "tap" });
+        expect(weiterBar(table(1, {}, everyoneReady))).toEqual({ kind: "tap", again: true });
     });
 });
