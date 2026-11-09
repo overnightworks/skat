@@ -54,14 +54,14 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
     e2e_server: RunningServer,
 ) -> None:
     anna, ben, cleo = (signed_in(e2e_server) for _ in range(3))
-    left_id = json.loads(anna.post(TABLES_PATH, {"command_id": "end-create-0001"}))["id"]
+    left_id = json.loads(anna.post(TABLES_PATH, {"command_id": "end-create-0001", "series_length": 36}))["id"]
     left_path = f"{TABLES_PATH}/{left_id}"
     cleo.post(f"{left_path}{TABLE_SIT_SUFFIX}", {"command_id": "end-sit-0002", "seat": 2})
-    dealt_id = json.loads(anna.post(TABLES_PATH, {"command_id": "end-create-0004"}))["id"]
+    dealt_id = json.loads(anna.post(TABLES_PATH, {"command_id": "end-create-0004", "series_length": 36}))["id"]
     dealt_path = f"{TABLES_PATH}/{dealt_id}"
     cleo.post(f"{dealt_path}{TABLE_SIT_SUFFIX}", {"command_id": "end-sit-0005", "seat": 2})
     ben.post(f"{dealt_path}{TABLE_SIT_SUFFIX}", {"command_id": "end-sit-0006", "seat": 3})
-    watched_id = json.loads(ben.post(TABLES_PATH, {"command_id": "end-create-0003"}))["id"]
+    watched_id = json.loads(ben.post(TABLES_PATH, {"command_id": "end-create-0003", "series_length": 36}))["id"]
     watched = open_stream(e2e_server, ben, f"{TABLES_PATH}/{watched_id}")
     try:
         watched_before = rows_of(e2e_server.engine, watched_id)

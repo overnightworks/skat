@@ -5,7 +5,6 @@ from dataclasses import replace
 import pytest
 
 from skat.table.records import Refusal, Series, TableId
-from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
@@ -23,11 +22,10 @@ def series_of(answer):
     return answer.json()["series"]
 
 
-def open_series(skat, length=None):
+def open_series(skat, length=36):
     """Anna opens, Ben and Cleo sit: the first game is dealt. Returns the table id and the three members."""
     people = [skat.member() for _ in range(3)]
-    extra = {} if length is None else {"series_length": length}
-    table_id = skat.create(people[0][0], **extra).json()["id"]
+    table_id = skat.create(people[0][0], series_length=length).json()["id"]
     for seat, (headers, _) in enumerate(people[1:], start=2):
         skat.sit(headers, table_id, seat, command_id=f"command-sit-{seat}")
     with_known_deal(skat, table_id)
@@ -73,12 +71,23 @@ class TestOpening:
         assert answer.status_code == 200
         assert series_of(answer) == {"game_number": 0, "game_count": SERIES_LENGTH, "over": False, "standings": None}
 
-    def test_a_table_opened_without_a_length_has_no_series_and_deals_on(self, skat):
+    def test_a_table_opened_before_series_existed_reads_with_no_series_and_deals_on(self, skat):
         table_id, people = open_series(skat)
+        skat.store.tables[table_id] = replace(skat.store.tables[table_id], series=None)
 
         assert series_of(read(skat, people[0][0], table_id)) is None
         play_through(skat, table_id, people, 2)
         assert series_of(read(skat, people[0][0], table_id)) is None
+
+    def test_refuses_a_create_request_with_no_length_and_stores_nothing(self, skat):
+        headers, _ = skat.member()
+
+        answer = skat.client.post(
+            TABLES_PATH, json={"command_id": "command-0001"}, headers={"origin": TEST_PUBLIC_ORIGIN, **headers}
+        )
+
+        assert answer.status_code == 422
+        assert skat.store.tables == {}
 
     @pytest.mark.parametrize("length", [0, 2, 4, 100, 102, -3, "12", 12.0, True])
     def test_refuses_a_length_outside_the_range_or_not_an_integer_and_stores_nothing(self, skat, length):
@@ -121,16 +130,14 @@ class TestRetry:
         skat.create(headers, series_length=SERIES_LENGTH)
 
         assert skat.create(headers, series_length=SERIES_LENGTH + 3).status_code == 409
-        assert skat.create(headers).status_code == 409
         assert len(skat.store.tables) == 1
 
-    def test_a_receipt_from_before_series_replays_without_a_length_and_refuses_one(self, skat):
+    def test_a_receipt_from_before_series_refuses_a_length(self, skat):
         headers, account = skat.member()
-        first = skat.create(headers).json()
-        receipt = skat.store.receipts[(account.id, "command-0001")]
-        assert (receipt.command, receipt.payload) == (CREATE_TABLE_COMMAND, "{}")
+        skat.create(headers)
+        key = (account.id, "command-0001")
+        skat.store.receipts[key] = replace(skat.store.receipts[key], payload="{}")
 
-        assert skat.create(headers).json() == first
         assert skat.create(headers, series_length=SERIES_LENGTH).status_code == 409
 
 

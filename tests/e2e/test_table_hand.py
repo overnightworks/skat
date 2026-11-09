@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-CREATE_COMMAND = {"command_id": "hand-create-0001"}
+CREATE_COMMAND = {"command_id": "hand-create-0001", "series_length": 36}
 
 
 def cards_held_by(table: TableRecord, account_id: str) -> tuple[Card, ...]:
