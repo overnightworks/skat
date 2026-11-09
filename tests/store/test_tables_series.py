@@ -70,7 +70,7 @@ def test_a_restart_between_deals_keeps_the_count_and_after_the_last_game_deals_n
         restarted_engine.dispose()
 
 
-def test_a_stand_and_a_sit_mid_series_leave_the_count_standing(service, transactions, table_id):
+def test_a_stand_keeps_the_count_and_the_re_sit_that_deals_adds_one(service, transactions, table_id):
     pass_the_hand_in(service, transactions, table_id)
     service.stand(THIRD_PLAYER, StandUp("command-stand", table_id), frozenset())
     assert series_of(transactions, table_id) == Series(3, 1)
