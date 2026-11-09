@@ -614,6 +614,256 @@ body {
     }
 }
 
+/* The own turn: the ladder takes a row of its own between the skat and the own chair, so no control covers a card. */
+.room .stage:has(> .bid) {
+    grid-template-rows: auto minmax(150px, 1fr) minmax(100px, 1fr) auto auto auto;
+}
+
+.room .stage:has(> .bid) .felt {
+    grid-row: 2 / 6;
+}
+
+.room .stage:has(> .bid) .skat-spot {
+    grid-row: 3;
+}
+
+.room .stage:has(> .bid) .chair:nth-child(3) {
+    grid-row: 5;
+}
+
+.room .stage:has(> .bid) .controls {
+    grid-row: 6;
+}
+
+.room .chair.turn .tile {
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 0 28px 4px rgba(122, 167, 240, 0.5),
+        0 18px 30px -12px rgba(0, 0, 0, 0.9);
+}
+
+.room .chair.turn::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 50%;
+    top: 50%;
+    width: 240px;
+    height: 120px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(122, 167, 240, 0.36), rgba(122, 167, 240, 0.1) 60%, transparent);
+    pointer-events: none;
+}
+
+/* A phone chair carries its position at the top right, so the turn mark sits below it, clear of the dealer badge. */
+.room .mark.turn {
+    position: absolute;
+    z-index: 2;
+    top: 16px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--accent-stage, #7aa7f0);
+    color: #0d1013;
+}
+
+.room .mark.turn svg {
+    width: 15px;
+    height: 15px;
+}
+
+@media (min-width: 900px) {
+    .room .chair.turn::before {
+        width: 640px;
+        height: 170px;
+    }
+
+    .room .mark.turn {
+        top: 6px;
+        right: auto;
+        left: 6px;
+        width: 28px;
+        height: 28px;
+    }
+
+    .room .mark.dealer ~ .mark.turn {
+        top: 18px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .chair.turn .tile {
+        animation: breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+        50% {
+            box-shadow:
+                0 0 0 4px var(--accent-stage, #7aa7f0),
+                0 0 40px 10px rgba(122, 167, 240, 0.62),
+                0 18px 30px -12px rgba(0, 0, 0, 0.9);
+        }
+    }
+}
+
+.room .bid {
+    --glass: rgba(255, 255, 255, 0.15);
+    --cream: #fbf8f0;
+    --ink: #14181d;
+    --ok-stage: #4cc38a;
+    --strip: 214px;
+    grid-column: 1 / 3;
+    grid-row: 4;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    width: 100%;
+    min-width: 0;
+}
+
+.room .ladder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.room .ladder span,
+.room .higher button {
+    flex: none;
+    box-sizing: border-box;
+    min-width: 40px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    background: rgba(0, 0, 0, 0.28);
+    color: rgba(244, 246, 248, 0.45);
+}
+
+.room .ladder span.held {
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--on-stage);
+    display: inline-flex;
+    gap: 3px;
+}
+
+.room .ladder span.held svg {
+    width: 13px;
+    height: 13px;
+    color: var(--ok-stage);
+}
+
+.room .ladder span.now {
+    min-width: 62px;
+    height: 48px;
+    font-size: 26px;
+    background: var(--cream);
+    color: var(--ink);
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 8px 18px -6px rgba(0, 0, 0, 0.7);
+}
+
+.room .higher {
+    flex: 0 1 var(--strip);
+    min-width: 0;
+    display: flex;
+    gap: 6px;
+    padding: 4px 26px 4px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* The fade sits where higher values continue; the padding above keeps the last value clear of it. */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+    scrollbar-width: none;
+}
+
+.room .higher button {
+    border: 0;
+    font-family: inherit;
+    background: var(--glass);
+    color: var(--on-stage);
+    cursor: pointer;
+}
+
+.room .higher button:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: -2px;
+}
+
+.room .higher button:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .room .higher {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(244, 246, 248, 0.45) transparent;
+    }
+}
+
+.room .bid-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.room .button {
+    height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.room .button:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.room .button svg {
+    width: 22px;
+    height: 22px;
+}
+
+.room .button-stage {
+    background: var(--accent-stage, #7aa7f0);
+    color: #0d1013;
+}
+
+.room .button-glass {
+    background: var(--glass);
+    color: var(--on-stage);
+    backdrop-filter: blur(14px);
+}
+
+@media (min-width: 900px) {
+    .room .bid {
+        --strip: 380px;
+    }
+}
+
 .room .controls {
     grid-column: 1 / 3;
     grid-row: 4;
