@@ -9,7 +9,7 @@ from skat.web.declaring import (
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
-from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import CARDS_IN_PLAY, PlayingTable
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
@@ -28,6 +28,7 @@ ANNOUNCE = catalog_text("announceGame")
 HAND = catalog_text("hand")
 SCHNEIDER = catalog_text("levelSchneider")
 SCHWARZ = catalog_text("levelSchwarz")
+OUVERT_RUNG = catalog_text("levelOuvert")
 ANNOUNCED_WORDS = {"schneider": catalog_text("announcedSchneider"), "schwarz": catalog_text("announcedSchwarz")}
 COMMAND_FAILED = catalog_text("commandFailed")
 BIDDING = catalog_text("bidding")
@@ -35,9 +36,14 @@ BID_VALUE = catalog_text("bidValue")
 PLAYS = catalog_text("plays")
 CHOOSES = catalog_text("chooses")
 DISCARDS = catalog_text("discards")
-GAME_NAMES = [catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand", "gameNull")]
 NULL_GAME = catalog_text("gameNull")
-CONTROL_NAMES = [TAKE_SKAT, HAND, PUT_BACK, ANNOUNCE, SCHNEIDER, SCHWARZ, *GAME_NAMES]
+NULL_OUVERT = f"{NULL_GAME} {catalog_text('ouvert')}"
+GAME_NAMES = [
+    *(catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand")),
+    NULL_GAME,
+    NULL_OUVERT,
+]
+CONTROL_NAMES = [TAKE_SKAT, HAND, PUT_BACK, ANNOUNCE, SCHNEIDER, SCHWARZ, OUVERT_RUNG, *GAME_NAMES]
 HAND_CARD = ".own-hand .card"
 PICKABLE_CARD = ".own-hand .card button"
 SKAT_BACK = ".skat-spot .skat-card"
@@ -46,9 +52,8 @@ CARDS_AFTER_THE_TAKE = 12
 PLAQUE = ".plaque"
 HELD_LEVEL = ".declare .held"
 ANNOUNCED_MARK = ".plaque .announced"
-LEVEL_NAMES = {"schneider": SCHNEIDER, "schwarz": SCHWARZ}
+LEVEL_NAMES = {"schneider": SCHNEIDER, "schwarz": SCHWARZ, "ouvert": OUVERT_RUNG}
 RESULT_CARD = ".result"
-NULL_OUVERT = "Null ouvert"
 DECLARER_MARK = ".mark.declarer"
 LONGER_THAN_THE_WON_MOMENT = 10_000
 PRESSED = "aria-pressed"
@@ -60,20 +65,11 @@ RISEN_OUT_OF_ITS_PLACE = (
 INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 
 
-def button_of(person: Page, name: str) -> Locator:
-    return person.get_by_role("button", name=name, exact=True)
-
-
 def drawn_cards_of(person: Page) -> set[tuple[str, str]]:
     drawn = person.locator(".card-face").evaluate_all(
         "(faces) => faces.map((face) => [face.dataset.suit, face.dataset.rank])"
     )
     return {(suit, rank) for suit, rank in drawn}
-
-
-def reload_and_wait(person: Page) -> None:
-    person.reload()
-    expect(person.locator(".chair")).to_have_count(3)
 
 
 def tap(card: Locator) -> None:
@@ -148,9 +144,10 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(declarer.get_by_text(bid_plaque)).to_have_count(1)
     expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
-    expect(button_of(declarer, NULL_OUVERT)).to_have_count(0)
     for name in GAME_NAMES:
         expect(button_of(declarer, name)).to_be_visible()
+    for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
+        expect(button_of(declarer, level)).to_have_count(0)
 
     reload_and_wait(declarer)
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
@@ -371,11 +368,10 @@ def expect_the_hand_panel(declarer: Page) -> None:
     for name in GAME_NAMES:
         expect(button_of(declarer, name)).to_be_visible()
     expect(declarer.locator(HELD_LEVEL)).to_have_text(HAND)
-    for level in (SCHNEIDER, SCHWARZ):
+    for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
         expect(button_of(declarer, level)).to_be_enabled()
         expect(button_of(declarer, level)).to_have_attribute(PRESSED, "false")
     expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
-    expect(button_of(declarer, NULL_OUVERT)).to_have_count(0)
     expect(button_of(declarer, TAKE_SKAT)).to_have_count(0)
     expect(declarer.locator(SKAT_BACK)).to_have_count(2)
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
@@ -571,8 +567,8 @@ def test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announ
     button_of(declarer, HAND).click()
     button_of(declarer, SCHWARZ).click()
     button_of(declarer, NULL_GAME).click()
-    expect(button_of(declarer, SCHNEIDER)).to_have_count(0)
-    expect(button_of(declarer, SCHWARZ)).to_have_count(0)
+    for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
+        expect(button_of(declarer, level)).to_have_count(0)
     button_of(declarer, catalog_text("gameGrand")).click()
     expect(button_of(declarer, SCHWARZ)).to_have_attribute(PRESSED, "false")
     button_of(declarer, NULL_GAME).click()

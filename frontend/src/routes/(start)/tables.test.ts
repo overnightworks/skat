@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     AUTH_START_PATH,
+    CALL_MODE,
+    MODE_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
     TABLE_CARD_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
@@ -230,6 +232,50 @@ describe("watchTable after a stream error", () => {
         expect(assign).toHaveBeenCalledTimes(1);
     });
 
+    describe("in a frame", () => {
+        const CALL_SEARCH = `?${MODE_QUERY_NAME}=${CALL_MODE}`;
+
+        function frame(framed: boolean) {
+            const top = {};
+            vi.stubGlobal("window", { self: framed ? {} : top, top });
+        }
+
+        async function refuse() {
+            watchTable(TABLE_ID, vi.fn(), vi.fn());
+            fail();
+            answer(0, 401);
+            await settle();
+        }
+
+        it("reloads and never navigates when a framed call-mode page is refused", async () => {
+            frame(true);
+            location(`${CALL_SEARCH}&${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
+            vi.stubGlobal("performance", { now: () => 3_600_000 });
+            const reading = readTableAfresh(TABLE_ID);
+            answer(0, 200);
+            await reading;
+            watchTable(TABLE_ID, vi.fn(), vi.fn());
+            fail();
+            answer(1, 401);
+            await settle();
+
+            expect(reload).toHaveBeenCalledTimes(1);
+            expect(assign).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ["a framed page without the call mode", true, ""],
+            ["a top-level call-mode page", false, CALL_SEARCH],
+        ])("signs in through the issuer for %s", async (_name, framed, search) => {
+            frame(framed);
+            location(search);
+            await refuse();
+
+            expect(assign).toHaveBeenCalledTimes(1);
+            expect(reload).not.toHaveBeenCalled();
+        });
+    });
+
     it("hands messages to the page and marks the connection", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
@@ -334,6 +380,11 @@ describe("asking for a table", () => {
             step: { action: "declare", game: "herz", hand: true, ouvert: false, announcement: "schneider" } as const,
             suffix: TABLE_DECLARING_DECLARE_SUFFIX,
             body: { game: "herz", hand: true, ouvert: false, announcement: "schneider" },
+        },
+        {
+            step: { action: "declare", game: "null", hand: false, ouvert: true, announcement: "none" } as const,
+            suffix: TABLE_DECLARING_DECLARE_SUFFIX,
+            body: { game: "null", hand: false, ouvert: true, announcement: "none" },
         },
     ])(
         "sends the shown version and a command id with the step $step.action to its own path",
@@ -599,19 +650,22 @@ describe("the table's seats and link", () => {
     });
 
     it.each([
-        ["a plain game", false, false, words.gameGrand],
-        ["a Hand game", true, false, `${words.gameGrand} ${words.hand}`],
-        ["an ouvert game, which includes Hand", true, true, `${words.gameGrand} ${words.ouvert}`],
-    ])("labels %s", (_name, hand, ouvert, label) => {
-        expect(gameLabel({ game: "grand", hand, ouvert })).toBe(label);
+        ["a plain game", "grand", false, false, words.gameGrand],
+        ["a Hand game", "grand", true, false, `${words.gameGrand} ${words.hand}`],
+        ["an ouvert game, which includes Hand", "grand", true, true, `${words.gameGrand} ${words.ouvert}`],
+        ["Null ouvert after the take", "null", false, true, `${words.gameNull} ${words.ouvert}`],
+        ["Null ouvert Hand", "null", true, true, `${words.gameNull} ${words.ouvert} ${words.hand}`],
+    ] as const)("labels %s", (_name, game, hand, ouvert, label) => {
+        expect(gameLabel({ game, hand, ouvert })).toBe(label);
     });
 
     it.each([
-        ["no announcement", "none", null],
-        ["Schneider", "schneider", words.announcedSchneider],
-        ["Schwarz", "schwarz", words.announcedSchwarz],
-    ] as const)("words %s apart from the game's label", (_name, announcement, label) => {
-        expect(announcementLabel(announcement)).toBe(label);
+        ["no announcement", false, "none", null],
+        ["Schneider", false, "schneider", words.announcedSchneider],
+        ["Schwarz", false, "schwarz", words.announcedSchwarz],
+        ["an ouvert game, which the game's label already says", true, "schwarz", null],
+    ] as const)("words %s apart from the game's label", (_name, ouvert, announcement, label) => {
+        expect(announcementLabel({ ouvert, announcement })).toBe(label);
     });
 
     it.each([

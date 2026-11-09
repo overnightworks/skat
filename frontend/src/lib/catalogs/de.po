@@ -159,6 +159,9 @@ msgstr "Schneider"
 msgid "levelSchwarz"
 msgstr "Schwarz"
 
+msgid "levelOuvert"
+msgstr "Ouvert"
+
 msgid "announcedSchneider"
 msgstr "Schneider angesagt"
 

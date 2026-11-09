@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 import {
     createCallSignIn,
+    isCallMode,
     RECHECK_DURATION_MILLISECONDS,
     RECHECK_INTERVAL_MILLISECONDS,
     tableIdFromSearch,
@@ -371,5 +372,24 @@ describe("a frame that unloads", () => {
         expect(live(RECHECK_INTERVAL_MILLISECONDS)).toEqual([]);
         expect(host.replace).not.toHaveBeenCalled();
         expect(views).toEqual(["signing-in"]);
+    });
+});
+
+describe("isCallMode", () => {
+    it.each([
+        [`?${MODE_QUERY_NAME}=${CALL_MODE}`],
+        [`?${MODE_QUERY_NAME}=other&${MODE_QUERY_NAME}=${CALL_MODE}`],
+        [`?x=1&${MODE_QUERY_NAME}=${CALL_MODE}&y=2`],
+    ])("holds for %s", (search) => {
+        expect(isCallMode(search)).toBe(true);
+    });
+
+    it.each([
+        [""],
+        [`?${MODE_QUERY_NAME}=other`],
+        [`?x=${MODE_QUERY_NAME}=${CALL_MODE}`],
+        [`#${MODE_QUERY_NAME}=${CALL_MODE}`],
+    ])("fails for %j", (search) => {
+        expect(isCallMode(search)).toBe(false);
     });
 });

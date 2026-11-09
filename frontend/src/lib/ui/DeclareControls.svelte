@@ -3,7 +3,7 @@
     import { words } from "#lib/words.ts";
     import {
         declarerStage,
-        gameWord,
+        gameLabel,
         SKAT_SIZE,
         takeDeclaringStep,
         togglePicked,
@@ -20,6 +20,24 @@
     const SUIT_FILL: Record<Suit, string> = { kreuz: "#17191c", pik: "#14873f", herz: "#d81f35", karo: "#ec9800" };
     const SUITS: ReadonlySet<Game> = new Set(SUIT_TOKENS);
 
+    // A tile names a game and whether it is played open; Null ouvert is the one open game that can follow the take.
+    type Tile = { game: Game; ouvert: boolean };
+    const TILES: readonly Tile[] = GAME_TOKENS.flatMap((game): Tile[] =>
+        game === "null"
+            ? [
+                  { game, ouvert: false },
+                  { game, ouvert: true },
+              ]
+            : [{ game, ouvert: false }],
+    );
+    // The tiles stand on two rows, as the picture draws them: the four suits, then the rest.
+    const TILE_ROWS: readonly (readonly Tile[])[] = [
+        TILES.filter((tile) => SUITS.has(tile.game)),
+        TILES.filter((tile) => !SUITS.has(tile.game)),
+    ];
+    // One rung of Hand's ladder is chosen at a time; the engine adds Schwarz to an ouvert game.
+    type Rung = Announcement | "ouvert";
+
     let {
         id,
         table,
@@ -29,11 +47,11 @@
 
     const stage = $derived(declarerStage(table));
     let picked = $state<Card[]>([]);
-    let chosenGame = $state<Game | null>(null);
+    let chosen = $state<Tile | null>(null);
     // Choosing Hand is a page step: nothing is sent, and a reload returns to the choice.
     let handChosen = $state(false);
     // Hand's levels: one at a time, and Null has none.
-    let level = $state<Announcement>("none");
+    let level = $state<Rung>("none");
     const panel = $derived(stage === "choosing" && handChosen ? "hand" : stage);
     // A step is under way from the tap until the stream brings a new version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
@@ -43,7 +61,7 @@
     $effect(() => {
         if (stage !== "discarding") picked = [];
         if (stage !== "choosing") handChosen = false;
-        if (panel !== "hand" && panel !== "picked") chosenGame = null;
+        if (panel !== "hand" && panel !== "picked") chosen = null;
         if (panel !== "hand") level = "none";
     });
 
@@ -71,10 +89,15 @@
         }
     }
 
-    const LEVELS: readonly { token: Exclude<Announcement, "none">; word: string }[] = [
+    const LEVELS: readonly { token: Exclude<Rung, "none">; word: string }[] = [
         { token: "schneider", word: words.levelSchneider },
         { token: "schwarz", word: words.levelSchwarz },
+        { token: "ouvert", word: words.levelOuvert },
     ];
+
+    function announcementOf(rung: Rung): Announcement {
+        return rung === "ouvert" ? "none" : rung;
+    }
 
     function isSuit(game: Game): game is Suit {
         return SUITS.has(game);
@@ -113,28 +136,34 @@
             </button>
         {:else}
             <div class="games">
-                {#each GAME_TOKENS as game (game)}
-                    <button
-                        type="button"
-                        class="game"
-                        class:suited={isSuit(game)}
-                        aria-pressed={chosenGame === game}
-                        aria-label={gameWord(game)}
-                        disabled={busy}
-                        onclick={() => {
-                            chosenGame = game;
-                            if (game === "null") level = "none";
-                        }}
-                    >
-                        {#if isSuit(game)}
-                            <span class="pip" aria-hidden="true">
-                                <svg viewBox="0 0 100 100" fill={SUIT_FILL[game]}>
-                                    <use href={`#suit-${game}`} />
-                                </svg>
-                            </span>
-                        {/if}
-                        <span class="name">{gameWord(game)}</span>
-                    </button>
+                {#each TILE_ROWS as row, rowIndex (rowIndex)}
+                    <div class="tiles">
+                        {#each row as tile (`${tile.game}${String(tile.ouvert)}`)}
+                            {@const game = tile.game}
+                            {@const label = gameLabel({ ...tile, hand: false })}
+                            <button
+                                type="button"
+                                class="game"
+                                class:suited={isSuit(game)}
+                                aria-pressed={chosen?.game === game && chosen.ouvert === tile.ouvert}
+                                aria-label={label}
+                                disabled={busy}
+                                onclick={() => {
+                                    chosen = tile;
+                                    if (game === "null") level = "none";
+                                }}
+                            >
+                                {#if isSuit(game)}
+                                    <span class="pip" aria-hidden="true">
+                                        <svg viewBox="0 0 100 100" fill={SUIT_FILL[game]}>
+                                            <use href={`#suit-${game}`} />
+                                        </svg>
+                                    </span>
+                                {/if}
+                                <span class="name">{label}</span>
+                            </button>
+                        {/each}
+                    </div>
                 {/each}
             </div>
             <div class="confirm">
@@ -145,7 +174,7 @@
                             <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
                             {`${words.hand}`}
                         </span>
-                        {#if chosenGame !== "null"}
+                        {#if chosen?.game !== "null"}
                             {#each LEVELS as { token, word } (token)}
                                 <button
                                     type="button"
@@ -162,14 +191,14 @@
                 <button
                     type="button"
                     class="step"
-                    disabled={busy || chosenGame === null}
+                    disabled={busy || chosen === null}
                     onclick={() =>
                         send({
                             action: "declare",
-                            game: chosenGame as Game,
+                            game: (chosen as Tile).game,
                             hand: panel === "hand",
-                            ouvert: false,
-                            announcement: level,
+                            ouvert: (chosen as Tile).ouvert || level === "ouvert",
+                            announcement: announcementOf(level),
                         })}
                 >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
