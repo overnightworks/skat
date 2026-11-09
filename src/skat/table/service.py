@@ -1,3 +1,4 @@
+import copy
 import secrets
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -155,7 +156,9 @@ class TableService:
 
         `live_leases` is read under the table's row lock and has no side effect.
         """
-        return TableService(self._transactions, self._new_table_id, self._random_source, self._now, live_leases)
+        clone = copy.copy(self)
+        clone._live_leases = live_leases  # noqa: SLF001 - the clone is this class's own instance
+        return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
         try:
