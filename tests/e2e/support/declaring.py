@@ -9,7 +9,11 @@ from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from skat.web.declaring import (
+    TABLE_DECLARING_DECLARE_SUFFIX,
+    TABLE_DECLARING_PUT_BACK_SUFFIX,
+    TABLE_DECLARING_TAKE_SUFFIX,
+)
 from skat.web.tables import TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.raw_http import RawSession
@@ -26,6 +30,11 @@ if TYPE_CHECKING:
 
 TAKE_SKAT = catalog_text("takeSkat")
 command_numbers = itertools.count(1)
+DECLARING_STEP_SUFFIXES = {
+    "take": TABLE_DECLARING_TAKE_SUFFIX,
+    "put_back": TABLE_DECLARING_PUT_BACK_SUFFIX,
+    "declare": TABLE_DECLARING_DECLARE_SUFFIX,
+}
 
 
 class DeclaringTable:
@@ -99,8 +108,8 @@ class DeclaringTable:
             {"command_id": f"declaring-step-{next(command_numbers):04d}", "version": version, **fields},
         )
 
-    def declare_through_the_api(self, **fields: object) -> None:
-        self.step(self.declarer_seat, TABLE_DECLARATION_SUFFIX, **fields)
+    def declare_through_the_api(self, *, action: str, **fields: object) -> None:
+        self.step(self.declarer_seat, DECLARING_STEP_SUFFIXES[action], **fields)
 
     def stored(self) -> TableRecord:
         with PostgresTableTransactions(self.server.engine).begin() as transaction:

@@ -1,3 +1,4 @@
+import copy
 import itertools
 import json
 from contextlib import ExitStack, contextmanager
@@ -25,6 +26,10 @@ FETCH = {"accept": "application/json"}
 NAVIGATION = {"accept": "text/html"}
 UNKNOWN_ID = "0" * 32
 SERVER_START_SECONDS = 1000.0
+
+
+def stored(skat):
+    return copy.deepcopy((skat.store.tables, skat.store.receipts))
 
 
 class FakeTime:
