@@ -5,14 +5,21 @@ import pytest
 from skat.engine.bidding import Awaiting
 from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position, positions_from
+from skat.table.auction import AuctionAction
 from skat.table.service import TableService
+from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.declaring import TABLE_DECLARATION_SUFFIX, DeclaringAction
+from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.presence import Presence
+from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
     AWAITING_TOKENS,
     POSITION_TOKENS,
     RANK_TOKENS,
     SUIT_TOKENS,
     TABLE_PAGE_PREFIX,
+    TABLE_SIT_SUFFIX,
+    TABLE_STAND_SUFFIX,
     TABLES_PATH,
     create_tables_router,
 )
@@ -27,6 +34,8 @@ from tests.support.payload_cards import (
     seated_three,
     wire_cards,
 )
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.playing import card, card_body
 from tests.web.support.skat import FETCH, NAVIGATION, UNKNOWN_ID
 
 
@@ -616,12 +625,26 @@ class TestAnEmptyTableEnds:
         assert (again["id"], again["ended"]["empty_seconds"]) == (table_id, seconds)
         assert (server.store.tables, time.pending) == (tables_before, 0)
 
-    @pytest.mark.parametrize("command", ["sit", "stand"])
-    def test_a_command_at_the_ended_table_is_not_found_and_writes_nothing(self, server, ended, command):
+    @pytest.mark.parametrize(
+        ("suffix", "body"),
+        [
+            pytest.param(TABLE_SIT_SUFFIX, {"seat": 2}, id="sit"),
+            pytest.param(TABLE_STAND_SUFFIX, {}, id="stand"),
+            pytest.param(TABLE_AUCTION_SUFFIX, {"version": 1, "action": AuctionAction.PASS}, id="auction"),
+            pytest.param(TABLE_DECLARATION_SUFFIX, {"version": 1, "action": DeclaringAction.TAKE}, id="declaring"),
+            pytest.param(TABLE_CARD_SUFFIX, {"version": 1, **card_body(card("C7"))}, id="card"),
+            pytest.param(TABLE_READY_SUFFIX, {"ordinal": 1}, id="ready"),
+        ],
+    )
+    def test_a_command_at_the_ended_table_is_not_found_and_writes_nothing(self, server, ended, suffix, body):
         headers, table_id, _ = ended
         written = (dict(server.store.tables), dict(server.store.receipts))
 
-        answer = server.sit(headers, table_id, 2) if command == "sit" else server.stand(headers, table_id)
+        answer = server.client.post(
+            f"{TABLES_PATH}/{table_id}{suffix}",
+            json={"command_id": "command-at-end", **body},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+        )
 
         assert answer.status_code == 404
         assert (server.store.tables, server.store.receipts) == written

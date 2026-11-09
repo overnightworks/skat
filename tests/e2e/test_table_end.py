@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
-from sqlalchemy import select
 
-from skat.store.schema import metadata, tables
+from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession, self_signed_tolerant_context
 from tests.e2e.support.server import skat_on_new_database
 from tests.support.signed_in import cookie_header, new_account, seed_member
+from tests.support.table_rows import rows_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -37,22 +37,6 @@ def signed_in(server: RunningServer) -> RawSession:
     return RawSession(server, member)
 
 
-def rows_of(server: RunningServer, table_id: str) -> dict[str, list[tuple[object, ...]]]:
-    """Every row of the store that belongs to the table, in every store table."""
-    with server.engine.connect() as connection:
-        return {
-            each.name: [
-                tuple(row)
-                for row in connection.execute(
-                    select(each)
-                    .where((each.c.id if each is tables else each.c.table_id) == table_id)
-                    .order_by(*each.primary_key.columns)
-                )
-            ]
-            for each in metadata.sorted_tables
-        }
-
-
 def open_stream(server: RunningServer, person: RawSession, path: str) -> http.client.HTTPSConnection:
     """A stream left open after its first message."""
     parts = urlsplit(server.base_url)
@@ -73,7 +57,7 @@ def test_a_table_left_by_its_only_stream_ends_and_keeps_only_its_row_and_create_
     watched_id = json.loads(ben.post(TABLES_PATH, {"command_id": "end-create-0003"}))["id"]
     watched = open_stream(e2e_server, ben, f"{TABLES_PATH}/{watched_id}")
     try:
-        watched_before = rows_of(e2e_server, watched_id)
+        watched_before = rows_of(e2e_server.engine, watched_id)
         anna.first_stream_message(f"{left_path}{TABLE_EVENTS_SUFFIX}")
 
         deadline = time.monotonic() + ENDS_WITHIN_SECONDS
@@ -84,9 +68,11 @@ def test_a_table_left_by_its_only_stream_ends_and_keeps_only_its_row_and_create_
 
         assert answer["ended"] == {"reason": "empty", "empty_seconds": EMPTY_TABLE_SECONDS}
         assert (answer["chairs"], answer["hand"], answer["watchers"]) == ([], None, 0)
-        left = rows_of(e2e_server, left_id)
+        left = rows_of(e2e_server.engine, left_id)
         assert {name for name, rows in left.items() if rows} == {"tables", "receipts"}
-        assert [row[:3] for row in left["receipts"]] == [(anna.member.account.id, "end-create-0001", "create-table")]
-        assert rows_of(e2e_server, watched_id) == watched_before
+        assert [row[:3] for row in left["receipts"]] == [
+            (anna.member.account.id, "end-create-0001", CREATE_TABLE_COMMAND)
+        ]
+        assert rows_of(e2e_server.engine, watched_id) == watched_before
     finally:
         watched.close()

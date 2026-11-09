@@ -6,7 +6,13 @@ from datetime import UTC, datetime
 import pytest
 
 from skat.engine.bidding import Pass
+from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
+from skat.engine.declaration import TakeSkat
+from skat.table.auction import AuctionAction, AuctionCommand
+from skat.table.declaring import DeclaringCommand
+from skat.table.playing import PlayCardCommand
+from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
     CreateTable,
@@ -17,7 +23,7 @@ from skat.table.records import (
     StandUp,
     TableId,
 )
-from skat.table.rules import ends_empty
+from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
@@ -111,7 +117,7 @@ class TestEndEmptyTable:
 
         left = {key: receipt for key, receipt in store.receipts.items() if receipt.table_id == table_id}
         assert [(receipt.command_id, receipt.command) for receipt in left.values()] == [
-            ("command-open", "create-table")
+            ("command-open", CREATE_TABLE_COMMAND)
         ]
         assert {key: receipt for key, receipt in store.receipts.items() if key in others} == others
 
@@ -150,6 +156,28 @@ class TestAtAnEndedTable:
             ),
             pytest.param(
                 lambda service, table_id: service.stand(OPENER, StandUp("c-stand", table_id), NOBODY), id="stand"
+            ),
+            pytest.param(
+                lambda service, table_id: service.take_auction_step(
+                    OPENER, AuctionCommand("c-auction", table_id, 1, AuctionAction.PASS, None), NOBODY
+                ),
+                id="auction",
+            ),
+            pytest.param(
+                lambda service, table_id: service.take_declaring_step(
+                    OPENER, DeclaringCommand("c-declaring", table_id, 1, TakeSkat()), NOBODY
+                ),
+                id="declaring",
+            ),
+            pytest.param(
+                lambda service, table_id: service.play_card(
+                    OPENER, PlayCardCommand("c-card", table_id, 1, Card(Suit.KREUZ, Rank.SEVEN)), NOBODY
+                ),
+                id="card",
+            ),
+            pytest.param(
+                lambda service, table_id: service.mark_ready(OPENER, ReadyCommand("c-ready", table_id, 1), NOBODY),
+                id="ready",
             ),
         ],
     )

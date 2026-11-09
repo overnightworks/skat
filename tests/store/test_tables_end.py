@@ -5,11 +5,15 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.schema import metadata, tables
+from skat.store.schema import tables
 from skat.table.records import Actor, CreateTable, EndedTable, EndReason, SitDown, TableId, TableRecord
+from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from tests.store.test_tables import run_in_thread, wait_until_a_session_waits_for_a_lock
+from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game, before_the_last_card
+from tests.support.table_rows import rows_of
 
 pytestmark = pytest.mark.postgres
 
@@ -49,19 +53,6 @@ def listed_game(service, transactions, stored, name):
     return table_id
 
 
-def rows_of(engine, table_id):
-    """Every row of the store that belongs to the table, in every store table."""
-    with engine.connect() as connection:
-        return {
-            each.name: connection.execute(
-                select(each)
-                .where((each.c.id if each is tables else each.c.table_id) == table_id.value)
-                .order_by(*each.primary_key.columns)
-            ).all()
-            for each in metadata.sorted_tables
-        }
-
-
 def end(service, table_id):
     return service.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), DEFAULT_EMPTY_TABLE_SECONDS)
 
@@ -70,35 +61,49 @@ def test_ending_a_table_with_a_running_hand_deletes_its_chairs_hand_and_steps_an
     service, transactions, stored, engine
 ):
     table_id = played_hand(service, transactions, stored, "one")
-    before = rows_of(engine, table_id)
+    before = rows_of(engine, table_id.value)
     assert all(before[name] for name in ("chairs", *HAND_TABLES))
 
     assert end(service, table_id) is True
 
-    after = rows_of(engine, table_id)
+    after = rows_of(engine, table_id.value)
     assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
     assert len(after["tables"]) == 1
 
 
+def test_an_end_whose_store_fails_after_it_writes_leaves_the_table_live_with_all_its_rows(
+    service, transactions, stored, engine
+):
+    table_id = played_hand(service, transactions, stored, "one")
+    before = rows_of(engine, table_id.value)
+    failing = TableService(FaultyTableTransactions(transactions, end_failure=ConnectionError("lost")))
+
+    with pytest.raises(ConnectionError):
+        failing.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), DEFAULT_EMPTY_TABLE_SECONDS)
+
+    assert rows_of(engine, table_id.value) == before
+    assert isinstance(stored(transactions, table_id.value), TableRecord)
+
+
 def test_ending_a_table_deletes_its_game_list(service, transactions, stored, engine):
     table_id = listed_game(service, transactions, stored, "one")
-    assert rows_of(engine, table_id)["game_list"]
+    assert rows_of(engine, table_id.value)["game_list"]
 
     end(service, table_id)
 
-    assert rows_of(engine, table_id)["game_list"] == []
+    assert rows_of(engine, table_id.value)["game_list"] == []
 
 
 def test_ending_a_table_keeps_its_create_receipt_and_deletes_every_other_receipt_of_it(
     service, transactions, stored, engine
 ):
     table_id = played_hand(service, transactions, stored, "one")
-    assert len(rows_of(engine, table_id)["receipts"]) == len(SEATED)
+    assert len(rows_of(engine, table_id.value)["receipts"]) == len(SEATED)
 
     end(service, table_id)
 
-    assert [(row.account_id, row.command_id, row.command) for row in rows_of(engine, table_id)["receipts"]] == [
-        (OPENER.account_id, "open-one", "create-table")
+    assert [row[:3] for row in rows_of(engine, table_id.value)["receipts"]] == [
+        (OPENER.account_id, "open-one", CREATE_TABLE_COMMAND)
     ]
 
 
@@ -108,11 +113,11 @@ def test_ending_one_table_changes_no_row_of_another_table_of_the_same_opener_or_
     ended = played_hand(service, transactions, stored, "one")
     kept = played_hand(service, transactions, stored, "two")
     other = listed_game(service, transactions, stored, "three")
-    before = (rows_of(engine, kept), rows_of(engine, other))
+    before = (rows_of(engine, kept.value), rows_of(engine, other.value))
 
     end(service, ended)
 
-    assert (rows_of(engine, kept), rows_of(engine, other)) == before
+    assert (rows_of(engine, kept.value), rows_of(engine, other.value)) == before
 
 
 def test_the_end_stores_the_time_the_reason_and_the_wait_and_bumps_the_version_once(transactions, stored, engine):
@@ -131,6 +136,20 @@ def test_the_end_stores_the_time_the_reason_and_the_wait_and_bumps_the_version_o
         ).one()
     assert tuple(row) == (at, EndReason.EMPTY.value, 42, None)
     assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, EndReason.EMPTY, 42)
+
+
+def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_ended_table(
+    service, transactions, engine
+):
+    table_id = seated_table(service, "one")
+
+    with transactions.begin() as ending:
+        ending.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), DEFAULT_EMPTY_TABLE_SECONDS)
+        reading, views = run_in_thread(lambda: service.view(OPENER, table_id.value, NOBODY_CONNECTED))
+        wait_until_a_session_waits_for_a_lock(engine)
+
+    reading.join()
+    assert views[0].ended.reason == EndReason.EMPTY
 
 
 def test_an_ended_table_reads_as_a_tombstone_and_is_no_live_table_and_no_chair_is_occupied(
