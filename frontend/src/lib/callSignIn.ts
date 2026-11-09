@@ -161,5 +161,11 @@ export function createCallSignIn(
         }
     }
 
-    return { logIn, recheck, stop: () => void endRound() };
+    return {
+        logIn,
+        recheck,
+        stop: () => {
+            endRound();
+        },
+    };
 }
