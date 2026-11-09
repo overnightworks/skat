@@ -30,6 +30,7 @@ COMMAND_FAILED = catalog_text("commandFailed")
 SEAT_AWAY = catalog_text("seatAway")
 DEALER = catalog_text("dealer")
 SKAT_CARD = ".skat-card"
+MAIN_STEP = ".bid-buttons .button-stage"
 # The page's chairs reduced to what a hand draws on them; the keys are this test's own, compared with the answer's.
 DRAWN_TABLE = """() => ({
     skat: document.querySelectorAll('.skat-card').length,
@@ -47,7 +48,7 @@ EMPTY_CHAIRS = """() => document.querySelectorAll(
 ).length"""
 PLAQUE_OVERLAPS_A_CHAIR = """() => {
     const plaque = document.querySelector('.plaque').getBoundingClientRect();
-    return [...document.querySelectorAll('.chair .tile, .chair .mark')].some((part) => {
+    return [...document.querySelectorAll('.chair .tile, .chair .mark, .chair .bubble')].some((part) => {
         const box = part.getBoundingClientRect();
         return box.width > 0 && box.left < plaque.right && box.right > plaque.left
             && box.top < plaque.bottom && box.bottom > plaque.top;
@@ -217,6 +218,36 @@ def test_the_dealer_and_the_positions_follow_the_server_for_each_dealer(
         assert answer["hand"]["dealer_seat"] == dealer
         assert drawn == picture_of_answer(answer)
         assert [chair["seat"] for chair in drawn["chairs"] if chair["dealer"] == DEALER] == [dealer]
+
+
+def person_at(players: Players, server: RunningServer, position: str) -> Page:
+    return next(
+        person
+        for person in (players.anna, players.ben, players.cleo)
+        if any(
+            chair["is_mine"] and chair["hand"]["position"] == position
+            for chair in answer_of(person, server, players.table_id)["chairs"]
+        )
+    )
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_auctions_bubbles_and_marks_stay_clear_of_the_plaque_for_every_viewer(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    players = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    everyone = (players.anna, players.ben, players.cleo, players.watcher)
+
+    middlehand = person_at(players, e2e_server, "middlehand")
+    middlehand.locator(MAIN_STEP).click()
+    person_at(players, e2e_server, "forehand").locator(MAIN_STEP).click()
+
+    expect(middlehand.locator(".mark.waits")).to_have_count(1)
+    for person in everyone:
+        expect(person.locator(".bubble")).to_have_count(2)
+        expect(person.locator(".mark.turn")).to_have_count(1)
+        assert_no_horizontal_scroll(person)
+        assert_plaque_is_clear_of_the_chairs(person)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

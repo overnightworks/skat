@@ -84,6 +84,12 @@ msgstr "Halten"
 msgid "pass"
 msgstr "Weg"
 
+msgid "waitingFor"
+msgstr "Warte auf"
+
+msgid "waitsForYou"
+msgstr "wartet auf dich"
+
 msgid "bidValue"
 msgstr "Reizwert"
 

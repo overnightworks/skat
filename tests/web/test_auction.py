@@ -387,6 +387,7 @@ class TestAuctionOnTheWire:
     def test_every_viewer_reads_the_auction_of_a_dealt_hand_and_only_the_middlehand_reads_values(self, table):
         middlehand_seat = positions_from(DEALER_SEAT)
         seat_of_middlehand = next(seat for seat, position in middlehand_seat.items() if position is MIDDLEHAND)
+        seat_of_forehand = next(seat for seat, position in middlehand_seat.items() if position is FOREHAND)
 
         auctions = {
             name: self.auction_read_by(table, headers)
@@ -400,6 +401,7 @@ class TestAuctionOnTheWire:
 
         assert auctions["middlehand"] == {
             "turn_seat": seat_of_middlehand,
+            "facing_seat": seat_of_forehand,
             "awaiting": "bid",
             "standing": None,
             "values": list(VALID_BIDS),
@@ -416,6 +418,7 @@ class TestAuctionOnTheWire:
         auction = self.auction_read_by(table, table.watcher)
 
         assert auction["turn_seat"] is None
+        assert auction["facing_seat"] is None
         assert auction["awaiting"] is None
         assert auction["declared"] == {"seat": seats[FOREHAND], "value": 18}
         assert sorted(auction["words"], key=lambda word: word["seat"]) == sorted(

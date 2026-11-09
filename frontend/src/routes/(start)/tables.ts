@@ -41,6 +41,7 @@ export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
 export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
 export type Auction = {
     turn_seat: number | null;
+    facing_seat: number | null;
     awaiting: Awaiting | null;
     standing: number | null;
     values: number[];

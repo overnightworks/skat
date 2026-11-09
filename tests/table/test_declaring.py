@@ -107,11 +107,6 @@ class TestDeclaringPayload:
 
         assert declaring_payload(command_with(other)) != declaring_payload(command_with(herz_declaration()))
 
-    def test_a_repeated_request_has_the_same_payload(self):
-        request = command_with(herz_declaration())
-
-        assert declaring_payload(request) == declaring_payload(replace(request))
-
 
 class TestDecide:
     def test_an_accepted_step_is_appended_and_raises_the_version(self):

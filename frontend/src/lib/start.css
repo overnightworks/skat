@@ -121,6 +121,9 @@ body {
     --on-stage-soft: rgba(244, 246, 248, 0.72);
     --glass-dark: rgba(12, 14, 17, 0.55);
     --brass: #c9a464;
+    --cream: #fbf8f0;
+    --ink: #14181d;
+    --ok-stage: #4cc38a;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -658,8 +661,9 @@ body {
     pointer-events: none;
 }
 
-/* A phone chair carries its position at the top right, so the turn mark sits below it, clear of the dealer badge. */
-.room .mark.turn {
+/* A phone chair carries its position at the top right, so the turn, pass and waits marks sit below it, clear of
+   the dealer badge; a chair carries only one of them. */
+.room .mark:is(.turn, .pass, .waits) {
     position: absolute;
     z-index: 2;
     top: 16px;
@@ -667,16 +671,154 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
     height: 26px;
     border-radius: 999px;
+}
+
+.room .mark.turn {
+    width: 26px;
     background: var(--accent-stage, #7aa7f0);
     color: #0d1013;
 }
 
-.room .mark.turn svg {
+.room .mark:is(.turn, .pass) svg {
     width: 15px;
     height: 15px;
+}
+
+/* A phone chair is too small for the word: the pass mark shows the cross alone. */
+.room .mark.pass {
+    width: 26px;
+    gap: 4px;
+    color: var(--on-stage);
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    font-size: 0;
+    font-weight: 600;
+}
+
+.room .mark.waits {
+    gap: 4px;
+    padding: 0 7px 0 5px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+}
+
+.room .mark.waits .dot,
+.room .bubble .dot {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .mark:is(.turn, .pass, .waits) ~ .mark.away {
+    right: auto;
+    left: 6px;
+    top: 16px;
+}
+
+.room .chair.out .tile {
+    filter: saturate(0.45) brightness(0.8);
+}
+
+/* A call comes out of its chair as a speech bubble, toward the middle of the table. */
+.room .bubble {
+    position: absolute;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px 4px 6px;
+    border-radius: 999px;
+    color: var(--ink);
+    background: var(--cream);
+    box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.7);
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    --bubble-fill: var(--cream);
+}
+
+.room .bubble::after {
+    content: "";
+    position: absolute;
+    left: var(--tail, 50%);
+    top: -6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background: var(--bubble-fill);
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.room .bubble .dot {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+}
+
+.room .bubble.quiet {
+    padding: 3px 12px 3px 4px;
+    color: var(--on-stage-soft);
+    background: #3a3f45;
+    font-size: 15px;
+    --bubble-fill: #3a3f45;
+}
+
+.room .bubble.quiet .dot {
+    width: 22px;
+    height: 22px;
+}
+
+.room .bubble.quiet svg {
+    width: 18px;
+    height: 18px;
+    color: var(--ok-stage);
+}
+
+/* A phone's far bubbles hang below their fans, beside the skat, and below a watcher's card counts. */
+.room .chair:nth-child(1) .bubble {
+    right: 15%;
+    top: calc(100% + 64px);
+    --tail: 70%;
+}
+
+.room .chair:nth-child(2) .bubble {
+    left: 15%;
+    top: calc(100% + 64px);
+    --tail: 30%;
+}
+
+.room .chair:is(:nth-child(1), :nth-child(2)):has(.count-tag) .bubble {
+    top: calc(100% + 94px);
+}
+
+/* The near chair speaks to its left, clear of its fan above and of the own controls. */
+.room .chair:nth-child(3) .bubble {
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.room .chair:nth-child(3) .bubble::after {
+    left: auto;
+    right: -6px;
+    top: calc(50% - 6px);
+    transform: rotate(45deg);
+}
+
+/* The glow of a far chair on turn stays around that chair. */
+.room .chair.turn:not(.mine)::before {
+    width: 190px;
+    height: 110px;
 }
 
 @media (min-width: 900px) {
@@ -695,16 +837,53 @@ body {
         height: 170px;
     }
 
-    .room .mark.turn {
+    .room .mark:is(.turn, .pass, .waits) {
         top: 6px;
         right: auto;
         left: 6px;
-        width: 28px;
         height: 28px;
     }
 
-    .room .mark.dealer ~ .mark.turn {
+    .room .mark.turn {
+        width: 28px;
+    }
+
+    .room .mark.pass {
+        width: auto;
+        padding: 0 9px 0 7px;
+        font-size: 12.5px;
+    }
+
+    .room .mark.waits .dot {
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+    }
+
+    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits) {
         top: 18px;
+    }
+
+    .room .mark:is(.turn, .pass, .waits) ~ .mark.away {
+        top: 42px;
+    }
+
+    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits) ~ .mark.away {
+        top: 54px;
+    }
+
+    .room .chair:is(:nth-child(1), :nth-child(2)) .bubble,
+    .room .chair:is(:nth-child(1), :nth-child(2)):has(.count-tag) .bubble {
+        right: auto;
+        left: 50%;
+        top: calc(100% + 26px);
+        transform: translateX(-50%);
+        --tail: 50%;
+    }
+
+    .room .chair.turn:not(.mine)::before {
+        width: 300px;
+        height: 200px;
     }
 }
 
@@ -725,9 +904,6 @@ body {
 
 .room .bid {
     --glass: rgba(255, 255, 255, 0.15);
-    --cream: #fbf8f0;
-    --ink: #14181d;
-    --ok-stage: #4cc38a;
     --strip: 214px;
     grid-column: 1 / 3;
     grid-row: 4;

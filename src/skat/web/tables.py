@@ -187,6 +187,7 @@ class AuctionDeclaredAnswer(BaseModel):
 
 class AuctionAnswer(BaseModel):
     turn_seat: int | None
+    facing_seat: int | None
     awaiting: AwaitingToken | None
     standing: int | None
     values: list[int]
@@ -325,6 +326,7 @@ def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
     declared = auction.declared
     return AuctionAnswer(
         turn_seat=auction.turn_seat,
+        facing_seat=auction.facing_seat,
         awaiting=None if auction.awaiting is None else AWAITING_TOKENS[auction.awaiting],
         standing=auction.standing,
         values=list(auction.values),
