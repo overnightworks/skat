@@ -174,7 +174,7 @@ def declare_grand_hand(state: Pushing, position: Position, rule: GrandHandRule) 
         return _refuse(state, refusal)
     if rule is GrandHandRule.OFF:
         return _refuse(state, PushRefusal.GRAND_HAND_OFF)
-    return PushOutcome(replace(state, result=Declared(position, LOWEST_BID)))
+    return PushOutcome(replace(state, result=Declared(position, LOWEST_BID), pushes=0))
 
 
 def pushing_step(state: Pushing, step: PushStep, options: PushOptions) -> PushOutcome:

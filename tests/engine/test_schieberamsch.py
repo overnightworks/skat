@@ -162,7 +162,7 @@ def test_a_grand_hand_ends_the_stage_at_the_lowest_bid_on_the_cards_as_they_lie(
     steps: tuple[PushStep, ...], declarer: Position
 ) -> None:
     state = played(steps)
-    assert (state.result, state.deal) == (Declared(declarer, LOWEST_BID), DEAL)
+    assert (state.result, state.deal, state.pushes) == (Declared(declarer, LOWEST_BID), DEAL, 0)
 
 
 def test_a_grand_hand_after_a_put_back_leaves_that_skat_and_the_ten_kept() -> None:
