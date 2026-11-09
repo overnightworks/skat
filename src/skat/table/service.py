@@ -1,6 +1,7 @@
 import secrets
 from contextlib import ExitStack
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
 
 from skat.engine.deal import deal, draw_dealer, next_dealer
@@ -13,6 +14,7 @@ from skat.table.records import (
     CommandRefusal,
     CreateTable,
     Decision,
+    EndedTable,
     NewHand,
     Receipt,
     Replay,
@@ -32,6 +34,7 @@ from skat.table.rules import (
     decide_free_chair,
     decide_sit,
     decide_stand,
+    ends_empty,
     next_deal_due,
     replayed_decision,
     replayed_table,
@@ -65,10 +68,12 @@ class DuplicateReceiptError(Exception):
 class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     def replay(self, account_id: str, command_id: str) -> Replay | None: ...
 
-    def table(self, table_id: TableId) -> TableRecord | None: ...
+    def table(self, table_id: TableId) -> TableRecord | EndedTable | None: ...
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
-        """The table, its row locked exclusively for the transaction; only the commands that change it read this way."""
+        """A live table, its row locked exclusively for the transaction; only the commands that change it read this
+        way. An ended table reads as none.
+        """
         ...
 
     def save_table(self, table: TableRecord) -> None:
@@ -82,6 +87,14 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         ...
 
     def add_table(self, table: TableRecord) -> None: ...
+
+    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
+        """End the table whose row this transaction locked, once: its version rises by one, its dealer clears, and
+        it keeps only its row and its create receipt, so its id is never issued again and a create retry finds it.
+        """
+        ...
+
+    def live_table_ids(self) -> tuple[TableId, ...]: ...
 
     def add_receipt(self, receipt: Receipt) -> None: ...
 
@@ -114,6 +127,10 @@ class CommandResult:
     seated_when_hand_ended: frozenset[str] = frozenset()
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 class TableService:
     """The table commands and views; every command is one transaction."""
 
@@ -122,8 +139,10 @@ class TableService:
         transactions: TableTransactions,
         new_table_id: Callable[[], TableId] = TableId.random,
         random_source: random.Random | None = None,
+        now: Callable[[], datetime] = _utc_now,
     ) -> None:
         self._transactions = transactions
+        self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
 
@@ -246,19 +265,46 @@ class TableService:
             transaction.save_table(decision.table)
             return True
 
-    def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str]]) -> bool:
+    def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         """Deal the next hand on the server's own account, with no actor, command id or receipt.
 
         `connected_accounts` is entered once the row is locked and left after the commit; it yields who is connected
-        then. The decision re-reads the table under the row lock, so a repeat, or a table that changed meanwhile,
-        changes nothing. True when it dealt.
+        then, or None once the presence cannot tell, which deals nothing. The decision re-reads the table under the
+        row lock, so a repeat, or a table that changed meanwhile, changes nothing. True when it dealt.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            if table is None or not next_deal_due(table, after_commit.enter_context(connected_accounts)):
+            if table is None:
+                return False
+            connected = after_commit.enter_context(connected_accounts)
+            if connected is None or not next_deal_due(table, connected):
                 return False
             transaction.save_table(dealt_next(table, self._new_hand(table)))
             return True
+
+    def end_empty_table(
+        self,
+        table_id: TableId,
+        connected_accounts: AbstractContextManager[frozenset[str] | None],
+        empty_seconds: int,
+    ) -> bool:
+        """End a table nobody is connected to, on the server's own account, with no actor, command id or receipt.
+
+        `connected_accounts` is entered once the row is locked and left after the commit; it yields who is connected
+        then, or None once the presence cannot tell. The decision reads the connected set under the row lock, so a
+        repeat, a table that ended meanwhile, or a stream that opened since changes nothing. `empty_seconds` is the
+        wait the answer will name. True when it ended the table.
+        """
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            if table is None or not ends_empty(after_commit.enter_context(connected_accounts)):
+                return False
+            transaction.end_table(table_id, self._now(), empty_seconds)
+            return True
+
+    def live_table_ids(self) -> tuple[TableId, ...]:
+        with self._transactions.begin() as transaction:
+            return transaction.live_table_ids()
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:

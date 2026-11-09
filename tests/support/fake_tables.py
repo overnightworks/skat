@@ -2,13 +2,15 @@ import copy
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-from skat.table.records import Receipt, Replay
+from skat.table.records import EndedTable, EndReason, Receipt, Replay, TableRecord
+from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import DuplicateReceiptError, OccupiedChair, TableService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from datetime import datetime
 
-    from skat.table.records import TableId, TableRecord
+    from skat.table.records import TableId
 
 
 class FreeChairReadyError(Exception):
@@ -19,16 +21,17 @@ class FakeTableStore:
     """The transaction port in memory: a block that raises leaves the store as it found it."""
 
     def __init__(self) -> None:
-        self.tables: dict[str, TableRecord] = {}
+        self.tables: dict[str, TableRecord | EndedTable] = {}
         self.receipts: dict[tuple[str, str], Receipt] = {}
+        self.ended_at: dict[str, datetime] = {}
 
     @contextmanager
     def begin(self) -> Iterator[FakeTableStore]:
-        before = copy.deepcopy((self.tables, self.receipts))
+        before = copy.deepcopy((self.tables, self.receipts, self.ended_at))
         try:
             yield self
         except BaseException:
-            self.tables, self.receipts = before
+            self.tables, self.receipts, self.ended_at = before
             raise
 
     def replay(self, account_id: str, command_id: str) -> Replay | None:
@@ -39,11 +42,12 @@ class FakeTableStore:
             receipt.command, receipt.payload, self.tables[receipt.table_id.value], receipt.refusal, receipt.holder
         )
 
-    def table(self, table_id: TableId) -> TableRecord | None:
+    def table(self, table_id: TableId) -> TableRecord | EndedTable | None:
         return self.tables.get(table_id.value)
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
-        return self.table(table_id)
+        table = self.table(table_id)
+        return table if isinstance(table, TableRecord) else None
 
     def save_table(self, table: TableRecord) -> None:
         if any(chair.ready and chair.occupant is None for chair in table.chairs):
@@ -54,10 +58,24 @@ class FakeTableStore:
     def add_table(self, table: TableRecord) -> None:
         self.tables[table.id.value] = table
 
+    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
+        table = self.tables[table_id.value]
+        self.tables[table_id.value] = EndedTable(table.id, table.version + 1, EndReason.EMPTY, empty_seconds)
+        self.ended_at[table_id.value] = at
+        self.receipts = {
+            key: receipt
+            for key, receipt in self.receipts.items()
+            if receipt.table_id != table_id or receipt.command == CREATE_TABLE_COMMAND
+        }
+
+    def live_table_ids(self) -> tuple[TableId, ...]:
+        return tuple(table.id for table in self.tables.values() if isinstance(table, TableRecord))
+
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         return tuple(
             OccupiedChair(table.id, chair.occupant.account_id)
             for table in self.tables.values()
+            if isinstance(table, TableRecord)
             for chair in table.chairs
             if chair.occupant is not None
         )

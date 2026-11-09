@@ -22,6 +22,7 @@ from skat.table.records import (
 if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
+    from skat.table.records import EndedTable
 
 CHAIRS_PER_TABLE: Final = 3
 FIRST_VERSION: Final = 1
@@ -53,7 +54,7 @@ def create_receipt(actor: Actor, command: CreateTable, table: TableRecord) -> Re
     return Receipt(actor.account_id, command.command_id, CREATE_TABLE_COMMAND, CREATE_TABLE_PAYLOAD, table.id)
 
 
-def replayed_table(replay: Replay) -> TableRecord:
+def replayed_table(replay: Replay) -> TableRecord | EndedTable:
     """The table a create request already made; any other request under its key is refused."""
     return _replayed(replay, CREATE_TABLE_COMMAND, CREATE_TABLE_PAYLOAD).table
 
@@ -124,6 +125,11 @@ def result_pending(table: TableRecord) -> bool:
     A passed-in hand keeps its steps until the next deal, which tells it apart from a played one.
     """
     return not hand_runs(table) and table.dealer is not None and bool(table.game_list) and not table.progress.auction
+
+
+def ends_empty(connected_accounts: frozenset[str] | None) -> bool:
+    """A table ends for being empty only when nobody is connected; None says the presence cannot tell any more."""
+    return connected_accounts is not None and not connected_accounts
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
@@ -212,4 +218,6 @@ def command_receipt(actor: Actor, command_id: str, command: str, payload: str, d
 def replayed_decision(replay: Replay, command: str, payload: str) -> Decision:
     """The outcome a command already had; any other request under its key is refused."""
     first = _replayed(replay, command, payload)
+    # Only a create receipt outlives a table's end, and `_replayed` refused every other command.
+    assert isinstance(first.table, TableRecord)  # noqa: S101 - narrows the type for a table the end rules out
     return Decision(first.table, first.refusal, first.holder)

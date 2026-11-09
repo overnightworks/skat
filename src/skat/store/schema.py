@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
@@ -18,11 +19,16 @@ from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
+from skat.table.records import EndReason
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
 metadata = MetaData()
+
+
+def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
+    return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
 
 
 tables = Table(
@@ -31,7 +37,17 @@ tables = Table(
     Column("id", Text, primary_key=True),
     Column("version", Integer, nullable=False),
     Column("dealer", SmallInteger),
+    Column("ended_at", DateTime(timezone=True)),
+    Column("end_reason", Text),
+    Column("empty_seconds", Integer),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
+    CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
+    CheckConstraint(
+        "(empty_seconds IS NOT NULL) = (end_reason IS NOT DISTINCT FROM 'empty')",
+        name="tables_empty_seconds_only_for_an_empty_end",
+    ),
+    CheckConstraint("empty_seconds > 0", name="tables_empty_seconds_are_positive"),
+    one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
 )
 
 chairs = Table(
@@ -92,10 +108,6 @@ def unstored_steps[Step](table_id: str, stored: tuple[Step, ...], steps: tuple[S
         message = f"the steps saved for table {table_id} do not continue the stored ones"
         raise StepLogRewrittenError(message)
     return steps[len(stored) :]
-
-
-def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
-    return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
 
 
 hand_cards = Table(

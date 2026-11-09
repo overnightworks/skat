@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Final
 
 from pydantic import AfterValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,6 +7,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
+
+DEFAULT_EMPTY_TABLE_SECONDS: Final = 1800
 
 
 def _require_no_trailing_slash(issuer: str) -> str:
@@ -73,3 +75,5 @@ class ServerSettings(DatabaseSettings):
     trusted_proxies: str = ""
     # How long a seated member whose last stream ended keeps the chair while no hand runs.
     chair_hold_seconds: float = Field(default=300, gt=0, allow_inf_nan=False)
+    # How long a table nobody is connected to stays before it ends; whole seconds, which the ended table's answer names.
+    empty_table_seconds: int = Field(default=DEFAULT_EMPTY_TABLE_SECONDS, gt=0)

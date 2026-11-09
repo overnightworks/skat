@@ -9,7 +9,7 @@ from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
-from skat.store.game_list import append_game_list, read_game_list
+from skat.store.game_list import append_game_list, game_list, read_game_list
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
     POSITION_TEXT,
@@ -23,11 +23,24 @@ from skat.store.schema import (
     tables,
 )
 from skat.table.hand_state import auction_of
-from skat.table.records import Chair, HandProgress, Occupant, Receipt, Replay, TableId, TableRecord, parsed_refusal
+from skat.table.records import (
+    Chair,
+    EndedTable,
+    EndReason,
+    HandProgress,
+    Occupant,
+    Receipt,
+    Replay,
+    TableId,
+    TableRecord,
+    parsed_refusal,
+)
+from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from datetime import datetime
 
     from sqlalchemy.engine import Connection, Engine
 
@@ -73,13 +86,17 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
 
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
-) -> TableRecord | None:
-    query = select(tables.c.version, tables.c.dealer).where(tables.c.id == table_id)
+) -> TableRecord | EndedTable | None:
+    query = select(tables.c.version, tables.c.dealer, tables.c.end_reason, tables.c.empty_seconds).where(
+        tables.c.id == table_id
+    )
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
     table = connection.execute(query).one_or_none()
     if table is None:
         return None
+    if table.end_reason is not None:
+        return EndedTable(TableId(table_id), table.version, EndReason(table.end_reason), table.empty_seconds)
     seats = connection.execute(
         select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.ready)
         .where(chairs.c.table_id == table_id)
@@ -133,7 +150,7 @@ class _PostgresTableTransaction:
         # A command that already holds its table's row reads the receipt's table unlocked: a lock here could cycle
         # with a command at that table. A command holding no row reads it under the shared lock.
         table = _table_record(self._connection, receipt.table_id, row_lock=None if self._holds_row else "share")
-        # The receipt's foreign key guarantees the table.
+        # The receipt's foreign key guarantees the table, which stays as a tombstone after its end.
         assert table is not None  # noqa: S101 - narrows the type for a row the schema guarantees
         return Replay(
             command=receipt.command,
@@ -143,12 +160,13 @@ class _PostgresTableTransaction:
             holder=receipt.holder,
         )
 
-    def table(self, table_id: TableId) -> TableRecord | None:
+    def table(self, table_id: TableId) -> TableRecord | EndedTable | None:
         return _table_record(self._connection, table_id.value)
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
         self._holds_row = True
-        return _table_record(self._connection, table_id.value, row_lock="update")
+        table = _table_record(self._connection, table_id.value, row_lock="update")
+        return table if isinstance(table, TableRecord) else None
 
     def save_table(self, table: TableRecord) -> None:
         dealt = _read_hand(self._connection, table.id.value)
@@ -196,6 +214,30 @@ class _PostgresTableTransaction:
                 }
                 for chair in table.chairs
             ],
+        )
+
+    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
+        self._connection.execute(
+            update(tables)
+            .where(tables.c.id == table_id.value)
+            .values(
+                version=tables.c.version + 1,
+                dealer=None,
+                ended_at=at,
+                end_reason=EndReason.EMPTY.value,
+                empty_seconds=empty_seconds,
+            )
+        )
+        _forget_played_hand(self._connection, table_id.value)
+        for rows in (chairs, game_list):
+            self._connection.execute(delete(rows).where(rows.c.table_id == table_id.value))
+        self._connection.execute(
+            delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
+        )
+
+    def live_table_ids(self) -> tuple[TableId, ...]:
+        return tuple(
+            TableId(row.id) for row in self._connection.execute(select(tables.c.id).where(tables.c.ended_at.is_(None)))
         )
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
