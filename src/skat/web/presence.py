@@ -113,9 +113,10 @@ class Presence:
     """Who is connected to which table, in this process only, and since when each away member has been gone.
 
     The event loop owns every write to the subscriptions and makes it under `_state`, so a deal's worker can read
-    them there. Otherwise a worker touches only the leave times and the committing markers, under `_state`, inside
-    `due` and in `restart_leaves`. A wake carries no data: a stream that falls behind finds several changes folded
-    into one wake and reads the latest state, which is its fresh snapshot.
+    them there. Otherwise a worker touches only the leave times, the committing markers and, through
+    `live_leases`, the lease ends, under `_state`, inside `due` and in `restart_leaves`. A wake carries no data: a
+    stream that falls behind finds several changes folded into one wake and reads the latest state, which is its
+    fresh snapshot.
 
     An account whose last stream on a table ended gets one timer; when it fires the chair is freed unless the
     account came back or left again since, which a newer leave time shows, or the presence has stopped. The
@@ -127,8 +128,8 @@ class Presence:
 
     After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
     then, and a stream's first view of the table starts the next pause if none is pending. After a played game
-    the deal is asked for at once, with no pause, whenever a caller may have made it due; so is the deal of an
-    agent's table when its lease starts, after a pause. A later hand's end replaces a pending pause, and the
+    the deal is asked for at once, with no pause, whenever a caller may have made it due; a lease start asks
+    through `deal_soon`, after the pause. A later hand's end replaces a pending pause, and the
     replaced timer does nothing when it fires, so a pending timer of an earlier hand cannot shorten this one's.
     Nothing about a pause is stored: after a restart none is pending, and all three being connected can only become
     true by streams opening or an agent's call starting its lease, so no sweep is needed.
