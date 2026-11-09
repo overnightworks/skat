@@ -410,6 +410,7 @@ describe("what the declaring stage asks of this viewer", () => {
             is_mine: seat === mine,
             is_away: false,
             ready: false,
+            total: null,
             hand: null,
         }));
     const bidWon = { seat: 2, value: 20 };
@@ -516,6 +517,7 @@ describe("the table's seats and link", () => {
         is_mine: isMine,
         is_away: false,
         ready: false,
+        total: null,
         hand: null,
     });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awaitedNames, resultView, weiterBar } from "#lib/result.ts";
+import { awaitedNames, resultView, weiterBar, withMinus } from "#lib/result.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, Result, Table } from "../routes/(start)/tables.ts";
 
@@ -13,6 +13,7 @@ function chairs(mine: number, changes: Record<number, Partial<Chair>> = {}): Cha
         is_mine: seat === mine,
         is_away: false,
         ready: false,
+        total: null,
         hand: null,
         ...changes[seat],
     }));
@@ -234,5 +235,15 @@ describe("the bar's Weiter", () => {
         const everyoneReady = { 1: { ready: true }, 2: { ready: true }, 3: { ready: true } };
 
         expect(weiterBar(table(1, {}, everyoneReady))).toEqual({ kind: "tap", again: true });
+    });
+});
+
+describe("withMinus", () => {
+    it.each([
+        [0, "0"],
+        [160, "160"],
+        [-46, "\u221246"],
+    ])("reads the total %i as %s", (total, text) => {
+        expect(withMinus(total)).toBe(text);
     });
 });

@@ -251,6 +251,13 @@ class TestChairTotals:
 
         assert [[chair.total for chair in view.chairs] for view in views] == [[0, 160, 0]] * 3
 
+    def test_no_chair_carries_a_total_while_the_tables_list_is_empty(self):
+        table = seated_table(1)
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert [chair.total for chair in view.chairs] == [None, None, None]
+
     def test_a_free_chair_carries_none_and_a_newcomer_starts_at_zero(self):
         table = seated_table(1)
         newcomer = Chair(2, Occupant(DORA, "Dora"))
