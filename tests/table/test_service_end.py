@@ -27,7 +27,6 @@ from skat.table.records import (
 from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import after_the_first_game
 
@@ -36,6 +35,7 @@ VISITOR = Actor(account_id="account-visitor", display_name="Ben")
 NOBODY = frozenset[str]()
 THIRD = Actor(account_id="account-third", display_name="Cleo")
 ENDED_AT = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
+EMPTY_SECONDS = 7
 
 
 @pytest.fixture
@@ -68,7 +68,7 @@ def dealt_id(service, table_id):
 
 
 def end_empty(service, table_id, connected=NOBODY):
-    return service.end_empty_table(table_id, nullcontext(connected), DEFAULT_EMPTY_TABLE_SECONDS)
+    return service.end_empty_table(table_id, nullcontext(connected), EMPTY_SECONDS)
 
 
 @pytest.mark.parametrize(
@@ -96,9 +96,7 @@ class TestEndEmptyTable:
 
         assert end_empty(service, table_id) is True
 
-        assert store.tables[table_id.value] == EndedTable(
-            table_id, before.version + 1, EndReason.EMPTY, DEFAULT_EMPTY_TABLE_SECONDS
-        )
+        assert store.tables[table_id.value] == EndedTable(table_id, before.version + 1, EndReason.EMPTY, EMPTY_SECONDS)
         assert store.receipts == receipts_before
 
     def test_stamps_the_end_with_the_service_clock(self, service, store, table_id):
@@ -147,7 +145,7 @@ class TestEndEmptyTable:
 
         view = service.view(OPENER, table_id.value, NOBODY)
         assert (view.chairs, view.hand, view.result, view.passed_in, view.watchers) == ((), None, None, None, 0)
-        assert view.ended == EndedView(EndReason.EMPTY, DEFAULT_EMPTY_TABLE_SECONDS)
+        assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS)
 
     def test_the_wait_is_stored_with_the_end(self, service, table_id):
         service.end_empty_table(table_id, nullcontext(NOBODY), 7)
@@ -189,7 +187,7 @@ class TestAtAnEndedTable:
     def test_a_create_retry_returns_the_ended_table_and_makes_no_second_one(self, service, store, ended_id):
         again = service.create(OPENER, CreateTable(command_id="command-open"))
 
-        assert (again.id, again.ended) == (ended_id.value, EndedView(EndReason.EMPTY, DEFAULT_EMPTY_TABLE_SECONDS))
+        assert (again.id, again.ended) == (ended_id.value, EndedView(EndReason.EMPTY, EMPTY_SECONDS))
         assert list(store.tables) == [ended_id.value]
 
     @pytest.mark.parametrize(
