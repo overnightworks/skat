@@ -1,4 +1,3 @@
-import random
 import threading
 from dataclasses import replace
 
@@ -13,7 +12,7 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.records import Actor, CreateTable, Refusal, SitDown, TableId
+from skat.table.records import Actor, CreateTable, Refusal, SitDown
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 
@@ -36,28 +35,6 @@ def herz_declaration(*, hand):
     return Declare(GameKind.HERZ, hand=hand, ouvert=False, announcement=Announcement.NONE)
 
 
-@pytest.fixture
-def engine(database_url):
-    engine = create_store_engine(database_url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
-def transactions(engine):
-    return PostgresTableTransactions(engine)
-
-
-@pytest.fixture
-def service(transactions):
-    return TableService(transactions, random_source=random.Random(8))  # noqa: S311 - a seeded source makes the deal reproducible
-
-
-def stored(transactions, table_id):
-    with transactions.begin() as transaction:
-        return transaction.table(TableId(table_id))
-
-
 def count_steps(engine):
     with engine.connect() as connection:
         return connection.execute(select(func.count()).select_from(table("declaring_steps"))).scalar_one()
@@ -66,11 +43,12 @@ def count_steps(engine):
 class Hand:
     """A table whose middlehand won the auction at 20."""
 
-    def __init__(self, service, transactions, table_id):
+    def __init__(self, service, transactions, stored, table_id):
         self.service = service
         self.transactions = transactions
+        self.stored = stored
         self.table_id = table_id
-        record = stored(transactions, table_id)
+        record = self.stored(transactions, table_id)
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(record.dealer).items()}
         self._auction(Position.MIDDLEHAND, AuctionAction.BID, 20, "bid")
@@ -78,18 +56,18 @@ class Hand:
         self._auction(Position.REARHAND, AuctionAction.PASS, None, "rearhand-passes")
 
     def _auction(self, position, action, value, command_id):
-        version = stored(self.transactions, self.table_id).version
+        version = self.stored(self.transactions, self.table_id).version
         command = AuctionCommand(
             command_id=command_id, table_id=self.table_id, version=version, action=action, value=value
         )
         self.service.take_auction_step(self.actors[position], command, nobody_connected())
 
     def twelve_cards(self):
-        record = stored(self.transactions, self.table_id)
+        record = self.stored(self.transactions, self.table_id)
         return (*record.hand.hands[Position.MIDDLEHAND], *record.hand.skat)
 
     def send(self, step, *, command_id, version=None, service=None):
-        record = stored(self.transactions, self.table_id)
+        record = self.stored(self.transactions, self.table_id)
         command = DeclaringCommand(
             command_id=command_id,
             table_id=self.table_id,
@@ -101,15 +79,15 @@ class Hand:
         )
 
     def steps(self):
-        return stored(self.transactions, self.table_id).progress.declaring
+        return self.stored(self.transactions, self.table_id).progress.declaring
 
 
 @pytest.fixture
-def hand(service, transactions):
+def hand(service, transactions, stored):
     table_id = service.create(person("Anna"), CreateTable(command_id="command-open")).id
     service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
     service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
-    return Hand(service, transactions, table_id)
+    return Hand(service, transactions, stored, table_id)
 
 
 def test_the_steps_read_back_in_the_order_they_were_taken(hand):
@@ -130,7 +108,7 @@ def test_every_field_of_a_declaration_reads_back(hand):
     assert hand.steps() == (ouvert_suit,)
 
 
-def test_taking_the_skat_and_putting_back_keep_the_dealt_hand_as_dealt(hand, engine, transactions):
+def test_taking_the_skat_and_putting_back_keep_the_dealt_hand_as_dealt(hand, engine, transactions, stored):
     before = stored(transactions, hand.table_id).hand
     twelve = hand.twelve_cards()
 
@@ -145,7 +123,7 @@ def test_taking_the_skat_and_putting_back_keep_the_dealt_hand_as_dealt(hand, eng
     assert skat_rows == 2
 
 
-def test_a_retry_stores_no_second_step_and_no_second_version(hand, engine, transactions):
+def test_a_retry_stores_no_second_step_and_no_second_version(hand, engine, transactions, stored):
     version = stored(transactions, hand.table_id).version
     first = hand.send(TakeSkat(), command_id=step_id(1), version=version)
 
@@ -170,7 +148,7 @@ def test_a_refused_step_keeps_its_token_in_the_receipt_for_a_retry(hand, engine)
     assert token == first.refusal.value
 
 
-def test_two_takes_at_once_store_exactly_one_step_and_name_the_loser_stale(hand, engine, transactions):
+def test_two_takes_at_once_store_exactly_one_step_and_name_the_loser_stale(hand, engine, transactions, stored):
     version = stored(transactions, hand.table_id).version
     racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
     results: list[object] = []
@@ -188,7 +166,7 @@ def test_two_takes_at_once_store_exactly_one_step_and_name_the_loser_stale(hand,
     assert sorted(str(result.refusal) for result in results) == sorted([str(None), str(Refusal.STALE_VERSION)])
 
 
-def test_a_restart_reads_the_identical_steps_and_the_next_step_continues(hand, database_url):
+def test_a_restart_reads_the_identical_steps_and_the_next_step_continues(hand, database_url, stored):
     twelve = hand.twelve_cards()
     hand.send(TakeSkat(), command_id=step_id(1))
 
@@ -204,7 +182,7 @@ def test_a_restart_reads_the_identical_steps_and_the_next_step_continues(hand, d
     assert hand.steps() == (TakeSkat(), PutBack((twelve[0], twelve[1])))
 
 
-def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(hand, engine, transactions):
+def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(hand, engine, transactions, stored):
     before = stored(transactions, hand.table_id)
     failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
 
@@ -223,33 +201,33 @@ def test_a_failure_inside_the_command_stores_no_step_no_version_and_no_receipt(h
     assert receipts == 0
 
 
-def _rewrite(transactions, table_id, steps):
+def _rewrite(stored, transactions, table_id, steps):
     before = stored(transactions, table_id)
     rewritten = replace(before, version=before.version + 1, progress=replace(before.progress, declaring=steps))
     with transactions.begin() as transaction:
         transaction.save_table(rewritten)
 
 
-def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transactions):
+def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transactions, stored):
     hand.send(TakeSkat(), command_id=step_id(1))
     before = stored(transactions, hand.table_id)
     rewritten_steps = (herz_declaration(hand=True),)
     table_id = hand.table_id
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(transactions, table_id, rewritten_steps)
+        _rewrite(stored, transactions, table_id, rewritten_steps)
 
     assert stored(transactions, hand.table_id) == before
 
 
-def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, transactions):
+def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, transactions, stored):
     hand.send(TakeSkat(), command_id=step_id(1))
     before = stored(transactions, hand.table_id)
     no_steps: tuple[Declare, ...] = ()
     table_id = hand.table_id
 
     with pytest.raises(StepLogRewrittenError):
-        _rewrite(transactions, table_id, no_steps)
+        _rewrite(stored, transactions, table_id, no_steps)
 
     assert stored(transactions, hand.table_id) == before
 

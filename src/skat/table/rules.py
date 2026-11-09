@@ -1,5 +1,6 @@
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
+from skat.engine.deal import positions_from
 from skat.table.records import (
     Actor,
     Chair,
@@ -16,6 +17,10 @@ from skat.table.records import (
     TableId,
     TableRecord,
 )
+
+if TYPE_CHECKING:
+    from skat.engine.cards import Card
+    from skat.engine.deal import Position
 
 CHAIRS_PER_TABLE: Final = 3
 FIRST_VERSION: Final = 1
@@ -87,16 +92,32 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
     return frozenset(chair.occupant.account_id for chair in after.chairs if chair.occupant is not None)
 
 
-def dealt(table: TableRecord, new_hand: NewHand) -> TableRecord:
+def dealt(table: TableRecord, new_hand: NewHand, version: int | None = None) -> TableRecord:
     """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
     return TableRecord(
         id=table.id,
-        version=table.version,
+        version=table.version if version is None else version,
         chairs=table.chairs,
         dealer=new_hand.dealer,
         hand=new_hand.hand,
         progress=HandProgress(),
     )
+
+
+def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
+    """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected."""
+    occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
+    return (
+        not hand_runs(table)
+        and table.dealer is not None
+        and len(occupants) == CHAIRS_PER_TABLE
+        and connected_accounts.issuperset(occupants)
+    )
+
+
+def dealt_next(table: TableRecord, new_hand: NewHand) -> TableRecord:
+    """The table with the next hand, which is its own change and so bumps the version itself."""
+    return dealt(table, new_hand, version=table.version + 1)
 
 
 def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:
@@ -131,6 +152,23 @@ def decide_free_chair(table: TableRecord, account_id: str) -> Decision:
     if hand_runs(table):
         return Decision(table, Refusal.HAND_RUNNING)
     return Decision(_with_occupant(table, own.seat, None))
+
+
+def acting_position(table: TableRecord, actor: Actor, version: int) -> Position | Refusal:
+    """The actor's position in the running hand, or why a hand command stops: no hand, no chair, a stale version."""
+    if table.dealer is None or not hand_runs(table):
+        return Refusal.NO_HAND
+    chair = seat_of(table, actor.account_id)
+    if chair is None:
+        return Refusal.NOT_SEATED
+    if version != table.version:
+        return Refusal.STALE_VERSION
+    return positions_from(table.dealer)[chair.seat]
+
+
+def card_text(card: Card) -> str:
+    """A card as a receipt's payload names it."""
+    return f"{card.suit.name}-{card.rank.name}"
 
 
 def sit_payload(command: SitDown) -> str:

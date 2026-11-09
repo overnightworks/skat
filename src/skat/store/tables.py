@@ -9,6 +9,7 @@ from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, read_declaring_steps
+from skat.store.playing import append_plays, read_plays
 from skat.store.schema import (
     POSITION_TEXT,
     RANK_TEXT,
@@ -95,6 +96,7 @@ def _table_record(
         progress=HandProgress(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
+            plays=read_plays(connection, table_id),
         ),
     )
 
@@ -152,6 +154,7 @@ class _PostgresTableTransaction:
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
         append_steps(self._connection, table.id.value, table.progress.auction)
         append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
+        append_plays(self._connection, table.id.value, table.progress.plays)
         for chair in table.chairs:
             self._connection.execute(
                 update(chairs)

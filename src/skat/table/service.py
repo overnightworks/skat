@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Protocol
 from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
+from skat.table.playing import PLAY_CARD_COMMAND, PlayCardCommand, card_payload, decide_card
 from skat.table.records import (
     Actor,
     CommandRefusal,
@@ -25,10 +26,12 @@ from skat.table.rules import (
     CommandIdReusedError,
     command_receipt,
     create_receipt,
+    dealt_next,
     decide_create,
     decide_free_chair,
     decide_sit,
     decide_stand,
+    next_deal_due,
     replayed_decision,
     replayed_table,
     seated_if_hand_ended,
@@ -146,7 +149,7 @@ class TableService:
             command.command_id,
             SIT_DOWN_COMMAND,
             sit_payload(command),
-            lambda table: decide_sit(table, actor, command.seat, self._new_hand(table)),
+            lambda table: decide_sit(table, actor, command.seat, self._new_hand(table) if sit_deals(table) else None),
         )
 
     def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> CommandResult | None:
@@ -191,6 +194,19 @@ class TableService:
             lambda table: decide_declaring_step(table, actor, command),
         )
 
+    def play_card(
+        self, actor: Actor, command: PlayCardCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            PLAY_CARD_COMMAND,
+            card_payload(command),
+            lambda table: decide_card(table, actor, command),
+        )
+
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
         """Free the account's chair on the server's own account, with no actor, command id or receipt.
 
@@ -209,17 +225,29 @@ class TableService:
             transaction.save_table(decision.table)
             return True
 
+    def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str]]) -> bool:
+        """Deal the next hand on the server's own account, with no actor, command id or receipt.
+
+        `connected_accounts` is entered once the row is locked and left after the commit; it yields who is connected
+        then. The decision re-reads the table under the row lock, so a repeat, or a table that changed meanwhile,
+        changes nothing. True when it dealt.
+        """
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            if table is None or not next_deal_due(table, after_commit.enter_context(connected_accounts)):
+                return False
+            transaction.save_table(dealt_next(table, self._new_hand(table)))
+            return True
+
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
             return transaction.occupied_chairs()
 
-    def _new_hand(self, table: TableRecord) -> NewHand | None:
+    def _new_hand(self, table: TableRecord) -> NewHand:
         """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
 
         Randomness enters only here, both from the one source.
         """
-        if not sit_deals(table):
-            return None
         dealer = draw_dealer(self._random_source) if table.dealer is None else next_dealer(table.dealer)
         return NewHand(dealer, deal(self._random_source))
 

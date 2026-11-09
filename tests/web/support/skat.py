@@ -1,3 +1,5 @@
+import json
+from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 
 from fastapi.testclient import TestClient
@@ -6,7 +8,7 @@ from webauth.config import install_web_auth_config, installed_web_auth_config
 from skat.host.app import create_app
 from skat.table.service import TableService
 from skat.web.stores import SignInStores
-from skat.web.tables import TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -15,11 +17,42 @@ from tests.support.signed_in import cookie_header, new_account, seed_member
 FETCH = {"accept": "application/json"}
 NAVIGATION = {"accept": "text/html"}
 UNKNOWN_ID = "0" * 32
+SERVER_START_SECONDS = 1000.0
+
+
+class FakeTime:
+    """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order."""
+
+    def __init__(self, now=SERVER_START_SECONDS):
+        self.now = now
+        self._scheduled = []
+
+    def clock(self):
+        return self.now
+
+    def schedule(self, delay, action):
+        self._scheduled.append((self.now + delay, action))
+
+    def cancel_all(self):
+        self._scheduled.clear()
+
+    @property
+    def pending(self):
+        return len(self._scheduled)
+
+    async def advance(self, seconds):
+        horizon = self.now + seconds
+        while due := [entry for entry in self._scheduled if entry[0] <= horizon]:
+            entry = min(due, key=lambda scheduled: scheduled[0])
+            self._scheduled.remove(entry)
+            self.now = max(self.now, entry[0])
+            await entry[1]()
+        self.now = horizon
 
 
 class Skat:
-    def __init__(self, sign_in_settings, store=None, **app_options):
-        self.stores = SignInStores.in_memory()
+    def __init__(self, sign_in_settings, store=None, stores=None, **app_options):
+        self.stores = stores if stores is not None else SignInStores.in_memory()
         self.store = store if store is not None else FakeTableStore()
         self.app = create_app(
             sign_in_settings().settings,
@@ -58,3 +91,21 @@ class Skat:
             json={"command_id": command_id, **extra},
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
+
+
+@contextmanager
+def streams_of(server, table_id, people):
+    """One open stream per person; yields each stream's decoded messages, its first view already read."""
+    with ExitStack() as open_streams:
+        decoded = []
+        for headers, _ in people:
+            stream = open_streams.enter_context(
+                server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=headers)
+            )
+            messages = (
+                json.loads(line.removeprefix("data: ")) for line in stream.iter_lines() if line.startswith("data: ")
+            )
+            next(messages)
+            server.client.cookies.clear()
+            decoded.append(messages)
+        yield decoded

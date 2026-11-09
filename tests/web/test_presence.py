@@ -7,37 +7,32 @@ from functools import partial
 import pytest
 from structlog.testing import capture_logs
 
-from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, ChairHold, LoopScheduler, Presence
+from skat.web.presence import (
+    CHAIR_RELEASE_RETRY_SECONDS,
+    NEXT_DEAL_PAUSE_SECONDS,
+    ChairHold,
+    LoopScheduler,
+    NextDeal,
+    Presence,
+)
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import idle_presence
 from tests.support.payload_cards import seated_three
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.skat import Skat
-
-TABLE = "t" * 32
-OTHER_TABLE = "o" * 32
-
-
-class Wakes:
-    """What each subscriber was told: one counter per name."""
-
-    def __init__(self) -> None:
-        self.counts: dict[str, int] = {}
-
-    def callback(self, name):
-        self.counts.setdefault(name, 0)
-
-        def wake():
-            self.counts[name] += 1
-
-        return wake
-
-
-@pytest.fixture
-def wakes():
-    return Wakes()
+from tests.web.support.presence import (
+    FAILURE_NAMING_AN_ACCOUNT,
+    HOLD_SECONDS,
+    NAMED_FAILURE,
+    OTHER_TABLE,
+    TABLE,
+    THIRD_PASS_COMMAND,
+    OvertakenStore,
+    connect,
+    occupied_seats,
+    pass_hand_in,
+    post_pass,
+    run,
+)
+from tests.web.support.skat import FakeTime, Skat
 
 
 @pytest.fixture
@@ -123,86 +118,13 @@ class TestWakingATable:
         presence.wake_table(TABLE)
 
 
-HOLD_SECONDS = 300
-SERVER_START_SECONDS = 1000.0
+async def leaves_her_table(presence):
+    presence.unsubscribe(await presence.subscribe(TABLE, "anna", lambda: None))
 
 
-class FakeTime:
-    """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order."""
-
-    def __init__(self, now=SERVER_START_SECONDS):
-        self.now = now
-        self._scheduled = []
-
-    def clock(self):
-        return self.now
-
-    def schedule(self, delay, action):
-        self._scheduled.append((self.now + delay, action))
-
-    def cancel_all(self):
-        self._scheduled.clear()
-
-    @property
-    def pending(self):
-        return len(self._scheduled)
-
-    async def advance(self, seconds):
-        horizon = self.now + seconds
-        while due := [entry for entry in self._scheduled if entry[0] <= horizon]:
-            entry = min(due, key=lambda scheduled: scheduled[0])
-            self._scheduled.remove(entry)
-            self.now = max(self.now, entry[0])
-            await entry[1]()
-        self.now = horizon
-
-
-class Releases:
-    """The freeing command as the presence calls it: what it was asked, and what it answers or raises next."""
-
-    def __init__(self):
-        self.calls = []
-        self.failures = []
-        self.freed = True
-        self.meanwhile = None
-        self.within = None
-        self.outcomes = []
-
-    async def free_chair(self, table_id, account_id, due):
-        self.calls.append((table_id, account_id))
-        if self.failures:
-            raise self.failures.pop(0)
-        if self.meanwhile is not None:
-            await self.meanwhile()
-        with due as still_due:
-            outcome = self.freed and still_due
-            if self.within is not None:
-                await self.within()
-        self.outcomes.append(outcome)
-        return outcome
-
-
-@pytest.fixture
-def time():
-    return FakeTime()
-
-
-@pytest.fixture
-def releases():
-    return Releases()
-
-
-@pytest.fixture
-def holding(time, releases):
-    return Presence(ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair))
-
-
-def run(scenario):
-    return asyncio.run(scenario)
-
-
-def connect(presence, table_id, account_id, wake):
-    return run(presence.subscribe(table_id, account_id, wake))
+async def starts_the_pause(presence):
+    await presence.subscribe(TABLE, "anna", lambda: None)
+    presence.deal_soon(TABLE)
 
 
 class TestChairHold:
@@ -310,7 +232,7 @@ class TestChairHold:
     ):
         connect(holding, TABLE, "ben", wakes.callback("ben"))
         holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
-        releases.failures = [ConnectionError("account anna"), ConnectionError("account anna")]
+        releases.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT), ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
         woken_before = wakes.counts["ben"]
 
         with capture_logs() as logs:
@@ -324,7 +246,7 @@ class TestChairHold:
 
         assert len(releases.calls) == 3
         assert wakes.counts["ben"] == woken_before + 1
-        assert [(log["log_level"], log["error"]) for log in logs] == [("error", "ConnectionError")] * 2
+        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE] * 2
         assert "anna" not in str(logs)
 
     def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
@@ -411,7 +333,16 @@ class TestChairHold:
 
         assert releases.outcomes == [True]
 
-    def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_check(self):
+    @pytest.mark.parametrize(
+        ("anna_starts_the_write", "seconds", "entered_with"),
+        [
+            pytest.param(leaves_her_table, HOLD_SECONDS, True, id="freeing"),
+            pytest.param(starts_the_pause, NEXT_DEAL_PAUSE_SECONDS, frozenset({"anna"}), id="next-deal"),
+        ],
+    )
+    def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_check(
+        self, anna_starts_the_write, seconds, entered_with
+    ):
         started = threading.Event()
         release = threading.Event()
         committed = []
@@ -426,11 +357,17 @@ class TestChairHold:
         async def free_on_worker(table_id, account_id, due):
             return await asyncio.to_thread(worker, due)
 
+        async def deal_on_worker(table_id, connected_accounts):
+            return await asyncio.to_thread(worker, connected_accounts)
+
         async def scenario():
             time = FakeTime()
-            presence = Presence(ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker))
-            presence.unsubscribe(await presence.subscribe(TABLE, "anna", lambda: None))
-            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
+            presence = Presence(
+                ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker),
+                NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_on_worker),
+            )
+            await anna_starts_the_write(presence)
+            expiry = asyncio.create_task(time.advance(seconds))
             await asyncio.to_thread(started.wait, 5)
             expiry.cancel()
             finishing = asyncio.create_task(presence.finish_writes())
@@ -440,7 +377,7 @@ class TestChairHold:
             await asyncio.wait_for(finishing, 5)
             return waited, list(committed)
 
-        assert run(scenario()) == (True, [True])
+        assert run(scenario()) == (True, [entered_with])
 
     def test_a_freeing_that_waits_while_the_server_stops_frees_nothing(self, holding, time, releases):
         holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
@@ -465,63 +402,6 @@ class TestChairHold:
         run(time.advance(HOLD_SECONDS * 2))
 
         assert (time.pending, releases.calls) == (0, [])
-
-
-@pytest.fixture
-def hold(sign_in_settings):
-    return sign_in_settings()
-
-
-@pytest.fixture
-def server(hold, time):
-    """`create_app`'s own wiring and its own routes; only the clock and the timers run on the test's time."""
-    skat = Skat(lambda: hold, chair_clock=time.clock, chair_scheduler=time)
-    with skat.client:
-        yield skat
-
-
-def post_pass(skat, table_id, headers, *, command_id, version):
-    return skat.client.post(
-        f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_SUFFIX}",
-        json={"command_id": command_id, "version": version, "action": "pass"},
-        headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
-    )
-
-
-def pass_hand_in(skat, table_id, people):
-    """`seated_three` dealt seat 1 the middlehand, seat 2 the rearhand and seat 3 the forehand."""
-    for seat in (1, 2, 3):
-        version = skat.store.tables[table_id].version
-        answer = post_pass(skat, table_id, people[seat - 1][0], command_id=f"pass-seat-{seat}", version=version)
-        assert answer.status_code == 200, answer.text
-
-
-def occupied_seats(skat, table_id):
-    return {chair.seat for chair in skat.store.tables[table_id].chairs if chair.occupant is not None}
-
-
-class OvertakenStore(FakeTableStore):
-    """A store another caller overtakes: `meanwhile` runs once when the next row lock is asked, `after_commit` once
-    when the next transaction has committed."""
-
-    def __init__(self):
-        super().__init__()
-        self.meanwhile = None
-        self.after_commit = None
-
-    @contextmanager
-    def begin(self):
-        with super().begin() as transaction:
-            yield transaction
-        if self.after_commit is not None:
-            action, self.after_commit = self.after_commit, None
-            action()
-
-    def locked_table(self, table_id):
-        if self.meanwhile is not None:
-            action, self.meanwhile = self.meanwhile, None
-            action()
-        return super().locked_table(table_id)
 
 
 @contextmanager
@@ -560,7 +440,7 @@ class TestHoldWhenTheHandEnds:
                 server,
                 table_id,
                 people[2][0],
-                command_id="pass-seat-3",
+                command_id=THIRD_PASS_COMMAND,
                 version=store.tables[table_id].version,
             )
 
@@ -574,7 +454,9 @@ class TestHoldWhenTheHandEnds:
         with one_second_before_the_hold_ends_after_two_passes(hold, time) as (server, store, table_id, people):
             store.after_commit = partial(server.client.portal.call, time.advance, 1)
 
-            post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=store.tables[table_id].version)
+            post_pass(
+                server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=store.tables[table_id].version
+            )
 
             assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time)
 
@@ -630,7 +512,8 @@ class TestHoldWhenTheHandEnds:
             next(lines)
             server.client.cookies.clear()
             pass_hand_in(server, table_id, people)
-            assert time.pending == 2
+            two_holds_and_the_pause = 3
+            assert time.pending == two_holds_and_the_pause
             server.client.portal.call(time.advance, hold.settings.chair_hold_seconds + 1)
             assert occupied_seats(server, table_id) == {3}
 
@@ -652,10 +535,10 @@ class TestHoldWhenTheHandEnds:
         version = server.store.tables[table_id].version
         post_pass(server, table_id, people[0][0], command_id="pass-seat-1", version=version)
         post_pass(server, table_id, people[1][0], command_id="pass-seat-2", version=version + 1)
-        first = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+        first = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
         pending = time.pending
 
-        again = post_pass(server, table_id, people[2][0], command_id="pass-seat-3", version=version + 2)
+        again = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
 
         assert (first.status_code, again.status_code) == (200, 200)
         assert time.pending == pending

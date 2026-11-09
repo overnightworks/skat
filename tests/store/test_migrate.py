@@ -13,7 +13,7 @@ from skat.store.tables import metadata
 
 pytestmark = pytest.mark.postgres
 
-STORE_TABLES = {"tables", "chairs", "receipts", "hand_cards", "auction_actions", "declaring_steps"}
+STORE_TABLES = {"tables", "chairs", "receipts", "hand_cards", "auction_actions", "declaring_steps", "played_cards"}
 
 
 _PUT_BACK = "'put-back'"
@@ -297,6 +297,77 @@ class TestFromAHandAtRevisionFour:
     def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
         _run_in_transaction(migrated, text(TAKE_ROW))
         duplicate = text(TAKE_ROW)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, duplicate)
+
+
+def _played_row(*, table_id="'t'", ordinal=1, position="'forehand'", suit="'hearts'", rank="'ace'"):
+    return f"INSERT INTO played_cards VALUES ({table_id}, {ordinal}, {position}, {suit}, {rank})"  # noqa: S608 - only a test's fixed literals reach this text
+
+
+class TestFromAHandAtRevisionFive:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0005 holding a declared hand, then taken to head."""
+        upgrade_to(engine, "0005")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 5, 2)"))
+            connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'skat')"))
+            connection.execute(text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
+            connection.execute(text(TAKE_ROW))
+        migrate(engine)
+        return engine
+
+    def test_keeps_the_hand_the_auction_and_the_declaring_steps(self, migrated):
+        with migrated.connect() as connection:
+            cards = connection.execute(text("SELECT count(*) FROM hand_cards")).scalar_one()
+            bids = connection.execute(text("SELECT count(*) FROM auction_actions")).scalar_one()
+            steps = connection.execute(text("SELECT count(*) FROM declaring_steps")).scalar_one()
+
+        assert (cards, bids, steps) == (1, 1, 1)
+        assert table_names(migrated) == STORE_TABLES
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param(_played_row(), id="the-first"),
+            pytest.param(_played_row(ordinal=30, position="'rearhand'", suit="'spades'", rank="'jack'"), id="the-last"),
+        ],
+    )
+    def test_accepts_a_played_card(self, migrated, statement):
+        _run_in_transaction(migrated, text(statement))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM played_cards")).scalar_one() == 1
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param(_played_row(ordinal=0), id="ordinal-below-the-first"),
+            pytest.param(_played_row(ordinal=31), id="ordinal-above-the-last"),
+            pytest.param(_played_row(position="'skat'"), id="no-position"),
+            pytest.param(_played_row(suit="'lila'"), id="unknown-suit"),
+            pytest.param(_played_row(rank="'one'"), id="unknown-rank"),
+            pytest.param(_played_row(table_id="'gone'"), id="unknown-table"),
+        ],
+    )
+    def test_the_checks_refuse_a_row_that_is_no_played_card(self, migrated, statement):
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)
+
+    def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
+        _run_in_transaction(migrated, text(_played_row()))
+        duplicate = text(_played_row(position="'middlehand'", suit="'spades'", rank="'seven'"))
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, duplicate)
+
+    def test_the_schema_holds_each_card_once_per_table(self, migrated):
+        _run_in_transaction(migrated, text(_played_row()))
+        duplicate = text(_played_row(ordinal=2, position="'middlehand'"))
 
         with pytest.raises(IntegrityError):
             _run_in_transaction(migrated, duplicate)
