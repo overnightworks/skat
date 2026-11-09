@@ -108,9 +108,13 @@ class AuctionDeclared:
 
 @dataclass(frozen=True)
 class AuctionView:
-    """The auction as one viewer may see it; `values` lists what the viewer may bid, only on their turn to bid."""
+    """The auction as one viewer may see it; `values` lists what the viewer may bid, only on their turn to bid.
+
+    `facing_seat` is the chair the player on turn bids against or answers, absent when nobody is faced.
+    """
 
     turn_seat: int | None
+    facing_seat: int | None
     awaiting: Awaiting | None
     standing: int | None
     values: tuple[int, ...]
@@ -126,6 +130,12 @@ def _word_value(step: AuctionStep, standing: int | None) -> int | None:
     if isinstance(step, Play):
         return LOWEST_BID
     return None
+
+
+def _faced(auction: Auction) -> Position | None:
+    if auction.result is not None or auction.awaiting is Awaiting.PLAY:
+        return None
+    return auction.responder if auction.awaiting is Awaiting.BID else auction.bidder
 
 
 def _words(steps: tuple[AuctionStep, ...], seats: dict[Position, int]) -> tuple[AuctionWord, ...]:
@@ -153,8 +163,10 @@ def auction_view_of(table: TableRecord, viewer_account_id: str) -> AuctionView:
         running and auction.awaiting is Awaiting.BID and viewer is not None and viewer.seat == seats[auction.actor]
     )
     standing = auction.standing
+    faced = _faced(auction)
     return AuctionView(
         turn_seat=seats[auction.actor] if running else None,
+        facing_seat=None if faced is None else seats[faced],
         awaiting=auction.awaiting if running else None,
         standing=standing,
         values=tuple(value for value in VALID_BIDS if standing is None or value > standing) if my_turn_to_bid else (),

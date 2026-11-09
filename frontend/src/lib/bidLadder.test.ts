@@ -5,7 +5,16 @@ import type { Auction } from "../routes/(start)/tables.ts";
 const VIEWER = 2;
 
 function auction(changes: Partial<Auction>): Auction {
-    return { turn_seat: VIEWER, awaiting: "bid", standing: null, values: [], words: [], declared: null, ...changes };
+    return {
+        turn_seat: VIEWER,
+        facing_seat: null,
+        awaiting: "bid",
+        standing: null,
+        values: [],
+        words: [],
+        declared: null,
+        ...changes,
+    };
 }
 
 describe("the viewer's turn on the ladder", () => {

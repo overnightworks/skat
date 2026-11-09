@@ -1,6 +1,7 @@
 import json
+import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -8,7 +9,7 @@ from playwright.sync_api import Page, Route, expect
 
 from skat.table.auction import AuctionAction
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
@@ -28,6 +29,8 @@ HOLD = catalog_text("hold")
 COMMAND_FAILED = catalog_text("commandFailed")
 WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
 PASS = catalog_text("pass")
+WAITING_FOR = catalog_text("waitingFor")
+WAITS_FOR_YOU = catalog_text("waitsForYou")
 LOWEST_BID = 18
 SKAT_CARD = ".skat-card"
 LADDER = ".ladder"
@@ -38,6 +41,9 @@ MAIN = ".bid-buttons .button-stage"
 STRIP = ".ladder .higher"
 TURN_CHAIR = ".chair.mine.turn"
 PLAQUE = ".plaque"
+CARD_FACE = ".card-face"
+BUBBLE = ".bubble"
+OUT = re.compile(r"\bout\b")
 TOP_BID = "264"
 FIRST_HIGHER_BID = "20"
 HIGHER_BID_TAPPED = "30"
@@ -61,6 +67,33 @@ class Table:
     @property
     def everyone(self) -> tuple[Page, ...]:
         return (self.forehand, self.middlehand, self.rearhand, self.watcher)
+
+
+@dataclass(frozen=True)
+class Marks:
+    """What one chair carries on one screen during the auction; the fields are this test's own."""
+
+    bubble: str | None = None
+    quiet: bool = False
+    passed: bool = False
+    turn: bool = False
+    waits: bool = False
+
+
+@dataclass(frozen=True)
+class Scene:
+    """The marks every viewer sees, and the one screen that shows a chair waiting on its viewer."""
+
+    forehand: Marks
+    middlehand: Marks
+    rearhand: Marks
+    waits: tuple[str, str] | None
+
+    def seen_by(self, viewer: str) -> dict[str, Marks]:
+        chairs = {"forehand": self.forehand, "middlehand": self.middlehand, "rearhand": self.rearhand}
+        if self.waits is not None and self.waits[0] == viewer:
+            chairs[self.waits[1]] = replace(chairs[self.waits[1]], waits=True)
+        return chairs
 
 
 def answer_of(person: Page, table: Table) -> dict[str, Any]:
@@ -390,3 +423,123 @@ def test_the_own_turn_ring_breathes_and_holds_still_for_reduced_motion(
     expect(table.middlehand.locator(TURN_CHAIR)).to_have_count(1)
     tile = table.middlehand.locator(f"{TURN_CHAIR} .tile")
     assert ("breathe" in tile.evaluate("(tile) => getComputedStyle(tile).animationName")) is animated
+
+
+def seats_by_position(table: Table) -> dict[str, int]:
+    answer = answer_of(table.watcher, table)
+    return {chair["hand"]["position"]: chair["seat"] for chair in answer["chairs"]}
+
+
+def viewers(table: Table) -> dict[str, Page]:
+    return {
+        "forehand": table.forehand,
+        "middlehand": table.middlehand,
+        "rearhand": table.rearhand,
+        "watcher": table.watcher,
+    }
+
+
+def assert_chair(person: Page, seat: int, marks: Marks) -> None:
+    chair = person.locator(f".chair[data-seat='{seat}']")
+    expect(chair.locator(".mark.turn")).to_have_count(int(marks.turn))
+    if marks.bubble is None:
+        expect(chair.locator(BUBBLE)).to_have_count(0)
+    else:
+        expect(chair.locator(f"{BUBBLE} .said")).to_have_text(marks.bubble)
+    expect(chair.locator(".bubble.quiet svg")).to_have_count(int(marks.quiet))
+    expect(chair.locator(".mark.pass")).to_have_count(int(marks.passed))
+    if marks.passed:
+        expect(chair).to_have_class(OUT)
+        expect(chair.locator(".mark.pass")).to_contain_text(PASS)
+    else:
+        expect(chair).not_to_have_class(OUT)
+    expect(chair.locator(".mark.waits")).to_have_count(int(marks.waits))
+    if marks.waits:
+        expect(chair.locator(".mark.waits")).to_have_attribute("title", WAITS_FOR_YOU)
+
+
+def assert_scene(table: Table, scene: Scene) -> None:
+    seats = seats_by_position(table)
+    for viewer, person in viewers(table).items():
+        chairs = scene.seen_by(viewer)
+        # The chair on turn comes first: its mark waits until the stream has brought the step.
+        for position, marks in sorted(chairs.items(), key=lambda chair: not chair[1].turn):
+            assert_chair(person, seats[position], marks)
+        expect(person.locator(".chair.turn")).to_have_count(1)
+        assert_page_fits(person)
+    expect(table.watcher.locator(CARD_FACE)).to_have_count(0)
+
+
+BIDDER = Marks(bubble=str(LOWEST_BID))
+HOLDER = Marks(bubble=str(LOWEST_BID), quiet=True)
+PASSED = Marks(passed=True)
+ON_TURN = Marks(turn=True)
+SILENT = Marks()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_every_viewer_sees_each_chairs_last_word_whose_turn_it_is_and_who_waits_on_whom(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    script: list[tuple[Page | None, AuctionAction | None, Scene]] = [
+        (None, None, Scene(SILENT, ON_TURN, SILENT, waits=("middlehand", "forehand"))),
+        (
+            table.middlehand,
+            AuctionAction.BID,
+            Scene(ON_TURN, BIDDER, SILENT, waits=("forehand", "middlehand")),
+        ),
+        (
+            table.forehand,
+            AuctionAction.HOLD,
+            Scene(HOLDER, replace(BIDDER, turn=True), SILENT, waits=("middlehand", "forehand")),
+        ),
+        (
+            table.middlehand,
+            AuctionAction.PASS,
+            Scene(HOLDER, PASSED, ON_TURN, waits=("rearhand", "forehand")),
+        ),
+    ]
+
+    for person, action, scene in script:
+        if person is not None and action is not None:
+            step(person, table, action, LOWEST_BID if action is AuctionAction.BID else None)
+        assert_scene(table, scene)
+
+    for person in table.everyone:
+        person.reload()
+    assert_scene(table, script[-1][2])
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_after_two_passes_the_forehand_takes_18_with_nobody_waiting_and_two_chairs_out(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+
+    step(table.middlehand, table, AuctionAction.PASS)
+    step(table.rearhand, table, AuctionAction.PASS)
+
+    assert_scene(table, Scene(ON_TURN, PASSED, PASSED, waits=None))
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_plaque_waits_for_the_player_on_turn_while_they_are_away(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    middlehand = table.middlehand
+    name = next(chair["occupant_name"] for chair in answer_of(middlehand, table)["chairs"] if chair["is_mine"])
+    others = (table.forehand, table.rearhand, table.watcher)
+
+    returning = record_page_errors(middlehand.context.new_page(), page_errors)
+    middlehand.close()
+
+    for person in others:
+        expect(person.locator(PLAQUE)).to_have_text(f"{WAITING_FOR} {name}")
+        assert_page_fits(person)
+
+    watch(returning, table.server, f"{TABLE_PAGE_PREFIX}{table.id}")
+
+    for person in (*others, returning):
+        expect(person.locator(PLAQUE)).to_have_text(BIDDING)

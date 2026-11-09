@@ -446,13 +446,61 @@ class TestAuctionView:
         assert (view.turn_seat, view.awaiting, view.declared) == (None, None, None)
         assert len(view.words) == 3
 
-    def test_seated_and_watching_viewers_see_the_same_words_turn_and_standing(self, seated: Seated) -> None:
+    def test_seated_and_watching_viewers_see_the_same_words_turn_facing_seat_and_standing(self, seated: Seated) -> None:
         self.play_out(seated, [("middlehand", AuctionAction.BID, 22), ("forehand", AuctionAction.HOLD, None)])
 
         views = [
             self.auction_for(seated, viewer) for viewer in (seated.forehand, seated.middlehand, seated.rearhand, DORA)
         ]
 
-        assert {(view.words, view.turn_seat, view.standing) for view in views} == {
-            (views[0].words, views[0].turn_seat, views[0].standing)
+        assert {(view.words, view.turn_seat, view.facing_seat, view.standing) for view in views} == {
+            (views[0].words, views[0].turn_seat, views[0].facing_seat, views[0].standing)
         }
+
+    @pytest.mark.parametrize(
+        ("script", "faced"),
+        [
+            pytest.param([], "forehand", id="the-middlehand-bids-against-the-forehand"),
+            pytest.param([("middlehand", AuctionAction.BID, 18)], "middlehand", id="the-forehand-answers-the-bidder"),
+            pytest.param(
+                [("middlehand", AuctionAction.BID, 18), ("forehand", AuctionAction.HOLD, None)],
+                "forehand",
+                id="after-a-hold-the-bidder-faces-the-forehand-again",
+            ),
+            pytest.param(
+                [("middlehand", AuctionAction.PASS, None)], "forehand", id="the-rearhand-bids-against-the-forehand"
+            ),
+            pytest.param(
+                [("middlehand", AuctionAction.BID, 18), ("forehand", AuctionAction.PASS, None)],
+                "middlehand",
+                id="the-rearhand-bids-against-the-surviving-middlehand",
+            ),
+            pytest.param(
+                [("middlehand", AuctionAction.PASS, None), ("rearhand", AuctionAction.BID, 18)],
+                "rearhand",
+                id="the-forehand-answers-the-rearhand",
+            ),
+            pytest.param(
+                [("middlehand", AuctionAction.PASS, None), ("rearhand", AuctionAction.PASS, None)],
+                None,
+                id="the-forehand-takes-18-alone",
+            ),
+            pytest.param(
+                [
+                    ("middlehand", AuctionAction.PASS, None),
+                    ("rearhand", AuctionAction.PASS, None),
+                    ("forehand", AuctionAction.PLAY, None),
+                ],
+                None,
+                id="the-auction-is-over",
+            ),
+        ],
+    )
+    def test_the_facing_seat_is_the_one_the_player_on_turn_bids_against_or_answers(
+        self, seated: Seated, script: list[tuple[str, AuctionAction, int | None]], faced: str | None
+    ) -> None:
+        self.play_out(seated, script)
+
+        view = self.auction_for(seated, DORA)
+
+        assert view.facing_seat == (None if faced is None else self.seat_of(seated, getattr(seated, faced)))

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
+    import { awayOnTurn, chairMarks } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { LegalLinks } from "overnightworks-appkit";
@@ -9,6 +10,7 @@
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
+    import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
@@ -129,6 +131,9 @@
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
+            <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
+            {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
+            {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
             {@const declarerActs = declarerStage(outcome.table) !== null}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {#if bidValue !== null}
@@ -136,9 +141,13 @@
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
                 </div>
             {:else if !outcome.table.hand?.declaring}
+                {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
                 <div class="plaque">
                     {#if outcome.table.hand === null}
                         <span>{words.waitingForPlayers}</span>
+                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                    {:else if awayName}
+                        <span>{`${words.waitingFor} ${awayName}`}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else}
                         <span>{words.bidding}</span>
@@ -147,6 +156,7 @@
             {/if}
             <div class="felt" aria-hidden="true"></div>
             {@const dealerSeat = outcome.table.hand?.dealer_seat}
+            {@const auction = outcome.table.hand?.auction}
             {#if outcome.table.hand !== null}
                 <div class="skat-spot">
                     <FaceDownSkat count={outcome.table.hand.skat_count} />
@@ -154,11 +164,13 @@
             {/if}
             <ul class="chairs">
                 {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
+                    {@const marks = chairMarks(auction, chair.seat, ownChair?.seat)}
                     <li
                         class="chair"
                         class:mine={chair.is_mine}
                         class:away={chair.is_away}
-                        class:turn={chair.is_mine && (declarerActs || ownTurnLadder !== null)}
+                        class:out={marks.passed}
+                        class:turn={(chair.is_mine && declarerActs) || marks.turn}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -186,12 +198,35 @@
                                     </span>
                                 {/if}
                                 <span class="mark pos">{positionWord(chair.hand.position)}</span>
-                                {#if chair.is_mine && ownTurnLadder !== null}
+                                {#if marks.turn}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path d="M8 5l11 7-11 7z" />
                                         </svg>
                                     </span>
+                                {:else if marks.passed}
+                                    <span class="mark pass">
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2.8"
+                                            stroke-linecap="round"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M6 6l12 12M18 6L6 18" />
+                                        </svg>
+                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                                        {`${words.pass}`}
+                                    </span>
+                                {:else if marks.waits}
+                                    <span class="mark waits" title={words.waitsForYou}>
+                                        <span class="dot" aria-hidden="true">{ownInitial}</span>
+                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                                    </span>
+                                {/if}
+                                {#if marks.bubble}
+                                    <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
                                 {/if}
                             {/if}
                             {#if chair.is_away}

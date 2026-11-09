@@ -28,6 +28,8 @@ export const words = {
     bidding: "Reizen",
     hold: "Halten",
     pass: "Weg",
+    waitingFor: "Warte auf",
+    waitsForYou: "wartet auf dich",
     bidValue: "Reizwert",
     dealer: "Geber",
     forehand: "Vorhand",

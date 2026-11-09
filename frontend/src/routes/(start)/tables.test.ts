@@ -49,6 +49,7 @@ const TABLE_ID = "a".repeat(32);
 
 const auctionWith = (declared: Auction["declared"]): Auction => ({
     turn_seat: null,
+    facing_seat: null,
     awaiting: null,
     standing: null,
     values: [],
