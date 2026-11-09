@@ -3,6 +3,7 @@ import {
     AUTH_START_PATH,
     SIGNED_IN_AGAIN_QUERY_NAME,
     TABLE_DECLARATION_SUFFIX,
+    TABLE_AUCTION_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
@@ -22,7 +23,9 @@ import {
     tablePath,
     takeDeclaringStep,
     togglePicked,
+    type Auction,
     type Card,
+    takeAuctionStep,
     type Chair,
     type Declaring,
     type Game,
@@ -43,6 +46,15 @@ class FakeEventSource {
 }
 
 const TABLE_ID = "a".repeat(32);
+
+const auctionWith = (declared: Auction["declared"]): Auction => ({
+    turn_seat: null,
+    awaiting: null,
+    standing: null,
+    values: [],
+    words: [],
+    declared,
+});
 
 describe("watchTable after a stream error", () => {
     // The marker is taken once per document, so each test loads the module afresh.
@@ -296,6 +308,21 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...step });
     });
 
+    it.each([
+        { action: "bid", value: 20, body: { action: "bid", value: 20 } },
+        { action: "hold", value: undefined, body: { action: "hold" } },
+        { action: "pass", value: undefined, body: { action: "pass" } },
+        { action: "play", value: undefined, body: { action: "play" } },
+    ] as const)("sends the version shown with a $action step", async ({ action, value, body }) => {
+        answerWith(Response.json(table));
+
+        expect(await takeAuctionStep(TABLE_ID, "command-3", 7, action, value)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_AUCTION_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...body });
+    });
+
     it("reports a taken chair with who holds it", async () => {
         answerWith(Response.json({ reason: "seat-taken", holder_name: "Anna" }, { status: 409 }));
 
@@ -356,7 +383,7 @@ describe("what the declaring stage asks of this viewer", () => {
         version: 1,
         chairs: seats(mine),
         watchers: 0,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: { declared: bidWon }, declaring },
+        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring },
     });
     const tableAt = (stage: Stage, mine: number): Table => tableWith({ declarer_seat: 2, stage }, mine);
 
@@ -386,12 +413,12 @@ describe("what the declaring stage asks of this viewer", () => {
 });
 
 describe("the auction's value while declaring", () => {
-    const table = (declaring: Declaring | null, declared: { seat: number; value: number } | null): Table => ({
+    const table = (declaring: Declaring | null, declared: Auction["declared"]): Table => ({
         id: TABLE_ID,
         version: 1,
         chairs: [],
         watchers: 0,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: { declared }, declaring },
+        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(declared), declaring },
     });
 
     it.each<Stage>(["choosing", "discarding", "picked"])("is shown at %s", (stage) => {

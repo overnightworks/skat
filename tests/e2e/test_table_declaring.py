@@ -33,7 +33,7 @@ TAKE_SKAT = catalog_text("takeSkat")
 PUT_BACK = catalog_text("putBack")
 ANNOUNCE = catalog_text("announceGame")
 COMMAND_FAILED = catalog_text("commandFailed")
-BIDDING_FOLLOWS = catalog_text("biddingFollows")
+BIDDING = catalog_text("bidding")
 BID_VALUE = catalog_text("bidValue")
 GAME_NAMES = [catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand", "gameNull")]
 NULL_GAME = catalog_text("gameNull")
@@ -218,7 +218,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     reload_and_wait(declarer)
     expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
-    expect(declarer.get_by_text(BIDDING_FOLLOWS)).to_have_count(0)
+    expect(declarer.get_by_text(BIDDING)).to_have_count(0)
     bid_plaque = f"{BID_VALUE} {table.bid_value()}"
     expect(declarer.get_by_text(bid_plaque)).to_have_count(1)
     for onlooker in (*table.others, table.watcher):

@@ -1,6 +1,8 @@
 import {
+    type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
     type GAME_TOKENS,
+    type AWAITING_TOKENS,
     type POSITION_TOKENS,
     type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
@@ -8,6 +10,7 @@ import {
     type STAGE_TOKENS,
     type SUIT_TOKENS,
     TABLE_DECLARATION_SUFFIX,
+    TABLE_AUCTION_SUFFIX,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_SIT_SUFFIX,
@@ -32,11 +35,22 @@ export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
 export type Declaring = { declarer_seat: number; stage: Stage };
+export type Awaiting = (typeof AWAITING_TOKENS)[number];
+export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
+export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
+export type Auction = {
+    turn_seat: number | null;
+    awaiting: Awaiting | null;
+    standing: number | null;
+    values: number[];
+    words: AuctionWord[];
+    declared: { seat: number; value: number } | null;
+};
 export type Hand = {
     dealer_seat: number;
     own_cards: Card[];
     skat_count: number;
-    auction: { declared: { seat: number; value: number } | null };
+    auction: Auction;
     declaring: Declaring | null;
 };
 export type Chair = {
@@ -118,6 +132,17 @@ export function takeDeclaringStep(
     step: DeclaringStep,
 ): Promise<Outcome> {
     return post(id, TABLE_DECLARATION_SUFFIX, { command_id: commandId, version, ...step });
+}
+
+// The version is the one the page shows, so a step taken on a stale page is refused; there is no retry.
+export function takeAuctionStep(
+    id: string,
+    commandId: string,
+    version: number,
+    action: AuctionAction,
+    value?: number,
+): Promise<Outcome> {
+    return post(id, TABLE_AUCTION_SUFFIX, { command_id: commandId, version, action, value });
 }
 
 export function readTable(id: string): Promise<Outcome> {

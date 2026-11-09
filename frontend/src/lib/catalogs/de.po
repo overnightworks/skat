@@ -75,8 +75,14 @@ msgstr "Platz vergeben"
 msgid "commandFailed"
 msgstr "Das hat nicht geklappt"
 
-msgid "biddingFollows"
-msgstr "Reizen folgt"
+msgid "bidding"
+msgstr "Reizen"
+
+msgid "hold"
+msgstr "Halten"
+
+msgid "pass"
+msgstr "Weg"
 
 msgid "bidValue"
 msgstr "Reizwert"
