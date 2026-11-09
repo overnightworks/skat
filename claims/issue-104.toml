@@ -1,8 +1,0 @@
-claim_id = "2d34a88eba26458cbc1d162d9ace32b0"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "99d28b5151b9c0c16969428fa55627153a7e6ab2"
-branch = "claude/issue-104-game-end"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/engine/score.py", "src/skat/engine/tricks.py", "src/skat/engine/value.py", "src/skat/store/auction.py", "src/skat/store/declaring.py", "src/skat/store/game_list.py", "src/skat/store/migrations/versions/0007_game_list.py", "src/skat/store/playing.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/game_list.py", "src/skat/table/playing.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/playing.py", "src/skat/web/tables.py", "tests/e2e/test_table_watch.py", "tests/engine/test_score.py", "tests/engine/test_tricks.py", "tests/engine/test_value.py", "tests/store/test_game_list.py", "tests/store/test_migrate.py", "tests/store/test_playing.py", "tests/store/test_tables.py", "tests/support/fake_tables.py", "tests/table/test_game_list.py", "tests/table/test_playing.py", "tests/table/test_rules.py", "tests/table/test_service.py", "tests/table/test_views.py", "tests/web/test_playing.py", "tests/web/test_presence_next_deal.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "3616a40d514a8ed24bb848d07ddbecb79350ba1e"
-whole_reason = "The entry, its store and the end of the hand are one transaction: a hand that ends without its entry loses the game, and a list without its writer is code ahead of its caller."
