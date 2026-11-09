@@ -23,6 +23,13 @@ if TYPE_CHECKING:
 EVENT_STREAM: Final = "text/event-stream"
 
 
+async def _ask_for_next_deal(presence: Presence, table_id: str, view: TableView) -> None:
+    if view.passed_in is not None:
+        presence.deal_soon(table_id)
+    if view.result is not None:
+        await presence.deal_now(table_id)
+
+
 async def table_views(
     presence: Presence,
     read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
@@ -58,10 +65,8 @@ async def table_views(
             if view is None:
                 message = f"table {table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
-            if sent_version is None and view.passed_in is not None:
-                presence.deal_soon(table_id)
-            if sent_version is None and view.result is not None:
-                await presence.deal_now(table_id)
+            if sent_version is None:
+                await _ask_for_next_deal(presence, table_id, view)
             if not heartbeat_read or view.version != sent_version:
                 yield view
                 sent_version = view.version
