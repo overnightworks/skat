@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.games import GameKind
-from skat.engine.value import Valuation, matadors, value_of
+from skat.engine.value import Level, Valuation, matadors, value_of, value_reached_by_levels
 
 if TYPE_CHECKING:
     from skat.engine.tricks import PlayedOut
@@ -40,7 +40,7 @@ def _cheapest_game_reaching(played: PlayedOut, bid: int) -> int:
         base = kind.base_value
         assert held is not None  # noqa: S101 - narrows the type; only Null has no matadors
         assert base is not None  # noqa: S101 - narrows the type; only Null has no base value
-        values.append(_raised_to_reach((held.count + 1) * base, base, bid))
+        values.append(_raised_to_reach(value_reached_by_levels(held.count, (Level.SPIEL,), base), base, bid))
     return min(values)
 
 

@@ -10,7 +10,7 @@ from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
-from skat.engine.value import Matadors
+from skat.engine.value import Level, Matadors
 from skat.table.game_list import list_entry_of, result_view_of, total_of
 from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
 
@@ -204,6 +204,33 @@ class TestTheResult:
 
         assert tuple(gain.gain for gain in result.gains) == gains
         assert tuple(gain.seat for gain in result.gains) == (DECLARER_SEAT, 2, 3)
+
+    @pytest.mark.parametrize(
+        ("game", "won"),
+        [
+            pytest.param(played(KREUZ, MIT_TWO, (30, 30, 18)), (True, False, False), id="declarer-won"),
+            pytest.param(played(KREUZ, MIT_TWO, (30, 24)), (False, True, True), id="opponents-won"),
+        ],
+    )
+    def test_each_chair_is_marked_won_when_its_side_won(self, game, won):
+        result = result_view_of(pending_result(game))
+
+        assert tuple(gain.won for gain in result.gains) == won
+
+    @pytest.mark.parametrize(
+        ("game", "base_value", "levels", "doubled"),
+        [
+            pytest.param(played(KREUZ, MIT_TWO, (30, 30, 18)), 12, (Level.SPIEL,), False, id="won"),
+            pytest.param(played(KREUZ, MIT_TWO, (30, 24), hand=True), 12, (Level.SPIEL, Level.HAND), True, id="lost"),
+            pytest.param(played(NULL, declarer_tricks=(12,)), None, (), True, id="null"),
+        ],
+    )
+    def test_names_the_base_value_the_levels_and_whether_the_value_counts_doubled(
+        self, game, base_value, levels, doubled
+    ):
+        result = result_view_of(pending_result(game))
+
+        assert attrgetter("base_value", "levels", "doubled")(result) == (base_value, levels, doubled)
 
     def test_reads_the_last_entry_and_numbers_it_by_its_place_in_the_list(self):
         won, lost = played(KREUZ, MIT_TWO, (30, 30, 18)), played(KREUZ, MIT_TWO, (30, 24))

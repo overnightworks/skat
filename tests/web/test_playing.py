@@ -617,7 +617,10 @@ HERZ_RESULT = {
     "schneider": False,
     "schwarz": False,
     "matadors": {"mit": False, "count": 1},
+    "base_value": 10,
+    "levels": ["spiel", "hand"],
     "won": True,
+    "doubled": False,
     "overbid": False,
     "bid": 18,
     "game_value": 30,
@@ -625,7 +628,11 @@ HERZ_RESULT = {
     "score": 30,
     "declarer_points": 70,
     "opponents_points": 50,
-    "gains": [{"seat": 1, "gain": 80}, {"seat": 2, "gain": 0}, {"seat": 3, "gain": 0}],
+    "gains": [
+        {"seat": 1, "gain": 80, "won": True},
+        {"seat": 2, "gain": 0, "won": False},
+        {"seat": 3, "gain": 0, "won": False},
+    ],
 }
 
 
