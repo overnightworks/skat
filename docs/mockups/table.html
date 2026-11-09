@@ -181,13 +181,13 @@ body.solo .frame{border-radius:0;border:0}
   border:2px dashed var(--accent-stage);background:rgba(122,167,240,.08);display:grid;place-items:center;color:var(--accent-stage)}
 .ghost svg{width:34%;height:34%}
 
-/* ---------- plaque on the felt: game + card points with the 61 line ---------- */
+/* ---------- plaque on the felt: the game's name; the card points with the 61 line stand only on the result ---------- */
 .plaque{transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 12px 10px;border-radius:16px;
   background:var(--glass-dark);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(240,214,150,.2)}
 .game{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:600}
-.game .suit{width:26px;height:26px;border-radius:50%;background:var(--cream);display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--brass)}
-.game .suit svg{width:15px;height:15px}
-.game .x2{height:20px;padding:0 7px;border-radius:6px;border:1.5px solid var(--cream);font-size:11px;font-weight:700;letter-spacing:.04em;display:grid;place-items:center;transform:rotate(-4deg)}
+.game .suit,.eq .suit{width:26px;height:26px;border-radius:50%;background:var(--cream);display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--brass)}
+.game .suit svg,.eq .suit svg{width:15px;height:15px}
+.x2{height:20px;padding:0 7px;border-radius:6px;border:1.5px solid var(--cream);font-size:11px;font-weight:700;letter-spacing:.04em;display:grid;place-items:center;transform:rotate(-4deg)}
 .points{width:var(--pw,120px);display:flex;flex-direction:column;gap:4px}
 .points .nums{display:flex;justify-content:space-between;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
 .points .nums .d{color:var(--busy-stage)}.points .nums .o{color:var(--accent-stage)}
@@ -356,8 +356,6 @@ body.solo .frame{border-radius:0;border:0}
   @keyframes pop{0%{scale:.2;opacity:0;translate:0 10px}18%{scale:1.15;opacity:1;translate:0 0}28%{scale:1}80%{opacity:1;translate:0 -18px}100%{opacity:0;translate:0 -26px}}
   .seat.got .chair{animation:got 1.4s ease-out var(--d,0s) both}
   @keyframes got{0%,30%{box-shadow:0 18px 30px -12px rgba(0,0,0,.9)}45%{box-shadow:0 0 0 4px #f3cf7a,0 0 40px 10px rgba(243,207,122,.55),0 18px 30px -12px rgba(0,0,0,.9)}}
-  .points .grow{animation:grow .6s ease-out var(--d,0s) both}
-  @keyframes grow{from{width:var(--from)}}
   /* a win: suit confetti bursts from the winners' chairs and drifts down */
   .confetti i.mo{animation:burst 2.6s cubic-bezier(.15,.75,.3,1) var(--d,0s) both}
   @keyframes burst{0%{translate:var(--ox) var(--oy);scale:.2;opacity:0;rotate:0deg}8%{opacity:1}55%{translate:0 0;scale:1;rotate:var(--spin);opacity:1}75%{opacity:1}100%{translate:var(--drift) 70px;rotate:calc(var(--spin) * 2);opacity:0}}
@@ -502,6 +500,18 @@ body.solo section.shot .rule{display:none}
 }
 </style>
 <style>
+/* ---------- the reckoning on the result: the counted steps, their product, the raise of an overbid game, the doubling of a lost one, the list ---------- */
+.result .ladder{flex-wrap:wrap;justify-content:center}
+.result .ladder span{height:28px;font-size:13.5px}
+.ladder span.mit{color:#f3cf7a}
+.eq{display:flex;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.eq i{font-style:normal;color:var(--on-stage-soft)}
+.eq b{font-family:var(--font-mark);font-size:24px;color:var(--cream)}
+.value-row{display:flex;align-items:center;gap:14px}
+.list{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 8px;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--on-stage-soft)}
+.list b{color:var(--on-stage)}
+.p390 .result.end{gap:8px}
+.p390 .value{font-size:38px}
 /* ---------- announced and open games: the announced level ticks or crosses on the result, the declarer's open cards lie in two rows ---------- */
 .result .ladder{transform:none}
 .plaque.wide{width:max-content}
@@ -654,8 +664,8 @@ const table=(o)=>`<div class="table ${o.thud?'thud':''}" style="${at({left:o.x,t
   <div class="rosette" style="${at({'--ry':o.ry||'50%','--rs':o.rs||170})}"></div></div></div>`;
 const glow=(x,y,w,h)=>`<div class="seatglow" style="${at({'--gx':x,'--gy':y,'--gw':w,'--gh':h})}"></div>`;
 const gameLine=(s,name,extra='')=>`<div class="game">${s?`<span class="suit">${suitIcon(s)}</span>`:''}${name}${extra}</div>`;
-const points=(d,o,pw,from)=>`<div class="points" style="--pw:${pw}px"><div class="nums"><span class="d">Anna ${d}</span><span class="o">Wir ${o}</span></div>
-  <div class="track"><div class="fd" style="width:${(d/120*100).toFixed(1)}%"></div><div class="fo ${from!==undefined?'grow':''}" style="width:${(o/120*100).toFixed(1)}%;--from:${from!==undefined?(from/120*100).toFixed(1):0}%;--d:.75s"></div><span class="t61"></span></div></div>`;
+const points=(d,o,pw)=>`<div class="points" style="--pw:${pw}px"><div class="nums"><span class="d">Anna ${d}</span><span class="o">Wir ${o}</span></div>
+  <div class="track"><div class="fd" style="width:${(d/120*100).toFixed(1)}%"></div><div class="fo" style="width:${(o/120*100).toFixed(1)}%"></div><span class="t61"></span></div></div>`;
 const plaque=(cx,y,inner)=>`<div class="plaque" style="${at({left:cx,top:y})}">${inner}</div>`;
 const tag=(k,cls='',st='')=>{const p=P[k];return `<span class="tag ${p.agent?'agent':''} ${cls}" style="${st}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${p.n}${p.agent?'<span class="ai-badge">KI</span>':''}</span>`;};
 /* a played card lies toward its player; fresh = just played; sweep = on its way to the winner */
@@ -710,11 +720,15 @@ const PB={
   anna:{x:10,y:50,w:120,h:94,sm:true}, nova:{x:260,y:50,w:120,h:94,sm:true}, you:{x:142,y:496,w:106,h:84,sm:true},
   coasters:[[100,112,34,-10],[256,112,34,8],[254,538,34,-6]],
 };
+/* on the phone the near chair steps back to leave the card room for the reckoning */
+const BACK=72;
+const PB_BACK={...PB,you:{...PB.you,y:PB.you.y+BACK},coasters:[PB.coasters[0],PB.coasters[1],[PB.coasters[2][0],PB.coasters[2][1]+BACK,...PB.coasters[2].slice(2)]]};
+
 const pbRoom=(o)=>table({...PB.table,thud:o.thud})+(o.glow||'')+(o.call===false?'':people(4,12,8)+watchers(296,4,[['ben',56,40]]))
   +fan(o.left,{x:80,y:168,w:26,rot:150,spread:6,dim:o.annaOut,deal:o.deal&&150})+fan(o.left,{x:310,y:168,w:26,rot:210,spread:6,dim:o.novaOut,deal:o.deal&&150,d0:.1});
 const pbSeats=(o)=>seat('anna',{...PB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...PB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
-  +seat('felix',{...PB.you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
-  +chairCoasters(PB,o.score);
+  +seat('felix',{...(o.layout||PB).you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
+  +chairCoasters(o.layout||PB,o.score);
 
 frame('call-bid-390','Reizen im Anruf','Handy 390 px','p390',
   pbRoom({left:10,annaOut:true,deal:true,glow:glow(195,560,240,120)})
@@ -729,7 +743,7 @@ frame('call-bid-390','Reizen im Anruf','Handy 390 px','p390',
 
 frame('call-play-390','Stich im Anruf','Handy 390 px','p390',
   pbRoom({left:8,glow:glow(195,560,240,120)})
-  +plaque(195,176,gameLine('c','Kreuz')+points(10,21,104))
+  +plaque(195,176,gameLine('c','Kreuz'))
   +played('K','s','anna',{x:136,y:318,w:70,rot:-9})
   +played('7','s','nova',{x:254,y:318,w:70,rot:8,fresh:true,fx:'70px',fy:'-170px',fr:'40deg'})
   +ghost(195,440,70)
@@ -741,14 +755,14 @@ frame('call-play-390','Stich im Anruf','Handy 390 px','p390',
 const sweepTo=(x,y,cx,cy,tx,ty,k,extra={})=>({gx:cx-x,gy:cy-y,wx:tx-x,wy:ty-y,k,...extra});
 frame('call-trick-390','Stich geht an dich','Handy 390 px','p390',
   pbRoom({left:7})
-  +plaque(195,176,gameLine('c','Kreuz')+points(10,36,104,21))
+  +plaque(195,176,gameLine('c','Kreuz'))
   +played('K','s','anna',{x:136,y:318,w:70,rot:-9,sweep:sweepTo(136,318,195,370,195,540,.72,{gr:-4})})
   +played('7','s','nova',{x:254,y:318,w:70,rot:8,sweep:sweepTo(254,318,195,370,195,540,.72,{gr:5})})
   +played('A','s','felix',{x:195,y:440,w:70,rot:0,notag:true,blank:true,sweep:sweepTo(195,440,195,370,195,540,.65,{op:.2})})
   +played('A','s','felix',{x:195,y:440,w:70,rot:0,notag:true,blank:true,sweep:sweepTo(195,440,195,370,195,540,.685,{op:.4})})
   +played('A','s','felix',{x:195,y:440,w:70,rot:0,sweep:sweepTo(195,440,195,370,195,540,.72)})
   +pbSeats({video:true,anna:['decl'],score:[148,62,55],got:'.63s;--d:.45s'})
-  +pop('+15',195,488,.3)
+  +pop(`${I.check}Stich`,195,488,.3)
   +hand(AFTER_HAND,PHONE_HAND)+callBar(false));
 
 /* ===== desktop: Anna at the left chair, Nova at the right chair, you at the near edge ===== */
@@ -776,7 +790,7 @@ frame('call-bid-1280','Reizen im Anruf','Desktop 1280 px','d1280',
 
 frame('call-play-1280','Stich im Anruf','Desktop 1280 px','d1280',
   dbRoom({left:8,glow:glow(640,640,640,170)})
-  +plaque(640,98,gameLine('c','Kreuz')+points(10,21,220))
+  +plaque(640,98,gameLine('c','Kreuz'))
   +played('K','s','anna',{x:560,y:276,w:96,rot:-11})
   +played('7','s','nova',{x:720,y:276,w:96,rot:9,fresh:true,fx:'300px',fy:'-30px',fr:'60deg'})
   +ghost(640,432,96)
@@ -786,20 +800,48 @@ frame('call-play-1280','Stich im Anruf','Desktop 1280 px','d1280',
 
 frame('call-trick-1280','Stich geht an dich','Desktop 1280 px','d1280',
   dbRoom({left:7})
-  +plaque(640,98,gameLine('c','Kreuz')+points(10,36,220,21))
+  +plaque(640,98,gameLine('c','Kreuz'))
   +played('K','s','anna',{x:560,y:276,w:96,rot:-11,sweep:sweepTo(560,276,640,330,187,632,.72,{gr:-4})})
   +played('7','s','nova',{x:720,y:276,w:96,rot:9,sweep:sweepTo(720,276,640,330,187,632,.72,{gr:5})})
   +played('A','s','felix',{x:640,y:432,w:96,rot:0,notag:true,blank:true,sweep:sweepTo(640,432,640,330,187,632,.65,{op:.2})})
   +played('A','s','felix',{x:640,y:432,w:96,rot:0,notag:true,blank:true,sweep:sweepTo(640,432,640,330,187,632,.685,{op:.4})})
   +played('A','s','felix',{x:640,y:432,w:96,rot:0,sweep:sweepTo(640,432,640,330,187,632,.72)})
   +dbSeats({video:true,anna:['decl'],score:[148,62,55],got:'.63s;--d:.45s'})
-  +pop('+15',187,540,.3)
+  +pop(`${I.check}Stich`,187,540,.3)
   +hand(AFTER_HAND,DESK_HAND)+callBar(true));
 /* ===== end of hand: Anna's Kreuz game falls Schneider; you and Nova win, Anna knocks the table ===== */
+/* ===== the reckoning of a game: its steps, its value, what the list adds ===== */
+const withMinus=(n)=>n<0?`−${-n}`:n;
+const levelRow=(list)=>`<div class="ladder words">${list.map(([name,state])=>`<span class="${state==='mit'?'held mit':state}">${state==='missed'?I.cross:state==='mit'?'':I.check}${name}</span>`).join('')}</div>`;
+/* the reckoning is derived from the declared parts, so every number on a card agrees with the engine's value rules; a scene whose coasters disagree fails loud */
+const LIST_BONUS=50,LIST_SHARE=40;
+const signed=(n)=>n>0?`+${n}`:withMinus(n);
+function reckonOf(o){
+  const c=o.calc,value=c.fixed??(c.count+c.steps.length)*c.base;
+  const settled=c.bid&&value<c.bid?Math.ceil(c.bid/c.base)*c.base:value;
+  const final=c.won?settled:-2*settled,total=final+(c.won?LIST_BONUS:-LIST_BONUS);
+  const mine=o.declarer==='anna'?0:2;
+  o.adds.forEach((n,i)=>{const want=i===mine?total:c.won?0:LIST_SHARE;if(n!==want)throw new Error(`${o.game}: coaster ${i} shows ${n}, the reckoning gives ${want}`);});
+  return {value,settled,final,total};
+}
+const calcRows=(o,compact=false)=>{
+  const c=o.calc,r=reckonOf(o),mark=(name)=>[name,name===c.missed?'missed':'held'];
+  const chips=levelRow([...(c.fixed?[]:[[`${c.mit?'mit':'ohne'} ${c.count}`,'mit']]),...c.steps.map(mark)]);
+  const twice=compact&&!c.won?'<span class="x2">×2</span>':'';
+  const product=r.final===r.value&&!compact?'':`<i>=</i><b>${r.value}</b>`;
+  const raise=r.settled!==r.value?`<div class="miss">Wert ${r.value} &lt; Reizwert ${c.bid} → ${r.settled}${twice}</div>`:'';
+  const eq=c.fixed?(product?`<div class="eq"><span>${c.label}</span>${product}</div>`:'')
+    :`<div class="eq"><span>${c.count+c.steps.length}</span><i>×</i>${c.suit?`<span class="suit">${suitIcon(c.suit)}</span>`:`<span>${c.label}</span>`}<span>${c.base}</span>${product}${raise?'':twice}</div>`;
+  const value=`<div class="value-row">${c.won?'':'<span class="x2">×2</span>'}<div class="value ${r.final<0?'minus':''}">${signed(r.final)}</div></div>`;
+  const list=`<div class="list"><b>${o.names[0]}</b><span>Spiel ${signed(r.final)}</span><span>Liste ${c.won?'+':'−'}${LIST_BONUS}</span><span>= ${signed(r.total)}</span>${c.won?'':`<span>· ${o.names[1]} je +${LIST_SHARE}</span>`}</div>`;
+  return chips+eq+raise+(compact?'':value)+list;
+};
 const reck=(k,dl,win)=>{const p=P[k];return `<div class="reck ${p.agent?'agent':''} ${win?'win':''}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span><span class="nm">${p.n}${p.agent?'<span class="ai-badge">KI</span>':''}</span>${dl}</div>`;};
+const CALL_END={declarer:'anna',adds:[-122,40,40],game:'Kreuz',names:['Anna','Wir'],calc:{suit:'c',base:12,mit:true,count:1,steps:['Spiel','Schneider'],won:false}};
 const result=(x,y,w,pw)=>`<div class="result" style="${at({left:x,top:y,width:w})}">
   <h3>Gewonnen!</h3>
   <div class="sub">${gameLine('c','Kreuz')}<span class="stamp mo" style="--k:1.5s;--d:.45s">Schneider</span></div>
+  ${calcRows(CALL_END,true)}
   ${points(28,92,pw)}
   <div class="coasters">${reck('felix','<span class="dl count" style="--to:40"></span>',true)}${reck('nova','<span class="dl count" style="--to:40"></span>',true)}${reck('anna','<span class="dl minus">−122</span>')}</div>
   <div class="btns"><span class="button button-stage">Weiter</span><span class="button button-glass">Beenden</span></div></div>`;
@@ -809,7 +851,7 @@ frame('call-end-390','Gewonnen im Anruf','Handy 390 px','p390',
   pbRoom({left:0})
   +confetti({n:48,box:[8,60,382,640],origins:[[195,540],[320,96]],size:12,k:1.25,seed:11})
   +result(195,168,354,0)
-  +pbSeats({video:true,anna:['decl'],youWin:true,novaWin:true,score:[26,102,95]})
+  +pbSeats({video:true,anna:['decl'],youWin:true,novaWin:true,score:[26,102,95],layout:PB_BACK})
   +annaKnock(180,126,50,34)
   +tray({left:54,top:668},{hot:'🍻'})+callBar(false,{react:true}));
 
@@ -894,10 +936,11 @@ scenes(SKAT_SCENES);
 /* ===== the ideas, one line each ===== */
 const IDEAS=[
   ['🂠','Austeilen','Beim Geben fliegen die Karten in Paketen vom Stapel zu jedem Stuhl.','deal-mine, deal-watch, call-bid'],
-  ['↘','Stich einsammeln','Die drei Karten rücken zusammen und gleiten zum Stuhl, der sticht; dort springen die Augen auf, der Stuhl blitzt gold.','call-trick'],
+  ['↘','Stich einsammeln','Die drei Karten rücken zusammen und gleiten zum Stuhl, der sticht; der Stuhl blitzt gold. Laufende Augen zeigt erst das Ergebnis.','call-trick'],
   ['🔥','Emotes werfen','Jeder im Anruf, auch Zuschauer, wirft ein Emoji im Bogen auf den Filz; es hüpft, liegt kurz, verblasst.','call-play'],
   ['👊','Klopfen','Auf den Tisch klopfen wie in der Kneipe: zwei Ringe auf dem Filz, als Gruß oder Respekt.','call-end'],
   ['❗','Ansage-Stempel','Kontra, Re, Schneider und spätere Hausregeln landen als ein Stempel mit dem Gesicht des Rufers; der Tisch zuckt kurz.','solo-play, call-end'],
+  ['🧾','Rechnung','Das Ergebnis zeigt, was gespielt wurde und wie der Wert entsteht: Matadore, jede Stufe, Grundwert, Aufrunden beim Überreizen, Verdoppeln beim Verlieren und die Liste.','end-won, end-lost, end-over, announce-missed, null-won, grand-won'],
   ['🪑','Sessel','Jeder Platz ist ein Ledersessel in seiner Farbe, mit Messingnieten und Messingschild statt Namensblase.','alle'],
   ['🍺','Bierdeckel','Der Deckel neben jedem Stuhl trägt den Spielstand; beim Abrechnen werden die Deckel zur Wertung.','alle'],
   ['💡','Lampe','Eine Hängelampe wirft warmes Licht auf den Tisch, hinten glimmen Kneipenlichter.','alle'],
@@ -1041,7 +1084,7 @@ const pointsNamed=(eyes,names,pw)=>points(eyes[0],eyes[1],pw).replace(`Anna ${ey
 const PLAY_OTHER_SCENES=[
   ['play-watch','Zuschauen beim Stich',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d?16:12,d?14:8)
     +sideFans(d,7,7)+nearFan(d,8)
-    +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+pointsNamed([10,21],['Anna','Gegner'],d?220:128))
+    +plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))
     +played('K','s','anna',TRICK_SLOT.left(d))
     +played('7','s','ben',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})
     +seat('anna',{...L.anna,marks:['decl']})+seat('ben',L.nova)+seat('lena',{...L.you,marks:['turn']})+tableBar(d);}],
@@ -1058,30 +1101,29 @@ ORDER.splice(ORDER.indexOf('call-play-1280')+1,0,...PLAY_OTHER_SCENES.flatMap(([
 MARK.ready=`<span class="mark ready" title="Weiter getippt">${I.check}</span>`;
 MARK.notTapped=`<span class="mark waits" title="noch nicht getippt">${waitDots()}</span>`;
 const TOTALS_BEFORE=[148,62,55];
-const withMinus=(n)=>n<0?`−${-n}`:n;
 const added=(n)=>n>0?`<span class="dl count" style="--to:${n}"></span>`:`<span class="dl minus">${withMinus(n)}</span>`;
-const chairsOf=(d,near)=>{const L=d?DB:PB;return [['anna',L.anna],['ben',L.nova],[near,L.you]];};
+const endLayout=(d)=>d?DB:PB_BACK;
+const chairsOf=(d,near)=>{const L=endLayout(d);return [['anna',L.anna],['ben',L.nova],[near,L.you]];};
 const endSeats=(d,o)=>chairsOf(d,o.near).map(([k,pos])=>seat(k,{...pos,marks:[...(k===o.declarer?['decl']:[]),o.ready.includes(k)?'ready':'notTapped'],win:o.winners.includes(k)})).join('')
-  +chairCoasters(d?DB:PB,o.adds.map((n,i)=>withMinus(TOTALS_BEFORE[i]+n)));
+  +chairCoasters(endLayout(d),o.adds.map((n,i)=>withMinus(TOTALS_BEFORE[i]+n)));
 const reckoning=(o)=>`<div class="coasters">${[[o.near,o.adds[2]],['anna',o.adds[0]],['ben',o.adds[1]]].map(([k,n])=>reck(k,added(n),o.winners.includes(k))).join('')}</div>`;
 const tapButton=`<span class="cb wide" role="button">${I.check}Weiter</span>`;
 const waitButton=(names)=>`<span class="cb wide glass" role="status">Warte auf ${names}${waitDots()}</span>`;
 const endBar=(d,tap)=>tap?tableBar(d,{seated:true}).replace('<div class="sbar">',`<div class="sbar">${tap}`):tableBar(d);
-const levelRow=(list)=>`<div class="ladder words">${list.map(([name,state])=>`<span class="${state}">${state==='missed'?I.cross:I.check}${name}</span>`).join('')}</div>`;
-const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:168,width:354})}">
+const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
   <h3>${o.won?I.check:I.cross}${o.word}</h3>
   <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stamp}</span>`:''}</div>
-  ${o.levels?levelRow(o.levels):''}
-  ${o.value?`<div class="value ${o.value.startsWith('−')?'minus':''}">${o.value}</div>`:''}
-  ${o.miss?`<div class="miss">Wert ${o.miss[0]} &lt; Reizwert ${o.miss[1]}</div>`:''}
-  ${pointsNamed(o.eyes,o.names,0)}
+  ${calcRows(o)}
+  ${o.eyes?pointsNamed(o.eyes,o.names,0):''}
   ${reckoning(o)}</div>`;
 const declarerWinsConfetti=(d)=>d?confetti({n:70,box:[240,40,1040,640],origins:[[187,632]],size:18,k:1.25,seed:5}):confetti({n:48,box:[8,60,382,640],origins:[[195,540]],size:12,k:1.25,seed:11});
 const OWN_GAME=['Du','Gegner'];
-const OWN_WIN={near:'felix',declarer:'felix',winners:['felix'],adds:[0,0,86],won:true,word:'Gewonnen!',suit:'c',game:'Kreuz',value:'+36',eyes:[78,42],names:OWN_GAME,ready:[]};
-const OWN_LOSS={near:'felix',declarer:'felix',winners:['anna','ben'],adds:[40,40,-122],word:'Verloren',suit:'c',game:'Kreuz',value:'−72',eyes:[54,66],names:OWN_GAME,ready:[]};
-const OWN_OVERBID={...OWN_LOSS,adds:[40,40,-104],suit:'d',game:'Karo',stamp:'Überreizt',value:'−54',miss:[18,20],eyes:[70,50]};
-const ANNA_WINS={declarer:'anna',winners:['anna'],adds:[80,0,0],suit:'h',eyes:[74,46]};
+/* each game's calc holds what the engine's value rules take: the matadors, the steps that count, the base value, the bid, and whether the declarer won */
+const KREUZ_MIT_2={suit:'c',base:12,mit:true,count:2,steps:['Spiel']};
+const OWN_WIN={near:'felix',declarer:'felix',winners:['felix'],adds:[0,0,86],won:true,word:'Gewonnen!',suit:'c',game:'Kreuz',calc:{...KREUZ_MIT_2,won:true},eyes:[78,42],names:OWN_GAME,ready:[]};
+const OWN_LOSS={near:'felix',declarer:'felix',winners:['anna','ben'],adds:[40,40,-122],word:'Verloren',suit:'c',game:'Kreuz',calc:{...KREUZ_MIT_2,won:false},eyes:[54,66],names:OWN_GAME,ready:[]};
+const OWN_OVERBID={...OWN_LOSS,adds:[40,40,-104],suit:'d',game:'Karo',stamp:'Überreizt',calc:{suit:'d',base:9,mit:true,count:1,steps:['Spiel'],bid:20,won:false},eyes:[70,50]};
+const ANNA_WINS={declarer:'anna',winners:['anna'],adds:[80,0,0],suit:'h',calc:{suit:'h',base:10,mit:true,count:2,steps:['Spiel'],won:true},eyes:[74,46]};
 const RIVAL={...ANNA_WINS,near:'felix',word:'Verloren',game:'Anna, Herz',names:['Anna','Wir'],ready:['anna']};
 const WATCHED={...ANNA_WINS,near:'lena',won:true,word:'Anna gewinnt',game:'Herz',names:['Anna','Gegner'],ready:['anna','ben']};
 const endScene=(d,o,tap,watchers=1,extra='')=>dealRoom(d,{watchers})+extra+endCard(d,o)+endSeats(d,o)+endBar(d,tap);
@@ -1093,6 +1135,13 @@ const END_SCENES=[
   ['end-over','Überreizt',(d)=>endScene(d,OWN_OVERBID,tapButton)],
   ['end-ready','Weiter getippt',(d)=>endScene(d,{...OWN_WIN,ready:['felix','anna']},waitButton('Ben'))],
 ];
+/* a won Null Hand has a fixed value and no matadors; a Grand without two Bauern counts „ohne 2“; neither has an existing scene */
+const NULL_HAND={near:'felix',declarer:'felix',winners:['felix'],adds:[0,0,85],won:true,word:'Gewonnen!',game:'Null Hand',calc:{label:'Null Hand',fixed:35,steps:['Spiel','Hand'],won:true},names:OWN_GAME,ready:[]};
+const GRAND_OHNE={...OWN_WIN,adds:[0,0,122],suit:'',game:'Grand',calc:{label:'Grand',base:24,mit:false,count:2,steps:['Spiel'],won:true},eyes:[74,46]};
+END_SCENES.push(
+  ['null-won','Null gewonnen',(d)=>endScene(d,NULL_HAND,tapButton,1,declarerWinsConfetti(d)),['Null hat einen festen Wert (23, 35, 46 oder 59) und keine Matadore; Augen zählen hier nicht, das Spiel ist gewonnen, wenn kein Stich fällt.']],
+  ['grand-won','Grand ohne 2 gewonnen',(d)=>endScene(d,GRAND_OHNE,tapButton,1,declarerWinsConfetti(d))],
+);
 scenes(END_SCENES);
 ORDER.splice(ORDER.indexOf('call-end-1280')+1,0,...END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
@@ -1152,17 +1201,18 @@ const announcedTrick=(d)=>played('K','s','anna',TRICK_SLOT.left(d))
   +played('7','s','nova',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})+(d?ghost(640,432,96):ghost(195,440,70));
 const ANNOUNCE_SCENES=[
   ['announce-play','Angesagt, du spielst dagegen',(d)=>room(d,{left:8,glow:yourTurn(d)})
-    +widePlaque(d?640:195,d?98:186,ANNOUNCED+points(10,21,d?220:104))+announcedTrick(d)
+    +widePlaque(d?640:195,d?98:186,ANNOUNCED)+announcedTrick(d)
     +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d)],
   ['announce-own','Angesagt, du spielst',(d)=>room(d,{left:8,glow:yourTurn(d)})
-    +widePlaque(d?640:195,d?98:186,ANNOUNCED+pointsNamed([21,10],OWN_GAME,d?220:104))+announcedTrick(d)
+    +widePlaque(d?640:195,d?98:186,ANNOUNCED)+announcedTrick(d)
     +seats(d,{video:true,you:['decl','turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d)],
 ];
 scenes(ANNOUNCE_SCENES);
 ORDER.splice(ORDER.indexOf('call-play-1280')+1,0,...ANNOUNCE_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
-const ANNOUNCE_REACHED={...OWN_WIN,suit:'h',game:'Herz Hand',value:'+50',adds:[0,0,100],eyes:[94,26],levels:[['Hand','held'],['Schneider angesagt','held']]};
-const ANNOUNCE_MISSED={...OWN_LOSS,suit:'h',game:'Herz Hand',value:'−100',adds:[40,40,-150],eyes:[75,45],levels:[['Hand','held'],['Schneider angesagt','missed']]};
+const HERZ_ANGESAGT={suit:'h',base:10,mit:true,count:1,steps:['Spiel','Hand','Schneider','Schneider angesagt']};
+const ANNOUNCE_REACHED={...OWN_WIN,suit:'h',game:'Herz Hand',adds:[0,0,100],eyes:[94,26],calc:{...HERZ_ANGESAGT,won:true}};
+const ANNOUNCE_MISSED={...OWN_LOSS,suit:'h',game:'Herz Hand',adds:[40,40,-150],eyes:[75,45],calc:{...HERZ_ANGESAGT,missed:'Schneider angesagt',won:false}};
 const ANNOUNCE_END_SCENES=[
   ['announce-reached','Angesagt und geschafft',(d)=>endScene(d,ANNOUNCE_REACHED,tapButton,1,declarerWinsConfetti(d))],
   ['announce-missed','Angesagt und verfehlt',(d)=>endScene(d,ANNOUNCE_MISSED,tapButton),
@@ -1178,14 +1228,14 @@ const openHand=(cards,d)=>{
   return `<div class="open" style="${at({left:o.x,top:o.y,'--w':o.w,'--step':o.step,'--drop':o.drop})}">${[cards.slice(0,top),cards.slice(top)]
     .map(row=>`<div class="open-row">${row.map(c=>card(c[0],c[1],'',at({'--w':o.w}))).join('')}</div>`).join('')}</div>`;};
 /* the plaque moves right on the phone so the open cards keep the felt below their chair */
-const ouvertPlaque=(d,eyes)=>widePlaque(d?640:290,d?98:196,gameLine('','Grand ouvert')+(eyes?pointsNamed(eyes,['Anna','Gegner'],d?220:104):''));
+const ouvertPlaque=(d)=>widePlaque(d?640:290,d?98:196,gameLine('','Grand ouvert'));
 const openTag=(d)=>`<div class="tag-glass" title="Offen für alle" style="${at(d?{left:598,top:526}:{left:166,top:614})}">${I.eye}<span>Offen</span></div>`;
 const OUVERT_SCENES=[
   ['ouvert-before','Offen, vor der ersten Karte',(d)=>room(d,{left:0,glow:yourTurn(d)})+sideFans(d,0,10)
     +ouvertPlaque(d)+openHand(OUVERT_HAND,d)+(d?ghost(640,432,96):ghost(195,440,70))
     +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,FELIX_AGAINST)+callBar(d)],
   ['ouvert-watch','Zuschauen bei offenen Karten',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d?16:12,d?14:8)
-    +sideFans(d,0,7)+nearFan(d,8)+ouvertPlaque(d,[21,10])
+    +sideFans(d,0,7)+nearFan(d,8)+ouvertPlaque(d)
     +openHand([['B','c'],['B','s'],['B','h'],['10','c'],['K','s'],['10','h'],['A','d']],d)
     +played('A','s','anna',TRICK_SLOT.left(d))
     +played('7','s','ben',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})
