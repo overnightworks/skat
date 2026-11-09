@@ -11,6 +11,7 @@ from skat.engine.tricks import Ending, PlayedOut, Playing, PlayRefusal, play_car
 from tests.support.playing_scenes import (
     FOREHAND,
     JACKS,
+    KARO,
     KARO_EIGHT,
     KARO_SEVEN,
     MIDDLEHAND,
@@ -22,7 +23,7 @@ from tests.support.playing_scenes import (
 if TYPE_CHECKING:
     from skat.engine.deal import Position
 
-KARO, KREUZ, HERZ, GRAND, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.HERZ, GameKind.GRAND, GameKind.NULL
+KREUZ, HERZ, GRAND, NULL = GameKind.KREUZ, GameKind.HERZ, GameKind.GRAND, GameKind.NULL
 KARO_ACE, KARO_TEN = Card(Suit.KARO, Rank.ACE), Card(Suit.KARO, Rank.TEN)
 
 

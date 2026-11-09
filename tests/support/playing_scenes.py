@@ -9,7 +9,7 @@ from skat.engine.games import GameKind
 from skat.engine.tricks import CompletedTrick, Playing, start_play
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
-KARO, KREUZ = GameKind.KARO, GameKind.KREUZ
+KARO = GameKind.KARO
 CLUBS_JACK, SPADES_JACK, HEARTS_JACK = (Card(suit, Rank.JACK) for suit in (Suit.KREUZ, Suit.PIK, Suit.HERZ))
 JACKS = (CLUBS_JACK, SPADES_JACK, HEARTS_JACK)
 KARO_SEVEN, KARO_EIGHT = Card(Suit.KARO, Rank.SEVEN), Card(Suit.KARO, Rank.EIGHT)
