@@ -38,8 +38,9 @@ def sign_in_at_issuer(page: Page, server: RunningServer, *, username: str, group
 
     The start's own answer is kept, so its pending-login cookie reaches the browser, and only its redirect
     to the issuer is swapped for the callback the issuer would send the browser to. The person signs in as
-    `username` in the Skat group unless `groups` names others. Playwright routes only the first request of a
-    navigation, so the person starts the sign-in from a page with a link or by opening the start path.
+    `username` in the Skat group unless `groups` names others. The route is on the page's context, so a window
+    the page opens signs in the same way. Playwright routes only the first request of a navigation, so the person
+    starts the sign-in from a page with a link or by opening the start path.
     """
 
     def answer(route: Route) -> None:
@@ -56,4 +57,4 @@ def sign_in_at_issuer(page: Page, server: RunningServer, *, username: str, group
             headers={**started.headers, "location": f"{server.base_url}{AUTH_CALLBACK_PATH}?{query}"},
         )
 
-    page.route(f"**{AUTH_START_PATH}**", answer)
+    page.context.route(f"**{AUTH_START_PATH}**", answer)
