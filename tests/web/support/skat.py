@@ -83,9 +83,11 @@ class Skat:
         )
         return {"cookie": cookie_header(member.set_cookie_headers), **FETCH}, member.account
 
-    def create(self, headers, command_id="command-0001", **extra):
+    def create(self, headers, command_id="command-0001", series_length=36, **extra):
         return self.client.post(
-            TABLES_PATH, json={"command_id": command_id, **extra}, headers={"origin": TEST_PUBLIC_ORIGIN, **headers}
+            TABLES_PATH,
+            json={"command_id": command_id, "series_length": series_length, **extra},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
 
     def sit(self, headers, table_id, seat, command_id="command-sit", **extra):
