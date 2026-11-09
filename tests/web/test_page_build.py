@@ -2,22 +2,30 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.web.page_build import PageBuild, _css_asset_urls
+from skat.web.page_build import PageBuild
 from skat.web.secret_files import StartRefusedError
-from tests.support.page_build import FIXTURE_DIRECTORY, FIXTURE_SCRIPT_HASH
+from tests.support.page_build import (
+    CALL_PAGE_SCRIPT_HASH,
+    FIXTURE_DIRECTORY,
+    FIXTURE_SCRIPT_HASH,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
 SIGN_IN_PAGES = ("login.html", "login-failed.html", "no-access.html")
+CALL_PAGE = "login/call.html"
+EMPTY_PAGE = "<html></html>"
 
 
-def build_with_shell(root: Path, shell: str, sign_in_page: str = "<html></html>") -> Path:
+def build_with_shell(root: Path, shell: str, sign_in_page: str = EMPTY_PAGE, call_page: str = EMPTY_PAGE) -> Path:
     (root / "_app").mkdir(parents=True)
+    (root / "login").mkdir()
     (root / "index.html").write_text(shell, encoding="utf-8")
     for name in SIGN_IN_PAGES:
         (root / name).write_text(sign_in_page, encoding="utf-8")
+    (root / CALL_PAGE).write_text(call_page, encoding="utf-8")
     return root
 
 
@@ -26,7 +34,7 @@ class TestLoad:
         page_build = PageBuild.load(FIXTURE_DIRECTORY)
 
         assert page_build.directory == FIXTURE_DIRECTORY
-        assert page_build.script_hashes == (FIXTURE_SCRIPT_HASH,)
+        assert page_build.script_hashes == (FIXTURE_SCRIPT_HASH, CALL_PAGE_SCRIPT_HASH)
 
     @pytest.mark.parametrize(
         ("shell", "hashes"),
@@ -101,55 +109,26 @@ class TestLoad:
             assert page.etag.startswith('"')
             assert page.etag.endswith('"')
 
-    def test_the_sign_in_assets_are_the_app_stylesheets_the_sign_in_pages_link_and_the_files_they_reference(
-        self, tmp_path
-    ):
-        root = build_with_shell(tmp_path, "<html></html>")
-        links = {
-            "login.html": ("/_app/a.css", "/static/css/x.css"),
-            "login-failed.html": ("/_app/a.css", "/_app/b.css"),
-            "no-access.html": ("/_app/c.css",),
-        }
-        for name, hrefs in links.items():
-            (root / name).write_text("".join(f'<link rel="stylesheet" href="{href}">' for href in hrefs))
-        for stylesheet in ("a.css", "b.css", "c.css"):
-            (root / "_app" / stylesheet).write_text("")
-        (root / "_app" / "b.css").write_text("@font-face { src: url(/_app/f.woff2) }")
+    def test_the_call_sign_in_page_is_the_bytes_read_with_a_strong_etag(self):
+        page = PageBuild.load(FIXTURE_DIRECTORY).call_sign_in
 
-        assert PageBuild.load(root).sign_in_assets == {"/_app/a.css", "/_app/b.css", "/_app/c.css", "/_app/f.woff2"}
+        assert page.content == (FIXTURE_DIRECTORY / CALL_PAGE).read_bytes()
+        assert page.etag.startswith('"')
+        assert page.etag.endswith('"')
 
-    @pytest.mark.parametrize("missing", SIGN_IN_PAGES)
+    @pytest.mark.parametrize("page", SIGN_IN_PAGES)
+    @pytest.mark.parametrize("script", ["<script>go();</script>", '<script src="/_app/a.js"></script>'])
+    def test_a_plain_sign_in_page_with_a_script_refuses_the_start(self, tmp_path, page, script):
+        root = build_with_shell(tmp_path, EMPTY_PAGE)
+        (root / page).write_text(script, encoding="utf-8")
+
+        with pytest.raises(StartRefusedError, match=page):
+            PageBuild.load(root)
+
+    @pytest.mark.parametrize("missing", [*SIGN_IN_PAGES, CALL_PAGE])
     def test_a_directory_without_a_sign_in_page_refuses_the_start_and_names_the_build_command(self, tmp_path, missing):
         root = build_with_shell(tmp_path, "<html></html>")
         (root / missing).unlink()
 
         with pytest.raises(StartRefusedError, match="make frontend"):
             PageBuild.load(root)
-
-    def test_a_linked_app_stylesheet_missing_from_the_build_refuses_the_start_and_names_the_build_command(
-        self, tmp_path
-    ):
-        root = build_with_shell(tmp_path, "<html></html>", '<link rel="stylesheet" href="/_app/gone.css">')
-
-        with pytest.raises(StartRefusedError, match="make frontend"):
-            PageBuild.load(root)
-
-
-class TestCssAssetUrls:
-    @pytest.mark.parametrize(
-        "css",
-        [
-            b"a{src:url(/_app/f.woff2)}",
-            b"a{src:url('/_app/f.woff2')}",
-            b'a{src:url("/_app/f.woff2")}',
-            b"a{src:url( /_app/f.woff2 )}",
-        ],
-    )
-    def test_a_build_url_is_extracted_however_it_is_quoted(self, css):
-        assert _css_asset_urls(css) == {"/_app/f.woff2"}
-
-    @pytest.mark.parametrize(
-        "other", [b"url(/static/f.woff2)", b"url(data:font/woff2;base64,AAAA)", b"url(fonts/f.woff2)", b"url(//_app/f)"]
-    )
-    def test_a_url_outside_the_build_is_not_extracted_beside_a_build_url(self, other):
-        assert _css_asset_urls(b"a{src:url(/_app/f.woff2)}" + other) == {"/_app/f.woff2"}

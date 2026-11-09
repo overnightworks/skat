@@ -26,6 +26,9 @@ TAKE_SKAT = catalog_text("takeSkat")
 PUT_BACK = catalog_text("putBack")
 ANNOUNCE = catalog_text("announceGame")
 HAND = catalog_text("hand")
+SCHNEIDER = catalog_text("levelSchneider")
+SCHWARZ = catalog_text("levelSchwarz")
+ANNOUNCED_WORDS = {"schneider": catalog_text("announcedSchneider"), "schwarz": catalog_text("announcedSchwarz")}
 COMMAND_FAILED = catalog_text("commandFailed")
 BIDDING = catalog_text("bidding")
 BID_VALUE = catalog_text("bidValue")
@@ -34,7 +37,7 @@ CHOOSES = catalog_text("chooses")
 DISCARDS = catalog_text("discards")
 GAME_NAMES = [catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand", "gameNull")]
 NULL_GAME = catalog_text("gameNull")
-CONTROL_NAMES = [TAKE_SKAT, HAND, PUT_BACK, ANNOUNCE, *GAME_NAMES]
+CONTROL_NAMES = [TAKE_SKAT, HAND, PUT_BACK, ANNOUNCE, SCHNEIDER, SCHWARZ, *GAME_NAMES]
 HAND_CARD = ".own-hand .card"
 PICKABLE_CARD = ".own-hand .card button"
 SKAT_BACK = ".skat-spot .skat-card"
@@ -42,6 +45,8 @@ CARDS_IN_A_HAND = 10
 CARDS_AFTER_THE_TAKE = 12
 PLAQUE = ".plaque"
 HELD_LEVEL = ".declare .held"
+ANNOUNCED_MARK = ".plaque .announced"
+LEVEL_NAMES = {"schneider": SCHNEIDER, "schwarz": SCHWARZ}
 RESULT_CARD = ".result"
 NULL_OUVERT = "Null ouvert"
 DECLARER_MARK = ".mark.declarer"
@@ -366,6 +371,9 @@ def expect_the_hand_panel(declarer: Page) -> None:
     for name in GAME_NAMES:
         expect(button_of(declarer, name)).to_be_visible()
     expect(declarer.locator(HELD_LEVEL)).to_have_text(HAND)
+    for level in (SCHNEIDER, SCHWARZ):
+        expect(button_of(declarer, level)).to_be_enabled()
+        expect(button_of(declarer, level)).to_have_attribute(PRESSED, "false")
     expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
     expect(button_of(declarer, NULL_OUVERT)).to_have_count(0)
     expect(button_of(declarer, TAKE_SKAT)).to_have_count(0)
@@ -484,6 +492,8 @@ def test_the_hand_panel_and_its_game_stay_through_a_new_view_and_give_way_to_a_t
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
     expect(button_of(declarer, PUT_BACK)).to_be_visible()
     expect(declarer.locator(HELD_LEVEL)).to_have_count(0)
+    expect(button_of(declarer, SCHNEIDER)).to_have_count(0)
+    expect(button_of(declarer, SCHWARZ)).to_have_count(0)
     assert page_errors == []
 
 
@@ -501,10 +511,110 @@ def test_a_grand_hand_game_is_named_on_every_plaque_and_result_card(
     grand_hand = f"{catalog_text('gameGrand')} {HAND}"
     for person in table.everyone:
         expect(person.locator(PLAQUE)).to_contain_text(grand_hand)
+        expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
     assert table.declaring.declaring_as_the_declarer_sees_it()["declaration"]["hand"] is True
     table.play_out(CARDS_IN_PLAY)
     for person in table.everyone:
         expect(person.locator(RESULT_CARD)).to_contain_text(grand_hand)
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert table.result()["hand"] is True
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_ladder_offers_one_level_at_a_time_and_a_reload_returns_to_the_choice(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    declarer = deal_a_declaring_table(form_factor).declarer
+    button_of(declarer, HAND).click()
+    expect_the_hand_panel(declarer)
+
+    button_of(declarer, SCHNEIDER).click()
+    expect(button_of(declarer, SCHNEIDER)).to_have_attribute(PRESSED, "true")
+    button_of(declarer, SCHWARZ).click()
+    expect(button_of(declarer, SCHNEIDER)).to_have_attribute(PRESSED, "false")
+    expect(button_of(declarer, SCHWARZ)).to_have_attribute(PRESSED, "true")
+    button_of(declarer, SCHWARZ).click()
+    expect(button_of(declarer, SCHWARZ)).to_have_attribute(PRESSED, "false")
+
+    button_of(declarer, SCHNEIDER).click()
+    reload_and_wait(declarer)
+    expect_the_choice(declarer)
+    button_of(declarer, HAND).click()
+    expect_the_hand_panel(declarer)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_last_tap_on_a_level_clears_it_and_the_game_declares_without_an_announcement(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    button_of(declarer, HAND).click()
+    for level in (SCHNEIDER, SCHWARZ, SCHWARZ):
+        button_of(declarer, level).click()
+    button_of(declarer, catalog_text("gameHerz")).click()
+    button_of(declarer, ANNOUNCE).click()
+    expect_no_controls(declarer)
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": "herz", "hand": True, "ouvert": False, "announcement": "none"}
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announcement(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    button_of(declarer, HAND).click()
+    button_of(declarer, SCHWARZ).click()
+    button_of(declarer, NULL_GAME).click()
+    expect(button_of(declarer, SCHNEIDER)).to_have_count(0)
+    expect(button_of(declarer, SCHWARZ)).to_have_count(0)
+    button_of(declarer, catalog_text("gameGrand")).click()
+    expect(button_of(declarer, SCHWARZ)).to_have_attribute(PRESSED, "false")
+    button_of(declarer, NULL_GAME).click()
+    button_of(declarer, ANNOUNCE).click()
+    expect_no_controls(declarer)
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": "null", "hand": True, "ouvert": False, "announcement": "none"}
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize(
+    ("token", "word_key", "level"), [("herz", "gameHerz", "schneider"), ("grand", "gameGrand", "schwarz")]
+)
+def test_an_announced_hand_game_is_stored_with_one_command_and_every_plaque_names_it_without_covering_a_fan(
+    deal_a_declaring_table: Callable[..., DeclaringTable],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    token: str,
+    word_key: str,
+    level: str,
+) -> None:
+    declaring = deal_a_declaring_table(form_factor)
+    declarer = declaring.declarer
+    posts: list[str] = []
+    declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
+    button_of(declarer, HAND).click()
+    button_of(declarer, catalog_text(word_key)).click()
+    button_of(declarer, LEVEL_NAMES[level]).click()
+    button_of(declarer, ANNOUNCE).dblclick()
+    expect_no_controls(declarer)
+    assert len([url for url in posts if url.endswith(f"{declaring.api_path}{TABLE_DECLARING_DECLARE_SUFFIX}")]) == 1
+    declaration = declaring.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": token, "hand": True, "ouvert": False, "announcement": level}
+    table = PlayingTable(declaring, None)
+
+    reload_and_wait(declarer)
+    for person in table.everyone:
+        expect(person.locator(PLAQUE)).to_contain_text(f"{catalog_text(word_key)} {HAND}")
+        expect(person.locator(ANNOUNCED_MARK)).to_have_text(ANNOUNCED_WORDS[level])
+        plaque = person.locator(PLAQUE).bounding_box()
+        for covered in (*person.locator(".fan-spot").all(), *person.locator(".own-hand").all()):
+            assert not overlaps(plaque, covered.bounding_box())
+        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert page_errors == []

@@ -27,6 +27,7 @@ from skat.web.constants import (
     AUTH_CALLBACK_PATH,
     AUTH_START_PATH,
     BACKCHANNEL_LOGOUT_PATH,
+    CALL_SIGN_IN_PATH,
     HEALTH_PATH,
     IMMUTABLE_ASSET_CACHE_CONTROL,
     LOGIN_PATH,
@@ -40,6 +41,8 @@ from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import (
+    CALL_PAGE_MODULE,
+    CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
     IMMUTABLE_FILE,
@@ -63,21 +66,29 @@ LOOKALIKE_PATHS = [
     "/auth/start/",
     "/auth/callback/x",
     "/login/",
+    f"{CALL_SIGN_IN_PATH}/",
+    f"{CALL_SIGN_IN_PATH}.html",
+    CALL_SIGN_IN_PATH.upper(),
     "/LOGIN",
     "/no-access/x",
     "/static/css/skat.css",
     f"{SIGN_IN_STYLESHEET}/",
-    f"{SIGN_IN_STYLESHEET}x",
     f"{SIGN_IN_FONT}/",
-    f"{SIGN_IN_FONT}x",
     "/_app/immutable/assets/..%2Ffixture-font.woff2",
     "/_app/immutable/assets/..%2Fx.js",
+    "/_app/immutable/assets/%2e%2e/x.js",
+    "/_app/immutable/%2e%2e/version.json",
+    "/_app/immutable/",
     "/logout/",
     f"{BACKCHANNEL_LOGOUT_PATH}/",
     f"{BACKCHANNEL_LOGOUT_PATH}x",
     BACKCHANNEL_LOGOUT_PATH.upper(),
 ]
-SIGN_IN_PAGES = {LOGIN_PATH: FIXTURE_DIRECTORY / "login.html", NO_ACCESS_PATH: FIXTURE_DIRECTORY / "no-access.html"}
+SIGN_IN_PAGES = {
+    LOGIN_PATH: FIXTURE_DIRECTORY / "login.html",
+    NO_ACCESS_PATH: FIXTURE_DIRECTORY / "no-access.html",
+    CALL_SIGN_IN_PATH: FIXTURE_DIRECTORY / "login" / "call.html",
+}
 LOGIN_FAILED_PAGE = FIXTURE_DIRECTORY / "login-failed.html"
 FORM_POST = {"content-type": "application/x-www-form-urlencoded"}
 SAME_ORIGIN_FORM_POST = {**FORM_POST, "origin": TEST_PUBLIC_ORIGIN}
@@ -88,13 +99,19 @@ END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
 ANNOUNCER_STYLE_SOURCES = "'unsafe-hashes' 'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='"
 EXPECTED_CONTENT_SECURITY_POLICY = (
     "default-src 'none'; base-uri 'self'; "
-    f"script-src 'self' '{FIXTURE_SCRIPT_HASH}'; "
+    f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASH}'; "
     f"style-src 'self' {ANNOUNCER_STYLE_SOURCES}; "
     "connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; "
     "manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'"
 )
-IMMUTABLE_CACHE_CONTROL = "private, max-age=31536000, immutable"
 SESSION_LIFETIME = timedelta(hours=12)
+
+
+def assert_public_for_a_year(cache_control: str) -> None:
+    directives = dict(directive.partition("=")[::2] for directive in cache_control.replace(" ", "").split(","))
+    assert "public" in directives
+    assert "private" not in directives
+    assert int(directives["max-age"]) >= timedelta(days=365).total_seconds()
 
 
 class Application:
@@ -182,6 +199,24 @@ class TestSignedOut:
             "text/css; charset=utf-8",
             IMMUTABLE_ASSET_CACHE_CONTROL,
         )
+
+    @pytest.mark.parametrize("path", [CALL_PAGE_MODULE, IMMUTABLE_FILE, SIGN_IN_FONT])
+    def test_every_immutable_file_is_public_and_kept_a_year_by_any_cache(self, application, path):
+        response = application.get(path, **FETCH_ACCEPT)
+
+        assert response.status_code == 200
+        assert_public_for_a_year(response.headers["cache-control"])
+
+    @pytest.mark.parametrize("path", ["/_app/env.js", "/_app/immutable", "/"])
+    def test_a_build_file_outside_the_immutable_directory_and_every_other_page_stay_behind_the_sign_in(
+        self, application, path
+    ):
+        assert application.get(path, **FETCH_ACCEPT).status_code == 401
+
+    def test_the_version_file_is_public_because_the_page_asks_for_it_on_every_focus(self, application):
+        response = application.get(VERSION_FILE, **FETCH_ACCEPT)
+
+        assert (response.status_code, response.headers["cache-control"]) == (200, "no-cache")
 
     def test_a_font_the_sign_in_stylesheet_references_is_public_with_its_content_type(self, application):
         response = application.get(SIGN_IN_FONT, **BROWSER_ACCEPT)
@@ -444,16 +479,11 @@ class TestSessionLifetime:
 
 
 class TestPageBuildAssets:
-    def test_a_signed_out_fetch_of_an_immutable_file_is_refused_and_stored_for_no_long_time(self, application):
-        response = application.get(IMMUTABLE_FILE, **FETCH_ACCEPT)
-
-        assert response.status_code == 401
-        assert "max-age" not in response.headers.get("cache-control", "")
-
-    def test_a_signed_in_fetch_of_an_immutable_file_is_kept_a_year_by_the_browser_alone(self, application):
+    def test_a_signed_in_fetch_of_an_immutable_file_is_public_and_kept_a_year_by_any_cache(self, application):
         response = application.get(IMMUTABLE_FILE, application.seed(), **FETCH_ACCEPT)
 
-        assert (response.status_code, response.headers["cache-control"]) == (200, IMMUTABLE_CACHE_CONTROL)
+        assert response.status_code == 200
+        assert_public_for_a_year(response.headers["cache-control"])
 
     def test_the_not_modified_answer_for_an_immutable_file_carries_the_same_cache_control(self, application):
         member = application.seed()
@@ -461,7 +491,7 @@ class TestPageBuildAssets:
 
         response = application.get(IMMUTABLE_FILE, member, **{"if-none-match": etag})
 
-        assert (response.status_code, response.headers["cache-control"]) == (304, IMMUTABLE_CACHE_CONTROL)
+        assert (response.status_code, response.headers["cache-control"]) == (304, IMMUTABLE_ASSET_CACHE_CONTROL)
 
     def test_a_signed_in_miss_below_the_immutable_directory_is_stored_for_no_long_time(self, application):
         response = application.get("/_app/immutable/absent.js", application.seed(), **FETCH_ACCEPT)
@@ -482,7 +512,7 @@ def install_gate(app: FastAPI, stores: SignInStores) -> None:
             content_security_policy=default_content_security_policy(), permissions_policy=PERMISSIONS_POLICY
         ),
         csrf_origin=CsrfPolicy(),
-        session_gate=session_gate(stores.sessions, frozenset(), PublicRule(PathRules(exact=frozenset()))),
+        session_gate=session_gate(stores.sessions, PublicRule(PathRules(exact=frozenset()))),
     )
 
 
@@ -491,7 +521,7 @@ class TestSecurityHeaders:
         ("method", "path", "signed_in", "headers", "status"),
         [
             ("GET", "/", False, BROWSER_ACCEPT, 302),
-            ("GET", IMMUTABLE_FILE, False, FETCH_ACCEPT, 401),
+            ("GET", IMMUTABLE_FILE, False, FETCH_ACCEPT, 200),
             ("GET", "/", False, FETCH_ACCEPT, 401),
             ("GET", ACCOUNT_PATH, False, FETCH_ACCEPT, 401),
             ("GET", ACCOUNT_CONSOLE_PATH, False, BROWSER_ACCEPT, 302),

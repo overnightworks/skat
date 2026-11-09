@@ -34,14 +34,15 @@ def _already_lost(state: Playing) -> bool:
 def give_up(state: Playing, *, consented: bool = False) -> PlayOutcome:
     """The declarer gives up his game: freely while he holds nine or ten cards, later only when an opponent agreed.
 
-    A game his tricks and the skat already win cannot be given up, with or without consent.
+    A game his tricks and the skat already win cannot be given up with consent. Consent is asked first, so that a
+    refusal without it never tells a declarer who did not see the skat whether his tricks and the skat reach 61.
     """
     if state.result is not None:
         return PlayOutcome(state, PlayRefusal.OVER)
-    if _already_won(state):
-        return PlayOutcome(state, PlayRefusal.ALREADY_WON)
     if not consented and len(state.hands[state.declared.declarer]) < _CARDS_HELD_AT_THE_SECOND_TRICK_START:
         return PlayOutcome(state, PlayRefusal.NEEDS_CONSENT)
+    if _already_won(state):
+        return PlayOutcome(state, PlayRefusal.ALREADY_WON)
     return PlayOutcome(replace(state, result=_ended(state, Ending.GIVEN_UP)))
 
 

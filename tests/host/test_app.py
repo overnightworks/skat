@@ -18,7 +18,7 @@ from skat.web.secret_files import StartRefusedError
 from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
-from tests.support.page_build import FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
+from tests.support.page_build import CALL_PAGE_SCRIPT_HASH, FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 
@@ -43,6 +43,11 @@ def sign_in_through_issuer(browser: TestClient, issuer: FakeIssuer) -> None:
     start = browser.get(AUTH_START_PATH)
     query = issuer.authorize(start.headers["location"], subject="subject", groups=[LOGIN_GROUP], username="alice")
     browser.get(f"{AUTH_CALLBACK_PATH}?{query}")
+
+
+def directives(response) -> dict[str, str]:
+    policy = response.headers["content-security-policy"]
+    return dict(directive.strip().partition(" ")[::2] for directive in policy.split(";") if directive.strip())
 
 
 class FreeingSignal(TableService):
@@ -204,10 +209,31 @@ class TestCreateApp:
     def test_serves_the_page_and_its_assets_to_a_member(self, sign_in_settings, path):
         assert signed_in_client(sign_in_settings().settings).get(path).status_code == 200
 
-    def test_the_policy_admits_the_scripts_of_the_shell_by_their_hash(self, sign_in_settings):
+    def test_the_policy_admits_the_scripts_of_the_shell_and_of_the_call_sign_in_page_by_their_hash(
+        self, sign_in_settings
+    ):
         response = signed_in_client(sign_in_settings().settings).get("/health")
 
-        assert f"script-src 'self' '{FIXTURE_SCRIPT_HASH}';" in response.headers["content-security-policy"]
+        assert (
+            f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASH}';"
+            in response.headers["content-security-policy"]
+        )
+
+    def test_the_policy_refuses_all_framing_while_no_call_origin_is_set(self, sign_in_settings):
+        policy = directives(signed_in_client(sign_in_settings().settings).get("/health"))
+
+        assert policy["frame-ancestors"] == "'none'"
+
+    def test_the_policy_admits_the_call_origin_as_the_only_frame_ancestor_and_changes_nothing_else(
+        self, sign_in_settings
+    ):
+        origin = "https://call.test.invalid:8443"
+        unset = directives(signed_in_client(sign_in_settings().settings).get("/health"))
+        configured = directives(signed_in_client(sign_in_settings(call_origin=origin).settings).get("/health"))
+
+        assert configured.pop("frame-ancestors") == origin
+        unset.pop("frame-ancestors")
+        assert configured == unset
 
     @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
     def test_generated_documentation_is_not_served(self, sign_in_settings, path):

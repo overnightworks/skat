@@ -1,6 +1,7 @@
 import {
     type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
+    type ANNOUNCEMENT_TOKENS,
     type GAME_TOKENS,
     type AWAITING_TOKENS,
     type POSITION_TOKENS,
@@ -38,13 +39,14 @@ export type Suit = (typeof SUIT_TOKENS)[number];
 export type Rank = (typeof RANK_TOKENS)[number];
 export type Position = (typeof POSITION_TOKENS)[number];
 export type Game = (typeof GAME_TOKENS)[number];
+export type Announcement = (typeof ANNOUNCEMENT_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
 export type Declaring = {
     declarer_seat: number;
     stage: Stage;
-    declaration: { game: Game; hand: boolean; ouvert: boolean } | null;
+    declaration: { game: Game; hand: boolean; ouvert: boolean; announcement: Announcement } | null;
     open_cards: Card[];
 };
 export type Awaiting = (typeof AWAITING_TOKENS)[number];
@@ -177,7 +179,7 @@ export function standUp(id: string, commandId: string): Promise<Outcome> {
 export type DeclaringStep =
     | { action: "take" }
     | { action: "put_back"; cards: readonly Card[] }
-    | { action: "declare"; game: Game; hand: boolean; ouvert: false; announcement: "none" };
+    | { action: "declare"; game: Game; hand: boolean; ouvert: false; announcement: Announcement };
 
 const DECLARING_STEP_SUFFIXES: Record<DeclaringStep["action"], string> = {
     take: TABLE_DECLARING_TAKE_SUFFIX,
@@ -372,6 +374,12 @@ export function gameWord(game: Game): string {
 export function gameLabel({ game, hand, ouvert }: { game: Game; hand: boolean; ouvert: boolean }): string {
     if (ouvert) return `${gameWord(game)} ${words.ouvert}`;
     return hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
+}
+
+// The announcement's own words, apart from the game's label; no announcement has none.
+export function announcementLabel(announcement: Announcement): string | null {
+    if (announcement === "schneider") return words.announcedSchneider;
+    return announcement === "schwarz" ? words.announcedSchwarz : null;
 }
 
 const RANK_WORDS: Record<Rank, string> = {

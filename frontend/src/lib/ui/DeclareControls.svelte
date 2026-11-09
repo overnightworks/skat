@@ -7,6 +7,7 @@
         SKAT_SIZE,
         takeDeclaringStep,
         togglePicked,
+        type Announcement,
         type Card,
         type DeclaringStep,
         type Game,
@@ -31,6 +32,8 @@
     let chosenGame = $state<Game | null>(null);
     // Choosing Hand is a page step: nothing is sent, and a reload returns to the choice.
     let handChosen = $state(false);
+    // Hand's levels: one at a time, and Null has none.
+    let level = $state<Announcement>("none");
     const panel = $derived(stage === "choosing" && handChosen ? "hand" : stage);
     // A step is under way from the tap until the stream brings a new version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
@@ -41,6 +44,7 @@
         if (stage !== "discarding") picked = [];
         if (stage !== "choosing") handChosen = false;
         if (panel !== "hand" && panel !== "picked") chosenGame = null;
+        if (panel !== "hand") level = "none";
     });
 
     // Only this component knows what is picked; the hand on the table draws it through the page.
@@ -66,6 +70,11 @@
             note = words.commandFailed;
         }
     }
+
+    const LEVELS: readonly { token: Exclude<Announcement, "none">; word: string }[] = [
+        { token: "schneider", word: words.levelSchneider },
+        { token: "schwarz", word: words.levelSchwarz },
+    ];
 
     function isSuit(game: Game): game is Suit {
         return SUITS.has(game);
@@ -112,7 +121,10 @@
                         aria-pressed={chosenGame === game}
                         aria-label={gameWord(game)}
                         disabled={busy}
-                        onclick={() => (chosenGame = game)}
+                        onclick={() => {
+                            chosenGame = game;
+                            if (game === "null") level = "none";
+                        }}
                     >
                         {#if isSuit(game)}
                             <span class="pip" aria-hidden="true">
@@ -127,11 +139,25 @@
             </div>
             <div class="confirm">
                 {#if panel === "hand"}
-                    <span class="held">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                        {`${words.hand}`}
-                    </span>
+                    <div class="ladder">
+                        <span class="held">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                            {`${words.hand}`}
+                        </span>
+                        {#if chosenGame !== "null"}
+                            {#each LEVELS as { token, word } (token)}
+                                <button
+                                    type="button"
+                                    aria-pressed={level === token}
+                                    disabled={busy}
+                                    onclick={() => (level = level === token ? "none" : token)}
+                                >
+                                    {word}
+                                </button>
+                            {/each}
+                        {/if}
+                    </div>
                 {/if}
                 <button
                     type="button"
@@ -143,7 +169,7 @@
                             game: chosenGame as Game,
                             hand: panel === "hand",
                             ouvert: false,
-                            announcement: "none",
+                            announcement: level,
                         })}
                 >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>

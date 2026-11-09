@@ -1,7 +1,8 @@
 """The committed page build the tests serve.
 
-It holds a shell with one inline script, the three sign-in pages with their stylesheet,
-the font it references, one immutable file and the version file.
+It holds a shell with one inline script, the three plain sign-in pages with their stylesheet, the font it
+references, the call sign-in page with a bootstrap script and a module file it links, one immutable file and the
+version file.
 """
 
 from pathlib import Path
@@ -13,6 +14,9 @@ FIXTURE_DIRECTORY = Path(__file__).parent / "page_build_fixture"
 FIXTURE_SCRIPT_HASH = "sha256-4LKaLFjkbG7q9xKX2UaD3tcSyvjsmzchYiSkLO5EkO8="
 SIGN_IN_STYLESHEET = "/_app/immutable/assets/sign-in.css"
 SIGN_IN_FONT = "/_app/immutable/assets/fixture-font.woff2"
+# The SHA-256 of the fixture call page's one inline script.
+CALL_PAGE_SCRIPT_HASH = "sha256-dml1HkUAI45VcVj2XqygWD0+6NIfezilpWE6AHzQkdE="
+CALL_PAGE_MODULE = "/_app/immutable/entry/call.js"
 IMMUTABLE_FILE = "/_app/immutable/x.js"
 VERSION_FILE = "/_app/version.json"
 

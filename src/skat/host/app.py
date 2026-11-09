@@ -61,7 +61,7 @@ from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable
+    from collections.abc import AsyncGenerator, Callable, Sequence
     from contextlib import AbstractContextManager
 
     from skat.table.service import TableService
@@ -80,13 +80,20 @@ def _configure_logging() -> None:
     )
 
 
-def _install_web_auth(app: FastAPI, sessions: InMemorySessions, page_build: PageBuild, mcp: McpAccess) -> None:
+def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> str:
+    added_sources: dict[CspDirective, Sequence[str]] = {CspDirective.STYLE_SRC: ANNOUNCER_STYLE_SOURCES}
+    if call_origin is not None:
+        added_sources[CspDirective.FRAME_ANCESTORS] = (call_origin,)
+    return default_content_security_policy(page_build.script_hashes, added_sources=added_sources)
+
+
+def _install_web_auth(
+    app: FastAPI, sessions: InMemorySessions, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
+) -> None:
     install_web_auth_middleware(
         app,
         security_headers=SecurityHeadersPolicy(
-            content_security_policy=default_content_security_policy(
-                page_build.script_hashes, added_sources={CspDirective.STYLE_SRC: ANNOUNCER_STYLE_SOURCES}
-            ),
+            content_security_policy=_content_security_policy(page_build, call_origin),
             permissions_policy=PERMISSIONS_POLICY,
             cache_control_rules=(
                 SIGN_IN_PATHS.cache_control_rule,
@@ -104,7 +111,7 @@ def _install_web_auth(app: FastAPI, sessions: InMemorySessions, page_build: Page
             exempt=RATE_LIMIT_EXEMPT_PATH_RULES,
         ),
         bearer_gate=mcp.bearer_gate,
-        session_gate=session_gate(sessions, page_build.sign_in_assets, mcp.public_rule),
+        session_gate=session_gate(sessions, mcp.public_rule),
     )
 
 
@@ -197,6 +204,6 @@ def create_app(
     install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
     mcp = mount_mcp(app, relying_party, sign_in_stores.transaction, settings.public_origin, presence.renew_lease)
     app.state.mcp_front = mcp.front
-    _install_web_auth(app, sign_in_stores.sessions, page_build, mcp)
+    _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)
 
     return app

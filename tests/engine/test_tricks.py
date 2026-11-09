@@ -1,5 +1,5 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations_with_replacement
 
 import pytest
@@ -29,6 +29,7 @@ from skat.engine.tricks import (
     playing_after,
     start_play,
 )
+from tests.support.playing_scenes import scenario
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 HERZ, GRAND, NULL, KREUZ = GameKind.HERZ, GameKind.GRAND, GameKind.NULL, GameKind.KREUZ
@@ -630,3 +631,14 @@ def test_a_game_the_declarer_already_holds_61_in_plays_on_to_its_tenth_trick() -
     declarer_tricks = sum(card.points for trick in after_nine.tricks if trick.taker is declarer for card in trick.cards)
     assert declarer_tricks + sum(card.points for card in after_nine.declared.skat) >= 61
     assert len(result_of(states[-1]).tricks) == 10
+
+
+@pytest.mark.parametrize("skat", [(KARO_ACE, KARO_TEN), (KARO_SEVEN, KARO_EIGHT)], ids=["skat of 21", "skat of 0"])
+def test_a_given_up_game_counts_only_the_declarers_completed_tricks_never_the_skat(skat: tuple[Card, ...]) -> None:
+    started_game = scenario(HERZ, 18, taken=((FOREHAND, 21),))
+    state = replace(started_game, declared=replace(started_game.declared, skat=skat))
+
+    result = give_up(state).state.result
+
+    assert result is not None
+    assert (result.declarer_points, result.opponents_points) == (21, 99)
