@@ -64,15 +64,11 @@
         };
     });
 
-    const ownChair = $derived(
-        outcome?.kind === "table" ? outcome.table.chairs.find((chair) => chair.is_mine) : undefined,
-    );
-    const seated = $derived(ownChair !== undefined);
-    // A chair waits only on a seated viewer, and a seated viewer's chair always carries their name.
-    const ownInitial = $derived(ownChair ? (ownChair.occupant_name as string).slice(0, 1) : "");
+    const seated = $derived(outcome?.kind === "table" && outcome.table.chairs.some((chair) => chair.is_mine));
     const ownTurnLadder = $derived.by(() => {
         if (outcome?.kind !== "table" || outcome.table.hand === null) return null;
-        return bidLadder(outcome.table.hand.auction, ownChair?.seat);
+        const viewerSeat = outcome.table.chairs.find((chair) => chair.is_mine)?.seat;
+        return bidLadder(outcome.table.hand.auction, viewerSeat);
     });
     // The version a step was sent from: the controls stay off until a newer version arrives or the step fails.
     let sentFromVersion: number | null = $state(null);
@@ -135,6 +131,9 @@
     <main class="stage" class:stale={!connected}>
         {#if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
+            <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
+            {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
+            {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
             {@const declarerActs = declarerStage(outcome.table) !== null}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {#if bidValue !== null}
