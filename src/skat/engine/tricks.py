@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
-from skat.engine.games import GameKind
+from skat.engine.games import GameKind, Trump
 from skat.engine.play import legal_cards, trick_winner
 from skat.engine.replay import replay_log
 
@@ -44,18 +44,20 @@ class PlayRefusal(StrEnum):
     ALREADY_WON = "already-won"
     CLAIM_OUT_OF_REACH = "claim-out-of-reach"
     NEEDS_CONSENT = "needs-consent"
+    NOT_AN_OPPONENT = "not-an-opponent"
 
 
 class Ending(StrEnum):
     """How a game ended: with its tenth trick, by the declarer giving it up, by a side throwing its cards down,
-    by an opponent giving it up, by the declarer shortening it with every opponent's yes, or at the trick that
-    decided it.
+    by an opponent giving it up or playing open, by the declarer shortening it with every opponent's yes, or at the
+    trick that decided it.
 
     A trick decides a Null game when its declarer takes it, and a game announced Schwarz when the opponents take it;
     the game is then `DECIDED` against the declarer. A give-up or a shortening is `DECIDED_WON` when the game was
     already won for the declarer, `DECIDED` when it was already lost for him. An undecided one is `CONCEDED` after an
     opponent's give-up, valued by its declaration and bid, and `SHORTENED` after the declarer's shortening, valued by
-    its declaration and the level he demanded.
+    its declaration and the level he demanded. An opponent who plays open ends the game as `REST_TO_OPPONENTS` when
+    the declarer could take no further trick, which counts the rest for the opponents.
     """
 
     PLAYED_OUT = "played-out"
@@ -66,9 +68,12 @@ class Ending(StrEnum):
     DECIDED_WON = "decided-won"
     CONCEDED = "conceded"
     SHORTENED = "shortened"
+    REST_TO_OPPONENTS = "rest-to-opponents"
 
 
-_REST_COUNTS_FOR_DECLARER: Final = frozenset({Ending.OPPONENTS_THREW_DOWN, Ending.DECIDED, Ending.SHORTENED})
+_REST_COUNTS_FOR_DECLARER: Final = frozenset(
+    {Ending.OPPONENTS_THREW_DOWN, Ending.DECIDED, Ending.CONCEDED, Ending.SHORTENED}
+)
 
 
 def _declaration_of(declared: Declaring) -> Declaration:
@@ -122,7 +127,8 @@ class PlayedOut:
     """The finished game: the ended declaration state and its completed tricks, the rest derived.
 
     A trick not completed when the game ended counts for the opponents,
-    or for the declarer when the opponents threw down, the game ended decided against him or he shortened it:
+    or for the declarer when the opponents threw down, the game ended decided against him,
+    an opponent conceded it or he shortened it:
     then the opponents keep only the tricks and points they completed.
     `claimed` is the level the declarer demanded with his shortening; no other ending reads it.
     """
@@ -312,6 +318,71 @@ def trick_step[GameState: TenTricks](
             result=result_of(state, tricks),
         )
     )
+
+
+type _Hands = tuple[tuple[Card, ...], ...]
+type _Key = tuple[tuple[int, ...], tuple[tuple[int, ...], ...], int]
+
+
+class _NoFurtherTrickSearch:
+    """Whether the shortener can keep the declarer from every further trick, whatever the other two play.
+
+    The shortener picks a card at each of his turns, the other two answer with every legal card. A trick the declarer
+    takes ends a line as false, a game the engine decides as true. Only the relative order of the cards in each playing
+    suit decides a trick, so a position at a trick boundary is known by who owns the remaining cards of each suit in
+    strength order and by the leader; the plain suits are interchangeable.
+    """
+
+    def __init__(self, declared: Declaring, shortener: Position) -> None:
+        self._declared = declared
+        self._kind = _kind_of(declared)
+        self._shortener = _PLAY_ORDER.index(shortener)
+        self._known: dict[_Key, bool] = {}
+
+    def _key(self, hands: _Hands, leader: int) -> _Key:
+        by_suit: dict[object, list[tuple[int, int]]] = {}
+        for owner, hand in enumerate(hands):
+            for card in hand:
+                by_suit.setdefault(self._kind.playing_suit(card), []).append((self._kind.strength(card), owner))
+        trumps = tuple(owner for _, owner in sorted(by_suit.pop(Trump.TRUMP, [])))
+        plain = sorted(tuple(owner for _, owner in sorted(cards)) for cards in by_suit.values())
+        return trumps, tuple(plain), leader
+
+    def holds(self, hands: _Hands, leader: int, trick: tuple[Card, ...]) -> bool:
+        at_boundary = not trick
+        key = self._key(hands, leader) if at_boundary else None
+        if key is not None and key in self._known:
+            return self._known[key]
+        turn = (leader + len(trick)) % len(_PLAY_ORDER)
+        moves = legal_cards(hands[turn], trick[0] if trick else None, self._kind)
+        answers = (self._after(hands, leader, trick, turn, card) for card in moves)
+        answer = any(answers) if turn == self._shortener else all(answers)
+        if key is not None:
+            self._known[key] = answer
+        return answer
+
+    def _after(self, hands: _Hands, leader: int, trick: tuple[Card, ...], turn: int, card: Card) -> bool:
+        remaining = (*hands[:turn], tuple(each for each in hands[turn] if each != card), *hands[turn + 1 :])
+        played = (*trick, card)
+        if len(played) < _TRICK_SIZE:
+            return self.holds(remaining, leader, played)
+        completed = _complete_trick(_PLAY_ORDER[leader], (played[0], played[1], played[2]), self._kind)
+        if completed.taker is self._declared.declarer:
+            return False
+        if _decides_the_game(self._declared, completed) or not any(remaining):
+            return True
+        return self.holds(remaining, _PLAY_ORDER.index(completed.taker), ())
+
+
+def declarer_takes_no_further_trick(state: Playing, shortener: Position) -> bool:
+    """Whether `shortener` can play so that, against every legal play of the declarer and the other opponent, the
+    declarer takes no further trick before the game ends; a trick in progress counts.
+
+    It reads every hand: no table or view may call it, or it tells the hidden cards.
+    """
+    hands = tuple(state.hands[position] for position in _PLAY_ORDER)
+    search = _NoFurtherTrickSearch(state.declared, shortener)
+    return search.holds(hands, _PLAY_ORDER.index(state.leader), state.current)
 
 
 def play_card(state: Playing, position: Position, card: Card) -> PlayOutcome:
