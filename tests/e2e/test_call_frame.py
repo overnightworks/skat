@@ -1,42 +1,39 @@
-from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import pytest
 from playwright.sync_api import expect
 
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
-from tests.e2e.support.server import loopback_sign_in, running_skat
-from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.call_frame import (
+    CALL_HOST,
+    CALL_ORIGIN,
+    CALL_PORT,
+    CHAIR,
+    FRAME,
+    FRAME_REFUSED,
+    HTTP_OK,
+    OTHER_HOST,
+    OTHER_PORT,
+    THREE_CHAIRS,
+    new_table,
+    page_holding,
+    serve_on_the_frame_site,
+    served_from,
+    table_url,
+)
+from tests.e2e.support.tables import table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-    from pathlib import Path
 
-    from playwright.sync_api import Page, Route
+    from playwright.sync_api import Page
 
     from tests.e2e.support.browser_coverage import BrowserCoverage
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
 
-# One site, as hopin and Skat share one in production: a frame of another site gets no session cookie.
-SKAT_HOST = "skat.frame.localhost"
-CALL_HOST = "call.frame.localhost"
-OTHER_HOST = "other.frame.localhost"
-# Nothing listens on either port: the page routes answer the call host.
-CALL_PORT = 8444
-OTHER_PORT = CALL_PORT + 1
-HTTP_OK = 200
 HTTP_FORBIDDEN = 403
-# The attributes hopin's call page puts on the frame that holds a Skat table.
-CALL_FRAME_ATTRIBUTES = (
-    'sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" '
-    'allow="" referrerpolicy="no-referrer"'
-)
-# Chromium's console line for a frame its content security policy refused.
-FRAME_REFUSED = "frame-ancestors"
-CHAIR = ".chair"
-THREE_CHAIRS = 3
 # A simple request: no preflight stops it, so it reaches the server whatever the origin.
 SIMPLE_POST = """([url, body]) => fetch(url, {
     method: "POST", mode: "no-cors", credentials: "include", headers: {"content-type": "text/plain"}, body
@@ -45,17 +42,7 @@ SIMPLE_POST = """([url, body]) => fetch(url, {
 
 @pytest.fixture(scope="module")
 def call_origin() -> str:
-    return f"https://{CALL_HOST}:{CALL_PORT}"
-
-
-def serve_on_the_frame_site(
-    e2e_server: RunningServer, directory: Path, **overrides: str | None
-) -> Iterator[RunningServer]:
-    loopback = loopback_sign_in(directory, SKAT_HOST, **overrides)
-    tls = directory / "tls"
-    tls.mkdir()
-    with running_skat(loopback, tls, e2e_server.engine) as server:
-        yield server
+    return CALL_ORIGIN
 
 
 @pytest.fixture(scope="module")
@@ -70,34 +57,7 @@ def unframed_server(e2e_server: RunningServer, tmp_path_factory: pytest.TempPath
     yield from serve_on_the_frame_site(e2e_server, tmp_path_factory.mktemp("unframed"))
 
 
-@contextmanager
-def served_from(origin: str, page: Page, browser_coverage: BrowserCoverage, body: str) -> Iterator[None]:
-    """Answer the page's navigations to `origin` with `body`; no server stands there."""
-
-    def answer(route: Route) -> None:
-        if not browser_coverage.cancel_take_reissue(route):
-            route.fulfill(status=HTTP_OK, content_type="text/html", body=body)
-
-    page.route(f"{origin}/**", answer)
-    yield
-    page.unroute(f"{origin}/**", answer)
-
-
 CALL_PAGE_WITHOUT_FRAME = "<!doctype html><title>call</title>"
-
-
-def table_url(server: RunningServer, path: str) -> str:
-    return f"{server.base_url}{path}?mode=call"
-
-
-def page_holding(frame_address: str) -> str:
-    return (
-        f'<!doctype html><title>call</title><iframe id="stage" src="{frame_address}" {CALL_FRAME_ATTRIBUTES}></iframe>'
-    )
-
-
-def new_table(open_person: Callable[..., Page], server: RunningServer) -> str:
-    return open_new_table(open_person(server=server), server)
 
 
 def table_answer(person: Page, server: RunningServer, path: str) -> dict[str, object]:
@@ -133,8 +93,8 @@ def test_a_table_stays_out_of_every_frame_but_the_configured_call_origins(
     ):
         visitor.goto(f"{origin}/")
 
-    expect(visitor.locator("#stage")).to_be_attached()
-    expect(visitor.frame_locator("#stage").locator(CHAIR)).to_have_count(0)
+    expect(visitor.locator(FRAME)).to_be_attached()
+    expect(visitor.frame_locator(FRAME).locator(CHAIR)).to_have_count(0)
 
 
 def test_the_call_origin_shows_the_table_signed_in_and_the_frame_reads_and_streams_as_the_page_does(
@@ -153,7 +113,7 @@ def test_the_call_origin_shows_the_table_signed_in_and_the_frame_reads_and_strea
             visitor.expect_response(lambda response: response.url == read_address + TABLE_EVENTS_SUFFIX) as stream,
         ):
             visitor.goto(f"{call_origin}/")
-        expect(visitor.frame_locator("#stage").locator(CHAIR)).to_have_count(THREE_CHAIRS)
+        expect(visitor.frame_locator(FRAME).locator(CHAIR)).to_have_count(THREE_CHAIRS)
 
     assert (read.value.status, stream.value.status) == (HTTP_OK, HTTP_OK)
 

@@ -111,7 +111,7 @@ def _install_web_auth(
             exempt=RATE_LIMIT_EXEMPT_PATH_RULES,
         ),
         bearer_gate=mcp.bearer_gate,
-        session_gate=session_gate(sessions, page_build.sign_in_assets, mcp.public_rule),
+        session_gate=session_gate(sessions, mcp.public_rule),
     )
 
 

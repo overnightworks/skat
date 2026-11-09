@@ -616,6 +616,6 @@
     </main>
     <div class="reconnect" role="status" hidden={connected}><span class="spin"></span>{words.reconnecting}</div>
     <footer class="legal">
-        <LegalLinks links={LEGAL_LINKS} />
+        <LegalLinks links={LEGAL_LINKS} newTab />
     </footer>
 </div>

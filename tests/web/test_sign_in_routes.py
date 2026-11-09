@@ -22,10 +22,13 @@ from skat.web.constants import (
     AUTH_CALLBACK_PATH,
     AUTH_START_PATH,
     BACKCHANNEL_LOGOUT_PATH,
+    CALL_MODE,
+    CALL_SIGN_IN_PATH,
     HOME_PATH,
     LOGIN_GROUP,
     LOGIN_PATH,
     LOGOUT_PATH,
+    MODE_QUERY_NAME,
     NO_ACCESS_PATH,
     SESSION_LIFETIME_SECONDS,
     SIGN_IN_PATHS,
@@ -47,6 +50,7 @@ from skat.web.stores import (
     ProcessWriteLock,
     SignInStores,
 )
+from skat.web.tables import TABLE_PAGE_PREFIX
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
@@ -332,6 +336,41 @@ class TestMemberSignIn:
         expected = original.replace(b'href="/auth/start"', f'href="/auth/start?next={encoded}"'.encode())
         assert response.content == expected
         assert response.headers["etag"] == BuiltPage.of(expected).etag
+
+    @pytest.mark.parametrize(
+        "requested",
+        [
+            f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}",
+            f"{TABLE_PAGE_PREFIX}abc?x=1&{MODE_QUERY_NAME}={CALL_MODE}&y=2",
+        ],
+    )
+    def test_a_call_mode_table_return_path_leads_to_the_call_sign_in_page_with_it(self, harness, requested):
+        response = harness.browser().get(LOGIN_PATH, params={"next": requested})
+        location = urlsplit(response.headers["location"])
+        assert (response.status_code, location.path) == (303, CALL_SIGN_IN_PATH)
+        assert parse_qs(location.query) == {"next": [requested]}
+
+    @pytest.mark.parametrize(
+        "requested",
+        [
+            f"{TABLE_PAGE_PREFIX}abc",
+            f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}=other",
+            f"{TABLE_PAGE_PREFIX}abc?x={MODE_QUERY_NAME}={CALL_MODE}",
+            f"/other?{MODE_QUERY_NAME}={CALL_MODE}",
+            f"https://evil.example{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}",
+            f"//evil.example{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}",
+            f"{TABLE_PAGE_PREFIX}abc#{MODE_QUERY_NAME}={CALL_MODE}",
+            "//[",
+            f"//[abc]{TABLE_PAGE_PREFIX}x?{MODE_QUERY_NAME}={CALL_MODE}",
+        ],
+    )
+    def test_any_other_return_path_gets_the_plain_signed_out_page(self, harness, requested):
+        response = harness.browser().get(LOGIN_PATH, params={"next": requested})
+        assert (response.status_code, "location" in response.headers) == (200, False)
+
+    def test_the_call_sign_in_page_is_served_as_built(self, harness):
+        response = harness.browser().get(CALL_SIGN_IN_PATH)
+        assert response.content == (FIXTURE_DIRECTORY / "login" / "call.html").read_bytes()
 
     def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness):
         page_build = replace(fixture_page_build(), signed_out=BuiltPage.of(b"<html></html>"))

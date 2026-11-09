@@ -10,11 +10,17 @@ HOME_PATH = "/"
 HEALTH_PATH = "/health"
 APP_ASSET_PATH = "/_app"
 IMMUTABLE_ASSET_DIRECTORY = "immutable"
+# SvelteKit's client fetches it whenever a page regains focus; it holds only the build's id.
+VERSION_FILE_PATH = f"{APP_ASSET_PATH}/version.json"
 ACCOUNT_PATH = "/api/account"
 ACCOUNT_CONSOLE_PATH = "/account"
 AUTH_START_PATH = "/auth/start"
 AUTH_CALLBACK_PATH = "/auth/callback"
 LOGIN_PATH = "/login"
+# The sign-in page a table framed by the call opens; the call mode is the agreed marker of such a table address.
+CALL_SIGN_IN_PATH = "/login/call"
+MODE_QUERY_NAME = "mode"
+CALL_MODE = "call"
 NO_ACCESS_PATH = "/no-access"
 LOGOUT_PATH = "/logout"
 # The sign-in page ignores it; the gate's redirect type requires a name for the address the visitor asked for.
@@ -36,11 +42,17 @@ RATE_LIMIT_EXEMPT_PATH_RULES = PathRules(exact=SIGN_IN_PATHS.backchannel.exact |
 # The immutable files of the page build set their own header on success (routes.py): a rule here would also
 # stamp it onto the 401, 429 and 404 that the same path can answer. Every other build file is revalidated.
 NO_CACHE_PATH_RULES = PathRules(
-    exact=frozenset({HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH}),
+    exact=frozenset({HOME_PATH, LOGIN_PATH, CALL_SIGN_IN_PATH, NO_ACCESS_PATH}),
     patterns=(re.compile(rf"^{APP_ASSET_PATH}/(?!{IMMUTABLE_ASSET_DIRECTORY}/)"),),
 )
-# Private, because the assets sit behind the sign-in and a shared cache would hand them out past it (RFC 9111 5.2.2.9).
-IMMUTABLE_ASSET_CACHE_CONTROL = "private, max-age=31536000, immutable"
+IMMUTABLE_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
+# Every file of the build's immutable directory is public; a segment never starts with a dot or holds an escape.
+_IMMUTABLE_SEGMENT = r"[A-Za-z0-9_-][A-Za-z0-9._-]*"
+IMMUTABLE_ASSET_PATH_RULES = PathRules(
+    patterns=(
+        re.compile(rf"^{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/(?:{_IMMUTABLE_SEGMENT}/)*{_IMMUTABLE_SEGMENT}\Z"),
+    )
+)
 
 # The page asks for no device; every capability a browser could grant stays off.
 PERMISSIONS_POLICY = "camera=(), microphone=(), display-capture=(), geolocation=()"
