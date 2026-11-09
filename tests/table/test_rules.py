@@ -27,7 +27,15 @@ DRAWN = NewHand(dealer=2, hand=deal(random.Random(3)))  # noqa: S311 - a seeded 
 
 def table_with(*seated: tuple[int, Actor]) -> TableRecord:
     occupants = {seat: Occupant(actor.account_id, actor.display_name) for seat, actor in seated}
-    return TableRecord(TableId("0" * 32), 4, tuple(Chair(seat, occupants.get(seat)) for seat in (1, 2, 3)))
+    return TableRecord(
+        TableId("0" * 32),
+        4,
+        tuple(Chair(seat, occupants.get(seat)) for seat in (1, 2, 3)),
+        dealer=None,
+        hand=None,
+        progress=HandProgress(),
+        game_list=(),
+    )
 
 
 def occupants_of(table: TableRecord) -> list[str | None]:

@@ -61,7 +61,15 @@ def played(kind, trumps=(), declarer_tricks=(), *, bid=18, hand=False, ouvert=Fa
 
 def seated_table():
     chairs = tuple(Chair(seat, Occupant(account, account.title())) for seat, account in enumerate(SEAT_ACCOUNTS, 1))
-    return TableRecord(id=TableId("0" * 32), version=9, chairs=chairs, dealer=DEALER)
+    return TableRecord(
+        id=TableId("0" * 32),
+        version=9,
+        chairs=chairs,
+        dealer=DEALER,
+        hand=None,
+        progress=HandProgress(),
+        game_list=(),
+    )
 
 
 def entry_of(game):

@@ -126,10 +126,10 @@ class TableRecord:
     id: TableId
     version: int
     chairs: tuple[Chair, ...]
-    dealer: int | None = None
-    hand: Deal | None = None
-    progress: HandProgress = HandProgress()
-    game_list: tuple[ListEntry, ...] = ()
+    dealer: int | None
+    hand: Deal | None
+    progress: HandProgress
+    game_list: tuple[ListEntry, ...]
 
 
 @dataclass(frozen=True)

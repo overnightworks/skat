@@ -38,7 +38,15 @@ def table_in(progress):
         for position in (MIDDLEHAND, REARHAND, FOREHAND)
     )
     deal = Deal(forehand=DECK[0:10], middlehand=DECK[10:20], rearhand=DECK[20:30], skat=DECK[30:32])
-    return TableRecord(id=TableId(table_id()), version=7, chairs=chairs, dealer=dealer, hand=deal, progress=progress)
+    return TableRecord(
+        id=TableId(table_id()),
+        version=7,
+        chairs=chairs,
+        dealer=dealer,
+        hand=deal,
+        progress=progress,
+        game_list=(),
+    )
 
 
 class TestDeclaringOf:
