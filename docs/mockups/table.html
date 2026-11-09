@@ -501,6 +501,17 @@ body.solo section.shot .rule{display:none}
   @keyframes climb{from{transform:none}}
 }
 </style>
+<style>
+/* ---------- announced and open games: the announced level ticks or crosses on the result, the declarer's open cards lie in two rows ---------- */
+.result .ladder{transform:none}
+.plaque.wide{width:max-content}
+.ladder span.missed{background:rgba(0,0,0,.35);color:var(--on-stage-soft);display:inline-flex;gap:3px}
+.ladder span.missed svg{width:13px;height:13px}
+.open{display:flex;flex-direction:column}
+.open-row{display:flex}
+.open-row .card + .card{margin-left:calc(var(--step) - var(--w))}
+.open-row + .open-row{margin-top:calc(var(--drop) - var(--w) * 1.4);margin-left:calc(var(--step) / 2)}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -1056,9 +1067,11 @@ const reckoning=(o)=>`<div class="coasters">${[[o.near,o.adds[2]],['anna',o.adds
 const tapButton=`<span class="cb wide" role="button">${I.check}Weiter</span>`;
 const waitButton=(names)=>`<span class="cb wide glass" role="status">Warte auf ${names}${waitDots()}</span>`;
 const endBar=(d,tap)=>tap?tableBar(d,{seated:true}).replace('<div class="sbar">',`<div class="sbar">${tap}`):tableBar(d);
+const levelRow=(list)=>`<div class="ladder words">${list.map(([name,state])=>`<span class="${state}">${state==='missed'?I.cross:I.check}${name}</span>`).join('')}</div>`;
 const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:168,width:354})}">
   <h3>${o.won?I.check:I.cross}${o.word}</h3>
   <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stamp}</span>`:''}</div>
+  ${o.levels?levelRow(o.levels):''}
   ${o.value?`<div class="value ${o.value.startsWith('−')?'minus':''}">${o.value}</div>`:''}
   ${o.miss?`<div class="miss">Wert ${o.miss[0]} &lt; Reizwert ${o.miss[1]}</div>`:''}
   ${pointsNamed(o.eyes,o.names,0)}
@@ -1130,6 +1143,62 @@ const BID_SCENES=[
 ];
 scenes(BID_SCENES);
 ORDER.splice(ORDER.indexOf('call-bid-1280')+1,0,...BID_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+/* ===== an announced Hand game and the declarer's open cards ===== */
+/* the declarer announced Schneider in a Hand game: the plaque names it for the whole play; the result ticks or crosses it */
+const ANNOUNCED=gameLine('h','Herz Hand','<span class="x2">Schneider angesagt</span>');
+const widePlaque=(cx,y,inner)=>plaque(cx,y,inner).replace('class="plaque"','class="plaque wide"');
+const FELIX_AGAINST=[['D','c'],['9','c'],['7','c'],['D','s'],['9','s'],['8','s'],['K','h'],['7','h'],['K','d'],['9','d']];
+const announcedTrick=(d)=>played('K','s','anna',TRICK_SLOT.left(d))
+  +played('7','s','nova',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})+(d?ghost(640,432,96):ghost(195,440,70));
+const ANNOUNCE_SCENES=[
+  ['announce-play','Angesagt, du spielst dagegen',(d)=>room(d,{left:8,glow:yourTurn(d)})
+    +widePlaque(d?640:195,d?98:186,ANNOUNCED+points(10,21,d?220:104))+announcedTrick(d)
+    +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d)],
+  ['announce-own','Angesagt, du spielst',(d)=>room(d,{left:8,glow:yourTurn(d)})
+    +widePlaque(d?640:195,d?98:186,ANNOUNCED+pointsNamed([21,10],OWN_GAME,d?220:104))+announcedTrick(d)
+    +seats(d,{video:true,you:['decl','turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d)],
+];
+scenes(ANNOUNCE_SCENES);
+ORDER.splice(ORDER.indexOf('call-play-1280')+1,0,...ANNOUNCE_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
+const ANNOUNCE_REACHED={...OWN_WIN,suit:'h',game:'Herz Hand',value:'+50',adds:[0,0,100],eyes:[94,26],levels:[['Hand','held'],['Schneider angesagt','held']]};
+const ANNOUNCE_MISSED={...OWN_LOSS,suit:'h',game:'Herz Hand',value:'−100',adds:[40,40,-150],eyes:[75,45],levels:[['Hand','held'],['Schneider angesagt','missed']]};
+const ANNOUNCE_END_SCENES=[
+  ['announce-reached','Angesagt und geschafft',(d)=>endScene(d,ANNOUNCE_REACHED,tapButton,1,declarerWinsConfetti(d))],
+  ['announce-missed','Angesagt und verfehlt',(d)=>endScene(d,ANNOUNCE_MISSED,tapButton),
+    ['Mit 75 Augen ist das Spiel nach Zählung gewonnen, aber Schneider war angesagt und die Gegner haben mehr als 30: verloren zum angesagten Wert, doppelt gezählt (ISkO 2.5.7).']],
+];
+scenes(ANNOUNCE_END_SCENES);
+ORDER.splice(ORDER.indexOf('end-over-1280')+1,0,...ANNOUNCE_END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
+/* the declarer's ten cards lie face up in two staggered rows in front of the chair; the rows hold any ten cards, so a Null ouvert hand in Null's order fits the same layout */
+const OUVERT_HAND=[['B','c'],['B','s'],['B','h'],['A','c'],['10','c'],['A','s'],['K','s'],['A','h'],['10','h'],['A','d']];
+const openHand=(cards,d)=>{
+  const o=d?{x:288,y:196,w:68,step:34,drop:58}:{x:14,y:158,w:54,step:27,drop:42},top=Math.ceil(cards.length/2);
+  return `<div class="open" style="${at({left:o.x,top:o.y,'--w':o.w,'--step':o.step,'--drop':o.drop})}">${[cards.slice(0,top),cards.slice(top)]
+    .map(row=>`<div class="open-row">${row.map(c=>card(c[0],c[1],'',at({'--w':o.w}))).join('')}</div>`).join('')}</div>`;};
+/* the plaque moves right on the phone so the open cards keep the felt below their chair */
+const ouvertPlaque=(d,eyes)=>widePlaque(d?640:290,d?98:196,gameLine('','Grand ouvert')+(eyes?pointsNamed(eyes,['Anna','Gegner'],d?220:104):''));
+const openTag=(d)=>`<div class="tag-glass" title="Offen für alle" style="${at(d?{left:598,top:526}:{left:166,top:614})}">${I.eye}<span>Offen</span></div>`;
+const OUVERT_SCENES=[
+  ['ouvert-before','Offen, vor der ersten Karte',(d)=>room(d,{left:0,glow:yourTurn(d)})+sideFans(d,0,10)
+    +ouvertPlaque(d)+openHand(OUVERT_HAND,d)+(d?ghost(640,432,96):ghost(195,440,70))
+    +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,FELIX_AGAINST)+callBar(d)],
+  ['ouvert-watch','Zuschauen bei offenen Karten',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d?16:12,d?14:8)
+    +sideFans(d,0,7)+nearFan(d,8)+ouvertPlaque(d,[21,10])
+    +openHand([['B','c'],['B','s'],['B','h'],['10','c'],['K','s'],['10','h'],['A','d']],d)
+    +played('A','s','anna',TRICK_SLOT.left(d))
+    +played('7','s','ben',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})
+    +seat('anna',{...L.anna,marks:['decl']})+seat('ben',L.nova)+seat('lena',{...L.you,marks:['turn']})+tableBar(d);}],
+  ['ouvert-own','Offen, du spielst',(d)=>room(d,{left:10,glow:yourTurn(d)})
+    +widePlaque(d?640:195,d?98:176,gameLine('','Grand ouvert'))+(d?ghost(640,432,96):ghost(195,440,70))+openTag(d)
+    +seats(d,{video:true,you:['decl','turn'],score:[148,62,55]})
+    +ownHand(d,OUVERT_HAND)+callBar(d)],
+];
+scenes(OUVERT_SCENES);
+ORDER.splice(ORDER.indexOf('call-play-1280')+1,0,'ouvert-before-390','ouvert-before-1280','ouvert-own-390','ouvert-own-1280');
+ORDER.splice(ORDER.indexOf('play-watch-1280')+1,0,'ouvert-watch-390','ouvert-watch-1280');
+
 /* ===== signing in inside the call: the frame shows Skat's own sign-in face, the call goes on around it ===== */
 Object.assign(I,{
   popout:sv('<path d="M14 4h6v6M20 4l-8 8"/><path d="M19 13v6a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 19V7a1.5 1.5 0 0 1 1.5-1.5H11"/>'),

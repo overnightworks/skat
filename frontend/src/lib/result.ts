@@ -30,7 +30,7 @@ export type WeiterBar = { kind: "tap"; again: boolean } | { kind: "wait"; names:
 
 const MINUS = "−";
 
-function withMinus(number: number): string {
+export function withMinus(number: number): string {
     return number < 0 ? `${MINUS}${String(-number)}` : String(number);
 }
 

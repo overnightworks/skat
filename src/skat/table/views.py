@@ -113,6 +113,13 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
 
+def _total_shown(table: TableRecord, chair: Chair) -> int | None:
+    """No chair shows a total until the table's first result."""
+    if chair.occupant is None or not table.game_list:
+        return None
+    return total_of(table.game_list, chair.occupant.account_id)
+
+
 def _passed_in_view(table: TableRecord) -> PassedInView | None:
     """What the stored steps say between hands: set only while no hand runs and the steps ended in three passes."""
     if hand_runs(table) or table.dealer is None or not isinstance(auction_of(table).result, PassedIn):
@@ -148,7 +155,7 @@ def view_of(table: TableRecord, viewer_account_id: str, connected_accounts: froz
                 and chair.occupant.account_id not in connected_accounts,
                 ready=chair.ready,
                 hand=chair_hands.get(chair.seat),
-                total=None if chair.occupant is None else total_of(table.game_list, chair.occupant.account_id),
+                total=_total_shown(table, chair),
             )
             for chair in table.chairs
         ),

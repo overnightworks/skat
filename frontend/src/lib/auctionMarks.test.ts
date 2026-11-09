@@ -179,6 +179,7 @@ function chair(seat: number, changes: Partial<Chair> = {}): Chair {
         is_mine: false,
         is_away: false,
         ready: false,
+        total: null,
         hand: null,
         ...changes,
     };
@@ -209,6 +210,7 @@ describe("the scene of a passed-in hand", () => {
         is_mine: false,
         is_away: false,
         ready: false,
+        total: null,
         hand: null,
         ...changes,
     });
@@ -246,6 +248,7 @@ describe("what the others see while the declarer decides", () => {
             is_mine: seat === mine,
             is_away: false,
             ready: false,
+            total: null,
             hand: null,
             ...(seat === MIDDLEHAND ? changes : {}),
         }));
