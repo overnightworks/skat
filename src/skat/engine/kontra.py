@@ -157,4 +157,5 @@ def doubled_reckoning(settlement: Settlement, doubling: Doubling, reach: KontraR
     if reach is KontraReach.KONTRA_RE_STANDINGS:
         plain = reckon(settlement)
         return Reckoning(plain.declarer * doubling.factor, plain.each_opponent * doubling.factor)
-    return reckon(replace(settlement, score=settlement.score * doubling.factor))
+    doubled = Settlement(settlement.won, settlement.value, settlement.score * doubling.factor)
+    return reckon(doubled)
