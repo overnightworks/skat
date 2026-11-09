@@ -197,18 +197,19 @@ def pending_result(*games):
 
 class TestTheResult:
     @pytest.mark.parametrize(
-        ("game", "gains"),
+        ("game", "gains", "reckoning"),
         [
-            pytest.param(played(KREUZ, MIT_TWO, (30, 30, 18)), (86, 0, 0), id="end-won"),
-            pytest.param(played(KREUZ, MIT_TWO, (30, 24)), (-122, 40, 40), id="end-lost"),
-            pytest.param(played(KARO, MIT_ONE, (30, 30, 10), bid=20), (-104, 40, 40), id="end-over"),
-            pytest.param(played(NULL, declarer_tricks=(12,)), (-96, 40, 40), id="null-lost"),
+            pytest.param(played(KREUZ, MIT_TWO, (30, 30, 18)), (86, 0, 0), (3, 50, False), id="end-won"),
+            pytest.param(played(KREUZ, MIT_TWO, (30, 24)), (-122, 40, 40), (3, -50, False), id="end-lost"),
+            pytest.param(played(KARO, MIT_ONE, (30, 30, 10), bid=20), (-104, 40, 40), (2, -50, False), id="end-over"),
+            pytest.param(played(NULL, declarer_tricks=(12,)), (-96, 40, 40), (None, -50, False), id="null-lost"),
         ],
     )
-    def test_each_chair_gains_what_the_reckoning_adds_the_declarer_in_seat_one(self, game, gains):
+    def test_each_chair_gains_what_the_reckoning_adds_the_declarer_in_seat_one(self, game, gains, reckoning):
         result = result_view_of(pending_result(game))
 
         assert tuple(gain.gain for gain in result.gains) == gains
+        assert attrgetter("multiplier", "list_bonus", "announcement_missed")(result) == reckoning
         assert tuple(gain.seat for gain in result.gains) == (DECLARER_SEAT, 2, 3)
 
     @pytest.mark.parametrize(

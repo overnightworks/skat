@@ -7,7 +7,7 @@ from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
-from skat.engine.score import Reckoning, Settlement, overbid, reckon, settle
+from skat.engine.score import Reckoning, Settlement, announcement_missed, list_bonus, overbid, reckon, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import value_of
 
@@ -144,6 +144,24 @@ def test_the_matadors_raise_the_loss_of_a_null_above_the_bid() -> None:
 )
 def test_a_game_adds_to_the_declarer_and_each_opponent(settlement: Settlement, expected: Reckoning) -> None:
     assert reckon(settlement) == expected
+
+
+@pytest.mark.parametrize(("won", "bonus"), [(True, 50), (False, -50)])
+def test_the_list_bonus_is_plus_fifty_for_a_won_game_and_minus_fifty_for_a_lost_one(won: bool, bonus: int) -> None:
+    assert list_bonus(won) == bonus
+
+
+@pytest.mark.parametrize("announcement", [Announcement.SCHNEIDER, Announcement.SCHWARZ])
+@pytest.mark.parametrize(("won", "over", "missed"), [(True, False, False), (False, False, True), (False, True, False)])
+def test_an_announcement_is_missed_when_it_was_made_and_the_game_is_lost_without_being_overbid(
+    announcement: Announcement, won: bool, over: bool, missed: bool
+) -> None:
+    assert announcement_missed(announcement, won=won, overbid=over) is missed
+
+
+@pytest.mark.parametrize(("won", "over"), [(True, False), (False, False), (False, True)])
+def test_no_announcement_is_never_missed(won: bool, over: bool) -> None:
+    assert announcement_missed(Announcement.NONE, won=won, overbid=over) is False
 
 
 def test_an_overbid_game_is_reckoned_as_a_lost_game() -> None:

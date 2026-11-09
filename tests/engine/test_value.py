@@ -263,40 +263,35 @@ def test_a_suit_game_won_by_play_but_missing_its_announced_schwarz_is_lost_at_th
     assert valuation.value == 240
 
 
-SPIEL, HAND_LEVEL = Level.SPIEL, Level.HAND
-SCHNEIDER_LEVEL, SCHNEIDER_ANNOUNCED = Level.SCHNEIDER, Level.SCHNEIDER_ANNOUNCED
-SCHWARZ_LEVEL, SCHWARZ_ANNOUNCED, OUVERT_LEVEL = Level.SCHWARZ, Level.SCHWARZ_ANNOUNCED, Level.OUVERT
-
-
 @pytest.mark.parametrize(
     ("played", "levels"),
     [
-        pytest.param(game(KREUZ, MIT_TWO, WIN), (SPIEL,), id="plain"),
-        pytest.param(game(KREUZ, MIT_TWO, WIN, hand=True), (SPIEL, HAND_LEVEL), id="hand"),
-        pytest.param(game(KREUZ, MIT_TWO, WIN_SCHNEIDER), (SPIEL, SCHNEIDER_LEVEL), id="schneider-reached"),
+        pytest.param(game(KREUZ, MIT_TWO, WIN), (Level.SPIEL,), id="plain"),
+        pytest.param(game(KREUZ, MIT_TWO, WIN, hand=True), (Level.SPIEL, Level.HAND), id="hand"),
+        pytest.param(game(KREUZ, MIT_TWO, WIN_SCHNEIDER), (Level.SPIEL, Level.SCHNEIDER), id="schneider-reached"),
         pytest.param(
-            game(KREUZ, MIT_TWO, TAKES_ALL), (SPIEL, SCHNEIDER_LEVEL, SCHWARZ_LEVEL), id="schwarz-unannounced"
+            game(KREUZ, MIT_TWO, TAKES_ALL), (Level.SPIEL, Level.SCHNEIDER, Level.SCHWARZ), id="schwarz-unannounced"
         ),
         pytest.param(
             game(KREUZ, MIT_TWO, WIN_SCHNEIDER, hand=True, announcement=SCHNEIDER),
-            (SPIEL, HAND_LEVEL, SCHNEIDER_LEVEL, SCHNEIDER_ANNOUNCED),
+            (Level.SPIEL, Level.HAND, Level.SCHNEIDER, Level.SCHNEIDER_ANNOUNCED),
             id="schneider-announced-and-reached",
         ),
         pytest.param(
             game(KREUZ, MIT_TWO, (30, 30, 15), hand=True, announcement=SCHNEIDER),
-            (SPIEL, HAND_LEVEL, SCHNEIDER_LEVEL, SCHNEIDER_ANNOUNCED),
+            (Level.SPIEL, Level.HAND, Level.SCHNEIDER, Level.SCHNEIDER_ANNOUNCED),
             id="schneider-announced-and-missed",
         ),
         pytest.param(
             game(GRAND, JACKS, TAKES_ALL, hand=True, ouvert=True),
             (
-                SPIEL,
-                HAND_LEVEL,
-                SCHNEIDER_LEVEL,
-                SCHNEIDER_ANNOUNCED,
-                SCHWARZ_LEVEL,
-                SCHWARZ_ANNOUNCED,
-                OUVERT_LEVEL,
+                Level.SPIEL,
+                Level.HAND,
+                Level.SCHNEIDER,
+                Level.SCHNEIDER_ANNOUNCED,
+                Level.SCHWARZ,
+                Level.SCHWARZ_ANNOUNCED,
+                Level.OUVERT,
             ),
             id="ouvert",
         ),

@@ -24,7 +24,15 @@ HERZ_GAME = game_of(
     "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
 )
 FIRST_RESULT = 1
-HERZ_HAND_LOST_AT_30 = {"won": False, "game_value": 30, "settled_value": 30, "score": -60}
+HERZ_HAND_LOST_AT_30 = {
+    "won": False,
+    "game_value": 30,
+    "settled_value": 30,
+    "score": -60,
+    "multiplier": 3,
+    "list_bonus": -50,
+    "announcement_missed": False,
+}
 
 
 @pytest.fixture
@@ -147,20 +155,36 @@ class TestTheDeclarerGivesUp:
         assert result["gains"][0]["gain"] < 0 < result["gains"][1]["gain"]
 
     @pytest.mark.parametrize(
-        ("changes", "levels"),
+        ("changes", "levels", "multiplier", "announcement_missed"),
         [
-            pytest.param({"announcement": AnnouncementToken.NONE}, ["spiel", "hand"], id="not-announced"),
+            pytest.param({"announcement": AnnouncementToken.NONE}, ["spiel", "hand"], 3, False, id="not-announced"),
             pytest.param(
                 {"announcement": AnnouncementToken.SCHNEIDER},
                 ["spiel", "hand", "schneider", "schneider_announced"],
+                5,
+                True,
                 id="schneider-announced",
+            ),
+            pytest.param(
+                {"announcement": AnnouncementToken.SCHNEIDER, "bid": 60},
+                ["spiel", "hand", "schneider", "schneider_announced"],
+                5,
+                False,
+                id="schneider-announced-and-overbid",
             ),
         ],
     )
-    def test_only_the_levels_announced_are_suffered(self, table, changes, levels):
+    def test_only_the_levels_announced_are_suffered(self, table, changes, levels, multiplier, announcement_missed):
         table.declared_hand_game(**changes)
 
-        assert give_up(table).json()["result"]["levels"] == levels
+        result = give_up(table).json()["result"]
+
+        assert (result["levels"], result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (
+            levels,
+            multiplier,
+            -50,
+            announcement_missed,
+        )
 
     def test_a_bid_over_the_value_is_overbid_and_settled_at_the_next_multiple(self, table):
         table.declared_hand_game(bid=33)
