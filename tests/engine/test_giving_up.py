@@ -157,8 +157,7 @@ def test_a_given_up_game_is_valued_by_its_declared_levels_and_lost(
     kind: GameKind, jacks: tuple[Card, ...], bid: int, declaration: dict[str, object], score: int
 ) -> None:
     result = given_up(started(kind, bid, jacks=jacks, **declaration))  # type: ignore[arg-type]
-    settlement = settle(result, bid)
-    assert settlement == Settlement(won=False, value=-score // 2, score=score)
+    assert settle(result, bid) == Settlement(won=False, value=-score // 2, score=score)
 
 
 def test_schneider_is_not_counted_for_a_declarer_holding_21_points_who_gives_up() -> None:
