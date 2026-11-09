@@ -15,7 +15,14 @@
 
     function choose(): void {
         failed = false;
+        length = DEFAULT_LENGTH;
         choosing = true;
+    }
+
+    function step(by: number): void {
+        length += by;
+        // Another length is another command, so a retry never sends two requests under one id.
+        commandId = crypto.randomUUID();
     }
 
     function close(): void {
@@ -62,7 +69,9 @@
                 class="step"
                 aria-label={words.seriesFewer}
                 disabled={length <= SERIES_LENGTH_MIN || opening}
-                onclick={() => (length -= SERIES_LENGTH_STEP)}
+                onclick={() => {
+                    step(-SERIES_LENGTH_STEP);
+                }}
             >
                 −
             </button>
@@ -82,7 +91,9 @@
                 class="step"
                 aria-label={words.seriesMore}
                 disabled={length >= SERIES_LENGTH_MAX || opening}
-                onclick={() => (length += SERIES_LENGTH_STEP)}
+                onclick={() => {
+                    step(SERIES_LENGTH_STEP);
+                }}
             >
                 <svg
                     viewBox="0 0 24 24"
@@ -100,7 +111,20 @@
             <p role="alert">{words.newTableFailed}</p>
         {/if}
         <div class="btns">
-            <button type="button" class="open" disabled={opening} onclick={open}>{words.openTable}</button>
+            <button type="button" class="open" disabled={opening} onclick={open}>
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                >
+                    <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+                {words.openTable}
+            </button>
             <button type="button" class="cancel" disabled={opening} onclick={close}>
                 {words.cancelNewTable}
             </button>
