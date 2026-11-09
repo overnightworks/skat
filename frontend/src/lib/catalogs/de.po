@@ -99,6 +99,15 @@ msgstr "wartet auf dich"
 msgid "bidValue"
 msgstr "Reizwert"
 
+msgid "plays"
+msgstr "spielt"
+
+msgid "chooses"
+msgstr "wählt"
+
+msgid "discards"
+msgstr "drückt"
+
 msgid "dealer"
 msgstr "Geber"
 

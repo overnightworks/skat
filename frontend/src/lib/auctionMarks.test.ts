@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { awayOnTurn, chairMarks, passedInScene, type ChairMarks } from "#lib/auctionMarks.ts";
-import type { Auction, Chair, PassedIn } from "../routes/(start)/tables.ts";
+import {
+    auctionJustEnded,
+    awayOnTurn,
+    chairMarks,
+    decidingMarks,
+    decidingPlaque,
+    passedInScene,
+    type ChairMarks,
+} from "#lib/auctionMarks.ts";
+import type { Auction, Chair, Declaring, PassedIn, Stage, Table } from "../routes/(start)/tables.ts";
 
 const FOREHAND = 1;
 const MIDDLEHAND = 2;
 const REARHAND = 3;
 const WATCHER = undefined;
-const NO_MARKS: ChairMarks = { bubble: null, passed: false, turn: false, waits: false };
+const NO_MARKS: ChairMarks = { bubble: null, passed: false, turn: false, waits: false, declarer: null };
 
 function auction(changes: Partial<Auction>): Auction {
     return {
@@ -217,5 +225,163 @@ describe("the scene of a passed-in hand", () => {
         const chairs = [chairOf(FOREHAND), chairOf(MIDDLEHAND, { occupant_name: null }), chairOf(REARHAND)];
 
         expect(passedInScene({ next_dealer_seat: null }, chairs)).toEqual({ dealerSeat: null, dealerName: null });
+    });
+});
+
+describe("what the others see while the declarer decides", () => {
+    const BID_WON = 23;
+    const chairsAt = (mine: number | null, changes: Partial<Chair> = {}): Chair[] =>
+        [FOREHAND, MIDDLEHAND, REARHAND].map((seat) => ({
+            seat,
+            occupant_name: `Name${String(seat)}`,
+            is_mine: seat === mine,
+            is_away: false,
+            hand: null,
+            ...(seat === MIDDLEHAND ? changes : {}),
+        }));
+    const tableAt = (
+        declaring: Declaring | null,
+        mine: number | null,
+        declared: Auction["declared"] = { seat: MIDDLEHAND, value: BID_WON },
+        chairChanges: Partial<Chair> = {},
+    ): Table => ({
+        id: "table",
+        version: 1,
+        chairs: chairsAt(mine, chairChanges),
+        watchers: 0,
+        passed_in: null,
+        hand: {
+            dealer_seat: FOREHAND,
+            own_cards: [],
+            skat_count: 2,
+            auction: auction({ awaiting: null, turn_seat: null, facing_seat: null, declared }),
+            declaring,
+            playing: null,
+        },
+    });
+    const declaringAt = (stage: Stage): Declaring => ({ declarer_seat: MIDDLEHAND, stage, declaration: null });
+
+    describe("the plaque", () => {
+        it.each([
+            {
+                name: "the moment the auction ended names the winner and the value",
+                stage: "choosing",
+                justWon: true,
+                kind: "won",
+            },
+            { name: "the choosing names the winner as choosing", stage: "choosing", justWon: false, kind: "choosing" },
+            {
+                name: "the discarding names the winner as discarding",
+                stage: "discarding",
+                justWon: false,
+                kind: "discarding",
+            },
+            {
+                name: "the wait after the put-back is still the discarding",
+                stage: "picked",
+                justWon: false,
+                kind: "discarding",
+            },
+        ] satisfies { name: string; stage: Stage; justWon: boolean; kind: string }[])(
+            "reads $name for an opponent and a watcher",
+            ({ stage, justWon, kind }) => {
+                for (const mine of [FOREHAND, REARHAND, null]) {
+                    expect(decidingPlaque(tableAt(declaringAt(stage), mine), justWon)).toEqual({
+                        kind,
+                        name: `Name${String(MIDDLEHAND)}`,
+                        value: BID_WON,
+                    });
+                }
+            },
+        );
+
+        it("is left to the declarer's own view for the declarer", () => {
+            expect(decidingPlaque(tableAt(declaringAt("choosing"), MIDDLEHAND), false)).toBeNull();
+        });
+
+        it("is nothing once the game is declared", () => {
+            expect(decidingPlaque(tableAt(declaringAt("declared"), FOREHAND), false)).toBeNull();
+        });
+
+        it("is nothing before the auction is over", () => {
+            expect(decidingPlaque(tableAt(null, FOREHAND), false)).toBeNull();
+        });
+
+        it("is nothing with no hand on the table", () => {
+            expect(decidingPlaque({ ...tableAt(null, FOREHAND), hand: null }, false)).toBeNull();
+        });
+
+        it("is nothing while the answer names no value won", () => {
+            expect(decidingPlaque(tableAt(declaringAt("choosing"), FOREHAND, null), false)).toBeNull();
+        });
+
+        it("is nothing while the declarer's chair has no name", () => {
+            expect(
+                decidingPlaque(tableAt(declaringAt("choosing"), FOREHAND, undefined, { occupant_name: null }), false),
+            ).toBeNull();
+        });
+    });
+
+    describe("the marks", () => {
+        it.each<Stage>(["choosing", "discarding", "picked"])(
+            "put the declarer's mark and the turn on the declarer alone at %s",
+            (stage) => {
+                const declaring = declaringAt(stage);
+
+                expect(decidingMarks(declaring, MIDDLEHAND, false)).toEqual({
+                    ...NO_MARKS,
+                    declarer: "decl",
+                    turn: true,
+                });
+                for (const seat of [FOREHAND, REARHAND]) {
+                    expect(decidingMarks(declaring, seat, false)).toEqual(NO_MARKS);
+                }
+            },
+        );
+
+        it("slams the won mark on the declarer and marks the two others out at the moment the auction ended", () => {
+            const declaring = declaringAt("choosing");
+
+            expect(decidingMarks(declaring, MIDDLEHAND, true)).toEqual({ ...NO_MARKS, declarer: "won", turn: true });
+            for (const seat of [FOREHAND, REARHAND]) {
+                expect(decidingMarks(declaring, seat, true)).toEqual({ ...NO_MARKS, passed: true });
+            }
+        });
+
+        it.each([
+            { name: "the game is declared", declaring: declaringAt("declared") },
+            { name: "the auction is not over", declaring: null },
+            { name: "there is no hand", declaring: undefined },
+        ] satisfies { name: string; declaring: Declaring | null | undefined }[])(
+            "are nothing when $name",
+            ({ declaring }) => {
+                expect(decidingMarks(declaring, MIDDLEHAND, true)).toEqual(NO_MARKS);
+            },
+        );
+    });
+
+    describe("the moment the auction ended", () => {
+        const running = tableAt(null, FOREHAND);
+        const choosing = tableAt(declaringAt("choosing"), FOREHAND);
+
+        it("is the update that brings the declaring after a hand without one", () => {
+            expect(auctionJustEnded(running, choosing)).toBe(true);
+        });
+
+        it.each([
+            { name: "the first answer of the page", previous: undefined, next: choosing },
+            {
+                name: "an update inside the declaring",
+                previous: choosing,
+                next: tableAt(declaringAt("discarding"), FOREHAND),
+            },
+            { name: "an update while the auction runs", previous: running, next: running },
+            { name: "a table with no hand yet", previous: { ...running, hand: null }, next: choosing },
+        ] satisfies { name: string; previous: Table | undefined; next: Table }[])(
+            "is not $name",
+            ({ previous, next }) => {
+                expect(auctionJustEnded(previous, next)).toBe(false);
+            },
+        );
     });
 });
