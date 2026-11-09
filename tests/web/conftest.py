@@ -4,7 +4,7 @@ from skat.engine.deal import Position
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.fake_issuer import FakeIssuer
-from tests.support.idle_presence import idle_agent_lease
+from tests.support.idle_presence import idle_agent_lease, note_nothing
 from tests.web.support.agent import Agent
 from tests.web.support.presence import HOLD_SECONDS, Deals, Releases, Wakes
 from tests.web.support.skat import AgentTable, FakeTime, Skat
@@ -102,7 +102,7 @@ def holding(time, releases, deals, ends):
     return Presence(
         ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
-        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end),
+        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, note_nothing),
         idle_agent_lease(),
     )
 

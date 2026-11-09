@@ -96,10 +96,6 @@ class NextDeal:
     deal: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
 
 
-async def note_nothing(_table_id: str, _connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-    return False
-
-
 @dataclass(frozen=True)
 class EmptyTable:
     """How long a table nobody is connected to stays, the command that ends it and the one that notes who is there.
@@ -115,7 +111,7 @@ class EmptyTable:
 
     seconds: float
     end: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
-    note: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]] = note_nothing
+    note: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
 
 
 class Presence:
