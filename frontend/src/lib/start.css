@@ -405,6 +405,53 @@ body {
     color: rgba(43, 29, 5, 0.72);
 }
 
+/* A passed-in hand: the verdict above the line that names the next dealer. */
+.room .plaque.hand-over {
+    flex-direction: column;
+    gap: 4px;
+}
+
+.room .plaque .gives {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The deck lies as one slightly crooked stack in the middle of the felt. */
+.room .deck {
+    display: grid;
+}
+
+.room .deck-card {
+    grid-area: 1 / 1;
+    transform: translateY(calc(var(--layer) * -2px)) rotate(var(--tilt));
+}
+
+.room .deck-card:nth-child(1) {
+    --layer: 0;
+    --tilt: -2deg;
+}
+
+.room .deck-card:nth-child(2) {
+    --layer: 1;
+    --tilt: 3deg;
+}
+
+.room .deck-card:nth-child(3) {
+    --layer: 2;
+    --tilt: -2deg;
+}
+
+.room .deck-card:nth-child(4) {
+    --layer: 3;
+    --tilt: 3deg;
+}
+
+.room .deck-card .card-back {
+    width: var(--card-width);
+    height: auto;
+}
+
 /* The hand on the table: backs fan toward the felt from each chair, the skat lies in its middle. */
 .room .skat-spot {
     grid-column: 1 / 3;

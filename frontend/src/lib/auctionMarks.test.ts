@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { awayOnTurn, chairMarks, type ChairMarks } from "#lib/auctionMarks.ts";
-import type { Auction, Chair } from "../routes/(start)/tables.ts";
+import { awayOnTurn, chairMarks, passedInScene, type ChairMarks } from "#lib/auctionMarks.ts";
+import type { Auction, Chair, PassedIn } from "../routes/(start)/tables.ts";
 
 const FOREHAND = 1;
 const MIDDLEHAND = 2;
@@ -192,4 +192,39 @@ describe("whom the plaque waits for", () => {
             expect(awayOnTurn(auction(changes ?? {}), chairs)).toBeNull();
         },
     );
+});
+
+describe("the scene of a passed-in hand", () => {
+    const chairOf = (seat: number, changes: Partial<Chair> = {}): Chair => ({
+        seat,
+        occupant_name: `Name${String(seat)}`,
+        is_mine: false,
+        is_away: false,
+        ready: false,
+        hand: null,
+        ...changes,
+    });
+    const all = [chairOf(FOREHAND), chairOf(MIDDLEHAND), chairOf(REARHAND)];
+
+    it("is nothing while no hand was passed in", () => {
+        expect(passedInScene(null, all)).toBeNull();
+    });
+
+    it("names the next dealer when all three are there", () => {
+        const passedIn: PassedIn = { next_dealer_seat: MIDDLEHAND };
+
+        expect(passedInScene(passedIn, all)).toEqual({ dealerSeat: MIDDLEHAND, dealerName: "Name2" });
+    });
+
+    it("names nobody while an occupied chair is away", () => {
+        const chairs = [chairOf(FOREHAND), chairOf(MIDDLEHAND, { is_away: true }), chairOf(REARHAND)];
+
+        expect(passedInScene({ next_dealer_seat: REARHAND }, chairs)).toEqual({ dealerSeat: null, dealerName: null });
+    });
+
+    it("names nobody while the answer names no dealer", () => {
+        const chairs = [chairOf(FOREHAND), chairOf(MIDDLEHAND, { occupant_name: null }), chairOf(REARHAND)];
+
+        expect(passedInScene({ next_dealer_seat: null }, chairs)).toEqual({ dealerSeat: null, dealerName: null });
+    });
 });

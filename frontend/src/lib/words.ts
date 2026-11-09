@@ -29,6 +29,8 @@ export const words = {
     hold: "Halten",
     pass: "Weg",
     waitingFor: "Warte auf",
+    passedIn: "Eingepasst",
+    gives: "gibt",
     waitsForYou: "wartet auf dich",
     bidValue: "Reizwert",
     dealer: "Geber",

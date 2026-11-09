@@ -93,6 +93,8 @@ export type Result = {
     opponents_points: number;
     gains: SeatGain[];
 };
+// Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
+export type PassedIn = { next_dealer_seat: number | null };
 export type Table = {
     id: string;
     version: number;
@@ -100,6 +102,7 @@ export type Table = {
     watchers: number;
     hand: Hand | null;
     result: Result | null;
+    passed_in: PassedIn | null;
 };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =

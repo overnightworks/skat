@@ -51,6 +51,7 @@ function table(
         watchers: 0,
         hand: null,
         result: changes === null ? null : result(changes),
+        passed_in: null,
     };
 }
 
