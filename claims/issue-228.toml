@@ -1,0 +1,8 @@
+claim_id = "b9b6e362423046788e0f1988549ed85e"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "4f20aef5a0f839138cdf410a3ad937ac26312672"
+branch = "claude/issue-228-test-timing-races"
+scope = ["tests/store/test_tables.py", "tests/support/faulty_tables.py", "tests/support/table_rows.py", "tests/web/support/presence.py", "tests/web/test_ready.py"]
+opened_commit = "0008cc74017c9aeee9e188e56a67e6b42de7a48d"
+whole_reason = "Two timing races in the test suite's fault and lock-wait helpers, fixed in the helpers and the two tests that use them, with no production change."
