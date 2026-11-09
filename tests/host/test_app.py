@@ -11,7 +11,7 @@ from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
 from skat.host.app import create_app
-from skat.table.records import Actor, CreateTable, SitDown, TableId
+from skat.table.records import Actor, CreateTable, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.secret_files import StartRefusedError
@@ -113,7 +113,6 @@ class TestCreateApp:
         with TestClient(app):
             assert tables.table_ended.wait(timeout=10)
 
-        assert tables.live_table_ids() == ()
         assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1
 
     def test_a_dealt_table_read_live_when_the_server_starts_is_kept_after_the_wait(self, sign_in_settings):
@@ -128,7 +127,7 @@ class TestCreateApp:
         with TestClient(app):
             assert tables.end_checked.wait(timeout=10)
 
-        assert (tables.table_ended.is_set(), tables.live_table_ids()) == (False, (TableId(opened.id),))
+        assert tables.table_ended.is_set() is False
         assert tables.view(OPENER, opened.id, frozenset()).ended is None
 
     def test_the_lifespan_returns_only_after_an_end_whose_check_passed_has_committed(self, sign_in_settings):

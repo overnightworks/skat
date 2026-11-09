@@ -259,10 +259,18 @@ class _PostgresTableTransaction:
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
         )
 
-    def live_table_ids(self) -> tuple[TableId, ...]:
+    def empty_since(self, table_id: TableId) -> datetime | None:
+        return self._connection.execute(select(tables.c.empty_since).where(tables.c.id == table_id.value)).scalar_one()
+
+    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
+        self._connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=since))
+
+    def live_empty_since(self) -> tuple[tuple[TableId, datetime | None], ...]:
         return tuple(
-            TableId(row.id)
-            for row in self._connection.execute(select(tables.c.id).where(tables.c.end_reason.is_(None)))
+            (TableId(row.id), row.empty_since)
+            for row in self._connection.execute(
+                select(tables.c.id, tables.c.empty_since).where(tables.c.end_reason.is_(None))
+            )
         )
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:

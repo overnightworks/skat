@@ -1,7 +1,7 @@
 import itertools
 from contextlib import nullcontext
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -252,7 +252,7 @@ class TestAtAnEndedTable:
     def test_lists_no_live_table_for_it(self, service, ended_id):
         live = TableId(service.create(VISITOR, CreateTable(command_id="command-other")).id)
 
-        assert service.live_table_ids() == (live,)
+        assert service.resume_empty_waits(EMPTY_SECONDS).keys() == {live.value}
 
 
 def test_a_deal_asked_for_with_presence_stopped_deals_nothing(service, store, dealt_id):
@@ -263,3 +263,89 @@ def test_a_deal_asked_for_with_presence_stopped_deals_nothing(service, store, de
 
     assert service.deal_next(table_id, nullcontext(None)) is False
     assert store.tables == written
+
+
+SOMEBODY = frozenset({"account-opener"})
+
+
+def stamp(store, table_id, seconds_ago):
+    store.empty_since_by_table[table_id.value] = ENDED_AT - timedelta(seconds=seconds_ago)
+
+
+def note(service, table_id, connected):
+    return service.note_presence(table_id, nullcontext(connected), EMPTY_SECONDS)
+
+
+class TestNotePresence:
+    def test_a_created_table_is_stamped_with_the_service_clock(self, store, table_id):
+        assert store.empty_since_by_table[table_id.value] == ENDED_AT
+
+    def test_the_last_leave_stamps_a_table_with_no_time_and_changes_nothing_else(self, service, store, table_id):
+        store.empty_since_by_table[table_id.value] = None
+        before = store.tables[table_id.value]
+
+        assert note(service, table_id, NOBODY) is False
+
+        assert store.empty_since_by_table[table_id.value] == ENDED_AT
+        assert store.tables[table_id.value] == before
+
+    def test_a_leave_keeps_an_earlier_time(self, service, store, table_id):
+        stamp(store, table_id, 3)
+
+        note(service, table_id, NOBODY)
+
+        assert store.empty_since_by_table[table_id.value] == ENDED_AT - timedelta(seconds=3)
+
+    def test_an_arrival_before_the_time_is_up_clears_the_time(self, service, store, table_id):
+        stamp(store, table_id, EMPTY_SECONDS - 1)
+
+        assert note(service, table_id, SOMEBODY) is False
+
+        assert store.empty_since_by_table[table_id.value] is None
+        assert isinstance(store.tables[table_id.value], TableRecord)
+
+    def test_an_arrival_after_the_time_is_up_ends_the_table(self, service, store, table_id):
+        stamp(store, table_id, EMPTY_SECONDS)
+
+        assert note(service, table_id, SOMEBODY) is True
+
+        assert isinstance(store.tables[table_id.value], EndedTable)
+
+    @pytest.mark.parametrize("connected", [None, SOMEBODY], ids=["presence-stopped", "someone-without-a-time"])
+    def test_changes_nothing_when_the_presence_cannot_tell_or_there_is_no_time_to_clear(
+        self, service, store, table_id, connected
+    ):
+        store.empty_since_by_table[table_id.value] = None
+        written = dict(store.empty_since_by_table), dict(store.tables)
+
+        assert note(service, table_id, connected) is False
+        assert (dict(store.empty_since_by_table), dict(store.tables)) == written
+
+    def test_changes_nothing_for_a_table_that_does_not_exist(self, service, store):
+        assert note(service, TableId("0" * 32), NOBODY) is False
+        assert store.tables == {}
+
+
+class TestResumeEmptyWaits:
+    def test_a_table_with_no_time_is_stamped_now_and_waits_a_full_time(self, service, store, table_id):
+        store.empty_since_by_table[table_id.value] = None
+
+        assert service.resume_empty_waits(EMPTY_SECONDS) == {table_id.value: EMPTY_SECONDS}
+        assert store.empty_since_by_table[table_id.value] == ENDED_AT
+
+    def test_a_table_waits_what_is_left_of_its_wait(self, service, store, table_id):
+        stamp(store, table_id, 3)
+
+        assert service.resume_empty_waits(EMPTY_SECONDS) == {table_id.value: EMPTY_SECONDS - 3}
+
+    def test_a_table_past_its_wait_has_ended_and_is_not_waited_for(self, service, store, table_id):
+        stamp(store, table_id, EMPTY_SECONDS + 1)
+
+        assert service.resume_empty_waits(EMPTY_SECONDS) == {}
+        assert isinstance(store.tables[table_id.value], EndedTable)
+
+    def test_a_dealt_table_past_its_wait_is_kept(self, service, store, dealt_id):
+        stamp(store, dealt_id, EMPTY_SECONDS + 1)
+
+        assert service.resume_empty_waits(EMPTY_SECONDS) == {dealt_id.value: 0}
+        assert isinstance(store.tables[dealt_id.value], TableRecord)

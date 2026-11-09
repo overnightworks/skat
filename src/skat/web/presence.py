@@ -96,17 +96,26 @@ class NextDeal:
     deal: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
 
 
+async def note_nothing(_table_id: str, _connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
+    return False
+
+
 @dataclass(frozen=True)
 class EmptyTable:
-    """How long a table nobody is connected to stays, and the command that ends it.
+    """How long a table nobody is connected to stays, the command that ends it and the one that notes who is there.
 
     `end(table_id, connected_accounts)` answers whether it ended the table, and raises when the store fails. It
     enters `connected_accounts` in its worker once it holds the table and leaves it after the commit; that yields
     who is connected then, and None once the presence has stopped or a stream opened since the wait began.
+
+    `note(table_id, connected_accounts)` stores since when nobody has been at the table, called wherever who is
+    connected changes. It answers whether the table ended because someone arrived after the wait was up, enters
+    `connected_accounts` as `end` does, and raises when the store fails.
     """
 
     seconds: float
     end: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
+    note: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]] = note_nothing
 
 
 class Presence:
@@ -143,7 +152,9 @@ class Presence:
     A table gets one wait when it is created or found at the server's start, and another each time its last stream
     ends; a stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it
     fires, the end is asked for with who is connected then, and a failure is retried while the wait stays the table's
-    latest. Nothing about a wait is stored either: after a restart every live table waits a full time.
+    latest. Since when nobody has been at a table is stored: a table's last leave, a lapsed lease and the first
+    arrival note who is present, each on the table's row, and the server's start seeds each table's wait with what is
+    left of it, so a restart never gives a table a fresh wait it had already begun.
     """
 
     def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease) -> None:
@@ -235,6 +246,7 @@ class Presence:
             return
         for table_id in table_ids:
             self.wake_table(table_id)
+            self._note_soon(table_id)
             if not lapsed:
                 self.deal_soon(table_id)
                 continue
@@ -272,6 +284,14 @@ class Presence:
         with self._state:
             self._empty_waits.pop(table_id, None)
             self._subscriptions.setdefault(table_id, []).append(subscription)
+        if not others:
+            try:
+                await self._empty_table.note(
+                    table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
+                )
+            except BaseException:
+                self.unsubscribe(subscription)
+                raise
         if not already_connected:
             self._wake_all(others)
         return subscription
@@ -289,13 +309,15 @@ class Presence:
             self._wake_all(remaining)
         if subscription.table_id not in self._subscriptions:
             self._start_empty_wait(subscription.table_id)
+            self._note_soon(subscription.table_id)
 
-    def watch_empty_table(self, table_id: str) -> None:
+    def watch_empty_table(self, table_id: str, seconds_left: float | None = None) -> None:
         """Start a table's wait if nobody is connected and none is pending: a create retry neither restarts nor
-        stretches it. Call it on the event loop's thread after a create, and for each live table at the server's start.
+        stretches it. Call it on the event loop's thread after a create, and for each live table at the server's
+        start with what is left of its wait.
         """
         if table_id not in self._subscriptions and table_id not in self._empty_waits:
-            self._start_empty_wait(table_id)
+            self._start_empty_wait(table_id, self._empty_table.seconds if seconds_left is None else seconds_left)
 
     def deal_soon(self, table_id: str) -> None:
         """Start the pause before a table's next deal; a request during a pending one neither cuts nor stretches it."""
@@ -334,13 +356,36 @@ class Presence:
         if dealt:
             self.wake_table(table_id)
 
-    def _start_empty_wait(self, table_id: str) -> None:
+    def _start_empty_wait(self, table_id: str, seconds: float | None = None) -> None:
         if self._stopped:
             return
         wait = object()
         with self._state:
             self._empty_waits[table_id] = wait
-        self._hold.scheduler.schedule(self._empty_table.seconds, partial(self._end_if_empty, table_id, wait))
+        self._hold.scheduler.schedule(
+            self._empty_table.seconds if seconds is None else seconds, partial(self._end_if_empty, table_id, wait)
+        )
+
+    def _note_soon(self, table_id: str) -> None:
+        if self._stopped:
+            return
+        self._hold.scheduler.schedule(0, partial(self._note_presence, table_id))
+
+    async def _note_presence(self, table_id: str) -> None:
+        """Store who is present now, read once the row is locked; a failure is retried while the presence runs."""
+        if self._stopped:
+            return
+        try:
+            ended = await self._empty_table.note(
+                table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
+            )
+        except Exception as failure:
+            # The failure's message may carry an account id, so only its type is logged.
+            log.error("empty since write failed", table_id=table_id, error=type(failure).__name__)
+            self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self._note_presence, table_id))
+            return
+        if ended:
+            self.wake_table(table_id)
 
     async def _end_if_empty(self, table_id: str, wait: object) -> None:
         if not self._is_latest_wait(table_id, wait):

@@ -193,7 +193,8 @@ def test_an_ended_table_reads_as_a_tombstone_and_is_no_live_table_and_no_chair_i
         assert transaction.locked_table(ended) is None
         assert isinstance(transaction.locked_table(live), TableRecord)
         assert {chair.table_id for chair in transaction.occupied_chairs()} == {live}
-    assert service.live_table_ids() == (live,)
+    with transactions.begin() as transaction:
+        assert [table_id for table_id, _ in transaction.live_empty_since()] == [live]
     assert isinstance(stored(transactions, ended.value), EndedTable)
 
 

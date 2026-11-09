@@ -90,8 +90,14 @@ class _FaultyTransaction:
         if self._faults.end_failure is not None:
             raise self._faults.end_failure
 
-    def live_table_ids(self) -> tuple[TableId, ...]:
-        return self._inner.live_table_ids()
+    def empty_since(self, table_id: TableId) -> datetime | None:
+        return self._inner.empty_since(table_id)
+
+    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
+        self._inner.set_empty_since(table_id, since)
+
+    def live_empty_since(self) -> tuple[tuple[TableId, datetime | None], ...]:
+        return self._inner.live_empty_since()
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         return self._inner.occupied_chairs()

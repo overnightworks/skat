@@ -1,4 +1,6 @@
 from dataclasses import replace
+from datetime import timedelta
+from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.deal import positions_from
@@ -21,6 +23,8 @@ from skat.table.records import (
 )
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from skat.engine.cards import Card
     from skat.engine.deal import Position
     from skat.table.records import EndedTable
@@ -173,6 +177,36 @@ def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) ->
     pauses and is kept. None says the presence cannot tell any more.
     """
     return not hand_was_dealt(table) and connected_accounts is not None and not connected_accounts
+
+
+class PresenceStep(Enum):
+    KEEP = "keep"
+    STAMP = "stamp"
+    CLEAR = "clear"
+    END = "end"
+
+
+def presence_step(
+    table: TableRecord,
+    connected_accounts: frozenset[str] | None,
+    empty_since: datetime | None,
+    now: datetime,
+    empty_seconds: int,
+) -> PresenceStep:
+    """What a change of who is present does to the time since when nobody has been at the table: an empty table
+    keeps an earlier time and gets one otherwise, only while no hand was dealt on it; a table someone is at loses
+    its time, and ends instead when no hand was dealt and the time was already up. None says the presence cannot
+    tell any more.
+    """
+    if connected_accounts is None:
+        return PresenceStep.KEEP
+    if not connected_accounts:
+        return PresenceStep.STAMP if empty_since is None and not hand_was_dealt(table) else PresenceStep.KEEP
+    if empty_since is None:
+        return PresenceStep.KEEP
+    if not hand_was_dealt(table) and now - empty_since >= timedelta(seconds=empty_seconds):
+        return PresenceStep.END
+    return PresenceStep.CLEAR
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:

@@ -145,7 +145,12 @@ def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
             tables.end_empty_table, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
 
-    return EmptyTable(settings.empty_table_seconds, end)
+    async def note(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
+        return await run_in_threadpool(
+            tables.note_presence, TableId(table_id), connected_accounts, settings.empty_table_seconds
+        )
+
+    return EmptyTable(settings.empty_table_seconds, end, note)
 
 
 def create_app(
@@ -177,12 +182,14 @@ def create_app(
 
     @asynccontextmanager
     async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
-        # Leave times are not stored, so every chair seated at the start is held for a full hold from now,
-        # and every live table waits a full time.
+        # Leave times are not stored, so every chair seated at the start is held for a full hold from now.
+        # A table already past its wait has ended before the first request; every other waits what is left of it.
         occupied = await run_in_threadpool(tables.occupied_chairs)
         presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
-        for table_id in await run_in_threadpool(tables.live_table_ids):
-            presence.watch_empty_table(table_id.value)
+        for table_id, seconds_left in (
+            await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
+        ).items():
+            presence.watch_empty_table(table_id, seconds_left)
         try:
             async with serving.state.mcp_front.running():
                 yield

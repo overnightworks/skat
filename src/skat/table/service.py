@@ -1,6 +1,6 @@
 import copy
 import secrets
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
@@ -37,6 +37,7 @@ from skat.table.rules import (
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
     CommandIdReusedError,
+    PresenceStep,
     command_receipt,
     create_receipt,
     dealt_next,
@@ -46,6 +47,7 @@ from skat.table.rules import (
     decide_stand,
     ends_empty,
     next_deal_due,
+    presence_step,
     present_at,
     replayed_decision,
     replayed_table,
@@ -105,7 +107,19 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         """
         ...
 
-    def live_table_ids(self) -> tuple[TableId, ...]: ...
+    def empty_since(self, table_id: TableId) -> datetime | None:
+        """Since when nobody has been at the table, or None while it is unset."""
+        ...
+
+    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
+        """Write the time since when nobody has been at the table, on the row this transaction locked; it changes
+        nothing else, not even the version.
+        """
+        ...
+
+    def live_empty_since(self) -> tuple[tuple[TableId, datetime | None], ...]:
+        """Every live table with its time since when nobody has been there."""
+        ...
 
     def add_receipt(self, receipt: Receipt) -> None: ...
 
@@ -182,6 +196,7 @@ class TableService:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset())
             table = decide_create(actor, self._new_table_id(), command.series_length)
             transaction.add_table(table)
+            transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())
 
@@ -347,9 +362,49 @@ class TableService:
             transaction.end_table(table_id, self._now(), empty_seconds)
             return True
 
-    def live_table_ids(self) -> tuple[TableId, ...]:
+    def note_presence(
+        self,
+        table_id: TableId,
+        connected_accounts: AbstractContextManager[frozenset[str] | None],
+        empty_seconds: int,
+    ) -> bool:
+        """Bring the time since when nobody has been at the table in line with who is present, on the server's own
+        account, with no actor, command id, receipt or version change.
+
+        `connected_accounts` is entered once the row is locked and left after the commit, as for `end_empty_table`,
+        so the last write after any change reflects the latest truth. A table someone arrives at after its time was
+        up ends instead of reviving. True when it ended the table.
+        """
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            if table is None:
+                return False
+            present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
+            now = self._now()
+            step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
+            if step is PresenceStep.END:
+                transaction.end_table(table_id, now, empty_seconds)
+            elif step is not PresenceStep.KEEP:
+                transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
+            return step is PresenceStep.END
+
+    def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
+        """At the server's start: stamp every live table with no time to now, end every table whose time is already
+        past `empty_seconds` old, and answer each remaining table's id with the seconds left of its wait.
+        """
+        now = self._now()
         with self._transactions.begin() as transaction:
-            return transaction.live_table_ids()
+            stamped = tuple(
+                (table_id, now if since is None else since) for table_id, since in transaction.live_empty_since()
+            )
+            for table_id, since in stamped:
+                transaction.set_empty_since(table_id, since)
+        left: dict[str, float] = {}
+        for table_id, since in stamped:
+            seconds_left = empty_seconds - (now - since).total_seconds()
+            if seconds_left > 0 or not self.end_empty_table(table_id, nullcontext(frozenset()), empty_seconds):
+                left[table_id.value] = max(seconds_left, 0.0)
+        return left
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:

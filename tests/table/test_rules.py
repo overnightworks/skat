@@ -1,5 +1,6 @@
 import random
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -17,12 +18,14 @@ from skat.table.records import (
     TableRecord,
 )
 from skat.table.rules import (
+    PresenceStep,
     dealt_next,
     decide_free_chair,
     decide_sit,
     decide_stand,
     hand_runs,
     next_deal_due,
+    presence_step,
     present_at,
     result_pending,
     sit_deals,
@@ -393,3 +396,28 @@ def test_an_occupants_lease_counts_as_present_but_a_strangers_does_not(streams, 
     table = table_with((1, ANNA), (2, BEN))
 
     assert present_at(table, streams, leases) == present
+
+
+NOW = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
+EMPTY_SECONDS = 600
+
+
+@pytest.mark.parametrize(
+    ("connected", "seconds_ago", "dealt", "step"),
+    [
+        pytest.param(None, None, False, PresenceStep.KEEP, id="presence-stopped-without-a-time"),
+        pytest.param(None, 700, False, PresenceStep.KEEP, id="presence-stopped-with-a-time-up"),
+        pytest.param(frozenset(), None, False, PresenceStep.STAMP, id="empty-without-a-time"),
+        pytest.param(frozenset(), 1, False, PresenceStep.KEEP, id="empty-keeps-an-earlier-time"),
+        pytest.param(frozenset(), None, True, PresenceStep.KEEP, id="empty-after-a-hand-was-dealt"),
+        pytest.param(frozenset({"account-anna"}), None, False, PresenceStep.KEEP, id="someone-without-a-time"),
+        pytest.param(frozenset({"account-anna"}), 599, False, PresenceStep.CLEAR, id="someone-before-the-time-is-up"),
+        pytest.param(frozenset({"account-anna"}), 600, False, PresenceStep.END, id="someone-when-the-time-is-up"),
+        pytest.param(frozenset({"account-anna"}), 700, True, PresenceStep.CLEAR, id="someone-at-a-dealt-table"),
+    ],
+)
+def test_who_is_present_decides_what_happens_to_the_time_since_when_nobody_was(connected, seconds_ago, dealt, step):
+    table = replace(table_with((1, ANNA)), dealer=1 if dealt else None)
+    since = None if seconds_ago is None else NOW - timedelta(seconds=seconds_ago)
+
+    assert presence_step(table, connected, since, NOW, EMPTY_SECONDS) is step
