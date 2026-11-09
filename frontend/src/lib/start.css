@@ -235,6 +235,10 @@ body {
     padding: 8px 24px 24px;
     box-sizing: border-box;
     --chair-width: clamp(88px, 28vw, 120px);
+    /* The declarer's ten cards lie face up in two staggered rows in front of the chair; the second row sits half a step in. */
+    --open-width: 54px;
+    --open-step: calc(var(--open-width) / 2);
+    --open-drop: calc(var(--open-width) * 0.78);
 }
 
 .room .plaque {
@@ -560,13 +564,6 @@ body {
     --deal-start: 0.2s;
     left: 50%;
     top: -20px;
-}
-
-/* The declarer's ten cards lie face up in two staggered rows in front of the chair; the second row sits half a step in. */
-.room .stage {
-    --open-width: 54px;
-    --open-step: calc(var(--open-width) / 2);
-    --open-drop: calc(var(--open-width) * 0.78);
 }
 
 .room .open {
