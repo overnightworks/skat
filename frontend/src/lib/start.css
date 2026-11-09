@@ -1703,6 +1703,25 @@ body {
     gap: 7px;
 }
 
+.room .plaque.wide {
+    width: max-content;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.room .plaque .announced {
+    display: grid;
+    place-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 6px;
+    border: 1.5px solid var(--cream);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    transform: rotate(-4deg);
+}
+
 .room .plaque .suit {
     display: grid;
     place-items: center;
@@ -1875,11 +1894,51 @@ body {
     background: #3a4350;
 }
 
-/* A Hand game's held level stands beside the button that declares it, so the panel stays as low as a game after the skat. */
 .room .declare .confirm {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
+}
+
+/* The ladder adds a row to the Hand panel; the games and gaps close up so the panel still ends below the far fans. */
+@media (max-width: 899px) {
+    .room .declare.hand {
+        gap: 8px;
+    }
+
+    .room .declare.hand .games {
+        gap: 6px;
+    }
+
+    .room .declare.hand .game {
+        height: 40px;
+    }
+
+    .room .declare.hand .game.suited {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+    }
+}
+
+.room .declare .ladder button {
+    flex: none;
+    box-sizing: border-box;
+    height: 34px;
+    padding: 0 11px;
+    border: 0;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--on-stage);
+}
+
+.room .declare .ladder button[aria-pressed="true"] {
+    background: var(--cream);
+    color: var(--ink);
 }
 
 /* The held level of a Hand game: the one step the page can declare beyond the game itself. */

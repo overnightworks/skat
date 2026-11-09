@@ -25,6 +25,7 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
+    AnnouncementToken,
     AwaitingToken,
     GameToken,
     PositionToken,
@@ -72,6 +73,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("RANK_TOKENS", RankToken),
         ("POSITION_TOKENS", PositionToken),
         ("GAME_TOKENS", GameToken),
+        ("ANNOUNCEMENT_TOKENS", AnnouncementToken),
         ("STAGE_TOKENS", StageToken),
         ("AWAITING_TOKENS", AwaitingToken),
         ("AUCTION_ACTION_TOKENS", AuctionAction),

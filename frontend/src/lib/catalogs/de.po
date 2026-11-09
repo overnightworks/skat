@@ -135,6 +135,18 @@ msgstr "Ansagen"
 msgid "hand"
 msgstr "Hand"
 
+msgid "levelSchneider"
+msgstr "Schneider"
+
+msgid "levelSchwarz"
+msgstr "Schwarz"
+
+msgid "announcedSchneider"
+msgstr "Schneider angesagt"
+
+msgid "announcedSchwarz"
+msgstr "Schwarz angesagt"
+
 msgid "ouvert"
 msgstr "ouvert"
 
