@@ -446,9 +446,7 @@ class TestAuctionView:
         assert (view.turn_seat, view.awaiting, view.declared) == (None, None, None)
         assert len(view.words) == 3
 
-    def test_seated_and_watching_viewers_see_the_same_words_turn_facing_seat_and_standing(
-        self, seated: Seated
-    ) -> None:
+    def test_seated_and_watching_viewers_see_the_same_words_turn_facing_seat_and_standing(self, seated: Seated) -> None:
         self.play_out(seated, [("middlehand", AuctionAction.BID, 22), ("forehand", AuctionAction.HOLD, None)])
 
         views = [
