@@ -18,6 +18,7 @@ from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the
 from skat.table.records import Actor, CommandRefusal, CreateTable, EndReason, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
+from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
 
 if TYPE_CHECKING:
@@ -510,24 +511,14 @@ async def command_answer(
     return answer_of(result.view)
 
 
-def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
+def _create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
 
-    @router.post(TABLES_PATH, responses={409: {"description": "The command id came back with another request."}})
-    async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
-        # The answer names people, so no cache may keep it past the gate.
-        response.headers["Cache-Control"] = "no-store"
-        try:
-            view = await run_in_threadpool(tables.create, actor_of(request), CreateTable(command_id=body.command_id))
-        except CommandIdReusedError:
-            raise HTTPException(status_code=409, detail="command id reused with another request") from None
-        # Presence belongs to the event loop's thread, so the wait starts here and not on the worker.
-        if view.ended is None:
-            presence.watch_empty_table(view.id)
-        return answer_of(view)
-
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=excluded(Exclusion.SEATING),
     )
     async def sit_down(
         table_id: str, body: SitDownRequest, request: Request, response: Response
@@ -540,7 +531,10 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         return answer
 
     @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX, response_model=TableAnswer, responses=COMMAND_RESPONSES
+        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=excluded(Exclusion.SEATING),
     )
     async def stand_up(
         table_id: str, body: CreateTableRequest, request: Request, response: Response
@@ -548,8 +542,43 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         command = StandUp(command_id=body.command_id, table_id=table_id)
         return await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
 
-    @router.get(TABLES_PATH + "/{table_id}", responses={404: {"description": "No table has this id."}})
+    return router
+
+
+def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
+    router = APIRouter()
+
+    @router.post(
+        TABLES_PATH,
+        responses={409: {"description": "The command id came back with another request."}},
+        openapi_extra=excluded(Exclusion.OPENING),
+    )
+    async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
+        # The answer names people, so no cache may keep it past the gate.
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            view = await run_in_threadpool(tables.create, actor_of(request), CreateTable(command_id=body.command_id))
+        except CommandIdReusedError:
+            raise HTTPException(status_code=409, detail="command id reused with another request") from None
+        # Presence belongs to the event loop's thread, so the wait starts here and not on the worker.
+        if view.ended is None:
+            presence.watch_empty_table(view.id)
+        return answer_of(view)
+
+    router.include_router(_create_seating_router(tables, presence))
+
+    @router.get(
+        TABLES_PATH + "/{table_id}",
+        responses={404: {"description": "No table has this id."}},
+        openapi_extra=READ_TABLE_MARK,
+    )
     async def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
+        """Read one Skat table by its id: what the caller's own chair may see.
+
+        The answer holds the table's version, its chairs, and the caller's own cards and the cards it may play when
+        it is its turn. The ids and the version that the caller's moves need come from this answer. A 404 means no
+        table has this id.
+        """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.
         view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
@@ -558,7 +587,9 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         return answer_of(view)
 
     # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
-    @router.api_route(TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS)
+    @router.api_route(
+        TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
+    )
     def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
         response = built_page_response(page_build.shell)
         response.headers["Cache-Control"] = "no-cache"

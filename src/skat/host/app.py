@@ -34,6 +34,7 @@ from skat.web.constants import (
 )
 from skat.web.declaring import create_declaring_router
 from skat.web.gate import session_gate
+from skat.web.mcp import McpAccess, mount_mcp
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
     NEXT_DEAL_PAUSE_SECONDS,
@@ -77,7 +78,7 @@ def _configure_logging() -> None:
     )
 
 
-def _install_web_auth(app: FastAPI, sessions: InMemorySessions, page_build: PageBuild) -> None:
+def _install_web_auth(app: FastAPI, sessions: InMemorySessions, page_build: PageBuild, mcp: McpAccess) -> None:
     install_web_auth_middleware(
         app,
         security_headers=SecurityHeadersPolicy(
@@ -100,7 +101,8 @@ def _install_web_auth(app: FastAPI, sessions: InMemorySessions, page_build: Page
             rules=(RateLimitRule(paths=SIGN_IN_PATHS.browser_paths, budget=SIGN_IN_RATE_LIMIT_BUDGET),),
             exempt=RATE_LIMIT_EXEMPT_PATH_RULES,
         ),
-        session_gate=session_gate(sessions, page_build.sign_in_assets),
+        bearer_gate=mcp.bearer_gate,
+        session_gate=session_gate(sessions, page_build.sign_in_assets, mcp.public_rule),
     )
 
 
@@ -154,7 +156,7 @@ def create_app(
     )
 
     @asynccontextmanager
-    async def hold_chairs_while_serving(_app: FastAPI) -> AsyncGenerator[None]:
+    async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
         # Leave times are not stored, so every chair seated at the start is held for a full hold from now,
         # and every live table waits a full time.
         occupied = await run_in_threadpool(tables.occupied_chairs)
@@ -162,7 +164,8 @@ def create_app(
         for table_id in await run_in_threadpool(tables.live_table_ids):
             presence.watch_empty_table(table_id.value)
         try:
-            yield
+            async with serving.state.mcp_front.running():
+                yield
         finally:
             presence.stop()
             await presence.finish_writes()
@@ -179,6 +182,8 @@ def create_app(
     app.state.stop_streams = presence.stop
     install_web_auth_config(app, sign_in_configs.web_auth)
     install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
-    _install_web_auth(app, sign_in_stores.sessions, page_build)
+    mcp = mount_mcp(app, relying_party, sign_in_stores.transaction, settings.public_origin)
+    app.state.mcp_front = mcp.front
+    _install_web_auth(app, sign_in_stores.sessions, page_build, mcp)
 
     return app
