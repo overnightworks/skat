@@ -26,6 +26,7 @@ export const words = {
     seatTaken: "Platz vergeben",
     commandFailed: "Das hat nicht geklappt",
     biddingFollows: "Reizen folgt",
+    bidValue: "Reizwert",
     dealer: "Geber",
     forehand: "Vorhand",
     middlehand: "Mittelhand",

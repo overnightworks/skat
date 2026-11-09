@@ -10,6 +10,7 @@
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
     import {
+        bidValueWhileDeclaring,
         copyTableLink,
         declarerStage,
         drawingOrder,
@@ -110,7 +111,12 @@
         {#if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
             {@const declarerActs = declarerStage(outcome.table) !== null}
-            {#if !outcome.table.hand?.declaring}
+            {@const bidValue = bidValueWhileDeclaring(outcome.table)}
+            {#if bidValue !== null}
+                <div class="plaque">
+                    <span>{`${words.bidValue} ${String(bidValue)}`}</span>
+                </div>
+            {:else if !outcome.table.hand?.declaring}
                 <div class="plaque">
                     {#if outcome.table.hand === null}
                         <span>{words.waitingForPlayers}</span>

@@ -34,6 +34,7 @@ PUT_BACK = catalog_text("putBack")
 ANNOUNCE = catalog_text("announceGame")
 COMMAND_FAILED = catalog_text("commandFailed")
 BIDDING_FOLLOWS = catalog_text("biddingFollows")
+BID_VALUE = catalog_text("bidValue")
 GAME_NAMES = [catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand", "gameNull")]
 NULL_GAME = catalog_text("gameNull")
 CONTROL_NAMES = [TAKE_SKAT, PUT_BACK, ANNOUNCE, *GAME_NAMES]
@@ -128,6 +129,9 @@ class DeclaringTable:
     def declaring_as_the_declarer_sees_it(self) -> dict[str, Any]:
         return json.loads(self.sessions[self.declarer_seat].get(self.api_path))["hand"]["declaring"]
 
+    def bid_value(self) -> int:
+        return json.loads(self.sessions[self.declarer_seat].get(self.api_path))["hand"]["auction"]["declared"]["value"]
+
 
 @pytest.fixture
 def deal_a_declaring_table(
@@ -215,6 +219,10 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(declarer.get_by_text(BIDDING_FOLLOWS)).to_have_count(0)
+    bid_plaque = f"{BID_VALUE} {table.bid_value()}"
+    expect(declarer.get_by_text(bid_plaque)).to_have_count(1)
+    for onlooker in (*table.others, table.watcher):
+        expect(onlooker.get_by_text(bid_plaque)).to_have_count(1)
 
     button_of(declarer, TAKE_SKAT).click()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
@@ -224,6 +232,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     pick_two_of_the_twelve(declarer)
     button_of(declarer, PUT_BACK).click()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+    expect(declarer.get_by_text(bid_plaque)).to_have_count(1)
     expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
     expect(button_of(declarer, "Null ouvert")).to_have_count(0)
     for name in GAME_NAMES:

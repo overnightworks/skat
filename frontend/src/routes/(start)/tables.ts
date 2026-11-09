@@ -32,7 +32,13 @@ export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
 export type Declaring = { declarer_seat: number; stage: Stage };
-export type Hand = { dealer_seat: number; own_cards: Card[]; skat_count: number; declaring: Declaring | null };
+export type Hand = {
+    dealer_seat: number;
+    own_cards: Card[];
+    skat_count: number;
+    auction: { declared: { seat: number; value: number } | null };
+    declaring: Declaring | null;
+};
 export type Chair = {
     seat: number;
     occupant_name: string | null;
@@ -204,6 +210,13 @@ const POSITION_WORDS: Record<Position, string> = {
     middlehand: words.middlehand,
     rearhand: words.rearhand,
 };
+
+// The auction's value, shown to everyone until the game is declared.
+export function bidValueWhileDeclaring(table: Table): number | null {
+    const hand = table.hand;
+    if (!hand?.declaring || hand.declaring.stage === "declared") return null;
+    return hand.auction.declared?.value ?? null;
+}
 
 // The stage this viewer must act on: only the declarer acts, and only until the game is declared.
 export function declarerStage(table: Table): Exclude<Stage, "declared"> | null {

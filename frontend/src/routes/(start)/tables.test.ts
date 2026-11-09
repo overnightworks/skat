@@ -8,6 +8,7 @@ import {
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
+    bidValueWhileDeclaring,
     cardName,
     copyTableLink,
     createTable,
@@ -349,12 +350,13 @@ describe("what the declaring stage asks of this viewer", () => {
             is_away: false,
             hand: null,
         }));
+    const bidWon = { seat: 2, value: 20 };
     const tableWith = (declaring: Declaring | null, mine: number): Table => ({
         id: TABLE_ID,
         version: 1,
         chairs: seats(mine),
         watchers: 0,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, declaring },
+        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: { declared: bidWon }, declaring },
     });
     const tableAt = (stage: Stage, mine: number): Table => tableWith({ declarer_seat: 2, stage }, mine);
 
@@ -380,6 +382,32 @@ describe("what the declaring stage asks of this viewer", () => {
 
     it("asks nothing with no hand on the table", () => {
         expect(declarerStage({ ...tableAt("choosing", 2), hand: null })).toBeNull();
+    });
+});
+
+describe("the auction's value while declaring", () => {
+    const table = (declaring: Declaring | null, declared: { seat: number; value: number } | null): Table => ({
+        id: TABLE_ID,
+        version: 1,
+        chairs: [],
+        watchers: 0,
+        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: { declared }, declaring },
+    });
+
+    it.each<Stage>(["choosing", "discarding", "picked"])("is shown at %s", (stage) => {
+        expect(bidValueWhileDeclaring(table({ declarer_seat: 2, stage }, { seat: 2, value: 20 }))).toBe(20);
+    });
+
+    it.each([
+        ["once the game is declared", { declarer_seat: 2, stage: "declared" as const }, { seat: 2, value: 20 }],
+        ["before the auction is over", null, null],
+        ["with no value won", { declarer_seat: 2, stage: "choosing" as const }, null],
+    ])("is not shown %s", (_name, declaring, declared) => {
+        expect(bidValueWhileDeclaring(table(declaring, declared))).toBeNull();
+    });
+
+    it("is not shown with no hand on the table", () => {
+        expect(bidValueWhileDeclaring({ ...table(null, null), hand: null })).toBeNull();
     });
 });
 

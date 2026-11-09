@@ -985,10 +985,11 @@ body {
     height: 15px;
 }
 
-/* While the declarer picks a game, the two cards put back wait small between the far chairs. */
+/* While the declarer picks a game, the two cards put back lie small at the lower left of the felt. */
 .room .stage:has(.declare.picked) .skat-spot {
-    align-self: start;
-    margin-top: 56px;
+    justify-self: start;
+    align-self: end;
+    margin-bottom: 24px;
     --card-width: 38px;
 }
 
