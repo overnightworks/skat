@@ -1769,6 +1769,44 @@ body {
     cursor: default;
 }
 
+.room .declare.choosing {
+    flex-direction: row;
+}
+
+.room .declare .step.hand {
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(14px);
+}
+
+.room .declare .step.hand:disabled {
+    background: #3a4350;
+}
+
+/* The held level of a Hand game: the one step the page can declare beyond the game itself. */
+.room .declare .held {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 34px;
+    padding: 0 11px;
+    border-radius: 10px;
+    color: var(--on-stage);
+    background: rgba(0, 0, 0, 0.35);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.room .declare .held svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: var(--ok-stage, #5ccf85);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .room .declare .step svg,
 .room .declare .slot svg {
     width: 20px;
@@ -1859,12 +1897,16 @@ body {
     height: 15px;
 }
 
-/* While the declarer picks a game, the two cards put back lie small at the lower left of the felt. */
-.room .stage:has(.declare.picked) .skat-spot {
+/* While the declarer picks a game, the two cards put back lie small at the lower left of the felt; a Hand game's two untouched backs lie at the lower right. */
+.room .stage:has(.declare:is(.picked, .hand)) .skat-spot {
     justify-self: start;
     align-self: end;
     margin-bottom: 24px;
     --card-width: 38px;
+}
+
+.room .stage:has(.declare.hand) .skat-spot {
+    justify-self: end;
 }
 
 .room .chair.mine.turn .tile {
@@ -1906,7 +1948,7 @@ body {
 
 /* The smallest phones keep the controls between the far fans and the own chair: the games stand in one row. */
 @media (max-width: 379px) {
-    .room .declare.picked {
+    .room .declare:is(.picked, .hand) {
         gap: 8px;
     }
 
@@ -1957,7 +1999,7 @@ body {
     }
 
     /* The drop slots stand over their button, and the games on two rows over theirs: the four suits, then the rest. */
-    .room .declare:is(.discarding, .picked) {
+    .room .declare:is(.discarding, .picked, .hand) {
         flex-direction: column;
     }
 
@@ -1970,9 +2012,16 @@ body {
         width: 64px;
     }
 
-    .room .stage:has(.declare.picked) .skat-spot {
+    .room .stage:has(.declare:is(.picked, .hand)) .skat-spot {
         --card-width: 56px;
+    }
+
+    .room .stage:has(.declare.picked) .skat-spot {
         margin-left: 260px;
+    }
+
+    .room .stage:has(.declare.hand) .skat-spot {
+        margin-right: 260px;
     }
 
     .room .declare .game.suited {

@@ -24,6 +24,7 @@ function result(changes: Partial<Result> = {}): Result {
         ordinal: 3,
         declarer_seat: DECLARER_SEAT,
         game: "kreuz",
+        hand: false,
         won: true,
         overbid: false,
         bid: 18,
@@ -83,6 +84,13 @@ describe("the card's words and sides for each viewer", () => {
         { viewer: "a watcher", mine: NOBODY, sides: { declarer: "player 2", opponents: words.sideThem } },
     ])("names the sides for $viewer", ({ mine, sides }) => {
         expect(resultView(table(mine, {})).sides).toEqual(sides);
+    });
+
+    it.each([
+        { hand: false, label: words.gameKreuz },
+        { hand: true, label: `${words.gameKreuz} ${words.hand}` },
+    ])("names the game with its levels when hand is $hand", ({ hand, label }) => {
+        expect(resultView(table(2, { hand })).label).toBe(label);
     });
 
     it("carries the points of both sides as the server counted them", () => {

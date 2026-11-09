@@ -1,6 +1,6 @@
 import { words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
-import type { Chair, Game, Sides, SeatGain, Table } from "../routes/(start)/tables.ts";
+import { gameLabel, type Chair, type Game, type Sides, type SeatGain, type Table } from "../routes/(start)/tables.ts";
 
 export type ReckoningRow = {
     seat: number;
@@ -15,6 +15,8 @@ export type ResultView = {
     // The mark's shape: a tick when the word is good news for this viewer, a cross when it is not.
     good: boolean;
     game: Game;
+    // The game's name with its levels.
+    label: string;
     // An opponent's game line names whose game it was.
     byName: string | null;
     // The line under the stamp: what the game was worth against what was bid.
@@ -64,6 +66,7 @@ export function resultView(table: Table): ResultView {
         word,
         good,
         game: result.game,
+        label: gameLabel(result),
         byName: own !== undefined && !isDeclarer ? declarerName : null,
         miss: result.overbid
             ? `${words.gameWorth} ${String(result.game_value)} < ${words.bidValue} ${String(result.bid)}`

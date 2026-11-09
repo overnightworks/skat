@@ -2,7 +2,7 @@
     import type { ResultView } from "#lib/result.ts";
     import { ALL_POINTS } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
-    import { gameWord, isSuitGame } from "../../routes/(start)/tables.ts";
+    import { isSuitGame } from "../../routes/(start)/tables.ts";
 
     let { view }: { view: ResultView } = $props();
 </script>
@@ -33,7 +33,7 @@
                     <svg viewBox="0 0 100 100"><use href={`#suit-${view.game}`} /></svg>
                 </span>
             {/if}
-            {view.byName === null ? gameWord(view.game) : `${view.byName}, ${gameWord(view.game)}`}
+            {view.byName === null ? view.label : `${view.byName}, ${view.label}`}
         </span>
         {#if view.miss !== null}
             <span class="stamp">{words.overbid}</span>

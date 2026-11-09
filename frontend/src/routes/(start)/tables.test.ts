@@ -17,6 +17,7 @@ import {
     createTable,
     declarerStage,
     drawingOrder,
+    gameLabel,
     gameWord,
     isSuitGame,
     markReady,
@@ -478,7 +479,7 @@ describe("the auction's value while declaring", () => {
     it.each([
         [
             "once the game is declared",
-            { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const } },
+            { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const, hand: false } },
             { seat: 2, value: 20 },
         ],
         ["before the auction is over", null, null],
@@ -550,6 +551,13 @@ describe("the table's seats and link", () => {
         ["null", words.gameNull],
     ] as [Game, string][])("names the game %s with its word", (game, word) => {
         expect(gameWord(game)).toBe(word);
+    });
+
+    it.each([
+        ["a plain game", false, words.gameGrand],
+        ["a Hand game", true, `${words.gameGrand} ${words.hand}`],
+    ])("labels %s", (_name, hand, label) => {
+        expect(gameLabel({ game: "grand", hand })).toBe(label);
     });
 
     it.each([
