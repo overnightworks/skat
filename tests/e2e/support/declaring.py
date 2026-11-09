@@ -8,7 +8,7 @@ from playwright.sync_api import Page, expect
 from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
@@ -87,9 +87,9 @@ class DeclaringTable:
 
     def _win_the_auction(self, seat_at: dict[str, int]) -> None:
         """The middlehand holds the highest bid there is, so any game the page declares lies below it."""
-        self.step(seat_at["middlehand"], TABLE_AUCTION_SUFFIX, action="bid", value=VALID_BIDS[-1])
-        self.step(seat_at["forehand"], TABLE_AUCTION_SUFFIX, action="pass")
-        self.step(seat_at["rearhand"], TABLE_AUCTION_SUFFIX, action="pass")
+        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[-1])
+        self.step(seat_at["forehand"], TABLE_AUCTION_PASS_SUFFIX)
+        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
 
     def step(self, seat: int, suffix: str, **fields: object) -> None:
         session = self.sessions[seat]

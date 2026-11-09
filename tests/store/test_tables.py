@@ -16,7 +16,7 @@ from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import TABLES_PATH
 from tests.support.faulty_tables import (
@@ -722,8 +722,8 @@ def pass_in_by_turn(server, table_id, people):
         server.client.cookies.clear()
         headers = people[view["hand"]["auction"]["turn_seat"] - 1][0]
         answer = server.client.post(
-            url + TABLE_AUCTION_SUFFIX,
-            json={"command_id": f"pass-{step:04d}", "version": view["version"], "action": "pass"},
+            url + TABLE_AUCTION_PASS_SUFFIX,
+            json={"command_id": f"pass-{step:04d}", "version": view["version"]},
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
         server.client.cookies.clear()

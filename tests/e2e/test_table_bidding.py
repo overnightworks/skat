@@ -8,7 +8,12 @@ import pytest
 from playwright.sync_api import Page, Route, expect
 
 from skat.table.auction import AuctionAction
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import (
+    TABLE_AUCTION_BID_SUFFIX,
+    TABLE_AUCTION_HOLD_SUFFIX,
+    TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAY_SUFFIX,
+)
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
@@ -137,17 +142,24 @@ def dealt_table(
     return Table(server, table_id, by_position["forehand"], by_position["middlehand"], by_position["rearhand"], dora)
 
 
+STEP_SUFFIXES = {
+    AuctionAction.BID: TABLE_AUCTION_BID_SUFFIX,
+    AuctionAction.HOLD: TABLE_AUCTION_HOLD_SUFFIX,
+    AuctionAction.PASS: TABLE_AUCTION_PASS_SUFFIX,
+    AuctionAction.PLAY: TABLE_AUCTION_PLAY_SUFFIX,
+}
+
+
 def step(person: Page, table: Table, action: AuctionAction, value: int | None = None) -> None:
     """A step taken behind the page, as the player's other device would."""
     payload: dict[str, Any] = {
         "command_id": uuid.uuid4().hex,
         "version": answer_of(person, table)["version"],
-        "action": action.value,
     }
     if value is not None:
         payload["value"] = value
     response = person.request.post(
-        f"{table.server.base_url}{TABLES_PATH}/{table.id}{TABLE_AUCTION_SUFFIX}",
+        f"{table.server.base_url}{TABLES_PATH}/{table.id}{STEP_SUFFIXES[action]}",
         data=payload,
         headers={"Origin": table.server.base_url},
     )
@@ -368,7 +380,7 @@ def test_a_double_tap_takes_exactly_one_step(
         "request",
         lambda request: (
             steps_sent.append(request.url)
-            if request.method == "POST" and request.url.endswith(TABLE_AUCTION_SUFFIX)
+            if request.method == "POST" and request.url.endswith(tuple(STEP_SUFFIXES.values()))
             else None
         ),
     )

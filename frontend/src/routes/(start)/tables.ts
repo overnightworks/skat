@@ -11,7 +11,10 @@ import {
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
     TABLE_DECLARATION_SUFFIX,
-    TABLE_AUCTION_SUFFIX,
+    TABLE_AUCTION_BID_SUFFIX,
+    TABLE_AUCTION_HOLD_SUFFIX,
+    TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_READY_SUFFIX,
@@ -189,6 +192,13 @@ export function markReady(id: string, commandId: string, ordinal: number): Promi
     return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal });
 }
 
+const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {
+    bid: TABLE_AUCTION_BID_SUFFIX,
+    hold: TABLE_AUCTION_HOLD_SUFFIX,
+    pass: TABLE_AUCTION_PASS_SUFFIX,
+    play: TABLE_AUCTION_PLAY_SUFFIX,
+};
+
 // The version is the one the page shows, so a step taken on a stale page is refused; there is no retry.
 export function takeAuctionStep(
     id: string,
@@ -197,7 +207,7 @@ export function takeAuctionStep(
     action: AuctionAction,
     value?: number,
 ): Promise<Outcome> {
-    return post(id, TABLE_AUCTION_SUFFIX, { command_id: commandId, version, action, value });
+    return post(id, AUCTION_STEP_SUFFIXES[action], { command_id: commandId, version, value });
 }
 
 export function readTable(id: string): Promise<Outcome> {

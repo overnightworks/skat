@@ -6,7 +6,7 @@ import pytest
 from skat.engine.deal import Position, positions_from
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
-from skat.web.auction import TABLE_AUCTION_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession
@@ -76,9 +76,9 @@ class DealtTable:
 
     def middlehand_wins(self) -> RawSession:
         declarer = self.person_at(Position.MIDDLEHAND)
-        self.step(declarer, TABLE_AUCTION_SUFFIX, action="bid", value=18)
-        self.step(self.person_at(Position.FOREHAND), TABLE_AUCTION_SUFFIX, action="pass")
-        self.step(self.person_at(Position.REARHAND), TABLE_AUCTION_SUFFIX, action="pass")
+        self.step(declarer, TABLE_AUCTION_BID_SUFFIX, value=18)
+        self.step(self.person_at(Position.FOREHAND), TABLE_AUCTION_PASS_SUFFIX)
+        self.step(self.person_at(Position.REARHAND), TABLE_AUCTION_PASS_SUFFIX)
         return declarer
 
     def cards_seen_by(self, person: RawSession) -> set[tuple[str, str]]:
@@ -100,7 +100,7 @@ def test_no_raw_http_body_or_stream_message_carries_a_card_its_reader_may_not_se
     anna, _ben, cleo, _dora = table.people
     anna.post(TABLES_PATH, CREATE_COMMAND)
     cleo.post(f"{table.path}{TABLE_SIT_SUFFIX}", {"command_id": "hand-sit-0003", "seat": 3})
-    table.step(table.person_at(Position.MIDDLEHAND), TABLE_AUCTION_SUFFIX, action="bid", value=18)
+    table.step(table.person_at(Position.MIDDLEHAND), TABLE_AUCTION_BID_SUFFIX, value=18)
     table.look_at_it_all()
     assert table.stored.hand is not None
     for person in table.people:
