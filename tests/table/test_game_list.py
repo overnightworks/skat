@@ -11,7 +11,7 @@ from skat.engine.declaration import Announcement, Declaration, Declaring, declar
 from skat.engine.games import GameKind, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Matadors
-from skat.table.game_list import list_entry_of, result_view_of
+from skat.table.game_list import list_entry_of, result_view_of, total_of
 from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -221,3 +221,32 @@ class TestTheResult:
     )
     def test_there_is_none_while_no_result_is_pending(self, changed):
         assert result_view_of(replace(pending_result(played(NULL)), **changed)) is None
+
+
+ANNA, BEN, CLEO, DORA = "anna", "ben", "cleo", "dora"
+
+
+def game_by(seat, game, accounts=(ANNA, BEN, CLEO)):
+    return replace(entry_of(game), declarer_seat=seat, seat_accounts=accounts)
+
+
+class TestTheTotal:
+    def test_a_person_has_nothing_before_any_game(self):
+        assert total_of((), ANNA) == 0
+
+    def test_sums_the_gains_of_the_seat_the_person_held_in_each_game(self):
+        won = game_by(2, played(KREUZ, MIT_TWO, (30, 30, 18)))
+        lost = game_by(1, played(KREUZ, MIT_TWO, (30, 24)))
+
+        assert [total_of((won, lost), account) for account in (ANNA, BEN, CLEO)] == [-122, 126, 40]
+
+    def test_a_person_keeps_their_total_on_another_chair(self):
+        won = game_by(2, played(KREUZ, MIT_TWO, (30, 30, 18)))
+        moved = game_by(1, played(KREUZ, MIT_TWO, (30, 24)), accounts=(BEN, ANNA, CLEO))
+
+        assert [total_of((won, moved), account) for account in (ANNA, BEN, CLEO)] == [40, -36, 40]
+
+    def test_an_account_that_held_no_seat_adds_nothing_and_a_newcomer_starts_at_zero(self):
+        won = game_by(2, played(KREUZ, MIT_TWO, (30, 30, 18)))
+
+        assert total_of((won,), DORA) == 0

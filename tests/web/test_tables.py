@@ -169,6 +169,14 @@ class TestReadTable:
         ]
         assert all(account.id not in answer.text and other.id not in answer.text for answer in answers)
 
+    def test_gives_an_occupied_chair_a_total_of_nothing_before_any_game_and_a_free_chair_none(self, skat):
+        headers, _ = skat.member()
+        table_id = skat.create(headers).json()["id"]
+
+        answer = skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+
+        assert [chair["total"] for chair in answer.json()["chairs"]] == [0, None, None]
+
 
 class TestTablePage:
     def test_serves_the_page_shell_to_a_member_for_any_id(self, skat):
