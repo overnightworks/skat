@@ -1,0 +1,7 @@
+claim_id = "2f131d2d660e49d2bbde0813b90a28ec"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "168d820d936c15560fc131002bbb368a2ecab7c2"
+branch = "claude/issue-244-chromium-without-apt"
+scope = [".github/workflows/ci.yml"]
+opened_commit = "e8348419ebcbbafaa1acabaad749b339e0900382"
