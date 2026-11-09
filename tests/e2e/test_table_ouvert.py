@@ -7,8 +7,11 @@ from playwright.sync_api import Locator, Page, expect
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards, trick_winner
-from skat.web.playing import TABLE_CARD_SUFFIX
+from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
+from skat.web.playing import TABLE_CARD_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
+from tests.e2e.support.declaring import button_of, reload_and_wait
+from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
 
@@ -20,10 +23,27 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 CARDS_IN_A_HAND = 10
+NARROW_BELOW = 900
 GRAND_OUVERT = f"{catalog_text('gameGrand')} {catalog_text('ouvert')}"
 TOKEN_SUITS: dict[str, Suit] = {token: suit for suit, token in SUIT_TOKENS.items()}
 TOKEN_RANKS: dict[str, Rank] = {token: rank for rank, token in RANK_TOKENS.items()}
 OPEN_TAG = catalog_text("open")
+NULL_GAME = catalog_text("gameNull")
+NULL_OUVERT = f"{NULL_GAME} {catalog_text('ouvert')}"
+NULL_OUVERT_HAND = f"{NULL_OUVERT} {catalog_text('hand')}"
+OUVERT_RUNG = catalog_text("levelOuvert")
+SCHNEIDER = catalog_text("levelSchneider")
+SCHWARZ = catalog_text("levelSchwarz")
+HAND = catalog_text("hand")
+TAKE_SKAT = catalog_text("takeSkat")
+PUT_BACK = catalog_text("putBack")
+ANNOUNCE = catalog_text("announceGame")
+ANNOUNCED_MARK = ".plaque .announced"
+LADDER = ".declare .ladder"
+RESULT_CARD = ".result"
+PRESSED = "aria-pressed"
+NULL_OUVERT_VALUE = 46
+NULL_OUVERT_HAND_VALUE = 59
 PLAQUE = ".plaque"
 OPEN_CARD = ".open .card"
 OPEN_FACE = f"{OPEN_CARD} .card-face"
@@ -183,4 +203,287 @@ def test_a_game_that_is_not_ouvert_keeps_its_back_fans_and_shows_no_tag(
         expect(person.locator(OPEN_TAG_SELECTOR)).to_have_count(0)
     for person in onlookers(table):
         expect(declarer_chair(person, table).locator(FAN)).to_have_count(1)
+    assert page_errors == []
+
+
+def put_the_skat_back(table: DeclaringTable) -> None:
+    table.declare_through_the_api(action="take")
+    skat = sorted(table.skat())
+    table.declare_through_the_api(action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in skat])
+
+
+def expect_open_cards_without_the_skat(table: DeclaringTable, skat: set[tuple[str, str]]) -> None:
+    held = {(card["suit"], card["rank"]) for card in the_view(table, table.declarer_seat)["hand"]["own_cards"]}
+    assert not held & skat
+    for person in onlookers(table):
+        chair = declarer_chair(person, table)
+        expect(chair.locator(OPEN_CARD)).to_have_count(CARDS_IN_A_HAND)
+        assert faces_of(chair.locator(OPEN_FACE)) == held
+        assert not faces_of(person.locator(".card-face")) & skat
+    for seat in range(1, 4):
+        if seat != table.declarer_seat:
+            view = the_view(table, seat)["hand"]
+            assert not {(c["suit"], c["rank"]) for c in view.get("open_cards", [])} & skat
+            assert not {(c["suit"], c["rank"]) for c in view.get("own_cards", [])} & skat
+
+
+def give_up_and_read_the_result(table: DeclaringTable, label: str, value: int) -> None:
+    table.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
+    for person in (table.declarer, *onlookers(table)):
+        expect(person.locator(RESULT_CARD)).to_contain_text(label)
+        expect(person.locator(".open")).to_have_count(0)
+    assert the_view(table, table.declarer_seat)["result"]["game_value"] == value
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_null_ouvert_after_the_take_is_offered_without_levels_and_declared_with_one_command(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    posts: list[str] = []
+    declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
+    button_of(declarer, TAKE_SKAT).click()
+    cards = declarer.locator(".own-hand .card button")
+    expect(cards).to_have_count(CARDS_IN_A_HAND + 2)
+    taken = faces_of(declarer.locator(".own-hand .card-face"))
+    for index in range(2):
+        cards.nth(index).click(position={"x": 8, "y": 40})
+    button_of(declarer, PUT_BACK).click()
+
+    expect(button_of(declarer, NULL_OUVERT)).to_be_visible()
+    for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
+        expect(button_of(declarer, level)).to_have_count(0)
+    reload_and_wait(declarer)
+    expect(button_of(declarer, NULL_OUVERT)).to_have_attribute(PRESSED, "false")
+    expect(button_of(declarer, ANNOUNCE)).to_be_disabled()
+
+    button_of(declarer, NULL_OUVERT).click()
+    expect(button_of(declarer, NULL_OUVERT)).to_have_attribute(PRESSED, "true")
+    posts.clear()
+    button_of(declarer, ANNOUNCE).dblclick()
+    expect(declarer.locator(OPEN_TAG_SELECTOR)).to_contain_text(OPEN_TAG)
+    sent = [url for url in posts if url.endswith(f"{table.api_path}{TABLE_DECLARING_DECLARE_SUFFIX}")]
+    assert len(sent) == 1
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": "null", "hand": False, "ouvert": True, "announcement": "none"}
+    skat = taken - {(card["suit"], card["rank"]) for card in the_view(table, table.declarer_seat)["hand"]["own_cards"]}
+    cards_put_back = skat
+    assert len(cards_put_back) == 2
+    expect_open_cards_without_the_skat(table, cards_put_back)
+    for person in (*onlookers(table), declarer):
+        reload_and_wait(person)
+        expect(person.locator(PLAQUE)).to_contain_text(NULL_OUVERT)
+        expect(person.locator(PLAQUE)).not_to_contain_text(HAND)
+        expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
+    expect_open_cards_without_the_skat(table, cards_put_back)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_given_up_null_ouvert_game_is_valued_and_named_on_every_result_card(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    put_the_skat_back(table)
+    table.declare_through_the_api(action="declare", game="null", hand=False, ouvert=True, announcement="none")
+
+    give_up_and_read_the_result(table, NULL_OUVERT, NULL_OUVERT_VALUE)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_null_ouvert_in_the_hand_panel_hides_the_levels_and_is_named_null_ouvert_hand(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    skat = table.skat()
+    posts: list[str] = []
+    declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
+    button_of(declarer, HAND).click()
+    expect(declarer.locator(LADDER)).to_contain_text(OUVERT_RUNG)
+    button_of(declarer, SCHWARZ).click()
+    button_of(declarer, OUVERT_RUNG).click()
+    button_of(declarer, NULL_OUVERT).click()
+    for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
+        expect(button_of(declarer, level)).to_have_count(0)
+    assert posts == []
+
+    button_of(declarer, ANNOUNCE).click()
+    expect(declarer.locator(OPEN_TAG_SELECTOR)).to_contain_text(OPEN_TAG)
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": "null", "hand": True, "ouvert": True, "announcement": "none"}
+    for person in (*onlookers(table), declarer):
+        expect(person.locator(PLAQUE)).to_contain_text(NULL_OUVERT_HAND)
+        reload_and_wait(person)
+        expect(person.locator(PLAQUE)).to_contain_text(NULL_OUVERT_HAND)
+    for person in onlookers(table):
+        assert not faces_of(person.locator(".card-face")) & skat
+        expect(declarer_chair(person, table).locator(OPEN_CARD)).to_have_count(CARDS_IN_A_HAND)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_given_up_null_ouvert_hand_game_is_valued_and_named_on_every_result_card(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    table.declare_through_the_api(action="declare", game="null", hand=True, ouvert=True, announcement="none")
+
+    give_up_and_read_the_result(table, NULL_OUVERT_HAND, NULL_OUVERT_HAND_VALUE)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize(("game", "word_key"), [("herz", "gameHerz"), ("grand", "gameGrand")])
+def test_the_ouvert_rung_releases_a_level_and_declares_an_ouvert_game_named_without_an_announcement(
+    deal_a_declaring_table: Callable[..., DeclaringTable],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    game: str,
+    word_key: str,
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    posts: list[tuple[str, str | None]] = []
+    declarer.on(
+        "request", lambda request: posts.append((request.url, request.post_data)) if request.method == "POST" else None
+    )
+    button_of(declarer, HAND).click()
+    button_of(declarer, catalog_text(word_key)).click()
+    button_of(declarer, SCHNEIDER).click()
+    button_of(declarer, OUVERT_RUNG).click()
+    expect(button_of(declarer, OUVERT_RUNG)).to_have_attribute(PRESSED, "true")
+    expect(button_of(declarer, SCHNEIDER)).to_have_attribute(PRESSED, "false")
+    assert posts == []
+    button_of(declarer, ANNOUNCE).dblclick()
+    expect(declarer.locator(OPEN_TAG_SELECTOR)).to_contain_text(OPEN_TAG)
+
+    sent = [body for url, body in posts if url.endswith(f"{table.api_path}{TABLE_DECLARING_DECLARE_SUFFIX}")]
+    assert len(sent) == 1
+    body = json.loads(sent[0] or "")
+    assert body["ouvert"] is True
+    assert body["announcement"] == "none"
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": game, "hand": True, "ouvert": True, "announcement": "schwarz"}
+    playing = PlayingTable(table, None)
+    for person in playing.everyone:
+        expect(person.locator(PLAQUE)).to_contain_text(f"{catalog_text(word_key)} {catalog_text('ouvert')}")
+        expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
+        plaque = person.locator(PLAQUE).element_handle()
+        for covered in (*person.locator(".fan-spot").all(), *person.locator(".own-hand").all()):
+            assert not person.evaluate(BOXES_OVERLAP, [plaque, covered.element_handle()])
+        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    reload_and_wait(table.watcher)
+    expect(table.watcher.locator(PLAQUE)).to_contain_text(catalog_text("ouvert"))
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    button_of(declarer, HAND).click()
+    button_of(declarer, catalog_text("gameGrand")).click()
+    button_of(declarer, OUVERT_RUNG).click()
+    button_of(declarer, OUVERT_RUNG).click()
+    expect(button_of(declarer, OUVERT_RUNG)).to_have_attribute(PRESSED, "false")
+    button_of(declarer, OUVERT_RUNG).click()
+    button_of(declarer, NULL_GAME).click()
+    for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
+        expect(button_of(declarer, level)).to_have_count(0)
+    button_of(declarer, catalog_text("gameGrand")).click()
+    for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
+        expect(button_of(declarer, level)).to_have_attribute(PRESSED, "false")
+
+    button_of(declarer, OUVERT_RUNG).click()
+    reload_and_wait(declarer)
+    expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
+    button_of(declarer, HAND).click()
+    button_of(declarer, NULL_OUVERT).click()
+    reload_and_wait(declarer)
+    expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
+    button_of(declarer, HAND).click()
+    button_of(declarer, catalog_text("gameGrand")).click()
+    button_of(declarer, OUVERT_RUNG).click()
+    button_of(declarer, ANNOUNCE).click()
+    expect(declarer.locator(OPEN_TAG_SELECTOR)).to_contain_text(OPEN_TAG)
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": "grand", "hand": True, "ouvert": True, "announcement": "schwarz"}
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_keyboard_reaches_the_ouvert_rung_and_the_null_ouvert_tile(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    declarer = deal_a_declaring_table(form_factor).declarer
+    button_of(declarer, HAND).focus()
+    declarer.keyboard.press("Enter")
+    for name in (NULL_OUVERT, catalog_text("gameGrand"), OUVERT_RUNG):
+        control = button_of(declarer, name)
+        control.focus()
+        declarer.keyboard.press("Space")
+        expect(control).to_have_attribute(PRESSED, "true")
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_hand_panel_causes_no_sideways_scroll_and_covers_no_far_fan_skat_back_or_own_chair(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    declarer = deal_a_declaring_table(form_factor).declarer
+    button_of(declarer, HAND).click()
+    button_of(declarer, catalog_text("gameGrand")).click()
+    panel = declarer.locator(".declare").element_handle()
+    assert declarer.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    assert declarer.locator(".declare").evaluate(INSIDE_THE_VIEWPORT)
+    # The wide felt puts the panel in a row through the middle, beside the skat.
+    narrow = form_factor["viewport"]["width"] < NARROW_BELOW
+    covered_by_the_panel = f"{FAN}, .own-hand, .skat-spot .skat-card" if narrow else f"{FAN}, .own-hand"
+    for covered in declarer.locator(covered_by_the_panel).all():
+        assert not declarer.evaluate(BOXES_OVERLAP, [panel, covered.element_handle()])
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_game_without_ouvert_is_stored_with_ouvert_false_and_plaque_as_before(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declarer = table.declarer
+    button_of(declarer, HAND).click()
+    button_of(declarer, catalog_text("gameHerz")).click()
+    button_of(declarer, SCHNEIDER).click()
+    button_of(declarer, ANNOUNCE).click()
+    expect(declarer.locator(PLAQUE)).to_contain_text(f"{catalog_text('gameHerz')} {HAND}")
+    expect(declarer.locator(ANNOUNCED_MARK)).to_have_count(1)
+    declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
+    assert declaration == {"game": "herz", "hand": True, "ouvert": False, "announcement": "schneider"}
+    for person in onlookers(table):
+        expect(declarer_chair(person, table).locator(FAN)).to_have_count(1)
+        expect(person.locator(".open")).to_have_count(0)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_opponents_see_the_open_rows_on_the_side_the_declarer_sits(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declaring_table(form_factor)
+    declare_grand_ouvert(table)
+    for person in table.others:
+        chair = declarer_chair(person, table)
+        expect(chair.locator(OPEN_CARD)).to_have_count(CARDS_IN_A_HAND)
+        stage = person.locator(".stage").bounding_box()
+        rows = chair.locator(".open").bounding_box()
+        assert stage is not None
+        assert rows is not None
+        middle = stage["x"] + stage["width"] / 2
+        position = chair.evaluate("(chair) => [...chair.parentElement.children].indexOf(chair)")
+        rows_centre = rows["x"] + rows["width"] / 2
+        assert (rows_centre < middle) is (position == 0)
     assert page_errors == []

@@ -257,7 +257,7 @@
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
                 </div>
             {:else if inPlay !== null}
-                {@const announced = announcementLabel(inPlay.declaration.announcement)}
+                {@const announced = announcementLabel(inPlay.declaration)}
                 <div class="plaque" class:wide={announced !== null}>
                     <span class="game">
                         {#if isSuitGame(inPlay.declaration.game)}

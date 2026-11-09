@@ -608,8 +608,9 @@ body {
     transform: translateX(-50%);
 }
 
-/* The laid cards of the far players lie below the open rows, and the near card below those. The near chair's rows
-   push the own controls down instead of lying over them. */
+/* Open rows on the table move the side players' laid cards down to 74% of the trick. Rows at a side chair also make the
+   trick five card widths high, with the side cards at 60% and the near card at 80%. Rows at the near chair push the
+   own controls down instead of lying over them. */
 @media (max-width: 899px) {
     .room .stage:has(.open) .laid:is(.left, .right) {
         top: 74%;
@@ -1941,7 +1942,7 @@ body {
     color: var(--ink);
 }
 
-/* The held level of a Hand game: the one step the page can declare beyond the game itself. */
+/* The held level of a Hand game: the rungs beside it are the levels above Hand. */
 .room .declare .held {
     display: inline-flex;
     align-items: center;
@@ -1997,7 +1998,7 @@ body {
     flex-wrap: wrap;
     justify-content: center;
     gap: 8px;
-    max-width: 284px;
+    max-width: 320px;
 }
 
 .room .declare .game {
@@ -2104,22 +2105,25 @@ body {
     }
 }
 
-/* The smallest phones keep the controls between the far fans and the own chair: the games stand in one row. */
+/* The smallest phones keep the controls between the far fans and the own chair: the games stand close in two rows. */
 @media (max-width: 379px) {
     .room .declare:is(.picked, .hand) {
         gap: 8px;
     }
 
     .room .declare .games {
-        flex-wrap: nowrap;
         gap: 5px;
-        max-width: none;
+        max-width: 100%;
     }
 
     .room .declare .game {
         height: 40px;
         padding: 0 12px;
         font-size: 14px;
+    }
+
+    .room .declare .ladder button {
+        padding: 0 8px;
     }
 
     .room .declare .game.suited {

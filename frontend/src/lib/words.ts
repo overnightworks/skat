@@ -47,6 +47,7 @@ export const words = {
     hand: "Hand",
     levelSchneider: "Schneider",
     levelSchwarz: "Schwarz",
+    levelOuvert: "Ouvert",
     announcedSchneider: "Schneider angesagt",
     announcedSchwarz: "Schwarz angesagt",
     ouvert: "ouvert",

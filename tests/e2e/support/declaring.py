@@ -3,7 +3,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
@@ -35,6 +35,15 @@ DECLARING_STEP_SUFFIXES = {
     "put_back": TABLE_DECLARING_PUT_BACK_SUFFIX,
     "declare": TABLE_DECLARING_DECLARE_SUFFIX,
 }
+
+
+def button_of(person: Page, name: str) -> Locator:
+    return person.get_by_role("button", name=name, exact=True)
+
+
+def reload_and_wait(person: Page) -> None:
+    person.reload()
+    expect(person.locator(".chair")).to_have_count(3)
 
 
 class DeclaringTable:
