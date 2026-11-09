@@ -32,6 +32,7 @@
         bidValueWhileDeclaring,
         copyTableLink,
         drawingOrder,
+        announcementLabel,
         gameLabel,
         isSuitGame,
         markReady,
@@ -256,7 +257,8 @@
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
                 </div>
             {:else if inPlay !== null}
-                <div class="plaque">
+                {@const announced = announcementLabel(inPlay.declaration.announcement)}
+                <div class="plaque" class:wide={announced !== null}>
                     <span class="game">
                         {#if isSuitGame(inPlay.declaration.game)}
                             <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -264,6 +266,9 @@
                             </span>
                         {/if}
                         {gameLabel(inPlay.declaration)}
+                        {#if announced !== null}
+                            <span class="announced">{announced}</span>
+                        {/if}
                     </span>
                 </div>
             {:else if !outcome.table.hand?.declaring}
