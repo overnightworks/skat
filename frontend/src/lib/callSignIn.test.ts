@@ -338,6 +338,19 @@ describe("a tap on the plain link while the window is open", () => {
 
         expect(views).toEqual(["signing-in", "unfinished"]);
     });
+
+    it("closes the open window when the re-check finds the sign-in finished", async () => {
+        const popup = signInWindow(crossOrigin());
+        const { signIn, fire, host, live } = arrange({ opened: popup, accountStatus: 200 });
+        signIn.logIn();
+        signIn.recheck();
+
+        await fire(RECHECK_INTERVAL_MILLISECONDS);
+
+        expect(popup.close).toHaveBeenCalled();
+        expect(host.replace).toHaveBeenCalledWith(`${TABLE_PATH}?${MODE_QUERY_NAME}=${CALL_MODE}`);
+        expect(live(WATCH_INTERVAL_MILLISECONDS)).toEqual([]);
+    });
 });
 
 describe("a frame that unloads", () => {

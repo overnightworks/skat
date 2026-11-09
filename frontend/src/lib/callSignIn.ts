@@ -78,6 +78,7 @@ export function createCallSignIn(
     let recheckRound = 0;
     let cancelTimers: (() => void)[] = [];
     let cancelRecheck: () => void = () => undefined;
+    let openWindow: SignInWindow | null = null;
 
     function endRound(): number {
         for (const cancel of cancelTimers) {
@@ -85,6 +86,7 @@ export function createCallSignIn(
         }
         cancelTimers = [];
         cancelRecheck();
+        openWindow = null;
         round += 1;
         recheckRound += 1;
         return round;
@@ -110,6 +112,7 @@ export function createCallSignIn(
                 cancel();
             }
             if ((await isSignedIn()) && own === recheckRound) {
+                openWindow?.close();
                 endRound();
                 host.replace(callTableAddress(tableId));
             }
@@ -153,6 +156,7 @@ export function createCallSignIn(
         show("signing-in");
         const popup = host.open(signInAddress(tableId), WINDOW_NAME, WINDOW_FEATURES);
         if (popup !== null) {
+            openWindow = popup;
             cancelTimers.push(host.every(watch(popup), WATCH_INTERVAL_MILLISECONDS));
         }
     }
