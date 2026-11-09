@@ -15,6 +15,7 @@ from agent_runtime_client.mcp_server import McpPersonFront, route_tools
 from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from agent_runtime_client.tools import Principal, ToolEffect, agent_tool, not_an_agent_tool
 from starlette.requests import HTTPConnection
+from starlette.routing import Route
 from webauth.admission import AdmissionConfig, NoAdmins
 from webauth.middleware.bearer_gate import (
     BearerGate,
@@ -103,7 +104,8 @@ def mount_mcp(
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
 
     front = McpPersonFront(tools.tools, resolve_person=resolve_person)
-    app.router.add_route(MCP_ENDPOINT_PATH, front, include_in_schema=False)
+    # No methods named, so every method reaches the front, which refuses all but POST itself.
+    app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=front))
     install_resource_metadata(app, resource, issuer=issuer)
     admission = AdmissionConfig(bound_issuer=issuer, login_group=LOGIN_GROUP, admin_group=NoAdmins.IN_THIS_APP)
     return McpAccess(front, BearerGate(relying_party, admission, resource=resource), resource.public_rule)
