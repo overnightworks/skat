@@ -13,6 +13,7 @@ export const TABLE_SIT_SUFFIX = "/sit";
 export const TABLE_STAND_SUFFIX = "/stand";
 export const TABLE_DECLARATION_SUFFIX = "/declaration";
 export const TABLE_AUCTION_SUFFIX = "/auction";
+export const TABLE_CARD_SUFFIX = "/card";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;
@@ -25,3 +26,4 @@ export const VALID_BIDS = [
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,
     170, 176, 180, 187, 192, 198, 204, 216, 240, 264,
 ] as const;
+export const ALL_POINTS = 120;

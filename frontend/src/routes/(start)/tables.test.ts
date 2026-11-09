@@ -405,7 +405,8 @@ describe("what the declaring stage asks of this viewer", () => {
         watchers: 0,
         hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring, playing: null },
     });
-    const tableAt = (stage: Stage, mine: number): Table => tableWith({ declarer_seat: 2, stage, declaration: null }, mine);
+    const tableAt = (stage: Stage, mine: number): Table =>
+        tableWith({ declarer_seat: 2, stage, declaration: null }, mine);
 
     it.each<Stage>(["choosing", "discarding", "picked"])("asks the declarer to act at %s", (stage) => {
         expect(declarerStage(tableAt(stage, 2))).toBe(stage);
@@ -438,15 +439,28 @@ describe("the auction's value while declaring", () => {
         version: 1,
         chairs: [],
         watchers: 0,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(declared), declaring, playing: null },
+        hand: {
+            dealer_seat: 1,
+            own_cards: [],
+            skat_count: 2,
+            auction: auctionWith(declared),
+            declaring,
+            playing: null,
+        },
     });
 
     it.each<Stage>(["choosing", "discarding", "picked"])("is shown at %s", (stage) => {
-        expect(bidValueWhileDeclaring(table({ declarer_seat: 2, stage, declaration: null }, { seat: 2, value: 20 }))).toBe(20);
+        expect(
+            bidValueWhileDeclaring(table({ declarer_seat: 2, stage, declaration: null }, { seat: 2, value: 20 })),
+        ).toBe(20);
     });
 
     it.each([
-        ["once the game is declared", { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const } }, { seat: 2, value: 20 }],
+        [
+            "once the game is declared",
+            { declarer_seat: 2, stage: "declared" as const, declaration: { game: "null" as const } },
+            { seat: 2, value: 20 },
+        ],
         ["before the auction is over", null, null],
         ["with no value won", { declarer_seat: 2, stage: "choosing" as const, declaration: null }, null],
     ])("is not shown %s", (_name, declaring, declared) => {

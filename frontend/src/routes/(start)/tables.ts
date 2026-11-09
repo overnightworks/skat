@@ -9,6 +9,7 @@ import {
     SIGNED_IN_AGAIN_QUERY_NAME,
     type STAGE_TOKENS,
     type SUIT_TOKENS,
+    TABLE_CARD_SUFFIX,
     TABLE_DECLARATION_SUFFIX,
     TABLE_AUCTION_SUFFIX,
     TABLE_EVENTS_SUFFIX,
@@ -34,7 +35,7 @@ export type Game = (typeof GAME_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
-export type Declaring = { declarer_seat: number; stage: Stage };
+export type Declaring = { declarer_seat: number; stage: Stage; declaration: { game: Game } | null };
 export type Awaiting = (typeof AWAITING_TOKENS)[number];
 export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
 export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
@@ -46,12 +47,26 @@ export type Auction = {
     words: AuctionWord[];
     declared: { seat: number; value: number } | null;
 };
+export type SeatedCard = { seat: number; card: Card };
+export type Sides = { declarer: number; opponents: number };
+// The last trick's cards lie in playing order from the seat that led it.
+export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number };
+export type Playing = {
+    turn_seat: number | null;
+    current_trick: SeatedCard[];
+    last_trick: LastTrick | null;
+    tricks_won: Sides;
+    trick_points: Sides;
+    // Only the seated player on turn receives the cards they may play.
+    legal_cards: Card[];
+};
 export type Hand = {
     dealer_seat: number;
     own_cards: Card[];
     skat_count: number;
     auction: Auction;
     declaring: Declaring | null;
+    playing: Playing | null;
 };
 export type Chair = {
     seat: number;
@@ -132,6 +147,11 @@ export function takeDeclaringStep(
     step: DeclaringStep,
 ): Promise<Outcome> {
     return post(id, TABLE_DECLARATION_SUFFIX, { command_id: commandId, version, ...step });
+}
+
+// The client names only the card: the seat that plays it comes from the session.
+export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
+    return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
 }
 
 // The version is the one the page shows, so a step taken on a stale page is refused; there is no retry.
@@ -257,12 +277,12 @@ function sameCard(first: Card, second: Card): boolean {
 
 // A tap picks a card or puts a picked one back; a third card stays where it is while two are picked.
 export function togglePicked(picked: readonly Card[], card: Card): Card[] {
-    if (isPicked(picked, card)) return picked.filter((held) => !sameCard(held, card));
+    if (includesCard(picked, card)) return picked.filter((held) => !sameCard(held, card));
     return picked.length < SKAT_SIZE ? [...picked, card] : [...picked];
 }
 
-export function isPicked(picked: readonly Card[], card: Card): boolean {
-    return picked.some((held) => sameCard(held, card));
+export function includesCard(cards: readonly Card[], card: Card): boolean {
+    return cards.some((held) => sameCard(held, card));
 }
 
 // What the hand needs while the declarer picks two cards from the twelve.

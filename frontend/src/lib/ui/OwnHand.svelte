@@ -1,7 +1,7 @@
 <script lang="ts">
     import { inDisplayOrder } from "#lib/handOrder.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
-    import { cardName, isPicked, type Card, type Picking } from "../../routes/(start)/tables.ts";
+    import { cardName, includesCard, type Card, type Picking } from "../../routes/(start)/tables.ts";
 
     const { cards, picking }: { cards: readonly Card[]; picking?: Picking | undefined } = $props();
 
@@ -70,8 +70,8 @@
                 <button
                     type="button"
                     class="pick"
-                    class:picked={isPicked(picking.picked, card)}
-                    aria-pressed={isPicked(picking.picked, card)}
+                    class:picked={includesCard(picking.picked, card)}
+                    aria-pressed={includesCard(picking.picked, card)}
                     aria-label={cardName(card)}
                     disabled={picking.disabled}
                     onclick={() => {
