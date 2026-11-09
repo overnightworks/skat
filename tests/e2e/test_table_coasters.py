@@ -19,7 +19,7 @@ pytestmark = pytest.mark.e2e
 
 COASTER = ".chair .coaster"
 STAND_UP = catalog_text("standUp")
-NEVER_UNDER_A_COASTER = (".plate", COASTER, ".mark", ".fan-spot", ".plaque", ".result", ".actions")
+NEVER_UNDER_A_COASTER = (".plate", COASTER, ".mark", ".fan", ".plaque", ".result", ".actions")
 
 
 @pytest.fixture

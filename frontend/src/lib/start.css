@@ -2098,12 +2098,14 @@ body {
     .room .coaster {
         --coaster-size: 50px;
 
-        right: -22px;
+        right: auto;
         bottom: -8px;
+        left: -22px;
     }
 
     .room .chair:nth-child(2) .coaster {
-        left: -22px;
+        right: -22px;
+        left: auto;
     }
 
     .room .chair:nth-child(3) .coaster {
