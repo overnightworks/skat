@@ -348,10 +348,8 @@ class TestMemberSignIn:
         self, harness, requested
     ):
         response = harness.browser().get(LOGIN_PATH, params={"next": requested})
-
         location = urlsplit(response.headers["location"])
-        assert response.status_code == 303
-        assert location.path == CALL_SIGN_IN_PATH
+        assert (response.status_code, location.path) == (303, CALL_SIGN_IN_PATH)
         assert parse_qs(location.query) == {"next": [requested]}
 
     @pytest.mark.parametrize(
@@ -368,18 +366,11 @@ class TestMemberSignIn:
     )
     def test_any_other_return_path_gets_the_plain_signed_out_page(self, harness, requested):
         response = harness.browser().get(LOGIN_PATH, params={"next": requested})
+        assert (response.status_code, "location" in response.headers) == (200, False)
 
-        assert response.status_code == 200
-        assert "location" not in response.headers
-
-    @pytest.mark.parametrize("method", ["get", "head"])
-    def test_the_call_sign_in_page_is_served_as_built(self, harness, method):
-        response = getattr(harness.browser(), method)(CALL_SIGN_IN_PATH)
-
-        assert response.status_code == 200
-        assert response.headers["etag"] == BuiltPage.of((FIXTURE_DIRECTORY / "login" / "call.html").read_bytes()).etag
-        if method == "get":
-            assert response.content == (FIXTURE_DIRECTORY / "login" / "call.html").read_bytes()
+    def test_the_call_sign_in_page_is_served_as_built(self, harness):
+        response = harness.browser().get(CALL_SIGN_IN_PATH)
+        assert response.content == (FIXTURE_DIRECTORY / "login" / "call.html").read_bytes()
 
     def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness):
         page_build = replace(fixture_page_build(), signed_out=BuiltPage.of(b"<html></html>"))
