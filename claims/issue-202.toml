@@ -1,8 +1,0 @@
-claim_id = "b1df1b969e714a20809ef47650fff3ab"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "1a52b911ed6ac18579a47261300b3f3d5e8ac185"
-branch = "claude/issue-202-declaring-tools"
-scope = ["frontend/src/lib/wire.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/declaring.py", "src/skat/web/mcp.py", "tests/e2e/support/declaring.py", "tests/e2e/test_agent_plays.py", "tests/e2e/test_table_declaring.py", "tests/e2e/test_table_hand.py", "tests/scripts/test_generate_wire.py", "tests/web/conftest.py", "tests/web/support/agent.py", "tests/web/support/playing.py", "tests/web/support/skat.py", "tests/web/test_declaring.py", "tests/web/test_declaring_agent.py", "tests/web/test_mcp.py", "tests/web/test_presence_agent_lease.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "edc1a7c0b87a1dd607e0cfc0149f80a300ba31c6"
-whole_reason = "A step's route, tool mark, generated wire name and the page's call are one public contract, and the union route must go in the same change."
