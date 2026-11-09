@@ -198,6 +198,11 @@ def wait_left(empty_since: datetime, now: datetime, empty_seconds: int) -> timed
     return timedelta(seconds=empty_seconds) - (now - empty_since)
 
 
+def wait_up(empty_since: datetime, now: datetime, empty_seconds: int) -> bool:
+    """Whether a table's wait is up: nothing is left of it."""
+    return wait_left(empty_since, now, empty_seconds) <= timedelta(0)
+
+
 def presence_step(
     table: TableRecord,
     connected_accounts: frozenset[str] | None,
@@ -216,7 +221,7 @@ def presence_step(
         return PresenceStep.STAMP if empty_since is None and not hand_was_dealt(table) else PresenceStep.KEEP
     if empty_since is None:
         return PresenceStep.KEEP
-    if not hand_was_dealt(table) and wait_left(empty_since, now, empty_seconds) <= timedelta(0):
+    if not hand_was_dealt(table) and wait_up(empty_since, now, empty_seconds):
         return PresenceStep.END
     return PresenceStep.CLEAR
 
@@ -245,10 +250,9 @@ def resume_step(dealer: int | None, empty_since: datetime | None, now: datetime,
         return Resume(ResumeStep.SKIP, 0.0)
     if empty_since is None:
         return Resume(ResumeStep.STAMP, float(empty_seconds))
-    left = wait_left(empty_since, now, empty_seconds)
-    if left <= timedelta(0):
+    if wait_up(empty_since, now, empty_seconds):
         return Resume(ResumeStep.END, 0.0)
-    return Resume(ResumeStep.WAIT, left.total_seconds())
+    return Resume(ResumeStep.WAIT, wait_left(empty_since, now, empty_seconds).total_seconds())
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:

@@ -359,10 +359,11 @@ class TestTheStoredTimeSinceNobodyWasThere:
         noting.unsubscribe(leaving)
         run(time.advance(0))
         connect(noting, TABLE, "anna", lambda: None)
+        calls_after_reconnect = len(notes.calls)
 
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
 
-        assert notes.calls[-1] == (TABLE, frozenset({"anna"}))
+        assert notes.calls[calls_after_reconnect:] == [(TABLE, frozenset({"anna"}))]
 
     def test_a_stopped_presence_writes_no_leave(self, noting, time, notes):
         leaving = connect(noting, TABLE, "anna", lambda: None)

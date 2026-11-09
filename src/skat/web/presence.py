@@ -149,9 +149,9 @@ class Presence:
     ends; a stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it
     fires, the end is asked for with who is connected then, and a failure is retried while the wait stays the table's
     latest. Since when nobody has been at a table is stored: a table's last leave, a lease starting or lapsing and
-    the first arrival note who is present, each on the table's row (a last leave or a lapse stamps the time, an
-    arrival or a lease start clears it), and the server's start seeds each table's wait
-    with what is left of it, so a restart never gives a table a fresh wait it had already begun.
+    the first arrival note who is present, each on the table's row (presence notes an empty table and the service
+    decides whether to stamp the time; an arrival or a lease start clears it), and the server's start seeds each
+    table's wait with what is left of it, so a restart never gives a table a fresh wait it had already begun.
     """
 
     def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease) -> None:
