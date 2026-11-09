@@ -27,10 +27,10 @@ from tests.web.support.presence import (
     THIRD_PASS_COMMAND,
     OvertakenStore,
     connect,
+    end_the_first_game,
     occupied_seats,
     pass_hand_in,
     post_pass,
-    result_pending,
     run,
 )
 from tests.web.support.skat import Skat, streams_of
@@ -577,7 +577,7 @@ class TestNextDealTrigger:
     ):
         service, table_id = table
         service.sit(CLEO, SitDown("command-3", table_id, 3), frozenset())
-        result_pending(store, table_id)
+        end_the_first_game(store, table_id)
         deals.dealt = False
 
         async def scenario():

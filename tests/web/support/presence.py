@@ -107,7 +107,7 @@ def occupied_seats(skat, table_id):
     return {chair.seat for chair in skat.store.tables[table_id].chairs if chair.occupant is not None}
 
 
-def result_pending(store, table_id, *ready_seats):
+def end_the_first_game(store, table_id, *ready_seats):
     """The seated table as its first game's thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
     record = store.tables[table_id]
     entry = ListEntry(

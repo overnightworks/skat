@@ -14,8 +14,8 @@ from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     NAMED_FAILURE,
     OvertakenStore,
+    end_the_first_game,
     occupied_seats,
-    result_pending,
 )
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
@@ -61,7 +61,7 @@ class TestWeiter:
         self, server, table
     ):
         table_id, people = table
-        before = result_pending(server.store, table_id)
+        before = end_the_first_game(server.store, table_id)
         with streams_of(server, table_id, people) as streams:
             answer = weiter(server, people[0][0], table_id)
 
@@ -80,7 +80,7 @@ class TestWeiter:
 
     def test_the_third_tap_with_all_connected_deals_at_once_and_clears_every_mark(self, server, table):
         table_id, people = table
-        before = result_pending(server.store, table_id, 1, 2)
+        before = end_the_first_game(server.store, table_id, 1, 2)
         with streams_of(server, table_id, people) as streams:
             answer = weiter(server, people[2][0], table_id)
 
@@ -95,7 +95,7 @@ class TestWeiter:
 
     def test_a_tap_after_the_deal_deals_nothing_more(self, server, table):
         table_id, people = table
-        result_pending(server.store, table_id, 1, 2)
+        end_the_first_game(server.store, table_id, 1, 2)
         with streams_of(server, table_id, people[:3]):
             weiter(server, people[2][0], table_id)
             dealt = server.store.tables[table_id]
@@ -107,7 +107,7 @@ class TestWeiter:
 
     def test_a_second_tap_from_a_ready_chair_is_accepted_and_changes_nothing(self, server, table):
         table_id, people = table
-        result_pending(server.store, table_id)
+        end_the_first_game(server.store, table_id)
         weiter(server, people[0][0], table_id)
         marked = server.store.tables[table_id]
 
@@ -129,7 +129,7 @@ class TestWeiter:
     def test_a_refused_tap_names_its_reason_and_changes_nothing(self, server, table, state, seat, ordinal, reason):
         table_id, people = table
         if state == "result":
-            result_pending(server.store, table_id)
+            end_the_first_game(server.store, table_id)
         elif state == "passed-in":
             steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
             record = server.store.tables[table_id]
@@ -151,7 +151,7 @@ class TestWeiter:
     )
     def test_refuses_a_malformed_request_and_writes_nothing(self, server, table, body):
         table_id, people = table
-        before = result_pending(server.store, table_id)
+        before = end_the_first_game(server.store, table_id)
 
         answer = weiter(server, people[0][0], table_id, **body)
 
@@ -165,7 +165,7 @@ class TestWeiter:
 
     def test_standing_up_takes_back_only_the_own_mark(self, server, table):
         table_id, people = table
-        result_pending(server.store, table_id, 1, 2, 3)
+        end_the_first_game(server.store, table_id, 1, 2, 3)
 
         answer = server.stand(people[0][0], table_id)
         server.client.cookies.clear()
@@ -185,7 +185,7 @@ class TestRetry:
         with server.client:
             table_id, people = seated_three(server)
             server.client.cookies.clear()
-            before = result_pending(server.store, table_id, 1, 2)
+            before = end_the_first_game(server.store, table_id, 1, 2)
             with streams_of(server, table_id, people[:3]):
                 store.after_commit = lambda: setattr(store, "meanwhile", store_goes_down)
                 with capture_logs() as logs:
@@ -206,7 +206,7 @@ class TestRetry:
 class TestAway:
     def test_an_away_member_delays_the_deal_until_their_stream_opens(self, server, table):
         table_id, people = table
-        before = result_pending(server.store, table_id, 1, 3)
+        before = end_the_first_game(server.store, table_id, 1, 3)
         with streams_of(server, table_id, [people[0], people[2]]):
             weiter(server, people[1][0], table_id)
             assert server.store.tables[table_id].hand is None
@@ -218,7 +218,7 @@ class TestAway:
 
     def test_an_away_member_s_hold_frees_the_chair_and_its_mark_and_deals_nothing(self, server, hold, time, table):
         table_id, people = table
-        result_pending(server.store, table_id, 1, 2, 3)
+        end_the_first_game(server.store, table_id, 1, 2, 3)
         with streams_of(server, table_id, people[:1]):
             pass
         with streams_of(server, table_id, people[1:3]):
@@ -236,7 +236,7 @@ class TestSitDuringAResult:
     )
     def test_the_sitter_counts_as_ready_and_the_deal_follows_once_all_are(self, server, table, ready_before, deals):
         table_id, people = table
-        result_pending(server.store, table_id, *ready_before)
+        end_the_first_game(server.store, table_id, *ready_before)
         server.stand(people[2][0], table_id)
         server.client.cookies.clear()
         stood = server.store.tables[table_id]
@@ -257,7 +257,7 @@ def test_a_restart_with_three_marks_deals_once_when_the_streams_reopen(sign_in_s
     before_restart = Skat(lambda: settings, chair_clock=time.clock, chair_scheduler=time)
     with before_restart.client:
         table_id, people = seated_three(before_restart)
-        before = result_pending(before_restart.store, table_id, 1, 2, 3)
+        before = end_the_first_game(before_restart.store, table_id, 1, 2, 3)
 
     after_restart = Skat(
         lambda: settings,
