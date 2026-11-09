@@ -55,7 +55,6 @@ NULL_GAME = game_of(
     "S7 SJ D7 / S9 D8 S8 / ST D9 C7 / SQ DT C8 / SK DJ C9",
     "SA DQ CT / H7 HJ CJ / HQ CQ H8 / HK CK H9 / HA CA HT",
 )
-NULL_TAKERS = takers("M M M M M M R R R R")
 
 
 @pytest.fixture
@@ -133,7 +132,6 @@ class TestAPlayedOutHand:
         [
             pytest.param(GameToken.HERZ, HERZ_GAME, HERZ_TAKERS, id="suit"),
             pytest.param(GameToken.GRAND, GRAND_GAME, GRAND_TAKERS, id="grand"),
-            pytest.param(GameToken.NULL, NULL_GAME, NULL_TAKERS, id="null"),
         ],
     )
     def test_ten_tricks_end_the_game_with_each_taker(self, table, game, script, takers):
@@ -307,9 +305,9 @@ def table_cards(played):
     return played[max(completed - 3, 0) :]
 
 
-def visible_cards(deal, played, position, *, ouvert):
-    """What a viewer may see; once the thirtieth card ends the hand, no card at all."""
-    if len(played) == len(HERZ_GAME):
+def visible_cards(deal, played, position, *, ouvert, script=HERZ_GAME):
+    """What a viewer may see; once the last card of the script ends the hand, no card at all."""
+    if len(played) == len(script):
         return set()
     open_cards = remaining(deal, played, MIDDLEHAND) if ouvert else ()
     return {*remaining(deal, played, position), *table_cards(played), *open_cards}
@@ -355,6 +353,10 @@ def swapped_herz_hand_game(table):
 
 def grand_ouvert(table):
     table.declared_grand_ouvert()
+
+
+def null_hand_game(table):
+    table.declared_hand_game(GameToken.NULL)
 
 
 def skat_put_back(table):
@@ -572,7 +574,8 @@ class TestEveryViewersPlaying:
         ("declare", "script", "ouvert"),
         [
             pytest.param(herz_hand_game, HERZ_GAME, False, id="hand-game"),
-            pytest.param(grand_ouvert, GRAND_GAME, True, id="grand-ouvert"),
+            pytest.param(grand_ouvert, GRAND_GAME[:6], True, id="grand-ouvert"),
+            pytest.param(null_hand_game, NULL_GAME[:3], False, id="null-hand"),
             pytest.param(skat_put_back, HERZ_GAME, False, id="the-skat-put-back"),
         ],
     )
@@ -598,10 +601,12 @@ class TestEveryViewersPlaying:
                 version = table.record.version
 
                 assert cards_in_text(answer.text) == wire_cards(
-                    visible_cards(KNOWN_DEAL, script[:count], actor, ouvert=ouvert)
+                    visible_cards(KNOWN_DEAL, script[:count], actor, ouvert=ouvert, script=script)
                 )
                 for stream_lines, viewer in zip(lines, EVERY_VIEWER, strict=True):
-                    allowed = wire_cards(visible_cards(KNOWN_DEAL, script[:count], viewer.position, ouvert=ouvert))
+                    allowed = wire_cards(
+                        visible_cards(KNOWN_DEAL, script[:count], viewer.position, ouvert=ouvert, script=script)
+                    )
                     assert cards_in_text(message_at_version(stream_lines, version)) == allowed
                     assert cards_in_text(read(table, viewer.headers_at(table))) == allowed
 
@@ -636,6 +641,55 @@ HERZ_RESULT = {
 }
 
 
+# Middlehand's Null Hand at 18 takes the first trick (SJ over S7 and D7): Null Hand is worth 35, lost and doubled.
+NULL_RESULT = HERZ_RESULT | {
+    "game": "null",
+    "matadors": None,
+    "base_value": None,
+    "levels": [],
+    "won": False,
+    "doubled": True,
+    "game_value": 35,
+    "settled_value": 35,
+    "score": -70,
+    "declarer_points": 120,
+    "opponents_points": 0,
+    "gains": [
+        {"seat": 1, "gain": -120, "won": False},
+        {"seat": 2, "gain": 40, "won": True},
+        {"seat": 3, "gain": 40, "won": True},
+    ],
+}
+# Middlehand's Grand ouvert at 18 is ohne 1: Spiel to ouvert make 7 levels, (1 + 7) x 24. Rearhand takes the second
+# trick with HQ (3 points), so the game is lost there.
+GRAND_OUVERT_RESULT = HERZ_RESULT | {
+    "game": "grand",
+    "ouvert": True,
+    "announcement": "schwarz",
+    "schneider": True,
+    "schwarz": True,
+    "base_value": 24,
+    "levels": ["spiel", "hand", "schneider", "schneider_announced", "schwarz", "schwarz_announced", "ouvert"],
+    "won": False,
+    "doubled": True,
+    "game_value": 192,
+    "settled_value": 192,
+    "score": -384,
+    "declarer_points": 117,
+    "opponents_points": 3,
+    "gains": [
+        {"seat": 1, "gain": -434, "won": False},
+        {"seat": 2, "gain": 40, "won": True},
+        {"seat": 3, "gain": 40, "won": True},
+    ],
+}
+ENDED_GAMES = [
+    pytest.param(herz_hand_game, HERZ_GAME, HERZ_RESULT, id="played-out"),
+    pytest.param(null_hand_game, NULL_GAME[:3], NULL_RESULT, id="null-at-the-declarers-trick"),
+    pytest.param(grand_ouvert, GRAND_GAME[:6], GRAND_OUVERT_RESULT, id="schwarz-announced-at-an-opponents-trick"),
+]
+
+
 class TestEveryViewersResult:
     def test_before_the_thirtieth_card_there_is_no_result(self, table):
         herz_hand_game(table)
@@ -644,17 +698,28 @@ class TestEveryViewersResult:
         assert message_body(read(table, table.watcher))["result"] is None
 
     @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    @pytest.mark.parametrize(("declare", "script", "result"), ENDED_GAMES)
     def test_the_last_card_s_answer_a_read_and_a_new_stream_carry_the_result_and_no_account_card_or_hand(
-        self, table, viewer
+        self, table, viewer, declare, script, result
     ):
-        herz_hand_game(table)
-        table.played_out(HERZ_GAME[:-1])
+        declare(table)
+        table.played_out(script[:-1])
         accounts = {chair.occupant.account_id for chair in table.record.chairs}
         headers = viewer.headers_at(table)
 
-        raws = [table.accepted(HERZ_GAME[-1]).text, read(table, headers), first_stream_message(table, headers)]
+        raws = [table.accepted(script[-1]).text, read(table, headers), first_stream_message(table, headers)]
 
-        assert [message_body(raw)["result"] for raw in raws] == [HERZ_RESULT] * 3
+        assert [message_body(raw)["result"] for raw in raws] == [result] * 3
         assert [message_body(raw)["hand"] for raw in raws] == [None] * 3
         assert [cards_in_text(raw) for raw in raws] == [set()] * 3
         assert [account for account in accounts for raw in raws if account in raw] == []
+
+    @pytest.mark.parametrize(("declare", "script"), [(each.values[0], each.values[1]) for each in ENDED_GAMES[1:]])
+    def test_a_card_after_a_deciding_trick_is_refused_as_no_hand_and_stores_nothing(self, table, declare, script):
+        declare(table)
+        table.played_out(script)
+        before = table.record
+
+        table.refused(table.at[FOREHAND], card("S7"), Refusal.NO_HAND)
+
+        assert table.record == before
