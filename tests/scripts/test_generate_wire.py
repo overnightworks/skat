@@ -8,13 +8,22 @@ from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.table.auction import AuctionAction
+from skat.table.records import TABLE_ID_PATTERN
 from skat.web.auction import (
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
-from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
+from skat.web.constants import (
+    ACCOUNT_CONSOLE_PATH,
+    ACCOUNT_PATH,
+    AUTH_START_PATH,
+    CALL_MODE,
+    LOGOUT_PATH,
+    MODE_QUERY_NAME,
+    NO_ACCESS_PATH,
+)
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -25,6 +34,7 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
+    AnnouncementToken,
     AwaitingToken,
     GameToken,
     PositionToken,
@@ -61,6 +71,10 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_AUCTION_PLAY_SUFFIX", TABLE_AUCTION_PLAY_SUFFIX),
         ("TABLE_CARD_SUFFIX", TABLE_CARD_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
+        ("NO_ACCESS_PATH", NO_ACCESS_PATH),
+        ("MODE_QUERY_NAME", MODE_QUERY_NAME),
+        ("CALL_MODE", CALL_MODE),
+        ("TABLE_ID_PATTERN", TABLE_ID_PATTERN),
     ]:
         assert any(name in line and f'"{path}"' in line for line in rendered.splitlines())
 
@@ -72,6 +86,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("RANK_TOKENS", RankToken),
         ("POSITION_TOKENS", PositionToken),
         ("GAME_TOKENS", GameToken),
+        ("ANNOUNCEMENT_TOKENS", AnnouncementToken),
         ("STAGE_TOKENS", StageToken),
         ("AWAITING_TOKENS", AwaitingToken),
         ("AUCTION_ACTION_TOKENS", AuctionAction),
