@@ -1,8 +1,0 @@
-claim_id = "4cb7877329cd45a6ab1ea2d436bc779f"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "054d27c8bbfd6ea52466c4860b1e5f482cfa10ec"
-branch = "claude/issue-158-give-up"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/giving_up.py", "src/skat/engine/tricks.py", "src/skat/engine/value.py", "tests/engine/test_giving_up.py"]
-opened_commit = "f18e08c3d12e9a8dcad4b430112837c1d39c8a22"
-whole_reason = "One engine rule: the give-up step, its effect on the levels and its place in the trick flow are proven by one test module, and the ahead-of-caller entry names it; split apart, no part carries the rule."
