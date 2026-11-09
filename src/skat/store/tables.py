@@ -267,7 +267,7 @@ class _PostgresTableTransaction:
 
     def live_empty_since(self) -> tuple[LiveWait, ...]:
         return tuple(
-            LiveWait(TableId(row.id), row.dealer is not None, row.empty_since)
+            LiveWait(TableId(row.id), row.dealer, row.empty_since)
             for row in self._connection.execute(
                 select(tables.c.id, tables.c.dealer, tables.c.empty_since)
                 .where(tables.c.end_reason.is_(None))

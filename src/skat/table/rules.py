@@ -137,9 +137,14 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     )
 
 
+def hand_was_dealt_by(dealer: int | None) -> bool:
+    """A hand was dealt at some time, by the stored dealer: the store writes the dealer with the first hand."""
+    return dealer is not None
+
+
 def hand_was_dealt(table: TableRecord) -> bool:
-    """A hand was dealt on the table at some time: the store writes the dealer with the first hand."""
-    return table.dealer is not None
+    """A hand was dealt on the table at some time."""
+    return hand_was_dealt_by(table.dealer)
 
 
 def result_pending(table: TableRecord) -> bool:
@@ -231,12 +236,12 @@ class Resume:
     seconds_left: float
 
 
-def resume_step(hand_dealt: bool, empty_since: datetime | None, now: datetime, empty_seconds: int) -> Resume:
+def resume_step(dealer: int | None, empty_since: datetime | None, now: datetime, empty_seconds: int) -> Resume:
     """What the server's start does with a live table, by the same rules as `presence_step`: a table with a dealt
     hand pauses and gets no wait; an undealt table with no time gets one and a full wait; one with a time waits for
     what is left of it, and ends once nothing is left.
     """
-    if hand_dealt:
+    if hand_was_dealt_by(dealer):
         return Resume(ResumeStep.SKIP, 0.0)
     if empty_since is None:
         return Resume(ResumeStep.STAMP, float(empty_seconds))

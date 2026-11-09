@@ -438,6 +438,6 @@ def test_who_is_present_decides_what_happens_to_the_time_since_when_nobody_was(c
 def test_the_start_gives_each_table_the_step_the_leave_rule_would(dealt, seconds_ago, step, seconds_left):
     since = None if seconds_ago is None else NOW - timedelta(seconds=seconds_ago)
 
-    resumed = resume_step(dealt, since, NOW, EMPTY_SECONDS)
+    resumed = resume_step(1 if dealt else None, since, NOW, EMPTY_SECONDS)
 
     assert (resumed.step, resumed.seconds_left) == (step, seconds_left)

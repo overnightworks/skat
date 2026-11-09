@@ -141,7 +141,7 @@ class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies 
 @dataclass(frozen=True)
 class LiveWait:
     table_id: TableId
-    hand_dealt: bool
+    dealer: int | None
     empty_since: datetime | None
 
 
@@ -409,7 +409,7 @@ class TableService:
         now = self._now()
         with self._transactions.begin() as transaction:
             resumed = tuple(
-                (wait.table_id, resume_step(wait.hand_dealt, wait.empty_since, now, empty_seconds))
+                (wait.table_id, resume_step(wait.dealer, wait.empty_since, now, empty_seconds))
                 for wait in transaction.live_empty_since()
             )
             for table_id, resume in resumed:

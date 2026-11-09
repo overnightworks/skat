@@ -77,7 +77,7 @@ class FakeTableStore:
 
     def live_empty_since(self) -> tuple[LiveWait, ...]:
         return tuple(
-            LiveWait(table.id, table.dealer is not None, self.empty_since_by_table.get(table.id.value))
+            LiveWait(table.id, table.dealer, self.empty_since_by_table.get(table.id.value))
             for table in self.tables.values()
             if isinstance(table, TableRecord)
         )
