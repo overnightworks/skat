@@ -194,6 +194,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "pytest-playwright>=0.10.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.17.0",
     "vulture>=2.15",
 ]
