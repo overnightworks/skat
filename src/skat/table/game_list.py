@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from skat.engine.deal import SEATS, seats_from
 from skat.engine.score import Settlement, announcement_missed, list_bonus, overbid, reckon, settle
 from skat.engine.tricks import opponents_points_of
-from skat.engine.value import breakdown_of, value_of
+from skat.engine.value import Breakdown, breakdown_of, value_of
 from skat.table.rules import result_pending
 
 if TYPE_CHECKING:
@@ -43,6 +43,14 @@ class ListEntry:
     @property
     def overbid(self) -> bool:
         return overbid(self.game_value, self.bid)
+
+    @property
+    def breakdown(self) -> Breakdown:
+        return breakdown_of(self.declaration, self.matadors, schneider=self.schneider, schwarz=self.schwarz)
+
+    @property
+    def levels(self) -> tuple[Level, ...]:
+        return self.breakdown.levels
 
 
 def _seated(table: TableRecord) -> tuple[Occupant, Occupant, Occupant]:
@@ -178,7 +186,7 @@ def result_view_of(table: TableRecord) -> ResultView | None:
     if not result_pending(table):
         return None
     entry = table.game_list[-1]
-    breakdown = breakdown_of(entry.declaration, entry.matadors, schneider=entry.schneider, schwarz=entry.schwarz)
+    breakdown = entry.breakdown
     return ResultView(
         ordinal=len(table.game_list),
         declarer_seat=entry.declarer_seat,
@@ -201,4 +209,34 @@ def result_view_of(table: TableRecord) -> ResultView | None:
         declarer_points=entry.declarer_points,
         opponents_points=entry.opponents_points,
         gains=_gains(entry),
+    )
+
+
+@dataclass(frozen=True)
+class SeriesEntryView:
+    """One finished game in the table's list, the same for every viewer: its place, its declarer by the name stored
+    with the game (None for an entry stored before names were kept), the game, its levels, its value and the
+    declarer's gain or loss. It names no account and no card.
+    """
+
+    number: int
+    declarer_name: str | None
+    declaration: Declaration
+    levels: tuple[Level, ...]
+    settled_value: int
+    score: int
+
+
+def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView, ...]:
+    """One row per finished game of the table, numbered from 1 in the order played."""
+    return tuple(
+        SeriesEntryView(
+            number=number,
+            declarer_name=entry.seat_names[entry.declarer_seat - 1],
+            declaration=entry.declaration,
+            levels=entry.levels,
+            settled_value=entry.settled_value,
+            score=entry.score,
+        )
+        for number, entry in enumerate(table.game_list, 1)
     )

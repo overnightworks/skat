@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Protocol
 from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
+from skat.table.game_list import series_list_view_of
 from skat.table.playing import (
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
@@ -60,6 +61,8 @@ if TYPE_CHECKING:
     import random
     from collections.abc import Callable
     from contextlib import AbstractContextManager
+
+    from skat.table.game_list import SeriesEntryView
 
 __all__ = [
     "CommandIdReusedError",
@@ -432,12 +435,15 @@ class TableService:
                 away_when_hand_ended,
             )
 
-    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
+    def _table_read(self, table_id: str) -> TableRecord | EndedTable | None:
         identifier = TableId.parse(table_id)
         if identifier is None:
             return None
         with self._transactions.begin() as transaction:
-            table = transaction.table(identifier)
+            return transaction.table(identifier)
+
+    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
+        table = self._table_read(table_id)
         if table is None:
             return None
         present = (
@@ -446,3 +452,10 @@ class TableService:
             else present_at(table, connected_accounts, self._live_leases())
         )
         return view_of(table, actor.account_id, present)
+
+    def series_list(self, table_id: str) -> tuple[SeriesEntryView, ...] | None:
+        """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""
+        table = self._table_read(table_id)
+        if table is None:
+            return None
+        return () if isinstance(table, EndedTable) else series_list_view_of(table)
