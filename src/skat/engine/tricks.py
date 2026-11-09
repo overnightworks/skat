@@ -234,10 +234,6 @@ class Playing(TenTricks):
     declared: Declaring
     result: PlayedOut | None
 
-    @property
-    def tally(self) -> Tally:
-        return _tally(self.declared.declarer, self.tricks)
-
 
 @dataclass(frozen=True)
 class PlayOutcome[GameState: TenTricks = Playing]:

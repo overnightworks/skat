@@ -12,7 +12,7 @@
     } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
-    import { gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
+    import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { LegalLinks } from "overnightworks-appkit";
     import BackFan from "#lib/ui/BackFan.svelte";
@@ -24,7 +24,6 @@
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
-    import { ALL_POINTS } from "#lib/wire.ts";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { words } from "#lib/words.ts";
     import NewTableButton from "../../NewTableButton.svelte";
@@ -256,9 +255,7 @@
                     <span>{`${words.bidValue} ${String(bidValue)}`}</span>
                 </div>
             {:else if inPlay !== null}
-                {@const names = sideNames(outcome.table.chairs, inPlay.declarerSeat)}
-                {@const points = inPlay.playing.trick_points}
-                <div class="plaque in-play">
+                <div class="plaque">
                     <span class="game">
                         {#if isSuitGame(inPlay.declaration.game)}
                             <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -267,24 +264,6 @@
                         {/if}
                         {gameLabel(inPlay.declaration)}
                     </span>
-                    <div class="points" role="group" aria-label={words.trickPoints}>
-                        <span class="sides">
-                            <span class="declarer">{`${names.declarer} ${String(points.declarer)}`}</span>
-                            <span class="opponents">{`${names.opponents} ${String(points.opponents)}`}</span>
-                        </span>
-                        <span class="track">
-                            <svg viewBox={`0 0 ${String(ALL_POINTS)} 1`} preserveAspectRatio="none" aria-hidden="true">
-                                <rect class="declarer" width={points.declarer} height="1" />
-                                <rect
-                                    class="opponents"
-                                    x={ALL_POINTS - points.opponents}
-                                    width={points.opponents}
-                                    height="1"
-                                />
-                            </svg>
-                            <i class="win-line"></i>
-                        </span>
-                    </div>
                 </div>
             {:else if !outcome.table.hand?.declaring}
                 {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
