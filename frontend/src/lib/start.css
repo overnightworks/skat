@@ -2354,6 +2354,12 @@ body {
     box-shadow: inset 0 0 0 3px #f3cf7a;
 }
 
+.room .copy.weiter {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--accent-stage, #7aa7f0);
+    backdrop-filter: none;
+}
+
 .room .copy.wait {
     cursor: default;
     background: var(--glass-dark);
@@ -2363,4 +2369,27 @@ body {
 .room .copy:disabled {
     opacity: 0.6;
     cursor: default;
+}
+
+/* The result's bar is one row: on a phone the link is its icon alone and the buttons close up. */
+@media (max-width: 899px) {
+    .room .actions.on-result {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .room .actions.on-result .copy {
+        padding: 0 16px;
+        gap: 8px;
+    }
+
+    .room .actions.on-result .copy.link {
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions.on-result .copy.link .label {
+        display: none;
+    }
 }

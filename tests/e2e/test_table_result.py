@@ -135,8 +135,9 @@ def expect_the_card(table: PlayingTable) -> None:
         expect(rows).to_have_count(3)
         for gain in result["gains"]:
             row = card.locator(f".reck[data-seat='{gain['seat']}']")
-            expect(row.locator(".dl")).to_have_text(with_minus(gain["gain"]))
-            expect(row.locator(".nm")).to_have_text(table.names[gain["seat"]])
+            expect(row.locator(".dl")).to_have_text(signed(gain["gain"]) if gain["gain"] else "0")
+            own = role != "watcher" and person is table.pages[gain["seat"]]
+            expect(row.locator(".nm")).to_have_text(YOU if own else table.names[gain["seat"]])
         winners = (
             [result["declarer_seat"]] if result["won"] else [s for s in table.names if s != result["declarer_seat"]]
         )
@@ -160,6 +161,8 @@ def expect_the_page_around_the_card(table: PlayingTable) -> None:
 
 def expect_the_marks(table: PlayingTable, ready: set[int]) -> None:
     for person in table.everyone:
+        expect(person.locator(".chair .mark.declarer")).to_have_count(1)
+        expect(person.locator(f".chair[data-seat='{table.declarer_seat}'] .mark.declarer")).to_have_count(1)
         for seat in table.names:
             expect(person.locator(f".chair[data-seat='{seat}'] {READY_MARK}")).to_have_count(1 if seat in ready else 0)
 
@@ -168,6 +171,7 @@ def expect_the_buttons(table: PlayingTable, ready: set[int]) -> None:
     """The seated viewers' bars: „Weiter“ until they have tapped, then who is awaited; the watcher's has neither."""
     for seat, person in table.pages.items():
         bar = person.locator(".actions")
+        assert bar.evaluate("bar => new Set([...bar.children].map(child => child.offsetTop)).size") == 1
         expect(bar.get_by_role("button", name=STAND_UP)).to_be_visible()
         expect(bar.get_by_role("button", name=COPY_LINK)).to_be_visible()
         if seat in ready:

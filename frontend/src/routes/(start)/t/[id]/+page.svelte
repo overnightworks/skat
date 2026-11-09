@@ -231,6 +231,7 @@
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
             {@const turnSeat = inPlay?.playing.turn_seat}
+            {@const settledDeclarerSeat = outcome.table.result?.declarer_seat ?? inPlay?.declarerSeat}
             {@const view = outcome.table.result === null ? null : resultView(outcome.table)}
             {@const winners = new Set(view?.rows.filter((row) => row.winner).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
@@ -353,7 +354,7 @@
                             <span class="tile">
                                 <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                             </span>
-                            {#if chair.hand !== null || passedIn !== null}
+                            {#if chair.hand !== null || passedIn !== null || view !== null}
                                 {#if chair.seat === dealerSeat}
                                     <span class="mark dealer" title={words.dealer}>
                                         <svg
@@ -376,7 +377,7 @@
                                 {#if chair.hand !== null}
                                     <span class="mark pos">{positionWord(chair.hand.position)}</span>
                                 {/if}
-                                {#if marks.declarer}
+                                {#if marks.declarer || chair.seat === settledDeclarerSeat}
                                     <span class="mark declarer" class:won={marks.declarer === "won"}>
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path
@@ -524,7 +525,7 @@
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}
-                <div class="actions">
+                <div class="actions" class:on-result={view !== null}>
                     {#if bar?.kind === "tap"}
                         {@const table = outcome.table}
                         <button
@@ -571,7 +572,7 @@
                             {`${words.standUp}`}
                         </button>
                     {/if}
-                    <button type="button" class="copy" onclick={copy}>
+                    <button type="button" class="copy link" aria-label={words.copyLink} onclick={copy}>
                         <svg
                             viewBox="0 0 24 24"
                             fill="none"
@@ -584,7 +585,7 @@
                             <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
                         </svg>
                         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                        {`${words.copyLink}`}
+                        <span class="label">{`${words.copyLink}`}</span>
                     </button>
                 </div>
                 <p class="note" role="status">{note}</p>
