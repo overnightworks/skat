@@ -2,6 +2,9 @@ import pytest
 
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from tests.support.fake_issuer import FakeIssuer
+from tests.support.idle_presence import idle_agent_lease
+from tests.web.support.agent import Agent
 from tests.web.support.presence import HOLD_SECONDS, Deals, Releases, Wakes
 from tests.web.support.skat import FakeTime, Skat
 
@@ -9,6 +12,16 @@ from tests.web.support.skat import FakeTime, Skat
 @pytest.fixture
 def skat(sign_in_settings):
     return Skat(sign_in_settings)
+
+
+@pytest.fixture
+def issuer(hold):
+    return FakeIssuer(hold)
+
+
+@pytest.fixture
+def agent(skat, issuer):
+    return Agent(skat, issuer)
 
 
 @pytest.fixture
@@ -71,6 +84,7 @@ def holding(time, releases, deals, ends):
         ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end),
+        idle_agent_lease(),
     )
 
 

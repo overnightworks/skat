@@ -23,6 +23,7 @@ from skat.table.rules import (
     decide_stand,
     hand_runs,
     next_deal_due,
+    present_at,
     result_pending,
     sit_deals,
 )
@@ -374,3 +375,21 @@ class TestSeries:
     @pytest.mark.parametrize("length", [3, 12, 99])
     def test_takes_each_length_the_rules_name(self, length):
         assert Series(length, length).length == length
+
+
+@pytest.mark.parametrize(
+    ("streams", "leases", "present"),
+    [
+        (frozenset(), frozenset(), frozenset()),
+        (frozenset({BEN.account_id}), frozenset(), frozenset({BEN.account_id})),
+        (frozenset(), frozenset({ANNA.account_id}), frozenset({ANNA.account_id})),
+        (frozenset(), frozenset({DORA.account_id}), frozenset()),
+        (frozenset({DORA.account_id}), frozenset({ANNA.account_id}), frozenset({DORA.account_id, ANNA.account_id})),
+        (None, frozenset({ANNA.account_id}), None),
+    ],
+    ids=["nobody", "a stream", "a lease of an occupant", "a lease of a stranger", "both", "presence cannot tell"],
+)
+def test_an_occupants_lease_counts_as_present_but_a_strangers_does_not(streams, leases, present):
+    table = table_with((1, ANNA), (2, BEN))
+
+    assert present_at(table, streams, leases) == present

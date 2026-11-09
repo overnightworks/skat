@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.deal import positions_from
 from skat.table.records import (
@@ -83,8 +83,16 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
-    seated: TableRecord = replace(table, version=table.version + 1, chairs=chairs)
-    return seated
+    return TableRecord(
+        id=table.id,
+        version=table.version + 1,
+        chairs=chairs,
+        dealer=table.dealer,
+        hand=table.hand,
+        progress=table.progress,
+        game_list=table.game_list,
+        series=table.series,
+    )
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -113,16 +121,16 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
     in its series; every deal goes through here.
     """
-    with_hand: TableRecord = replace(
-        table,
+    return TableRecord(
+        id=table.id,
         version=version,
         chairs=tuple(replace(chair, ready=False) for chair in table.chairs),
         dealer=new_hand.dealer,
         hand=new_hand.hand,
         progress=HandProgress(),
+        game_list=table.game_list,
         series=None if table.series is None else replace(table.series, deals=table.series.deals + 1),
     )
-    return with_hand
 
 
 def hand_was_dealt(table: TableRecord) -> bool:
@@ -136,6 +144,28 @@ def result_pending(table: TableRecord) -> bool:
     A passed-in hand keeps its steps until the next deal, which tells it apart from a played one.
     """
     return not hand_runs(table) and hand_was_dealt(table) and bool(table.game_list) and not table.progress.auction
+
+
+@overload
+def present_at(
+    table: TableRecord, streams: frozenset[str], leases: frozenset[str]
+) -> frozenset[str]: ...  # pragma: no cover - an overload's body is its signature
+
+
+@overload
+def present_at(
+    table: TableRecord, streams: frozenset[str] | None, leases: frozenset[str]
+) -> frozenset[str] | None: ...  # pragma: no cover - an overload's body is its signature
+
+
+def present_at(table: TableRecord, streams: frozenset[str] | None, leases: frozenset[str]) -> frozenset[str] | None:
+    """Who counts as present at the table: whoever holds an open stream, and every occupant with a live lease; a
+    lease never counts for anyone who does not sit here. None says the presence cannot tell any more.
+    """
+    if streams is None:
+        return None
+    occupants = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
+    return streams | (leases & occupants)
 
 
 def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) -> bool:

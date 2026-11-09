@@ -1,4 +1,6 @@
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
+from agent_runtime_client.member import LEASE_SECONDS
+
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, AgentLease, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 
 
@@ -14,6 +16,10 @@ class IdleScheduler:
 
 async def free_no_chair(table_id, account_id, due):
     return False
+
+
+async def seat_nowhere(account_id):
+    return []
 
 
 async def deal_no_hand(table_id, connected_accounts):
@@ -36,5 +42,9 @@ def idle_hold() -> ChairHold:
     return ChairHold(300, lambda: 0.0, IdleScheduler(), free_no_chair)
 
 
+def idle_agent_lease() -> AgentLease:
+    return AgentLease(LEASE_SECONDS, seat_nowhere)
+
+
 def idle_presence() -> Presence:
-    return Presence(idle_hold(), idle_next_deal(), idle_empty_table())
+    return Presence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease())

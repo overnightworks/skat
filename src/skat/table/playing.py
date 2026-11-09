@@ -12,7 +12,7 @@ from skat.table.rules import acting_position, card_text
 if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.engine.tricks import PlayedOut, Playing, Sides
+    from skat.engine.tricks import PlayedOut, Playing
     from skat.table.records import Actor
 
 PLAY_CARD_COMMAND: Final = "play-card"
@@ -52,8 +52,6 @@ class PlayingView:
     turn_seat: int
     current_trick: tuple[SeatedCard, ...]
     last_trick: LastTrick | None
-    tricks_won: Sides
-    trick_points: Sides
     legal_cards: tuple[Card, ...]
 
 
@@ -81,14 +79,16 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
     """The trick that ends the game ends the hand: its cards and steps go, its entry joins the list, the chairs stay."""
-    ended: TableRecord = replace(
-        table,
+    return TableRecord(
+        id=table.id,
         version=table.version + 1,
+        chairs=table.chairs,
+        dealer=table.dealer,
         hand=None,
         progress=HandProgress(),
         game_list=(*table.game_list, list_entry_of(played, table)),
+        series=table.series,
     )
-    return ended
 
 
 def _legal_cards(state: Playing, viewer_positions: frozenset[Position]) -> tuple[Card, ...]:
@@ -103,8 +103,8 @@ def _legal_cards(state: Playing, viewer_positions: frozenset[Position]) -> tuple
 def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozenset[Position]) -> PlayingView | None:
     """The game in play for one viewer; None until the game is declared.
 
-    Everyone sees the turn, the trick in progress, the last completed trick and both sides' tricks and trick
-    points, which leave out the skat. Only the seated player on turn gets the cards they may play.
+    Everyone sees the turn, the trick in progress and the last completed trick.
+    Only the seated player on turn gets the cards they may play.
     """
     if state is None:
         return None
@@ -114,7 +114,5 @@ def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozen
         turn_seat=seats[state.turn],
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
         last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
-        tricks_won=state.tally.tricks,
-        trick_points=state.tally.points,
         legal_cards=_legal_cards(state, viewer_positions),
     )
