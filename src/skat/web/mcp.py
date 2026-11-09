@@ -44,6 +44,7 @@ AGENT_GROUP: Final = "/agents"
 MCP_CLIENT_ID: Final = "agents"
 
 READ_TABLE_TOOL: Final = "read_table"
+READ_SERIES_LIST_TOOL: Final = "read_series_list"
 PLAY_CARD_TOOL: Final = "play_card"
 # The `auction_` prefix keeps the forehand's "Spielen" apart from `play_card`.
 AUCTION_BID_TOOL: Final = "auction_bid"
@@ -74,6 +75,7 @@ def excluded(reason: Exclusion) -> dict[str, object]:
 
 
 READ_TABLE_MARK: Final = agent_tool(name=READ_TABLE_TOOL, effect=ToolEffect.READ_ONLY)
+READ_SERIES_LIST_MARK: Final = agent_tool(name=READ_SERIES_LIST_TOOL, effect=ToolEffect.READ_ONLY)
 PLAY_CARD_MARK: Final = agent_tool(name=PLAY_CARD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_BID_MARK: Final = agent_tool(name=AUCTION_BID_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_HOLD_MARK: Final = agent_tool(name=AUCTION_HOLD_TOOL, effect=ToolEffect.SIDE_EFFECTING)

@@ -11,7 +11,15 @@ from skat.engine.declaration import Announcement, Declaration, Declaring, declar
 from skat.engine.games import GameKind, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Level, Matadors
-from skat.table.game_list import Standing, list_entry_of, result_view_of, standings_of, total_of
+from skat.table.game_list import (
+    SeriesEntryView,
+    Standing,
+    list_entry_of,
+    result_view_of,
+    series_list_view_of,
+    standings_of,
+    total_of,
+)
 from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -374,3 +382,54 @@ class TestTheStandings:
 
     def test_a_standing_is_its_account_name_total_record_and_place(self):
         assert standings_of((game_for(1, won=True, score=36),))[0] == Standing(ANNA, "Anna", 86, 1, 0, 1)
+
+
+class TestTheSeriesList:
+    def test_a_table_without_a_finished_game_has_an_empty_list(self):
+        assert series_list_view_of(seated_table()) == ()
+
+    def test_every_game_is_a_row_numbered_from_one_with_the_declarer_s_stored_name(self):
+        table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)), played(KREUZ, MIT_TWO, (30, 24)), played(NULL))
+
+        rows = series_list_view_of(table)
+
+        assert [row.number for row in rows] == [1, 2, 3]
+        assert {row.declarer_name for row in rows} == {"Account-Anna"}
+
+    def test_a_row_carries_the_game_its_levels_its_value_and_the_gain_or_loss_of_the_declarer(self):
+        won, lost, overbid = (
+            played(KREUZ, MIT_TWO, (30, 30, 30, 5)),
+            played(KREUZ, MIT_TWO, (30, 24)),
+            played(KARO, MIT_ONE, (30, 30, 10), bid=20),
+        )
+
+        rows = series_list_view_of(pending_result(won, lost, overbid))
+
+        assert [(row.declaration, row.settled_value, row.score) for row in rows] == [
+            (Declaration(KREUZ, hand=False, ouvert=False, announcement=NONE), 48, 48),
+            (Declaration(KREUZ, hand=False, ouvert=False, announcement=NONE), 36, -72),
+            (Declaration(KARO, hand=False, ouvert=False, announcement=NONE), 27, -54),
+        ]
+
+    def test_the_levels_are_those_the_result_of_the_same_game_shows(self):
+        table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 30, 5)))
+
+        assert series_list_view_of(table)[0].levels == result_view_of(table).levels
+
+    def test_a_row_stored_before_names_were_kept_has_no_declarer_name(self):
+        table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
+        nameless = replace(table.game_list[0], seat_names=(None, None, None))
+
+        rows = series_list_view_of(replace(table, game_list=(nameless,)))
+
+        assert rows[0].declarer_name is None
+        assert not any(account in repr(rows) for account in SEAT_ACCOUNTS)
+
+    def test_a_row_names_the_name_stored_with_the_game_not_the_one_seated_now(self):
+        table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
+        replaced = replace(table.chairs[0], occupant=Occupant("account-dora", "Dora"))
+
+        rows = series_list_view_of(replace(table, chairs=(replaced, *table.chairs[1:])))
+
+        assert rows == (replace(rows[0], declarer_name="Account-Anna"),)
+        assert isinstance(rows[0], SeriesEntryView)

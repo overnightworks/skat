@@ -196,3 +196,33 @@ def result_view_of(table: TableRecord) -> ResultView | None:
         opponents_points=entry.opponents_points,
         gains=_gains(entry),
     )
+
+
+@dataclass(frozen=True)
+class SeriesEntryView:
+    """One finished game in the table's list, the same for every viewer: its place, its declarer by the name stored
+    with the game (None for an entry stored before names were kept), the game, its levels, its value and the
+    declarer's gain or loss. It names no account and no card.
+    """
+
+    number: int
+    declarer_name: str | None
+    declaration: Declaration
+    levels: tuple[Level, ...]
+    settled_value: int
+    score: int
+
+
+def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView, ...]:
+    """One row per finished game of the table, numbered from 1 in the order played."""
+    return tuple(
+        SeriesEntryView(
+            number=number,
+            declarer_name=entry.seat_names[entry.declarer_seat - 1],
+            declaration=entry.declaration,
+            levels=breakdown_of(entry.declaration, schneider=entry.schneider, schwarz=entry.schwarz).levels,
+            settled_value=entry.settled_value,
+            score=entry.score,
+        )
+        for number, entry in enumerate(table.game_list, 1)
+    )

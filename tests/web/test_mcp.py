@@ -10,6 +10,7 @@ from skat.table.hand_state import auction_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
+from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
     AGENT_GROUP,
     AUCTION_BID_TOOL,
@@ -22,6 +23,7 @@ from skat.web.mcp import (
     MCP_GROUP,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
+    READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
     TAKE_SKAT_TOOL,
 )
@@ -67,18 +69,19 @@ def agent_account_id(skat):
 
 
 class TestTools:
-    def test_an_agent_is_offered_the_table_tools_and_only_read_table_is_read_only(self, agent):
+    def test_an_agent_is_offered_the_table_tools_and_only_the_two_reads_are_read_only(self, agent):
         answer = agent.request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
         assert (
             set(tools)
-            == {READ_TABLE_TOOL, PLAY_CARD_TOOL, GIVE_UP_GAME_TOOL, CONTINUE_AFTER_RESULT_TOOL}
+            == {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, PLAY_CARD_TOOL, GIVE_UP_GAME_TOOL, CONTINUE_AFTER_RESULT_TOOL}
             | AUCTION_TOOLS
             | DECLARING_TOOLS
         )
-        assert tools[READ_TABLE_TOOL]["annotations"]["readOnlyHint"] is True
-        for name in set(tools) - {READ_TABLE_TOOL}:
+        reads = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL}
+        assert all(tools[name]["annotations"]["readOnlyHint"] is True for name in reads)
+        for name in set(tools) - reads:
             assert "readOnlyHint" not in tools[name].get("annotations", {})
 
     def test_each_step_tool_has_a_description_of_its_own(self, agent):
@@ -144,6 +147,18 @@ class TestReadTable:
         assert view["series"]["over"] is True
         assert {each["display_name"] for each in standings} == set(names)
         assert view["series"] == table.read_as(table.watcher).json()["series"]
+
+    def test_the_series_list_reads_at_the_tool_as_the_route_gives_it(self, skat, agent):
+        agent.admitted()
+        table, _ = play_a_series(skat)
+
+        listed = agent.call(READ_SERIES_LIST_TOOL, table_id=table.table_id)
+
+        route = skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
+        assert not listed.is_error, listed.text
+        assert listed.json() == route.json()
+        assert len(listed.json()["entries"]) == 3
+        assert agent.call(READ_SERIES_LIST_TOOL, table_id=UNKNOWN_ID).is_error
 
     def test_an_agent_without_a_chair_gets_the_watchers_view_without_any_card(self, skat, agent):
         agent.admitted()
