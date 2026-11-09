@@ -5,10 +5,6 @@ import pytest
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, deal
-from skat.engine.declaration import Announcement, Declaration
-from skat.engine.games import GameKind
-from skat.engine.value import Matadors
-from skat.table.game_list import ListEntry
 from skat.table.records import Actor, Chair, HandProgress, NewHand, Occupant, Refusal, TableId, TableRecord
 from skat.table.rules import (
     dealt_next,
@@ -20,6 +16,7 @@ from skat.table.rules import (
     result_pending,
     sit_deals,
 )
+from tests.support.played_game import an_entry
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
@@ -197,23 +194,6 @@ ALL_THREE = frozenset({ANNA.account_id, BEN.account_id, CLEO.account_id})
 def passed_in() -> TableRecord:
     steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
     return replace(table_with((1, ANNA), (2, BEN), (3, CLEO)), dealer=2, progress=HandProgress(steps))
-
-
-def an_entry() -> ListEntry:
-    return ListEntry(
-        seat_accounts=(ANNA.account_id, BEN.account_id, CLEO.account_id),
-        declarer_seat=1,
-        declaration=Declaration(GameKind.KREUZ, hand=False, ouvert=False, announcement=Announcement.NONE),
-        schneider=False,
-        schwarz=False,
-        matadors=Matadors(mit=True, count=2),
-        won=True,
-        bid=18,
-        game_value=36,
-        settled_value=36,
-        score=36,
-        declarer_points=78,
-    )
 
 
 def played_out() -> TableRecord:

@@ -15,6 +15,7 @@ from skat.table.declaring import DeclaringCommand
 from skat.table.records import Actor, CreateTable, Refusal, SitDown
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
+from tests.support.played_game import HERZ_HAND
 
 pytestmark = pytest.mark.postgres
 
@@ -211,7 +212,7 @@ def _rewrite(stored, transactions, table_id, steps):
 def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transactions, stored):
     hand.send(TakeSkat(), command_id=step_id(1))
     before = stored(transactions, hand.table_id)
-    rewritten_steps = (herz_declaration(hand=True),)
+    rewritten_steps = (HERZ_HAND,)
     table_id = hand.table_id
 
     with pytest.raises(StepLogRewrittenError):

@@ -5,20 +5,17 @@ from dataclasses import replace
 
 import pytest
 
-from skat.engine.bidding import Bid, Pass
+from skat.engine.bidding import Pass
 from skat.engine.cards import DECK
 from skat.engine.deal import SEATS, Position, next_dealer, positions_from
-from skat.engine.declaration import Announcement, Declaration, Declare
-from skat.engine.games import GameKind
-from skat.engine.tricks import CardPlayed, play_card
-from skat.engine.value import Matadors
-from skat.table.game_list import ListEntry
+from skat.engine.tricks import CardPlayed
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Receipt, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, OccupiedChair, TableService
 from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
+from tests.support.played_game import after_the_first_game, before_the_last_card, declared_herz_hand
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
@@ -583,24 +580,7 @@ class TestDealNext:
 
 
 def end_the_first_game(store, table_id, *ready_seats):
-    """The table as the thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
-    record = store.tables[table_id]
-    entry = ListEntry(
-        seat_accounts=(OPENER.account_id, VISITOR.account_id, CLEO.account_id),
-        declarer_seat=1,
-        declaration=Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),
-        schneider=False,
-        schwarz=False,
-        matadors=Matadors(mit=False, count=1),
-        won=True,
-        bid=18,
-        game_value=30,
-        settled_value=30,
-        score=30,
-        declarer_points=70,
-    )
-    chairs = tuple(replace(chair, ready=chair.seat in ready_seats) for chair in record.chairs)
-    store.tables[table_id] = replace(record, chairs=chairs, hand=None, progress=HandProgress(), game_list=(entry,))
+    store.tables[table_id] = after_the_first_game(store.tables[table_id], *ready_seats)
 
 
 class TestDealNextAfterAResult:
@@ -649,26 +629,13 @@ class TestDealNextAfterAResult:
 
 def declared(store, table_id):
     """The table once middlehand won at 18 and declared a Herz Hand game; forehand leads."""
-    progress = HandProgress(
-        auction=(Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Position.REARHAND)),
-        declaring=(Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),),
-    )
-    store.tables[table_id] = replace(store.tables[table_id], progress=progress)
+    store.tables[table_id] = replace(store.tables[table_id], progress=declared_herz_hand())
 
 
-def before_the_last_card(store, table_id):
-    """The declared table one card before the end, each card the first in deck order the engine accepts."""
-    declared(store, table_id)
-    table = store.tables[table_id]
-    state = playing_of(table)
-    plays = []
-    while state.result is None:
-        held = state.hands[state.turn]
-        card = next(each for each in DECK if each in held and play_card(state, state.turn, each).refusal is None)
-        plays.append(CardPlayed(state.turn, card))
-        state = play_card(state, state.turn, card).state
-    store.tables[table_id] = replace(table, progress=replace(table.progress, plays=tuple(plays[:-1])))
-    return plays[-1]
+def at_the_last_card(store, table_id):
+    """The declared table one card before the end; returns that last card."""
+    store.tables[table_id], last = before_the_last_card(store.tables[table_id])
+    return last
 
 
 class TestPlayCard:
@@ -685,7 +652,7 @@ class TestPlayCard:
         return service.play_card(actor, command, frozenset({OPENER.account_id}), on_hand_ended=heard.append)
 
     def test_the_thirtieth_card_names_who_sat_and_tells_the_caller_who_was_away(self, service, store, table_id):
-        last = before_the_last_card(store, table_id)
+        last = at_the_last_card(store, table_id)
         heard = []
 
         result = self.play(service, store, table_id, last, heard, store.tables[table_id].version)
@@ -704,7 +671,7 @@ class TestPlayCard:
         assert heard == [frozenset()]
 
     def test_a_retry_of_the_thirtieth_card_restarts_no_hold(self, service, store, table_id):
-        last = before_the_last_card(store, table_id)
+        last = at_the_last_card(store, table_id)
         version = store.tables[table_id].version
         self.play(service, store, table_id, last, [], version)
         heard = []

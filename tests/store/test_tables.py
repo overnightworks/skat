@@ -11,12 +11,9 @@ from sqlalchemy import func, select, table, text
 from skat.engine.bidding import Bid
 from skat.engine.cards import DECK
 from skat.engine.deal import SEATS, Position, next_dealer, positions_from
-from skat.engine.declaration import Announcement, Declaration
-from skat.engine.games import GameKind
 from skat.store.migrate import create_store_engine
 from skat.store.tables import DealtHandRewrittenError, PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.game_list import ListEntry
 from skat.table.ready import ReadyCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
@@ -28,6 +25,7 @@ from tests.support.faulty_tables import (
     BothReadBeforeEitherWrites,
     FaultyTableTransactions,
 )
+from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
@@ -693,13 +691,8 @@ class TestReadyMarks:
     def table_id(self, service, transactions, stored):
         """Three seated after their first game, its result pending."""
         table_id = TestDealNext.seated(service)
-        null_hand = Declaration(GameKind.NULL, hand=True, ouvert=False, announcement=Announcement.NONE)
-        accounts = (OPENER.account_id, VISITOR.account_id, THIRD_PLAYER.account_id)
-        values = {"bid": 18, "game_value": 35, "settled_value": 35, "score": 35, "declarer_points": 0}
-        entry = ListEntry(accounts, 1, null_hand, schneider=False, schwarz=False, matadors=None, won=True, **values)
         with transactions.begin() as transaction:
-            ended = replace(stored(transactions, table_id), hand=None, progress=HandProgress(), game_list=(entry,))
-            transaction.save_table(ended)
+            transaction.save_table(after_the_first_game(stored(transactions, table_id)))
         return table_id
 
     def tap(self, service, actor, table_id, command_id):
