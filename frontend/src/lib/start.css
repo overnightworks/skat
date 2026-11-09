@@ -1878,23 +1878,20 @@ body {
         margin-bottom: 0;
     }
 
-    .room .declare.choosing,
-    .room .declare.discarding {
+    .room .declare.choosing {
         grid-column: 2;
         justify-self: start;
-    }
-
-    .room .declare.choosing {
         margin-left: 76px;
     }
 
-    .room .declare.discarding {
-        margin-left: -68px;
+    /* The drop slots stand over their button, and the games on two rows over theirs: the four suits, then the rest. */
+    .room .declare:is(.discarding, .picked) {
+        flex-direction: column;
     }
 
     .room .declare .games {
-        flex-wrap: nowrap;
-        max-width: none;
+        flex-wrap: wrap;
+        max-width: 460px;
     }
 
     .room .declare .slot {
@@ -1903,6 +1900,7 @@ body {
 
     .room .stage:has(.declare.picked) .skat-spot {
         --card-width: 56px;
+        margin-left: 260px;
     }
 
     .room .declare .game.suited {
@@ -2051,9 +2049,25 @@ body {
         margin-bottom: 0;
     }
 
+    /* The far chairs stand at the felt's rim, the near one at its lower left, as bid-watch draws them. */
     .room .stage {
-        width: min(100%, 900px);
+        width: min(100%, 1180px);
+        grid-template-rows: auto minmax(180px, 1fr) minmax(180px, 1fr) auto;
         --chair-width: 160px;
+    }
+    .room .felt {
+        margin-inline: 120px;
+    }
+    .room .chair:nth-child(1) {
+        justify-self: start;
+    }
+    .room .chair:nth-child(2) {
+        justify-self: end;
+    }
+    .room .chair:nth-child(3) {
+        grid-column: 1;
+        justify-self: start;
+        margin-left: 40px;
     }
 
     .room .skat-spot {
