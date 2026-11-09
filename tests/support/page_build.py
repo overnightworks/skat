@@ -15,7 +15,7 @@ FIXTURE_SCRIPT_HASH = "sha256-4LKaLFjkbG7q9xKX2UaD3tcSyvjsmzchYiSkLO5EkO8="
 SIGN_IN_STYLESHEET = "/_app/immutable/assets/sign-in.css"
 SIGN_IN_FONT = "/_app/immutable/assets/fixture-font.woff2"
 # The SHA-256 of the fixture call page's one inline script.
-CALL_PAGE_SCRIPT_HASH = "sha256-FtcSpSyDcytGU8ZTtM9m0pFSnZh3emUyDmrqw4U7YjQ="
+CALL_PAGE_SCRIPT_HASH = "sha256-dml1HkUAI45VcVj2XqygWD0+6NIfezilpWE6AHzQkdE="
 CALL_PAGE_MODULE = "/_app/immutable/entry/call.js"
 IMMUTABLE_FILE = "/_app/immutable/x.js"
 VERSION_FILE = "/_app/version.json"
