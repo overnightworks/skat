@@ -1,8 +1,0 @@
-claim_id = "f14152acebd1481dbdcb68fca70c5f35"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "25c695c5936038b3b2ffd0b75c529a1da2dc28d0"
-branch = "claude/issue-101-trick-view"
-scope = ["docs/ARCHITECTURE.md", "src/skat/engine/tricks.py", "src/skat/table/playing.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/engine/test_tricks.py", "tests/table/test_playing.py", "tests/table/test_views.py", "tests/web/test_playing.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
-opened_commit = "03b0ce48de87e8e1e2d70fec286b70055f1c794d"
-whole_reason = "The turn, the cards and the points are one view, and a half of it would let the table lie about whose turn it is."
