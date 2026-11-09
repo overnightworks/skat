@@ -36,7 +36,7 @@
 
 <div class="bid">
     {#if ladder.kind === "climb"}
-        <div class="ladder" class:up={ladder.rungsBid}>
+        <div class="ladder">
             {#if ladder.held !== null}
                 <span class="held">{@render check()}{ladder.held}</span>
             {/if}
