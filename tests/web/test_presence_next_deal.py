@@ -4,13 +4,8 @@ from functools import partial
 import pytest
 from structlog.testing import capture_logs
 
-from skat.engine.bidding import Bid, Pass
-from skat.engine.cards import DECK
+from skat.engine.bidding import Pass
 from skat.engine.deal import Position, next_dealer, positions_from
-from skat.engine.declaration import Announcement, Declare
-from skat.engine.games import GameKind
-from skat.engine.tricks import CardPlayed, play_card
-from skat.table.hand_state import playing_of
 from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableId
 from skat.table.service import TableService
 from skat.web.playing import TABLE_CARD_SUFFIX
@@ -18,6 +13,7 @@ from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.payload_cards import DEALER_SEAT, cards_in, seated_three, wire_cards
+from tests.support.played_game import before_the_last_card
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
@@ -434,20 +430,8 @@ def twenty_nine_cards_played(server, table_id, people):
     """Seat 1, the middlehand, plays a Herz Hand game at 18 to its end; each card is the first in deck order the
     engine accepts. The first twenty-nine are stored directly; the returned call plays the thirtieth through the
     card route."""
-    record = server.store.tables[table_id]
-    declared = HandProgress(
-        auction=(Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Position.REARHAND)),
-        declaring=(Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE),),
-    )
-    state = playing_of(replace(record, progress=declared))
-    plays = []
-    while state.result is None:
-        held = state.hands[state.turn]
-        card = next(each for each in DECK if each in held and play_card(state, state.turn, each).refusal is None)
-        plays.append(CardPlayed(state.turn, card))
-        state = play_card(state, state.turn, card).state
-    server.store.tables[table_id] = replace(record, progress=replace(declared, plays=tuple(plays[:-1])))
-    last = plays[-1]
+    record, last = before_the_last_card(server.store.tables[table_id])
+    server.store.tables[table_id] = record
     seat = {position: seat for seat, position in positions_from(record.dealer).items()}[last.position]
 
     def play_last():

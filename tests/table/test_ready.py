@@ -5,10 +5,6 @@ import pytest
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position
-from skat.engine.declaration import Announcement, Declaration
-from skat.engine.games import GameKind
-from skat.engine.value import Matadors
-from skat.table.game_list import ListEntry
 from skat.table.ready import ReadyCommand, decide_ready, ready_payload
 from skat.table.records import (
     Actor,
@@ -24,29 +20,13 @@ from skat.table.records import (
 )
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.fake_tables import FakeTableStore
+from tests.support.played_game import an_entry
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 DORA = Actor(account_id="account-dora", display_name="Dora")
 TABLE_VERSION = 9
-
-
-def an_entry() -> ListEntry:
-    return ListEntry(
-        seat_accounts=(ANNA.account_id, BEN.account_id, CLEO.account_id),
-        declarer_seat=1,
-        declaration=Declaration(GameKind.KREUZ, hand=False, ouvert=False, announcement=Announcement.NONE),
-        schneider=False,
-        schwarz=False,
-        matadors=Matadors(mit=True, count=2),
-        won=True,
-        bid=18,
-        game_value=36,
-        settled_value=36,
-        score=36,
-        declarer_points=78,
-    )
 
 
 def pending(*ready_seats: int, games: int = 2) -> TableRecord:
