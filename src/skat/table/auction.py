@@ -149,13 +149,9 @@ def _words(steps: tuple[AuctionStep, ...], seats: dict[Position, int]) -> tuple[
     return tuple(latest[seat] for seat in sorted(latest))
 
 
-def auction_view_of(table: TableRecord, viewer_account_id: str) -> AuctionView:
+def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int) -> AuctionView:
     """The running hand's auction for one account; only the viewer whose turn it is to bid is told the values."""
-    # The store writes the dealer with the hand, so a hand without a dealer is a wiring fault.
-    if table.dealer is None:  # pragma: no cover
-        message = f"table {table.id.value} holds an auction and no dealer"
-        raise RuntimeError(message)
-    seats = seats_from(table.dealer)
+    seats = seats_from(dealer)
     auction = auction_of(table)
     viewer = seat_of(table, viewer_account_id)
     running = auction.result is None
