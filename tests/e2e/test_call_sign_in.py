@@ -14,6 +14,7 @@ from tests.e2e.support.call_frame import (
     CALL_PORT,
     CHAIR,
     FRAME,
+    FRAME_REFUSED,
     OTHER_HOST,
     THREE_CHAIRS,
     new_table,
@@ -41,13 +42,10 @@ SIGNING_IN = "Signing in"
 OPEN_IN_TAB = "Open in a tab"
 NO_ACCESS = "No access"
 LOG_OUT = "Log out"
-SESSION_COOKIE = "__Host-session_id"
 NOT_ADMITTED = ["/apps/other"]
 # The window and the frame meet within a poll or two; a bound stops a hang.
 WAIT_MILLISECONDS = 10_000
 FRAMED_STYLE = "position:fixed;inset:0;width:100%;height:100%;border:0"
-# Chromium's console line for a frame its content security policy refused.
-FRAME_REFUSED = "frame-ancestors"
 # The sandboxed frame that cannot open a window.
 WINDOW_BLOCKED = "window.open = () => null;"
 FITS_ITS_WIDTH = "page => page.scrollWidth <= page.clientWidth"
@@ -57,6 +55,7 @@ FITS_ITS_WIDTH = "page => page.scrollWidth <= page.clientWidth"
 class FramedTable:
     visitor: Page
     path: str
+    session_cookie: str
 
     @property
     def frame(self) -> FrameLocator:
@@ -71,7 +70,7 @@ class FramedTable:
         return self.visitor.frames[1].url
 
     def has_session(self) -> bool:
-        return any(cookie["name"] == SESSION_COOKIE for cookie in self.visitor.context.cookies())
+        return any(cookie["name"] == self.session_cookie for cookie in self.visitor.context.cookies())
 
 
 @pytest.fixture(scope="module")
@@ -103,7 +102,7 @@ def frame_a_table(
             body = page_holding(table_url(signing_server, path), FRAMED_STYLE)
             stack.enter_context(served_from(CALL_ORIGIN, visitor, browser_coverage, body))
             visitor.goto(f"{CALL_ORIGIN}/")
-            framed = FramedTable(visitor, path)
+            framed = FramedTable(visitor, path, signing_server.config.session_cookie_name)
             # The link carries the return address only once the page's script has run, so a tap before it is no window.
             expect(framed.log_in).to_have_attribute("href", re.compile(re.escape(RETURN_PATH_QUERY_NAME)))
             return framed
@@ -138,9 +137,8 @@ def test_a_signed_out_frame_signs_in_in_a_separate_window_that_closes_and_the_fr
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
 def test_a_window_closed_before_the_sign_in_finishes_leaves_the_sign_in_face_with_its_notice(
-    frame_a_table: Callable[..., FramedTable], expected_request_failures: list[str], form_factor: dict[str, Any]
+    frame_a_table: Callable[..., FramedTable], form_factor: dict[str, Any]
 ) -> None:
-    expected_request_failures.append(TEST_ISSUER)
     framed = frame_a_table(**form_factor)
     start_sign_in(framed).close()
 
@@ -198,10 +196,11 @@ def test_the_faces_fit_the_frame_of_the_smallest_phone(frame_a_table: Callable[.
     assert framed.frame.locator("html").evaluate(FITS_ITS_WIDTH)
 
 
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
 def test_a_blocked_window_leaves_a_plain_link_whose_tab_signs_in_and_brings_the_table(
-    frame_a_table: Callable[..., FramedTable], signing_server: RunningServer
+    frame_a_table: Callable[..., FramedTable], signing_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
-    framed = frame_a_table(init_script=WINDOW_BLOCKED)
+    framed = frame_a_table(init_script=WINDOW_BLOCKED, **form_factor)
     sign_in_at_issuer(framed.visitor, signing_server, username="cora")
     framed.log_in.click()
     expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()

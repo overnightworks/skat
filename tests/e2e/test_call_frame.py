@@ -10,6 +10,7 @@ from tests.e2e.support.call_frame import (
     CALL_PORT,
     CHAIR,
     FRAME,
+    FRAME_REFUSED,
     HTTP_OK,
     OTHER_HOST,
     OTHER_PORT,
@@ -33,8 +34,6 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 HTTP_FORBIDDEN = 403
-# Chromium's console line for a frame its content security policy refused.
-FRAME_REFUSED = "frame-ancestors"
 # A simple request: no preflight stops it, so it reaches the server whatever the origin.
 SIMPLE_POST = """([url, body]) => fetch(url, {
     method: "POST", mode: "no-cors", credentials: "include", headers: {"content-type": "text/plain"}, body

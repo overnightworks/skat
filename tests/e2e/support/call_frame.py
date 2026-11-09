@@ -25,6 +25,8 @@ CALL_PORT = 8444
 OTHER_PORT = CALL_PORT + 1
 CALL_ORIGIN = f"https://{CALL_HOST}:{CALL_PORT}"
 HTTP_OK = 200
+# Chromium's console line for a frame its content security policy refused.
+FRAME_REFUSED = "frame-ancestors"
 # The attributes hopin's call page puts on the frame that holds a Skat table.
 CALL_FRAME_ATTRIBUTES = (
     'sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" '
