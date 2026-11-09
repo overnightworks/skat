@@ -17,6 +17,7 @@ import {
 } from "#lib/wire.ts";
 import {
     bidValueWhileDeclaring,
+    announcementLabel,
     cardName,
     copyTableLink,
     createTable,
@@ -329,6 +330,11 @@ describe("asking for a table", () => {
             suffix: TABLE_DECLARING_DECLARE_SUFFIX,
             body: { game: "null", hand: false, ouvert: false, announcement: "none" },
         },
+        {
+            step: { action: "declare", game: "herz", hand: true, ouvert: false, announcement: "schneider" } as const,
+            suffix: TABLE_DECLARING_DECLARE_SUFFIX,
+            body: { game: "herz", hand: true, ouvert: false, announcement: "schneider" },
+        },
     ])(
         "sends the shown version and a command id with the step $step.action to its own path",
         async ({ step, suffix, body }) => {
@@ -512,7 +518,7 @@ describe("the auction's value while declaring", () => {
             {
                 declarer_seat: 2,
                 stage: "declared" as const,
-                declaration: { game: "null" as const, hand: false, ouvert: false },
+                declaration: { game: "null" as const, hand: false, ouvert: false, announcement: "none" as const },
                 open_cards: [],
             },
             { seat: 2, value: 20 },
@@ -598,6 +604,14 @@ describe("the table's seats and link", () => {
         ["an ouvert game, which includes Hand", true, true, `${words.gameGrand} ${words.ouvert}`],
     ])("labels %s", (_name, hand, ouvert, label) => {
         expect(gameLabel({ game: "grand", hand, ouvert })).toBe(label);
+    });
+
+    it.each([
+        ["no announcement", "none", null],
+        ["Schneider", "schneider", words.announcedSchneider],
+        ["Schwarz", "schwarz", words.announcedSchwarz],
+    ] as const)("words %s apart from the game's label", (_name, announcement, label) => {
+        expect(announcementLabel(announcement)).toBe(label);
     });
 
     it.each([

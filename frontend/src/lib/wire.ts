@@ -28,6 +28,7 @@ export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;
 export const GAME_TOKENS = ["karo", "herz", "pik", "kreuz", "grand", "null"] as const;
+export const ANNOUNCEMENT_TOKENS = ["none", "schneider", "schwarz"] as const;
 export const STAGE_TOKENS = ["choosing", "discarding", "picked", "declared"] as const;
 export const AWAITING_TOKENS = ["bid", "answer", "play"] as const;
 export const AUCTION_ACTION_TOKENS = ["bid", "hold", "pass", "play"] as const;
