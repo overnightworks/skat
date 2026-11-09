@@ -17,7 +17,7 @@ sys.path.insert(0, str(REPOSITORY / "src"))
 from skat.engine.bidding import VALID_BIDS  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
-from skat.table.records import TABLE_ID_PATTERN  # noqa: E402
+from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN  # noqa: E402
 from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -117,7 +117,15 @@ def render() -> str:
     )
     valid_bids = f"export const VALID_BIDS = [\n{wrapped_bids}\n] as const;\n"
     all_points = f"export const ALL_POINTS = {ALL_POINTS};\n"
-    return HEADER + "\n" + paths + tuples + valid_bids + all_points
+    series_length = "".join(
+        f"export const {name} = {value};\n"
+        for name, value in (
+            ("SERIES_LENGTH_MIN", SERIES_LENGTH_MIN),
+            ("SERIES_LENGTH_MAX", SERIES_LENGTH_MAX),
+            ("SERIES_LENGTH_STEP", SERIES_LENGTH_STEP),
+        )
+    )
+    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:

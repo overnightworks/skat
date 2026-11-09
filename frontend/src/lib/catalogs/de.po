@@ -27,6 +27,24 @@ msgstr "Abmelden"
 msgid "newTable"
 msgstr "Neuer Tisch"
 
+msgid "seriesLength"
+msgstr "Länge der Serie"
+
+msgid "seriesGames"
+msgstr "Spiele"
+
+msgid "seriesFewer"
+msgstr "3 Spiele weniger"
+
+msgid "seriesMore"
+msgstr "3 Spiele mehr"
+
+msgid "openTable"
+msgstr "Aufmachen"
+
+msgid "cancelNewTable"
+msgstr "Abbrechen"
+
 msgid "newTableFailed"
 msgstr "Der Tisch konnte nicht eröffnet werden."
 
