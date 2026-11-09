@@ -1,0 +1,8 @@
+claim_id = "4f09f821463346bbae583cf28223ccf3"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "86b39ff846e3080ab31b9ab2592d62b210eb623c"
+branch = "claude/issue-110-totals"
+scope = ["src/skat/table/game_list.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/e2e/test_table_watch.py", "tests/table/test_game_list.py", "tests/table/test_views.py", "tests/web/test_streams.py", "tests/web/test_tables.py"]
+opened_commit = "e1e288833a52154389d97af84de16e8ed704a7de"
+whole_reason = "It is one derived number and its one wire field."
