@@ -136,8 +136,9 @@ def test_a_signed_out_frame_signs_in_in_a_separate_window_that_closes_and_the_fr
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
 def test_a_window_closed_before_the_sign_in_finishes_leaves_the_sign_in_face_with_its_notice(
-    frame_a_table: Callable[..., FramedTable], form_factor: dict[str, Any]
+    frame_a_table: Callable[..., FramedTable], expected_request_failures: list[str], form_factor: dict[str, Any]
 ) -> None:
+    expected_request_failures.append(TEST_ISSUER)
     framed = frame_a_table(**form_factor)
     start_sign_in(framed).close()
 
@@ -214,8 +215,12 @@ def test_a_blocked_window_leaves_a_plain_link_whose_tab_signs_in_and_brings_the_
 
 
 def test_a_return_address_that_is_no_table_leaves_the_plain_start_link_and_opens_no_window(
-    open_person: Callable[..., Page], signing_server: RunningServer, page_errors: list[str]
+    open_person: Callable[..., Page],
+    signing_server: RunningServer,
+    page_errors: list[str],
+    expected_request_failures: list[str],
 ) -> None:
+    expected_request_failures.append(TEST_ISSUER)
     person = record_page_errors(open_person(signed_in=False, server=signing_server), page_errors)
     windows: list[Page] = []
     person.on("popup", lambda window: windows.append(window))
