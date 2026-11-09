@@ -122,6 +122,9 @@ def test_everyone_but_the_declarer_sees_the_open_cards_from_the_declaration_on(
         assert chair.locator(".open-row").first.evaluate(INSIDE_THE_VIEWPORT)
         plaque_and_rows = [person.locator(PLAQUE).element_handle(), chair.locator(".open").element_handle()]
         assert not person.evaluate(BOXES_OVERLAP, plaque_and_rows)
+        rows = chair.locator(".open").element_handle()
+        for lower in person.locator(".controls, footer.legal").all():
+            assert not person.evaluate(BOXES_OVERLAP, [lower.element_handle(), rows])
     assert page_errors == []
 
 
@@ -154,12 +157,12 @@ def test_the_open_rows_lose_each_card_the_declarer_plays_and_survive_a_reload(
             chair = declarer_chair(person, table)
             expect(chair.locator(OPEN_CARD)).to_have_count(CARDS_IN_A_HAND - len(played))
             assert not faces_of(chair.locator(OPEN_FACE)) & played
+            rows = chair.locator(".open").element_handle()
+            for laid in person.locator(".trick .laid, .trick .laid .tag").all():
+                assert not person.evaluate(BOXES_OVERLAP, [laid.element_handle(), rows])
 
     for person in onlookers(table):
         chair = declarer_chair(person, table)
-        felt = person.locator(".trick")
-        for laid in felt.locator(".laid").all():
-            assert not person.evaluate(BOXES_OVERLAP, [laid.element_handle(), chair.locator(".open").element_handle()])
         person.reload()
         chair = declarer_chair(person, table)
         expect(chair.locator(OPEN_CARD)).to_have_count(CARDS_IN_A_HAND - len(played))
