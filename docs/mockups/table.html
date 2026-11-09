@@ -1288,7 +1288,7 @@ const seriesPlay=(d,count)=>room(d,{left:8,glow:yourTurn(d)})+count
   +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d);
 /* the length chosen at the table, before the first deal; 36 stands when nobody chose */
 const lengthPicks=(d)=>plaque(d?640:195,d?246:262,'<div class="game">Länge der Serie</div>')
-  +row(d?640:195,d?298:312,[12,36].map(n=>pick(`${n} Spiele`,`${n} Spiele`,n===SERIES)).join(''));
+  +row(d?640:195,d?298:312,pick('3 Spiele weniger','−',false,'round')+pick('Länge der Serie',`${SERIES} Spiele`,true)+pick('3 Spiele mehr',I.plus,false,'round'));
 
 /* the standings: place, name, games won and lost as declarer, final total; the winner on top */
 const rankRow=([k,place,total,won,lost,gone],short)=>{const p=P[k];
@@ -1320,7 +1320,7 @@ const gameList=(d)=>`<div class="scrim over"></div>`+seriesCount(d,GAMES_PLAYED.
 
 const SERIES_SCENES=[
   ['series-length','Länge am Tisch wählen',(d)=>S3.mine(d)+lengthPicks(d),
-    ['Die andere Möglichkeit zur Wahl beim Öffnen des Tischs: Wer sitzt, stellt vor dem ersten Geben 12 oder 36 Spiele ein, mit dem ersten Geben steht die Länge fest, und 36 gilt, wenn niemand wählt.']],
+    ['Die andere Möglichkeit zur Wahl beim Öffnen des Tischs: Wer sitzt, stellt vor dem ersten Geben in Dreierschritten jede Zahl von 3 bis 99 ein, mit dem ersten Geben steht die Länge fest, und 36 gilt, wenn niemand wählt.']],
   ['series-play','Spiel 8 von 36',(d)=>seriesPlay(d,seriesCount(d,8)),
     ['Eine ruhige Marke oben auf dem Tisch zählt „Spiel 8 von 36“; ein Tipp darauf öffnet die Liste aller Spiele.']],
   ['series-passed','Eingepasst zählt weiter',(d)=>room(d,{left:0})+seriesCount(d,9,{moves:true})
