@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "ae01c568a926dc7a3dea8ba3604a12dda4143eb0"
 branch = "claude/issue-198-opponent-plays-open"
-scope = [".aco/ahead-of-caller.toml", "src/skat/engine/giving_up.py", "src/skat/engine/tricks.py", "tests/engine/test_giving_up.py", "tests/engine/test_playing_open.py", "tests/support/playing_scenes.py"]
+scope = [".aco/ahead-of-caller.toml", "src/skat/engine/giving_up.py", "src/skat/engine/tricks.py", "tests/engine/test_giving_up.py", "tests/engine/test_giving_up_open.py", "tests/support/playing_scenes.py"]
 opened_commit = "936527e885cf1cee6d3f498c59f73ed8417f9867"
 whole_reason = "The check, the ending it picks and the tests that move for its matrix are one rule of ISkO 4.4.5."
