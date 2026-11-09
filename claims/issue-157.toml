@@ -1,0 +1,8 @@
+claim_id = "adcb947c407343d8a900d79be093b7a7"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "054d27c8bbfd6ea52466c4860b1e5f482cfa10ec"
+branch = "claude/issue-157-mcp-front"
+scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host/app.py", "src/skat/web/account.py", "src/skat/web/auction.py", "src/skat/web/declaring.py", "src/skat/web/gate.py", "src/skat/web/mcp.py", "src/skat/web/playing.py", "src/skat/web/ready.py", "src/skat/web/routes.py", "src/skat/web/sign_in.py", "src/skat/web/streams.py", "src/skat/web/tables.py", "tests/e2e/support/people.py", "tests/e2e/test_agent_plays.py", "tests/host/test_app.py", "tests/support/fake_issuer.py", "tests/web/support/skat.py", "tests/web/test_gate.py", "tests/web/test_mcp.py", "uv.lock"]
+opened_commit = "9abeb3c98535f59ca012b76af97f2ae8ea597f21"
+whole_reason = "route_tools refuses the build while any route is undecided, so the front, the gate and one mark per route are one change that cannot split."
