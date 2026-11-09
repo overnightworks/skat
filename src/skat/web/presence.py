@@ -372,10 +372,10 @@ class Presence:
             self._empty_table.seconds if seconds is None else seconds, partial(self._end_if_empty, table_id, wait)
         )
 
-    def _note_soon(self, table_id: str) -> None:
+    def _note_soon(self, table_id: str, delay_seconds: float = 0) -> None:
         if self._stopped:
             return
-        self._hold.scheduler.schedule(0, partial(self._note_presence, table_id))
+        self._hold.scheduler.schedule(delay_seconds, partial(self._note_presence, table_id))
 
     async def _note_presence(self, table_id: str) -> None:
         """Store who is present now, read once the row is locked; a failure is retried while the presence runs."""
@@ -386,7 +386,7 @@ class Presence:
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
             log.error("empty since write failed", table_id=table_id, error=type(failure).__name__)
-            self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self._note_presence, table_id))
+            self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
             return
         if ended:
             self.wake_table(table_id)
