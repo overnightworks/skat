@@ -171,7 +171,8 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     is played, the cards and counts are those still held, and played cards are shown only in the trick in progress
     and the last completed one. Between hands the view says whether the last hand was passed in and, while three
     chairs are occupied and the series goes on, who deals next; after a played game it carries the result, the same
-    for every viewer. A table with a series says which game of how many runs and whether the series is over.
+    for every viewer. A table with a series says which game of how many runs and whether the series is over, and
+    carries the standings once it is.
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
