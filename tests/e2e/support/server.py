@@ -40,7 +40,7 @@ READINESS_DEADLINE_SECONDS = 20
 SERVER_STOP_TIMEOUT_SECONDS = 10
 
 
-def _reserve_free_port() -> int:
+def reserve_free_port() -> int:
     with socket.socket() as probe:
         probe.bind((LOOPBACK_HOST, 0))
         return int(probe.getsockname()[1])
@@ -74,22 +74,29 @@ def _write_self_signed_certificate(directory: Path) -> tuple[Path, Path]:
 class LoopbackSignIn:
     """The sign-in of a Skat on a free loopback port, its issuer a fake."""
 
+    host: str
     port: int
     sign_in: SignInSettings
     stores: SignInStores
     issuer: FakeIssuer
 
 
-def loopback_sign_in(directory: Path) -> LoopbackSignIn:
-    port = _reserve_free_port()
+def loopback_sign_in(
+    directory: Path, host: str = LOOPBACK_HOST, **overrides: str | int | Path | None
+) -> LoopbackSignIn:
+    """Skat's sign-in on a free port; `host` is the name its public origin carries and it listens on loopback."""
+    port = reserve_free_port()
     sign_in = build_sign_in_settings(
         directory,
-        host=LOOPBACK_HOST,
-        port=port,
-        public_origin=f"https://{LOOPBACK_HOST}:{port}",
-        trusted_proxies=LOOPBACK_HOST,
+        **{
+            "host": LOOPBACK_HOST,
+            "port": port,
+            "public_origin": f"https://{host}:{port}",
+            "trusted_proxies": LOOPBACK_HOST,
+            **overrides,
+        },
     )
-    return LoopbackSignIn(port, sign_in, SignInStores.in_memory(), FakeIssuer(sign_in))
+    return LoopbackSignIn(host, port, sign_in, SignInStores.in_memory(), FakeIssuer(sign_in))
 
 
 class RunningServer:
@@ -101,7 +108,8 @@ class RunningServer:
     def __init__(
         self, loopback: LoopbackSignIn, tls_directory: Path, engine: Engine, page_build_directory: Path
     ) -> None:
-        self.base_url = f"https://{LOOPBACK_HOST}:{loopback.port}"
+        self.host = loopback.host
+        self.base_url = f"https://{loopback.host}:{loopback.port}"
         self.issuer = loopback.issuer
         self.engine = engine
         self.stores = loopback.stores
