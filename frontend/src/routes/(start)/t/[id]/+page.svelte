@@ -59,8 +59,8 @@
     let justWon = $state(false);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
 
-    function showTable(table: Table): void {
-        if (auctionJustEnded(outcome?.kind === "table" ? outcome.table : undefined, table)) {
+    function showTable(previous: Table, table: Table): void {
+        if (auctionJustEnded(previous, table)) {
             justWon = true;
             clearTimeout(wonTimer);
             wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
@@ -79,7 +79,12 @@
             if (!current) return;
             outcome = answer;
             if (answer.kind === "table") {
-                stopWatching = watchTable(id, showTable, (isConnected) => (connected = isConnected));
+                let shown = answer.table;
+                const show = (table: Table): void => {
+                    showTable(shown, table);
+                    shown = table;
+                };
+                stopWatching = watchTable(id, show, (isConnected) => (connected = isConnected));
             }
         });
         // An answer for an address the person has left must not replace the current table.
