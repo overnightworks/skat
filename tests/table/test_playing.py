@@ -35,7 +35,13 @@ def table_in(progress):
     )
     deal = Deal(forehand=DECK[0:10], middlehand=DECK[10:20], rearhand=DECK[20:30], skat=DECK[30:32])
     return TableRecord(
-        id=TableId(table_id()), version=TABLE_VERSION, chairs=chairs, dealer=dealer, hand=deal, progress=progress
+        id=TableId(table_id()),
+        version=TABLE_VERSION,
+        chairs=chairs,
+        dealer=dealer,
+        hand=deal,
+        progress=progress,
+        game_list=(),
     )
 
 

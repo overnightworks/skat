@@ -22,6 +22,11 @@ _SCHNEIDER_POINTS: Final = 30
 _PLAY_ORDER: Final = tuple(Position)
 
 
+def opponents_points_of(declarer_points: int) -> int:
+    """The card points the opponents hold when the declarer holds `declarer_points`."""
+    return ALL_POINTS - declarer_points
+
+
 def _position_after(leader: Position, places: int) -> Position:
     """The position that many places after the leader in the order of play."""
     return _PLAY_ORDER[(_PLAY_ORDER.index(leader) + places) % len(_PLAY_ORDER)]
@@ -104,7 +109,7 @@ class PlayedOut:
 
     @property
     def opponents_points(self) -> int:
-        return ALL_POINTS - self.declarer_points
+        return opponents_points_of(self.declarer_points)
 
     @property
     def won_by_play(self) -> bool:

@@ -2,7 +2,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.cards import DECK
-from skat.engine.deal import positions_from
+from skat.engine.deal import seats_from
 from skat.engine.tricks import CardPlayed, play_card
 from skat.table.game_list import list_entry_of
 from skat.table.hand_state import playing_of
@@ -49,7 +49,7 @@ class LastTrick:
 class PlayingView:
     """The game in play as one viewer may see it; the turn is the seat that plays next."""
 
-    turn_seat: int | None
+    turn_seat: int
     current_trick: tuple[SeatedCard, ...]
     last_trick: LastTrick | None
     tricks_won: Sides
@@ -109,7 +109,7 @@ def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozen
     """
     if state is None:
         return None
-    seats = {position: seat for seat, position in positions_from(dealer).items()}
+    seats = seats_from(dealer)
     last = state.tricks[-1] if state.tricks else None
     return PlayingView(
         turn_seat=seats[state.turn],

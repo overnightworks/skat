@@ -42,6 +42,10 @@ def decide_create(actor: Actor, table_id: TableId) -> TableRecord:
         id=table_id,
         version=FIRST_VERSION,
         chairs=(opener, *(Chair(seat, None) for seat in range(2, CHAIRS_PER_TABLE + 1))),
+        dealer=None,
+        hand=None,
+        progress=HandProgress(),
+        game_list=(),
     )
 
 

@@ -36,7 +36,13 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
         Chair(seat, Occupant(actor.account_id, actor.display_name), ready=seat in ready_seats) for seat, actor in people
     )
     return TableRecord(
-        TableId("0" * 32), TABLE_VERSION, chairs, dealer=2, game_list=tuple(an_entry() for _ in range(games))
+        TableId("0" * 32),
+        TABLE_VERSION,
+        chairs,
+        dealer=2,
+        hand=None,
+        progress=HandProgress(),
+        game_list=tuple(an_entry() for _ in range(games)),
     )
 
 

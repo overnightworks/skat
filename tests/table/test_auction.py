@@ -319,7 +319,7 @@ class TestStepOfAction:
 
 class TestAuctionView:
     def auction_for(self, seated: Seated, viewer: Actor) -> AuctionView:
-        return auction_view_of(seated.table(), viewer.account_id)
+        return auction_view_of(seated.table(), viewer.account_id, seated.table().dealer)
 
     def seat_of(self, seated: Seated, actor: Actor) -> int:
         return next(chair.seat for chair in seated.table().chairs if chair.occupant == Occupant(*astuple(actor)))

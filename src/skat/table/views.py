@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from skat.engine.bidding import PassedIn
@@ -106,9 +106,8 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         table.dealer,
         tuple(card for card in DECK if card in own_cards),
         len(table.hand.skat if state is None else state.skat),
-        auction_view_of(table, viewer_account_id),
-        # The declaring view reads the declarer's cards as they are now, so an ouvert game's open cards shrink.
-        declaring_view_of(None if state is None else replace(state, hand=hands[state.declarer]), table.dealer),
+        auction_view_of(table, viewer_account_id, table.dealer),
+        declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
         playing_view_of(playing, table.dealer, viewer_positions),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}

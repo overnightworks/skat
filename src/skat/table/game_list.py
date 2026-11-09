@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from skat.engine.deal import SEATS, positions_from
+from skat.engine.deal import SEATS, seats_from
 from skat.engine.score import Settlement, overbid, reckon, settle
-from skat.engine.tricks import ALL_POINTS
+from skat.engine.tricks import opponents_points_of
 from skat.engine.value import value_of
 from skat.table.rules import result_pending
 
@@ -36,7 +36,7 @@ class ListEntry:
 
     @property
     def opponents_points(self) -> int:
-        return ALL_POINTS - self.declarer_points
+        return opponents_points_of(self.declarer_points)
 
     @property
     def overbid(self) -> bool:
@@ -60,7 +60,7 @@ def list_entry_of(played: PlayedOut, table: TableRecord) -> ListEntry:
     if declaration is None or table.dealer is None:  # pragma: no cover
         message = f"table {table.id.value} ended a game without a declaration or a dealer"
         raise RuntimeError(message)
-    seats = {position: seat for seat, position in positions_from(table.dealer).items()}
+    seats = seats_from(table.dealer)
     valuation = value_of(played)
     settlement = settle(played, played.declared.bid)
     return ListEntry(

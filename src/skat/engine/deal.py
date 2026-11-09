@@ -64,6 +64,11 @@ def positions_from(dealer: int) -> dict[int, Position]:
     }
 
 
+def seats_from(dealer: int) -> dict[Position, int]:
+    """The seat holding each position, the inverse of `positions_from`."""
+    return {position: seat for seat, position in positions_from(dealer).items()}
+
+
 def deal(source: random.Random) -> Deal:
     """Shuffle the whole deck with `source`, then deal 3 each, 2 to the skat, 4 each, 3 each."""
     deck = list(DECK)

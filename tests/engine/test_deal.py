@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from skat.engine.cards import DECK
-from skat.engine.deal import SEATS, Position, deal, draw_dealer, next_dealer, positions_from
+from skat.engine.deal import SEATS, Position, deal, draw_dealer, next_dealer, positions_from, seats_from
 
 if TYPE_CHECKING:
     from collections.abc import MutableSequence
@@ -30,6 +30,12 @@ def test_forehand_is_left_of_the_dealer_and_the_dealer_is_rearhand():
         3: Position.MIDDLEHAND,
         1: Position.REARHAND,
     }
+
+
+@pytest.mark.parametrize("dealer", SEATS)
+def test_seats_from_is_the_inverse_of_positions_from_for_every_dealer(dealer):
+    seats = seats_from(dealer)
+    assert {seat: position for position, seat in seats.items()} == positions_from(dealer)
 
 
 def test_next_deal_goes_to_the_next_seat_and_rotates_through_every_seat():

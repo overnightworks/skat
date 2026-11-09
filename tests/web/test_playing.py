@@ -509,7 +509,7 @@ class Moment:
 
     declare: Callable[[Table], None]
     played: tuple[Card, ...]
-    turn: Position | None
+    turn: Position
     current: tuple[dict[str, object], ...] = ()
     last: tuple[tuple[dict[str, object], ...], Position] | None = None
     tricks_won: tuple[int, int] = (0, 0)
@@ -529,7 +529,7 @@ class Moment:
             last = {"cards": last_cards(trick), "leader_seat": trick[0]["seat"], "taker_seat": SEATS[taker]}
         legal = self.legal if viewer.position is not None and viewer.position is self.turn else ()
         return {
-            "turn_seat": None if self.turn is None else SEATS[self.turn],
+            "turn_seat": SEATS[self.turn],
             "current_trick": list(self.current),
             "last_trick": last,
             "tricks_won": sides(*self.tricks_won),
