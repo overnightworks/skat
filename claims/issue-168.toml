@@ -1,8 +1,0 @@
-claim_id = "faf1da859b6a4e1891db3f4245852a42"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "e4b43b14551716b197dcc5c44d8465e4b7dfbe17"
-branch = "claude/issue-168-early-end"
-scope = ["docs/ARCHITECTURE.md", "src/skat/engine/tricks.py", "src/skat/table/playing.py", "tests/e2e/support/hands.py", "tests/e2e/test_table_playing.py", "tests/engine/test_giving_up.py", "tests/engine/test_tricks.py", "tests/web/support/playing.py", "tests/web/test_playing.py", "tests/web/test_playing_grand_and_hand.py"]
-opened_commit = "ba4352d3e94cdf5db63048bf0522b4b6ae0ec874"
-whole_reason = "One rule change and every pin it moves: the engine's early end changes only tricks.py, and the tests and e2e deals that assumed ten tricks for Null and Schwarz-announced games must move in the same commit or CI goes red."
