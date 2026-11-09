@@ -1,0 +1,8 @@
+claim_id = "89e693f46b6b4dc3b37209b0ad77832b"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "822e6a53c2b5f7aa07c6c9f1bdeb9f7b99b9f8e0"
+branch = "claude/issue-171-opponent-gives-up"
+scope = ["src/skat/engine/giving_up.py", "src/skat/engine/score.py", "src/skat/engine/tricks.py", "src/skat/engine/value.py", "tests/engine/test_giving_up.py"]
+opened_commit = "4ec0b552f5a6933bd6a4801865a00b29515f1cb1"
+whole_reason = "One owner for whether an opponent's give-up is already decided or must be valued by declaration and bid: giving_up.py's three-way dispatch, tricks.py's Ending and its generalised rest-count, value.py's new undecided branch and score.py's one line that reaches it all share the same settle(result, bid) call every other ending already answers; split apart, the undecided branch could never be read back the same way as the rest."
