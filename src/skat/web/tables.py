@@ -13,6 +13,7 @@ from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement, Stage
 from skat.engine.games import GameKind
+from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import Actor, CommandRefusal, CreateTable, SitDown, StandUp
 from skat.table.rules import CHAIRS_PER_TABLE
@@ -265,6 +266,7 @@ class MatadorsAnswer(BaseModel):
 class SeatGainAnswer(BaseModel):
     seat: int
     gain: int
+    won: bool
 
 
 class ResultAnswer(BaseModel):
@@ -277,7 +279,10 @@ class ResultAnswer(BaseModel):
     schneider: bool
     schwarz: bool
     matadors: MatadorsAnswer | None
+    base_value: int | None
+    levels: list[Level]
     won: bool
+    doubled: bool
     overbid: bool
     bid: int
     game_value: int
@@ -413,7 +418,10 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
         schneider=result.schneider,
         schwarz=result.schwarz,
         matadors=None if matadors is None else MatadorsAnswer(mit=matadors.mit, count=matadors.count),
+        base_value=result.base_value,
+        levels=list(result.levels),
         won=result.won,
+        doubled=result.doubled,
         overbid=result.overbid,
         bid=result.bid,
         game_value=result.game_value,
@@ -421,7 +429,7 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
         score=result.score,
         declarer_points=result.declarer_points,
         opponents_points=result.opponents_points,
-        gains=[SeatGainAnswer(seat=gain.seat, gain=gain.gain) for gain in result.gains],
+        gains=[SeatGainAnswer(seat=gain.seat, gain=gain.gain, won=gain.won) for gain in result.gains],
     )
 
 

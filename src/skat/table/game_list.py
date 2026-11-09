@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING
 from skat.engine.deal import SEATS, seats_from
 from skat.engine.score import Settlement, overbid, reckon, settle
 from skat.engine.tricks import opponents_points_of
-from skat.engine.value import value_of
+from skat.engine.value import breakdown_of, value_of
 from skat.table.rules import result_pending
 
 if TYPE_CHECKING:
     from skat.engine.declaration import Declaration
     from skat.engine.tricks import PlayedOut
-    from skat.engine.value import Matadors
+    from skat.engine.value import Level, Matadors
     from skat.table.records import TableRecord
 
 
@@ -85,6 +85,7 @@ class SeatGain:
 
     seat: int
     gain: int
+    won: bool
 
 
 @dataclass(frozen=True)
@@ -97,7 +98,10 @@ class ResultView:
     schneider: bool
     schwarz: bool
     matadors: Matadors | None
+    base_value: int | None
+    levels: tuple[Level, ...]
     won: bool
+    doubled: bool
     overbid: bool
     bid: int
     game_value: int
@@ -111,7 +115,12 @@ class ResultView:
 def _gains(entry: ListEntry) -> tuple[SeatGain, ...]:
     reckoning = reckon(Settlement(won=entry.won, value=entry.settled_value, score=entry.score))
     return tuple(
-        SeatGain(seat, reckoning.declarer if seat == entry.declarer_seat else reckoning.each_opponent) for seat in SEATS
+        SeatGain(
+            seat,
+            reckoning.declarer if seat == entry.declarer_seat else reckoning.each_opponent,
+            won=entry.won == (seat == entry.declarer_seat),
+        )
+        for seat in SEATS
     )
 
 
@@ -127,6 +136,7 @@ def result_view_of(table: TableRecord) -> ResultView | None:
     if not result_pending(table):
         return None
     entry = table.game_list[-1]
+    breakdown = breakdown_of(entry.declaration, schneider=entry.schneider, schwarz=entry.schwarz)
     return ResultView(
         ordinal=len(table.game_list),
         declarer_seat=entry.declarer_seat,
@@ -134,7 +144,10 @@ def result_view_of(table: TableRecord) -> ResultView | None:
         schneider=entry.schneider,
         schwarz=entry.schwarz,
         matadors=entry.matadors,
+        base_value=breakdown.base_value,
+        levels=breakdown.levels,
         won=entry.won,
+        doubled=not entry.won,
         overbid=entry.overbid,
         bid=entry.bid,
         game_value=entry.game_value,
