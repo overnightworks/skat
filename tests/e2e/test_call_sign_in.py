@@ -218,7 +218,7 @@ def test_a_return_address_that_is_no_table_leaves_the_plain_start_link_and_opens
 ) -> None:
     person = record_page_errors(open_person(signed_in=False, server=signing_server), page_errors)
     windows: list[Page] = []
-    person.on("popup", windows.append)
+    person.on("popup", lambda window: windows.append(window))
     foreign = f"//{OTHER_HOST}/anything"
 
     person.goto(f"{signing_server.base_url}{CALL_SIGN_IN_PATH}?{RETURN_PATH_QUERY_NAME}={quote(foreign, safe='')}")
