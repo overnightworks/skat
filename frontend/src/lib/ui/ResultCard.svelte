@@ -24,7 +24,7 @@
                 <path d="M6 6l12 12M18 6L6 18" />
             {/if}
         </svg>
-        {view.word}
+        <span>{view.word}</span>
     </h3>
     <div class="sub">
         <span class="game">
