@@ -16,7 +16,6 @@ from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from agent_runtime_client.tools import Principal, ToolEffect, agent_tool, not_an_agent_tool
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
-from webauth.admission import AdmissionConfig, NoAdmins
 from webauth.middleware.bearer_gate import (
     BearerGate,
     MarkedRoute,
@@ -26,7 +25,7 @@ from webauth.middleware.bearer_gate import (
 )
 from webauth.policies import AuthorizedParties
 
-from skat.web.constants import LOGIN_GROUP
+from skat.web.gate import admission_for
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -107,5 +106,5 @@ def mount_mcp(
     # No methods named, so every method reaches the front, which refuses all but POST itself.
     app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=front))
     install_resource_metadata(app, resource, issuer=issuer)
-    admission = AdmissionConfig(bound_issuer=issuer, login_group=LOGIN_GROUP, admin_group=NoAdmins.IN_THIS_APP)
+    admission = admission_for(issuer)
     return McpAccess(front, BearerGate(relying_party, admission, resource=resource), resource.public_rule)
