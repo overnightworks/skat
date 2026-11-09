@@ -11,7 +11,9 @@ from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, with_known_deal
+from tests.support.played_game import a_whole_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.playing import Table
 from tests.web.support.presence import end_the_first_game
 from tests.web.support.skat import FETCH
 
@@ -94,7 +96,7 @@ class TestOpening:
         assert series_of(read(skat, people[0][0], table_id)) is None
 
     @pytest.mark.parametrize("length", [0, 2, 4, 100, 102, -3, "12", 12.0, True])
-    def test_refuses_a_length_outside_the_range_and_stores_nothing(self, skat, length):
+    def test_refuses_a_length_outside_the_range_or_not_an_integer_and_stores_nothing(self, skat, length):
         headers, _ = skat.member()
 
         assert skat.create(headers, series_length=length).status_code == 422
@@ -193,16 +195,29 @@ class TestCounting:
         answer = read(skat, people[0][0], table_id).json()
         assert (answer["series"]["over"], answer["passed_in"]) == (True, {"next_dealer_seat": None})
 
+    def test_a_series_runs_on_while_a_person_leaves_and_another_sits_and_the_sit_that_deals_counts_once(self, skat):
+        table_id, people = open_series(skat, 36)
+        pass_the_hand_in(skat, table_id, people)
+        stranger, _ = skat.member()
+        skat.stand(people[1][0], table_id, command_id="stand-ben")
+
+        skat.sit(stranger, table_id, 2, command_id="sit-dora")
+
+        assert series_of(read(skat, people[0][0], table_id)) == {"game_number": 2, "game_count": 36, "over": False}
+
 
 class TestTheEnd:
-    def test_the_last_games_result_stands_and_the_series_is_over(self, skat):
-        table_id, people = open_series(skat, 3)
-        at_the_end_of_a_played_series(skat, table_id)
+    def test_the_last_game_played_through_the_card_route_stands_as_a_result_and_ends_the_series(self, skat):
+        table = Table(skat)
+        skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 3))
+        table.declared_hand_game()
 
-        answer = read(skat, people[0][0], table_id).json()
+        table.played_out(each.card for each in a_whole_game(table.record))
 
+        answer = table.read_as(table.watcher).json()
         assert answer["series"] == {"game_number": 3, "game_count": 3, "over": True}
         assert answer["result"]["ordinal"] == 1
+        assert answer["hand"] is None
 
     def test_weiter_after_the_last_game_is_refused_each_time_and_changes_nothing(self, skat):
         table_id, people = open_series(skat, 3)
@@ -228,15 +243,26 @@ class TestTheEnd:
         assert record.hand is None
         assert not deal_next(skat, table_id, [*people[:2], (stranger, newcomer)])
 
-    def test_a_series_runs_on_while_a_person_leaves_and_another_sits_and_the_sit_that_deals_counts_once(self, skat):
-        table_id, people = open_series(skat, 36)
-        pass_the_hand_in(skat, table_id, people)
+    def test_a_sitter_after_a_passed_in_last_game_is_not_marked_ready_and_nothing_deals(self, skat):
+        table_id, people = open_series(skat, 3)
+        play_through(skat, table_id, people, 3)
         stranger, _ = skat.member()
-        skat.stand(people[1][0], table_id, command_id="stand-ben")
+        assert skat.stand(people[2][0], table_id, command_id="stand-cleo").status_code == 200
 
-        skat.sit(stranger, table_id, 2, command_id="sit-dora")
+        assert skat.sit(stranger, table_id, 3, command_id="sit-dora").status_code == 200
 
-        assert series_of(read(skat, people[0][0], table_id)) == {"game_number": 2, "game_count": 36, "over": False}
+        record = skat.store.tables[table_id]
+        assert [chair.ready for chair in record.chairs] == [False, False, False]
+        assert record.hand is None
+        assert record.series == Series(3, 3)
+
+    def test_weiter_after_a_passed_in_last_game_is_refused_as_no_result(self, skat):
+        table_id, people = open_series(skat, 3)
+        play_through(skat, table_id, people, 3)
+
+        answer = tap_weiter(skat, people[0][0], table_id, "weiter-after-pass")
+
+        assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.NO_RESULT)
 
 
 class TestTheAnswer:

@@ -87,7 +87,7 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
 
 
 def sit_deals(table: TableRecord) -> bool:
-    """A sit deals when it fills the last free chair, no hand runs and no result is pending."""
+    """A sit deals when it fills the last free chair, no hand runs, no result is pending and the series is not over."""
     free_chairs = sum(chair.occupant is None for chair in table.chairs)
     return free_chairs == 1 and not hand_runs(table) and not result_pending(table) and not series_over(table)
 
@@ -167,7 +167,7 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
     """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
 
     The sit that fills the last chair deals `new_hand` in the same version bump, unless a result is pending; then
-    the sitter counts as ready instead.
+    the sitter counts as ready instead. At a series end nothing deals and the sitter is not ready.
     """
     if seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)
