@@ -172,7 +172,7 @@ def page_and_answer_agree(person: Page, server: RunningServer, table_id: str) ->
 
 
 def assert_drawn_again(person: Page, drawn: dict[str, Any]) -> None:
-    """Poll a reloaded page until it draws what it drew before; another player's reload can show as away for a moment."""
+    """Poll a reloaded page until it draws what it drew before; another player's reload can show away for a moment."""
     deadline = time.monotonic() + USUAL_TIMEOUT_SECONDS
     while drawn_table(person) != drawn and time.monotonic() < deadline:
         person.wait_for_timeout(POLL_MILLISECONDS)
