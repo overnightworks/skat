@@ -2078,6 +2078,7 @@ body {
         width: min(100%, 1180px);
         grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
         --chair-width: 160px;
+        padding-bottom: 8px;
     }
     .room .felt {
         margin-inline: 120px;
@@ -2087,10 +2088,6 @@ body {
     .room .stage:has(> .trick) .chair:nth-child(3) {
         grid-row: 3;
         align-self: end;
-    }
-
-    .room .stage {
-        padding-bottom: 8px;
     }
 
     .room .controls {
