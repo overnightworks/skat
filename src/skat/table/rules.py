@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import positions_from
@@ -64,8 +65,12 @@ def seat_of(table: TableRecord, account_id: str) -> Chair | None:
 
 
 def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
-    """The table with a chair's new occupant, the one way a chair changes hands; the chair's mark goes with it."""
-    chairs = tuple(Chair(seat, occupant) if chair.seat == seat else chair for chair in table.chairs)
+    """The table with a chair's new occupant, the one way a chair changes hands.
+
+    A freed chair is never ready, and whoever sits while a result is pending counts as ready.
+    """
+    ready = occupant is not None and result_pending(table)
+    chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
     return TableRecord(
         id=table.id,
         version=table.version + 1,
@@ -78,9 +83,9 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
 
 
 def sit_deals(table: TableRecord) -> bool:
-    """A sit deals when it fills the last free chair and no hand runs."""
+    """A sit deals when it fills the last free chair, no hand runs and no result is pending."""
     free_chairs = sum(chair.occupant is None for chair in table.chairs)
-    return free_chairs == 1 and not hand_runs(table)
+    return free_chairs == 1 and not hand_runs(table) and not result_pending(table)
 
 
 def hand_runs(table: TableRecord) -> bool:
@@ -95,11 +100,13 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
-    """The table with a new hand: its dealer, its cards and an empty auction; every deal goes through here."""
+    """The table with a new hand: its dealer, its cards, an empty auction and no chair ready; every deal goes through
+    here.
+    """
     return TableRecord(
         id=table.id,
         version=version,
-        chairs=table.chairs,
+        chairs=tuple(replace(chair, ready=False) for chair in table.chairs),
         dealer=new_hand.dealer,
         hand=new_hand.hand,
         progress=HandProgress(),
@@ -116,16 +123,16 @@ def result_pending(table: TableRecord) -> bool:
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
-    """The next hand is due when no hand runs and no result is pending, the table has a dealer and all three
-    occupants are connected.
+    """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected; while a
+    result is pending, all three chairs must be ready too.
     """
     occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
     return (
         not hand_runs(table)
-        and not result_pending(table)
         and table.dealer is not None
         and len(occupants) == CHAIRS_PER_TABLE
         and connected_accounts.issuperset(occupants)
+        and (not result_pending(table) or all(chair.ready for chair in table.chairs))
     )
 
 
@@ -137,7 +144,8 @@ def dealt_next(table: TableRecord, new_hand: NewHand) -> TableRecord:
 def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:
     """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
 
-    The sit that fills the last chair deals `new_hand` in the same version bump.
+    The sit that fills the last chair deals `new_hand` in the same version bump, unless a result is pending; then
+    the sitter counts as ready instead.
     """
     if seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)

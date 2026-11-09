@@ -36,7 +36,6 @@ from tests.web.support.presence import (
 from tests.web.support.skat import Skat, streams_of
 from tests.web.support.streams import OPENER, VISITOR, next_view, run_on_a_loop_of_its_own, stream_of
 
-
 CLEO = Actor(account_id="cleo", display_name="Cleo")
 
 

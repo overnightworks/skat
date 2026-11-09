@@ -101,7 +101,8 @@ class Presence:
     starts.
 
     After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
-    then, and a stream's first view of the table starts the next pause if none is pending. A later hand's end
+    then, and a stream's first view of the table starts the next pause if none is pending. After a played game
+    the deal is asked for at once, with no pause, whenever a caller may have made it due. A later hand's end
     replaces a pending pause, and the replaced timer does nothing when it fires, so a pending timer of an
     earlier hand cannot shorten this one's. Nothing about a pause is stored: after a restart none is pending, and
     all three being connected can only become true by streams opening, so no sweep is needed.
@@ -205,6 +206,13 @@ class Presence:
         # The pause is over before the deal is asked for, so a stream that opens while the deal runs and finds the
         # table still passed in starts the next pause instead of waiting on an answer that left it out.
         del self._pauses[table_id]
+        await self.deal_now(table_id)
+
+    async def deal_now(self, table_id: str) -> None:
+        """Ask for a table's next deal with no pause; the table's own rule decides under its row lock.
+
+        A failure is logged and changes nothing, so the next request asks again.
+        """
         try:
             dealt = await self._next_deal.deal(
                 table_id, self._connected_while_dealing(table_id, asyncio.get_running_loop())
