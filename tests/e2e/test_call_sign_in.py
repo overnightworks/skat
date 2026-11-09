@@ -23,7 +23,7 @@ from tests.e2e.support.call_frame import (
     served_from,
     table_url,
 )
-from tests.e2e.support.people import FORM_FACTORS, SMALL_PHONE, WIDTHS, playwright_cookie
+from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, SMALL_PHONE, WIDTHS, playwright_cookie
 from tests.support.sign_in_settings import TEST_ISSUER
 from tests.support.signed_in import seed_member
 
@@ -49,6 +49,12 @@ FRAMED_STYLE = "position:fixed;inset:0;width:100%;height:100%;border:0"
 # The sandboxed frame that cannot open a window.
 WINDOW_BLOCKED = "window.open = () => null;"
 FITS_ITS_WIDTH = "page => page.scrollWidth <= page.clientWidth"
+CENTRAL_LEGAL_ORIGIN = "https://hallucinai.de"
+CENTRAL_LEGAL_ADDRESSES = {
+    "Impressum": f"{CENTRAL_LEGAL_ORIGIN}/impressum#skat",
+    "Datenschutz": f"{CENTRAL_LEGAL_ORIGIN}/datenschutz#skat",
+    "Nutzungsbedingungen": f"{CENTRAL_LEGAL_ORIGIN}/nutzungsbedingungen#skat",
+}
 
 
 @dataclass(frozen=True)
@@ -255,3 +261,38 @@ def test_a_frame_of_another_origin_shows_no_sign_in_face(
 
     expect(visitor.locator(FRAME)).to_be_attached()
     expect(visitor.frame_locator(FRAME).get_by_role("link", name=LOG_IN)).to_have_count(0)
+
+
+@pytest.mark.parametrize("link_name", CENTRAL_LEGAL_ADDRESSES)
+@pytest.mark.parametrize("surface", ["framed-390", "framed-1280", "top-level"])
+def test_a_legal_link_of_the_table_opens_the_central_page_in_a_new_tab_and_the_table_stays(
+    open_person: Callable[..., Page],
+    signing_server: RunningServer,
+    browser_coverage: BrowserCoverage,
+    link_name: str,
+    surface: str,
+) -> None:
+    device = PHONE if surface == "framed-390" else DESKTOP
+    path = new_table(open_person, signing_server)
+    visitor = open_person(server=signing_server, **device)
+    visitor.context.route(
+        f"{CENTRAL_LEGAL_ORIGIN}/**", lambda route: route.fulfill(status=200, content_type="text/html", body="legal")
+    )
+    with ExitStack() as stack:
+        if surface == "top-level":
+            visitor.goto(table_url(signing_server, path))
+            table: Page | FrameLocator = visitor
+        else:
+            body = page_holding(table_url(signing_server, path), FRAMED_STYLE)
+            stack.enter_context(served_from(CALL_ORIGIN, visitor, browser_coverage, body))
+            visitor.goto(f"{CALL_ORIGIN}/")
+            table = visitor.frame_locator(FRAME)
+        expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS, timeout=WAIT_MILLISECONDS)
+
+        with visitor.context.expect_page() as opened:
+            table.get_by_role("link", name=link_name, exact=True).click()
+
+        assert opened.value.url == CENTRAL_LEGAL_ADDRESSES[link_name]
+        expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+        if surface != "top-level":
+            assert visitor.frames[1].url == table_url(signing_server, path)
