@@ -206,5 +206,6 @@ def test_a_stored_log_leads_to_the_state_step_by_step_play_leads_to(steps: tuple
 
 
 def test_a_log_with_a_refused_step_raises_naming_the_step_and_the_refusal() -> None:
+    steps = (Push(FOREHAND), Push(FOREHAND))
     with pytest.raises(ValueError, match=r"step 2 refused: not-your-turn"):
-        played((Push(FOREHAND), Push(FOREHAND)))
+        played(steps)

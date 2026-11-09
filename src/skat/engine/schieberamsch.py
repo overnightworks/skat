@@ -22,7 +22,7 @@ class PushingRule(StrEnum):
         return self is not PushingRule.NO_DOUBLING
 
     @property
-    def jacks_may_go(self) -> bool:
+    def lets_jacks_go(self) -> bool:
         return self is PushingRule.JACKS_MAY_GO
 
 
@@ -131,6 +131,16 @@ def _refuse(state: Pushing, refusal: PushRefusal) -> PushOutcome:
     return PushOutcome(state, refusal)
 
 
+def _deal_with(deal: Deal, position: Position, hand: tuple[Card, ...], skat: tuple[Card, ...]) -> Deal:
+    hands = {**deal.hands, position: hand}
+    return Deal(
+        forehand=hands[Position.FOREHAND],
+        middlehand=hands[Position.MIDDLEHAND],
+        rearhand=hands[Position.REARHAND],
+        skat=skat,
+    )
+
+
 def _then_next(state: Pushing, *, deal: Deal, pushes: int) -> Pushing:
     if state.turn is _SEATING[-1]:
         return replace(state, deal=deal, holds_twelve=False, pushes=pushes, result=RamschOn())
@@ -143,7 +153,7 @@ def take(state: Pushing, position: Position) -> PushOutcome:
     if refusal is not None:
         return _refuse(state, refusal)
     twelve = state.deal.hands[position] + state.deal.skat
-    deal = replace(state.deal, skat=(), **{position.value: twelve})
+    deal = _deal_with(state.deal, position, twelve, ())
     return PushOutcome(replace(state, deal=deal, holds_twelve=True))
 
 
@@ -154,10 +164,10 @@ def put(state: Pushing, position: Position, cards: tuple[Card, ...], rule: Pushi
     hand = state.deal.hands[position]
     if len(cards) != SKAT_SIZE or len(set(cards)) != SKAT_SIZE or not set(cards) <= set(hand):
         return _refuse(state, PushRefusal.NOT_TWO_OF_THE_TWELVE)
-    if not rule.jacks_may_go and any(card.rank is Rank.JACK for card in cards):
+    if not rule.lets_jacks_go and any(card.rank is Rank.JACK for card in cards):
         return _refuse(state, PushRefusal.JACK_PUT_BACK)
     kept = tuple(card for card in hand if card not in cards)
-    deal = replace(state.deal, skat=cards, **{position.value: kept})
+    deal = _deal_with(state.deal, position, kept, cards)
     return PushOutcome(_then_next(state, deal=deal, pushes=state.pushes))
 
 
