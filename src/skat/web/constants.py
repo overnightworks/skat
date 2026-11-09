@@ -15,6 +15,10 @@ ACCOUNT_CONSOLE_PATH = "/account"
 AUTH_START_PATH = "/auth/start"
 AUTH_CALLBACK_PATH = "/auth/callback"
 LOGIN_PATH = "/login"
+# The sign-in page a table framed by the call opens; the call mode is the agreed marker of such a table address.
+CALL_SIGN_IN_PATH = "/login/call"
+MODE_QUERY_NAME = "mode"
+CALL_MODE = "call"
 NO_ACCESS_PATH = "/no-access"
 LOGOUT_PATH = "/logout"
 # The sign-in page ignores it; the gate's redirect type requires a name for the address the visitor asked for.

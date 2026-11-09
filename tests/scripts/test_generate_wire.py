@@ -9,7 +9,16 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.table.auction import AuctionAction
 from skat.web.auction import TABLE_AUCTION_SUFFIX
-from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
+from skat.table.records import TABLE_ID_PATTERN
+from skat.web.constants import (
+    ACCOUNT_CONSOLE_PATH,
+    ACCOUNT_PATH,
+    AUTH_START_PATH,
+    CALL_MODE,
+    LOGOUT_PATH,
+    MODE_QUERY_NAME,
+    NO_ACCESS_PATH,
+)
 from skat.web.declaring import TABLE_DECLARATION_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
@@ -47,6 +56,10 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_AUCTION_SUFFIX", TABLE_AUCTION_SUFFIX),
         ("TABLE_CARD_SUFFIX", TABLE_CARD_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
+        ("NO_ACCESS_PATH", NO_ACCESS_PATH),
+        ("MODE_QUERY_NAME", MODE_QUERY_NAME),
+        ("CALL_MODE", CALL_MODE),
+        ("TABLE_ID_PATTERN", TABLE_ID_PATTERN),
     ]:
         assert any(name in line and f'"{path}"' in line for line in rendered.splitlines())
 

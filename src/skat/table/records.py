@@ -16,7 +16,8 @@ if TYPE_CHECKING:
     from skat.table.game_list import ListEntry
 
 TABLE_ID_BYTES: Final = 16
-_TABLE_ID = re.compile(r"[0-9a-f]{32}")
+TABLE_ID_PATTERN: Final = "[0-9a-f]{32}"
+_TABLE_ID = re.compile(TABLE_ID_PATTERN)
 
 
 @dataclass(frozen=True)

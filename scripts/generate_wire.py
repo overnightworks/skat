@@ -17,12 +17,16 @@ sys.path.insert(0, str(REPOSITORY / "src"))
 from skat.engine.bidding import VALID_BIDS  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
+from skat.table.records import TABLE_ID_PATTERN  # noqa: E402
 from skat.web.auction import TABLE_AUCTION_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
     AUTH_START_PATH,
+    CALL_MODE,
     LOGOUT_PATH,
+    MODE_QUERY_NAME,
+    NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
 )
@@ -71,11 +75,15 @@ def render() -> str:
         "AUTH_START_PATH": AUTH_START_PATH,
         "RETURN_PATH_QUERY_NAME": RETURN_PATH_QUERY_NAME,
         "SIGNED_IN_AGAIN_QUERY_NAME": SIGNED_IN_AGAIN_QUERY_NAME,
+        "NO_ACCESS_PATH": NO_ACCESS_PATH,
+        "MODE_QUERY_NAME": MODE_QUERY_NAME,
+        "CALL_MODE": CALL_MODE,
         "LOGOUT_PATH": LOGOUT_PATH,
         "ACCOUNT_PATH": ACCOUNT_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
         "TABLES_PATH": TABLES_PATH,
         "TABLE_PAGE_PREFIX": TABLE_PAGE_PREFIX,
+        "TABLE_ID_PATTERN": TABLE_ID_PATTERN,
         "TABLE_EVENTS_SUFFIX": TABLE_EVENTS_SUFFIX,
         "TABLE_SIT_SUFFIX": TABLE_SIT_SUFFIX,
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
