@@ -94,7 +94,10 @@ def give_up_payload(command: GiveUpCommand) -> str:
 
 
 def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> Decision:
-    """The declarer gives up without consent: no hand, no chair, a stale version, the wrong phase, then the engine."""
+    """The declarer gives up without consent: no hand, no chair, a stale version, the wrong phase, not the declarer.
+
+    The engine decides last whether the game may be given up.
+    """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
         return Decision(table, position)

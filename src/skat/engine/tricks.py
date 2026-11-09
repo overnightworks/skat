@@ -164,7 +164,7 @@ class PlayedOut:
 
     @property
     def declarer_points(self) -> int:
-        """The declarer's tricks plus the skat, which counts for the declarer in every game.
+        """The declarer's tricks plus the skat, which counts for the declarer in every game but a given-up one.
 
         When the opponents keep only their completed tricks, every point outside them is his. A given-up game counts
         his completed tricks alone: it ends before the skat is known to anyone but a declarer who picked it up.
