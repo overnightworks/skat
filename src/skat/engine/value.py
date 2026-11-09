@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from skat.engine.cards import DECK
 from skat.engine.declaration import Announcement
 from skat.engine.games import NULL_VALUES, GameKind, Trump
+from skat.engine.tricks import Ending
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -60,8 +61,13 @@ class Level(StrEnum):
 
 
 def _suffered(declaration: Declaration, played: PlayedOut) -> tuple[bool, bool]:
-    """Schneider and Schwarz as the losing side suffered them or the declarer announced them."""
-    if played.won_by_play:
+    """Schneider and Schwarz as the losing side suffered them or the declarer announced them.
+
+    A given-up game counts only the announced ones: no cards were played to reach more.
+    """
+    if played.ending is Ending.GIVEN_UP:
+        schneider, schwarz = False, False
+    elif played.won_by_play:
         schneider, schwarz = played.opponents_schneider, played.opponents_schwarz
     else:
         schneider, schwarz = played.declarer_schneider, played.declarer_schwarz
