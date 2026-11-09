@@ -150,7 +150,8 @@ def test_a_table_opens_with_the_chosen_length_in_one_request_even_when_the_butto
     assert len(requests) == 1
     assert '"series_length":30' in requests[0]
     answer = person.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(urlsplit(person.url).path)}")
-    assert answer.json()["series"] == {"game_number": 0, "game_count": 30, "over": False}
+    series = answer.json()["series"]
+    assert (series["game_number"], series["game_count"], series["over"]) == (0, 30, False)
     assert table_count(e2e_server) == before + 1
 
 
@@ -337,6 +338,22 @@ def test_a_table_that_could_not_be_opened_says_so_and_a_retry_opens_it(
     assert table_count(e2e_server) == before + 1
 
 
+def lose_the_first_answer_of_opening_a_table(person: Page) -> list[dict[str, Any]]:
+    """Routes the table request so the server opens the table but its first answer is lost; returns every attempt."""
+    attempts: list[dict[str, Any]] = []
+
+    def lose_the_first_answer(route: Route) -> None:
+        attempts.append(json.loads(route.request.post_data or "{}"))
+        if len(attempts) > 1:
+            route.continue_()
+        else:
+            route.fetch()
+            route.abort()
+
+    person.route(TABLES_ROUTE, lose_the_first_answer)
+    return attempts
+
+
 def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
     open_person: Callable[..., Page],
     expected_request_failures: list[str],
@@ -345,18 +362,7 @@ def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
     person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
-    attempts: list[dict[str, Any]] = []
-
-    def lose_the_first_answer(route: Route) -> None:
-        attempts.append(json.loads(route.request.post_data or "{}"))
-        if len(attempts) > 1:
-            route.continue_()
-        else:
-            # The server opens the table; only its answer is lost.
-            route.fetch()
-            route.abort()
-
-    person.route(TABLES_ROUTE, lose_the_first_answer)
+    attempts = lose_the_first_answer_of_opening_a_table(person)
     a_sheet(person, e2e_server)
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
@@ -374,7 +380,9 @@ def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
     assert attempts[1]["command_id"] != attempts[0]["command_id"]
 
 
-def test_a_sheet_reopened_after_a_lost_answer_at_another_length_opens_a_table_at_the_default_length(
+@pytest.mark.parametrize("steps_before_the_lost_answer", [0, 1])
+def test_a_sheet_reopened_after_a_lost_answer_opens_a_table_at_the_default_length_unless_the_length_was_stepped(
+    steps_before_the_lost_answer: int,
     open_person: Callable[..., Page],
     expected_request_failures: list[str],
     e2e_server: RunningServer,
@@ -382,19 +390,11 @@ def test_a_sheet_reopened_after_a_lost_answer_at_another_length_opens_a_table_at
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
     person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
-    attempts: list[dict[str, Any]] = []
-
-    def lose_the_first_answer(route: Route) -> None:
-        attempts.append(json.loads(route.request.post_data or "{}"))
-        if len(attempts) > 1:
-            route.continue_()
-        else:
-            route.fetch()
-            route.abort()
-
-    person.route(TABLES_ROUTE, lose_the_first_answer)
+    attempts = lose_the_first_answer_of_opening_a_table(person)
+    before = table_count(e2e_server)
     a_sheet(person, e2e_server)
-    person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+    for _ in range(steps_before_the_lost_answer):
+        person.get_by_role("button", name=catalog_text("seriesFewer")).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
 
@@ -403,8 +403,12 @@ def test_a_sheet_reopened_after_a_lost_answer_at_another_length_opens_a_table_at
     person.get_by_role("button", name=OPEN_TABLE).click()
 
     expect(person).to_have_url(TABLE_URL)
-    assert attempts[1]["series_length"] == attempts[0]["series_length"] + SERIES_LENGTH_STEP
-    assert attempts[1]["command_id"] != attempts[0]["command_id"]
+    if steps_before_the_lost_answer:
+        assert attempts[1]["series_length"] == attempts[0]["series_length"] + SERIES_LENGTH_STEP
+        assert attempts[1]["command_id"] != attempts[0]["command_id"]
+    else:
+        assert attempts[1] == attempts[0]
+        assert table_count(e2e_server) == before + 1
 
 
 def test_a_session_that_ended_sends_the_start_page_to_the_sign_in_page_when_a_table_is_opened(
