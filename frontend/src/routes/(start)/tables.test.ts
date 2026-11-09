@@ -332,15 +332,22 @@ describe("asking for a table", () => {
         { action: "hold", value: undefined, suffix: TABLE_AUCTION_HOLD_SUFFIX, body: {} },
         { action: "pass", value: undefined, suffix: TABLE_AUCTION_PASS_SUFFIX, body: {} },
         { action: "play", value: undefined, suffix: TABLE_AUCTION_PLAY_SUFFIX, body: {} },
-    ] as const)("sends the version shown with a $action step to its own path", async ({ action, value, suffix, body }) => {
-        answerWith(Response.json(table));
+    ] as const)(
+        "sends the version shown with a $action step to its own path",
+        async ({ action, value, suffix, body }) => {
+            answerWith(Response.json(table));
 
-        expect(await takeAuctionStep(TABLE_ID, "command-3", 7, action, value)).toEqual({ kind: "table", table });
+            expect(await takeAuctionStep(TABLE_ID, "command-3", 7, action, value)).toEqual({ kind: "table", table });
 
-        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", version: 7, ...body });
-    });
+            const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+            expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+            expect(JSON.parse((init as { body: string }).body)).toEqual({
+                command_id: "command-3",
+                version: 7,
+                ...body,
+            });
+        },
+    );
 
     it("sends the version shown, a command id and only the card when playing a card", async () => {
         answerWith(Response.json(table));
