@@ -35,6 +35,7 @@ from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, 
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, person_passes, person_steps
 from tests.web.support.playing import Table, card, card_body
+from tests.web.support.series import play_a_series
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -129,6 +130,17 @@ class TestReadTable:
 
         assert view["series"] == {"game_number": 0, "game_count": 12, "over": False, "standings": None}
         assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
+
+    def test_the_standings_of_a_played_series_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
+        agent.admitted()
+        table, names = play_a_series(skat)
+
+        view = agent.read(table.table_id).json()
+
+        standings = view["series"]["standings"]
+        assert view["series"]["over"] is True
+        assert {each["display_name"] for each in standings} == set(names)
+        assert view["series"] == table.read_as(table.watcher).json()["series"]
 
     def test_an_agent_without_a_chair_gets_the_watchers_view_without_any_card(self, skat, agent):
         agent.admitted()
