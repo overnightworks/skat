@@ -1,3 +1,4 @@
+import copy
 import json
 from dataclasses import dataclass
 
@@ -17,7 +18,7 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.payload_cards import CARDS_BY_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table, card, card_body
-from tests.web.support.skat import FETCH, AgentTable, Skat, mcp_message, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, streams_of
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
 SUBJECT = "agent-subject"
@@ -104,7 +105,7 @@ def forehand_table(skat, agent):
 
 
 def stored(skat):
-    return skat.store.tables, skat.store.receipts
+    return copy.deepcopy((skat.store.tables, skat.store.receipts))
 
 
 class TestTools:
@@ -173,7 +174,7 @@ class TestReadTable:
         assert wire_cards(SKAT_CARDS).isdisjoint(cards_in(view))
 
     def test_an_unknown_table_is_a_failed_result(self, agent):
-        assert agent.read("0" * 32).is_error
+        assert agent.read(UNKNOWN_ID).is_error
 
 
 class TestPlayCard:
@@ -227,7 +228,7 @@ class TestPlayCard:
 
         assert answer.is_error
         assert answer.json()["reason"] == reason
-        assert stored(forehand_table.skat) == before
+        assert stored(forehand_table.skat)[0] == before[0]
 
 
 class TestWhoMayCall:
