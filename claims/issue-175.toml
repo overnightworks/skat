@@ -1,7 +1,0 @@
-claim_id = "89ca8df7ace448cca52d1de19a19e9c8"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "407dc9ecc0d9cb9cc9f1eca4c8e60824f71d1fa7"
-branch = "claude/issue-175-kontra-first-card"
-scope = ["src/skat/engine/kontra.py", "tests/engine/test_kontra.py"]
-opened_commit = "ee9957dfab9c9a946bdada0bc56e377d2fdb0165"
