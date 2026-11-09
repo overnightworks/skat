@@ -10,14 +10,13 @@ from webauth.ports import AccountKind
 
 from skat.engine.deal import Position, seats_from
 from skat.table.records import EndedTable, Refusal
-from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL, MCP_GROUP
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, NEXT_DEAL_PAUSE_SECONDS
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import SUBJECT, Agent
+from tests.web.support.agent import SUBJECT, Agent, person_passes
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     NAMED_FAILURE,
@@ -107,18 +106,8 @@ def hand_of(table):
     return table.skat.store.tables[table.table_id].hand
 
 
-def person_passes(table, position):
-    answer = table.skat.client.post(
-        f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
-        json={"command_id": table.fresh_id(), "version": table.record.version},
-        headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
-    )
-    assert answer.status_code == 200, answer.text
-    table.skat.client.cookies.clear()
-
-
 def pass_the_hand_in(table, agent):
-    agent.auction_step(AUCTION_PASS_TOOL, table, command_id="agent-pass")
+    agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-pass")
     person_passes(table, REARHAND)
     person_passes(table, FOREHAND)
 
@@ -266,7 +255,7 @@ class TestWhenTheLeaseLapses:
         assert is_away(hand_table, AGENT_SEAT)
 
     def test_a_hand_that_ends_after_the_lapse_starts_a_fresh_hold(self, skat, time, agent, hand_table, hold_seconds):
-        agent.auction_step(AUCTION_PASS_TOOL, hand_table, command_id="agent-pass")
+        agent.take_step(AUCTION_PASS_TOOL, hand_table, command_id="agent-pass")
         advance(skat, time, LEASE_SECONDS + hold_seconds + 10)
         person_passes(hand_table, REARHAND)
         person_passes(hand_table, FOREHAND)

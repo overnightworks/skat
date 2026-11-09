@@ -6,9 +6,16 @@ import pytest
 from playwright.sync_api import expect
 
 from skat.engine.bidding import VALID_BIDS
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX
-from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_PASS_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX, TABLE_AUCTION_PLAY_SUFFIX
+from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
+from skat.web.mcp import (
+    AUCTION_BID_TOOL,
+    AUCTION_PASS_TOOL,
+    AUCTION_PLAY_TOOL,
+    DECLARE_GAME_TOOL,
+    PLAY_CARD_TOOL,
+    READ_TABLE_TOOL,
+)
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
@@ -42,7 +49,7 @@ def step(session: AddressedSession, api_path: str, suffix: str, **fields: object
     return json.loads(session.post(f"{api_path}{suffix}", body))
 
 
-def take_auction_step(
+def take_step(
     sessions: Mapping[int, AddressedSession],
     api_path: str,
     seat: int,
@@ -65,22 +72,28 @@ def take_auction_step(
 def play_until_the_agents_turn(
     sessions: Mapping[int, AddressedSession], api_path: str, seat_at: Mapping[str, int], agent: McpAgent
 ) -> None:
-    take_auction_step(
+    """The seat the lot gave the agent wins the auction with the highest bid there is and declares Hand."""
+    winner = next(position for position, seat in seat_at.items() if seat == AGENT_SEAT)
+    bid = (TABLE_AUCTION_BID_SUFFIX, AUCTION_BID_TOOL, {"value": VALID_BIDS[-1]})
+    drop = (TABLE_AUCTION_PASS_SUFFIX, AUCTION_PASS_TOOL, {})
+    auction = {
+        "middlehand": [("middlehand", bid), ("forehand", drop), ("rearhand", drop)],
+        "forehand": [
+            ("middlehand", drop),
+            ("rearhand", drop),
+            ("forehand", (TABLE_AUCTION_PLAY_SUFFIX, AUCTION_PLAY_TOOL, {})),
+        ],
+        "rearhand": [("middlehand", drop), ("rearhand", bid), ("forehand", drop)],
+    }[winner]
+    for position, (suffix, tool, fields) in auction:
+        take_step(sessions, api_path, seat_at[position], agent, suffix, tool, **fields)
+    take_step(
         sessions,
         api_path,
-        seat_at["middlehand"],
+        AGENT_SEAT,
         agent,
-        TABLE_AUCTION_BID_SUFFIX,
-        AUCTION_BID_TOOL,
-        value=VALID_BIDS[-1],
-    )
-    for position in ("forehand", "rearhand"):
-        take_auction_step(sessions, api_path, seat_at[position], agent, TABLE_AUCTION_PASS_SUFFIX, AUCTION_PASS_TOOL)
-    step(
-        sessions[seat_at["middlehand"]],
-        api_path,
-        TABLE_DECLARATION_SUFFIX,
-        action="declare",
+        TABLE_DECLARING_DECLARE_SUFFIX,
+        DECLARE_GAME_TOOL,
         game="herz",
         hand=True,
         ouvert=False,

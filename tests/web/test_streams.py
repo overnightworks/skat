@@ -9,7 +9,7 @@ from skat.engine.deal import next_dealer
 from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARATION_SUFFIX
+from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.presence import Presence
 from skat.web.streams import table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
@@ -735,8 +735,8 @@ class TestHandOnTheStream:
             next(lines)
             skat.client.cookies.clear()
             answer = skat.client.post(
-                f"{TABLES_PATH}/{table_id}{TABLE_DECLARATION_SUFFIX}",
-                json={"command_id": "step-0001", "version": opened["version"], "action": "take"},
+                f"{TABLES_PATH}/{table_id}{TABLE_DECLARING_TAKE_SUFFIX}",
+                json={"command_id": "step-0001", "version": opened["version"]},
                 headers={"origin": TEST_PUBLIC_ORIGIN, **declarer_headers},
             )
             fresh_line = next(lines)
