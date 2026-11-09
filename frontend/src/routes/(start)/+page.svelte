@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { AccountMenu, LegalLinks } from "overnightworks-appkit";
+    import { AccountMenu, LegalLinks } from "overnightworks-design";
     import { onMount } from "svelte";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import NewTableButton from "./NewTableButton.svelte";
