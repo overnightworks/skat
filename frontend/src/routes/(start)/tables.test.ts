@@ -265,13 +265,13 @@ describe("asking for a table", () => {
         expect(await readTable(TABLE_ID)).toEqual({ kind: "table", table });
     });
 
-    it("sends the command id when creating a table", async () => {
+    it("sends the command id and the series length when creating a table", async () => {
         answerWith(Response.json(table));
-        await createTable("command-1");
+        await createTable("command-1", 30);
 
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(TABLES_PATH);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1" });
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1", series_length: 30 });
     });
 
     it("sends the command id and the chair when sitting down", async () => {
