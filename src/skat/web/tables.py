@@ -15,7 +15,17 @@ from skat.engine.declaration import Announcement, Stage
 from skat.engine.games import GameKind
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.records import Actor, CommandRefusal, CreateTable, EndReason, SitDown, StandUp
+from skat.table.records import (
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    Actor,
+    CommandRefusal,
+    CreateTable,
+    EndReason,
+    SitDown,
+    StandUp,
+)
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
@@ -32,7 +42,7 @@ if TYPE_CHECKING:
     from skat.table.game_list import ResultView
     from skat.table.playing import PlayingView
     from skat.table.service import CommandResult, TableService
-    from skat.table.views import ChairHand, HandView, PassedInView, TableView
+    from skat.table.views import ChairHand, HandView, PassedInView, SeriesView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -47,15 +57,24 @@ TABLE_STAND_SUFFIX: Final = "/stand"
 COMMAND_ID_PATTERN: Final = r"^[A-Za-z0-9_-]{8,64}$"
 
 
-class CreateTableRequest(BaseModel):
-    """A client names only its retry key: the opener's account and chair come from the session."""
+class CommandRequest(BaseModel):
+    """A client names only its retry key: the account and chair come from the session."""
 
     model_config = ConfigDict(extra="forbid")
 
     command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
 
 
-class SitDownRequest(CreateTableRequest):
+class CreateTableRequest(CommandRequest):
+    """The opener may name the series length; the table plays on without one."""
+
+    series_length: Annotated[
+        int | None,
+        Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP),
+    ] = None
+
+
+class SitDownRequest(CommandRequest):
     seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
 
 
@@ -299,6 +318,12 @@ class EndedAnswer(BaseModel):
     empty_seconds: int
 
 
+class SeriesAnswer(BaseModel):
+    game_number: int
+    game_count: int
+    over: bool
+
+
 class TableAnswer(BaseModel):
     id: str
     version: int
@@ -307,6 +332,7 @@ class TableAnswer(BaseModel):
     hand: HandAnswer | None
     passed_in: PassedInAnswer | None
     result: ResultAnswer | None
+    series: SeriesAnswer | None
     ended: EndedAnswer | None
 
 
@@ -411,6 +437,12 @@ def passed_in_answer_of(passed_in: PassedInView | None) -> PassedInAnswer | None
     return PassedInAnswer(next_dealer_seat=passed_in.next_dealer_seat)
 
 
+def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
+    if series is None:
+        return None
+    return SeriesAnswer(game_number=series.game_number, game_count=series.game_count, over=series.over)
+
+
 def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
     if result is None:
         return None
@@ -460,6 +492,7 @@ def answer_of(view: TableView) -> TableAnswer:
         hand=hand_answer_of(view.hand),
         passed_in=passed_in_answer_of(view.passed_in),
         result=result_answer_of(view.result),
+        series=series_answer_of(view.series),
         ended=None
         if view.ended is None
         else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
@@ -537,7 +570,7 @@ def _create_seating_router(tables: TableService, presence: Presence) -> APIRoute
         openapi_extra=excluded(Exclusion.SEATING),
     )
     async def stand_up(
-        table_id: str, body: CreateTableRequest, request: Request, response: Response
+        table_id: str, body: CommandRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         command = StandUp(command_id=body.command_id, table_id=table_id)
         return await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
@@ -557,7 +590,8 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            view = await run_in_threadpool(tables.create, actor_of(request), CreateTable(command_id=body.command_id))
+            command = CreateTable(command_id=body.command_id, series_length=body.series_length)
+            view = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
         # Presence belongs to the event loop's thread, so the wait starts here and not on the worker.

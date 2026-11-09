@@ -9,7 +9,7 @@ from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
-    CreateTableRequest,
+    CommandRequest,
     TableAnswer,
     actor_of,
     command_answer,
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 TABLE_READY_SUFFIX: Final = "/ready"
 
 
-class ReadyRequest(CreateTableRequest):
+class ReadyRequest(CommandRequest):
     """A client names only the result it saw, by its number in the table's list: its chair comes from the session."""
 
     ordinal: Annotated[int, Field(strict=True, ge=1)]

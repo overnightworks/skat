@@ -31,6 +31,7 @@ from skat.table.records import (
     Occupant,
     Receipt,
     Replay,
+    Series,
     TableId,
     TableRecord,
     parsed_refusal,
@@ -87,9 +88,14 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
-    query = select(tables.c.version, tables.c.dealer, tables.c.end_reason, tables.c.empty_seconds).where(
-        tables.c.id == table_id
-    )
+    query = select(
+        tables.c.version,
+        tables.c.dealer,
+        tables.c.end_reason,
+        tables.c.empty_seconds,
+        tables.c.series_length,
+        tables.c.series_deals,
+    ).where(tables.c.id == table_id)
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
     table = connection.execute(query).one_or_none()
@@ -121,6 +127,7 @@ def _table_record(
             plays=read_plays(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
+        series=None if table.series_length is None else Series(table.series_length, table.series_deals),
     )
 
 
@@ -177,7 +184,13 @@ class _PostgresTableTransaction:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._connection.execute(
-            update(tables).where(tables.c.id == table.id.value).values(version=table.version, dealer=table.dealer)
+            update(tables)
+            .where(tables.c.id == table.id.value)
+            .values(
+                version=table.version,
+                dealer=table.dealer,
+                series_deals=None if table.series is None else table.series.deals,
+            )
         )
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
@@ -202,7 +215,14 @@ class _PostgresTableTransaction:
             )
 
     def add_table(self, table: TableRecord) -> None:
-        self._connection.execute(insert(tables).values(id=table.id.value, version=table.version))
+        self._connection.execute(
+            insert(tables).values(
+                id=table.id.value,
+                version=table.version,
+                series_length=None if table.series is None else table.series.length,
+                series_deals=None if table.series is None else table.series.deals,
+            )
+        )
         self._connection.execute(
             insert(chairs),
             [

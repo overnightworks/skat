@@ -5,7 +5,17 @@ import pytest
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, deal
-from skat.table.records import Actor, Chair, HandProgress, NewHand, Occupant, Refusal, TableId, TableRecord
+from skat.table.records import (
+    Actor,
+    Chair,
+    HandProgress,
+    NewHand,
+    Occupant,
+    Refusal,
+    Series,
+    TableId,
+    TableRecord,
+)
 from skat.table.rules import (
     dealt_next,
     decide_free_chair,
@@ -35,6 +45,7 @@ def table_with(*seated: tuple[int, Actor]) -> TableRecord:
         hand=None,
         progress=HandProgress(),
         game_list=(),
+        series=None,
     )
 
 
@@ -347,3 +358,19 @@ class TestLeavingClearsOnlyTheOwnMark:
 
         assert occupants_of(decision.table)[0] is None
         assert ready_seats(decision.table) == [2]
+
+
+class TestSeries:
+    @pytest.mark.parametrize("length", [0, 2, 4, 100, 102])
+    def test_refuses_a_length_outside_the_range_or_off_the_step(self, length):
+        with pytest.raises(ValueError, match="multiple of"):
+            Series(length, 0)
+
+    @pytest.mark.parametrize("deals", [-1, 13])
+    def test_refuses_deals_outside_zero_to_its_length(self, deals):
+        with pytest.raises(ValueError, match=r"no .* deals"):
+            Series(12, deals)
+
+    @pytest.mark.parametrize("length", [3, 12, 99])
+    def test_takes_each_length_the_rules_name(self, length):
+        assert Series(length, length).length == length

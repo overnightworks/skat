@@ -220,6 +220,15 @@ class TestReadTable:
         )
         assert view == direct.json()
 
+    def test_the_series_of_a_table_reads_at_the_tool_as_the_route_gives_it(self, skat, agent):
+        headers = agent.admitted()
+        table_id = skat.create(headers, series_length=12).json()["id"]
+
+        view = agent.read(table_id).json()
+
+        assert view["series"] == {"game_number": 0, "game_count": 12, "over": False}
+        assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
+
     def test_an_agent_without_a_chair_gets_the_watchers_view_without_any_card(self, skat, agent):
         agent.admitted()
         table = Table(skat)

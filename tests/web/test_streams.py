@@ -633,7 +633,7 @@ class TestHandOnTheStream:
         assert answer.status_code == 200
         fresh = json.loads(first_fresh.removeprefix("data: "))
         assert fresh["version"] == opened["version"] + 1
-        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand", "passed_in", "result", "ended"}
+        assert set(fresh) == {"id", "version", "chairs", "watchers", "hand", "passed_in", "result", "series", "ended"}
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1
         assert cards_in_text(first_fresh) == wire_cards(CARDS_BY_SEAT[1])
         assert cards_in_text(second_fresh) == wire_cards(CARDS_BY_SEAT[2])
