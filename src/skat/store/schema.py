@@ -14,6 +14,8 @@ from sqlalchemy import (
 
 from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
+from skat.engine.declaration import Announcement
+from skat.engine.games import GameKind
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -56,6 +58,24 @@ POSITION_TEXT: Final = {
     Position.MIDDLEHAND: "middlehand",
     Position.REARHAND: "rearhand",
 }
+GAME_TEXT: Final = {
+    GameKind.KARO: "karo",
+    GameKind.HERZ: "herz",
+    GameKind.PIK: "pik",
+    GameKind.KREUZ: "kreuz",
+    GameKind.GRAND: "grand",
+    GameKind.NULL: "null",
+}
+ANNOUNCEMENT_TEXT: Final = {
+    Announcement.NONE: "none",
+    Announcement.SCHNEIDER: "schneider",
+    Announcement.SCHWARZ: "schwarz",
+}
+SUIT_OF_TEXT: Final = {text: suit for suit, text in SUIT_TEXT.items()}
+RANK_OF_TEXT: Final = {text: rank for rank, text in RANK_TEXT.items()}
+POSITION_OF_TEXT: Final = {text: position for position, text in POSITION_TEXT.items()}
+GAME_OF_TEXT: Final = {text: kind for kind, text in GAME_TEXT.items()}
+ANNOUNCEMENT_OF_TEXT: Final = {text: announcement for announcement, text in ANNOUNCEMENT_TEXT.items()}
 
 
 class StepLogRewrittenError(Exception):

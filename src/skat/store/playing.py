@@ -1,17 +1,24 @@
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, UniqueConstraint, insert, select
 
 from skat.engine.cards import Card
 from skat.engine.tricks import CardPlayed
-from skat.store.schema import POSITION_TEXT, RANK_TEXT, SUIT_TEXT, metadata, one_of, tables, unstored_steps
+from skat.store.schema import (
+    POSITION_OF_TEXT,
+    POSITION_TEXT,
+    RANK_OF_TEXT,
+    RANK_TEXT,
+    SUIT_OF_TEXT,
+    SUIT_TEXT,
+    metadata,
+    one_of,
+    tables,
+    unstored_steps,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
-
-_POSITION_OF_TEXT: Final = {text: position for position, text in POSITION_TEXT.items()}
-_SUIT_OF_TEXT: Final = {text: suit for suit, text in SUIT_TEXT.items()}
-_RANK_OF_TEXT: Final = {text: rank for rank, text in RANK_TEXT.items()}
 
 played_cards = Table(
     "played_cards",
@@ -34,8 +41,7 @@ def read_plays(connection: Connection, table_id: str) -> tuple[CardPlayed, ...]:
         select(played_cards).where(played_cards.c.table_id == table_id).order_by(played_cards.c.ordinal)
     )
     return tuple(
-        CardPlayed(_POSITION_OF_TEXT[row.position], Card(_SUIT_OF_TEXT[row.suit], _RANK_OF_TEXT[row.rank]))
-        for row in rows
+        CardPlayed(POSITION_OF_TEXT[row.position], Card(SUIT_OF_TEXT[row.suit], RANK_OF_TEXT[row.rank])) for row in rows
     )
 
 

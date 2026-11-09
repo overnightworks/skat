@@ -7,7 +7,7 @@ import pytest
 
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position, positions_from
-from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import playing_of
 from skat.table.records import Refusal
@@ -28,17 +28,8 @@ FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Positio
 def card(text):
     """A card from a suit letter (C, S, H, D) and a rank letter (7, 8, 9, T, J, Q, K, A)."""
     suits = {"C": Suit.KREUZ, "S": Suit.PIK, "H": Suit.HERZ, "D": Suit.KARO}
-    ranks = {
-        "7": Rank.SEVEN,
-        "8": Rank.EIGHT,
-        "9": Rank.NINE,
-        "T": Rank.TEN,
-        "J": Rank.JACK,
-        "Q": Rank.QUEEN,
-        "K": Rank.KING,
-        "A": Rank.ACE,
-    }
-    return Card(suits[text[0]], ranks[text[1]])
+    ranks = (Rank.SEVEN, Rank.EIGHT, Rank.NINE, Rank.TEN, Rank.JACK, Rank.QUEEN, Rank.KING, Rank.ACE)
+    return Card(suits[text[0]], dict(zip("789TJQKA", ranks, strict=True))[text[1]])
 
 
 def cards(text):
@@ -71,83 +62,31 @@ SWAPPED_DEAL = Deal(
 )
 
 
-def game_of(*tricks):
-    """Every card of a game in the order it is played, read from one string per trick."""
-    return tuple(each for trick in tricks for each in cards(trick))
+def game_of(*halves):
+    """Every card of a game in the order it is played, read from strings of tricks parted by slashes."""
+    return tuple(each for half in halves for trick in half.split("/") for each in cards(trick))
+
+
+def takers(letters):
+    """The position that takes each trick, from F, M and R in trick order."""
+    return tuple({"F": FOREHAND, "M": MIDDLEHAND, "R": REARHAND}[letter] for letter in letters.split())
 
 
 HERZ_GAME = game_of(
-    "S7 S9 D7",
-    "H7 DJ CJ",
-    "S8 ST D8",
-    "SQ D9 C7",
-    "SK DT C8",
-    "SA DQ C9",
-    "SJ HJ CT",
-    "H8 HQ CQ",
-    "HK CK H9",
-    "HA CA HT",
+    "S7 S9 D7 / H7 DJ CJ / S8 ST D8 / SQ D9 C7 / SK DT C8",
+    "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
 )
-HERZ_TAKERS = (
-    MIDDLEHAND,
-    FOREHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    REARHAND,
-    REARHAND,
-    REARHAND,
-)
+HERZ_TAKERS = takers("M F M M M M M R R R")
 GRAND_GAME = game_of(
-    "S7 S9 D7",
-    "H7 HQ C7",
-    "D8 C8 ST",
-    "D9 C9 SQ",
-    "DJ CJ SJ",
-    "CT SK DT",
-    "CQ SA DQ",
-    "S8 H8 HK",
-    "CK H9 HA",
-    "CA HT HJ",
+    "S7 S9 D7 / H7 HQ C7 / D8 C8 ST / D9 C9 SQ / DJ CJ SJ",
+    "CT SK DT / CQ SA DQ / S8 H8 HK / CK H9 HA / CA HT HJ",
 )
-GRAND_TAKERS = (
-    MIDDLEHAND,
-    REARHAND,
-    REARHAND,
-    REARHAND,
-    FOREHAND,
-    FOREHAND,
-    FOREHAND,
-    FOREHAND,
-    FOREHAND,
-    REARHAND,
-)
+GRAND_TAKERS = takers("M R R R F F F F F R")
 NULL_GAME = game_of(
-    "S7 SJ D7",
-    "S9 D8 S8",
-    "ST D9 C7",
-    "SQ DT C8",
-    "SK DJ C9",
-    "SA DQ CT",
-    "H7 HJ CJ",
-    "HQ CQ H8",
-    "HK CK H9",
-    "HA CA HT",
+    "S7 SJ D7 / S9 D8 S8 / ST D9 C7 / SQ DT C8 / SK DJ C9",
+    "SA DQ CT / H7 HJ CJ / HQ CQ H8 / HK CK H9 / HA CA HT",
 )
-NULL_TAKERS = (
-    MIDDLEHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    MIDDLEHAND,
-    REARHAND,
-    REARHAND,
-    REARHAND,
-    REARHAND,
-)
+NULL_TAKERS = takers("M M M M M M R R R R")
 
 
 class Table:
@@ -240,7 +179,12 @@ class Table:
         answer = self.send(self.at[self.holder_of(played)], played, command_id=command_id, version=version)
         assert answer.status_code == 200, answer.text
         assert self.record.version == before.version + 1
-        assert len(self.plays) == len(before.progress.plays) + 1
+        stored = (len(self.plays), len(self.record.game_list))
+        # The card is stored, or it was the thirtieth: the hand's cards and steps go and the game joins the list.
+        assert stored in {
+            (len(before.progress.plays) + 1, len(before.game_list)),
+            (0, len(before.game_list) + 1),
+        }
         return answer
 
     def refused(self, headers, played, reason, *, command_id=None, version=None):
@@ -336,29 +280,34 @@ class TestAPlayedOutHand:
     )
     def test_ten_tricks_end_the_game_with_each_taker(self, table, game, script, takers):
         table.declared_hand_game(game)
+        table.played_out(script[:-1])
+        before_the_last = playing_of(table.record)
 
-        table.played_out(script)
+        table.played_out(script[-1:])
 
-        state = playing_of(table.record)
-        assert tuple(trick.taker for trick in state.tricks) == takers
-        assert state.result is not None
-        assert len(table.plays) == len(script)
+        last = play_card(before_the_last, before_the_last.turn, script[-1]).state
+        assert tuple(trick.taker for trick in last.tricks) == takers
+        assert table.record.hand is None
+        assert len(table.record.game_list) == 1
 
     @pytest.fixture
     def played_out(self, herz_hand):
         herz_hand.played_out(HERZ_GAME)
         return herz_hand
 
-    def test_a_thirty_first_card_is_refused_as_over_and_stores_nothing(self, played_out):
-        played_out.refused(played_out.at[FOREHAND], card("S7"), PlayRefusal.OVER)
+    def test_a_card_after_the_thirtieth_is_refused_as_no_hand_and_stores_nothing(self, played_out):
+        played_out.refused(played_out.at[FOREHAND], card("S7"), Refusal.NO_HAND)
 
-        assert len(played_out.plays) == len(HERZ_GAME)
+        assert len(played_out.record.game_list) == 1
 
-    def test_nobody_stands_up_while_the_played_out_hand_is_not_ended(self, played_out, skat):
+    def test_a_seated_person_stands_up_after_the_thirtieth_card_and_the_result_stays(self, played_out, skat):
+        result = message_body(read(played_out, played_out.watcher))["result"]
+
         answer = skat.stand(played_out.at[FOREHAND], played_out.table_id)
 
-        assert answer.status_code == 409
-        assert reason_of(answer) == Refusal.HAND_RUNNING
+        assert answer.status_code == 200
+        assert [chair["occupant_name"] is None for chair in answer.json()["chairs"]] == [False, False, True]
+        assert answer.json()["result"] == result
 
 
 class TestTheWrongMoment:
@@ -501,6 +450,9 @@ def table_cards(played):
 
 
 def visible_cards(deal, played, position, *, ouvert):
+    """What a viewer may see; once the thirtieth card ends the hand, no card at all."""
+    if len(played) == len(HERZ_GAME):
+        return set()
     open_cards = remaining(deal, played, MIDDLEHAND) if ouvert else ()
     return {*remaining(deal, played, position), *table_cards(played), *open_cards}
 
@@ -547,6 +499,10 @@ def grand_ouvert(table):
     table.declared_grand_ouvert()
 
 
+def skat_put_back(table):
+    table.declared_after_putting_back(SKAT_CARDS)
+
+
 @dataclass(frozen=True)
 class Moment:
     """A point in a declared game and the `playing` its answer holds; middlehand is the declarer."""
@@ -567,7 +523,10 @@ class Moment:
         table.played_out(self.played)
 
     def playing_for(self, viewer):
-        last = None if self.last is None else {"cards": last_cards(self.last[0]), "taker_seat": SEATS[self.last[1]]}
+        last = None
+        if self.last is not None:
+            trick, taker = self.last
+            last = {"cards": last_cards(trick), "leader_seat": trick[0]["seat"], "taker_seat": SEATS[taker]}
         legal = self.legal if viewer.position is not None and viewer.position is self.turn else ()
         return {
             "turn_seat": None if self.turn is None else SEATS[self.turn],
@@ -594,7 +553,7 @@ class Moment:
 FIRST_TRICK = (played_body(FOREHAND, "S7"), played_body(MIDDLEHAND, "S9"), played_body(REARHAND, "D7"))
 SECOND_TRICK = (played_body(MIDDLEHAND, "H7"), played_body(REARHAND, "DJ"), played_body(FOREHAND, "CJ"))
 EIGHTH_TRICK = (played_body(MIDDLEHAND, "H8"), played_body(REARHAND, "HQ"), played_body(FOREHAND, "CQ"))
-TENTH_TRICK = (played_body(REARHAND, "HA"), played_body(FOREHAND, "CA"), played_body(MIDDLEHAND, "HT"))
+NINTH_TRICK = (played_body(REARHAND, "HK"), played_body(FOREHAND, "CK"), played_body(MIDDLEHAND, "H9"))
 MOMENTS = {
     "declared": Moment(herz_hand_game, (), FOREHAND, legal=KNOWN_DEAL.forehand),
     "one-card": Moment(
@@ -645,13 +604,15 @@ MOMENTS = {
         trick_points=(55, 10),
         legal=cards("H9 HT"),
     ),
-    "played-out": Moment(
+    "last-card-due": Moment(
         herz_hand_game,
-        HERZ_GAME,
-        None,
-        last=(TENTH_TRICK, REARHAND),
-        tricks_won=(6, 4),
-        trick_points=(55, 50),
+        HERZ_GAME[:29],
+        MIDDLEHAND,
+        current=(played_body(REARHAND, "HA"), played_body(FOREHAND, "CA")),
+        last=(NINTH_TRICK, REARHAND),
+        tricks_won=(6, 3),
+        trick_points=(55, 18),
+        legal=cards("HT"),
     ),
     "ouvert-two-cards": Moment(
         grand_ouvert,
@@ -739,18 +700,22 @@ class TestEveryViewersPlaying:
         assert [body["hand"] for body in reloads] == [streamed["hand"], streamed["hand"]]
         assert [body["chairs"] for body in reloads] == [streamed["chairs"], streamed["chairs"]]
 
-    def test_after_thirty_cards_both_sides_trick_points_and_the_skats_make_all_points(self, table):
-        MOMENTS["played-out"].reach(table)
+    def test_after_thirty_cards_the_result_counts_the_skat_for_the_declarer(self, table):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME)
 
-        points = message_body(read(table, table.watcher))["hand"]["playing"]["trick_points"]
+        result = message_body(read(table, table.watcher))["result"]
 
-        assert points["declarer"] + points["opponents"] + sum(each.points for each in SKAT_CARDS) == ALL_POINTS
+        points = MOMENTS["last-card-due"].trick_points
+        assert result["declarer_points"] == points[0] + sum(each.points for each in SKAT_CARDS)
+        assert result["declarer_points"] + result["opponents_points"] == ALL_POINTS
 
     @pytest.mark.parametrize(
         ("declare", "script", "ouvert"),
         [
             pytest.param(herz_hand_game, HERZ_GAME, False, id="hand-game"),
             pytest.param(grand_ouvert, GRAND_GAME, True, id="grand-ouvert"),
+            pytest.param(skat_put_back, HERZ_GAME, False, id="the-skat-put-back"),
         ],
     )
     def test_every_accepted_card_sends_every_open_stream_a_snapshot_naming_only_what_its_viewer_may_see(
@@ -781,3 +746,50 @@ class TestEveryViewersPlaying:
                     allowed = wire_cards(visible_cards(KNOWN_DEAL, script[:count], viewer.position, ouvert=ouvert))
                     assert cards_in_text(message_at_version(stream_lines, version)) == allowed
                     assert cards_in_text(read(table, viewer.headers_at(table))) == allowed
+
+
+# Middlehand's Herz Hand game at 18: ohne 1, Spiel and Hand make 30, and 55 trick points plus the skat's 15 win it.
+HERZ_RESULT = {
+    "ordinal": 1,
+    "declarer_seat": SEATS[MIDDLEHAND],
+    "game": "herz",
+    "hand": True,
+    "ouvert": False,
+    "announcement": "none",
+    "schneider": False,
+    "schwarz": False,
+    "matadors": {"mit": False, "count": 1},
+    "won": True,
+    "overbid": False,
+    "bid": 18,
+    "game_value": 30,
+    "settled_value": 30,
+    "score": 30,
+    "declarer_points": 70,
+    "opponents_points": 50,
+    "gains": [{"seat": 1, "gain": 80}, {"seat": 2, "gain": 0}, {"seat": 3, "gain": 0}],
+}
+
+
+class TestEveryViewersResult:
+    def test_before_the_thirtieth_card_there_is_no_result(self, table):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME[:-1])
+
+        assert message_body(read(table, table.watcher))["result"] is None
+
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    def test_the_last_card_s_answer_a_read_and_a_new_stream_carry_the_result_and_no_account_card_or_hand(
+        self, table, viewer
+    ):
+        herz_hand_game(table)
+        table.played_out(HERZ_GAME[:-1])
+        accounts = {chair.occupant.account_id for chair in table.record.chairs}
+        headers = viewer.headers_at(table)
+
+        raws = [table.accepted(HERZ_GAME[-1]).text, read(table, headers), first_stream_message(table, headers)]
+
+        assert [message_body(raw)["result"] for raw in raws] == [HERZ_RESULT] * 3
+        assert [message_body(raw)["hand"] for raw in raws] == [None] * 3
+        assert [cards_in_text(raw) for raw in raws] == [set()] * 3
+        assert [account for account in accounts for raw in raws if account in raw] == []

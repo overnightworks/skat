@@ -5,6 +5,10 @@ import pytest
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, deal
+from skat.engine.declaration import Announcement, Declaration
+from skat.engine.games import GameKind
+from skat.engine.value import Matadors
+from skat.table.game_list import ListEntry
 from skat.table.records import Actor, Chair, HandProgress, NewHand, Occupant, Refusal, TableId, TableRecord
 from skat.table.rules import (
     dealt_next,
@@ -13,6 +17,7 @@ from skat.table.rules import (
     decide_stand,
     hand_runs,
     next_deal_due,
+    result_pending,
     sit_deals,
 )
 
@@ -194,11 +199,62 @@ def passed_in() -> TableRecord:
     return replace(table_with((1, ANNA), (2, BEN), (3, CLEO)), dealer=2, progress=HandProgress(steps))
 
 
+def an_entry() -> ListEntry:
+    return ListEntry(
+        seat_accounts=(ANNA.account_id, BEN.account_id, CLEO.account_id),
+        declarer_seat=1,
+        declaration=Declaration(GameKind.KREUZ, hand=False, ouvert=False, announcement=Announcement.NONE),
+        schneider=False,
+        schwarz=False,
+        matadors=Matadors(mit=True, count=2),
+        won=True,
+        bid=18,
+        game_value=36,
+        settled_value=36,
+        score=36,
+        declarer_points=78,
+    )
+
+
+def played_out() -> TableRecord:
+    """The record the thirtieth card leaves: no hand, no steps, the dealer and one entry."""
+    return replace(table_with((1, ANNA), (2, BEN), (3, CLEO)), dealer=2, game_list=(an_entry(),))
+
+
+class TestResultPending:
+    @pytest.mark.parametrize(
+        ("table", "pending"),
+        [
+            pytest.param(played_out(), True, id="a-played-game"),
+            pytest.param(replace(passed_in(), game_list=(an_entry(),)), False, id="a-pass-in-after-a-played-game"),
+            pytest.param(passed_in(), False, id="a-pass-in-alone"),
+            pytest.param(replace(running_hand(), game_list=(an_entry(),)), False, id="a-hand-runs"),
+            pytest.param(replace(played_out(), dealer=None), False, id="no-dealer"),
+            pytest.param(replace(played_out(), game_list=()), False, id="no-entry"),
+        ],
+    )
+    def test_holds_with_no_hand_a_dealer_an_entry_and_no_auction_steps(self, table, pending):
+        assert result_pending(table) is pending
+
+    def test_a_seated_member_stands_up_and_the_list_stays(self):
+        table = played_out()
+
+        decision = decide_stand(table, BEN)
+
+        assert decision.refusal is None
+        assert occupants_of(decision.table) == [ANNA.display_name, None, CLEO.display_name]
+        assert decision.table.game_list == table.game_list
+
+
 class TestNextDeal:
     @pytest.mark.parametrize(
         ("table", "connected", "due"),
         [
             pytest.param(passed_in(), ALL_THREE, True, id="all-three-connected"),
+            pytest.param(played_out(), ALL_THREE, False, id="a-result-pending"),
+            pytest.param(
+                replace(passed_in(), game_list=(an_entry(),)), ALL_THREE, True, id="a-pass-in-after-a-played-game"
+            ),
             pytest.param(passed_in(), ALL_THREE | {DORA.account_id}, True, id="a-watcher-as-well"),
             pytest.param(passed_in(), ALL_THREE - {CLEO.account_id}, False, id="one-member-away"),
             pytest.param(
@@ -221,3 +277,8 @@ class TestNextDeal:
         assert (next_hand.dealer, next_hand.hand, next_hand.progress) == (DRAWN.dealer, DRAWN.hand, HandProgress())
         assert next_hand.chairs == table.chairs
         assert next_hand.version == table.version + 1
+
+    def test_the_next_hand_keeps_the_game_list(self):
+        table = replace(passed_in(), game_list=(an_entry(),))
+
+        assert dealt_next(table, DRAWN).game_list == table.game_list

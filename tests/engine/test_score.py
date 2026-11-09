@@ -7,7 +7,7 @@ from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
-from skat.engine.score import Reckoning, Settlement, reckon, settle
+from skat.engine.score import Reckoning, Settlement, overbid, reckon, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import value_of
 
@@ -160,3 +160,8 @@ def test_the_reckonings_of_three_declared_and_three_lost_by_the_others_sum_to_th
     others_lost = Settlement(won=False, value=20, score=-40)
     total = sum(reckon(each).declarer for each in own) + 3 * reckon(others_lost).each_opponent
     assert total == 270
+
+
+@pytest.mark.parametrize(("game_value", "bid", "expected"), [(23, 24, True), (24, 24, False), (25, 24, False)])
+def test_a_game_is_overbid_exactly_when_its_value_is_below_the_bid(game_value: int, bid: int, expected: bool) -> None:
+    assert overbid(game_value, bid) is expected

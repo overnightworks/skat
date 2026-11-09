@@ -24,12 +24,17 @@ class Matadors:
 
 @dataclass(frozen=True)
 class Valuation:
-    """The game's value: the matadors and level are empty for Null, which has a fixed value."""
+    """The game's value: the matadors are empty for Null, which has a fixed value.
+
+    Schneider and Schwarz are the levels the value counts, whichever side suffered them and whether announced or
+    reached; both are false in Null.
+    """
 
     won: bool
     matadors: Matadors | None
-    level: int | None
     value: int
+    schneider: bool
+    schwarz: bool
 
 
 def matadors(twelve: Collection[Card], kind: GameKind) -> Matadors | None:
@@ -41,22 +46,34 @@ def matadors(twelve: Collection[Card], kind: GameKind) -> Matadors | None:
     return Matadors(mit=mit, count=len(list(takewhile(lambda card: (card in twelve) is mit, trumps))))
 
 
-def _level(declaration: Declaration, played: PlayedOut) -> int:
-    """One step each: Spiel, Hand, Schneider, Schneider angesagt, Schwarz, Schwarz angesagt, ouvert."""
+@dataclass(frozen=True)
+class _Levels:
+    schneider: bool
+    schwarz: bool
+
+
+def _levels(declaration: Declaration, played: PlayedOut) -> _Levels:
+    """Schneider and Schwarz count when the losing side suffered them or the declarer announced them."""
     if played.won_by_play:
         schneider, schwarz = played.opponents_schneider, played.opponents_schwarz
     else:
         schneider, schwarz = played.declarer_schneider, played.declarer_schwarz
-    announced_schneider = declaration.announcement is not Announcement.NONE
-    announced_schwarz = declaration.announcement is Announcement.SCHWARZ
+    return _Levels(
+        schneider=schneider or declaration.announcement is not Announcement.NONE,
+        schwarz=schwarz or declaration.announcement is Announcement.SCHWARZ,
+    )
+
+
+def _level(declaration: Declaration, levels: _Levels) -> int:
+    """One step each: Spiel, Hand, Schneider, Schneider angesagt, Schwarz, Schwarz angesagt, ouvert."""
     return sum(
         (
             True,
             declaration.hand,
-            schneider or announced_schneider,
-            announced_schneider,
-            schwarz or announced_schwarz,
-            announced_schwarz,
+            levels.schneider,
+            declaration.announcement is not Announcement.NONE,
+            levels.schwarz,
+            declaration.announcement is Announcement.SCHWARZ,
             declaration.ouvert,
         )
     )
@@ -75,15 +92,23 @@ def value_of(played: PlayedOut) -> Valuation:
     assert declaration is not None  # noqa: S101 - narrows the type; a played-out game is declared
     null_levels = declaration.null_levels
     if null_levels is not None:
-        return Valuation(played.won_by_play, None, None, NULL_VALUES[null_levels])
+        return Valuation(
+            won=played.won_by_play,
+            matadors=None,
+            value=NULL_VALUES[null_levels],
+            schneider=False,
+            schwarz=False,
+        )
     held = matadors((*played.declared.hand, *played.declared.skat), declaration.kind)
     base = declaration.kind.base_value
     assert held is not None  # noqa: S101 - narrows the type; only Null has no matadors
     assert base is not None  # noqa: S101 - narrows the type; only Null has no base value
-    level = _level(declaration, played)
+    levels = _levels(declaration, played)
+    level = _level(declaration, levels)
     return Valuation(
         won=played.won_by_play and _announcements_reached(declaration, played),
         matadors=held,
-        level=level,
         value=(held.count + level) * base,
+        schneider=levels.schneider,
+        schwarz=levels.schwarz,
     )

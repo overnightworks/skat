@@ -22,9 +22,14 @@ class Settlement:
     score: int
 
 
+def overbid(game_value: int, bid: int) -> bool:
+    """The game's own value falls short of the bid."""
+    return game_value < bid
+
+
 def _raised_to_reach(value: int, base: int, bid: int) -> int:
     """The value, or the smallest multiple of the base that reaches the bid when the value falls short."""
-    return value if value >= bid else -(-bid // base) * base
+    return -(-bid // base) * base if overbid(value, bid) else value
 
 
 def _cheapest_game_reaching(played: PlayedOut, bid: int) -> int:
@@ -40,7 +45,7 @@ def _cheapest_game_reaching(played: PlayedOut, bid: int) -> int:
 
 
 def _settled_value(valuation: Valuation, played: PlayedOut, bid: int) -> int:
-    if valuation.value >= bid:
+    if not overbid(valuation.value, bid):
         return valuation.value
     if valuation.matadors is None:
         return _cheapest_game_reaching(played, bid)
@@ -55,7 +60,7 @@ def settle(played: PlayedOut, bid: int) -> Settlement:
     """A game valued below the bid is lost at least at the bid; a lost game scores minus twice its value."""
     valuation = value_of(played)
     value = _settled_value(valuation, played, bid)
-    won = valuation.won and valuation.value >= bid
+    won = valuation.won and not overbid(valuation.value, bid)
     return Settlement(won=won, value=value, score=value if won else -2 * value)
 
 

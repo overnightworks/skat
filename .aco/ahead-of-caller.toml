@@ -1,9 +1,0 @@
-[[code]]
-path = "src/skat/engine/value.py"
-item = "overnightworks/skat#27"
-reason = "S5.3 shows the game's value at the table."
-
-[[code]]
-path = "src/skat/engine/score.py"
-item = "overnightworks/skat#27"
-reason = "S5.3 scores the hand at the table."

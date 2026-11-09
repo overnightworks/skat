@@ -71,10 +71,12 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         ...
 
     def save_table(self, table: TableRecord) -> None:
-        """Write the table's version, chairs and dealer, a new hand's cards and steps; an ended hand's cards go.
+        """Write the table's version, chairs and dealer, a new hand's cards and steps, and new list entries.
 
-        A stored hand stays as dealt: a record whose hand differs from it while the hand has progress raises,
-        unless the third pass ended the hand.
+        A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
+        hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
+        dealt: a record whose hand differs from it while the hand has progress raises, unless the third pass ended
+        the hand. A list that does not continue the stored one raises.
         """
         ...
 
@@ -195,7 +197,11 @@ class TableService:
         )
 
     def play_card(
-        self, actor: Actor, command: PlayCardCommand, connected_accounts: frozenset[str]
+        self,
+        actor: Actor,
+        command: PlayCardCommand,
+        connected_accounts: frozenset[str],
+        on_hand_ended: Callable[[frozenset[str]], None] | None = None,
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -205,6 +211,7 @@ class TableService:
             PLAY_CARD_COMMAND,
             card_payload(command),
             lambda table: decide_card(table, actor, command),
+            on_hand_ended,
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
