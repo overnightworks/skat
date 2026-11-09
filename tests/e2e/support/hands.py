@@ -40,19 +40,22 @@ class AddressedSession(RawSession):
 
 
 class PlayingTable:
-    """A declared game, Null unless named: the forehand leads, and every card and turn is read by API."""
+    """A declared game, named or already declared on the page: the forehand leads, and every card is read by API."""
 
-    def __init__(self, declaring: DeclaringTable, game: str) -> None:
+    def __init__(self, declaring: DeclaringTable, game: str | None) -> None:
         self.declaring = declaring
         declaring.sessions = {
             seat: AddressedSession(declaring.server, session.member) for seat, session in declaring.sessions.items()
         }
-        skat = declaring.skat()
-        declaring.declare_through_the_api(action="take")
-        declaring.declare_through_the_api(
-            action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in sorted(skat)]
-        )
-        declaring.declare_through_the_api(action="declare", game=game, hand=False, ouvert=False, announcement="none")
+        if game is not None:
+            skat = declaring.skat()
+            declaring.declare_through_the_api(action="take")
+            declaring.declare_through_the_api(
+                action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in sorted(skat)]
+            )
+            declaring.declare_through_the_api(
+                action="declare", game=game, hand=False, ouvert=False, announcement="none"
+            )
         self.watcher = declaring.watcher
         self.declarer_seat = declaring.declarer_seat
         self.pages = {self.seat_of(person): person for person in (declaring.declarer, *declaring.others)}
