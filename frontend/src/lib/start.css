@@ -1567,6 +1567,7 @@ body {
     align-items: center;
     gap: 5px;
     height: 24px;
+    max-width: calc(var(--card-width) * 1.1);
     padding: 0 9px 0 4px;
     border-radius: 999px;
     background: rgba(10, 12, 14, 0.78);
@@ -1577,7 +1578,14 @@ body {
     transform: translateX(-50%) rotate(calc(var(--lie) * -1));
 }
 
+.room .laid .name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .room .laid .dot {
+    flex: none;
     display: grid;
     place-items: center;
     width: 16px;
