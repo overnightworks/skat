@@ -179,7 +179,7 @@ def test_a_hand_triggers_a_bock_round_when_it_meets_a_trigger_the_table_has_on(
     ended: PlayedOut | PassedIn,
     doubling: Doubling,
     totals: tuple[TotalChange, ...],
-    expected: bool,  # noqa: FBT001
+    expected: bool,
 ) -> None:
     assert bock_triggered(frozenset(triggers), ended, doubling, totals) is expected
 
@@ -216,7 +216,9 @@ def factors_over(overlap: BockOverlap, hands: tuple[bool, ...]) -> list[int]:
             [1, 2, 2, 2, 2, 2, 2, 1],
             id="20-trigger-in-the-third-bock-game",
         ),
-        pytest.param(MULTIPLY, (True, False, True, False, False, False, False), [1, 2, 2, 4, 2, 2, 1], id="22-multiply"),
+        pytest.param(
+            MULTIPLY, (True, False, True, False, False, False, False), [1, 2, 2, 4, 2, 2, 1], id="22-multiply"
+        ),
         pytest.param(IGNORE, (True, False, True, False, False), [1, 2, 2, 2, 1], id="23-trigger-in-the-second-game"),
         pytest.param(IGNORE, (True, False, False, True, False), [1, 2, 2, 2, 1], id="23-trigger-in-the-last-game"),
         pytest.param(IGNORE, (True, False, False, False, False), [1, 2, 2, 2, 1], id="24-none-pending"),
@@ -248,7 +250,9 @@ def test_a_passed_in_hand_uses_up_a_bock_game() -> None:
 @pytest.mark.parametrize(
     ("ended", "doubling", "reach", "expected_score", "expected_reckoning"),
     [
-        pytest.param(game(KREUZ, WIN, trumps=(CLUBS_JACK,)), NO_WORDS, KontraReach.KONTRA_RE, 48, Reckoning(98, 0), id="25"),
+        pytest.param(
+            game(KREUZ, WIN, trumps=(CLUBS_JACK,)), NO_WORDS, KontraReach.KONTRA_RE, 48, Reckoning(98, 0), id="25"
+        ),
         pytest.param(
             game(KREUZ, LOST, trumps=(CLUBS_JACK,)), NO_WORDS, KontraReach.KONTRA_RE, -96, Reckoning(-146, 40), id="26"
         ),
@@ -278,7 +282,7 @@ def test_a_bock_game_doubles_the_list_score_and_leaves_the_value_and_the_standin
 ) -> None:
     rounds = advance(BockRounds.start(), APPEND, triggered=True)
     settlement = bock_settlement(settle(ended, ended.declared.bid), rounds, APPEND)
-    assert settlement.value == 24  # noqa: PLR2004
+    assert settlement.value == 24
     assert settlement.score == expected_score
     assert doubled_reckoning(settlement, doubling, reach) == expected_reckoning
 

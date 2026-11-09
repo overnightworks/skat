@@ -1,14 +1,16 @@
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import PassedIn
-from skat.engine.declaration import Declaration
 from skat.engine.games import GameKind
 from skat.engine.kontra import Doubling, Word
 from skat.engine.score import Settlement, settle
-from skat.engine.tricks import PlayedOut
 from skat.engine.value import value_of
+
+if TYPE_CHECKING:
+    from skat.engine.declaration import Declaration
+    from skat.engine.tricks import PlayedOut
 
 _GAMES_IN_A_ROUND: Final = 3
 _SIXTY_SIXTY: Final = 60
@@ -100,7 +102,7 @@ class BockRounds:
 
 
 def advance(rounds: BockRounds, overlap: BockOverlap, *, triggered: bool) -> BockRounds:
-    """After a hand, played or passed in: it uses up one game of the pending rounds, then a trigger acts by the option."""
+    """After a hand, played or passed in: it uses up a game of the pending rounds, then a trigger acts by the option."""
     if overlap is BockOverlap.MULTIPLY:
         used = tuple(left - 1 for left in rounds.remaining)
     else:
