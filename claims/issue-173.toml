@@ -1,0 +1,7 @@
+claim_id = "fef188170d4e459d9b65a20b05dc2d74"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "de55cbb76433c241ba55287b63af08acd64629b1"
+branch = "claude/issue-173-replay-owner"
+scope = ["src/skat/engine/declaration.py", "src/skat/engine/replay.py", "src/skat/engine/tricks.py"]
+opened_commit = "f8c0998ec8d9645fa2d8b33a3b8f753cf135f2c5"
