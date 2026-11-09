@@ -246,6 +246,35 @@ body.key .frame *:not(.mo){animation:none!important}
 .button svg{width:20px;height:20px}
 .button-stage{background:var(--accent-stage);color:var(--stage)}
 .button-glass{background:var(--glass);color:var(--on-stage);backdrop-filter:blur(14px)}
+/* the rules part of a new table: the official rules first, one switch per house rule, all off */
+.rules{display:flex;flex-direction:column;gap:8px;width:100%}
+.rule{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
+.rule .ic{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--glass);color:var(--on-stage-soft)}
+.rule .ic svg{width:20px;height:20px}
+.rule.on .ic{background:var(--accent-stage);color:var(--stage)}
+.rule .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rule b{font-size:15px;font-weight:600;line-height:1.2}
+.rule small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
+.rule.official{min-height:48px;background:rgba(244,236,217,.1);box-shadow:inset 0 0 0 1px rgba(240,214,150,.32)}
+.rule.official.on .ic{background:#f4ecd9;color:#2d6b4f}
+.rule.official .count{flex:none;height:24px;padding:0 9px;border-radius:999px;display:inline-flex;align-items:center;background:var(--glass);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.rule.official:not(.on) b{color:var(--on-stage-soft)}
+.rule.sub{margin-left:26px;min-height:46px;position:relative}
+.rule.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
+.rule.sub .ic{width:30px;height:30px}
+.rule.sub .ic svg{width:17px;height:17px}
+.sw{flex:none;position:relative;width:48px;height:28px;border-radius:999px;background:var(--glass);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.sw i{position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#f4ecd9;color:var(--stage);box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.sw i svg{display:none;width:13px;height:13px}
+.sw.on{background:var(--accent-stage);box-shadow:none}
+.sw.on i{left:23px}
+.sw.on i svg{display:block}
+/* the rules a listed table plays: small chips under its name */
+.entry .who{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px 0 7px;border-radius:999px;background:rgba(122,167,240,.18);color:var(--accent-stage);font-size:12.5px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(122,167,240,.4)}
+.chip svg{width:14px;height:14px}
+.chip.official{background:var(--glass);color:var(--on-stage-soft);box-shadow:none}
 @media (prefers-reduced-motion:no-preference){
   .sheet{animation:rise .5s cubic-bezier(.2,.9,.3,1.2) both}
   @keyframes rise{from{translate:0 30px;opacity:0;scale:.94}}
@@ -305,6 +334,11 @@ const I={
   chev:sv('<path d="M6 9l6 6 6-6"/>',2.2),
   trophy:sv('<path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 20h8"/>',2.2),
 };
+I.points=sv('<path d="M18 5H6l6 7-6 7h12"/>',2.2);
+I.kontra=sv('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',2);
+I.ramsch=sv('<path d="M12 4v10M7 10l5 5 5-5M5 20h14"/>',2.2);
+I.schieben=sv('<path d="M4 12h14M13 6l6 6-6 6"/>',2.2);
+I.bock=sv('<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/>',1.8);
 const P={
   felix:{n:'Du',i:'F',c:['#6fd3bd','#2f8f7d'],v:['#2c4646','#172326'],l:['#2a5a52','#13302b'],hair:'short',glasses:true},
   anna:{n:'Anna',i:'A',c:['#c2a8f5','#7c5cd6'],v:['#3a3350','#1d1a29'],l:['#553a6e','#2a1b38'],hair:'long'},
@@ -468,7 +502,7 @@ I.lock=sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 1
 const freeSeat=(pos)=>`<div class="seat free sm" role="button" tabindex="0" aria-label="Hinsetzen" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h})}">
   <div class="chair"><div class="tile"><span class="sit">${I.plus}</span></div></div><span class="plate"><b>Frei</b></span></div>`;
 /* one open table: the opener names it, the chairs say who sits and what is free, the eye counts who watches */
-const entry=(opener,chairs,watch,o)=>`<article class="entry" style="${at({width:o.w})}"><header><h3>${P[opener].n}s Tisch</h3>
+const entry=(opener,chairs,watch,o,rules)=>`<article class="entry" style="${at({width:o.w})}"><header>${rules?`<div class="who"><h3>${P[opener].n}s Tisch</h3>${ruleChips(rules)}</div>`:`<h3>${P[opener].n}s Tisch</h3>`}
   <span class="watch ${watch?'':'none'}" title="Zuschauer">${I.eye}${watch}</span></header>
   <div class="row" style="${at({'--rh':o.ch+34,'--th':42})}">${chairs.map((k,i)=>{const pos={x:i*o.step,y:0,w:o.cw,h:o.ch,sm:true};return k?seat(k,pos):freeSeat(pos);}).join('')}
   <div class="table" style="--tr:21px;--rim:7px"><div class="felt" style="--line:5px"></div></div></div></article>`;
@@ -481,11 +515,26 @@ const LIST={
   desk:()=>wordmark(640,64,{ws:100,ps:26,rule:70,wg:12})+`<div class="account" style="--ar:20px;--at:16px"><span class="av">F</span>Felix${I.chev}</div>`
     +tables({left:640,top:262},{w:372,cw:100,ch:80,step:122})+cta(640,550)+legal,
 };
-const newTable=(x,y,w)=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
+/* the house rules of a new table, in the order of how common they are; each is off until switched on */
+const HOUSE_RULES=[
+  {id:'points',ic:I.points,name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel'},
+  {id:'kontra',ic:I.kontra,name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',chip:'Kontra'},
+  {id:'ramsch',ic:I.ramsch,name:'Ramsch beim Einpassen',line:'Alle passen: jeder gegen jeden',chip:'Ramsch',sub:{id:'schieben',ic:I.schieben,name:'Schieberamsch',line:'Den Skat weiterschieben'}},
+  {id:'bock',ic:I.bock,name:'Bockrunden',line:'Manche Spiele zählen doppelt',chip:'Bock'},
+];
+const ruleRow=(r,on,sub)=>`<div class="rule ${sub?'sub':''} ${on.includes(r.id)?'on':''}" role="group" aria-label="${r.name}"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.line}</small></span>
+  <span class="sw ${on.includes(r.id)?'on':''}" role="switch" tabindex="0" aria-checked="${on.includes(r.id)}" aria-label="${r.name}"><i>${I.check}</i></span></div>`;
+const rulesPart=(on)=>`<div class="rules"><div class="rule official ${on.length?'':'on'}"><span class="ic">${I.check}</span><span class="txt"><b>Offizielle Skatordnung</b></span>${on.length?`<span class="count">+${on.length}</span>`:''}</div>
+  ${HOUSE_RULES.map(r=>ruleRow(r,on)+(r.sub&&on.includes(r.id)?ruleRow(r.sub,on,true):'')).join('')}</div>`;
+const newTable=(x,y,w,on=[])=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
   <span class="info" role="button" tabindex="0" title="Offen: steht in der Liste. Privat: nur mit dem Link." aria-label="Info">i</span>
   <div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
   <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
+  ${rulesPart(on)}
   <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
+/* a listed table names its house rules under its name; a table without plays the official rules */
+const ruleChips=(on)=>`<span class="chips">${on.length?HOUSE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
+const ruleTables=(pos,size)=>`<div class="tables" style="${at(pos)}">${[['anna',['anna','ben',null],3,[]],['tom',['tom','lena',null],5,['kontra','ramsch','bock']]].map(([k,chairs,watch,on])=>entry(k,chairs,watch,size,on)).join('')}</div>`;
 
 frame('s3-list-390','Offene Tische','Handy 390 px','p390',LIST.phone());
 frame('s3-list-1280','Offene Tische','Desktop 1280 px','d1280',LIST.desk());
@@ -503,9 +552,17 @@ frame('s3-empty-1280','Niemand spielt','Desktop 1280 px','d1280',
   +table({x:340,y:318,w:600,h:420,tr:210,rim:16,ry:'44%',rs:200})
   +`<div class="lull" role="status" style="${at({left:640,top:350})}">Gerade spielt niemand</div>`
   +jacks(640,544,100)+cta(640,600)+legal);
-frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',LIST.phone()+newTable(195,230,354));
-frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',LIST.desk()+newTable(640,190,440));
-ORDER.push(...['s3-list','s3-empty','s3-new'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
+frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',LIST.phone()+newTable(195,100,354));
+frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',LIST.desk()+newTable(640,60,440));
+frame('rules-on-390','Neuer Tisch mit Hausregeln','Handy 390 px','p390',LIST.phone()+newTable(195,70,354,['kontra','ramsch']));
+frame('rules-on-1280','Neuer Tisch mit Hausregeln','Desktop 1280 px','d1280',LIST.desk()+newTable(640,40,440,['kontra','ramsch']));
+frame('rules-list-390','Offene Tische mit Regeln','Handy 390 px','p390',
+  wordmark(195,40,{ws:60,ps:20,rule:30,wg:8})+`<div class="account" style="--ar:12px;--at:12px"><span class="av">F</span>${I.chev}</div>`
+  +ruleTables({left:16,top:150},{w:358,cw:92,ch:64,step:119})+cta(195,688)+legal);
+frame('rules-list-1280','Offene Tische mit Regeln','Desktop 1280 px','d1280',
+  wordmark(640,64,{ws:100,ps:26,rule:70,wg:12})+`<div class="account" style="--ar:20px;--at:16px"><span class="av">F</span>Felix${I.chev}</div>`
+  +ruleTables({left:640,top:262},{w:372,cw:100,ch:80,step:122})+cta(640,600)+legal);
+ORDER.push(...['s3-list','s3-empty','s3-new','rules-on','rules-list'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
