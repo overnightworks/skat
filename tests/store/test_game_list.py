@@ -6,14 +6,16 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, positions_from
-from skat.engine.declaration import Announcement, Declare
+from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards
+from skat.engine.value import Matadors
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
+from skat.table.game_list import ListEntry
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, SitDown
@@ -76,6 +78,51 @@ class Game:
             position, card = self.next_card()
             assert self.play(position, card, f"card-{number}").refusal is None
         return self.next_card()
+
+
+def an_entry(declaration, **numbers):
+    fields = {
+        "seat_accounts": tuple(actor.account_id for actor in SEATED),
+        "declarer_seat": 2,
+        "schneider": False,
+        "schwarz": False,
+        "matadors": Matadors(mit=True, count=2),
+        **numbers,
+    }
+    return ListEntry(declaration=declaration, **fields)
+
+
+END_OVER = an_entry(
+    Declaration(GameKind.KARO, hand=False, ouvert=False, announcement=Announcement.NONE),
+    won=False,
+    bid=20,
+    game_value=18,
+    settled_value=27,
+    score=-54,
+    declarer_points=70,
+)
+A_NULL = an_entry(
+    Declaration(GameKind.NULL, hand=False, ouvert=False, announcement=Announcement.NONE),
+    matadors=None,
+    won=True,
+    bid=23,
+    game_value=23,
+    settled_value=23,
+    score=73,
+    declarer_points=0,
+)
+OUVERT_HAND = an_entry(
+    Declaration(GameKind.PIK, hand=True, ouvert=True, announcement=Announcement.SCHWARZ),
+    matadors=Matadors(mit=False, count=3),
+    schneider=True,
+    schwarz=True,
+    won=True,
+    bid=24,
+    game_value=96,
+    settled_value=96,
+    score=146,
+    declarer_points=120,
+)
 
 
 def rows_of(engine, table_id, name):
@@ -189,6 +236,26 @@ class TestTheList:
         with pytest.raises(StepLogRewrittenError):
             save()
         assert ended.record == before
+
+    @pytest.mark.parametrize("entry", [END_OVER, A_NULL, OUVERT_HAND], ids=["end-over", "null", "ouvert-hand"])
+    def test_an_entry_reads_back_as_built_with_its_own_numbers_in_the_row(self, ended, transactions, engine, entry):
+        record = ended.record
+
+        with transactions.begin() as transaction:
+            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, entry)))
+
+        assert ended.record.game_list[1] == entry
+        row = stored_list_rows(engine, ended.table_id)[1]
+        assert (row.ordinal, row.bid, row.game_value, row.settled_value, row.score) == (
+            2,
+            entry.bid,
+            entry.game_value,
+            entry.settled_value,
+            entry.score,
+        )
+        stored_matadors = None if row.matadors_mit is None else (row.matadors_mit, row.matadors_count)
+        built_matadors = None if entry.matadors is None else (entry.matadors.mit, entry.matadors.count)
+        assert stored_matadors == built_matadors
 
     def test_the_schema_keeps_matadors_only_outside_null(self, ended, engine):
         statement = text("UPDATE game_list SET matadors_mit = NULL WHERE table_id = :table_id")
