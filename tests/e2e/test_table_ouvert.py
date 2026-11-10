@@ -1,4 +1,5 @@
 import json
+import random
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -13,16 +14,21 @@ from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Iterator, MutableSequence
+
+    from _typeshed import SupportsLenAndGetItem
 
     from tests.e2e.support.declaring import DeclaringTable
+    from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
 
 CARDS_IN_A_HAND = 10
+WINNING_DEAL_SEED = 1
 NARROW_BELOW = 900
 GRAND_OUVERT = f"{catalog_text('gameGrand')} {catalog_text('ouvert')}"
 TOKEN_SUITS: dict[str, Suit] = {token: suit for suit, token in SUIT_TOKENS.items()}
@@ -91,6 +97,25 @@ def play(table: DeclaringTable, seat: int, card: Card) -> None:
 def seat_of_position(table: DeclaringTable, position: str) -> int:
     chairs = the_view(table, table.declarer_seat)["chairs"]
     return next(chair["seat"] for chair in chairs if chair["hand"]["position"] == position)
+
+
+class AlwaysTheSameDeal(random.Random):
+    """A source that draws the same dealer and shuffles the same deck on every draw, whatever was drawn before."""
+
+    def choice[Item](self, seq: SupportsLenAndGetItem[Item]) -> Item:
+        self.seed(WINNING_DEAL_SEED)
+        return super().choice(seq)
+
+    def shuffle(self, x: MutableSequence[Any]) -> None:
+        self.seed(WINNING_DEAL_SEED)
+        super().shuffle(x)
+
+
+@pytest.fixture(scope="module")
+def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """This module's Skat, which deals every hand as one in which the declarer can win a first trick of Grand."""
+    with skat_on_new_database(tmp_path_factory, random_source=AlwaysTheSameDeal()) as server:
+        yield server
 
 
 def declarer_cards_while_the_declarer_wins_the_first_trick(table: DeclaringTable) -> Iterator[Card]:
