@@ -50,7 +50,7 @@ class TestName:
     def test_a_name_is_stripped_and_in_composed_form(self, text, name):
         assert rule_set_name(text) == name
 
-    @pytest.mark.parametrize("text", ["", "   ", "x" * 41, "Ab\x00end", "Ab\tend", "Ab\nend", "é" * 41])
+    @pytest.mark.parametrize("text", ["", "   ", "x" * 41, "Ab\x00end", "Ab\tend", "Ab\nend", "Ab\ud800end", "é" * 41])
     def test_a_text_that_is_no_name_is_refused(self, text):
         assert rule_set_name(text) is None
 

@@ -46,7 +46,7 @@ def rule_set_name(text: str) -> str | None:
     when the text is no name.
     """
     name = unicodedata.normalize("NFC", text.strip())
-    if not 1 <= len(name) <= RULE_SET_NAME_MAX or any(unicodedata.category(each) == "Cc" for each in name):
+    if not 1 <= len(name) <= RULE_SET_NAME_MAX or any(unicodedata.category(each) in {"Cc", "Cs"} for each in name):
         return None
     return name
 

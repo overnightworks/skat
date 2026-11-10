@@ -5,7 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from skat.table.rule_sets import RuleSet, RuleSetRefusal, rule_set_name
+from skat.table.rule_sets import RULE_SET_NAME_MAX, RuleSet, RuleSetRefusal, rule_set_name
 from skat.web.mcp import READ_RULE_SETS_MARK, SAVE_RULE_SET_MARK, Exclusion, excluded
 from skat.web.tables import OptionsAnswer, OptionsRequest, actor_of, options_answer_of, table_options_of
 
@@ -30,7 +30,7 @@ class SaveRuleSetRequest(BaseModel):
     def _name_is_a_name(cls, text: str) -> str:
         name = rule_set_name(text)
         if name is None:
-            message = "a name has 1 to 40 characters and no control character"
+            message = f"a name has 1 to {RULE_SET_NAME_MAX} characters and no control character"
             raise ValueError(message)
         return name
 
