@@ -72,4 +72,4 @@ def after_a_game(record: TableRecord, entry: ListEntry, *ready_seats: int) -> Ta
 
 def after_the_first_game(record: TableRecord, *ready_seats: int) -> TableRecord:
     """The seated table as the thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
-    return after_a_game(record, an_entry(), *ready_seats)
+    return after_a_game(replace(record, game_list=()), an_entry(), *ready_seats)
