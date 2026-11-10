@@ -30,7 +30,7 @@ class SaveRuleSetRequest(BaseModel):
     def _name_is_a_name(cls, text: str) -> str:
         name = rule_set_name(text)
         if name is None:
-            message = f"a name has 1 to {RULE_SET_NAME_MAX} characters and no control character"
+            message = f"a name has 1 to {RULE_SET_NAME_MAX} characters and no control character or lone surrogate"
             raise ValueError(message)
         return name
 

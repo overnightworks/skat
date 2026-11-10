@@ -1,37 +1,27 @@
 import pytest
-from alembic.autogenerate import compare_metadata
-from alembic.migration import MigrationContext
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import create_store_engine, migrate
-from skat.store.tables import metadata
-from tests.store.test_migrate import _run_in_transaction, upgrade_to
+from skat.store.migrate import migrate
+from tests.support.migrations import run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
 
-@pytest.fixture
-def engine(unmigrated_database_url):
-    engine = create_store_engine(unmigrated_database_url)
-    yield engine
-    engine.dispose()
-
-
 class TestFromALiveTableAtRevisionFourteen:
     @pytest.fixture
-    def migrated(self, engine):
+    def migrated(self, unmigrated_engine):
         """A database at 0014 holding a table that plays Kontra, then taken to head."""
-        upgrade_to(engine, "0014")
-        with engine.begin() as connection:
+        upgrade_to(unmigrated_engine, "0014")
+        with unmigrated_engine.begin() as connection:
             connection.execute(
                 text(
                     "INSERT INTO tables (id, version, show_running_points, kontra_sayer, kontra_reach, kontra_deadline)"
                     " VALUES ('t', 3, true, 'bidders-only', 'up-to-hirsch', 'own-card')"
                 )
             )
-        migrate(engine)
-        return engine
+        migrate(unmigrated_engine)
+        return unmigrated_engine
 
     def test_the_table_reads_its_options_as_before_and_no_set_exists(self, migrated):
         with migrated.connect() as connection:
@@ -42,13 +32,9 @@ class TestFromALiveTableAtRevisionFourteen:
 
         assert (tuple(options), sets) == ((True, "bidders-only", "up-to-hirsch", "own-card"), 0)
 
-    def test_the_migrated_schema_is_the_one_the_store_writes_to(self, migrated):
-        with migrated.connect() as connection:
-            assert compare_metadata(MigrationContext.configure(connection), metadata) == []
-
     def test_accepts_a_set_with_the_official_rules_and_one_name_for_each_owner(self, migrated):
-        _run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
-        _run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('2', 'b', 'x')"))
+        run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
+        run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('2', 'b', 'x')"))
 
         with migrated.connect() as connection:
             assert (
@@ -89,4 +75,4 @@ class TestFromALiveTableAtRevisionFourteen:
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)

@@ -42,8 +42,8 @@ class RuleSet:
 
 
 def rule_set_name(text: str) -> str | None:
-    """The name a set is saved under: stripped, in Unicode NFC, 1 to 40 characters with no control character; None
-    when the text is no name.
+    """The name a set is saved under: stripped, in Unicode NFC, 1 to 40 characters with no control character or lone
+    surrogate; None when the text is no name.
     """
     name = unicodedata.normalize("NFC", text.strip())
     if not 1 <= len(name) <= RULE_SET_NAME_MAX or any(unicodedata.category(each) in {"Cc", "Cs"} for each in name):

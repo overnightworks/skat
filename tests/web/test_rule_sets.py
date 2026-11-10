@@ -158,7 +158,7 @@ class TestOwnership:
             LOGOUT_PATH,
             headers={"origin": TEST_PUBLIC_ORIGIN, "content-type": "application/x-www-form-urlencoded", **first},
         )
-        assert signed_out.status_code == 200
+        assert (signed_out.status_code, read(skat, first).status_code) == (200, 401)
 
         second, _ = skat.member(account)
 
