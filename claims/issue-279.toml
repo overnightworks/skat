@@ -1,8 +1,0 @@
-claim_id = "30cc4f48f1bf47c5b903c0527c0b07a4"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "07522feb679d255c222fbbc0113af838b7032afe"
-branch = "claude/issue-279-call-greeting"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/callFrame.test.ts", "frontend/src/lib/callFrame.ts", "frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "scripts/generate_wire.py", "src/skat/host/app.py", "src/skat/web/call.py", "src/skat/web/mcp.py", "src/skat/web/settings.py", "tests/e2e/support/call_frame.py", "tests/e2e/test_call_greeting.py", "tests/scripts/test_generate_wire.py", "tests/web/test_call.py"]
-opened_commit = "882d2bf8f43da8d3724a4e4af4b21ad4132ffd77"
-whole_reason = "The route and the greeting are one path: the route has no caller without the greeting, and the greeting cannot name its target without the route."
