@@ -717,26 +717,20 @@ class TestRunningPoints:
 
         assert [body["hand"]["playing"]["running_points"] for body in reads] == [expected, expected]
 
-    def test_a_hand_game_s_points_leave_out_the_skat(self, table):
+    @pytest.mark.parametrize(
+        ("game", "script", "trick_takers"),
+        [(GameToken.HERZ, HERZ_GAME, HERZ_TAKERS), (GameToken.GRAND, GRAND_GAME, GRAND_TAKERS)],
+        ids=["suit", "grand"],
+    )
+    def test_a_hand_game_s_points_leave_out_the_skat(self, table, game, script, trick_takers):
         switched_on(table)
-        herz_hand_game(table)
-        table.played_out(HERZ_GAME[:27])
+        table.declared_hand_game(game)
+        table.played_out(script[:27])
 
         shown = message_body(read(table, table.watcher))["hand"]["playing"]["running_points"]
 
-        assert shown == points_of_completed_tricks(HERZ_GAME, HERZ_TAKERS, 9)
-        assert sum(shown.values()) + sum(each.points for each in HERZ_GAME[27:]) == ALL_POINTS - sum(
-            each.points for each in SKAT_CARDS
-        )
-
-    def test_a_grand_game_shows_its_points_too(self, table):
-        switched_on(table)
-        table.declared_hand_game(GameToken.GRAND)
-        table.played_out(GRAND_GAME[:6])
-
-        shown = message_body(read(table, table.watcher))["hand"]["playing"]["running_points"]
-
-        assert shown == points_of_completed_tricks(GRAND_GAME, GRAND_TAKERS, 2)
+        assert shown == points_of_completed_tricks(script, trick_takers, 9)
+        assert sum(shown.values()) + sum(each.points for each in script[27:] + SKAT_CARDS) == ALL_POINTS
 
     @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
     def test_a_null_game_shows_none_with_the_switch_on(self, table, viewer):
