@@ -3053,8 +3053,9 @@ body {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.08); /* NOSONAR(S7924) 8.4:1 ended, 10.8:1 missing */
-    color: #f0d696;
+    background: rgba(255, 255, 255, 0.08);
+    /* Measured on the page: 8.45:1 ended, 10.84:1 missing. Sonar lays the tint over white, the page over the panel. */
+    color: #f0d696; /* NOSONAR(S7924) */
     box-shadow: inset 0 0 0 1.5px rgba(240, 214, 150, 0.45);
 }
 
