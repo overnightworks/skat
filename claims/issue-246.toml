@@ -1,0 +1,8 @@
+claim_id = "718ac6c5c4654ed0878fbbb38a795f01"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "07522feb679d255c222fbbc0113af838b7032afe"
+branch = "claude/issue-246-flaky-tests-and-follow-ups"
+scope = ["frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/NewTableButton.svelte", "scripts/generate_wire.py", "tests/e2e/support/hands.py", "tests/e2e/test_table_ouvert.py", "tests/e2e/test_table_restart.py", "tests/e2e/test_tables.py", "tests/scripts/test_generate_wire.py", "tests/store/test_tables.py", "tests/support/table_rows.py", "tests/web/support/series.py", "tests/web/test_tables_series.py"]
+opened_commit = "711146601c5970a02a81e6e6ff180a83a313d657"
+whole_reason = "Nine small follow-ups of one lane's reviews and tests, each a few lines, collected so they cost one lane."
