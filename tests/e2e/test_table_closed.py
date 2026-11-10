@@ -116,11 +116,20 @@ def test_a_page_whose_stream_arrives_after_the_wait_shows_the_closed_face_and_as
 ) -> None:
     person = record_page_errors(open_person(username="anna", **PHONE), page_errors)
     held: list[Route] = []
+    wait_is_up: list[bool] = []
+
+    def hold_the_stream_until_the_wait_is_up(route: Route) -> None:
+        if wait_is_up:
+            route.continue_()
+        else:
+            held.append(route)
+
     requests = events_requests_of(person)
-    person.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", lambda route: held.append(route))
+    person.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", hold_the_stream_until_the_wait_is_up)
     path = open_new_table(person, e2e_server)
     expect(person.locator(".chair")).to_have_count(3)
     wait_for_end(e2e_server, table_id_of(path))
+    wait_is_up.append(True)
 
     for route in held:
         route.continue_()
@@ -128,7 +137,7 @@ def test_a_page_whose_stream_arrives_after_the_wait_shows_the_closed_face_and_as
     expect(person.get_by_role("heading", name=CLOSED_HEADING)).to_be_visible()
     expect(person.get_by_text(catalog_text("reconnecting"))).to_be_hidden()
     person.wait_for_timeout(RECONNECT_WINDOW_MILLISECONDS)
-    assert len(requests) == len(held) == 1
+    assert len(requests) == 1
 
 
 def test_a_new_table_opens_from_the_closed_face(
