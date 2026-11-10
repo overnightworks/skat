@@ -1,8 +1,0 @@
-claim_id = "9f2c728320ee49c2aaeb66dec99afec7"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "64ff4f8bf3dcd27597b0290f2c50a0baa001ed33"
-branch = "claude/issue-252-new-series"
-scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/store/tables.py", "src/skat/table/ready.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/mcp.py", "src/skat/web/ready.py", "tests/store/test_tables_series.py", "tests/table/test_ready.py", "tests/table/test_rules.py", "tests/web/support/series.py", "tests/web/test_ready_new_series.py", "tests/web/test_tables.py", "tests/web/test_tables_series.py"]
-opened_commit = "27e26044c08887836a8cf211c3400b0d93a29f90"
-whole_reason = "The tap, the deal that deletes the list and counts one, the store's deletion and the route's exclusion are one path: a mark nothing deals on is dead, a deal step that empties a list the store refuses fails, and an undecided route stops the build."
