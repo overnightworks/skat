@@ -224,7 +224,7 @@ class TestWhatEachViewerSees:
         seats = seats_from(table.dealer)
 
         for viewer in (frozenset({FOREHAND}), frozenset({MIDDLEHAND}), frozenset({REARHAND}), frozenset()):
-            view = kontra_view_of(table, playing_of(table), viewer)
+            view = kontra_view_of(table, playing_of(table), table.dealer, viewer)
 
             assert [(each.seat, each.word) for each in view.said] == [
                 (seats[FOREHAND], KONTRA),
@@ -252,16 +252,17 @@ class TestWhatEachViewerSees:
         table = with_words(kontra_table(), *words)
 
         mine = {
-            position: kontra_view_of(table, playing_of(table), frozenset({position})).my_word for position in expected
+            position: kontra_view_of(table, playing_of(table), table.dealer, frozenset({position})).my_word
+            for position in expected
         }
 
         assert mine == expected
-        assert kontra_view_of(table, playing_of(table), frozenset()).my_word is None
+        assert kontra_view_of(table, playing_of(table), table.dealer, frozenset()).my_word is None
 
     def test_a_table_without_kontra_has_no_view(self):
         table = kontra_table(options=TableOptions())
 
-        assert kontra_view_of(table, playing_of(table), frozenset({FOREHAND})) is None
+        assert kontra_view_of(table, playing_of(table), table.dealer, frozenset({FOREHAND})) is None
 
 
 class TestTheEntryOfADoubledGame:

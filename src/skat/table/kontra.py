@@ -69,7 +69,9 @@ def decide_kontra(table: TableRecord, actor: Actor, command: KontraCommand) -> D
     return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, words=words)))
 
 
-def kontra_view_of(table: TableRecord, state: Playing, viewer_positions: frozenset[Position]) -> KontraView | None:
+def kontra_view_of(
+    table: TableRecord, state: Playing, dealer: int, viewer_positions: frozenset[Position]
+) -> KontraView | None:
     """The words for one viewer; None at a table without Kontra.
 
     The viewer's own chair gets the word it may say now: the next word, if the engine accepts it from that position.
@@ -83,7 +85,7 @@ def kontra_view_of(table: TableRecord, state: Playing, viewer_positions: frozens
     may_say = next_word is not None and any(
         say(doubling, options, state, bidders, position, next_word).refusal is None for position in viewer_positions
     )
-    seats = seats_from(table.dealer)
+    seats = seats_from(dealer)
     return KontraView(
         said=tuple(SeatedWord(seats[each.position], each.word) for each in table.progress.words),
         factor=doubling.factor,

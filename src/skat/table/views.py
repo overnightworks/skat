@@ -143,7 +143,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
             table.dealer,
             viewer_positions,
             show_running_points=table.options.show_running_points,
-            kontra=None if playing is None else kontra_view_of(table, playing, viewer_positions),
+            kontra=None if playing is None else kontra_view_of(table, playing, table.dealer, viewer_positions),
         ),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}

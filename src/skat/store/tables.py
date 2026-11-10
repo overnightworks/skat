@@ -46,7 +46,6 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
 
-    from sqlalchemy import Row
     from sqlalchemy.engine import Connection, Engine
 
 __all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
@@ -89,13 +88,11 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
-def _kontra_options_of(table: Row[tuple[object, ...]]) -> KontraOptions | None:
+def _kontra_options_of(sayer: str | None, reach: str | None, deadline: str | None) -> KontraOptions | None:
     """The table's Kontra options; its three columns are all set or all null."""
-    if table.kontra_sayer is None:
+    if sayer is None or reach is None or deadline is None:
         return None
-    return KontraOptions(
-        KontraSayer(table.kontra_sayer), KontraReach(table.kontra_reach), KontraDeadline(table.kontra_deadline)
-    )
+    return KontraOptions(KontraSayer(sayer), KontraReach(reach), KontraDeadline(deadline))
 
 
 def _table_record(
@@ -146,7 +143,10 @@ def _table_record(
         ),
         game_list=read_game_list(connection, table_id),
         series=None if table.series_length is None else Series(table.series_length, table.series_deals),
-        options=TableOptions(show_running_points=table.show_running_points, kontra=_kontra_options_of(table)),
+        options=TableOptions(
+            show_running_points=table.show_running_points,
+            kontra=_kontra_options_of(table.kontra_sayer, table.kontra_reach, table.kontra_deadline),
+        ),
     )
 
 
