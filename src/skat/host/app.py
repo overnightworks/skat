@@ -36,6 +36,7 @@ from skat.web.constants import (
 from skat.web.declaring import create_declaring_router
 from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
+from skat.web.kontra import create_kontra_router
 from skat.web.mcp import McpAccess, mount_mcp
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
@@ -159,6 +160,7 @@ def _include_table_sub_routers(app: FastAPI, tables: TableService, presence: Pre
     app.include_router(create_auction_router(tables, presence))
     app.include_router(create_declaring_router(tables, presence))
     app.include_router(create_playing_router(tables, presence))
+    app.include_router(create_kontra_router(tables, presence))
     app.include_router(create_ready_router(tables, presence))
     app.include_router(create_series_end_router(tables, presence))
     app.include_router(create_game_list_router(tables))

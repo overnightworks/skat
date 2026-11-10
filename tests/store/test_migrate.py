@@ -22,6 +22,7 @@ STORE_TABLES = {
     "declaring_steps",
     "played_cards",
     "game_list",
+    "kontra_words",
 }
 
 
@@ -694,11 +695,88 @@ class TestFromALiveAndAnEndedTableAtRevisionTwelve:
             _run_in_transaction(migrated, refused)
 
 
-class TestFromASeriesTableAndASeriesLessTableAtRevisionThirteen:
+class TestFromALiveTableAndAGameAtRevisionThirteen:
     @pytest.fixture
     def migrated(self, engine):
-        """A database at 0013 holding a table with a series and one without, then taken to head."""
+        """A database at 0013 holding a table in play and a game list row, then taken to head."""
         upgrade_to(engine, "0013")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
+            connection.execute(text(_list_row()))
+        migrate(engine)
+        return engine
+
+    def test_the_table_plays_without_kontra_and_the_row_names_no_word(self, migrated):
+        with migrated.connect() as connection:
+            options = connection.execute(text("SELECT kontra_sayer, kontra_reach, kontra_deadline FROM tables")).one()
+            word = connection.execute(text("SELECT kontra_word FROM game_list")).scalar_one()
+
+        assert (tuple(options), word) == ((None, None, None), None)
+
+    def test_the_migrated_schema_is_the_one_the_store_writes_to(self, migrated):
+        with migrated.connect() as connection:
+            assert compare_metadata(MigrationContext.configure(connection), metadata) == []
+
+    def test_accepts_the_three_options_and_a_word_of_the_hand(self, migrated):
+        _run_in_transaction(
+            migrated,
+            text(
+                "UPDATE tables SET kontra_sayer = 'bidders-only', kontra_reach = 'up-to-hirsch',"
+                " kontra_deadline = 'own-card'"
+            ),
+        )
+        _run_in_transaction(migrated, text("INSERT INTO kontra_words VALUES ('t', 1, 'forehand', 'kontra', 0)"))
+        _run_in_transaction(migrated, text("UPDATE game_list SET kontra_word = 'hirsch'"))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM kontra_words")).scalar_one() == 1
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("UPDATE tables SET kontra_sayer = 'any-opponent'", id="one-option-alone"),
+            pytest.param(
+                "UPDATE tables SET kontra_sayer = 'any-opponent', kontra_reach = 'kontra-re'", id="two-options-alone"
+            ),
+            pytest.param(
+                "UPDATE tables SET kontra_sayer = 'anyone', kontra_reach = 'kontra-re', kontra_deadline = 'own-card'",
+                id="unknown-sayer",
+            ),
+            pytest.param(
+                "UPDATE tables SET kontra_sayer = 'any-opponent', kontra_reach = 'all', kontra_deadline = 'own-card'",
+                id="unknown-reach",
+            ),
+            pytest.param(
+                "UPDATE tables SET kontra_sayer = 'any-opponent', kontra_reach = 'kontra-re',"
+                " kontra_deadline = 'never'",
+                id="unknown-deadline",
+            ),
+            pytest.param("UPDATE game_list SET kontra_word = 'bock'", id="unknown-list-word"),
+            pytest.param("INSERT INTO kontra_words VALUES ('t', 1, 'dealer', 'kontra', 0)", id="unknown-position"),
+            pytest.param("INSERT INTO kontra_words VALUES ('t', 1, 'forehand', 'bock', 0)", id="unknown-word"),
+            pytest.param("INSERT INTO kontra_words VALUES ('t', 0, 'forehand', 'kontra', 0)", id="ordinal-below-one"),
+            pytest.param("INSERT INTO kontra_words VALUES ('t', 5, 'forehand', 'kontra', 0)", id="ordinal-above-four"),
+            pytest.param(
+                "INSERT INTO kontra_words VALUES ('t', 1, 'forehand', 'kontra', 30)", id="after-the-last-card"
+            ),
+            pytest.param(
+                "INSERT INTO kontra_words VALUES ('t', 1, 'forehand', 'kontra', -1)", id="before-the-first-card"
+            ),
+            pytest.param("INSERT INTO kontra_words VALUES ('gone', 1, 'forehand', 'kontra', 0)", id="unknown-table"),
+        ],
+    )
+    def test_the_checks_refuse_what_is_no_kontra_option_or_word(self, migrated, statement):
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)
+
+
+class TestFromASeriesTableAndASeriesLessTableAtRevisionFourteen:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0014 holding a table with a series and one without, then taken to head."""
+        upgrade_to(engine, "0014")
         with engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('plain', 1, 2)"))
             connection.execute(

@@ -66,6 +66,12 @@ def create_payload(command: CreateTable) -> str:
     members = [] if command.series_length is None else [f'"series_length":{command.series_length}']
     if command.options.show_running_points:
         members.append('"show_running_points":true')
+    kontra = command.options.kontra
+    if kontra is not None:
+        members.append(
+            f'"kontra":{{"sayer":"{kontra.sayer.value}","reach":"{kontra.reach.value}",'
+            f'"deadline":"{kontra.deadline.value}"}}'
+        )
     return "{" + ",".join(members) + "}"
 
 
