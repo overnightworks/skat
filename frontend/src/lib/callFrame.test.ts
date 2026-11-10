@@ -55,6 +55,7 @@ describe("isHello", () => {
         { name: "a missing v", data: { type: "hello", attachment: 1, attempt: null }, expected: false },
         { name: "a missing attempt", data: { v: 1, type: "hello", attachment: 1 }, expected: false },
         { name: "an extra key", data: { ...VALID_HELLO, extra: 1 }, expected: false },
+        { name: "a misnamed key", data: { v: 1, type: "hello", attachment: 1, attempts: null }, expected: false },
         {
             name: "an extra field of a megabyte",
             data: { ...VALID_HELLO, extra: "x".repeat(1_000_000) },
@@ -207,10 +208,13 @@ describe("greetCall", () => {
     ])("posts no ready for an id that is $name", async ({ id }) => {
         const call = fakeCall();
 
-        greetCall(id, call.host, () => undefined);
-        await settled();
+        const onGreeted = vi.fn();
 
-        expect(call.posts).toEqual([]);
+        greetCall(id, call.host, onGreeted);
+        await settled();
+        call.deliver(hello());
+
+        expect([call.posts, onGreeted.mock.calls.length]).toEqual([[], 0]);
     });
 
     it("calls onGreeted once for the first valid hello and removes its listener", async () => {

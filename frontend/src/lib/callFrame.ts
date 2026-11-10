@@ -89,7 +89,8 @@ export function greetCall(tableId: string, host: CallHost, onGreeted: () => void
         stopListening = null;
     };
     stopListening = host.listen((event) => {
-        // The origin check also holds the phase: until the ready is posted callOrigin is null, which no event origin equals.
+        // The origin check also holds the phase:
+        // until the ready is posted callOrigin is null, which no event origin equals.
         if (event.source !== host.parent || event.origin !== callOrigin || !isHello(event.data)) {
             return;
         }

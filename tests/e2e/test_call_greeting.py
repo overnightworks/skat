@@ -5,7 +5,6 @@ import pytest
 from playwright.sync_api import expect
 
 from skat.web.call import CALL_ORIGIN_PATH
-from skat.web.tables import TABLE_PAGE_PREFIX
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
     CHAIR,
@@ -20,6 +19,7 @@ from tests.e2e.support.call_frame import (
     table_url,
 )
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.tables import table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -63,10 +63,6 @@ def messages_of_the_frame(visitor: Page) -> list[Any]:
 
 def wait_for_ready(visitor: Page) -> None:
     visitor.wait_for_function(f"{RECORDED_MESSAGES} >= 1")
-
-
-def table_id_of(path: str) -> str:
-    return path.removeprefix(TABLE_PAGE_PREFIX)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
