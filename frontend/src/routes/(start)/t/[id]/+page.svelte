@@ -27,7 +27,7 @@
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { words } from "#lib/words.ts";
-    import NewTableButton from "../../NewTableButton.svelte";
+    import TableClosed from "./TableClosed.svelte";
     import {
         bidValueWhileDeclaring,
         copyTableLink,
@@ -82,7 +82,7 @@
         void readTable(id).then((answer) => {
             if (!current) return;
             outcome = answer;
-            if (answer.kind === "table") {
+            if (answer.kind === "table" && answer.table.ended === null) {
                 let shown = answer.table;
                 const show = (table: Table): void => {
                     showTable(shown, table);
@@ -204,7 +204,7 @@
     </svg>
     <header class="bar" class:stale={!connected}>
         <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
-        {#if outcome?.kind === "table"}
+        {#if outcome?.kind === "table" && outcome.table.ended === null}
             <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
                 <svg
                     viewBox="0 0 24 24"
@@ -223,7 +223,9 @@
         {/if}
     </header>
     <main class="stage" class:stale={!connected}>
-        {#if outcome?.kind === "table"}
+        {#if outcome?.kind === "table" && outcome.table.ended !== null}
+            <TableClosed ended={outcome.table.ended} />
+        {:else if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
             <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
             {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
@@ -607,10 +609,7 @@
                 </p>
             {/if}
         {:else if outcome?.kind === "missing"}
-            <section class="panel">
-                <h1>{words.tableNotFound}</h1>
-                <NewTableButton />
-            </section>
+            <TableClosed ended={null} />
         {:else if outcome?.kind === "failed"}
             <section class="panel" role="alert">
                 <h1>{words.tableLoadFailed}</h1>

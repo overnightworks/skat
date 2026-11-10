@@ -1,5 +1,5 @@
 import { words } from "#lib/words.ts";
-import type { Ended } from "../routes/(start)/tables.ts";
+import type { EndReason, Ended } from "../routes/(start)/tables.ts";
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -10,10 +10,11 @@ function waitWords(seconds: number): string {
     return `${String(minutes)} ${minutes === 1 ? words.minute : words.minutes}`;
 }
 
-// The heading of an ended table's face; a reason that is added to the wire has to add its words here.
+// Each reason names its own heading; a reason added to the wire has to add its words here.
+const HEADINGS: Record<EndReason, (ended: Ended) => string> = {
+    empty: (ended) => `${waitWords(ended.empty_seconds)} ${words.nobodyThereClosed}`,
+};
+
 export function closedWords(ended: Ended): string {
-    switch (ended.reason) {
-        case "empty":
-            return `${waitWords(ended.empty_seconds)} ${words.nobodyThereClosed}`;
-    }
+    return HEADINGS[ended.reason](ended);
 }

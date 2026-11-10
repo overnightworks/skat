@@ -296,7 +296,9 @@ describe("watchTable after a stream error", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
         watchTable(TABLE_ID, onTable, onConnection);
-        FakeEventSource.last.onmessage?.({ data: JSON.stringify({ id: TABLE_ID, ended: null }) } as MessageEvent<string>);
+        FakeEventSource.last.onmessage?.({
+            data: JSON.stringify({ id: TABLE_ID, ended: null }),
+        } as MessageEvent<string>);
 
         expect(FakeEventSource.last.url).toContain(TABLES_PATH);
         expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID, ended: null });
