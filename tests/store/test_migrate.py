@@ -1,15 +1,14 @@
 import threading
 
 import pytest
-from alembic import command
 from alembic.autogenerate import compare_metadata
-from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import MIGRATIONS_DIRECTORY, DatabaseNotAtHeadError, create_store_engine, migrate, require_head
+from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate, require_head
 from skat.store.tables import metadata
+from tests.support.migrations import list_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
@@ -54,11 +53,6 @@ def engine(unmigrated_database_url):
     engine = create_store_engine(unmigrated_database_url)
     yield engine
     engine.dispose()
-
-
-def _run_in_transaction(engine, statement):
-    with engine.begin() as connection:
-        connection.execute(statement)
 
 
 def table_names(engine):
@@ -108,7 +102,7 @@ def test_the_migrated_schema_refuses_a_dealer_or_a_card_outside_the_game(engine,
 
     refused = text(statement)
     with pytest.raises(IntegrityError):
-        _run_in_transaction(engine, refused)
+        run_in_transaction(engine, refused)
 
 
 def test_the_migrated_schema_holds_each_card_once_per_table(engine):
@@ -119,7 +113,7 @@ def test_the_migrated_schema_holds_each_card_once_per_table(engine):
 
     refused = text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'forehand')")
     with pytest.raises(IntegrityError):
-        _run_in_transaction(engine, refused)
+        run_in_transaction(engine, refused)
 
 
 def test_two_migrations_at_once_serialise_and_both_succeed(unmigrated_database_url):
@@ -147,14 +141,6 @@ def test_two_migrations_at_once_serialise_and_both_succeed(unmigrated_database_u
         engine.dispose()
 
 
-def upgrade_to(engine, revision):
-    config = Config()
-    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
-    with engine.connect() as connection:
-        config.attributes["connection"] = connection
-        command.upgrade(config, revision)
-
-
 class TestFromAHandAtRevisionThree:
     @pytest.fixture
     def migrated(self, engine):
@@ -175,7 +161,7 @@ class TestFromAHandAtRevisionThree:
         assert table_names(migrated) == STORE_TABLES
 
     def test_accepts_a_bid_with_its_value(self, migrated):
-        _run_in_transaction(migrated, text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
+        run_in_transaction(migrated, text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM auction_actions")).scalar_one() == 1
@@ -198,14 +184,14 @@ class TestFromAHandAtRevisionThree:
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
     def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
-        _run_in_transaction(migrated, text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
+        run_in_transaction(migrated, text("INSERT INTO auction_actions VALUES ('t', 1, 'middlehand', 'bid', 18)"))
         duplicate = text("INSERT INTO auction_actions VALUES ('t', 1, 'forehand', 'hold', NULL)")
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, duplicate)
+            run_in_transaction(migrated, duplicate)
 
 
 class TestFromAHandAtRevisionFour:
@@ -245,7 +231,7 @@ class TestFromAHandAtRevisionFour:
         ],
     )
     def test_accepts_each_kind_of_step(self, migrated, statement):
-        _run_in_transaction(migrated, text(statement))
+        run_in_transaction(migrated, text(statement))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM declaring_steps")).scalar_one() == 1
@@ -302,14 +288,14 @@ class TestFromAHandAtRevisionFour:
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
     def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
-        _run_in_transaction(migrated, text(TAKE_ROW))
+        run_in_transaction(migrated, text(TAKE_ROW))
         duplicate = text(TAKE_ROW)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, duplicate)
+            run_in_transaction(migrated, duplicate)
 
 
 def _played_row(*, table_id="'t'", ordinal=1, position="'forehand'", suit="'hearts'", rank="'ace'"):
@@ -346,7 +332,7 @@ class TestFromAHandAtRevisionFive:
         ],
     )
     def test_accepts_a_played_card(self, migrated, statement):
-        _run_in_transaction(migrated, text(statement))
+        run_in_transaction(migrated, text(statement))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM played_cards")).scalar_one() == 1
@@ -366,49 +352,21 @@ class TestFromAHandAtRevisionFive:
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
     def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
-        _run_in_transaction(migrated, text(_played_row()))
+        run_in_transaction(migrated, text(_played_row()))
         duplicate = text(_played_row(position="'middlehand'", suit="'spades'", rank="'seven'"))
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, duplicate)
+            run_in_transaction(migrated, duplicate)
 
     def test_the_schema_holds_each_card_once_per_table(self, migrated):
-        _run_in_transaction(migrated, text(_played_row()))
+        run_in_transaction(migrated, text(_played_row()))
         duplicate = text(_played_row(ordinal=2, position="'middlehand'"))
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, duplicate)
-
-
-def _list_row(**changed):
-    columns = {
-        "table_id": "'t'",
-        "ordinal": 1,
-        "seat_1_account": "'account-anna'",
-        "seat_2_account": "'account-ben'",
-        "seat_3_account": "'account-cleo'",
-        "declarer_seat": 1,
-        "game": "'kreuz'",
-        "hand": "false",
-        "ouvert": "false",
-        "announcement": "'none'",
-        "schneider": "true",
-        "schwarz": "false",
-        "matadors_mit": "true",
-        "matadors_count": 2,
-        "won": "true",
-        "bid": 18,
-        "game_value": 48,
-        "settled_value": 48,
-        "score": 48,
-        "declarer_points": 95,
-        **changed,
-    }
-    names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
-    return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
+            run_in_transaction(migrated, duplicate)
 
 
 class TestFromAPlayedCardAtRevisionSix:
@@ -434,17 +392,17 @@ class TestFromAPlayedCardAtRevisionSix:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param(_list_row(), id="kreuz-mit-2-schneider"),
+            pytest.param(list_row(), id="kreuz-mit-2-schneider"),
             pytest.param(
-                _list_row(game="'null'", matadors_mit="NULL", matadors_count="NULL", schneider="false"), id="null"
+                list_row(game="'null'", matadors_mit="NULL", matadors_count="NULL", schneider="false"), id="null"
             ),
             pytest.param(
-                _list_row(game="'karo'", won="false", bid=20, game_value=18, settled_value=27, score=-54), id="overbid"
+                list_row(game="'karo'", won="false", bid=20, game_value=18, settled_value=27, score=-54), id="overbid"
             ),
         ],
     )
     def test_accepts_a_list_entry(self, migrated, statement):
-        _run_in_transaction(migrated, text(statement))
+        run_in_transaction(migrated, text(statement))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM game_list")).scalar_one() == 1
@@ -452,32 +410,32 @@ class TestFromAPlayedCardAtRevisionSix:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param(_list_row(ordinal=0), id="ordinal-below-the-first"),
-            pytest.param(_list_row(declarer_seat=4), id="no-seat"),
-            pytest.param(_list_row(game="'lila'"), id="unknown-game"),
-            pytest.param(_list_row(announcement="'maybe'"), id="unknown-announcement"),
-            pytest.param(_list_row(matadors_mit="NULL", matadors_count="NULL"), id="no-matadors-outside-null"),
-            pytest.param(_list_row(game="'null'"), id="matadors-in-null"),
-            pytest.param(_list_row(matadors_count="NULL"), id="matadors-without-a-count"),
-            pytest.param(_list_row(matadors_count=12), id="more-matadors-than-trumps"),
-            pytest.param(_list_row(bid=17), id="no-bid"),
-            pytest.param(_list_row(declarer_points=121), id="more-than-all-card-points"),
-            pytest.param(_list_row(seat_2_account="NULL"), id="a-seat-without-its-account"),
-            pytest.param(_list_row(table_id="'gone'"), id="unknown-table"),
+            pytest.param(list_row(ordinal=0), id="ordinal-below-the-first"),
+            pytest.param(list_row(declarer_seat=4), id="no-seat"),
+            pytest.param(list_row(game="'lila'"), id="unknown-game"),
+            pytest.param(list_row(announcement="'maybe'"), id="unknown-announcement"),
+            pytest.param(list_row(matadors_mit="NULL", matadors_count="NULL"), id="no-matadors-outside-null"),
+            pytest.param(list_row(game="'null'"), id="matadors-in-null"),
+            pytest.param(list_row(matadors_count="NULL"), id="matadors-without-a-count"),
+            pytest.param(list_row(matadors_count=12), id="more-matadors-than-trumps"),
+            pytest.param(list_row(bid=17), id="no-bid"),
+            pytest.param(list_row(declarer_points=121), id="more-than-all-card-points"),
+            pytest.param(list_row(seat_2_account="NULL"), id="a-seat-without-its-account"),
+            pytest.param(list_row(table_id="'gone'"), id="unknown-table"),
         ],
     )
     def test_the_checks_refuse_a_row_that_is_no_list_entry(self, migrated, statement):
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
     def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
-        _run_in_transaction(migrated, text(_list_row()))
-        duplicate = text(_list_row(score=-96))
+        run_in_transaction(migrated, text(list_row()))
+        duplicate = text(list_row(score=-96))
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, duplicate)
+            run_in_transaction(migrated, duplicate)
 
 
 class TestFromChairsAtRevisionSeven:
@@ -496,7 +454,7 @@ class TestFromChairsAtRevisionSeven:
             assert connection.execute(text("SELECT ready FROM chairs ORDER BY seat")).scalars().all() == [False, False]
 
     def test_an_occupied_chair_may_be_ready(self, migrated):
-        _run_in_transaction(migrated, text("UPDATE chairs SET ready = true WHERE seat = 1"))
+        run_in_transaction(migrated, text("UPDATE chairs SET ready = true WHERE seat = 1"))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM chairs WHERE ready")).scalar_one() == 1
@@ -505,7 +463,7 @@ class TestFromChairsAtRevisionSeven:
         refused = text("UPDATE chairs SET ready = true WHERE seat = 2")
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
 
 class TestRequireHead:
@@ -544,7 +502,7 @@ class TestFromATableAtRevisionEight:
         assert tuple(row) == (None, None, None)
 
     def test_accepts_an_end_with_its_time_reason_and_wait(self, migrated):
-        _run_in_transaction(
+        run_in_transaction(
             migrated, text("UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 1800")
         )
 
@@ -570,7 +528,7 @@ class TestFromATableAtRevisionEight:
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
 
 class TestFromADealtTableAtRevisionNine:
@@ -590,7 +548,7 @@ class TestFromADealtTableAtRevisionNine:
         assert tuple(row) == (None, None)
 
     def test_accepts_a_series_with_its_deals(self, migrated):
-        _run_in_transaction(migrated, text("UPDATE tables SET series_length = 36, series_deals = 36"))
+        run_in_transaction(migrated, text("UPDATE tables SET series_length = 36, series_deals = 36"))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM tables WHERE series_deals = 36")).scalar_one() == 1
@@ -611,7 +569,7 @@ class TestFromADealtTableAtRevisionNine:
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
 
 class TestFromAGameListRowAtRevisionTen:
@@ -621,7 +579,7 @@ class TestFromAGameListRowAtRevisionTen:
         upgrade_to(engine, "0010")
         with engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
-            connection.execute(text(_list_row()))
+            connection.execute(text(list_row()))
         migrate(engine)
         return engine
 
@@ -649,8 +607,8 @@ class TestFromALiveTableAtRevisionEleven:
             assert connection.execute(text("SELECT empty_since FROM tables")).scalar_one() is None
 
     def test_stores_a_time_on_a_live_and_on_an_ended_table(self, migrated):
-        _run_in_transaction(migrated, text("UPDATE tables SET empty_since = now()"))
-        _run_in_transaction(
+        run_in_transaction(migrated, text("UPDATE tables SET empty_since = now()"))
+        run_in_transaction(
             migrated, text("UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 1800")
         )
 
@@ -683,7 +641,7 @@ class TestFromALiveAndAnEndedTableAtRevisionTwelve:
         assert [tuple(row) for row in rows] == [("ended", False), ("live", False)]
 
     def test_accepts_the_switch_on(self, migrated):
-        _run_in_transaction(migrated, text("UPDATE tables SET show_running_points = true WHERE id = 'live'"))
+        run_in_transaction(migrated, text("UPDATE tables SET show_running_points = true WHERE id = 'live'"))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT show_running_points FROM tables WHERE id = 'live'")).scalar_one()
@@ -692,7 +650,7 @@ class TestFromALiveAndAnEndedTableAtRevisionTwelve:
         refused = text("UPDATE tables SET show_running_points = NULL")
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
 
 
 class TestFromALiveTableAndAGameAtRevisionThirteen:
@@ -702,7 +660,7 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
         upgrade_to(engine, "0013")
         with engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
-            connection.execute(text(_list_row()))
+            connection.execute(text(list_row()))
         migrate(engine)
         return engine
 
@@ -718,15 +676,15 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
             assert compare_metadata(MigrationContext.configure(connection), metadata) == []
 
     def test_accepts_the_three_options_and_a_word_of_the_hand(self, migrated):
-        _run_in_transaction(
+        run_in_transaction(
             migrated,
             text(
                 "UPDATE tables SET kontra_sayer = 'bidders-only', kontra_reach = 'up-to-hirsch',"
                 " kontra_deadline = 'own-card'"
             ),
         )
-        _run_in_transaction(migrated, text("INSERT INTO kontra_words VALUES ('t', 1, 'forehand', 'kontra', 0)"))
-        _run_in_transaction(migrated, text("UPDATE game_list SET kontra_word = 'hirsch'"))
+        run_in_transaction(migrated, text("INSERT INTO kontra_words VALUES ('t', 1, 'forehand', 'kontra', 0)"))
+        run_in_transaction(migrated, text("UPDATE game_list SET kontra_word = 'hirsch'"))
 
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM kontra_words")).scalar_one() == 1
@@ -769,78 +727,4 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
-
-
-class TestFromALiveTableAndAGameAtRevisionFourteen:
-    @pytest.fixture
-    def migrated(self, engine):
-        """A database at 0014 holding a table in play and a game list row, then taken to head."""
-        upgrade_to(engine, "0014")
-        with engine.begin() as connection:
-            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
-            connection.execute(text(_list_row()))
-        migrate(engine)
-        return engine
-
-    def test_the_table_plays_without_bock_and_holds_no_pending_game_and_the_old_row_has_factor_1(self, migrated):
-        with migrated.connect() as connection:
-            options = connection.execute(text("SELECT bock_triggers, bock_overlap, bock_rounds FROM tables")).one()
-            factor = connection.execute(text("SELECT bock_factor FROM game_list")).scalar_one()
-
-        assert (tuple(options), factor) == ((None, None, []), 1)
-
-    def test_the_migrated_schema_is_the_one_the_store_writes_to(self, migrated):
-        with migrated.connect() as connection:
-            assert compare_metadata(MigrationContext.configure(connection), metadata) == []
-
-    def test_accepts_the_options_the_pending_games_and_a_factor_with_a_score_beyond_a_smallint(self, migrated):
-        _run_in_transaction(
-            migrated,
-            text(
-                "UPDATE tables SET bock_triggers = ARRAY['re', 'schwarz'], bock_overlap = 'multiply',"
-                " bock_rounds = ARRAY[1, 3]"
-            ),
-        )
-        _run_in_transaction(migrated, text("UPDATE game_list SET bock_factor = 8, score = -61440"))
-
-        with migrated.connect() as connection:
-            assert connection.execute(text("SELECT bock_rounds FROM tables")).scalar_one() == [1, 3]
-            assert connection.execute(text("SELECT score FROM game_list")).scalar_one() == -61440
-
-    @pytest.mark.parametrize(
-        "statement",
-        [
-            pytest.param("UPDATE tables SET bock_triggers = ARRAY['re']", id="triggers-without-an-overlap"),
-            pytest.param("UPDATE tables SET bock_overlap = 'append'", id="an-overlap-without-triggers"),
-            pytest.param(
-                "UPDATE tables SET bock_triggers = ARRAY[]::text[], bock_overlap = 'append'", id="no-trigger-at-all"
-            ),
-            pytest.param(
-                "UPDATE tables SET bock_triggers = ARRAY['double'], bock_overlap = 'append'", id="unknown-trigger"
-            ),
-            pytest.param("UPDATE tables SET bock_triggers = ARRAY['re'], bock_overlap = 'twice'", id="unknown-overlap"),
-            pytest.param(
-                "UPDATE tables SET bock_triggers = ARRAY['re'], bock_overlap = 'append', bock_rounds = ARRAY[0]",
-                id="a-round-with-no-game-left",
-            ),
-            pytest.param(
-                "UPDATE tables SET bock_triggers = ARRAY['re'], bock_overlap = 'append', bock_rounds = ARRAY[4]",
-                id="a-round-longer-than-three-games",
-            ),
-            pytest.param(
-                "UPDATE tables SET bock_triggers = ARRAY['re'], bock_overlap = 'append',"
-                " bock_rounds = ARRAY[2, NULL]::smallint[]",
-                id="a-round-without-a-count",
-            ),
-            pytest.param("UPDATE tables SET bock_rounds = ARRAY[3]", id="pending-games-at-a-table-without-bock"),
-            pytest.param("UPDATE tables SET bock_rounds = NULL", id="no-pending-list"),
-            pytest.param("UPDATE game_list SET bock_factor = 0", id="factor-zero"),
-            pytest.param("UPDATE game_list SET bock_factor = 3", id="factor-not-a-power-of-two"),
-        ],
-    )
-    def test_the_checks_refuse_what_is_no_bock_option_or_pending_game_or_factor(self, migrated, statement):
-        refused = text(statement)
-
-        with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, refused)
+            run_in_transaction(migrated, refused)
