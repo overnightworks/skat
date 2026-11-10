@@ -18,7 +18,13 @@ from skat.engine.bidding import VALID_BIDS  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN  # noqa: E402
+from skat.table.records import (  # noqa: E402
+    SERIES_LENGTH_DEFAULT,
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    TABLE_ID_PATTERN,
+)
 from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -129,6 +135,7 @@ def render() -> str:
             ("SERIES_LENGTH_MIN", SERIES_LENGTH_MIN),
             ("SERIES_LENGTH_MAX", SERIES_LENGTH_MAX),
             ("SERIES_LENGTH_STEP", SERIES_LENGTH_STEP),
+            ("SERIES_LENGTH_DEFAULT", SERIES_LENGTH_DEFAULT),
         )
     )
     return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length

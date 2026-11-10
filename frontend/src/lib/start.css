@@ -124,6 +124,7 @@ body {
 }
 
 .sheet {
+    --glass: rgba(255, 255, 255, 0.15);
     position: fixed;
     top: 50%;
     left: 50%;
@@ -197,7 +198,7 @@ body {
     justify-content: center;
     gap: 6px;
     color: var(--on-stage);
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--glass);
     box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.22);
     font: inherit;
     font-size: 15px;
@@ -267,7 +268,7 @@ body {
 
 .sheet .btns .cancel {
     color: var(--on-stage);
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--glass);
 }
 
 .sheet .btns button:disabled {
