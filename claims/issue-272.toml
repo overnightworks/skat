@@ -1,8 +1,0 @@
-claim_id = "8d71971d0878493695c7c4aa600afa6d"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "6f952811f9fb6abb668c8c38b025a9d79d69b92f"
-branch = "claude/issue-272-window-blocked"
-scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/callSignIn.test.ts", "frontend/src/lib/callSignIn.ts", "frontend/src/lib/ui/CallSignIn.svelte", "frontend/src/lib/ui/SignIn.svelte", "tests/e2e/test_call_sign_in.py"]
-opened_commit = "c4e7e53dd12eaef7116fe1970d09a8ecba86bb94"
-whole_reason = "The release and its one caller land together: the pin alone breaks the type check, and the blocked view cannot exist without the release's face."
