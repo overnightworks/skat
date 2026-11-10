@@ -442,9 +442,20 @@ def expect_the_ticks_drawn(card: Locator, ticked: int) -> None:
         expect(ticks.nth(index)).to_have_css("stroke", re.compile(r"^rgb"))
 
 
+def expect_one_pill_per_chip(card: Locator) -> None:
+    """A chip is a single pill: its word draws no box of its own and keeps the chip's colour."""
+    chips = card.locator(".ladder > *")
+    for index in range(chips.count()):
+        word = chips.nth(index).locator("span")
+        expect(word).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+        expect(word).to_have_css("padding", "0px")
+        expect(word).to_have_css("color", chips.nth(index).evaluate("chip => getComputedStyle(chip).color"))
+
+
 def expect_the_ladder(card: Locator, reckoning: Reckoning) -> None:
     if reckoning.chips:
         expect(card.locator(".ladder > *")).to_have_text(list(reckoning.chips))
+        expect_one_pill_per_chip(card)
         expect_the_ticks_drawn(card, sum(not chip.startswith((MIT, OHNE)) for chip in reckoning.chips))
     else:
         expect(card.locator(".ladder")).to_have_count(0)
