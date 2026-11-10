@@ -24,7 +24,7 @@ class TestStartNewSeries:
     @pytest.fixture
     def ended_series(self, skat, agent):
         """A series of three played to its end at a table where the agent holds the forehand chair."""
-        table = AgentTable(skat, agent.admitted(), FOREHAND)
+        table = AgentTable(skat, agent, FOREHAND)
         skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
         play_the_dealt_series(skat, table, 3)
         skat.client.cookies.clear()

@@ -129,7 +129,7 @@ class TestTheGateAndTheHeaders:
 
 class TestTheTool:
     def test_an_agent_with_a_chair_reads_the_same_list_as_a_person_with_its_account(self, skat, agent):
-        table = AgentTable(skat, agent.admitted(), Position.FOREHAND)
+        table = AgentTable(skat, agent, Position.FOREHAND)
         agent_headers = table.at[Position.FOREHAND]
 
         read = agent.call(READ_PAUSED_TABLES_TOOL)
