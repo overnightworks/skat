@@ -146,7 +146,13 @@ class TestTheNextSeries:
         assert (answer.json()["series"]["over"], marks(answer)) == (True, [True, True, True])
         assert deal_the_next_series(skat, table)
         seen = table.read_as(table.watcher).json()
-        assert seen["series"] == {"game_number": 1, "game_count": 3, "over": False, "standings": None}
+        assert seen["series"] == {
+            "game_number": 1,
+            "game_count": 3,
+            "over": False,
+            "standings": None,
+            "end_proposal": None,
+        }
         assert (seen["result"], marks(table.read_as(table.watcher))) == (None, [False, False, False])
         assert seen["hand"] is not None
         assert [chair["total"] for chair in seen["chairs"]] == [None] * 3
