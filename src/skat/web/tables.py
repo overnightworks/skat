@@ -256,12 +256,18 @@ class SidesAnswer(BaseModel):
     opponents: int
 
 
+class GiveUpAnswer(BaseModel):
+    asking_seat: int
+    declined_seat: int | None
+
+
 class PlayingAnswer(BaseModel):
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
     legal_cards: list[CardAnswer]
     running_points: SidesAnswer | None
+    give_up: GiveUpAnswer | None
 
 
 class HandAnswer(BaseModel):
@@ -438,6 +444,9 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
         running_points=None
         if playing.running_points is None
         else SidesAnswer(declarer=playing.running_points.declarer, opponents=playing.running_points.opponents),
+        give_up=None
+        if playing.give_up is None
+        else GiveUpAnswer(asking_seat=playing.give_up.asking_seat, declined_seat=playing.give_up.declined_seat),
     )
 
 

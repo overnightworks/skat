@@ -12,6 +12,7 @@ from skat.store.declaring import append_declaring_steps, declaring_steps, read_d
 from skat.store.game_list import append_game_list, game_list, read_game_list
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
+    POSITION_OF_TEXT,
     POSITION_TEXT,
     RANK_TEXT,
     SKAT_HOLDER,
@@ -27,6 +28,7 @@ from skat.table.records import (
     Chair,
     EndedTable,
     EndReason,
+    GiveUpAsked,
     HandProgress,
     Occupant,
     Receipt,
@@ -97,6 +99,8 @@ def _table_record(
         tables.c.series_length,
         tables.c.series_deals,
         tables.c.show_running_points,
+        tables.c.give_up_asked_by,
+        tables.c.give_up_declined_by,
     ).where(tables.c.id == table_id)
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
@@ -127,11 +131,18 @@ def _table_record(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
+            give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
         ),
         game_list=read_game_list(connection, table_id),
         series=None if table.series_length is None else Series(table.series_length, table.series_deals),
         options=TableOptions(show_running_points=table.show_running_points),
     )
+
+
+def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked | None:
+    if asked_by is None:
+        return None
+    return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
@@ -180,6 +191,7 @@ class _PostgresTableTransaction:
 
     def _write_table_row(self, table: TableRecord) -> None:
         """The row's changing columns: the series length and the options are written by `add_table` and never here."""
+        asked = table.progress.give_up
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table.id.value)
@@ -187,6 +199,10 @@ class _PostgresTableTransaction:
                 version=table.version,
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
+                give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
+                give_up_declined_by=None
+                if asked is None or asked.declined_by is None
+                else POSITION_TEXT[asked.declined_by],
             )
         )
 

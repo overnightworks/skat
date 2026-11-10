@@ -137,7 +137,13 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         len(table.hand.skat if state is None else state.skat),
         auction_view_of(table, viewer_account_id, table.dealer),
         declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
-        playing_view_of(playing, table.dealer, viewer_positions, show_running_points=table.options.show_running_points),
+        playing_view_of(
+            playing,
+            table.dealer,
+            viewer_positions,
+            show_running_points=table.options.show_running_points,
+            asked=table.progress.give_up,
+        ),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 

@@ -53,6 +53,8 @@ AUCTION_PASS_TOOL: Final = "auction_pass"  # noqa: S105 - the word for dropping 
 AUCTION_PLAY_TOOL: Final = "auction_play"
 GIVE_UP_GAME_TOOL: Final = "give_up_game"
 THROW_DOWN_CARDS_TOOL: Final = "throw_down_cards"
+AGREE_TO_GIVE_UP_TOOL: Final = "agree_to_give_up"
+DECLINE_GIVE_UP_TOOL: Final = "decline_give_up"
 CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
@@ -84,6 +86,8 @@ AUCTION_PASS_MARK: Final = agent_tool(name=AUCTION_PASS_TOOL, effect=ToolEffect.
 AUCTION_PLAY_MARK: Final = agent_tool(name=AUCTION_PLAY_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 GIVE_UP_GAME_MARK: Final = agent_tool(name=GIVE_UP_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 THROW_DOWN_CARDS_MARK: Final = agent_tool(name=THROW_DOWN_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+AGREE_TO_GIVE_UP_MARK: Final = agent_tool(name=AGREE_TO_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+DECLINE_GIVE_UP_MARK: Final = agent_tool(name=DECLINE_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)

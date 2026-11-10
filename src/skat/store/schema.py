@@ -31,6 +31,12 @@ def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
     return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
 
 
+POSITION_TEXT: Final = {
+    Position.FOREHAND: "forehand",
+    Position.MIDDLEHAND: "middlehand",
+    Position.REARHAND: "rearhand",
+}
+
 tables = Table(
     "tables",
     metadata,
@@ -44,6 +50,8 @@ tables = Table(
     Column("series_length", SmallInteger),
     Column("series_deals", SmallInteger),
     Column("show_running_points", Boolean, nullable=False, server_default=false()),
+    Column("give_up_asked_by", Text),
+    Column("give_up_declined_by", Text),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -59,6 +67,12 @@ tables = Table(
     ),
     CheckConstraint("series_deals BETWEEN 0 AND series_length", name="tables_series_deals_are_within_the_length"),
     one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
+    one_of("give_up_asked_by", POSITION_TEXT.values(), "tables_give_up_asker_is_a_position"),
+    one_of("give_up_declined_by", POSITION_TEXT.values(), "tables_give_up_decliner_is_a_position"),
+    CheckConstraint(
+        "give_up_declined_by IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_no_comes_with_an_ask"
+    ),
+    CheckConstraint("give_up_declined_by <> give_up_asked_by", name="tables_give_up_no_comes_from_another_position"),
 )
 
 chairs = Table(
@@ -83,11 +97,6 @@ RANK_TEXT: Final = {
     Rank.QUEEN: "queen",
     Rank.KING: "king",
     Rank.ACE: "ace",
-}
-POSITION_TEXT: Final = {
-    Position.FOREHAND: "forehand",
-    Position.MIDDLEHAND: "middlehand",
-    Position.REARHAND: "rearhand",
 }
 GAME_TEXT: Final = {
     GameKind.KARO: "karo",
