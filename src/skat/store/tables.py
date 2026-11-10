@@ -26,6 +26,7 @@ from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
     EndedTable,
+    EndProposal,
     EndReason,
     HandProgress,
     Occupant,
@@ -86,6 +87,16 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
+def _series_end_columns(series: Series | None) -> dict[str, bool | int | None]:
+    """The columns the early end and the standing proposal live in, written absolutely with the series' deals."""
+    proposal = None if series is None else series.end_proposal
+    return {
+        "series_ended_early": series is not None and series.ended_early,
+        "series_end_proposer": None if proposal is None else proposal.proposer,
+        "series_end_accepter": None if proposal is None else proposal.accepter,
+    }
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -96,6 +107,9 @@ def _table_record(
         tables.c.empty_seconds,
         tables.c.series_length,
         tables.c.series_deals,
+        tables.c.series_ended_early,
+        tables.c.series_end_proposer,
+        tables.c.series_end_accepter,
         tables.c.show_running_points,
     ).where(tables.c.id == table_id)
     if row_lock is not None:
@@ -129,7 +143,16 @@ def _table_record(
             plays=read_plays(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
-        series=None if table.series_length is None else Series(table.series_length, table.series_deals),
+        series=None
+        if table.series_length is None
+        else Series(
+            table.series_length,
+            table.series_deals,
+            ended_early=table.series_ended_early,
+            end_proposal=None
+            if table.series_end_proposer is None
+            else EndProposal(table.series_end_proposer, table.series_end_accepter),
+        ),
         options=TableOptions(show_running_points=table.show_running_points),
     )
 
@@ -192,6 +215,7 @@ class _PostgresTableTransaction:
                 version=table.version,
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
+                **_series_end_columns(table.series),
             )
         )
 
