@@ -1,7 +1,0 @@
-claim_id = "018a93aad47840fdbb1623390de92810"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "1a52b911ed6ac18579a47261300b3f3d5e8ac185"
-branch = "claude/issue-212-paused-tables-picture"
-scope = ["docs/mockups/start.html"]
-opened_commit = "6c8a0dafd956d5bc3860fef068f42d0e483eed86"
