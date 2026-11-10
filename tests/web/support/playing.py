@@ -41,6 +41,13 @@ def game_of(*halves):
     return tuple(each for half in halves for trick in half.split("/") for each in cards(trick))
 
 
+# Middlehand's Herz Hand game against the known deal, played to its tenth trick: the declarer takes 55 trick points.
+HERZ_GAME = game_of(
+    "S7 S9 D7 / H7 DJ CJ / S8 ST D8 / SQ D9 C7 / SK DT C8",
+    "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
+)
+
+
 def takers(letters):
     """The position that takes each trick, from F, M and R in trick order."""
     return tuple({"F": FOREHAND, "M": MIDDLEHAND, "R": REARHAND}[letter] for letter in letters.split())
@@ -68,6 +75,7 @@ def result_fields(**changed):
         "overbid": False,
         "announcement_missed": False,
         "bid": 18,
+        "kontra": None,
     }
     return plain | changed
 

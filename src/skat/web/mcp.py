@@ -57,6 +57,7 @@ CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
+SAY_KONTRA_TOOL: Final = "say_kontra"
 OPEN_TABLE_TOOL: Final = "open_table"
 SIT_DOWN_TOOL: Final = "sit_down"
 STAND_UP_TOOL: Final = "stand_up"
@@ -90,6 +91,7 @@ CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, 
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 OPEN_TABLE_MARK: Final = agent_tool(name=OPEN_TABLE_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SIT_DOWN_MARK: Final = agent_tool(name=SIT_DOWN_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 STAND_UP_MARK: Final = agent_tool(name=STAND_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)

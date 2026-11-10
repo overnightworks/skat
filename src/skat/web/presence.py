@@ -147,8 +147,8 @@ class Presence:
 
     A table gets one wait when it is created or found at the server's start, and another each time its last stream
     ends or a chair is freed where no stream is open and a lease runs. An opening or a sit where no stream is open
-    and a lease runs notes who is present, as a lease does; it keeps a wait that is pending and starts one when
-    none is (watch_empty_table). A stand-up there owes a full wait from itself. A stream that opens ends the wait,
+    keeps a wait that is pending and starts one when none is (watch_empty_table); where a lease runs it also notes
+    who is present, as a lease does. A stand-up there owes a full wait from itself. A stream that opens ends the wait,
     so the pending timer finds itself superseded and does nothing. When it fires, the end is asked for with who is
     connected then, and a failure is retried while the wait stays the table's latest. Since when nobody has been
     at a table is stored: a table's last leave, a lease starting or lapsing and the first arrival note who is

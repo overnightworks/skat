@@ -7,15 +7,18 @@ from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declare, Stage, TakeSkat
 from skat.engine.games import GameKind
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.engine.value import Matadors
 from skat.table.game_list import ListEntry
 from skat.table.records import (
+    SERIES_LENGTH_MIN,
     Chair,
     EndedTable,
     EndReason,
     HandProgress,
     Occupant,
     OccupantKind,
+    Series,
     TableId,
     TableOptions,
     TableRecord,
@@ -182,7 +185,32 @@ def a_played_game() -> ListEntry:
         settled_value=30,
         score=30,
         declarer_points=70,
+        kontra_word=None,
     )
+
+
+class TestTheDoublingOfTheStandings:
+    @pytest.mark.parametrize(
+        ("reach", "declarer_total"),
+        [
+            pytest.param(KontraReach.KONTRA_RE, 110, id="the-list-score-alone"),
+            pytest.param(KontraReach.KONTRA_RE_STANDINGS, 160, id="the-fifty-too"),
+        ],
+    )
+    def test_the_chair_totals_and_the_series_standings_count_the_fifty_by_the_reach(self, reach, declarer_total):
+        options = TableOptions(kontra=KontraOptions(KontraSayer.ANY_OPPONENT, reach, KontraDeadline.OWN_CARD))
+        doubled = replace(a_played_game(), kontra_word=Word.KONTRA, score=60)
+        table = replace(
+            seated_table(1),
+            options=options,
+            game_list=(doubled,),
+            series=Series(SERIES_LENGTH_MIN, SERIES_LENGTH_MIN),
+        )
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert [chair.total for chair in view.chairs] == [0, declarer_total, 0]
+        assert view.series.standings[0].total == declarer_total
 
 
 class TestResult:
