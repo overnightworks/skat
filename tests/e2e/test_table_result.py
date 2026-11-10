@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
@@ -9,6 +9,24 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import CARDS_IN_PLAY, THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.result_card import (
+    BID_VALUE,
+    CARD,
+    EACH,
+    LIST_BONUS,
+    LOSES,
+    LOST,
+    MINUS,
+    OVERBID,
+    SPIEL,
+    TIMES,
+    WINS,
+    WON,
+    WORTH,
+    YOU,
+    expect_the_page_around_the_card,
+    loosely,
+)
 from tests.e2e.support.tables import SIT_DOWN
 from tests.e2e.support.words import catalog_text
 
@@ -20,28 +38,17 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-YOU = catalog_text("sideYou")
-WON = catalog_text("resultWon")
-LOST = catalog_text("resultLost")
-WINS = catalog_text("resultWins")
-LOSES = catalog_text("resultLoses")
-OVERBID = catalog_text("overbid")
-WORTH = catalog_text("gameWorth")
-BID_VALUE = catalog_text("bidValue")
 WEITER = catalog_text("weiter")
 STAND_UP = catalog_text("standUp")
 COPY_LINK = catalog_text("copyLink")
 WAITING_FOR = catalog_text("waitingFor")
-WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
 AND = catalog_text("and")
 COMMAND_FAILED = catalog_text("commandFailed")
 SEAT_AWAY = catalog_text("seatAway")
 SEAT_FREE = catalog_text("seatFree")
-CARD = ".result"
 READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
-MINUS = chr(0x2212)
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
 
 PILL_HEIGHTS = (
@@ -119,6 +126,28 @@ def expected_word(table: PlayingTable, person: Page) -> str:
     return WON if won == (role == "declarer") else LOST
 
 
+def expect_the_raise(card: Locator, result: dict[str, Any]) -> None:
+    if result["overbid"]:
+        expect(card.locator(".stamp")).to_have_text(OVERBID)
+        expect(card.locator(".miss:not(.missed)")).to_have_text(
+            f"{WORTH} {result['game_value']} < {BID_VALUE} {result['bid']} \u2192 {result['settled_value']}"
+        )
+    else:
+        expect(card.locator(".stamp")).to_have_count(0)
+        expect(card.locator(".miss:not(.missed)")).to_have_count(0)
+
+
+def expect_the_rows(card: Locator, table: PlayingTable, person: Page, role: str, result: dict[str, Any]) -> None:
+    rows = card.locator(".reck")
+    expect(rows).to_have_count(3)
+    for gain in result["gains"]:
+        row = card.locator(f".reck[data-seat='{gain['seat']}']")
+        expect(row.locator(".dl")).to_have_text(signed(gain["gain"]) if gain["gain"] else "0")
+        own = role != "watcher" and person is table.pages[gain["seat"]]
+        expect(row.locator(".nm")).to_have_text(YOU if own else table.names[gain["seat"]])
+        expect(card.locator(f".reck.win[data-seat='{gain['seat']}']")).to_have_count(1 if gain["won"] else 0)
+
+
 def expect_the_card(table: PlayingTable) -> None:
     """Every viewer reads the card as the answer counted it, from their own side."""
     result = table.result()
@@ -127,47 +156,32 @@ def expect_the_card(table: PlayingTable) -> None:
         card = person.locator(CARD)
         expect(card).to_have_count(1)
         expect(card.locator("h3")).to_have_text(expected_word(table, person))
-        if role == "declarer":
-            expect(card.locator(".value")).to_have_text(signed(result["score"]))
-        else:
-            expect(card.locator(".value")).to_have_count(0)
-        if result["overbid"]:
-            expect(card.locator(".stamp")).to_have_text(OVERBID)
-            expect(card.locator(".miss")).to_have_text(f"{WORTH} {result['game_value']} < {BID_VALUE} {result['bid']}")
-        else:
-            expect(card.locator(".stamp")).to_have_count(0)
-            expect(card.locator(".miss")).to_have_count(0)
+        expect(card.locator(".value")).to_have_text(signed(result["score"]))
+        expect(card.locator(".x2")).to_have_count(1 if result["doubled"] else 0)
+        expect(card.locator(".ladder > *")).to_have_count(len(result["levels"]) + 1)
+        equation = [str(result["multiplier"]), TIMES, str(result["base_value"])]
+        if result["doubled"]:
+            equation += ["=", str(result["game_value"])]
+        expect(card.locator(".eq")).to_have_text(loosely(*equation))
+        expect(card.locator(".miss.missed")).to_have_count(1 if result["announcement_missed"] else 0)
+        expect_the_raise(card, result)
         names = {"declarer": (YOU, THEY), "opponent": (table.names[table.declarer_seat], WE)}.get(
             role, (table.names[table.declarer_seat], THEY)
         )
         expect(card.locator(".sides .declarer")).to_have_text(f"{names[0]} {result['declarer_points']}")
         expect(card.locator(".sides .opponents")).to_have_text(f"{names[1]} {result['opponents_points']}")
-        rows = card.locator(".reck")
-        expect(rows).to_have_count(3)
-        for gain in result["gains"]:
-            row = card.locator(f".reck[data-seat='{gain['seat']}']")
-            expect(row.locator(".dl")).to_have_text(signed(gain["gain"]) if gain["gain"] else "0")
-            own = role != "watcher" and person is table.pages[gain["seat"]]
-            expect(row.locator(".nm")).to_have_text(YOU if own else table.names[gain["seat"]])
-        winners = (
-            [result["declarer_seat"]] if result["won"] else [s for s in table.names if s != result["declarer_seat"]]
-        )
-        for seat in table.names:
-            expected = 1 if seat in winners else 0
-            expect(card.locator(f".reck.win[data-seat='{seat}']")).to_have_count(expected)
-
-
-def expect_the_page_around_the_card(table: PlayingTable) -> None:
-    for person in table.everyone:
-        expect(person.locator(".card-face")).to_have_count(0)
-        expect(person.locator("body")).not_to_contain_text(WAITING_FOR_PLAYERS)
-        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-        bar = person.locator(".actions").bounding_box()
-        card = person.locator(CARD).bounding_box()
-        assert bar is not None
-        assert card is not None
-        assert card["y"] >= 0
-        assert card["y"] + card["height"] <= bar["y"]
+        declarer_gain = next(gain for gain in result["gains"] if gain["seat"] == result["declarer_seat"])["gain"]
+        opponent_gain = next(gain for gain in result["gains"] if gain["seat"] != result["declarer_seat"])["gain"]
+        steps = [
+            names[0],
+            f"{SPIEL} {signed(result['score'])}",
+            f"{LIST_BONUS} {signed(result['list_bonus'])}",
+            f"= {signed(declarer_gain)}",
+        ]
+        if result["doubled"]:
+            steps.append(f"\u00b7 {names[1]} {EACH} {signed(opponent_gain)}")
+        expect(card.locator(".list")).to_have_text(loosely(*steps))
+        expect_the_rows(card, table, person, role, result)
 
 
 def expect_the_bars_inside_the_pages(table: PlayingTable) -> None:
@@ -220,7 +234,7 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     table = deal_a_finished_hand(form_factor, declaring=declaring)
     first, second = (seat for seat in table.names if seat != table.declarer_seat)
     expect_the_card(table)
-    expect_the_page_around_the_card(table)
+    expect_the_page_around_the_card(table.everyone)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
 

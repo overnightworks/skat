@@ -20,10 +20,12 @@ from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
 from tests.e2e.support.words import catalog_text
 from tests.support.payload_cards import wire_cards
+from tests.support.played_game import after_a_game
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from skat.table.game_list import ListEntry
     from skat.table.records import TableRecord
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -125,6 +127,16 @@ class DeclaringTable:
             stored = transaction.table(TableId(self.table_id))
         assert stored is not None
         return stored
+
+    def list_the_game(self, entry: ListEntry) -> None:
+        """Ends the running hand with `entry` as its game, through the store, and reloads every page on its result."""
+        with PostgresTableTransactions(self.server.engine).begin() as transaction:
+            transaction.save_table(after_a_game(self.stored(), entry))
+        for person in (self.declarer, *self.others, self.watcher):
+            reload_and_wait(person)
+
+    def result_as_sent(self, seat: int) -> dict[str, Any]:
+        return json.loads(self.sessions[seat].get(self.api_path))["result"]
 
     def skat(self) -> set[tuple[str, str]]:
         stored = self.stored().hand
