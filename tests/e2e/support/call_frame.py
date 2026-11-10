@@ -1,5 +1,6 @@
 """A call page around a Skat table, as hopin's page frames it, and Skat served on the site they share."""
 
+import json
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -69,6 +70,30 @@ def page_holding(frame_address: str, style: str = "") -> str:
         f'<!doctype html><title>call</title><iframe id="stage" src="{frame_address}" style="{style}" '
         f"{CALL_FRAME_ATTRIBUTES}></iframe>"
     )
+
+
+# The greeting call page's script: it records what the Skat frame posts, greets every `ready` when asked, and lets a
+# test send one message to the frame (`sendToStage`) or the valid greeting (`greet`) itself.
+_GREETING_SCRIPT = """
+window.messages = [];
+window.greetEveryReady = GREET_EVERY_READY;
+const stage = () => document.getElementById("stage").contentWindow;
+window.sendToStage = (data) => stage().postMessage(data, SKAT_ORIGIN);
+window.greet = () => sendToStage({ v: 1, type: "hello", attachment: 1, attempt: null });
+addEventListener("message", (event) => {
+    if (event.source !== stage() || event.origin !== SKAT_ORIGIN) return;
+    messages.push(event.data);
+    if (greetEveryReady) greet();
+});
+"""
+
+
+def greeting_page_holding(frame_address: str, skat_origin: str, *, greets_every_ready: bool = False) -> str:
+    """The call page of `page_holding`, recording the frame's messages and greeting as the call page does."""
+    script = _GREETING_SCRIPT.replace("SKAT_ORIGIN", json.dumps(skat_origin)).replace(
+        "GREET_EVERY_READY", json.dumps(greets_every_ready)
+    )
+    return page_holding(frame_address) + f"<script>{script}</script>"
 
 
 def new_table(open_person: Callable[..., Page], server: RunningServer) -> str:
