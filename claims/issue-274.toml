@@ -1,0 +1,7 @@
+claim_id = "184ac1c0a3ad4a58be6a262a775ca001"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "5f012c1944e82d4c46904b5b81a221a4c4448673"
+branch = "claude/issue-274-picture-rules"
+scope = ["docs/mockups/table.html"]
+opened_commit = "caed3d9bbd37c0ec4569257dc0cf78dca490e667"
