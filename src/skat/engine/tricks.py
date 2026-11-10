@@ -249,7 +249,7 @@ class Playing(TenTricks):
     @property
     def counts_card_points(self) -> bool:
         """A Null game counts no card points."""
-        return _kind_of(self.declared) is not GameKind.NULL
+        return _kind_of(self.declared).counts_card_points
 
 
 @dataclass(frozen=True)
