@@ -18,7 +18,7 @@
     </div>
 {:else}
     <div class="felt" aria-hidden="true"></div>
-    <ul class="chairs closed" aria-hidden="true">
+    <ul class="chairs emptied" aria-hidden="true">
         {#each CHAIR_SEATS as seat (seat)}
             <li class="chair"><span class="tile empty"></span></li>
         {/each}

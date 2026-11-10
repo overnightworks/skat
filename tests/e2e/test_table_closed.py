@@ -1,6 +1,7 @@
 import json
 import time
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Route, expect
@@ -138,8 +139,9 @@ def test_a_new_table_opens_from_the_closed_face(
 
     opened = click_new_table(person)
 
-    assert opened != ended_table_path
     expect(person.get_by_text(catalog_text("waitingForPlayers"))).to_be_visible()
+    assert urlsplit(person.url).path != ended_table_path
+    assert opened
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
