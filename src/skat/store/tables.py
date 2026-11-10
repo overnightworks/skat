@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
 
+    from sqlalchemy import Row
     from sqlalchemy.engine import Connection, Engine
 
 __all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
@@ -97,6 +98,20 @@ def _series_end_columns(series: Series | None) -> dict[str, bool | int | None]:
     }
 
 
+def _series_of(table: Row[*tuple[Any, ...]]) -> Series | None:
+    if table.series_length is None:
+        return None
+    end_proposal = None
+    if table.series_end_proposer is not None:
+        end_proposal = EndProposal(table.series_end_proposer, table.series_end_accepter)
+    return Series(
+        table.series_length,
+        table.series_deals,
+        ended_early=table.series_ended_early,
+        end_proposal=end_proposal,
+    )
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -124,17 +139,6 @@ def _table_record(
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
-    series = None
-    if table.series_length is not None:
-        end_proposal = None
-        if table.series_end_proposer is not None:
-            end_proposal = EndProposal(table.series_end_proposer, table.series_end_accepter)
-        series = Series(
-            table.series_length,
-            table.series_deals,
-            ended_early=table.series_ended_early,
-            end_proposal=end_proposal,
-        )
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
@@ -154,7 +158,7 @@ def _table_record(
             plays=read_plays(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
-        series=series,
+        series=_series_of(table),
         options=TableOptions(show_running_points=table.show_running_points),
     )
 
