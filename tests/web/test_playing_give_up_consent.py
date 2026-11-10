@@ -420,7 +420,6 @@ class TestAfterTheYes:
         assert table.record == dealt
         assert len(table.record.game_list) == 1
 
-
     def test_an_old_expiry_reaching_the_table_right_after_the_yes_committed_leaves_the_fresh_hold_alone(
         self, hold, time
     ):
