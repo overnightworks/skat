@@ -4,10 +4,11 @@ import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
+from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from tests.e2e.support.declaring import DeclaringTable
-from tests.e2e.support.hands import CARDS_IN_PLAY, THEY, WE, PlayingTable, deal_playing_table
+from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
     BID_VALUE,
@@ -94,7 +95,7 @@ def deal_a_finished_hand(
             declaring=declaring,
             joiners=joiners,
         )
-        table.play_out(CARDS_IN_PLAY)
+        table.play_out(CARDS_IN_A_GAME)
         return table
 
     return deal
