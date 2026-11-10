@@ -11,7 +11,7 @@ from skat.engine.tricks import PlayRefusal
 
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
-    from skat.engine.deal import Deal
+    from skat.engine.deal import Deal, Position
     from skat.engine.declaration import DeclaringStep
     from skat.engine.kontra import WordSaid
     from skat.engine.tricks import CardPlayed
@@ -99,6 +99,7 @@ class Refusal(StrEnum):
     STALE_VERSION = "stale-version"
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
+    NO_REQUEST = "no-request"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
     SERIES_OVER = "series-over"
@@ -139,13 +140,25 @@ class Chair:
 
 
 @dataclass(frozen=True)
+class GiveUpAsked:
+    """A give-up waiting for the other side's yes: who asked, and the opponent who said no."""
+
+    asker: Position
+    declined_by: Position | None = None
+
+
+@dataclass(frozen=True)
 class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
-    cards, so each carries how many cards were played before it."""
+    cards, so each carries how many cards were played before it.
+
+    `give_up` is no step log: a card, the end of the hand or a deal clears it.
+    """
 
     auction: tuple[AuctionStep, ...] = ()
     declaring: tuple[DeclaringStep, ...] = ()
     plays: tuple[CardPlayed, ...] = ()
+    give_up: GiveUpAsked | None = None
     words: tuple[WordSaid, ...] = ()
 
 
