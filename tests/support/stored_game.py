@@ -28,14 +28,16 @@ def count_rows(engine, name="played_cards"):
         return connection.execute(select(func.count()).select_from(table(name))).scalar_one()
 
 
-def seated_game(service, transactions, stored, options=None):
+def seated_table_id(service, options=TableOptions()):  # noqa: B008 - TableOptions is frozen
     """A table Anna opened with Ben and Cleo seated, ready for the auction."""
-    table_id = service.create(
-        person("Anna"), CreateTable(command_id="command-open", options=options or TableOptions())
-    ).id
+    table_id = service.create(person("Anna"), CreateTable(command_id="command-open", options=options)).id
     service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
     service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
-    return Game(service, transactions, stored, table_id)
+    return table_id
+
+
+def seated_game(service, transactions, stored, options=TableOptions()):  # noqa: B008 - TableOptions is frozen
+    return Game(service, transactions, stored, seated_table_id(service, options))
 
 
 class Game:
