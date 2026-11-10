@@ -26,6 +26,7 @@ from tests.support.postgres import created_database, migrated_template
 from tests.support.sign_in_settings import build_sign_in_settings
 
 if TYPE_CHECKING:
+    import random
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
@@ -106,7 +107,12 @@ class RunningServer:
     """
 
     def __init__(
-        self, loopback: LoopbackSignIn, tls_directory: Path, engine: Engine, page_build_directory: Path
+        self,
+        loopback: LoopbackSignIn,
+        tls_directory: Path,
+        engine: Engine,
+        page_build_directory: Path,
+        random_source: random.Random | None = None,
     ) -> None:
         self.host = loopback.host
         self.base_url = f"https://{loopback.host}:{loopback.port}"
@@ -115,13 +121,14 @@ class RunningServer:
         self.stores = loopback.stores
         self._loopback = loopback
         self._page_build_directory = page_build_directory
+        self._random_source = random_source
         self._tls_files = _write_self_signed_certificate(tls_directory)
 
     def start(self) -> None:
         app = create_app(
             self._loopback.sign_in.settings,
             page_build=PageBuild.load(self._page_build_directory),
-            tables=TableService(PostgresTableTransactions(self.engine)),
+            tables=TableService(PostgresTableTransactions(self.engine), random_source=self._random_source),
             stores=self.stores,
             issuer_transports=self.issuer.transports,
         )
@@ -170,12 +177,14 @@ def running_skat(
     tls_directory: Path,
     engine: Engine,
     page_build_directory: Path = BUILD_DIRECTORY,
+    random_source: random.Random | None = None,
 ) -> Iterator[RunningServer]:
     """Serve Skat over https on `loopback`.
 
-    The page comes from `page_build_directory`, so a test can serve a copy it changes.
+    The page comes from `page_build_directory`, so a test can serve a copy it changes; `random_source` replaces the
+    source the table service deals and draws the dealer from.
     """
-    server = RunningServer(loopback, tls_directory, engine, page_build_directory)
+    server = RunningServer(loopback, tls_directory, engine, page_build_directory, random_source)
     server.start()
     try:
         yield server
@@ -184,10 +193,13 @@ def running_skat(
 
 
 @contextmanager
-def skat_on_new_database(directories: pytest.TempPathFactory, **settings_changes: float) -> Iterator[RunningServer]:
+def skat_on_new_database(
+    directories: pytest.TempPathFactory, random_source: random.Random | None = None, **settings_changes: float
+) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake.
 
-    `settings_changes` replace server settings, as a test that needs a short chair hold does.
+    `settings_changes` replace server settings, as a test that needs a short chair hold does; `random_source`
+    replaces the source Skat deals from.
     """
     loopback = loopback_sign_in(directories.mktemp("sign-in"))
     settings = loopback.sign_in.settings.model_copy(update=settings_changes)
@@ -195,7 +207,7 @@ def skat_on_new_database(directories: pytest.TempPathFactory, **settings_changes
     with migrated_template() as template, created_database(template) as database_url:
         engine = create_store_engine(database_url)
         try:
-            with running_skat(loopback, directories.mktemp("tls"), engine) as server:
+            with running_skat(loopback, directories.mktemp("tls"), engine, random_source=random_source) as server:
                 yield server
         finally:
             engine.dispose()
