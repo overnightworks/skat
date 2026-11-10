@@ -19,6 +19,7 @@ from skat.web.constants import (
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
 )
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import LEGAL_LINKS, LEGAL_ORIGIN, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
@@ -58,6 +59,7 @@ LOG_OUT = "Log out"
 NOT_ADMITTED = ["/apps/other"]
 # The window and the frame meet within a poll or two; a bound stops a hang.
 WAIT_MILLISECONDS = 10_000
+STALE_STAGE = ".stage.stale"
 FRAMED_STYLE = "position:fixed;inset:0;width:100%;height:100%;border:0"
 # The sandboxed frame that cannot open a window.
 WINDOW_BLOCKED = "window.open = () => null;"
@@ -563,3 +565,29 @@ def test_a_top_level_call_mode_table_whose_session_ended_signs_in_again_through_
     return_path = f"{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1"
     assert parse_qs(urlsplit(sign_in_starts[0]).query) == {RETURN_PATH_QUERY_NAME: [return_path]}
     assert CALL_SIGN_IN_PATH not in ben.url
+
+
+def test_a_framed_table_whose_stream_ends_without_a_refusal_dims_and_comes_back_without_reload_or_sign_in(
+    frame_a_table: Callable[..., FramedTable], signing_server: RunningServer
+) -> None:
+    framed = frame_a_table(username="ines", console=False)
+    expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    streams: list[str] = []
+
+    def end_the_first_stream(route: Route) -> None:
+        streams.append(route.request.url)
+        if len(streams) == 1:
+            route.fulfill(content_type="text/event-stream", body="")
+        else:
+            route.continue_()
+
+    # Playwright cannot end a stream that is open, so the reloaded frame meets a stream that answers and ends at once.
+    framed.visitor.context.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", end_the_first_stream)
+    framed.visitor.frames[1].goto(table_url(signing_server, framed.path))
+    framed.visitor.frames[1].evaluate("window.sameDocument = true")
+
+    expect(framed.frame.locator(STALE_STAGE)).to_have_count(1, timeout=WAIT_MILLISECONDS)
+    expect(framed.frame.locator(STALE_STAGE)).to_have_count(0, timeout=WAIT_MILLISECONDS)
+    expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    assert framed.visitor.frames[1].evaluate("window.sameDocument") is True
+    assert framed.sign_in_starts == []
