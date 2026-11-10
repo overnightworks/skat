@@ -1,0 +1,340 @@
+from dataclasses import replace
+
+import pytest
+
+from skat.engine.bidding import Bid, BidRefusal, Hold, Pass
+from skat.engine.deal import Position, seats_from
+from skat.engine.kontra import (
+    Doubling,
+    KontraDeadline,
+    KontraOptions,
+    KontraReach,
+    KontraRefusal,
+    KontraSayer,
+    Word,
+    WordSaid,
+)
+from skat.table.hand_state import doubling_of, playing_of
+from skat.table.kontra import KontraCommand, decide_kontra, kontra_payload, kontra_view_of
+from skat.table.playing import (
+    GiveUpCommand,
+    PlayCardCommand,
+    ThrowDownCommand,
+    decide_card,
+    decide_give_up,
+    decide_throw_down,
+)
+from skat.table.records import (
+    Actor,
+    CreateTable,
+    HandProgress,
+    Refusal,
+    TableOptions,
+    parsed_refusal,
+)
+from skat.table.rules import create_payload
+from tests.support.played_game import HERZ_HAND, a_whole_game, before_the_last_card, declared_herz_hand, table_in
+
+FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
+KONTRA, RE, SUPRA, HIRSCH = Word.KONTRA, Word.RE, Word.SUPRA, Word.HIRSCH
+OWN_CARD = KontraDeadline.OWN_CARD
+VERSION = 7
+
+
+def options_of(sayer=KontraSayer.ANY_OPPONENT, reach=KontraReach.KONTRA_RE):
+    return TableOptions(kontra=KontraOptions(sayer, reach, OWN_CARD))
+
+
+def actor(position):
+    return Actor(account_id=f"account-{position.name.lower()}", display_name=position.name)
+
+
+def kontra_table(options=None, progress=None):
+    return table_in(declared_herz_hand() if progress is None else progress, options or options_of())
+
+
+def with_words(table, *words, plays=0):
+    cards = a_whole_game(table)[:plays]
+    return replace(table, progress=replace(table.progress, plays=cards, words=words))
+
+
+def say_as(table, position, word, version=VERSION):
+    return decide_kontra(table, actor(position), KontraCommand("command-1", table.id.value, version, word))
+
+
+class TestSaying:
+    def test_an_opponent_says_kontra_and_the_word_is_stored_with_the_cards_played_before_it(self):
+        decision = say_as(kontra_table(), FOREHAND, KONTRA)
+
+        assert decision.refusal is None
+        assert decision.table.version == VERSION + 1
+        assert decision.table.progress.words == (WordSaid(FOREHAND, KONTRA, 0),)
+
+    def test_the_declarer_answers_with_re_after_the_opponents_first_card(self):
+        table = with_words(kontra_table(), WordSaid(FOREHAND, KONTRA, 0), plays=1)
+
+        decision = say_as(table, MIDDLEHAND, RE)
+
+        assert decision.table.progress.words[-1] == WordSaid(MIDDLEHAND, RE, 1)
+
+    @pytest.mark.parametrize(
+        ("table", "position", "word", "version", "expected"),
+        [
+            pytest.param(replace(kontra_table(), hand=None, dealer=None), FOREHAND, KONTRA, VERSION, Refusal.NO_HAND),
+            pytest.param(
+                replace(kontra_table(), hand=None, dealer=None, options=TableOptions()),
+                FOREHAND,
+                KONTRA,
+                VERSION,
+                Refusal.NO_HAND,
+                id="no-hand-before-rule-off",
+            ),
+            pytest.param(kontra_table(), FOREHAND, KONTRA, VERSION - 1, Refusal.STALE_VERSION),
+            pytest.param(
+                kontra_table(options=TableOptions()),
+                FOREHAND,
+                KONTRA,
+                VERSION - 1,
+                Refusal.STALE_VERSION,
+                id="stale-before-rule-off",
+            ),
+            pytest.param(kontra_table(options=TableOptions()), FOREHAND, KONTRA, VERSION, Refusal.RULE_OFF),
+            pytest.param(
+                kontra_table(options=TableOptions(), progress=HandProgress()),
+                FOREHAND,
+                KONTRA,
+                VERSION,
+                Refusal.RULE_OFF,
+                id="rule-off-before-wrong-phase",
+            ),
+            pytest.param(kontra_table(progress=HandProgress()), FOREHAND, KONTRA, VERSION, Refusal.WRONG_PHASE),
+            pytest.param(
+                kontra_table(progress=HandProgress(auction=(Bid(MIDDLEHAND, 18), Pass(FOREHAND), Pass(REARHAND)))),
+                FOREHAND,
+                KONTRA,
+                VERSION,
+                Refusal.WRONG_PHASE,
+                id="declaring",
+            ),
+            pytest.param(kontra_table(), MIDDLEHAND, KONTRA, VERSION, KontraRefusal.NOT_YOUR_WORD, id="declarer"),
+            pytest.param(kontra_table(), FOREHAND, RE, VERSION, KontraRefusal.NOT_YOUR_WORD, id="re-first"),
+            pytest.param(
+                with_words(kontra_table(), WordSaid(FOREHAND, KONTRA, 0)),
+                REARHAND,
+                KONTRA,
+                VERSION,
+                KontraRefusal.NOT_YOUR_WORD,
+                id="second-kontra",
+            ),
+            pytest.param(
+                with_words(kontra_table(), WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0)),
+                FOREHAND,
+                SUPRA,
+                VERSION,
+                KontraRefusal.BEYOND_REACH,
+                id="supra-at-kontra-re",
+            ),
+            pytest.param(
+                with_words(kontra_table(), plays=1),
+                FOREHAND,
+                KONTRA,
+                VERSION,
+                KontraRefusal.TOO_LATE,
+                id="after-a-card",
+            ),
+            pytest.param(
+                with_words(kontra_table(), WordSaid(FOREHAND, KONTRA, 0), plays=3),
+                MIDDLEHAND,
+                RE,
+                VERSION,
+                KontraRefusal.TOO_LATE,
+                id="re-after-his-next-card",
+            ),
+            pytest.param(
+                kontra_table(options=options_of(KontraSayer.BIDDERS_ONLY)),
+                REARHAND,
+                KONTRA,
+                VERSION,
+                KontraRefusal.DID_NOT_BID,
+                id="rearhand-passed-without-bidding",
+            ),
+        ],
+    )
+    def test_a_word_is_refused_in_the_order_hand_chair_version_rule_phase_then_the_engine(
+        self, table, position, word, version, expected
+    ):
+        decision = say_as(table, position, word, version)
+
+        assert decision.refusal is expected
+        assert decision.table == table
+
+    def test_a_watcher_is_not_seated(self):
+        command = KontraCommand("command-1", kontra_table().id.value, VERSION, KONTRA)
+
+        decision = decide_kontra(kontra_table(), Actor("account-dora", "Dora"), command)
+
+        assert decision.refusal is Refusal.NOT_SEATED
+
+    def test_a_bidder_may_say_kontra_where_the_table_asks_it(self):
+        progress = HandProgress(
+            auction=(Bid(MIDDLEHAND, 18), Hold(FOREHAND), Bid(MIDDLEHAND, 20), Pass(FOREHAND), Pass(REARHAND)),
+            declaring=(HERZ_HAND,),
+        )
+        table = kontra_table(options_of(KontraSayer.BIDDERS_ONLY), progress)
+
+        assert say_as(table, FOREHAND, KONTRA).refusal is None
+        assert say_as(table, REARHAND, KONTRA).refusal is KontraRefusal.DID_NOT_BID
+
+
+class TestTheDoublingOfAHand:
+    def test_the_stored_words_rebuild_the_doubling_of_the_running_hand(self):
+        words = (
+            WordSaid(FOREHAND, KONTRA, 0),
+            WordSaid(MIDDLEHAND, RE, 1),
+            WordSaid(FOREHAND, SUPRA, 3),
+            WordSaid(MIDDLEHAND, HIRSCH, 3),
+        )
+        table = with_words(kontra_table(options_of(reach=KontraReach.UP_TO_HIRSCH)), *words, plays=4)
+
+        doubling = doubling_of(table)
+
+        assert doubling.words == (KONTRA, RE, SUPRA, HIRSCH)
+        assert doubling.factor == 16
+
+    def test_a_declared_hand_without_stored_words_has_the_starting_doubling(self):
+        next_hand = kontra_table(progress=declared_herz_hand())
+
+        assert doubling_of(next_hand) == Doubling.start()
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(kontra_table(options=TableOptions()), id="a-table-without-kontra"),
+            pytest.param(kontra_table(progress=HandProgress()), id="no-game-yet"),
+            pytest.param(replace(kontra_table(), hand=None, dealer=None), id="no-hand"),
+        ],
+    )
+    def test_there_is_no_doubling_where_nothing_can_be_said(self, table):
+        assert doubling_of(table) is None
+
+
+class TestWhatEachViewerSees:
+    def test_everyone_sees_the_words_with_their_seats_and_the_factor(self):
+        table = with_words(kontra_table(), WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 1), plays=1)
+        seats = seats_from(table.dealer)
+
+        for viewer in (frozenset({FOREHAND}), frozenset({MIDDLEHAND}), frozenset({REARHAND}), frozenset()):
+            view = kontra_view_of(table, playing_of(table), table.dealer, viewer)
+
+            assert [(each.seat, each.word) for each in view.said] == [
+                (seats[FOREHAND], KONTRA),
+                (seats[MIDDLEHAND], RE),
+            ]
+            assert view.factor == 4
+
+    @pytest.mark.parametrize(
+        ("words", "expected"),
+        [
+            pytest.param((), {FOREHAND: KONTRA, MIDDLEHAND: None, REARHAND: KONTRA}, id="before-any-word"),
+            pytest.param(
+                (WordSaid(FOREHAND, KONTRA, 0),),
+                {FOREHAND: None, MIDDLEHAND: RE, REARHAND: None},
+                id="after-kontra",
+            ),
+            pytest.param(
+                (WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0)),
+                {FOREHAND: None, MIDDLEHAND: None, REARHAND: None},
+                id="after-re-at-kontra-re",
+            ),
+        ],
+    )
+    def test_only_the_viewers_own_chair_gets_the_word_it_may_say_now(self, words, expected):
+        table = with_words(kontra_table(), *words)
+
+        mine = {
+            position: kontra_view_of(table, playing_of(table), table.dealer, frozenset({position})).my_word
+            for position in expected
+        }
+
+        assert mine == expected
+        assert kontra_view_of(table, playing_of(table), table.dealer, frozenset()).my_word is None
+
+    def test_a_table_without_kontra_has_no_view(self):
+        table = kontra_table(options=TableOptions())
+
+        assert kontra_view_of(table, playing_of(table), table.dealer, frozenset({FOREHAND})) is None
+
+
+class TestTheEntryOfADoubledGame:
+    def last_card_entry(self, *words):
+        table, last = before_the_last_card(table_in(declared_herz_hand(), options_of()))
+        table = replace(table, progress=replace(table.progress, words=words))
+        command = PlayCardCommand("command-1", table.id.value, table.version, last.card)
+        return decide_card(table, actor(last.position), command).table.game_list[-1]
+
+    def test_the_last_card_writes_the_last_word_and_the_doubled_list_score(self):
+        plain = self.last_card_entry()
+        doubled = self.last_card_entry(WordSaid(FOREHAND, KONTRA, 0))
+
+        assert plain.kontra_word is None
+        assert doubled.kontra_word is KONTRA
+        assert doubled.score == plain.score * 2
+        assert (doubled.won, doubled.settled_value, doubled.game_value) == (
+            plain.won,
+            plain.settled_value,
+            plain.game_value,
+        )
+
+    @pytest.mark.parametrize(
+        ("decide", "command"),
+        [
+            pytest.param(decide_give_up, GiveUpCommand, id="give-up"),
+            pytest.param(decide_throw_down, ThrowDownCommand, id="throw-down"),
+        ],
+    )
+    def test_a_give_up_and_a_throw_down_write_the_doubled_entry_too(self, decide, command):
+        def entry(*words):
+            table = replace(kontra_table(), progress=replace(declared_herz_hand(), words=words))
+            return decide(table, actor(MIDDLEHAND), command("command-1", table.id.value, VERSION)).table.game_list[-1]
+
+        assert entry(WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0)).score == entry().score * 4
+        assert entry(WordSaid(FOREHAND, KONTRA, 0)).kontra_word is KONTRA
+
+
+class TestTheRequestsAndTheirReceipts:
+    def test_a_table_without_kontra_keeps_the_payload_it_always_had(self):
+        assert create_payload(CreateTable("command-1", 3)) == '{"series_length":3}'
+
+    def test_the_options_of_kontra_join_the_payload_after_the_running_points(self):
+        options = TableOptions(
+            show_running_points=True,
+            kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, OWN_CARD),
+        )
+
+        payload = create_payload(CreateTable("command-1", 3, options))
+
+        assert payload == (
+            '{"series_length":3,"show_running_points":true,'
+            '"kontra":{"sayer":"bidders-only","reach":"up-to-hirsch","deadline":"own-card"}}'
+        )
+
+    def test_the_word_and_the_version_make_the_payload(self):
+        command = KontraCommand("command-1", "table", 5, KONTRA)
+
+        assert kontra_payload(command) == "table:5:kontra"
+        assert kontra_payload(replace(command, word=RE)) != kontra_payload(command)
+
+    @pytest.mark.parametrize(
+        ("token", "expected"),
+        [
+            ("rule-off", Refusal.RULE_OFF),
+            ("beyond-reach", KontraRefusal.BEYOND_REACH),
+            ("did-not-bid", KontraRefusal.DID_NOT_BID),
+            ("not-your-word", KontraRefusal.NOT_YOUR_WORD),
+            ("too-late", KontraRefusal.TOO_LATE),
+            ("over", BidRefusal.OVER),
+            ("not-your-turn", BidRefusal.NOT_YOUR_TURN),
+        ],
+    )
+    def test_a_stored_refusal_token_parses_to_its_owner_and_a_shared_one_keeps_the_auctions(self, token, expected):
+        assert parsed_refusal(token) is expected

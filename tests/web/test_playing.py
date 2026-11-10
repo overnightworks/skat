@@ -15,7 +15,7 @@ from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import KNOWN_DEAL, SKAT_CARDS, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import Table, card, card_body, cards, game_of, reason_of, takers
+from tests.web.support.playing import HERZ_GAME, Table, card, card_body, cards, game_of, reason_of, takers
 from tests.web.support.skat import UNKNOWN_ID
 
 if TYPE_CHECKING:
@@ -42,10 +42,6 @@ SWAPPED_DEAL = Deal(
 )
 
 
-HERZ_GAME = game_of(
-    "S7 S9 D7 / H7 DJ CJ / S8 ST D8 / SQ D9 C7 / SK DT C8",
-    "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
-)
 HERZ_TAKERS = takers("M F M M M M M R R R")
 GRAND_GAME = game_of(
     "S7 S9 D7 / H7 HQ C7 / D8 C8 ST / D9 C9 SQ / DJ CJ SJ",
@@ -389,6 +385,7 @@ class Moment:
             "last_trick": last,
             "legal_cards": [card_body(each) for each in legal],
             "running_points": None,
+            "kontra": None,
         }
 
     def own_cards_of(self, viewer):
@@ -626,6 +623,7 @@ HERZ_RESULT = {
     "score": 30,
     "declarer_points": 70,
     "opponents_points": 50,
+    "kontra": None,
     "gains": [
         {"seat": 1, "gain": 80, "won": True},
         {"seat": 2, "gain": 0, "won": False},
@@ -756,7 +754,10 @@ class TestRunningPoints:
             results.append(message_body(read(each, each.watcher)))
 
         assert results[0]["result"] == results[1]["result"]
-        assert [body["options"] for body in results] == [{"show_running_points": False}, {"show_running_points": True}]
+        assert [body["options"] for body in results] == [
+            {"show_running_points": False, "kontra": None},
+            {"show_running_points": True, "kontra": None},
+        ]
 
 
 class TestEveryViewersResult:

@@ -6,7 +6,7 @@ from skat.engine.deal import seats_from
 from skat.engine.giving_up import give_up, throw_down
 from skat.engine.tricks import CardPlayed, play_card
 from skat.table.game_list import list_entry_of
-from skat.table.hand_state import playing_of
+from skat.table.hand_state import doubling_of, playing_of
 from skat.table.records import Decision, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
 
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
     from skat.engine.tricks import PlayedOut, Playing, PlayOutcome, Sides
+    from skat.table.kontra import KontraView
     from skat.table.records import Actor
 
 PLAY_CARD_COMMAND: Final = "play-card"
@@ -75,6 +76,7 @@ class PlayingView:
     last_trick: LastTrick | None
     legal_cards: tuple[Card, ...]
     running_points: Sides | None
+    kontra: KontraView | None
 
 
 def card_payload(command: PlayCardCommand) -> str:
@@ -157,7 +159,7 @@ def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
         dealer=table.dealer,
         hand=None,
         progress=HandProgress(),
-        game_list=(*table.game_list, list_entry_of(played, table)),
+        game_list=(*table.game_list, list_entry_of(played, table, doubling_of(table))),
         series=table.series,
         options=table.options,
     )
@@ -173,14 +175,19 @@ def _legal_cards(state: Playing, viewer_positions: frozenset[Position]) -> tuple
 
 
 def playing_view_of(
-    state: Playing | None, dealer: int, viewer_positions: frozenset[Position], *, show_running_points: bool
+    state: Playing | None,
+    dealer: int,
+    viewer_positions: frozenset[Position],
+    *,
+    show_running_points: bool,
+    kontra: KontraView | None,
 ) -> PlayingView | None:
     """The game in play for one viewer; None until the game is declared.
 
     Everyone sees the turn, the trick in progress and the last completed trick.
     Only the seated player on turn gets the cards they may play.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
-    the skat; a Null game has none.
+    the skat; a Null game has none. The words said are the caller's `kontra` view.
     """
     if state is None:
         return None
@@ -192,4 +199,5 @@ def playing_view_of(
         last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
         legal_cards=_legal_cards(state, viewer_positions),
         running_points=state.tally.points if show_running_points and state.counts_card_points else None,
+        kontra=kontra,
     )
