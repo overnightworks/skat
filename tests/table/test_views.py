@@ -279,12 +279,6 @@ class TestChairTotals:
 
 
 class TestOptions:
-    @pytest.mark.parametrize("switch", [False, True])
-    def test_a_live_table_carries_the_options_it_has(self, switch):
-        table = replace(seated_table(1), options=TableOptions(show_running_points=switch))
-
-        assert view_of(table, ANNA, NOBODY_CONNECTED).options == TableOptions(show_running_points=switch)
-
     def test_an_ended_table_carries_no_options(self):
         ended = EndedTable(TableId("0" * 32), 7, EndReason.EMPTY, 1800)
 

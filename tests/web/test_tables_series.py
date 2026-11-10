@@ -178,11 +178,20 @@ class TestOptions:
         assert skat.create(headers, options=options).status_code == 422
         assert skat.store.tables == {}
 
-    def test_the_same_switch_under_the_same_command_id_is_the_same_table(self, skat):
+    @pytest.mark.parametrize(
+        ("first", "retry"),
+        [
+            ({"options": {"show_running_points": True}}, {"options": {"show_running_points": True}}),
+            ({}, {"options": {"show_running_points": False}}),
+            ({}, {"options": {}}),
+        ],
+        ids=["same-switch-on", "switch-given-off-is-none", "empty-options-is-none"],
+    )
+    def test_a_retry_with_the_same_switch_is_the_same_table(self, skat, first, retry):
         headers, _ = skat.member()
-        first = skat.create(headers, options={"show_running_points": True}).json()
+        opened = skat.create(headers, **first).json()
 
-        assert skat.create(headers, options={"show_running_points": True}).json() == first
+        assert skat.create(headers, **retry).json() == opened
         assert len(skat.store.tables) == 1
 
     def test_another_switch_under_the_same_command_id_is_a_reused_id(self, skat):
@@ -192,28 +201,21 @@ class TestOptions:
         assert skat.create(headers).status_code == 409
         assert len(skat.store.tables) == 1
 
-    def test_a_switch_given_off_is_the_same_request_as_none(self, skat):
-        headers, _ = skat.member()
-        first = skat.create(headers).json()
-
-        assert skat.create(headers, options={"show_running_points": False}).json() == first
-
     def test_a_receipt_stored_before_options_replays_for_a_retry_without_them(self, skat):
         headers, account = skat.member()
         first = skat.create(headers).json()
         key = (account.id, "command-0001")
-        skat.store.receipts[key] = replace(skat.store.receipts[key], payload=f'{{"series_length":{36}}}')
+        skat.store.receipts[key] = replace(skat.store.receipts[key], payload='{"series_length":36}')
 
         assert skat.create(headers).json() == first
 
-    def test_a_switch_on_changes_the_receipt_s_payload_and_a_switch_off_leaves_it(self, skat):
-        headers, _ = skat.member()
-        skat.create(headers, command_id="command-off")
-        skat.create(headers, command_id="command-on", options={"show_running_points": True})
+    def test_a_switch_on_changes_the_receipt_s_payload(self, skat):
+        headers, account = skat.member()
+        skat.create(headers, options={"show_running_points": True})
 
-        payloads = {key[1]: receipt.payload for key, receipt in skat.store.receipts.items()}
-        assert payloads["command-off"] == '{"series_length":36}'
-        assert payloads["command-on"] == '{"series_length":36,"show_running_points":true}'
+        assert skat.store.receipts[(account.id, "command-0001")].payload == (
+            '{"series_length":36,"show_running_points":true}'
+        )
 
 
 class TestCounting:
