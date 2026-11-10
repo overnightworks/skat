@@ -78,7 +78,7 @@ def test_a_table_opened_with_the_switch_on_reads_it_back_after_a_reload(service)
     assert service.view(OPENER, created.id, frozenset()).options == created.options
 
 
-def test_a_table_stored_without_a_switch_reads_it_off_and_plays_as_before(service, engine):
+def test_a_table_stored_without_a_switch_reads_it_off(service, engine):
     old_id = "a" * 32
     with engine.begin() as connection:
         connection.execute(text("INSERT INTO tables (id, version) VALUES (:id, 1)"), {"id": old_id})
