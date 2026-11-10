@@ -50,9 +50,11 @@ def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
 
 
 def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> None:
-    """Returns when a session waits for a lock; fails when the reader ends without that, or hangs elsewhere.
+    """Returns when a session waits for a lock.
 
-    A reader that is a `WorkInAThread` and ended by failing makes the wait raise that failure."""
+    The caller holds the lock the reader needs until this returns, so a reader that is blocked stays visible to the
+    poll; the reader ending first therefore means it never waited. That fails the test: with the reader's own
+    failure when it is a `WorkInAThread` that failed. A reader still running at the hang deadline fails it too."""
     hang_deadline = time.monotonic() + HANG_DEADLINE_SECONDS
     with engine.connect() as watcher:
         while reader.is_alive() and time.monotonic() < hang_deadline:
@@ -66,4 +68,4 @@ def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> N
                 return
     if isinstance(reader, WorkInAThread) and reader.failure is not None:
         raise reader.failure
-    pytest.fail("no session waited for a lock")
+    pytest.fail("the reader ended or hung without a session waiting for a lock")

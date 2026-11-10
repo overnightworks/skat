@@ -485,6 +485,21 @@ class TestOneMomentRead:
         writer.join()
         assert self.read(engine, table_id).version == 2
 
+    def test_the_wait_for_a_lock_raises_the_failure_of_a_reader_that_stopped_before_waiting(self, engine):
+        def fail():
+            raise ConnectionError("lost")
+
+        reader, _ = run_in_thread(fail)
+
+        with pytest.raises(ConnectionError):
+            wait_until_a_session_waits_for_a_lock(engine, reader)
+
+    def test_the_wait_for_a_lock_fails_when_the_reader_ends_without_waiting(self, engine):
+        reader, _ = run_in_thread(lambda: None)
+
+        with pytest.raises(pytest.fail.Exception, match="without a session waiting"):
+            wait_until_a_session_waits_for_a_lock(engine, reader)
+
     def test_two_reads_at_once_do_not_wait_for_each_other(self, engine, table_id):
         with PostgresTableTransactions(engine).begin() as first:
             first.table(TableId(table_id))
