@@ -18,6 +18,7 @@ from skat.web.playing import (
 )
 from skat.web.presence import Presence
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
+from skat.web.seating import create_seating_router
 from skat.web.tables import (
     AWAITING_TOKENS,
     POSITION_TOKENS,
@@ -237,9 +238,13 @@ class RecordingPresence(Presence):
 
 
 def answering_first(skat, tables, presence):
-    """Route requests through a tables router that has this service and presence, ahead of the composed one."""
+    """Route requests through tables and seating routers that have this service and presence, ahead of the composed
+    ones.
+    """
+    composed = list(skat.app.router.routes)
+    skat.app.include_router(create_seating_router(tables, presence))
     skat.app.include_router(create_tables_router(tables, fixture_page_build(), presence))
-    skat.app.router.routes.insert(0, skat.app.router.routes.pop())
+    skat.app.router.routes[:] = skat.app.router.routes[len(composed) :] + composed
 
 
 @pytest.fixture
