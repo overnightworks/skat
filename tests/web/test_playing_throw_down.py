@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from skat.engine.cards import Rank
@@ -106,18 +108,6 @@ class TestTheDeclarerThrowsDown:
 
         assert (result["won"], result["declarer_points"]) == (False, SKAT_POINTS)
 
-    def test_a_null_is_lost_at_its_fixed_value_without_matadors(self, table):
-        table.declared_hand_game(GameToken.NULL)
-
-        result = result_of(table, MIDDLEHAND)
-
-        assert shown(result, "won", "matadors", "game_value", "score") == {
-            "won": False,
-            "matadors": None,
-            "game_value": 35,
-            "score": -70,
-        }
-
 
 class TestAnOpponentThrowsDown:
     def test_before_the_first_card_the_declarer_wins_the_whole_deal_with_every_level(self, herz_hand):
@@ -163,23 +153,27 @@ class TestAnOpponentThrowsDown:
     def test_either_opponent_off_turn_in_the_middle_of_a_trick_ends_the_same_game(self, table, position):
         table.declared_hand_game()
         table.accepted(card("CA"))
-        table.accepted(card("SA"))
         assert table.record.progress.plays
 
         result = result_of(table, position)
 
         assert (result["won"], result["declarer_points"], result["opponents_points"]) == (True, ALL_POINTS, 0)
 
-    def test_a_null_is_won_at_its_fixed_value(self, table):
+    @pytest.mark.parametrize(
+        ("position", "won", "score"),
+        [(MIDDLEHAND, False, -70), (FOREHAND, True, 35)],
+        ids=["declarer-loses", "opponent-wins"],
+    )
+    def test_a_null_is_settled_at_its_fixed_value_without_matadors(self, table, position, won, score):
         table.declared_hand_game(GameToken.NULL)
 
-        result = result_of(table, FOREHAND)
+        result = result_of(table, position)
 
         assert shown(result, "won", "matadors", "game_value", "score") == {
-            "won": True,
+            "won": won,
             "matadors": None,
             "game_value": 35,
-            "score": 35,
+            "score": score,
         }
 
     def test_the_skat_never_changes_the_answer(self, skat):
@@ -190,7 +184,7 @@ class TestAnOpponentThrowsDown:
         results = []
         for deal in (
             KNOWN_DEAL,
-            KNOWN_DEAL.__class__(other_forehand, KNOWN_DEAL.middlehand, KNOWN_DEAL.rearhand, other_skat),
+            replace(KNOWN_DEAL, forehand=other_forehand, skat=other_skat),
         ):
             table = Table(skat)
             table.with_deal(deal)
