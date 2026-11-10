@@ -9,7 +9,8 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import Level
 from skat.table.auction import AuctionAction
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN
+from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN, EndReason
+from skat.table.rules import CHAIRS_PER_TABLE
 from skat.web.auction import (
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -94,12 +95,17 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("AWAITING_TOKENS", AwaitingToken),
         ("AUCTION_ACTION_TOKENS", AuctionAction),
         ("LEVEL_TOKENS", Level),
+        ("END_REASON_TOKENS", EndReason),
     ],
 )
 def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, tokens: type[StrEnum]) -> None:
     declaration = generate_wire.render().partition(f"export const {name} = ")[2].partition("as const;")[0]
 
     assert all(f'"{token.value}"' in declaration for token in tokens)
+
+
+def test_render_names_the_chairs_of_a_table() -> None:
+    assert f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};" in generate_wire.render()
 
 
 def test_render_lists_every_valid_bid_in_rising_order() -> None:
