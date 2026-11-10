@@ -15,6 +15,7 @@ from skat.store.game_list import append_game_list, game_list, read_game_list
 from skat.store.kontra import append_words, kontra_words, read_words
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
+    POSITION_OF_TEXT,
     POSITION_TEXT,
     RANK_TEXT,
     SKAT_HOLDER,
@@ -30,6 +31,7 @@ from skat.table.records import (
     Chair,
     EndedTable,
     EndReason,
+    GiveUpAsked,
     HandProgress,
     Occupant,
     Receipt,
@@ -114,6 +116,8 @@ def _table_record(
         tables.c.series_length,
         tables.c.series_deals,
         tables.c.show_running_points,
+        tables.c.give_up_asked_by,
+        tables.c.give_up_declined_by,
         tables.c.kontra_sayer,
         tables.c.kontra_reach,
         tables.c.kontra_deadline,
@@ -150,6 +154,7 @@ def _table_record(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
+            give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
             words=read_words(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
@@ -169,6 +174,12 @@ def _bock_columns_of(bock: BockOptions | None) -> dict[str, object]:
         "bock_triggers": None if bock is None else sorted(trigger.value for trigger in bock.triggers),
         "bock_overlap": None if bock is None else bock.overlap.value,
     }
+
+
+def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked | None:
+    if asked_by is None:
+        return None
+    return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
 
 
 def _starts_series(table: TableRecord) -> bool:
@@ -230,6 +241,7 @@ class _PostgresTableTransaction:
 
     def _write_table_row(self, table: TableRecord) -> None:
         """The row's changing columns: the series length and the options are written by `add_table` and never here."""
+        asked = table.progress.give_up
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table.id.value)
@@ -238,6 +250,10 @@ class _PostgresTableTransaction:
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
                 bock_rounds=list(table.bock.remaining),
+                give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
+                give_up_declined_by=None
+                if asked is None or asked.declined_by is None
+                else POSITION_TEXT[asked.declined_by],
             )
         )
 

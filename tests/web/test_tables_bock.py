@@ -9,7 +9,7 @@ from skat.web.declaring import GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLES_PATH, AnnouncementToken
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import an_entry
 from tests.web.support.playing import HERZ_GAME, Table, cards
@@ -88,39 +88,69 @@ def next_hand(table, *, after_a_pass_in=False):
 
 class TestWhatStartsABockRound:
     @pytest.mark.parametrize(
-        ("trigger", "token", "game", "starts"),
+        ("trigger", "token", "game", "starts", "announcement"),
         [
-            pytest.param("sixty-sixty", GameToken.HERZ, SIXTY_SIXTY, True, id="1-sixty-sixty"),
-            pytest.param("sixty-sixty", GameToken.HERZ, HERZ_GAME, False, id="2-sixty-one"),
+            pytest.param("sixty-sixty", GameToken.HERZ, SIXTY_SIXTY, True, AnnouncementToken.NONE, id="1-sixty-sixty"),
+            pytest.param("sixty-sixty", GameToken.HERZ, HERZ_GAME, False, AnnouncementToken.NONE, id="2-sixty-one"),
             pytest.param(
-                "schwarz", GameToken.HERZ, DECLARER_WITHOUT_A_TRICK, True, id="8-schwarz-for-the-declarer-s-side"
+                "schwarz",
+                GameToken.HERZ,
+                DECLARER_WITHOUT_A_TRICK,
+                True,
+                AnnouncementToken.NONE,
+                id="8-schwarz-for-the-declarer-s-side",
             ),
-            pytest.param("schneider", GameToken.HERZ, OPPONENTS_SCHNEIDER, True, id="33-schneider-for-the-opponents"),
-            pytest.param("re", GameToken.HERZ, SIXTY_SIXTY, False, id="26-re-at-a-table-without-kontra"),
-            pytest.param("won-grand-hand", GameToken.GRAND, GRAND_HAND_WON, True, id="won-grand-hand-won"),
-            pytest.param("won-grand-hand", GameToken.GRAND, GRAND_HAND_LOST, False, id="won-grand-hand-lost"),
+            pytest.param(
+                "schneider",
+                GameToken.HERZ,
+                OPPONENTS_SCHNEIDER,
+                True,
+                AnnouncementToken.NONE,
+                id="33-schneider-for-the-opponents",
+            ),
+            pytest.param(
+                "re", GameToken.HERZ, SIXTY_SIXTY, False, AnnouncementToken.NONE, id="26-re-at-a-table-without-kontra"
+            ),
+            pytest.param(
+                "won-grand-hand",
+                GameToken.GRAND,
+                GRAND_HAND_WON,
+                True,
+                AnnouncementToken.NONE,
+                id="3-won-grand-hand-won",
+            ),
+            pytest.param(
+                "won-grand-hand",
+                GameToken.GRAND,
+                GRAND_HAND_LOST,
+                False,
+                AnnouncementToken.NONE,
+                id="3-won-grand-hand-lost",
+            ),
+            pytest.param(
+                "schneider",
+                GameToken.HERZ,
+                HERZ_GAME,
+                True,
+                AnnouncementToken.SCHNEIDER,
+                id="schneider-announced-and-missed",
+            ),
         ],
     )
-    def test_a_played_game_asks_the_triggers_with_the_last_card(self, open_table, trigger, token, game, starts):
+    def test_a_played_game_asks_the_triggers_with_the_last_card(
+        self, open_table, trigger, token, game, starts, announcement
+    ):
         table = open_table(trigger)
-        table.declared_hand_game(token)
+        table.declared_hand_game(token, announcement=announcement)
 
         table.played_out(game)
 
         assert bock_of(table) == (A_ROUND_BEGINS if starts else AFTER_THE_BOCK_ROUND)
 
-    def test_a_schneider_announced_and_missed_triggers(self, open_table):
-        table = open_table("schneider")
-        table.declared_hand_game(announcement="schneider")
-
-        table.played_out(HERZ_GAME)
-
-        assert bock_of(table) == A_ROUND_BEGINS
-
     def test_a_hand_all_three_pass_triggers(self, open_table, server):
         table = open_table("passed-in")
 
-        pass_the_hand_in(server, table)
+        pass_the_hand_in(server, table.table_id, headers_of(table))
 
         assert bock_of(table) == A_ROUND_BEGINS
 
@@ -268,10 +298,10 @@ class TestHowTheRoundsOverlap:
         self, open_table, server, overlap, after_two_passed_in_hands
     ):
         table = open_table("passed-in", overlap=overlap)
-        pass_the_hand_in(server, table)
+        pass_the_hand_in(server, table.table_id, headers_of(table))
         next_hand(table, after_a_pass_in=True)
 
-        pass_the_hand_in(server, table)
+        pass_the_hand_in(server, table.table_id, headers_of(table))
 
         assert bock_of(table) == after_two_passed_in_hands
 
@@ -300,14 +330,14 @@ class TestTheSeriesLimitsTheRounds:
         table = open_table("passed-in")
         server.store.tables[table.table_id] = replace(table.record, series=Series(6, 5))
 
-        pass_the_hand_in(server, table)
+        pass_the_hand_in(server, table.table_id, headers_of(table))
 
         assert bock_of(table) == {"games_left": 1, "factor": 2}
 
     def test_the_last_game_scores_double_and_then_nothing_stays_pending(self, open_table, server):
         table = open_table("passed-in")
         server.store.tables[table.table_id] = replace(table.record, series=Series(6, 5))
-        pass_the_hand_in(server, table)
+        pass_the_hand_in(server, table.table_id, headers_of(table))
         next_hand(table, after_a_pass_in=True)
         table.declared_hand_game()
 
@@ -323,7 +353,7 @@ class TestTheSeriesLimitsTheRounds:
         table = open_table("passed-in")
         server.store.tables[table.table_id] = replace(table.record, series=Series(3, 3))
 
-        pass_the_hand_in(server, table)
+        pass_the_hand_in(server, table.table_id, headers_of(table))
 
         assert (bock_of(table), table.record.bock) == (AFTER_THE_BOCK_ROUND, BockRounds(()))
 
@@ -406,7 +436,7 @@ class TestASeriesOfThree:
         table.declared_hand_game()
         table.played_out(HERZ_GAME)
         next_hand(table)
-        pass_the_hand_in(server, table)
+        pass_the_hand_in(server, table.table_id, headers_of(table))
         next_hand(table, after_a_pass_in=True)
         table.declared_hand_game()
 

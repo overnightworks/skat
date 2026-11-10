@@ -1,11 +1,11 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from skat.engine.bock import BockRounds, TotalChange, advance, bock_triggered, games_left
 from skat.engine.kontra import Doubling
 from skat.table.game_list import bock_factor_of, reach_of, total_of
 from skat.table.hand_state import doubling_of
-from skat.table.rules import series_games_left, series_over
+from skat.table.rules import series_games_left
 
 if TYPE_CHECKING:
     from skat.engine.bidding import PassedIn
@@ -40,7 +40,8 @@ def bock_after(table: TableRecord, ended: PlayedOut | PassedIn, entry: ListEntry
     The hand uses up a Bock game and meets the table's triggers; the series' last game lets every round lapse.
     """
     options = table.options.bock
-    if options is None or series_over(replace(table, hand=None)):
+    series_ends_with_this_hand = series_games_left(table) == 1  # the running hand counts as a game left
+    if options is None or series_ends_with_this_hand:
         return BockRounds.start()
     totals = () if entry is None else _total_changes(table, entry)
     triggered = bock_triggered(options.triggers, ended, doubling_of(table) or Doubling.start(), totals)

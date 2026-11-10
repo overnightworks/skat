@@ -145,6 +145,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
             table.dealer,
             viewer_positions,
             show_running_points=table.options.show_running_points,
+            asked=table.progress.give_up,
             kontra=None if playing is None else kontra_view_of(table, playing, table.dealer, viewer_positions),
         ),
     )

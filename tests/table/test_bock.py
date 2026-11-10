@@ -9,14 +9,13 @@ from skat.table.hand_state import playing_of
 from skat.table.records import HandProgress, Series, TableOptions
 from tests.support.played_game import an_entry, before_the_last_card, table_in
 
-APPEND, MULTIPLY, IGNORE = BockOverlap.APPEND, BockOverlap.MULTIPLY, BockOverlap.IGNORE
 PASSED_IN, TOTAL_ENDING_IN_00 = BockTrigger.PASSED_IN, BockTrigger.TOTAL_ENDING_IN_00
 SEAT_ACCOUNTS = ("account-middlehand", "account-rearhand", "account-forehand")
 
 
-def bock_table(triggers=(PASSED_IN,), overlap=APPEND, *, rounds=(), series=None, game_list=(), progress=None):
-    options = TableOptions(bock=BockOptions(frozenset(triggers), overlap))
-    table = table_in(HandProgress() if progress is None else progress, options)
+def bock_table(triggers=(PASSED_IN,), *, rounds=(), series=None, game_list=()):
+    options = TableOptions(bock=BockOptions(frozenset(triggers), BockOverlap.APPEND))
+    table = table_in(HandProgress(), options)
     return replace(table, bock=BockRounds(rounds), series=series, game_list=game_list)
 
 

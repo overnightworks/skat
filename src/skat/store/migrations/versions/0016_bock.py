@@ -6,8 +6,8 @@ The score widens because a Bock factor and a Kontra word multiply a lost game's 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0015"
-down_revision = "0014"
+revision = "0016"
+down_revision = "0015"
 
 TRIGGERS = (
     "sixty-sixty",
