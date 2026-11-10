@@ -3,14 +3,23 @@ import asyncio
 import pytest
 from structlog.testing import capture_logs
 
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS
+from skat.web.presence import (
+    CHAIR_RELEASE_RETRY_SECONDS,
+    NEXT_DEAL_PAUSE_SECONDS,
+    ChairHold,
+    EmptyTable,
+    NextDeal,
+    Presence,
+)
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from tests.support.idle_presence import idle_agent_lease
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     HOLD_SECONDS,
     NAMED_FAILURE,
     OTHER_TABLE,
     TABLE,
+    Wakes,
     connect,
     run,
 )
@@ -207,3 +216,180 @@ class TestWhenTheServerStops:
         run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS * 2))
 
         assert (time.pending, ends.calls) == (0, [])
+
+
+class Notes:
+    """The note command as the presence calls it: who was connected when each write held the row."""
+
+    def __init__(self):
+        self.calls = []
+        self.failures = []
+        self.ended = False
+        self.meanwhile = None
+
+    async def note(self, table_id, connected_accounts):
+        if self.meanwhile is not None:
+            await self.meanwhile()
+        if self.failures:
+            raise self.failures.pop(0)
+        with connected_accounts as connected:
+            self.calls.append((table_id, connected))
+        return self.ended
+
+
+@pytest.fixture
+def notes():
+    return Notes()
+
+
+@pytest.fixture
+def noting(time, releases, deals, ends, notes):
+    return Presence(
+        ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
+        NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
+        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
+        idle_agent_lease(),
+    )
+
+
+class TestTheStoredTimeSinceNobodyWasThere:
+    def test_the_first_arrival_writes_before_the_stream_has_its_subscription_returned(self, noting, notes):
+        connect(noting, TABLE, "anna", lambda: None)
+
+        assert notes.calls == [(TABLE, frozenset({"anna"}))]
+
+    def test_a_second_stream_on_a_table_someone_is_at_writes_nothing(self, noting, notes):
+        connect(noting, TABLE, "anna", lambda: None)
+        connect(noting, TABLE, "ben", lambda: None)
+
+        assert len(notes.calls) == 1
+
+    def test_the_last_leave_writes_with_nobody_connected(self, noting, time, notes):
+        leaving = connect(noting, TABLE, "anna", lambda: None)
+        noting.unsubscribe(leaving)
+
+        run(time.advance(0))
+
+        assert notes.calls[-1] == (TABLE, frozenset())
+
+    def test_a_leave_while_another_stays_writes_nothing(self, noting, time, notes):
+        leaving = connect(noting, TABLE, "anna", lambda: None)
+        connect(noting, TABLE, "ben", lambda: None)
+        noting.unsubscribe(leaving)
+
+        run(time.advance(0))
+
+        assert len(notes.calls) == 1
+
+    def test_a_failed_arrival_write_fails_the_stream_and_leaves_no_stream_behind(self, noting, notes):
+        notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+
+        with pytest.raises(ConnectionError):
+            connect(noting, TABLE, "anna", lambda: None)
+
+        assert noting.connected(TABLE) == frozenset()
+
+    def test_a_reconnect_after_a_failed_arrival_writes_again(self, noting, notes):
+        notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        with pytest.raises(ConnectionError):
+            connect(noting, TABLE, "anna", lambda: None)
+
+        connect(noting, TABLE, "anna", lambda: None)
+
+        assert notes.calls == [(TABLE, frozenset({"anna"}))]
+
+    def test_a_failed_first_arrival_writes_again_for_a_stream_that_registered_while_it_ran(self, noting, time, notes):
+        async def scenario():
+            writing, go_on = asyncio.Event(), asyncio.Event()
+
+            async def hold_the_write():
+                writing.set()
+                await go_on.wait()
+
+            notes.meanwhile = hold_the_write
+            notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+            first = asyncio.create_task(noting.subscribe(TABLE, "anna", lambda: None))
+            await writing.wait()
+            notes.meanwhile = None
+            await noting.subscribe(TABLE, "ben", lambda: None)
+            go_on.set()
+            with pytest.raises(ConnectionError):
+                await first
+            await time.advance(0)
+
+        run(scenario())
+
+        assert notes.calls == [(TABLE, frozenset({"ben"}))]
+
+    def test_an_arrival_that_ends_the_table_wakes_its_streams(self, noting, notes):
+        wakes = Wakes()
+        notes.ended = True
+
+        connect(noting, TABLE, "anna", wakes.callback("anna"))
+
+        assert wakes.counts["anna"] == 1
+
+    def test_a_leave_write_that_ends_the_table_wakes_the_streams_open_by_then(self, noting, time, notes):
+        wakes = Wakes()
+        leaving = connect(noting, TABLE, "anna", wakes.callback("anna"))
+        noting.unsubscribe(leaving)
+        connect(noting, TABLE, "ben", wakes.callback("ben"))
+        before = wakes.counts["ben"]
+        notes.ended = True
+
+        run(time.advance(0))
+
+        assert wakes.counts["ben"] == before + 1
+
+    def test_a_failed_leave_write_is_logged_by_name_and_retried_while_the_presence_runs(self, noting, time, notes):
+        leaving = connect(noting, TABLE, "anna", lambda: None)
+        notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        noting.unsubscribe(leaving)
+
+        with capture_logs() as logs:
+            run(time.advance(0))
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+
+        assert [(log["error"], log["table_id"]) for log in logs] == [("ConnectionError", TABLE)]
+        assert notes.calls[-1] == (TABLE, frozenset())
+
+    def test_a_retried_leave_write_notes_who_is_connected_when_it_runs_after_a_reconnect(self, noting, time, notes):
+        leaving = connect(noting, TABLE, "anna", lambda: None)
+        notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        noting.unsubscribe(leaving)
+        run(time.advance(0))
+        connect(noting, TABLE, "anna", lambda: None)
+        calls_after_reconnect = len(notes.calls)
+
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+
+        assert notes.calls[calls_after_reconnect:] == [(TABLE, frozenset({"anna"}))]
+
+    def test_a_stopped_presence_writes_no_leave(self, noting, time, notes):
+        leaving = connect(noting, TABLE, "anna", lambda: None)
+        noting.stop()
+        noting.unsubscribe(leaving)
+
+        run(time.advance(0))
+
+        assert len(notes.calls) == 1
+
+
+class TestTheWaitAfterAStart:
+    def test_each_table_found_at_the_start_ends_when_its_own_left_wait_passes(self, holding, time, ends):
+        holding.watch_empty_tables({TABLE: 20 * MINUTE, OTHER_TABLE: 5 * MINUTE})
+
+        run(time.advance(5 * MINUTE))
+        assert ends.calls == [(OTHER_TABLE, frozenset())]
+
+        run(time.advance(15 * MINUTE))
+        assert ends.calls == [(OTHER_TABLE, frozenset()), (TABLE, frozenset())]
+
+    def test_a_table_found_at_the_start_ends_when_what_is_left_of_its_wait_passes(self, holding, time, ends):
+        holding.watch_empty_table(TABLE, 20 * MINUTE)
+
+        run(time.advance(20 * MINUTE - 1))
+        assert ends.calls == []
+
+        run(time.advance(1))
+        assert ends.calls == [(TABLE, frozenset())]

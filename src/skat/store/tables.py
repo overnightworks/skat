@@ -37,7 +37,7 @@ from skat.table.records import (
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, OccupiedChair, TableTransaction
+from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, TableTransaction
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -259,10 +259,20 @@ class _PostgresTableTransaction:
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
         )
 
-    def live_table_ids(self) -> tuple[TableId, ...]:
+    def empty_since(self, table_id: TableId) -> datetime | None:
+        return self._connection.execute(select(tables.c.empty_since).where(tables.c.id == table_id.value)).scalar_one()
+
+    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
+        self._connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=since))
+
+    def live_empty_since(self) -> tuple[LiveWait, ...]:
         return tuple(
-            TableId(row.id)
-            for row in self._connection.execute(select(tables.c.id).where(tables.c.end_reason.is_(None)))
+            LiveWait(TableId(row.id), row.dealer, row.empty_since)
+            for row in self._connection.execute(
+                select(tables.c.id, tables.c.dealer, tables.c.empty_since)
+                .where(tables.c.end_reason.is_(None))
+                .with_for_update()
+            )
         )
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:

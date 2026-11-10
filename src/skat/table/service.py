@@ -1,6 +1,6 @@
 import copy
 import secrets
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
@@ -38,6 +38,8 @@ from skat.table.rules import (
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
     CommandIdReusedError,
+    PresenceStep,
+    ResumeStep,
     command_receipt,
     create_receipt,
     dealt_next,
@@ -46,10 +48,13 @@ from skat.table.rules import (
     decide_sit,
     decide_stand,
     ends_empty,
+    hand_was_dealt,
     next_deal_due,
+    presence_step,
     present_at,
     replayed_decision,
     replayed_table,
+    resume_step,
     seated_if_hand_ended,
     sit_deals,
     sit_payload,
@@ -68,6 +73,7 @@ __all__ = [
     "CommandIdReusedError",
     "CommandResult",
     "DuplicateReceiptError",
+    "LiveWait",
     "OccupiedChair",
     "TableService",
     "TableTransaction",
@@ -108,7 +114,21 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         """
         ...
 
-    def live_table_ids(self) -> tuple[TableId, ...]: ...
+    def empty_since(self, table_id: TableId) -> datetime | None:
+        """Since when nobody has been at the table, or None while it is unset."""
+        ...
+
+    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
+        """Write the time since when nobody has been at the table, on the row this transaction locked; it changes
+        nothing else, not even the version.
+        """
+        ...
+
+    def live_empty_since(self) -> tuple[LiveWait, ...]:
+        """Every live table with whether a hand was dealt on it and its time since when nobody has been there, each
+        row locked by this transaction.
+        """
+        ...
 
     def add_receipt(self, receipt: Receipt) -> None: ...
 
@@ -119,6 +139,13 @@ class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies 
     def begin(self) -> AbstractContextManager[TableTransaction]:
         """One transaction: it commits when the block ends and rolls back when the block raises."""
         ...
+
+
+@dataclass(frozen=True)
+class LiveWait:
+    table_id: TableId
+    dealer: int | None
+    empty_since: datetime | None
 
 
 @dataclass(frozen=True)
@@ -185,6 +212,7 @@ class TableService:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset())
             table = decide_create(actor, self._new_table_id(), command.series_length)
             transaction.add_table(table)
+            transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())
 
@@ -350,9 +378,56 @@ class TableService:
             transaction.end_table(table_id, self._now(), empty_seconds)
             return True
 
-    def live_table_ids(self) -> tuple[TableId, ...]:
+    def note_presence(
+        self,
+        table_id: TableId,
+        connected_accounts: AbstractContextManager[frozenset[str] | None],
+        empty_seconds: int,
+    ) -> bool:
+        """Bring the time since when nobody has been at the table in line with who is present, on the server's own
+        account, with no actor, command id, receipt or version change.
+
+        `connected_accounts` is entered once the row is locked and left after the commit, as for `end_empty_table`,
+        so the last write after any change reflects the latest truth. A table someone arrives at after its time was
+        up ends instead of reviving. True when it ended the table.
+        """
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            if table is None:
+                return False
+            present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
+            now = self._now()
+            step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
+            if step is PresenceStep.END:
+                transaction.end_table(table_id, now, empty_seconds)
+            elif step is not PresenceStep.KEEP:
+                transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
+            return step is PresenceStep.END
+
+    def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
+        """At the server's start: give every live table on which no hand was dealt and that has no time one, end
+        every such table whose wait is already up, and answer each remaining table's id with the seconds left of its
+        wait; a table with a dealt hand pauses and is left out.
+        """
+        now = self._now()
         with self._transactions.begin() as transaction:
-            return transaction.live_table_ids()
+            resumed = tuple(
+                (wait.table_id, resume_step(wait.dealer, wait.empty_since, now, empty_seconds))
+                for wait in transaction.live_empty_since()
+            )
+            for table_id, resume in resumed:
+                if resume.step is ResumeStep.STAMP:
+                    transaction.set_empty_since(table_id, now)
+        left: dict[str, float] = {}
+        for table_id, resume in resumed:
+            if resume.step is ResumeStep.SKIP:
+                continue
+            if resume.step is ResumeStep.END and self.end_empty_table(
+                table_id, nullcontext(frozenset()), empty_seconds
+            ):
+                continue
+            left[table_id.value] = resume.seconds_left
+        return left
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
@@ -418,6 +493,8 @@ class TableService:
                 decision = decide(table)
                 if decision.refusal is None:
                     transaction.save_table(decision.table)
+                    if hand_was_dealt(decision.table) and not hand_was_dealt(table):
+                        transaction.set_empty_since(identifier, None)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)

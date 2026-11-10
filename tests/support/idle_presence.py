@@ -30,8 +30,12 @@ async def end_no_table(table_id, connected_accounts):
     return False
 
 
+async def note_nothing(table_id, connected_accounts):
+    return False
+
+
 def idle_empty_table() -> EmptyTable:
-    return EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table)
+    return EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note_nothing)
 
 
 def idle_next_deal() -> NextDeal:
