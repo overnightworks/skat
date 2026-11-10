@@ -69,6 +69,10 @@ def restart_under_open_pages(
 
     The sign-in start of a person whose issuer session ended is answered with the issuer's login form, where
     only a person can go on.
+
+    The pages that sign in through the issuer stay offline until `expect_back_at_the_table` lets each one back.
+    The new process fetches the issuer's key set at the first sign-in it checks, and a sign-in that arrives while
+    that fetch runs is refused, so the people come back one after the other.
     """
     people = {table.names[seat]: page for seat, page in table.pages.items()} | {"dora": table.watcher}
     sign_in_starts: dict[str, list[str]] = {name: [] for name in people}
@@ -101,6 +105,9 @@ def restart_under_open_pages(
             )
             expect(page.locator(".stage.stale")).to_have_count(1, timeout=remaining_milliseconds)
             dimmed_views[name] = view_of(page)
+        for name, page in people.items():
+            if name not in issuer_session_ended:
+                page.context.set_offline(True)
 
     uvicorn_log = logging.getLogger("uvicorn.error")
     uvicorn_log.addHandler(caplog.handler)
@@ -117,6 +124,7 @@ def expect_back_at_the_table(table: PlayingTable, restart: Restart, names: list[
     pages = {table.names[seat]: page for seat, page in table.pages.items()} | {"dora": table.watcher}
     for name in names:
         page = pages[name]
+        page.context.set_offline(False)
         page.wait_for_function("() => window.sameDocument !== true")
         expect(page.locator(".chair")).to_have_count(3, timeout=BACK_AT_THE_TABLE_MILLISECONDS)
         expect(page.locator(".plaque")).to_have_text(
