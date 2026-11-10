@@ -49,8 +49,8 @@ from skat.web.presence import (
     Scheduler,
 )
 from skat.web.ready import create_ready_router
-from skat.web.series_end import create_series_end_router
 from skat.web.routes import create_router
+from skat.web.series_end import create_series_end_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,

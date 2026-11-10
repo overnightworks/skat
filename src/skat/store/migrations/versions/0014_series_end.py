@@ -21,7 +21,8 @@ def upgrade() -> None:
     op.create_check_constraint(
         "tables_series_end_accepter_follows_a_proposer",
         "tables",
-        "series_end_accepter IS NULL OR (series_end_proposer IS NOT NULL AND series_end_accepter <> series_end_proposer)",
+        "series_end_accepter IS NULL"
+        " OR (series_end_proposer IS NOT NULL AND series_end_accepter <> series_end_proposer)",
     )
     op.create_check_constraint(
         "tables_series_end_needs_a_series",

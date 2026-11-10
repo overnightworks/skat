@@ -47,14 +47,6 @@ from skat.table.records import (
     TableId,
     TableRecord,
 )
-from skat.table.series_end import (
-    AGREE_TO_END_SERIES_COMMAND,
-    REFUSE_TO_END_SERIES_COMMAND,
-    SeriesEndCommand,
-    decide_agree_to_end,
-    decide_refuse_to_end,
-    series_end_payload,
-)
 from skat.table.rules import (
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
@@ -80,6 +72,14 @@ from skat.table.rules import (
     sit_deals,
     sit_payload,
     stand_payload,
+)
+from skat.table.series_end import (
+    AGREE_TO_END_SERIES_COMMAND,
+    REFUSE_TO_END_SERIES_COMMAND,
+    SeriesEndCommand,
+    decide_agree_to_end,
+    decide_refuse_to_end,
+    series_end_payload,
 )
 from skat.table.views import TableView, view_of
 

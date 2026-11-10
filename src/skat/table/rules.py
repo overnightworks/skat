@@ -156,9 +156,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     starts_series = series_over(table)
     series = table.series
     if series is not None:
-        series = replace(
-            series, deals=1 if starts_series else series.deals + 1, ended_early=False, end_proposal=None
-        )
+        series = replace(series, deals=1 if starts_series else series.deals + 1, ended_early=False, end_proposal=None)
     return TableRecord(
         id=table.id,
         version=version,

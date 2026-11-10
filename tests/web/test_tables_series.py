@@ -65,7 +65,13 @@ class TestOpening:
         answer = skat.create(headers, series_length=SERIES_LENGTH)
 
         assert answer.status_code == 200
-        assert series_of(answer) == {"game_number": 0, "game_count": SERIES_LENGTH, "over": False, "standings": None}
+        assert series_of(answer) == {
+            "game_number": 0,
+            "game_count": SERIES_LENGTH,
+            "over": False,
+            "standings": None,
+            "end_proposal": None,
+        }
 
     def test_a_table_opened_before_series_existed_reads_with_no_series_and_deals_on(self, skat):
         table_id, people = open_series(skat)
@@ -223,6 +229,7 @@ class TestCounting:
             "game_count": 36,
             "over": False,
             "standings": None,
+            "end_proposal": None,
         }
 
     def test_a_passed_in_hand_counts_and_leaves_no_list_row(self, skat):
@@ -241,7 +248,13 @@ class TestCounting:
         play_through(skat, table_id, people, SERIES_LENGTH)
 
         answer = read(skat, people[0][0], table_id).json()
-        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": True, "standings": []}
+        assert answer["series"] == {
+            "game_number": 12,
+            "game_count": 12,
+            "over": True,
+            "standings": [],
+            "end_proposal": None,
+        }
         assert answer["hand"] is None
         assert not deal_next(skat, table_id, people)
         assert series_of(read(skat, people[0][0], table_id))["game_number"] == SERIES_LENGTH
@@ -254,7 +267,13 @@ class TestCounting:
             assert deal_next(skat, table_id, people)
 
         answer = read(skat, people[0][0], table_id).json()
-        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": False, "standings": None}
+        assert answer["series"] == {
+            "game_number": 12,
+            "game_count": 12,
+            "over": False,
+            "standings": None,
+            "end_proposal": None,
+        }
         assert answer["hand"] is not None
 
     def test_a_passed_in_last_game_names_no_next_dealer(self, skat):
@@ -278,6 +297,7 @@ class TestCounting:
             "game_count": 36,
             "over": False,
             "standings": None,
+            "end_proposal": None,
         }
 
 
@@ -351,7 +371,7 @@ class TestTheAnswer:
         answer = skat.client.get(f"{TABLES_PATH}/{table_id}", headers={**FETCH, **watcher})
 
         assert cards_in(answer.json()) == set()
-        assert set(answer.json()["series"]) == {"game_number", "game_count", "over", "standings"}
+        assert set(answer.json()["series"]) == {"game_number", "game_count", "over", "standings", "end_proposal"}
 
 
 class TestTheStandings:

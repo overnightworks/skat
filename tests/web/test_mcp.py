@@ -13,6 +13,7 @@ from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
     AGENT_GROUP,
+    AGREE_TO_END_SERIES_TOOL,
     AUCTION_BID_TOOL,
     AUCTION_HOLD_TOOL,
     AUCTION_PASS_TOOL,
@@ -25,6 +26,7 @@ from skat.web.mcp import (
     PUT_BACK_CARDS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    REFUSE_TO_END_SERIES_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
 )
@@ -83,6 +85,8 @@ class TestTools:
                 GIVE_UP_GAME_TOOL,
                 THROW_DOWN_CARDS_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
+                AGREE_TO_END_SERIES_TOOL,
+                REFUSE_TO_END_SERIES_TOOL,
             }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
@@ -142,7 +146,13 @@ class TestReadTable:
 
         view = agent.read(table_id).json()
 
-        assert view["series"] == {"game_number": 0, "game_count": 12, "over": False, "standings": None}
+        assert view["series"] == {
+            "game_number": 0,
+            "game_count": 12,
+            "over": False,
+            "standings": None,
+            "end_proposal": None,
+        }
         assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
     def test_the_options_of_a_table_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
@@ -302,6 +312,39 @@ class TestGiveUpGame:
         assert answer.json()["reason"] == Refusal.NOT_DECLARER
         assert stored(forehand_table.skat)[0] == before[0]
         assert "reused" in self.give_up(agent, forehand_table, version=0).text
+
+
+class TestEndingTheSeriesEarly:
+    @pytest.fixture
+    def between_games(self, skat, agent):
+        """The agent holds seat 1 of a table whose first game it gave up: a result stands, no hand runs."""
+        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+        agent.call(
+            GIVE_UP_GAME_TOOL, table_id=table.table_id, command_id="agent-give-up-0001", version=table.record.version
+        )
+        return table
+
+    def test_an_agent_proposes_the_end_under_its_own_seat_and_takes_it_back(self, agent, between_games):
+        proposed = agent.call(AGREE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-agree-0001")
+
+        assert not proposed.is_error, proposed.text
+        assert proposed.json()["series"]["end_proposal"] == {"proposer_seat": 1, "accepter_seat": None}
+        assert agent.read(between_games.table_id).json()["series"] == proposed.json()["series"]
+
+        refused = agent.call(REFUSE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-refuse-0001")
+
+        assert not refused.is_error, refused.text
+        assert agent.read(between_games.table_id).json()["series"]["end_proposal"] is None
+
+    def test_a_refused_call_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, between_games):
+        answer = agent.call(REFUSE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-refuse-0001")
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.NO_PROPOSAL
+        again = agent.call(AGREE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-refuse-0001")
+        assert "reused" in again.text
 
 
 class TestThrowDownCards:

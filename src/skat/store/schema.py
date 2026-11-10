@@ -66,7 +66,8 @@ tables = Table(
         name="tables_series_end_seats_are_seats",
     ),
     CheckConstraint(
-        "series_end_accepter IS NULL OR (series_end_proposer IS NOT NULL AND series_end_accepter <> series_end_proposer)",
+        "series_end_accepter IS NULL"
+        " OR (series_end_proposer IS NOT NULL AND series_end_accepter <> series_end_proposer)",
         name="tables_series_end_accepter_follows_a_proposer",
     ),
     CheckConstraint(
