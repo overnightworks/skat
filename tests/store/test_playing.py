@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.engine.cards import DECK
 from skat.engine.deal import Position
-from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
@@ -18,8 +18,6 @@ from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableT
 from tests.support.stored_game import card_id, count_rows, nobody_connected, seated_game
 
 pytestmark = pytest.mark.postgres
-
-GAME_CARDS = 30
 
 
 @pytest.fixture
@@ -46,7 +44,7 @@ def test_a_played_card_keeps_the_dealt_hand_as_dealt(game):
 
 
 def test_a_card_after_the_thirtieth_is_refused_as_no_hand_and_leaves_no_row(game, engine):
-    game.play_legally(GAME_CARDS)
+    game.play_legally(CARDS_IN_A_GAME)
     before = game.record
 
     result = game.send(Position.FOREHAND, DECK[0], command_id="card-last")

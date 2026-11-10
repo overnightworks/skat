@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 _GAME_BONUS: Final = 50
 _OPPONENT_SHARE_OF_A_LOST_GAME: Final = 40  # three-player table
 
-_SUIT_AND_GRAND_GAMES: Final = tuple(kind for kind in GameKind if kind is not GameKind.NULL)
+_SUIT_AND_GRAND_GAMES: Final = tuple(kind for kind in GameKind if kind.counts_card_points)
 
 
 @dataclass(frozen=True)

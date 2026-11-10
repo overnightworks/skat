@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, UniqueConstraint, insert, select
 
 from skat.engine.cards import Card
-from skat.engine.tricks import CardPlayed
+from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed
 from skat.store.schema import (
     POSITION_OF_TEXT,
     POSITION_TEXT,
@@ -29,7 +29,7 @@ played_cards = Table(
     Column("suit", Text, nullable=False),
     Column("rank", Text, nullable=False),
     UniqueConstraint("table_id", "suit", "rank", name="played_cards_each_card_once"),
-    CheckConstraint("ordinal BETWEEN 1 AND 30", name="played_cards_ordinal_is_a_card_of_the_game"),
+    CheckConstraint(f"ordinal BETWEEN 1 AND {CARDS_IN_A_GAME}", name="played_cards_ordinal_is_a_card_of_the_game"),
     one_of("position", POSITION_TEXT.values(), "played_cards_position_is_a_position"),
     one_of("suit", SUIT_TEXT.values(), "played_cards_suit_is_a_suit"),
     one_of("rank", RANK_TEXT.values(), "played_cards_rank_is_a_rank"),

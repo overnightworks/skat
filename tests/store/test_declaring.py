@@ -12,10 +12,11 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.records import Actor, CreateTable, Refusal, SitDown
+from skat.table.records import Actor, Refusal
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.played_game import HERZ_HAND
+from tests.support.stored_game import seated_table_id
 
 pytestmark = pytest.mark.postgres
 
@@ -85,10 +86,7 @@ class Hand:
 
 @pytest.fixture
 def hand(service, transactions, stored):
-    table_id = service.create(person("Anna"), CreateTable(command_id="command-open")).id
-    service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
-    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
-    return Hand(service, transactions, stored, table_id)
+    return Hand(service, transactions, stored, seated_table_id(service))
 
 
 def test_the_steps_read_back_in_the_order_they_were_taken(hand):
