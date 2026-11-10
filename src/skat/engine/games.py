@@ -43,6 +43,11 @@ class GameKind(Enum):
     def highest_matadors(self) -> int | None:
         return self.value.highest_matadors
 
+    @property
+    def counts_card_points(self) -> bool:
+        """Suit and Grand games are won by card points; a Null game counts none."""
+        return self is not GameKind.NULL
+
     def playing_suit(self, card: Card) -> Suit | Trump:
         """The suit a card counts as in play: a jack is trump unless the game is Null."""
         if self is GameKind.NULL:
