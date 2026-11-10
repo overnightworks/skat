@@ -11,6 +11,7 @@
         passedInScene,
     } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
+    import { isFramedInCallMode } from "#lib/callFrame.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { resultView, weiterBar, withMinus } from "#lib/result.ts";
@@ -108,6 +109,8 @@
     // The version a step was sent from: the controls stay off until a newer version arrives or the step fails.
     let sentFromVersion: number | null = $state(null);
 
+    const callMode = isFramedInCallMode();
+
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
     }
@@ -203,7 +206,11 @@
         </defs>
     </svg>
     <header class="bar" class:stale={!connected}>
-        <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
+        {#if callMode}
+            <span class="wordmark">{words.appName}</span>
+        {:else}
+            <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
+        {/if}
         {#if outcome?.kind === "table" && outcome.table.ended === null}
             <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
                 <svg
@@ -582,21 +589,23 @@
                             {`${words.standUp}`}
                         </button>
                     {/if}
-                    <button type="button" class="copy link" aria-label={words.copyLink} onclick={copy}>
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            aria-hidden="true"
-                        >
-                            <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
-                            <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
-                        </svg>
-                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                        <span class="label">{`${words.copyLink}`}</span>
-                    </button>
+                    {#if !callMode}
+                        <button type="button" class="copy link" aria-label={words.copyLink} onclick={copy}>
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
+                                <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
+                            </svg>
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                            <span class="label">{`${words.copyLink}`}</span>
+                        </button>
+                    {/if}
                 </div>
                 <p class="note" role="status">{note}</p>
             </div>

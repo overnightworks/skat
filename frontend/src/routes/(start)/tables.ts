@@ -1,4 +1,4 @@
-import { isCallMode } from "#lib/callSignIn.ts";
+import { isFramedInCallMode } from "#lib/callFrame.ts";
 import {
     type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
@@ -255,8 +255,7 @@ export function readTable(id: string): Promise<Outcome> {
 // A framed call-mode page reloads too: the issuer refuses to be framed, and the gate leads the frame to the
 // call sign-in page, where one tap signs in through a separate window.
 function signInAgain(id: string, reachedBySigningIn: boolean): void {
-    const framedInCallMode = isCallMode(new URL(location.href).search) && window.self !== window.top;
-    if (framedInCallMode || (reachedBySigningIn && performance.now() < RESIGN_IN_WINDOW_MILLISECONDS)) {
+    if (isFramedInCallMode() || (reachedBySigningIn && performance.now() < RESIGN_IN_WINDOW_MILLISECONDS)) {
         location.reload();
         return;
     }

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { isFramedInCallMode } from "#lib/callFrame.ts";
     import { closedWords } from "#lib/closed.ts";
     import CardBack from "#lib/ui/CardBack.svelte";
     import { CHAIRS_PER_TABLE } from "#lib/wire.ts";
@@ -44,5 +45,7 @@
         </svg>
     </span>
     <h1>{ended === null ? words.tableNotFound : closedWords(ended)}</h1>
-    <NewTableButton />
+    {#if !isFramedInCallMode()}
+        <NewTableButton />
+    {/if}
 </section>
