@@ -169,7 +169,7 @@ def _include_table_sub_routers(app: FastAPI, tables: TableService, presence: Pre
     app.include_router(create_game_list_router(tables))
 
 
-async def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONResponse:
+def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONResponse:
     # The refused input stays out of the answer: text with a lone surrogate cannot be encoded as UTF-8.
     problems = cast("RequestValidationError", refusal).errors()
     kept = [{key: value for key, value in problem.items() if key != "input"} for problem in problems]
