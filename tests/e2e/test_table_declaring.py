@@ -4,13 +4,14 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
+from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
-from tests.e2e.support.hands import CARDS_IN_PLAY, PlayingTable
+from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
 
@@ -509,7 +510,7 @@ def test_a_grand_hand_game_is_named_on_every_plaque_and_result_card(
         expect(person.locator(PLAQUE)).to_contain_text(grand_hand)
         expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
     assert table.declaring.declaring_as_the_declarer_sees_it()["declaration"]["hand"] is True
-    table.play_out(CARDS_IN_PLAY)
+    table.play_out(CARDS_IN_A_GAME)
     for person in table.everyone:
         expect(person.locator(RESULT_CARD)).to_contain_text(grand_hand)
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")

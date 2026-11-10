@@ -7,7 +7,7 @@ from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import TakeSkat
-from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand, card_payload, decide_card
 from skat.table.records import (
@@ -26,7 +26,6 @@ from tests.support.played_game import before_the_last_card, declared_herz_hand
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 TABLE_VERSION = 7
 FOREHAND_ACCOUNT = "account-forehand"
-CARDS_IN_A_GAME = 30
 
 
 def table_id():

@@ -94,9 +94,9 @@ def gains(declarer, each_opponent):
 class Table:
     """A dealt table with its people told apart by position, and the watcher left over."""
 
-    def __init__(self, skat):
+    def __init__(self, skat, options=None):
         self.skat = skat
-        self.table_id, people = seated_three(skat)
+        self.table_id, people = seated_three(skat, options)
         by_seat = {seat: people[seat - 1][0] for seat in (1, 2, 3)}
         self.at = {position: by_seat[seat] for seat, position in positions_from(DEALER_SEAT).items()}
         self.watcher = people[3][0]
