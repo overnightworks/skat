@@ -18,7 +18,8 @@ def _require_no_trailing_slash(issuer: str) -> str:
     return issuer
 
 
-# The browser's own serialisation of an https origin: the call page compares `event.origin` with it byte for byte.
+# The browser's own serialisation of an https origin. The framed table compares `event.origin` with `call_origin`, and
+# the call page compares it with Skat's origin, each byte for byte.
 _BROWSER_ORIGIN = re.compile(r"https://(?P<host>[a-z0-9.-]+)(:(?P<port>[1-9]\d{0,4}))?", re.ASCII)
 _HOST_LABEL = re.compile(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?", re.ASCII)
 _CANONICAL_IPV4_OCTET = re.compile(r"(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)", re.ASCII)

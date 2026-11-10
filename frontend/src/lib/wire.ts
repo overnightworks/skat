@@ -8,6 +8,7 @@ export const MODE_QUERY_NAME = "mode";
 export const CALL_MODE = "call";
 export const LOGOUT_PATH = "/logout";
 export const ACCOUNT_PATH = "/api/account";
+export const CALL_ORIGIN_PATH = "/api/call-origin";
 export const ACCOUNT_CONSOLE_PATH = "/account";
 export const TABLES_PATH = "/api/tables";
 export const TABLE_PAGE_PREFIX = "/t/";
