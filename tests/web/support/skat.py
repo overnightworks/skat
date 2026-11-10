@@ -3,8 +3,9 @@ import itertools
 import json
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
-from agent_runtime_client.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
+from agents.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
 from mcp.shared.inbound import MCP_METHOD_HEADER, MCP_NAME_HEADER, NAME_BEARING_METHODS
 from mcp_types import CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY
@@ -12,9 +13,11 @@ from webauth.config import install_web_auth_config, installed_web_auth_config
 
 from skat.engine.deal import positions_from
 from skat.host.app import create_app
+from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.stores import SignInStores
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
+from tests.support.fake_rule_sets import FakeRuleSetStore
 from tests.support.fake_tables import FakeTableStore
 from tests.support.page_build import fixture_page_build
 from tests.support.payload_cards import DEALER_SEAT, with_known_deal
@@ -26,6 +29,7 @@ FETCH = {"accept": "application/json"}
 NAVIGATION = {"accept": "text/html"}
 UNKNOWN_ID = "0" * 32
 SERVER_START_SECONDS = 1000.0
+FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def stored(skat):
@@ -41,6 +45,10 @@ class FakeTime:
 
     def clock(self):
         return self.now
+
+    def moment(self):
+        """The wall-clock time this clock stands for, which a service stamps its tables with."""
+        return FAKE_EPOCH + timedelta(seconds=self.now)
 
     def schedule(self, delay, action):
         self._scheduled.append((self.now + delay, action))
@@ -63,13 +71,15 @@ class FakeTime:
 
 
 class Skat:
-    def __init__(self, sign_in_settings, store=None, stores=None, **app_options):
+    def __init__(self, sign_in_settings, store=None, stores=None, now=None, **app_options):
         self.stores = stores if stores is not None else SignInStores.in_memory()
         self.store = store if store is not None else FakeTableStore()
+        self.rule_set_store = FakeRuleSetStore()
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
-            tables=TableService(self.store),
+            tables=TableService(self.store) if now is None else TableService(self.store, now=now),
+            rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
             **app_options,
         )
@@ -148,20 +158,28 @@ def mcp_message(method, params=None):
 class AgentTable(Table):
     """The known hand dealt at a table where the agent's account holds the chair of `position`.
 
-    Sitting is no tool yet, so the agent sits like a person: with a cookie session for the account its first call at
-    /mcp created, `agent_headers`. The other two chairs are people's, and the watcher is a fourth member.
+    The agent takes its chair through the tools: it opens the table at chair 1 and sits down at the others. The
+    other two chairs are people's, and the watcher is a fourth member. `at[position]` of the agent is a cookie
+    session for its account, for the direct reads that compare the routes with the tools.
     """
 
-    def __init__(self, skat, agent_headers, position):
+    def __init__(self, skat, agent, position):
         self.skat = skat
         self._commands = itertools.count(1)
         agent_seat = next(seat for seat, held in positions_from(DEALER_SEAT).items() if held is position)
+        agent_headers = agent.admitted()
         people = [skat.member() for _ in range(3)]
         others = iter(headers for headers, _ in people)
         by_seat = {seat: agent_headers if seat == agent_seat else next(others) for seat in (1, 2, 3)}
-        self.table_id = skat.create(by_seat[1]).json()["id"]
+        if agent_seat == 1:
+            self.table_id = agent.open_table().json()["id"]
+        else:
+            self.table_id = skat.create(by_seat[1]).json()["id"]
         for seat in (2, 3):
-            skat.sit(by_seat[seat], self.table_id, seat, command_id=f"command-sit-{seat}")
+            if seat == agent_seat:
+                agent.sit_down(self.table_id, seat)
+            else:
+                skat.sit(by_seat[seat], self.table_id, seat, command_id=f"command-sit-{seat}")
         with_known_deal(skat, self.table_id)
         self.at = {held: by_seat[seat] for seat, held in positions_from(DEALER_SEAT).items()}
         self.watcher = people[2][0]

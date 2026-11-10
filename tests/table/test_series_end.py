@@ -3,6 +3,7 @@ from dataclasses import replace
 
 import pytest
 
+from skat.engine.bock import BockRounds
 from skat.engine.deal import deal
 from skat.table.records import (
     Actor,
@@ -33,7 +34,8 @@ def between_games(
     """Three seated after the second game of a series of twelve; `ready_seats` tapped „Weiter“."""
     people = ((1, ANNA), (2, BEN), (3, CLEO))
     chairs = tuple(
-        Chair(seat, Occupant(actor.account_id, actor.display_name), ready=seat in ready_seats) for seat, actor in people
+        Chair(seat, Occupant(actor.account_id, actor.display_name, actor.kind), ready=seat in ready_seats)
+        for seat, actor in people
     )
     return TableRecord(
         TableId("0" * 32),
@@ -45,6 +47,7 @@ def between_games(
         game_list=(an_entry(), an_entry()),
         series=series or Series(12, 2, end_proposal=proposal),
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 

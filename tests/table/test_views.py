@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bidding import Awaiting, Bid, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declare, Stage, TakeSkat
@@ -18,6 +19,7 @@ from skat.table.records import (
     EndReason,
     HandProgress,
     Occupant,
+    OccupantKind,
     Series,
     TableId,
     TableOptions,
@@ -41,8 +43,10 @@ def seated_table(
     dealer: int | None = None, hand: Deal | None = None, steps: tuple[Pass | Bid, ...] = ()
 ) -> TableRecord:
     people = ((1, ANNA, "Anna"), (2, BEN, "Ben"), (3, CLEO, "Cleo"))
-    chairs = tuple(Chair(seat, Occupant(account_id, name)) for seat, account_id, name in people)
-    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None, TableOptions())
+    chairs = tuple(Chair(seat, Occupant(account_id, name, OccupantKind.PERSON)) for seat, account_id, name in people)
+    return TableRecord(
+        TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None, TableOptions(), BockRounds.start()
+    )
 
 
 class TestChairPositions:
@@ -117,6 +121,19 @@ class TestSkatStaysHidden:
         assert view.hand.skat_count == len(KNOWN_DEAL.skat)
 
 
+class TestOccupantKind:
+    def test_a_chair_says_who_sits_in_it_for_every_viewer_and_a_free_chair_says_nobody(self):
+        agent = Chair(2, Occupant("account-ben", "Mozart", OccupantKind.AGENT))
+        table = seated_table()
+        table = replace(table, chairs=(table.chairs[0], agent, Chair(3, None)))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, "account-watcher")]
+
+        assert [[(c.occupant_name, c.occupant_kind) for c in view.chairs] for view in views] == [
+            [("Anna", OccupantKind.PERSON), ("Mozart", OccupantKind.AGENT), (None, None)]
+        ] * 3
+
+
 class TestNoHand:
     def test_a_table_without_a_hand_has_no_hand_view_and_no_chair_hand(self):
         view = view_of(seated_table(), ANNA, NOBODY_CONNECTED)
@@ -173,6 +190,7 @@ def a_played_game() -> ListEntry:
         score=30,
         declarer_points=70,
         kontra_word=None,
+        bock_factor=1,
     )
 
 
@@ -299,7 +317,7 @@ class TestChairTotals:
 
     def test_a_free_chair_carries_none_and_a_newcomer_starts_at_zero(self):
         table = seated_table(1)
-        newcomer = Chair(2, Occupant(DORA, "Dora"))
+        newcomer = Chair(2, Occupant(DORA, "Dora", OccupantKind.PERSON))
         table = replace(table, chairs=(table.chairs[0], newcomer, Chair(3, None)), game_list=(a_played_game(),))
 
         view = view_of(table, ANNA, NOBODY_CONNECTED)

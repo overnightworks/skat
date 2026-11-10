@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 _TRICK_SIZE: Final = 3
 TRICKS_IN_A_GAME: Final = 10
+CARDS_IN_A_GAME: Final = TRICKS_IN_A_GAME * _TRICK_SIZE
 _WINNING_POINTS: Final = 61
 ALL_POINTS: Final = 120
 _SCHNEIDER_POINTS: Final = 30
@@ -41,7 +42,6 @@ class PlayRefusal(StrEnum):
     NOT_YOUR_TURN = "not-your-turn"
     NOT_IN_HAND = "not-in-hand"
     MUST_FOLLOW = "must-follow"
-    ALREADY_WON = "already-won"
     CLAIM_OUT_OF_REACH = "claim-out-of-reach"
     NEEDS_CONSENT = "needs-consent"
     NOT_AN_OPPONENT = "not-an-opponent"
@@ -249,7 +249,7 @@ class Playing(TenTricks):
     @property
     def counts_card_points(self) -> bool:
         """A Null game counts no card points."""
-        return _kind_of(self.declared) is not GameKind.NULL
+        return _kind_of(self.declared).counts_card_points
 
 
 @dataclass(frozen=True)

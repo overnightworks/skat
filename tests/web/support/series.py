@@ -53,20 +53,23 @@ def headers_of(table):
     return [table.at[position_of[seat]] for seat in (1, 2, 3)]
 
 
-def pass_the_hand_in(skat, table):
-    """Everyone passes in turn until no hand runs."""
-    people = headers_of(table)
+def pass_the_hand_in(skat, table_id, people_headers):
+    """Everyone passes in turn until no hand runs; `people_headers` are the three people's, in seat order."""
+
+    def view():
+        return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=people_headers[0]).json()
+
     for _ in range(3):
-        view = table.read_as(table.watcher).json()
-        if view["hand"] is None:
+        current = view()
+        if current["hand"] is None:
             break
         answer = skat.client.post(
-            f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
-            json={"command_id": f"pass-at-{view['version']}", "version": view["version"]},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **people[view["hand"]["auction"]["turn_seat"] - 1]},
+            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+            json={"command_id": f"pass-at-{current['version']}", "version": current["version"]},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **people_headers[current["hand"]["auction"]["turn_seat"] - 1]},
         )
         assert answer.status_code == 200, answer.text
-    assert table.read_as(table.watcher).json()["hand"] is None
+    assert view()["hand"] is None
 
 
 def deal_next(skat, table_id, accounts):
@@ -105,7 +108,7 @@ def play_the_dealt_series(
     """Play series `number`, whose first game is dealt, to its last game's end; options as in `play_a_series`."""
     for game in range(1, game_count + 1):
         if game == passed_in_hand:
-            pass_the_hand_in(skat, table)
+            pass_the_hand_in(skat, table.table_id, headers_of(table))
         else:
             table.declared_hand_game()
             table.played_out(each.card for each in a_whole_game(table.record))

@@ -92,6 +92,7 @@ def an_entry(declaration, **numbers):
         "schwarz": False,
         "matadors": Matadors(mit=True, count=2),
         "kontra_word": None,
+        "bock_factor": 1,
         **numbers,
     }
     return ListEntry(declaration=declaration, **fields)

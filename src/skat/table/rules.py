@@ -3,6 +3,7 @@ from datetime import timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
+from skat.engine.bock import BockRounds
 from skat.engine.deal import positions_from
 from skat.table.records import (
     Actor,
@@ -45,7 +46,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
     """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length and
     the options it is opened with.
     """
-    opener = Chair(1, Occupant(actor.account_id, actor.display_name))
+    opener = Chair(1, Occupant(actor.account_id, actor.display_name, actor.kind))
     return TableRecord(
         id=table_id,
         version=FIRST_VERSION,
@@ -56,6 +57,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
         game_list=(),
         series=None if series_length is None else Series(series_length, 0),
         options=options,
+        bock=BockRounds.start(),
     )
 
 
@@ -72,6 +74,10 @@ def create_payload(command: CreateTable) -> str:
             f'"kontra":{{"sayer":"{kontra.sayer.value}","reach":"{kontra.reach.value}",'
             f'"deadline":"{kontra.deadline.value}"}}'
         )
+    bock = command.options.bock
+    if bock is not None:
+        triggers = ",".join(f'"{trigger.value}"' for trigger in sorted(bock.triggers))
+        members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
     return "{" + ",".join(members) + "}"
 
 
@@ -115,6 +121,7 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
         game_list=table.game_list,
         series=series,
         options=table.options,
+        bock=table.bock,
     )
 
 
@@ -139,12 +146,19 @@ def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
 
 
+def series_games_left(table: TableRecord) -> int | None:
+    """The games the series still deals, a running hand included; None for a table with no series."""
+    if table.series is None:
+        return None
+    return table.series.length - table.series.deals + hand_runs(table)
+
+
 def series_over(table: TableRecord) -> bool:
     """The series ran its last game or ended early by consent, and no hand runs any more; a table with no series
     never ends.
     """
-    series = table.series
-    return series is not None and (series.ended_early or series.deals == series.length) and not hand_runs(table)
+    ended_early = table.series is not None and table.series.ended_early and not hand_runs(table)
+    return ended_early or series_games_left(table) == 0
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
@@ -173,6 +187,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         game_list=() if starts_series else table.game_list,
         series=series,
         options=table.options,
+        bock=table.bock,
     )
 
 
@@ -324,7 +339,7 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
     holder = table.chairs[seat - 1].occupant
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
-    seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name))
+    seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name, actor.kind))
     if new_hand is not None and sit_deals(table):
         seated = dealt(seated, new_hand, version=seated.version)
     return Decision(seated)

@@ -11,7 +11,8 @@ from skat.engine.tricks import PlayRefusal
 
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
-    from skat.engine.deal import Deal
+    from skat.engine.bock import BockOptions, BockRounds
+    from skat.engine.deal import Deal, Position
     from skat.engine.declaration import DeclaringStep
     from skat.engine.kontra import WordSaid
     from skat.engine.tricks import CardPlayed
@@ -22,12 +23,13 @@ TABLE_ID_PATTERN: Final = "[0-9a-f]{32}"
 SERIES_LENGTH_STEP: Final = 3
 SERIES_LENGTH_MIN: Final = 3
 SERIES_LENGTH_MAX: Final = 99
+SERIES_LENGTH_DEFAULT: Final = 36
 _TABLE_ID = re.compile(TABLE_ID_PATTERN)
 
 
 @dataclass(frozen=True)
-class TableId:
-    """An opaque 128-bit id, written as 32 lower-case hex digits."""
+class OpaqueId:
+    """An opaque 128-bit id, written as 32 lower-case hex digits; ids of two kinds are never equal."""
 
     value: str
 
@@ -40,12 +42,31 @@ class TableId:
         return cls(text) if _TABLE_ID.fullmatch(text) else None
 
 
+class OccupantKind(StrEnum):
+    """Who sits in a chair: a person, or an agent with its own account; the stored token, also the answer's."""
+
+    PERSON = "person"
+    AGENT = "agent"
+
+
+class TableId(OpaqueId):
+    """The id of a table."""
+
+
+class RuleSetId(OpaqueId):
+    """The id of a saved rule set."""
+
+
 @dataclass(frozen=True)
 class Actor:
-    """The account behind a request, as the server resolved it; a client never names one."""
+    """The account behind a request, as the server resolved it; a client never names one.
+
+    `display_name` is the account's name for a person and the name its token carries for an agent.
+    """
 
     account_id: str
     display_name: str
+    kind: OccupantKind = OccupantKind.PERSON
 
 
 @dataclass(frozen=True)
@@ -54,10 +75,12 @@ class TableOptions:
 
     `show_running_points` shows everyone the card points each side has taken in completed tricks while a suit or
     Grand game is played. `kontra` makes the table play the words Kontra and Re up to its reach; None plays without.
+    `bock` makes the table deal Bock rounds as its triggers and overlap say; None plays without.
     """
 
     show_running_points: bool = False
     kontra: KontraOptions | None = None
+    bock: BockOptions | None = None
 
 
 @dataclass(frozen=True)
@@ -99,6 +122,7 @@ class Refusal(StrEnum):
     STALE_VERSION = "stale-version"
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
+    NO_REQUEST = "no-request"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
     SERIES_OVER = "series-over"
@@ -127,6 +151,7 @@ def parsed_refusal(token: str) -> CommandRefusal:
 class Occupant:
     account_id: str
     display_name: str
+    kind: OccupantKind
 
 
 @dataclass(frozen=True)
@@ -141,13 +166,25 @@ class Chair:
 
 
 @dataclass(frozen=True)
+class GiveUpAsked:
+    """A give-up waiting for the other side's yes: who asked, and the opponent who said no."""
+
+    asker: Position
+    declined_by: Position | None = None
+
+
+@dataclass(frozen=True)
 class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
-    cards, so each carries how many cards were played before it."""
+    cards, so each carries how many cards were played before it.
+
+    `give_up` is no step log: a card, the end of the hand or a deal clears it.
+    """
 
     auction: tuple[AuctionStep, ...] = ()
     declaring: tuple[DeclaringStep, ...] = ()
     plays: tuple[CardPlayed, ...] = ()
+    give_up: GiveUpAsked | None = None
     words: tuple[WordSaid, ...] = ()
 
 
@@ -197,7 +234,7 @@ class Series:
 @dataclass(frozen=True)
 class TableRecord:
     """A table as stored; its game list outlives every deal of its series and goes with the next series' first deal
-    or with the table."""
+    or with the table. `bock` holds the pending Bock rounds, none at a table without Bock and after a series' end."""
 
     id: TableId
     version: int
@@ -208,6 +245,7 @@ class TableRecord:
     game_list: tuple[ListEntry, ...]
     series: Series | None
     options: TableOptions
+    bock: BockRounds
 
 
 class EndReason(StrEnum):

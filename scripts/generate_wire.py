@@ -18,13 +18,22 @@ from skat.engine.bidding import VALID_BIDS  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN  # noqa: E402
+from skat.table.records import (  # noqa: E402
+    SERIES_LENGTH_DEFAULT,
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    TABLE_ID_PATTERN,
+    EndReason,
+)
+from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
 from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
+from skat.web.call import CALL_ORIGIN_PATH  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -76,6 +85,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "AWAITING_TOKENS": AwaitingToken,
     "AUCTION_ACTION_TOKENS": AuctionAction,
     "LEVEL_TOKENS": Level,
+    "END_REASON_TOKENS": EndReason,
 }
 
 
@@ -98,6 +108,7 @@ def render() -> str:
         "CALL_MODE": CALL_MODE,
         "LOGOUT_PATH": LOGOUT_PATH,
         "ACCOUNT_PATH": ACCOUNT_PATH,
+        "CALL_ORIGIN_PATH": CALL_ORIGIN_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
         "TABLES_PATH": TABLES_PATH,
         "TABLE_PAGE_PREFIX": TABLE_PAGE_PREFIX,
@@ -129,9 +140,11 @@ def render() -> str:
             ("SERIES_LENGTH_MIN", SERIES_LENGTH_MIN),
             ("SERIES_LENGTH_MAX", SERIES_LENGTH_MAX),
             ("SERIES_LENGTH_STEP", SERIES_LENGTH_STEP),
+            ("SERIES_LENGTH_DEFAULT", SERIES_LENGTH_DEFAULT),
         )
     )
-    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length
+    chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
+    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length + chairs
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:

@@ -16,13 +16,14 @@
     let tableId = $state<string | null>(null);
     let mounted = $state(false);
     let signIn: CallSignIn | null = null;
+    let face: HTMLDivElement | undefined;
 
     const signInState = $derived.by((): SignInState => {
         if (view === "no-access") {
             return { page: "no-access" };
         }
-        if (view === "signing-in" && tableId !== null) {
-            return { page: "signing-in", tabHref: tablePath(tableId) };
+        if ((view === "signing-in" || view === "window-blocked") && tableId !== null) {
+            return { page: view, tabHref: tablePath(tableId) };
         }
         if (tableId === null) {
             // Before the script runs, a tap reloads the framed page, since the issuer refuses to be framed.
@@ -36,6 +37,16 @@
             },
             ...(view === "unfinished" ? { unfinished: true as const } : {}),
         };
+    });
+
+    // The blocked face announces nothing itself, so a screen reader hears the switch through the focused heading.
+    $effect(() => {
+        if (signInState.page !== "window-blocked") {
+            return;
+        }
+        const heading = face?.querySelector("h1");
+        heading?.setAttribute("tabindex", "-1");
+        heading?.focus();
     });
 
     onMount(() => {
@@ -79,6 +90,6 @@
 </script>
 
 <!-- The wrapper recognises the tab link by its address and hears its tap on the way down; the link keeps design's behaviour. -->
-<div class="sign-in" onclickcapture={tabOpened}>
+<div class="sign-in" bind:this={face} onclickcapture={tabOpened}>
     <SignInPage appName="Skat" state={signInState} legalLinks={LEGAL_LINKS} legalLinksNewTab />
 </div>

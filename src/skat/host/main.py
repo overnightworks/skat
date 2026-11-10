@@ -6,7 +6,9 @@ from sqlalchemy.engine import make_url
 
 from skat.host.app import create_app
 from skat.store.migrate import create_store_engine, migrate, require_head
+from skat.store.rule_sets import PostgresRuleSets
 from skat.store.tables import PostgresTableTransactions
+from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS, UVICORN_LOG_LEVEL
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
@@ -101,6 +103,7 @@ def main(
         settings,
         page_build=PageBuild.load(build_directory),
         tables=TableService(PostgresTableTransactions(engine)),
+        rule_sets=RuleSetService(PostgresRuleSets(engine)),
     )
     run_server(app, **uvicorn_options(settings))
 

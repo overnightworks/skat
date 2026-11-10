@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bidding import Pass
+from skat.engine.bock import BockRounds
 from skat.engine.deal import Position, deal
 from skat.table.ready import (
     NewSeriesCommand,
@@ -43,7 +44,8 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
     """Three seated after their `games`-th game: no hand, no steps, the dealer and the list; `ready_seats` tapped."""
     people = ((1, ANNA), (2, BEN), (3, CLEO))
     chairs = tuple(
-        Chair(seat, Occupant(actor.account_id, actor.display_name), ready=seat in ready_seats) for seat, actor in people
+        Chair(seat, Occupant(actor.account_id, actor.display_name, actor.kind), ready=seat in ready_seats)
+        for seat, actor in people
     )
     return TableRecord(
         TableId("0" * 32),
@@ -55,6 +57,7 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
         game_list=tuple(an_entry() for _ in range(games)),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 

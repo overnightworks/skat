@@ -5,15 +5,16 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import PassedIn
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
-from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
 from skat.store.game_list import append_game_list, game_list, read_game_list
 from skat.store.kontra import append_words, kontra_words, read_words
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
+    POSITION_OF_TEXT,
     POSITION_TEXT,
     RANK_TEXT,
     SKAT_HOLDER,
@@ -21,6 +22,8 @@ from skat.store.schema import (
     chairs,
     hand_cards,
     metadata,
+    option_values,
+    options_of,
     receipts,
     tables,
 )
@@ -30,13 +33,14 @@ from skat.table.records import (
     EndedTable,
     EndProposal,
     EndReason,
+    GiveUpAsked,
     HandProgress,
     Occupant,
+    OccupantKind,
     Receipt,
     Replay,
     Series,
     TableId,
-    TableOptions,
     TableRecord,
     parsed_refusal,
 )
@@ -114,31 +118,10 @@ def _series_of(table: Row[*tuple[Any, ...]]) -> Series | None:
     )
 
 
-def _kontra_options_of(sayer: str | None, reach: str | None, deadline: str | None) -> KontraOptions | None:
-    """The table's Kontra options; its three columns are all set or all null."""
-    if sayer is None or reach is None or deadline is None:
-        return None
-    return KontraOptions(KontraSayer(sayer), KontraReach(reach), KontraDeadline(deadline))
-
-
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
-    query = select(
-        tables.c.version,
-        tables.c.dealer,
-        tables.c.end_reason,
-        tables.c.empty_seconds,
-        tables.c.series_length,
-        tables.c.series_deals,
-        tables.c.series_ended_early,
-        tables.c.series_end_proposer,
-        tables.c.series_end_accepter,
-        tables.c.show_running_points,
-        tables.c.kontra_sayer,
-        tables.c.kontra_reach,
-        tables.c.kontra_deadline,
-    ).where(tables.c.id == table_id)
+    query = select(tables).where(tables.c.id == table_id)
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
     table = connection.execute(query).one_or_none()
@@ -147,7 +130,7 @@ def _table_record(
     if table.end_reason is not None:
         return EndedTable(TableId(table_id), table.version, EndReason(table.end_reason), table.empty_seconds)
     seats = connection.execute(
-        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.ready)
+        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.occupant_kind, chairs.c.ready)
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
@@ -157,7 +140,9 @@ def _table_record(
         chairs=tuple(
             Chair(
                 seat.seat,
-                None if seat.account_id is None else Occupant(seat.account_id, seat.display_name),
+                None
+                if seat.account_id is None
+                else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind)),
                 ready=seat.ready,
             )
             for seat in seats
@@ -168,15 +153,20 @@ def _table_record(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
+            give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
             words=read_words(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
-        options=TableOptions(
-            show_running_points=table.show_running_points,
-            kontra=_kontra_options_of(table.kontra_sayer, table.kontra_reach, table.kontra_deadline),
-        ),
+        options=options_of(table),
+        bock=BockRounds(tuple(table.bock_rounds)),
     )
+
+
+def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked | None:
+    if asked_by is None:
+        return None
+    return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
 
 
 def _starts_series(table: TableRecord) -> bool:
@@ -188,14 +178,6 @@ def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
     for rows in (hand_cards, auction_actions, declaring_steps, played_cards, kontra_words):
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
-
-
-def _kontra_columns_of(kontra: KontraOptions | None) -> dict[str, str | None]:
-    return {
-        "kontra_sayer": None if kontra is None else kontra.sayer.value,
-        "kontra_reach": None if kontra is None else kontra.reach.value,
-        "kontra_deadline": None if kontra is None else kontra.deadline.value,
-    }
 
 
 class _PostgresTableTransaction:
@@ -238,6 +220,7 @@ class _PostgresTableTransaction:
 
     def _write_table_row(self, table: TableRecord) -> None:
         """The row's changing columns: the series length and the options are written by `add_table` and never here."""
+        asked = table.progress.give_up
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table.id.value)
@@ -246,6 +229,11 @@ class _PostgresTableTransaction:
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
                 **_series_end_columns(table.series),
+                bock_rounds=list(table.bock.remaining),
+                give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
+                give_up_declined_by=None
+                if asked is None or asked.declined_by is None
+                else POSITION_TEXT[asked.declined_by],
             )
         )
 
@@ -258,6 +246,7 @@ class _PostgresTableTransaction:
                 .values(
                     account_id=None if occupant is None else occupant.account_id,
                     display_name=None if occupant is None else occupant.display_name,
+                    occupant_kind=None if occupant is None else occupant.kind.value,
                     ready=chair.ready,
                 )
             )
@@ -294,8 +283,7 @@ class _PostgresTableTransaction:
                 version=table.version,
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
-                show_running_points=table.options.show_running_points,
-                **_kontra_columns_of(table.options.kontra),
+                **option_values(table.options),
             )
         )
         self._connection.execute(
@@ -306,6 +294,7 @@ class _PostgresTableTransaction:
                     "seat": chair.seat,
                     "account_id": None if chair.occupant is None else chair.occupant.account_id,
                     "display_name": None if chair.occupant is None else chair.occupant.display_name,
+                    "occupant_kind": None if chair.occupant is None else chair.occupant.kind.value,
                 }
                 for chair in table.chairs
             ],

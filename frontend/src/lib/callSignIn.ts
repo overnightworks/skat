@@ -18,8 +18,8 @@ const WINDOW_FEATURES = "popup";
 const SIGNED_IN_STATUS = 200;
 const TABLE_RETURN = new RegExp(`^${TABLE_PAGE_PREFIX}(${TABLE_ID_PATTERN})(?:[?#]|$)`);
 
-/** What the frame shows: the sign-in face, the same with its notice, the waiting face, or the refusal. */
-export type CallSignInView = "signed-out" | "unfinished" | "signing-in" | "no-access";
+/** What the frame shows: the sign-in face, the same with its notice, the waiting face, the blocked window, or the refusal. */
+export type CallSignInView = "signed-out" | "unfinished" | "signing-in" | "window-blocked" | "no-access";
 
 /** The separate window; reading `location` throws while it shows another origin. */
 export interface SignInWindow {
@@ -158,12 +158,14 @@ export function createCallSignIn(
 
     function logIn(): void {
         endRound();
-        show("signing-in");
         const popup = host.open(signInAddress(tableId), WINDOW_NAME, WINDOW_FEATURES);
-        if (popup !== null) {
-            openWindow = popup;
-            cancelTimers.push(host.every(watch(popup), WATCH_INTERVAL_MILLISECONDS));
+        if (popup === null) {
+            show("window-blocked");
+            return;
         }
+        show("signing-in");
+        openWindow = popup;
+        cancelTimers.push(host.every(watch(popup), WATCH_INTERVAL_MILLISECONDS));
     }
 
     return {

@@ -39,6 +39,7 @@ from skat.web.gate import session_gate
 from skat.web.sign_in import build_sign_in_configs
 from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import (
     CALL_PAGE_MODULE,
@@ -124,6 +125,7 @@ class Application:
             sign_in.settings,
             page_build=fixture_page_build(),
             tables=in_memory_tables(),
+            rule_sets=in_memory_rule_sets(),
             stores=self.stores,
             issuer_transports=self.issuer.transports,
             **options,

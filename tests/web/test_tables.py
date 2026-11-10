@@ -9,9 +9,16 @@ from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
-from skat.web.playing import TABLE_CARD_SUFFIX, TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
+from skat.web.playing import (
+    TABLE_CARD_SUFFIX,
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
+    TABLE_THROW_DOWN_SUFFIX,
+)
 from skat.web.presence import Presence
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
+from skat.web.seating import create_seating_router
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX
 from skat.web.tables import (
     AWAITING_TOKENS,
@@ -232,9 +239,13 @@ class RecordingPresence(Presence):
 
 
 def answering_first(skat, tables, presence):
-    """Route requests through a tables router that has this service and presence, ahead of the composed one."""
+    """Route requests through tables and seating routers that have this service and presence, ahead of the composed
+    ones.
+    """
+    composed = list(skat.app.router.routes)
+    skat.app.include_router(create_seating_router(tables, presence))
     skat.app.include_router(create_tables_router(tables, fixture_page_build(), presence))
-    skat.app.router.routes.insert(0, skat.app.router.routes.pop())
+    skat.app.router.routes[:] = skat.app.router.routes[len(composed) :] + composed
 
 
 @pytest.fixture
@@ -640,6 +651,8 @@ class TestAnEmptyTableEnds:
             pytest.param(TABLE_DECLARING_TAKE_SUFFIX, {"version": 1}, id="declaring"),
             pytest.param(TABLE_CARD_SUFFIX, {"version": 1, **card_body(card("C7"))}, id="card"),
             pytest.param(TABLE_GIVE_UP_SUFFIX, {"version": 1}, id="give-up"),
+            pytest.param(TABLE_GIVE_UP_AGREE_SUFFIX, {"version": 1}, id="give-up-agree"),
+            pytest.param(TABLE_GIVE_UP_DECLINE_SUFFIX, {"version": 1}, id="give-up-decline"),
             pytest.param(TABLE_THROW_DOWN_SUFFIX, {"version": 1}, id="throw-down"),
             pytest.param(TABLE_KONTRA_SUFFIX, {"version": 1, "word": "kontra"}, id="kontra"),
             pytest.param(TABLE_READY_SUFFIX, {"ordinal": 1}, id="ready"),
