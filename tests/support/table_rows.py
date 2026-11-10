@@ -1,3 +1,4 @@
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -8,7 +9,28 @@ from skat.store.schema import metadata, tables
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS
 
 if TYPE_CHECKING:
-    import threading
+    from collections.abc import Callable
+
+
+class WorkInAThread(threading.Thread):
+    """Runs `work` in a thread and keeps its result in `outcome`; a failure of `work` is raised by `join`."""
+
+    def __init__(self, work: Callable[[], object]) -> None:
+        super().__init__()
+        self._work = work
+        self.outcome: list[object] = []
+        self.failure: BaseException | None = None
+
+    def run(self) -> None:
+        try:
+            self.outcome.append(self._work())
+        except BaseException as error:
+            self.failure = error
+
+    def join(self, timeout: float | None = None) -> None:
+        super().join(timeout)
+        if self.failure is not None:
+            raise self.failure
 
 
 def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
@@ -28,7 +50,9 @@ def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
 
 
 def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> None:
-    """Returns when a session waits for a lock; fails when the reader ends without that, or hangs elsewhere."""
+    """Returns when a session waits for a lock; fails when the reader ends without that, or hangs elsewhere.
+
+    A reader that is a `WorkInAThread` and ended by failing makes the wait raise that failure."""
     hang_deadline = time.monotonic() + HANG_DEADLINE_SECONDS
     with engine.connect() as watcher:
         while reader.is_alive() and time.monotonic() < hang_deadline:
@@ -40,4 +64,6 @@ def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> N
             ).scalar_one()
             if waiting:
                 return
+    if isinstance(reader, WorkInAThread) and reader.failure is not None:
+        raise reader.failure
     pytest.fail("no session waited for a lock")
