@@ -5,7 +5,7 @@ from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import replace
 
 import pytest
-from sqlalchemy import func, select, table, text
+from sqlalchemy import event, func, select, table, text
 
 from skat.engine.bidding import Bid
 from skat.engine.cards import DECK
@@ -28,6 +28,7 @@ from skat.table.service import CommandIdReusedError, TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import TABLES_PATH
+from tests.support import table_rows
 from tests.support.faulty_tables import (
     WAIT_DEADLINE_SECONDS,
     BothReadBeforeEitherWrites,
@@ -499,6 +500,28 @@ class TestOneMomentRead:
 
         with pytest.raises(pytest.fail.Exception, match="without a session waiting"):
             wait_until_a_session_waits_for_a_lock(engine, reader)
+
+    def test_the_wait_for_a_lock_sees_a_session_that_starts_waiting_after_its_first_poll(self, engine, monkeypatch):
+        monkeypatch.setattr(table_rows, "HANG_DEADLINE_SECONDS", 5)
+        first_poll_done = threading.Event()
+
+        @event.listens_for(engine, "after_cursor_execute")
+        def release_the_reader_after_the_first_poll(*arguments):
+            if "pg_stat_activity" in arguments[2]:
+                first_poll_done.set()
+
+        def wait_for_the_advisory_lock():
+            first_poll_done.wait()
+            with engine.begin() as connection:
+                connection.execute(text("SELECT pg_advisory_xact_lock(246)"))
+
+        with engine.begin() as holder:
+            holder.execute(text("SELECT pg_advisory_xact_lock(246)"))
+            reader, _ = run_in_thread(wait_for_the_advisory_lock)
+
+            wait_until_a_session_waits_for_a_lock(engine, reader)
+
+        reader.join()
 
     def test_two_reads_at_once_do_not_wait_for_each_other(self, engine, table_id):
         with PostgresTableTransactions(engine).begin() as first:

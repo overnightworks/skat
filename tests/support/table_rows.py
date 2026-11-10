@@ -56,7 +56,8 @@ def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> N
     poll; the reader ending first therefore means it never waited. That fails the test: with the reader's own
     failure when it is a `WorkInAThread` that failed. A reader still running at the hang deadline fails it too."""
     hang_deadline = time.monotonic() + HANG_DEADLINE_SECONDS
-    with engine.connect() as watcher:
+    # Each poll needs its own snapshot of the activity view: inside one transaction PostgreSQL keeps the first.
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as watcher:
         while reader.is_alive() and time.monotonic() < hang_deadline:
             waiting = watcher.execute(
                 text(
