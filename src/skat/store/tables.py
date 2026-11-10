@@ -131,6 +131,11 @@ def _table_record(
     )
 
 
+def _starts_series(table: TableRecord) -> bool:
+    """The record holds a hand that is its series' first deal, which empties the list."""
+    return table.series is not None and table.series.deals == 1 and table.hand is not None
+
+
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
     for rows in (hand_cards, auction_actions, declaring_steps, played_cards):
@@ -196,6 +201,8 @@ class _PostgresTableTransaction:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._write_table_row(table)
+        if dealt is None and _starts_series(table):
+            self._connection.execute(delete(game_list).where(game_list.c.table_id == table.id.value))
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if played_out:

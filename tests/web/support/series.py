@@ -5,7 +5,7 @@ from skat.engine.deal import positions_from
 from skat.table.records import Series, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, with_known_deal
 from tests.support.played_game import a_whole_game
@@ -17,6 +17,14 @@ def tap_weiter(skat, headers, table_id, command_id, ordinal=1):
     return skat.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_READY_SUFFIX}",
         json={"command_id": command_id, "ordinal": ordinal},
+        headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+    )
+
+
+def tap_new_series(skat, headers, table_id, command_id):
+    return skat.client.post(
+        f"{TABLES_PATH}/{table_id}{TABLE_NEW_SERIES_SUFFIX}",
+        json={"command_id": command_id},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 
