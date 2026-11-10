@@ -68,6 +68,7 @@ class Exclusion(StrEnum):
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
     OPENING = "opening a table is not yet a tool"
     SEATING = "taking a chair is not yet a tool"
+    FINAL_DELETION = "consenting to a final deletion is not yet a tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
