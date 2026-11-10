@@ -163,8 +163,11 @@ class TestNewSeries:
         before = read(transactions, ended_series)
         failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
 
+        table_id = TableId(ended_series)
+        sources = nullcontext(ALL_THREE)
+
         with pytest.raises(ConnectionError):
-            failing.deal_next(TableId(ended_series), nullcontext(ALL_THREE))
+            failing.deal_next(table_id, sources)
 
         assert read(transactions, ended_series) == before
         assert (rows_of(engine, game_list), rows_of(engine, hand_cards)) == (1, 0)

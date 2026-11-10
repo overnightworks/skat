@@ -1,10 +1,8 @@
-from contextlib import nullcontext
 from dataclasses import replace
 
 import pytest
 
-from skat.table.records import Refusal, Series, TableId
-from skat.table.service import TableService
+from skat.table.records import Refusal, Series
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
@@ -321,7 +319,7 @@ class TestTheEnd:
         assert record.hand is None
         accounts = frozenset(chair.occupant.account_id for chair in record.chairs)
         assert newcomer.id in accounts
-        assert not TableService(skat.store).deal_next(TableId(table.table_id), nullcontext(accounts))
+        assert not deal_the_next(skat, table.table_id, accounts)
 
     def test_a_sitter_after_a_passed_in_last_game_is_not_marked_ready_and_nothing_deals(self, skat):
         table_id, people = open_series(skat, 3)

@@ -136,6 +136,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     at one. Every deal goes through here.
     """
     starts_series = series_over(table)
+    next_deals = 1 if starts_series else None if table.series is None else table.series.deals + 1
     return TableRecord(
         id=table.id,
         version=version,
@@ -144,9 +145,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         hand=new_hand.hand,
         progress=HandProgress(),
         game_list=() if starts_series else table.game_list,
-        series=None
-        if table.series is None
-        else replace(table.series, deals=1 if starts_series else table.series.deals + 1),
+        series=None if table.series is None else replace(table.series, deals=next_deals),
         options=table.options,
     )
 
