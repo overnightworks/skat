@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "345d29b9188116d4c6eb75853216eb1ba4a4fe46"
 branch = "claude/issue-269-agent-new-series"
-scope = ["docs/ARCHITECTURE.md", "src/skat/web/mcp.py", "src/skat/web/ready.py", "tests/web/test_mcp.py", "tests/web/test_ready_new_series.py"]
+scope = ["docs/ARCHITECTURE.md", "src/skat/web/mcp.py", "src/skat/web/ready.py", "tests/e2e/test_call_frame.py", "tests/web/test_mcp.py", "tests/web/test_ready_new_series.py"]
 opened_commit = "440f942bc7ee6e2c1725c75e91c1b6bc1598981c"
 whole_reason = "The mark, the tool's description, the removed exclusion and the tool's tests are one path: a marked route without its tool test fails the exact tool set, and an exclusion nothing uses is dead."
