@@ -14,11 +14,12 @@ pytestmark = pytest.mark.postgres
 class TestFromALiveTableAndAGameAtRevisionSixteen:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        """A database at 0016 holding a table in play and a game list row, then taken to head."""
+        """A database at 0016 holding a table in play, a game list row and a saved rule set, then taken to head."""
         upgrade_to(unmigrated_engine, "0016")
         with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
             connection.execute(text(list_row()))
+            connection.execute(text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
         migrate(unmigrated_engine)
         return unmigrated_engine
 
@@ -29,39 +30,31 @@ class TestFromALiveTableAndAGameAtRevisionSixteen:
 
         assert (tuple(options), factor) == ((None, None, []), 1)
 
-    def test_a_rule_set_holds_the_official_rules_without_bock_and_accepts_a_bock_option(self, migrated):
-        run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
+    def test_the_saved_rule_set_holds_no_bock_and_accepts_a_bock_option(self, migrated):
+        with migrated.connect() as connection:
+            before = connection.execute(text("SELECT bock_triggers, bock_overlap FROM rule_sets")).one()
         run_in_transaction(
-            migrated,
-            text(
-                "UPDATE rule_sets SET bock_triggers = ARRAY['re', 'passed-in'], bock_overlap = 'ignore' WHERE id = '1'"
-            ),
+            migrated, text("UPDATE rule_sets SET bock_triggers = ARRAY['re', 'passed-in'], bock_overlap = 'ignore'")
         )
 
         with migrated.connect() as connection:
-            stored = connection.execute(text("SELECT bock_triggers, bock_overlap FROM rule_sets")).one()
+            after = connection.execute(text("SELECT bock_triggers, bock_overlap FROM rule_sets")).one()
 
-        assert tuple(stored) == (["re", "passed-in"], "ignore")
+        assert (tuple(before), tuple(after)) == ((None, None), (["re", "passed-in"], "ignore"))
 
+    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
     @pytest.mark.parametrize(
-        "statement",
+        "change",
         [
-            pytest.param("UPDATE rule_sets SET bock_triggers = ARRAY['re']", id="triggers-without-an-overlap"),
-            pytest.param("UPDATE rule_sets SET bock_overlap = 'append'", id="an-overlap-without-triggers"),
-            pytest.param(
-                "UPDATE rule_sets SET bock_triggers = ARRAY[]::text[], bock_overlap = 'append'", id="no-trigger-at-all"
-            ),
-            pytest.param(
-                "UPDATE rule_sets SET bock_triggers = ARRAY['double'], bock_overlap = 'append'", id="unknown-trigger"
-            ),
-            pytest.param(
-                "UPDATE rule_sets SET bock_triggers = ARRAY['re'], bock_overlap = 'twice'", id="unknown-overlap"
-            ),
+            pytest.param("bock_triggers = ARRAY['re']", id="triggers-without-an-overlap"),
+            pytest.param("bock_overlap = 'append'", id="an-overlap-without-triggers"),
+            pytest.param("bock_triggers = ARRAY[]::text[], bock_overlap = 'append'", id="no-trigger-at-all"),
+            pytest.param("bock_triggers = ARRAY['double'], bock_overlap = 'append'", id="unknown-trigger"),
+            pytest.param("bock_triggers = ARRAY['re'], bock_overlap = 'twice'", id="unknown-overlap"),
         ],
     )
-    def test_the_checks_refuse_what_is_no_bock_option_in_a_rule_set(self, migrated, statement):
-        run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
-        refused = text(statement)
+    def test_the_checks_refuse_what_is_no_bock_option_on_a_table_or_a_rule_set(self, migrated, table, change):
+        refused = text(f"UPDATE {table} SET {change}")  # noqa: S608 - only the test's fixed literals reach this text
 
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, refused)
@@ -87,15 +80,6 @@ class TestFromALiveTableAndAGameAtRevisionSixteen:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET bock_triggers = ARRAY['re']", id="triggers-without-an-overlap"),
-            pytest.param("UPDATE tables SET bock_overlap = 'append'", id="an-overlap-without-triggers"),
-            pytest.param(
-                "UPDATE tables SET bock_triggers = ARRAY[]::text[], bock_overlap = 'append'", id="no-trigger-at-all"
-            ),
-            pytest.param(
-                "UPDATE tables SET bock_triggers = ARRAY['double'], bock_overlap = 'append'", id="unknown-trigger"
-            ),
-            pytest.param("UPDATE tables SET bock_triggers = ARRAY['re'], bock_overlap = 'twice'", id="unknown-overlap"),
             pytest.param(
                 "UPDATE tables SET bock_triggers = ARRAY['re'], bock_overlap = 'append', bock_rounds = ARRAY[0]",
                 id="a-round-with-no-game-left",
@@ -115,7 +99,7 @@ class TestFromALiveTableAndAGameAtRevisionSixteen:
             pytest.param("UPDATE game_list SET bock_factor = 3", id="factor-not-a-power-of-two"),
         ],
     )
-    def test_the_checks_refuse_what_is_no_bock_option_or_pending_game_or_factor(self, migrated, statement):
+    def test_the_checks_refuse_what_is_no_pending_game_or_factor(self, migrated, statement):
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
