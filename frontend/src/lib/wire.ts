@@ -43,6 +43,7 @@ export const LEVEL_TOKENS = [
     "schwarz_announced",
     "ouvert",
 ] as const;
+export const END_REASON_TOKENS = ["empty"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,
@@ -53,3 +54,4 @@ export const SERIES_LENGTH_MIN = 3;
 export const SERIES_LENGTH_MAX = 99;
 export const SERIES_LENGTH_STEP = 3;
 export const SERIES_LENGTH_DEFAULT = 36;
+export const CHAIRS_PER_TABLE = 3;

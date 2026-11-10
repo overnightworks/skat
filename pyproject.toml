@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.16",
     "fastapi>=0.123.7",
-    "overnightworks-agent-runtime-client[mcp-server] @ git+https://github.com/overnightworks/agent-runtime@v0.27.1",
+    "overnightworks-agents[mcp-server] @ git+https://github.com/overnightworks/agents@v0.30.0",
     "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.34.1",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
@@ -28,7 +28,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 # The overnightworks libraries are built from their git tags; a named package
 # overrides a global --no-build, so every other package still installs as a wheel.
-no-binary-package = ["overnightworks-agent-runtime-client", "overnightworks-webauth"]
+no-binary-package = ["overnightworks-agents", "overnightworks-webauth"]
 # Their build backends run with these exact tools, as hatchling is pinned above.
 build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0"]
 
@@ -170,7 +170,7 @@ forbidden_modules = [
     "fastapi",
     "starlette",
     "webauth",
-    "agent_runtime_client",
+    "agents",
     "mcp",
 ]
 

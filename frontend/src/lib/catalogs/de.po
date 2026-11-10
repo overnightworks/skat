@@ -281,3 +281,18 @@ msgstr "noch nicht getippt"
 
 msgid "and"
 msgstr "und"
+
+msgid "nobodyThereClosed"
+msgstr "niemand da: Tisch geschlossen"
+
+msgid "minute"
+msgstr "Minute"
+
+msgid "minutes"
+msgstr "Minuten"
+
+msgid "second"
+msgstr "Sekunde"
+
+msgid "seconds"
+msgstr "Sekunden"

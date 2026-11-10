@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
-from agent_runtime_client.mcp_server import McpPersonFront, route_tools
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
-from agent_runtime_client.tools import Principal, ToolEffect, agent_tool, not_an_agent_tool
+from agents.mcp_server import McpPersonFront, route_tools
+from agents.mcp_wire import MCP_ENDPOINT_PATH
+from agents.tools import Principal, ToolEffect, agent_tool, not_an_agent_tool
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
 from webauth.middleware.bearer_gate import (
