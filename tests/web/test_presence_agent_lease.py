@@ -45,7 +45,7 @@ def skat(hold, issuer, time):
 @pytest.fixture
 def hand_table(skat, agent):
     """A dealt table, no step taken, where the agent holds the middlehand chair."""
-    table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+    table = AgentTable(skat, agent, MIDDLEHAND)
     skat.client.cookies.clear()
     return table
 
@@ -60,13 +60,13 @@ def result_table(skat, hand_table):
 @pytest.fixture
 def undealt_table(skat, agent):
     """No hand was dealt: a person holds seat 1 and the agent seat 2; returns the person's headers and the table id."""
-    agent_headers = agent.admitted()
+    agent.admitted()
     account = skat.stores.accounts.create_for_subject(
         PERSON_SUBJECT, "person", role=AppRole.USER, kind=AccountKind.PERSON
     )
     owner, _ = skat.member(account)
     table_id = skat.create(owner).json()["id"]
-    skat.sit(agent_headers, table_id, 2)
+    agent.sit_down(table_id, 2)
     skat.client.cookies.clear()
     return owner, table_id
 

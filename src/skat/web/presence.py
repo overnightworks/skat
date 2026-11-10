@@ -146,10 +146,11 @@ class Presence:
     never frees a chair while a lease runs. Leases are in this process only, like streams, and gone at a restart.
 
     A table gets one wait when it is created or found at the server's start, and another each time its last stream
-    ends or a chair is freed where no stream is open. An opening or a sit where no stream is open notes who is
-    present, as a lease does, and keeps a wait that is pending; a stand-up there owes a full wait from itself. A
-    stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it fires,
-    the end is asked for with who is connected then, and a failure is retried while the wait stays the table's
+    ends or a chair is freed where no stream is open and a lease runs. An opening or a sit where no stream is open
+    and a lease runs notes who is present, as a lease does, and keeps a wait that is pending; a stand-up there owes
+    a full wait from itself. A stream that opens ends the wait, so the pending timer finds itself superseded and
+    does nothing. When it fires, the end is asked for with who is connected then, and a failure is retried while
+    the wait stays the table's
     latest. Since when nobody has been at a table is stored: a table's last leave, a lease starting or lapsing and
     the first arrival note who is present, each on the table's row (presence notes an empty table and the service
     decides whether to stamp the time; an arrival or a lease start clears it), and the server's start seeds each
@@ -325,21 +326,23 @@ class Presence:
     def chair_taken(self, table_id: str) -> None:
         """A command opened a table or seated someone at it; call it on the event loop's thread after the commit.
 
-        Where no stream is open, a live lease may have joined the table without any stream changing: who is present
-        is noted on the table's row, and the table waits for its end unless a wait is pending.
+        The table waits for its end unless a wait is pending. Where no stream is open and a lease runs, the lease may
+        have joined the table without any stream changing, so who is present is noted on the table's row.
         """
         if table_id in self._subscriptions:
             return
         self.watch_empty_table(table_id)
-        self._note_soon(table_id)
+        if self.live_leases():
+            self._note_soon(table_id)
 
     def chair_freed(self, table_id: str) -> None:
         """A command freed a chair; call it on the event loop's thread after the commit.
 
-        Where no stream is open, the table that nobody is present at gets a full wait from now, as when its last
-        stream ends or a lease lapses, and who is present is noted on the table's row.
+        Where no stream is open and a lease runs, the chair may have been the only one a lease made present: the
+        table gets a full wait from now, as when its last stream ends or a lease lapses, and who is present is noted
+        on the table's row. With no lease running, only a stream makes anyone present, and the table already waits.
         """
-        if table_id in self._subscriptions:
+        if table_id in self._subscriptions or not self.live_leases():
             return
         self._start_empty_wait(table_id)
         self._note_soon(table_id)

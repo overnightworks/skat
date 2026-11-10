@@ -34,7 +34,8 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
     """Three seated after their `games`-th game: no hand, no steps, the dealer and the list; `ready_seats` tapped."""
     people = ((1, ANNA), (2, BEN), (3, CLEO))
     chairs = tuple(
-        Chair(seat, Occupant(actor.account_id, actor.display_name), ready=seat in ready_seats) for seat, actor in people
+        Chair(seat, Occupant(actor.account_id, actor.display_name, actor.kind), ready=seat in ready_seats)
+        for seat, actor in people
     )
     return TableRecord(
         TableId("0" * 32),

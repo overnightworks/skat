@@ -450,7 +450,7 @@ class TestRefusals:
         assert stored(skat)[0] == before[0]
 
     def test_a_table_with_no_hand_is_refused_as_no_hand(self, skat, agent):
-        table_id = skat.create(agent.admitted()).json()["id"]
+        table_id = agent.open_table().json()["id"]
         before = stored(skat)
 
         answer = agent.call(TAKE_SKAT_TOOL, table_id=table_id, command_id="agent-step-0001", version=1)
