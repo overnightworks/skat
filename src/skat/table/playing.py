@@ -154,22 +154,11 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
         return _end_of(table, outcome)
     if table.progress.give_up is not None:
         return Decision(table)
-    return Decision(_with_request(table, GiveUpAsked(position)))
+    return _with_request(table, GiveUpAsked(position))
 
 
-def _with_request(table: TableRecord, asked: GiveUpAsked | None) -> TableRecord:
-    progress = HandProgress(table.progress.auction, table.progress.declaring, table.progress.plays, asked)
-    return TableRecord(
-        table.id,
-        table.version + 1,
-        table.chairs,
-        table.dealer,
-        table.hand,
-        progress,
-        table.game_list,
-        table.series,
-        table.options,
-    )
+def _with_request(table: TableRecord, asked: GiveUpAsked | None) -> Decision:
+    return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, give_up=asked)))
 
 
 def agree_to_give_up_payload(command: AgreeToGiveUpCommand) -> str:
@@ -218,8 +207,8 @@ def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiv
     if asked.declined_by is position:
         return Decision(table)
     if asked.declined_by is not None:
-        return Decision(_with_request(table, None))
-    return Decision(_with_request(table, GiveUpAsked(asked.asker, position)))
+        return _with_request(table, None)
+    return _with_request(table, GiveUpAsked(asked.asker, position))
 
 
 def throw_down_payload(command: ThrowDownCommand) -> str:
