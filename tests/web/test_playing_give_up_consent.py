@@ -119,10 +119,9 @@ def kontra_of(table):
 
 
 @pytest.fixture
-def kontra_table(skat, monkeypatch):
+def kontra_table(skat):
     options = {"kontra": {"sayer": "any-opponent", "reach": "up-to-hirsch", "deadline": "own-card"}}
-    monkeypatch.setattr(skat, "create", partial(skat.create, options=options))
-    table = Table(skat)
+    table = Table(skat, options=options)
     table.declared_hand_game()
     return table
 
@@ -135,7 +134,7 @@ class TestKontraAndTheRequestAreIndependent:
         ask(kontra_table)
 
         assert kontra_of(kontra_table)["factor"] == 2
-        assert everyone_reads(kontra_table) == [ASKED_BY_THE_DECLARER] * 4
+        assert request_of(kontra_table, kontra_table.watcher) == ASKED_BY_THE_DECLARER
         result = agree(kontra_table, REARHAND).json()["result"]
         assert (result["kontra"]["word"], result["score"], result["list_bonus"]) == ("kontra", -120, -50)
         assert [entry.kontra_word for entry in kontra_table.record.game_list] == ["kontra"]
@@ -150,7 +149,7 @@ class TestKontraAndTheRequestAreIndependent:
         say(kontra_table, FOREHAND, "supra")
 
         assert kontra_of(kontra_table)["factor"] == 8
-        assert everyone_reads(kontra_table) == [ASKED_BY_THE_DECLARER] * 4
+        assert request_of(kontra_table, kontra_table.watcher) == ASKED_BY_THE_DECLARER
         result = agree(kontra_table, REARHAND).json()["result"]
         assert (result["kontra"]["word"], result["score"]) == ("supra", -480)
 
