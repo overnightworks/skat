@@ -155,20 +155,17 @@ class TestDecideNewSeries:
         assert decision.refusal is None
         assert decision.table == table
 
-    def test_a_viewer_without_a_chair_is_not_seated_before_any_other_reason(self):
+    @pytest.mark.parametrize(
+        ("actor", "refusal"),
+        [(DORA, Refusal.NOT_SEATED), (ANNA, Refusal.NO_SERIES)],
+        ids=["a-viewer-without-a-chair-is-not-seated", "a-seated-chair-finds-no-series"],
+    )
+    def test_a_table_without_a_series_names_the_first_refusal_that_applies_and_changes_nothing(self, actor, refusal):
         table = replace(pending(), series=None)
 
-        decision = decide_new_series(table, DORA)
+        decision = decide_new_series(table, actor)
 
-        assert decision.refusal is Refusal.NOT_SEATED
-        assert decision.table == table
-
-    def test_a_table_without_a_series_is_named_before_a_series_not_over(self):
-        table = replace(pending(), series=None)
-
-        decision = decide_new_series(table, ANNA)
-
-        assert decision.refusal is Refusal.NO_SERIES
+        assert decision.refusal is refusal
         assert decision.table == table
 
     @pytest.mark.parametrize(
