@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -290,6 +291,24 @@ def test_a_side_throwing_its_cards_down_ends_the_game_with_the_counts_it_brought
 ) -> None:
     state = scenario(**scene)  # type: ignore[arg-type]
     assert settle(thrown_down(state, thrower), state.declared.bid) == expected
+
+
+@pytest.mark.parametrize(
+    ("thrower", "declarer_points"),
+    [
+        pytest.param(FOREHAND, 0, id="the declarer's throw-down counts no skat points"),
+        pytest.param(MIDDLEHAND, 120, id="an opponent's throw-down gives the declarer every point"),
+    ],
+)
+def test_a_thrown_down_null_counts_the_declarers_completed_tricks_alone(
+    thrower: Position, declarer_points: int
+) -> None:
+    state = scenario(NULL, 23, jacks=())
+    state = replace(
+        state, declared=replace(state.declared, skat=(Card(Suit.HERZ, Rank.ACE), Card(Suit.HERZ, Rank.TEN)))
+    )
+    result = thrown_down(state, thrower)
+    assert (result.declarer_points, result.opponents_points) == (declarer_points, 120 - declarer_points)
 
 
 def test_a_card_led_and_not_yet_in_a_completed_trick_counts_for_the_opponents_when_the_declarer_throws_down() -> None:

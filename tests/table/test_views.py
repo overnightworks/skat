@@ -9,7 +9,16 @@ from skat.engine.declaration import Announcement, Declaration, Declare, Stage, T
 from skat.engine.games import GameKind
 from skat.engine.value import Matadors
 from skat.table.game_list import ListEntry
-from skat.table.records import Chair, HandProgress, Occupant, TableId, TableRecord
+from skat.table.records import (
+    Chair,
+    EndedTable,
+    EndReason,
+    HandProgress,
+    Occupant,
+    TableId,
+    TableOptions,
+    TableRecord,
+)
 from skat.table.views import view_of
 
 ANNA, BEN, CLEO, DORA = "account-anna", "account-ben", "account-cleo", "account-dora"
@@ -29,7 +38,7 @@ def seated_table(
 ) -> TableRecord:
     people = ((1, ANNA, "Anna"), (2, BEN, "Ben"), (3, CLEO, "Cleo"))
     chairs = tuple(Chair(seat, Occupant(account_id, name)) for seat, account_id, name in people)
-    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None)
+    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None, TableOptions())
 
 
 class TestChairPositions:
@@ -267,3 +276,10 @@ class TestChairTotals:
         view = view_of(table, ANNA, NOBODY_CONNECTED)
 
         assert [chair.total for chair in view.chairs] == [0, 0, None]
+
+
+class TestOptions:
+    def test_an_ended_table_carries_no_options(self):
+        ended = EndedTable(TableId("0" * 32), 7, EndReason.EMPTY, 1800)
+
+        assert view_of(ended, ANNA, NOBODY_CONNECTED).options is None
