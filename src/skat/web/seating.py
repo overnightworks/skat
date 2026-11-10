@@ -43,36 +43,8 @@ class SitDownRequest(CommandRequest):
     seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
 
 
-def create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
-    """The routes that open a table and take or leave its chairs."""
+def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
-
-    @router.post(
-        TABLES_PATH,
-        responses={409: {"description": "The command id came back with another request."}},
-        openapi_extra=OPEN_TABLE_MARK,
-    )
-    async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
-        """Open a new Skat table, with the caller in chair 1 as its opener.
-
-        `series_length` is the number of games its series runs, within the bounds of the input schema. `options` may
-        switch on the table's rule options, which stay fixed for its life; without them it plays the official rules. The
-        answer is the table as read_table gives it. Its `id` makes the table's link /t/{id}, which the caller gives
-        the people it wants to play with. The command id names this opening: the same id with the same request is a
-        retry that opens no second table, and the same id with another request is refused.
-        """
-        # The answer names people, so no cache may keep it past the gate.
-        response.headers["Cache-Control"] = "no-store"
-        try:
-            options = table_options_of(body.options)
-            command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
-            view = await run_in_threadpool(tables.create, actor_of(request), command)
-        except CommandIdReusedError:
-            raise HTTPException(status_code=409, detail="command id reused with another request") from None
-        # Presence belongs to the event loop's thread, so the wait and the note start here and not on the worker.
-        if view.ended is None:
-            presence.chair_taken(view.id)
-        return answer_of(view)
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX,
@@ -124,4 +96,39 @@ def create_seating_router(tables: TableService, presence: Presence) -> APIRouter
             presence.chair_freed(table_id)
         return answer
 
+    return router
+
+
+def create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
+    """The routes that open a table and take or leave its chairs."""
+    router = APIRouter()
+
+    @router.post(
+        TABLES_PATH,
+        responses={409: {"description": "The command id came back with another request."}},
+        openapi_extra=OPEN_TABLE_MARK,
+    )
+    async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
+        """Open a new Skat table, with the caller in chair 1 as its opener.
+
+        `series_length` is the number of games its series runs, within the bounds of the input schema. `options` may
+        switch on the table's rule options, which stay fixed for its life; without them it plays the official rules. The
+        answer is the table as read_table gives it. Its `id` makes the table's link /t/{id}, which the caller gives
+        the people it wants to play with. The command id names this opening: the same id with the same request is a
+        retry that opens no second table, and the same id with another request is refused.
+        """
+        # The answer names people, so no cache may keep it past the gate.
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            options = table_options_of(body.options)
+            command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
+            view = await run_in_threadpool(tables.create, actor_of(request), command)
+        except CommandIdReusedError:
+            raise HTTPException(status_code=409, detail="command id reused with another request") from None
+        # Presence belongs to the event loop's thread, so the wait and the note start here and not on the worker.
+        if view.ended is None:
+            presence.chair_taken(view.id)
+        return answer_of(view)
+
+    router.include_router(_create_chairs_router(tables, presence))
     return router
