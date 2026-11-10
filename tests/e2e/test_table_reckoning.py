@@ -551,7 +551,7 @@ def test_a_watcher_who_opens_the_table_while_the_result_stands_reads_the_same_ca
     deal_a_declared_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_declared_table(form_factor)
-    reckoning = next(each for each in RECKONINGS if each.id == "herz-hand-mit-1-won")
+    reckoning = next(each for each in RECKONINGS if each.id == "schneider-announced-and-missed")
     table.list_the_game(replace(reckoning.entry, declarer_seat=table.declarer_seat))
     arriving = table.watcher.context.new_page()
     arriving.goto(table.watcher.url)
