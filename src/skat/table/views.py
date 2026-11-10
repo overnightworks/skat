@@ -230,3 +230,56 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
         series=_series_view(table),
         options=table.options,
     )
+
+
+@dataclass(frozen=True)
+class PausedChairView:
+    """A chair of a paused table: who sits there, whether it is the viewer's own and its running total."""
+
+    seat: int
+    occupant_name: str | None
+    is_mine: bool
+    total: int | None
+
+
+@dataclass(frozen=True)
+class PausedEntryView:
+    """A table on which a hand was dealt, as its chair holder's start page lists it.
+
+    The game number and length are None for a table without a series; `turn_seat` is the seat whose move the running
+    hand waits for, None between hands, and `result_waits` says a played game's result stands. It names no card, no
+    card count, no skat, no watcher and no account.
+    """
+
+    id: str
+    chairs: tuple[PausedChairView, ...]
+    game_number: int | None
+    game_count: int | None
+    turn_seat: int | None
+    result_waits: bool
+
+
+def _turn_seat_of(hand: HandView | None) -> int | None:
+    """The seat on turn: the playing turn while a game is played, the declarer while he declares, else the auction's."""
+    if hand is None:
+        return None
+    if hand.playing is not None:
+        return hand.playing.turn_seat
+    if hand.declaring is not None:
+        return hand.declaring.declarer_seat
+    return hand.auction.turn_seat
+
+
+def paused_entry_of(table: TableRecord, viewer_account_id: str) -> PausedEntryView:
+    """The table for the viewer as the paused list shows it, projected from the table view with nobody connected."""
+    view = view_of(table, viewer_account_id, frozenset())
+    return PausedEntryView(
+        id=view.id,
+        chairs=tuple(
+            PausedChairView(chair.seat, chair.occupant_name, chair.is_mine, chair.total) for chair in view.chairs
+        ),
+        game_number=None if view.series is None else view.series.game_number,
+        game_count=None if view.series is None else view.series.game_count,
+        turn_seat=_turn_seat_of(view.hand),
+        result_waits=view.result is not None,
+    )
