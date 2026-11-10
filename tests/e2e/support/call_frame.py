@@ -72,8 +72,8 @@ def page_holding(frame_address: str, style: str = "") -> str:
     )
 
 
-# The greeting call page: it records what the Skat frame posts, greets every `ready` when asked, and lets a test
-# send one message to the frame (`sendToStage`) or the valid greeting (`greet`) itself.
+# The greeting call page's script: it records what the Skat frame posts, greets every `ready` when asked, and lets a
+# test send one message to the frame (`sendToStage`) or the valid greeting (`greet`) itself.
 _GREETING_SCRIPT = """
 window.messages = [];
 window.greetEveryReady = GREET_EVERY_READY;
@@ -89,7 +89,7 @@ addEventListener("message", (event) => {
 
 
 def greeting_page_holding(frame_address: str, skat_origin: str, *, greets_every_ready: bool = False) -> str:
-    """The call page of `page_holding`, with a script that listens as hopin's slice 2a does."""
+    """The call page of `page_holding`, recording the frame's messages and greeting as the call page does."""
     script = _GREETING_SCRIPT.replace("SKAT_ORIGIN", json.dumps(skat_origin)).replace(
         "GREET_EVERY_READY", json.dumps(greets_every_ready)
     )

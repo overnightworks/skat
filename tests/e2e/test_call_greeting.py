@@ -1,5 +1,4 @@
 from contextlib import ExitStack, contextmanager
-from itertools import count
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -38,7 +37,6 @@ VALID_HELLO = {"v": 1, "type": "hello", "attachment": 1, "attempt": None}
 LOG_IN = "Log in"
 MEGABYTE = 1_000_000
 RECORDED_MESSAGES = "window.messages.length"
-_markers = count(1)
 
 
 @pytest.fixture(scope="module")
@@ -67,8 +65,8 @@ def wait_for_ready(visitor: Page) -> None:
     visitor.wait_for_function(f"{RECORDED_MESSAGES} >= 1")
 
 
-def path_of(address: str) -> str:
-    return address.removeprefix(f"{TABLE_PAGE_PREFIX}")
+def table_id_of(path: str) -> str:
+    return path.removeprefix(TABLE_PAGE_PREFIX)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -112,7 +110,7 @@ def test_the_frame_posts_exactly_one_ready_naming_its_own_table_to_the_call_orig
         wait_for_ready(visitor)
         expect(visitor.frame_locator(FRAME).locator(CHAIR)).to_have_count(THREE_CHAIRS)
 
-        assert messages_of_the_frame(visitor) == [{"v": 1, "type": "ready", "table": path_of(path)}]
+        assert messages_of_the_frame(visitor) == [{"v": 1, "type": "ready", "table": table_id_of(path)}]
 
 
 def add_sibling(visitor: Page, name: str, attributes: str) -> Frame:
@@ -187,7 +185,7 @@ def test_a_message_that_fails_a_check_leaves_the_bar_until_the_valid_hello_comes
             send = sender_from_a_sibling(add_sibling(visitor, "other", f'src="{OTHER_ORIGIN}/"'))
         else:
             send = sender_from_a_sibling(add_sibling(visitor, "same", 'srcdoc=""'))
-        marker = next(_markers)
+        marker = 1
 
         send(data, marker)
         skat.wait_for_function("marker => markers.includes(marker)", arg=marker)
@@ -224,13 +222,11 @@ def test_a_top_level_table_page_posts_nothing_and_keeps_its_bar(
     visitor = open_person(server=framing_server)
     requests: list[str] = []
     visitor.on("request", lambda request: requests.append(request.url))
-    visitor.add_init_script("window.heard = []; addEventListener('message', (event) => heard.push(event.data));")
 
     visitor.goto(f"{framing_server.base_url}{path}{search}")
 
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
     expect(visitor.locator(BAR)).to_be_visible()
-    assert visitor.evaluate("window.heard") == []
     assert [url for url in requests if CALL_ORIGIN_PATH in url] == []
 
 

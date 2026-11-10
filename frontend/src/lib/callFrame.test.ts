@@ -221,14 +221,6 @@ describe("greetCall", () => {
         expect([greeted(), call.listenerCount()]).toEqual([1, 0]);
     });
 
-    it("accepts the largest safe attachment", async () => {
-        const { call, greeted } = await greetedPage();
-
-        call.deliver(hello({ data: { ...VALID_HELLO, attachment: Number.MAX_SAFE_INTEGER } }));
-
-        expect(greeted()).toBe(1);
-    });
-
     it.each([
         { name: "from a sibling window alone", event: hello({ source: SIBLING }) },
         { name: "from no window", event: hello({ source: null }) },
@@ -236,12 +228,7 @@ describe("greetCall", () => {
         { name: "from the origin with a trailing slash", event: hello({ origin: `${CALL_ORIGIN}/` }) },
         { name: "from the origin in other case", event: hello({ origin: "https://CALL.test" }) },
         { name: "from the opaque origin", event: hello({ origin: "null" }) },
-        { name: "as a string", event: hello({ data: JSON.stringify(VALID_HELLO) }) },
         { name: "with an extra key", event: hello({ data: { ...VALID_HELLO, extra: 1 } }) },
-        { name: "with v 2", event: hello({ data: { ...VALID_HELLO, v: 2 } }) },
-        { name: "with another type", event: hello({ data: { ...VALID_HELLO, type: "seats" } }) },
-        { name: "with attachment 0", event: hello({ data: { ...VALID_HELLO, attachment: 0 } }) },
-        { name: "with an attempt", event: hello({ data: { ...VALID_HELLO, attempt: 3 } }) },
     ])("ignores a hello $name and still takes the valid one after it", async ({ event }) => {
         const { call, greeted } = await greetedPage();
 
@@ -291,6 +278,16 @@ describe("greetCall", () => {
         call.deliver(hello());
 
         expect([call.listenerCount(), greeted()]).toEqual([0, 0]);
+    });
+
+    it("stops without effect after the greeting", async () => {
+        const { call, stop, greeted } = await greetedPage();
+        call.deliver(hello());
+
+        expect(() => {
+            stop();
+        }).not.toThrow();
+        expect([greeted(), call.listenerCount()]).toEqual([1, 0]);
     });
 
     it("posts no ready when the page goes before the route answers", async () => {

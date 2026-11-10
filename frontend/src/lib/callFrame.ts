@@ -49,8 +49,10 @@ function isPlainObject(data: unknown): data is Record<string, unknown> {
 /** The exact key set is the size bound: it is counted before any value is read. */
 export function isHello(data: unknown): data is HelloMessage {
     if (!isPlainObject(data)) return false;
-    const keys = Object.keys(data).sort();
-    if (keys.length !== HELLO_KEYS.length || keys.some((key, index) => key !== HELLO_KEYS[index])) return false;
+    const keys = Object.keys(data);
+    if (keys.length !== HELLO_KEYS.length) return false;
+    keys.sort();
+    if (keys.some((key, index) => key !== HELLO_KEYS[index])) return false;
     const { v, type, attachment, attempt } = data;
     return (
         v === CALL_CHANNEL_VERSION &&
@@ -87,12 +89,8 @@ export function greetCall(tableId: string, host: CallHost, onGreeted: () => void
         stopListening = null;
     };
     stopListening = host.listen((event) => {
-        if (
-            callOrigin === null ||
-            event.source !== host.parent ||
-            event.origin !== callOrigin ||
-            !isHello(event.data)
-        ) {
+        // The origin check also holds the phase: until the ready is posted callOrigin is null, which no event origin equals.
+        if (event.source !== host.parent || event.origin !== callOrigin || !isHello(event.data)) {
             return;
         }
         stop();
