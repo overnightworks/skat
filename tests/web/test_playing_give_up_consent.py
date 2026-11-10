@@ -6,6 +6,7 @@ from skat.engine.deal import Deal, Position, next_dealer
 from skat.engine.tricks import PlayRefusal
 from skat.table.records import Refusal
 from skat.web.declaring import GameToken
+from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
@@ -106,6 +107,52 @@ def everyone_reads(table):
 def lost_at_30(answer):
     result = answer.json()["result"]
     assert {key: result[key] for key in HERZ_HAND_LOST_AT_30} == HERZ_HAND_LOST_AT_30
+
+
+def say(table, position, word):
+    answer = table.act(TABLE_KONTRA_SUFFIX, table.at[position], body={"word": word})
+    assert answer.status_code == 200, answer.text
+
+
+def kontra_of(table):
+    return table.read_as(table.watcher).json()["hand"]["playing"]["kontra"]
+
+
+@pytest.fixture
+def kontra_table(skat, monkeypatch):
+    options = {"kontra": {"sayer": "any-opponent", "reach": "up-to-hirsch", "deadline": "own-card"}}
+    monkeypatch.setattr(skat, "create", partial(skat.create, options=options))
+    table = Table(skat)
+    table.declared_hand_game()
+    return table
+
+
+class TestKontraAndTheRequestAreIndependent:
+    def test_a_request_asked_after_kontra_keeps_the_word_and_the_yes_doubles_the_score(self, kontra_table):
+        say(kontra_table, FOREHAND, "kontra")
+        kontra_table.played_out(EIGHT_CARDS)
+
+        ask(kontra_table)
+
+        assert kontra_of(kontra_table)["factor"] == 2
+        assert everyone_reads(kontra_table) == [ASKED_BY_THE_DECLARER] * 4
+        result = agree(kontra_table, REARHAND).json()["result"]
+        assert (result["kontra"]["word"], result["score"], result["list_bonus"]) == ("kontra", -120, -50)
+        assert [entry.kontra_word for entry in kontra_table.record.game_list] == ["kontra"]
+
+    def test_a_word_said_while_the_request_stands_keeps_it_and_the_yes_doubles_by_every_word(self, kontra_table):
+        say(kontra_table, FOREHAND, "kontra")
+        kontra_table.played_out(HERZ_GAME[:1])
+        say(kontra_table, MIDDLEHAND, "re")
+        kontra_table.played_out(HERZ_GAME[1:4])
+        ask(kontra_table)
+
+        say(kontra_table, FOREHAND, "supra")
+
+        assert kontra_of(kontra_table)["factor"] == 8
+        assert everyone_reads(kontra_table) == [ASKED_BY_THE_DECLARER] * 4
+        result = agree(kontra_table, REARHAND).json()["result"]
+        assert (result["kontra"]["word"], result["score"]) == ("supra", -480)
 
 
 class TestTheDeclarerAsks:
