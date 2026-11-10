@@ -1,8 +1,0 @@
-claim_id = "3044f63589764e1a98fdd5e02cd28732"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "19e4df8e449412fd5f277337521ed9e960c04a57"
-branch = "claude/issue-250-running-points"
-scope = ["docs/ARCHITECTURE.md", "src/skat/engine/tricks.py", "src/skat/store/migrations/versions/0013_show_running_points.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/playing.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/e2e/test_table_watch.py", "tests/engine/test_tricks.py", "tests/store/test_migrate.py", "tests/store/test_tables.py", "tests/table/test_declaring.py", "tests/table/test_game_list.py", "tests/table/test_playing.py", "tests/table/test_ready.py", "tests/table/test_rules.py", "tests/table/test_views.py", "tests/web/test_mcp.py", "tests/web/test_playing.py", "tests/web/test_streams.py", "tests/web/test_tables_series.py"]
-opened_commit = "eb246f63ddd7b4ec4a334b20e60a7ab7829d9acf"
-whole_reason = "The option record, its immutable column, the create-time write, the retry's payload check, the engine's tally and the view's conditional field are one path from the request to the answer: a switch nothing stores is lost at restart, a column nothing writes is dead, and a view that ignores the stored switch shows the points to everybody."
