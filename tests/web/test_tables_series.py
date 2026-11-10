@@ -3,14 +3,13 @@ from dataclasses import replace
 import pytest
 
 from skat.table.records import Refusal, Series
-from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table
 from tests.web.support.series import deal_next as deal_the_next
-from tests.web.support.series import headers_of, play_a_series, tap_weiter
+from tests.web.support.series import headers_of, pass_the_hand_in, play_a_series, tap_weiter
 from tests.web.support.skat import FETCH
 
 SERIES_LENGTH = 12
@@ -34,18 +33,6 @@ def read(skat, headers, table_id):
     return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
 
 
-def pass_the_hand_in(skat, table_id, people):
-    """Everyone passes in turn until no hand runs."""
-    while (view := read(skat, people[0][0], table_id).json())["hand"] is not None:
-        seat = view["hand"]["auction"]["turn_seat"]
-        answer = skat.client.post(
-            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
-            json={"command_id": f"pass-at-{view['version']}", "version": view["version"]},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **people[seat - 1][0]},
-        )
-        assert answer.status_code == 200, answer.text
-
-
 def deal_next(skat, table_id, people):
     return deal_the_next(skat, table_id, [account.id for _, account in people])
 
@@ -53,7 +40,7 @@ def deal_next(skat, table_id, people):
 def play_through(skat, table_id, people, games):
     """Pass in `games` hands, dealing the next after each but the last."""
     for game in range(games):
-        pass_the_hand_in(skat, table_id, people)
+        pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
         if game < games - 1:
             assert deal_next(skat, table_id, people)
 
@@ -228,7 +215,7 @@ class TestCounting:
     def test_a_passed_in_hand_counts_and_leaves_no_list_row(self, skat):
         table_id, people = open_series(skat, SERIES_LENGTH)
 
-        pass_the_hand_in(skat, table_id, people)
+        pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
 
         assert series_of(read(skat, people[0][0], table_id))["game_number"] == 1
         assert skat.store.tables[table_id].game_list == ()
@@ -250,7 +237,7 @@ class TestCounting:
         table_id, people = open_series(skat, SERIES_LENGTH)
 
         for _ in range(SERIES_LENGTH - 1):
-            pass_the_hand_in(skat, table_id, people)
+            pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
             assert deal_next(skat, table_id, people)
 
         answer = read(skat, people[0][0], table_id).json()
@@ -267,7 +254,7 @@ class TestCounting:
 
     def test_a_series_runs_on_while_a_person_leaves_and_another_sits_and_the_sit_that_deals_counts_once(self, skat):
         table_id, people = open_series(skat, 36)
-        pass_the_hand_in(skat, table_id, people)
+        pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
         stranger, _ = skat.member()
         skat.stand(people[1][0], table_id, command_id="stand-ben")
 
