@@ -70,7 +70,7 @@ class OptionsRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    show_running_points: Annotated[bool, Field(strict=True)] = False
+    show_running_points: Annotated[bool, Field(strict=True)] = TableOptions().show_running_points
 
 
 class CreateTableRequest(CommandRequest):
@@ -633,7 +633,9 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         response.headers["Cache-Control"] = "no-store"
         try:
             options = (
-                TableOptions(show_running_points=body.options.show_running_points) if body.options else TableOptions()
+                TableOptions(show_running_points=body.options.show_running_points)
+                if body.options is not None
+                else TableOptions()
             )
             command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
             view = await run_in_threadpool(tables.create, actor_of(request), command)
