@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
@@ -7,7 +9,7 @@ from skat.engine.deal import Position, seats_from
 from skat.engine.tricks import CardPlayed, PlayRefusal
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
-from skat.table.records import Refusal
+from skat.table.records import Refusal, Series
 from skat.web.auction import TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
@@ -25,6 +27,7 @@ from skat.web.mcp import (
     PUT_BACK_CARDS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
 )
@@ -39,7 +42,7 @@ from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, 
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, person_passes, person_steps
 from tests.web.support.playing import Table, card, card_body
-from tests.web.support.series import play_a_series
+from tests.web.support.series import deal_next, play_a_series, play_the_dealt_series, tap_new_series
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -83,6 +86,7 @@ class TestTools:
                 GIVE_UP_GAME_TOOL,
                 THROW_DOWN_CARDS_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
+                START_NEW_SERIES_TOOL,
             }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
@@ -532,6 +536,80 @@ class TestAuctionSteps:
         accounts = {account_id for account_id, _ in skat.store.receipts}
         assert agent_account_id(skat) in accounts
         assert skat.stores.accounts.get(OWNER) is None
+
+
+class TestStartNewSeries:
+    @pytest.fixture
+    def ended_series(self, skat, agent):
+        """A series of three played to its end at a table where the agent holds the forehand chair."""
+        table = AgentTable(skat, agent.admitted(), FOREHAND)
+        skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
+        play_the_dealt_series(skat, table, 3)
+        skat.client.cookies.clear()
+        return table
+
+    def start(self, agent, table, *, command_id="agent-new-series-0001"):
+        return agent.call(START_NEW_SERIES_TOOL, table_id=table.table_id, command_id=command_id)
+
+    def test_an_accepted_tap_marks_the_agents_chair_as_a_persons_tap_does(self, agent, ended_series):
+        table = ended_series
+
+        answer = self.start(agent, table)
+
+        assert not answer.is_error, answer.text
+        assert [chair["ready"] for chair in answer.json()["chairs"]] == [False, False, True]
+        assert [chair.ready for chair in table.record.chairs] == [False, False, True]
+        assert len(table.record.game_list) == 3
+
+    def test_a_refused_tap_is_a_failed_result_with_the_reason_and_spends_the_id(self, skat, agent, ended_series):
+        table = ended_series
+        table.skat.stand(table.at[FOREHAND], table.table_id, command_id="agent-stands")
+        before = stored(skat)
+
+        refused = self.start(agent, table)
+        skat.sit(table.at[FOREHAND], table.table_id, 3, command_id="agent-sits")
+        again = self.start(agent, table)
+
+        assert refused.is_error
+        assert refused.json()["reason"] == Refusal.NOT_SEATED
+        assert (again.is_error, again.text) == (refused.is_error, refused.text)
+        assert stored(skat)[0] != before[0]
+        assert [chair.ready for chair in table.record.chairs] == [False, False, False]
+
+    def test_the_same_call_again_answers_the_same_and_changes_nothing(self, agent, ended_series):
+        table = ended_series
+        first = self.start(agent, table)
+        before = table.record
+
+        again = self.start(agent, table)
+        other_id = self.start(agent, table, command_id="agent-new-series-0002")
+
+        assert (again.is_error, again.text) == (first.is_error, first.text)
+        assert not other_id.is_error
+        assert table.record == before
+
+    def test_with_two_peoples_taps_the_agents_tap_deletes_the_list_and_the_next_series_is_dealt(
+        self, skat, agent, ended_series
+    ):
+        table = ended_series
+        for number, position in enumerate((MIDDLEHAND, REARHAND), start=1):
+            assert tap_new_series(skat, table.at[position], table.table_id, f"tap-new-{number}").status_code == 200
+        assert len(table.record.game_list) == 3
+
+        assert not self.start(agent, table).is_error
+
+        accounts = [chair.occupant.account_id for chair in table.record.chairs]
+        assert deal_next(skat, table.table_id, accounts)
+        view = agent.read(table.table_id).json()
+        assert view["series"] == {"game_number": 1, "game_count": 3, "over": False, "standings": None}
+        assert view["hand"] is not None
+        assert table.record.game_list == ()
+
+    def test_the_description_says_the_third_tap_deletes_the_list_for_good(self, agent):
+        tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
+
+        assert "for good" in tools[START_NEW_SERIES_TOOL]["description"]
+        assert START_NEW_SERIES_TOOL in tools[CONTINUE_AFTER_RESULT_TOOL]["description"]
 
 
 class TestAuctionRoutesTakeTheAgentsBearer:

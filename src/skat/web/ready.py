@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
 from skat.table.ready import NewSeriesCommand, ReadyCommand
-from skat.web.mcp import CONTINUE_AFTER_RESULT_MARK, Exclusion, excluded
+from skat.web.mcp import CONTINUE_AFTER_RESULT_MARK, START_NEW_SERIES_MARK
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
@@ -50,10 +50,10 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         comes from the same read. The command id names this step: the same id with the same ordinal is a retry that
         changes nothing twice. A refusal (not seated, no result, a stale ordinal, the series is over) comes back as a
         failed result with its reason and spends the command id: the next attempt takes a new command id. Once
-        read_table shows `series.over: true` no next hand follows and there is nothing to do, also after a passed-in
-        last game (`passed_in`). After any other passed-in hand the next hand follows once all three are there. The
-        answer still shows the result; the next hand appears in a later read_table, once all three chairs are ready and
-        the series is not over.
+        read_table shows `series.over: true` no next hand follows; call start_new_series for the next series, also
+        after a passed-in last game (`passed_in`). After any other passed-in hand the next hand follows once all three
+        are there. The answer still shows the result; the next hand appears in a later read_table, once all three
+        chairs are ready and the series is not over.
         """
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal)
         answer = await command_answer(
@@ -68,17 +68,20 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         TABLES_PATH + "/{table_id}" + TABLE_NEW_SERIES_SUFFIX,
         response_model=TableAnswer,
         responses=COMMAND_RESPONSES,
-        openapi_extra=excluded(Exclusion.FINAL_DELETION),
+        openapi_extra=START_NEW_SERIES_MARK,
     )
     async def start_new_series(
         table_id: str, body: CommandRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Say „Neue Serie“ after a Skat table's series has ended: the caller's chair is ready for the next series.
 
-        Once all three seated members have tapped and are connected, the series' list is deleted, the count starts
-        again and the next series' first hand is dealt. A refusal (not seated, no series, the series is not over)
-        comes back with its reason and spends the command id. The answer to the third tap still shows the series'
-        end; the next series' first hand appears in the next read.
+        Use it when read_table shows `series.over: true` and the caller's own chair (`is_mine`) has `ready: false`; the
+        table id comes from the same read. Once all three seated members have tapped and are connected, the third tap
+        deletes the finished series' list for good, the count starts again and the next series' first hand is dealt.
+        The command id names this step: the same id is a retry that changes nothing twice. A refusal (not seated, no
+        series, the series is not over) comes back as a failed result with its reason and spends the command id: the
+        next attempt takes a new command id. The answer to the third tap still shows the series' end; the next series'
+        first hand appears in the next read.
         """
         command = NewSeriesCommand(command_id=body.command_id, table_id=table_id)
         answer = await command_answer(
