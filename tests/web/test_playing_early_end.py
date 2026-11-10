@@ -208,9 +208,10 @@ class TestRetries:
         assert "reused" in again.json()["detail"]
 
     def test_the_same_id_on_the_other_route_is_reused(self, herz_hand, route, other_route):
-        herz_hand.act(route, body={"command_id": "command-shared"})
+        body = {"command_id": "command-shared", "version": herz_hand.record.version}
+        herz_hand.act(route, body=body)
 
-        again = herz_hand.act(other_route, body={"command_id": "command-shared"})
+        again = herz_hand.act(other_route, body=body)
 
         assert again.status_code == 409
         assert "reused" in again.json()["detail"]
