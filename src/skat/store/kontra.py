@@ -2,14 +2,16 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, insert, select
 
+from skat.engine.deal import Position
 from skat.engine.kontra import Word, WordSaid
+from skat.engine.tricks import TRICKS_IN_A_GAME
 from skat.store.schema import POSITION_OF_TEXT, POSITION_TEXT, metadata, one_of, tables, unstored_steps
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
 WORDS_IN_A_HAND = len(Word)
-CARDS_IN_A_GAME = 30
+CARDS_IN_A_GAME = TRICKS_IN_A_GAME * len(Position)
 
 kontra_words = Table(
     "kontra_words",

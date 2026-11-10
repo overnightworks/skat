@@ -8,12 +8,12 @@ from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX, GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
-from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import HERZ_GAME, Table, cards
 from tests.web.support.presence import view_of_version
+from tests.web.support.series import tap_weiter
 from tests.web.support.skat import streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -249,8 +249,9 @@ class TestTheDeadlines:
         refused(herz_hand, MIDDLEHAND, "re", "too-late")
 
     def test_a_word_waits_for_nobody_and_play_goes_on_without_it(self, herz_hand):
-        play(herz_hand, 3)
+        play(herz_hand, (FOREHAND, "kontra"), 3)
 
+        assert kontra_view(herz_hand, herz_hand.at[FOREHAND])["factor"] == 2
         assert herz_hand.read_as(herz_hand.at[FOREHAND]).json()["hand"]["playing"]["turn_seat"] == SEAT[MIDDLEHAND]
 
 
@@ -316,7 +317,7 @@ class TestTheOtherRefusals:
         table.middlehand_wins()
         refused(table, FOREHAND, "kontra", "wrong-phase")
 
-    def test_a_word_where_no_hand_runs_has_no_hand(self, open_table, server):
+    def test_a_word_where_no_hand_runs_has_no_hand(self, open_table):
         table = open_table()
         table.declared_hand_game()
         table.act(TABLE_GIVE_UP_SUFFIX)
@@ -410,11 +411,8 @@ class TestWhatEveryViewerSees:
         people = [(headers, None) for headers in table.at.values()]
         with streams_of(server, table.table_id, people):
             for headers, _ in people:
-                server.client.post(
-                    f"{TABLES_PATH}/{table.table_id}{TABLE_READY_SUFFIX}",
-                    json={"command_id": f"weiter-{len(headers['cookie'])}", "ordinal": 1},
-                    headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
-                )
+                answer = tap_weiter(server, headers, table.table_id, f"weiter-{len(headers['cookie'])}")
+                assert answer.status_code == 200, answer.text
                 server.client.cookies.clear()
         with_known_deal(server, table.table_id)
         table.declared_hand_game()

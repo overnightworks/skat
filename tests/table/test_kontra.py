@@ -187,7 +187,7 @@ class TestSaying:
 
 
 class TestTheDoublingOfAHand:
-    def test_the_stored_words_rebuild_the_doubling_of_the_running_hand_after_a_restart(self):
+    def test_the_stored_words_rebuild_the_doubling_of_the_running_hand(self):
         words = (
             WordSaid(FOREHAND, KONTRA, 0),
             WordSaid(MIDDLEHAND, RE, 1),
@@ -201,7 +201,7 @@ class TestTheDoublingOfAHand:
         assert doubling.words == (KONTRA, RE, SUPRA, HIRSCH)
         assert doubling.factor == 16
 
-    def test_the_next_hand_starts_without_a_word(self):
+    def test_a_declared_hand_without_stored_words_has_the_starting_doubling(self):
         next_hand = kontra_table(progress=declared_herz_hand())
 
         assert doubling_of(next_hand) == Doubling.start()
