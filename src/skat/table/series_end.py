@@ -65,7 +65,7 @@ def _with_proposal(table: TableRecord, series: Series, proposal: EndProposal | N
 
 
 def _ended_early(table: TableRecord, series: Series) -> Decision:
-    """The series ends with the games so far and its pending Bock rounds; every „Weiter“ mark goes, since a mark set
+    """The series ends with the games so far, its pending Bock rounds lapse; every „Weiter“ mark goes, since a mark set
     for the next hand would count as consent to „Neue Serie“.
     """
     chairs = tuple(replace(chair, ready=False) for chair in table.chairs)

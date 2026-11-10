@@ -18,6 +18,7 @@ from skat.table.records import Actor, CreateTable, EndProposal, HandProgress, Re
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
+from tests.support.migrations import run_in_transaction
 from tests.support.played_game import after_the_first_game
 
 pytestmark = pytest.mark.postgres
@@ -111,11 +112,6 @@ def test_a_replay_of_the_sit_that_dealt_counts_no_second_deal(service, transacti
     service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
 
     assert series_of(transactions, table_id) == Series(3, 1)
-
-
-def execute(engine, statement):
-    with engine.begin() as connection:
-        connection.execute(text(statement))
 
 
 def rows_of(engine, table):
@@ -338,7 +334,7 @@ class TestEndingEarly:
     )
     def test_the_checks_refuse_a_row_that_is_no_proposal(self, engine, between_games, statement):
         with pytest.raises(IntegrityError):
-            execute(engine, statement)
+            run_in_transaction(engine, text(statement))
 
     @pytest.mark.parametrize(
         "statement",
@@ -352,7 +348,7 @@ class TestEndingEarly:
             connection.execute(text("INSERT INTO tables (id, version) VALUES ('plain', 1)"))
 
         with pytest.raises(IntegrityError):
-            execute(engine, statement)
+            run_in_transaction(engine, text(statement))
 
     def test_two_yes_at_once_after_a_proposal_accept_once_and_end_once(self, service, transactions, between_games):
         say_yes(service, 1, between_games)

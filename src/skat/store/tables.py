@@ -104,7 +104,7 @@ def _series_end_columns(series: Series | None) -> dict[str, bool | int | None]:
     }
 
 
-def _series_of(table: Row[*tuple[Any, ...]]) -> Series | None:
+def _series_of(table: Row[Any]) -> Series | None:
     if table.series_length is None:
         return None
     end_proposal = None
