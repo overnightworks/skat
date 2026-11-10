@@ -1,8 +1,0 @@
-claim_id = "87271ec2a1ef4107a2eade26be5108f1"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "70ec34968fc7970cdffe2f698efa926daac1ecdb"
-branch = "claude/issue-265-follow-ups-of-250-and-256"
-scope = ["src/skat/engine/declaration.py", "src/skat/engine/games.py", "src/skat/engine/score.py", "src/skat/engine/tricks.py", "src/skat/store/kontra.py", "src/skat/store/playing.py", "tests/e2e/support/hands.py", "tests/e2e/test_table_coasters.py", "tests/e2e/test_table_declaring.py", "tests/e2e/test_table_playing.py", "tests/e2e/test_table_result.py", "tests/engine/test_tricks.py", "tests/store/test_declaring.py", "tests/store/test_playing.py", "tests/support/payload_cards.py", "tests/support/stored_game.py", "tests/table/test_playing.py", "tests/web/support/playing.py", "tests/web/test_playing.py", "tests/web/test_tables_series.py"]
-opened_commit = "b0f9ec3cb3bdd05b0424dc730887e3f450c82b6c"
-whole_reason = "Ten small follow-ups of two lanes' reviews (#250 and #256), each a few lines, collected so they cost one lane."
