@@ -1,0 +1,7 @@
+claim_id = "6a09ead1c39a4622befd148bf93e4dba"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "5f012c1944e82d4c46904b5b81a221a4c4448673"
+branch = "claude/issue-273-picture-give-up"
+scope = ["docs/mockups/table.html"]
+opened_commit = "ab3d5852e00176b80d700f3c28eba95fac6b11fa"
