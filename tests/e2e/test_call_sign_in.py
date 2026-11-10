@@ -223,6 +223,12 @@ def test_a_window_on_the_issuers_origin_keeps_the_sign_in_face_until_it_is_close
 ) -> None:
     framed = frame_a_table(clock=True)
     framed.visitor.context.route(
+        f"**{AUTH_START_PATH}**",
+        lambda route: route.fulfill(
+            content_type="text/html", body=f"<script>location.replace('{TEST_ISSUER}/auth')</script>"
+        ),
+    )
+    framed.visitor.context.route(
         f"{TEST_ISSUER}/**", lambda route: route.fulfill(content_type="text/html", body="<p>issuer</p>")
     )
     window = start_sign_in(framed)
