@@ -1336,7 +1336,7 @@ body {
     max-width: 100%;
 }
 
-.room .ladder span,
+.room .ladder > span,
 .room .higher button {
     flex: none;
     box-sizing: border-box;
@@ -1353,20 +1353,20 @@ body {
     color: rgba(244, 246, 248, 0.45);
 }
 
-.room .ladder span.held {
+.room .ladder > span.held {
     background: rgba(0, 0, 0, 0.35);
     color: var(--on-stage);
     display: inline-flex;
     gap: 3px;
 }
 
-.room .ladder span.held svg {
+.room .ladder > span.held svg {
     width: 13px;
     height: 13px;
     color: var(--ok-stage);
 }
 
-.room .ladder span.now {
+.room .ladder > span.now {
     min-width: 62px;
     height: 48px;
     font-size: 26px;
@@ -2767,13 +2767,13 @@ body {
     flex-wrap: wrap;
 }
 
-.room .result .ladder span {
+.room .result .ladder > span {
     height: 28px;
     padding: 0 11px;
     font-size: 13.5px;
 }
 
-.room .result .ladder span.held svg {
+.room .result .ladder > span.held svg {
     fill: none;
     stroke: currentColor;
     stroke-width: 2.5;
@@ -2781,7 +2781,7 @@ body {
     stroke-linejoin: round;
 }
 
-.room .result .ladder span.mit {
+.room .result .ladder > span.mit {
     color: #f3cf7a;
 }
 
@@ -2845,7 +2845,7 @@ body {
         gap: 5px;
     }
 
-    .room .result .ladder span {
+    .room .result .ladder > span {
         padding: 0 7px;
     }
 
