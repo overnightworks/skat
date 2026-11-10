@@ -160,9 +160,12 @@ function hello(overrides: Partial<CallMessageEvent> = {}): CallMessageEvent {
     return { source: PARENT, origin: CALL_ORIGIN, data: { ...VALID_HELLO }, ...overrides };
 }
 
-async function greetedPage(call = fakeCall()): Promise<{ call: FakeCall; greeted: () => number; stop: () => void }> {
+async function greetedPage(
+    call = fakeCall(),
+    id = TABLE_ID,
+): Promise<{ call: FakeCall; greeted: () => number; stop: () => void }> {
     let greetings = 0;
-    const stop = greetCall(TABLE_ID, call.host, () => (greetings += 1));
+    const stop = greetCall(id, call.host, () => (greetings += 1));
     await settled();
     return { call, greeted: () => greetings, stop };
 }
@@ -205,16 +208,12 @@ describe("greetCall", () => {
         { name: "a part", id: `x${TABLE_ID}y` },
         { name: "uppercase digits", id: TABLE_ID.toUpperCase() },
         { name: "an empty id", id: "" },
-    ])("posts no ready for an id that is $name", async ({ id }) => {
-        const call = fakeCall();
+    ])("posts no ready and takes no hello for an id that is $name", async ({ id }) => {
+        const { call, greeted } = await greetedPage(fakeCall(), id);
 
-        const onGreeted = vi.fn();
-
-        greetCall(id, call.host, onGreeted);
-        await settled();
         call.deliver(hello());
 
-        expect([call.posts, onGreeted.mock.calls.length]).toEqual([[], 0]);
+        expect([call.posts, greeted()]).toEqual([[], 0]);
     });
 
     it("calls onGreeted once for the first valid hello and removes its listener", async () => {

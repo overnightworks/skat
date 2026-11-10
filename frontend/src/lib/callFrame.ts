@@ -10,7 +10,7 @@ export function isFramedInCallMode(): boolean {
 export const CALL_CHANNEL_VERSION = 1;
 
 const TABLE_ID = new RegExp(`^${TABLE_ID_PATTERN}$`);
-const HELLO_KEYS = ["attachment", "attempt", "type", "v"];
+const HELLO_KEYS: ReadonlySet<string> = new Set(["attachment", "attempt", "type", "v"]);
 const OK_STATUS = 200;
 
 /** What the table tells the call once, to the call's configured origin. */
@@ -50,9 +50,8 @@ function isPlainObject(data: unknown): data is Record<string, unknown> {
 export function isHello(data: unknown): data is HelloMessage {
     if (!isPlainObject(data)) return false;
     const keys = Object.keys(data);
-    if (keys.length !== HELLO_KEYS.length) return false;
-    keys.sort();
-    if (keys.some((key, index) => key !== HELLO_KEYS[index])) return false;
+    if (keys.length !== HELLO_KEYS.size) return false;
+    if (keys.some((key) => !HELLO_KEYS.has(key))) return false;
     const { v, type, attachment, attempt } = data;
     return (
         v === CALL_CHANNEL_VERSION &&
