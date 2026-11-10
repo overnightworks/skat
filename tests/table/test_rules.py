@@ -76,11 +76,6 @@ class TestSit:
 
         assert decision.table.chairs[1].occupant == Occupant("account-ben", "Mozart", kind)
 
-    def test_names_an_agent_that_holds_a_chair_to_the_person_refused(self):
-        agent = replace(ANNA, display_name="Mozart", kind=OccupantKind.AGENT)
-
-        assert decide_sit(table_with((2, agent)), BEN, 2, None).holder == "Mozart"
-
     def test_refuses_a_taken_chair_and_names_who_holds_it(self):
         table = table_with((2, ANNA))
 

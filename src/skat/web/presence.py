@@ -147,14 +147,14 @@ class Presence:
 
     A table gets one wait when it is created or found at the server's start, and another each time its last stream
     ends or a chair is freed where no stream is open and a lease runs. An opening or a sit where no stream is open
-    and a lease runs notes who is present, as a lease does, and keeps a wait that is pending; a stand-up there owes
-    a full wait from itself. A stream that opens ends the wait, so the pending timer finds itself superseded and
-    does nothing. When it fires, the end is asked for with who is connected then, and a failure is retried while
-    the wait stays the table's
-    latest. Since when nobody has been at a table is stored: a table's last leave, a lease starting or lapsing and
-    the first arrival note who is present, each on the table's row (presence notes an empty table and the service
-    decides whether to stamp the time; an arrival or a lease start clears it), and the server's start seeds each
-    table's wait with what is left of it, so a restart never gives a table a fresh wait it had already begun.
+    and a lease runs notes who is present, as a lease does; it keeps a wait that is pending and starts one when
+    none is (watch_empty_table). A stand-up there owes a full wait from itself. A stream that opens ends the wait,
+    so the pending timer finds itself superseded and does nothing. When it fires, the end is asked for with who is
+    connected then, and a failure is retried while the wait stays the table's latest. Since when nobody has been
+    at a table is stored: a table's last leave, a lease starting or lapsing and the first arrival note who is
+    present, each on the table's row (presence notes an empty table and the service decides whether to stamp the
+    time; an arrival or a lease start clears it), and the server's start seeds each table's wait with what is
+    left of it, so a restart never gives a table a fresh wait it had already begun.
     """
 
     def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease) -> None:
@@ -317,8 +317,8 @@ class Presence:
 
     def watch_empty_table(self, table_id: str, seconds_left: float | None = None) -> None:
         """Start a table's wait if nobody is connected and none is pending: a create retry neither restarts nor
-        stretches it. Call it on the event loop's thread after a create, and for each live table at the server's
-        start with what is left of its wait.
+        stretches it. Routes reach it through chair_taken, on the event loop's thread; the server's start calls it
+        for each live table with what is left of its wait.
         """
         if table_id not in self._subscriptions and table_id not in self._empty_waits:
             self._start_empty_wait(table_id, seconds_left)

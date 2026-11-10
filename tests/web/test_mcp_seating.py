@@ -179,13 +179,18 @@ class TestSitDown:
 
     def test_the_chair_keeps_the_name_the_agent_sat_with_until_it_stands_up(self, skat, agent):
         agent.admitted()
-        _, _, table_id = person_opens(skat)
+        owner, _, table_id = person_opens(skat)
         agent.sit_down(table_id, 2)
         agent.claims["agent_name"] = "Nova"
+        skat.stand(owner, table_id)
+        skat.client.cookies.clear()
 
-        read = agent.read(table_id)
+        kept = chairs_of(agent.read(table_id).json())[1]
+        agent.stand_up(table_id)
+        agent.sit_down(table_id, 2, command_id="agent-sit-0002")
+        renamed = chairs_of(agent.read(table_id).json())[1]
 
-        assert chairs_of(read.json())[1] == ("Mozart", "agent")
+        assert (kept, renamed) == (("Mozart", "agent"), ("Nova", "agent"))
 
     def test_a_retry_with_the_same_id_and_seat_changes_nothing_twice_and_another_seat_is_refused(self, skat, agent):
         agent.admitted()
@@ -306,7 +311,14 @@ class TestWhatEveryViewerSees:
             ]
             text = str(view)
             assert OWNER not in text
-            assert not {anna_account.id, ben_account.id, watcher_account.id} & set(text.split("'"))
+            account_ids = {
+                anna_account.id,
+                ben_account.id,
+                watcher_account.id,
+                skat.stores.accounts.get(agent.subject).id,
+                skat.stores.accounts.get(other_agent.subject).id,
+            }
+            assert not account_ids & set(text.split("'"))
 
 
 class TestTheAgentsBearerAtTheRoutes:

@@ -491,23 +491,17 @@ class TestATableTheAgentOpened:
         assert not isinstance(waiting, EndedTable)
         assert isinstance(skat.store.tables[opened], EndedTable)
 
-    def test_the_agent_standing_up_with_no_stream_open_leaves_a_table_that_ends_after_its_wait(
-        self, skat, time, agent, opened, empty_seconds
+    @pytest.mark.parametrize(
+        "stay_seconds",
+        [
+            pytest.param(lambda empty_seconds: empty_seconds + 1, id="after-the-first-wait"),
+            pytest.param(lambda empty_seconds: empty_seconds // 2, id="before-the-first-wait-has-passed"),
+        ],
+    )
+    def test_the_agent_standing_up_with_no_stream_open_leaves_a_table_that_ends_one_full_wait_after_the_stand_up(
+        self, skat, time, agent, opened, empty_seconds, stay_seconds
     ):
-        stay_connected(skat, time, agent, empty_seconds + 1, table_id=opened)
-        assert not agent.stand_up(opened).is_error
-
-        advance(skat, time, empty_seconds - 1)
-        waiting = skat.store.tables[opened]
-        advance(skat, time, 2)
-
-        assert not isinstance(waiting, EndedTable)
-        assert isinstance(skat.store.tables[opened], EndedTable)
-
-    def test_a_stand_up_before_the_first_wait_has_passed_gives_the_table_one_full_wait_from_the_stand_up(
-        self, skat, time, agent, opened, empty_seconds
-    ):
-        stay_connected(skat, time, agent, empty_seconds // 2, table_id=opened)
+        stay_connected(skat, time, agent, stay_seconds(empty_seconds), table_id=opened)
         assert not agent.stand_up(opened).is_error
 
         advance(skat, time, empty_seconds - 1)

@@ -680,8 +680,8 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
     async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
         """Open a new Skat table, with the caller in chair 1 as its opener.
 
-        `series_length` is the number of games its series runs: a multiple of 3 from 3 to 99. `options` may switch
-        on the table's rule options, which stay fixed for its life; without them it plays the official rules. The
+        `series_length` is the number of games its series runs, within the bounds of the input schema. `options` may
+        switch on the table's rule options, which stay fixed for its life; without them it plays the official rules. The
         answer is the table as read_table gives it. Its `id` makes the table's link /t/{id}, which the caller gives
         the people it wants to play with. The command id names this opening: the same id with the same request is a
         retry that opens no second table, and the same id with another request is refused.
