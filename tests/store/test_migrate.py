@@ -738,5 +738,6 @@ class TestFromALiveTableAtRevisionThirteen:
         ],
     )
     def test_refuses_what_is_no_request(self, migrated, statement):
+        update = text(statement)
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, text(statement))
+            _run_in_transaction(migrated, update)
