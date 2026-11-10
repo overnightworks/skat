@@ -26,6 +26,7 @@ from skat.web.mcp import (
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
     TAKE_SKAT_TOOL,
+    THROW_DOWN_CARDS_TOOL,
 )
 from skat.web.tables import (
     TABLE_EVENTS_SUFFIX,
@@ -75,7 +76,14 @@ class TestTools:
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
         assert (
             set(tools)
-            == {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, PLAY_CARD_TOOL, GIVE_UP_GAME_TOOL, CONTINUE_AFTER_RESULT_TOOL}
+            == {
+                READ_TABLE_TOOL,
+                READ_SERIES_LIST_TOOL,
+                PLAY_CARD_TOOL,
+                GIVE_UP_GAME_TOOL,
+                THROW_DOWN_CARDS_TOOL,
+                CONTINUE_AFTER_RESULT_TOOL,
+            }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
         )
@@ -294,6 +302,49 @@ class TestGiveUpGame:
         assert answer.json()["reason"] == Refusal.NOT_DECLARER
         assert stored(forehand_table.skat)[0] == before[0]
         assert "reused" in self.give_up(agent, forehand_table, version=0).text
+
+
+class TestThrowDownCards:
+    def throw_down(self, agent, table, *, command_id="agent-throw-down-0001", **changes):
+        return agent.call(
+            THROW_DOWN_CARDS_TOOL,
+            table_id=table.table_id,
+            command_id=command_id,
+            **{"version": table.record.version, **changes},
+        )
+
+    @pytest.mark.parametrize(
+        ("position", "won"),
+        [pytest.param(MIDDLEHAND, False, id="declarer"), pytest.param(FOREHAND, True, id="opponent")],
+    )
+    def test_an_agent_ends_the_game_for_its_side_under_its_own_account(self, skat, agent, position, won):
+        table = AgentTable(skat, agent.admitted(), position)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+
+        answer = self.throw_down(agent, table)
+
+        assert not answer.is_error, answer.text
+        result = answer.json()["result"]
+        assert result["won"] is won
+        assert (result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (
+            5,
+            50 if won else -50,
+            False,
+        )
+        assert agent.read(table.table_id).json()["result"] == result
+        assert table.record.hand is None
+        assert len(table.record.game_list) == 1
+
+    def test_a_refused_throw_down_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, forehand_table):
+        before = stored(forehand_table.skat)
+
+        answer = self.throw_down(agent, forehand_table, version=0)
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.STALE_VERSION
+        assert stored(forehand_table.skat)[0] == before[0]
+        assert "reused" in self.throw_down(agent, forehand_table).text
 
 
 class TestAuctionSteps:

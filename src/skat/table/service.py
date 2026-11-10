@@ -12,12 +12,16 @@ from skat.table.game_list import series_list_view_of
 from skat.table.playing import (
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
+    THROW_DOWN_COMMAND,
     GiveUpCommand,
     PlayCardCommand,
+    ThrowDownCommand,
     card_payload,
     decide_card,
     decide_give_up,
+    decide_throw_down,
     give_up_payload,
+    throw_down_payload,
 )
 from skat.table.ready import READY_COMMAND, ReadyCommand, decide_ready, ready_payload
 from skat.table.records import (
@@ -302,6 +306,24 @@ class TableService:
             GIVE_UP_COMMAND,
             give_up_payload(command),
             lambda table: decide_give_up(table, actor, command),
+            on_hand_ended,
+        )
+
+    def throw_down(
+        self,
+        actor: Actor,
+        command: ThrowDownCommand,
+        connected_accounts: frozenset[str],
+        on_hand_ended: Callable[[frozenset[str]], None],
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            THROW_DOWN_COMMAND,
+            throw_down_payload(command),
+            lambda table: decide_throw_down(table, actor, command),
             on_hand_ended,
         )
 

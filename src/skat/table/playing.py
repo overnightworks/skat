@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
-from skat.engine.giving_up import give_up
+from skat.engine.giving_up import give_up, throw_down
 from skat.engine.tricks import CardPlayed, play_card
 from skat.table.game_list import list_entry_of
 from skat.table.hand_state import playing_of
@@ -13,11 +13,12 @@ from skat.table.rules import acting_position, card_text
 if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.engine.tricks import PlayedOut, Playing, Sides
+    from skat.engine.tricks import PlayedOut, Playing, PlayOutcome, Sides
     from skat.table.records import Actor
 
 PLAY_CARD_COMMAND: Final = "play-card"
 GIVE_UP_COMMAND: Final = "give-up"
+THROW_DOWN_COMMAND: Final = "throw-down"
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,15 @@ class PlayCardCommand:
 @dataclass(frozen=True)
 class GiveUpCommand:
     """The declarer gives up the game; the actor's seat and position come from the session, never from the client."""
+
+    command_id: str
+    table_id: str
+    version: int
+
+
+@dataclass(frozen=True)
+class ThrowDownCommand:
+    """A side throws its cards down; the actor's seat and position come from the session, never from the client."""
 
     command_id: str
     table_id: str
@@ -107,16 +117,39 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
         return Decision(table, Refusal.WRONG_PHASE)
     if position is not state.declared.declarer:
         return Decision(table, Refusal.NOT_DECLARER)
-    outcome = give_up(state)
+    return _end_of(table, give_up(state))
+
+
+def throw_down_payload(command: ThrowDownCommand) -> str:
+    """The receipt's payload: a retry repeats its original version, so another version is another request."""
+    return f"{command.table_id}:{command.version}"
+
+
+def decide_throw_down(table: TableRecord, actor: Actor, command: ThrowDownCommand) -> Decision:
+    """A side throws its cards down: no hand, no chair, a stale version, the wrong phase, then the engine."""
+    position = acting_position(table, actor, command.version)
+    if isinstance(position, Refusal):
+        return Decision(table, position)
+    state = playing_of(table)
+    if state is None:
+        return Decision(table, Refusal.WRONG_PHASE)
+    return _end_of(table, throw_down(state, position))
+
+
+def _end_of(table: TableRecord, outcome: PlayOutcome) -> Decision:
+    """The engine's answer to a step that ends the game: its refusal, or the hand ended with its result."""
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     played = outcome.state.result
-    assert played is not None  # noqa: S101 - an accepted give-up always ends the game
+    assert played is not None  # noqa: S101 - an accepted step that ends the game always leaves a result
     return Decision(_ended(table, played))
 
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
-    """The card or the give-up that ends the game ends the hand: its cards and steps go, its entry joins the list."""
+    """The card, give-up or throw-down that ends the game ends the hand.
+
+    Its cards and steps go, its entry joins the list.
+    """
     return TableRecord(
         id=table.id,
         version=table.version + 1,
