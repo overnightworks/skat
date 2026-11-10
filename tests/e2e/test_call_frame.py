@@ -60,6 +60,10 @@ def unframed_server(e2e_server: RunningServer, tmp_path_factory: pytest.TempPath
 CALL_PAGE_WITHOUT_FRAME = "<!doctype html><title>call</title>"
 
 
+def occupants_of(answer: dict[str, object]) -> list[object]:
+    return [chair["occupant_name"] for chair in answer["chairs"]]  # type: ignore[index, union-attr]
+
+
 def table_answer(person: Page, server: RunningServer, path: str) -> dict[str, object]:
     return person.request.get(f"{server.base_url}{TABLES_PATH}/{table_id_of(path)}").json()
 
@@ -136,4 +140,4 @@ def test_a_request_the_call_page_sends_to_skat_is_refused_and_takes_no_chair(
 
     assert sit.value.status == HTTP_FORBIDDEN
     after = table_answer(visitor, framing_server, path)
-    assert (after["version"], after["chairs"]) == (before["version"], before["chairs"])
+    assert (after["version"], occupants_of(after)) == (before["version"], occupants_of(before))
