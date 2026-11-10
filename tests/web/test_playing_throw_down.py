@@ -111,19 +111,20 @@ class TestTheDeclarerThrowsDown:
 
 class TestANull:
     @pytest.mark.parametrize(
-        ("position", "won", "score"),
+        ("position", "won", "score", "declarer_points"),
         [
-            pytest.param(MIDDLEHAND, False, -70, id="the-declarer-throws-down-and-loses"),
-            pytest.param(FOREHAND, True, 35, id="an-opponent-throws-down-and-the-declarer-wins"),
+            pytest.param(MIDDLEHAND, False, -70, 0, id="the-declarer-throws-down-and-loses-with-no-skat-points"),
+            pytest.param(FOREHAND, True, 35, ALL_POINTS, id="an-opponent-throws-down-and-the-declarer-wins"),
         ],
     )
-    def test_a_null_is_settled_at_its_fixed_value_without_matadors(self, table, position, won, score):
+    def test_a_null_is_settled_at_its_fixed_value_without_matadors(self, table, position, won, score, declarer_points):
         table.declared_hand_game(GameToken.NULL)
 
         result = result_of(table, position)
 
-        assert shown(result, "won", "matadors", "game_value", "score") == {
+        assert shown(result, "won", "declarer_points", "matadors", "game_value", "score") == {
             "won": won,
+            "declarer_points": declarer_points,
             "matadors": None,
             "game_value": 35,
             "score": score,

@@ -163,13 +163,18 @@ class PlayedOut:
         return self.tally.tricks.opponents + self._tricks_left
 
     @property
+    def _null_thrown_down_by_its_declarer(self) -> bool:
+        return self.ending is Ending.DECLARER_THREW_DOWN and _kind_of(self.declared) is GameKind.NULL
+
+    @property
     def declarer_points(self) -> int:
         """The declarer's tricks plus the skat, which counts for the declarer in every game but a given-up one.
 
         When the opponents keep only their completed tricks, every point outside them is his. A given-up game counts
-        his completed tricks alone: it ends before the skat is known to anyone but a declarer who picked it up.
+        his completed tricks alone: it ends before the skat is known to anyone but a declarer who picked it up. So does
+        a Null he throws down, whose settlement reads no card points.
         """
-        if self.ending is Ending.GIVEN_UP:
+        if self.ending is Ending.GIVEN_UP or self._null_thrown_down_by_its_declarer:
             return self.tally.points.declarer
         if self._opponents_keep_only_their_completed_tricks:
             return opponents_points_of(self.tally.points.opponents)
