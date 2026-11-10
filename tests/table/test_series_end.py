@@ -180,8 +180,10 @@ class TestRecords:
             EndProposal(2, 2)
 
     def test_a_series_that_ended_early_cannot_hold_a_proposal(self):
+        proposal = EndProposal(1)
+
         with pytest.raises(ValueError, match="holds no proposal"):
-            Series(12, 4, ended_early=True, end_proposal=EndProposal(1))
+            Series(12, 4, ended_early=True, end_proposal=proposal)
 
     def test_a_series_that_played_its_last_game_did_not_end_early(self):
         with pytest.raises(ValueError, match="did not end early"):

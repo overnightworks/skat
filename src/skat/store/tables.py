@@ -124,6 +124,17 @@ def _table_record(
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
+    series = None
+    if table.series_length is not None:
+        end_proposal = None
+        if table.series_end_proposer is not None:
+            end_proposal = EndProposal(table.series_end_proposer, table.series_end_accepter)
+        series = Series(
+            table.series_length,
+            table.series_deals,
+            ended_early=table.series_ended_early,
+            end_proposal=end_proposal,
+        )
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
@@ -143,16 +154,7 @@ def _table_record(
             plays=read_plays(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
-        series=None
-        if table.series_length is None
-        else Series(
-            table.series_length,
-            table.series_deals,
-            ended_early=table.series_ended_early,
-            end_proposal=None
-            if table.series_end_proposer is None
-            else EndProposal(table.series_end_proposer, table.series_end_accepter),
-        ),
+        series=series,
         options=TableOptions(show_running_points=table.show_running_points),
     )
 

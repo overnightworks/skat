@@ -113,6 +113,11 @@ def test_a_replay_of_the_sit_that_dealt_counts_no_second_deal(service, transacti
     assert series_of(transactions, table_id) == Series(3, 1)
 
 
+def execute(engine, statement):
+    with engine.begin() as connection:
+        connection.execute(text(statement))
+
+
 def rows_of(engine, table):
     with engine.connect() as connection:
         return connection.execute(select(func.count()).select_from(table)).scalar_one()
@@ -315,31 +320,39 @@ class TestEndingEarly:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("series_end_proposer = 4", id="a-proposer-beyond-the-seats"),
-            pytest.param("series_end_proposer = 0", id="a-proposer-below-the-seats"),
-            pytest.param("series_end_proposer = 1, series_end_accepter = 4", id="an-accepter-beyond-the-seats"),
-            pytest.param("series_end_accepter = 2", id="an-accepter-without-a-proposer"),
-            pytest.param("series_end_proposer = 2, series_end_accepter = 2", id="an-accepter-equal-to-the-proposer"),
-            pytest.param("series_ended_early = true, series_end_proposer = 1", id="an-ended-series-with-a-proposal"),
+            pytest.param("UPDATE tables SET series_end_proposer = 4", id="a-proposer-beyond-the-seats"),
+            pytest.param("UPDATE tables SET series_end_proposer = 0", id="a-proposer-below-the-seats"),
+            pytest.param(
+                "UPDATE tables SET series_end_proposer = 1, series_end_accepter = 4", id="an-accepter-beyond-the-seats"
+            ),
+            pytest.param("UPDATE tables SET series_end_accepter = 2", id="an-accepter-without-a-proposer"),
+            pytest.param(
+                "UPDATE tables SET series_end_proposer = 2, series_end_accepter = 2",
+                id="an-accepter-equal-to-the-proposer",
+            ),
+            pytest.param(
+                "UPDATE tables SET series_ended_early = true, series_end_proposer = 1",
+                id="an-ended-series-with-a-proposal",
+            ),
         ],
     )
     def test_the_checks_refuse_a_row_that_is_no_proposal(self, engine, between_games, statement):
-        with pytest.raises(IntegrityError), engine.begin() as connection:
-            connection.execute(text(f"UPDATE tables SET {statement}"))
+        with pytest.raises(IntegrityError):
+            execute(engine, statement)
 
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("series_end_proposer = 1", id="a-proposal"),
-            pytest.param("series_ended_early = true", id="an-early-end"),
+            pytest.param("UPDATE tables SET series_end_proposer = 1 WHERE id = 'plain'", id="a-proposal"),
+            pytest.param("UPDATE tables SET series_ended_early = true WHERE id = 'plain'", id="an-early-end"),
         ],
     )
     def test_the_checks_refuse_a_proposal_or_an_early_end_on_a_table_without_a_series(self, engine, statement):
         with engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version) VALUES ('plain', 1)"))
 
-        with pytest.raises(IntegrityError), engine.begin() as connection:
-            connection.execute(text(f"UPDATE tables SET {statement} WHERE id = 'plain'"))
+        with pytest.raises(IntegrityError):
+            execute(engine, statement)
 
     def test_two_yes_at_once_after_a_proposal_accept_once_and_end_once(self, service, transactions, between_games):
         say_yes(service, 1, between_games)

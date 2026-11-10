@@ -161,7 +161,7 @@ class TestTheProposal:
         assert set(during[0]["end_proposal"]) == {"proposer_seat", "accepter_seat"}
         assert len(entries_of(skat, table)) == 2
 
-        yes(skat, table, 3)
+        assert yes(skat, table, 3).status_code == 200
 
         after = [table.read_as(each).json()["series"] for each in (*headers_of(table), table.watcher)]
         assert all(view == after[0] for view in after)
