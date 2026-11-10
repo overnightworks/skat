@@ -702,5 +702,8 @@ def test_the_stored_words_rebuild_the_doubling_each_against_the_plays_it_followe
     ],
 )
 def test_a_stored_word_the_rules_refuse_is_a_corrupt_log(word: WordSaid) -> None:
+    state = playing_with(MIDDLEHAND)
+    plays = plays_of(4)
+    options = options_of(ANY, UP_TO_HIRSCH)
     with pytest.raises(ValueError, match="impossible words log"):
-        doubling_after(playing_with(MIDDLEHAND), plays_of(4), (word,), options_of(ANY, UP_TO_HIRSCH), frozenset())
+        doubling_after(state, plays, (word,), options, frozenset())

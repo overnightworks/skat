@@ -411,7 +411,7 @@ class TestWhatEveryViewerSees:
         people = [(headers, None) for headers in table.at.values()]
         with streams_of(server, table.table_id, people):
             for headers, _ in people:
-                answer = tap_weiter(server, headers, table.table_id, f"weiter-{len(headers['cookie'])}")
+                answer = tap_weiter(server, headers, table.table_id, table.fresh_id())
                 assert answer.status_code == 200, answer.text
                 server.client.cookies.clear()
         with_known_deal(server, table.table_id)

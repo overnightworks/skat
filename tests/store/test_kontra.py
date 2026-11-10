@@ -9,7 +9,7 @@ from skat.table.kontra import KontraCommand
 from skat.table.playing import GiveUpCommand
 from skat.table.records import CreateTable, SitDown, TableOptions
 from skat.table.service import TableService
-from tests.store.test_playing import Game, count_rows, nobody_connected, person
+from tests.support.stored_game import Game, count_rows, nobody_connected, person
 
 pytestmark = pytest.mark.postgres
 
