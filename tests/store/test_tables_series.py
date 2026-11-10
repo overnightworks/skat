@@ -128,9 +128,9 @@ def ended_series(service, transactions, table_id):
     return table_id
 
 
-def tap_all(service, table_id):
+def tap_all(service, table_id, round_name="new-series"):
     for seat, person in PEOPLE.items():
-        command = NewSeriesCommand(f"new-series-{seat}", table_id)
+        command = NewSeriesCommand(f"{round_name}-{seat}", table_id)
         assert service.start_new_series(person, command, ALL_THREE).refusal is None
 
 
@@ -224,10 +224,9 @@ class TestNewSeries:
                     after_the_first_game(record),
                     version=record.version + 1,
                     series=Series(3, 3, number=2),
-                    chairs=tuple(replace(chair, ready=False) for chair in record.chairs),
                 )
             )
-        tap_all(service, ended_series)
+        tap_all(service, ended_series, "second-new-series")
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
 

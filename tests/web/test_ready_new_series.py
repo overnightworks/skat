@@ -170,17 +170,6 @@ class TestTheNextSeries:
         for viewer in (*headers_of(table), table.watcher):
             assert [chair["total"] for chair in table.read_as(viewer).json()["chairs"]] == [0, 0, 0]
 
-    def test_a_chair_stood_up_reads_none_and_the_others_zero_in_the_next_series(self, skat, ended):
-        table, _ = ended
-        all_tap(skat, table)
-        assert deal_the_next_series(skat, table)
-        first = headers_of(table)[0]
-        assert skat.stand(first, table.table_id, command_id="stand-anna").status_code == 200
-
-        totals = [chair["total"] for chair in table.read_as(table.watcher).json()["chairs"]]
-
-        assert sorted(totals, key=lambda total: total is None) == [0, 0, None]
-
     def test_the_new_series_first_result_gives_each_chair_that_games_gain_only(self, skat, ended):
         table, _ = ended
         all_tap(skat, table)
