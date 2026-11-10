@@ -8,7 +8,7 @@ from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
-from skat.table.records import Actor
+from skat.table.records import Actor, CreateTable, SitDown, TableOptions
 
 
 def person(name):
@@ -26,6 +26,16 @@ def card_id(number):
 def count_rows(engine, name="played_cards"):
     with engine.connect() as connection:
         return connection.execute(select(func.count()).select_from(table(name))).scalar_one()
+
+
+def seated_game(service, transactions, stored, options=None):
+    """A table Anna opened with Ben and Cleo seated, ready for the auction."""
+    table_id = service.create(
+        person("Anna"), CreateTable(command_id="command-open", options=options or TableOptions())
+    ).id
+    service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
+    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
+    return Game(service, transactions, stored, table_id)
 
 
 class Game:

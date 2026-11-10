@@ -7,9 +7,9 @@ from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.kontra import KontraCommand
 from skat.table.playing import GiveUpCommand
-from skat.table.records import CreateTable, SitDown, TableOptions
+from skat.table.records import CreateTable, TableOptions
 from skat.table.service import TableService
-from tests.support.stored_game import Game, count_rows, nobody_connected, person
+from tests.support.stored_game import count_rows, nobody_connected, person, seated_game
 
 pytestmark = pytest.mark.postgres
 
@@ -20,11 +20,7 @@ UP_TO_HIRSCH = KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.UP_TO_HIRSCH,
 
 @pytest.fixture
 def game(service, transactions, stored):
-    options = TableOptions(kontra=UP_TO_HIRSCH)
-    table_id = service.create(person("Anna"), CreateTable(command_id="command-open", options=options)).id
-    service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
-    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
-    return Game(service, transactions, stored, table_id)
+    return seated_game(service, transactions, stored, TableOptions(kontra=UP_TO_HIRSCH))
 
 
 def say(game, position, word, *, command_id, version=None, service=None):

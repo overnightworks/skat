@@ -12,10 +12,10 @@ from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.playing import GiveUpCommand, ThrowDownCommand
-from skat.table.records import CreateTable, Refusal, SitDown
+from skat.table.records import Refusal
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
-from tests.support.stored_game import Game, card_id, count_rows, nobody_connected, person
+from tests.support.stored_game import card_id, count_rows, nobody_connected, seated_game
 
 pytestmark = pytest.mark.postgres
 
@@ -24,10 +24,7 @@ GAME_CARDS = 30
 
 @pytest.fixture
 def game(service, transactions, stored):
-    table_id = service.create(person("Anna"), CreateTable(command_id="command-open")).id
-    service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
-    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
-    return Game(service, transactions, stored, table_id)
+    return seated_game(service, transactions, stored)
 
 
 def test_the_cards_read_back_in_the_order_they_were_played(game):
