@@ -100,6 +100,8 @@ class Refusal(StrEnum):
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
     SERIES_OVER = "series-over"
+    NO_SERIES = "no-series"
+    SERIES_NOT_OVER = "series-not-over"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal
@@ -124,7 +126,8 @@ class Occupant:
 @dataclass(frozen=True)
 class Chair:
     """A chair and who sits on it; `ready` says its occupant is ready for the next hand,
-    by a tap of „Weiter“ or by sitting down while a result is pending."""
+    by a tap of „Weiter“, by sitting down while a result is pending, or, after a series' end, by a tap of
+    „Neue Serie“."""
 
     seat: int
     occupant: Occupant | None
@@ -172,7 +175,8 @@ class Series:
 
 @dataclass(frozen=True)
 class TableRecord:
-    """A table as stored; its game list outlives every deal and goes only with the table."""
+    """A table as stored; its game list outlives every deal of its series and goes with the next series' first deal
+    or with the table."""
 
     id: TableId
     version: int

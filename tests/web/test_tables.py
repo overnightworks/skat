@@ -16,7 +16,7 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from skat.web.presence import Presence
-from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.tables import (
     AWAITING_TOKENS,
     POSITION_TOKENS,
@@ -648,6 +648,7 @@ class TestAnEmptyTableEnds:
             pytest.param(TABLE_GIVE_UP_DECLINE_SUFFIX, {"version": 1}, id="give-up-decline"),
             pytest.param(TABLE_THROW_DOWN_SUFFIX, {"version": 1}, id="throw-down"),
             pytest.param(TABLE_READY_SUFFIX, {"ordinal": 1}, id="ready"),
+            pytest.param(TABLE_NEW_SERIES_SUFFIX, {}, id="new-series"),
         ],
     )
     def test_a_command_at_the_ended_table_is_not_found_and_writes_nothing(self, server, ended, suffix, body):
