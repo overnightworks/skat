@@ -58,6 +58,8 @@ TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
 SAY_KONTRA_TOOL: Final = "say_kontra"
+READ_RULE_SETS_TOOL: Final = "read_rule_sets"
+SAVE_RULE_SET_TOOL: Final = "save_rule_set"
 
 
 class Exclusion(StrEnum):
@@ -69,7 +71,7 @@ class Exclusion(StrEnum):
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
     OPENING = "opening a table is not yet a tool"
     SEATING = "taking a chair is not yet a tool"
-    FINAL_DELETION = "consenting to a final deletion is not yet a tool"
+    FINAL_DELETION = "a final deletion, or consent to one, is not yet a tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
@@ -91,6 +93,8 @@ TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_E
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+READ_RULE_SETS_MARK: Final = agent_tool(name=READ_RULE_SETS_TOOL, effect=ToolEffect.READ_ONLY)
+SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
 class _LeaseRenewingFront:

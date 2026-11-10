@@ -2,7 +2,7 @@ import copy
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-from skat.table.rule_sets import DuplicateRuleSetError, RuleSet
+from skat.table.rule_sets import DuplicateRuleSetError, RuleSet, RuleSetService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,3 +44,7 @@ class FakeRuleSetStore:
             return False
         del self.rule_sets[rule_set_id.value]
         return True
+
+
+def in_memory_rule_sets() -> RuleSetService:
+    return RuleSetService(FakeRuleSetStore())

@@ -51,6 +51,7 @@ from skat.web.presence import (
 )
 from skat.web.ready import create_ready_router
 from skat.web.routes import create_router
+from skat.web.rule_sets import create_rule_sets_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
@@ -66,6 +67,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
     from contextlib import AbstractContextManager
 
+    from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
@@ -169,6 +171,7 @@ def create_app(
     *,
     page_build: PageBuild,
     tables: TableService,
+    rule_sets: RuleSetService,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
     stores: SignInStores | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
@@ -209,6 +212,7 @@ def create_app(
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_tables_router(tables, page_build, presence))
+    app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
     app.state.stop_streams = presence.stop

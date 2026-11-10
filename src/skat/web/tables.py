@@ -567,9 +567,7 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
     )
 
 
-def options_answer_of(options: TableOptions | None) -> OptionsAnswer | None:
-    if options is None:
-        return None
+def options_answer_of(options: TableOptions) -> OptionsAnswer:
     kontra = options.kontra
     return OptionsAnswer(
         show_running_points=options.show_running_points,
@@ -600,7 +598,7 @@ def answer_of(view: TableView) -> TableAnswer:
         passed_in=passed_in_answer_of(view.passed_in),
         result=result_answer_of(view.result),
         series=series_answer_of(view.series),
-        options=options_answer_of(view.options),
+        options=None if view.options is None else options_answer_of(view.options),
         ended=None
         if view.ended is None
         else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
