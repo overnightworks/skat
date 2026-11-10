@@ -1,4 +1,3 @@
-import random
 from contextlib import nullcontext
 from dataclasses import replace
 
@@ -12,6 +11,7 @@ from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table
+from tests.web.support.series import deal_next as deal_the_next
 from tests.web.support.series import headers_of, play_a_series, tap_weiter
 from tests.web.support.skat import FETCH
 
@@ -49,9 +49,7 @@ def pass_the_hand_in(skat, table_id, people):
 
 
 def deal_next(skat, table_id, people):
-    connected = frozenset(account.id for _, account in people)
-    service = TableService(skat.store, random_source=random.Random(3))  # noqa: S311 - a seeded source makes the deal reproducible
-    return service.deal_next(TableId(table_id), nullcontext(connected))
+    return deal_the_next(skat, table_id, [account.id for _, account in people])
 
 
 def play_through(skat, table_id, people, games):

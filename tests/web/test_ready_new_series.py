@@ -1,16 +1,21 @@
-import random
-from contextlib import nullcontext
 from dataclasses import replace
 
 import pytest
 
 from skat.engine.deal import next_dealer
-from skat.table.records import Refusal, TableId
-from skat.table.service import TableService
+from skat.table.records import Refusal
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import cards_in
-from tests.web.support.series import headers_of, play_a_series, tap_new_series, tap_weiter
+from tests.support.payload_cards import cards_in, with_known_deal
+from tests.support.played_game import a_whole_game
+from tests.web.support.series import (
+    deal_next,
+    headers_of,
+    play_a_series,
+    play_the_dealt_series,
+    tap_new_series,
+    tap_weiter,
+)
 from tests.web.support.skat import streams_of
 
 
@@ -25,10 +30,11 @@ def entries_of(skat, table):
     return answer.json()["entries"]
 
 
-def deal_the_next_series(skat, table):
-    accounts = frozenset(chair.occupant.account_id for chair in table.record.chairs)
-    service = TableService(skat.store, random_source=random.Random(3))  # noqa: S311 - a seeded source makes the deal reproducible
-    return service.deal_next(TableId(table.table_id), nullcontext(accounts))
+def deal_the_next_series(skat, table, accounts=None):
+    """Deal with `accounts` connected, by default the three who sit."""
+    if accounts is None:
+        accounts = [chair.occupant.account_id for chair in table.record.chairs]
+    return deal_next(skat, table.table_id, accounts)
 
 
 def all_tap(skat, table, prefix="tap-new"):
@@ -116,7 +122,7 @@ class TestTheTaps:
         assert [each.json()["reason"] for each in (before, after)] == [Refusal.SERIES_OVER] * 2
         assert [chair.ready for chair in table.record.chairs] == [True, False, False]
 
-    def test_a_tap_at_the_ended_table_after_a_member_stood_up_marks_only_whoever_taps(self, skat, ended):
+    def test_the_mark_leaves_with_whoever_stands_up_and_the_newcomers_tap_completes_the_three(self, skat, ended):
         table, _ = ended
         first, second, third = headers_of(table)
         tap_new_series(skat, first, table.table_id, "tap-new-1")
@@ -143,6 +149,7 @@ class TestTheNextSeries:
         assert seen["series"] == {"game_number": 1, "game_count": 3, "over": False, "standings": None}
         assert (seen["result"], marks(table.read_as(table.watcher))) == (None, [False, False, False])
         assert seen["hand"] is not None
+        assert [chair["total"] for chair in seen["chairs"]] == [None] * 3
         assert table.record.dealer == next_dealer(old_dealer)
         assert entries_of(skat, table) == []
 
@@ -159,11 +166,10 @@ class TestTheNextSeries:
         table, _ = ended
         all_tap(skat, table)
         accounts = [chair.occupant.account_id for chair in table.record.chairs]
-        service = TableService(skat.store, random_source=random.Random(3))  # noqa: S311 - a seeded source makes the deal reproducible
 
-        assert not service.deal_next(TableId(table.table_id), nullcontext(frozenset(accounts[:2])))
+        assert not deal_the_next_series(skat, table, accounts[:2])
         assert len(table.record.game_list) == 3
-        assert service.deal_next(TableId(table.table_id), nullcontext(frozenset(accounts)))
+        assert deal_the_next_series(skat, table, accounts)
 
     def test_the_third_tap_deals_once_all_three_streams_are_open(self, server):
         table, _ = play_a_series(server)
@@ -175,6 +181,22 @@ class TestTheNextSeries:
         seen = table.read_as(table.watcher).json()
         assert (seen["series"]["game_number"], seen["series"]["over"]) == (1, False)
         assert entries_of(server, table) == []
+
+    def test_the_next_series_played_to_its_end_ranks_only_its_own_games(self, skat):
+        table, names = play_a_series(skat, swap_after_first=2)
+        newcomer = table.record.chairs[1].occupant.display_name
+        all_tap(skat, table)
+        assert deal_the_next_series(skat, table)
+        with_known_deal(skat, table.table_id)
+
+        play_the_dealt_series(skat, table, 3, number=2)
+
+        seen = table.read_as(table.watcher).json()
+        standings = seen["series"]["standings"]
+        assert seen["series"]["over"] is True
+        assert {each["display_name"] for each in standings} == {names[0], newcomer, names[2]}
+        assert sum(each["won"] + each["lost"] for each in standings) == 3
+        assert len(entries_of(skat, table)) == 3
 
     def test_no_answer_carries_a_card_of_another_or_an_account_id(self, skat, ended):
         table, _ = ended
@@ -209,6 +231,16 @@ class TestARetry:
         assert table.record == dealt
         assert dealt.series.deals == 1
         assert entries_of(skat, table) == []
+
+        with_known_deal(skat, table.table_id)
+        table.declared_hand_game()
+        table.played_out(each.card for each in a_whole_game(table.record))
+        played = table.record
+        for number, headers in taps:
+            assert tap_new_series(skat, headers, table.table_id, f"tap-new-{number}").status_code == 200
+
+        assert table.record == played
+        assert len(entries_of(skat, table)) == 1
 
     def test_a_refused_tap_retried_replays_its_refusal_after_the_next_series_began(self, skat, ended):
         table, _ = ended

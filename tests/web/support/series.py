@@ -1,3 +1,4 @@
+import random
 from contextlib import nullcontext
 from dataclasses import replace
 
@@ -51,6 +52,12 @@ def pass_the_hand_in(skat, table):
     assert table.read_as(table.watcher).json()["hand"] is None
 
 
+def deal_next(skat, table_id, accounts):
+    """The service's deal step for a table whose `accounts` are connected, from a seeded source."""
+    service = TableService(skat.store, random_source=random.Random(3))  # noqa: S311 - a seeded source makes the deal reproducible
+    return service.deal_next(TableId(table_id), nullcontext(frozenset(accounts)))
+
+
 def play_a_series(skat, game_count=3, *, swap_after_first=None, passed_in_hand=None):
     """A series of `game_count` hands, each played card by card, with Weiter and the next deal between them.
 
@@ -61,6 +68,12 @@ def play_a_series(skat, game_count=3, *, swap_after_first=None, passed_in_hand=N
     table = Table(skat)
     skat.store.tables[table.table_id] = replace(table.record, series=Series(game_count, 1))
     first_names = [chair.occupant.display_name for chair in table.record.chairs]
+    play_the_dealt_series(skat, table, game_count, swap_after_first=swap_after_first, passed_in_hand=passed_in_hand)
+    return table, first_names
+
+
+def play_the_dealt_series(skat, table, game_count, *, number=1, swap_after_first=None, passed_in_hand=None):
+    """Play series `number`, whose first game is dealt, to its last game's end; options as in `play_a_series`."""
     for game in range(1, game_count + 1):
         if game == passed_in_hand:
             pass_the_hand_in(skat, table)
@@ -80,9 +93,9 @@ def play_a_series(skat, game_count=3, *, swap_after_first=None, passed_in_hand=N
         for chair in table.record.chairs if game != passed_in_hand else ():
             if not chair.ready:
                 position = positions_from(DEALER_SEAT)[chair.seat]
-                answer = tap_weiter(skat, table.at[position], table.table_id, f"weiter-{game}-{chair.seat}", game)
+                command_id = f"weiter-{number}-{game}-{chair.seat}"
+                answer = tap_weiter(skat, table.at[position], table.table_id, command_id, game)
                 assert answer.status_code == 200, answer.text
-        accounts = frozenset(chair.occupant.account_id for chair in table.record.chairs)
-        assert TableService(skat.store).deal_next(TableId(table.table_id), nullcontext(accounts))
+        accounts = [chair.occupant.account_id for chair in table.record.chairs]
+        assert deal_next(skat, table.table_id, accounts)
         with_known_deal(skat, table.table_id)
-    return table, first_names
