@@ -320,9 +320,7 @@ class TestEndingEarly:
             pytest.param("series_end_proposer = 1, series_end_accepter = 4", id="an-accepter-beyond-the-seats"),
             pytest.param("series_end_accepter = 2", id="an-accepter-without-a-proposer"),
             pytest.param("series_end_proposer = 2, series_end_accepter = 2", id="an-accepter-equal-to-the-proposer"),
-            pytest.param(
-                "series_ended_early = true, series_end_proposer = 1", id="an-ended-series-with-a-proposal"
-            ),
+            pytest.param("series_ended_early = true, series_end_proposer = 1", id="an-ended-series-with-a-proposal"),
         ],
     )
     def test_the_checks_refuse_a_row_that_is_no_proposal(self, engine, between_games, statement):

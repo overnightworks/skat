@@ -49,6 +49,7 @@ from skat.web.presence import (
     Scheduler,
 )
 from skat.web.ready import create_ready_router
+from skat.web.series_end import create_series_end_router
 from skat.web.routes import create_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
@@ -159,6 +160,7 @@ def _include_table_sub_routers(app: FastAPI, tables: TableService, presence: Pre
     app.include_router(create_declaring_router(tables, presence))
     app.include_router(create_playing_router(tables, presence))
     app.include_router(create_ready_router(tables, presence))
+    app.include_router(create_series_end_router(tables, presence))
     app.include_router(create_game_list_router(tables))
 
 

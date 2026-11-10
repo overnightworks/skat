@@ -713,10 +713,7 @@ class TestFromASeriesTableAndASeriesLessTableAtRevisionThirteen:
     def test_both_tables_read_no_proposal_and_no_early_end(self, migrated):
         with migrated.connect() as connection:
             rows = connection.execute(
-                text(
-                    "SELECT id, series_end_proposer, series_end_accepter, series_ended_early"
-                    " FROM tables ORDER BY id"
-                )
+                text("SELECT id, series_end_proposer, series_end_accepter, series_ended_early FROM tables ORDER BY id")
             ).all()
 
         assert [tuple(row) for row in rows] == [("plain", None, None, False), ("series", None, None, False)]
