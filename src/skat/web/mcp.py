@@ -54,6 +54,7 @@ AUCTION_PLAY_TOOL: Final = "auction_play"
 GIVE_UP_GAME_TOOL: Final = "give_up_game"
 THROW_DOWN_CARDS_TOOL: Final = "throw_down_cards"
 CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
+START_NEW_SERIES_TOOL: Final = "start_new_series"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
@@ -70,7 +71,6 @@ class Exclusion(StrEnum):
     OPENING = "opening a table is not yet a tool"
     SEATING = "taking a chair is not yet a tool"
     CALL_ORIGIN = "the framed page's call origin; an agent sits in no frame"
-    FINAL_DELETION = "consenting to a final deletion is not yet a tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
@@ -88,6 +88,7 @@ AUCTION_PLAY_MARK: Final = agent_tool(name=AUCTION_PLAY_TOOL, effect=ToolEffect.
 GIVE_UP_GAME_MARK: Final = agent_tool(name=GIVE_UP_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 THROW_DOWN_CARDS_MARK: Final = agent_tool(name=THROW_DOWN_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+START_NEW_SERIES_MARK: Final = agent_tool(name=START_NEW_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
