@@ -1,0 +1,7 @@
+claim_id = "4c8ba4ac02ee4cedbe00aedd066d2c3c"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "64ff4f8bf3dcd27597b0290f2c50a0baa001ed33"
+branch = "claude/issue-255-null-throw-down-points"
+scope = ["src/skat/engine/tricks.py", "tests/engine/test_giving_up.py", "tests/web/test_playing_throw_down.py"]
+opened_commit = "3bb692e42233843276b6b7efca673eddc9e06501"
