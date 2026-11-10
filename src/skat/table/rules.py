@@ -1,4 +1,6 @@
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from datetime import timedelta
+from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.deal import positions_from
@@ -21,6 +23,8 @@ from skat.table.records import (
 )
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from skat.engine.cards import Card
     from skat.engine.deal import Position
     from skat.table.records import EndedTable
@@ -133,9 +137,14 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     )
 
 
+def hand_was_dealt_by(dealer: int | None) -> bool:
+    """A hand was dealt at some time, by the stored dealer: the store writes the dealer with the first hand."""
+    return dealer is not None
+
+
 def hand_was_dealt(table: TableRecord) -> bool:
-    """A hand was dealt on the table at some time: the store writes the dealer with the first hand."""
-    return table.dealer is not None
+    """A hand was dealt on the table at some time."""
+    return hand_was_dealt_by(table.dealer)
 
 
 def result_pending(table: TableRecord) -> bool:
@@ -173,6 +182,77 @@ def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) ->
     pauses and is kept. None says the presence cannot tell any more.
     """
     return not hand_was_dealt(table) and connected_accounts is not None and not connected_accounts
+
+
+class PresenceStep(Enum):
+    KEEP = "keep"
+    STAMP = "stamp"
+    CLEAR = "clear"
+    END = "end"
+
+
+def wait_left(empty_since: datetime, now: datetime, empty_seconds: int) -> timedelta:
+    """What is left of a table's wait of `empty_seconds`, counted from the time since when nobody has been at it; the
+    wait is up when nothing is left.
+    """
+    return timedelta(seconds=empty_seconds) - (now - empty_since)
+
+
+def wait_up(empty_since: datetime, now: datetime, empty_seconds: int) -> bool:
+    """Whether a table's wait is up: nothing is left of it."""
+    return wait_left(empty_since, now, empty_seconds) <= timedelta(0)
+
+
+def presence_step(
+    table: TableRecord,
+    connected_accounts: frozenset[str] | None,
+    empty_since: datetime | None,
+    now: datetime,
+    empty_seconds: int,
+) -> PresenceStep:
+    """What a change of who is present does to the time since when nobody has been at the table: an empty table
+    keeps an earlier time and gets one otherwise, only while no hand was dealt on it; a table someone is at loses
+    its time, and ends instead when no hand was dealt and the time was already up. None says the presence cannot
+    tell any more.
+    """
+    if connected_accounts is None:
+        return PresenceStep.KEEP
+    if not connected_accounts:
+        return PresenceStep.STAMP if empty_since is None and not hand_was_dealt(table) else PresenceStep.KEEP
+    if empty_since is None:
+        return PresenceStep.KEEP
+    if not hand_was_dealt(table) and wait_up(empty_since, now, empty_seconds):
+        return PresenceStep.END
+    return PresenceStep.CLEAR
+
+
+class ResumeStep(Enum):
+    SKIP = "skip"
+    STAMP = "stamp"
+    WAIT = "wait"
+    END = "end"
+
+
+@dataclass(frozen=True)
+class Resume:
+    """What the server's start does with a live table: its step and the seconds left of the wait it starts."""
+
+    step: ResumeStep
+    seconds_left: float
+
+
+def resume_step(dealer: int | None, empty_since: datetime | None, now: datetime, empty_seconds: int) -> Resume:
+    """What the server's start does with a live table, by the same rules as `presence_step`: a table with a dealt
+    hand pauses and gets no wait; an undealt table with no time gets one and a full wait; one with a time waits for
+    what is left of it, and ends once nothing is left.
+    """
+    if hand_was_dealt_by(dealer):
+        return Resume(ResumeStep.SKIP, 0.0)
+    if empty_since is None:
+        return Resume(ResumeStep.STAMP, float(empty_seconds))
+    if wait_up(empty_since, now, empty_seconds):
+        return Resume(ResumeStep.END, 0.0)
+    return Resume(ResumeStep.WAIT, wait_left(empty_since, now, empty_seconds).total_seconds())
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:

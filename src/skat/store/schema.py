@@ -40,6 +40,7 @@ tables = Table(
     Column("ended_at", DateTime(timezone=True)),
     Column("end_reason", Text),
     Column("empty_seconds", Integer),
+    Column("empty_since", DateTime(timezone=True)),
     Column("series_length", SmallInteger),
     Column("series_deals", SmallInteger),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),

@@ -4,10 +4,17 @@ from contextlib import nullcontext
 import pytest
 
 from skat.table.records import CreateTable, EndReason, TableId
+from skat.web.presence import EmptyTable, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import in_memory_tables
-from tests.support.idle_presence import idle_presence
+from tests.support.idle_presence import (
+    end_no_table,
+    idle_agent_lease,
+    idle_hold,
+    idle_next_deal,
+    idle_presence,
+)
 from tests.web.support.streams import OPENER, VISITOR, next_view, run_on_a_loop_of_its_own, stream_of
 
 
@@ -72,3 +79,27 @@ class TestTheStreamRoute:
         message = json.loads(lines[0].removeprefix("data: "))
         assert message["ended"] == {"reason": "empty", "empty_seconds": hold.settings.empty_table_seconds}
         assert (message["chairs"], message["hand"], message["result"], message["watchers"]) == ([], None, None, 0)
+
+
+class TestAStreamWhoseArrivalWriteFails:
+    def test_it_sends_nothing_and_fails_without_a_message_while_a_retry_writes_again(self, service, table_id):
+        calls = []
+
+        async def note(table, connected_accounts):
+            calls.append(table)
+            if len(calls) == 1:
+                raise ConnectionError
+            return False
+
+        empty_table = EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note)
+        presence = Presence(idle_hold(), idle_next_deal(), empty_table, idle_agent_lease())
+
+        async def scenario():
+            failed = stream_of(presence, service, VISITOR, table_id)
+            with pytest.raises(ConnectionError):
+                await next_view(failed)
+            return await next_view(stream_of(presence, service, VISITOR, table_id))
+
+        retried = run_on_a_loop_of_its_own(scenario())
+
+        assert (len(calls), retried.ended) == (2, None)
