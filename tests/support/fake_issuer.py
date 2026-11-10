@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote_plus, urlsplit
 
 import jwt
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
+from agents.mcp_wire import MCP_ENDPOINT_PATH
 from cryptography.hazmat.primitives.asymmetric import rsa
 from webauth.https_client import KeySetFetchError
 from webauth.oidc import TokenEndpointAnswer, TokenEndpointError, TokenRequest
