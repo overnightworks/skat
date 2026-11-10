@@ -14,7 +14,16 @@ from skat.store.migrate import create_store_engine
 from skat.store.tables import DealtHandRewrittenError, PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import ReadyCommand
-from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp, TableId
+from skat.table.records import (
+    Actor,
+    CreateTable,
+    HandProgress,
+    Refusal,
+    SitDown,
+    StandUp,
+    TableId,
+    TableOptions,
+)
 from skat.table.service import CommandIdReusedError, TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
@@ -58,6 +67,27 @@ def test_a_created_table_reads_back_the_same_after_a_reload(service):
 
     assert service.view(OPENER, created.id, frozenset()) == created
     assert [(chair.seat, chair.occupant_name) for chair in created.chairs] == [(1, "Anna"), (2, None), (3, None)]
+
+
+def test_a_table_opened_with_the_switch_on_reads_it_back_after_a_reload(service):
+    created = service.create(
+        OPENER, CreateTable(command_id="command-1", options=TableOptions(show_running_points=True))
+    )
+
+    assert created.options == TableOptions(show_running_points=True)
+    assert service.view(OPENER, created.id, frozenset()).options == created.options
+
+
+def test_a_table_stored_without_a_switch_reads_it_off(service, engine):
+    old_id = "a" * 32
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO tables (id, version) VALUES (:id, 1)"), {"id": old_id})
+        connection.execute(
+            text("INSERT INTO chairs (table_id, seat) SELECT :id, seat FROM generate_series(1, 3) AS seat"),
+            {"id": old_id},
+        )
+
+    assert service.view(OPENER, old_id, frozenset()).options == TableOptions(show_running_points=False)
 
 
 def test_another_member_reads_the_table_without_a_chair_of_their_own(service):

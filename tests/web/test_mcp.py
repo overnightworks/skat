@@ -145,6 +145,15 @@ class TestReadTable:
         assert view["series"] == {"game_number": 0, "game_count": 12, "over": False, "standings": None}
         assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
+    def test_the_options_of_a_table_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
+        headers = agent.admitted()
+        table_id = skat.create(headers, options={"show_running_points": True}).json()["id"]
+
+        view = agent.read(table_id).json()
+
+        assert view["options"] == {"show_running_points": True}
+        assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
+
     def test_the_standings_of_a_played_series_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
         agent.admitted()
         table, names = play_a_series(skat)

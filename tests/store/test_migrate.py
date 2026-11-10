@@ -657,3 +657,38 @@ class TestFromALiveTableAtRevisionEleven:
             assert (
                 connection.execute(text("SELECT count(*) FROM tables WHERE empty_since IS NOT NULL")).scalar_one() == 1
             )
+
+
+class TestFromALiveAndAnEndedTableAtRevisionTwelve:
+    @pytest.fixture
+    def migrated(self, engine):
+        """A database at 0012 holding a live and an ended table, then taken to head."""
+        upgrade_to(engine, "0012")
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version) VALUES ('live', 1)"))
+            connection.execute(
+                text(
+                    "INSERT INTO tables (id, version, ended_at, end_reason, empty_seconds)"
+                    " VALUES ('ended', 2, now(), 'empty', 1800)"
+                )
+            )
+        migrate(engine)
+        return engine
+
+    def test_both_tables_read_the_switch_off(self, migrated):
+        with migrated.connect() as connection:
+            rows = connection.execute(text("SELECT id, show_running_points FROM tables ORDER BY id")).all()
+
+        assert [tuple(row) for row in rows] == [("ended", False), ("live", False)]
+
+    def test_accepts_the_switch_on(self, migrated):
+        _run_in_transaction(migrated, text("UPDATE tables SET show_running_points = true WHERE id = 'live'"))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT show_running_points FROM tables WHERE id = 'live'")).scalar_one()
+
+    def test_refuses_a_missing_switch(self, migrated):
+        refused = text("UPDATE tables SET show_running_points = NULL")
+
+        with pytest.raises(IntegrityError):
+            _run_in_transaction(migrated, refused)

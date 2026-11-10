@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
     from skat.engine.tricks import Playing
-    from skat.table.records import Chair, TableRecord
+    from skat.table.records import Chair, TableOptions, TableRecord
 
 
 @dataclass(frozen=True)
@@ -86,7 +86,9 @@ class SeriesView:
 
 @dataclass(frozen=True)
 class TableView:
-    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact or series."""
+    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series or
+    options.
+    """
 
     id: str
     version: int
@@ -96,6 +98,7 @@ class TableView:
     passed_in: PassedInView | None
     result: ResultView | None
     series: SeriesView | None
+    options: TableOptions | None
     ended: EndedView | None = None
 
 
@@ -134,7 +137,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         len(table.hand.skat if state is None else state.skat),
         auction_view_of(table, viewer_account_id, table.dealer),
         declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
-        playing_view_of(playing, table.dealer, viewer_positions),
+        playing_view_of(playing, table.dealer, viewer_positions, show_running_points=table.options.show_running_points),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
@@ -185,6 +188,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             passed_in=None,
             result=None,
             series=None,
+            options=None,
             ended=EndedView(table.reason, table.empty_seconds),
         )
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
@@ -211,4 +215,5 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
         passed_in=_passed_in_view(table),
         result=result_view_of(table),
         series=_series_view(table),
+        options=table.options,
     )

@@ -33,6 +33,7 @@ from skat.table.records import (
     Replay,
     Series,
     TableId,
+    TableOptions,
     TableRecord,
     parsed_refusal,
 )
@@ -95,6 +96,7 @@ def _table_record(
         tables.c.empty_seconds,
         tables.c.series_length,
         tables.c.series_deals,
+        tables.c.show_running_points,
     ).where(tables.c.id == table_id)
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
@@ -128,6 +130,7 @@ def _table_record(
         ),
         game_list=read_game_list(connection, table_id),
         series=None if table.series_length is None else Series(table.series_length, table.series_deals),
+        options=TableOptions(show_running_points=table.show_running_points),
     )
 
 
@@ -176,7 +179,7 @@ class _PostgresTableTransaction:
         return table if isinstance(table, TableRecord) else None
 
     def _write_table_row(self, table: TableRecord) -> None:
-        """The row's changing columns: the series length is written once, by `add_table`, and never here."""
+        """The row's changing columns: the series length and the options are written by `add_table` and never here."""
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table.id.value)
@@ -225,6 +228,7 @@ class _PostgresTableTransaction:
                 version=table.version,
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
+                show_running_points=table.options.show_running_points,
             )
         )
         self._connection.execute(
