@@ -15,6 +15,7 @@ from skat.table.records import (
     SERIES_LENGTH_MIN,
     Chair,
     EndedTable,
+    EndProposal,
     EndReason,
     HandProgress,
     Occupant,
@@ -322,6 +323,23 @@ class TestChairTotals:
         view = view_of(table, ANNA, NOBODY_CONNECTED)
 
         assert [chair.total for chair in view.chairs] == [0, 0, None]
+
+
+class TestEndProposalInTheSeries:
+    def test_a_standing_proposal_shows_its_seats_to_every_viewer(self):
+        table = replace(seated_table(2), series=Series(12, 2, end_proposal=EndProposal(1, 3)))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED).series for viewer in (ANNA, BEN, DORA)]
+
+        assert [view.end_proposal for view in views] == [EndProposal(1, 3)] * 3
+
+    def test_an_early_end_is_over_with_no_proposal_below_the_game_count(self):
+        table = replace(seated_table(2), series=Series(12, 2, ended_early=True))
+
+        series = view_of(table, ANNA, NOBODY_CONNECTED).series
+
+        assert (series.over, series.game_number, series.game_count, series.end_proposal) == (True, 2, 12, None)
+        assert series.standings == ()
 
 
 class TestOptions:

@@ -107,7 +107,13 @@ class TestStartNewSeries:
 
     def assert_next_series_dealt(self, agent, table):
         view = agent.read(table.table_id).json()
-        assert view["series"] == {"game_number": 1, "game_count": 3, "over": False, "standings": None}
+        assert view["series"] == {
+            "game_number": 1,
+            "game_count": 3,
+            "over": False,
+            "standings": None,
+            "end_proposal": None,
+        }
         assert view["hand"] is not None
         assert table.record.game_list == ()
 

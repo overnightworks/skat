@@ -57,6 +57,8 @@ THROW_DOWN_CARDS_TOOL: Final = "throw_down_cards"
 AGREE_TO_GIVE_UP_TOOL: Final = "agree_to_give_up"
 DECLINE_GIVE_UP_TOOL: Final = "decline_give_up"
 CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
+AGREE_TO_END_SERIES_TOOL: Final = "agree_to_end_series"
+REFUSE_TO_END_SERIES_TOOL: Final = "refuse_to_end_series"
 START_NEW_SERIES_TOOL: Final = "start_new_series"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
@@ -98,6 +100,8 @@ THROW_DOWN_CARDS_MARK: Final = agent_tool(name=THROW_DOWN_CARDS_TOOL, effect=Too
 AGREE_TO_GIVE_UP_MARK: Final = agent_tool(name=AGREE_TO_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLINE_GIVE_UP_MARK: Final = agent_tool(name=DECLINE_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+AGREE_TO_END_SERIES_MARK: Final = agent_tool(name=AGREE_TO_END_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+REFUSE_TO_END_SERIES_MARK: Final = agent_tool(name=REFUSE_TO_END_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 START_NEW_SERIES_MARK: Final = agent_tool(name=START_NEW_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)

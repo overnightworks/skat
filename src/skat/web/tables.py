@@ -376,11 +376,17 @@ class StandingAnswer(BaseModel):
     place: int
 
 
+class SeriesEndProposalAnswer(BaseModel):
+    proposer_seat: int
+    accepter_seat: int | None
+
+
 class SeriesAnswer(BaseModel):
     game_number: int
     game_count: int
     over: bool
     standings: list[StandingAnswer] | None
+    end_proposal: SeriesEndProposalAnswer | None
 
 
 class KontraOptionsAnswer(BaseModel):
@@ -549,6 +555,11 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
         game_count=series.game_count,
         over=series.over,
         standings=None if series.standings is None else [standing_answer_of(each) for each in series.standings],
+        end_proposal=None
+        if series.end_proposal is None
+        else SeriesEndProposalAnswer(
+            proposer_seat=series.end_proposal.proposer, accepter_seat=series.end_proposal.accepter
+        ),
     )
 
 

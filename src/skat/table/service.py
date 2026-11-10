@@ -83,6 +83,14 @@ from skat.table.rules import (
     sit_payload,
     stand_payload,
 )
+from skat.table.series_end import (
+    AGREE_TO_END_SERIES_COMMAND,
+    REFUSE_TO_END_SERIES_COMMAND,
+    SeriesEndCommand,
+    decide_agree_to_end,
+    decide_refuse_to_end,
+    series_end_payload,
+)
 from skat.table.views import PausedEntryView, TableView, paused_entry_of, view_of
 
 if TYPE_CHECKING:
@@ -415,6 +423,32 @@ class TableService:
             NEW_SERIES_COMMAND,
             new_series_payload(command),
             lambda table: decide_new_series(table, actor),
+        )
+
+    def agree_to_end_series(
+        self, actor: Actor, command: SeriesEndCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            AGREE_TO_END_SERIES_COMMAND,
+            series_end_payload(command),
+            lambda table: decide_agree_to_end(table, actor),
+        )
+
+    def refuse_to_end_series(
+        self, actor: Actor, command: SeriesEndCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            REFUSE_TO_END_SERIES_COMMAND,
+            series_end_payload(command),
+            lambda table: decide_refuse_to_end(table, actor),
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:

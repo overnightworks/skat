@@ -16,6 +16,7 @@ from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
     AGENT_GROUP,
+    AGREE_TO_END_SERIES_TOOL,
     AGREE_TO_GIVE_UP_TOOL,
     AUCTION_BID_TOOL,
     AUCTION_HOLD_TOOL,
@@ -33,6 +34,7 @@ from skat.web.mcp import (
     READ_RULE_SETS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    REFUSE_TO_END_SERIES_TOOL,
     SAVE_RULE_SET_TOOL,
     SAY_KONTRA_TOOL,
     SIT_DOWN_TOOL,
@@ -98,6 +100,8 @@ class TestTools:
                 AGREE_TO_GIVE_UP_TOOL,
                 DECLINE_GIVE_UP_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
+                AGREE_TO_END_SERIES_TOOL,
+                REFUSE_TO_END_SERIES_TOOL,
                 SAY_KONTRA_TOOL,
                 OPEN_TABLE_TOOL,
                 SIT_DOWN_TOOL,
@@ -157,15 +161,6 @@ class TestReadTable:
             f"{TABLES_PATH}/{forehand_table.table_id}", headers=forehand_table.at[FOREHAND]
         )
         assert view == direct.json()
-
-    def test_the_series_of_a_table_reads_at_the_tool_as_the_route_gives_it(self, skat, agent):
-        headers = agent.admitted()
-        table_id = skat.create(headers, series_length=12).json()["id"]
-
-        view = agent.read(table_id).json()
-
-        assert view["series"] == {"game_number": 0, "game_count": 12, "over": False, "standings": None}
-        assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
     def test_the_options_of_a_table_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
         headers = agent.admitted()

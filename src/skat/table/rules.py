@@ -10,6 +10,7 @@ from skat.table.records import (
     Chair,
     CreateTable,
     Decision,
+    EndProposal,
     HandProgress,
     NewHand,
     Occupant,
@@ -107,6 +108,9 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
+    series = table.series
+    if series is not None:
+        series = replace(series, end_proposal=_proposal_without(series.end_proposal, seat))
     return TableRecord(
         id=table.id,
         version=table.version + 1,
@@ -115,10 +119,21 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
         hand=table.hand,
         progress=table.progress,
         game_list=table.game_list,
-        series=table.series,
+        series=series,
         options=table.options,
         bock=table.bock,
     )
+
+
+def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | None:
+    """A chair's change takes its holder's part of the proposal: the proposer's goes with the proposal, an accepter's
+    acceptance alone, anyone else's changes nothing.
+    """
+    if proposal is None or proposal.proposer == seat:
+        return None
+    if proposal.accepter == seat:
+        return EndProposal(proposal.proposer)
+    return proposal
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -139,8 +154,11 @@ def series_games_left(table: TableRecord) -> int | None:
 
 
 def series_over(table: TableRecord) -> bool:
-    """The series ran its last game and no hand runs any more; a table with no series never ends."""
-    return series_games_left(table) == 0
+    """The series ran its last game or ended early by consent, and no hand runs any more; a table with no series
+    never ends.
+    """
+    ended_early = table.series is not None and table.series.ended_early and not hand_runs(table)
+    return ended_early or series_games_left(table) == 0
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
@@ -153,12 +171,12 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
     in its series; at a series' end this deal is the next series' first, so the list empties and the count starts
-    at one. Every deal goes through here.
+    at one. A deal clears the end proposal and the early end. Every deal goes through here.
     """
     starts_series = series_over(table)
     series = table.series
     if series is not None:
-        series = replace(series, deals=1 if starts_series else series.deals + 1)
+        series = replace(series, deals=1 if starts_series else series.deals + 1, ended_early=False, end_proposal=None)
     return TableRecord(
         id=table.id,
         version=version,
