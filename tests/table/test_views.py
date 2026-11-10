@@ -168,6 +168,7 @@ def a_played_game() -> ListEntry:
         settled_value=30,
         score=30,
         declarer_points=70,
+        kontra_word=None,
     )
 
 

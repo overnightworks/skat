@@ -7,9 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
 from skat.store.game_list import append_game_list, game_list, read_game_list
+from skat.store.kontra import append_words, kontra_words, read_words
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
     POSITION_TEXT,
@@ -44,6 +46,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
 
+    from sqlalchemy import Row
     from sqlalchemy.engine import Connection, Engine
 
 __all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
@@ -86,6 +89,15 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
+def _kontra_options_of(table: Row[tuple[object, ...]]) -> KontraOptions | None:
+    """The table's Kontra options; its three columns are all set or all null."""
+    if table.kontra_sayer is None:
+        return None
+    return KontraOptions(
+        KontraSayer(table.kontra_sayer), KontraReach(table.kontra_reach), KontraDeadline(table.kontra_deadline)
+    )
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -97,6 +109,9 @@ def _table_record(
         tables.c.series_length,
         tables.c.series_deals,
         tables.c.show_running_points,
+        tables.c.kontra_sayer,
+        tables.c.kontra_reach,
+        tables.c.kontra_deadline,
     ).where(tables.c.id == table_id)
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
@@ -127,17 +142,26 @@ def _table_record(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
+            words=read_words(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
         series=None if table.series_length is None else Series(table.series_length, table.series_deals),
-        options=TableOptions(show_running_points=table.show_running_points),
+        options=TableOptions(show_running_points=table.show_running_points, kontra=_kontra_options_of(table)),
     )
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
-    for rows in (hand_cards, auction_actions, declaring_steps, played_cards):
+    for rows in (hand_cards, auction_actions, declaring_steps, played_cards, kontra_words):
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
+
+
+def _kontra_columns_of(kontra: KontraOptions | None) -> dict[str, str | None]:
+    return {
+        "kontra_sayer": None if kontra is None else kontra.sayer.value,
+        "kontra_reach": None if kontra is None else kontra.reach.value,
+        "kontra_deadline": None if kontra is None else kontra.deadline.value,
+    }
 
 
 class _PostgresTableTransaction:
@@ -210,6 +234,7 @@ class _PostgresTableTransaction:
         append_steps(self._connection, table.id.value, table.progress.auction)
         append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
         append_plays(self._connection, table.id.value, table.progress.plays)
+        append_words(self._connection, table.id.value, table.progress.words)
         for chair in table.chairs:
             self._connection.execute(
                 update(chairs)
@@ -229,6 +254,7 @@ class _PostgresTableTransaction:
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
                 show_running_points=table.options.show_running_points,
+                **_kontra_columns_of(table.options.kontra),
             )
         )
         self._connection.execute(

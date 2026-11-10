@@ -6,8 +6,9 @@ from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
 from skat.table.auction import AuctionView, auction_view_of
 from skat.table.declaring import DeclaringView, declaring_view_of
-from skat.table.game_list import ResultView, Standing, result_view_of, standings_of, total_of
+from skat.table.game_list import ResultView, Standing, reach_of, result_view_of, standings_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
+from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.records import EndedTable, EndReason
 from skat.table.rules import hand_runs, series_over
@@ -137,7 +138,13 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         len(table.hand.skat if state is None else state.skat),
         auction_view_of(table, viewer_account_id, table.dealer),
         declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
-        playing_view_of(playing, table.dealer, viewer_positions, show_running_points=table.options.show_running_points),
+        playing_view_of(
+            playing,
+            table.dealer,
+            viewer_positions,
+            show_running_points=table.options.show_running_points,
+            kontra=None if playing is None else kontra_view_of(table, playing, viewer_positions),
+        ),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
@@ -146,7 +153,7 @@ def _total_shown(table: TableRecord, chair: Chair) -> int | None:
     """No chair shows a total until the table's first result."""
     if chair.occupant is None or not table.game_list:
         return None
-    return total_of(table.game_list, chair.occupant.account_id)
+    return total_of(table.game_list, chair.occupant.account_id, reach_of(table.options))
 
 
 def _passed_in_view(table: TableRecord) -> PassedInView | None:
@@ -161,7 +168,12 @@ def _series_view(table: TableRecord) -> SeriesView | None:
     if table.series is None:
         return None
     over = series_over(table)
-    return SeriesView(table.series.deals, table.series.length, over, standings_of(table.game_list) if over else None)
+    return SeriesView(
+        table.series.deals,
+        table.series.length,
+        over,
+        standings_of(table.game_list, reach_of(table.options)) if over else None,
+    )
 
 
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
