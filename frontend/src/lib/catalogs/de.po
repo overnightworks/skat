@@ -153,6 +153,9 @@ msgstr "Ansagen"
 msgid "hand"
 msgstr "Hand"
 
+msgid "levelSpiel"
+msgstr "Spiel"
+
 msgid "levelSchneider"
 msgstr "Schneider"
 
@@ -161,6 +164,21 @@ msgstr "Schwarz"
 
 msgid "levelOuvert"
 msgstr "Ouvert"
+
+msgid "matadorsWith"
+msgstr "mit"
+
+msgid "matadorsWithout"
+msgstr "ohne"
+
+msgid "listBonus"
+msgstr "Liste"
+
+msgid "each"
+msgstr "je"
+
+msgid "notReached"
+msgstr "nicht erreicht"
 
 msgid "announcedSchneider"
 msgstr "Schneider angesagt"
