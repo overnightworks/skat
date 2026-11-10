@@ -57,6 +57,7 @@ from skat.web.presence import (
 from skat.web.ready import create_ready_router
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
+from skat.web.seating import create_seating_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
@@ -162,6 +163,11 @@ def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
     return EmptyTable(settings.empty_table_seconds, end, note)
 
 
+def _include_table_routers(app: FastAPI, tables: TableService, page_build: PageBuild, presence: Presence) -> None:
+    app.include_router(create_seating_router(tables, presence))
+    app.include_router(create_tables_router(tables, page_build, presence))
+
+
 def _include_table_sub_routers(app: FastAPI, tables: TableService, presence: Presence) -> None:
     app.include_router(create_auction_router(tables, presence))
     app.include_router(create_declaring_router(tables, presence))
@@ -226,7 +232,7 @@ def create_app(
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
-    app.include_router(create_tables_router(tables, page_build, presence))
+    _include_table_routers(app, tables, page_build, presence)
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))

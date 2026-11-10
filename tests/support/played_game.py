@@ -10,7 +10,7 @@ from skat.engine.tricks import CardPlayed, play_card
 from skat.engine.value import Matadors
 from skat.table.game_list import ListEntry
 from skat.table.hand_state import playing_of
-from skat.table.records import Chair, HandProgress, Occupant, TableId, TableOptions, TableRecord
+from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
 
 HERZ_HAND = Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
 ANNA_BEN_CLEO = ("account-anna", "account-ben", "account-cleo")
@@ -31,7 +31,7 @@ def table_in(progress: HandProgress, options: TableOptions | None = None) -> Tab
     dealer = 2
     seats = {position: seat for seat, position in positions_from(dealer).items()}
     chairs = tuple(
-        Chair(seats[position], Occupant(f"account-{position.name.lower()}", position.name))
+        Chair(seats[position], Occupant(f"account-{position.name.lower()}", position.name, OccupantKind.PERSON))
         for position in (Position.MIDDLEHAND, Position.REARHAND, Position.FOREHAND)
     )
     deal = Deal(forehand=DECK[0:10], middlehand=DECK[10:20], rearhand=DECK[20:30], skat=DECK[30:32])

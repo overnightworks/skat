@@ -26,6 +26,7 @@ from skat.web.mcp import (
     DECLINE_GIVE_UP_TOOL,
     GIVE_UP_GAME_TOOL,
     MCP_GROUP,
+    OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
     READ_PAUSED_TABLES_TOOL,
@@ -34,6 +35,8 @@ from skat.web.mcp import (
     READ_TABLE_TOOL,
     SAVE_RULE_SET_TOOL,
     SAY_KONTRA_TOOL,
+    SIT_DOWN_TOOL,
+    STAND_UP_TOOL,
     START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
@@ -41,8 +44,6 @@ from skat.web.mcp import (
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import (
     TABLE_EVENTS_SUFFIX,
-    TABLE_SIT_SUFFIX,
-    TABLE_STAND_SUFFIX,
     TABLES_PATH,
     AwaitingToken,
 )
@@ -70,7 +71,7 @@ def skat(hold, issuer):
 @pytest.fixture
 def forehand_table(skat, agent):
     """A Hand game declared at a table where the agent holds the forehand, whose turn it is."""
-    table = AgentTable(skat, agent.admitted(), FOREHAND)
+    table = AgentTable(skat, agent, FOREHAND)
     table.declared_hand_game()
     skat.client.cookies.clear()
     return table
@@ -98,6 +99,9 @@ class TestTools:
                 DECLINE_GIVE_UP_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
                 SAY_KONTRA_TOOL,
+                OPEN_TABLE_TOOL,
+                SIT_DOWN_TOOL,
+                STAND_UP_TOOL,
                 READ_RULE_SETS_TOOL,
                 SAVE_RULE_SET_TOOL,
                 START_NEW_SERIES_TOOL,
@@ -206,7 +210,7 @@ class TestReadTable:
         assert not any(chair["is_mine"] for chair in view["chairs"])
 
     def test_the_declarer_sees_the_skat_it_took_as_its_own_view_shows_it(self, skat, agent):
-        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table = AgentTable(skat, agent, MIDDLEHAND)
         table.middlehand_wins()
         skat.client.post(
             f"{TABLES_PATH}/{table.table_id}{TABLE_DECLARING_TAKE_SUFFIX}",
@@ -221,7 +225,7 @@ class TestReadTable:
         assert view == direct.json()
 
     def test_a_hand_declarer_never_sees_the_skat(self, skat, agent):
-        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table = AgentTable(skat, agent, MIDDLEHAND)
         table.declared_hand_game()
 
         view = agent.read(table.table_id).json()
@@ -296,7 +300,7 @@ class TestGiveUpGame:
         )
 
     def test_an_agent_declarer_loses_the_game_at_once_under_its_own_account(self, skat, agent):
-        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table = AgentTable(skat, agent, MIDDLEHAND)
         table.declared_hand_game()
         skat.client.cookies.clear()
 
@@ -312,7 +316,7 @@ class TestGiveUpGame:
         assert len(table.record.game_list) == 1
 
     def test_an_agent_declarer_with_eight_cards_asks_through_the_give_up_tool(self, skat, agent):
-        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table = AgentTable(skat, agent, MIDDLEHAND)
         table.declared_hand_game()
         table.played_out(cards("S7 S9 D7 H7"))
         skat.client.cookies.clear()
@@ -346,7 +350,7 @@ class TestAnsweringAGiveUp:
 
     @pytest.fixture
     def asked(self, skat, agent):
-        table = AgentTable(skat, agent.admitted(), FOREHAND)
+        table = AgentTable(skat, agent, FOREHAND)
         table.declared_hand_game()
         table.played_out(cards("S7 S9 D7"))
         table.accepted(card("H7"))
@@ -435,7 +439,7 @@ class TestThrowDownCards:
         [pytest.param(MIDDLEHAND, False, id="declarer"), pytest.param(FOREHAND, True, id="opponent")],
     )
     def test_an_agent_ends_the_game_for_its_side_under_its_own_account(self, skat, agent, position, won):
-        table = AgentTable(skat, agent.admitted(), position)
+        table = AgentTable(skat, agent, position)
         table.declared_hand_game()
         skat.client.cookies.clear()
 
@@ -697,7 +701,7 @@ class TestAuctionRoutesTakeTheAgentsBearer:
 
 class TestFollowingSuit:
     def test_a_followers_illegal_card_is_refused_as_must_follow_as_the_direct_route_refuses_it(self, skat, agent):
-        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table = AgentTable(skat, agent, MIDDLEHAND)
         table.declared_hand_game()
         table.accepted(card("S7"))
         skat.client.cookies.clear()
@@ -771,9 +775,6 @@ class TestWhoMayCall:
     @pytest.mark.parametrize(
         ("method", "suffix", "body"),
         [
-            pytest.param("POST", "", {}, id="open a table"),
-            pytest.param("POST", TABLE_SIT_SUFFIX, {"seat": 1}, id="sit"),
-            pytest.param("POST", TABLE_STAND_SUFFIX, {}, id="stand"),
             pytest.param("POST", "/auction", {"action": "pass", "version": 1}, id="the auction path without a step"),
             pytest.param("GET", TABLE_EVENTS_SUFFIX, None, id="events"),
         ],
@@ -786,7 +787,7 @@ class TestWhoMayCall:
 
         answer = skat.client.request(
             method,
-            f"{TABLES_PATH}/{forehand_table.table_id}{suffix}" if suffix != "" else TABLES_PATH,
+            f"{TABLES_PATH}/{forehand_table.table_id}{suffix}",
             json=None if body is None else {"command_id": "agent-move-0099", **body},
             headers={"authorization": f"Bearer {token}", "origin": TEST_PUBLIC_ORIGIN, **FETCH},
         )

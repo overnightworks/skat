@@ -42,6 +42,13 @@ class OpaqueId:
         return cls(text) if _TABLE_ID.fullmatch(text) else None
 
 
+class OccupantKind(StrEnum):
+    """Who sits in a chair: a person, or an agent with its own account; the stored token, also the answer's."""
+
+    PERSON = "person"
+    AGENT = "agent"
+
+
 class TableId(OpaqueId):
     """The id of a table."""
 
@@ -52,10 +59,14 @@ class RuleSetId(OpaqueId):
 
 @dataclass(frozen=True)
 class Actor:
-    """The account behind a request, as the server resolved it; a client never names one."""
+    """The account behind a request, as the server resolved it; a client never names one.
+
+    `display_name` is the account's name for a person and the name its token carries for an agent.
+    """
 
     account_id: str
     display_name: str
+    kind: OccupantKind = OccupantKind.PERSON
 
 
 @dataclass(frozen=True)
@@ -138,6 +149,7 @@ def parsed_refusal(token: str) -> CommandRefusal:
 class Occupant:
     account_id: str
     display_name: str
+    kind: OccupantKind
 
 
 @dataclass(frozen=True)

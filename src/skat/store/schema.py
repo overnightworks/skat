@@ -24,7 +24,14 @@ from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, EndReason, TableOptions
+from skat.table.records import (
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    EndReason,
+    OccupantKind,
+    TableOptions,
+)
 from skat.table.rule_sets import RULE_SET_NAME_MAX
 
 if TYPE_CHECKING:
@@ -176,8 +183,11 @@ chairs = Table(
     Column("seat", Integer, primary_key=True),
     Column("account_id", Text),
     Column("display_name", Text),
+    Column("occupant_kind", Text),
     Column("ready", Boolean, nullable=False, server_default=false()),
     CheckConstraint("account_id IS NOT NULL OR NOT ready", name="chairs_ready_only_when_occupied"),
+    CheckConstraint("(account_id IS NULL) = (occupant_kind IS NULL)", name="chairs_kind_only_when_occupied"),
+    one_of("occupant_kind", (kind.value for kind in OccupantKind), "chairs_occupant_kind_is_a_kind"),
 )
 
 SKAT_HOLDER: Final = "skat"

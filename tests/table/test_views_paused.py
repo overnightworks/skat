@@ -4,7 +4,18 @@ import pytest
 
 from skat.engine.bidding import Bid, Pass
 from skat.engine.deal import Position
-from skat.table.records import Actor, Chair, EndedTable, EndReason, GiveUpAsked, HandProgress, Occupant, Series, TableId
+from skat.table.records import (
+    Actor,
+    Chair,
+    EndedTable,
+    EndReason,
+    GiveUpAsked,
+    HandProgress,
+    Occupant,
+    OccupantKind,
+    Series,
+    TableId,
+)
 from skat.table.service import OccupiedChair, TableService
 from skat.table.views import paused_entry_of
 from tests.support.fake_tables import FakeTableStore
@@ -183,6 +194,7 @@ class TestTablesHeldBy:
     def test_answers_each_table_the_account_holds_a_chair_at_in_id_order(self, service, store):
         for table_id in OTHER_TABLE_IDS[::-1]:
             keep(store, replace(table_in(AUCTION_RUNS), id=table_id))
-        keep(store, replace(table_in(AUCTION_RUNS), id=TableId("f" * 32), chairs=(Chair(1, Occupant(STRANGER, "S")),)))
+        stranger_chair = Chair(1, Occupant(STRANGER, "S", OccupantKind.PERSON))
+        keep(store, replace(table_in(AUCTION_RUNS), id=TableId("f" * 32), chairs=(stranger_chair,)))
 
         assert service.tables_held_by(FOREHAND) == OTHER_TABLE_IDS

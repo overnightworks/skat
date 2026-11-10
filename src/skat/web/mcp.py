@@ -62,6 +62,9 @@ TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
 SAY_KONTRA_TOOL: Final = "say_kontra"
+OPEN_TABLE_TOOL: Final = "open_table"
+SIT_DOWN_TOOL: Final = "sit_down"
+STAND_UP_TOOL: Final = "stand_up"
 READ_RULE_SETS_TOOL: Final = "read_rule_sets"
 SAVE_RULE_SET_TOOL: Final = "save_rule_set"
 
@@ -73,8 +76,6 @@ class Exclusion(StrEnum):
     READINESS_PROBE = "the edge's readiness probe, no action of an agent"
     ACCOUNT_NAME = "the page's name for its person; an agent's name is in its token"
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
-    OPENING = "opening a table is not yet a tool"
-    SEATING = "taking a chair is not yet a tool"
     CALL_ORIGIN = "the framed page's call origin; an agent sits in no frame"
     FINAL_DELETION = "a final deletion is not yet a tool"
 
@@ -102,6 +103,9 @@ TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_E
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+OPEN_TABLE_MARK: Final = agent_tool(name=OPEN_TABLE_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+SIT_DOWN_MARK: Final = agent_tool(name=SIT_DOWN_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+STAND_UP_MARK: Final = agent_tool(name=STAND_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 READ_RULE_SETS_MARK: Final = agent_tool(name=READ_RULE_SETS_TOOL, effect=ToolEffect.READ_ONLY)
 SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 

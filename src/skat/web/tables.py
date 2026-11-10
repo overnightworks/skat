@@ -1,5 +1,4 @@
 from enum import StrEnum
-from functools import partial
 from typing import TYPE_CHECKING, Annotated, Final, Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -18,18 +17,12 @@ from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, Kontr
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import (
-    SERIES_LENGTH_MAX,
-    SERIES_LENGTH_MIN,
-    SERIES_LENGTH_STEP,
     Actor,
     CommandRefusal,
-    CreateTable,
     EndReason,
-    SitDown,
-    StandUp,
+    OccupantKind,
     TableOptions,
 )
-from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
@@ -105,21 +98,6 @@ class OptionsRequest(BaseModel):
     show_running_points: Annotated[bool, Field(strict=True)] = TableOptions().show_running_points
     kontra: KontraOptionsRequest | None = None
     bock: BockOptionsRequest | None = None
-
-
-class CreateTableRequest(CommandRequest):
-    """The opener names the series length and may set the rule options; without them the table plays the official
-    rules.
-    """
-
-    series_length: Annotated[
-        int, Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP)
-    ]
-    options: OptionsRequest | None = None
-
-
-class SitDownRequest(CommandRequest):
-    seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
 
 
 class RefusalAnswer(BaseModel):
@@ -328,6 +306,7 @@ class HandAnswer(BaseModel):
 class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
+    occupant_kind: OccupantKind | None
     is_mine: bool
     is_away: bool
     ready: bool
@@ -628,6 +607,7 @@ def answer_of(view: TableView) -> TableAnswer:
             ChairAnswer(
                 seat=c.seat,
                 occupant_name=c.occupant_name,
+                occupant_kind=c.occupant_kind,
                 is_mine=c.is_mine,
                 is_away=c.is_away,
                 ready=c.ready,
@@ -661,7 +641,10 @@ def table_options_of(requested: OptionsRequest | None) -> TableOptions:
 
 
 def actor_for(user: AuthenticatedUser) -> Actor:
-    return Actor(account_id=user.id, display_name=user.username)
+    """The account behind a request: an agent goes by the name its token carries, a person by the account's."""
+    if user.agent is None:
+        return Actor(account_id=user.id, display_name=user.username)
+    return Actor(account_id=user.id, display_name=user.agent.name, kind=OccupantKind.AGENT)
 
 
 def actor_of(request: Request) -> Actor:
@@ -705,63 +688,23 @@ async def command_answer(
     return answer_of(result.view)
 
 
-def _create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
+def _create_page_router(page_build: PageBuild) -> APIRouter:
     router = APIRouter()
 
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX,
-        response_model=TableAnswer,
-        responses=COMMAND_RESPONSES,
-        openapi_extra=excluded(Exclusion.SEATING),
+    # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
+    @router.api_route(
+        TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
     )
-    async def sit_down(
-        table_id: str, body: SitDownRequest, request: Request, response: Response
-    ) -> Response | TableAnswer:
-        command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
-        answer = await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
-        # A sit while a result is pending marks the sitter ready, which may complete the marks.
-        if isinstance(answer, TableAnswer) and answer.result is not None:
-            await presence.deal_now(table_id)
-        return answer
-
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX,
-        response_model=TableAnswer,
-        responses=COMMAND_RESPONSES,
-        openapi_extra=excluded(Exclusion.SEATING),
-    )
-    async def stand_up(
-        table_id: str, body: CommandRequest, request: Request, response: Response
-    ) -> Response | TableAnswer:
-        command = StandUp(command_id=body.command_id, table_id=table_id)
-        return await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
+    def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
+        response = built_page_response(page_build.shell)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     return router
 
 
 def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
     router = APIRouter()
-
-    @router.post(
-        TABLES_PATH,
-        responses={409: {"description": "The command id came back with another request."}},
-        openapi_extra=excluded(Exclusion.OPENING),
-    )
-    async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
-        # The answer names people, so no cache may keep it past the gate.
-        response.headers["Cache-Control"] = "no-store"
-        try:
-            options = table_options_of(body.options)
-            command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
-            view = await run_in_threadpool(tables.create, actor_of(request), command)
-        except CommandIdReusedError:
-            raise HTTPException(status_code=409, detail="command id reused with another request") from None
-        # Presence belongs to the event loop's thread, so the wait starts here and not on the worker.
-        if view.ended is None:
-            presence.watch_empty_table(view.id)
-        return answer_of(view)
-
-    router.include_router(_create_seating_router(tables, presence))
 
     @router.get(
         TABLES_PATH + "/{table_id}",
@@ -782,13 +725,6 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
             raise HTTPException(status_code=404, detail="table not found")
         return answer_of(view)
 
-    # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
-    @router.api_route(
-        TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
-    )
-    def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
-        response = built_page_response(page_build.shell)
-        response.headers["Cache-Control"] = "no-cache"
-        return response
+    router.include_router(_create_page_router(page_build))
 
     return router
