@@ -53,6 +53,8 @@ pytestmark = pytest.mark.e2e
 LOG_IN = "Log in"
 UNFINISHED_NOTICE = "Sign-in did not finish."
 SIGNING_IN = "Signing in"
+BLOCKED = "Window blocked"
+BLOCKED_SENTENCE = "Your browser blocked the sign-in window."
 OPEN_IN_TAB = "Open in a tab"
 NO_ACCESS = "No access"
 LOG_OUT = "Log out"
@@ -307,7 +309,7 @@ def test_a_blocked_window_leaves_a_plain_link_whose_tab_signs_in_and_brings_the_
     framed = frame_a_table(init_script=WINDOW_BLOCKED, **form_factor)
     sign_in_at_issuer(framed.visitor, signing_server, username="cora")
     framed.log_in.click()
-    expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
+    expect(framed.frame.get_by_role("heading", name=BLOCKED)).to_be_visible()
 
     with framed.visitor.expect_popup() as opened:
         framed.frame.get_by_role("link", name=OPEN_IN_TAB).click()
@@ -317,6 +319,21 @@ def test_a_blocked_window_leaves_a_plain_link_whose_tab_signs_in_and_brings_the_
 
     expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS, timeout=WAIT_MILLISECONDS)
     assert framed.frame_address == table_url(signing_server, framed.path)
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_blocked_window_shows_the_blocked_face_with_the_tab_link_and_focuses_its_heading(
+    frame_a_table: Callable[..., FramedTable], form_factor: dict[str, Any]
+) -> None:
+    framed = frame_a_table(init_script=WINDOW_BLOCKED, **form_factor)
+
+    framed.log_in.click()
+
+    heading = framed.frame.get_by_role("heading", name=BLOCKED)
+    expect(heading).to_be_focused()
+    expect(framed.frame.get_by_text(BLOCKED_SENTENCE)).to_be_visible()
+    expect(framed.frame.get_by_role("link", name=OPEN_IN_TAB)).to_have_attribute("href", framed.path)
+    expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_have_count(0)
 
 
 def test_a_return_address_that_is_no_table_leaves_the_plain_start_link_and_opens_no_window(
