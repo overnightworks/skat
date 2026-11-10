@@ -56,6 +56,7 @@ THROW_DOWN_CARDS_TOOL: Final = "throw_down_cards"
 AGREE_TO_GIVE_UP_TOOL: Final = "agree_to_give_up"
 DECLINE_GIVE_UP_TOOL: Final = "decline_give_up"
 CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
+START_NEW_SERIES_TOOL: Final = "start_new_series"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
@@ -71,7 +72,6 @@ class Exclusion(StrEnum):
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
     OPENING = "opening a table is not yet a tool"
     SEATING = "taking a chair is not yet a tool"
-    FINAL_DELETION = "consenting to a final deletion is not yet a tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
@@ -91,6 +91,7 @@ THROW_DOWN_CARDS_MARK: Final = agent_tool(name=THROW_DOWN_CARDS_TOOL, effect=Too
 AGREE_TO_GIVE_UP_MARK: Final = agent_tool(name=AGREE_TO_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLINE_GIVE_UP_MARK: Final = agent_tool(name=DECLINE_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+START_NEW_SERIES_MARK: Final = agent_tool(name=START_NEW_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)

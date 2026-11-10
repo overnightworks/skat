@@ -31,6 +31,7 @@ from skat.web.mcp import (
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
     SAY_KONTRA_TOOL,
+    START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
 )
@@ -93,6 +94,7 @@ class TestTools:
                 DECLINE_GIVE_UP_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
                 SAY_KONTRA_TOOL,
+                START_NEW_SERIES_TOOL,
             }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
