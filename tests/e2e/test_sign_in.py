@@ -98,7 +98,15 @@ def test_a_forged_or_expired_session_cookie_is_treated_as_no_session(
         member = seed_member(e2e_server.stores, e2e_server.config, expires_in=timedelta(seconds=-60))
         cookies = [playwright_cookie(header, e2e_server.config) for header in member.set_cookie_headers]
     else:
-        cookies = [{"name": SESSION_COOKIE, "value": "forged", "domain": LOOPBACK_HOST, "path": "/", "secure": True}]
+        cookies = [
+            {
+                "name": e2e_server.config.session_cookie_name,
+                "value": "forged",
+                "domain": LOOPBACK_HOST,
+                "path": "/",
+                "secure": True,
+            }
+        ]
     person.context.add_cookies(cookies)
 
     person.goto(f"{e2e_server.base_url}/")

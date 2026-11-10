@@ -99,7 +99,7 @@ class FramedTable:
         return any(cookie["name"] == self.session_cookie for cookie in self.visitor.context.cookies())
 
 
-def abort_module_file(route: Route) -> None:
+def abort_request(route: Route) -> None:
     route.abort()
 
 
@@ -155,14 +155,14 @@ def frame_a_table(
                 expected_request_failures.append(
                     f"{signing_server.base_url}{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/"
                 )
-                visitor.context.route(MODULE_FILES, abort_module_file)
+                visitor.context.route(MODULE_FILES, abort_request)
             visitor.goto(f"{CALL_ORIGIN}/")
             framed = FramedTable(
                 visitor,
                 path,
                 signing_server.config.session_cookie_name,
                 requests,
-                lambda: visitor.context.unroute(MODULE_FILES, abort_module_file),
+                lambda: visitor.context.unroute(MODULE_FILES, abort_request),
             )
             if username is not None:
                 expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS)
@@ -214,6 +214,39 @@ def test_a_window_closed_before_the_sign_in_finishes_leaves_the_sign_in_face_wit
 
     assert not second.is_closed()
     expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
+
+
+def test_a_window_on_the_issuers_origin_keeps_the_sign_in_face_until_it_is_closed(
+    frame_a_table: Callable[..., FramedTable],
+) -> None:
+    framed = frame_a_table(clock=True)
+    framed.visitor.context.route(
+        f"{TEST_ISSUER}/**", lambda route: route.fulfill(content_type="text/html", body="<p>issuer</p>")
+    )
+    window = start_sign_in(framed)
+    window.wait_for_url(re.compile(re.escape(TEST_ISSUER)))
+
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+
+    expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
+    assert not window.is_closed()
+    window.close()
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+    expect(framed.frame.get_by_text(UNFINISHED_NOTICE)).to_be_visible(timeout=WAIT_MILLISECONDS)
+
+
+def test_a_window_closed_while_the_account_check_fails_leaves_the_sign_in_face_with_its_notice(
+    frame_a_table: Callable[..., FramedTable], signing_server: RunningServer, expected_request_failures: list[str]
+) -> None:
+    framed = frame_a_table(clock=True, console=False)
+    expected_request_failures.append(f"{signing_server.base_url}{ACCOUNT_PATH}")
+    framed.visitor.context.route(f"**{ACCOUNT_PATH}", abort_request)
+    window = start_sign_in(framed)
+
+    window.close()
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+
+    expect(framed.frame.get_by_text(UNFINISHED_NOTICE)).to_be_visible(timeout=WAIT_MILLISECONDS)
 
 
 def test_a_sign_in_finished_in_another_window_brings_the_table_when_the_sign_in_window_is_closed(

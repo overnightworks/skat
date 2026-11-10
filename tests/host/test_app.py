@@ -237,7 +237,8 @@ class TestCreateApp:
         sign_in_through_issuer(browser, issuer)
         config = installed_web_auth_config(app)
         cookie = f"{config.session_cookie_name}={browser.cookies[config.session_cookie_name]}"
-        session_id = session_id_from_request(Request({"type": "http", "headers": [(b"cookie", cookie.encode())]}), config)
+        request = Request({"type": "http", "headers": [(b"cookie", cookie.encode())]})
+        session_id = session_id_from_request(request, config)
         assert session_id is not None
         session = stores.sessions.load(session_id)
         assert session is not None
