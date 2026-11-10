@@ -33,6 +33,7 @@ from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
+from skat.web.call import CALL_ORIGIN_PATH  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -107,6 +108,7 @@ def render() -> str:
         "CALL_MODE": CALL_MODE,
         "LOGOUT_PATH": LOGOUT_PATH,
         "ACCOUNT_PATH": ACCOUNT_PATH,
+        "CALL_ORIGIN_PATH": CALL_ORIGIN_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
         "TABLES_PATH": TABLES_PATH,
         "TABLE_PAGE_PREFIX": TABLE_PAGE_PREFIX,

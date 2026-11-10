@@ -25,6 +25,7 @@ from webauth.policies import (
 from skat.table.records import TableId
 from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
+from skat.web.call import create_call_router
 from skat.web.constants import (
     ANNOUNCER_STYLE_SOURCES,
     DEFAULT_RATE_LIMIT_BUDGET,
@@ -224,6 +225,7 @@ def create_app(
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
+    app.include_router(create_call_router(settings.call_origin))
     app.include_router(create_tables_router(tables, page_build, presence))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, tables, presence)
