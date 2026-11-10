@@ -1,0 +1,8 @@
+claim_id = "b0b1cc1ebc144ec4b7d419c53d18ee3e"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "ff629bc799dd89e5eb3e1fb66e5c6d8eea536770"
+branch = "claude/issue-284-paused-tables-api"
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/mcp.py", "src/skat/web/paused.py", "tests/table/test_paused.py", "tests/web/test_mcp.py", "tests/web/test_paused.py"]
+opened_commit = "c3d13eecfc37566ca519a7778ac4df9228ec8cde"
+whole_reason = "The view, the service read and the thin route are one path: none has a caller without the others."
