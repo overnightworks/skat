@@ -173,6 +173,26 @@ def test_the_new_table_sheet_dims_the_whole_page_over_the_closed_face(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_new_table_sheet_over_the_closed_face_lays_its_two_buttons_side_by_side(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    ended_table_path: str,
+    form_factor: dict[str, Any],
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    person.goto(f"{e2e_server.base_url}{ended_table_path}")
+
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+
+    confirm, cancel = person.evaluate(
+        "() => [...document.querySelectorAll('.sheet .btns button')].map(b => b.getBoundingClientRect().toJSON())"
+    )
+    assert confirm["right"] <= cancel["left"]
+    assert confirm["top"] == pytest.approx(cancel["top"])
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_link_whose_table_is_gone_shows_the_card_back_and_offers_a_new_table(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:

@@ -116,7 +116,7 @@
             <p role="alert">{words.newTableFailed}</p>
         {/if}
         <div class="btns">
-            <button type="button" class="open" disabled={opening} onclick={open}>
+            <button type="button" class="confirm" disabled={opening} onclick={open}>
                 <svg
                     viewBox="0 0 24 24"
                     fill="none"
