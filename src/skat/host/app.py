@@ -41,6 +41,7 @@ from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
 from skat.web.mcp import McpAccess, mount_mcp
+from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
     NEXT_DEAL_PAUSE_SECONDS,
@@ -133,8 +134,8 @@ def _chair_hold(
 
 def _agent_lease(tables: TableService) -> AgentLease:
     async def seated_tables(account_id: str) -> list[str]:
-        occupied = await run_in_threadpool(tables.occupied_chairs)
-        return [chair.table_id.value for chair in occupied if chair.account_id == account_id]
+        held = await run_in_threadpool(tables.tables_held_by, account_id)
+        return [table_id.value for table_id in held]
 
     return AgentLease(LEASE_SECONDS, seated_tables)
 
@@ -167,6 +168,7 @@ def _include_table_sub_routers(app: FastAPI, tables: TableService, presence: Pre
     app.include_router(create_kontra_router(tables, presence))
     app.include_router(create_ready_router(tables, presence))
     app.include_router(create_game_list_router(tables))
+    app.include_router(create_paused_router(tables))
 
 
 def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONResponse:
