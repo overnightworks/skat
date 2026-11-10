@@ -90,7 +90,8 @@ export type Chair = {
     is_mine: boolean;
     is_away: boolean;
     ready: boolean;
-    // The person's running total; null on a free chair and until the table's first result.
+    // The person's running total; null on a free chair and, in a table's first series, until its first result;
+    // a later series reads 0 from its first deal.
     total: number | null;
     hand: ChairHand | null;
 };

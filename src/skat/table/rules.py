@@ -170,13 +170,19 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
-    in its series; at a series' end this deal is the next series' first, so the list empties and the count starts
-    at one. A deal clears the end proposal and the early end. Every deal goes through here.
+    in its series; at a series' end this deal is the next series' first, so the list empties, the count starts at
+    one and the series' number rises. A deal clears the end proposal and the early end. Every deal goes through here.
     """
     starts_series = series_over(table)
     series = table.series
     if series is not None:
-        series = replace(series, deals=1 if starts_series else series.deals + 1, ended_early=False, end_proposal=None)
+        series = replace(
+            series,
+            deals=1 if starts_series else series.deals + 1,
+            ended_early=False,
+            end_proposal=None,
+            number=series.number + 1 if starts_series else series.number,
+        )
     return TableRecord(
         id=table.id,
         version=version,

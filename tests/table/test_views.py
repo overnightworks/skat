@@ -308,12 +308,36 @@ class TestChairTotals:
 
         assert [[chair.total for chair in view.chairs] for view in views] == [[0, 160, 0]] * 3
 
-    def test_no_chair_carries_a_total_while_the_tables_list_is_empty(self):
+    def test_no_chair_carries_a_total_while_a_table_without_a_series_has_an_empty_list(self):
         table = seated_table(1)
 
         view = view_of(table, ANNA, NOBODY_CONNECTED)
 
         assert [chair.total for chair in view.chairs] == [None, None, None]
+
+    def test_no_chair_carries_a_total_in_the_first_series_before_its_first_result(self):
+        table = replace(seated_table(1), series=Series(12, 1))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, DORA)]
+
+        assert [[chair.total for chair in view.chairs] for view in views] == [[None, None, None]] * 3
+
+    def test_every_occupied_chair_carries_zero_in_a_later_series_before_its_first_result(self):
+        table = replace(seated_table(1), series=Series(12, 1, number=2))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, DORA)]
+
+        assert [[chair.total for chair in view.chairs] for view in views] == [[0, 0, 0]] * 3
+
+    def test_a_free_chair_carries_none_in_a_later_series(self):
+        table = seated_table(1)
+        table = replace(
+            table, chairs=(table.chairs[0], table.chairs[1], Chair(3, None)), series=Series(12, 1, number=2)
+        )
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert [chair.total for chair in view.chairs] == [0, 0, None]
 
     def test_a_free_chair_carries_none_and_a_newcomer_starts_at_zero(self):
         table = seated_table(1)

@@ -155,9 +155,44 @@ class TestTheNextSeries:
         }
         assert (seen["result"], marks(table.read_as(table.watcher))) == (None, [False, False, False])
         assert seen["hand"] is not None
-        assert [chair["total"] for chair in seen["chairs"]] == [None] * 3
+        assert [chair["total"] for chair in seen["chairs"]] == [0, 0, 0]
         assert table.record.dealer == next_dealer(old_dealer)
         assert entries_of(skat, table) == []
+
+    def test_the_third_tap_shows_the_old_totals_and_every_viewer_reads_zero_after_the_deal(self, skat, ended):
+        table, _ = ended
+        old_totals = [chair["total"] for chair in table.read_as(table.watcher).json()["chairs"]]
+
+        answer = all_tap(skat, table)
+        assert [chair["total"] for chair in answer.json()["chairs"]] == old_totals
+        assert deal_the_next_series(skat, table)
+
+        for viewer in (*headers_of(table), table.watcher):
+            assert [chair["total"] for chair in table.read_as(viewer).json()["chairs"]] == [0, 0, 0]
+
+    def test_a_chair_stood_up_reads_none_and_the_others_zero_in_the_next_series(self, skat, ended):
+        table, _ = ended
+        all_tap(skat, table)
+        assert deal_the_next_series(skat, table)
+        first = headers_of(table)[0]
+        assert skat.stand(first, table.table_id, command_id="stand-anna").status_code == 200
+
+        totals = [chair["total"] for chair in table.read_as(table.watcher).json()["chairs"]]
+
+        assert sorted(totals, key=lambda total: total is None) == [0, 0, None]
+
+    def test_the_new_series_first_result_gives_each_chair_that_games_gain_only(self, skat, ended):
+        table, _ = ended
+        all_tap(skat, table)
+        assert deal_the_next_series(skat, table)
+        with_known_deal(skat, table.table_id)
+        table.declared_hand_game()
+        table.played_out(each.card for each in a_whole_game(table.record))
+
+        seen = table.read_as(table.watcher).json()
+
+        gains = {each["seat"]: each["gain"] for each in seen["result"]["gains"]}
+        assert [chair["total"] for chair in seen["chairs"]] == [gains[chair["seat"]] for chair in seen["chairs"]]
 
     def test_a_series_ended_by_a_passed_in_last_game_starts_the_next_the_same_way(self, skat):
         table, _ = play_a_series(skat, passed_in_hand=3)
