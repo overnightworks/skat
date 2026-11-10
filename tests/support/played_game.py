@@ -87,8 +87,14 @@ def an_entry(seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO) -> ListEntry:
     )
 
 
-def after_the_first_game(record: TableRecord, *ready_seats: int) -> TableRecord:
-    """The seated table as the thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
+def after_a_game(record: TableRecord, entry: ListEntry, *ready_seats: int) -> TableRecord:
+    """The seated table as a game's last card leaves it: `entry` seated at the table's chairs ends its list."""
     seat_accounts = tuple(chair.occupant.account_id for chair in record.chairs)
     chairs = tuple(replace(chair, ready=chair.seat in ready_seats) for chair in record.chairs)
-    return replace(record, chairs=chairs, hand=None, progress=HandProgress(), game_list=(an_entry(seat_accounts),))
+    listed = replace(entry, seat_accounts=seat_accounts)
+    return replace(record, chairs=chairs, hand=None, progress=HandProgress(), game_list=(*record.game_list, listed))
+
+
+def after_the_first_game(record: TableRecord, *ready_seats: int) -> TableRecord:
+    """The seated table as the thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
+    return after_a_game(replace(record, game_list=()), an_entry(), *ready_seats)

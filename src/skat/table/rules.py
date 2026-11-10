@@ -97,7 +97,7 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
     """The table with a chair's new occupant, the one way a chair changes hands.
 
     A freed chair is never ready, and whoever sits while a result is pending counts as ready, unless the series is
-    over: no deal follows, so no tap is consent to anything.
+    over: a mark at the end is consent to „Neue Serie“, which only a tap gives.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
@@ -138,8 +138,13 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
-    in its series; every deal goes through here.
+    in its series; at a series' end this deal is the next series' first, so the list empties and the count starts
+    at one. Every deal goes through here.
     """
+    starts_series = series_over(table)
+    series = table.series
+    if series is not None:
+        series = replace(series, deals=1 if starts_series else series.deals + 1)
     return TableRecord(
         id=table.id,
         version=version,
@@ -147,8 +152,8 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         dealer=new_hand.dealer,
         hand=new_hand.hand,
         progress=HandProgress(),
-        game_list=table.game_list,
-        series=None if table.series is None else replace(table.series, deals=table.series.deals + 1),
+        game_list=() if starts_series else table.game_list,
+        series=series,
         options=table.options,
     )
 
@@ -273,16 +278,15 @@ def resume_step(dealer: int | None, empty_since: datetime | None, now: datetime,
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
     """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected; while a
-    result is pending, all three chairs must be ready too; a series that ran its last game deals no more.
+    result is pending or at a series' end, all three chairs must be ready too.
     """
     occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
     return (
         not hand_runs(table)
-        and not series_over(table)
         and hand_was_dealt(table)
         and len(occupants) == CHAIRS_PER_TABLE
         and connected_accounts.issuperset(occupants)
-        and (not result_pending(table) or all(chair.ready for chair in table.chairs))
+        and (not (result_pending(table) or series_over(table)) or all(chair.ready for chair in table.chairs))
     )
 
 

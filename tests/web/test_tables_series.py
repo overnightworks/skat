@@ -1,17 +1,15 @@
-import random
-from contextlib import nullcontext
 from dataclasses import replace
 
 import pytest
 
-from skat.table.records import Refusal, Series, TableId
-from skat.table.service import TableService
+from skat.table.records import Refusal, Series
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table
+from tests.web.support.series import deal_next as deal_the_next
 from tests.web.support.series import headers_of, play_a_series, tap_weiter
 from tests.web.support.skat import FETCH
 
@@ -49,9 +47,7 @@ def pass_the_hand_in(skat, table_id, people):
 
 
 def deal_next(skat, table_id, people):
-    connected = frozenset(account.id for _, account in people)
-    service = TableService(skat.store, random_source=random.Random(3))  # noqa: S311 - a seeded source makes the deal reproducible
-    return service.deal_next(TableId(table_id), nullcontext(connected))
+    return deal_the_next(skat, table_id, [account.id for _, account in people])
 
 
 def play_through(skat, table_id, people, games):
@@ -323,7 +319,7 @@ class TestTheEnd:
         assert record.hand is None
         accounts = frozenset(chair.occupant.account_id for chair in record.chairs)
         assert newcomer.id in accounts
-        assert not TableService(skat.store).deal_next(TableId(table.table_id), nullcontext(accounts))
+        assert not deal_the_next(skat, table.table_id, accounts)
 
     def test_a_sitter_after_a_passed_in_last_game_is_not_marked_ready_and_nothing_deals(self, skat):
         table_id, people = open_series(skat, 3)

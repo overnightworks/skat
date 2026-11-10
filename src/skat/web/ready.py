@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Annotated, Final
 from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
-from skat.table.ready import ReadyCommand
-from skat.web.mcp import CONTINUE_AFTER_RESULT_MARK
+from skat.table.ready import NewSeriesCommand, ReadyCommand
+from skat.web.mcp import CONTINUE_AFTER_RESULT_MARK, Exclusion, excluded
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 # „Weiter“ after a result: `TABLES_PATH/{table_id}` plus this.
 TABLE_READY_SUFFIX: Final = "/ready"
+# „Neue Serie“ after a series' end: `TABLES_PATH/{table_id}` plus this.
+TABLE_NEW_SERIES_SUFFIX: Final = "/new-series"
 
 
 class ReadyRequest(CommandRequest):
@@ -56,6 +58,31 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal)
         answer = await command_answer(
             partial(tables.mark_ready, actor_of(request), command), presence, table_id, response
+        )
+        # A replay asks again, so a deal lost after the first commit follows the retry.
+        if isinstance(answer, TableAnswer):
+            await presence.deal_now(table_id)
+        return answer
+
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_NEW_SERIES_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=excluded(Exclusion.FINAL_DELETION),
+    )
+    async def start_new_series(
+        table_id: str, body: CommandRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Say „Neue Serie“ after a Skat table's series has ended: the caller's chair is ready for the next series.
+
+        Once all three seated members have tapped and are connected, the series' list is deleted, the count starts
+        again and the next series' first hand is dealt. A refusal (not seated, no series, the series is not over)
+        comes back with its reason and spends the command id. The answer to the third tap still shows the series'
+        end; the next series' first hand appears in the next read.
+        """
+        command = NewSeriesCommand(command_id=body.command_id, table_id=table_id)
+        answer = await command_answer(
+            partial(tables.start_new_series, actor_of(request), command), presence, table_id, response
         )
         # A replay asks again, so a deal lost after the first commit follows the retry.
         if isinstance(answer, TableAnswer):

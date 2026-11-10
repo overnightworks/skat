@@ -3,6 +3,7 @@ import {
     type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
     type ANNOUNCEMENT_TOKENS,
+    type LEVEL_TOKENS,
     type GAME_TOKENS,
     type AWAITING_TOKENS,
     type POSITION_TOKENS,
@@ -41,6 +42,7 @@ export type Rank = (typeof RANK_TOKENS)[number];
 export type Position = (typeof POSITION_TOKENS)[number];
 export type Game = (typeof GAME_TOKENS)[number];
 export type Announcement = (typeof ANNOUNCEMENT_TOKENS)[number];
+export type Level = (typeof LEVEL_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
@@ -91,7 +93,7 @@ export type Chair = {
     total: number | null;
     hand: ChairHand | null;
 };
-export type SeatGain = { seat: number; gain: number };
+export type SeatGain = { seat: number; gain: number; won: boolean };
 // The finished game as the server counted it; the page draws these numbers and decides no rule.
 export type Result = {
     ordinal: number;
@@ -99,10 +101,20 @@ export type Result = {
     game: Game;
     hand: boolean;
     ouvert: boolean;
+    announcement: Announcement;
+    // Null has no matadors, base value or multiplier.
+    matadors: { mit: boolean; count: number } | null;
+    base_value: number | null;
+    levels: Level[];
+    multiplier: number | null;
+    list_bonus: number;
+    announcement_missed: boolean;
     won: boolean;
+    doubled: boolean;
     overbid: boolean;
     bid: number;
     game_value: number;
+    settled_value: number;
     score: number;
     declarer_points: number;
     opponents_points: number;
@@ -374,28 +386,32 @@ export function gameWord(game: Game): string {
     return GAME_WORDS[game];
 }
 
-// The one name of a declared game, with its levels: „Grand Hand“. A suit or Grand ouvert game includes Hand, so it
-// names the game alone; Null ouvert is a game of its own, and with Hand it reads „Null ouvert Hand“.
-export function gameLabel({ game, hand, ouvert }: { game: Game; hand: boolean; ouvert: boolean }): string {
-    if (ouvert) {
-        const handSuffix = game === "null" && hand ? ` ${words.hand}` : "";
-        return `${gameWord(game)} ${words.ouvert}${handSuffix}`;
-    }
-    return hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
+// The announcement's own words; no announcement has none.
+export function announcedWord(announcement: Announcement): string | null {
+    if (announcement === "schneider") return words.announcedSchneider;
+    return announcement === "schwarz" ? words.announcedSchwarz : null;
 }
 
-// The announcement's own words, apart from the game's label; no announcement has none, and an ouvert game's label
-// already says the Schwarz it counts as.
-export function announcementLabel({
+// The one name of a declared game, with its levels: „Grand Hand“. A suit or Grand ouvert game includes Hand, so it
+// names the game alone; Null ouvert is a game of its own, and with Hand it reads „Null ouvert Hand“. The announcement
+// stands apart from the name as its own words; an ouvert game's name already says the Schwarz it counts as, so it has none.
+export function gameLabel({
+    game,
+    hand,
     ouvert,
     announcement,
 }: {
+    game: Game;
+    hand: boolean;
     ouvert: boolean;
     announcement: Announcement;
-}): string | null {
-    if (ouvert) return null;
-    if (announcement === "schneider") return words.announcedSchneider;
-    return announcement === "schwarz" ? words.announcedSchwarz : null;
+}): { name: string; announcement: string | null } {
+    if (ouvert) {
+        const handSuffix = game === "null" && hand ? ` ${words.hand}` : "";
+        return { name: `${gameWord(game)} ${words.ouvert}${handSuffix}`, announcement: null };
+    }
+    const name = hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
+    return { name, announcement: announcedWord(announcement) };
 }
 
 const RANK_WORDS: Record<Rank, string> = {

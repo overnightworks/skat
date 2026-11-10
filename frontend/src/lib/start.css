@@ -1336,7 +1336,7 @@ body {
     max-width: 100%;
 }
 
-.room .ladder span,
+.room .ladder > span,
 .room .higher button {
     flex: none;
     box-sizing: border-box;
@@ -1353,20 +1353,20 @@ body {
     color: rgba(244, 246, 248, 0.45);
 }
 
-.room .ladder span.held {
+.room .ladder > span.held {
     background: rgba(0, 0, 0, 0.35);
     color: var(--on-stage);
     display: inline-flex;
     gap: 3px;
 }
 
-.room .ladder span.held svg {
+.room .ladder > span.held svg {
     width: 13px;
     height: 13px;
     color: var(--ok-stage);
 }
 
-.room .ladder span.now {
+.room .ladder > span.now {
     min-width: 62px;
     height: 48px;
     font-size: 26px;
@@ -2760,6 +2760,103 @@ body {
     font-size: 14px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+}
+
+/* The reckoning: the counted steps, their product, the raise of an overbid game, the doubling of a lost one, the list. */
+.room .result .ladder {
+    flex-wrap: wrap;
+}
+
+.room .result .ladder > span {
+    height: 28px;
+    padding: 0 11px;
+    font-size: 13.5px;
+}
+
+.room .result .ladder > span.held svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.room .result .ladder > span.mit {
+    color: #f3cf7a;
+}
+
+.room .result .eq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .eq i {
+    color: var(--on-stage-soft);
+    font-style: normal;
+}
+
+.room .result .eq b {
+    color: var(--cream);
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 24px;
+}
+
+.room .result .value-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.room .result .x2 {
+    display: grid;
+    place-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border: 1.5px solid var(--cream);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    rotate: -4deg;
+}
+
+.room .result .list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px 8px;
+    color: var(--on-stage-soft);
+    font-size: 13.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .result .list b {
+    color: var(--on-stage);
+}
+
+@media (max-width: 899px) {
+    .room .result .ladder {
+        gap: 5px;
+    }
+
+    .room .result .ladder > span {
+        padding: 0 7px;
+    }
+
+    .room .result .value {
+        font-size: 38px;
+    }
+
+    .room .result.snug {
+        gap: 4px;
+        padding: 12px 14px;
+    }
 }
 
 .room .result .points {

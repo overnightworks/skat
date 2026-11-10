@@ -150,6 +150,11 @@ def _table_record(
     )
 
 
+def _starts_series(table: TableRecord) -> bool:
+    """The record holds a hand that is its series' first deal, which empties the list."""
+    return table.series is not None and table.series.deals == 1 and table.hand is not None
+
+
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
     for rows in (hand_cards, auction_actions, declaring_steps, played_cards, kontra_words):
@@ -214,6 +219,19 @@ class _PostgresTableTransaction:
             )
         )
 
+    def _write_chairs(self, table: TableRecord) -> None:
+        for chair in table.chairs:
+            occupant = chair.occupant
+            self._connection.execute(
+                update(chairs)
+                .where(chairs.c.table_id == table.id.value, chairs.c.seat == chair.seat)
+                .values(
+                    account_id=None if occupant is None else occupant.account_id,
+                    display_name=None if occupant is None else occupant.display_name,
+                    ready=chair.ready,
+                )
+            )
+
     def save_table(self, table: TableRecord) -> None:
         dealt = _read_hand(self._connection, table.id.value)
         ended = dealt is not None and table.hand is None
@@ -223,6 +241,8 @@ class _PostgresTableTransaction:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._write_table_row(table)
+        if dealt is None and _starts_series(table):
+            self._connection.execute(delete(game_list).where(game_list.c.table_id == table.id.value))
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if played_out:
@@ -235,16 +255,7 @@ class _PostgresTableTransaction:
         append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
         append_plays(self._connection, table.id.value, table.progress.plays)
         append_words(self._connection, table.id.value, table.progress.words)
-        for chair in table.chairs:
-            self._connection.execute(
-                update(chairs)
-                .where(chairs.c.table_id == table.id.value, chairs.c.seat == chair.seat)
-                .values(
-                    account_id=None if chair.occupant is None else chair.occupant.account_id,
-                    display_name=None if chair.occupant is None else chair.occupant.display_name,
-                    ready=chair.ready,
-                )
-            )
+        self._write_chairs(table)
 
     def add_table(self, table: TableRecord) -> None:
         self._connection.execute(
