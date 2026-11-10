@@ -1,10 +1,13 @@
 import time
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import structlog
 from agents.member import LEASE_SECONDS
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config
 from webauth.middleware import install_web_auth_middleware
@@ -52,6 +55,7 @@ from skat.web.presence import (
 )
 from skat.web.ready import create_ready_router
 from skat.web.routes import create_router
+from skat.web.rule_sets import create_rule_sets_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
@@ -67,6 +71,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
     from contextlib import AbstractContextManager
 
+    from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
@@ -166,11 +171,19 @@ def _include_table_sub_routers(app: FastAPI, tables: TableService, presence: Pre
     app.include_router(create_paused_router(tables))
 
 
+def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONResponse:
+    # The refused input stays out of the answer: text with a lone surrogate cannot be encoded as UTF-8.
+    problems = cast("RequestValidationError", refusal).errors()
+    kept = [{key: value for key, value in problem.items() if key != "input"} for problem in problems]
+    return JSONResponse({"detail": jsonable_encoder(kept)}, status_code=422)
+
+
 def create_app(
     settings: ServerSettings,
     *,
     page_build: PageBuild,
     tables: TableService,
+    rule_sets: RuleSetService,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
     stores: SignInStores | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
@@ -208,9 +221,11 @@ def create_app(
             await presence.finish_writes()
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=hold_chairs_while_serving)
+    app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_tables_router(tables, page_build, presence))
+    app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
     app.state.stop_streams = presence.stop

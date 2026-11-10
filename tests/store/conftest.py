@@ -16,6 +16,13 @@ def engine(database_url):
 
 
 @pytest.fixture
+def unmigrated_engine(unmigrated_database_url):
+    engine = create_store_engine(unmigrated_database_url)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
 def transactions(engine):
     return PostgresTableTransactions(engine)
 

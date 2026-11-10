@@ -17,7 +17,9 @@ from webauth.config import installed_web_auth_config
 from skat.host.app import create_app
 from skat.host.main import streams_ending_server, uvicorn_options
 from skat.store.migrate import create_store_engine
+from skat.store.rule_sets import PostgresRuleSets
 from skat.store.tables import PostgresTableTransactions
+from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.stores import SignInStores
@@ -129,6 +131,7 @@ class RunningServer:
             self._loopback.sign_in.settings,
             page_build=PageBuild.load(self._page_build_directory),
             tables=TableService(PostgresTableTransactions(self.engine), random_source=self._random_source),
+            rule_sets=RuleSetService(PostgresRuleSets(self.engine)),
             stores=self.stores,
             issuer_transports=self.issuer.transports,
         )

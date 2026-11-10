@@ -29,8 +29,10 @@ from skat.web.mcp import (
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
     READ_PAUSED_TABLES_TOOL,
+    READ_RULE_SETS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    SAVE_RULE_SET_TOOL,
     SAY_KONTRA_TOOL,
     START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
@@ -79,7 +81,7 @@ def agent_account_id(skat):
 
 
 class TestTools:
-    def test_an_agent_is_offered_the_table_tools_and_only_the_three_reads_are_read_only(self, agent):
+    def test_an_agent_is_offered_the_table_tools_and_only_the_four_reads_are_read_only(self, agent):
         answer = agent.request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
@@ -96,12 +98,14 @@ class TestTools:
                 DECLINE_GIVE_UP_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
                 SAY_KONTRA_TOOL,
+                READ_RULE_SETS_TOOL,
+                SAVE_RULE_SET_TOOL,
                 START_NEW_SERIES_TOOL,
             }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
         )
-        reads = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL}
+        reads = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
         assert all(tools[name]["annotations"]["readOnlyHint"] is True for name in reads)
         for name in set(tools) - reads:
             assert "readOnlyHint" not in tools[name].get("annotations", {})

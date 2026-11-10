@@ -27,8 +27,8 @@ _TABLE_ID = re.compile(TABLE_ID_PATTERN)
 
 
 @dataclass(frozen=True)
-class TableId:
-    """An opaque 128-bit id, written as 32 lower-case hex digits."""
+class OpaqueId:
+    """An opaque 128-bit id, written as 32 lower-case hex digits; ids of two kinds are never equal."""
 
     value: str
 
@@ -39,6 +39,14 @@ class TableId:
     @classmethod
     def parse(cls, text: str) -> Self | None:
         return cls(text) if _TABLE_ID.fullmatch(text) else None
+
+
+class TableId(OpaqueId):
+    """The id of a table."""
+
+
+class RuleSetId(OpaqueId):
+    """The id of a saved rule set."""
 
 
 @dataclass(frozen=True)
