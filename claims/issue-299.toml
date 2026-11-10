@@ -1,0 +1,7 @@
+claim_id = "b473cf1a52e148ffbd20d83e7319516e"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "fb37062ad9394f98f3efbe824848fdcfafc007a7"
+branch = "claude/issue-299-sonar-s930"
+scope = ["src/skat/web/settings.py"]
+opened_commit = "27e025819dbdeca1220921737e251928dff08e86"
