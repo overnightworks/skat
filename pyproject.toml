@@ -8,7 +8,7 @@ dependencies = [
     "alembic>=1.16",
     "fastapi>=0.123.7",
     "overnightworks-agent-runtime-client[mcp-server] @ git+https://github.com/overnightworks/agent-runtime@v0.27.1",
-    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.34.0",
+    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.34.1",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
