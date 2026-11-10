@@ -109,6 +109,27 @@ class TestTheDeclarerThrowsDown:
         assert (result["won"], result["declarer_points"]) == (False, SKAT_POINTS)
 
 
+class TestANull:
+    @pytest.mark.parametrize(
+        ("position", "won", "score"),
+        [
+            pytest.param(MIDDLEHAND, False, -70, id="the-declarer-throws-down-and-loses"),
+            pytest.param(FOREHAND, True, 35, id="an-opponent-throws-down-and-the-declarer-wins"),
+        ],
+    )
+    def test_a_null_is_settled_at_its_fixed_value_without_matadors(self, table, position, won, score):
+        table.declared_hand_game(GameToken.NULL)
+
+        result = result_of(table, position)
+
+        assert shown(result, "won", "matadors", "game_value", "score") == {
+            "won": won,
+            "matadors": None,
+            "game_value": 35,
+            "score": score,
+        }
+
+
 class TestAnOpponentThrowsDown:
     def test_before_the_first_card_the_declarer_wins_the_whole_deal_with_every_level(self, herz_hand):
         result = result_of(herz_hand, FOREHAND)
@@ -158,23 +179,6 @@ class TestAnOpponentThrowsDown:
         result = result_of(table, position)
 
         assert (result["won"], result["declarer_points"], result["opponents_points"]) == (True, ALL_POINTS, 0)
-
-    @pytest.mark.parametrize(
-        ("position", "won", "score"),
-        [(MIDDLEHAND, False, -70), (FOREHAND, True, 35)],
-        ids=["declarer-loses", "opponent-wins"],
-    )
-    def test_a_null_is_settled_at_its_fixed_value_without_matadors(self, table, position, won, score):
-        table.declared_hand_game(GameToken.NULL)
-
-        result = result_of(table, position)
-
-        assert shown(result, "won", "matadors", "game_value", "score") == {
-            "won": won,
-            "matadors": None,
-            "game_value": 35,
-            "score": score,
-        }
 
     def test_the_skat_never_changes_the_answer(self, skat):
         swapped = sorted((each for each in FOREHAND_CARDS if each.rank is not Rank.JACK), key=lambda each: -each.points)
