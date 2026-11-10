@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
-from agent_runtime_client.mcp_server import McpPersonFront, route_tools
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
-from agent_runtime_client.tools import Principal, ToolEffect, agent_tool, not_an_agent_tool
+from agents.mcp_server import McpPersonFront, route_tools
+from agents.mcp_wire import MCP_ENDPOINT_PATH
+from agents.tools import Principal, ToolEffect, agent_tool, not_an_agent_tool
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
 from webauth.middleware.bearer_gate import (
@@ -45,6 +45,7 @@ MCP_CLIENT_ID: Final = "agents"
 
 READ_TABLE_TOOL: Final = "read_table"
 READ_SERIES_LIST_TOOL: Final = "read_series_list"
+READ_PAUSED_TABLES_TOOL: Final = "read_paused_tables"
 PLAY_CARD_TOOL: Final = "play_card"
 # The `auction_` prefix keeps the forehand's "Spielen" apart from `play_card`.
 AUCTION_BID_TOOL: Final = "auction_bid"
@@ -61,6 +62,8 @@ TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
 SAY_KONTRA_TOOL: Final = "say_kontra"
+READ_RULE_SETS_TOOL: Final = "read_rule_sets"
+SAVE_RULE_SET_TOOL: Final = "save_rule_set"
 
 
 class Exclusion(StrEnum):
@@ -72,6 +75,7 @@ class Exclusion(StrEnum):
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
     OPENING = "opening a table is not yet a tool"
     SEATING = "taking a chair is not yet a tool"
+    FINAL_DELETION = "a final deletion is not yet a tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
@@ -81,6 +85,7 @@ def excluded(reason: Exclusion) -> dict[str, object]:
 
 READ_TABLE_MARK: Final = agent_tool(name=READ_TABLE_TOOL, effect=ToolEffect.READ_ONLY)
 READ_SERIES_LIST_MARK: Final = agent_tool(name=READ_SERIES_LIST_TOOL, effect=ToolEffect.READ_ONLY)
+READ_PAUSED_TABLES_MARK: Final = agent_tool(name=READ_PAUSED_TABLES_TOOL, effect=ToolEffect.READ_ONLY)
 PLAY_CARD_MARK: Final = agent_tool(name=PLAY_CARD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_BID_MARK: Final = agent_tool(name=AUCTION_BID_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AUCTION_HOLD_MARK: Final = agent_tool(name=AUCTION_HOLD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
@@ -96,6 +101,8 @@ TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_E
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+READ_RULE_SETS_MARK: Final = agent_tool(name=READ_RULE_SETS_TOOL, effect=ToolEffect.READ_ONLY)
+SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
 class _LeaseRenewingFront:

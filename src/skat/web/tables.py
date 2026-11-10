@@ -609,9 +609,7 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
     )
 
 
-def options_answer_of(options: TableOptions | None) -> OptionsAnswer | None:
-    if options is None:
-        return None
+def options_answer_of(options: TableOptions) -> OptionsAnswer:
     kontra, bock = options.kontra, options.bock
     return OptionsAnswer(
         show_running_points=options.show_running_points,
@@ -643,7 +641,7 @@ def answer_of(view: TableView) -> TableAnswer:
         passed_in=passed_in_answer_of(view.passed_in),
         result=result_answer_of(view.result),
         series=series_answer_of(view.series),
-        options=options_answer_of(view.options),
+        options=None if view.options is None else options_answer_of(view.options),
         bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
         ended=None
         if view.ended is None
@@ -651,7 +649,7 @@ def answer_of(view: TableView) -> TableAnswer:
     )
 
 
-def _options_of(requested: OptionsRequest | None) -> TableOptions:
+def table_options_of(requested: OptionsRequest | None) -> TableOptions:
     if requested is None:
         return TableOptions()
     kontra, bock = requested.kontra, requested.bock
@@ -753,7 +751,7 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            options = _options_of(body.options)
+            options = table_options_of(body.options)
             command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
             view = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:

@@ -94,4 +94,9 @@ export const words = {
     readyMark: "Weiter getippt",
     notReadyMark: "noch nicht getippt",
     and: "und",
+    nobodyThereClosed: "niemand da: Tisch geschlossen",
+    minute: "Minute",
+    minutes: "Minuten",
+    second: "Sekunde",
+    seconds: "Sekunden",
 } as const;

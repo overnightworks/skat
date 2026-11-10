@@ -4,30 +4,23 @@ from alembic.migration import MigrationContext
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import create_store_engine, migrate
+from skat.store.migrate import migrate
 from skat.store.tables import metadata
 from tests.support.migrations import list_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
 
-@pytest.fixture
-def engine(unmigrated_database_url):
-    engine = create_store_engine(unmigrated_database_url)
-    yield engine
-    engine.dispose()
-
-
-class TestFromALiveTableAndAGameAtRevisionFourteen:
+class TestFromALiveTableAndAGameAtRevisionSixteen:
     @pytest.fixture
-    def migrated(self, engine):
-        """A database at 0014 holding a table in play and a game list row, then taken to head."""
-        upgrade_to(engine, "0014")
-        with engine.begin() as connection:
+    def migrated(self, unmigrated_engine):
+        """A database at 0016 holding a table in play and a game list row, then taken to head."""
+        upgrade_to(unmigrated_engine, "0016")
+        with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
             connection.execute(text(list_row()))
-        migrate(engine)
-        return engine
+        migrate(unmigrated_engine)
+        return unmigrated_engine
 
     def test_the_table_plays_without_bock_and_holds_no_pending_game_and_the_old_row_has_factor_1(self, migrated):
         with migrated.connect() as connection:
@@ -35,6 +28,43 @@ class TestFromALiveTableAndAGameAtRevisionFourteen:
             factor = connection.execute(text("SELECT bock_factor FROM game_list")).scalar_one()
 
         assert (tuple(options), factor) == ((None, None, []), 1)
+
+    def test_a_rule_set_holds_the_official_rules_without_bock_and_accepts_a_bock_option(self, migrated):
+        run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
+        run_in_transaction(
+            migrated,
+            text(
+                "UPDATE rule_sets SET bock_triggers = ARRAY['re', 'passed-in'], bock_overlap = 'ignore' WHERE id = '1'"
+            ),
+        )
+
+        with migrated.connect() as connection:
+            stored = connection.execute(text("SELECT bock_triggers, bock_overlap FROM rule_sets")).one()
+
+        assert tuple(stored) == (["re", "passed-in"], "ignore")
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("UPDATE rule_sets SET bock_triggers = ARRAY['re']", id="triggers-without-an-overlap"),
+            pytest.param("UPDATE rule_sets SET bock_overlap = 'append'", id="an-overlap-without-triggers"),
+            pytest.param(
+                "UPDATE rule_sets SET bock_triggers = ARRAY[]::text[], bock_overlap = 'append'", id="no-trigger-at-all"
+            ),
+            pytest.param(
+                "UPDATE rule_sets SET bock_triggers = ARRAY['double'], bock_overlap = 'append'", id="unknown-trigger"
+            ),
+            pytest.param(
+                "UPDATE rule_sets SET bock_triggers = ARRAY['re'], bock_overlap = 'twice'", id="unknown-overlap"
+            ),
+        ],
+    )
+    def test_the_checks_refuse_what_is_no_bock_option_in_a_rule_set(self, migrated, statement):
+        run_in_transaction(migrated, text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
+        refused = text(statement)
+
+        with pytest.raises(IntegrityError):
+            run_in_transaction(migrated, refused)
 
     def test_the_migrated_schema_is_the_one_the_store_writes_to(self, migrated):
         with migrated.connect() as connection:
