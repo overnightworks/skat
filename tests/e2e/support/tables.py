@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 from playwright.sync_api import expect
 
+from skat.table.records import TABLE_ID_PATTERN
 from skat.web.tables import TABLE_PAGE_PREFIX
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
 from tests.e2e.support.words import catalog_text
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 
 OPEN_TABLE = catalog_text("openTable")
 SIT_DOWN = catalog_text("sitDown")
-TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}[0-9a-f]{{32}}$")
+TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}{TABLE_ID_PATTERN}$")
 
 
 def click_new_table(person: Page) -> str:
