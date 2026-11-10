@@ -19,6 +19,7 @@ from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
+from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer
 from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, EndReason
 
 if TYPE_CHECKING:
@@ -52,6 +53,9 @@ tables = Table(
     Column("show_running_points", Boolean, nullable=False, server_default=false()),
     Column("give_up_asked_by", Text),
     Column("give_up_declined_by", Text),
+    Column("kontra_sayer", Text),
+    Column("kontra_reach", Text),
+    Column("kontra_deadline", Text),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -73,6 +77,12 @@ tables = Table(
         "give_up_declined_by IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_no_comes_with_an_ask"
     ),
     CheckConstraint("give_up_declined_by <> give_up_asked_by", name="tables_give_up_no_comes_from_another_position"),
+    CheckConstraint(
+        "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)", name="tables_kontra_is_all_or_nothing"
+    ),
+    one_of("kontra_sayer", (sayer.value for sayer in KontraSayer), "tables_kontra_sayer_is_a_sayer"),
+    one_of("kontra_reach", (reach.value for reach in KontraReach), "tables_kontra_reach_is_a_reach"),
+    one_of("kontra_deadline", (deadline.value for deadline in KontraDeadline), "tables_kontra_deadline_is_a_deadline"),
 )
 
 chairs = Table(

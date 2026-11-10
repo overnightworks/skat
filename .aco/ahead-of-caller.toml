@@ -6,7 +6,7 @@ reason = "S5.4b lets an opponent give up, lets the declarer shorten and lets an 
 [[code]]
 path = "src/skat/engine/kontra.py"
 item = "overnightworks/skat#39"
-reason = "S13.3b wires Kontra and Re to the table's switch through the API."
+reason = "S13.3b2 wires the first-card deadline: `decline`, `awaits_words` and `words-due`."
 
 [[code]]
 path = "src/skat/engine/bock.py"

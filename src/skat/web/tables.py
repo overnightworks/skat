@@ -1,6 +1,6 @@
 from enum import StrEnum
 from functools import partial
-from typing import TYPE_CHECKING, Annotated, Final
+from typing import TYPE_CHECKING, Annotated, Final, Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -13,6 +13,7 @@ from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement, Stage
 from skat.engine.games import GameKind
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import (
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
     from skat.table.game_list import ResultView, Standing
+    from skat.table.kontra import KontraView
     from skat.table.playing import PlayingView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, SeriesView, TableView
@@ -65,12 +67,25 @@ class CommandRequest(BaseModel):
     command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
 
 
+class KontraOptionsRequest(BaseModel):
+    """The opener names all three Kontra choices or none: the program defaults none of them. The table accepts the
+    deadline of the player's own next card only.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sayer: KontraSayer
+    reach: KontraReach
+    deadline: Literal[KontraDeadline.OWN_CARD]
+
+
 class OptionsRequest(BaseModel):
     """The rule options an opener sets; every later option joins this record."""
 
     model_config = ConfigDict(extra="forbid")
 
     show_running_points: Annotated[bool, Field(strict=True)] = TableOptions().show_running_points
+    kontra: KontraOptionsRequest | None = None
 
 
 class CreateTableRequest(CommandRequest):
@@ -261,6 +276,17 @@ class GiveUpAnswer(BaseModel):
     declined_seat: int | None
 
 
+class SaidWordAnswer(BaseModel):
+    seat: int
+    word: Word
+
+
+class KontraAnswer(BaseModel):
+    said: list[SaidWordAnswer]
+    factor: int
+    my_word: Word | None
+
+
 class PlayingAnswer(BaseModel):
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
@@ -268,6 +294,7 @@ class PlayingAnswer(BaseModel):
     legal_cards: list[CardAnswer]
     running_points: SidesAnswer | None
     give_up: GiveUpAnswer | None
+    kontra: KontraAnswer | None
 
 
 class HandAnswer(BaseModel):
@@ -304,6 +331,11 @@ class SeatGainAnswer(BaseModel):
     won: bool
 
 
+class KontraResultAnswer(BaseModel):
+    word: Word
+    factor: int
+
+
 class ResultAnswer(BaseModel):
     ordinal: int
     declarer_seat: int
@@ -329,6 +361,7 @@ class ResultAnswer(BaseModel):
     declarer_points: int
     opponents_points: int
     gains: list[SeatGainAnswer]
+    kontra: KontraResultAnswer | None
 
 
 class EndedAnswer(BaseModel):
@@ -351,8 +384,15 @@ class SeriesAnswer(BaseModel):
     standings: list[StandingAnswer] | None
 
 
+class KontraOptionsAnswer(BaseModel):
+    sayer: KontraSayer
+    reach: KontraReach
+    deadline: KontraDeadline
+
+
 class OptionsAnswer(BaseModel):
     show_running_points: bool
+    kontra: KontraOptionsAnswer | None
 
 
 class TableAnswer(BaseModel):
@@ -424,6 +464,16 @@ def declaring_answer_of(declaring: DeclaringView | None) -> DeclaringAnswer | No
     )
 
 
+def kontra_answer_of(kontra: KontraView | None) -> KontraAnswer | None:
+    if kontra is None:
+        return None
+    return KontraAnswer(
+        said=[SaidWordAnswer(seat=each.seat, word=each.word) for each in kontra.said],
+        factor=kontra.factor,
+        my_word=kontra.my_word,
+    )
+
+
 def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
     if playing is None:
         return None
@@ -447,6 +497,7 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
         give_up=None
         if playing.give_up is None
         else GiveUpAnswer(asking_seat=playing.give_up.asking_seat, declined_seat=playing.give_up.declined_seat),
+        kontra=kontra_answer_of(playing.kontra),
     )
 
 
@@ -519,6 +570,21 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
         declarer_points=result.declarer_points,
         opponents_points=result.opponents_points,
         gains=[SeatGainAnswer(seat=gain.seat, gain=gain.gain, won=gain.won) for gain in result.gains],
+        kontra=None
+        if result.kontra is None
+        else KontraResultAnswer(word=result.kontra.word, factor=result.kontra.factor),
+    )
+
+
+def options_answer_of(options: TableOptions | None) -> OptionsAnswer | None:
+    if options is None:
+        return None
+    kontra = options.kontra
+    return OptionsAnswer(
+        show_running_points=options.show_running_points,
+        kontra=None
+        if kontra is None
+        else KontraOptionsAnswer(sayer=kontra.sayer, reach=kontra.reach, deadline=kontra.deadline),
     )
 
 
@@ -543,10 +609,20 @@ def answer_of(view: TableView) -> TableAnswer:
         passed_in=passed_in_answer_of(view.passed_in),
         result=result_answer_of(view.result),
         series=series_answer_of(view.series),
-        options=None if view.options is None else OptionsAnswer(show_running_points=view.options.show_running_points),
+        options=options_answer_of(view.options),
         ended=None
         if view.ended is None
         else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
+    )
+
+
+def _options_of(requested: OptionsRequest | None) -> TableOptions:
+    if requested is None:
+        return TableOptions()
+    kontra = requested.kontra
+    return TableOptions(
+        show_running_points=requested.show_running_points,
+        kontra=None if kontra is None else KontraOptions(kontra.sayer, kontra.reach, kontra.deadline),
     )
 
 
@@ -641,11 +717,7 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            options = (
-                TableOptions(show_running_points=body.options.show_running_points)
-                if body.options is not None
-                else TableOptions()
-            )
+            options = _options_of(body.options)
             command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
             view = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:
