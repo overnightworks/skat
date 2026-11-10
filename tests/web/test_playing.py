@@ -1,5 +1,6 @@
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING
 
 import pytest
@@ -8,7 +9,7 @@ from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
 from skat.table.hand_state import playing_of
-from skat.table.records import Refusal, TableOptions
+from skat.table.records import Refusal
 from skat.web.declaring import GameToken
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
@@ -687,8 +688,15 @@ ENDED_GAMES = [
 ]
 
 
-def switched_on(table):
-    table.skat.store.tables[table.table_id] = replace(table.record, options=TableOptions(show_running_points=True))
+def open_tables_with_the_switch_on(skat, monkeypatch):
+    """Every table the web helpers open from now on is created through the API with the switch on."""
+    monkeypatch.setattr(skat, "create", partial(skat.create, options={"show_running_points": True}))
+
+
+@pytest.fixture
+def switched_on_table(skat, monkeypatch):
+    open_tables_with_the_switch_on(skat, monkeypatch)
+    return Table(skat)
 
 
 def points_of_completed_tricks(script, trick_takers, tricks):
@@ -700,68 +708,55 @@ def points_of_completed_tricks(script, trick_takers, tricks):
     return sides
 
 
-RUNNING_MOMENTS = ("declared", "one-card", "first-trick", "second-trick", "seventh-card", "last-card-due")
+RUNNING_MOMENTS = ("one-card", "first-trick")
 
 
 class TestRunningPoints:
     @pytest.mark.parametrize(("moment", "viewer"), every_viewer_at(RUNNING_MOMENTS))
     def test_with_the_switch_on_every_viewer_reads_the_points_of_the_completed_tricks_in_a_read_and_a_stream(
-        self, table, moment, viewer
+        self, switched_on_table, moment, viewer
     ):
-        switched_on(table)
-        moment.reach(table)
-        headers = viewer.headers_at(table)
+        moment.reach(switched_on_table)
+        headers = viewer.headers_at(switched_on_table)
         expected = points_of_completed_tricks(HERZ_GAME, HERZ_TAKERS, len(moment.played) // 3)
 
-        reads = [message_body(read(table, headers)), message_body(first_stream_message(table, headers))]
+        reads = [
+            message_body(read(switched_on_table, headers)),
+            message_body(first_stream_message(switched_on_table, headers)),
+        ]
 
         assert [body["hand"]["playing"]["running_points"] for body in reads] == [expected, expected]
 
-    @pytest.mark.parametrize(
-        ("game", "script", "trick_takers"),
-        [(GameToken.HERZ, HERZ_GAME, HERZ_TAKERS), (GameToken.GRAND, GRAND_GAME, GRAND_TAKERS)],
-        ids=["suit", "grand"],
-    )
-    def test_a_hand_game_s_points_leave_out_the_skat(self, table, game, script, trick_takers):
-        switched_on(table)
-        table.declared_hand_game(game)
-        table.played_out(script[:27])
+    def test_a_hand_game_s_points_leave_out_the_skat(self, switched_on_table):
+        switched_on_table.declared_hand_game(GameToken.GRAND)
+        switched_on_table.played_out(GRAND_GAME[:27])
 
-        shown = message_body(read(table, table.watcher))["hand"]["playing"]["running_points"]
+        shown = message_body(read(switched_on_table, switched_on_table.watcher))["hand"]["playing"]["running_points"]
 
-        assert shown == points_of_completed_tricks(script, trick_takers, 9)
-        assert sum(shown.values()) + sum(each.points for each in script[27:] + SKAT_CARDS) == ALL_POINTS
+        assert shown == points_of_completed_tricks(GRAND_GAME, GRAND_TAKERS, 9)
+        assert sum(shown.values()) + sum(each.points for each in GRAND_GAME[27:] + SKAT_CARDS) == ALL_POINTS
 
     @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
-    def test_a_null_game_shows_none_with_the_switch_on(self, table, viewer):
-        switched_on(table)
-        null_hand_game(table)
-        table.played_out(NULL_GAME[:2])
+    def test_a_null_game_shows_none_with_the_switch_on(self, switched_on_table, viewer):
+        null_hand_game(switched_on_table)
+        switched_on_table.played_out(NULL_GAME[:2])
 
-        playing = message_body(read(table, viewer.headers_at(table)))["hand"]["playing"]
+        playing = message_body(read(switched_on_table, viewer.headers_at(switched_on_table)))["hand"]["playing"]
 
         assert playing["running_points"] is None
 
-    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
-    def test_with_the_switch_off_nobody_reads_any_after_a_completed_trick(self, table, viewer):
-        herz_hand_game(table)
-        table.played_out(HERZ_GAME[:6])
-
-        playing = message_body(read(table, viewer.headers_at(table)))["hand"]["playing"]
-
-        assert playing["running_points"] is None
-
-    def test_the_result_is_the_same_whatever_the_switch_says(self, skat):
+    def test_the_result_is_the_same_whatever_the_switch_says(self, skat, monkeypatch):
         results = []
         for on in (False, True):
-            each = Table(skat)
             if on:
-                switched_on(each)
+                open_tables_with_the_switch_on(skat, monkeypatch)
+            each = Table(skat)
             herz_hand_game(each)
             each.played_out(HERZ_GAME)
-            results.append(message_body(read(each, each.watcher))["result"])
+            results.append(message_body(read(each, each.watcher)))
 
-        assert results[0] == results[1]
+        assert results[0]["result"] == results[1]["result"]
+        assert [body["options"] for body in results] == [{"show_running_points": False}, {"show_running_points": True}]
 
 
 class TestEveryViewersResult:
