@@ -26,9 +26,7 @@ DECLARER_WITHOUT_A_TRICK = cards(
 GRAND_HAND_WON = cards("S8 S9 DT SK D9 S7 SQ D8 CQ ST HA CK H9 HQ C8 DQ CJ H7 CA SJ DJ SA HK CT HT HJ C7 D7 C9 H8")
 GRAND_HAND_LOST = cards("S8 ST D8 SJ DJ CJ CQ H9 DT CT HT HQ C8 SQ HJ HA CK H7 D9 CA S9 DQ C7 SK HK S7 H8 D7 C9 SA")
 # The declarer's tricks hold 45 points after nine tricks, and the skat's 15 make the 60 a throw-down shows.
-HERZ_NINE_TRICKS = cards(
-    "CK H9 HK DJ CJ SJ CQ SQ HA DQ S7 ST D9 C9 SK HJ C8 H8 D8 S8 S9 HQ CA HT SA D7 CT"
-)[:27]
+HERZ_NINE_TRICKS = cards("CK H9 HK DJ CJ SJ CQ SQ HA DQ S7 ST D9 C9 SK HJ C8 H8 D8 S8 S9 HQ CA HT SA D7 CT")[:27]
 # A Null the declarer's first trick decides after the opponents took tricks worth 60: the rest is his.
 NULL_DECIDED_AT_60 = cards("CK H9 HK CT H8 HQ C9 SA HJ CQ ST HA CJ S9 D7 S8 SJ DJ")
 AFTER_THE_BOCK_ROUND = {"games_left": 0, "factor": 1}
