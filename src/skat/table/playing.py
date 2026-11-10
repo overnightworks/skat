@@ -230,7 +230,7 @@ def decide_throw_down(table: TableRecord, actor: Actor, command: ThrowDownComman
 def _end_of(table: TableRecord, outcome: PlayOutcome) -> Decision:
     """The hand ended with the result of a step that ends the game."""
     played = outcome.state.result
-    assert played is not None  # noqa: S101 - a replayed game is never over, so its ending step always leaves a result
+    assert played is not None  # noqa: S101 - a replayed game is never over and its ending step always leaves a result
     return Decision(_ended(table, played))
 
 
