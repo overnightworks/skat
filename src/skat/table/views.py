@@ -5,6 +5,7 @@ from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
 from skat.table.auction import AuctionView, auction_view_of
+from skat.table.bock import BockView, bock_view_of
 from skat.table.declaring import DeclaringView, declaring_view_of
 from skat.table.game_list import ResultView, Standing, reach_of, result_view_of, standings_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
@@ -87,8 +88,8 @@ class SeriesView:
 
 @dataclass(frozen=True)
 class TableView:
-    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series or
-    options.
+    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series,
+    options or Bock games. A live table without Bock has no `bock`.
     """
 
     id: str
@@ -100,6 +101,7 @@ class TableView:
     result: ResultView | None
     series: SeriesView | None
     options: TableOptions | None
+    bock: BockView | None
     ended: EndedView | None = None
 
 
@@ -187,7 +189,8 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     and the last completed one. Between hands the view says whether the last hand was passed in and, while three
     chairs are occupied and the series goes on, who deals next; after a played game it carries the result, the same
     for every viewer. A table with a series says which game of how many runs and whether the series is over, and
-    carries the standings once it is.
+    carries the standings once it is. A table with Bock says how many Bock games are still to come and by what the
+    running or next game's list score is multiplied.
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
@@ -201,6 +204,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             result=None,
             series=None,
             options=None,
+            bock=None,
             ended=EndedView(table.reason, table.empty_seconds),
         )
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
@@ -228,4 +232,5 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
         result=result_view_of(table),
         series=_series_view(table),
         options=table.options,
+        bock=bock_view_of(table),
     )

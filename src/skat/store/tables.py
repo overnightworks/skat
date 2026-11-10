@@ -5,6 +5,7 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import PassedIn
+from skat.engine.bock import BockOptions, BockOverlap, BockRounds, BockTrigger
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
@@ -95,6 +96,13 @@ def _kontra_options_of(sayer: str | None, reach: str | None, deadline: str | Non
     return KontraOptions(KontraSayer(sayer), KontraReach(reach), KontraDeadline(deadline))
 
 
+def _bock_options_of(triggers: list[str] | None, overlap: str | None) -> BockOptions | None:
+    """The table's Bock options; its two columns are both set or both null."""
+    if triggers is None or overlap is None:
+        return None
+    return BockOptions(frozenset(BockTrigger(trigger) for trigger in triggers), BockOverlap(overlap))
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -109,6 +117,9 @@ def _table_record(
         tables.c.kontra_sayer,
         tables.c.kontra_reach,
         tables.c.kontra_deadline,
+        tables.c.bock_triggers,
+        tables.c.bock_overlap,
+        tables.c.bock_rounds,
     ).where(tables.c.id == table_id)
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
@@ -146,8 +157,18 @@ def _table_record(
         options=TableOptions(
             show_running_points=table.show_running_points,
             kontra=_kontra_options_of(table.kontra_sayer, table.kontra_reach, table.kontra_deadline),
+            bock=_bock_options_of(table.bock_triggers, table.bock_overlap),
         ),
+        bock=BockRounds(tuple(table.bock_rounds)),
     )
+
+
+def _bock_columns_of(bock: BockOptions | None) -> dict[str, object]:
+    """The triggers sorted by their token, so the column reads the same however the request listed them."""
+    return {
+        "bock_triggers": None if bock is None else sorted(trigger.value for trigger in bock.triggers),
+        "bock_overlap": None if bock is None else bock.overlap.value,
+    }
 
 
 def _starts_series(table: TableRecord) -> bool:
@@ -216,6 +237,7 @@ class _PostgresTableTransaction:
                 version=table.version,
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
+                bock_rounds=list(table.bock.remaining),
             )
         )
 
@@ -266,6 +288,7 @@ class _PostgresTableTransaction:
                 series_deals=None if table.series is None else table.series.deals,
                 show_running_points=table.options.show_running_points,
                 **_kontra_columns_of(table.options.kontra),
+                **_bock_columns_of(table.options.bock),
             )
         )
         self._connection.execute(

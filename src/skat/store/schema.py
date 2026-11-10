@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import (
+    ARRAY,
     Boolean,
     CheckConstraint,
     Column,
@@ -13,8 +14,10 @@ from sqlalchemy import (
     Table,
     Text,
     false,
+    text,
 )
 
+from skat.engine.bock import GAMES_IN_A_ROUND, BockOverlap, BockTrigger
 from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
@@ -26,6 +29,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 metadata = MetaData()
+
+BOCK_TRIGGER_LIST: Final = ", ".join(f"'{trigger.value}'" for trigger in BockTrigger)
+BOCK_ROUND_LIST: Final = ", ".join(str(games) for games in range(1, GAMES_IN_A_ROUND + 1))
 
 
 def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
@@ -48,6 +54,9 @@ tables = Table(
     Column("kontra_sayer", Text),
     Column("kontra_reach", Text),
     Column("kontra_deadline", Text),
+    Column("bock_triggers", ARRAY(Text)),
+    Column("bock_overlap", Text),
+    Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -69,6 +78,19 @@ tables = Table(
     one_of("kontra_sayer", (sayer.value for sayer in KontraSayer), "tables_kontra_sayer_is_a_sayer"),
     one_of("kontra_reach", (reach.value for reach in KontraReach), "tables_kontra_reach_is_a_reach"),
     one_of("kontra_deadline", (deadline.value for deadline in KontraDeadline), "tables_kontra_deadline_is_a_deadline"),
+    CheckConstraint("(bock_triggers IS NULL) = (bock_overlap IS NULL)", name="tables_bock_is_all_or_nothing"),
+    CheckConstraint(
+        f"cardinality(bock_triggers) >= 1 AND bock_triggers <@ ARRAY[{BOCK_TRIGGER_LIST}]::text[]",
+        name="tables_bock_triggers_are_triggers",
+    ),
+    one_of("bock_overlap", (overlap.value for overlap in BockOverlap), "tables_bock_overlap_is_an_overlap"),
+    CheckConstraint(
+        f"bock_rounds <@ ARRAY[{BOCK_ROUND_LIST}]::smallint[] AND array_position(bock_rounds, NULL) IS NULL",
+        name="tables_bock_rounds_are_rounds_with_games_left",
+    ),
+    CheckConstraint(
+        "bock_triggers IS NOT NULL OR cardinality(bock_rounds) = 0", name="tables_bock_rounds_only_with_bock"
+    ),
 )
 
 chairs = Table(
