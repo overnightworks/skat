@@ -33,7 +33,7 @@ class ReadyRequest(CommandRequest):
     ordinal: Annotated[int, Field(strict=True, ge=1)]
 
 
-async def answer_and_deal(
+async def _answer_and_deal(
     command: Callable[[frozenset[str]], CommandResult | None], presence: Presence, table_id: str, response: Response
 ) -> Response | TableAnswer:
     answer = await command_answer(command, presence, table_id, response)
@@ -68,7 +68,7 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         chairs are ready and the series is not over.
         """
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal)
-        return await answer_and_deal(
+        return await _answer_and_deal(
             partial(tables.mark_ready, actor_of(request), command), presence, table_id, response
         )
 
@@ -92,7 +92,7 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         first hand appears in the next read.
         """
         command = NewSeriesCommand(command_id=body.command_id, table_id=table_id)
-        return await answer_and_deal(
+        return await _answer_and_deal(
             partial(tables.start_new_series, actor_of(request), command), presence, table_id, response
         )
 
