@@ -50,8 +50,9 @@ class TestOwnership:
         with rule_sets.begin() as transaction:
             transaction.add(a_set())
 
-        with pytest.raises(DuplicateRuleSetError), rule_sets.begin() as transaction:
-            transaction.add(a_set())
+        duplicate = a_set()
+        with rule_sets.begin() as transaction, pytest.raises(DuplicateRuleSetError):
+            transaction.add(duplicate)
 
     def test_two_owners_may_hold_one_name_each_with_its_own_id(self, service):
         annas = service.save(ANNA, "Abend", EVENING)
