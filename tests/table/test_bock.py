@@ -1,13 +1,13 @@
 from dataclasses import replace
 
 import pytest
-from skat.table.bock import BockView, bock_after, bock_view_of
 
 from skat.engine.bidding import Pass, PassedIn
 from skat.engine.bock import BockOptions, BockOverlap, BockRounds, BockTrigger
 from skat.engine.deal import Position
 from skat.engine.tricks import play_card
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
+from skat.table.bock import BockView, bock_after, bock_view_of
 from skat.table.hand_state import playing_of
 from skat.table.records import Actor, HandProgress, Series, TableOptions
 from tests.support.played_game import an_entry, before_the_last_card, table_in
@@ -91,7 +91,7 @@ class TestThePendingGamesAfterAHand:
 
 
 def one_hand_before_the_third_pass(table):
-    steps = (Pass(Position.FOREHAND), Pass(Position.MIDDLEHAND))
+    steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND))
     return replace(table, progress=HandProgress(auction=steps))
 
 
@@ -100,7 +100,7 @@ class TestThePassedInHandAsksTheTrigger:
         table = one_hand_before_the_third_pass(bock_table())
         command = AuctionCommand("pass-3", table.id.value, table.version, AuctionAction.PASS, None)
 
-        decision = decide_step(table, Actor("account-rearhand", "Rearhand"), command)
+        decision = decide_step(table, Actor("account-forehand", "Forehand"), command)
 
         assert decision.refusal is None
         assert decision.table.bock == BockRounds((3,))

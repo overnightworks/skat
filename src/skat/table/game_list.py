@@ -1,6 +1,7 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+from skat.engine.bock import bock_factor, bock_settlement
 from skat.engine.deal import SEATS, seats_from
 from skat.engine.kontra import KontraReach, doubled_reckoning, doubled_settlement
 from skat.engine.score import Reckoning, Settlement, announcement_missed, overbid, settle
@@ -22,7 +23,8 @@ class ListEntry:
 
     Schneider and Schwarz are the levels the valuation counted; the matadors are None exactly in Null. Each seat's
     display name is the one held at the end of the game, None for an entry stored before names were kept. The score
-    is the list score with the doubling applied; `kontra_word` is the last word said, None for a game without one.
+    is the list score with the Bock factor and the doubling applied; `bock_factor` is 1 outside a Bock game and
+    `kontra_word` the last word said, None for a game without one.
     """
 
     seat_accounts: tuple[str, str, str]
@@ -39,6 +41,7 @@ class ListEntry:
     score: int
     declarer_points: int
     kontra_word: Word | None
+    bock_factor: int
 
     @property
     def opponents_points(self) -> int:
@@ -67,10 +70,17 @@ def _seated(table: TableRecord) -> tuple[Occupant, Occupant, Occupant]:
     return first, second, third
 
 
+def bock_factor_of(table: TableRecord) -> int:
+    """What the table's pending Bock rounds multiply the next game's list score by; 1 without Bock."""
+    options = table.options.bock
+    return 1 if options is None else bock_factor(table.bock, options.overlap)
+
+
 def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | None) -> ListEntry:
     """The entry a played-out game writes: its numbers come from the engine, its seats from the table.
 
-    The words said double its list score; a table without Kontra has no doubling.
+    A Bock game multiplies its list score by the table's Bock factor, and the words said double it after that; a table
+    without Kontra has no doubling.
     """
     declaration = played.declared.declaration
     # Play starts only after the declaration, and the store writes the dealer with the hand.
@@ -81,6 +91,8 @@ def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | No
     first, second, third = _seated(table)
     valuation = value_of(played)
     settlement = settle(played, played.declared.bid)
+    if table.options.bock is not None:
+        settlement = bock_settlement(settlement, table.bock, table.options.bock.overlap)
     if doubling is not None:
         settlement = doubled_settlement(settlement, doubling)
     return ListEntry(
@@ -98,6 +110,7 @@ def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | No
         score=settlement.score,
         declarer_points=played.declarer_points,
         kontra_word=None if doubling is None else doubling.last_word,
+        bock_factor=bock_factor_of(table),
     )
 
 
@@ -161,6 +174,7 @@ class ResultView:
     opponents_points: int
     gains: tuple[SeatGain, ...]
     kontra: KontraResult | None
+    bock_factor: int
 
 
 def _reckoning_of(entry: ListEntry, reach: KontraReach) -> Reckoning:
@@ -244,6 +258,7 @@ def result_view_of(table: TableRecord) -> ResultView | None:
         opponents_points=entry.opponents_points,
         gains=_gains(entry, reach),
         kontra=None if entry.kontra_word is None else KontraResult(entry.kontra_word, entry.kontra_word.factor),
+        bock_factor=entry.bock_factor,
     )
 
 
@@ -261,6 +276,7 @@ class SeriesEntryView:
     settled_value: int
     score: int
     kontra_word: Word | None
+    bock_factor: int
 
 
 def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView, ...]:
@@ -274,6 +290,7 @@ def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView, ...]:
             settled_value=entry.settled_value,
             score=entry.score,
             kontra_word=entry.kontra_word,
+            bock_factor=entry.bock_factor,
         )
         for number, entry in enumerate(table.game_list, 1)
     )

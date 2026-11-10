@@ -3,6 +3,7 @@ from datetime import timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
+from skat.engine.bock import BockRounds
 from skat.engine.deal import positions_from
 from skat.table.records import (
     Actor,
@@ -55,6 +56,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
         game_list=(),
         series=None if series_length is None else Series(series_length, 0),
         options=options,
+        bock=BockRounds.start(),
     )
 
 
@@ -71,6 +73,10 @@ def create_payload(command: CreateTable) -> str:
             f'"kontra":{{"sayer":"{kontra.sayer.value}","reach":"{kontra.reach.value}",'
             f'"deadline":"{kontra.deadline.value}"}}'
         )
+    bock = command.options.bock
+    if bock is not None:
+        triggers = ",".join(f'"{trigger.value}"' for trigger in sorted(bock.triggers))
+        members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
     return "{" + ",".join(members) + "}"
 
 
@@ -111,6 +117,7 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
         game_list=table.game_list,
         series=table.series,
         options=table.options,
+        bock=table.bock,
     )
 
 
@@ -155,6 +162,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         game_list=() if starts_series else table.game_list,
         series=series,
         options=table.options,
+        bock=table.bock,
     )
 
 

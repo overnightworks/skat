@@ -120,6 +120,13 @@ def bock_factor(rounds: BockRounds, overlap: BockOverlap) -> int:
     return 2**counted
 
 
+def games_left(rounds: BockRounds, overlap: BockOverlap) -> int:
+    """The Bock games still to come: the pending rounds one after another, or with multiply side by side."""
+    if overlap is BockOverlap.MULTIPLY:
+        return max(rounds.remaining, default=0)
+    return sum(rounds.remaining)
+
+
 def bock_settlement(settlement: Settlement, rounds: BockRounds, overlap: BockOverlap) -> Settlement:
     """Only the list score is multiplied; the game value stays, and so do the 50 and the 40 of the reckoning."""
     return Settlement(settlement.won, settlement.value, settlement.score * bock_factor(rounds, overlap))
