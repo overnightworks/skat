@@ -93,17 +93,22 @@ class TestDecideAgreeToEnd:
         assert decision.refusal is None
         assert decision.table == table
 
-    def test_a_series_whose_games_were_all_passed_in_ends_with_a_list_of_none(self):
-        table = replace(between_games(EndProposal(1, 2)), game_list=())
-
-        decision = decide_agree_to_end(table, CLEO)
-
-        assert decision.table.series.ended_early
-
     @pytest.mark.parametrize(
         ("table", "actor", "refusal"),
         [
             pytest.param(between_games(), DORA, Refusal.NOT_SEATED, id="a-viewer-without-a-chair"),
+            pytest.param(
+                replace(between_games(), series=None, hand=deal(random.Random(3))),  # noqa: S311 - a seeded source makes the deal reproducible
+                DORA,
+                Refusal.NOT_SEATED,
+                id="a-viewer-at-a-table-without-a-series-during-a-hand",
+            ),
+            pytest.param(
+                replace(between_games(), dealer=None, game_list=(), series=Series(12, 0)),
+                DORA,
+                Refusal.NOT_SEATED,
+                id="a-viewer-before-the-first-deal",
+            ),
             pytest.param(replace(between_games(), series=None), ANNA, Refusal.NO_SERIES, id="a-table-without-a-series"),
             pytest.param(between_games(series=Series(12, 12)), ANNA, Refusal.SERIES_OVER, id="a-regular-end"),
             pytest.param(
@@ -157,6 +162,7 @@ class TestDecideRefuseToEnd:
         ("table", "actor", "refusal"),
         [
             pytest.param(between_games(EndProposal(1)), DORA, Refusal.NOT_SEATED, id="a-viewer-without-a-chair"),
+            pytest.param(between_games(), DORA, Refusal.NOT_SEATED, id="a-viewer-with-no-proposal-standing"),
             pytest.param(between_games(), ANNA, Refusal.NO_PROPOSAL, id="no-proposal-stands"),
             pytest.param(replace(between_games(), series=None), ANNA, Refusal.NO_PROPOSAL, id="no-series"),
         ],
