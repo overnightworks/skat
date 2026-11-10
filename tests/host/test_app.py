@@ -1,6 +1,7 @@
 import secrets
 import threading
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,13 +12,15 @@ from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
 from skat.host.app import create_app
-from skat.table.records import Actor, CreateTable, SitDown, TableId
+from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.secret_files import StartRefusedError
 from skat.web.stores import SignInStores
+from skat.web.tables import TABLES_PATH
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
+from tests.support.idle_presence import IdleScheduler
 from tests.support.page_build import CALL_PAGE_SCRIPT_HASH, FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -113,22 +116,59 @@ class TestCreateApp:
         with TestClient(app):
             assert tables.table_ended.wait(timeout=10)
 
-        assert tables.live_table_ids() == ()
         assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1
 
-    def test_a_dealt_table_read_live_when_the_server_starts_is_kept_after_the_wait(self, sign_in_settings):
-        tables = EndingSignal(FakeTableStore())
+    def test_a_table_already_past_its_wait_when_the_server_starts_has_ended_before_the_first_request(
+        self, sign_in_settings
+    ):
+        store = FakeTableStore()
+        tables = TableService(store)
+        opened = tables.create(OPENER, CreateTable(command_id="command-open"))
+        store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
+        settings = sign_in_settings(empty_table_seconds=1800).settings
+        stores = SignInStores.in_memory()
+        app = create_app(
+            settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            stores=stores,
+            chair_scheduler=IdleScheduler(),
+        )
+        member = seed_member(stores, installed_web_auth_config(app))
+        headers = {"cookie": cookie_header(member.set_cookie_headers), "accept": "application/json"}
+
+        with TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers) as client:
+            answer = client.get(f"{TABLES_PATH}/{opened.id}")
+
+        assert answer.json()["ended"] == {"reason": EndReason.EMPTY, "empty_seconds": 1800}
+
+    def test_a_store_failure_when_the_server_starts_fails_the_start(self, sign_in_settings):
+        class Unreadable(FakeTableStore):
+            def live_empty_since(self):
+                raise ConnectionError
+
+        app = create_app(
+            sign_in_settings().settings, page_build=fixture_page_build(), tables=TableService(Unreadable())
+        )
+
+        with pytest.raises(ConnectionError), TestClient(app):
+            pass
+
+    def test_a_dealt_table_is_kept_and_gets_no_wait_when_the_server_starts(self, sign_in_settings):
+        store = FakeTableStore()
+        tables = EndingSignal(store)
         tables.release_end.set()
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         tables.sit(VISITOR, SitDown("command-sit-ben", opened.id, 2), frozenset())
         tables.sit(THIRD, SitDown("command-sit-cleo", opened.id, 3), frozenset())
+        store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
         settings = sign_in_settings(empty_table_seconds=1).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables, chair_scheduler=IdleScheduler())
 
         with TestClient(app):
-            assert tables.end_checked.wait(timeout=10)
+            pass
 
-        assert (tables.table_ended.is_set(), tables.live_table_ids()) == (False, (TableId(opened.id),))
+        assert tables.end_checked.is_set() is False
         assert tables.view(OPENER, opened.id, frozenset()).ended is None
 
     def test_the_lifespan_returns_only_after_an_end_whose_check_passed_has_committed(self, sign_in_settings):

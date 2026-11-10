@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from skat.table.records import EndedTable, EndReason, Receipt, Replay, TableRecord
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, OccupiedChair, TableService
+from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, TableService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -24,14 +24,15 @@ class FakeTableStore:
         self.tables: dict[str, TableRecord | EndedTable] = {}
         self.receipts: dict[tuple[str, str], Receipt] = {}
         self.ended_at: dict[str, datetime] = {}
+        self.empty_since_by_table: dict[str, datetime | None] = {}
 
     @contextmanager
     def begin(self) -> Iterator[FakeTableStore]:
-        before = copy.deepcopy((self.tables, self.receipts, self.ended_at))
+        before = copy.deepcopy((self.tables, self.receipts, self.ended_at, self.empty_since_by_table))
         try:
             yield self
         except BaseException:
-            self.tables, self.receipts, self.ended_at = before
+            self.tables, self.receipts, self.ended_at, self.empty_since_by_table = before
             raise
 
     def replay(self, account_id: str, command_id: str) -> Replay | None:
@@ -68,8 +69,18 @@ class FakeTableStore:
             if receipt.table_id != table_id or receipt.command == CREATE_TABLE_COMMAND
         }
 
-    def live_table_ids(self) -> tuple[TableId, ...]:
-        return tuple(table.id for table in self.tables.values() if isinstance(table, TableRecord))
+    def empty_since(self, table_id: TableId) -> datetime | None:
+        return self.empty_since_by_table.get(table_id.value)
+
+    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
+        self.empty_since_by_table[table_id.value] = since
+
+    def live_empty_since(self) -> tuple[LiveWait, ...]:
+        return tuple(
+            LiveWait(table.id, table.dealer, self.empty_since_by_table.get(table.id.value))
+            for table in self.tables.values()
+            if isinstance(table, TableRecord)
+        )
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         return tuple(

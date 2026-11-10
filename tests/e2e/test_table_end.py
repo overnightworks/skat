@@ -1,11 +1,14 @@
 import http.client
 import json
 import time
+from datetime import timedelta
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
+from sqlalchemy import select
 
+from skat.store.schema import tables
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession, self_signed_tolerant_context
@@ -22,6 +25,8 @@ pytestmark = pytest.mark.e2e
 
 EMPTY_TABLE_SECONDS = 2
 ENDS_WITHIN_SECONDS = EMPTY_TABLE_SECONDS + 20
+# Long enough that a restart happens inside it.
+RESTARTED_WAIT_SECONDS = 10
 POLL_SECONDS = 0.2
 
 
@@ -29,6 +34,13 @@ POLL_SECONDS = 0.2
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """This module's Skat, with an empty-table wait short enough to wait out."""
     with skat_on_new_database(tmp_path_factory, empty_table_seconds=EMPTY_TABLE_SECONDS) as server:
+        yield server
+
+
+@pytest.fixture
+def restarted_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """A Skat of its own, with a wait that outlasts its restart, so restarting it leaves the module's server alone."""
+    with skat_on_new_database(tmp_path_factory, empty_table_seconds=RESTARTED_WAIT_SECONDS) as server:
         yield server
 
 
@@ -62,8 +74,8 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
     watched = open_stream(e2e_server, ben, f"{TABLES_PATH}/{watched_id}")
     try:
         watched_before = rows_of(e2e_server.engine, watched_id)
-        dealt_before = rows_of(e2e_server.engine, dealt_id)
         anna.first_stream_message(f"{dealt_path}{TABLE_EVENTS_SUFFIX}")
+        dealt_before = rows_of(e2e_server.engine, dealt_id)
         anna.first_stream_message(f"{left_path}{TABLE_EVENTS_SUFFIX}")
 
         deadline = time.monotonic() + ENDS_WITHIN_SECONDS
@@ -85,3 +97,32 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
         assert rows_of(e2e_server.engine, watched_id) == watched_before
     finally:
         watched.close()
+
+
+def stored_times(server: RunningServer, table_id: str) -> tuple[object, object]:
+    with server.engine.connect() as connection:
+        return tuple(
+            connection.execute(select(tables.c.empty_since, tables.c.ended_at).where(tables.c.id == table_id)).one()
+        )
+
+
+def test_an_undealt_table_left_before_a_restart_ends_no_sooner_than_the_wait_after_its_leave(
+    restarted_server: RunningServer,
+) -> None:
+    anna = signed_in(restarted_server)
+    table_id = json.loads(anna.post(TABLES_PATH, {"command_id": "restart-create-0001", "series_length": 36}))["id"]
+    anna.first_stream_message(f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}")
+    deadline = time.monotonic() + RESTARTED_WAIT_SECONDS + 20
+    while stored_times(restarted_server, table_id)[0] is None and time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+    left_at = stored_times(restarted_server, table_id)[0]
+
+    restarted_server.restart(while_stopping=lambda: None)
+    anna = signed_in(restarted_server)
+    answer = json.loads(anna.get(f"{TABLES_PATH}/{table_id}"))
+    while answer["ended"] is None and time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+        answer = json.loads(anna.get(f"{TABLES_PATH}/{table_id}"))
+
+    assert answer["ended"] == {"reason": "empty", "empty_seconds": RESTARTED_WAIT_SECONDS}
+    assert stored_times(restarted_server, table_id)[1] - left_at >= timedelta(seconds=RESTARTED_WAIT_SECONDS)
