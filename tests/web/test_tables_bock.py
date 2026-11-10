@@ -1,5 +1,4 @@
 from dataclasses import replace
-from functools import partial
 
 import pytest
 
@@ -38,18 +37,11 @@ def bock_options(*triggers, overlap="append"):
 
 
 @pytest.fixture
-def open_table(server, monkeypatch):
+def open_table(server):
     """A table for the three people and a watcher, opened through the API with the options a test names."""
 
-    def open_with(*triggers, overlap="append", series_length=36, **options):
-        monkeypatch.setattr(
-            server,
-            "create",
-            partial(
-                server.create, series_length=series_length, options=bock_options(*triggers, overlap=overlap) | options
-            ),
-        )
-        return Table(server)
+    def open_with(*triggers, overlap="append", **options):
+        return Table(server, bock_options(*triggers, overlap=overlap) | options)
 
     return open_with
 
@@ -96,33 +88,26 @@ def next_hand(table, *, after_a_pass_in=False):
 
 class TestWhatStartsABockRound:
     @pytest.mark.parametrize(
-        ("trigger", "game", "starts"),
+        ("trigger", "token", "game", "starts"),
         [
-            pytest.param("sixty-sixty", SIXTY_SIXTY, True, id="1-sixty-sixty"),
-            pytest.param("sixty-sixty", HERZ_GAME, False, id="2-sixty-one"),
-            pytest.param("schwarz", DECLARER_WITHOUT_A_TRICK, True, id="8-schwarz-for-the-declarer-s-side"),
-            pytest.param("schneider", OPPONENTS_SCHNEIDER, True, id="33-schneider-for-the-opponents"),
-            pytest.param("re", SIXTY_SIXTY, False, id="26-re-at-a-table-without-kontra"),
+            pytest.param("sixty-sixty", GameToken.HERZ, SIXTY_SIXTY, True, id="1-sixty-sixty"),
+            pytest.param("sixty-sixty", GameToken.HERZ, HERZ_GAME, False, id="2-sixty-one"),
+            pytest.param(
+                "schwarz", GameToken.HERZ, DECLARER_WITHOUT_A_TRICK, True, id="8-schwarz-for-the-declarer-s-side"
+            ),
+            pytest.param("schneider", GameToken.HERZ, OPPONENTS_SCHNEIDER, True, id="33-schneider-for-the-opponents"),
+            pytest.param("re", GameToken.HERZ, SIXTY_SIXTY, False, id="26-re-at-a-table-without-kontra"),
+            pytest.param("won-grand-hand", GameToken.GRAND, GRAND_HAND_WON, True, id="won-grand-hand-won"),
+            pytest.param("won-grand-hand", GameToken.GRAND, GRAND_HAND_LOST, False, id="won-grand-hand-lost"),
         ],
     )
-    def test_a_played_game_asks_the_triggers_with_the_last_card(self, open_table, trigger, game, starts):
+    def test_a_played_game_asks_the_triggers_with_the_last_card(self, open_table, trigger, token, game, starts):
         table = open_table(trigger)
-        table.declared_hand_game()
+        table.declared_hand_game(token)
 
         table.played_out(game)
 
         assert bock_of(table) == (A_ROUND_BEGINS if starts else AFTER_THE_BOCK_ROUND)
-
-    def test_a_won_grand_hand_triggers_and_a_lost_one_does_not(self, open_table):
-        won = open_table("won-grand-hand")
-        won.declared_hand_game(GameToken.GRAND)
-        won.played_out(GRAND_HAND_WON)
-
-        lost = open_table("won-grand-hand")
-        lost.declared_hand_game(GameToken.GRAND)
-        lost.played_out(GRAND_HAND_LOST)
-
-        assert (bock_of(won), bock_of(lost)) == (A_ROUND_BEGINS, AFTER_THE_BOCK_ROUND)
 
     def test_a_schneider_announced_and_missed_triggers(self, open_table):
         table = open_table("schneider")
@@ -163,7 +148,7 @@ class TestWhatStartsABockRound:
     @pytest.mark.parametrize(
         "triggers", [("re",), ("re", "lost-after-kontra")], ids=["re-alone", "re-and-lost-after-kontra"]
     )
-    def test_re_triggers_whether_the_game_is_won_or_lost_and_one_game_starts_one_round(self, open_table, triggers):
+    def test_re_in_a_lost_game_triggers_and_one_game_meeting_two_triggers_starts_one_round(self, open_table, triggers):
         table = open_table(*triggers, kontra={"sayer": "any-opponent", "reach": "kontra-re", "deadline": "own-card"})
         table.declared_hand_game()
         played_with_words(table, (FOREHAND, "kontra"), 1, (MIDDLEHAND, "re"))
@@ -196,7 +181,7 @@ class TestWhatStartsABockRound:
 
 
 class TestWhatABockGameScores:
-    def test_the_list_score_is_doubled_and_the_value_the_50_and_the_overbid_check_stay(self, open_table):
+    def test_the_list_score_is_doubled_and_the_value_and_the_50_stay(self, open_table):
         table = open_table("passed-in")
         table.declared_hand_game()
         with_pending(table, 3)
@@ -256,9 +241,9 @@ class TestWhatABockGameScores:
     def test_the_list_row_names_the_factor_of_each_game(self, open_table, server):
         table = open_table("passed-in")
         table.declared_hand_game()
-        with_pending(table, 3)
         table.played_out(HERZ_GAME)
         next_hand(table)
+        with_pending(table, 3)
         table.declared_hand_game()
         table.played_out(HERZ_GAME)
 
@@ -267,7 +252,7 @@ class TestWhatABockGameScores:
             "entries"
         ]
 
-        assert [(row["number"], row["bock_factor"], row["score"]) for row in rows] == [(1, 2, 60), (2, 2, 60)]
+        assert [(row["number"], row["bock_factor"], row["score"]) for row in rows] == [(1, 1, 30), (2, 2, 60)]
 
 
 class TestHowTheRoundsOverlap:
@@ -312,7 +297,7 @@ class TestWhatEveryoneSeesOfThePendingGames:
 
 class TestTheSeriesLimitsTheRounds:
     def test_the_games_left_never_promise_a_game_the_series_will_not_deal(self, open_table, server):
-        table = open_table("passed-in", series_length=6)
+        table = open_table("passed-in")
         server.store.tables[table.table_id] = replace(table.record, series=Series(6, 5))
 
         pass_the_hand_in(server, table)
@@ -320,7 +305,7 @@ class TestTheSeriesLimitsTheRounds:
         assert bock_of(table) == {"games_left": 1, "factor": 2}
 
     def test_the_last_game_scores_double_and_then_nothing_stays_pending(self, open_table, server):
-        table = open_table("passed-in", series_length=6)
+        table = open_table("passed-in")
         server.store.tables[table.table_id] = replace(table.record, series=Series(6, 5))
         pass_the_hand_in(server, table)
         next_hand(table, after_a_pass_in=True)
@@ -335,7 +320,7 @@ class TestTheSeriesLimitsTheRounds:
         )
 
     def test_a_trigger_in_the_last_game_leaves_no_pending_game(self, open_table, server):
-        table = open_table("passed-in", series_length=3)
+        table = open_table("passed-in")
         server.store.tables[table.table_id] = replace(table.record, series=Series(3, 3))
 
         pass_the_hand_in(server, table)
@@ -416,7 +401,7 @@ class TestASeriesOfThree:
     def test_a_trigger_in_the_second_game_makes_the_third_a_bock_game_and_the_standings_follow_its_gains(
         self, open_table, server
     ):
-        table = open_table("passed-in", series_length=3)
+        table = open_table("passed-in")
         server.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
         table.declared_hand_game()
         table.played_out(HERZ_GAME)
@@ -436,7 +421,7 @@ class TestASeriesOfThree:
 
 class TestANewSeries:
     def test_a_trigger_in_the_last_game_leaves_the_next_series_with_no_pending_game(self, open_table, server):
-        table = open_table("sixty-sixty", series_length=3)
+        table = open_table("sixty-sixty")
         server.store.tables[table.table_id] = replace(table.record, series=Series(3, 3))
         table.declared_hand_game()
         table.played_out(SIXTY_SIXTY)

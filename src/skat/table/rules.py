@@ -131,9 +131,16 @@ def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
 
 
+def series_games_left(table: TableRecord) -> int | None:
+    """The games the series still deals, a running hand included; None for a table with no series."""
+    if table.series is None:
+        return None
+    return table.series.length - table.series.deals + hand_runs(table)
+
+
 def series_over(table: TableRecord) -> bool:
     """The series ran its last game and no hand runs any more; a table with no series never ends."""
-    return table.series is not None and table.series.deals == table.series.length and not hand_runs(table)
+    return series_games_left(table) == 0
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:

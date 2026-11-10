@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from skat.engine.bock import BockRounds, TotalChange, advance, bock_triggered, games_left
 from skat.engine.kontra import Doubling
 from skat.table.game_list import bock_factor_of, reach_of, total_of
 from skat.table.hand_state import doubling_of
-from skat.table.rules import hand_runs
+from skat.table.rules import series_games_left, series_over
 
 if TYPE_CHECKING:
     from skat.engine.bidding import PassedIn
@@ -40,7 +40,7 @@ def bock_after(table: TableRecord, ended: PlayedOut | PassedIn, entry: ListEntry
     The hand uses up a Bock game and meets the table's triggers; the series' last game lets every round lapse.
     """
     options = table.options.bock
-    if options is None or (table.series is not None and table.series.deals == table.series.length):
+    if options is None or series_over(replace(table, hand=None)):
         return BockRounds.start()
     totals = () if entry is None else _total_changes(table, entry)
     triggered = bock_triggered(options.triggers, ended, doubling_of(table) or Doubling.start(), totals)
@@ -50,12 +50,13 @@ def bock_after(table: TableRecord, ended: PlayedOut | PassedIn, entry: ListEntry
 def bock_view_of(table: TableRecord) -> BockView | None:
     """The pending games for any viewer; None at a table without Bock.
 
-    The games left are capped by the games the series still deals: its length minus its deals, plus the running one.
+    The games left are capped by the games the series still deals.
     """
     options = table.options.bock
     if options is None:
         return None
     left = games_left(table.bock, options.overlap)
-    if table.series is not None:
-        left = min(left, table.series.length - table.series.deals + hand_runs(table))
+    series_left = series_games_left(table)
+    if series_left is not None:
+        left = min(left, series_left)
     return BockView(left, bock_factor_of(table))

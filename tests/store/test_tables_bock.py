@@ -18,18 +18,6 @@ pytestmark = pytest.mark.postgres
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 
 
-@pytest.fixture
-def engine(database_url):
-    engine = create_store_engine(database_url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
-def service(engine):
-    return TableService(PostgresTableTransactions(engine))
-
-
 BOCK_OPTIONS = TableOptions(bock=BockOptions(frozenset({BockTrigger.PASSED_IN, BockTrigger.RE}), BockOverlap.MULTIPLY))
 
 
