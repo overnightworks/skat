@@ -9,7 +9,13 @@ from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
-from skat.web.playing import TABLE_CARD_SUFFIX, TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
+from skat.web.playing import (
+    TABLE_CARD_SUFFIX,
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
+    TABLE_THROW_DOWN_SUFFIX,
+)
 from skat.web.presence import Presence
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.tables import (
@@ -639,6 +645,8 @@ class TestAnEmptyTableEnds:
             pytest.param(TABLE_DECLARING_TAKE_SUFFIX, {"version": 1}, id="declaring"),
             pytest.param(TABLE_CARD_SUFFIX, {"version": 1, **card_body(card("C7"))}, id="card"),
             pytest.param(TABLE_GIVE_UP_SUFFIX, {"version": 1}, id="give-up"),
+            pytest.param(TABLE_GIVE_UP_AGREE_SUFFIX, {"version": 1}, id="give-up-agree"),
+            pytest.param(TABLE_GIVE_UP_DECLINE_SUFFIX, {"version": 1}, id="give-up-decline"),
             pytest.param(TABLE_THROW_DOWN_SUFFIX, {"version": 1}, id="throw-down"),
             pytest.param(TABLE_KONTRA_SUFFIX, {"version": 1, "word": "kontra"}, id="kontra"),
             pytest.param(TABLE_READY_SUFFIX, {"ordinal": 1}, id="ready"),

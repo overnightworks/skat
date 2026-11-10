@@ -9,7 +9,14 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import Level
 from skat.table.auction import AuctionAction
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN, EndReason
+from skat.table.records import (
+    SERIES_LENGTH_DEFAULT,
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    TABLE_ID_PATTERN,
+    EndReason,
+)
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.web.auction import (
     TABLE_AUCTION_BID_SUFFIX,
@@ -118,12 +125,13 @@ def test_render_names_the_card_points_of_a_whole_deck() -> None:
     assert f"export const ALL_POINTS = {ALL_POINTS};" in generate_wire.render().splitlines()
 
 
-def test_render_names_the_bounds_and_step_of_a_series_length() -> None:
+def test_render_names_the_bounds_step_and_default_of_a_series_length() -> None:
     lines = generate_wire.render().splitlines()
 
     assert f"export const SERIES_LENGTH_MIN = {SERIES_LENGTH_MIN};" in lines
     assert f"export const SERIES_LENGTH_MAX = {SERIES_LENGTH_MAX};" in lines
     assert f"export const SERIES_LENGTH_STEP = {SERIES_LENGTH_STEP};" in lines
+    assert f"export const SERIES_LENGTH_DEFAULT = {SERIES_LENGTH_DEFAULT};" in lines
 
 
 def test_main_writes_the_module_and_a_following_check_passes(tmp_path: Path) -> None:

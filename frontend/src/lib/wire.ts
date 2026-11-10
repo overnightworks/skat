@@ -52,4 +52,5 @@ export const ALL_POINTS = 120;
 export const SERIES_LENGTH_MIN = 3;
 export const SERIES_LENGTH_MAX = 99;
 export const SERIES_LENGTH_STEP = 3;
+export const SERIES_LENGTH_DEFAULT = 36;
 export const CHAIRS_PER_TABLE = 3;

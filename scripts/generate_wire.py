@@ -19,6 +19,7 @@ from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.records import (  # noqa: E402
+    SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
     SERIES_LENGTH_MIN,
     SERIES_LENGTH_STEP,
@@ -137,6 +138,7 @@ def render() -> str:
             ("SERIES_LENGTH_MIN", SERIES_LENGTH_MIN),
             ("SERIES_LENGTH_MAX", SERIES_LENGTH_MAX),
             ("SERIES_LENGTH_STEP", SERIES_LENGTH_STEP),
+            ("SERIES_LENGTH_DEFAULT", SERIES_LENGTH_DEFAULT),
         )
     )
     chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
