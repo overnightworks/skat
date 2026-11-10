@@ -69,6 +69,7 @@ class Exclusion(StrEnum):
     READINESS_PROBE = "the edge's readiness probe, no action of an agent"
     ACCOUNT_NAME = "the page's name for its person; an agent's name is in its token"
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
+    FINAL_DELETION = "consenting to a final deletion is not yet a tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
