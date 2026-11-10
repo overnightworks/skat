@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, cast
 
 import structlog
-from agent_runtime_client.member import LEASE_SECONDS
+from agents.member import LEASE_SECONDS
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError

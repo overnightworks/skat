@@ -3,7 +3,7 @@ a stream, and „Weiter“ is a tool.
 """
 
 import pytest
-from agent_runtime_client.member import LEASE_SECONDS
+from agents.member import LEASE_SECONDS
 from structlog.testing import capture_logs
 from webauth.admission import AppRole
 from webauth.ports import AccountKind
