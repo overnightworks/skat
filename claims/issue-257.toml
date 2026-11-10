@@ -1,0 +1,8 @@
+claim_id = "19c2fb29cf164e46b60187cc67a398c3"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "70ec34968fc7970cdffe2f698efa926daac1ecdb"
+branch = "claude/issue-257-bock"
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/engine/bock.py", "src/skat/store/game_list.py", "src/skat/store/migrations/versions/0015_bock.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/auction.py", "src/skat/table/bock.py", "src/skat/table/game_list.py", "src/skat/table/playing.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/views.py", "src/skat/web/game_list.py", "src/skat/web/tables.py", "tests/e2e/test_table_watch.py", "tests/engine/test_bock.py", "tests/store/test_game_list.py", "tests/store/test_migrate.py", "tests/store/test_tables.py", "tests/support/played_game.py", "tests/table/test_bock.py", "tests/table/test_declaring.py", "tests/table/test_game_list.py", "tests/table/test_playing.py", "tests/table/test_ready.py", "tests/table/test_rules.py", "tests/table/test_views.py", "tests/web/support/playing.py", "tests/web/test_bock.py", "tests/web/test_game_list.py", "tests/web/test_playing.py", "tests/web/test_playing_grand_and_hand.py", "tests/web/test_playing_null_ouvert.py", "tests/web/test_streams.py", "tests/web/test_tables_series.py"]
+opened_commit = "c0605b596d42eed147a65c376c1cd66e1b0f13b2"
+whole_reason = "The Bock option, the stored pending games, the trigger at both hand ends and the multiplied entry are one path from the create request to the result: an option that never acts shows a rule that is not there, pending games kept nowhere vanish at a restart, and an entry written without its factor stays wrong in the durable list."
