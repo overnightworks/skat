@@ -4,10 +4,12 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import AuctionStep, Bid, Hold
 from skat.engine.deal import Position
-from skat.engine.score import Reckoning, Settlement, reckon
+from skat.engine.replay import replay_log
+from skat.engine.score import Reckoning, Settlement, list_bonus, reckon
+from skat.engine.tricks import playing_after
 
 if TYPE_CHECKING:
-    from skat.engine.tricks import Playing
+    from skat.engine.tricks import CardPlayed, Playing
 
 
 class KontraSayer(StrEnum):
@@ -51,6 +53,10 @@ class Word(StrEnum):
     SUPRA = "supra"
     HIRSCH = "hirsch"
 
+    @property
+    def factor(self) -> int:
+        return 2 ** (_SAYING_ORDER.index(self) + 1)
+
 
 _SAYING_ORDER: Final = tuple(Word)
 
@@ -80,8 +86,12 @@ class Doubling:
         return cls(words=(), kontra_by=None, next_speaker_cards=0)
 
     @property
+    def last_word(self) -> Word | None:
+        return self.words[-1] if self.words else None
+
+    @property
     def factor(self) -> int:
-        return 2 ** len(self.words)
+        return 1 if self.last_word is None else self.last_word.factor
 
     @property
     def next_word(self) -> Word | None:
@@ -94,6 +104,11 @@ class DoublingOutcome:
 
     doubling: Doubling
     refusal: KontraRefusal | None = None
+
+    @property
+    def state(self) -> Doubling:
+        """The doubling under the name a replay of steps reads."""
+        return self.doubling
 
 
 def bidders_of(steps: tuple[AuctionStep, ...]) -> frozenset[Position]:
@@ -237,10 +252,45 @@ def say(
     )
 
 
-def doubled_reckoning(settlement: Settlement, doubling: Doubling, reach: KontraReach) -> Reckoning:
-    """The list score times the factor; only with the standings option do the 50 and the 40 double too."""
-    if reach is KontraReach.KONTRA_RE_STANDINGS:
-        plain = reckon(settlement)
-        return Reckoning(plain.declarer * doubling.factor, plain.each_opponent * doubling.factor)
-    doubled = Settlement(settlement.won, settlement.value, settlement.score * doubling.factor)
-    return reckon(doubled)
+@dataclass(frozen=True)
+class WordSaid:
+    """A word as stored: who said it and how many cards of the hand were played before it."""
+
+    position: Position
+    word: Word
+    cards_before: int
+
+
+def doubling_after(
+    start: Playing,
+    plays: tuple[CardPlayed, ...],
+    words: tuple[WordSaid, ...],
+    options: KontraOptions,
+    bidders: frozenset[Position],
+) -> Doubling:
+    """The doubling a stored hand's words lead to, each said against the plays it followed; a word the rules refuse
+    is a corrupt log and raises.
+    """
+
+    def apply(doubling: Doubling, said: WordSaid) -> DoublingOutcome:
+        playing = playing_after(start, plays[: said.cards_before])
+        return say(doubling, options, playing, bidders, said.position, said.word)
+
+    return replay_log(Doubling.start(), words, apply, "words")
+
+
+def doubled_settlement(settlement: Settlement, doubling: Doubling) -> Settlement:
+    """The settlement with its list score times the factor; the value stays, as the overbid check reads it."""
+    return Settlement(settlement.won, settlement.value, settlement.score * doubling.factor)
+
+
+def doubled_reckoning(settlement: Settlement, last_word: Word | None, reach: KontraReach) -> Reckoning:
+    """What a game with a doubled list score adds up to; only with the standings option do the 50 and the 40 double
+    too, by the factor of the last word.
+    """
+    plain = reckon(settlement)
+    if reach is not KontraReach.KONTRA_RE_STANDINGS or last_word is None:
+        return plain
+    return Reckoning(
+        settlement.score + list_bonus(settlement.won) * last_word.factor, plain.each_opponent * last_word.factor
+    )
