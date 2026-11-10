@@ -9,12 +9,12 @@ from skat.table.records import Series
 from skat.web.declaring import GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
-from skat.web.playing import TABLE_GIVE_UP_SUFFIX
+from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import an_entry
 from tests.web.support.playing import HERZ_GAME, Table, cards
-from tests.web.support.series import deal_next, headers_of, pass_the_hand_in, tap_weiter
+from tests.web.support.series import deal_next, headers_of, pass_the_hand_in, tap_new_series, tap_weiter
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
 # Played by the middlehand's Herz Hand game or Grand Hand game against the known deal, found by a seeded search.
@@ -25,6 +25,12 @@ DECLARER_WITHOUT_A_TRICK = cards(
 )
 GRAND_HAND_WON = cards("S8 S9 DT SK D9 S7 SQ D8 CQ ST HA CK H9 HQ C8 DQ CJ H7 CA SJ DJ SA HK CT HT HJ C7 D7 C9 H8")
 GRAND_HAND_LOST = cards("S8 ST D8 SJ DJ CJ CQ H9 DT CT HT HQ C8 SQ HJ HA CK H7 D9 CA S9 DQ C7 SK HK S7 H8 D7 C9 SA")
+# The declarer's tricks hold 45 points after nine tricks, and the skat's 15 make the 60 a throw-down shows.
+HERZ_NINE_TRICKS = cards(
+    "CK H9 HK DJ CJ SJ CQ SQ HA DQ S7 ST D9 C9 SK HJ C8 H8 D8 S8 S9 HQ CA HT SA D7 CT"
+)[:27]
+# A Null the declarer's first trick decides after the opponents took tricks worth 60: the rest is his.
+NULL_DECIDED_AT_60 = cards("CK H9 HK CT H8 HQ C9 SA HJ CQ ST HA CJ S9 D7 S8 SJ DJ")
 AFTER_THE_BOCK_ROUND = {"games_left": 0, "factor": 1}
 A_ROUND_BEGINS = {"games_left": 3, "factor": 2}
 
@@ -386,3 +392,60 @@ class TestOpeningATable:
 
         assert again.json()["id"] == first.json()["id"]
         assert server.store.receipts[(account.id, "command-0001")].payload == '{"series_length":36}'
+
+
+class TestAGameThatEndsAtSixtyInEveryWay:
+    def test_a_throw_down_whose_entry_shows_60_triggers(self, open_table):
+        table = open_table("sixty-sixty")
+        table.declared_hand_game()
+        table.played_out(HERZ_NINE_TRICKS)
+
+        answer = table.act(TABLE_THROW_DOWN_SUFFIX)
+
+        assert answer.status_code == 200, answer.text
+        assert (table.result()["declarer_points"], bock_of(table)) == (60, A_ROUND_BEGINS)
+
+    def test_a_decided_null_whose_entry_shows_60_triggers(self, open_table):
+        table = open_table("sixty-sixty")
+        table.declared_hand_game(GameToken.NULL)
+
+        table.played_out(NULL_DECIDED_AT_60)
+
+        assert (table.result()["declarer_points"], bock_of(table)) == (60, A_ROUND_BEGINS)
+
+
+class TestASeriesOfThree:
+    def test_a_trigger_in_the_second_game_makes_the_third_a_bock_game_and_the_standings_follow_its_gains(
+        self, open_table, server
+    ):
+        table = open_table("passed-in", series_length=3)
+        server.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
+        table.declared_hand_game()
+        table.played_out(HERZ_GAME)
+        next_hand(table)
+        pass_the_hand_in(server, table)
+        next_hand(table, after_a_pass_in=True)
+        table.declared_hand_game()
+
+        table.played_out(HERZ_GAME)
+
+        answer = table.read_as(table.watcher).json()
+        assert (answer["result"]["bock_factor"], gains_of(answer["result"]).count(110)) == (2, 1)
+        assert (answer["bock"], answer["series"]["over"]) == (AFTER_THE_BOCK_ROUND, True)
+        # The same seat declares both games: Herz Hand 30 wins 80, and the Bock game's doubled 60 wins 110.
+        assert sorted(each["total"] for each in answer["series"]["standings"]) == [0, 0, 190]
+
+
+class TestANewSeries:
+    def test_a_trigger_in_the_last_game_leaves_the_next_series_with_no_pending_game(self, open_table, server):
+        table = open_table("sixty-sixty", series_length=3)
+        server.store.tables[table.table_id] = replace(table.record, series=Series(3, 3))
+        table.declared_hand_game()
+        table.played_out(SIXTY_SIXTY)
+        for number, headers in enumerate(headers_of(table), start=1):
+            assert tap_new_series(server, headers, table.table_id, f"new-series-{number}").status_code == 200
+        accounts = [chair.occupant.account_id for chair in table.record.chairs]
+
+        assert deal_next(server, table.table_id, accounts)
+
+        assert (bock_of(table), table.record.bock) == (AFTER_THE_BOCK_ROUND, BockRounds(()))

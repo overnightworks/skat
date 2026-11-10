@@ -76,6 +76,7 @@ def result_fields(**changed):
         "announcement_missed": False,
         "bid": 18,
         "kontra": None,
+        "bock_factor": 1,
     }
     return plain | changed
 

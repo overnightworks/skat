@@ -624,6 +624,7 @@ HERZ_RESULT = {
     "declarer_points": 70,
     "opponents_points": 50,
     "kontra": None,
+    "bock_factor": 1,
     "gains": [
         {"seat": 1, "gain": 80, "won": True},
         {"seat": 2, "gain": 0, "won": False},
@@ -755,8 +756,8 @@ class TestRunningPoints:
 
         assert results[0]["result"] == results[1]["result"]
         assert [body["options"] for body in results] == [
-            {"show_running_points": False, "kontra": None},
-            {"show_running_points": True, "kontra": None},
+            {"show_running_points": False, "kontra": None, "bock": None},
+            {"show_running_points": True, "kontra": None, "bock": None},
         ]
 
 

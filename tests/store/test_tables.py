@@ -843,5 +843,9 @@ def test_a_bock_game_stores_its_multiplied_score_and_its_factor_and_the_games_le
 
     assert result.refusal is None
     with engine.connect() as connection:
-        row = connection.execute(text("SELECT score, bock_factor FROM game_list")).one()
-    assert (tuple(row), game.record.game_list[0].bock_factor, game.record.bock) == ((-120, 2), 2, BockRounds((2,)))
+        settled_value, score, factor = connection.execute(
+            text("SELECT settled_value, score, bock_factor FROM game_list")
+        ).one()
+    # A lost game scores minus twice its value, and the one pending round doubles that.
+    assert (score, factor) == (-2 * settled_value * 2, 2)
+    assert (game.record.game_list[0].bock_factor, game.record.bock) == (2, BockRounds((2,)))
