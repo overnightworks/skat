@@ -6,7 +6,6 @@ import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.cards import Card, Rank, Suit
-from skat.engine.deal import deal
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards, trick_winner
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
@@ -15,12 +14,16 @@ from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Iterator, MutableSequence
+
+    from _typeshed import SupportsLenAndGetItem
 
     from tests.e2e.support.declaring import DeclaringTable
+    from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
 
@@ -96,13 +99,23 @@ def seat_of_position(table: DeclaringTable, position: str) -> int:
     return next(chair["seat"] for chair in chairs if chair["hand"]["position"] == position)
 
 
-@pytest.fixture
-def a_deal_the_declarer_wins_the_first_trick(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Every hand the server deals is the same one, in which the declarer can win a first trick of Grand.
+class AlwaysTheSameDeal(random.Random):
+    """A source that draws the same dealer and shuffles the same deck on every draw, whatever was drawn before."""
 
-    The server runs in this process, so the deal it draws is replaced where the table service takes it."""
-    arranged = deal(random.Random(WINNING_DEAL_SEED))  # noqa: S311 - a seeded source makes the deal reproducible
-    monkeypatch.setattr("skat.table.service.deal", lambda _source: arranged)
+    def choice[Item](self, seq: SupportsLenAndGetItem[Item]) -> Item:
+        self.seed(WINNING_DEAL_SEED)
+        return super().choice(seq)
+
+    def shuffle(self, x: MutableSequence[Any]) -> None:
+        self.seed(WINNING_DEAL_SEED)
+        super().shuffle(x)
+
+
+@pytest.fixture(scope="module")
+def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """This module's Skat, which deals every hand as one in which the declarer can win a first trick of Grand."""
+    with skat_on_new_database(tmp_path_factory, random_source=AlwaysTheSameDeal()) as server:
+        yield server
 
 
 def declarer_cards_while_the_declarer_wins_the_first_trick(table: DeclaringTable) -> Iterator[Card]:
@@ -178,7 +191,6 @@ def test_the_declarer_keeps_the_own_hand_and_wears_the_tag_instead_of_open_rows(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-@pytest.mark.usefixtures("a_deal_the_declarer_wins_the_first_trick")
 def test_the_open_rows_lose_each_card_the_declarer_plays_and_survive_a_reload(
     deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
