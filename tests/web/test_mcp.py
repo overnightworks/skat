@@ -1,13 +1,16 @@
+from dataclasses import replace
+
 import pytest
 from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
 
 from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass
 from skat.engine.deal import Position, seats_from
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraRefusal, KontraSayer
 from skat.engine.tricks import CardPlayed, PlayRefusal
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
-from skat.table.records import Refusal
+from skat.table.records import Refusal, TableOptions
 from skat.web.auction import TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
@@ -25,6 +28,7 @@ from skat.web.mcp import (
     PUT_BACK_CARDS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    SAY_KONTRA_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
 )
@@ -83,6 +87,7 @@ class TestTools:
                 GIVE_UP_GAME_TOOL,
                 THROW_DOWN_CARDS_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
+                SAY_KONTRA_TOOL,
             }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
@@ -151,7 +156,7 @@ class TestReadTable:
 
         view = agent.read(table_id).json()
 
-        assert view["options"] == {"show_running_points": True}
+        assert view["options"] == {"show_running_points": True, "kontra": None}
         assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
     def test_the_standings_of_a_played_series_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
@@ -302,6 +307,40 @@ class TestGiveUpGame:
         assert answer.json()["reason"] == Refusal.NOT_DECLARER
         assert stored(forehand_table.skat)[0] == before[0]
         assert "reused" in self.give_up(agent, forehand_table, version=0).text
+
+
+class TestSayKontra:
+    def say(self, agent, table, word="kontra", *, command_id="agent-word-0001", **changes):
+        return agent.take_step(SAY_KONTRA_TOOL, table, command_id=command_id, word=word, **changes)
+
+    @pytest.fixture
+    def kontra_table(self, skat, forehand_table):
+        """The forehand table, played with Kontra and Re."""
+        options = KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD)
+        record = skat.store.tables[forehand_table.table_id]
+        skat.store.tables[forehand_table.table_id] = replace(record, options=TableOptions(kontra=options))
+        return forehand_table
+
+    def test_an_agent_opponent_says_kontra_as_a_person_does_under_its_own_account(self, agent, kontra_table):
+        assert agent.read(kontra_table.table_id).json()["hand"]["playing"]["kontra"]["my_word"] == "kontra"
+
+        answer = self.say(agent, kontra_table)
+
+        assert not answer.is_error, answer.text
+        kontra = answer.json()["hand"]["playing"]["kontra"]
+        assert kontra == {"said": [{"seat": 3, "word": "kontra"}], "factor": 2, "my_word": None}
+        assert agent.read(kontra_table.table_id).json() == answer.json()
+        assert kontra_table.record.progress.words[0].position is FOREHAND
+
+    def test_a_refused_word_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, kontra_table):
+        before = stored(kontra_table.skat)
+
+        answer = self.say(agent, kontra_table, "re")
+
+        assert answer.is_error
+        assert answer.json()["reason"] == KontraRefusal.NOT_YOUR_WORD
+        assert stored(kontra_table.skat)[0] == before[0]
+        assert "reused" in self.say(agent, kontra_table, "kontra", version=0).text
 
 
 class TestThrowDownCards:

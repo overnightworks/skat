@@ -19,7 +19,7 @@ from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
 from skat.engine.kontra import Doubling, KontraReach, Word, doubled_reckoning
-from skat.engine.score import Reckoning, settle
+from skat.engine.score import Reckoning, Settlement, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -248,43 +248,57 @@ def test_a_passed_in_hand_uses_up_a_bock_game() -> None:
 
 
 @pytest.mark.parametrize(
-    ("ended", "doubling", "reach", "expected_score", "expected_reckoning"),
+    ("ended", "last_word", "reach", "expected_score", "doubled_score", "expected_reckoning"),
     [
         pytest.param(
-            game(KREUZ, WIN, trumps=(CLUBS_JACK,)), NO_WORDS, KontraReach.KONTRA_RE, 48, Reckoning(98, 0), id="25"
+            game(KREUZ, WIN, trumps=(CLUBS_JACK,)), None, KontraReach.KONTRA_RE, 48, 48, Reckoning(98, 0), id="25"
         ),
         pytest.param(
-            game(KREUZ, LOST, trumps=(CLUBS_JACK,)), NO_WORDS, KontraReach.KONTRA_RE, -96, Reckoning(-146, 40), id="26"
-        ),
-        pytest.param(
-            game(KREUZ, WIN, trumps=(CLUBS_JACK,)), said(KONTRA), KontraReach.KONTRA_RE, 48, Reckoning(146, 0), id="27"
+            game(KREUZ, LOST, trumps=(CLUBS_JACK,)), None, KontraReach.KONTRA_RE, -96, -96, Reckoning(-146, 40), id="26"
         ),
         pytest.param(
             game(KREUZ, WIN, trumps=(CLUBS_JACK,)),
-            said(KONTRA),
+            Word.KONTRA,
+            KontraReach.KONTRA_RE,
+            48,
+            96,
+            Reckoning(146, 0),
+            id="27",
+        ),
+        pytest.param(
+            game(KREUZ, WIN, trumps=(CLUBS_JACK,)),
+            Word.KONTRA,
             KontraReach.KONTRA_RE_STANDINGS,
             48,
+            96,
             Reckoning(196, 0),
             id="28",
         ),
         pytest.param(
             game(KREUZ, LOST, trumps=(CLUBS_JACK,)),
-            said(KONTRA),
+            Word.KONTRA,
             KontraReach.KONTRA_RE_STANDINGS,
             -96,
+            -192,
             Reckoning(-292, 80),
             id="29",
         ),
     ],
 )
 def test_a_bock_game_doubles_the_list_score_and_leaves_the_value_and_the_standings_to_kontra(
-    ended: PlayedOut, doubling: Doubling, reach: KontraReach, expected_score: int, expected_reckoning: Reckoning
+    ended: PlayedOut,
+    last_word: Word | None,
+    reach: KontraReach,
+    expected_score: int,
+    doubled_score: int,
+    expected_reckoning: Reckoning,
 ) -> None:
     rounds = advance(BockRounds.start(), APPEND, triggered=True)
     settlement = bock_settlement(settle(ended, ended.declared.bid), rounds, APPEND)
     assert settlement.value == 24
     assert settlement.score == expected_score
-    assert doubled_reckoning(settlement, doubling, reach) == expected_reckoning
+    doubled = Settlement(settlement.won, settlement.value, doubled_score)
+    assert doubled_reckoning(doubled, last_word, reach) == expected_reckoning
 
 
 def test_a_game_outside_every_bock_round_keeps_its_settlement() -> None:

@@ -6,12 +6,14 @@ from typing import TYPE_CHECKING, Final, Self
 
 from skat.engine.bidding import BidRefusal
 from skat.engine.declaration import DeclarationRefusal
+from skat.engine.kontra import KontraOptions, KontraRefusal
 from skat.engine.tricks import PlayRefusal
 
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
     from skat.engine.deal import Deal
     from skat.engine.declaration import DeclaringStep
+    from skat.engine.kontra import WordSaid
     from skat.engine.tricks import CardPlayed
     from skat.table.game_list import ListEntry
 
@@ -52,10 +54,11 @@ class TableOptions:
     """The rule options a table is opened with; they stay fixed for its life and the default is the official rules.
 
     `show_running_points` shows everyone the card points each side has taken in completed tricks while a suit or
-    Grand game is played.
+    Grand game is played. `kontra` makes the table play the words Kontra and Re up to its reach; None plays without.
     """
 
     show_running_points: bool = False
+    kontra: KontraOptions | None = None
 
 
 @dataclass(frozen=True)
@@ -102,13 +105,15 @@ class Refusal(StrEnum):
     SERIES_OVER = "series-over"
     NO_SERIES = "no-series"
     SERIES_NOT_OVER = "series-not-over"
+    RULE_OFF = "rule-off"
 
 
-type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal
+type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal | KontraRefusal
 
-# `PlayRefusal` shares its `over` and `not-your-turn` tokens with `BidRefusal`: the wire string is the same either way.
+# `PlayRefusal` and `KontraRefusal` share their `over` token, and `PlayRefusal` its `not-your-turn`, with `BidRefusal`:
+# the wire string is the same either way, and the owner listed last keeps a shared token.
 _REFUSALS_BY_TOKEN: Final[dict[str, CommandRefusal]] = {
-    refusal.value: refusal for refusal in (*Refusal, *PlayRefusal, *BidRefusal, *DeclarationRefusal)
+    refusal.value: refusal for refusal in (*Refusal, *PlayRefusal, *KontraRefusal, *BidRefusal, *DeclarationRefusal)
 }
 
 
@@ -136,11 +141,13 @@ class Chair:
 
 @dataclass(frozen=True)
 class HandProgress:
-    """What has happened in the running hand so far; a later phase adds its own field."""
+    """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
+    cards, so each carries how many cards were played before it."""
 
     auction: tuple[AuctionStep, ...] = ()
     declaring: tuple[DeclaringStep, ...] = ()
     plays: tuple[CardPlayed, ...] = ()
+    words: tuple[WordSaid, ...] = ()
 
 
 @dataclass(frozen=True)
