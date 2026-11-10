@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from skat.store.migrate import create_store_engine, migrate
-from tests.store.test_migrate import _run_in_transaction, upgrade_to
+from tests.support.migrations import run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
@@ -36,7 +36,7 @@ class TestFromALiveTableAtRevisionFourteen:
         ],
     )
     def test_accepts_an_ask_and_a_no_from_another_position(self, migrated, statement):
-        _run_in_transaction(migrated, text(statement))
+        run_in_transaction(migrated, text(statement))
 
     @pytest.mark.parametrize(
         "statement",
@@ -56,4 +56,4 @@ class TestFromALiveTableAtRevisionFourteen:
     def test_refuses_what_is_no_request(self, migrated, statement):
         update = text(statement)
         with pytest.raises(IntegrityError):
-            _run_in_transaction(migrated, update)
+            run_in_transaction(migrated, update)
