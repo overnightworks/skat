@@ -1,6 +1,6 @@
 import itertools
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Locator, Page, expect
@@ -99,11 +99,15 @@ class DeclaringTable:
 
     @staticmethod
     def _hold_the_clock_of(*people: Page) -> None:
-        """Stops the page's timers, so the moment the auction ends lasts until the test lets time run."""
-        stopped_at = datetime.now(UTC) + timedelta(seconds=1)
+        """Stops the page's timers, so the moment the auction ends lasts until the test lets time run.
+
+        A fixed time keeps the page's clock on one moment while timers run, so pausing at that moment never
+        lies in the past, however long the browser takes between the two calls.
+        """
+        stopped_at = datetime.now(UTC)
         for person in people:
-            person.clock.install(time=stopped_at)
-            person.clock.pause_at(stopped_at + timedelta(seconds=1))
+            person.clock.set_fixed_time(stopped_at)
+            person.clock.pause_at(stopped_at)
 
     def _win_the_auction(self, seat_at: dict[str, int]) -> None:
         """The middlehand holds the highest bid there is, so any game the page declares lies below it."""
