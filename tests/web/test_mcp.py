@@ -1,5 +1,5 @@
 import pytest
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
+from agents.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
 
 from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass

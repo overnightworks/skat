@@ -1,4 +1,4 @@
-from agent_runtime_client.member import LEASE_SECONDS
+from agents.member import LEASE_SECONDS
 
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, AgentLease, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
