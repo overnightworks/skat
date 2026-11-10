@@ -1,6 +1,7 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
+from skat.table.bock import bock_at_series_end
 from skat.table.records import Decision, EndProposal, Refusal
 from skat.table.rules import hand_runs, hand_was_dealt, seat_of, series_over
 
@@ -64,9 +65,9 @@ def _with_proposal(table: TableRecord, series: Series, proposal: EndProposal | N
 
 
 def _ended_early(table: TableRecord, series: Series) -> Decision:
-    """The series ends with the games so far; every „Weiter“ mark goes, since a mark set for the next hand would
-    count as consent to „Neue Serie“.
+    """The series ends with the games so far and its pending Bock rounds; every „Weiter“ mark goes, since a mark set
+    for the next hand would count as consent to „Neue Serie“.
     """
     chairs = tuple(replace(chair, ready=False) for chair in table.chairs)
     ended = replace(series, ended_early=True, end_proposal=None)
-    return Decision(replace(table, version=table.version + 1, chairs=chairs, series=ended))
+    return Decision(replace(table, version=table.version + 1, chairs=chairs, series=ended, bock=bock_at_series_end()))

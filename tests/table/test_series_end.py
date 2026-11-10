@@ -3,8 +3,9 @@ from dataclasses import replace
 
 import pytest
 
-from skat.engine.bock import BockRounds
+from skat.engine.bock import BockOptions, BockOverlap, BockRounds, BockTrigger
 from skat.engine.deal import deal
+from skat.table.bock import bock_view_of
 from skat.table.records import (
     Actor,
     Chair,
@@ -79,6 +80,15 @@ class TestDecideAgreeToEnd:
         assert decision.table.series == Series(12, 2, ended_early=True)
         assert [chair.ready for chair in decision.table.chairs] == [False, False, False]
         assert decision.table.version == TABLE_VERSION + 1
+
+    def test_the_third_yes_lets_every_pending_bock_round_lapse(self):
+        options = TableOptions(bock=BockOptions(frozenset({BockTrigger.RE}), BockOverlap.APPEND))
+        table = replace(between_games(EndProposal(1, 2)), options=options, bock=BockRounds((3, 3)))
+
+        decision = decide_agree_to_end(table, CLEO)
+
+        assert decision.table.bock == BockRounds.start()
+        assert bock_view_of(decision.table).games_left == 0
 
     @pytest.mark.parametrize(
         ("proposal", "actor"),
