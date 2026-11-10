@@ -366,6 +366,51 @@ class TestLeavingClearsOnlyTheOwnMark:
         assert ready_seats(decision.table) == [2]
 
 
+def at_the_series_end(table: TableRecord, *seats: int) -> TableRecord:
+    return replace(ready_at(table, *seats), series=Series(3, 3))
+
+
+class TestTheSeriesEnd:
+    @pytest.mark.parametrize(
+        ("table", "connected", "due"),
+        [
+            pytest.param(at_the_series_end(played_out(), 1, 2, 3), ALL_THREE, True, id="a-played-last-game-all-tapped"),
+            pytest.param(
+                at_the_series_end(passed_in(), 1, 2, 3), ALL_THREE, True, id="a-passed-in-last-game-all-tapped"
+            ),
+            pytest.param(at_the_series_end(played_out(), 1, 2), ALL_THREE, False, id="a-played-last-game-two-tapped"),
+            pytest.param(at_the_series_end(passed_in(), 1, 2), ALL_THREE, False, id="a-passed-in-last-game-two-tapped"),
+            pytest.param(at_the_series_end(passed_in()), ALL_THREE, False, id="a-passed-in-last-game-nobody-tapped"),
+            pytest.param(
+                at_the_series_end(played_out(), 1, 2, 3), ALL_THREE - {BEN.account_id}, False, id="all-tapped-one-away"
+            ),
+        ],
+    )
+    def test_the_next_deal_waits_for_all_three_taps_and_all_three_connected(self, table, connected, due):
+        assert next_deal_due(table, connected) is due
+
+    def test_a_sit_that_fills_the_last_chair_at_the_end_deals_nothing(self):
+        table = replace(at_the_series_end(played_out()), chairs=table_with((1, ANNA), (2, BEN)).chairs)
+
+        assert sit_deals(table) is False
+
+    @pytest.mark.parametrize("last_game", [played_out(), passed_in()], ids=["played", "passed-in"])
+    def test_the_deal_that_follows_empties_the_list_and_counts_one(self, last_game):
+        table = at_the_series_end(replace(last_game, game_list=(an_entry(), an_entry())), 1, 2, 3)
+
+        next_series = dealt_next(table, DRAWN)
+
+        assert (next_series.game_list, next_series.series) == ((), Series(3, 1))
+        assert (next_series.dealer, next_series.hand) == (DRAWN.dealer, DRAWN.hand)
+
+    def test_a_deal_inside_a_series_keeps_the_list_and_counts_one_more(self):
+        table = replace(passed_in(), game_list=(an_entry(),), series=Series(3, 2))
+
+        next_hand = dealt_next(table, DRAWN)
+
+        assert (next_hand.game_list, next_hand.series) == (table.game_list, Series(3, 3))
+
+
 class TestSeries:
     @pytest.mark.parametrize("length", [0, 2, 4, 100, 102])
     def test_refuses_a_length_outside_the_range_or_off_the_step(self, length):

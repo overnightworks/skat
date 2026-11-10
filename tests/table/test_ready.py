@@ -1,11 +1,19 @@
 import itertools
+import random
 from dataclasses import replace
 
 import pytest
 
 from skat.engine.bidding import Pass
-from skat.engine.deal import Position
-from skat.table.ready import ReadyCommand, decide_ready, ready_payload
+from skat.engine.deal import Position, deal
+from skat.table.ready import (
+    NewSeriesCommand,
+    ReadyCommand,
+    decide_new_series,
+    decide_ready,
+    new_series_payload,
+    ready_payload,
+)
 from skat.table.records import (
     Actor,
     Chair,
@@ -13,6 +21,7 @@ from skat.table.records import (
     HandProgress,
     Occupant,
     Refusal,
+    Series,
     SitDown,
     TableId,
     TableRecord,
@@ -112,13 +121,90 @@ class TestDecideReady:
         assert decide_ready(replace(pending(), game_list=()), ANNA, weiter(5)).refusal is Refusal.NO_RESULT
 
 
+def new_series() -> NewSeriesCommand:
+    return NewSeriesCommand(command_id="command-new-series", table_id="0" * 32)
+
+
+def at_the_end(*ready_seats: int, games: int = 3) -> TableRecord:
+    """Three seated after the last game of a series of three; `ready_seats` tapped."""
+    return replace(pending(*ready_seats, games=games), series=Series(3, 3))
+
+
+class TestDecideNewSeries:
+    def test_marks_only_the_actors_chair_and_bumps_the_version_once(self):
+        decision = decide_new_series(at_the_end(1), BEN)
+
+        assert decision.refusal is None
+        assert ready_seats(decision.table) == [1, 2]
+        assert decision.table.version == TABLE_VERSION + 1
+
+    def test_marks_the_chair_after_a_passed_in_last_game(self):
+        passed_in_last = replace(at_the_end(games=0), progress=HandProgress((Pass(Position.MIDDLEHAND),) * 3))
+
+        decision = decide_new_series(passed_in_last, CLEO)
+
+        assert (decision.refusal, ready_seats(decision.table)) == (None, [3])
+
+    def test_a_chair_already_marked_is_accepted_and_changes_nothing(self):
+        table = at_the_end(2)
+
+        decision = decide_new_series(table, BEN)
+
+        assert decision.refusal is None
+        assert decision.table == table
+
+    def test_a_viewer_without_a_chair_is_not_seated_before_any_other_reason(self):
+        table = replace(pending(), series=None)
+
+        decision = decide_new_series(table, DORA)
+
+        assert decision.refusal is Refusal.NOT_SEATED
+        assert decision.table == table
+
+    def test_a_table_without_a_series_is_named_before_a_series_not_over(self):
+        table = replace(pending(), series=None)
+
+        decision = decide_new_series(table, ANNA)
+
+        assert decision.refusal is Refusal.NO_SERIES
+        assert decision.table == table
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(replace(pending(), series=Series(6, 2)), id="a-result-pending-mid-series"),
+            pytest.param(replace(pending(), game_list=(), series=Series(6, 1)), id="no-game-yet"),
+            pytest.param(
+                replace(pending(), progress=HandProgress((Pass(Position.MIDDLEHAND),) * 3), series=Series(6, 2)),
+                id="a-passed-in-hand-mid-series",
+            ),
+            pytest.param(
+                replace(at_the_end(), hand=deal(random.Random(3))),  # noqa: S311 - a seeded source makes the deal reproducible
+                id="a-hand-runs-at-the-last-game",
+            ),
+        ],
+    )
+    def test_a_series_not_over_is_named_and_changes_nothing(self, table):
+        decision = decide_new_series(table, ANNA)
+
+        assert decision.refusal is Refusal.SERIES_NOT_OVER
+        assert decision.table == table
+
+
+class TestNewSeriesPayload:
+    def test_a_series_end_has_no_number_so_the_table_alone_is_the_payload(self):
+        assert new_series_payload(new_series()) == "0" * 32
+
+
 class TestReadyPayload:
     def test_another_ordinal_is_another_request(self):
         assert ready_payload(weiter(1)) != ready_payload(weiter(2))
 
 
 class TestReadyRefusalTokens:
-    @pytest.mark.parametrize("refusal", [Refusal.NO_RESULT, Refusal.STALE_RESULT])
+    @pytest.mark.parametrize(
+        "refusal", [Refusal.NO_RESULT, Refusal.STALE_RESULT, Refusal.NO_SERIES, Refusal.SERIES_NOT_OVER]
+    )
     def test_a_stored_token_reads_back_to_its_refusal(self, refusal):
         assert parsed_refusal(refusal.value) is refusal
 
