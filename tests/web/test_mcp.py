@@ -31,6 +31,7 @@ from skat.web.mcp import (
     READ_TABLE_TOOL,
     SAVE_RULE_SET_TOOL,
     SAY_KONTRA_TOOL,
+    START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
 )
@@ -93,6 +94,7 @@ class TestTools:
                 SAY_KONTRA_TOOL,
                 READ_RULE_SETS_TOOL,
                 SAVE_RULE_SET_TOOL,
+                START_NEW_SERIES_TOOL,
             }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
