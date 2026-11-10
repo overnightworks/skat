@@ -1,8 +1,0 @@
-claim_id = "703746b9dc674877bb990f0e2a4c61ea"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "5c4e7b8ddea0b7e05c4cf541c13c58cefb45ae00"
-branch = "claude/issue-224-empty-since"
-scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/host/app.py", "src/skat/store/migrations/versions/0012_empty_since.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/presence.py", "tests/e2e/test_table_end.py", "tests/host/test_app.py", "tests/store/test_migrate.py", "tests/store/test_tables_end.py", "tests/support/fake_tables.py", "tests/support/faulty_tables.py", "tests/support/idle_presence.py", "tests/table/test_rules.py", "tests/table/test_service_end.py", "tests/web/conftest.py", "tests/web/test_presence.py", "tests/web/test_presence_empty_table.py", "tests/web/test_streams_end.py"]
-opened_commit = "41777db2c75a3c0f198dec64ff6820a675ba060e"
-whole_reason = "The stamp's four writers (create, the last leave, the first arrival, the start's null-fill) and the start's overdue read are one invariant: without the arrival's clear a stamp outlives a return and ends the table early at the next restart, without the leave's write or create's stamp the start can only count from itself, and without the start's read and end nothing ever uses what the writers stored."
