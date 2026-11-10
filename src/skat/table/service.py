@@ -23,7 +23,16 @@ from skat.table.playing import (
     give_up_payload,
     throw_down_payload,
 )
-from skat.table.ready import READY_COMMAND, ReadyCommand, decide_ready, ready_payload
+from skat.table.ready import (
+    NEW_SERIES_COMMAND,
+    READY_COMMAND,
+    NewSeriesCommand,
+    ReadyCommand,
+    decide_new_series,
+    decide_ready,
+    new_series_payload,
+    ready_payload,
+)
 from skat.table.records import (
     Actor,
     CommandRefusal,
@@ -106,7 +115,8 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
         hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
         dealt: a record whose hand differs from it while the hand has progress raises, unless the third pass ended
-        the hand. A list that does not continue the stored one raises, and so does a free chair that is ready.
+        the hand. A list that does not continue the stored one raises, unless the record is a series' first deal, which
+        empties the stored list first; a free chair that is ready raises too.
         """
         ...
 
@@ -338,6 +348,19 @@ class TableService:
             READY_COMMAND,
             ready_payload(command),
             lambda table: decide_ready(table, actor, command),
+        )
+
+    def start_new_series(
+        self, actor: Actor, command: NewSeriesCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            NEW_SERIES_COMMAND,
+            new_series_payload(command),
+            lambda table: decide_new_series(table, actor),
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
