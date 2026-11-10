@@ -17,8 +17,14 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
 from skat.table.hand_state import playing_of
-from skat.table.playing import GiveUpCommand, PlayCardCommand, ThrowDownCommand
-from skat.table.records import Actor, CreateTable, Refusal, SitDown
+from skat.table.playing import (
+    AgreeToGiveUpCommand,
+    DeclineGiveUpCommand,
+    GiveUpCommand,
+    PlayCardCommand,
+    ThrowDownCommand,
+)
+from skat.table.records import Actor, CreateTable, GiveUpAsked, Refusal, SitDown
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 
@@ -239,6 +245,55 @@ def test_an_early_end_stores_its_entry_drops_cards_and_a_new_service_replays_the
     assert (again.view, again.refusal) == (first.view, first.refusal)
     assert again.seated_when_hand_ended == frozenset()
     assert len(game.record.game_list) == 1
+
+
+def asked_with_eight_cards(game):
+    """The declarer asks to give up once he holds eight cards."""
+    while len(playing_of(game.record).hands[Position.MIDDLEHAND]) > 8:
+        game.play_legally(1, start=len(game.plays) + 1)
+    command = GiveUpCommand(command_id="ask", table_id=game.table_id, version=game.record.version)
+    result = game.service.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None)
+    assert result.refusal is None
+
+
+def stored_request(engine):
+    with engine.connect() as connection:
+        return tuple(connection.execute(text("SELECT give_up_asked_by, give_up_declined_by FROM tables")).one())
+
+
+def test_an_unanswered_request_and_a_no_are_read_back_by_a_new_service_and_a_yes_after_that_ends_the_game(
+    game, engine, database_url, stored
+):
+    asked_with_eight_cards(game)
+    assert stored_request(engine) == ("middlehand", None)
+    no = DeclineGiveUpCommand(command_id="no", table_id=game.table_id, version=game.record.version)
+    game.service.decline_give_up(game.actors[Position.FOREHAND], no, nobody_connected())
+    assert stored_request(engine) == ("middlehand", "forehand")
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        assert stored(restarted, game.table_id).progress.give_up == GiveUpAsked(Position.MIDDLEHAND, Position.FOREHAND)
+        yes = AgreeToGiveUpCommand(command_id="yes", table_id=game.table_id, version=game.record.version)
+        result = TableService(restarted).agree_to_give_up(
+            game.actors[Position.REARHAND], yes, nobody_connected(), lambda _: None
+        )
+    finally:
+        restarted_engine.dispose()
+
+    assert result.refusal is None
+    assert game.record.hand is None
+    assert len(game.record.game_list) == 1
+    assert stored_request(engine) == (None, None)
+
+
+def test_a_card_clears_the_stored_request(game, engine):
+    asked_with_eight_cards(game)
+
+    game.play_legally(1, start=len(game.plays) + 1)
+
+    assert game.record.progress.give_up is None
+    assert stored_request(engine) == (None, None)
 
 
 def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(game, engine, transactions):
