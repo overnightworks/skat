@@ -10,7 +10,7 @@ from skat.web.constants import (
     HEALTH_PATH,
     HOME_PATH,
     IMMUTABLE_ASSET_CACHE_CONTROL,
-    IMMUTABLE_ASSET_DIRECTORY,
+    IMMUTABLE_ASSET_PATH_RULES,
 )
 from skat.web.mcp import Exclusion, excluded
 
@@ -33,13 +33,14 @@ class _PageBuildFiles(StaticFiles):
 
     def __init__(self, directory: Path) -> None:
         super().__init__(directory=directory)
-        self._immutable_directory = (directory / IMMUTABLE_ASSET_DIRECTORY).resolve()
+        self._directory = directory.resolve()
 
     def file_response(
         self, full_path: str | os.PathLike[str], stat_result: os.stat_result, scope: Scope, status_code: int = 200
     ) -> Response:
         response = super().file_response(full_path, stat_result, scope, status_code)
-        if Path(full_path).is_relative_to(self._immutable_directory):
+        served_path = f"{APP_ASSET_PATH}/{Path(full_path).resolve().relative_to(self._directory).as_posix()}"
+        if IMMUTABLE_ASSET_PATH_RULES.matches(served_path):
             response.headers["Cache-Control"] = IMMUTABLE_ASSET_CACHE_CONTROL
         return response
 

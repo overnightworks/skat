@@ -19,6 +19,7 @@ from skat.web.constants import (
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
 )
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.browser import LEGAL_LINKS, LEGAL_ORIGIN, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
@@ -58,6 +59,7 @@ LOG_OUT = "Log out"
 NOT_ADMITTED = ["/apps/other"]
 # The window and the frame meet within a poll or two; a bound stops a hang.
 WAIT_MILLISECONDS = 10_000
+STALE_STAGE = ".stage.stale"
 FRAMED_STYLE = "position:fixed;inset:0;width:100%;height:100%;border:0"
 # The sandboxed frame that cannot open a window.
 WINDOW_BLOCKED = "window.open = () => null;"
@@ -99,7 +101,7 @@ class FramedTable:
         return any(cookie["name"] == self.session_cookie for cookie in self.visitor.context.cookies())
 
 
-def abort_module_file(route: Route) -> None:
+def abort_request(route: Route) -> None:
     route.abort()
 
 
@@ -155,14 +157,14 @@ def frame_a_table(
                 expected_request_failures.append(
                     f"{signing_server.base_url}{APP_ASSET_PATH}/{IMMUTABLE_ASSET_DIRECTORY}/"
                 )
-                visitor.context.route(MODULE_FILES, abort_module_file)
+                visitor.context.route(MODULE_FILES, abort_request)
             visitor.goto(f"{CALL_ORIGIN}/")
             framed = FramedTable(
                 visitor,
                 path,
                 signing_server.config.session_cookie_name,
                 requests,
-                lambda: visitor.context.unroute(MODULE_FILES, abort_module_file),
+                lambda: visitor.context.unroute(MODULE_FILES, abort_request),
             )
             if username is not None:
                 expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS)
@@ -214,6 +216,45 @@ def test_a_window_closed_before_the_sign_in_finishes_leaves_the_sign_in_face_wit
 
     assert not second.is_closed()
     expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
+
+
+def test_a_window_on_the_issuers_origin_keeps_the_sign_in_face_until_it_is_closed(
+    frame_a_table: Callable[..., FramedTable],
+) -> None:
+    framed = frame_a_table(clock=True)
+    framed.visitor.context.route(
+        f"**{AUTH_START_PATH}**",
+        lambda route: route.fulfill(
+            content_type="text/html", body=f"<script>location.replace('{TEST_ISSUER}/auth')</script>"
+        ),
+    )
+    framed.visitor.context.route(
+        f"{TEST_ISSUER}/**", lambda route: route.fulfill(content_type="text/html", body="<p>issuer</p>")
+    )
+    window = start_sign_in(framed)
+    window.wait_for_url(re.compile(re.escape(TEST_ISSUER)))
+
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+
+    expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
+    assert not window.is_closed()
+    window.close()
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+    expect(framed.frame.get_by_text(UNFINISHED_NOTICE)).to_be_visible(timeout=WAIT_MILLISECONDS)
+
+
+def test_a_window_closed_while_the_account_check_fails_leaves_the_sign_in_face_with_its_notice(
+    frame_a_table: Callable[..., FramedTable], signing_server: RunningServer, expected_request_failures: list[str]
+) -> None:
+    framed = frame_a_table(clock=True, console=False)
+    expected_request_failures.append(f"{signing_server.base_url}{ACCOUNT_PATH}")
+    framed.visitor.context.route(f"**{ACCOUNT_PATH}", abort_request)
+    window = start_sign_in(framed)
+
+    window.close()
+    framed.visitor.clock.run_for(LONGER_THAN_ANY_RE_CHECK_MILLISECONDS)
+
+    expect(framed.frame.get_by_text(UNFINISHED_NOTICE)).to_be_visible(timeout=WAIT_MILLISECONDS)
 
 
 def test_a_sign_in_finished_in_another_window_brings_the_table_when_the_sign_in_window_is_closed(
@@ -530,3 +571,29 @@ def test_a_top_level_call_mode_table_whose_session_ended_signs_in_again_through_
     return_path = f"{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1"
     assert parse_qs(urlsplit(sign_in_starts[0]).query) == {RETURN_PATH_QUERY_NAME: [return_path]}
     assert CALL_SIGN_IN_PATH not in ben.url
+
+
+def test_a_framed_table_whose_stream_ends_without_a_refusal_dims_and_comes_back_without_reload_or_sign_in(
+    frame_a_table: Callable[..., FramedTable], signing_server: RunningServer
+) -> None:
+    framed = frame_a_table(username="ines", console=False)
+    expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    streams: list[str] = []
+
+    def end_the_first_stream(route: Route) -> None:
+        streams.append(route.request.url)
+        if len(streams) == 1:
+            route.fulfill(content_type="text/event-stream", body="")
+        else:
+            route.continue_()
+
+    # Playwright cannot end a stream that is open, so the reloaded frame meets a stream that answers and ends at once.
+    framed.visitor.context.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", end_the_first_stream)
+    framed.visitor.frames[1].goto(table_url(signing_server, framed.path))
+    framed.visitor.frames[1].evaluate("window.sameDocument = true")
+
+    expect(framed.frame.locator(STALE_STAGE)).to_have_count(1, timeout=WAIT_MILLISECONDS)
+    expect(framed.frame.locator(STALE_STAGE)).to_have_count(0, timeout=WAIT_MILLISECONDS)
+    expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    assert framed.visitor.frames[1].evaluate("window.sameDocument") is True
+    assert framed.sign_in_starts == []
