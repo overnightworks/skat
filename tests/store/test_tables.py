@@ -28,7 +28,6 @@ from skat.table.service import CommandIdReusedError, TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import TABLES_PATH
-from tests.support import table_rows
 from tests.support.faulty_tables import (
     WAIT_DEADLINE_SECONDS,
     BothReadBeforeEitherWrites,
@@ -501,8 +500,7 @@ class TestOneMomentRead:
         with pytest.raises(pytest.fail.Exception, match="without a session waiting"):
             wait_until_a_session_waits_for_a_lock(engine, reader)
 
-    def test_the_wait_for_a_lock_sees_a_session_that_starts_waiting_after_its_first_poll(self, engine, monkeypatch):
-        monkeypatch.setattr(table_rows, "HANG_DEADLINE_SECONDS", 5)
+    def test_the_wait_for_a_lock_sees_a_session_that_starts_waiting_after_its_first_poll(self, engine):
         first_poll_done = threading.Event()
 
         @event.listens_for(engine, "after_cursor_execute")
@@ -519,7 +517,7 @@ class TestOneMomentRead:
             holder.execute(text("SELECT pg_advisory_xact_lock(246)"))
             reader, _ = run_in_thread(wait_for_the_advisory_lock)
 
-            wait_until_a_session_waits_for_a_lock(engine, reader)
+            wait_until_a_session_waits_for_a_lock(engine, reader, deadline_seconds=5)
 
         reader.join()
 

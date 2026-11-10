@@ -49,13 +49,15 @@ def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
         }
 
 
-def wait_until_a_session_waits_for_a_lock(engine, reader: threading.Thread) -> None:
+def wait_until_a_session_waits_for_a_lock(
+    engine, reader: threading.Thread, deadline_seconds: float = HANG_DEADLINE_SECONDS
+) -> None:
     """Returns when a session waits for a lock.
 
     The caller holds the lock the reader needs until this returns, so a reader that is blocked stays visible to the
     poll; the reader ending first therefore means it never waited. That fails the test: with the reader's own
     failure when it is a `WorkInAThread` that failed. A reader still running at the hang deadline fails it too."""
-    hang_deadline = time.monotonic() + HANG_DEADLINE_SECONDS
+    hang_deadline = time.monotonic() + deadline_seconds
     # Each poll needs its own snapshot of the activity view: inside one transaction PostgreSQL keeps the first.
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as watcher:
         while reader.is_alive() and time.monotonic() < hang_deadline:
