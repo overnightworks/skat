@@ -20,6 +20,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.tables import SIT_DOWN, table_id_of
+from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 BAR = ".bar"
+SEAT_FREE = catalog_text("seatFree")
 OTHER_ORIGIN = f"https://{OTHER_HOST}:{OTHER_PORT}"
 VALID_HELLO = {"v": 1, "type": "hello", "attachment": 1, "attempt": None}
 LOG_IN = "Log in"
@@ -191,11 +193,15 @@ def test_a_message_that_fails_a_check_leaves_the_bar_until_the_valid_hello_comes
         expect(table.locator(BAR)).to_have_count(0)
 
 
-def test_a_tap_at_the_moment_the_bar_drops_sends_no_command_and_taps_work_again_after_it(
-    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+@pytest.mark.parametrize("reduced_motion", ["no-preference", "reduce"])
+def test_a_tap_at_the_moment_the_bar_drops_seats_nobody_and_a_tap_after_it_seats_the_visitor(
+    open_person: Callable[..., Page],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    reduced_motion: str,
 ) -> None:
     path = new_table(open_person, framing_server)
-    visitor = open_person(server=framing_server)
+    visitor = open_person(server=framing_server, username="ben", reduced_motion=reduced_motion)
 
     with in_the_greeting_call(visitor, browser_coverage, framing_server, table_url(framing_server, path)) as skat:
         visitor.evaluate(
@@ -203,24 +209,21 @@ def test_a_tap_at_the_moment_the_bar_drops_sends_no_command_and_taps_work_again_
         )
         wait_for_ready(visitor)
         table = visitor.frame_locator(FRAME)
-        sit_down = table.get_by_role("button", name=SIT_DOWN).first
-        expect(sit_down).to_be_visible()
-        commands = []
-        visitor.on("request", lambda request: commands.append(request) if request.method == "POST" else None)
+        expect(table.get_by_role("button", name=SIT_DOWN)).to_have_count(THREE_CHAIRS - 1)
 
         visitor.evaluate("greet()")
         expect(table.locator(BAR)).to_have_count(0)
         centre = skat.evaluate(
             """() => {
-                const box = document.querySelector(".chair button").getBoundingClientRect();
+                const box = document.querySelector(".chair[data-seat='2'] button").getBoundingClientRect();
                 return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
             }"""
         )
         visitor.mouse.click(centre["x"], centre["y"])
+        table.locator(".chair[data-seat='3']").get_by_role("button", name=SIT_DOWN).click()
 
-        assert commands == []
-        sit_down.click()
-        expect(table.locator(CHAIR).get_by_role("button", name=SIT_DOWN)).to_have_count(THREE_CHAIRS - 1)
+        expect(table.locator(".chair[data-seat='3'] .plate")).to_have_text("ben")
+        expect(table.locator(".chair[data-seat='2'] .plate")).to_have_text(SEAT_FREE)
 
 
 def test_a_reloaded_frame_greets_again(
