@@ -1,8 +1,0 @@
-claim_id = "dbf893c9f27040dbb5d69d1d0bd94610"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "5f012c1944e82d4c46904b5b81a221a4c4448673"
-branch = "claude/issue-286-call-mode-rules"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/callFrame.test.ts", "frontend/src/lib/callFrame.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.ts", "tests/e2e/test_call_mode_table.py"]
-opened_commit = "238e660b46021afd94574516f7bec82d4d2cc804"
-whole_reason = "The wordmark, the two hidden buttons and the one predicate keep one rule, that a framed call-mode page never leaves the call mode or offers a public table, and none keeps it alone."
