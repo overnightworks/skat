@@ -19,7 +19,7 @@ from tests.e2e.support.call_frame import (
     table_url,
 )
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.tables import table_id_of
+from tests.e2e.support.tables import SIT_DOWN, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -189,6 +189,38 @@ def test_a_message_that_fails_a_check_leaves_the_bar_until_the_valid_hello_comes
         visitor.evaluate("greet()")
 
         expect(table.locator(BAR)).to_have_count(0)
+
+
+def test_a_tap_at_the_moment_the_bar_drops_sends_no_command_and_taps_work_again_after_it(
+    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+) -> None:
+    path = new_table(open_person, framing_server)
+    visitor = open_person(server=framing_server)
+
+    with in_the_greeting_call(visitor, browser_coverage, framing_server, table_url(framing_server, path)) as skat:
+        visitor.evaluate(
+            "document.getElementById('stage').style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0'"
+        )
+        wait_for_ready(visitor)
+        table = visitor.frame_locator(FRAME)
+        sit_down = table.get_by_role("button", name=SIT_DOWN).first
+        expect(sit_down).to_be_visible()
+        commands = []
+        visitor.on("request", lambda request: commands.append(request) if request.method == "POST" else None)
+
+        visitor.evaluate("greet()")
+        expect(table.locator(BAR)).to_have_count(0)
+        centre = skat.evaluate(
+            """() => {
+                const box = document.querySelector(".chair button").getBoundingClientRect();
+                return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+            }"""
+        )
+        visitor.mouse.click(centre["x"], centre["y"])
+
+        assert commands == []
+        sit_down.click()
+        expect(table.locator(CHAIR).get_by_role("button", name=SIT_DOWN)).to_have_count(THREE_CHAIRS - 1)
 
 
 def test_a_reloaded_frame_greets_again(

@@ -383,6 +383,18 @@ body {
     text-transform: uppercase;
 }
 
+/* The table moves up when the call's greeting drops the bar; a tap aimed at the old place must not reach a control that moved under it. */
+.room .stage.after-drop {
+    animation: stage-untouchable 1s;
+}
+
+@keyframes stage-untouchable {
+    from,
+    to {
+        pointer-events: none;
+    }
+}
+
 .room .stage {
     position: relative;
     display: grid;

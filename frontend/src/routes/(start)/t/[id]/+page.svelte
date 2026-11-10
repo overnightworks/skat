@@ -256,7 +256,7 @@
             {/if}
         </header>
     {/if}
-    <main class="stage" class:stale={!connected}>
+    <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
             <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
