@@ -3,6 +3,7 @@ import itertools
 import json
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 from agent_runtime_client.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
@@ -26,6 +27,7 @@ FETCH = {"accept": "application/json"}
 NAVIGATION = {"accept": "text/html"}
 UNKNOWN_ID = "0" * 32
 SERVER_START_SECONDS = 1000.0
+FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def stored(skat):
@@ -41,6 +43,10 @@ class FakeTime:
 
     def clock(self):
         return self.now
+
+    def moment(self):
+        """The wall-clock time this clock stands for, which a service stamps its tables with."""
+        return FAKE_EPOCH + timedelta(seconds=self.now)
 
     def schedule(self, delay, action):
         self._scheduled.append((self.now + delay, action))
@@ -63,13 +69,13 @@ class FakeTime:
 
 
 class Skat:
-    def __init__(self, sign_in_settings, store=None, stores=None, **app_options):
+    def __init__(self, sign_in_settings, store=None, stores=None, now=None, **app_options):
         self.stores = stores if stores is not None else SignInStores.in_memory()
         self.store = store if store is not None else FakeTableStore()
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
-            tables=TableService(self.store),
+            tables=TableService(self.store) if now is None else TableService(self.store, now=now),
             stores=self.stores,
             **app_options,
         )

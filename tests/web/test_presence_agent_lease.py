@@ -37,7 +37,9 @@ PERSON_AT_THE_AGENTS_PATH = {"groups": [MCP_GROUP], "agent_owner": None, "agent_
 
 @pytest.fixture
 def skat(hold, issuer, time):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports, chair_clock=time.clock, chair_scheduler=time)
+    skat = Skat(
+        lambda: hold, issuer_transports=issuer.transports, chair_clock=time.clock, chair_scheduler=time, now=time.moment
+    )
     with skat.client:
         yield skat
 
@@ -455,6 +457,90 @@ class TestUndealtTable:
 
         assert not is_away(result_table, AGENT_SEAT)
         assert agent.read(other_id).json()["watchers"] == 0
+
+
+class TestATableTheAgentOpened:
+    @pytest.fixture
+    def opened(self, skat, time, agent):
+        """The id of a table the agent opened while its lease already ran, alone at chair 1, no stream open."""
+        agent.admitted()
+        advance(skat, time, 0)
+        return agent.open_table().json()["id"]
+
+    def test_it_stays_open_while_the_lease_runs_and_a_person_arriving_later_finds_it_live(
+        self, skat, time, agent, opened, empty_seconds
+    ):
+        stay_connected(skat, time, agent, empty_seconds + 1, table_id=opened)
+        visitor = skat.member()
+
+        with streams_of(skat, opened, [visitor]):
+            pass
+
+        assert not isinstance(skat.store.tables[opened], EndedTable)
+        assert skat.client.get(f"{TABLES_PATH}/{opened}", headers=visitor[0]).json()["ended"] is None
+
+    def test_it_ends_one_wait_after_the_lease_lapses_with_nobody_else_there(
+        self, skat, time, agent, opened, empty_seconds
+    ):
+        stay_connected(skat, time, agent, empty_seconds + 1, table_id=opened)
+
+        advance(skat, time, LEASE_SECONDS + empty_seconds - 1)
+        waiting = skat.store.tables[opened]
+        advance(skat, time, 2)
+
+        assert not isinstance(waiting, EndedTable)
+        assert isinstance(skat.store.tables[opened], EndedTable)
+
+    def test_the_agent_standing_up_with_no_stream_open_leaves_a_table_that_ends_after_its_wait(
+        self, skat, time, agent, opened, empty_seconds
+    ):
+        stay_connected(skat, time, agent, empty_seconds + 1, table_id=opened)
+        assert not agent.stand_up(opened).is_error
+
+        advance(skat, time, empty_seconds - 1)
+        waiting = skat.store.tables[opened]
+        advance(skat, time, 2)
+
+        assert not isinstance(waiting, EndedTable)
+        assert isinstance(skat.store.tables[opened], EndedTable)
+
+    def test_a_stand_up_before_the_first_wait_has_passed_gives_the_table_one_full_wait_from_the_stand_up(
+        self, skat, time, agent, opened, empty_seconds
+    ):
+        stay_connected(skat, time, agent, empty_seconds // 2, table_id=opened)
+        assert not agent.stand_up(opened).is_error
+
+        advance(skat, time, empty_seconds - 1)
+        waiting = skat.store.tables[opened]
+        advance(skat, time, 2)
+
+        assert not isinstance(waiting, EndedTable)
+        assert isinstance(skat.store.tables[opened], EndedTable)
+
+    def test_a_server_started_again_while_the_agent_kept_calling_waits_a_full_time_before_it_ends_the_table(
+        self, hold, issuer, skat, time, agent, opened, empty_seconds
+    ):
+        stay_connected(skat, time, agent, empty_seconds + 1, table_id=opened)
+        restarted_time = FakeTime(now=time.now)
+        again = Skat(
+            lambda: hold,
+            store=skat.store,
+            stores=skat.stores,
+            issuer_transports=issuer.transports,
+            chair_clock=restarted_time.clock,
+            chair_scheduler=restarted_time,
+            now=restarted_time.moment,
+        )
+
+        with again.client:
+            started = again.store.tables[opened]
+            advance(again, restarted_time, empty_seconds - 1)
+            waiting = again.store.tables[opened]
+            advance(again, restarted_time, 2)
+
+            assert not isinstance(started, EndedTable)
+            assert not isinstance(waiting, EndedTable)
+            assert isinstance(again.store.tables[opened], EndedTable)
 
 
 class TestRestart:
