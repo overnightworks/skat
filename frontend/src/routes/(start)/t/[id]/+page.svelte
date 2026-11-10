@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onMount, untrack } from "svelte";
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
     import {
@@ -11,6 +12,7 @@
         passedInScene,
     } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
+    import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { resultView, weiterBar, withMinus } from "#lib/result.ts";
@@ -27,7 +29,7 @@
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { words } from "#lib/words.ts";
-    import NewTableButton from "../../NewTableButton.svelte";
+    import TableClosed from "./TableClosed.svelte";
     import {
         bidValueWhileDeclaring,
         copyTableLink,
@@ -82,7 +84,7 @@
         void readTable(id).then((answer) => {
             if (!current) return;
             outcome = answer;
-            if (answer.kind === "table") {
+            if (answer.kind === "table" && answer.table.ended === null) {
                 let shown = answer.table;
                 const show = (table: Table): void => {
                     showTable(shown, table);
@@ -107,6 +109,32 @@
     });
     // The version a step was sent from: the controls stay off until a newer version arrives or the step fails.
     let sentFromVersion: number | null = $state(null);
+
+    const callMode = isFramedInCallMode();
+    // The call's first valid greeting takes Skat's own bar away; a call that never greets leaves it.
+    let greeted = $state(false);
+    onMount(() => {
+        if (!callMode) return;
+        return greetCall(
+            untrack(() => id),
+            {
+                parent: window.parent,
+                fetch: (path) => fetch(path),
+                post: (message, targetOrigin) => {
+                    window.parent.postMessage(message, targetOrigin);
+                },
+                listen: (handler) => {
+                    window.addEventListener("message", handler);
+                    return () => {
+                        window.removeEventListener("message", handler);
+                    };
+                },
+            },
+            () => {
+                greeted = true;
+            },
+        );
+    });
 
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
@@ -202,28 +230,36 @@
             </linearGradient>
         </defs>
     </svg>
-    <header class="bar" class:stale={!connected}>
-        <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
-        {#if outcome?.kind === "table"}
-            <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                >
-                    <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
-                    <circle cx="12" cy="12" r="3" />
-                </svg>
-                <span>{outcome.table.watchers}</span>
-            </div>
-        {/if}
-    </header>
-    <main class="stage" class:stale={!connected}>
-        {#if outcome?.kind === "table"}
+    {#if !greeted}
+        <header class="bar" class:stale={!connected}>
+            {#if callMode}
+                <span class="wordmark">{words.appName}</span>
+            {:else}
+                <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
+            {/if}
+            {#if outcome?.kind === "table" && outcome.table.ended === null}
+                <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <span>{outcome.table.watchers}</span>
+                </div>
+            {/if}
+        </header>
+    {/if}
+    <main class="stage" class:stale={!connected} class:after-drop={greeted}>
+        {#if outcome?.kind === "table" && outcome.table.ended !== null}
+            <TableClosed ended={outcome.table.ended} />
+        {:else if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
             <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
             {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
@@ -580,21 +616,23 @@
                             {`${words.standUp}`}
                         </button>
                     {/if}
-                    <button type="button" class="copy link" aria-label={words.copyLink} onclick={copy}>
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            aria-hidden="true"
-                        >
-                            <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
-                            <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
-                        </svg>
-                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                        <span class="label">{`${words.copyLink}`}</span>
-                    </button>
+                    {#if !callMode}
+                        <button type="button" class="copy link" aria-label={words.copyLink} onclick={copy}>
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
+                                <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
+                            </svg>
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
+                            <span class="label">{`${words.copyLink}`}</span>
+                        </button>
+                    {/if}
                 </div>
                 <p class="note" role="status">{note}</p>
             </div>
@@ -607,10 +645,7 @@
                 </p>
             {/if}
         {:else if outcome?.kind === "missing"}
-            <section class="panel">
-                <h1>{words.tableNotFound}</h1>
-                <NewTableButton />
-            </section>
+            <TableClosed ended={null} />
         {:else if outcome?.kind === "failed"}
             <section class="panel" role="alert">
                 <h1>{words.tableLoadFailed}</h1>

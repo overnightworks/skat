@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.web.mcp import READ_SERIES_LIST_MARK
 from skat.web.tables import (
@@ -32,6 +33,8 @@ class SeriesEntryAnswer(BaseModel):
     levels: list[Level]
     settled_value: int
     score: int
+    kontra_word: Word | None
+    bock_factor: int
 
 
 class SeriesListAnswer(BaseModel):
@@ -50,6 +53,8 @@ def _entry_answer_of(entry: SeriesEntryView) -> SeriesEntryAnswer:
         levels=list(entry.levels),
         settled_value=entry.settled_value,
         score=entry.score,
+        kontra_word=entry.kontra_word,
+        bock_factor=entry.bock_factor,
     )
 
 
@@ -66,7 +71,9 @@ def create_game_list_router(tables: TableService) -> APIRouter:
 
         One entry per game played so far, in the order played: its `number`, the `declarer_name` stored with the
         game (null for a game stored before names were kept), the game, its `levels`, its `settled_value` and the
-        declarer's `score`, which is negative for a lost game. A hand everyone passed in leaves no entry. A 404
+        declarer's `score`, which is negative for a lost game, the `kontra_word`, the last word said or null, and the
+        `bock_factor`, 1 outside a Bock game. A game with a word has its list score doubled once per word said, and a
+        Bock game's `score` is multiplied by its `bock_factor`. A hand everyone passed in leaves no entry. A 404
         means no table has this id; a table that has ended answers an empty list.
         """
         response.headers["Cache-Control"] = "no-store"

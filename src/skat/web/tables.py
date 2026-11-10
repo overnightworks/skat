@@ -1,33 +1,28 @@
 from enum import StrEnum
-from functools import partial
-from typing import TYPE_CHECKING, Annotated, Final
+from typing import TYPE_CHECKING, Annotated, Final, Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
 from skat.engine.bidding import Awaiting
+from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement, Stage
 from skat.engine.games import GameKind
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import (
-    SERIES_LENGTH_MAX,
-    SERIES_LENGTH_MIN,
-    SERIES_LENGTH_STEP,
     Actor,
     CommandRefusal,
-    CreateTable,
     EndReason,
-    SitDown,
-    StandUp,
+    OccupantKind,
     TableOptions,
 )
-from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
@@ -40,6 +35,7 @@ if TYPE_CHECKING:
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
     from skat.table.game_list import ResultView, Standing
+    from skat.table.kontra import KontraView
     from skat.table.playing import PlayingView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, SeriesView, TableView
@@ -65,27 +61,43 @@ class CommandRequest(BaseModel):
     command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
 
 
+class KontraOptionsRequest(BaseModel):
+    """The opener names all three Kontra choices or none: the program defaults none of them. The table accepts the
+    deadline of the player's own next card only.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sayer: KontraSayer
+    reach: KontraReach
+    deadline: Literal[KontraDeadline.OWN_CARD]
+
+
+class BockOptionsRequest(BaseModel):
+    """The opener names the triggers, at least one and none twice, and what a trigger does inside a Bock round."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    triggers: Annotated[list[BockTrigger], Field(min_length=1)]
+    overlap: BockOverlap
+
+    @field_validator("triggers")
+    @classmethod
+    def _names_each_trigger_once(cls, triggers: list[BockTrigger]) -> list[BockTrigger]:
+        if len(set(triggers)) != len(triggers):
+            message = "a trigger is named once"
+            raise ValueError(message)
+        return triggers
+
+
 class OptionsRequest(BaseModel):
     """The rule options an opener sets; every later option joins this record."""
 
     model_config = ConfigDict(extra="forbid")
 
     show_running_points: Annotated[bool, Field(strict=True)] = TableOptions().show_running_points
-
-
-class CreateTableRequest(CommandRequest):
-    """The opener names the series length and may set the rule options; without them the table plays the official
-    rules.
-    """
-
-    series_length: Annotated[
-        int, Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP)
-    ]
-    options: OptionsRequest | None = None
-
-
-class SitDownRequest(CommandRequest):
-    seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
+    kontra: KontraOptionsRequest | None = None
+    bock: BockOptionsRequest | None = None
 
 
 class RefusalAnswer(BaseModel):
@@ -256,12 +268,30 @@ class SidesAnswer(BaseModel):
     opponents: int
 
 
+class GiveUpAnswer(BaseModel):
+    asking_seat: int
+    declined_seat: int | None
+
+
+class SaidWordAnswer(BaseModel):
+    seat: int
+    word: Word
+
+
+class KontraAnswer(BaseModel):
+    said: list[SaidWordAnswer]
+    factor: int
+    my_word: Word | None
+
+
 class PlayingAnswer(BaseModel):
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
     legal_cards: list[CardAnswer]
     running_points: SidesAnswer | None
+    give_up: GiveUpAnswer | None
+    kontra: KontraAnswer | None
 
 
 class HandAnswer(BaseModel):
@@ -276,6 +306,7 @@ class HandAnswer(BaseModel):
 class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
+    occupant_kind: OccupantKind | None
     is_mine: bool
     is_away: bool
     ready: bool
@@ -296,6 +327,11 @@ class SeatGainAnswer(BaseModel):
     seat: int
     gain: int
     won: bool
+
+
+class KontraResultAnswer(BaseModel):
+    word: Word
+    factor: int
 
 
 class ResultAnswer(BaseModel):
@@ -323,6 +359,8 @@ class ResultAnswer(BaseModel):
     declarer_points: int
     opponents_points: int
     gains: list[SeatGainAnswer]
+    kontra: KontraResultAnswer | None
+    bock_factor: int
 
 
 class EndedAnswer(BaseModel):
@@ -338,15 +376,39 @@ class StandingAnswer(BaseModel):
     place: int
 
 
+class SeriesEndProposalAnswer(BaseModel):
+    proposer_seat: int
+    accepter_seat: int | None
+
+
 class SeriesAnswer(BaseModel):
     game_number: int
     game_count: int
     over: bool
     standings: list[StandingAnswer] | None
+    end_proposal: SeriesEndProposalAnswer | None
+
+
+class KontraOptionsAnswer(BaseModel):
+    sayer: KontraSayer
+    reach: KontraReach
+    deadline: KontraDeadline
+
+
+class BockOptionsAnswer(BaseModel):
+    triggers: list[BockTrigger]
+    overlap: BockOverlap
 
 
 class OptionsAnswer(BaseModel):
     show_running_points: bool
+    kontra: KontraOptionsAnswer | None
+    bock: BockOptionsAnswer | None
+
+
+class BockAnswer(BaseModel):
+    games_left: int
+    factor: int
 
 
 class TableAnswer(BaseModel):
@@ -359,6 +421,7 @@ class TableAnswer(BaseModel):
     result: ResultAnswer | None
     series: SeriesAnswer | None
     options: OptionsAnswer | None
+    bock: BockAnswer | None
     ended: EndedAnswer | None
 
 
@@ -418,6 +481,16 @@ def declaring_answer_of(declaring: DeclaringView | None) -> DeclaringAnswer | No
     )
 
 
+def kontra_answer_of(kontra: KontraView | None) -> KontraAnswer | None:
+    if kontra is None:
+        return None
+    return KontraAnswer(
+        said=[SaidWordAnswer(seat=each.seat, word=each.word) for each in kontra.said],
+        factor=kontra.factor,
+        my_word=kontra.my_word,
+    )
+
+
 def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
     if playing is None:
         return None
@@ -438,6 +511,10 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
         running_points=None
         if playing.running_points is None
         else SidesAnswer(declarer=playing.running_points.declarer, opponents=playing.running_points.opponents),
+        give_up=None
+        if playing.give_up is None
+        else GiveUpAnswer(asking_seat=playing.give_up.asking_seat, declined_seat=playing.give_up.declined_seat),
+        kontra=kontra_answer_of(playing.kontra),
     )
 
 
@@ -478,6 +555,11 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
         game_count=series.game_count,
         over=series.over,
         standings=None if series.standings is None else [standing_answer_of(each) for each in series.standings],
+        end_proposal=None
+        if series.end_proposal is None
+        else SeriesEndProposalAnswer(
+            proposer_seat=series.end_proposal.proposer, accepter_seat=series.end_proposal.accepter
+        ),
     )
 
 
@@ -510,6 +592,21 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
         declarer_points=result.declarer_points,
         opponents_points=result.opponents_points,
         gains=[SeatGainAnswer(seat=gain.seat, gain=gain.gain, won=gain.won) for gain in result.gains],
+        kontra=None
+        if result.kontra is None
+        else KontraResultAnswer(word=result.kontra.word, factor=result.kontra.factor),
+        bock_factor=result.bock_factor,
+    )
+
+
+def options_answer_of(options: TableOptions) -> OptionsAnswer:
+    kontra, bock = options.kontra, options.bock
+    return OptionsAnswer(
+        show_running_points=options.show_running_points,
+        kontra=None
+        if kontra is None
+        else KontraOptionsAnswer(sayer=kontra.sayer, reach=kontra.reach, deadline=kontra.deadline),
+        bock=None if bock is None else BockOptionsAnswer(triggers=sorted(bock.triggers), overlap=bock.overlap),
     )
 
 
@@ -521,6 +618,7 @@ def answer_of(view: TableView) -> TableAnswer:
             ChairAnswer(
                 seat=c.seat,
                 occupant_name=c.occupant_name,
+                occupant_kind=c.occupant_kind,
                 is_mine=c.is_mine,
                 is_away=c.is_away,
                 ready=c.ready,
@@ -534,15 +632,30 @@ def answer_of(view: TableView) -> TableAnswer:
         passed_in=passed_in_answer_of(view.passed_in),
         result=result_answer_of(view.result),
         series=series_answer_of(view.series),
-        options=None if view.options is None else OptionsAnswer(show_running_points=view.options.show_running_points),
+        options=None if view.options is None else options_answer_of(view.options),
+        bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
         ended=None
         if view.ended is None
         else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
     )
 
 
+def table_options_of(requested: OptionsRequest | None) -> TableOptions:
+    if requested is None:
+        return TableOptions()
+    kontra, bock = requested.kontra, requested.bock
+    return TableOptions(
+        show_running_points=requested.show_running_points,
+        kontra=None if kontra is None else KontraOptions(kontra.sayer, kontra.reach, kontra.deadline),
+        bock=None if bock is None else BockOptions(frozenset(bock.triggers), bock.overlap),
+    )
+
+
 def actor_for(user: AuthenticatedUser) -> Actor:
-    return Actor(account_id=user.id, display_name=user.username)
+    """The account behind a request: an agent goes by the name its token carries, a person by the account's."""
+    if user.agent is None:
+        return Actor(account_id=user.id, display_name=user.username)
+    return Actor(account_id=user.id, display_name=user.agent.name, kind=OccupantKind.AGENT)
 
 
 def actor_of(request: Request) -> Actor:
@@ -586,67 +699,23 @@ async def command_answer(
     return answer_of(result.view)
 
 
-def _create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
+def _create_page_router(page_build: PageBuild) -> APIRouter:
     router = APIRouter()
 
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX,
-        response_model=TableAnswer,
-        responses=COMMAND_RESPONSES,
-        openapi_extra=excluded(Exclusion.SEATING),
+    # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
+    @router.api_route(
+        TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
     )
-    async def sit_down(
-        table_id: str, body: SitDownRequest, request: Request, response: Response
-    ) -> Response | TableAnswer:
-        command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
-        answer = await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
-        # A sit while a result is pending marks the sitter ready, which may complete the marks.
-        if isinstance(answer, TableAnswer) and answer.result is not None:
-            await presence.deal_now(table_id)
-        return answer
-
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX,
-        response_model=TableAnswer,
-        responses=COMMAND_RESPONSES,
-        openapi_extra=excluded(Exclusion.SEATING),
-    )
-    async def stand_up(
-        table_id: str, body: CommandRequest, request: Request, response: Response
-    ) -> Response | TableAnswer:
-        command = StandUp(command_id=body.command_id, table_id=table_id)
-        return await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
+    def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
+        response = built_page_response(page_build.shell)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     return router
 
 
 def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
     router = APIRouter()
-
-    @router.post(
-        TABLES_PATH,
-        responses={409: {"description": "The command id came back with another request."}},
-        openapi_extra=excluded(Exclusion.OPENING),
-    )
-    async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
-        # The answer names people, so no cache may keep it past the gate.
-        response.headers["Cache-Control"] = "no-store"
-        try:
-            options = (
-                TableOptions(show_running_points=body.options.show_running_points)
-                if body.options is not None
-                else TableOptions()
-            )
-            command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
-            view = await run_in_threadpool(tables.create, actor_of(request), command)
-        except CommandIdReusedError:
-            raise HTTPException(status_code=409, detail="command id reused with another request") from None
-        # Presence belongs to the event loop's thread, so the wait starts here and not on the worker.
-        if view.ended is None:
-            presence.watch_empty_table(view.id)
-        return answer_of(view)
-
-    router.include_router(_create_seating_router(tables, presence))
 
     @router.get(
         TABLES_PATH + "/{table_id}",
@@ -667,13 +736,6 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
             raise HTTPException(status_code=404, detail="table not found")
         return answer_of(view)
 
-    # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
-    @router.api_route(
-        TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
-    )
-    def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
-        response = built_page_response(page_build.shell)
-        response.headers["Cache-Control"] = "no-cache"
-        return response
+    router.include_router(_create_page_router(page_build))
 
     return router

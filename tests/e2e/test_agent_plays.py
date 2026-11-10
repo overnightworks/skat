@@ -15,9 +15,10 @@ from skat.web.mcp import (
     DECLARE_GAME_TOOL,
     PLAY_CARD_TOOL,
     READ_TABLE_TOOL,
+    SIT_DOWN_TOOL,
 )
 from skat.web.playing import TABLE_CARD_SUFFIX
-from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
 from tests.e2e.support.people import DESKTOP, McpAgent
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 AGENT_SEAT = 3
+AGENT_NAME = "Mozart"
 FELT_CARD = ".trick .laid"
 command_numbers = itertools.count(1)
 
@@ -128,10 +130,13 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
         2: AddressedSession(e2e_server, member_of(ben)),
         AGENT_SEAT: AddressedSession(e2e_server, seed_member(e2e_server.stores, e2e_server.config, account=account)),
     }
-    # Sitting is no tool yet, so the agent sits like a person with the cookie session of its account.
-    sit_body = {"command_id": next_command_id(), "seat": AGENT_SEAT}
-    sat = json.loads(sessions[AGENT_SEAT].post(f"{api_path}{TABLE_SIT_SUFFIX}", sit_body))
-    assert "chairs" in sat
+    sat_failed, sat_text = agent.call(
+        SIT_DOWN_TOOL, table_id=table_id_of(path), seat=AGENT_SEAT, command_id=next_command_id()
+    )
+    assert not sat_failed
+    assert "chairs" in json.loads(sat_text)
+    for page in (anna, ben):
+        expect(page.locator(f".chair[data-seat='{AGENT_SEAT}'] .plate")).to_contain_text(AGENT_NAME)
     chairs = json.loads(sessions[1].get(api_path))["chairs"]
     seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
     play_until_the_agents_turn(sessions, api_path, seat_at, agent)

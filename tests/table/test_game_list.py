@@ -5,13 +5,16 @@ from operator import attrgetter
 import pytest
 
 from skat.engine.bidding import Declared, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Level, Matadors
 from skat.table.game_list import (
+    KontraResult,
     Standing,
     list_entry_of,
     result_view_of,
@@ -19,7 +22,7 @@ from skat.table.game_list import (
     standings_of,
     total_of,
 )
-from skat.table.records import Chair, HandProgress, Occupant, TableId, TableOptions, TableRecord
+from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, KREUZ, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.NULL
@@ -31,6 +34,8 @@ SEAT_ACCOUNTS = ("account-anna", "account-ben", "account-cleo")
 # Seat 2 deals, so seat 3 is forehand, seat 1 middlehand (the declarer below) and seat 2 rearhand.
 DEALER = 2
 DECLARER_SEAT = 1
+REACH = KontraReach.KONTRA_RE
+KONTRA, RE = Word.KONTRA, Word.RE
 POINTS_IN_A_TRICK = (0, 2, 3, 4, 10, 11)
 RANK_WORTH = {0: Rank.SEVEN, 2: Rank.JACK, 3: Rank.QUEEN, 4: Rank.KING, 10: Rank.TEN, 11: Rank.ACE}
 
@@ -67,7 +72,10 @@ def played(kind, trumps=(), declarer_tricks=(), *, bid=18, hand=False, ouvert=Fa
 
 
 def seated_table():
-    chairs = tuple(Chair(seat, Occupant(account, account.title())) for seat, account in enumerate(SEAT_ACCOUNTS, 1))
+    chairs = tuple(
+        Chair(seat, Occupant(account, account.title(), OccupantKind.PERSON))
+        for seat, account in enumerate(SEAT_ACCOUNTS, 1)
+    )
     return TableRecord(
         id=TableId("0" * 32),
         version=9,
@@ -78,11 +86,12 @@ def seated_table():
         game_list=(),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 
 def entry_of(game):
-    return list_entry_of(game, seated_table())
+    return list_entry_of(game, seated_table(), None)
 
 
 def outcome(entry):
@@ -200,7 +209,7 @@ class TestTheEntrysGame:
 def pending_result(*games):
     """The table after its games: no hand, no steps, and one list entry per game."""
     table = seated_table()
-    return replace(table, game_list=tuple(list_entry_of(game, table) for game in games))
+    return replace(table, game_list=tuple(list_entry_of(game, table, None) for game in games))
 
 
 class TestTheResult:
@@ -282,24 +291,24 @@ def game_by(seat, game, accounts=(ANNA, BEN, CLEO)):
 
 class TestTheTotal:
     def test_a_person_has_nothing_before_any_game(self):
-        assert total_of((), ANNA) == 0
+        assert total_of((), ANNA, REACH) == 0
 
     def test_sums_the_gains_of_the_seat_the_person_held_in_each_game(self):
         won = game_by(2, played(KREUZ, MIT_TWO, (30, 30, 18)))
         lost = game_by(1, played(KREUZ, MIT_TWO, (30, 24)))
 
-        assert [total_of((won, lost), account) for account in (ANNA, BEN, CLEO)] == [-122, 126, 40]
+        assert [total_of((won, lost), account, REACH) for account in (ANNA, BEN, CLEO)] == [-122, 126, 40]
 
     def test_a_person_keeps_their_total_on_another_chair(self):
         won = game_by(2, played(KREUZ, MIT_TWO, (30, 30, 18)))
         moved = game_by(1, played(KREUZ, MIT_TWO, (30, 24)), accounts=(BEN, ANNA, CLEO))
 
-        assert [total_of((won, moved), account) for account in (ANNA, BEN, CLEO)] == [40, -36, 40]
+        assert [total_of((won, moved), account, REACH) for account in (ANNA, BEN, CLEO)] == [40, -36, 40]
 
     def test_an_account_that_held_no_seat_adds_nothing_and_a_newcomer_starts_at_zero(self):
         won = game_by(2, played(KREUZ, MIT_TWO, (30, 30, 18)))
 
-        assert total_of((won,), DORA) == 0
+        assert total_of((won,), DORA, REACH) == 0
 
 
 def game_for(seat, *, won, score, accounts=(ANNA, BEN, CLEO), names=None):
@@ -316,12 +325,12 @@ def game_for(seat, *, won, score, accounts=(ANNA, BEN, CLEO), names=None):
 
 
 def standing_rows(game_list):
-    return [(each.account_id, each.place, each.total, each.won, each.lost) for each in standings_of(game_list)]
+    return [(each.account_id, each.place, each.total, each.won, each.lost) for each in standings_of(game_list, REACH)]
 
 
 class TestTheStandings:
     def test_nobody_has_a_place_before_any_game(self):
-        assert standings_of(()) == ()
+        assert standings_of((), REACH) == ()
 
     @pytest.mark.parametrize(
         ("game_list", "rows"),
@@ -355,7 +364,7 @@ class TestTheStandings:
         stayed = game_for(2, won=True, score=36)
         replaced = game_for(2, won=True, score=0, accounts=(ANNA, DORA, CLEO), names=("Anna", "Dora", "Cleo"))
 
-        standings = standings_of((stayed, replaced))
+        standings = standings_of((stayed, replaced), REACH)
 
         assert [(each.display_name, each.total, each.won) for each in standings] == [
             ("Ben", 86, 1),
@@ -374,15 +383,15 @@ class TestTheStandings:
         earlier = game_for(1, won=True, score=36, names=("Anna", "Ben", "Cleo"))
         later = game_for(1, won=True, score=36, names=("Anna", "Benno", "Cleo"))
 
-        assert {each.account_id: each.display_name for each in standings_of((earlier, later))}[BEN] == "Benno"
+        assert {each.account_id: each.display_name for each in standings_of((earlier, later), REACH)}[BEN] == "Benno"
 
     def test_a_row_stored_without_names_has_no_name_and_never_the_account(self):
         nameless = game_for(1, won=True, score=36, names=(None, None, None))
 
-        assert {each.display_name for each in standings_of((nameless,))} == {None}
+        assert {each.display_name for each in standings_of((nameless,), REACH)} == {None}
 
     def test_a_standing_is_its_account_name_total_record_and_place(self):
-        assert standings_of((game_for(1, won=True, score=36),))[0] == Standing(ANNA, "Anna", 86, 1, 0, 1)
+        assert standings_of((game_for(1, won=True, score=36),), REACH)[0] == Standing(ANNA, "Anna", 86, 1, 0, 1)
 
 
 class TestTheSeriesList:
@@ -428,7 +437,7 @@ class TestTheSeriesList:
 
     def test_a_row_names_the_name_stored_with_the_game_not_the_one_seated_now(self):
         table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
-        replaced = replace(table.chairs[0], occupant=Occupant("account-dora", "Dora"))
+        replaced = replace(table.chairs[0], occupant=Occupant("account-dora", "Dora", OccupantKind.PERSON))
 
         rows = series_list_view_of(replace(table, chairs=(replaced, *table.chairs[1:])))
 
@@ -440,3 +449,52 @@ class TestTheSeriesList:
         table = replace(seated_table(), game_list=(game_for(seat, won=True, score=48, names=names),))
 
         assert [row.declarer_name for row in series_list_view_of(table)] == [names[seat - 1]]
+
+
+def doubled_table(entry, word, reach):
+    options = TableOptions(kontra=KontraOptions(KontraSayer.ANY_OPPONENT, reach, KontraDeadline.OWN_CARD))
+    return replace(seated_table(), options=options, game_list=(replace(entry, kontra_word=word),))
+
+
+class TestTheDoubledGame:
+    WON = replace(entry_of(played(KREUZ, MIT_TWO, (30, 30, 18))), score=72)  # Kontra doubles the won game's 36
+    LOST = replace(entry_of(played(KREUZ, MIT_TWO, (30, 24))), score=-288)  # Re quadruples the lost game's -72
+
+    @pytest.mark.parametrize(
+        ("entry", "word", "reach", "gains", "list_bonus", "factor"),
+        [
+            pytest.param(WON, KONTRA, REACH, (122, 0, 0), 50, 2, id="won-kontra"),
+            pytest.param(WON, KONTRA, KontraReach.KONTRA_RE_STANDINGS, (172, 0, 0), 100, 2, id="won-kontra-standings"),
+            pytest.param(LOST, RE, REACH, (-338, 40, 40), -50, 4, id="lost-re"),
+            pytest.param(LOST, RE, KontraReach.KONTRA_RE_STANDINGS, (-488, 160, 160), -200, 4, id="lost-re-standings"),
+        ],
+    )
+    def test_the_gains_the_bonus_and_the_result_follow_the_doubled_list_score(
+        self, entry, word, reach, gains, list_bonus, factor
+    ):
+        result = result_view_of(doubled_table(entry, word, reach))
+
+        assert tuple(gain.gain for gain in result.gains) == gains
+        assert result.list_bonus == list_bonus
+        assert result.kontra == KontraResult(word, factor)
+        assert (result.score, result.settled_value, result.game_value) == (
+            entry.score,
+            entry.settled_value,
+            entry.game_value,
+        )
+
+    def test_a_game_without_a_word_names_no_doubling(self):
+        assert result_view_of(pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))).kontra is None
+
+    def test_the_totals_and_the_standings_follow_the_reach_of_the_table(self):
+        entry = replace(self.WON, kontra_word=KONTRA)
+        standings = KontraReach.KONTRA_RE_STANDINGS
+
+        assert total_of((entry,), SEAT_ACCOUNTS[0], REACH) == 122
+        assert total_of((entry,), SEAT_ACCOUNTS[0], standings) == 172
+        assert standings_of((entry,), standings)[0].total == 172
+
+    def test_a_row_of_the_series_list_names_the_last_word_and_the_doubled_score(self):
+        row = series_list_view_of(doubled_table(self.WON, RE, REACH))[0]
+
+        assert (row.kontra_word, row.score) == (RE, 72)

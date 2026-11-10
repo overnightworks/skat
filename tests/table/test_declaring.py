@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bidding import Bid, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import Announcement, DeclarationRefusal, Declare, PutBack, TakeSkat
@@ -14,6 +15,7 @@ from skat.table.records import (
     Chair,
     HandProgress,
     Occupant,
+    OccupantKind,
     Refusal,
     TableId,
     TableOptions,
@@ -44,7 +46,7 @@ def table_in(progress):
     dealer = 2
     seats = {position: seat for seat, position in positions_from(dealer).items()}
     chairs = tuple(
-        Chair(seats[position], Occupant(f"account-{position.name.lower()}", position.name))
+        Chair(seats[position], Occupant(f"account-{position.name.lower()}", position.name, OccupantKind.PERSON))
         for position in (MIDDLEHAND, REARHAND, FOREHAND)
     )
     deal = Deal(forehand=DECK[0:10], middlehand=DECK[10:20], rearhand=DECK[20:30], skat=DECK[30:32])
@@ -58,6 +60,7 @@ def table_in(progress):
         game_list=(),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 

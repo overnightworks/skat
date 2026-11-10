@@ -3,12 +3,14 @@ from datetime import timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
+from skat.engine.bock import BockRounds
 from skat.engine.deal import positions_from
 from skat.table.records import (
     Actor,
     Chair,
     CreateTable,
     Decision,
+    EndProposal,
     HandProgress,
     NewHand,
     Occupant,
@@ -44,7 +46,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
     """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length and
     the options it is opened with.
     """
-    opener = Chair(1, Occupant(actor.account_id, actor.display_name))
+    opener = Chair(1, Occupant(actor.account_id, actor.display_name, actor.kind))
     return TableRecord(
         id=table_id,
         version=FIRST_VERSION,
@@ -55,6 +57,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
         game_list=(),
         series=None if series_length is None else Series(series_length, 0),
         options=options,
+        bock=BockRounds.start(),
     )
 
 
@@ -65,6 +68,16 @@ def create_payload(command: CreateTable) -> str:
     members = [] if command.series_length is None else [f'"series_length":{command.series_length}']
     if command.options.show_running_points:
         members.append('"show_running_points":true')
+    kontra = command.options.kontra
+    if kontra is not None:
+        members.append(
+            f'"kontra":{{"sayer":"{kontra.sayer.value}","reach":"{kontra.reach.value}",'
+            f'"deadline":"{kontra.deadline.value}"}}'
+        )
+    bock = command.options.bock
+    if bock is not None:
+        triggers = ",".join(f'"{trigger.value}"' for trigger in sorted(bock.triggers))
+        members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
     return "{" + ",".join(members) + "}"
 
 
@@ -91,10 +104,13 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
     """The table with a chair's new occupant, the one way a chair changes hands.
 
     A freed chair is never ready, and whoever sits while a result is pending counts as ready, unless the series is
-    over: no deal follows, so no tap is consent to anything.
+    over: a mark at the end is consent to „Neue Serie“, which only a tap gives.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
+    series = table.series
+    if series is not None:
+        series = replace(series, end_proposal=_proposal_without(series.end_proposal, seat))
     return TableRecord(
         id=table.id,
         version=table.version + 1,
@@ -103,9 +119,21 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
         hand=table.hand,
         progress=table.progress,
         game_list=table.game_list,
-        series=table.series,
+        series=series,
         options=table.options,
+        bock=table.bock,
     )
+
+
+def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | None:
+    """A chair's change takes its holder's part of the proposal: the proposer's goes with the proposal, an accepter's
+    acceptance alone, anyone else's changes nothing.
+    """
+    if proposal is None or proposal.proposer == seat:
+        return None
+    if proposal.accepter == seat:
+        return EndProposal(proposal.proposer)
+    return proposal
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -118,9 +146,19 @@ def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
 
 
+def series_games_left(table: TableRecord) -> int | None:
+    """The games the series still deals, a running hand included; None for a table with no series."""
+    if table.series is None:
+        return None
+    return table.series.length - table.series.deals + hand_runs(table)
+
+
 def series_over(table: TableRecord) -> bool:
-    """The series ran its last game and no hand runs any more; a table with no series never ends."""
-    return table.series is not None and table.series.deals == table.series.length and not hand_runs(table)
+    """The series ran its last game or ended early by consent, and no hand runs any more; a table with no series
+    never ends.
+    """
+    ended_early = table.series is not None and table.series.ended_early and not hand_runs(table)
+    return ended_early or series_games_left(table) == 0
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
@@ -132,8 +170,13 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
-    in its series; every deal goes through here.
+    in its series; at a series' end this deal is the next series' first, so the list empties and the count starts
+    at one. A deal clears the end proposal and the early end. Every deal goes through here.
     """
+    starts_series = series_over(table)
+    series = table.series
+    if series is not None:
+        series = replace(series, deals=1 if starts_series else series.deals + 1, ended_early=False, end_proposal=None)
     return TableRecord(
         id=table.id,
         version=version,
@@ -141,9 +184,10 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         dealer=new_hand.dealer,
         hand=new_hand.hand,
         progress=HandProgress(),
-        game_list=table.game_list,
-        series=None if table.series is None else replace(table.series, deals=table.series.deals + 1),
+        game_list=() if starts_series else table.game_list,
+        series=series,
         options=table.options,
+        bock=table.bock,
     )
 
 
@@ -267,16 +311,15 @@ def resume_step(dealer: int | None, empty_since: datetime | None, now: datetime,
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
     """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected; while a
-    result is pending, all three chairs must be ready too; a series that ran its last game deals no more.
+    result is pending or at a series' end, all three chairs must be ready too.
     """
     occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
     return (
         not hand_runs(table)
-        and not series_over(table)
         and hand_was_dealt(table)
         and len(occupants) == CHAIRS_PER_TABLE
         and connected_accounts.issuperset(occupants)
-        and (not result_pending(table) or all(chair.ready for chair in table.chairs))
+        and (not (result_pending(table) or series_over(table)) or all(chair.ready for chair in table.chairs))
     )
 
 
@@ -296,7 +339,7 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
     holder = table.chairs[seat - 1].occupant
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
-    seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name))
+    seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name, actor.kind))
     if new_hand is not None and sit_deals(table):
         seated = dealt(seated, new_hand, version=seated.version)
     return Decision(seated)

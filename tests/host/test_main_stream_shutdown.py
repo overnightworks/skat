@@ -13,6 +13,7 @@ from skat.table.records import Actor, CreateTable
 from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.stores import SignInStores
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import fixture_page_build
 from tests.support.signed_in import cookie_header, seed_member
@@ -41,7 +42,9 @@ def test_stopping_the_server_with_streams_open_on_several_tables_ends_them_all_a
     settings = sign_in_settings(host=LOOPBACK_HOST, port=port).settings
     stores = SignInStores.in_memory()
     tables = in_memory_tables()
-    app = create_app(settings, page_build=fixture_page_build(), tables=tables, stores=stores)
+    app = create_app(
+        settings, page_build=fixture_page_build(), tables=tables, rule_sets=in_memory_rule_sets(), stores=stores
+    )
     member = seed_member(stores, installed_web_auth_config(app))
     owner = Actor(account_id=member.account.id, display_name=member.account.username)
     table_ids = [tables.create(owner, CreateTable(command_id=f"command-{number}")).id for number in range(3)]

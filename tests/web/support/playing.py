@@ -41,6 +41,13 @@ def game_of(*halves):
     return tuple(each for half in halves for trick in half.split("/") for each in cards(trick))
 
 
+# Middlehand's Herz Hand game against the known deal, played to its tenth trick: the declarer takes 55 trick points.
+HERZ_GAME = game_of(
+    "S7 S9 D7 / H7 DJ CJ / S8 ST D8 / SQ D9 C7 / SK DT C8",
+    "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
+)
+
+
 def takers(letters):
     """The position that takes each trick, from F, M and R in trick order."""
     return tuple({"F": FOREHAND, "M": MIDDLEHAND, "R": REARHAND}[letter] for letter in letters.split())
@@ -68,6 +75,8 @@ def result_fields(**changed):
         "overbid": False,
         "announcement_missed": False,
         "bid": 18,
+        "kontra": None,
+        "bock_factor": 1,
     }
     return plain | changed
 
@@ -85,9 +94,9 @@ def gains(declarer, each_opponent):
 class Table:
     """A dealt table with its people told apart by position, and the watcher left over."""
 
-    def __init__(self, skat):
+    def __init__(self, skat, options=None):
         self.skat = skat
-        self.table_id, people = seated_three(skat)
+        self.table_id, people = seated_three(skat, options)
         by_seat = {seat: people[seat - 1][0] for seat in (1, 2, 3)}
         self.at = {position: by_seat[seat] for seat, position in positions_from(DEALER_SEAT).items()}
         self.watcher = people[3][0]

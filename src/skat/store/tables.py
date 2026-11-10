@@ -1,17 +1,20 @@
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import PassedIn
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
 from skat.store.game_list import append_game_list, game_list, read_game_list
+from skat.store.kontra import append_words, kontra_words, read_words
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
+    POSITION_OF_TEXT,
     POSITION_TEXT,
     RANK_TEXT,
     SKAT_HOLDER,
@@ -19,6 +22,8 @@ from skat.store.schema import (
     chairs,
     hand_cards,
     metadata,
+    option_values,
+    options_of,
     receipts,
     tables,
 )
@@ -26,14 +31,16 @@ from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
     EndedTable,
+    EndProposal,
     EndReason,
+    GiveUpAsked,
     HandProgress,
     Occupant,
+    OccupantKind,
     Receipt,
     Replay,
     Series,
     TableId,
-    TableOptions,
     TableRecord,
     parsed_refusal,
 )
@@ -44,6 +51,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
 
+    from sqlalchemy import Row
     from sqlalchemy.engine import Connection, Engine
 
 __all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
@@ -86,18 +94,34 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
+def _series_end_columns(series: Series | None) -> dict[str, bool | int | None]:
+    """The columns the early end and the standing proposal live in, written absolutely with the series' deals."""
+    proposal = None if series is None else series.end_proposal
+    return {
+        "series_ended_early": series is not None and series.ended_early,
+        "series_end_proposer": None if proposal is None else proposal.proposer,
+        "series_end_accepter": None if proposal is None else proposal.accepter,
+    }
+
+
+def _series_of(table: Row[Any]) -> Series | None:
+    if table.series_length is None:
+        return None
+    end_proposal = None
+    if table.series_end_proposer is not None:
+        end_proposal = EndProposal(table.series_end_proposer, table.series_end_accepter)
+    return Series(
+        table.series_length,
+        table.series_deals,
+        ended_early=table.series_ended_early,
+        end_proposal=end_proposal,
+    )
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
-    query = select(
-        tables.c.version,
-        tables.c.dealer,
-        tables.c.end_reason,
-        tables.c.empty_seconds,
-        tables.c.series_length,
-        tables.c.series_deals,
-        tables.c.show_running_points,
-    ).where(tables.c.id == table_id)
+    query = select(tables).where(tables.c.id == table_id)
     if row_lock is not None:
         query = query.with_for_update(read=row_lock == "share")
     table = connection.execute(query).one_or_none()
@@ -106,7 +130,7 @@ def _table_record(
     if table.end_reason is not None:
         return EndedTable(TableId(table_id), table.version, EndReason(table.end_reason), table.empty_seconds)
     seats = connection.execute(
-        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.ready)
+        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.occupant_kind, chairs.c.ready)
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
@@ -116,7 +140,9 @@ def _table_record(
         chairs=tuple(
             Chair(
                 seat.seat,
-                None if seat.account_id is None else Occupant(seat.account_id, seat.display_name),
+                None
+                if seat.account_id is None
+                else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind)),
                 ready=seat.ready,
             )
             for seat in seats
@@ -127,16 +153,30 @@ def _table_record(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
+            give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
+            words=read_words(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
-        series=None if table.series_length is None else Series(table.series_length, table.series_deals),
-        options=TableOptions(show_running_points=table.show_running_points),
+        series=_series_of(table),
+        options=options_of(table),
+        bock=BockRounds(tuple(table.bock_rounds)),
     )
+
+
+def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked | None:
+    if asked_by is None:
+        return None
+    return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
+
+
+def _starts_series(table: TableRecord) -> bool:
+    """The record holds a hand that is its series' first deal, which empties the list."""
+    return table.series is not None and table.series.deals == 1 and table.hand is not None
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
-    for rows in (hand_cards, auction_actions, declaring_steps, played_cards):
+    for rows in (hand_cards, auction_actions, declaring_steps, played_cards, kontra_words):
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
 
 
@@ -180,6 +220,7 @@ class _PostgresTableTransaction:
 
     def _write_table_row(self, table: TableRecord) -> None:
         """The row's changing columns: the series length and the options are written by `add_table` and never here."""
+        asked = table.progress.give_up
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table.id.value)
@@ -187,8 +228,28 @@ class _PostgresTableTransaction:
                 version=table.version,
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
+                **_series_end_columns(table.series),
+                bock_rounds=list(table.bock.remaining),
+                give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
+                give_up_declined_by=None
+                if asked is None or asked.declined_by is None
+                else POSITION_TEXT[asked.declined_by],
             )
         )
+
+    def _write_chairs(self, table: TableRecord) -> None:
+        for chair in table.chairs:
+            occupant = chair.occupant
+            self._connection.execute(
+                update(chairs)
+                .where(chairs.c.table_id == table.id.value, chairs.c.seat == chair.seat)
+                .values(
+                    account_id=None if occupant is None else occupant.account_id,
+                    display_name=None if occupant is None else occupant.display_name,
+                    occupant_kind=None if occupant is None else occupant.kind.value,
+                    ready=chair.ready,
+                )
+            )
 
     def save_table(self, table: TableRecord) -> None:
         dealt = _read_hand(self._connection, table.id.value)
@@ -199,6 +260,8 @@ class _PostgresTableTransaction:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._write_table_row(table)
+        if dealt is None and _starts_series(table):
+            self._connection.execute(delete(game_list).where(game_list.c.table_id == table.id.value))
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if played_out:
@@ -210,16 +273,8 @@ class _PostgresTableTransaction:
         append_steps(self._connection, table.id.value, table.progress.auction)
         append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
         append_plays(self._connection, table.id.value, table.progress.plays)
-        for chair in table.chairs:
-            self._connection.execute(
-                update(chairs)
-                .where(chairs.c.table_id == table.id.value, chairs.c.seat == chair.seat)
-                .values(
-                    account_id=None if chair.occupant is None else chair.occupant.account_id,
-                    display_name=None if chair.occupant is None else chair.occupant.display_name,
-                    ready=chair.ready,
-                )
-            )
+        append_words(self._connection, table.id.value, table.progress.words)
+        self._write_chairs(table)
 
     def add_table(self, table: TableRecord) -> None:
         self._connection.execute(
@@ -228,7 +283,7 @@ class _PostgresTableTransaction:
                 version=table.version,
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
-                show_running_points=table.options.show_running_points,
+                **option_values(table.options),
             )
         )
         self._connection.execute(
@@ -239,6 +294,7 @@ class _PostgresTableTransaction:
                     "seat": chair.seat,
                     "account_id": None if chair.occupant is None else chair.occupant.account_id,
                     "display_name": None if chair.occupant is None else chair.occupant.display_name,
+                    "occupant_kind": None if chair.occupant is None else chair.occupant.kind.value,
                 }
                 for chair in table.chairs
             ],

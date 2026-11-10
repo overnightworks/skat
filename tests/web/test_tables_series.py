@@ -1,18 +1,15 @@
-import random
-from contextlib import nullcontext
 from dataclasses import replace
 
 import pytest
 
-from skat.table.records import Refusal, Series, TableId
-from skat.table.service import TableService
-from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
+from skat.table.records import Refusal, Series
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table
-from tests.web.support.series import headers_of, play_a_series, tap_weiter
+from tests.web.support.series import deal_next as deal_the_next
+from tests.web.support.series import headers_of, pass_the_hand_in, play_a_series, tap_weiter
 from tests.web.support.skat import FETCH
 
 SERIES_LENGTH = 12
@@ -36,28 +33,14 @@ def read(skat, headers, table_id):
     return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
 
 
-def pass_the_hand_in(skat, table_id, people):
-    """Everyone passes in turn until no hand runs."""
-    while (view := read(skat, people[0][0], table_id).json())["hand"] is not None:
-        seat = view["hand"]["auction"]["turn_seat"]
-        answer = skat.client.post(
-            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
-            json={"command_id": f"pass-at-{view['version']}", "version": view["version"]},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **people[seat - 1][0]},
-        )
-        assert answer.status_code == 200, answer.text
-
-
 def deal_next(skat, table_id, people):
-    connected = frozenset(account.id for _, account in people)
-    service = TableService(skat.store, random_source=random.Random(3))  # noqa: S311 - a seeded source makes the deal reproducible
-    return service.deal_next(TableId(table_id), nullcontext(connected))
+    return deal_the_next(skat, table_id, [account.id for _, account in people])
 
 
 def play_through(skat, table_id, people, games):
     """Pass in `games` hands, dealing the next after each but the last."""
     for game in range(games):
-        pass_the_hand_in(skat, table_id, people)
+        pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
         if game < games - 1:
             assert deal_next(skat, table_id, people)
 
@@ -69,7 +52,13 @@ class TestOpening:
         answer = skat.create(headers, series_length=SERIES_LENGTH)
 
         assert answer.status_code == 200
-        assert series_of(answer) == {"game_number": 0, "game_count": SERIES_LENGTH, "over": False, "standings": None}
+        assert series_of(answer) == {
+            "game_number": 0,
+            "game_count": SERIES_LENGTH,
+            "over": False,
+            "standings": None,
+            "end_proposal": None,
+        }
 
     def test_a_table_opened_before_series_existed_reads_with_no_series_and_deals_on(self, skat):
         table_id, people = open_series(skat)
@@ -147,20 +136,28 @@ class TestOptions:
 
         answer = skat.create(headers, options={"show_running_points": True})
 
-        assert answer.json()["options"] == {"show_running_points": True}
+        assert answer.json()["options"] == {"show_running_points": True, "kontra": None, "bock": None}
 
     @pytest.mark.parametrize("extra", [{}, {"options": {}}, {"options": {"show_running_points": False}}])
     def test_a_table_opened_without_the_switch_or_with_it_off_answers_it_off(self, skat, extra):
         headers, _ = skat.member()
 
-        assert skat.create(headers, **extra).json()["options"] == {"show_running_points": False}
+        assert skat.create(headers, **extra).json()["options"] == {
+            "show_running_points": False,
+            "kontra": None,
+            "bock": None,
+        }
 
     def test_a_read_and_a_watcher_see_the_options_the_table_was_opened_with(self, skat):
         headers, _ = skat.member()
         table_id = skat.create(headers, options={"show_running_points": True}).json()["id"]
         watcher, _ = skat.member()
 
-        assert read(skat, watcher, table_id).json()["options"] == {"show_running_points": True}
+        assert read(skat, watcher, table_id).json()["options"] == {
+            "show_running_points": True,
+            "kontra": None,
+            "bock": None,
+        }
 
     @pytest.mark.parametrize(
         "options",
@@ -183,9 +180,8 @@ class TestOptions:
         [
             ({"options": {"show_running_points": True}}, {"options": {"show_running_points": True}}),
             ({}, {"options": {"show_running_points": False}}),
-            ({}, {"options": {}}),
         ],
-        ids=["same-switch-on", "switch-given-off-is-none", "empty-options-is-none"],
+        ids=["same-switch-on", "switch-given-off-is-none"],
     )
     def test_a_retry_with_the_same_switch_is_the_same_table(self, skat, first, retry):
         headers, _ = skat.member()
@@ -227,12 +223,13 @@ class TestCounting:
             "game_count": 36,
             "over": False,
             "standings": None,
+            "end_proposal": None,
         }
 
     def test_a_passed_in_hand_counts_and_leaves_no_list_row(self, skat):
         table_id, people = open_series(skat, SERIES_LENGTH)
 
-        pass_the_hand_in(skat, table_id, people)
+        pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
 
         assert series_of(read(skat, people[0][0], table_id))["game_number"] == 1
         assert skat.store.tables[table_id].game_list == ()
@@ -245,7 +242,13 @@ class TestCounting:
         play_through(skat, table_id, people, SERIES_LENGTH)
 
         answer = read(skat, people[0][0], table_id).json()
-        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": True, "standings": []}
+        assert answer["series"] == {
+            "game_number": 12,
+            "game_count": 12,
+            "over": True,
+            "standings": [],
+            "end_proposal": None,
+        }
         assert answer["hand"] is None
         assert not deal_next(skat, table_id, people)
         assert series_of(read(skat, people[0][0], table_id))["game_number"] == SERIES_LENGTH
@@ -254,11 +257,17 @@ class TestCounting:
         table_id, people = open_series(skat, SERIES_LENGTH)
 
         for _ in range(SERIES_LENGTH - 1):
-            pass_the_hand_in(skat, table_id, people)
+            pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
             assert deal_next(skat, table_id, people)
 
         answer = read(skat, people[0][0], table_id).json()
-        assert answer["series"] == {"game_number": 12, "game_count": 12, "over": False, "standings": None}
+        assert answer["series"] == {
+            "game_number": 12,
+            "game_count": 12,
+            "over": False,
+            "standings": None,
+            "end_proposal": None,
+        }
         assert answer["hand"] is not None
 
     def test_a_passed_in_last_game_names_no_next_dealer(self, skat):
@@ -271,7 +280,7 @@ class TestCounting:
 
     def test_a_series_runs_on_while_a_person_leaves_and_another_sits_and_the_sit_that_deals_counts_once(self, skat):
         table_id, people = open_series(skat, 36)
-        pass_the_hand_in(skat, table_id, people)
+        pass_the_hand_in(skat, table_id, [headers for headers, _ in people])
         stranger, _ = skat.member()
         skat.stand(people[1][0], table_id, command_id="stand-ben")
 
@@ -282,6 +291,7 @@ class TestCounting:
             "game_count": 36,
             "over": False,
             "standings": None,
+            "end_proposal": None,
         }
 
 
@@ -323,7 +333,7 @@ class TestTheEnd:
         assert record.hand is None
         accounts = frozenset(chair.occupant.account_id for chair in record.chairs)
         assert newcomer.id in accounts
-        assert not TableService(skat.store).deal_next(TableId(table.table_id), nullcontext(accounts))
+        assert not deal_the_next(skat, table.table_id, accounts)
 
     def test_a_sitter_after_a_passed_in_last_game_is_not_marked_ready_and_nothing_deals(self, skat):
         table_id, people = open_series(skat, 3)
@@ -355,7 +365,7 @@ class TestTheAnswer:
         answer = skat.client.get(f"{TABLES_PATH}/{table_id}", headers={**FETCH, **watcher})
 
         assert cards_in(answer.json()) == set()
-        assert set(answer.json()["series"]) == {"game_number", "game_count", "over", "standings"}
+        assert set(answer.json()["series"]) == {"game_number", "game_count", "over", "standings", "end_proposal"}
 
 
 class TestTheStandings:

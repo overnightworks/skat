@@ -10,6 +10,7 @@ from skat.engine.bidding import Pass
 from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
+from skat.engine.kontra import KontraReach
 from skat.engine.play import legal_cards
 from skat.engine.value import Matadors
 from skat.store.migrate import create_store_engine
@@ -90,6 +91,8 @@ def an_entry(declaration, **numbers):
         "schneider": False,
         "schwarz": False,
         "matadors": Matadors(mit=True, count=2),
+        "kontra_word": None,
+        "bock_factor": 1,
         **numbers,
     }
     return ListEntry(declaration=declaration, **fields)
@@ -253,7 +256,9 @@ class TestTheList:
         with transactions.begin() as transaction:
             transaction.save_table(replace(record, version=record.version + 1, game_list=(first, sat_again)))
 
-        names = {each.account_id: each.display_name for each in standings_of(ended.record.game_list)}
+        names = {
+            each.account_id: each.display_name for each in standings_of(ended.record.game_list, KontraReach.KONTRA_RE)
+        }
         assert names == {"account-anna": "Anna", "account-ben": "Ben", "account-cleo": "Cleo", "account-dora": "Dora"}
 
     def test_an_entry_stored_without_names_reads_back_without_names(self, ended, transactions):
@@ -264,7 +269,7 @@ class TestTheList:
             transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, nameless)))
 
         assert ended.record.game_list[1].seat_names == (None, None, None)
-        assert {each.display_name for each in standings_of(ended.record.game_list)} == {None}
+        assert {each.display_name for each in standings_of(ended.record.game_list, KontraReach.KONTRA_RE)} == {None}
 
     @pytest.mark.parametrize("entry", [END_OVER, A_NULL, OUVERT_HAND], ids=["end-over", "null", "ouvert-hand"])
     def test_an_entry_reads_back_as_built_with_its_own_numbers_in_the_row(self, ended, transactions, engine, entry):
