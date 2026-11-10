@@ -116,7 +116,7 @@ def test_a_page_whose_stream_arrives_after_the_wait_shows_the_closed_face_and_as
     person = record_page_errors(open_person(username="anna", **PHONE), page_errors)
     held: list[Route] = []
     requests = events_requests_of(person)
-    person.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", held.append)
+    person.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", lambda route: held.append(route))
     path = open_new_table(person, e2e_server)
     expect(person.locator(".chair")).to_have_count(3)
     wait_for_end(e2e_server, table_id_of(path))
