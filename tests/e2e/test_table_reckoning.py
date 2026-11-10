@@ -442,6 +442,34 @@ def expect_the_ticks_drawn(card: Locator, ticked: int) -> None:
         expect(ticks.nth(index)).to_have_css("stroke", re.compile(r"^rgb"))
 
 
+def expect_the_ladder(card: Locator, reckoning: Reckoning) -> None:
+    if reckoning.chips:
+        expect(card.locator(".ladder > *")).to_have_text(list(reckoning.chips))
+        expect_the_ticks_drawn(card, sum(not chip.startswith((MIT, OHNE)) for chip in reckoning.chips))
+    else:
+        expect(card.locator(".ladder")).to_have_count(0)
+
+
+def expect_the_equation(card: Locator, reckoning: Reckoning) -> None:
+    if reckoning.equation is None:
+        expect(card.locator(".eq")).to_have_count(0)
+    else:
+        expect(card.locator(".eq")).to_have_text(loosely(*reckoning.equation))
+
+
+def expect_the_overbid_and_miss(card: Locator, reckoning: Reckoning) -> None:
+    if reckoning.raised is None:
+        expect(card.locator(".stamp")).to_have_count(0)
+        expect(card.locator(".miss:not(.missed)")).to_have_count(0)
+    else:
+        expect(card.locator(".stamp")).to_have_text(OVERBID)
+        expect(card.locator(".miss:not(.missed)")).to_have_text(reckoning.raised)
+    if reckoning.missed is None:
+        expect(card.locator(".miss.missed")).to_have_count(0)
+    else:
+        expect(card.locator(".miss.missed")).to_have_text(reckoning.missed)
+
+
 def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_seat: int, reckoning: Reckoning) -> None:
     """One viewer's card for a listed game: the parts the ISkO value rules make of it, from the viewer's side."""
     entry = reckoning.entry
@@ -459,25 +487,9 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     }[role]
     game = f"{declarer_name}, {reckoning.game}" if role == "opponent" else reckoning.game
     expect(card.locator(".sub .game")).to_have_text(game)
-    if reckoning.chips:
-        expect(card.locator(".ladder > *")).to_have_text(list(reckoning.chips))
-        expect_the_ticks_drawn(card, sum(not chip.startswith((MIT, OHNE)) for chip in reckoning.chips))
-    else:
-        expect(card.locator(".ladder")).to_have_count(0)
-    if reckoning.equation is None:
-        expect(card.locator(".eq")).to_have_count(0)
-    else:
-        expect(card.locator(".eq")).to_have_text(loosely(*reckoning.equation))
-    if reckoning.raised is None:
-        expect(card.locator(".stamp")).to_have_count(0)
-        expect(card.locator(".miss:not(.missed)")).to_have_count(0)
-    else:
-        expect(card.locator(".stamp")).to_have_text(OVERBID)
-        expect(card.locator(".miss:not(.missed)")).to_have_text(reckoning.raised)
-    if reckoning.missed is None:
-        expect(card.locator(".miss.missed")).to_have_count(0)
-    else:
-        expect(card.locator(".miss.missed")).to_have_text(reckoning.missed)
+    expect_the_ladder(card, reckoning)
+    expect_the_equation(card, reckoning)
+    expect_the_overbid_and_miss(card, reckoning)
     expect(card.locator(".x2")).to_have_count(0 if entry.won else 1)
     expect(card.locator(".value")).to_have_text(reckoning.value)
     steps = [declarer_side, *reckoning.steps]
