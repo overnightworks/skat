@@ -20,8 +20,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-SESSION_COOKIE = "__Host-session_id"
-
 
 def open_documents(page: Page) -> list[str]:
     """The reader answers the document URLs the page requested so far."""
@@ -45,7 +43,7 @@ def test_a_member_signs_in_at_the_issuer_and_reaches_the_start_page(
 
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
-    assert any(cookie["name"] == SESSION_COOKIE for cookie in person.context.cookies())
+    assert any(cookie["name"] == e2e_server.config.session_cookie_name for cookie in person.context.cookies())
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
@@ -61,7 +59,7 @@ def test_a_member_the_group_does_not_admit_sees_the_refusal_and_no_start_page(
     expect(person.get_by_role("button", name="Log out")).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
     expect(person.locator(ACCOUNT_AVATAR)).to_have_count(0)
-    assert not any(cookie["name"] == SESSION_COOKIE for cookie in person.context.cookies())
+    assert not any(cookie["name"] == e2e_server.config.session_cookie_name for cookie in person.context.cookies())
 
 
 @pytest.mark.parametrize("path", ["/", "/anywhere", "/account"])

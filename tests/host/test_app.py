@@ -28,7 +28,6 @@ from tests.support.signed_in import cookie_header, seed_member
 if TYPE_CHECKING:
     from skat.web.settings import ServerSettings
 
-SESSION_COOKIE = "__Host-session_id"
 OPENER = Actor(account_id="account-anna", display_name="Anna")
 VISITOR = Actor(account_id="account-ben", display_name="Ben")
 THIRD = Actor(account_id="account-cleo", display_name="Cleo")
@@ -236,10 +235,9 @@ class TestCreateApp:
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
-        cookie = f"{SESSION_COOKIE}={browser.cookies[SESSION_COOKIE]}"
-        session_id = session_id_from_request(
-            Request({"type": "http", "headers": [(b"cookie", cookie.encode())]}), installed_web_auth_config(app)
-        )
+        config = installed_web_auth_config(app)
+        cookie = f"{config.session_cookie_name}={browser.cookies[config.session_cookie_name]}"
+        session_id = session_id_from_request(Request({"type": "http", "headers": [(b"cookie", cookie.encode())]}), config)
         assert session_id is not None
         session = stores.sessions.load(session_id)
         assert session is not None
