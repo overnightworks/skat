@@ -733,6 +733,7 @@ class TestRuleSets:
         assert listed.json() == {"sets": [saved.json()]}
         assert saved.json()["options"] == {"show_running_points": True, "kontra": None}
         assert skat.client.get(RULE_SETS_PATH, headers=owner).json() == {"sets": []}
+        assert [each.owner_account for each in skat.rule_set_store.rule_sets.values()] == [agent_account_id(skat)]
 
     def test_a_refused_save_is_a_failed_result_with_its_reason(self, agent):
         agent.call(SAVE_RULE_SET_TOOL, name="Abend", options={})
