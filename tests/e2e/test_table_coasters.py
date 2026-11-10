@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.support.hands import CARDS_IN_PLAY, PlayingTable, deal_playing_table
+from skat.engine.tricks import CARDS_IN_A_GAME
+from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.tables import SIT_DOWN
 from tests.e2e.support.words import catalog_text
@@ -91,7 +92,7 @@ def test_no_coaster_before_the_first_result_then_every_chair_shows_its_persons_t
     table = play_a_table(form_factor)
     expect_no_coaster(table)
 
-    table.play_out(CARDS_IN_PLAY)
+    table.play_out(CARDS_IN_A_GAME)
 
     gains = {gain["seat"]: gain["gain"] for gain in table.result()["gains"]}
     expect_the_totals(table, gains)
@@ -107,7 +108,7 @@ def test_the_coasters_stay_in_the_next_hand(
     play_a_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = play_a_table(form_factor)
-    table.play_out(CARDS_IN_PLAY)
+    table.play_out(CARDS_IN_A_GAME)
     totals = totals_of(table)
     for seat in table.names:
         table.ready_through_the_api(seat)
@@ -123,7 +124,7 @@ def test_a_freed_chair_has_no_coaster_and_a_newcomer_on_it_reads_zero(
     play_a_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = play_a_table(form_factor)
-    table.play_out(CARDS_IN_PLAY)
+    table.play_out(CARDS_IN_A_GAME)
     totals = totals_of(table)
     leaver = next(seat for seat in table.names if seat != table.declarer_seat)
 
