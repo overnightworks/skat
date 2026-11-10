@@ -46,6 +46,10 @@ def takers(letters):
     return tuple({"F": FOREHAND, "M": MIDDLEHAND, "R": REARHAND}[letter] for letter in letters.split())
 
 
+def points_of_cards(played):
+    return sum(each.points for each in played)
+
+
 def reason_of(answer):
     return answer.json()["reason"]
 
@@ -166,6 +170,22 @@ class Table:
             },
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
+
+    def act(self, suffix, headers=None, *, body=None):
+        """An act without a payload of its own (a give-up, a throw-down), the declarer's unless told otherwise."""
+        self.skat.client.cookies.clear()
+        return self.skat.client.post(
+            f"{TABLES_PATH}/{self.table_id}{suffix}",
+            json={"command_id": self.fresh_id(), "version": self.record.version} | (body or {}),
+            headers={"origin": TEST_PUBLIC_ORIGIN, **(headers or self.at[MIDDLEHAND])},
+        )
+
+    def refused_act(self, suffix, headers, reason, *, body=None):
+        before = self.record
+        answer = self.act(suffix, headers, body=body)
+        assert answer.status_code == 409, answer.text
+        assert reason_of(answer) == reason
+        assert self.record == before
 
     def holder_of(self, played):
         """Whoever plays the card; a skat card the declarer kept is his."""

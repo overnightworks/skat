@@ -17,7 +17,7 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
 from skat.table.hand_state import playing_of
-from skat.table.playing import GiveUpCommand, PlayCardCommand
+from skat.table.playing import GiveUpCommand, PlayCardCommand, ThrowDownCommand
 from skat.table.records import Actor, CreateTable, Refusal, SitDown
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
@@ -208,12 +208,21 @@ def test_a_restart_reads_the_identical_cards_and_play_continues(game, database_u
     assert len(game.plays) == 2
 
 
-def test_a_given_up_game_stores_its_entry_drops_cards_and_a_new_service_replays_the_receipt(game, engine, database_url):
+@pytest.mark.parametrize(
+    ("command_type", "run"),
+    [
+        pytest.param(GiveUpCommand, lambda service: service.give_up, id="give-up"),
+        pytest.param(ThrowDownCommand, lambda service: service.throw_down, id="throw-down"),
+    ],
+)
+def test_an_early_end_stores_its_entry_drops_cards_and_a_new_service_replays_the_receipt(
+    game, engine, database_url, command_type, run
+):
     game.play_legally(4)
-    command = GiveUpCommand(command_id="give-up", table_id=game.table_id, version=game.record.version)
+    command = command_type(command_id="early-end", table_id=game.table_id, version=game.record.version)
     declarer = game.actors[Position.MIDDLEHAND]
 
-    first = game.service.give_up(declarer, command, nobody_connected(), lambda _accounts: None)
+    first = run(game.service)(declarer, command, nobody_connected(), lambda _accounts: None)
 
     assert first.refusal is None
     for hand_table in ("hand_cards", "auction_actions", "declaring_steps", "played_cards"):
@@ -222,7 +231,7 @@ def test_a_given_up_game_stores_its_entry_drops_cards_and_a_new_service_replays_
     assert len(game.record.game_list) == 1
     restarted_engine = create_store_engine(database_url)
     try:
-        again = TableService(PostgresTableTransactions(restarted_engine)).give_up(
+        again = run(TableService(PostgresTableTransactions(restarted_engine)))(
             declarer, command, nobody_connected(), lambda _accounts: None
         )
     finally:
