@@ -1,6 +1,7 @@
 import pytest
 
 from skat.table.rule_sets import RULE_SET_NAME_MAX
+from skat.web.constants import LOGOUT_PATH
 from skat.web.rule_sets import RULE_SETS_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FETCH
@@ -150,9 +151,14 @@ class TestOwnership:
         assert foreign.status_code == 404
         assert read(skat, anna).json() == {"sets": [saved.json()]}
 
-    def test_the_sets_stay_when_the_member_signs_in_again_on_another_device(self, skat):
+    def test_the_sets_stay_when_the_member_signs_out_and_in_again(self, skat):
         first, account = skat.member()
         saved = save(skat, first)
+        signed_out = skat.client.post(
+            LOGOUT_PATH,
+            headers={"origin": TEST_PUBLIC_ORIGIN, "content-type": "application/x-www-form-urlencoded", **first},
+        )
+        assert signed_out.status_code == 200
 
         second, _ = skat.member(account)
 
