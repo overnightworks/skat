@@ -1,5 +1,7 @@
 """Chromium's precise V8 coverage of every top-level page an end-to-end test opens, written for the CI report.
 
+A page another page opened (the sign-in window, the plain-link tab) gets no profiler, so what runs in it is not counted.
+
 Collecting is off unless the environment names a directory, so local runs pay nothing.
 A page-started document navigation would drop its page's counters, so the collector cancels it
 with a 204, takes the page's coverage and re-issues the URL; the re-issue goes to the server.

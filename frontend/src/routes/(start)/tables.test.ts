@@ -127,6 +127,16 @@ describe("watchTable after a stream error", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
+    async function refuseAfterTheFirstRead() {
+        const reading = readTableAfresh(TABLE_ID);
+        answer(0, 200);
+        await reading;
+        watchTable(TABLE_ID, vi.fn(), vi.fn());
+        fail();
+        answer(1, 401);
+        await settle();
+    }
+
     it("signs in once when two errors overlap and both checks answer 401", async () => {
         watchTable(TABLE_ID, vi.fn(), vi.fn());
         fail();
@@ -202,13 +212,7 @@ describe("watchTable after a stream error", () => {
 
     it("reloads instead of navigating when the page was reached by signing in a moment ago", async () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
-        const reading = readTableAfresh(TABLE_ID);
-        answer(0, 200);
-        await reading;
-        watchTable(TABLE_ID, vi.fn(), vi.fn());
-        fail();
-        answer(1, 401);
-        await settle();
+        await refuseAfterTheFirstRead();
 
         expect(reload).toHaveBeenCalledTimes(1);
         expect(assign).not.toHaveBeenCalled();
@@ -237,13 +241,7 @@ describe("watchTable after a stream error", () => {
     it("signs in again when the page reached by signing in has been open past the window", async () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
         vi.stubGlobal("performance", { now: () => 3_600_000 });
-        const reading = readTableAfresh(TABLE_ID);
-        answer(0, 200);
-        await reading;
-        watchTable(TABLE_ID, vi.fn(), vi.fn());
-        fail();
-        answer(1, 401);
-        await settle();
+        await refuseAfterTheFirstRead();
 
         expect(assign).toHaveBeenCalledTimes(1);
     });
@@ -267,13 +265,7 @@ describe("watchTable after a stream error", () => {
             frame(true);
             location(`${CALL_SEARCH}&${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
             vi.stubGlobal("performance", { now: () => 3_600_000 });
-            const reading = readTableAfresh(TABLE_ID);
-            answer(0, 200);
-            await reading;
-            watchTable(TABLE_ID, vi.fn(), vi.fn());
-            fail();
-            answer(1, 401);
-            await settle();
+            await refuseAfterTheFirstRead();
 
             expect(reload).toHaveBeenCalledTimes(1);
             expect(assign).not.toHaveBeenCalled();
