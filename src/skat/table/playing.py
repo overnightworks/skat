@@ -145,7 +145,10 @@ def _end_of(table: TableRecord, outcome: PlayOutcome) -> Decision:
 
 
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
-    """The card, give-up or throw-down that ends the game ends the hand: its cards and steps go, its entry stays."""
+    """The card, give-up or throw-down that ends the game ends the hand.
+
+    Its cards and steps go, its entry joins the list.
+    """
     return TableRecord(
         id=table.id,
         version=table.version + 1,
