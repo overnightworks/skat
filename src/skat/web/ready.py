@@ -16,7 +16,9 @@ from skat.web.tables import (
 )
 
 if TYPE_CHECKING:
-    from skat.table.service import TableService
+    from collections.abc import Callable
+
+    from skat.table.service import CommandResult, TableService
     from skat.web.presence import Presence
 
 # „Weiter“ after a result: `TABLES_PATH/{table_id}` plus this.
@@ -29,6 +31,16 @@ class ReadyRequest(CommandRequest):
     """A client names only the result it saw, by its number in the table's list: its chair comes from the session."""
 
     ordinal: Annotated[int, Field(strict=True, ge=1)]
+
+
+async def answer_and_deal(
+    command: Callable[[frozenset[str]], CommandResult | None], presence: Presence, table_id: str, response: Response
+) -> Response | TableAnswer:
+    answer = await command_answer(command, presence, table_id, response)
+    # A replay asks again, so a deal lost after the first commit follows the retry.
+    if isinstance(answer, TableAnswer):
+        await presence.deal_now(table_id)
+    return answer
 
 
 def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
@@ -56,13 +68,9 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         chairs are ready and the series is not over.
         """
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal)
-        answer = await command_answer(
+        return await answer_and_deal(
             partial(tables.mark_ready, actor_of(request), command), presence, table_id, response
         )
-        # A replay asks again, so a deal lost after the first commit follows the retry.
-        if isinstance(answer, TableAnswer):
-            await presence.deal_now(table_id)
-        return answer
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_NEW_SERIES_SUFFIX,
@@ -84,12 +92,8 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         first hand appears in the next read.
         """
         command = NewSeriesCommand(command_id=body.command_id, table_id=table_id)
-        answer = await command_answer(
+        return await answer_and_deal(
             partial(tables.start_new_series, actor_of(request), command), presence, table_id, response
         )
-        # A replay asks again, so a deal lost after the first commit follows the retry.
-        if isinstance(answer, TableAnswer):
-            await presence.deal_now(table_id)
-        return answer
 
     return router
