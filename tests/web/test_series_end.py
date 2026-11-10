@@ -156,12 +156,15 @@ class TestTheProposal:
         yes(skat, table, 1)
         yes(skat, table, 2)
 
-        for _ in range(2):
-            views = [table.read_as(each).json()["series"] for each in (*headers_of(table), table.watcher)]
-            assert all(view == views[0] for view in views)
-            if _ == 0:
-                assert set(views[0]["end_proposal"]) == {"proposer_seat", "accepter_seat"}
-                yes(skat, table, 3)
+        during = [table.read_as(each).json()["series"] for each in (*headers_of(table), table.watcher)]
+        assert all(view == during[0] for view in during)
+        assert set(during[0]["end_proposal"]) == {"proposer_seat", "accepter_seat"}
+        assert len(entries_of(skat, table)) == 2
+
+        yes(skat, table, 3)
+
+        after = [table.read_as(each).json()["series"] for each in (*headers_of(table), table.watcher)]
+        assert all(view == after[0] for view in after)
         assert len(entries_of(skat, table)) == 2
 
 
