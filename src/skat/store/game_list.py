@@ -1,6 +1,18 @@
 from typing import TYPE_CHECKING, Final
 
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, SmallInteger, Table, Text, insert, select
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    Table,
+    Text,
+    insert,
+    select,
+    text,
+)
 
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.declaration import Declaration
@@ -51,9 +63,10 @@ game_list = Table(
     Column("bid", SmallInteger, nullable=False),
     Column("game_value", SmallInteger, nullable=False),
     Column("settled_value", SmallInteger, nullable=False),
-    Column("score", SmallInteger, nullable=False),
+    Column("score", Integer, nullable=False),
     Column("declarer_points", SmallInteger, nullable=False),
     Column("kontra_word", Text),
+    Column("bock_factor", SmallInteger, nullable=False, server_default=text("1")),
     CheckConstraint("ordinal >= 1", name="game_list_ordinal_counts_from_one"),
     CheckConstraint(f"declarer_seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_list_declarer_seat_is_a_seat"),
     one_of("game", GAME_TEXT.values(), "game_list_game_is_a_game"),
@@ -66,6 +79,9 @@ game_list = Table(
     CheckConstraint(f"bid BETWEEN {VALID_BIDS[0]} AND {VALID_BIDS[-1]}", name="game_list_bid_is_a_bid"),
     CheckConstraint(f"declarer_points BETWEEN 0 AND {ALL_POINTS}", name="game_list_declarer_points_are_card_points"),
     one_of("kontra_word", (word.value for word in Word), "game_list_kontra_word_is_a_word"),
+    CheckConstraint(
+        "bock_factor > 0 AND bock_factor & (bock_factor - 1) = 0", name="game_list_bock_factor_is_a_power_of_two"
+    ),
 )
 
 
@@ -90,6 +106,7 @@ def _entry_of(row: Row[tuple[object, ...]]) -> ListEntry:
         score=row.score,
         declarer_points=row.declarer_points,
         kontra_word=None if row.kontra_word is None else Word(row.kontra_word),
+        bock_factor=row.bock_factor,
     )
 
 
@@ -120,6 +137,7 @@ def _columns_of(entry: ListEntry) -> dict[str, object]:
         "score": entry.score,
         "declarer_points": entry.declarer_points,
         "kontra_word": None if entry.kontra_word is None else entry.kontra_word.value,
+        "bock_factor": entry.bock_factor,
     }
 
 

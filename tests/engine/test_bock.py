@@ -13,6 +13,7 @@ from skat.engine.bock import (
     bock_factor,
     bock_settlement,
     bock_triggered,
+    games_left,
 )
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
@@ -151,7 +152,7 @@ SCHWARZ_ANNOUNCED_MISSED = game(HERZ, WIN_SCHNEIDER, hand=True, announcement=Ann
             NO_WORDS,
             NO_TOTALS,
             False,
-            id="16-sixty-sixty-off",
+            id="14-sixty-sixty-off",
         ),
         pytest.param(
             (SIXTY_SIXTY, WON_GRAND_HAND, LOST_AFTER_KONTRA, RE_SAID),
@@ -186,9 +187,8 @@ def test_a_hand_triggers_a_bock_round_when_it_meets_a_trigger_the_table_has_on(
 
 def test_a_hand_that_meets_two_triggers_starts_one_round() -> None:
     triggers = frozenset({RE_SAID, LOST_AFTER_KONTRA, SCHNEIDER, SCHWARZ})
-    ended = SCHWARZ_LOST
-    assert bock_triggered(triggers, ended, said(KONTRA, RE), NO_TOTALS)
-    assert factors_over(APPEND, (True, False, False, False, False)) == [1, 2, 2, 2, 1]
+    triggered = bock_triggered(triggers, SCHWARZ_LOST, said(KONTRA, RE), NO_TOTALS)
+    assert factors_over(APPEND, (triggered, False, False, False, False)) == [1, 2, 2, 2, 1]
 
 
 def factors_over(overlap: BockOverlap, hands: tuple[bool, ...]) -> list[int]:
@@ -304,3 +304,19 @@ def test_a_bock_game_doubles_the_list_score_and_leaves_the_value_and_the_standin
 def test_a_game_outside_every_bock_round_keeps_its_settlement() -> None:
     settlement = settle(HERZ_WON, HERZ_WON.declared.bid)
     assert bock_settlement(settlement, BockRounds.start(), APPEND) == settlement
+
+
+@pytest.mark.parametrize(
+    ("overlap", "rounds", "expected"),
+    [
+        pytest.param(APPEND, (), 0, id="none-pending"),
+        pytest.param(APPEND, (2, 3), 5, id="append-sums-the-rounds"),
+        pytest.param(IGNORE, (3,), 3, id="ignore-has-one-round"),
+        pytest.param(MULTIPLY, (2, 3), 3, id="multiply-runs-the-rounds-side-by-side"),
+        pytest.param(MULTIPLY, (), 0, id="multiply-none-pending"),
+    ],
+)
+def test_the_games_left_are_what_the_pending_rounds_still_deal(
+    overlap: BockOverlap, rounds: tuple[int, ...], expected: int
+) -> None:
+    assert games_left(BockRounds(rounds), overlap) == expected

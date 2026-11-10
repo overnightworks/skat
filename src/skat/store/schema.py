@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import (
+    ARRAY,
     Boolean,
     CheckConstraint,
     Column,
@@ -14,8 +15,10 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     false,
+    text,
 )
 
+from skat.engine.bock import GAMES_IN_A_ROUND, BockOptions, BockOverlap, BockTrigger
 from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
@@ -31,6 +34,9 @@ if TYPE_CHECKING:
 
 metadata = MetaData()
 
+BOCK_TRIGGER_LIST: Final = ", ".join(f"'{trigger.value}'" for trigger in BockTrigger)
+BOCK_ROUND_LIST: Final = ", ".join(str(games) for games in range(1, GAMES_IN_A_ROUND + 1))
+
 
 def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
     return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
@@ -45,6 +51,8 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
         Column("kontra_sayer", Text),
         Column("kontra_reach", Text),
         Column("kontra_deadline", Text),
+        Column("bock_triggers", ARRAY(Text)),
+        Column("bock_overlap", Text),
         CheckConstraint(
             "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)",
             name=f"{table_name}_kontra_is_all_or_nothing",
@@ -56,27 +64,44 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
             (deadline.value for deadline in KontraDeadline),
             f"{table_name}_kontra_deadline_is_a_deadline",
         ),
+        CheckConstraint(
+            "(bock_triggers IS NULL) = (bock_overlap IS NULL)", name=f"{table_name}_bock_is_all_or_nothing"
+        ),
+        CheckConstraint(
+            f"cardinality(bock_triggers) >= 1 AND bock_triggers <@ ARRAY[{BOCK_TRIGGER_LIST}]::text[]",
+            name=f"{table_name}_bock_triggers_are_triggers",
+        ),
+        one_of("bock_overlap", (overlap.value for overlap in BockOverlap), f"{table_name}_bock_overlap_is_an_overlap"),
     )
 
 
 def options_of(row: Row[Any]) -> TableOptions:
-    """The options a stored row holds; its three Kontra columns are all set or all null."""
+    """The options a stored row holds; its three Kontra columns are all set or all null, so are its two Bock columns."""
     kontra = None
     if row.kontra_sayer is not None and row.kontra_reach is not None and row.kontra_deadline is not None:
         kontra = KontraOptions(
             KontraSayer(row.kontra_sayer), KontraReach(row.kontra_reach), KontraDeadline(row.kontra_deadline)
         )
-    return TableOptions(show_running_points=row.show_running_points, kontra=kontra)
+    bock = None
+    if row.bock_triggers is not None and row.bock_overlap is not None:
+        bock = BockOptions(
+            frozenset(BockTrigger(trigger) for trigger in row.bock_triggers), BockOverlap(row.bock_overlap)
+        )
+    return TableOptions(show_running_points=row.show_running_points, kontra=kontra, bock=bock)
 
 
 def option_values(options: TableOptions) -> dict[str, object]:
     """The column values that store the options, as `options_of` reads them back."""
     kontra = options.kontra
+    bock = options.bock
     return {
         "show_running_points": options.show_running_points,
         "kontra_sayer": None if kontra is None else kontra.sayer.value,
         "kontra_reach": None if kontra is None else kontra.reach.value,
         "kontra_deadline": None if kontra is None else kontra.deadline.value,
+        # sorted by token, so the column reads the same however the request listed the triggers
+        "bock_triggers": None if bock is None else sorted(trigger.value for trigger in bock.triggers),
+        "bock_overlap": None if bock is None else bock.overlap.value,
     }
 
 
@@ -102,6 +127,7 @@ tables = Table(
     Column("give_up_asked_by", Text),
     Column("give_up_declined_by", Text),
     *option_columns("tables"),
+    Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -123,6 +149,13 @@ tables = Table(
         "give_up_declined_by IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_no_comes_with_an_ask"
     ),
     CheckConstraint("give_up_declined_by <> give_up_asked_by", name="tables_give_up_no_comes_from_another_position"),
+    CheckConstraint(
+        f"bock_rounds <@ ARRAY[{BOCK_ROUND_LIST}]::smallint[] AND array_position(bock_rounds, NULL) IS NULL",
+        name="tables_bock_rounds_are_rounds_with_games_left",
+    ),
+    CheckConstraint(
+        "bock_triggers IS NOT NULL OR cardinality(bock_rounds) = 0", name="tables_bock_rounds_only_with_bock"
+    ),
 )
 
 rule_sets = Table(

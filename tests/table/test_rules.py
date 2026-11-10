@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.engine.bidding import Pass
+from skat.engine.bock import BockRounds
 from skat.engine.deal import Position, deal
 from skat.table.records import (
     Actor,
@@ -54,6 +55,7 @@ def table_with(*seated: tuple[int, Actor]) -> TableRecord:
         game_list=(),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 

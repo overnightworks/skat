@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 from skat.engine.bidding import Bid, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, Declare
@@ -44,6 +45,7 @@ def table_in(progress: HandProgress, options: TableOptions | None = None) -> Tab
         game_list=(),
         series=None,
         options=options or TableOptions(),
+        bock=BockRounds.start(),
     )
 
 
@@ -84,6 +86,7 @@ def an_entry(seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO) -> ListEntry:
         score=36,
         declarer_points=78,
         kontra_word=None,
+        bock_factor=1,
     )
 
 

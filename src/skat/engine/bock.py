@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from skat.engine.declaration import Declaration
     from skat.engine.tricks import PlayedOut
 
-_GAMES_IN_A_ROUND: Final = 3
+GAMES_IN_A_ROUND: Final = 3
 _SIXTY_SIXTY: Final = 60
 _HUNDRED: Final = 100
 
@@ -110,7 +110,7 @@ def advance(rounds: BockRounds, overlap: BockOverlap, *, triggered: bool) -> Boc
     left_over = tuple(left for left in used if left > 0)
     ignored = overlap is BockOverlap.IGNORE and bool(rounds.remaining)
     if triggered and not ignored:
-        left_over = (*left_over, _GAMES_IN_A_ROUND)
+        left_over = (*left_over, GAMES_IN_A_ROUND)
     return BockRounds(remaining=left_over)
 
 
@@ -118,6 +118,13 @@ def bock_factor(rounds: BockRounds, overlap: BockOverlap) -> int:
     """2 while a Bock game runs; with the multiply option 2 to the number of pending rounds."""
     counted = len(rounds.remaining) if overlap is BockOverlap.MULTIPLY else min(len(rounds.remaining), 1)
     return 2**counted
+
+
+def games_left(rounds: BockRounds, overlap: BockOverlap) -> int:
+    """The Bock games still to come: the pending rounds one after another, or with multiply side by side."""
+    if overlap is BockOverlap.MULTIPLY:
+        return max(rounds.remaining, default=0)
+    return sum(rounds.remaining)
 
 
 def bock_settlement(settlement: Settlement, rounds: BockRounds, overlap: BockOverlap) -> Settlement:

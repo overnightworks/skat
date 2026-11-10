@@ -5,6 +5,7 @@ from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
 from skat.engine.giving_up import give_up, throw_down
 from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
+from skat.table.bock import bock_after
 from skat.table.game_list import list_entry_of
 from skat.table.hand_state import doubling_of, playing_of
 from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, TableRecord
@@ -239,8 +240,9 @@ def _end_of(table: TableRecord, outcome: PlayOutcome) -> Decision:
 def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
     """The card, give-up or throw-down that ends the game ends the hand.
 
-    Its cards and steps go, its entry joins the list.
+    Its cards and steps go, its entry joins the list, and the Bock rounds are asked once the entry exists.
     """
+    entry = list_entry_of(played, table, doubling_of(table))
     return TableRecord(
         id=table.id,
         version=table.version + 1,
@@ -248,9 +250,10 @@ def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
         dealer=table.dealer,
         hand=None,
         progress=HandProgress(),
-        game_list=(*table.game_list, list_entry_of(played, table, doubling_of(table))),
+        game_list=(*table.game_list, entry),
         series=table.series,
         options=table.options,
+        bock=bock_after(table, played, entry),
     )
 
 

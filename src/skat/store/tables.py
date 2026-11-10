@@ -5,6 +5,7 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import PassedIn
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
@@ -129,6 +130,7 @@ def _table_record(
         game_list=read_game_list(connection, table_id),
         series=None if table.series_length is None else Series(table.series_length, table.series_deals),
         options=options_of(table),
+        bock=BockRounds(tuple(table.bock_rounds)),
     )
 
 
@@ -197,6 +199,7 @@ class _PostgresTableTransaction:
                 version=table.version,
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
+                bock_rounds=list(table.bock.remaining),
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
                 give_up_declined_by=None
                 if asked is None or asked.declined_by is None
