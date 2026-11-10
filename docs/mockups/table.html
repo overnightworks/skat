@@ -522,6 +522,31 @@ body.solo section.shot .rule{display:none}
 .open-row .card + .card{margin-left:calc(var(--step) - var(--w))}
 .open-row + .open-row{margin-top:calc(var(--drop) - var(--w) * 1.4);margin-left:calc(var(--step) / 2)}
 </style>
+<style>
+/* ---------- giving up: the request names its asker on the plaque, the answers sit under it, a no marks the chair with a cross ---------- */
+.game .dot{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:13px;font-weight:700}
+.game .dot svg{width:16px;height:16px}
+.game .dot.agent{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
+.plaque.ask{gap:9px;padding:9px 12px 11px}
+.plaque.ask .game{white-space:nowrap}
+.answers{display:flex;gap:8px}
+.answers .button{height:44px;padding:0 16px;gap:8px;font-size:15px}
+.answers .button svg{width:18px;height:18px}
+.mark.declined{width:28px;height:28px;padding:0;justify-content:center;background:var(--glass-dark);color:var(--leave);backdrop-filter:blur(12px)}
+.seat.sm .mark.declined{width:26px;height:26px}
+.mark.decl + .mark.declined{right:auto;left:calc(var(--pad) + 6px)}
+/* the armed button: red, with a line that runs out in three seconds */
+.cb.wide.arm{position:relative}
+.cb.wide.arm i{position:absolute;left:18px;right:18px;bottom:6px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform-origin:left}
+.notice .dot + .dot{margin-left:-16px;box-shadow:0 0 0 2px var(--cream)}
+.result .stamp{gap:7px}
+.result .stamp:has(.by){padding-left:5px}
+.result .stamp .by{width:24px;font-size:12px}
+@media (prefers-reduced-motion:no-preference){
+  .cb.wide.arm i.mo{animation:runout 3s linear both}
+  @keyframes runout{to{transform:scaleX(0)}}
+}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -948,6 +973,7 @@ const IDEAS=[
   ['✨','Nova denkt','Zwei Punkte kreisen um Novas Kugel, nur solange Nova am Zug ist.','solo-play'],
   ['🎉','Farben-Konfetti','Ein Sieg wirft Konfetti aus Kreuz, Pik, Herz, Karo aus den Stühlen der Gewinner; Schneider mehr, Schwarz am meisten.','call-end'],
   ['0','Null-Plumps','Eine verlorene Null sackt freundlich in sich zusammen, ohne Spott.','nur hier','null'],
+  ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-button, giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
 ];
@@ -973,7 +999,7 @@ const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'id
 const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
 const watching=(n,x,y)=>`<div class="tag-glass" title="Zuschauer" style="${at({left:x,top:y})}">${I.eye}<span>${n}</span></div>`;
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
-const notice=(text,k,x,y)=>{const p=P[k];return `<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
+const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
 const tableBar=(desk,o={})=>{
   const wide=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
   const round=(cls,icon,label)=>`<span class="cb ${cls}" role="button" title="${label}" aria-label="${label}">${icon}</span>`;
@@ -1061,8 +1087,8 @@ scenes(DEAL_SCENES);
 /* ===== the others while the declarer takes the skat: from the opponent's and the watcher's chair no card of hers shows ===== */
 const annaTurn=(d)=>d?glow(300,270,220,260):glow(90,190,190,110);
 const nearTurn=(d)=>d?glow(187,632,300,200):yourTurn(d);
-const sideFans=(d,left,right,o={})=>(d?fan(left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.dim})+fan(right,{x:1012,y:282,w:42,rot:270,spread:6})
-  :fan(left,{x:80,y:168,w:26,rot:150,spread:6,dim:o.dim})+fan(right,{x:310,y:168,w:26,rot:210,spread:6}));
+const sideFans=(d,left,right,o={})=>(d?fan(left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.dim})+fan(right,{x:1012,y:282,w:42,rot:270,spread:6,dim:o.dimRight})
+  :fan(left,{x:80,y:168,w:26,rot:150,spread:6,dim:o.dim})+fan(right,{x:310,y:168,w:26,rot:210,spread:6,dim:o.dimRight}));
 const nearFan=(d,n)=>d?fan(n,{x:370,y:590,w:42,rot:45,spread:6}):fan(n,{x:195,y:476,w:26,rot:0,spread:6});
 const cardsAt=(n,x,y)=>cardCount(x,y).replace('<span>10</span>',`<span>${n}</span>`);
 const leftCount=(d,n)=>d?cardsAt(n,268,340):cardsAt(n,26,200);
@@ -1114,7 +1140,7 @@ const endBar=(d,tap)=>tap?tableBar(d,{seated:true}).replace('<div class="sbar">'
 const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'} ${o.calc.bid||o.calc.steps.length>2?'snug':''}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
   <h3>${o.won?I.check:I.cross}${o.word}</h3>
   ${o.calc.missed?`<div class="miss">${o.calc.missed}, nicht erreicht</div>`:''}
-  <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stamp}</span>`:''}</div>
+  <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stampBy?`<span class="by" style="${dotStyle(P[o.stampBy])}">${dotInner(P[o.stampBy])}</span>`:''}${o.stamp}</span>`:''}</div>
   ${calcRows(o)}
   ${o.eyes?pointsNamed(o.eyes,o.names,0):''}
   ${reckoning(o)}</div>`;
@@ -1349,6 +1375,103 @@ const SERIES_SCENES=[
 ];
 scenes(SERIES_SCENES);
 ORDER.push(...SERIES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+/* ===== giving up: a request on the plaque, two answers for the side that did not ask, a cross on the chair of whoever said no ===== */
+I.flag=sv('<path d="M5 21V3.5"/><path d="M5 4.5c4-2 7 2 11.5 0v8.5c-4.5 2-7.5-2-11.5 0z" fill="currentColor"/>');
+MARK.declined=`<span class="mark declined" title="sagte Nein">${I.cross}</span>`;
+MARK.unanswered=MARK.notTapped.replace('noch nicht getippt','noch keine Antwort');
+const faceDot=(k)=>{const p=P[k];return `<span class="dot ${p.agent?'agent':''}" style="${dotStyle(p)}">${dotInner(p)}</span>`;};
+const ANSWER_WORDS={words:['Annehmen','Weiterspielen',I.play],yesno:['Ja','Nein',I.cross]};
+const answers=(set='words')=>{const [agree,decline,icon]=ANSWER_WORDS[set];
+  return `<div class="answers"><span class="button button-stage" role="button">${I.check}${agree}</span><span class="button button-glass" role="button">${icon}${decline}</span></div>`;};
+/* the plaque keeps its place and says who asks; the answers sit in it, under the line, clear of the trick */
+const askPlaque=(d,line,below='',phoneY=176)=>plaque(d?640:195,d?98:phoneY,`<div class="game">${line}</div>${below}`).replace('class="plaque"','class="plaque ask"');
+/* Skat's bar in play: the give-up takes the place the stand-up has between hands */
+const STAND_UP=/<span class="cb wide glass" role="button"><svg[^]*?<\/svg>Aufstehen<\/span>/;
+const giveUpBar=(d,control='')=>tableBar(d,{seated:true}).replace(STAND_UP,control);
+const barKey=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
+const GIVE_UP=barKey('glass',I.flag,'Aufgeben');
+const GIVE_UP_ARMED=barKey('leave arm',I.flag,'Wirklich aufgeben?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
+const GIVE_UP_OPENS=barKey('glass',I.flag,`Aufgeben${I.chev}`);
+const giveUpTable=(d,o={})=>room(d,{left:0,call:false,glow:o.glow})+watching(o.watchers||1,d?16:12,d?14:8)
+  +sideFans(d,o.left??8,o.right??o.left??8,{dim:o.dim,dimRight:o.dim});
+const giveUpSeats=(d,o)=>{const L=d?DB:PB,left=o.left||'anna';
+  return seat(left,{...L.anna,short:true,marks:o.anna||[]})+seat('ben',{...L.nova,marks:o.ben||[]})+seat(o.near||'felix',{...L.you,marks:o.you||[]});};
+const FELIX_LEADS=PLAY_HAND.map(([r,s])=>[r,s,'ok']);
+const FELIX_FOLLOWS=PLAY_HAND.map(([r,s,c])=>[r,s,c==='no'?'no':'ok']);
+const FELIX_HOLDS=PLAY_HAND.map(([r,s])=>[r,s,'no']);
+const FELIX_RESTS=PLAY_HAND.map(([r,s])=>[r,s]);
+/* eight lit cards would run past the phone's edge at the usual strip */
+const giveUpHand=(d,cards,o={})=>ownHand(d,cards,d||!o.lead?{}:{strip:{base:40,no:32,ok:40,touch:56}});
+/* on the phone the trick sits lower than usual, clear of the plaque that grows to carry the answers */
+const lowered=(slot)=>({...slot,y:slot.y+(slot.w<80?16:0)});
+const earlierCards=(d,left='anna')=>played('K','s',left,lowered(TRICK_SLOT.left(d)))+played('7','s','ben',lowered(TRICK_SLOT.right(d)));
+const yourCard=(d)=>d?ghost(640,432,96):ghost(195,440,70);
+/* Felix declares Kreuz and leads: nothing stands, so only the bar differs between the scenes that start a give-up */
+const atLead=(d,control)=>giveUpTable(d,{glow:yourTurn(d)})+plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))+yourCard(d)
+  +giveUpSeats(d,{you:['decl','turn']})+giveUpHand(d,FELIX_LEADS,{lead:true})+giveUpBar(d,control);
+/* Anna declares and asks; Felix, an opponent, answers while the trick stays his to play */
+const answeringAnna=(d,o={})=>giveUpTable(d,{glow:yourTurn(d),left:7})+askPlaque(d,`${faceDot('anna')}Anna will aufgeben`,answers(o.set))
+  +earlierCards(d)+yourCard(d)+giveUpSeats(d,{anna:['decl'],ben:o.ben,you:['turn']})+giveUpHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);
+/* an opponent gave up for the side: no card is playable while the declarer answers */
+const sideAsks=(d,o={})=>giveUpTable(d,{dim:true})+askPlaque(d,`${faceDot('anna')}Anna gibt auf`,answers(o.set),FANS_CLEAR)
+  +giveUpSeats(d,{you:['decl']})+giveUpHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
+/* with no trick on the felt the phone's plaque drops below the fans, so their dimmed backs show */
+const FANS_CLEAR=232;
+const NOTE_SIDE='Solange die Anfrage steht, ist keine Karte spielbar: Felix’ Karten und die Rücken der Gegner sind gedimmt (ISkO 4.4.3 mit 4.1.6).';
+const NOTE_ANSWERS='Zwei Antworten für die Seite, die nicht fragte: „Annehmen“ beendet das Spiel, „Weiterspielen“ spielt weiter.';
+const SCRIM_AT=(d)=>({x:d?640:195,y:d?220:270,w:d?460:340});
+/* the throw-down's open cards, seen from Felix's chair: Anna's eight lie face up and their count stands beside them */
+const THROWN=[['B','c'],['A','c'],['10','c'],['K','s'],['A','h'],['10','h'],['K','d'],['9','d']];
+const GIVEN_UP={near:'felix',declarer:'anna',winners:['felix','ben'],adds:[-90,40,40],won:true,word:'Gewonnen!',suit:'h',game:'Anna, Herz',
+  calc:{suit:'h',base:10,mit:true,count:1,steps:['Spiel'],won:false},eyes:[38,44],names:['Anna','Wir'],ready:[],stamp:'Aufgegeben',stampBy:'anna'};
+const GIVEUP_SCENES=[
+  ['giveup-button','Wahl 1 A: der Knopf „Aufgeben“',(d)=>atLead(d,GIVE_UP),
+    ['Während des Spiels trägt Skats Leiste jedes sitzenden Spielers „Aufgeben“ mit einer weißen Flagge; ein Tipp scharft die Taste, siehe das nächste Bild.']],
+  ['giveup-arm','Wahl 1 A: erster Tipp, die Taste ist scharf',(d)=>atLead(d,GIVE_UP_ARMED),
+    ['Erst der zweite Tipp binnen drei Sekunden schickt es: mit neun oder mehr Karten verliert er sofort, mit weniger fragt er die Gegner (ISkO 4.4.1 und 4.4.2); jeder andere Tipp und die Zeit entschärfen die Taste.']],
+  ['giveup-asked','Anna will aufgeben, du antwortest',(d)=>answeringAnna(d),
+    [NOTE_ANSWERS,'Der Stich und die Hand bleiben sichtbar und spielbar, eine gespielte Karte beendet die Anfrage; ein Zuschauer sieht dieselbe Tafel (Wahl 2 A: „Annehmen“ und „Weiterspielen“).']],
+  ['giveup-one-no','Ben sagte Nein',(d)=>answeringAnna(d,{ben:['declined']}),
+    ['Ben hat Nein gesagt: das Kreuz auf seinem Stuhl zeigt es allen, und er behält nur „Annehmen“; Felix hat beide Antworten, denn ein Ja genügt.']],
+  ['giveup-waits','Du fragst, Anna antwortet noch',(d)=>giveUpTable(d,{glow:yourTurn(d),left:7})+askPlaque(d,`${faceDot('anna')}Warte auf Anna${waitDots()}`)
+    +earlierCards(d)+yourCard(d)+giveUpSeats(d,{anna:['unanswered'],ben:['declined'],you:['decl','turn']})+giveUpHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP),
+    ['Wer fragt, sieht, dass seine Anfrage wartet und wer Nein sagte; er hat keine Taste zum Zurücknehmen, seine nächste Karte nimmt sie zurück.']],
+  ['giveup-refused','Beide sagten Nein',(d)=>giveUpTable(d,{glow:yourTurn(d),left:7})+plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))
+    +earlierCards(d)+yourCard(d)+notice('Anna und Ben spielen weiter',['anna','ben'],d?640:195,d?170:250)
+    +giveUpSeats(d,{you:['decl','turn']})+giveUpHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP),
+    ['Das zweite Nein räumt die Anfrage weg: ein kurzer Hinweis mit beiden Gesichtern, und die Tafel zeigt wieder das Spiel.']],
+  ['giveup-side','Anna gibt auf, du antwortest',(d)=>sideAsks(d),[NOTE_SIDE,NOTE_ANSWERS]],
+  ['giveup-side-waits','Du gibst auf, Anna antwortet',(d)=>giveUpTable(d,{dim:true})+askPlaque(d,`${faceDot('anna')}Warte auf Anna${waitDots()}`,'',FANS_CLEAR)
+    +giveUpSeats(d,{anna:['decl','unanswered']})+giveUpHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP),
+    [NOTE_SIDE,'Sagt Anna Nein, spielt das Spiel weiter (ISkO 4.1.6): die Karten leuchten wieder, und der Hinweis „Anna spielt weiter“ trägt ihr Gesicht.']],
+  ['giveup-watch','Zuschauen bei der Anfrage',(d)=>giveUpTable(d,{watchers:3,left:7,glow:nearTurn(d)})+nearFan(d,8)
+    +askPlaque(d,`${faceDot('anna')}Anna will aufgeben`)+earlierCards(d)
+    +giveUpSeats(d,{anna:['decl'],ben:['declined'],you:['turn']})+tableBar(d),
+    ['Lena schaut zu und sieht dieselbe Tafel und dasselbe Kreuz wie Felix, aber keine Taste, und keine Karte der Anfrage steht offen.']],
+  ['giveup-end','Wahl 3 A: Aufgegeben mit Gesicht',(d)=>endScene(d,GIVEN_UP,tapButton),
+    ['Der Stempel „Aufgegeben“ trägt das Gesicht dessen, der aufgab, und steht dort, wo sonst „Überreizt“ steht; es zählen nur die fertigen Stiche des Alleinspielers, ein schon gewonnenes Spiel bekäme seine Augen mit dem Skat.']],
+  /* the other options of the choices, each as its own scene */
+  ['giveup-1b-menu','Wahl 1 B: ein Knopf für Aufgeben und Hinlegen',(d)=>atLead(d,GIVE_UP_OPENS)+'<div class="scrim"></div>'
+    +panel({...SCRIM_AT(d),role:'dialog',icon:I.flag,text:'Aufgeben oder hinlegen?',buttons:`<span class="button button-stage">${I.flag}Aufgeben</span><span class="button button-glass">${I.cards}Hinlegen</span>`}),
+    ['Ein Tipp auf die Taste öffnet beide Wege; das Hinlegen zeigt der nächste Rahmen.']],
+  ['giveup-1b-open','Wahl 1 B: Anna hat hingelegt',(d)=>giveUpTable(d,{left:0,right:8})
+    +widePlaque(d?640:290,d?98:196,`<div class="game">${faceDot('anna')}Anna legt hin</div>`)+openHand(THROWN,d)+cardsAt(8,d?288:14,d?358:284)
+    +giveUpSeats(d,{anna:['decl']})+giveUpHand(d,FELIX_RESTS)+giveUpBar(d,GIVE_UP_OPENS),
+    ['Gezeichnet sind nur die offenen Karten und ihre Zahl; das Verkürzen und das offene Spiel (S5.4b4, S5.4b5) haben eigene Bilder.']],
+  ['giveup-1c-tool','Wahl 1 C: noch kein Knopf',(d)=>giveUpTable(d,{glow:yourTurn(d),left:7})
+    +askPlaque(d,`${faceDot('nova')}Nova<span class="ai-badge">KI</span> will aufgeben`,answers())
+    +earlierCards(d,'nova')+yourCard(d)+giveUpSeats(d,{left:'nova',anna:['decl'],you:['turn']})+giveUpHand(d,FELIX_FOLLOWS)+giveUpBar(d),
+    ['Ohne Knopf kann kein Mensch am Tisch aufgeben; eine Anfrage kommt nur über die Schnittstelle oder das Werkzeug eines Agenten, hier Nova.']],
+  ['giveup-2b-asked','Wahl 2 B: „Ja“ und „Nein“, du antwortest Anna',(d)=>answeringAnna(d,{set:'yesno'}),
+    ['Wie die Tasten von „Beenden vorgeschlagen“; wer die Frage überspringt, weiß nicht, dass „Ja“ das Spiel beendet.']],
+  ['giveup-2b-side','Wahl 2 B: „Ja“ und „Nein“, du antwortest als Alleinspieler',(d)=>sideAsks(d,{set:'yesno'}),
+    ['Dieselben zwei Tasten in der anderen Richtung: der Alleinspieler antwortet einem Gegner.']],
+  ['giveup-3b-end','Wahl 3 B: Ergebnis wie immer',(d)=>endScene(d,{...GIVEN_UP,stamp:undefined,stampBy:undefined},tapButton),
+    ['Die Karte sieht aus wie nach einem ausgespielten Spiel; sie sagt nicht, dass aufgegeben wurde.']],
+];
+scenes(GIVEUP_SCENES);
+ORDER.splice(ORDER.indexOf('play-away-1280')+1,0,...GIVEUP_SCENES.filter(([id])=>!id.endsWith('end')).flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+ORDER.splice(ORDER.indexOf('grand-won-1280')+1,0,...GIVEUP_SCENES.filter(([id])=>id.endsWith('end')).flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
