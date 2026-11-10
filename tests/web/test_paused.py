@@ -5,8 +5,9 @@ import pytest
 from skat.engine.deal import Position
 from skat.web.mcp import READ_PAUSED_TABLES_TOOL
 from skat.web.paused import PAUSED_TABLES_PATH
+from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, seated_three
-from tests.web.support.playing import Table
+from tests.web.support.playing import HERZ_GAME, Table
 from tests.web.support.series import headers_of, pass_the_hand_in
 from tests.web.support.skat import FETCH, NAVIGATION, AgentTable, Skat
 
@@ -33,6 +34,11 @@ def paused_of(skat, headers):
     return answer.json()["tables"]
 
 
+def table_chairs(skat, headers, table_id):
+    skat.client.cookies.clear()
+    return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()["chairs"]
+
+
 class TestWhoReadsWhich:
     def test_each_holder_of_a_dealt_table_gets_it_with_only_his_own_chair_marked_and_a_watcher_gets_none(self, skat):
         table_id, people = seated_three(skat)
@@ -40,6 +46,9 @@ class TestWhoReadsWhich:
         for seat, (headers, _) in enumerate(people[:3], start=1):
             (entry,) = paused_of(skat, headers)
             assert entry["id"] == table_id
+            assert [(chair["seat"], chair["occupant_name"]) for chair in entry["chairs"]] == [
+                (chair["seat"], chair["occupant_name"]) for chair in table_chairs(skat, headers, table_id)
+            ]
             assert [chair["is_mine"] for chair in entry["chairs"]] == [chair == seat for chair in (1, 2, 3)]
             assert (entry["game_number"], entry["game_count"]) == (1, 36)
             assert [chair["total"] for chair in entry["chairs"]] == [None, None, None]
@@ -72,6 +81,19 @@ class TestWhoReadsWhich:
         (entry,) = paused_of(skat, people[0][0])
 
         assert (entry["game_number"], entry["game_count"]) == (None, None)
+
+    def test_a_pending_result_waits_for_nobody_and_each_chair_carries_the_total_the_table_shows(self, skat):
+        table = Table(skat)
+        table.declared_hand_game()
+        table.played_out(HERZ_GAME)
+        headers = headers_of(table)[0]
+
+        (entry,) = paused_of(skat, headers)
+
+        assert (entry["result_waits"], entry["turn_seat"]) == (True, None)
+        assert [chair["total"] for chair in entry["chairs"]] == [
+            chair["total"] for chair in table_chairs(skat, headers, table.table_id)
+        ]
 
     def test_an_entry_names_the_seat_on_turn_and_no_card_no_count_and_no_account(self, skat):
         table = Table(skat)

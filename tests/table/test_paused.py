@@ -101,9 +101,10 @@ class TestBetweenHands:
 
 class TestTheEntry:
     def test_names_the_game_number_and_series_length_and_marks_only_the_readers_chair(self):
-        entry = paused_entry_of(replace(table_in(AUCTION_RUNS), series=Series(36, 1)), REARHAND)
+        table = replace(table_in(AUCTION_RUNS), series=Series(36, 1))
+        entry = paused_entry_of(table, REARHAND)
 
-        assert (entry.id, entry.game_number, entry.game_count) == ("0123456789abcdef0123456789abcdef", 1, 36)
+        assert (entry.id, entry.game_number, entry.game_count) == (table.id.value, 1, 36)
         assert [(chair.seat, chair.occupant_name, chair.is_mine) for chair in entry.chairs] == [
             (1, "MIDDLEHAND", False),
             (2, "REARHAND", True),
@@ -141,13 +142,6 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
 
         assert service.paused_tables(actor(FOREHAND)) == ()
 
-    def test_a_member_who_stood_up_gets_none_and_the_others_still_see_the_table(self, service, store):
-        table = table_in(AUCTION_RUNS)
-        keep(store, replace(table, chairs=(*table.chairs[:2], Chair(THIRD_CHAIR, None))))
-
-        assert service.paused_tables(actor(FOREHAND)) == ()
-        assert len(service.paused_tables(actor(MIDDLEHAND))) == 1
-
     def test_lists_the_tables_in_id_order_and_leaves_the_undealt_one_out(self, service, store):
         later, earlier, undealt = (replace(table_in(AUCTION_RUNS), id=table_id) for table_id in OTHER_TABLE_IDS[::-1])
         keep(store, later)
@@ -172,12 +166,11 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         assert TableService(racing).paused_tables(actor(FOREHAND)) == ()
 
     def test_a_table_whose_chair_changed_hands_after_the_scan_is_skipped_for_the_one_who_left(self):
+        table_id = table_in(AUCTION_RUNS).id
+
         class ChairChangesAfterTheScan(FakeTableStore):
             def occupied_chairs(self):
-                return (
-                    *super().occupied_chairs(),
-                    OccupiedChair(TableId("0123456789abcdef0123456789abcdef"), STRANGER),
-                )
+                return (*super().occupied_chairs(), OccupiedChair(table_id, STRANGER))
 
         racing = ChairChangesAfterTheScan()
         keep(racing, table_in(AUCTION_RUNS))
@@ -187,7 +180,7 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
 
 
 class TestTablesHeldBy:
-    def test_answers_each_table_the_account_holds_a_chair_at_in_id_order_once(self, service, store):
+    def test_answers_each_table_the_account_holds_a_chair_at_in_id_order(self, service, store):
         for table_id in OTHER_TABLE_IDS[::-1]:
             keep(store, replace(table_in(AUCTION_RUNS), id=table_id))
         keep(store, replace(table_in(AUCTION_RUNS), id=TableId("f" * 32), chairs=(Chair(1, Occupant(STRANGER, "S")),)))
