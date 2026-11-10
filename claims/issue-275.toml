@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "5f012c1944e82d4c46904b5b81a221a4c4448673"
 branch = "claude/issue-275-agents-0-29"
-scope = ["pyproject.toml", "src", "tests", "uv.lock"]
+scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src", "tests", "uv.lock"]
 opened_commit = "b1198e52754e69b4642965f03d27c034a9aaeedf"
 whole_reason = "The pin and the import rename it forces are one bump; split, either the lock or the imports fail."
