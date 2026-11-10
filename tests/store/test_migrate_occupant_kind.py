@@ -1,9 +1,10 @@
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import create_store_engine, migrate
-from tests.store.test_migrate import upgrade_to
+from skat.store.migrate import MIGRATIONS_DIRECTORY, create_store_engine, migrate
 
 pytestmark = pytest.mark.postgres
 
@@ -13,6 +14,14 @@ def engine(unmigrated_database_url):
     engine = create_store_engine(unmigrated_database_url)
     yield engine
     engine.dispose()
+
+
+def upgrade_to(engine, revision):
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+    with engine.connect() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, revision)
 
 
 class TestFromOccupiedAndFreeChairsAtRevisionThirteen:

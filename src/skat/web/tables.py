@@ -648,6 +648,27 @@ def _create_seating_router(tables: TableService, presence: Presence) -> APIRoute
     return router
 
 
+def _options_of(body: CreateTableRequest) -> TableOptions:
+    if body.options is None:
+        return TableOptions()
+    return TableOptions(show_running_points=body.options.show_running_points)
+
+
+def _create_page_router(page_build: PageBuild) -> APIRouter:
+    router = APIRouter()
+
+    # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
+    @router.api_route(
+        TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
+    )
+    def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
+        response = built_page_response(page_build.shell)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+    return router
+
+
 def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
     router = APIRouter()
 
@@ -668,12 +689,9 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            options = (
-                TableOptions(show_running_points=body.options.show_running_points)
-                if body.options is not None
-                else TableOptions()
+            command = CreateTable(
+                command_id=body.command_id, series_length=body.series_length, options=_options_of(body)
             )
-            command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
             view = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
@@ -703,13 +721,6 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
             raise HTTPException(status_code=404, detail="table not found")
         return answer_of(view)
 
-    # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
-    @router.api_route(
-        TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
-    )
-    def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
-        response = built_page_response(page_build.shell)
-        response.headers["Cache-Control"] = "no-cache"
-        return response
+    router.include_router(_create_page_router(page_build))
 
     return router
