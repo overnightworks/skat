@@ -1,15 +1,22 @@
+import random
 import threading
 from contextlib import nullcontext
+from dataclasses import replace
 
 import pytest
+from sqlalchemy import func, select
 
-from skat.engine.deal import Position, positions_from
+from skat.engine.deal import Position, deal, positions_from
+from skat.store.game_list import game_list
 from skat.store.migrate import create_store_engine
+from skat.store.schema import StepLogRewrittenError, hand_cards
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.records import Actor, CreateTable, Series, SitDown, StandUp, TableId
+from skat.table.ready import NewSeriesCommand
+from skat.table.records import Actor, CreateTable, HandProgress, Series, SitDown, StandUp, TableId
 from skat.table.service import TableService
-from tests.support.faulty_tables import BothReadBeforeEitherWrites
+from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
+from tests.support.played_game import after_the_first_game
 
 pytestmark = pytest.mark.postgres
 
@@ -102,3 +109,142 @@ def test_a_replay_of_the_sit_that_dealt_counts_no_second_deal(service, transacti
     service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
 
     assert series_of(transactions, table_id) == Series(3, 1)
+
+
+def rows_of(engine, table):
+    with engine.connect() as connection:
+        return connection.execute(select(func.count()).select_from(table)).scalar_one()
+
+
+@pytest.fixture
+def ended_series(service, transactions, table_id):
+    """The series' only game played and its last game over: one list row, no hand, nobody has tapped."""
+    record = read(transactions, table_id)
+    with transactions.begin() as transaction:
+        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1, series=Series(3, 3)))
+    return table_id
+
+
+def tap_all(service, table_id):
+    for seat, person in PEOPLE.items():
+        command = NewSeriesCommand(f"new-series-{seat}", table_id)
+        assert service.start_new_series(person, command, ALL_THREE).refusal is None
+
+
+class TestNewSeries:
+    def test_the_three_taps_delete_nothing_and_the_deal_deletes_the_rows_and_counts_one(
+        self, service, transactions, engine, ended_series
+    ):
+        tap_all(service, ended_series)
+        assert rows_of(engine, game_list) == 1
+        assert read(transactions, ended_series).series == Series(3, 3)
+
+        assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
+
+        dealt = read(transactions, ended_series)
+        assert (dealt.series, dealt.game_list) == (Series(3, 1), ())
+        assert [chair.ready for chair in dealt.chairs] == [False, False, False]
+        assert rows_of(engine, game_list) == 0
+        assert rows_of(engine, hand_cards) == 32
+
+    def test_two_taps_leave_the_rows_and_deal_nothing(self, service, transactions, engine, ended_series):
+        for seat in (1, 2):
+            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"new-series-{seat}", ended_series), ALL_THREE)
+
+        assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is False
+
+        assert rows_of(engine, game_list) == 1
+        assert read(transactions, ended_series).series == Series(3, 3)
+
+    def test_a_failed_deal_keeps_the_old_list_the_count_and_the_marks_and_deals_no_hand(
+        self, service, transactions, engine, ended_series
+    ):
+        tap_all(service, ended_series)
+        before = read(transactions, ended_series)
+        failing = TableService(FaultyTableTransactions(transactions, save_failure=ConnectionError("lost")))
+
+        table_id = TableId(ended_series)
+        sources = nullcontext(ALL_THREE)
+
+        with pytest.raises(ConnectionError):
+            failing.deal_next(table_id, sources)
+
+        assert read(transactions, ended_series) == before
+        assert (rows_of(engine, game_list), rows_of(engine, hand_cards)) == (1, 0)
+        assert [chair.ready for chair in before.chairs] == [True, True, True]
+
+    def test_a_restart_between_the_last_tap_and_the_deal_keeps_the_marks_and_the_deal_follows(
+        self, service, ended_series, database_url
+    ):
+        tap_all(service, ended_series)
+        restarted_engine = create_store_engine(database_url)
+        try:
+            restarted_transactions = PostgresTableTransactions(restarted_engine)
+            assert [chair.ready for chair in read(restarted_transactions, ended_series).chairs] == [True] * 3
+
+            assert TableService(restarted_transactions).deal_next(TableId(ended_series), nullcontext(ALL_THREE))
+
+            assert read(restarted_transactions, ended_series).series == Series(3, 1)
+            assert rows_of(restarted_engine, game_list) == 0
+        finally:
+            restarted_engine.dispose()
+
+    def test_two_checks_at_once_after_the_last_tap_delete_and_deal_once(
+        self, service, transactions, engine, ended_series
+    ):
+        tap_all(service, ended_series)
+        racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+        answers = []
+
+        def check():
+            answers.append(racing.deal_next(TableId(ended_series), nullcontext(ALL_THREE)))
+
+        threads = [threading.Thread(target=check), threading.Thread(target=check)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert sorted(answers) == [False, True]
+        assert read(transactions, ended_series).series == Series(3, 1)
+        assert rows_of(engine, game_list) == 0
+
+    def test_a_retried_tap_after_the_deal_changes_nothing(self, service, transactions, engine, ended_series):
+        tap_all(service, ended_series)
+        service.deal_next(TableId(ended_series), nullcontext(ALL_THREE))
+        dealt = read(transactions, ended_series)
+
+        again = service.start_new_series(OPENER, NewSeriesCommand("new-series-1", ended_series), ALL_THREE)
+
+        assert again.refusal is None
+        assert read(transactions, ended_series) == dealt
+        assert rows_of(engine, game_list) == 0
+
+    @pytest.mark.parametrize(
+        ("deals", "dealt"),
+        [(2, False), (3, False), (1, False), (2, True)],
+        ids=[
+            "handless-inside-a-series",
+            "handless-at-its-last-game",
+            "handless-at-its-first-game",
+            "dealt-inside-a-series",
+        ],
+    )
+    def test_a_list_that_does_not_continue_the_stored_one_raises_outside_a_series_first_deal(
+        self, transactions, engine, ended_series, deals, dealt
+    ):
+        record = read(transactions, ended_series)
+        rewritten = replace(record, version=record.version + 1, game_list=(), series=Series(3, deals))
+        if dealt:
+            source = random.Random(3)  # noqa: S311 - a seeded source makes the deal reproducible
+            rewritten = replace(rewritten, hand=deal(source), dealer=1, progress=HandProgress())
+
+        def save():
+            with transactions.begin() as transaction:
+                transaction.save_table(rewritten)
+
+        with pytest.raises(StepLogRewrittenError):
+            save()
+
+        assert rows_of(engine, game_list) == 1
+        assert read(transactions, ended_series) == record

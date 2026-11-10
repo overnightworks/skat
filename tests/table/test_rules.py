@@ -299,6 +299,10 @@ def ready_seats(table: TableRecord) -> list[int]:
     return [chair.seat for chair in table.chairs if chair.ready]
 
 
+def at_the_series_end(table: TableRecord, *seats: int) -> TableRecord:
+    return replace(ready_at(table, *seats), series=Series(3, 3))
+
+
 class TestNextDealAfterAResult:
     @pytest.mark.parametrize(
         ("table", "connected", "due"),
@@ -313,9 +317,19 @@ class TestNextDealAfterAResult:
                 False,
                 id="a-chair-free",
             ),
+            pytest.param(at_the_series_end(played_out(), 1, 2, 3), ALL_THREE, True, id="a-played-last-game-all-tapped"),
+            pytest.param(
+                at_the_series_end(passed_in(), 1, 2, 3), ALL_THREE, True, id="a-passed-in-last-game-all-tapped"
+            ),
+            pytest.param(at_the_series_end(played_out(), 1, 2), ALL_THREE, False, id="a-played-last-game-two-tapped"),
+            pytest.param(at_the_series_end(passed_in(), 1, 2), ALL_THREE, False, id="a-passed-in-last-game-two-tapped"),
+            pytest.param(at_the_series_end(passed_in()), ALL_THREE, False, id="a-passed-in-last-game-nobody-tapped"),
+            pytest.param(
+                at_the_series_end(played_out(), 1, 2, 3), ALL_THREE - {BEN.account_id}, False, id="all-tapped-one-away"
+            ),
         ],
     )
-    def test_is_due_only_with_all_three_ready_and_connected(self, table, connected, due):
+    def test_is_due_only_with_all_three_marked_and_connected(self, table, connected, due):
         assert next_deal_due(table, connected) is due
 
     def test_a_passed_in_hand_needs_no_mark(self):
@@ -366,6 +380,16 @@ class TestLeavingClearsOnlyTheOwnMark:
 
         assert occupants_of(decision.table)[0] is None
         assert ready_seats(decision.table) == [2]
+
+
+class TestTheSeriesEnd:
+    def test_the_deal_that_follows_empties_the_list_and_counts_one(self):
+        table = at_the_series_end(replace(passed_in(), game_list=(an_entry(), an_entry())), 1, 2, 3)
+
+        next_series = dealt_next(table, DRAWN)
+
+        assert (next_series.game_list, next_series.series) == ((), Series(3, 1))
+        assert (next_series.dealer, next_series.hand) == (DRAWN.dealer, DRAWN.hand)
 
 
 class TestSeries:
