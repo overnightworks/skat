@@ -3,8 +3,9 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
+from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.playing import TABLE_CARD_SUFFIX
-from tests.e2e.support.hands import CARDS_IN_PLAY, TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
+from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.words import catalog_text
 
@@ -291,7 +292,7 @@ def test_after_the_thirtieth_card_no_card_can_be_tapped_and_nothing_breathes(
     for person in table.everyone:
         expect(person.locator(".plaque .game")).to_have_text(KREUZ)
         expect(person.locator(".plaque .game .suit.kreuz")).to_be_visible()
-    table.play_out(CARDS_IN_PLAY - 1)
+    table.play_out(CARDS_IN_A_GAME - 1)
     last_player = table.pages[table.turn_seat()]
     expect(last_player.locator(PLAYABLE_CARD)).to_have_count(1)
 
