@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.table.records import EndedTable
+    from skat.table.records import EndedTable, TableOptions
 
 CHAIRS_PER_TABLE: Final = 3
 FIRST_VERSION: Final = 1
@@ -40,8 +40,10 @@ class CommandIdReusedError(Exception):
     """A command id came back with a request other than the one it first carried."""
 
 
-def decide_create(actor: Actor, table_id: TableId, series_length: int | None) -> TableRecord:
-    """A new table with its opener in chair 1 and the other chairs free, and a series of no deals if it has a length."""
+def decide_create(actor: Actor, table_id: TableId, series_length: int | None, options: TableOptions) -> TableRecord:
+    """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length and
+    the options it is opened with.
+    """
     opener = Chair(1, Occupant(actor.account_id, actor.display_name))
     return TableRecord(
         id=table_id,
@@ -52,12 +54,18 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None) ->
         progress=HandProgress(),
         game_list=(),
         series=None if series_length is None else Series(series_length, 0),
+        options=options,
     )
 
 
 def create_payload(command: CreateTable) -> str:
-    """The receipt's payload: a table with no length keeps the text it always had, so older receipts replay."""
-    return "{}" if command.series_length is None else f'{{"series_length":{command.series_length}}}'
+    """The receipt's payload: a table with no length and every option off keeps the text it always had, so older
+    receipts replay; an option that is on adds its own member.
+    """
+    members = [] if command.series_length is None else [f'"series_length":{command.series_length}']
+    if command.options.show_running_points:
+        members.append('"show_running_points":true')
+    return "{" + ",".join(members) + "}"
 
 
 def create_receipt(actor: Actor, command: CreateTable, table: TableRecord) -> Receipt:
@@ -96,6 +104,7 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
         progress=table.progress,
         game_list=table.game_list,
         series=table.series,
+        options=table.options,
     )
 
 
@@ -138,6 +147,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         series=None
         if table.series is None
         else replace(table.series, deals=1 if starts_series else table.series.deals + 1),
+        options=table.options,
     )
 
 

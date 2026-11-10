@@ -47,13 +47,25 @@ class Actor:
 
 
 @dataclass(frozen=True)
+class TableOptions:
+    """The rule options a table is opened with; they stay fixed for its life and the default is the official rules.
+
+    `show_running_points` shows everyone the card points each side has taken in completed tricks while a suit or
+    Grand game is played.
+    """
+
+    show_running_points: bool = False
+
+
+@dataclass(frozen=True)
 class CreateTable:
     """The command to open a table; `command_id` is the client's key for retrying it, `series_length` the number of
-    games its series runs, or None for a table that plays on.
+    games its series runs, or None for a table that plays on, and `options` the table's rule options.
     """
 
     command_id: str
     series_length: int | None = None
+    options: TableOptions = TableOptions()
 
 
 @dataclass(frozen=True)
@@ -161,6 +173,7 @@ class TableRecord:
     progress: HandProgress
     game_list: tuple[ListEntry, ...]
     series: Series | None
+    options: TableOptions
 
 
 class EndReason(StrEnum):

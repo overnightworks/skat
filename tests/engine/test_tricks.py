@@ -25,6 +25,8 @@ from skat.engine.tricks import (
     Playing,
     PlayOutcome,
     PlayRefusal,
+    Sides,
+    Tally,
     play_card,
     playing_after,
     start_play,
@@ -248,6 +250,27 @@ def test_an_untouched_skat_in_a_hand_game_counts_for_the_declarer() -> None:
     state = play_out(start_play(declared_by(the_deal, FOREHAND, HERZ), the_deal))
     assert state.result is not None
     assert state.result.declarer_points == declarer_trick_points(state) + 21
+
+
+def test_the_running_tally_counts_a_trick_once_it_is_taken_and_not_before() -> None:
+    state = started()
+    assert state.tally.points == Sides(0, 0)
+
+    state = ok(play_card(state, FOREHAND, KARO_SEVEN))
+    assert state.tally.points == Sides(0, 0)
+
+    state = ok(play_card(ok(play_card(state, MIDDLEHAND, KARO_ACE)), REARHAND, KARO_EIGHT))
+    assert state.tally == Tally(tricks=Sides(0, 1), points=Sides(0, 11))
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_the_running_tally_of_a_played_out_game_is_its_result_without_the_skat(seed: int) -> None:
+    state = played_out_game(seed, HERZ)
+    assert state.result is not None
+    skat_points = sum(card.points for card in state.result.declared.skat)
+
+    assert state.tally == state.result.tally
+    assert state.tally.points.declarer + state.tally.points.opponents + skat_points == 120
 
 
 @pytest.mark.parametrize(("trick_points", "won"), [((22, 22, 13), True), ((22, 22, 12), False)])

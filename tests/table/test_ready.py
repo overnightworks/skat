@@ -24,6 +24,7 @@ from skat.table.records import (
     Series,
     SitDown,
     TableId,
+    TableOptions,
     TableRecord,
     parsed_refusal,
 )
@@ -53,6 +54,7 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
         progress=HandProgress(),
         game_list=tuple(an_entry() for _ in range(games)),
         series=None,
+        options=TableOptions(),
     )
 
 
