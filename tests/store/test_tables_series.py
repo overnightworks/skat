@@ -1,3 +1,4 @@
+import random
 import threading
 from contextlib import nullcontext
 from dataclasses import replace
@@ -5,14 +6,14 @@ from dataclasses import replace
 import pytest
 from sqlalchemy import func, select
 
-from skat.engine.deal import Position, positions_from
+from skat.engine.deal import Position, deal, positions_from
 from skat.store.game_list import game_list
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError, hand_cards
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import NewSeriesCommand
-from skat.table.records import Actor, CreateTable, Series, SitDown, StandUp, TableId
+from skat.table.records import Actor, CreateTable, HandProgress, Series, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
@@ -216,12 +217,24 @@ class TestNewSeries:
         assert read(transactions, ended_series) == dealt
         assert rows_of(engine, game_list) == 0
 
-    @pytest.mark.parametrize("deals", [2, 3], ids=["inside-a-series", "at-its-last-game"])
+    @pytest.mark.parametrize(
+        ("deals", "dealt"),
+        [(2, False), (3, False), (1, False), (2, True)],
+        ids=[
+            "handless-inside-a-series",
+            "handless-at-its-last-game",
+            "handless-at-its-first-game",
+            "dealt-inside-a-series",
+        ],
+    )
     def test_a_list_that_does_not_continue_the_stored_one_raises_outside_a_series_first_deal(
-        self, transactions, engine, ended_series, deals
+        self, transactions, engine, ended_series, deals, dealt
     ):
         record = read(transactions, ended_series)
         rewritten = replace(record, version=record.version + 1, game_list=(), series=Series(3, deals))
+        if dealt:
+            source = random.Random(3)  # noqa: S311 - a seeded source makes the deal reproducible
+            rewritten = replace(rewritten, hand=deal(source), dealer=1, progress=HandProgress())
 
         def save():
             with transactions.begin() as transaction:
