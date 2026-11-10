@@ -25,6 +25,7 @@ from skat.table.records import (
     EndReason,
     SitDown,
     StandUp,
+    TableOptions,
 )
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
@@ -64,12 +65,23 @@ class CommandRequest(BaseModel):
     command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
 
 
+class OptionsRequest(BaseModel):
+    """The rule options an opener sets; every later option joins this record."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    show_running_points: Annotated[bool, Field(strict=True)] = False
+
+
 class CreateTableRequest(CommandRequest):
-    """The opener names the series length."""
+    """The opener names the series length and may set the rule options; without them the table plays the official
+    rules.
+    """
 
     series_length: Annotated[
         int, Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP)
     ]
+    options: OptionsRequest | None = None
 
 
 class SitDownRequest(CommandRequest):
@@ -239,11 +251,17 @@ class LastTrickAnswer(BaseModel):
     taker_seat: int
 
 
+class SidesAnswer(BaseModel):
+    declarer: int
+    opponents: int
+
+
 class PlayingAnswer(BaseModel):
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
     legal_cards: list[CardAnswer]
+    running_points: SidesAnswer | None
 
 
 class HandAnswer(BaseModel):
@@ -327,6 +345,10 @@ class SeriesAnswer(BaseModel):
     standings: list[StandingAnswer] | None
 
 
+class OptionsAnswer(BaseModel):
+    show_running_points: bool
+
+
 class TableAnswer(BaseModel):
     id: str
     version: int
@@ -336,6 +358,7 @@ class TableAnswer(BaseModel):
     passed_in: PassedInAnswer | None
     result: ResultAnswer | None
     series: SeriesAnswer | None
+    options: OptionsAnswer | None
     ended: EndedAnswer | None
 
 
@@ -412,6 +435,9 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
             taker_seat=last.taker_seat,
         ),
         legal_cards=[card_answer_of(card) for card in playing.legal_cards],
+        running_points=None
+        if playing.running_points is None
+        else SidesAnswer(declarer=playing.running_points.declarer, opponents=playing.running_points.opponents),
     )
 
 
@@ -508,6 +534,7 @@ def answer_of(view: TableView) -> TableAnswer:
         passed_in=passed_in_answer_of(view.passed_in),
         result=result_answer_of(view.result),
         series=series_answer_of(view.series),
+        options=None if view.options is None else OptionsAnswer(show_running_points=view.options.show_running_points),
         ended=None
         if view.ended is None
         else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
@@ -605,7 +632,10 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            command = CreateTable(command_id=body.command_id, series_length=body.series_length)
+            options = (
+                TableOptions(show_running_points=body.options.show_running_points) if body.options else TableOptions()
+            )
+            command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
             view = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None

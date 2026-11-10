@@ -43,6 +43,7 @@ tables = Table(
     Column("empty_since", DateTime(timezone=True)),
     Column("series_length", SmallInteger),
     Column("series_deals", SmallInteger),
+    Column("show_running_points", Boolean, nullable=False, server_default=false()),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(

@@ -15,6 +15,7 @@ from skat.table.records import (
     Refusal,
     Series,
     TableId,
+    TableOptions,
     TableRecord,
 )
 from skat.table.rules import (
@@ -52,6 +53,7 @@ def table_with(*seated: tuple[int, Actor]) -> TableRecord:
         progress=HandProgress(),
         game_list=(),
         series=None,
+        options=TableOptions(),
     )
 
 

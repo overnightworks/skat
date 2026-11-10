@@ -9,7 +9,17 @@ from skat.engine.declaration import TakeSkat
 from skat.engine.tricks import CardPlayed, PlayRefusal
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand, card_payload, decide_card
-from skat.table.records import Actor, Chair, HandProgress, Occupant, Refusal, TableId, TableRecord, parsed_refusal
+from skat.table.records import (
+    Actor,
+    Chair,
+    HandProgress,
+    Occupant,
+    Refusal,
+    TableId,
+    TableOptions,
+    TableRecord,
+    parsed_refusal,
+)
 from tests.support.played_game import before_the_last_card, declared_herz_hand
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -43,6 +53,7 @@ def table_in(progress):
         progress=progress,
         game_list=(),
         series=None,
+        options=TableOptions(),
     )
 
 

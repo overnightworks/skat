@@ -141,6 +141,81 @@ class TestRetry:
         assert skat.create(headers, series_length=SERIES_LENGTH).status_code == 409
 
 
+class TestOptions:
+    def test_a_table_opened_with_the_switch_on_answers_it_on_from_its_creation(self, skat):
+        headers, _ = skat.member()
+
+        answer = skat.create(headers, options={"show_running_points": True})
+
+        assert answer.json()["options"] == {"show_running_points": True}
+
+    @pytest.mark.parametrize("extra", [{}, {"options": {}}, {"options": {"show_running_points": False}}])
+    def test_a_table_opened_without_the_switch_or_with_it_off_answers_it_off(self, skat, extra):
+        headers, _ = skat.member()
+
+        assert skat.create(headers, **extra).json()["options"] == {"show_running_points": False}
+
+    def test_a_read_and_a_watcher_see_the_options_the_table_was_opened_with(self, skat):
+        headers, _ = skat.member()
+        table_id = skat.create(headers, options={"show_running_points": True}).json()["id"]
+        watcher, _ = skat.member()
+
+        assert read(skat, watcher, table_id).json()["options"] == {"show_running_points": True}
+
+    @pytest.mark.parametrize(
+        "options",
+        [
+            {"show_running_points": "yes"},
+            {"show_running_points": 1},
+            {"show_running_points": None},
+            {"other": True},
+            True,
+        ],
+    )
+    def test_refuses_options_that_are_no_strict_switch_and_stores_nothing(self, skat, options):
+        headers, _ = skat.member()
+
+        assert skat.create(headers, options=options).status_code == 422
+        assert skat.store.tables == {}
+
+    def test_the_same_switch_under_the_same_command_id_is_the_same_table(self, skat):
+        headers, _ = skat.member()
+        first = skat.create(headers, options={"show_running_points": True}).json()
+
+        assert skat.create(headers, options={"show_running_points": True}).json() == first
+        assert len(skat.store.tables) == 1
+
+    def test_another_switch_under_the_same_command_id_is_a_reused_id(self, skat):
+        headers, _ = skat.member()
+        skat.create(headers, options={"show_running_points": True})
+
+        assert skat.create(headers).status_code == 409
+        assert len(skat.store.tables) == 1
+
+    def test_a_switch_given_off_is_the_same_request_as_none(self, skat):
+        headers, _ = skat.member()
+        first = skat.create(headers).json()
+
+        assert skat.create(headers, options={"show_running_points": False}).json() == first
+
+    def test_a_receipt_stored_before_options_replays_for_a_retry_without_them(self, skat):
+        headers, account = skat.member()
+        first = skat.create(headers).json()
+        key = (account.id, "command-0001")
+        skat.store.receipts[key] = replace(skat.store.receipts[key], payload=f'{{"series_length":{36}}}')
+
+        assert skat.create(headers).json() == first
+
+    def test_a_switch_on_changes_the_receipt_s_payload_and_a_switch_off_leaves_it(self, skat):
+        headers, _ = skat.member()
+        skat.create(headers, command_id="command-off")
+        skat.create(headers, command_id="command-on", options={"show_running_points": True})
+
+        payloads = {key[1]: receipt.payload for key, receipt in skat.store.receipts.items()}
+        assert payloads["command-off"] == '{"series_length":36}'
+        assert payloads["command-on"] == '{"series_length":36,"show_running_points":true}'
+
+
 class TestCounting:
     def test_the_first_deal_is_game_one(self, skat):
         table_id, people = open_series(skat, 36)

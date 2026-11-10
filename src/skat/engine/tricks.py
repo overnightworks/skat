@@ -237,6 +237,15 @@ class Playing(TenTricks):
     declared: Declaring
     result: PlayedOut | None
 
+    @property
+    def tally(self) -> Tally:
+        return _tally(self.declared.declarer, self.tricks)
+
+    @property
+    def counts_card_points(self) -> bool:
+        """A Null game counts no card points."""
+        return _kind_of(self.declared) is not GameKind.NULL
+
 
 @dataclass(frozen=True)
 class PlayOutcome[GameState: TenTricks = Playing]:

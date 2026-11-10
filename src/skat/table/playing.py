@@ -13,7 +13,7 @@ from skat.table.rules import acting_position, card_text
 if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.engine.tricks import PlayedOut, Playing
+    from skat.engine.tricks import PlayedOut, Playing, Sides
     from skat.table.records import Actor
 
 PLAY_CARD_COMMAND: Final = "play-card"
@@ -64,6 +64,7 @@ class PlayingView:
     current_trick: tuple[SeatedCard, ...]
     last_trick: LastTrick | None
     legal_cards: tuple[Card, ...]
+    running_points: Sides | None
 
 
 def card_payload(command: PlayCardCommand) -> str:
@@ -125,6 +126,7 @@ def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
         progress=HandProgress(),
         game_list=(*table.game_list, list_entry_of(played, table)),
         series=table.series,
+        options=table.options,
     )
 
 
@@ -137,11 +139,15 @@ def _legal_cards(state: Playing, viewer_positions: frozenset[Position]) -> tuple
     return tuple(card for card in DECK if card in held and play_card(state, turn, card).refusal is None)
 
 
-def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozenset[Position]) -> PlayingView | None:
+def playing_view_of(
+    state: Playing | None, dealer: int, viewer_positions: frozenset[Position], *, show_running_points: bool
+) -> PlayingView | None:
     """The game in play for one viewer; None until the game is declared.
 
     Everyone sees the turn, the trick in progress and the last completed trick.
     Only the seated player on turn gets the cards they may play.
+    A table that shows the running points gives everyone the card points of the completed tricks, which leave out
+    the skat; a Null game has none.
     """
     if state is None:
         return None
@@ -152,4 +158,5 @@ def playing_view_of(state: Playing | None, dealer: int, viewer_positions: frozen
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
         last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
         legal_cards=_legal_cards(state, viewer_positions),
+        running_points=state.tally.points if show_running_points and state.counts_card_points else None,
     )

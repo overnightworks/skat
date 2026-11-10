@@ -9,7 +9,17 @@ from skat.engine.declaration import Announcement, DeclarationRefusal, Declare, P
 from skat.engine.games import GameKind
 from skat.table.declaring import DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.hand_state import declaring_of
-from skat.table.records import Actor, Chair, HandProgress, Occupant, Refusal, TableId, TableRecord, parsed_refusal
+from skat.table.records import (
+    Actor,
+    Chair,
+    HandProgress,
+    Occupant,
+    Refusal,
+    TableId,
+    TableOptions,
+    TableRecord,
+    parsed_refusal,
+)
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
@@ -47,6 +57,7 @@ def table_in(progress):
         progress=progress,
         game_list=(),
         series=None,
+        options=TableOptions(),
     )
 
 
