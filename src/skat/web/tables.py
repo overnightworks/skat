@@ -23,13 +23,14 @@ from skat.table.records import (
     CommandRefusal,
     CreateTable,
     EndReason,
+    OccupantKind,
     SitDown,
     StandUp,
     TableOptions,
 )
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
-from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
+from skat.web.mcp import OPEN_TABLE_MARK, READ_TABLE_MARK, SIT_DOWN_MARK, STAND_UP_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
 
 if TYPE_CHECKING:
@@ -276,6 +277,7 @@ class HandAnswer(BaseModel):
 class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
+    occupant_kind: OccupantKind | None
     is_mine: bool
     is_away: bool
     ready: bool
@@ -521,6 +523,7 @@ def answer_of(view: TableView) -> TableAnswer:
             ChairAnswer(
                 seat=c.seat,
                 occupant_name=c.occupant_name,
+                occupant_kind=c.occupant_kind,
                 is_mine=c.is_mine,
                 is_away=c.is_away,
                 ready=c.ready,
@@ -542,7 +545,10 @@ def answer_of(view: TableView) -> TableAnswer:
 
 
 def actor_for(user: AuthenticatedUser) -> Actor:
-    return Actor(account_id=user.id, display_name=user.username)
+    """The account behind a request: an agent goes by the name its token carries, a person by the account's."""
+    if user.agent is None:
+        return Actor(account_id=user.id, display_name=user.username)
+    return Actor(account_id=user.id, display_name=user.agent.name, kind=OccupantKind.AGENT)
 
 
 def actor_of(request: Request) -> Actor:
@@ -593,29 +599,51 @@ def _create_seating_router(tables: TableService, presence: Presence) -> APIRoute
         TABLES_PATH + "/{table_id}" + TABLE_SIT_SUFFIX,
         response_model=TableAnswer,
         responses=COMMAND_RESPONSES,
-        openapi_extra=excluded(Exclusion.SEATING),
+        openapi_extra=SIT_DOWN_MARK,
     )
     async def sit_down(
         table_id: str, body: SitDownRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
+        """Take a free chair at a Skat table.
+
+        The table id is the last part of the table's link /t/{id}, which a person gives the caller, or the id of a
+        table the caller opened. `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the
+        answer of read_table. Whoever sits first has the chair. The sit that fills the third chair deals the first
+        hand; while a game's result stands, sitting down counts as continuing. The command id names this step: the
+        same id with the same seat is a retry that changes nothing twice. A refusal (the chair is taken, and the
+        answer names who holds it; the caller already sits at this table) comes back as a failed result with its
+        reason, leaves the table as it was and spends the command id.
+        """
         command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
         answer = await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
         # A sit while a result is pending marks the sitter ready, which may complete the marks.
-        if isinstance(answer, TableAnswer) and answer.result is not None:
-            await presence.deal_now(table_id)
+        if isinstance(answer, TableAnswer):
+            presence.chair_taken(table_id)
+            if answer.result is not None:
+                await presence.deal_now(table_id)
         return answer
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_STAND_SUFFIX,
         response_model=TableAnswer,
         responses=COMMAND_RESPONSES,
-        openapi_extra=excluded(Exclusion.SEATING),
+        openapi_extra=STAND_UP_MARK,
     )
     async def stand_up(
         table_id: str, body: CommandRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
+        """Leave the caller's own chair at a Skat table.
+
+        The chair keeps its number and becomes free. Nobody stands up while a hand runs: stand up between hands,
+        when `hand` is null in the answer of read_table. The command id names this step: the same id again is a
+        retry that changes nothing twice. A refusal (a hand runs; the caller holds no chair here) comes back as a
+        failed result with its reason, leaves the table as it was and spends the command id.
+        """
         command = StandUp(command_id=body.command_id, table_id=table_id)
-        return await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
+        answer = await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
+        if isinstance(answer, TableAnswer):
+            presence.chair_freed(table_id)
+        return answer
 
     return router
 
@@ -626,9 +654,17 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
     @router.post(
         TABLES_PATH,
         responses={409: {"description": "The command id came back with another request."}},
-        openapi_extra=excluded(Exclusion.OPENING),
+        openapi_extra=OPEN_TABLE_MARK,
     )
     async def create_table(body: CreateTableRequest, request: Request, response: Response) -> TableAnswer:
+        """Open a new Skat table, with the caller in chair 1 as its opener.
+
+        `series_length` is the number of games its series runs: a multiple of 3 from 3 to 99. `options` may switch
+        on the table's rule options, which stay fixed for its life; without them it plays the official rules. The
+        answer is the table as read_table gives it. Its `id` makes the table's link /t/{id}, which the caller gives
+        the people it wants to play with. The command id names this opening: the same id with the same request is a
+        retry that opens no second table, and the same id with another request is refused.
+        """
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
@@ -641,9 +677,9 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
             view = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
-        # Presence belongs to the event loop's thread, so the wait starts here and not on the worker.
+        # Presence belongs to the event loop's thread, so the wait and the note start here and not on the worker.
         if view.ended is None:
-            presence.watch_empty_table(view.id)
+            presence.chair_taken(view.id)
         return answer_of(view)
 
     router.include_router(_create_seating_router(tables, presence))

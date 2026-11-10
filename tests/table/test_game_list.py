@@ -19,7 +19,7 @@ from skat.table.game_list import (
     standings_of,
     total_of,
 )
-from skat.table.records import Chair, HandProgress, Occupant, TableId, TableOptions, TableRecord
+from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, KREUZ, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.NULL
@@ -67,7 +67,10 @@ def played(kind, trumps=(), declarer_tricks=(), *, bid=18, hand=False, ouvert=Fa
 
 
 def seated_table():
-    chairs = tuple(Chair(seat, Occupant(account, account.title())) for seat, account in enumerate(SEAT_ACCOUNTS, 1))
+    chairs = tuple(
+        Chair(seat, Occupant(account, account.title(), OccupantKind.PERSON))
+        for seat, account in enumerate(SEAT_ACCOUNTS, 1)
+    )
     return TableRecord(
         id=TableId("0" * 32),
         version=9,
@@ -428,7 +431,7 @@ class TestTheSeriesList:
 
     def test_a_row_names_the_name_stored_with_the_game_not_the_one_seated_now(self):
         table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
-        replaced = replace(table.chairs[0], occupant=Occupant("account-dora", "Dora"))
+        replaced = replace(table.chairs[0], occupant=Occupant("account-dora", "Dora", OccupantKind.PERSON))
 
         rows = series_list_view_of(replace(table, chairs=(replaced, *table.chairs[1:])))
 

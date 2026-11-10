@@ -12,6 +12,7 @@ from skat.table.records import (
     HandProgress,
     NewHand,
     Occupant,
+    OccupantKind,
     Refusal,
     Series,
     TableId,
@@ -43,7 +44,7 @@ DRAWN = NewHand(dealer=2, hand=deal(random.Random(3)))  # noqa: S311 - a seeded 
 
 
 def table_with(*seated: tuple[int, Actor]) -> TableRecord:
-    occupants = {seat: Occupant(actor.account_id, actor.display_name) for seat, actor in seated}
+    occupants = {seat: Occupant(actor.account_id, actor.display_name, actor.kind) for seat, actor in seated}
     return TableRecord(
         TableId("0" * 32),
         4,
@@ -68,6 +69,17 @@ class TestSit:
         assert decision.refusal is None
         assert occupants_of(decision.table) == ["Anna", None, "Ben"]
         assert decision.table.version == 5
+
+    @pytest.mark.parametrize("kind", list(OccupantKind))
+    def test_seats_the_actor_with_the_kind_and_name_it_carries(self, kind):
+        decision = decide_sit(table_with(), replace(BEN, display_name="Mozart", kind=kind), 2, None)
+
+        assert decision.table.chairs[1].occupant == Occupant("account-ben", "Mozart", kind)
+
+    def test_names_an_agent_that_holds_a_chair_to_the_person_refused(self):
+        agent = replace(ANNA, display_name="Mozart", kind=OccupantKind.AGENT)
+
+        assert decide_sit(table_with((2, agent)), BEN, 2, None).holder == "Mozart"
 
     def test_refuses_a_taken_chair_and_names_who_holds_it(self):
         table = table_with((2, ANNA))

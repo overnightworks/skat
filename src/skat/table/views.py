@@ -9,7 +9,7 @@ from skat.table.declaring import DeclaringView, declaring_view_of
 from skat.table.game_list import ResultView, Standing, result_view_of, standings_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
 from skat.table.playing import PlayingView, playing_view_of
-from skat.table.records import EndedTable, EndReason
+from skat.table.records import EndedTable, EndReason, OccupantKind
 from skat.table.rules import hand_runs, series_over
 
 if TYPE_CHECKING:
@@ -37,6 +37,7 @@ class ChairView:
 
     seat: int
     occupant_name: str | None
+    occupant_kind: OccupantKind | None
     is_mine: bool
     is_away: bool
     ready: bool
@@ -201,6 +202,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             ChairView(
                 seat=chair.seat,
                 occupant_name=None if chair.occupant is None else chair.occupant.display_name,
+                occupant_kind=None if chair.occupant is None else chair.occupant.kind,
                 is_mine=_is_occupied_by(chair, viewer_account_id),
                 is_away=chair.occupant is not None
                 and chair.occupant.account_id != viewer_account_id

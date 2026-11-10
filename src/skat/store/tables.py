@@ -29,6 +29,7 @@ from skat.table.records import (
     EndReason,
     HandProgress,
     Occupant,
+    OccupantKind,
     Receipt,
     Replay,
     Series,
@@ -106,7 +107,7 @@ def _table_record(
     if table.end_reason is not None:
         return EndedTable(TableId(table_id), table.version, EndReason(table.end_reason), table.empty_seconds)
     seats = connection.execute(
-        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.ready)
+        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.occupant_kind, chairs.c.ready)
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
@@ -116,7 +117,9 @@ def _table_record(
         chairs=tuple(
             Chair(
                 seat.seat,
-                None if seat.account_id is None else Occupant(seat.account_id, seat.display_name),
+                None
+                if seat.account_id is None
+                else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind)),
                 ready=seat.ready,
             )
             for seat in seats
@@ -217,6 +220,7 @@ class _PostgresTableTransaction:
                 .values(
                     account_id=None if chair.occupant is None else chair.occupant.account_id,
                     display_name=None if chair.occupant is None else chair.occupant.display_name,
+                    occupant_kind=None if chair.occupant is None else chair.occupant.kind.value,
                     ready=chair.ready,
                 )
             )
@@ -239,6 +243,7 @@ class _PostgresTableTransaction:
                     "seat": chair.seat,
                     "account_id": None if chair.occupant is None else chair.occupant.account_id,
                     "display_name": None if chair.occupant is None else chair.occupant.display_name,
+                    "occupant_kind": None if chair.occupant is None else chair.occupant.kind.value,
                 }
                 for chair in table.chairs
             ],
