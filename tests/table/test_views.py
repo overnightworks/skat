@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bidding import Awaiting, Bid, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declare, Stage, TakeSkat
@@ -41,7 +42,9 @@ def seated_table(
 ) -> TableRecord:
     people = ((1, ANNA, "Anna"), (2, BEN, "Ben"), (3, CLEO, "Cleo"))
     chairs = tuple(Chair(seat, Occupant(account_id, name)) for seat, account_id, name in people)
-    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None, TableOptions())
+    return TableRecord(
+        TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None, TableOptions(), BockRounds.start()
+    )
 
 
 class TestChairPositions:
@@ -172,6 +175,7 @@ def a_played_game() -> ListEntry:
         score=30,
         declarer_points=70,
         kontra_word=None,
+        bock_factor=1,
     )
 
 

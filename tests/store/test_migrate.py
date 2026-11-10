@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate, require_head
 from skat.store.tables import metadata
-from tests.support.migrations import run_in_transaction, upgrade_to
+from tests.support.migrations import list_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
@@ -363,34 +363,6 @@ class TestFromAHandAtRevisionFive:
             run_in_transaction(migrated, duplicate)
 
 
-def _list_row(**changed):
-    columns = {
-        "table_id": "'t'",
-        "ordinal": 1,
-        "seat_1_account": "'account-anna'",
-        "seat_2_account": "'account-ben'",
-        "seat_3_account": "'account-cleo'",
-        "declarer_seat": 1,
-        "game": "'kreuz'",
-        "hand": "false",
-        "ouvert": "false",
-        "announcement": "'none'",
-        "schneider": "true",
-        "schwarz": "false",
-        "matadors_mit": "true",
-        "matadors_count": 2,
-        "won": "true",
-        "bid": 18,
-        "game_value": 48,
-        "settled_value": 48,
-        "score": 48,
-        "declarer_points": 95,
-        **changed,
-    }
-    names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
-    return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
-
-
 class TestFromAPlayedCardAtRevisionSix:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
@@ -414,12 +386,12 @@ class TestFromAPlayedCardAtRevisionSix:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param(_list_row(), id="kreuz-mit-2-schneider"),
+            pytest.param(list_row(), id="kreuz-mit-2-schneider"),
             pytest.param(
-                _list_row(game="'null'", matadors_mit="NULL", matadors_count="NULL", schneider="false"), id="null"
+                list_row(game="'null'", matadors_mit="NULL", matadors_count="NULL", schneider="false"), id="null"
             ),
             pytest.param(
-                _list_row(game="'karo'", won="false", bid=20, game_value=18, settled_value=27, score=-54), id="overbid"
+                list_row(game="'karo'", won="false", bid=20, game_value=18, settled_value=27, score=-54), id="overbid"
             ),
         ],
     )
@@ -432,18 +404,18 @@ class TestFromAPlayedCardAtRevisionSix:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param(_list_row(ordinal=0), id="ordinal-below-the-first"),
-            pytest.param(_list_row(declarer_seat=4), id="no-seat"),
-            pytest.param(_list_row(game="'lila'"), id="unknown-game"),
-            pytest.param(_list_row(announcement="'maybe'"), id="unknown-announcement"),
-            pytest.param(_list_row(matadors_mit="NULL", matadors_count="NULL"), id="no-matadors-outside-null"),
-            pytest.param(_list_row(game="'null'"), id="matadors-in-null"),
-            pytest.param(_list_row(matadors_count="NULL"), id="matadors-without-a-count"),
-            pytest.param(_list_row(matadors_count=12), id="more-matadors-than-trumps"),
-            pytest.param(_list_row(bid=17), id="no-bid"),
-            pytest.param(_list_row(declarer_points=121), id="more-than-all-card-points"),
-            pytest.param(_list_row(seat_2_account="NULL"), id="a-seat-without-its-account"),
-            pytest.param(_list_row(table_id="'gone'"), id="unknown-table"),
+            pytest.param(list_row(ordinal=0), id="ordinal-below-the-first"),
+            pytest.param(list_row(declarer_seat=4), id="no-seat"),
+            pytest.param(list_row(game="'lila'"), id="unknown-game"),
+            pytest.param(list_row(announcement="'maybe'"), id="unknown-announcement"),
+            pytest.param(list_row(matadors_mit="NULL", matadors_count="NULL"), id="no-matadors-outside-null"),
+            pytest.param(list_row(game="'null'"), id="matadors-in-null"),
+            pytest.param(list_row(matadors_count="NULL"), id="matadors-without-a-count"),
+            pytest.param(list_row(matadors_count=12), id="more-matadors-than-trumps"),
+            pytest.param(list_row(bid=17), id="no-bid"),
+            pytest.param(list_row(declarer_points=121), id="more-than-all-card-points"),
+            pytest.param(list_row(seat_2_account="NULL"), id="a-seat-without-its-account"),
+            pytest.param(list_row(table_id="'gone'"), id="unknown-table"),
         ],
     )
     def test_the_checks_refuse_a_row_that_is_no_list_entry(self, migrated, statement):
@@ -453,8 +425,8 @@ class TestFromAPlayedCardAtRevisionSix:
             run_in_transaction(migrated, refused)
 
     def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
-        run_in_transaction(migrated, text(_list_row()))
-        duplicate = text(_list_row(score=-96))
+        run_in_transaction(migrated, text(list_row()))
+        duplicate = text(list_row(score=-96))
 
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, duplicate)
@@ -601,7 +573,7 @@ class TestFromAGameListRowAtRevisionTen:
         upgrade_to(unmigrated_engine, "0010")
         with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
-            connection.execute(text(_list_row()))
+            connection.execute(text(list_row()))
         migrate(unmigrated_engine)
         return unmigrated_engine
 
@@ -682,7 +654,7 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
         upgrade_to(unmigrated_engine, "0013")
         with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
-            connection.execute(text(_list_row()))
+            connection.execute(text(list_row()))
         migrate(unmigrated_engine)
         return unmigrated_engine
 

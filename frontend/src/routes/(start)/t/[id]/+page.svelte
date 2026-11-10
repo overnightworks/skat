@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onMount, untrack } from "svelte";
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
     import {
@@ -11,7 +12,7 @@
         passedInScene,
     } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { isFramedInCallMode } from "#lib/callFrame.ts";
+    import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { resultView, weiterBar, withMinus } from "#lib/result.ts";
@@ -110,6 +111,30 @@
     let sentFromVersion: number | null = $state(null);
 
     const callMode = isFramedInCallMode();
+    // The call's first valid greeting takes Skat's own bar away; a call that never greets leaves it.
+    let greeted = $state(false);
+    onMount(() => {
+        if (!callMode) return;
+        return greetCall(
+            untrack(() => id),
+            {
+                parent: window.parent,
+                fetch: (path) => fetch(path),
+                post: (message, targetOrigin) => {
+                    window.parent.postMessage(message, targetOrigin);
+                },
+                listen: (handler) => {
+                    window.addEventListener("message", handler);
+                    return () => {
+                        window.removeEventListener("message", handler);
+                    };
+                },
+            },
+            () => {
+                greeted = true;
+            },
+        );
+    });
 
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
@@ -205,31 +230,33 @@
             </linearGradient>
         </defs>
     </svg>
-    <header class="bar" class:stale={!connected}>
-        {#if callMode}
-            <span class="wordmark">{words.appName}</span>
-        {:else}
-            <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
-        {/if}
-        {#if outcome?.kind === "table" && outcome.table.ended === null}
-            <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                >
-                    <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
-                    <circle cx="12" cy="12" r="3" />
-                </svg>
-                <span>{outcome.table.watchers}</span>
-            </div>
-        {/if}
-    </header>
-    <main class="stage" class:stale={!connected}>
+    {#if !greeted}
+        <header class="bar" class:stale={!connected}>
+            {#if callMode}
+                <span class="wordmark">{words.appName}</span>
+            {:else}
+                <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
+            {/if}
+            {#if outcome?.kind === "table" && outcome.table.ended === null}
+                <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <span>{outcome.table.watchers}</span>
+                </div>
+            {/if}
+        </header>
+    {/if}
+    <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table" && outcome.table.ended !== null}
             <TableClosed ended={outcome.table.ended} />
         {:else if outcome?.kind === "table"}

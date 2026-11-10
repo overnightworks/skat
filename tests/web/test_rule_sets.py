@@ -8,9 +8,11 @@ from tests.web.support.skat import FETCH
 
 EVENING = {"show_running_points": True}
 FELIX = {"kontra": {"sayer": "bidders-only", "reach": "up-to-hirsch", "deadline": "own-card"}}
-OFFICIAL = {"show_running_points": False, "kontra": None}
-EVENING_ANSWER = {"show_running_points": True, "kontra": None}
-FELIX_ANSWER = {"show_running_points": False, **FELIX}
+OFFICIAL = {"show_running_points": False, "kontra": None, "bock": None}
+EVENING_ANSWER = {"show_running_points": True, "kontra": None, "bock": None}
+FELIX_ANSWER = {"show_running_points": False, "bock": None, **FELIX}
+BOCK = {"bock": {"triggers": ["re", "schwarz"], "overlap": "multiply"}}
+BOCK_ANSWER = {"show_running_points": False, "kontra": None, **BOCK}
 SAME_ORIGIN = {"origin": TEST_PUBLIC_ORIGIN}
 
 
@@ -55,6 +57,13 @@ class TestSaveAndRead:
         save(skat, headers, "Felix", FELIX)
 
         assert read(skat, headers).json()["sets"][0]["options"] == FELIX_ANSWER
+
+    def test_a_set_keeps_the_bock_options_it_was_saved_with(self, skat):
+        headers, _ = skat.member()
+
+        save(skat, headers, "Bock", BOCK)
+
+        assert read(skat, headers).json()["sets"][0]["options"] == BOCK_ANSWER
 
     def test_saving_a_name_again_with_the_same_options_answers_the_same_set(self, skat):
         headers, _ = skat.member()
@@ -106,7 +115,7 @@ class TestSaveAndRead:
             pytest.param({"name": "Ab\x07end", "options": {}}, id="control-character"),
             pytest.param({"name": 7, "options": {}}, id="name-not-a-string"),
             pytest.param({"name": "Abend"}, id="no-options"),
-            pytest.param({"name": "Abend", "options": {"bock": True}}, id="unknown-option"),
+            pytest.param({"name": "Abend", "options": {"turbo": True}}, id="unknown-option"),
             pytest.param({"name": "Abend", "options": {"show_running_points": "yes"}}, id="option-of-the-wrong-type"),
             pytest.param({"name": "Abend", "options": {}, "owner": "account-ben"}, id="extra-key"),
         ],

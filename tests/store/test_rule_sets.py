@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import pytest
 
+from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.store.rule_sets import PostgresRuleSets
 from skat.table.records import Actor, RuleSetId, TableOptions
@@ -14,6 +15,7 @@ ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 EVENING = TableOptions(show_running_points=True)
 FELIX = TableOptions(kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD))
+BOCK = TableOptions(bock=BockOptions(frozenset({BockTrigger.RE, BockTrigger.SCHWARZ}), BockOverlap.MULTIPLY))
 RACE_SECONDS = 10
 
 
@@ -32,7 +34,17 @@ def a_set(name="Abend", options=EVENING, owner=ANNA.account_id):
 
 
 class TestStoredOptions:
-    @pytest.mark.parametrize("options", [TableOptions(), EVENING, FELIX, TableOptions(True, FELIX.kontra)])
+    @pytest.mark.parametrize(
+        "options",
+        [
+            TableOptions(),
+            EVENING,
+            FELIX,
+            TableOptions(True, FELIX.kontra),
+            BOCK,
+            TableOptions(True, FELIX.kontra, BOCK.bock),
+        ],
+    )
     def test_the_options_of_a_set_read_back_as_saved(self, service, options):
         saved = service.save(ANNA, "Satz", options)
 

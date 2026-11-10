@@ -130,20 +130,28 @@ class TestOptions:
 
         answer = skat.create(headers, options={"show_running_points": True})
 
-        assert answer.json()["options"] == {"show_running_points": True, "kontra": None}
+        assert answer.json()["options"] == {"show_running_points": True, "kontra": None, "bock": None}
 
     @pytest.mark.parametrize("extra", [{}, {"options": {}}, {"options": {"show_running_points": False}}])
     def test_a_table_opened_without_the_switch_or_with_it_off_answers_it_off(self, skat, extra):
         headers, _ = skat.member()
 
-        assert skat.create(headers, **extra).json()["options"] == {"show_running_points": False, "kontra": None}
+        assert skat.create(headers, **extra).json()["options"] == {
+            "show_running_points": False,
+            "kontra": None,
+            "bock": None,
+        }
 
     def test_a_read_and_a_watcher_see_the_options_the_table_was_opened_with(self, skat):
         headers, _ = skat.member()
         table_id = skat.create(headers, options={"show_running_points": True}).json()["id"]
         watcher, _ = skat.member()
 
-        assert read(skat, watcher, table_id).json()["options"] == {"show_running_points": True, "kontra": None}
+        assert read(skat, watcher, table_id).json()["options"] == {
+            "show_running_points": True,
+            "kontra": None,
+            "bock": None,
+        }
 
     @pytest.mark.parametrize(
         "options",

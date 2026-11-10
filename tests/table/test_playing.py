@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bidding import Bid
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import TakeSkat
@@ -53,6 +54,7 @@ def table_in(progress):
         game_list=(),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 

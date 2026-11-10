@@ -5,6 +5,7 @@ from operator import attrgetter
 import pytest
 
 from skat.engine.bidding import Declared, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declaring, declare, put_back, take_skat
@@ -82,6 +83,7 @@ def seated_table():
         game_list=(),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 
