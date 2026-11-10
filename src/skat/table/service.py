@@ -11,16 +11,24 @@ from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decid
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
 from skat.table.playing import (
+    AGREE_TO_GIVE_UP_COMMAND,
+    DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
     THROW_DOWN_COMMAND,
+    AgreeToGiveUpCommand,
+    DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
     ThrowDownCommand,
+    agree_to_give_up_payload,
     card_payload,
+    decide_agree_to_give_up,
     decide_card,
+    decide_decline_give_up,
     decide_give_up,
     decide_throw_down,
+    decline_give_up_payload,
     give_up_payload,
     throw_down_payload,
 )
@@ -69,12 +77,13 @@ from skat.table.rules import (
     replayed_decision,
     replayed_table,
     resume_step,
+    seat_of,
     seated_if_hand_ended,
     sit_deals,
     sit_payload,
     stand_payload,
 )
-from skat.table.views import TableView, view_of
+from skat.table.views import PausedEntryView, TableView, paused_entry_of, view_of
 
 if TYPE_CHECKING:
     import random
@@ -333,6 +342,37 @@ class TableService:
             on_hand_ended,
         )
 
+    def agree_to_give_up(
+        self,
+        actor: Actor,
+        command: AgreeToGiveUpCommand,
+        connected_accounts: frozenset[str],
+        on_hand_ended: Callable[[frozenset[str]], None],
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            AGREE_TO_GIVE_UP_COMMAND,
+            agree_to_give_up_payload(command),
+            lambda table: decide_agree_to_give_up(table, actor, command),
+            on_hand_ended,
+        )
+
+    def decline_give_up(
+        self, actor: Actor, command: DeclineGiveUpCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            DECLINE_GIVE_UP_COMMAND,
+            decline_give_up_payload(command),
+            lambda table: decide_decline_give_up(table, actor, command),
+        )
+
     def throw_down(
         self,
         actor: Actor,
@@ -491,6 +531,28 @@ class TableService:
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
             return transaction.occupied_chairs()
+
+    def tables_held_by(self, account_id: str) -> tuple[TableId, ...]:
+        """The tables the account holds a chair at, each once, in id order; an unlocked scan, so a candidate list."""
+        held = {chair.table_id for chair in self.occupied_chairs() if chair.account_id == account_id}
+        return tuple(sorted(held, key=lambda table_id: table_id.value))
+
+    def paused_tables(self, actor: Actor) -> tuple[PausedEntryView, ...]:
+        """The live tables on which a hand was dealt and whose chair the actor holds, in id order.
+
+        The chair scan is unlocked, so each candidate is read again in one transaction under its shared row lock: an
+        ended table, a table without a dealt hand and one whose chair the actor left meanwhile are skipped.
+        """
+        candidates = self.tables_held_by(actor.account_id)
+        with self._transactions.begin() as transaction:
+            tables = (transaction.table(table_id) for table_id in candidates)
+            return tuple(
+                paused_entry_of(table, actor.account_id)
+                for table in tables
+                if isinstance(table, TableRecord)
+                and hand_was_dealt(table)
+                and seat_of(table, actor.account_id) is not None
+            )
 
     def _new_hand(self, table: TableRecord) -> NewHand:
         """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.

@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bidding import Pass
+from skat.engine.bock import BockRounds
 from skat.engine.deal import Position, deal
 from skat.table.ready import (
     NewSeriesCommand,
@@ -56,6 +57,7 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
         game_list=tuple(an_entry() for _ in range(games)),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 

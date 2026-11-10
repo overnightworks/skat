@@ -61,13 +61,14 @@ def with_known_deal(skat, table_id: str) -> None:
     skat.store.tables[table_id] = replace(table, dealer=DEALER_SEAT, hand=KNOWN_DEAL)
 
 
-def seated_three(skat):
+def seated_three(skat, options=None):
     """Anna, Ben and Cleo sit in seats 1 to 3 of a new table with the known hand; Dora has no chair.
 
     Returns the table id and the four members as (headers, account), seated people in seat order.
     """
     people = [skat.member() for _ in range(4)]
-    table_id = skat.create(people[0][0]).json()["id"]
+    opened = skat.create(people[0][0], **({} if options is None else {"options": options}))
+    table_id = opened.json()["id"]
     for seat, (headers, _) in enumerate(people[1:3], start=2):
         skat.sit(headers, table_id, seat, command_id=f"command-sit-{seat}")
     with_known_deal(skat, table_id)

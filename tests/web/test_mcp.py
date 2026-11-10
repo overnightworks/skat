@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 import pytest
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
+from agents.mcp_wire import MCP_ENDPOINT_PATH
 from webauth.ports import AccountKind
 
 from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass
@@ -16,25 +16,32 @@ from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
     AGENT_GROUP,
+    AGREE_TO_GIVE_UP_TOOL,
     AUCTION_BID_TOOL,
     AUCTION_HOLD_TOOL,
     AUCTION_PASS_TOOL,
     AUCTION_PLAY_TOOL,
     CONTINUE_AFTER_RESULT_TOOL,
     DECLARE_GAME_TOOL,
+    DECLINE_GIVE_UP_TOOL,
     GIVE_UP_GAME_TOOL,
     MCP_GROUP,
     OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
+    READ_PAUSED_TABLES_TOOL,
+    READ_RULE_SETS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    SAVE_RULE_SET_TOOL,
     SAY_KONTRA_TOOL,
     SIT_DOWN_TOOL,
     STAND_UP_TOOL,
+    START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
 )
+from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import (
     TABLE_EVENTS_SUFFIX,
     TABLES_PATH,
@@ -43,7 +50,7 @@ from skat.web.tables import (
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, person_passes, person_steps
-from tests.web.support.playing import Table, card, card_body
+from tests.web.support.playing import Table, card, card_body, cards
 from tests.web.support.series import play_a_series
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, stored, streams_of
 
@@ -75,7 +82,7 @@ def agent_account_id(skat):
 
 
 class TestTools:
-    def test_an_agent_is_offered_the_table_tools_and_only_the_two_reads_are_read_only(self, agent):
+    def test_an_agent_is_offered_the_table_tools_and_only_the_four_reads_are_read_only(self, agent):
         answer = agent.request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
@@ -84,19 +91,25 @@ class TestTools:
             == {
                 READ_TABLE_TOOL,
                 READ_SERIES_LIST_TOOL,
+                READ_PAUSED_TABLES_TOOL,
                 PLAY_CARD_TOOL,
                 GIVE_UP_GAME_TOOL,
                 THROW_DOWN_CARDS_TOOL,
+                AGREE_TO_GIVE_UP_TOOL,
+                DECLINE_GIVE_UP_TOOL,
                 CONTINUE_AFTER_RESULT_TOOL,
                 SAY_KONTRA_TOOL,
                 OPEN_TABLE_TOOL,
                 SIT_DOWN_TOOL,
                 STAND_UP_TOOL,
+                READ_RULE_SETS_TOOL,
+                SAVE_RULE_SET_TOOL,
+                START_NEW_SERIES_TOOL,
             }
             | AUCTION_TOOLS
             | DECLARING_TOOLS
         )
-        reads = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL}
+        reads = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
         assert all(tools[name]["annotations"]["readOnlyHint"] is True for name in reads)
         for name in set(tools) - reads:
             assert "readOnlyHint" not in tools[name].get("annotations", {})
@@ -160,7 +173,7 @@ class TestReadTable:
 
         view = agent.read(table_id).json()
 
-        assert view["options"] == {"show_running_points": True, "kontra": None}
+        assert view["options"] == {"show_running_points": True, "kontra": None, "bock": None}
         assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
     def test_the_standings_of_a_played_series_read_at_the_tool_as_the_route_gives_them(self, skat, agent):
@@ -302,6 +315,17 @@ class TestGiveUpGame:
         assert table.record.hand is None
         assert len(table.record.game_list) == 1
 
+    def test_an_agent_declarer_with_eight_cards_asks_through_the_give_up_tool(self, skat, agent):
+        table = AgentTable(skat, agent, MIDDLEHAND)
+        table.declared_hand_game()
+        table.played_out(cards("S7 S9 D7 H7"))
+        skat.client.cookies.clear()
+
+        answer = self.give_up(agent, table)
+
+        assert not answer.is_error, answer.text
+        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": None}
+
     def test_a_refused_give_up_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, forehand_table):
         before = stored(forehand_table.skat)
 
@@ -311,6 +335,60 @@ class TestGiveUpGame:
         assert answer.json()["reason"] == Refusal.NOT_DECLARER
         assert stored(forehand_table.skat)[0] == before[0]
         assert "reused" in self.give_up(agent, forehand_table, version=0).text
+
+
+class TestAnsweringAGiveUp:
+    """The declarer is a person asking with eight cards; the agent holds an opponent's chair."""
+
+    def answer(self, agent, table, tool, *, command_id="agent-answer-0001", **changes):
+        return agent.call(
+            tool,
+            table_id=table.table_id,
+            command_id=command_id,
+            **{"version": table.record.version, **changes},
+        )
+
+    @pytest.fixture
+    def asked(self, skat, agent):
+        table = AgentTable(skat, agent, FOREHAND)
+        table.declared_hand_game()
+        table.played_out(cards("S7 S9 D7"))
+        table.accepted(card("H7"))
+        assert table.act(TABLE_GIVE_UP_SUFFIX).status_code == 200
+        skat.client.cookies.clear()
+        return table
+
+    def test_the_agent_opponent_sees_the_request_and_its_yes_ends_the_game_lost_for_the_declarer(self, agent, asked):
+        assert agent.read(asked.table_id).json()["hand"]["playing"]["give_up"] == {
+            "asking_seat": 1,
+            "declined_seat": None,
+        }
+
+        answer = self.answer(agent, asked, AGREE_TO_GIVE_UP_TOOL)
+
+        assert not answer.is_error, answer.text
+        result = answer.json()["result"]
+        assert (result["won"], result["list_bonus"]) == (False, -50)
+        assert asked.record.hand is None
+        assert len(asked.record.game_list) == 1
+
+    def test_the_agent_opponents_no_is_named_in_the_request_and_the_game_goes_on(self, agent, asked):
+        answer = self.answer(agent, asked, DECLINE_GIVE_UP_TOOL)
+
+        assert not answer.is_error, answer.text
+        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": 3}
+        assert asked.record.hand is not None
+
+    @pytest.mark.parametrize("tool", [AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL])
+    def test_a_refused_answer_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, asked, tool):
+        before = stored(asked.skat)
+
+        answer = self.answer(agent, asked, tool, version=0)
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.STALE_VERSION
+        assert stored(asked.skat)[0] == before[0]
+        assert "reused" in self.answer(agent, asked, tool).text
 
 
 class TestSayKontra:

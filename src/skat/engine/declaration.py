@@ -29,10 +29,6 @@ class DeclarationRefusal(StrEnum):
     ANNOUNCEMENT_IN_NULL = "announcement-in-null"
 
 
-def _is_suit_or_grand(kind: GameKind) -> bool:
-    return kind is not GameKind.NULL
-
-
 @dataclass(frozen=True)
 class Declaration:
     """The declared game; only `declare` builds it from a person's choice."""
@@ -43,7 +39,7 @@ class Declaration:
     announcement: Announcement
 
     def __post_init__(self) -> None:
-        suit_or_grand = _is_suit_or_grand(self.kind)
+        suit_or_grand = self.kind.counts_card_points
         if self.announcement is not Announcement.NONE and not (suit_or_grand and self.hand):
             message = "impossible declaration: an announcement needs a suit or Grand Hand game"
             raise ValueError(message)
@@ -127,7 +123,7 @@ def _declare_refusal(
         return DeclarationRefusal.ALREADY_DECLARED
     if state.stage is Stage.DISCARDING or (state.stage is Stage.CHOOSING and not hand):
         return DeclarationRefusal.OUT_OF_ORDER
-    higher_level = announcement is not Announcement.NONE or (ouvert and _is_suit_or_grand(kind))
+    higher_level = announcement is not Announcement.NONE or (ouvert and kind.counts_card_points)
     if state.stage is Stage.PICKED and (hand or higher_level):
         return DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP
     if kind is GameKind.NULL and announcement is not Announcement.NONE:
@@ -141,7 +137,7 @@ def declare(
     refusal = _declare_refusal(state, kind, hand=hand, ouvert=ouvert, announcement=announcement)
     if refusal is not None:
         return _refuse(state, refusal)
-    if ouvert and _is_suit_or_grand(kind):
+    if ouvert and kind.counts_card_points:
         announcement = Announcement.SCHWARZ
     declaration = Declaration(kind, hand=hand, ouvert=ouvert, announcement=announcement)
     return DeclarationOutcome(replace(state, stage=Stage.DECLARED, declaration=declaration))

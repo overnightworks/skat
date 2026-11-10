@@ -147,14 +147,15 @@ class Presence:
 
     A table gets one wait when it is created or found at the server's start, and another each time its last stream
     ends or a chair is freed where no stream is open and a lease runs. An opening or a sit where no stream is open
-    keeps a wait that is pending and starts one when none is (watch_empty_table); where a lease runs it also notes
-    who is present, as a lease does. A stand-up there owes a full wait from itself. A stream that opens ends the wait,
-    so the pending timer finds itself superseded and does nothing. When it fires, the end is asked for with who is
-    connected then, and a failure is retried while the wait stays the table's latest. Since when nobody has been
-    at a table is stored: a table's last leave, a lease starting or lapsing and the first arrival note who is
-    present, each on the table's row (presence notes an empty table and the service decides whether to stamp the
-    time; an arrival or a lease start clears it), and the server's start seeds each table's wait with what is
-    left of it, so a restart never gives a table a fresh wait it had already begun.
+    starts a wait when none is pending, whether a lease runs or not, and keeps a pending one (watch_empty_table);
+    where a lease runs it also notes who is present, as a lease does. A stand-up there owes a full wait from itself.
+    A stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it fires,
+    the end is asked for with who is connected then, and a failure is retried while the wait stays the table's
+    latest. Since when nobody has been at a table is stored: a table's last leave, a lease starting or lapsing and
+    the first arrival note who is present, each on the table's row (presence notes an empty table and the service
+    decides whether to stamp the time; an arrival or a lease start has the service clear it, or end an undealt table
+    whose wait is up), and the server's start seeds each table's wait with what is left of it, so a restart never
+    gives a table a fresh wait it had already begun.
     """
 
     def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease) -> None:

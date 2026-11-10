@@ -5,7 +5,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from agent_runtime_client.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
+from agents.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
 from mcp.shared.inbound import MCP_METHOD_HEADER, MCP_NAME_HEADER, NAME_BEARING_METHODS
 from mcp_types import CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY
@@ -13,9 +13,11 @@ from webauth.config import install_web_auth_config, installed_web_auth_config
 
 from skat.engine.deal import positions_from
 from skat.host.app import create_app
+from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.stores import SignInStores
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
+from tests.support.fake_rule_sets import FakeRuleSetStore
 from tests.support.fake_tables import FakeTableStore
 from tests.support.page_build import fixture_page_build
 from tests.support.payload_cards import DEALER_SEAT, with_known_deal
@@ -72,10 +74,12 @@ class Skat:
     def __init__(self, sign_in_settings, store=None, stores=None, now=None, **app_options):
         self.stores = stores if stores is not None else SignInStores.in_memory()
         self.store = store if store is not None else FakeTableStore()
+        self.rule_set_store = FakeRuleSetStore()
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
             tables=TableService(self.store) if now is None else TableService(self.store, now=now),
+            rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
             **app_options,
         )
