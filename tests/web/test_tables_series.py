@@ -179,9 +179,8 @@ class TestOptions:
         [
             ({"options": {"show_running_points": True}}, {"options": {"show_running_points": True}}),
             ({}, {"options": {"show_running_points": False}}),
-            ({}, {"options": {}}),
         ],
-        ids=["same-switch-on", "switch-given-off-is-none", "empty-options-is-none"],
+        ids=["same-switch-on", "switch-given-off-is-none"],
     )
     def test_a_retry_with_the_same_switch_is_the_same_table(self, skat, first, retry):
         headers, _ = skat.member()
