@@ -8,11 +8,11 @@ from tests.support.migrations import run_in_transaction, upgrade_to
 pytestmark = pytest.mark.postgres
 
 
-class TestFromALiveTableAtRevisionFourteen:
+class TestFromALiveTableAtRevisionFifteen:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        """A database at 0014 holding a table that plays Kontra, then taken to head."""
-        upgrade_to(unmigrated_engine, "0014")
+        """A database at 0015 holding a table that plays Kontra, then taken to head."""
+        upgrade_to(unmigrated_engine, "0015")
         with unmigrated_engine.begin() as connection:
             connection.execute(
                 text(

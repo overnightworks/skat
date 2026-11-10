@@ -1,7 +1,7 @@
 import pytest
 
 from skat.engine.deal import Position
-from skat.engine.tricks import ALL_POINTS, PlayRefusal
+from skat.engine.tricks import ALL_POINTS
 from skat.table.records import Refusal
 from skat.web.declaring import GameToken
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
@@ -157,12 +157,6 @@ class TestTheDeclarerGivesUp:
 
 
 class TestRefusals:
-    def test_with_eight_cards_the_opponents_must_agree_and_nothing_changes(self, herz_hand):
-        herz_hand.played_out(FIRST_TRICK)
-        herz_hand.accepted(card("H7"))
-
-        herz_hand.refused_act(TABLE_GIVE_UP_SUFFIX, herz_hand.at[MIDDLEHAND], PlayRefusal.NEEDS_CONSENT)
-
     @pytest.mark.parametrize("position", [FOREHAND, REARHAND], ids=lambda position: position.name)
     def test_an_opponent_is_not_the_declarer(self, herz_hand, position):
         herz_hand.refused_act(TABLE_GIVE_UP_SUFFIX, herz_hand.at[position], Refusal.NOT_DECLARER)

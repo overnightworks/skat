@@ -42,7 +42,6 @@ class PlayRefusal(StrEnum):
     NOT_YOUR_TURN = "not-your-turn"
     NOT_IN_HAND = "not-in-hand"
     MUST_FOLLOW = "must-follow"
-    ALREADY_WON = "already-won"
     CLAIM_OUT_OF_REACH = "claim-out-of-reach"
     NEEDS_CONSENT = "needs-consent"
     NOT_AN_OPPONENT = "not-an-opponent"

@@ -5,8 +5,8 @@ the columns `tables` keeps them in; no table refers to a set.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0015"
-down_revision = "0014"
+revision = "0016"
+down_revision = "0015"
 
 SAYERS = ("any-opponent", "bidders-only")
 REACHES = ("kontra-re", "kontra-re-standings", "up-to-hirsch")

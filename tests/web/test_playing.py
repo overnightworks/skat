@@ -384,6 +384,7 @@ class Moment:
             "last_trick": last,
             "legal_cards": [card_body(each) for each in legal],
             "running_points": None,
+            "give_up": None,
             "kontra": None,
         }
 

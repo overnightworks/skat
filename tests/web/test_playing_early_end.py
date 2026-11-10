@@ -6,7 +6,12 @@ import pytest
 from skat.engine.deal import Position, next_dealer
 from skat.table.records import SERIES_LENGTH_MIN, Refusal
 from skat.web.declaring import GameToken
-from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
+from skat.web.playing import (
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
+    TABLE_THROW_DOWN_SUFFIX,
+)
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT
@@ -25,6 +30,20 @@ FIRST_RESULT = 1
 
 @pytest.fixture(params=[TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX], ids=["give-up", "throw-down"])
 def route(request):
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        TABLE_GIVE_UP_SUFFIX,
+        TABLE_THROW_DOWN_SUFFIX,
+        TABLE_GIVE_UP_AGREE_SUFFIX,
+        TABLE_GIVE_UP_DECLINE_SUFFIX,
+    ],
+    ids=["give-up", "throw-down", "give-up-agree", "give-up-decline"],
+)
+def refusing_route(request):
+    """Every route that ends or answers a game; the refusals that come before any request check hold for all four."""
     return request.param
 
 
@@ -89,23 +108,23 @@ def schwarz_announced_ended_early(table):
 
 
 class TestRefusals:
-    def test_a_watcher_is_not_seated(self, herz_hand, route):
-        herz_hand.refused_act(route, herz_hand.watcher, Refusal.NOT_SEATED)
+    def test_a_watcher_is_not_seated(self, herz_hand, refusing_route):
+        herz_hand.refused_act(refusing_route, herz_hand.watcher, Refusal.NOT_SEATED)
 
-    def test_the_auction_is_the_wrong_phase(self, table, route):
-        table.refused_act(route, table.at[MIDDLEHAND], Refusal.WRONG_PHASE)
+    def test_the_auction_is_the_wrong_phase(self, table, refusing_route):
+        table.refused_act(refusing_route, table.at[MIDDLEHAND], Refusal.WRONG_PHASE)
 
-    def test_the_declaring_is_the_wrong_phase(self, table, route):
+    def test_the_declaring_is_the_wrong_phase(self, table, refusing_route):
         table.middlehand_wins()
 
-        table.refused_act(route, table.at[MIDDLEHAND], Refusal.WRONG_PHASE)
+        table.refused_act(refusing_route, table.at[MIDDLEHAND], Refusal.WRONG_PHASE)
 
-    def test_without_a_hand_there_is_nothing_to_end(self, skat, route):
+    def test_without_a_hand_there_is_nothing_to_end(self, skat, refusing_route):
         headers, _ = skat.member()
         table_id = skat.create(headers).json()["id"]
 
         answer = skat.client.post(
-            f"{TABLES_PATH}/{table_id}{route}",
+            f"{TABLES_PATH}/{table_id}{refusing_route}",
             json={"command_id": "command-early-end", "version": 1},
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
@@ -117,24 +136,24 @@ class TestRefusals:
         [given_up, thrown_down, played_out, null_ended_early, schwarz_announced_ended_early],
         ids=lambda scene: scene.__name__,
     )
-    def test_after_the_hand_ended_there_is_no_hand(self, table, route, hand_ended):
+    def test_after_the_hand_ended_there_is_no_hand(self, table, refusing_route, hand_ended):
         hand_ended(table)
         assert table.record.hand is None
 
-        table.refused_act(route, table.at[MIDDLEHAND], Refusal.NO_HAND)
+        table.refused_act(refusing_route, table.at[MIDDLEHAND], Refusal.NO_HAND)
 
-    def test_after_a_hand_passed_in_there_is_no_hand(self, table, route):
+    def test_after_a_hand_passed_in_there_is_no_hand(self, table, refusing_route):
         pass_hand_in(table.skat, table.table_id, people_in_turn(table))
         assert table.record.hand is None
 
-        table.refused_act(route, table.at[MIDDLEHAND], Refusal.NO_HAND)
+        table.refused_act(refusing_route, table.at[MIDDLEHAND], Refusal.NO_HAND)
 
-    def test_a_stale_version_is_refused(self, herz_hand, route):
-        herz_hand.refused_act(route, herz_hand.at[MIDDLEHAND], Refusal.STALE_VERSION, body={"version": 0})
+    def test_a_stale_version_is_refused(self, herz_hand, refusing_route):
+        herz_hand.refused_act(refusing_route, herz_hand.at[MIDDLEHAND], Refusal.STALE_VERSION, body={"version": 0})
 
-    def test_an_unknown_table_is_not_found(self, herz_hand, skat, route):
+    def test_an_unknown_table_is_not_found(self, herz_hand, skat, refusing_route):
         answer = skat.client.post(
-            f"{TABLES_PATH}/{UNKNOWN_ID}{route}",
+            f"{TABLES_PATH}/{UNKNOWN_ID}{refusing_route}",
             json={"command_id": "command-early-end", "version": 1},
             headers={"origin": TEST_PUBLIC_ORIGIN, **herz_hand.at[MIDDLEHAND]},
         )
@@ -145,19 +164,20 @@ class TestRefusals:
         "body",
         [
             pytest.param({"consented": True}, id="consent-sent"),
+            pytest.param({"agree": True}, id="agree-sent"),
             pytest.param({"seat": 2}, id="seat-sent"),
             pytest.param({"series_length": SERIES_LENGTH_MIN}, id="series-length-sent"),
             pytest.param({"version": "3"}, id="version-as-text"),
             pytest.param({"version": None}, id="version-missing"),
         ],
     )
-    def test_a_body_outside_the_contract_is_refused_and_stores_nothing(self, herz_hand, route, body):
+    def test_a_body_outside_the_contract_is_refused_and_stores_nothing(self, herz_hand, refusing_route, body):
         before = herz_hand.record
         payload = {"command_id": "command-early-end", "version": before.version} | body
         payload = {key: value for key, value in payload.items() if value is not None}
 
         answer = herz_hand.skat.client.post(
-            f"{TABLES_PATH}/{herz_hand.table_id}{route}",
+            f"{TABLES_PATH}/{herz_hand.table_id}{refusing_route}",
             content=json.dumps(payload),
             headers={
                 "origin": TEST_PUBLIC_ORIGIN,
