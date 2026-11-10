@@ -146,11 +146,30 @@ def test_a_new_table_opens_from_the_closed_face(
     person = record_page_errors(open_person(username="anna", **PHONE), page_errors)
     person.goto(f"{e2e_server.base_url}{ended_table_path}")
 
-    opened = click_new_table(person)
+    click_new_table(person)
 
     expect(person.get_by_text(catalog_text("waitingForPlayers"))).to_be_visible()
     assert urlsplit(person.url).path != ended_table_path
-    assert opened
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_new_table_sheet_dims_the_whole_page_over_the_closed_face(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    ended_table_path: str,
+    form_factor: dict[str, Any],
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    person.goto(f"{e2e_server.base_url}{ended_table_path}")
+
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+
+    scrim = person.locator(".scrim").bounding_box()
+    viewport = person.viewport_size
+    assert scrim is not None
+    assert viewport is not None
+    assert (scrim["x"], scrim["y"], scrim["width"], scrim["height"]) == (0, 0, viewport["width"], viewport["height"])
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

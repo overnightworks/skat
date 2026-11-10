@@ -3012,6 +3012,7 @@ body {
 
 /* An ended table, or a link whose table is gone: one panel on the felt, or over a turned card back. */
 .room .closed {
+    position: relative;
     z-index: 2;
     display: flex;
     flex-direction: column;
@@ -3024,6 +3025,15 @@ body {
     width: min(100%, 340px);
     padding: 22px 20px 20px;
     border-radius: 24px;
+}
+
+/* The blur sits on a layer of its own: a backdrop-filter on the panel would make it the containing block of the fixed new-table sheet. */
+.room .closed::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
     background: rgba(12, 14, 17, 0.74);
     backdrop-filter: blur(14px);
     box-shadow:
@@ -3043,7 +3053,7 @@ body {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.08);
+    background: #1f2124;
     color: #f0d696;
     box-shadow: inset 0 0 0 1.5px rgba(240, 214, 150, 0.45);
 }
