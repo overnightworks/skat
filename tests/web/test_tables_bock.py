@@ -8,7 +8,7 @@ from skat.table.records import Series
 from skat.web.declaring import GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
-from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
+from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.tables import TABLES_PATH, AnnouncementToken
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import an_entry
@@ -26,6 +26,8 @@ GRAND_HAND_WON = cards("S8 S9 DT SK D9 S7 SQ D8 CQ ST HA CK H9 HQ C8 DQ CJ H7 CA
 GRAND_HAND_LOST = cards("S8 ST D8 SJ DJ CJ CQ H9 DT CT HT HQ C8 SQ HJ HA CK H7 D9 CA S9 DQ C7 SK HK S7 H8 D7 C9 SA")
 # The declarer's tricks hold 45 points after nine tricks, and the skat's 15 make the 60 a throw-down shows.
 HERZ_NINE_TRICKS = cards("CK H9 HK DJ CJ SJ CQ SQ HA DQ S7 ST D9 C9 SK HJ C8 H8 D8 S8 S9 HQ CA HT SA D7 CT")[:27]
+# Eight tricks of a Herz game with S9 and H7 put back: the declarer's tricks hold 60 and the skat none.
+HERZ_EIGHT_TRICKS_AT_60 = cards("CT SJ HQ SK HK S8 HA CJ H8 CQ H9 DJ D9 C7 DA DK DQ C8 ST D8 S7 SQ DT CK")
 # A Null the declarer's first trick decides after the opponents took tricks worth 60: the rest is his.
 NULL_DECIDED_AT_60 = cards("CK H9 HK CT H8 HQ C9 SA HJ CQ ST HA CJ S9 D7 S8 SJ DJ")
 AFTER_THE_BOCK_ROUND = {"games_left": 0, "factor": 1}
@@ -417,6 +419,24 @@ class TestAGameThatEndsAtSixtyInEveryWay:
 
         assert answer.status_code == 200, answer.text
         assert (table.result()["declarer_points"], bock_of(table)) == (60, A_ROUND_BEGINS)
+
+    def test_a_give_up_an_opponent_agreed_to_in_a_bock_game_scores_double_and_its_60_triggers(self, open_table):
+        table = open_table("sixty-sixty")
+        table.declared_after_putting_back(cards("S9 H7"))
+        with_pending(table, 3)
+        table.played_out(HERZ_EIGHT_TRICKS_AT_60)
+        asked = table.act(TABLE_GIVE_UP_SUFFIX)
+        assert asked.status_code == 200, asked.text
+
+        agreed = table.act(TABLE_GIVE_UP_AGREE_SUFFIX, table.at[FOREHAND])
+
+        assert agreed.status_code == 200, agreed.text
+        result = table.result()
+        assert (result["declarer_points"], result["bock_factor"], bock_of(table)) == (
+            60,
+            2,
+            {"games_left": 5, "factor": 2},
+        )
 
     def test_a_decided_null_whose_entry_shows_60_triggers(self, open_table):
         table = open_table("sixty-sixty")
