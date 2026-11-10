@@ -203,7 +203,7 @@ def test_a_tap_at_the_moment_the_bar_drops_seats_nobody_and_a_tap_after_it_seats
     path = new_table(open_person, framing_server)
     visitor = open_person(server=framing_server, username="ben", reduced_motion=reduced_motion)
 
-    with in_the_greeting_call(visitor, browser_coverage, framing_server, table_url(framing_server, path)) as skat:
+    with in_the_greeting_call(visitor, browser_coverage, framing_server, table_url(framing_server, path)):
         visitor.evaluate(
             "document.getElementById('stage').style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0'"
         )
@@ -213,13 +213,9 @@ def test_a_tap_at_the_moment_the_bar_drops_seats_nobody_and_a_tap_after_it_seats
 
         visitor.evaluate("greet()")
         expect(table.locator(BAR)).to_have_count(0)
-        centre = skat.evaluate(
-            """() => {
-                const box = document.querySelector(".chair[data-seat='2'] button").getBoundingClientRect();
-                return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-            }"""
-        )
-        visitor.mouse.click(centre["x"], centre["y"])
+        box = table.locator(".chair[data-seat='2']").get_by_role("button", name=SIT_DOWN).bounding_box()
+        assert box is not None
+        visitor.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
         table.locator(".chair[data-seat='3']").get_by_role("button", name=SIT_DOWN).click()
 
         expect(table.locator(".chair[data-seat='3'] .plate")).to_have_text("ben")
