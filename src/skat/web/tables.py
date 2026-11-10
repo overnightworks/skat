@@ -607,7 +607,7 @@ def answer_of(view: TableView) -> TableAnswer:
     )
 
 
-def _options_of(requested: OptionsRequest | None) -> TableOptions:
+def table_options_of(requested: OptionsRequest | None) -> TableOptions:
     if requested is None:
         return TableOptions()
     kontra = requested.kontra
@@ -708,7 +708,7 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
-            options = _options_of(body.options)
+            options = table_options_of(body.options)
             command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
             view = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:

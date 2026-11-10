@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import (
     Boolean,
@@ -12,6 +12,7 @@ from sqlalchemy import (
     SmallInteger,
     Table,
     Text,
+    UniqueConstraint,
     false,
 )
 
@@ -19,17 +20,64 @@ from skat.engine.cards import Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
-from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, EndReason
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
+from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, EndReason, TableOptions
+from skat.table.rule_sets import RULE_SET_NAME_MAX
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from sqlalchemy import Row
 
 metadata = MetaData()
 
 
 def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
     return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
+
+
+def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]:
+    """The columns that hold a table's rule options and their checks, for `tables` and `rule_sets` alike; a table
+    stored before an option existed reads it as the official default.
+    """
+    return (
+        Column("show_running_points", Boolean, nullable=False, server_default=false()),
+        Column("kontra_sayer", Text),
+        Column("kontra_reach", Text),
+        Column("kontra_deadline", Text),
+        CheckConstraint(
+            "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)",
+            name=f"{table_name}_kontra_is_all_or_nothing",
+        ),
+        one_of("kontra_sayer", (sayer.value for sayer in KontraSayer), f"{table_name}_kontra_sayer_is_a_sayer"),
+        one_of("kontra_reach", (reach.value for reach in KontraReach), f"{table_name}_kontra_reach_is_a_reach"),
+        one_of(
+            "kontra_deadline",
+            (deadline.value for deadline in KontraDeadline),
+            f"{table_name}_kontra_deadline_is_a_deadline",
+        ),
+    )
+
+
+def options_of(row: Row[Any]) -> TableOptions:
+    """The options a stored row holds; its three Kontra columns are all set or all null."""
+    kontra = None
+    if row.kontra_sayer is not None and row.kontra_reach is not None and row.kontra_deadline is not None:
+        kontra = KontraOptions(
+            KontraSayer(row.kontra_sayer), KontraReach(row.kontra_reach), KontraDeadline(row.kontra_deadline)
+        )
+    return TableOptions(show_running_points=row.show_running_points, kontra=kontra)
+
+
+def option_values(options: TableOptions) -> dict[str, object]:
+    """The column values that store the options, as `options_of` reads them back."""
+    kontra = options.kontra
+    return {
+        "show_running_points": options.show_running_points,
+        "kontra_sayer": None if kontra is None else kontra.sayer.value,
+        "kontra_reach": None if kontra is None else kontra.reach.value,
+        "kontra_deadline": None if kontra is None else kontra.deadline.value,
+    }
 
 
 tables = Table(
@@ -44,10 +92,7 @@ tables = Table(
     Column("empty_since", DateTime(timezone=True)),
     Column("series_length", SmallInteger),
     Column("series_deals", SmallInteger),
-    Column("show_running_points", Boolean, nullable=False, server_default=false()),
-    Column("kontra_sayer", Text),
-    Column("kontra_reach", Text),
-    Column("kontra_deadline", Text),
+    *option_columns("tables"),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -63,12 +108,17 @@ tables = Table(
     ),
     CheckConstraint("series_deals BETWEEN 0 AND series_length", name="tables_series_deals_are_within_the_length"),
     one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
-    CheckConstraint(
-        "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)", name="tables_kontra_is_all_or_nothing"
-    ),
-    one_of("kontra_sayer", (sayer.value for sayer in KontraSayer), "tables_kontra_sayer_is_a_sayer"),
-    one_of("kontra_reach", (reach.value for reach in KontraReach), "tables_kontra_reach_is_a_reach"),
-    one_of("kontra_deadline", (deadline.value for deadline in KontraDeadline), "tables_kontra_deadline_is_a_deadline"),
+)
+
+rule_sets = Table(
+    "rule_sets",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("owner_account", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    *option_columns("rule_sets"),
+    CheckConstraint(f"char_length(name) BETWEEN 1 AND {RULE_SET_NAME_MAX}", name="rule_sets_name_is_a_name"),
+    UniqueConstraint("owner_account", "name", name="rule_sets_one_name_per_owner"),
 )
 
 chairs = Table(
