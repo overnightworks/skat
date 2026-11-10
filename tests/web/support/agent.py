@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
+from agents.mcp_wire import MCP_ENDPOINT_PATH
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import PLAY_CARD_TOOL, READ_TABLE_TOOL

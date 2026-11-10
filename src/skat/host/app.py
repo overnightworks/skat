@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import structlog
-from agent_runtime_client.member import LEASE_SECONDS
+from agents.member import LEASE_SECONDS
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config

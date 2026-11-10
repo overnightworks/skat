@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import pytest
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
+from agents.mcp_wire import MCP_ENDPOINT_PATH
 
 from tests.e2e.support.raw_http import self_signed_tolerant_context
 from tests.e2e.support.server import LOOPBACK_HOST
