@@ -1,10 +1,13 @@
 import time
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import structlog
 from agent_runtime_client.member import LEASE_SECONDS
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config
 from webauth.middleware import install_web_auth_middleware
@@ -166,6 +169,13 @@ def _include_table_sub_routers(app: FastAPI, tables: TableService, presence: Pre
     app.include_router(create_game_list_router(tables))
 
 
+async def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONResponse:
+    # The refused input stays out of the answer: text with a lone surrogate cannot be encoded as UTF-8.
+    problems = cast("RequestValidationError", refusal).errors()
+    kept = [{key: value for key, value in problem.items() if key != "input"} for problem in problems]
+    return JSONResponse({"detail": jsonable_encoder(kept)}, status_code=422)
+
+
 def create_app(
     settings: ServerSettings,
     *,
@@ -209,6 +219,7 @@ def create_app(
             await presence.finish_writes()
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=hold_chairs_while_serving)
+    app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_tables_router(tables, page_build, presence))

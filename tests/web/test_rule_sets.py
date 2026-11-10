@@ -119,6 +119,18 @@ class TestSaveAndRead:
         assert refused.status_code == 422
         assert read(skat, headers).json() == {"sets": []}
 
+    @pytest.mark.parametrize("name", ["a\\ud800b", "\\ud800"])
+    def test_a_name_with_a_lone_surrogate_is_refused_with_422_and_stores_nothing(self, skat, name):
+        headers, _ = skat.member()
+        raw = ('{"name": "' + name + '", "options": {}}').encode("ascii")
+
+        refused = skat.client.post(
+            RULE_SETS_PATH, content=raw, headers={**SAME_ORIGIN, **headers, "Content-Type": "application/json"}
+        )
+
+        assert refused.status_code == 422
+        assert read(skat, headers).json() == {"sets": []}
+
 
 class TestOwnership:
     def test_a_member_reads_only_their_own_sets(self, skat):
