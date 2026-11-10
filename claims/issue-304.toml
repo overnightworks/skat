@@ -1,0 +1,7 @@
+claim_id = "456b49c4082f464fb6c63ee54e6233c7"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "e802ade66e90a02a9ea7b5e638829036dbe29397"
+branch = "claude/issue-304-clock-race"
+scope = ["tests/e2e/support/declaring.py", "tests/e2e/test_table_declaring.py"]
+opened_commit = "644e5ff7301df149b0861a7cbb97575f1eddf4c8"
