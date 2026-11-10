@@ -43,6 +43,7 @@ body.solo .frame{border-radius:0;border:0}
     radial-gradient(130% 90% at 50% 45%,transparent 45%,rgba(0,0,0,.72) 100%),
     repeating-linear-gradient(90deg,rgba(255,225,190,.03) 0 1px,transparent 1px 88px),
     linear-gradient(180deg,#22170f 0%,#170f0a 55%,#0e0907 100%);}
+.p360{width:360px;height:780px}
 .p390{width:390px;height:844px}
 .d1280{width:1280px;height:800px}
 .frame > *{position:absolute}
@@ -296,6 +297,10 @@ body.key .frame *:not(.mo){animation:none!important}
 .save .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .save b{font-size:15px;font-weight:600;line-height:1.2;color:var(--accent-stage)}
 .save .name{height:28px;padding:0 12px;border-radius:999px;display:flex;align-items:center;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);font-size:14px;color:var(--on-stage)}
+/* one's own paused tables: a panel under the switch; on a phone a long list scrolls inside it, never the page */
+.panel{display:flex;flex-direction:column;gap:12px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:2px 0}
+.d1280 .panel{flex-direction:row;gap:22px;overflow:visible;padding:0;transform:translateX(-50%)}
+.entry.paused{cursor:pointer}
 @media (prefers-reduced-motion:no-preference){
   .sheet{animation:rise .5s cubic-bezier(.2,.9,.3,1.2) both}
   @keyframes rise{from{translate:0 30px;opacity:0;scale:.94}}
@@ -524,10 +529,10 @@ I.lock=sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 1
 const freeSeat=(pos)=>`<div class="seat free sm" role="button" tabindex="0" aria-label="Hinsetzen" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h})}">
   <div class="chair"><div class="tile"><span class="sit">${I.plus}</span></div></div><span class="plate"><b>Frei</b></span></div>`;
 /* one open table: the opener names it, the chairs say who sits and what is free, the eye counts who watches */
-const entry=(opener,chairs,watch,o,rules,length)=>`<article class="entry" style="${at({width:o.w})}"><header>${rules?`<div class="who"><h3>${P[opener].n}s Tisch</h3>${ruleChips(rules)}</div>`:`<h3>${P[opener].n}s Tisch</h3>`}
+const entry=(opener,chairs,watch,o,rules,length,away)=>`<article class="entry" style="${at({width:o.w})}"><header>${rules?`<div class="who"><h3>${P[opener].n}s Tisch</h3>${ruleChips(rules)}</div>`:`<h3>${P[opener].n}s Tisch</h3>`}
   <span class="side">${length?`<span class="chip official length" title="Länge der Serie">${length} Spiele</span>`:''}<span class="watch ${watch?'':'none'}" title="Zuschauer">${I.eye}${watch}</span></span></header>
   <div class="row" style="${at({'--rh':o.ch+34,'--th':42})}">${chairs.map((k,i)=>{const pos={x:i*o.step,y:0,w:o.cw,h:o.ch,sm:true};return k?seat(k,pos):freeSeat(pos);}).join('')}
-  <div class="table" style="--tr:21px;--rim:7px"><div class="felt" style="--line:5px"></div></div></div></article>`;
+  <div class="table" style="--tr:21px;--rim:7px"><div class="felt" style="--line:5px"></div></div></div>${away?`<span class="chips"><span class="chip official">${I.clock}pausiert</span></span>`:''}</article>`;
 const OPEN_TABLES=[['anna',['anna','ben',null],3,36],['tom',['tom','lena','mia'],5,12],['ida',['ida',null,null],0,36]];
 const tables=(pos,size)=>`<div class="tables" style="${at(pos)}">${OPEN_TABLES.map(([k,chairs,watch,length])=>entry(k,chairs,watch,size,undefined,length)).join('')}</div>`;
 const cta=(x,y)=>`<span class="cta" role="button" style="${at({left:x,top:y})}">${I.plus}Neuer Tisch</span>`;
@@ -597,6 +602,59 @@ frame('rules-list-1280','Offene Tische mit Regeln','Desktop 1280 px','d1280',
   wordmark(640,64,{ws:100,ps:26,rule:70,wg:12})+`<div class="account" style="--ar:20px;--at:16px"><span class="av">F</span>Felix${I.chev}</div>`
   +ruleTables({left:640,top:262},{w:372,cw:100,ch:80,step:122})+cta(640,600)+legal,LENGTH_NOTE);
 ORDER.push(...['s3-list','s3-empty','s3-new','rules-on','rules-set','rules-list'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
+/* ===== S3.11a: one's own paused tables, beside the list of open tables ===== */
+I.clock=sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',2);
+/* the viewer's chairs when the table paused; coasters are the series' running totals, turn the chair whose move it was, result a pause between hands */
+const PAUSED=[
+  {opener:'ben',chairs:['anna','felix','ben'],coasters:[142,96,-30],game:9,length:36,days:12,turn:2},
+  {opener:'lena',chairs:['tom','lena','felix'],coasters:[48,210,120],game:5,length:12,days:41,result:true},
+];
+const standing=(v)=>v<0?`−${-v}`:`${v}`;
+const daysLeft=(d)=>`endet in ${d} ${d===1?'Tag':'Tagen'}`;
+/* an entry shaped like an open table's: seats in chair order, a coaster each, the series length; the chairs sit dimmed because nobody is there, and one tap opens the table */
+const pausedEntry=(t,o)=>{
+  const turnName=(k)=>k==='felix'?'Du warst dran':`${P[k].n} war dran`;
+  return `<article class="entry paused" role="link" tabindex="0" aria-label="${P[t.opener].n}s Tisch öffnen" style="${at({width:o.w})}">
+  <header><h3>${P[t.opener].n}s Tisch</h3><span class="side"><span class="chip official length" title="Länge der Serie: ${t.length} Spiele">Spiel ${t.game} von ${t.length}</span></span></header>
+  <div class="row" style="${at({'--rh':o.ch+34,'--th':42})}">${t.chairs.map((k,i)=>seat(k,{x:i*o.step,y:0,w:o.cw,h:o.ch,sm:true,short:true,out:true,marks:t.turn===i?['turn']:[]})
+    +coaster(standing(t.coasters[i]),i*o.step-8,-10,'40px',[-8,6,-4][i])).join('')}
+  <div class="table" style="--tr:21px;--rim:7px"><div class="felt" style="--line:5px"></div></div></div>
+  <span class="chips">${t.result?`<span class="chip">${I.trophy}Ergebnis wartet</span>`:`<span class="chip">${I.play}${turnName(t.chairs[t.turn])}</span>`}
+  <span class="chip official">${I.clock}${daysLeft(t.days)}</span></span></article>`;
+};
+/* the two lists are switched under the wordmark; the counts say what each holds */
+const listSwitch=(on,open,paused,pos)=>`<div class="sets" role="tablist" aria-label="Tische" style="${at(pos)}"><span class="set ${on==='open'?'on':''}" role="tab" aria-selected="${on==='open'}" tabindex="0">Offen · ${open}</span><span class="set ${on==='paused'?'on':''}" role="tab" aria-selected="${on==='paused'}" tabindex="0">Pausiert${paused?` · ${paused}`:''}</span></div>`;
+const PAUSED_SIZES={
+  360:{cls:'p360',w:360,wm:{ws:60,ps:20,rule:30,wg:8},ar:12,at:12,account:'',switchTop:134,panel:{left:16,top:190,width:328,height:424},o:{w:328,cw:88,ch:64,step:106},cta:624,empty:{x:16,y:200,w:328,h:200,tr:100}},
+  390:{cls:'p390',w:390,wm:{ws:60,ps:20,rule:30,wg:8},ar:12,at:12,account:'',switchTop:134,panel:{left:16,top:190,width:358,height:488},o:{w:358,cw:92,ch:64,step:119},cta:688,empty:{x:16,y:200,w:358,h:220,tr:110}},
+  1280:{cls:'d1280',w:1280,wm:{ws:100,ps:26,rule:70,wg:12},ar:20,at:16,account:'Felix',switchTop:206,panel:{left:640,top:262},o:{w:372,cw:100,ch:80,step:122},cta:560,empty:{x:340,y:262,w:600,h:240,tr:120}},
+};
+/* the open list the new scenes draw under the tab, so its count is the list's length */
+const PAUSED_OPEN=OPEN_TABLES.slice(0,2);
+/* tab 'open' keeps the list of open tables as it is; tab 'paused' lists the viewer's paused tables, or says there is none */
+function pausedScene(width,tab,list){
+  const z=PAUSED_SIZES[width],cx=z.w/2,desk=width===1280;
+  const head=wordmark(cx,desk?64:40,z.wm)+`<div class="account" style="--ar:${z.ar}px;--at:${z.at}px"><span class="av">F</span>${z.account}${I.chev}</div>`
+    +listSwitch(tab==='open'?'open':'paused',PAUSED_OPEN.length,tab==='none'?0:PAUSED.length,desk?{left:cx,top:z.switchTop,width:z.o.w,transform:'translateX(-50%)'}:{left:16,top:z.switchTop,width:z.o.w});
+  const shown=tab==='open'?list.map(([k,chairs,watch,length,away])=>entry(k,chairs,watch,z.o,undefined,length,away))
+    :list.map(t=>pausedEntry(t,z.o));
+  const body=tab==='none'
+    ?table({x:z.empty.x,y:z.empty.y,w:z.empty.w,h:z.empty.h,tr:z.empty.tr,rim:desk?16:12,ry:'50%',rs:desk?160:110})+`<div class="lull" role="status" style="${at({left:cx,top:z.empty.y+z.empty.h/2-18})}">Kein Tisch pausiert</div>`
+    :`<div class="panel" style="${at(z.panel)}">${shown.join('')}</div>`;
+  return head+body+cta(cx,z.cta)+legal;
+}
+const PAUSED_NOTES={
+  open:['Der Umschalter über der Liste nennt beide Listen mit ihrer Zahl; die Liste der offenen Tische bleibt, wie sie ist.'],
+  list:['Zeilen 1 A und 2 A: eigene pausierte Tische, ein Tipp öffnet den Tisch.'],
+  none:['Wer keinen pausierten Tisch hat, sieht das gesagt; die Liste der offenen Tische ist davon unberührt.'],
+  listed:['Ein offener Tisch, der pausierte und einen freien Stuhl hat, steht unter Offen wie jeder andere: die Sitzenden in Stuhlreihenfolge, die freien Stühle, der Knopf zum Hinsetzen; ein stilles „pausiert“ sagt, dass die anderen gerade fort sind.'],
+};
+[['paused-open','Offene Tische mit Umschalter','open',PAUSED_OPEN,'open'],
+ ['paused-open-listed','Offener Tisch, der pausiert hat, mit freiem Stuhl','open',[['anna',['anna','ben',null],0,36,true],['ida',['ida',null,null],0,36]],'listed'],
+ ['paused-list','Meine pausierten Tische','paused',PAUSED,'list'],
+ ['paused-none','Kein Tisch pausiert','none',[],'none']]
+.forEach(([id,title,tab,list,note])=>[360,390,1280].forEach(w=>frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,PAUSED_SIZES[w].cls,pausedScene(w,tab,list),PAUSED_NOTES[note])));
+ORDER.push(...['paused-open','paused-open-listed','paused-list','paused-none'].flatMap(f=>[360,390,1280].map(w=>`${f}-${w}`)));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
