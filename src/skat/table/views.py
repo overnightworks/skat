@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
     from skat.engine.tricks import Playing
-    from skat.table.records import Chair, TableOptions, TableRecord
+    from skat.table.records import Chair, EndProposal, TableOptions, TableRecord
 
 
 @dataclass(frozen=True)
@@ -75,13 +75,15 @@ class EndedView:
 class SeriesView:
     """Which game of how many the table runs, 0 before the first deal, and whether its last game is over.
 
-    Once it is over, `standings` ranks every account the list seated, the same for every viewer.
+    Once it is over, `standings` ranks every account the list seated, the same for every viewer. Between two games
+    `end_proposal` names the seats that proposed and accepted ending the series; once it is over none stands.
     """
 
     game_number: int
     game_count: int
     over: bool
     standings: tuple[Standing, ...] | None
+    end_proposal: EndProposal | None
 
 
 @dataclass(frozen=True)
@@ -161,7 +163,13 @@ def _series_view(table: TableRecord) -> SeriesView | None:
     if table.series is None:
         return None
     over = series_over(table)
-    return SeriesView(table.series.deals, table.series.length, over, standings_of(table.game_list) if over else None)
+    return SeriesView(
+        table.series.deals,
+        table.series.length,
+        over,
+        standings_of(table.game_list) if over else None,
+        None if over else table.series.end_proposal,
+    )
 
 
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:

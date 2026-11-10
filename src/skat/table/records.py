@@ -101,6 +101,8 @@ class Refusal(StrEnum):
     SERIES_OVER = "series-over"
     NO_SERIES = "no-series"
     SERIES_NOT_OVER = "series-not-over"
+    NO_GAME_YET = "no-game-yet"
+    NO_PROPOSAL = "no-proposal"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal
@@ -143,11 +145,30 @@ class HandProgress:
 
 
 @dataclass(frozen=True)
+class EndProposal:
+    """A proposal to end the series between games: the seat that proposed it and the one other seat that has accepted
+    so far; the second acceptance ends the series, so none holds two.
+    """
+
+    proposer: int
+    accepter: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.accepter == self.proposer:
+            message = "the proposer of an end cannot also accept it"
+            raise ValueError(message)
+
+
+@dataclass(frozen=True)
 class Series:
-    """A table's series: its fixed `length` in games and the `deals` made so far, a passed-in hand included."""
+    """A table's series: its fixed `length` in games, the `deals` made so far, a passed-in hand included, whether it
+    `ended_early` by consent before its last game and the `end_proposal` standing between two games.
+    """
 
     length: int
     deals: int
+    ended_early: bool = False
+    end_proposal: EndProposal | None = None
 
     def __post_init__(self) -> None:
         if not SERIES_LENGTH_MIN <= self.length <= SERIES_LENGTH_MAX or self.length % SERIES_LENGTH_STEP:
@@ -157,6 +178,12 @@ class Series:
             raise ValueError(message)
         if not 0 <= self.deals <= self.length:
             message = f"a series of {self.length} games has no {self.deals} deals"
+            raise ValueError(message)
+        if self.ended_early and self.end_proposal is not None:
+            message = "a series that ended early holds no proposal"
+            raise ValueError(message)
+        if self.ended_early and self.deals == self.length:
+            message = "a series that played its last game did not end early"
             raise ValueError(message)
 
 
