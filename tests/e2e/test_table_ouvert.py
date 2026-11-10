@@ -1,10 +1,12 @@
 import json
+import random
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.cards import Card, Rank, Suit
+from skat.engine.deal import deal
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards, trick_winner
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 CARDS_IN_A_HAND = 10
+WINNING_DEAL_SEED = 1
 NARROW_BELOW = 900
 GRAND_OUVERT = f"{catalog_text('gameGrand')} {catalog_text('ouvert')}"
 TOKEN_SUITS: dict[str, Suit] = {token: suit for suit, token in SUIT_TOKENS.items()}
@@ -91,6 +94,15 @@ def play(table: DeclaringTable, seat: int, card: Card) -> None:
 def seat_of_position(table: DeclaringTable, position: str) -> int:
     chairs = the_view(table, table.declarer_seat)["chairs"]
     return next(chair["seat"] for chair in chairs if chair["hand"]["position"] == position)
+
+
+@pytest.fixture
+def a_deal_the_declarer_wins_the_first_trick(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every hand the server deals is the same one, in which the declarer can win a first trick of Grand.
+
+    The server runs in this process, so the deal it draws is replaced where the table service takes it."""
+    arranged = deal(random.Random(WINNING_DEAL_SEED))  # noqa: S311 - a seeded source makes the deal reproducible
+    monkeypatch.setattr("skat.table.service.deal", lambda _source: arranged)
 
 
 def declarer_cards_while_the_declarer_wins_the_first_trick(table: DeclaringTable) -> Iterator[Card]:
@@ -166,6 +178,7 @@ def test_the_declarer_keeps_the_own_hand_and_wears_the_tag_instead_of_open_rows(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.usefixtures("a_deal_the_declarer_wins_the_first_trick")
 def test_the_open_rows_lose_each_card_the_declarer_plays_and_survive_a_reload(
     deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
