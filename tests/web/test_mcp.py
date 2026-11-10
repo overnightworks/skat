@@ -344,6 +344,17 @@ class TestAnsweringAGiveUp:
         assert asked.record.hand is None
         assert len(asked.record.game_list) == 1
 
+    def test_an_agent_declarer_with_eight_cards_asks_through_the_give_up_tool(self, skat, agent):
+        table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+        table.declared_hand_game()
+        table.played_out(cards("S7 S9 D7 H7"))
+        skat.client.cookies.clear()
+
+        answer = self.answer(agent, table, GIVE_UP_GAME_TOOL)
+
+        assert not answer.is_error, answer.text
+        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": None}
+
     def test_the_agent_opponents_no_is_named_in_the_request_and_the_game_goes_on(self, agent, asked):
         answer = self.answer(agent, asked, DECLINE_GIVE_UP_TOOL)
 

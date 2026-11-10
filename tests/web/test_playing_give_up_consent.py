@@ -1,3 +1,5 @@
+from functools import partial
+
 import pytest
 
 from skat.engine.deal import Deal, Position, next_dealer
@@ -15,7 +17,8 @@ from skat.web.tables import TABLES_PATH, AnnouncementToken
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table, card, cards, game_of, reason_of
-from tests.web.support.skat import streams_of
+from tests.web.support.presence import OvertakenStore, occupied_seats
+from tests.web.support.skat import Skat, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
@@ -215,15 +218,15 @@ class TestAnOpponentSaysYes:
         assert result["announcement_missed"] is False
 
     @pytest.mark.parametrize(
-        ("put_back", "ouvert", "value", "score"),
-        [pytest.param(None, False, 35, -70, id="null-hand"), pytest.param("DA DK", False, 23, -46, id="null")],
+        ("put_back", "value", "score"),
+        [pytest.param(None, 35, -70, id="null-hand"), pytest.param("DA DK", 23, -46, id="null")],
     )
-    def test_a_null_is_lost_at_its_fixed_value_without_matadors(self, table, put_back, ouvert, value, score):
+    def test_a_null_is_lost_at_its_fixed_value_without_matadors(self, table, put_back, value, score):
         table.with_deal(NULL_DEAL)
         if put_back is None:
             table.declared_hand_game(GameToken.NULL)
         else:
-            table.declared_after_putting_back(cards(put_back), GameToken.NULL, ouvert=ouvert)
+            table.declared_after_putting_back(cards(put_back), GameToken.NULL, ouvert=False)
         table.played_out(NULL_TWO_TRICKS)
         ask(table)
 
@@ -416,6 +419,30 @@ class TestAfterTheYes:
         assert again.json()["result"] is None
         assert table.record == dealt
         assert len(table.record.game_list) == 1
+
+
+    def test_an_old_expiry_reaching_the_table_right_after_the_yes_committed_leaves_the_fresh_hold_alone(
+        self, hold, time
+    ):
+        store = OvertakenStore()
+        server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
+        with server.client:
+            table = Table(server)
+            with streams_of(server, table.table_id, [(table.at[FOREHAND], None)]):
+                pass
+            table.declared_hand_game()
+            table.played_out(EIGHT_CARDS)
+            ask(table)
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+            store.after_commit = partial(server.client.portal.call, time.advance, 1)
+
+            agree(table, FOREHAND)
+
+            assert occupied_seats(server, table.table_id) == {1, 2, 3}
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+            assert occupied_seats(server, table.table_id) == {1, 2, 3}
+            server.client.portal.call(time.advance, 2)
+            assert occupied_seats(server, table.table_id) == set()
 
 
 class TestWhatViewersSee:
