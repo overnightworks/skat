@@ -2773,6 +2773,14 @@ body {
     font-size: 13.5px;
 }
 
+.room .result .ladder span.held svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .room .result .ladder span.mit {
     color: #f3cf7a;
 }
