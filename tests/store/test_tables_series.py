@@ -4,7 +4,8 @@ from contextlib import nullcontext
 from dataclasses import replace
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 
 from skat.engine.deal import Position, deal, positions_from
 from skat.store.game_list import game_list
@@ -13,9 +14,11 @@ from skat.store.schema import StepLogRewrittenError, hand_cards
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import NewSeriesCommand
-from skat.table.records import Actor, CreateTable, HandProgress, Series, SitDown, StandUp, TableId
+from skat.table.records import Actor, CreateTable, EndProposal, HandProgress, Refusal, Series, SitDown, StandUp, TableId
+from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
+from tests.support.migrations import run_in_transaction
 from tests.support.played_game import after_the_first_game
 
 pytestmark = pytest.mark.postgres
@@ -248,3 +251,146 @@ class TestNewSeries:
 
         assert rows_of(engine, game_list) == 1
         assert read(transactions, ended_series) == record
+
+
+@pytest.fixture
+def between_games(service, transactions, table_id):
+    """A series of three whose first game is played: its result stands, nobody has tapped."""
+    record = read(transactions, table_id)
+    with transactions.begin() as transaction:
+        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1))
+    return table_id
+
+
+def say_yes(service, seat, table_id, service_for=None):
+    return (service_for or service).agree_to_end_series(
+        PEOPLE[seat], SeriesEndCommand(f"yes-{seat}", table_id), ALL_THREE
+    )
+
+
+def say_no(service, seat, table_id, service_for=None):
+    return (service_for or service).refuse_to_end_series(
+        PEOPLE[seat], SeriesEndCommand(f"no-{seat}", table_id), ALL_THREE
+    )
+
+
+def race(first, second):
+    answers = {}
+
+    def run(name, call):
+        answers[name] = call()
+
+    threads = [threading.Thread(target=run, args=item) for item in (("first", first), ("second", second))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return answers
+
+
+class TestEndingEarly:
+    def test_a_proposal_an_acceptance_and_the_early_end_read_back_across_a_restart(
+        self, service, transactions, database_url, between_games
+    ):
+        for seat, expected in (
+            (1, Series(3, 1, end_proposal=EndProposal(1))),
+            (2, Series(3, 1, end_proposal=EndProposal(1, 2))),
+            (3, Series(3, 1, ended_early=True)),
+        ):
+            assert say_yes(service, seat, between_games).refusal is None
+            restarted_engine = create_store_engine(database_url)
+            try:
+                assert series_of(PostgresTableTransactions(restarted_engine), between_games) == expected
+            finally:
+                restarted_engine.dispose()
+
+    def test_the_early_end_keeps_the_list_and_clears_the_marks(self, service, transactions, engine, between_games):
+        for seat in (1, 2, 3):
+            say_yes(service, seat, between_games)
+
+        ended = read(transactions, between_games)
+
+        assert rows_of(engine, game_list) == 1
+        assert [chair.ready for chair in ended.chairs] == [False, False, False]
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("UPDATE tables SET series_end_proposer = 4", id="a-proposer-beyond-the-seats"),
+            pytest.param("UPDATE tables SET series_end_proposer = 0", id="a-proposer-below-the-seats"),
+            pytest.param(
+                "UPDATE tables SET series_end_proposer = 1, series_end_accepter = 4", id="an-accepter-beyond-the-seats"
+            ),
+            pytest.param("UPDATE tables SET series_end_accepter = 2", id="an-accepter-without-a-proposer"),
+            pytest.param(
+                "UPDATE tables SET series_end_proposer = 2, series_end_accepter = 2",
+                id="an-accepter-equal-to-the-proposer",
+            ),
+            pytest.param(
+                "UPDATE tables SET series_ended_early = true, series_end_proposer = 1",
+                id="an-ended-series-with-a-proposal",
+            ),
+        ],
+    )
+    def test_the_checks_refuse_a_row_that_is_no_proposal(self, engine, between_games, statement):
+        with pytest.raises(IntegrityError):
+            run_in_transaction(engine, text(statement))
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("UPDATE tables SET series_end_proposer = 1 WHERE id = 'plain'", id="a-proposal"),
+            pytest.param("UPDATE tables SET series_ended_early = true WHERE id = 'plain'", id="an-early-end"),
+        ],
+    )
+    def test_the_checks_refuse_a_proposal_or_an_early_end_on_a_table_without_a_series(self, engine, statement):
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version) VALUES ('plain', 1)"))
+
+        with pytest.raises(IntegrityError):
+            run_in_transaction(engine, text(statement))
+
+    def test_two_yes_at_once_after_a_proposal_accept_once_and_end_once(self, service, transactions, between_games):
+        say_yes(service, 1, between_games)
+        version = read(transactions, between_games).version
+        racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+
+        race(
+            lambda: say_yes(service, 2, between_games, racing),
+            lambda: say_yes(service, 3, between_games, racing),
+        )
+
+        assert series_of(transactions, between_games) == Series(3, 1, ended_early=True)
+        assert read(transactions, between_games).version == version + 2
+
+    def test_a_yes_and_a_no_at_once_serialise_to_one_of_the_two_orders(self, service, transactions, between_games):
+        say_yes(service, 1, between_games)
+        say_yes(service, 2, between_games)
+        racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+
+        answers = race(
+            lambda: say_yes(service, 3, between_games, racing),
+            lambda: say_no(service, 1, between_games, racing),
+        )
+
+        outcome = (
+            series_of(transactions, between_games),
+            answers["first"].refusal,
+            answers["second"].refusal,
+        )
+        assert outcome in (
+            (Series(3, 1, ended_early=True), None, Refusal.NO_PROPOSAL),
+            (Series(3, 1, end_proposal=EndProposal(3)), None, None),
+        )
+
+    def test_the_first_deal_of_the_next_series_clears_the_flag_and_deletes_the_list(
+        self, service, transactions, engine, between_games
+    ):
+        for seat in (1, 2, 3):
+            say_yes(service, seat, between_games)
+        tap_all(service, between_games)
+
+        assert service.deal_next(TableId(between_games), nullcontext(ALL_THREE)) is True
+
+        assert read(transactions, between_games).series == Series(3, 1)
+        assert rows_of(engine, game_list) == 0

@@ -33,6 +33,11 @@ def _total_changes(table: TableRecord, entry: ListEntry) -> tuple[TotalChange, .
     )
 
 
+def bock_at_series_end() -> BockRounds:
+    """The pending Bock rounds once a series ends, with its last game or early by consent: every round lapses."""
+    return BockRounds.start()
+
+
 def bock_after(table: TableRecord, ended: PlayedOut | PassedIn, entry: ListEntry | None) -> BockRounds:
     """The pending Bock rounds once the table's running hand has ended; `entry` is the hand's list entry, None for a
     passed-in hand, which leaves none.
@@ -40,9 +45,10 @@ def bock_after(table: TableRecord, ended: PlayedOut | PassedIn, entry: ListEntry
     The hand uses up a Bock game and meets the table's triggers; the series' last game lets every round lapse.
     """
     options = table.options.bock
-    series_ends_with_this_hand = series_games_left(table) == 1  # the running hand counts as a game left
-    if options is None or series_ends_with_this_hand:
+    if options is None:
         return BockRounds.start()
+    if series_games_left(table) == 1:  # the running hand counts as a game left
+        return bock_at_series_end()
     totals = () if entry is None else _total_changes(table, entry)
     triggered = bock_triggered(options.triggers, ended, doubling_of(table) or Doubling.start(), totals)
     return advance(table.bock, options.overlap, triggered=triggered)

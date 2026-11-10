@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -31,6 +31,7 @@ from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
     EndedTable,
+    EndProposal,
     EndReason,
     GiveUpAsked,
     HandProgress,
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
 
+    from sqlalchemy import Row
     from sqlalchemy.engine import Connection, Engine
 
 __all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
@@ -92,6 +94,30 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
+def _series_end_columns(series: Series | None) -> dict[str, bool | int | None]:
+    """The columns the early end and the standing proposal live in, written absolutely with the series' deals."""
+    proposal = None if series is None else series.end_proposal
+    return {
+        "series_ended_early": series is not None and series.ended_early,
+        "series_end_proposer": None if proposal is None else proposal.proposer,
+        "series_end_accepter": None if proposal is None else proposal.accepter,
+    }
+
+
+def _series_of(table: Row[Any]) -> Series | None:
+    if table.series_length is None:
+        return None
+    end_proposal = None
+    if table.series_end_proposer is not None:
+        end_proposal = EndProposal(table.series_end_proposer, table.series_end_accepter)
+    return Series(
+        table.series_length,
+        table.series_deals,
+        ended_early=table.series_ended_early,
+        end_proposal=end_proposal,
+    )
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -131,7 +157,7 @@ def _table_record(
             words=read_words(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
-        series=None if table.series_length is None else Series(table.series_length, table.series_deals),
+        series=_series_of(table),
         options=options_of(table),
         bock=BockRounds(tuple(table.bock_rounds)),
     )
@@ -202,6 +228,7 @@ class _PostgresTableTransaction:
                 version=table.version,
                 dealer=table.dealer,
                 series_deals=None if table.series is None else table.series.deals,
+                **_series_end_columns(table.series),
                 bock_rounds=list(table.bock.remaining),
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
                 give_up_declined_by=None

@@ -131,6 +131,9 @@ tables = Table(
     Column("empty_since", DateTime(timezone=True)),
     Column("series_length", SmallInteger),
     Column("series_deals", SmallInteger),
+    Column("series_ended_early", Boolean, nullable=False, server_default=false()),
+    Column("series_end_proposer", SmallInteger),
+    Column("series_end_accepter", SmallInteger),
     Column("give_up_asked_by", Text),
     Column("give_up_declined_by", Text),
     *option_columns("tables"),
@@ -149,6 +152,22 @@ tables = Table(
         name="tables_series_length_is_a_length",
     ),
     CheckConstraint("series_deals BETWEEN 0 AND series_length", name="tables_series_deals_are_within_the_length"),
+    CheckConstraint(
+        "series_end_proposer BETWEEN 1 AND 3 AND series_end_accepter BETWEEN 1 AND 3",
+        name="tables_series_end_seats_are_seats",
+    ),
+    CheckConstraint(
+        "series_end_accepter IS NULL"
+        " OR (series_end_proposer IS NOT NULL AND series_end_accepter <> series_end_proposer)",
+        name="tables_series_end_accepter_follows_a_proposer",
+    ),
+    CheckConstraint(
+        "series_length IS NOT NULL OR (series_end_proposer IS NULL AND NOT series_ended_early)",
+        name="tables_series_end_needs_a_series",
+    ),
+    CheckConstraint(
+        "NOT series_ended_early OR series_end_proposer IS NULL", name="tables_series_ended_early_holds_no_proposal"
+    ),
     one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
     one_of("give_up_asked_by", POSITION_TEXT.values(), "tables_give_up_asker_is_a_position"),
     one_of("give_up_declined_by", POSITION_TEXT.values(), "tables_give_up_decliner_is_a_position"),

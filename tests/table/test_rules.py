@@ -10,6 +10,7 @@ from skat.engine.deal import Position, deal
 from skat.table.records import (
     Actor,
     Chair,
+    EndProposal,
     HandProgress,
     NewHand,
     Occupant,
@@ -33,6 +34,7 @@ from skat.table.rules import (
     present_at,
     result_pending,
     resume_step,
+    series_over,
     sit_deals,
 )
 from tests.support.played_game import an_entry
@@ -399,6 +401,55 @@ class TestTheSeriesEnd:
 
         assert (next_series.game_list, next_series.series) == ((), Series(3, 1))
         assert (next_series.dealer, next_series.hand) == (DRAWN.dealer, DRAWN.hand)
+
+
+class TestTheEarlyEnd:
+    def test_an_early_end_is_a_series_end_while_no_hand_runs(self):
+        ended = replace(played_out(), series=Series(12, 2, ended_early=True))
+
+        assert series_over(ended) is True
+        assert series_over(replace(ended, hand=DRAWN.hand)) is False
+
+    def test_the_next_deal_clears_a_standing_proposal(self):
+        table = ready_at(replace(played_out(), series=Series(12, 2, end_proposal=EndProposal(1, 2))), 1, 2, 3)
+
+        assert dealt_next(table, DRAWN).series == Series(12, 3)
+
+    def test_the_next_series_deals_with_no_early_end(self):
+        table = ready_at(replace(played_out(), series=Series(12, 2, ended_early=True)), 1, 2, 3)
+
+        next_series = dealt_next(table, DRAWN)
+
+        assert (next_series.series, next_series.game_list) == (Series(12, 1), ())
+
+    @pytest.mark.parametrize(
+        ("leaver", "proposal_left"),
+        [
+            pytest.param(ANNA, None, id="the-proposers-leave-clears-the-proposal"),
+            pytest.param(BEN, EndProposal(1), id="an-accepters-leave-clears-only-the-acceptance"),
+            pytest.param(CLEO, EndProposal(1, 2), id="anyone-elses-leave-changes-nothing"),
+        ],
+    )
+    def test_a_chair_change_takes_only_its_holders_part_of_the_proposal(self, leaver, proposal_left):
+        table = replace(played_out(), series=Series(12, 2, end_proposal=EndProposal(1, 2)))
+
+        decision = decide_free_chair(table, leaver.account_id)
+
+        assert decision.table.series.end_proposal == proposal_left
+
+    def test_a_standing_acceptance_survives_a_sit_in_another_chair(self):
+        table = replace(a_free_chair_during_a_result(), series=Series(12, 2, end_proposal=EndProposal(1, 2)))
+
+        decision = decide_sit(table, DORA, 3, None)
+
+        assert decision.table.series.end_proposal == EndProposal(1, 2)
+
+    def test_a_sit_after_an_early_end_is_not_ready_and_deals_nothing(self):
+        table = replace(a_free_chair_during_a_result(), series=Series(12, 2, ended_early=True))
+
+        decision = decide_sit(table, DORA, 3, DRAWN)
+
+        assert (sit_deals(table), decision.table.hand, ready_seats(decision.table)) == (False, None, [])
 
 
 class TestSeries:
