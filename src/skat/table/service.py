@@ -9,6 +9,7 @@ from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
+from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
 from skat.table.playing import (
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
@@ -299,6 +300,19 @@ class TableService:
             card_payload(command),
             lambda table: decide_card(table, actor, command),
             on_hand_ended,
+        )
+
+    def say_kontra(
+        self, actor: Actor, command: KontraCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            KONTRA_COMMAND,
+            kontra_payload(command),
+            lambda table: decide_kontra(table, actor, command),
         )
 
     def give_up(

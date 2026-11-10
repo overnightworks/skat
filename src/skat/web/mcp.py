@@ -57,6 +57,7 @@ CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
+SAY_KONTRA_TOOL: Final = "say_kontra"
 
 
 class Exclusion(StrEnum):
@@ -90,6 +91,7 @@ CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, 
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
 class _LeaseRenewingFront:
