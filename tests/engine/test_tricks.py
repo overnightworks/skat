@@ -259,7 +259,10 @@ def test_the_running_tally_counts_a_trick_once_it_is_taken_and_not_before() -> N
     state = ok(play_card(state, FOREHAND, KARO_SEVEN))
     assert state.tally.points == Sides(0, 0)
 
-    state = ok(play_card(ok(play_card(state, MIDDLEHAND, KARO_ACE)), REARHAND, KARO_EIGHT))
+    state = ok(play_card(state, MIDDLEHAND, KARO_ACE))
+    assert state.tally.points == Sides(0, 0)
+
+    state = ok(play_card(state, REARHAND, KARO_EIGHT))
     assert state.tally == Tally(tricks=Sides(0, 1), points=Sides(0, 11))
 
 
