@@ -1,0 +1,8 @@
+claim_id = "2a0bf7f656034627b82c6d9dfeb1d800"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "5f012c1944e82d4c46904b5b81a221a4c4448673"
+branch = "claude/issue-211-call-sign-in-follow-ups"
+scope = ["frontend/src/lib/callSignIn.test.ts", "frontend/src/lib/callSignIn.ts", "frontend/src/routes/(start)/tables.test.ts", "src/skat/web/constants.py", "src/skat/web/routes.py", "tests/e2e/support/browser_coverage.py", "tests/e2e/support/tables.py", "tests/e2e/test_sign_in.py", "tests/host/test_app.py"]
+opened_commit = "7ce84e3070bba8bea673df90a351eed136a1e76c"
+whole_reason = "Eight small follow-ups of one review and one joint drive, each a few lines, collected so they cost one lane."
