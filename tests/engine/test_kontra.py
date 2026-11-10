@@ -16,14 +16,17 @@ from skat.engine.kontra import (
     KontraRefusal,
     KontraSayer,
     Word,
+    WordSaid,
     awaits_words,
     bidders_of,
     decline,
     doubled_reckoning,
+    doubled_settlement,
+    doubling_after,
     say,
 )
 from skat.engine.score import Reckoning, Settlement, reckon
-from skat.engine.tricks import Playing, play_card, start_play
+from skat.engine.tricks import CardPlayed, Playing, play_card, start_play
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KONTRA, RE, SUPRA, HIRSCH = Word.KONTRA, Word.RE, Word.SUPRA, Word.HIRSCH
@@ -581,7 +584,6 @@ def test_the_bidders_are_the_positions_that_bid_or_held() -> None:
 
 
 WON, LOST = Settlement(won=True, value=24, score=24), Settlement(won=False, value=24, score=-48)
-OVERBID_AND_LOST = Settlement(won=False, value=36, score=-72)  # Kreuz mit 1 settled at 36 under a bid of 30
 NULL_WON = Settlement(won=True, value=23, score=23)
 ALL_WORDS = (KONTRA, RE, SUPRA, HIRSCH)
 
@@ -596,25 +598,109 @@ def doubling_of(words: tuple[Word, ...]) -> Doubling:
     return doubling
 
 
+@pytest.mark.parametrize(("word", "factor"), [(KONTRA, 2), (RE, 4), (SUPRA, 8), (HIRSCH, 16)])
+def test_each_word_doubles_the_score_once_more_and_the_doubling_takes_the_last_ones_factor(
+    word: Word, factor: int
+) -> None:
+    assert word.factor == factor
+    assert doubling_of(ALL_WORDS[: ALL_WORDS.index(word) + 1]).factor == factor
+
+
+def test_without_a_word_the_factor_is_one_and_there_is_no_last_word() -> None:
+    assert Doubling.start().factor == 1
+    assert Doubling.start().last_word is None
+    assert doubling_of((KONTRA, RE)).last_word is RE
+
+
 @pytest.mark.parametrize(
-    ("reach", "settlement", "words", "expected"),
+    ("settlement", "words", "expected"),
     [
-        pytest.param(KONTRA_RE, WON, (KONTRA,), Reckoning(98, 0), id="16"),
-        pytest.param(KONTRA_RE, LOST, (KONTRA,), Reckoning(-146, 40), id="17"),
-        pytest.param(KONTRA_RE, WON, (KONTRA, RE), Reckoning(146, 0), id="18"),
-        pytest.param(KONTRA_RE, OVERBID_AND_LOST, (KONTRA,), Reckoning(-194, 40), id="19"),
-        pytest.param(WITH_STANDINGS, WON, (KONTRA,), Reckoning(148, 0), id="20-won"),
-        pytest.param(WITH_STANDINGS, LOST, (KONTRA,), Reckoning(-196, 80), id="20-lost"),
-        pytest.param(WITH_STANDINGS, LOST, (KONTRA, RE), Reckoning(-392, 160), id="21"),
-        pytest.param(UP_TO_HIRSCH, WON, ALL_WORDS, Reckoning(434, 0), id="22"),
-        pytest.param(UP_TO_HIRSCH, LOST, (KONTRA, RE, SUPRA), Reckoning(-434, 40), id="23"),
-        pytest.param(KONTRA_RE, NULL_WON, (KONTRA,), Reckoning(96, 0), id="24"),
-        pytest.param(KONTRA_RE, WON, (), reckon(WON), id="25-list-score-only"),
-        pytest.param(WITH_STANDINGS, LOST, (), reckon(LOST), id="25-with-standings"),
-        pytest.param(UP_TO_HIRSCH, LOST, (), reckon(LOST), id="25-up-to-hirsch"),
+        pytest.param(WON, (), WON, id="no-word"),
+        pytest.param(WON, (KONTRA,), Settlement(won=True, value=24, score=48), id="kontra"),
+        pytest.param(LOST, (KONTRA, RE), Settlement(won=False, value=24, score=-192), id="re"),
+        pytest.param(NULL_WON, ALL_WORDS, Settlement(won=True, value=23, score=368), id="hirsch"),
+    ],
+)
+def test_the_doubled_settlement_multiplies_the_list_score_alone(
+    settlement: Settlement, words: tuple[Word, ...], expected: Settlement
+) -> None:
+    assert doubled_settlement(settlement, doubling_of(words)) == expected
+
+
+@pytest.mark.parametrize(
+    ("reach", "settlement", "last_word", "expected"),
+    [
+        pytest.param(KONTRA_RE, Settlement(won=True, value=24, score=48), KONTRA, Reckoning(98, 0), id="16"),
+        pytest.param(KONTRA_RE, Settlement(won=False, value=24, score=-96), KONTRA, Reckoning(-146, 40), id="17"),
+        pytest.param(KONTRA_RE, Settlement(won=True, value=24, score=96), RE, Reckoning(146, 0), id="18"),
+        pytest.param(KONTRA_RE, Settlement(won=False, value=36, score=-144), KONTRA, Reckoning(-194, 40), id="19"),
+        pytest.param(WITH_STANDINGS, Settlement(won=True, value=24, score=48), KONTRA, Reckoning(148, 0), id="20-won"),
+        pytest.param(
+            WITH_STANDINGS, Settlement(won=False, value=24, score=-96), KONTRA, Reckoning(-196, 80), id="20-lost"
+        ),
+        pytest.param(WITH_STANDINGS, Settlement(won=False, value=24, score=-192), RE, Reckoning(-392, 160), id="21"),
+        pytest.param(UP_TO_HIRSCH, Settlement(won=True, value=24, score=384), HIRSCH, Reckoning(434, 0), id="22"),
+        pytest.param(UP_TO_HIRSCH, Settlement(won=False, value=24, score=-384), SUPRA, Reckoning(-434, 40), id="23"),
+        pytest.param(KONTRA_RE, Settlement(won=True, value=23, score=46), KONTRA, Reckoning(96, 0), id="24"),
+        pytest.param(KONTRA_RE, WON, None, reckon(WON), id="25-list-score-only"),
+        pytest.param(WITH_STANDINGS, LOST, None, reckon(LOST), id="25-with-standings"),
+        pytest.param(UP_TO_HIRSCH, LOST, None, reckon(LOST), id="25-up-to-hirsch"),
     ],
 )
 def test_the_doubling_multiplies_what_the_table_option_says(
-    reach: KontraReach, settlement: Settlement, words: tuple[Word, ...], expected: Reckoning
+    reach: KontraReach, settlement: Settlement, last_word: Word | None, expected: Reckoning
 ) -> None:
-    assert doubled_reckoning(settlement, doubling_of(words), reach) == expected
+    assert doubled_reckoning(settlement, last_word, reach) == expected
+
+
+def plays_of(count: int) -> tuple[CardPlayed, ...]:
+    """The first cards of the game, each the first legal card of whoever is on turn."""
+    state, plays = playing_with(MIDDLEHAND), []
+    for _ in range(count):
+        position = state.turn
+        card = next(card for card in state.hands[position] if play_card(state, position, card).refusal is None)
+        plays.append(CardPlayed(position, card))
+        state = play_card(state, position, card).state
+    return tuple(plays)
+
+
+@pytest.mark.parametrize(
+    ("words", "expected_words", "expected_factor"),
+    [
+        pytest.param((), (), 1, id="none"),
+        pytest.param((WordSaid(FOREHAND, KONTRA, 0),), (KONTRA,), 2, id="kontra"),
+        pytest.param(
+            (WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 1)), (KONTRA, RE), 4, id="re-after-a-card"
+        ),
+        pytest.param(
+            (
+                WordSaid(FOREHAND, KONTRA, 0),
+                WordSaid(MIDDLEHAND, RE, 1),
+                WordSaid(FOREHAND, SUPRA, 3),
+                WordSaid(MIDDLEHAND, HIRSCH, 3),
+            ),
+            ALL_WORDS,
+            16,
+            id="up-to-hirsch",
+        ),
+    ],
+)
+def test_the_stored_words_rebuild_the_doubling_each_against_the_plays_it_followed(
+    words: tuple[WordSaid, ...], expected_words: tuple[Word, ...], expected_factor: int
+) -> None:
+    doubling = doubling_after(playing_with(MIDDLEHAND), plays_of(4), words, options_of(ANY, UP_TO_HIRSCH), frozenset())
+    assert doubling.words == expected_words
+    assert doubling.factor == expected_factor
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        pytest.param(WordSaid(MIDDLEHAND, KONTRA, 0), id="the-declarer-says-kontra"),
+        pytest.param(WordSaid(FOREHAND, KONTRA, 4), id="after-his-own-card"),
+        pytest.param(WordSaid(FOREHAND, SUPRA, 0), id="out-of-order"),
+    ],
+)
+def test_a_stored_word_the_rules_refuse_is_a_corrupt_log(word: WordSaid) -> None:
+    with pytest.raises(ValueError, match="impossible words log"):
+        doubling_after(playing_with(MIDDLEHAND), plays_of(4), (word,), options_of(ANY, UP_TO_HIRSCH), frozenset())
