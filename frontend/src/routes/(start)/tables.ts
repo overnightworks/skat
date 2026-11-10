@@ -6,6 +6,7 @@ import {
     type LEVEL_TOKENS,
     type GAME_TOKENS,
     type AWAITING_TOKENS,
+    type END_REASON_TOKENS,
     type POSITION_TOKENS,
     type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
@@ -122,6 +123,9 @@ export type Result = {
 };
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
+export type EndReason = (typeof END_REASON_TOKENS)[number];
+// Why a table ended and the whole seconds nobody was there, as stored when it ended.
+export type Ended = { reason: EndReason; empty_seconds: number };
 export type Table = {
     id: string;
     version: number;
@@ -130,6 +134,7 @@ export type Table = {
     hand: Hand | null;
     result: Result | null;
     passed_in: PassedIn | null;
+    ended: Ended | null;
 };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
@@ -292,17 +297,24 @@ export function watchTable(
 ): () => void {
     const reachedNow = reachedBySigningIn;
     const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_EVENTS_SUFFIX}`);
+    let finished = false;
+    // An ended table sends nothing more: the stream closes here, so it never reconnects to a table that has ended.
     source.onmessage = (event: MessageEvent<string>) => {
+        const table = JSON.parse(event.data) as Table;
+        if (table.ended !== null) {
+            finished = true;
+            source.close();
+        }
         onConnection(true);
-        onTable(JSON.parse(event.data) as Table);
+        onTable(table);
     };
     // One check at a time, and none counts once the page navigates or stops watching: a second 401 would
     // otherwise reload under the loop guard and cancel the sign-in navigation that the first one started.
     let checking = false;
-    let finished = false;
     source.onerror = () => {
+        if (finished) return;
         onConnection(false);
-        if (checking || finished) return;
+        if (checking) return;
         checking = true;
         void sessionIsRefused(id).then((refused) => {
             checking = false;
