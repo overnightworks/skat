@@ -1,8 +1,0 @@
-claim_id = "f9602e014ac1422b8c095e8ef726c1be"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "781e41d1cfc49df770938ed3ef228f8ebdc31ad1"
-branch = "claude/issue-240-throw-down"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/table/playing.py", "src/skat/table/service.py", "src/skat/web/mcp.py", "src/skat/web/playing.py", "tests/store/test_playing.py", "tests/web/support/playing.py", "tests/web/test_mcp.py", "tests/web/test_playing_early_end.py", "tests/web/test_playing_give_up.py", "tests/web/test_playing_throw_down.py", "tests/web/test_tables.py"]
-opened_commit = "32c78c6197821947918d7996156a8c984b26cf70"
-whole_reason = "Route, tool mark, command and runner are one path: an unmarked route fails the build and a command nothing routes is dead; the give-up's act-independent cases move into one module parametrized over both routes in the same change, so no case is written twice (the code policy's rule; skat's clone rule only reports)."
