@@ -21,6 +21,7 @@ from skat.store.rule_sets import PostgresRuleSets
 from skat.store.tables import PostgresTableTransactions
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
+from skat.web.constants import STREAM_HEARTBEAT_SECONDS
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import in_memory_stores
@@ -50,7 +51,7 @@ def reserve_free_port() -> int:
         return int(probe.getsockname()[1])
 
 
-def _write_self_signed_certificate(directory: Path) -> tuple[Path, Path]:
+def write_self_signed_certificate(directory: Path) -> tuple[Path, Path]:
     """A certificate for the loopback address, so the page is served over https like Skat's public origin."""
     key = ec.generate_private_key(ec.SECP256R1())
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, LOOPBACK_HOST)])
@@ -116,6 +117,7 @@ class RunningServer:
         engine: Engine,
         page_build_directory: Path,
         random_source: random.Random | None = None,
+        heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     ) -> None:
         self.host = loopback.host
         self.base_url = f"https://{loopback.host}:{loopback.port}"
@@ -125,7 +127,8 @@ class RunningServer:
         self._loopback = loopback
         self._page_build_directory = page_build_directory
         self._random_source = random_source
-        self._tls_files = _write_self_signed_certificate(tls_directory)
+        self._heartbeat_seconds = heartbeat_seconds
+        self._tls_files = write_self_signed_certificate(tls_directory)
 
     def start(self) -> None:
         app = create_app(
@@ -135,6 +138,7 @@ class RunningServer:
             rule_sets=RuleSetService(PostgresRuleSets(self.engine)),
             stores=self.stores,
             issuer_transports=self.issuer.transports,
+            heartbeat_seconds=self._heartbeat_seconds,
         )
         self.config = installed_web_auth_config(app)
         key_file, certificate_file = self._tls_files
@@ -182,13 +186,16 @@ def running_skat(
     engine: Engine,
     page_build_directory: Path = BUILD_DIRECTORY,
     random_source: random.Random | None = None,
+    heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
 ) -> Iterator[RunningServer]:
     """Serve Skat over https on `loopback`.
 
     The page comes from `page_build_directory`, so a test can serve a copy it changes; `random_source` replaces the
-    source the table service deals and draws the dealer from.
+    source the table service deals and draws the dealer from; `heartbeat_seconds` is the stream's idle tick.
     """
-    server = RunningServer(loopback, tls_directory, engine, page_build_directory, random_source)
+    server = RunningServer(
+        loopback, tls_directory, engine, page_build_directory, random_source, heartbeat_seconds=heartbeat_seconds
+    )
     server.start()
     try:
         yield server
