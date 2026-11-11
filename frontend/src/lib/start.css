@@ -2705,15 +2705,13 @@ body {
     min-height: 0;
 }
 
-/* The room is as tall as the screen while a result stands, with the legal links below the fold: a card too long for the room between the chairs and the bar scrolls inside itself, and the bar stays at the bottom of the screen. */
+/* The room is as tall as the screen while a result stands and the page does not scroll: a card too long for the room between the chairs and the bar scrolls inside itself, and the bar stays at the bottom of the screen. The legal links, which would hang below the room, stand again with the next phase. */
 .room:has(> .stage > .result) {
     height: 100dvh;
 }
 
 .room:has(> .stage > .result) > .legal {
-    flex: none;
-    height: 0;
-    padding-block: 0;
+    display: none;
 }
 
 .room .stage:has(> .result) .felt {
