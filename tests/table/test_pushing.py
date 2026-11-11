@@ -1,7 +1,11 @@
+from dataclasses import replace
+
 import pytest
 
+from skat.engine.cards import Card, Rank, Suit
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.engine.schieberamsch import PushingRule
+from skat.table.pushing import PushingCommand, PushingKind, pushing_payload
 from skat.table.records import CreateTable, RamschOccasion, RamschSetting, TableOptions
 from skat.table.rules import create_payload
 
@@ -25,3 +29,18 @@ class TestTheCreateReceipt:
             '{"series_length":3,"ramsch":{"durchmarsch":"wins-120","jungfrau":"doubles-loser",'
             f'"occasion":"passed-in","pushing":{{"rule":"{rule.value}"}},"scoring":"points"}}}}'
         )
+
+
+class TestTheStepsReceipt:
+    def test_the_kind_the_cards_and_the_version_make_the_payload(self):
+        king, ace, queen = (Card(Suit.KARO, rank) for rank in (Rank.KING, Rank.ACE, Rank.QUEEN))
+        command = PushingCommand("command-1", "table", 5, PushingKind.PUT_BACK, (king, ace))
+
+        payloads = {
+            pushing_payload(command),
+            pushing_payload(replace(command, version=6)),
+            pushing_payload(replace(command, kind=PushingKind.PUSH, cards=())),
+            pushing_payload(replace(command, cards=(king, queen))),
+        }
+
+        assert len(payloads) == 4

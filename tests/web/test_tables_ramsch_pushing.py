@@ -1,8 +1,47 @@
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
+from skat.engine.bock import BockRounds
+from skat.engine.deal import positions_from
+from skat.table.records import Series
+from skat.web.game_list import TABLE_LIST_SUFFIX
+from skat.web.paused import PAUSED_TABLES_PATH
+from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX, TABLE_PUSHING_PUT_BACK_SUFFIX, TABLE_PUSHING_TAKE_SUFFIX
 from skat.web.rule_sets import RULE_SETS_PATH
+from skat.web.tables import TABLES_PATH
+from tests.support.payload_cards import DEALER_SEAT, cards_in, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.playing import (
+    FOREHAND,
+    JUNGFRAU_DEAL,
+    JUNGFRAU_HAND,
+    MIDDLEHAND,
+    PLAIN_DEAL,
+    PLAIN_HAND,
+    REARHAND,
+    SWEEP_DEAL,
+    SWEEP_HAND,
+    Table,
+    card_body,
+    cards,
+    reason_of,
+    three_pass,
+    with_pending,
+)
+from tests.web.support.series import headers_of, tap_new_series, tap_weiter
+from tests.web.support.skat import Skat, streams_of
 
+SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
+FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT = SEATS[FOREHAND], SEATS[MIDDLEHAND], SEATS[REARHAND]
+VIEWERS = (FOREHAND, MIDDLEHAND, REARHAND, None)
+DEALT_AT = datetime(2026, 11, 1, 12, tzinfo=UTC)
+SUFFIXES = {
+    "take": TABLE_PUSHING_TAKE_SUFFIX,
+    "put-back": TABLE_PUSHING_PUT_BACK_SUFFIX,
+    "push": TABLE_PUSHING_PUSH_SUFFIX,
+}
 POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
 
 
@@ -68,3 +107,535 @@ class TestOpeningAPushingTable:
 
         assert answer.status_code == 422
         assert skat.store.tables == {}
+
+
+def stage_table(skat, rule="jacks-stay", deal=PLAIN_DEAL, extra=None, **changed):
+    """A Ramsch table whose hand all three passed, so its stage runs; `rule` None leaves pushing off."""
+    pushing = {} if rule is None else {"pushing": {"rule": rule}}
+    table = Table(skat, {"ramsch": {**POINTS, **changed, **pushing}, **(extra or {})})
+    table.with_deal(deal)
+    three_pass(table)
+    return table
+
+
+def read(table, position=None):
+    headers = table.watcher if position is None else table.at[position]
+    return table.read_as(headers).json()
+
+
+def step_body(put):
+    return {"cards": [card_body(each) for each in put]} if put else None
+
+
+def step(table, position, kind, put=()):
+    return table.act(SUFFIXES[kind], table.at[position], body=step_body(put))
+
+
+def accepted(table, position, kind, put=()):
+    before = table.record.version
+    answer = step(table, position, kind, put)
+    assert answer.status_code == 200, answer.text
+    assert table.record.version == before + 1
+    return answer.json()
+
+
+def refused(table, position, kind, reason, put=()):
+    table.refused_act(SUFFIXES[kind], table.at[position], reason, body=step_body(put))
+
+
+def play_stage(table, *plan):
+    """Each seat in turn pushes the skat on ("push") or takes it and puts the very cards back ("back")."""
+    skat_cards = table.record.hand.skat
+    for position, choice in zip((FOREHAND, MIDDLEHAND, REARHAND), plan, strict=True):
+        if choice == "push":
+            accepted(table, position, "push")
+        else:
+            accepted(table, position, "take")
+            accepted(table, position, "put-back", skat_cards)
+
+
+def scores_of(result):
+    return [seat["score"] for seat in sorted(result["seats"], key=lambda seat: seat["seat"])]
+
+
+def list_rows(table):
+    table.skat.client.cookies.clear()
+    answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
+    assert answer.status_code == 200, answer.text
+    return answer.json()["entries"]
+
+
+class TestTheThirdPass:
+    def test_starts_the_stage_for_every_viewer_and_no_card_may_be_played(self, skat):
+        table = stage_table(skat)
+
+        for position in VIEWERS:
+            hand = read(table, position)["hand"]
+            assert (hand["ramsch"], hand["playing"], hand["pushes"], hand["skat_count"]) == (True, None, 0, 2)
+            assert hand["pushing"] == {"turn_seat": FOREHAND_SEAT, "stage": "choosing", "moves": [], "factor": 1}
+        card = table.send(table.at[FOREHAND], PLAIN_HAND[0])
+        assert (card.status_code, reason_of(card), read(table)["result"]) == (409, "wrong-phase", None)
+
+    @pytest.mark.parametrize("kind", ["take", "put-back", "push"])
+    def test_a_table_without_pushing_plays_the_ramsch_at_once_and_refuses_every_step(self, skat, kind):
+        table = stage_table(skat, rule=None)
+
+        hand = read(table)["hand"]
+        assert (hand["pushing"], hand["pushes"], hand["playing"]["turn_seat"]) == (None, 0, FOREHAND_SEAT)
+        refused(table, FOREHAND, kind, "wrong-phase", put=cards("C7 C8") if kind == "put-back" else ())
+
+
+class TestTheStage:
+    def test_a_taker_holds_twelve_and_puts_two_back_and_the_next_seat_is_on_turn(self, skat):
+        table = stage_table(skat)
+
+        taken = accepted(table, FOREHAND, "take")["hand"]
+        assert (len(taken["own_cards"]), taken["skat_count"]) == (12, 0)
+        assert taken["pushing"] == {"turn_seat": FOREHAND_SEAT, "stage": "discarding", "moves": [], "factor": 1}
+        assert [chair["hand"]["card_count"] for chair in read(table)["chairs"]] == [10, 10, 12]
+        put = accepted(table, FOREHAND, "put-back", cards("C7 C8"))["hand"]
+        assert (len(put["own_cards"]), put["skat_count"]) == (10, 2)
+        assert put["pushing"] == {
+            "turn_seat": MIDDLEHAND_SEAT,
+            "stage": "choosing",
+            "moves": [{"seat": FOREHAND_SEAT, "action": "took"}],
+            "factor": 1,
+        }
+
+    def test_two_pushes_lead_into_the_ramsch_which_keeps_the_count_and_doubles_the_losers_score_twice(self, skat):
+        table = stage_table(skat)
+        play_stage(table, "back", "push", "push")
+
+        hand = read(table, FOREHAND)["hand"]
+        assert (hand["pushing"], hand["pushes"], hand["playing"]["turn_seat"]) == (None, 2, FOREHAND_SEAT)
+        table.played_out(PLAIN_HAND[:17])
+        assert read(table, MIDDLEHAND)["hand"]["pushes"] == 2
+        table.played_out(PLAIN_HAND[17:])
+
+        result = table.result()
+        assert (result["pushes"], result["push_factor"], result["bock_factor"]) == (2, 4, 1)
+        assert scores_of(result) == [0, -86 * 4, 0]
+        assert read(table)["hand"] is None
+        row = list_rows(table)[0]
+        assert (row["kind"], row["pushes"], row["push_factor"], row["bock_factor"]) == ("ramsch", 2, 4, 1)
+
+    def test_the_moves_list_each_seat_that_finished_in_order_and_the_factor_follows_the_pushes(self, skat):
+        table = stage_table(skat)
+        accepted(table, FOREHAND, "push")
+        accepted(table, MIDDLEHAND, "take")
+        accepted(table, MIDDLEHAND, "put-back", cards("S9 ST"))
+
+        assert read(table, REARHAND)["hand"]["pushing"] == {
+            "turn_seat": REARHAND_SEAT,
+            "stage": "choosing",
+            "moves": [{"seat": FOREHAND_SEAT, "action": "pushed"}, {"seat": MIDDLEHAND_SEAT, "action": "took"}],
+            "factor": 2,
+        }
+
+    @pytest.mark.parametrize(
+        ("plan", "factor", "score"),
+        [
+            pytest.param(("push", "push", "push"), 8, -86 * 8, id="everyone-pushes-and-the-skat-is-the-dealt-one"),
+            pytest.param(("back", "back", "back"), 1, -86, id="everyone-takes-and-the-skat-is-the-last-put-back"),
+        ],
+    )
+    def test_three_pushes_count_three_and_three_takes_none(self, skat, plan, factor, score):
+        table = stage_table(skat)
+
+        play_stage(table, *plan)
+        table.played_out(PLAIN_HAND)
+
+        result = table.result()
+        assert (result["push_factor"], result["pushes"]) == (factor, plan.count("push"))
+        assert scores_of(result) == [0, score, 0]
+
+    @pytest.mark.parametrize(
+        ("rule", "lets_the_jack_go"),
+        [("jacks-stay", False), ("no-doubling", False), ("jacks-may-go", True)],
+    )
+    def test_a_jack_among_the_two_put_back_is_refused_unless_the_rule_lets_jacks_go(self, skat, rule, lets_the_jack_go):
+        table = stage_table(skat, rule)
+        accepted(table, FOREHAND, "take")
+
+        if lets_the_jack_go:
+            accepted(table, FOREHAND, "put-back", cards("CJ C7"))
+            assert read(table)["hand"]["pushing"]["turn_seat"] == MIDDLEHAND_SEAT
+        else:
+            refused(table, FOREHAND, "put-back", "jack-put-back", cards("CJ C7"))
+
+    @pytest.mark.parametrize("count", [1, 3])
+    def test_a_put_back_of_other_than_two_cards_is_no_request(self, skat, count):
+        table = stage_table(skat)
+        accepted(table, FOREHAND, "take")
+
+        answer = step(table, FOREHAND, "put-back", cards("C7 C8 C9")[:count])
+
+        assert answer.status_code == 422
+
+    @pytest.mark.parametrize(
+        ("before", "position", "kind", "put", "reason"),
+        [
+            pytest.param((), MIDDLEHAND, "push", (), "not-your-turn", id="a-push-out-of-turn"),
+            pytest.param((), MIDDLEHAND, "take", (), "not-your-turn", id="a-take-out-of-turn"),
+            pytest.param((), FOREHAND, "put-back", cards("C7 C8"), "out-of-order", id="a-put-back-before-a-take"),
+            pytest.param(((FOREHAND, "take"),), FOREHAND, "take", (), "out-of-order", id="a-take-after-a-take"),
+            pytest.param(((FOREHAND, "take"),), FOREHAND, "push", (), "out-of-order", id="a-push-after-a-take"),
+            pytest.param(
+                ((FOREHAND, "take"),),
+                MIDDLEHAND,
+                "put-back",
+                cards("S9 ST"),
+                "not-your-turn",
+                id="another-seats-put-back",
+            ),
+            pytest.param(
+                ((FOREHAND, "take"),), FOREHAND, "put-back", cards("C7 C7"), "not-two-of-the-twelve", id="a-card-twice"
+            ),
+            pytest.param(
+                ((FOREHAND, "take"),),
+                FOREHAND,
+                "put-back",
+                cards("S9 C7"),
+                "not-two-of-the-twelve",
+                id="a-card-not-held",
+            ),
+        ],
+    )
+    def test_the_engines_refusals_come_back_and_leave_the_table_as_it_was(
+        self, skat, before, position, kind, put, reason
+    ):
+        table = stage_table(skat)
+        for earlier_position, earlier_kind in before:
+            accepted(table, earlier_position, earlier_kind)
+
+        refused(table, position, kind, reason, put)
+
+    def test_refuses_what_the_table_refuses_before_the_engine(self, skat):
+        table = stage_table(skat)
+        before = table.record
+
+        table.refused_act(SUFFIXES["take"], table.watcher, "not-seated")
+        table.refused_act(SUFFIXES["take"], table.at[FOREHAND], "stale-version", body={"version": before.version - 1})
+        skat.store.tables[table.table_id] = replace(before, hand=None)
+        table.refused_act(SUFFIXES["take"], table.at[FOREHAND], "no-hand")
+
+    def test_refuses_a_step_after_the_stage_and_at_a_declared_game_as_wrong_phase(self, skat):
+        after_the_stage = stage_table(skat)
+        play_stage(after_the_stage, "push", "push", "push")
+        declared = Table(skat, {"ramsch": {**POINTS, "pushing": {"rule": "jacks-stay"}}})
+        declared.declared_hand_game()
+
+        refused(after_the_stage, FOREHAND, "take", "wrong-phase")
+        refused(declared, FOREHAND, "take", "wrong-phase")
+
+    def test_weiter_and_neue_serie_and_standing_up_are_refused_as_in_any_running_hand(self, skat):
+        table = stage_table(skat)
+        people = headers_of(table)
+        tap = tap_weiter(skat, people[0], table.table_id, "tap-0001")
+        new_series = tap_new_series(skat, people[0], table.table_id, "new-series-0001")
+        stand = skat.stand(people[0], table.table_id)
+
+        assert [reason_of(each) for each in (tap, new_series, stand)] == [
+            "no-result",
+            "series-not-over",
+            "hand-running",
+        ]
+
+
+class TestTheMultiplier:
+    @pytest.mark.parametrize(
+        ("deal", "hand", "rule", "changed", "pending", "plan", "scores", "factors"),
+        [
+            pytest.param(
+                PLAIN_DEAL,
+                PLAIN_HAND,
+                "jacks-stay",
+                {},
+                (),
+                ("back", "push", "push"),
+                [0, -344, 0],
+                (2, 4, 1),
+                id="two-pushes",
+            ),
+            pytest.param(
+                PLAIN_DEAL,
+                PLAIN_HAND,
+                "jacks-may-go",
+                {},
+                (),
+                ("back", "push", "push"),
+                [0, -344, 0],
+                (2, 4, 1),
+                id="two-pushes-with-jacks-allowed",
+            ),
+            pytest.param(
+                PLAIN_DEAL,
+                PLAIN_HAND,
+                "no-doubling",
+                {},
+                (),
+                ("back", "push", "push"),
+                [0, -86, 0],
+                (2, 1, 1),
+                id="two-pushes-that-do-not-double",
+            ),
+            pytest.param(
+                PLAIN_DEAL,
+                PLAIN_HAND,
+                "jacks-stay",
+                {},
+                (2,),
+                ("back", "push", "push"),
+                [0, -688, 0],
+                (2, 4, 2),
+                id="two-pushes-at-a-bock-game",
+            ),
+            pytest.param(
+                PLAIN_DEAL,
+                PLAIN_HAND,
+                "jacks-stay",
+                {"scoring": "points-by-ten"},
+                (),
+                ("back", "push", "push"),
+                [0, -32, 0],
+                (2, 4, 1),
+                id="divided-by-ten-before-the-pushes",
+            ),
+            pytest.param(
+                JUNGFRAU_DEAL,
+                JUNGFRAU_HAND,
+                "jacks-stay",
+                {"scoring": "points-by-ten"},
+                (),
+                ("back", "push", "push"),
+                [-80, 0, 0],
+                (2, 4, 1),
+                id="divided-doubled-then-multiplied",
+            ),
+            pytest.param(
+                SWEEP_DEAL,
+                SWEEP_HAND,
+                "jacks-stay",
+                {},
+                (),
+                ("push", "back", "back"),
+                [0, 0, 240],
+                (1, 2, 1),
+                id="a-sweep-multiplied-by-the-push",
+            ),
+            pytest.param(
+                SWEEP_DEAL,
+                SWEEP_HAND,
+                "jacks-stay",
+                {"durchmarsch": "wins-120-flat"},
+                (),
+                ("push", "back", "back"),
+                [0, 0, 120],
+                (1, 2, 1),
+                id="a-flat-sweep-not-multiplied",
+            ),
+            pytest.param(
+                SWEEP_DEAL,
+                SWEEP_HAND,
+                "jacks-stay",
+                {},
+                (2,),
+                ("push", "back", "back"),
+                [0, 0, 480],
+                (1, 2, 2),
+                id="a-sweep-at-a-bock-game-multiplied-by-both",
+            ),
+            pytest.param(
+                SWEEP_DEAL,
+                SWEEP_HAND,
+                "jacks-stay",
+                {"durchmarsch": "wins-120-flat"},
+                (2,),
+                ("push", "back", "back"),
+                [0, 0, 120],
+                (1, 2, 2),
+                id="a-flat-sweep-at-a-bock-game",
+            ),
+        ],
+    )
+    def test_the_scores_are_multiplied_by_the_pushes_and_the_bock_factor_after_the_division_and_the_doubling(
+        self, skat, deal, hand, rule, changed, pending, plan, scores, factors
+    ):
+        extra = {"bock": {"triggers": ["re"], "overlap": "append"}} if pending else None
+        table = stage_table(skat, rule, deal, extra, **changed)
+        if pending:
+            with_pending(table, *pending)
+        play_stage(table, *plan)
+
+        table.played_out(hand)
+
+        result = table.result()
+        assert scores_of(result) == scores
+        assert (result["pushes"], result["push_factor"], result["bock_factor"]) == factors
+        row = list_rows(table)[0]
+        assert (row["pushes"], row["push_factor"], row["bock_factor"]) == factors
+
+    def test_a_pushed_ramsch_is_a_ramsch_for_bock_and_uses_up_its_game(self, skat):
+        extra = {"bock": {"triggers": ["passed-in"], "overlap": "append"}}
+        table = stage_table(skat, extra=extra)
+        play_stage(table, "back", "push", "push")
+
+        table.played_out(PLAIN_HAND)
+
+        assert read(table)["bock"] == {"games_left": 3, "factor": 2}
+
+    def test_the_last_game_of_the_series_stores_both_factors_and_lets_every_round_lapse(self, skat):
+        extra = {"bock": {"triggers": ["re"], "overlap": "append"}}
+        table = stage_table(skat, extra=extra)
+        with_pending(table, 2)
+        skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 3))
+        play_stage(table, "back", "push", "push")
+
+        table.played_out(PLAIN_HAND)
+
+        result = table.result()
+        assert (result["pushes"], result["push_factor"], result["bock_factor"]) == (2, 4, 2)
+        assert table.record.bock == BockRounds(())
+
+    def test_the_result_the_list_and_every_view_name_no_card(self, skat):
+        table = stage_table(skat)
+        play_stage(table, "back", "push", "push")
+        table.played_out(PLAIN_HAND)
+
+        for position in VIEWERS:
+            assert not cards_in_text(table.read_as(table.watcher if position is None else table.at[position]).text)
+        table.skat.client.cookies.clear()
+        listed = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
+        assert not cards_in_text(listed.text)
+
+    def test_the_next_hand_after_a_pushed_ramsch_starts_with_no_step_left_of_the_stage(self, skat):
+        table = stage_table(skat)
+        play_stage(table, "back", "push", "push")
+
+        table.played_out(PLAIN_HAND)
+
+        assert table.record.progress.pushing == ()
+
+
+class TestWhoLearnsTheSkat:
+    @staticmethod
+    def named(table):
+        return {
+            position: cards_in_text(table.read_as(table.watcher if position is None else table.at[position]).text)
+            for position in VIEWERS
+        }
+
+    def test_only_the_seat_holding_the_skat_names_it_and_nobody_names_the_cards_put_back_until_the_next_taker(
+        self, skat
+    ):
+        table = stage_table(skat)
+        forehand, middlehand, rearhand = (
+            set(wire_cards(getattr(PLAIN_DEAL, name))) for name in ("forehand", "middlehand", "rearhand")
+        )
+        skat_cards = set(wire_cards(PLAIN_DEAL.skat))
+        put_back = set(wire_cards(cards("C7 C8")))
+
+        assert self.named(table) == {FOREHAND: forehand, MIDDLEHAND: middlehand, REARHAND: rearhand, None: set()}
+        accepted(table, FOREHAND, "take")
+        assert self.named(table) == {
+            FOREHAND: forehand | skat_cards,
+            MIDDLEHAND: middlehand,
+            REARHAND: rearhand,
+            None: set(),
+        }
+        accepted(table, FOREHAND, "put-back", cards("C7 C8"))
+        assert self.named(table) == {
+            FOREHAND: (forehand | skat_cards) - put_back,
+            MIDDLEHAND: middlehand,
+            REARHAND: rearhand,
+            None: set(),
+        }
+        accepted(table, MIDDLEHAND, "take")
+        assert self.named(table) == {
+            FOREHAND: (forehand | skat_cards) - put_back,
+            MIDDLEHAND: middlehand | put_back,
+            REARHAND: rearhand,
+            None: set(),
+        }
+        accepted(table, MIDDLEHAND, "put-back", cards("S9 ST"))
+        assert not (put_back & (self.named(table)[REARHAND] | self.named(table)[None]))
+
+    def test_the_event_stream_of_every_viewer_names_only_what_the_viewer_holds(self, server):
+        table = stage_table(server)
+        members = [(table.at[position], None) for position in (FOREHAND, MIDDLEHAND, REARHAND)] + [
+            (table.watcher, None)
+        ]
+        taken = set(wire_cards(PLAIN_DEAL.skat))
+
+        with streams_of(server, table.table_id, members) as streams:
+            version = table.record.version + 1
+            accepted(table, FOREHAND, "take")
+            messages = [next(view for view in stream if view["version"] == version) for stream in streams]
+
+        named = [cards_in(message) for message in messages]
+        assert [bool(taken & each) for each in named] == [True, False, False, False]
+
+
+class TestARetriedStep:
+    @pytest.mark.parametrize("kind", ["take", "push"])
+    def test_the_same_id_and_version_answers_the_same_and_stores_one_step(self, skat, kind):
+        table = stage_table(skat)
+        version = table.record.version
+        retry = {"command_id": "retry-0001", "version": version}
+
+        first = table.act(SUFFIXES[kind], table.at[FOREHAND], body=retry)
+        again = table.act(SUFFIXES[kind], table.at[FOREHAND], body=retry)
+
+        assert (again.status_code, again.json()) == (first.status_code, first.json())
+        assert (len(table.record.progress.pushing), table.record.version) == (1, version + 1)
+
+    def test_the_same_id_for_another_step_is_refused_and_a_refused_step_keeps_its_refusal(self, skat):
+        table = stage_table(skat)
+        version = table.record.version
+        retry = {"command_id": "retry-0001", "version": version}
+        table.act(SUFFIXES["take"], table.at[FOREHAND], body=retry)
+
+        other = table.act(SUFFIXES["push"], table.at[FOREHAND], body=retry)
+        refused_first = table.act(SUFFIXES["push"], table.at[MIDDLEHAND], body={**retry, "command_id": "retry-0002"})
+        refused_again = table.act(SUFFIXES["push"], table.at[MIDDLEHAND], body={**retry, "command_id": "retry-0002"})
+
+        assert other.status_code == 409
+        assert (refused_first.status_code, refused_again.status_code) == (409, 409)
+        assert reason_of(refused_first) == reason_of(refused_again) == "stale-version"
+        assert len(table.record.progress.pushing) == 1
+
+
+class TestThePausedList:
+    @pytest.fixture
+    def clock(self):
+        return [DEALT_AT]
+
+    @pytest.fixture
+    def skat(self, hold, issuer, clock):
+        skat = Skat(lambda: hold, issuer_transports=issuer.transports, now=lambda: clock[0])
+        with skat.client:
+            yield skat
+
+    @staticmethod
+    def entry_of(table):
+        table.skat.client.cookies.clear()
+        answer = table.skat.client.get(PAUSED_TABLES_PATH, headers=table.at[FOREHAND])
+        (entry,) = answer.json()["tables"]
+        return entry["turn_seat"], entry["ends_at"]
+
+    def test_names_the_seat_on_turn_through_the_stage_and_only_a_played_card_moves_the_end(self, skat, clock):
+        table = stage_table(skat)
+        _, dealt_end = self.entry_of(table)
+        clock[0] += timedelta(hours=1)
+
+        accepted(table, FOREHAND, "take")
+        assert self.entry_of(table) == (FOREHAND_SEAT, dealt_end)
+        accepted(table, FOREHAND, "put-back", cards("C7 C8"))
+        assert self.entry_of(table) == (MIDDLEHAND_SEAT, dealt_end)
+        accepted(table, MIDDLEHAND, "push")
+        accepted(table, REARHAND, "push")
+        assert self.entry_of(table) == (FOREHAND_SEAT, dealt_end)
+        table.accepted(cards("C9")[0])
+        turn_seat, played_end = self.entry_of(table)
+        assert played_end != dealt_end
+        assert turn_seat == MIDDLEHAND_SEAT
