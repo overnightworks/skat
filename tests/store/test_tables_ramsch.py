@@ -107,11 +107,11 @@ def test_the_thirtieth_card_stores_a_ramsch_entry_and_forgets_the_hand_and_the_r
     try:
         view = again.view(table.actors[Position.FOREHAND], table.table_id, frozenset())
         with engine.connect() as connection:
-            row = connection.execute(text("SELECT kind, game, ordinal FROM game_list")).one()
+            row = connection.execute(text("SELECT kind, game, ordinal, ending, ended_by_seat FROM game_list")).one()
             cards = connection.execute(text("SELECT count(*) FROM played_cards")).scalar_one()
     finally:
         engine.dispose()
 
-    assert (tuple(row), cards) == (("ramsch", None, 1), 0)
+    assert (tuple(row), cards) == (("ramsch", None, 1, "played-out", None), 0)
     assert (view.hand, view.result.ordinal, len(view.result.seats)) == (None, 1, 3)
     assert view.result == before.result

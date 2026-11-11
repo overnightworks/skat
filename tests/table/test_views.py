@@ -10,7 +10,7 @@ from skat.engine.declaration import Announcement, Declaration, Declare, Stage, T
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.engine.value import Matadors
-from skat.table.game_list import ListEntry
+from skat.table.game_list import GameEnding, ListEntry
 from skat.table.records import (
     SERIES_LENGTH_MIN,
     Chair,
@@ -191,6 +191,8 @@ def a_played_game() -> ListEntry:
         declarer_points=70,
         kontra_word=None,
         bock_factor=1,
+        ending=GameEnding.PLAYED_OUT,
+        ended_by_seat=None,
     )
 
 
