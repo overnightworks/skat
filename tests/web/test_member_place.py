@@ -62,19 +62,21 @@ def a_person(skat, issuer):
     return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
 
 
-def invite(skat, agent, table_id, owner, *, inviter=None, lasting=INVITATION_SECONDS):
-    """The invitation as K3 will write it: through the service the app wired, on its event loop's worker."""
-    request = InvitationRequest(
-        agent.subject,
-        owner[1].id,
-        (inviter or owner)[1].id,
-        skat.tables._now() + timedelta(seconds=lasting),  # noqa: SLF001 - the service's own clock, which the accept reads
-    )
+@pytest.fixture
+def invite(skat, time):
+    """Writes an invitation through the service the app wired, on its event loop's worker."""
 
-    async def write():
-        return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), request)
+    def write_invitation(agent, table_id, owner, *, inviter=None, lasting=INVITATION_SECONDS):
+        request = InvitationRequest(
+            agent.subject, owner[1].id, (inviter or owner)[1].id, time.moment() + timedelta(seconds=lasting)
+        )
 
-    return skat.client.portal.call(write)
+        async def write():
+            return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), request)
+
+        return skat.client.portal.call(write)
+
+    return write_invitation
 
 
 def standing_of(agent):
@@ -106,17 +108,17 @@ class TestTheStandingIsAResource:
         assert answer.json()["error"]["message"] == "Unknown resource"
 
     def test_another_agent_reads_a_standing_that_holds_none_of_the_first_agents_tables(
-        self, skat, issuer, agent, owner, table_id
+        self, invite, skat, issuer, agent, owner, table_id
     ):
-        invite(skat, agent, table_id, owner)
+        invite(agent, table_id, owner)
         other = Agent(skat, issuer, OTHER_AGENT_SUBJECT, agent_owner=owner[1].id, agent_name="Bach")
 
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
         assert standing_of(other) == []
 
-    def test_no_answer_names_the_owner_or_the_inviter(self, skat, agent, owner, table_id):
+    def test_no_answer_names_the_owner_or_the_inviter(self, invite, skat, agent, owner, table_id):
         inviter = skat.member()
-        offer = invite(skat, agent, table_id, owner, inviter=inviter)
+        offer = invite(agent, table_id, owner, inviter=inviter)
         shown = [agent.standing(), agent.accept(table_id, offer, epoch=offer.epoch + 1).text]
         shown.append(agent.accept(table_id, offer).text)
         with at_the_table(skat, table_id, owner):
@@ -128,10 +130,10 @@ class TestTheStandingIsAResource:
 
 class TestAnInvitationIsAcceptedAtOnce:
     def test_a_listening_agent_is_told_of_the_invitation_and_of_its_chair_and_reads_each(
-        self, skat, agent, owner, table_id
+        self, invite, skat, agent, owner, table_id
     ):
         with agent.listening() as frames, at_the_table(skat, table_id, owner):
-            offer = invite(skat, agent, table_id, owner)
+            offer = invite(agent, table_id, owner)
             assert next(frames)["method"] == UPDATED
             invited = standing_of(agent)
 
@@ -145,9 +147,9 @@ class TestAnInvitationIsAcceptedAtOnce:
         assert [(standing["state"], standing["invitation"]) for standing in seated] == [("active", None)]
         assert chairs_of(skat, table_id)[1] == ("Mozart", "agent")
 
-    def test_an_owner_who_only_watches_the_open_table_is_present(self, skat, agent, owner, table_id):
+    def test_an_owner_who_only_watches_the_open_table_is_present(self, invite, skat, agent, owner, table_id):
         skat.stand(owner[0], table_id)
-        offer = invite(skat, agent, table_id, owner)
+        offer = invite(agent, table_id, owner)
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer)
@@ -156,9 +158,9 @@ class TestAnInvitationIsAcceptedAtOnce:
         assert chairs_of(skat, table_id) == [("Mozart", "agent"), None, None]
 
     def test_the_agent_stays_a_member_when_its_owner_leaves_and_leaves_by_standing_up(
-        self, skat, agent, owner, table_id
+        self, invite, skat, agent, owner, table_id
     ):
-        offer = invite(skat, agent, table_id, owner)
+        offer = invite(agent, table_id, owner)
         with at_the_table(skat, table_id, owner):
             agent.accept(table_id, offer)
         skat.client.cookies.clear()
@@ -170,12 +172,12 @@ class TestAnInvitationIsAcceptedAtOnce:
         assert [standing["state"] for standing in standing_of(agent)] == ["active"]
 
     def test_the_accept_that_fills_the_third_chair_deals_and_the_tables_streams_see_the_hand(
-        self, skat, agent, owner, table_id
+        self, invite, skat, agent, owner, table_id
     ):
         visitor = skat.member()
         skat.sit(visitor[0], table_id, 2)
         skat.client.cookies.clear()
-        offer = invite(skat, agent, table_id, owner)
+        offer = invite(agent, table_id, owner)
 
         with at_the_table(skat, table_id, owner) as (owner_messages,):
             answer = agent.accept(table_id, offer)
@@ -187,7 +189,7 @@ class TestAnInvitationIsAcceptedAtOnce:
         assert table_id in skat.store.last_played_at
 
     def test_an_accept_while_a_games_result_is_pending_counts_the_agent_ready_and_deals_when_all_are(
-        self, skat, agent, owner, table_id
+        self, invite, skat, agent, owner, table_id
     ):
         visitor, third = skat.member(), skat.member()
         skat.sit(visitor[0], table_id, 2)
@@ -195,7 +197,7 @@ class TestAnInvitationIsAcceptedAtOnce:
         skat.client.cookies.clear()
         skat.store.tables[table_id] = after_the_first_game(skat.store.tables[table_id], 1, 2)
         skat.store.tables[table_id] = _with_the_third_chair_free(skat.store.tables[table_id])
-        offer = invite(skat, agent, table_id, owner)
+        offer = invite(agent, table_id, owner)
 
         with at_the_table(skat, table_id, owner, visitor):
             answer = agent.accept(table_id, offer)
@@ -222,7 +224,7 @@ def _with_the_third_chair_free(table):
 
 
 class TestAnAcceptThatIsStale:
-    """Nothing changes: not the table, and the invitation stays open."""
+    """An accept that no longer matches an open invitation is refused as stale."""
 
     @pytest.mark.parametrize(
         "changes",
@@ -233,8 +235,8 @@ class TestAnAcceptThatIsStale:
             pytest.param({"epoch": -1}, id="malformed-arguments"),
         ],
     )
-    def test_when_the_arguments_do_not_name_the_open_invitation(self, skat, agent, owner, table_id, changes):
-        offer = invite(skat, agent, table_id, owner)
+    def test_when_the_arguments_do_not_name_the_open_invitation(self, invite, skat, agent, owner, table_id, changes):
+        offer = invite(agent, table_id, owner)
         before = stored(skat)
 
         with at_the_table(skat, table_id, owner):
@@ -244,8 +246,8 @@ class TestAnAcceptThatIsStale:
         assert stored(skat) == before
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
-    def test_twice(self, skat, agent, owner, table_id):
-        offer = invite(skat, agent, table_id, owner)
+    def test_when_it_comes_a_second_time_after_seating(self, invite, skat, agent, owner, table_id):
+        offer = invite(agent, table_id, owner)
         with at_the_table(skat, table_id, owner):
             agent.accept(table_id, offer)
             again = agent.accept(table_id, offer)
@@ -254,21 +256,21 @@ class TestAnAcceptThatIsStale:
         assert chairs_of(skat, table_id)[1] == ("Mozart", "agent")
 
     def test_after_the_expiry_on_the_services_clock_and_a_new_invitation_then_works(
-        self, skat, time, agent, owner, table_id
+        self, invite, skat, time, agent, owner, table_id
     ):
-        offer = invite(skat, agent, table_id, owner)
+        offer = invite(agent, table_id, owner)
         skat.client.portal.call(time.advance, INVITATION_SECONDS)
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer)
         listed = standing_of(agent)
-        fresh = invite(skat, agent, table_id, owner)
+        fresh = invite(agent, table_id, owner)
 
         assert (answer.is_error, answer.json(), listed) == (True, STALE, [])
         assert fresh.id != offer.id
 
-    def test_when_another_agent_or_a_person_accepts(self, skat, issuer, agent, owner, table_id):
-        offer = invite(skat, agent, table_id, owner)
+    def test_when_another_agent_or_a_person_accepts(self, invite, skat, issuer, agent, owner, table_id):
+        offer = invite(agent, table_id, owner)
         before = stored(skat)
         other = Agent(skat, issuer, OTHER_AGENT_SUBJECT, agent_owner=owner[1].id, agent_name="Bach")
         person = a_person(skat, issuer)
@@ -279,8 +281,10 @@ class TestAnAcceptThatIsStale:
         assert [(answer.is_error, answer.json()) for answer in answers] == [(True, STALE)] * 2
         assert stored(skat) == before
 
-    def test_when_the_owner_of_the_token_is_not_the_owner_of_the_invitation(self, skat, issuer, agent, owner, table_id):
-        offer = invite(skat, agent, table_id, owner)
+    def test_when_the_owner_of_the_token_is_not_the_owner_of_the_invitation(
+        self, invite, skat, issuer, agent, owner, table_id
+    ):
+        offer = invite(agent, table_id, owner)
         deputy = Agent(skat, issuer, agent.subject, agent_owner=skat.member()[1].id)
 
         with at_the_table(skat, table_id, owner):
@@ -288,8 +292,8 @@ class TestAnAcceptThatIsStale:
 
         assert (answer.is_error, answer.json()) == (True, STALE)
 
-    def test_when_the_agent_sat_down_by_the_link_before_it_accepted(self, skat, agent, owner, table_id):
-        offer = invite(skat, agent, table_id, owner)
+    def test_when_the_agent_sat_down_by_the_link_before_it_accepted(self, invite, skat, agent, owner, table_id):
+        offer = invite(agent, table_id, owner)
         agent.sit_down(table_id, 3)
 
         with at_the_table(skat, table_id, owner):
@@ -307,11 +311,11 @@ class TestAnAcceptThatIsStale:
 class TestAnAcceptRefusedAndTheInvitationEnds:
     @pytest.mark.parametrize("seated_and_away", [False, True], ids=["owner-left-the-table", "owner-seated-but-away"])
     def test_sponsor_away_without_a_stream_of_the_owner_on_the_table(
-        self, skat, agent, owner, table_id, seated_and_away
+        self, invite, skat, agent, owner, table_id, seated_and_away
     ):
         if not seated_and_away:
             skat.stand(owner[0], table_id)
-        offer = invite(skat, agent, table_id, owner)
+        offer = invite(agent, table_id, owner)
         before = skat.store.tables[table_id]
 
         answer = agent.accept(table_id, offer)
@@ -320,11 +324,11 @@ class TestAnAcceptRefusedAndTheInvitationEnds:
         assert skat.store.tables[table_id] == before
         assert standing_of(agent) == []
 
-    def test_busy_when_no_chair_is_free(self, skat, agent, owner, table_id):
+    def test_busy_when_no_chair_is_free(self, invite, skat, agent, owner, table_id):
         for seat in (2, 3):
             skat.sit(skat.member()[0], table_id, seat)
         skat.client.cookies.clear()
-        offer = invite(skat, agent, table_id, owner)
+        offer = invite(agent, table_id, owner)
         before = skat.store.tables[table_id]
 
         with at_the_table(skat, table_id, owner):
@@ -351,11 +355,11 @@ class TestTheStandingFollowsTheChair:
         assert standing_of(agent) == []
 
     def test_the_end_of_the_table_leaves_an_invited_agent_told_and_with_no_table(
-        self, skat, time, agent, owner, table_id
+        self, invite, skat, time, agent, owner, table_id
     ):
         skat.stand(owner[0], table_id)
         skat.client.cookies.clear()
-        invite(skat, agent, table_id, owner)
+        invite(agent, table_id, owner)
 
         with agent.listening() as frames:
             for _ in range(DEFAULT_EMPTY_TABLE_SECONDS // (LEASE_SECONDS - 1) + 1):
@@ -375,8 +379,10 @@ class TestTheStandingFollowsTheChair:
 
 
 class TestAFailingStore:
-    def test_fails_the_accept_loud_with_the_fronts_fixed_failure(self, skat, agent, owner, table_id, monkeypatch):
-        offer = invite(skat, agent, table_id, owner)
+    def test_fails_the_accept_loud_with_the_fronts_fixed_failure(
+        self, invite, skat, agent, owner, table_id, monkeypatch
+    ):
+        offer = invite(agent, table_id, owner)
 
         def fail(*_):
             raise ConnectionError("lost the store")
