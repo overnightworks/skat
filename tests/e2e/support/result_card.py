@@ -19,6 +19,7 @@ MINUS = chr(0x2212)
 WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
 TIMES = chr(0x00D7)
 CARD = ".result"
+CHAIR = ".room .chair"
 
 
 def loosely(*parts: str) -> re.Pattern[str]:
@@ -40,3 +41,11 @@ def expect_the_page_around_the_card(people: list[Page]) -> None:
         viewport = person.viewport_size
         assert viewport is not None
         assert bar["y"] + bar["height"] <= viewport["height"]
+        plates = person.locator(f"{CHAIR} .plate")
+        expect(plates).to_have_count(3)
+        for index, plate in enumerate(plates.all()):
+            plate_box = plate.bounding_box()
+            assert plate_box is not None
+            # The first two chairs stand above the card, the third above the bar; each plate hangs below its chair.
+            edge = card["y"] if index < 2 else bar["y"]
+            assert plate_box["y"] + plate_box["height"] <= edge

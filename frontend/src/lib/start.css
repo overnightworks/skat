@@ -2886,13 +2886,16 @@ body {
         --chair-width: 88px;
     }
 
+    /* A plate hangs 12 px below its chair; 14 px keeps the far plates clear of the card and the near one clear of the bar. */
     .room .stage:has(> .result) .controls {
-        margin-top: 0;
+        margin-top: 14px;
     }
 
-    .room .result {
-        gap: 4px;
-        margin: 0;
+    /* A snug card (three levels or an overbid) sets its own gap and padding above, so the packing names it too. */
+    .room .result,
+    .room .result.snug {
+        gap: 3px;
+        margin: 14px 0 0;
         padding: 8px 14px;
     }
 
@@ -2909,7 +2912,7 @@ body {
     }
 
     .room .result .ladder > span {
-        height: 24px;
+        height: 22px;
     }
 }
 
@@ -2963,7 +2966,7 @@ body {
 /* Declared after the base card: both set its padding at the same specificity, so the packing must come later to apply. */
 @media (max-width: 899px) and (max-height: 780px) {
     .room .result .reck {
-        padding: 8px 4px;
+        padding: 6px 4px;
     }
 }
 
