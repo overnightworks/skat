@@ -107,6 +107,17 @@ class TestTheStandingIsAResource:
         assert person.listed_resources() == []
         assert answer.json()["error"]["message"] == "Unknown resource"
 
+    def test_a_token_without_agent_facts_for_a_stored_agent_lists_nothing_and_reads_an_unknown_resource(
+        self, skat, issuer, agent
+    ):
+        agent.admitted()
+        person_token = Agent(skat, issuer, agent.subject, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
+
+        answer = person_token.request("resources/read", {"uri": STANDING_URI})
+
+        assert person_token.listed_resources() == []
+        assert answer.json()["error"]["message"] == "Unknown resource"
+
     def test_another_agent_reads_a_standing_that_holds_none_of_the_first_agents_tables(
         self, invite, skat, issuer, agent, owner, table_id
     ):

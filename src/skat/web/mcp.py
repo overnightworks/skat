@@ -8,6 +8,7 @@ arguments are the agents library's and not a route's body; the front also serves
 """
 
 import warnings
+from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
@@ -117,8 +118,13 @@ READ_RULE_SETS_MARK: Final = agent_tool(name=READ_RULE_SETS_TOOL, effect=ToolEff
 SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
+# Whether the admitted call's token carries the agent facts; the port that lists and reads resources is given only the
+# account, and a stored agent's account also holds a token without them, which is a person's.
+token_carries_agent_facts: Final[ContextVar[bool]] = ContextVar("token_carries_agent_facts", default=False)
+
+
 class _LeaseRenewingFront:
-    """The front, after it renews the lease of the agent whose call the gate admitted.
+    """The front, after it renews the lease of the agent whose call the gate admitted and tells what its token carries.
 
     Every call that reaches here counts, a refusal by the front included: only the token's holder can make one. The
     routes a tool calls in-process do not pass through here, so a request renews once. A person's token renews
@@ -131,9 +137,14 @@ class _LeaseRenewingFront:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         person = resource_person(HTTPConnection(scope))
-        if person.agent is not None:
+        carries_agent_facts = person.agent is not None
+        if carries_agent_facts:
             self._renew_lease(person.id)
-        await self._front(scope, receive, send)
+        marker = token_carries_agent_facts.set(carries_agent_facts)
+        try:
+            await self._front(scope, receive, send)
+        finally:
+            token_carries_agent_facts.reset(marker)
 
 
 @dataclass(frozen=True)

@@ -255,7 +255,7 @@ def create_app(
         sign_in_stores.transaction,
         settings.public_origin,
         presence.renew_lease,
-        member_front(tables, presence, changes, sign_in_stores.transaction),
+        member_front(tables, presence, changes),
     )
     app.state.mcp_front = mcp.front
     _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)
