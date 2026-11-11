@@ -109,12 +109,7 @@ def _add_play_card(router: APIRouter, tables: TableService, presence: Presence) 
             command_id=body.command_id, table_id=table_id, version=body.version, card=card_of(body)
         )
         return await command_answer(
-            partial(
-                tables.play_card,
-                actor_of(request),
-                command,
-                on_hand_ended=partial(presence.restart_leaves, table_id),
-            ),
+            partial(tables.play_card, actor_of(request), command),
             presence,
             table_id,
             response,
@@ -145,12 +140,7 @@ def _add_give_up(router: APIRouter, tables: TableService, presence: Presence) ->
         """
         command = GiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
-            partial(
-                tables.give_up,
-                actor_of(request),
-                command,
-                on_hand_ended=partial(presence.restart_leaves, table_id),
-            ),
+            partial(tables.give_up, actor_of(request), command),
             presence,
             table_id,
             response,
@@ -178,12 +168,7 @@ def _add_agree_to_give_up(router: APIRouter, tables: TableService, presence: Pre
         """
         command = AgreeToGiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
-            partial(
-                tables.agree_to_give_up,
-                actor_of(request),
-                command,
-                on_hand_ended=partial(presence.restart_leaves, table_id),
-            ),
+            partial(tables.agree_to_give_up, actor_of(request), command),
             presence,
             table_id,
             response,
@@ -237,12 +222,7 @@ def _add_throw_down(router: APIRouter, tables: TableService, presence: Presence)
         """
         command = ThrowDownCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
-            partial(
-                tables.throw_down,
-                actor_of(request),
-                command,
-                on_hand_ended=partial(presence.restart_leaves, table_id),
-            ),
+            partial(tables.throw_down, actor_of(request), command),
             presence,
             table_id,
             response,

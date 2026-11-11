@@ -11,9 +11,9 @@ if TYPE_CHECKING:
 
 LEGAL_ORIGIN = "https://hallucinai.de"
 LEGAL_LINKS = {
-    "Impressum": f"{LEGAL_ORIGIN}/impressum#skat",
-    "Datenschutz": f"{LEGAL_ORIGIN}/datenschutz#skat",
-    "Nutzungsbedingungen": f"{LEGAL_ORIGIN}/nutzungsbedingungen#skat",
+    "legalImprint": f"{LEGAL_ORIGIN}/impressum#skat",
+    "legalPrivacy": f"{LEGAL_ORIGIN}/datenschutz#skat",
+    "legalTerms": f"{LEGAL_ORIGIN}/nutzungsbedingungen#skat",
 }
 ISSUER_END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
 ACCOUNT_AVATAR = ".account-button"
