@@ -1,8 +1,0 @@
-claim_id = "1f27845d567d4cebbc9b7ef964c5d093"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "bb41d7fced64f5ec56d5196e4824c0404a682e96"
-branch = "claude/issue-314-send-away"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/table/auction.py", "src/skat/table/awaiting.py", "src/skat/table/game_list.py", "src/skat/table/kontra.py", "src/skat/table/member_place.py", "src/skat/table/playing.py", "src/skat/table/pushing.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/send_away.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/mcp.py", "src/skat/web/seating.py", "src/skat/web/tables.py", "tests/store", "tests/support", "tests/table", "tests/web"]
-opened_commit = "d4cf7265cf5fdf5b2eff503d5d375c8a710b6314"
-whole_reason = "The send-away decision, the freeze that keeps the hand and the game list honest while a chair is open, the answers that say the hand waits and the book write that takes the place from the agent's standing are one contract: a send-away without them leaves a table that lies or a place the agent can retake."
