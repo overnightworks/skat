@@ -17,7 +17,8 @@ from skat.table.records import (
     Series,
     TableId,
 )
-from skat.table.service import OccupiedChair, TableService
+from skat.table.service import TableService
+from skat.table.transactions import OccupiedChair
 from skat.table.views import paused_entry_of
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import a_whole_game, after_the_first_game, declared_herz_hand, table_in

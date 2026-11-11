@@ -12,3 +12,13 @@ reason = "S13.3b2 wires the first-card deadline: `decline`, `awaits_words` and `
 path = "src/skat/engine/schieberamsch.py"
 item = "overnightworks/skat#39"
 reason = "S13.4d lets each seat take or push the skat through the API."
+
+[[code]]
+path = "src/skat/table/member_place.py"
+item = "overnightworks/skat#315"
+reason = "K3 calls an agent to a table: `decide_invite` with its request, refusal and invitation id."
+
+[[code]]
+path = "src/skat/table/service.py"
+item = "overnightworks/skat#315"
+reason = "K3 calls an agent to a table: `TableService.invite_agent`."
