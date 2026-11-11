@@ -49,6 +49,7 @@ body.solo .frame{border-radius:0;border:0}
     repeating-linear-gradient(90deg,rgba(255,225,190,.03) 0 1px,transparent 1px 88px),
     linear-gradient(180deg,#22170f 0%,#170f0a 55%,#0e0907 100%);}
 .p390{width:390px;height:844px}
+.p360{width:360px;height:780px}
 .d1280{width:1280px;height:800px}
 .frame > *{position:absolute}
 
@@ -120,8 +121,9 @@ body.solo .frame{border-radius:0;border:0}
 .seat.sm .plate{padding:2px 10px 3px;border-radius:6px}
 .seat.sm .plate b{font-size:12px}
 .seat.sm .plate small{font-size:9.5px}
-.ai-badge{border:1.5px solid var(--accent-stage);border-radius:999px;padding:0 5px;font-size:.62rem;line-height:13px;font-weight:600;letter-spacing:.04em;color:var(--accent-stage)}
-.plate .ai-badge{border-color:#1d3566;color:#1d3566}
+/* the kit's AiMark, fixed size and always „AI“; it takes the colour of its place */
+.ai-mark{display:inline-flex;align-items:center;flex:none;padding:0 5px;border:1.5px solid currentColor;border-radius:999px;font-size:.6rem;font-weight:750;letter-spacing:.04em;line-height:1.5;color:var(--accent-stage)}
+.plate .ai-mark{color:#1d3566}
 /* the beer coaster at each seat holds the running score */
 .coaster{position:absolute;z-index:9;width:var(--cs,50px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;transform:rotate(var(--cr,-8deg));
   background:radial-gradient(circle,transparent 62%,rgba(45,107,79,.55) 63% 66%,transparent 67%),
@@ -267,7 +269,7 @@ body.solo .frame{border-radius:0;border:0}
 .reck.agent .dot{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
 .reck .dot svg{width:17px;height:17px}
 .reck .nm{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
-.reck .nm .ai-badge{border-color:#1d3566;color:#1d3566}
+.reck .nm .ai-mark{color:#1d3566}
 .reck .dl{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:#1f7a4d}
 .reck .dl.minus{color:#6b6f78}
 .reck .tot{font-size:12px;font-weight:600;color:#5b606a;font-variant-numeric:tabular-nums}
@@ -400,6 +402,8 @@ body.key .frame .orb .think.mo{--k:.4s}
 .notice{transform:translate(-50%,-50%);z-index:20;display:flex;align-items:center;gap:8px;height:40px;padding:0 16px 0 7px;border-radius:999px;background:var(--cream);color:var(--ink);
   font-size:16px;font-weight:700;white-space:nowrap;box-shadow:0 10px 22px -6px rgba(0,0,0,.8)}
 .notice .dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:13px}
+.notice .dot.agent{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
+.notice .dot svg{width:16px;height:16px}
 /* one panel for a question to the whole table and for a table that has ended */
 .scrim{inset:0;background:rgba(8,9,11,.62)}
 .result.closed{gap:16px;padding:22px 20px 18px}
@@ -557,6 +561,59 @@ body.solo section.shot .rule{display:none}
 .badge{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;background:var(--accent-stage);color:var(--stage);
   font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--stage)}
 </style>
+<style>
+/* ---------- playing with my agent: the Agenten pill in the strip, the kit's list in a popover, the bell, the open chair ---------- */
+.cb.agents .ai-mark,.cb.wide.agents .ai-mark{color:inherit}
+.cb.agents.on,.cb.wide.glass.agents.on{background:var(--on-stage);color:var(--stage)}
+.pill-anchor{position:relative;display:inline-flex}
+.p390 .sbar.above{bottom:106px;padding:0 14px;background:none}
+.d1280 .sbar.above{bottom:92px}
+/* the popover: dark glass hanging on its pill, caret over the pill's centre; the kit's own tokens inside */
+.agents-pop{position:absolute;z-index:60;bottom:calc(100% + 10px);left:var(--pl,0);width:var(--pw,300px);padding:6px 0 2px;border-radius:12px;white-space:normal;text-align:left;
+  background:rgba(17,17,17,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),0 18px 36px -10px rgba(0,0,0,.9);
+  --text:#e0e0e0;--text-muted:#888;--border:#333;--surface-hover:#1a1a1a;--fail:#ff4444;--fail-soft:#3a1a1a}
+.agents-pop::after{content:"";position:absolute;left:var(--caret,50%);bottom:-6px;width:10px;height:10px;margin-left:-5px;rotate:45deg;background:rgb(17,17,17);
+  border-right:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14)}
+.p390 .agents-pop{--pw:300px}
+.d1280 .agents-pop{--pw:320px}
+/* the kit's AgentControl, as it ships (AgentControl.svelte), scoped to its own element */
+.agent-control{padding-bottom:4px;color:var(--text);font-family:var(--font-body);font-size:14px}
+.agent-control ul{margin:0;padding:0;list-style-type:none}
+.agent-control .agent{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 8px 0 14px}
+.agent-control .agent > .ai-mark{color:var(--text-muted)}
+.agent-control .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-control .act{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px 0 10px;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--text);font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+.agent-control .act svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--text-muted)}
+.agent-control .pending{display:inline-flex;align-items:center;gap:8px;padding-right:6px;color:var(--text-muted);font-size:13px;white-space:nowrap}
+.agent-control .dots{display:inline-flex;align-items:center;gap:4px}
+.agent-control .dots i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}
+.agent-control .banner{display:flex;gap:10px;align-items:flex-start;margin:6px 14px 4px;padding:10px 12px;border:1px solid var(--fail);border-left-width:3px;border-radius:4px;background:var(--fail-soft);font-size:13.5px;text-align:left;color:var(--text)}
+.agent-control .fail-shape{margin-top:3px;display:inline-flex;color:var(--fail)}
+.agent-control .fail-shape i{width:12px;height:12px;flex:none;display:inline-block;background:var(--fail);clip-path:polygon(50% 0%,100% 100%,0% 100%)}
+.agent-control .empty{margin:0;padding:10px 14px 12px;color:var(--text-muted);font-size:13.5px;line-height:1.4}
+/* a phone is a coarse pointer: the kit's touch rule, 44 px rows and a larger hit area */
+.p390 .agent-control .agent{min-height:44px}
+.p390 .agent-control .act::after{content:"";position:absolute;inset:-6px -2px}
+@media (prefers-reduced-motion:no-preference){
+  .agent-control .dots i{animation:hop 1.2s ease-in-out infinite}
+  .agent-control .dots i:nth-child(2){animation-delay:.12s}
+  .agent-control .dots i:nth-child(3){animation-delay:.24s}
+  .mark.shaken > svg.mo{animation:shake .8s ease-in-out .5s both;transform-origin:50% 22%}
+  @keyframes shake{0%,100%{rotate:0deg}20%{rotate:-16deg}40%{rotate:14deg}60%{rotate:-9deg}80%{rotate:5deg}}
+}
+/* the bell: a glass circle with an accent ring while it may be tapped, inside a 44 px tap area; with a tick once nudged */
+.mark.bell{top:-8px;right:auto;left:-8px;width:28px;height:28px;padding:0;justify-content:center;background:rgba(12,14,17,.86);color:var(--on-stage);backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5),0 4px 10px -4px rgba(0,0,0,.7)}
+.mark.bell svg{width:17px;height:17px}
+.mark.bell[role=button]{box-shadow:0 0 0 2px var(--accent-stage),0 4px 10px -4px rgba(0,0,0,.7);cursor:pointer}
+.mark.bell[role=button]::after{content:"";position:absolute;inset:-8px}
+.mark.bell i{position:absolute;right:-5px;bottom:-5px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:var(--ok-stage);color:#0D1013;box-shadow:0 0 0 2px var(--stage)}
+.mark.bell i svg{width:9px;height:9px}
+.mark.shaken::before,.mark.shaken::after{content:"";position:absolute;top:6px;width:6px;height:16px;border:2px solid var(--accent-stage);border-radius:50%}
+.mark.shaken::before{left:-10px;border-right:0}
+.mark.shaken::after{right:-10px;border-left:0}
+.cb.bell{box-shadow:inset 0 0 0 2px var(--accent-stage)}
+.result.closed .line{font-size:15px;line-height:1.4;font-weight:400;color:var(--on-stage-soft);text-align:center}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -615,6 +672,8 @@ const I={
   chev:sv('<path d="M6 9l6 6 6-6"/>',2.2),
   trophy:sv('<path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 20h8"/>',2.2),
 };
+/* the kit's AiMark: no words, always „AI“ */
+const aiMark=()=>'<span class="ai-mark">AI</span>';
 const P={
   felix:{n:'Du',i:'F',c:['#6fd3bd','#2f8f7d'],v:['#2c4646','#172326'],l:['#2a5a52','#13302b'],hair:'short',glasses:true},
   anna:{n:'Anna',i:'A',c:['#c2a8f5','#7c5cd6'],v:['#3a3350','#1d1a29'],l:['#553a6e','#2a1b38'],hair:'long'},
@@ -671,7 +730,7 @@ function seat(k,o){
   if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
   else if(o.video) inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}">${silhouette(p)}</div>`;
   else inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}"></div><div class="av" style="${dotStyle(p)}">${p.i}</div>`;
-  const plate=`<span class="plate"><b>${p.n}${p.agent?'<span class="ai-badge">KI</span>':''}</b>${p.sub&&!o.short?`<small>${p.sub}</small>`:''}</span>`;
+  const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b>${p.sub&&!o.short?`<small>${p.sub}</small>`:''}</span>`;
   return `<div class="${cls}" style="${at({left:o.x,top:o.y,width:o.w,height:o.h,position:o.inline?'relative':undefined,'--l1':p.l[0],'--l2':p.l[1]})}">
     <div class="chair ${o.got?'mo':''}" style="${o.got?`--k:${o.got}`:''}"><div class="tile ${p.agent?'agent':''}">${inner}</div></div>${marks.map(m=>MARK[m]).join('')}${o.plate===false?'':plate}</div>`;
 }
@@ -702,7 +761,7 @@ const gameLine=(s,name,extra='')=>`<div class="game">${s?`<span class="suit">${s
 const points=(d,o,pw)=>`<div class="points" style="--pw:${pw}px"><div class="nums"><span class="d">Anna ${d}</span><span class="o">Wir ${o}</span></div>
   <div class="track"><div class="fd" style="width:${(d/120*100).toFixed(1)}%"></div><div class="fo" style="width:${(o/120*100).toFixed(1)}%"></div><span class="t61"></span></div></div>`;
 const plaque=(cx,y,inner)=>`<div class="plaque" style="${at({left:cx,top:y})}">${inner}</div>`;
-const tag=(k,cls='',st='')=>{const p=P[k];return `<span class="tag ${p.agent?'agent':''} ${cls}" style="${st}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${p.n}${p.agent?'<span class="ai-badge">KI</span>':''}</span>`;};
+const tag=(k,cls='',st='')=>{const p=P[k];return `<span class="tag ${p.agent?'agent':''} ${cls}" style="${st}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${p.n}${p.agent?aiMark():''}</span>`;};
 /* a played card lies toward its player; fresh = just played; sweep = on its way to the winner */
 function played(r,s,k,o){
   const sw=o.sweep;
@@ -753,7 +812,7 @@ const DESK_HAND={w:96,rot:1.2,arc:.7,bottom:98,cx:640,strip:{base:58,no:50,ok:78
 const PB={
   table:{x:8,y:118,w:374,h:492,tr:150,rim:12,ry:'47%',rs:150},
   anna:{x:10,y:50,w:120,h:94,sm:true}, nova:{x:260,y:50,w:120,h:94,sm:true}, you:{x:142,y:496,w:106,h:84,sm:true},
-  coasters:[[100,112,34,-10],[256,112,34,8],[254,538,34,-6]],
+  coasters:[[100,112,34,-10],[256,112,34,8],[254,538,34,-6]],cx:195,fans:[80,310],
 };
 /* on the phone the near chair steps back to leave the card room for the reckoning */
 const BACK=72;
@@ -767,7 +826,7 @@ const homeButton=(d,badge)=>{const mark=badge?`<span class="badge" aria-hidden="
   return d?`<span class="cb wide glass home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}Lobby${mark}</span>`
           :`<span class="cb home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}${mark}</span>`;};
 const pbRoom=(o)=>table({...PB.table,thud:o.thud})+(o.glow||'')+(o.call===false?'':people(4,12,8)+watchers(296,4,[['ben',56,40]]))
-  +fan(o.left,{x:80,y:168,w:26,rot:150,spread:6,dim:o.annaOut,deal:o.deal&&150})+fan(o.left,{x:310,y:168,w:26,rot:210,spread:6,dim:o.novaOut,deal:o.deal&&150,d0:.1});
+  +fan(o.left,{x:PB.fans[0],y:168,w:26,rot:150,spread:6,dim:o.annaOut,deal:o.deal&&150})+fan(o.left,{x:PB.fans[1],y:168,w:26,rot:210,spread:6,dim:o.novaOut,deal:o.deal&&150,d0:.1});
 const pbSeats=(o)=>seat('anna',{...PB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...PB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
   +seat('felix',{...(o.layout||PB).you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
   +chairCoasters(o.layout||PB,o.score);
@@ -878,7 +937,7 @@ const calcRows=(o,compact=false)=>{
   const list=`<div class="list"><b>${o.names[0]}</b><span>Spiel ${signed(r.final)}</span><span>Liste ${c.won?'+':'−'}${LIST_BONUS}</span><span>= ${signed(r.total)}</span>${c.won?'':`<span>· ${o.names[1]} je +${LIST_SHARE}</span>`}</div>`;
   return chips+eq+raise+(compact?'':value)+list;
 };
-const reck=(k,dl,win)=>{const p=P[k];return `<div class="reck ${p.agent?'agent':''} ${win?'win':''}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span><span class="nm">${p.n}${p.agent?'<span class="ai-badge">KI</span>':''}</span>${dl}</div>`;};
+const reck=(k,dl,win)=>{const p=P[k];return `<div class="reck ${p.agent?'agent':''} ${win?'win':''}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span><span class="nm">${p.n}${p.agent?aiMark():''}</span>${dl}</div>`;};
 const CALL_END={declarer:'anna',adds:[-122,40,40],game:'Kreuz',names:['Anna','Wir'],calc:{suit:'c',base:12,mit:true,count:1,steps:['Spiel','Schneider'],won:false}};
 const result=(x,y,w,pw)=>`<div class="result" style="${at({left:x,top:y,width:w})}">
   <h3>Gewonnen!</h3>
@@ -993,6 +1052,10 @@ const IDEAS=[
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-button, giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
+  ['🤖','Agenten rufen','Die Pille „AI“ in Skats Leiste öffnet die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht weder Pille noch Zeile. (#315)','agents-strip, agents-strip-word, agents-list, agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
+  ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','seat-open, seat-open-bid, seat-open-watch, seat-open-ask, seat-open-took, seat-open-back, lobby-seat-open (start.html)'],
+  ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-strip, nudge-sent, nudge-mine'],
+  ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
@@ -1017,14 +1080,15 @@ const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'id
 const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
 const watching=(n,d)=>`${homeButton(d,homeBadge)}<div class="tag-glass" title="Zuschauer" style="${at(d?{right:20,top:14}:{right:12,top:8})}">${I.eye}<span>${n}</span></div>`;
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
-const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
+const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot ${P[who].agent?'agent':''}" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
 const tableBar=(desk,o={})=>{
   const wide=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
   const round=(cls,icon,label)=>`<span class="cb ${cls}" role="button" title="${label}" aria-label="${label}">${icon}</span>`;
   const copy=desk||!o.seated?wide('glass',I.link,'Link kopieren'):round('',I.link,'Link kopieren');
+  const stand=o.seated?(o.roundStand&&!desk?round('',I.stand,'Aufstehen'):wide('glass',I.stand,'Aufstehen')):'';
   const close=o.opener?(desk?wide('leave',I.power,'Tisch schließen'):round('leave',I.power,'Tisch schließen')):'';
-  return `<div class="sbar">${o.seated?wide('glass',I.stand,'Aufstehen'):''}${copy}${close}</div>`;};
-const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3><div class="btns">${o.buttons}</div></div>`;
+  return `<div class="sbar${o.above?' above':''}">${stand}${o.bell||''}${o.pill||''}${copy}${close}</div>`;};
+const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3>${o.line?`<p class="line">${o.line}</p>`:''}<div class="btns">${o.buttons}</div></div>`;
 const NEW_TABLE=`<span class="button button-stage">${I.plus}Neuer Tisch</span>`;
 const CONFIRM=`<span class="button button-leave">${I.power}Schließen</span><span class="button button-glass">Abbrechen</span>`;
 const emptyChair=(pos,k,cr)=>`<div class="chair empty" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h,'--l1':P[k].l[0],'--l2':P[k].l[1],'--cr':`${cr}deg`})}"></div>`;
@@ -1106,8 +1170,8 @@ scenes(DEAL_SCENES);
 const annaTurn=(d)=>d?glow(300,270,220,260):glow(90,190,190,110);
 const nearTurn=(d)=>d?glow(187,632,300,200):yourTurn(d);
 const sideFans=(d,left,right,o={})=>(d?fan(left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.dim})+fan(right,{x:1012,y:282,w:42,rot:270,spread:6,dim:o.dimRight})
-  :fan(left,{x:80,y:168,w:26,rot:150,spread:6,dim:o.dim})+fan(right,{x:310,y:168,w:26,rot:210,spread:6,dim:o.dimRight}));
-const nearFan=(d,n)=>d?fan(n,{x:370,y:590,w:42,rot:45,spread:6}):fan(n,{x:195,y:476,w:26,rot:0,spread:6});
+  :fan(left,{x:PB.fans[0],y:168,w:26,rot:150,spread:6,dim:o.dim})+fan(right,{x:PB.fans[1],y:168,w:26,rot:210,spread:6,dim:o.dimRight}));
+const nearFan=(d,n)=>d?fan(n,{x:370,y:590,w:42,rot:45,spread:6}):fan(n,{x:PB.cx,y:PB.you.y-20,w:26,rot:0,spread:6});
 const cardsAt=(n,x,y)=>cardCount(x,y).replace('<span>10</span>',`<span>${n}</span>`);
 const leftCount=(d,n)=>d?cardsAt(n,268,340):cardsAt(n,26,200);
 const skatStep=(d,word)=>plaque(d?640:195,d?98:176,`<div class="game">Reizwert 20</div><div class="game">Anna ${word}${waitDots()}</div>`);
@@ -1334,7 +1398,7 @@ const seriesPlay=(d,count)=>room(d,{left:8,glow:yourTurn(d)})+count
 /* the standings: place, name, games won and lost as declarer, final total; the winner on top */
 const rankRow=([k,place,total,won,lost,gone],short)=>{const p=P[k];
   return `<div class="rank ${place===1?'win':''} ${gone?'gone':''}"><span class="place">${place}</span><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>`
-    +`<span class="txt"><b>${p.n}${p.agent?'<span class="ai-badge">KI</span>':''}${gone?'<em>gegangen</em>':''}</b>${short?'':`<small>${won} gewonnen · ${lost} verloren</small>`}</span><span class="sum">${withMinus(total)}</span></div>`;};
+    +`<span class="txt"><b>${p.n}${p.agent?aiMark():''}${gone?'<em>gegangen</em>':''}</b>${short?'':`<small>${won} gewonnen · ${lost} verloren</small>`}</span><span class="sum">${withMinus(total)}</span></div>`;};
 const standings=(d,o)=>`<div class="result standing" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
   <h3>${I.trophy}Serie zu Ende</h3><div class="sub">${SERIES} Spiele</div><div class="ranks">${o.rows.map(r=>rankRow(r,o.short)).join('')}</div></div>`;
 const seriesSeats=(d,o)=>chairsOf(d,o.near).map(([k,pos])=>seat(k,{...pos,marks:[o.ready.includes(k)?'ready':'notTapped'],win:o.winners.includes(k)})).join('')
@@ -1525,6 +1589,199 @@ const RULES_SCENES=[
 scenes(RULES_SCENES);
 ORDER.push(...RULES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
+/* ===== playing with my agent at the table: calling it, its open chair, the nudge, the vote ===== */
+Object.assign(I,{
+  bell:sv('<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 1.5h-15z"/><path d="M10 21.2a2.2 2.2 0 0 0 4 0"/>',1.9),
+  stop:sv('<rect x="6" y="6" width="12" height="12" rx="3" fill="currentColor"/>',2),
+});
+P.lenaSelf={...P.lena,n:'Du'};
+P.annaSelf={...P.anna,n:'Du'};
+/* the bell: a button while it may be tapped, a mark with a tick once nudged, and the one that shakes on the nudged person's own chair */
+MARK.bell=`<span class="mark bell" role="button" tabindex="0" title="Nova anstupsen" aria-label="Nova anstupsen">${I.bell}</span>`;
+MARK.belled=`<span class="mark bell belled" title="Angestupst">${I.bell}<i>${I.check}</i></span>`;
+MARK.shaken=MARK.belled.replace('mark bell belled','mark bell belled shaken').replace('<svg','<svg class="mo" style="--k:.16s"');
+
+/* the 360 frame: the phone's geometry narrowed by 30 px and shortened by 64, so the strip's crowding is drawn at its real width */
+const PHONE_360={PB:{table:{...PB.table,w:344,h:428},nova:{...PB.nova,x:230},you:{...PB.you,x:127,y:PB.you.y-64},
+  coasters:[PB.coasters[0],[226,112,34,8],[239,474,34,-6]],cx:180,fans:[80,280]},hand:{cx:180}};
+function withPhone360(draw){
+  const kept=[{...PB},{...PHONE_HAND}];
+  Object.assign(PB,PHONE_360.PB);Object.assign(PHONE_HAND,PHONE_360.hand);
+  try{return draw();}finally{Object.assign(PB,kept[0]);Object.assign(PHONE_HAND,kept[1]);}
+}
+const mid=(d)=>d?640:PB.cx;
+const plaqueY=(d)=>d?98:176;
+const seatsOf=(d)=>d?DB:PB;
+const slotAt=(d,slot)=>d?slot:{...slot,x:slot.x-(195-PB.cx)};
+const centred=(d,html)=>d?html:html.replace('left:195px',`left:${PB.cx}px`);
+const turnGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,560,240,120);
+const novaGlow=(d)=>d?glow(980,270,220,260):glow(PB.cx+105,190,190,110);
+
+/* the trigger: a round glass pill with the AI mark on a phone, a wide one with its word at 1280; the list hangs on it */
+const agentPill=(d,o={})=>{
+  const state=`${o.open?'on':''}" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="${!!o.open}`;
+  const pill=d||o.word?`<span class="cb wide glass agents ${state}">${aiMark()}Agenten</span>`
+    :`<span class="cb agents ${state}" title="Agenten" aria-label="Agenten">${aiMark()}</span>`;
+  return `<span class="pill-anchor">${pill}${o.panel||''}</span>`;
+};
+/* the kit's AgentControl markup and words (ruled in the design stylesheet); the dots carry the picture's frozen moment */
+const AGENT_DOTS=`<span class="dots" aria-hidden="true">${[.36,.24,.12].map(k=>`<i class="mo" style="--k:${k}s"></i>`).join('')}</span>`;
+const AGENT_ACT={
+  available:(name)=>`<button class="act" type="button" aria-label="${name} rufen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Rufen</button>`,
+  inviting:()=>`<span class="pending" role="status">${AGENT_DOTS}Wird gerufen…</span>`,
+  here:(name)=>`<button class="act" type="button" aria-label="${name} bitten zu gehen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9 16l-4-4 4-4M5 12h10" /></svg>Bitten zu gehen</button>`,
+};
+const AGENT_REFUSALS={
+  'not-allowed':'Du darfst diesen Agenten nicht rufen.','owner-absent':'Sein Besitzer ist nicht hier.','place-full':'Hier ist kein Platz für einen weiteren Agenten.',
+  'agent-unavailable':'Der Agent ist gerade nicht erreichbar.','try-again':'Das hat nicht geklappt. Versuch es noch einmal.',
+};
+const agentPanel=(rows,o={})=>`<div class="agents-pop" role="dialog" aria-label="Agenten"><div class="agent-control">${
+  o.refusal?`<div class="banner" role="alert"><span class="fail-shape"><i></i></span><span>${AGENT_REFUSALS[o.refusal]}</span></div>`:''}${
+  rows.length?`<ul>${rows.map(([name,state])=>`<li class="agent">${aiMark()}<span class="name">${name}</span>${AGENT_ACT[state](name)}</li>`).join('')}</ul>`
+    :'<p class="empty">Gerade ist kein Agent erreichbar.</p>'}</div></div>`;
+const NOVA_CALLABLE=[['Nova','available']],NOVA_HERE=[['Nova','here']];
+
+/* Skat's strip: Aufstehen (or what takes its place), the bell, the pill, the link and, for the opener, the close button */
+const stripOf=(d,o={})=>{
+  const bar=tableBar(d,{seated:true,opener:o.opener,pill:o.pill,bell:o.bell,roundStand:o.roundStand,above:o.above});
+  return o.lead===undefined?bar:bar.replace(STAND_UP,o.lead);
+};
+const ABORT=barKey('glass',I.stop,'Abbrechen');
+const NUDGE=`<span class="cb bell" role="button" tabindex="0" title="Nova anstupsen" aria-label="Nova anstupsen">${I.bell}</span>`;
+
+/* the table of Felix and Anna with Nova's chair free, before any hand */
+const tableOf=(d,o={})=>room(d,{left:o.fans||0,call:false,glow:o.glow})+watching(o.watchers||1,d)+(o.count?centred(d,seriesCount(d,8)):'');
+const idleTable=(d,bar,extra='')=>{const L=seatsOf(d);
+  return tableOf(d)+waiting(mid(d),plaqueY(d))+seat('anna',L.anna)+freeSeat(L.nova,{idle:true})+seat('felix',L.you)+extra+bar;};
+const callerBar=(d,pill)=>stripOf(d,{opener:true,pill});
+const AT_TABLE='Felix sitzt an seinem Tisch zwischen den Spielen';
+
+/* a hand of Kreuz in play, Felix's view: Anna declared and led the ♠ king, Nova has the next card; coasters are the series totals */
+const FELIX_HAND=PLAY_HAND.map(([r,s])=>[r,s]);
+const SPARE_HAND=[['B','d'],['A','c'],['K','c'],['10','s'],['D','s'],['8','s'],['D','h'],['A','d']];
+const SPARE_FOLLOWING=SPARE_HAND.map(([r,s])=>[r,s,s==='s'?'ok':'no']);
+const lead=(d,k,slot,drop=0,aside=0)=>{const at_=TRICK_SLOT[slot](d);return played('K','s',k,slotAt(d,{...at_,x:at_.x-(d?0:aside),y:at_.y+(d?0:drop)}));};
+const answered=(d)=>played('7','s','nova',slotAt(d,TRICK_SLOT.right(d)));
+const kreuz=(d,extra='')=>plaque(mid(d),extra?belowFansY(d):plaqueY(d),gameLine('c','Kreuz')+extra);
+/* two lines on the phone's plaque would cover the fans, so it steps down below them and the trick with it */
+const belowFansY=(d)=>d?plaqueY(d):FANS_CLEAR;
+const DROP_TRICK=36;
+const WAIT_LINE=`<div class="game">Warte auf Mitspieler${waitDots()}</div>`;
+
+/* Nova's chair is free in a running hand: the cards of its fan wait beside it, the score stays on its coaster, nobody holds the turn */
+const OPEN_NOTICE='Nova ist gegangen';
+const openNotice=(d)=>notice(OPEN_NOTICE,'nova',mid(d),d?432:462);
+const openChair=(d,o={})=>{const L=seatsOf(d),near=o.viewer==='lena'?seat('felixSeen',L.you):seat('felix',L.you);
+  return tableOf(d,{fans:o.fans||8,count:true,watchers:o.watchers})+(o.plaque||kreuz(d,WAIT_LINE))+(o.trick??lead(d,'anna','left',DROP_TRICK,o.viewer==='lena'?10:0))
+    +seat('anna',{...L.anna,marks:['decl']})+freeSeat(L.nova,{idle:o.viewer!=='lena'})+near+chairCoasters(L,TOTALS_BEFORE);};
+const ownCards=(d,cards=FELIX_HAND)=>ownHand(d,cards);
+
+/* a watcher's view of the open chair: Anna and Felix seated, the chair with its plus, the backs of the cards beside every chair */
+const watchOpen=(d)=>openChair(d,{viewer:'lena',watchers:2})+nearFan(d,8)+tableBar(d);
+/* Lena sat down: her view turns, so Nova's old seat is the near one; Felix is on her left, Anna on her right */
+const lenaSits=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,watchers:2,glow:turnGlow(d)})+kreuz(d)+played('K','s','anna',slotAt(d,TRICK_SLOT.right(d)))
+    +seat('felixSeen',L.anna)+seat('anna',{...L.nova,marks:['decl']})+seat('lenaSelf',{...L.you,marks:['turn']})+chairCoasters(L,[TOTALS_BEFORE[2],TOTALS_BEFORE[0],TOTALS_BEFORE[1]])
+    +ownCards(d,SPARE_FOLLOWING)+stripOf(d,{lead:GIVE_UP});};
+const sitQuestion=(d)=>watchOpen(d)+'<div class="scrim"></div>'+panel({x:mid(d),y:d?220:270,w:d?460:340,role:'dialog',icon:I.plus,text:'Mitten ins Spiel setzen?',
+  line:'Du spielst Novas Karten bis zum Ende dieses Spiels.',buttons:`<span class="button button-stage">${I.plus}Hinsetzen</span><span class="button button-glass">Abbrechen</span>`});
+
+/* the vote to end the hand while a chair is free */
+const ANSWER_ABORT=`<div class="answers"><span class="button button-stage" role="button">${I.check}Abbrechen</span><span class="button button-glass" role="button">${I.cross}Warten</span></div>`;
+const askingAnna=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true})+askPlaque(d,`${faceDot('felix')}Felix will abbrechen`,ANSWER_ABORT,FANS_CLEAR)+played('K','s','anna',slotAt(d,TRICK_SLOT.near(d)))
+    +freeSeat(L.anna,{idle:true})+seat('felixSeen',L.nova)+seat('annaSelf',{...L.you,marks:['decl']})+chairCoasters(L,[TOTALS_BEFORE[1],TOTALS_BEFORE[2],TOTALS_BEFORE[0]])
+    +ownCards(d,SPARE_HAND)+stripOf(d,{lead:''});};
+const AWAITING_ANNA=`${faceDot('anna')}Warte auf Anna${waitDots()}`;
+
+const NUDGE_NOTE='Die Glocke steht erst, wenn der Tisch eine Minute auf diesen Stuhl gewartet hat; jeder Sitzende außer dem Erwarteten sieht sie, ein Zuschauer nicht.';
+/* Nova has been thinking for over a minute: the table waits for her seat; the marks are the bell (top left) and „denkt“ (top right) */
+const waitingForNova=(d,o={})=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,glow:novaGlow(d)})+kreuz(d)+lead(d,'anna','left')
+    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',{...L.nova,marks:['turn','think',...(o.bell?[o.bell]:[])]})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
+    +ownCards(d)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d),bell:o.strip?NUDGE:''});};
+const nudgedFelix=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)+notice('Anna stupst dich an','anna',mid(d),d?432:440)
+    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn','shaken']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)});};
+
+const CHOICE_1='Zeile 1 (Agenten-Knopf auf dem Handy)';
+const AGENT_SCENES=[
+  ['agents-strip','Agenten: die Leiste',[360,390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d))),
+    [`${AT_TABLE}; die Leiste trägt „Aufstehen“, die runde AI-Pille, den Link und „Tisch schließen“. Am Rechner steht „Agenten“ neben dem Zeichen. Gezählt: 326 von 332 Pixeln bei 360.`],
+    `${CHOICE_1}, Antwort A: auf dem Handy nur das Zeichen`],
+  ['agents-strip-word','Agenten: die Leiste mit Wort',[360,390],(d)=>idleTable(d,stripOf(d,{opener:true,pill:agentPill(d,{word:true}),roundStand:true})),
+    ['Dasselbe mit „Agenten“ ausgeschrieben und „Aufstehen“ rund. Gezählt: 311 von 332 Pixeln bei 360; „Aufstehen“ steht dann ohne Wort.'],
+    `${CHOICE_1}, Antwort B: „Agenten“ mit Wort, „Aufstehen“ rund`],
+  ['agents-list','Agenten: die Liste',[390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel(NOVA_CALLABLE)}))),
+    ['Felix öffnet die Pille: die Zeile „Nova“ mit „Rufen“, der freie Platz wartet.']],
+  ['agents-calling','Agenten: wird gerufen',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel([['Nova','inviting']])}))),
+    ['Felix rief: „Wird gerufen…“ in seiner Liste, ohne Zählung; der Stuhl zeigt noch nichts, und kein anderer am Tisch sieht den Ruf.']],
+  ['agents-here','Agenten: Nova setzt sich',[390,1280],(d)=>{const L=seatsOf(d);
+    return tableOf(d)+plaque(mid(d),plaqueY(d),`<div class="game">Karten kommen${waitDots()}</div>`)+deck(d)+seat('anna',L.anna)+seat('nova',{...L.nova,got:'.6s;--d:.25s'})+seat('felix',L.you)
+      +notice('Nova setzt sich','nova',mid(d),d?522:462)+callerBar(d,agentPill(d));},
+    ['Nova setzt sich: die Kugel, „Nova AI · Agent von Felix“ und der Hinweis „Nova setzt sich“; danach kommen die Karten.']],
+  ['agents-refused','Agenten: abgelehnt',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel(NOVA_CALLABLE,{refusal:'try-again'})}))),
+    ['Der Ruf ging fehl: das Banner des Kits „Das hat nicht geklappt. Versuch es noch einmal.“ über der Zeile, die wieder „Rufen“ sagt; die anderen vier Gründe sehen genauso aus, mit ihrem eigenen Satz.']],
+  ['agents-empty','Agenten: keiner erreichbar',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel([])}))),
+    ['Niemand ist zu rufen: die Pille bleibt, die Liste sagt „Gerade ist kein Agent erreichbar.“']],
+  ['agents-framed','Agenten im Anruf',[390,1280],(d)=>room(d,{left:8,glow:novaGlow(d)})+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
+    +seats(d,{video:true,anna:['decl'],nova:['turn','think'],score:TOTALS_BEFORE})+ownHand(d,FELIX_HAND,{bottom:d?170:164})+callBar(d)
+    +stripOf(d,{lead:GIVE_UP,pill:agentPill(d),above:true}),
+    ['Im Anruf steht die Pille am selben Platz in Skats Leiste über der Leiste des Anrufs; die Hand rückt um eine Leiste nach oben.']],
+  ['agents-leave','Agenten: bitten zu gehen',[390,1280],(d)=>{const L=seatsOf(d);
+    return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
+      +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
+      +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d,{open:true,panel:agentPanel(NOVA_HERE)})});},
+    ['Mitten im Spiel öffnet Felix die Pille: Novas Zeile sagt „Bitten zu gehen“. Anna hat kein Recht an Nova, keine Zeile und darum keine Pille: ihre Leiste ist die von giveup-button.']],
+  ['seat-open','Freier Platz im Spiel',[390,1280],(d)=>openChair(d)+openNotice(d)+ownCards(d)+stripOf(d,{lead:'',pill:agentPill(d)}),
+    ['Nova ist gegangen: ihr Stuhl ist frei, ihre Karten warten daneben, „Kreuz · Warte auf Mitspieler“, niemand ist dran, „Aufgeben“ fehlt; der Hinweis „Nova ist gegangen“.']],
+  ['seat-open-bid','Freier Platz beim Reizen',[390],(d)=>openChair(d,{fans:10,plaque:plaque(mid(d),belowFansY(d),`<div class="game">Reizen</div>${WAIT_LINE}`),trick:d?skat(584,190,80):skat(PB.cx-41,340,52)})
+    +ownCards(d,BID_HAND)+stripOf(d,{lead:'',pill:agentPill(d)}),
+    ['Dasselbe beim Reizen: „Reizen · Warte auf Mitspieler“, keine Reiztasten.']],
+  ['seat-open-watch','Freier Platz, Zuschauen',[360,390,1280],watchOpen,
+    ['Lena schaut zu: dieselbe Tafel, das Plus auf dem freien Stuhl neben seinen Karten, keine Karte von irgendwem zu sehen.']],
+  ['seat-open-ask','Freier Platz: Frage',[390,1280],sitQuestion,
+    ['Lena tippt auf das Plus: „Mitten ins Spiel setzen?“ mit „Du spielst Novas Karten bis zum Ende dieses Spiels.“ und „Hinsetzen“, „Abbrechen“. Wer sich so setzt, kann erst nach dem Spiel aufstehen.'],
+    'Zeile 2, Antwort A: eine kurze Frage vor dem Hinsetzen; bei Antwort B entfällt dieses Bild, und ein Tipp auf das Plus setzt sofort'],
+  ['seat-open-took','Freier Platz: gesetzt',[390,1280],lenaSits,
+    ['Lena sitzt: Novas Karten sind ihre Hand, ihr Stuhl sagt „Du“, sie ist dran, die spielbaren Karten leuchten. Ihre Sicht dreht sich: ihr Stuhl ist jetzt der untere, Felix links, Anna rechts.']],
+  ['seat-open-back','Freier Platz: besetzt',[390],(d)=>{const L=seatsOf(d);
+    return tableOf(d,{fans:8,count:true})+kreuz(d)+lead(d,'anna','left',16)+notice('Lena spielt weiter','lena',mid(d),d?170:250)
+      +seat('anna',{...L.anna,marks:['decl']})+seat('lena',{...L.nova,marks:['turn'],got:'.6s;--d:.25s'})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
+      +ownCards(d)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)});},
+    ['Felix sieht Lenas Stuhl sich füllen und den Hinweis „Lena spielt weiter“; das Spiel bewegt sich wieder.']],
+  ['abort-offer','Abbrechen: das Angebot',[390,1280],(d)=>openChair(d)+ownCards(d)+stripOf(d,{lead:ABORT,pill:agentPill(d)}),
+    ['Solange der Stuhl frei ist, bietet Felix’ Leiste „Abbrechen“ mit einem Stopp-Quadrat neben der Pille und dem Link; ein zweiter Tipp binnen drei Sekunden schickt es, wie „Aufgeben“.']],
+  ['abort-asked','Abbrechen: die Frage',[390,1280],askingAnna,
+    ['Anna sieht „Felix will abbrechen“ mit „Abbrechen“ und „Warten“; der Stuhl links ist Novas freier. Annas Sicht: ihr Stuhl unten, Felix rechts.']],
+  ['abort-waits','Abbrechen: Warten',[390,1280],(d)=>{const L=seatsOf(d);
+    return tableOf(d,{fans:8,count:true})+askPlaque(d,AWAITING_ANNA,'',FANS_CLEAR)+lead(d,'anna','left',DROP_TRICK)
+      +seat('anna',{...L.anna,marks:['decl','unanswered']})+freeSeat(L.nova,{idle:true})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
+      +ownCards(d)+stripOf(d,{lead:'',pill:agentPill(d)});},
+    ['Felix sieht „Warte auf Anna“ und die Marke „noch keine Antwort“ an Annas Stuhl; seine Taste ist weg, sein Vorschlag steht.']],
+  ['abort-done','Abbrechen: Spiel abgebrochen',[390],(d)=>{const L=seatsOf(d);
+    return tableOf(d,{count:true})+plaque(mid(d),plaqueY(d),`<div class="game">Spiel abgebrochen</div>${WAIT_LINE}`)
+      +seat('anna',L.anna)+freeSeat(L.nova,{idle:true})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
+      +stripOf(d,{pill:agentPill(d)});},
+    ['Beide waren einverstanden: der Filz ist leer, „Spiel abgebrochen“; der Stuhl bleibt frei, bis wieder drei sitzen, und „Aufstehen“ ist zurück.']],
+  ['nudge-chair','Anstupsen: die Glocke am Stuhl',[360,390,1280],(d)=>waitingForNova(d,{bell:'bell'}),
+    [`Nova denkt schon über eine Minute: eine Glocke an ihrem Stuhl, für Anna und Felix. ${NUDGE_NOTE}`],
+    'Zeilen 3 und 4, Antwort A: die Glocke am wartenden Stuhl, nach einer Minute; bei 4 B stünde sie vom Zug an'],
+  ['nudge-strip','Anstupsen: die Glocke in der Leiste',[360,390],(d)=>waitingForNova(d,{strip:true}),
+    ['Dieselbe Glocke als runder Knopf in der Leiste neben „Aufgeben“, der Pille und dem Link; gezählt: 320 von 332 Pixeln bei 360.'],
+    'Zeile 3, Antwort B: die Glocke in der Leiste statt am Stuhl'],
+  ['nudge-sent','Anstupsen: angestupst',[390,1280],(d)=>waitingForNova(d,{bell:'belled'}),
+    ['Anna tippte: die Glocke ruht mit einem Haken an Novas Stuhl, für alle am Tisch, und „denkt“ bewegt sich wieder.']],
+  ['nudge-mine','Anstupsen: du wirst angestupst',[390,1280],nudgedFelix,
+    ['Felix wird angestupst: die Glocke an seinem eigenen Stuhl wackelt einmal, „Anna stupst dich an“ steht über seiner Hand, und er ist dran.']],
+];
+const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes,choice])=>widths.forEach(w=>{
+  const desk=w===1280,html=w===360?withPhone360(()=>draw(false)):draw(desk);
+  frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,choice?[...notes,`Entwurf zur Wahl: ${choice}.`]:notes);
+  ORDER.push(`${id}-${w}`);}));
+agentScenes(AGENT_SCENES);
+
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
 const HOME_SCENES=[
   ['home-badge','Lobby mit Zahl',withBadge((d)=>rulePlay(d,{chips:ANNAS_RULES,plaque:runningPoints}),1),
@@ -1537,6 +1794,13 @@ document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
 if(solo){document.body.classList.add('solo');document.getElementById(solo).closest('section').classList.add('on');}
 if(q.has('key'))document.body.classList.add('key');
+/* the list hangs on its pill: centred over it, never closer than 16 px to the frame's edge, the caret over the pill's centre; only the shown frames are touched */
+const lists=[...(solo?document.getElementById(solo):document).querySelectorAll('.agents-pop')];
+const hangLists=()=>lists.forEach(pop=>{
+  const f=pop.closest('.frame').getBoundingClientRect(),a=pop.parentElement.firstElementChild.getBoundingClientRect(),w=pop.offsetWidth,centre=a.left-f.left+a.width/2;
+  const left=Math.min(Math.max(centre-w/2,16),f.width-16-w);
+  pop.style.setProperty('--pl',`${left-(a.left-f.left)}px`);pop.style.setProperty('--caret',`${centre-left}px`);});
+if(lists.length){hangLists();document.fonts.ready.then(hangLists);}
 document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{const f=b.closest('section').querySelector('.frame');f.replaceWith(f.cloneNode(true));}));
 </script>
 <style>
