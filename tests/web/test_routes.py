@@ -4,13 +4,17 @@ from fastapi.testclient import TestClient
 
 from skat.web.constants import APP_ASSET_PATH, HEALTH_PATH, HOME_PATH
 from skat.web.routes import create_router
-from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
+from skat.web.sign_in import build_sign_in_configs
+from tests.support.in_memory_stores import in_memory_stores
+from tests.support.page_build import fixture_page_build
 
 
 @pytest.fixture
-def client():
+def client(sign_in_settings):
     application = FastAPI()
-    application.include_router(create_router(fixture_page_build()))
+    sessions = in_memory_stores().sessions
+    web_auth = build_sign_in_configs(sign_in_settings().settings).web_auth
+    application.include_router(create_router(fixture_page_build(), sessions, web_auth))
     return TestClient(application)
 
 
@@ -26,8 +30,8 @@ class TestHomePage:
         response = client.get(HOME_PATH)
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/html")
-        assert response.content == (FIXTURE_DIRECTORY / "index.html").read_bytes()
-        assert response.headers["etag"] == fixture_page_build().shell.etag
+        assert response.content == fixture_page_build().shell_in("de").content
+        assert response.headers["etag"] == fixture_page_build().shell_in("de").etag
 
 
 class TestAppAssets:
