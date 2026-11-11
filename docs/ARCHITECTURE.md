@@ -140,7 +140,7 @@ Unit tests cover the logic and webauth's wiring through a test client with a fak
 
 ## 6. Constraints and reasons
 
-- Skat's markup holds no inline script, `<style>`, `style=` or `on*=` attribute: the page runs under webauth's content security policy, which admits only the SvelteKit bootstrap scripts of the shell and of the call sign-in page, and the route announcer's style, by hash.
+- Skat's markup holds no inline script, `<style>`, `style=` or `on*=` attribute: the page runs under webauth's content security policy, which admits only the SvelteKit bootstrap scripts of the shell and of the call sign-in page, and the route announcer's style, by a hash that `PageBuild.load` reads from the built chunks (the server refuses to start when it finds none).
 - The plain sign-in pages are prerendered with `csr = false`, so they carry no script, and the page build refuses to start when one does; the call sign-in page alone runs a script, admitted by hash.
 - The Python path constants own the browser's paths, and `make wire` generates the TypeScript, so a drifting path fails `make wire-check` instead of showing at runtime.
 - The test issuer exists only in tests and is never wired into the production composition.

@@ -2,9 +2,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.web.page_build import PageBuild
+from skat.web.page_build import PageBuild, PageBuildMissingError
 from skat.web.secret_files import StartRefusedError
 from tests.support.page_build import (
+    ANNOUNCER_STYLE_HASH,
     CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
@@ -17,6 +18,17 @@ if TYPE_CHECKING:
 SIGN_IN_PAGES = ("login.html", "login-failed.html", "no-access.html")
 CALL_PAGE = "login/call.html"
 EMPTY_PAGE = "<html></html>"
+ANNOUNCER_STYLE = "position: absolute; width: 1px"
+CHUNKS = "_app/immutable/chunks"
+
+
+def announcer_chunk(style: str = ANNOUNCER_STYLE, attributes: str = 'aria-live="assertive"') -> str:
+    return f'var a=template(`<div id="svelte-announcer" {attributes} style="{style}"><!></div>`);'
+
+
+def write_chunk(root: Path, name: str, text: str) -> None:
+    (root / CHUNKS).mkdir(parents=True, exist_ok=True)
+    (root / CHUNKS / name).write_text(text, encoding="utf-8")
 
 
 def build_with_shell(root: Path, shell: str, sign_in_page: str = EMPTY_PAGE, call_page: str = EMPTY_PAGE) -> Path:
@@ -26,6 +38,7 @@ def build_with_shell(root: Path, shell: str, sign_in_page: str = EMPTY_PAGE, cal
     for name in SIGN_IN_PAGES:
         (root / name).write_text(sign_in_page, encoding="utf-8")
     (root / CALL_PAGE).write_text(call_page, encoding="utf-8")
+    write_chunk(root, "announcer.js", announcer_chunk())
     return root
 
 
@@ -35,6 +48,42 @@ class TestLoad:
 
         assert page_build.directory == FIXTURE_DIRECTORY
         assert page_build.script_hashes == (FIXTURE_SCRIPT_HASH, CALL_PAGE_SCRIPT_HASH)
+
+    def test_the_announcer_style_hash_is_the_known_one_of_the_fixture_chunk(self):
+        assert PageBuild.load(FIXTURE_DIRECTORY).announcer_style_hash == ANNOUNCER_STYLE_HASH
+
+    def test_the_announcer_style_hash_is_that_of_the_style_text_the_browser_sets(self, tmp_path):
+        root = build_with_shell(tmp_path, EMPTY_PAGE)
+        write_chunk(root, "announcer.js", announcer_chunk(style="content: &quot;a&quot; &amp; b"))
+
+        assert PageBuild.load(root).announcer_style_hash == "sha256-oAiM+JIjGn/N6JGc5nBesq1haQCNhQxjavjeTnBaAVw="
+
+    def test_the_same_announcer_style_in_two_chunks_loads(self, tmp_path):
+        root = build_with_shell(tmp_path, EMPTY_PAGE)
+        write_chunk(root, "other.js", announcer_chunk(attributes='aria-atomic="true"'))
+
+        assert PageBuild.load(root).announcer_style_hash == "sha256-xsTtEarutAcxswPJ7Dh39bdibYH5aZAiRSjgNKIUIyM="
+
+    def test_a_build_without_the_announcer_style_refuses_the_start_naming_the_announcer(self, tmp_path):
+        root = build_with_shell(tmp_path, EMPTY_PAGE)
+        (root / CHUNKS / "announcer.js").unlink()
+
+        with pytest.raises(PageBuildMissingError, match="announcer"):
+            PageBuild.load(root)
+
+    def test_an_announcer_whose_style_is_not_an_attribute_refuses_the_start(self, tmp_path):
+        root = build_with_shell(tmp_path, EMPTY_PAGE)
+        write_chunk(root, "announcer.js", 'var a=`<div id="svelte-announcer"></div>`;')
+
+        with pytest.raises(PageBuildMissingError, match="announcer"):
+            PageBuild.load(root)
+
+    def test_two_different_announcer_styles_refuse_the_start_naming_the_announcer(self, tmp_path):
+        root = build_with_shell(tmp_path, EMPTY_PAGE)
+        write_chunk(root, "other.js", announcer_chunk(style="width: 2px"))
+
+        with pytest.raises(PageBuildMissingError, match="announcer"):
+            PageBuild.load(root)
 
     @pytest.mark.parametrize(
         ("shell", "hashes"),

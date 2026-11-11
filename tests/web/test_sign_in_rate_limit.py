@@ -160,7 +160,7 @@ def exhausted_default(deployment) -> Deployment:
 
 
 class TestSignInBudget:
-    def test_twenty_complete_sign_ins_from_one_address_each_open_a_session(self, deployment):
+    def test_as_many_complete_sign_ins_as_the_window_allows_each_open_a_session(self, deployment):
         for _ in range(COMPLETE_SIGN_INS_IN_WINDOW):
             assert deployment.complete_sign_in(FIRST_ADDRESS) == HTTPStatus.SEE_OTHER
 
@@ -225,6 +225,7 @@ class TestExemptions:
         [
             ("POST", f"{BACKCHANNEL_LOGOUT_PATH}/"),
             ("POST", f"{BACKCHANNEL_LOGOUT_PATH}x"),
+            ("POST", BACKCHANNEL_LOGOUT_PATH.upper()),
             ("GET", f"{HEALTH_PATH}/"),
             ("GET", f"{HEALTH_PATH}x"),
         ],
@@ -235,7 +236,7 @@ class TestExemptions:
 
 
 class TestDefaultBudget:
-    def test_the_601st_request_in_a_minute_is_refused_and_the_next_minute_is_open(self, exhausted_default):
+    def test_the_request_past_the_default_budget_is_refused_and_the_next_window_is_open(self, exhausted_default):
         browser = exhausted_default.client()
         refused = browser.get(LOGIN_PATH)
         assert refused.status_code == HTTPStatus.TOO_MANY_REQUESTS

@@ -48,10 +48,6 @@ IMMUTABLE_ASSET_PATH_RULES = PathRules(
     )
 )
 
-# SvelteKit 3.1.0 writes this one inline style on its route announcer (src/runtime/components/root.svelte):
-# 'unsafe-hashes' with the hash of exactly that text admits it, and every other inline style stays refused.
-ANNOUNCER_STYLE_SOURCES = ("'unsafe-hashes'", "'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='")
-
 OIDC_CLIENT_ID = "skat"
 LOGIN_GROUP = "/apps/skat"
 OIDC_SCOPES = ("openid", "profile", "groups")

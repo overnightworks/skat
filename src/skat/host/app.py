@@ -26,7 +26,6 @@ from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
 from skat.web.constants import (
-    ANNOUNCER_STYLE_SOURCES,
     HEALTH_PATH,
     NO_CACHE_PATH_RULES,
     SIGN_IN_PATHS,
@@ -87,7 +86,9 @@ def _configure_logging() -> None:
 
 
 def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> str:
-    added_sources: dict[CspDirective, Sequence[str]] = {CspDirective.STYLE_SRC: ANNOUNCER_STYLE_SOURCES}
+    added_sources: dict[CspDirective, Sequence[str]] = {
+        CspDirective.STYLE_SRC: ("'unsafe-hashes'", f"'{page_build.announcer_style_hash}'")
+    }
     if call_origin is not None:
         added_sources[CspDirective.FRAME_ANCESTORS] = (call_origin,)
     return default_content_security_policy(page_build.script_hashes, added_sources=added_sources)
@@ -104,6 +105,7 @@ def _install_web_auth(
             cache_control_rules=(CacheControlRule(paths=NO_CACHE_PATH_RULES, value="no-cache"),),
         ),
         csrf_origin=CsrfPolicy(),
+        # /health is the edge's readiness probe.
         rate_limit=RateLimitPolicy(exempt=PathRules(exact=frozenset({HEALTH_PATH}))),
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
