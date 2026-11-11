@@ -1,25 +1,29 @@
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from skat.engine.deal import Position
 from skat.web.mcp import READ_PAUSED_TABLES_TOOL
 from skat.web.paused import PAUSED_TABLES_PATH
+from skat.web.settings import DEFAULT_PAUSED_TABLE_DAYS
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, seated_three
 from tests.web.support.playing import HERZ_GAME, Table
 from tests.web.support.series import headers_of, pass_the_hand_in
 from tests.web.support.skat import FETCH, NAVIGATION, AgentTable, Skat
 
+DEALT_AT = datetime(2026, 11, 1, 12, tzinfo=UTC)
+
 
 @pytest.fixture
 def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+    skat = Skat(lambda: hold, issuer_transports=issuer.transports, now=lambda: DEALT_AT)
     with skat.client:
         yield skat
 
 
-ENTRY_KEYS = {"id", "chairs", "game_number", "game_count", "turn_seat", "result_waits"}
+ENTRY_KEYS = {"id", "chairs", "game_number", "game_count", "turn_seat", "result_waits", "ends_at", "opener_name"}
 CHAIR_KEYS = {"seat", "occupant_name", "is_mine", "total"}
 
 
@@ -107,6 +111,39 @@ class TestWhoReadsWhich:
         assert all(set(chair) == CHAIR_KEYS for chair in entry["chairs"])
         assert not cards_in(entry)
         assert accounts.isdisjoint(str(entry))
+
+
+class TestTheEndAndTheOpener:
+    def test_an_entry_names_the_end_the_default_days_after_the_deal_in_utc_and_the_opener_as_written(self, skat):
+        table_id, people = seated_three(skat)
+        opener_name = table_chairs(skat, people[0][0], table_id)[0]["occupant_name"]
+
+        (entry,) = paused_of(skat, people[1][0])
+
+        ends_at = DEALT_AT + timedelta(days=DEFAULT_PAUSED_TABLE_DAYS)
+        assert entry["ends_at"] == ends_at.isoformat().replace("+00:00", "Z")
+        assert entry["opener_name"] == opener_name
+
+    def test_whoever_sits_down_after_the_opener_stood_up_reads_his_name_too(self, skat):
+        table = Table(skat)
+        anna, ben, cleo = headers_of(table)
+        opener_name = table_chairs(skat, anna, table.table_id)[0]["occupant_name"]
+        pass_the_hand_in(skat, table.table_id, [anna, ben, cleo])
+        assert skat.stand(anna, table.table_id, command_id="anna-stands").status_code == 200
+        assert skat.sit(table.watcher, table.table_id, 1, command_id="dora-sits").status_code == 200
+
+        (entry,) = paused_of(skat, table.watcher)
+
+        assert entry["opener_name"] == opener_name
+
+    def test_a_table_opened_before_the_name_was_kept_has_no_opener_name_and_still_an_end(self, skat):
+        table_id, people = seated_three(skat)
+        del skat.store.opener_names[table_id]
+
+        (entry,) = paused_of(skat, people[0][0])
+
+        assert entry["opener_name"] is None
+        assert entry["ends_at"] is not None
 
 
 class TestTheGateAndTheHeaders:

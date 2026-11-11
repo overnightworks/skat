@@ -1,4 +1,5 @@
 from dataclasses import asdict, replace
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -35,6 +36,15 @@ BEFORE_THE_DECLARATION = HandProgress(
 THREE_PASSES = HandProgress(auction=(Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND)))
 
 
+DAYS = 90
+LAST_PLAYED_AT = datetime(2026, 11, 1, 12, tzinfo=UTC)
+ENDS_AT = LAST_PLAYED_AT + timedelta(days=DAYS)
+
+
+def entry_of(table, viewer, ends_at=ENDS_AT, opener_name=None):
+    return paused_entry_of(table, viewer, ends_at, opener_name)
+
+
 def actor(account_id):
     return Actor(account_id=account_id, display_name=account_id)
 
@@ -49,8 +59,11 @@ def service(store):
     return TableService(store)
 
 
-def keep(store, table):
+def keep(store, table, last_played_at=LAST_PLAYED_AT, opener_name=None):
     store.tables[table.id.value] = table
+    store.last_played_at[table.id.value] = last_played_at
+    if opener_name is not None:
+        store.opener_names[table.id.value] = opener_name
     return table
 
 
@@ -70,14 +83,14 @@ class TestTheSeatWhoseMoveTheHandWaitsFor:
         ],
     )
     def test_names_the_speaker_the_declarer_or_the_player_on_turn(self, progress, turn_seat):
-        entry = paused_entry_of(table_in(progress), FOREHAND)
+        entry = entry_of(table_in(progress), FOREHAND)
 
         assert (entry.turn_seat, entry.result_waits) == (turn_seat, False)
 
     def test_names_the_next_player_in_the_middle_of_a_trick(self):
         declared = table_in(declared_herz_hand())
         first_card = a_whole_game(declared)[0]
-        entry = paused_entry_of(replace(declared, progress=replace(declared.progress, plays=(first_card,))), FOREHAND)
+        entry = entry_of(replace(declared, progress=replace(declared.progress, plays=(first_card,))), FOREHAND)
 
         assert entry.turn_seat == FIRST_CHAIR
 
@@ -87,25 +100,25 @@ class TestBetweenHands:
         table = after_the_first_game(table_in(HandProgress()))
         table = replace(table, series=Series(36, 1))
 
-        entry = paused_entry_of(table, MIDDLEHAND)
+        entry = entry_of(table, MIDDLEHAND)
 
         assert (entry.turn_seat, entry.result_waits) == (None, True)
         assert [chair.total for chair in entry.chairs] == [86, 0, 0]
 
     def test_a_passed_in_hand_waits_for_nobody(self):
-        entry = paused_entry_of(replace(table_in(THREE_PASSES), series=Series(36, 2)), MIDDLEHAND)
+        entry = entry_of(replace(table_in(THREE_PASSES), series=Series(36, 2)), MIDDLEHAND)
 
         assert (entry.turn_seat, entry.result_waits) == (None, False)
 
     def test_a_finished_series_stays_at_its_last_game_with_its_result_waiting(self):
         finished = replace(after_the_first_game(table_in(HandProgress())), series=Series(36, 36))
 
-        entry = paused_entry_of(finished, MIDDLEHAND)
+        entry = entry_of(finished, MIDDLEHAND)
 
         assert (entry.game_number, entry.game_count, entry.turn_seat, entry.result_waits) == (36, 36, None, True)
 
     def test_a_finished_series_whose_last_deal_was_passed_in_waits_for_no_result(self):
-        entry = paused_entry_of(replace(table_in(THREE_PASSES), series=Series(36, 36)), MIDDLEHAND)
+        entry = entry_of(replace(table_in(THREE_PASSES), series=Series(36, 36)), MIDDLEHAND)
 
         assert (entry.game_number, entry.game_count, entry.turn_seat, entry.result_waits) == (36, 36, None, False)
 
@@ -113,7 +126,7 @@ class TestBetweenHands:
 class TestTheEntry:
     def test_names_the_game_number_and_series_length_and_marks_only_the_readers_chair(self):
         table = replace(table_in(AUCTION_RUNS), series=Series(36, 1))
-        entry = paused_entry_of(table, REARHAND)
+        entry = entry_of(table, REARHAND)
 
         assert (entry.id, entry.game_number, entry.game_count) == (table.id.value, 1, 36)
         assert [(chair.seat, chair.occupant_name, chair.is_mine) for chair in entry.chairs] == [
@@ -123,7 +136,7 @@ class TestTheEntry:
         ]
 
     def test_a_table_without_a_series_has_no_game_number_and_no_series_length(self):
-        entry = paused_entry_of(table_in(AUCTION_RUNS), FOREHAND)
+        entry = entry_of(table_in(AUCTION_RUNS), FOREHAND)
 
         assert (entry.game_number, entry.game_count) == (None, None)
 
@@ -131,12 +144,21 @@ class TestTheEntry:
         table = table_in(AUCTION_RUNS)
         table = replace(table, chairs=(Chair(1, None), *table.chairs[1:]))
 
-        assert paused_entry_of(table, FOREHAND).chairs[0].occupant_name is None
+        assert entry_of(table, FOREHAND).chairs[0].occupant_name is None
 
     def test_carries_nothing_of_the_hand_nor_any_account(self):
-        entry = paused_entry_of(replace(table_in(declared_herz_hand()), series=Series(36, 1)), FOREHAND)
+        entry = entry_of(replace(table_in(declared_herz_hand()), series=Series(36, 1)), FOREHAND)
 
-        assert set(asdict(entry)) == {"id", "chairs", "game_number", "game_count", "turn_seat", "result_waits"}
+        assert set(asdict(entry)) == {
+            "id",
+            "chairs",
+            "game_number",
+            "game_count",
+            "turn_seat",
+            "result_waits",
+            "ends_at",
+            "opener_name",
+        }
         assert all(set(chair) == {"seat", "occupant_name", "is_mine", "total"} for chair in asdict(entry)["chairs"])
         assert {FOREHAND, MIDDLEHAND, REARHAND}.isdisjoint(str(asdict(entry)))
 
@@ -145,13 +167,13 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
     def test_a_holder_gets_the_dealt_table_and_a_stranger_gets_none(self, service, store):
         table = keep(store, table_in(AUCTION_RUNS))
 
-        assert [entry.id for entry in service.paused_tables(actor(FOREHAND))] == [table.id.value]
-        assert service.paused_tables(actor(STRANGER)) == ()
+        assert [entry.id for entry in service.paused_tables(actor(FOREHAND), DAYS)] == [table.id.value]
+        assert service.paused_tables(actor(STRANGER), DAYS) == ()
 
     def test_a_table_on_which_no_hand_was_dealt_is_not_listed(self, service, store):
         keep(store, replace(table_in(AUCTION_RUNS), dealer=None, hand=None))
 
-        assert service.paused_tables(actor(FOREHAND)) == ()
+        assert service.paused_tables(actor(FOREHAND), DAYS) == ()
 
     def test_lists_the_tables_in_id_order_and_leaves_the_undealt_one_out(self, service, store):
         later, earlier, undealt = (replace(table_in(AUCTION_RUNS), id=table_id) for table_id in OTHER_TABLE_IDS[::-1])
@@ -159,10 +181,42 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         keep(store, replace(undealt, dealer=None, hand=None, id=OTHER_TABLE_IDS[1]))
         keep(store, replace(earlier, id=OTHER_TABLE_IDS[0]))
 
-        assert [entry.id for entry in service.paused_tables(actor(FOREHAND))] == [
+        assert [entry.id for entry in service.paused_tables(actor(FOREHAND), DAYS)] == [
             OTHER_TABLE_IDS[0].value,
             OTHER_TABLE_IDS[2].value,
         ]
+
+    def test_lists_the_soonest_end_first_and_equal_ends_in_id_order(self, service, store):
+        for table_id, played in zip(
+            OTHER_TABLE_IDS,
+            (LAST_PLAYED_AT + timedelta(days=1), LAST_PLAYED_AT, LAST_PLAYED_AT + timedelta(days=1)),
+            strict=True,
+        ):
+            keep(store, replace(table_in(AUCTION_RUNS), id=table_id), played)
+
+        assert [entry.id for entry in service.paused_tables(actor(FOREHAND), DAYS)] == [
+            OTHER_TABLE_IDS[1].value,
+            OTHER_TABLE_IDS[0].value,
+            OTHER_TABLE_IDS[2].value,
+        ]
+
+    def test_the_end_is_the_last_played_time_plus_the_days_in_utc_and_the_title_the_stored_opener(self, service, store):
+        keep(store, table_in(AUCTION_RUNS), LAST_PLAYED_AT.astimezone(timezone(timedelta(hours=-5))), "Ben")
+
+        (entry,) = service.paused_tables(actor(FOREHAND), 10)
+
+        assert (entry.ends_at, entry.ends_at.utcoffset(), entry.opener_name) == (
+            LAST_PLAYED_AT + timedelta(days=10),
+            timedelta(0),
+            "Ben",
+        )
+
+    def test_a_table_stored_without_an_opener_name_has_none_and_still_an_end(self, service, store):
+        keep(store, table_in(AUCTION_RUNS))
+
+        (entry,) = service.paused_tables(actor(FOREHAND), DAYS)
+
+        assert (entry.opener_name, entry.ends_at) == (None, LAST_PLAYED_AT + timedelta(days=DAYS))
 
     def test_a_table_that_ended_after_the_chair_scan_is_skipped_without_an_error(self, store):
         class EndsAfterTheScan(FakeTableStore):
@@ -174,7 +228,7 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         racing = EndsAfterTheScan()
         keep(racing, table_in(AUCTION_RUNS))
 
-        assert TableService(racing).paused_tables(actor(FOREHAND)) == ()
+        assert TableService(racing).paused_tables(actor(FOREHAND), DAYS) == ()
 
     def test_a_table_whose_chair_changed_hands_after_the_scan_is_skipped_for_the_one_who_left(self):
         table_id = table_in(AUCTION_RUNS).id
@@ -186,8 +240,8 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         racing = ChairChangesAfterTheScan()
         keep(racing, table_in(AUCTION_RUNS))
 
-        assert TableService(racing).paused_tables(actor(STRANGER)) == ()
-        assert len(TableService(racing).paused_tables(actor(FOREHAND))) == 1
+        assert TableService(racing).paused_tables(actor(STRANGER), DAYS) == ()
+        assert len(TableService(racing).paused_tables(actor(FOREHAND), DAYS)) == 1
 
 
 class TestTablesHeldBy:

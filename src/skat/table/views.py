@@ -26,6 +26,7 @@ from skat.table.rules import hand_runs, series_over
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from datetime import datetime
 
     from skat.engine.cards import Card
     from skat.engine.deal import Deal, Position
@@ -277,7 +278,8 @@ class PausedEntryView:
 
     The game number and length are None for a table without a series; `turn_seat` is the seat whose move the running
     hand waits for, None between hands, and `result_waits` says a played game's result stands. It names no card, no
-    card count, no skat, no watcher and no account.
+    card count, no skat, no watcher and no account. `ends_at` is the instant the table ends, in UTC, and
+    `opener_name` the name its opener had when he opened it, None for a table opened before the name was kept.
     """
 
     id: str
@@ -286,6 +288,8 @@ class PausedEntryView:
     game_count: int | None
     turn_seat: int | None
     result_waits: bool
+    ends_at: datetime
+    opener_name: str | None
 
 
 def _turn_seat_of(hand: HandView | None) -> int | None:
@@ -299,7 +303,9 @@ def _turn_seat_of(hand: HandView | None) -> int | None:
     return hand.auction.turn_seat
 
 
-def paused_entry_of(table: TableRecord, viewer_account_id: str) -> PausedEntryView:
+def paused_entry_of(
+    table: TableRecord, viewer_account_id: str, ends_at: datetime, opener_name: str | None
+) -> PausedEntryView:
     """The table for the viewer as the paused list shows it, projected from the table view with nobody connected."""
     view = view_of(table, viewer_account_id, frozenset())
     return PausedEntryView(
@@ -311,4 +317,6 @@ def paused_entry_of(table: TableRecord, viewer_account_id: str) -> PausedEntryVi
         game_count=None if view.series is None else view.series.game_count,
         turn_seat=_turn_seat_of(view.hand),
         result_waits=view.result is not None,
+        ends_at=ends_at,
+        opener_name=opener_name,
     )
