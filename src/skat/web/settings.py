@@ -54,6 +54,12 @@ def _unset_when_empty(origin: object) -> object:
     return None if origin == "" else origin
 
 
+def _require_visible_text(text: str) -> str:
+    if not text.isprintable() or not text.strip():
+        raise ValueError("must be text with a visible character and no control character")
+    return text
+
+
 def _require_absolute_path(path: Path) -> Path:
     if not path.is_absolute():
         raise ValueError("must be an absolute path")
@@ -81,6 +87,8 @@ def _require_postgres_url_without_password(url: str) -> str:
 IssuerUrl = Annotated[str, AfterValidator(_require_no_trailing_slash)]
 OriginUrl = Annotated[str, AfterValidator(_require_browser_origin)]
 OptionalOriginUrl = Annotated[OriginUrl | None, BeforeValidator(_unset_when_empty)]
+VisibleText = Annotated[str, AfterValidator(_require_visible_text)]
+OptionalAccountId = Annotated[VisibleText | None, BeforeValidator(_unset_when_empty)]
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
 PasswordlessPostgresUrl = Annotated[str, AfterValidator(_require_postgres_url_without_password)]
 
@@ -93,6 +101,8 @@ class DatabaseSettings(BaseSettings):
 
     database_url: PasswordlessPostgresUrl = Field(repr=False)
     database_password_file: AbsolutePath = Field(repr=False)
+    # The account `skat migrate` installs the operator's rule set on; unset, no set is installed.
+    operator_account_id: OptionalAccountId = None
 
 
 class ServerSettings(DatabaseSettings):
