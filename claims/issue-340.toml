@@ -1,0 +1,7 @@
+claim_id = "dbd6c81de77143d9a6167ca348ca29e4"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "e60f64155ce986b464b909026091d57cd7274c66"
+branch = "claude/issue-340-lobby-picture"
+scope = ["docs/mockups/start.html", "docs/mockups/table.html"]
+opened_commit = "30036cdba9415ae54d69f26f826c08a46416eb1a"
