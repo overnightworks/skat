@@ -8,11 +8,23 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import TakeSkat
 from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
+from skat.table.game_list import GameEnding
 from skat.table.hand_state import playing_of
-from skat.table.playing import PlayCardCommand, card_payload, decide_card
+from skat.table.playing import (
+    AgreeToGiveUpCommand,
+    GiveUpCommand,
+    PlayCardCommand,
+    ThrowDownCommand,
+    card_payload,
+    decide_agree_to_give_up,
+    decide_card,
+    decide_give_up,
+    decide_throw_down,
+)
 from skat.table.records import (
     Actor,
     Chair,
+    GiveUpAsked,
     HandProgress,
     Occupant,
     OccupantKind,
@@ -22,7 +34,7 @@ from skat.table.records import (
     TableRecord,
     parsed_refusal,
 )
-from tests.support.played_game import before_the_last_card, declared_herz_hand
+from tests.support.played_game import a_whole_game, before_the_last_card, declared_herz_hand
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 TABLE_VERSION = 7
@@ -211,6 +223,59 @@ class TestTheLastCard:
 
         assert decision.table.game_list[0] == first
         assert len(decision.table.game_list) == 2
+
+
+def after_two_tricks(request):
+    """A declared table in which the declarer holds eight cards, with the request standing, if one is given."""
+    table = table_in(declared_herz_hand())
+    plays = a_whole_game(table)[:6]
+    return replace(table, progress=replace(table.progress, plays=plays, give_up=request))
+
+
+def seat_of(position):
+    return next(seat for seat, each in positions_from(2).items() if each is position)
+
+
+class TestTheEndingTheEntryRecords:
+    def test_a_card_that_ends_the_game_is_played_out_and_no_seat_ended_it(self):
+        table, last_actor, last_card = the_last_card_to_play()
+
+        entry = decide_card(table, last_actor, last_card).table.game_list[0]
+
+        assert (entry.ending, entry.ended_by_seat) == (GameEnding.PLAYED_OUT, None)
+
+    def test_the_declarer_s_give_up_with_ten_cards_names_him(self):
+        command = GiveUpCommand("command-1", table_id(), TABLE_VERSION)
+
+        entry = decide_give_up(table_in(declared_herz_hand()), actor("account-middlehand"), command).table.game_list[0]
+
+        assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, seat_of(MIDDLEHAND))
+
+    @pytest.mark.parametrize("answering", [FOREHAND, REARHAND], ids=lambda position: position.name)
+    def test_a_consented_give_up_names_the_asker_and_not_the_answering_opponent(self, answering):
+        table = after_two_tricks(GiveUpAsked(MIDDLEHAND))
+        command = AgreeToGiveUpCommand("command-1", table_id(), TABLE_VERSION)
+
+        entry = decide_agree_to_give_up(table, actor(f"account-{answering.name.lower()}"), command).table.game_list[0]
+
+        assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, seat_of(MIDDLEHAND))
+
+    def test_a_request_an_opponent_asked_names_the_asking_opponent(self):
+        table = after_two_tricks(GiveUpAsked(FOREHAND))
+        command = AgreeToGiveUpCommand("command-1", table_id(), TABLE_VERSION)
+
+        entry = decide_agree_to_give_up(table, actor("account-rearhand"), command).table.game_list[0]
+
+        assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, seat_of(FOREHAND))
+
+    @pytest.mark.parametrize("thrower", [MIDDLEHAND, FOREHAND, REARHAND], ids=lambda position: position.name)
+    def test_a_throw_down_names_the_seat_that_threw_down(self, thrower):
+        command = ThrowDownCommand("command-1", table_id(), TABLE_VERSION)
+
+        decision = decide_throw_down(table_in(declared_herz_hand()), actor(f"account-{thrower.name.lower()}"), command)
+
+        entry = decision.table.game_list[0]
+        assert (entry.ending, entry.ended_by_seat) == (GameEnding.THROWN_DOWN, seat_of(thrower))
 
 
 class TestParsedRefusal:
