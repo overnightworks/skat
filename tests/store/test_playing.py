@@ -11,6 +11,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
+from skat.table.game_list import GameEnding
 from skat.table.hand_state import playing_of
 from skat.table.playing import (
     AgreeToGiveUpCommand,
@@ -213,6 +214,76 @@ def test_a_card_clears_the_stored_request(game, engine):
 
     assert game.record.progress.give_up is None
     assert stored_request(engine) == (None, None)
+
+
+def race(*requests):
+    """Runs each request on a thread of its own and returns their results in the order given."""
+    results = [None] * len(requests)
+
+    def run(index, request):
+        results[index] = request()
+
+    threads = [threading.Thread(target=run, args=(index, request)) for index, request in enumerate(requests)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return results
+
+
+def seat_of(game, position):
+    """The seat whose chair holds the account that plays the position."""
+    account_id = game.actors[position].account_id
+    return next(chair.seat for chair in game.record.chairs if chair.occupant.account_id == account_id)
+
+
+def test_two_yes_answers_at_once_write_one_entry_naming_the_asker_and_the_loser_is_stale(game, transactions):
+    asked_with_eight_cards(game)
+    racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+    version = game.record.version
+
+    def agree(position, command_id):
+        command = AgreeToGiveUpCommand(command_id=command_id, table_id=game.table_id, version=version)
+        return lambda: racing.agree_to_give_up(game.actors[position], command, nobody_connected(), lambda _: None)
+
+    results = race(agree(Position.FOREHAND, "yes-forehand"), agree(Position.REARHAND, "yes-rearhand"))
+
+    assert sorted(str(result.refusal) for result in results) == sorted([str(None), str(Refusal.NO_HAND)])
+    assert [(entry.ending, entry.ended_by_seat) for entry in game.record.game_list] == [
+        (GameEnding.GIVEN_UP, seat_of(game, Position.MIDDLEHAND))
+    ]
+
+
+@pytest.mark.parametrize("started_first", ["card", "give-up"])
+def test_a_card_and_a_give_up_at_once_commit_only_the_winner_and_its_ending_matches_the_one_entry(
+    game, engine, transactions, started_first
+):
+    position, card = game.legal_card()
+    racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
+    version = game.record.version
+    command = GiveUpCommand(command_id="give-up", table_id=game.table_id, version=version)
+    requests = {
+        "card": lambda: game.send(position, card, command_id=card_id(1), version=version, service=racing),
+        "give-up": lambda: racing.give_up(
+            game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None
+        ),
+    }
+    order = sorted(requests, key=lambda name: name != started_first)
+
+    results = dict(zip(order, race(*(requests[name] for name in order)), strict=True))
+
+    committed = (
+        results["card"].refusal,
+        results["give-up"].refusal,
+        [(entry.ending, entry.ended_by_seat) for entry in game.record.game_list],
+        count_rows(engine),
+        game.record.version - version,
+    )
+    declarer_seat = seat_of(game, Position.MIDDLEHAND)
+    assert committed in [
+        (Refusal.NO_HAND, None, [(GameEnding.GIVEN_UP, declarer_seat)], 0, 1),
+        (None, Refusal.STALE_VERSION, [], 1, 1),
+    ]
 
 
 def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(game, engine, transactions):
