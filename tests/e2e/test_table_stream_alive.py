@@ -106,8 +106,9 @@ def test_a_page_that_met_a_502_while_skat_was_down_reconnects_by_itself(
 
     server.stop()
     deadline = time.monotonic() + EDGE_ANSWERED_SECONDS
+    # The sync API runs the page's routed requests only while it waits, so the wait is the page's own, not time.sleep.
     while behind_edge.edge.bad_gateways == 0 and time.monotonic() < deadline:
-        time.sleep(POLL_SECONDS)
+        person.wait_for_timeout(POLL_SECONDS * 1000)
     assert behind_edge.edge.bad_gateways >= 1, "the edge answered no 502 while Skat was down"
     expect(reconnecting_line(person)).to_be_visible(timeout=BACK_SECONDS)
     server.start()
