@@ -44,7 +44,7 @@ from tests.web.support.agent import Agent, person_passes, person_posts, view_uri
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import UNKNOWN_ID, FakeTime, Skat
+from tests.web.support.skat import UNKNOWN_ID, Skat
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 UNKNOWN = "Unknown resource"
@@ -87,11 +87,6 @@ def tap():
 @pytest.fixture
 def view_signal_through(tap):
     return tap.through
-
-
-@pytest.fixture
-def time():
-    return FakeTime()
 
 
 @pytest.fixture
@@ -326,8 +321,10 @@ class TestTheViewFollowsTheLease:
         table = forehand_auction
 
         with sdk.connected() as session, session.listening() as lapsed:
+            tap.told.clear()
             skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
             table.middlehand_bids()
+            assert tap.told == [(table.table_id, frozenset({agent_account(skat, agent)}))]
             a_standing_change(skat, agent, time)
 
             assert lapsed.next_uri() == STANDING_URI
@@ -340,7 +337,6 @@ class TestTheViewFollowsTheLease:
                 )
                 view = relistened.woken_view(table.table_id)
 
-        assert tap.told[0] == (table.table_id, frozenset({agent_account(skat, agent)}))
         assert (moved.is_error, view["revision"], view["awaits_you"]) == (False, table.record.version, False)
 
     @pytest.mark.parametrize("lease_runs", [True, False])
@@ -400,6 +396,38 @@ class TestTheWakeOfACommit:
         ]
         assert views[0]["hand"]["own_cards"] != views[1]["hand"]["own_cards"]
         assert [each.view(table_id)["awaits_you"] for each in (first, second)] == [False, True]
+
+
+class TestAPersonsMoveSignalsEachSeatedAgent:
+    @pytest.fixture
+    def pulses(self):
+        return []
+
+    @pytest.fixture
+    def view_signal_through(self, pulses):
+        class Recording:
+            def changed(self, recipient, uri):
+                pulses.append((recipient.sub, uri))
+
+        return lambda _signal: view_signal(Recording(), ISSUER)
+
+    def test_each_agent_is_signalled_on_its_own_view_uri(self, skat, issuer, pulses):
+        first = Agent(skat, issuer, "first-agent", agent_name="Mozart")
+        second = another_agent(skat, issuer)
+        person = skat.member()
+        table_id = skat.create(person[0]).json()["id"]
+        first.sit_down(table_id, 2)
+        second.sit_down(table_id, 3)
+        with_known_deal(skat, table_id)
+        pulses.clear()
+
+        skat.client.post(
+            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_BID_SUFFIX}",
+            json={"command_id": "person-bid", "version": skat.store.tables[table_id].version, "value": 18},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **person[0]},
+        )
+
+        assert sorted(pulses) == sorted((agent_account(skat, each), view_uri_of(table_id)) for each in (first, second))
 
 
 class TestASignalThatFailsAfterTheCommit:
