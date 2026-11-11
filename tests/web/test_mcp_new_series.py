@@ -117,8 +117,8 @@ class TestStartNewSeries:
         assert view["hand"] is not None
         assert table.record.game_list == ()
 
-    def test_the_description_says_the_third_tap_deletes_the_list_for_good(self, agent):
+    def test_the_description_says_the_finished_games_stay_stored(self, agent):
         tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
 
-        assert "for good" in tools[START_NEW_SERIES_TOOL]["description"]
+        assert "stay stored" in tools[START_NEW_SERIES_TOOL]["description"]
         assert START_NEW_SERIES_TOOL in tools[CONTINUE_AFTER_RESULT_TOOL]["description"]
