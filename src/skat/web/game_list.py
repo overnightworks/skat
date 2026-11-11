@@ -51,6 +51,8 @@ class RamschSeriesEntryAnswer(BaseModel):
     durchmarsch: bool
     jungfrau: bool
     bock_factor: int
+    pushes: int
+    push_factor: int
 
 
 class SeriesListAnswer(BaseModel):
@@ -66,6 +68,8 @@ def _entry_answer_of(entry: SeriesEntryView | RamschSeriesEntryView) -> SeriesEn
             durchmarsch=entry.durchmarsch,
             jungfrau=entry.jungfrau,
             bock_factor=entry.bock_factor,
+            pushes=entry.pushes,
+            push_factor=entry.push_factor,
         )
     declaration = entry.declaration
     return SeriesEntryAnswer(
@@ -104,7 +108,9 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         names each seat's stored `name` and list `score` (the seat that lost carries the minus points, a Durchmarsch
         the plus points), whether a seat took all ten tricks and won by it (`durchmarsch`), and whether a seat with
         no trick doubled the loser's score (`jungfrau`). The seats' scores are multiplied by the entry's `bock_factor`,
-        1 outside a Bock game, a Durchmarsch's too unless the table scores it flat. A hand everyone passed in at a
+        1 outside a Bock game, and by its `push_factor`, what the `pushes` (0 to 3) of the skat pushed on unseen made
+        of them, 1 without pushes and at a table whose pushes do not double; a Durchmarsch's too unless the table
+        scores it flat. A hand everyone passed in at a
         table without Ramsch leaves no entry. A 404 means no table has this id; a table that has ended answers an
         empty list.
         """

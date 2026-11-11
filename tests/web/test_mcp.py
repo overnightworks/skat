@@ -31,6 +31,9 @@ from skat.web.mcp import (
     OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
+    RAMSCH_PUSH_SKAT_TOOL,
+    RAMSCH_PUT_BACK_CARDS_TOOL,
+    RAMSCH_TAKE_SKAT_TOOL,
     READ_PAUSED_TABLES_TOOL,
     READ_RULE_SETS_TOOL,
     READ_SERIES_LIST_TOOL,
@@ -60,6 +63,8 @@ from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_mess
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}
 DECLARING_TOOLS = {TAKE_SKAT_TOOL, PUT_BACK_CARDS_TOOL, DECLARE_GAME_TOOL}
+PUSHING_TOOLS = {RAMSCH_TAKE_SKAT_TOOL, RAMSCH_PUT_BACK_CARDS_TOOL, RAMSCH_PUSH_SKAT_TOOL}
+STEP_TOOLS = AUCTION_TOOLS | DECLARING_TOOLS | PUSHING_TOOLS
 OWNER = "the-agents-owner"
 METADATA_PATH = f"/.well-known/oauth-protected-resource{MCP_ENDPOINT_PATH}"
 
@@ -112,8 +117,7 @@ class TestTools:
                 SAVE_RULE_SET_TOOL,
                 START_NEW_SERIES_TOOL,
             }
-            | AUCTION_TOOLS
-            | DECLARING_TOOLS
+            | STEP_TOOLS
         )
         reads = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
         assert all(tools[name]["annotations"]["readOnlyHint"] is True for name in reads)
@@ -124,8 +128,7 @@ class TestTools:
         answer = agent.request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
-        descriptions = {tools[name]["description"] for name in AUCTION_TOOLS | DECLARING_TOOLS}
-        assert len(descriptions) == len(AUCTION_TOOLS | DECLARING_TOOLS)
+        assert len({tools[name]["description"] for name in STEP_TOOLS}) == len(STEP_TOOLS)
 
     @pytest.mark.parametrize(
         ("tool", "token"),

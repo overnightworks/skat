@@ -7,7 +7,6 @@ from skat.table.records import Series
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in_text, with_known_deal
-from tests.support.played_game import a_ramsch_entry
 from tests.web.support.playing import (
     FOREHAND,
     HERZ_GAME,
@@ -23,6 +22,7 @@ from tests.web.support.playing import (
     bock_of,
     three_pass,
     with_pending,
+    with_totals,
 )
 from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
 from tests.web.support.skat import Skat
@@ -48,13 +48,6 @@ def options_of(*triggers):
 
 def seat_scores_of(result):
     return [seat["score"] for seat in result["seats"]]
-
-
-def with_totals(table, *seat_scores):
-    """The list holds one earlier Ramsch whose seats scored `seat_scores`, so the totals start there."""
-    accounts = tuple(chair.occupant.account_id for chair in sorted(table.record.chairs, key=lambda chair: chair.seat))
-    earlier = a_ramsch_entry(seat_scores, accounts)
-    table.skat.store.tables[table.table_id] = replace(table.record, game_list=(earlier,))
 
 
 def ramsch_table(skat, *triggers, deal=PLAIN_DEAL, pending=(), totals=None, series=None):
@@ -112,7 +105,7 @@ class TestOpeningATableWithRamschAndBock:
         assert first.status_code == 200
         answered = first.json()["options"]
         assert (answered["ramsch"], answered["bock"]) == (
-            POINTS,
+            {**POINTS, "pushing": None},
             {"triggers": ["passed-in"], "overlap": "append"},
         )
         assert (same.json()["id"], other.status_code) == (first.json()["id"], 409)
@@ -124,7 +117,7 @@ class TestAnAgentOpeningATableWithRamschAndBock:
 
         opened = agent.open_table(options=options_of("re"))
 
-        assert opened.json()["options"]["ramsch"] == POINTS
+        assert opened.json()["options"]["ramsch"] == {**POINTS, "pushing": None}
         assert opened.json()["options"]["bock"] == {"triggers": ["re"], "overlap": "append"}
 
 

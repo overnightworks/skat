@@ -62,6 +62,8 @@ class TestTheRamschResult:
             durchmarsch_seat=None,
             jungfrau=False,
             bock_factor=1,
+            pushes=0,
+            push_factor=1,
         )
 
     def test_stands_as_a_result_that_deals_the_next_hand(self):
@@ -81,6 +83,8 @@ class TestTheSeriesRows:
             durchmarsch=False,
             jungfrau=False,
             bock_factor=1,
+            pushes=0,
+            push_factor=1,
         )
 
     @pytest.mark.parametrize(("durchmarsch_seat", "jungfrau"), [(None, True), (2, False)])

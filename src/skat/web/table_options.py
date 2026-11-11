@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
+from skat.engine.schieberamsch import PushingRule  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import RamschOccasion, RamschSetting, TableOptions
 
 
@@ -37,9 +38,18 @@ class BockOptionsRequest(BaseModel):
         return triggers
 
 
+class PushingOptionsRequest(BaseModel):
+    """What a take, a push and the cards put back do in a Ramsch; the object leaves room for what joins the rule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule: PushingRule
+
+
 class RamschOptionsRequest(BaseModel):
     """The opener names all four Ramsch choices or none: the program defaults none of them. The table plays a Ramsch
-    for a hand all three pass only.
+    for a hand all three pass only. `pushing` is the one optional choice: left out, the Ramsch has no stage of takes
+    and pushes.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -48,6 +58,7 @@ class RamschOptionsRequest(BaseModel):
     scoring: RamschScoring
     jungfrau: JungfrauRule
     durchmarsch: DurchmarschRule
+    pushing: PushingOptionsRequest | None = None
 
 
 class OptionsRequest(BaseModel):
@@ -72,11 +83,16 @@ class BockOptionsAnswer(BaseModel):
     overlap: BockOverlap
 
 
+class PushingOptionsAnswer(BaseModel):
+    rule: PushingRule
+
+
 class RamschOptionsAnswer(BaseModel):
     occasion: RamschOccasion
     scoring: RamschScoring
     jungfrau: JungfrauRule
     durchmarsch: DurchmarschRule
+    pushing: PushingOptionsAnswer | None
 
 
 class OptionsAnswer(BaseModel):
@@ -84,6 +100,17 @@ class OptionsAnswer(BaseModel):
     kontra: KontraOptionsAnswer | None
     bock: BockOptionsAnswer | None
     ramsch: RamschOptionsAnswer | None
+
+
+def ramsch_answer_of(ramsch: RamschSetting) -> RamschOptionsAnswer:
+    pushing = None if ramsch.pushing is None else PushingOptionsAnswer(rule=ramsch.pushing)
+    return RamschOptionsAnswer(
+        occasion=ramsch.occasion,
+        scoring=ramsch.reckoning.scoring,
+        jungfrau=ramsch.reckoning.jungfrau,
+        durchmarsch=ramsch.reckoning.durchmarsch,
+        pushing=pushing,
+    )
 
 
 def options_answer_of(options: TableOptions) -> OptionsAnswer:
@@ -94,14 +121,16 @@ def options_answer_of(options: TableOptions) -> OptionsAnswer:
         if kontra is None
         else KontraOptionsAnswer(sayer=kontra.sayer, reach=kontra.reach, deadline=kontra.deadline),
         bock=None if bock is None else BockOptionsAnswer(triggers=sorted(bock.triggers), overlap=bock.overlap),
-        ramsch=None
-        if ramsch is None
-        else RamschOptionsAnswer(
-            occasion=ramsch.occasion,
-            scoring=ramsch.reckoning.scoring,
-            jungfrau=ramsch.reckoning.jungfrau,
-            durchmarsch=ramsch.reckoning.durchmarsch,
-        ),
+        ramsch=None if ramsch is None else ramsch_answer_of(ramsch),
+    )
+
+
+def ramsch_setting_of(ramsch: RamschOptionsRequest) -> RamschSetting:
+    pushing = None if ramsch.pushing is None else ramsch.pushing.rule
+    return RamschSetting(
+        ramsch.occasion,
+        RamschOptions(ramsch.scoring, ramsch.jungfrau, ramsch.durchmarsch),
+        pushing,
     )
 
 
@@ -113,7 +142,5 @@ def table_options_of(requested: OptionsRequest | None) -> TableOptions:
         show_running_points=requested.show_running_points,
         kontra=None if kontra is None else KontraOptions(kontra.sayer, kontra.reach, kontra.deadline),
         bock=None if bock is None else BockOptions(frozenset(bock.triggers), bock.overlap),
-        ramsch=None
-        if ramsch is None
-        else RamschSetting(ramsch.occasion, RamschOptions(ramsch.scoring, ramsch.jungfrau, ramsch.durchmarsch)),
+        ramsch=None if ramsch is None else ramsch_setting_of(ramsch),
     )
