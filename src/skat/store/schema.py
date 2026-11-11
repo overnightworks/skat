@@ -25,6 +25,7 @@ from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
+from skat.engine.schieberamsch import PushingRule
 from skat.table.records import (
     SERIES_LENGTH_MAX,
     SERIES_LENGTH_MIN,
@@ -52,40 +53,18 @@ def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
     return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
 
 
-def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]:
-    """The columns that hold a table's rule options and their checks, for `tables` and `rule_sets` alike; a table
-    stored before an option existed reads it as the official default.
-    """
+def _ramsch_columns() -> tuple[Column[Any], ...]:
     return (
-        Column("show_running_points", Boolean, nullable=False, server_default=false()),
-        Column("kontra_sayer", Text),
-        Column("kontra_reach", Text),
-        Column("kontra_deadline", Text),
-        Column("bock_triggers", ARRAY(Text)),
-        Column("bock_overlap", Text),
         Column("ramsch_occasion", Text),
         Column("ramsch_scoring", Text),
         Column("ramsch_jungfrau", Text),
         Column("ramsch_durchmarsch", Text),
-        CheckConstraint(
-            "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)",
-            name=f"{table_name}_kontra_is_all_or_nothing",
-        ),
-        one_of("kontra_sayer", (sayer.value for sayer in KontraSayer), f"{table_name}_kontra_sayer_is_a_sayer"),
-        one_of("kontra_reach", (reach.value for reach in KontraReach), f"{table_name}_kontra_reach_is_a_reach"),
-        one_of(
-            "kontra_deadline",
-            (deadline.value for deadline in KontraDeadline),
-            f"{table_name}_kontra_deadline_is_a_deadline",
-        ),
-        CheckConstraint(
-            "(bock_triggers IS NULL) = (bock_overlap IS NULL)", name=f"{table_name}_bock_is_all_or_nothing"
-        ),
-        CheckConstraint(
-            f"cardinality(bock_triggers) >= 1 AND bock_triggers <@ ARRAY[{BOCK_TRIGGER_LIST}]::text[]",
-            name=f"{table_name}_bock_triggers_are_triggers",
-        ),
-        one_of("bock_overlap", (overlap.value for overlap in BockOverlap), f"{table_name}_bock_overlap_is_an_overlap"),
+        Column("ramsch_pushing", Text),
+    )
+
+
+def _ramsch_checks(table_name: str) -> tuple[CheckConstraint, ...]:
+    return (
         CheckConstraint(
             "num_nonnulls(ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch) IN (0, 4)",
             name=f"{table_name}_ramsch_is_all_or_nothing",
@@ -110,6 +89,47 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
             (rule.value for rule in DurchmarschRule),
             f"{table_name}_ramsch_durchmarsch_is_a_durchmarsch_rule",
         ),
+        one_of(
+            "ramsch_pushing", (rule.value for rule in PushingRule), f"{table_name}_ramsch_pushing_is_a_pushing_rule"
+        ),
+        CheckConstraint(
+            "ramsch_pushing IS NULL OR ramsch_occasion IS NOT NULL", name=f"{table_name}_ramsch_pushing_needs_a_ramsch"
+        ),
+    )
+
+
+def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]:
+    """The columns that hold a table's rule options and their checks, for `tables` and `rule_sets` alike; a table
+    stored before an option existed reads it as the official default.
+    """
+    return (
+        Column("show_running_points", Boolean, nullable=False, server_default=false()),
+        Column("kontra_sayer", Text),
+        Column("kontra_reach", Text),
+        Column("kontra_deadline", Text),
+        Column("bock_triggers", ARRAY(Text)),
+        Column("bock_overlap", Text),
+        CheckConstraint(
+            "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)",
+            name=f"{table_name}_kontra_is_all_or_nothing",
+        ),
+        one_of("kontra_sayer", (sayer.value for sayer in KontraSayer), f"{table_name}_kontra_sayer_is_a_sayer"),
+        one_of("kontra_reach", (reach.value for reach in KontraReach), f"{table_name}_kontra_reach_is_a_reach"),
+        one_of(
+            "kontra_deadline",
+            (deadline.value for deadline in KontraDeadline),
+            f"{table_name}_kontra_deadline_is_a_deadline",
+        ),
+        CheckConstraint(
+            "(bock_triggers IS NULL) = (bock_overlap IS NULL)", name=f"{table_name}_bock_is_all_or_nothing"
+        ),
+        CheckConstraint(
+            f"cardinality(bock_triggers) >= 1 AND bock_triggers <@ ARRAY[{BOCK_TRIGGER_LIST}]::text[]",
+            name=f"{table_name}_bock_triggers_are_triggers",
+        ),
+        one_of("bock_overlap", (overlap.value for overlap in BockOverlap), f"{table_name}_bock_overlap_is_an_overlap"),
+        *_ramsch_columns(),
+        *_ramsch_checks(table_name),
     )
 
 
@@ -134,6 +154,7 @@ def options_of(row: Row[Any]) -> TableOptions:
                 JungfrauRule(row.ramsch_jungfrau),
                 DurchmarschRule(row.ramsch_durchmarsch),
             ),
+            None if row.ramsch_pushing is None else PushingRule(row.ramsch_pushing),
         )
     return TableOptions(show_running_points=row.show_running_points, kontra=kontra, bock=bock, ramsch=ramsch)
 
@@ -155,6 +176,7 @@ def option_values(options: TableOptions) -> dict[str, object]:
         "ramsch_scoring": None if ramsch is None else ramsch.reckoning.scoring.value,
         "ramsch_jungfrau": None if ramsch is None else ramsch.reckoning.jungfrau.value,
         "ramsch_durchmarsch": None if ramsch is None else ramsch.reckoning.durchmarsch.value,
+        "ramsch_pushing": None if ramsch is None or ramsch.pushing is None else ramsch.pushing.value,
     }
 
 

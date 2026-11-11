@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Final, Self
 from skat.engine.bidding import BidRefusal
 from skat.engine.declaration import DeclarationRefusal
 from skat.engine.kontra import KontraOptions, KontraRefusal
+from skat.engine.schieberamsch import PushRefusal
 from skat.engine.tricks import PlayRefusal
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from skat.engine.declaration import DeclaringStep
     from skat.engine.kontra import WordSaid
     from skat.engine.ramsch import RamschOptions
+    from skat.engine.schieberamsch import Push, PushingRule, Put, Take
     from skat.engine.tricks import CardPlayed
     from skat.table.game_list import GameEntry
 
@@ -78,10 +80,13 @@ class RamschOccasion(StrEnum):
 
 @dataclass(frozen=True)
 class RamschSetting:
-    """A table's Ramsch: when it is played, and how the engine reckons it."""
+    """A table's Ramsch: when it is played, how the engine reckons it, and what a take, a push and the cards put back
+    do before its first card; None for `pushing` plays a Ramsch without that stage.
+    """
 
     occasion: RamschOccasion
     reckoning: RamschOptions
+    pushing: PushingRule | None = None
 
 
 @dataclass(frozen=True)
@@ -162,12 +167,14 @@ class Refusal(StrEnum):
     SEAT_OPEN = "seat-open"
 
 
-type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal | KontraRefusal
+type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal | KontraRefusal | PushRefusal
 
-# `PlayRefusal` and `KontraRefusal` share their `over` token, and `PlayRefusal` its `not-your-turn`, with `BidRefusal`:
-# the wire string is the same either way, and the owner listed last keeps a shared token.
+# `PlayRefusal`, `KontraRefusal` and `PushRefusal` share their `over` token, and `PlayRefusal` and `PushRefusal` their
+# `not-your-turn`, with `BidRefusal`, and `PushRefusal` its `out-of-order` and `not-two-of-the-twelve` with
+# `DeclarationRefusal`: the wire string is the same either way, and the owner listed last keeps a shared token.
 _REFUSALS_BY_TOKEN: Final[dict[str, CommandRefusal]] = {
-    refusal.value: refusal for refusal in (*Refusal, *PlayRefusal, *KontraRefusal, *BidRefusal, *DeclarationRefusal)
+    refusal.value: refusal
+    for refusal in (*Refusal, *PushRefusal, *PlayRefusal, *KontraRefusal, *BidRefusal, *DeclarationRefusal)
 }
 
 
@@ -202,10 +209,14 @@ class GiveUpAsked:
     declined_by: Position | None = None
 
 
+type PushingStep = Take | Put | Push
+
+
 @dataclass(frozen=True)
 class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
-    cards, so each carries how many cards were played before it.
+    cards, so each carries how many cards were played before it. `pushing` holds the steps of a Ramsch's stage before
+    its first card.
 
     `give_up` is no step log: a card, the end of the hand or a deal clears it.
     """
@@ -215,6 +226,7 @@ class HandProgress:
     plays: tuple[CardPlayed, ...] = ()
     give_up: GiveUpAsked | None = None
     words: tuple[WordSaid, ...] = ()
+    pushing: tuple[PushingStep, ...] = ()
 
 
 @dataclass(frozen=True)

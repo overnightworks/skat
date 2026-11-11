@@ -16,6 +16,7 @@ from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field ty
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.game_list import GameEnding, RamschResultView
+from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import (
     Actor,
     CommandRefusal,
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
     from skat.table.game_list import ResultView, Standing
     from skat.table.kontra import KontraView
     from skat.table.playing import PlayingView
+    from skat.table.pushing import PushingView
     from skat.table.service import CommandResult, TableService
     from skat.table.views import ChairHand, HandView, PassedInView, SeriesView, TableView
     from skat.web.page_build import PageBuild
@@ -255,6 +257,18 @@ class PlayingAnswer(BaseModel):
     kontra: KontraAnswer | None
 
 
+class PushingMoveAnswer(BaseModel):
+    seat: int
+    action: PushAction
+
+
+class PushingAnswer(BaseModel):
+    turn_seat: int
+    stage: StageToken
+    moves: list[PushingMoveAnswer]
+    factor: int
+
+
 class HandAnswer(BaseModel):
     dealer_seat: int
     own_cards: list[CardAnswer]
@@ -264,6 +278,8 @@ class HandAnswer(BaseModel):
     playing: PlayingAnswer | None
     ramsch: bool
     waiting_seat: int | None
+    pushing: PushingAnswer | None
+    pushes: int
 
 
 class ChairAnswer(BaseModel):
@@ -342,6 +358,8 @@ class RamschResultAnswer(BaseModel):
     durchmarsch_seat: int | None
     jungfrau: bool
     bock_factor: int
+    pushes: int
+    push_factor: int
 
 
 class EndedAnswer(BaseModel):
@@ -445,6 +463,17 @@ def declaring_answer_of(declaring: DeclaringView | None) -> DeclaringAnswer | No
     )
 
 
+def pushing_answer_of(pushing: PushingView | None) -> PushingAnswer | None:
+    if pushing is None:
+        return None
+    return PushingAnswer(
+        turn_seat=pushing.turn_seat,
+        stage=STAGE_TOKENS[pushing.stage],
+        moves=[PushingMoveAnswer(seat=move.seat, action=move.action) for move in pushing.moves],
+        factor=pushing.factor,
+    )
+
+
 def kontra_answer_of(kontra: KontraView | None) -> KontraAnswer | None:
     if kontra is None:
         return None
@@ -494,6 +523,8 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         playing=playing_answer_of(hand.playing),
         ramsch=hand.ramsch,
         waiting_seat=hand.waiting_seat,
+        pushing=pushing_answer_of(hand.pushing),
+        pushes=hand.pushes,
     )
 
 
@@ -540,6 +571,8 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
             durchmarsch_seat=result.durchmarsch_seat,
             jungfrau=result.jungfrau,
             bock_factor=result.bock_factor,
+            pushes=result.pushes,
+            push_factor=result.push_factor,
         )
     declaration, matadors = result.declaration, result.matadors
     return ResultAnswer(

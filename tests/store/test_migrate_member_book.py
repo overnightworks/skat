@@ -2,7 +2,6 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import migrate
 from tests.support.migrations import run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
@@ -45,7 +44,7 @@ class TestFromLiveAndEndedTablesAtRevisionTwentyFour:
     @pytest.fixture
     def migrated(self, stored):
         before, engine = stored
-        migrate(engine)
+        upgrade_to(engine, "0025")
         return before, engine
 
     def test_changes_no_stored_table_and_starts_with_an_empty_book(self, migrated):
