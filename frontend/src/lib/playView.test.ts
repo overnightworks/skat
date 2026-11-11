@@ -135,6 +135,15 @@ describe("the trick on the felt", () => {
         expect(trickOnTheFelt(chairs(WATCHER), playing({}))).toEqual([]);
     });
 
+    it("tags the viewer's own card „Du“ and keeps the initial of the account name", () => {
+        const named = chairs(2).map((chair) => (chair.is_mine ? { ...chair, occupant_name: "Felix" } : chair));
+
+        expect(trickOnTheFelt(named, twoCards).map(({ name, initial }) => [name, initial])).toEqual([
+            ["player 1", "p"],
+            [words.sideYou, "F"],
+        ]);
+    });
+
     it("tags a card with an empty name when its chair has none", () => {
         const empty = chairs(WATCHER).map((chair) => ({ ...chair, occupant_name: null }));
 

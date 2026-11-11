@@ -27,6 +27,7 @@ pytestmark = pytest.mark.e2e
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 SEAT_AWAY = catalog_text("seatAway")
+YOU = catalog_text("sideYou")
 CHAIR_HOLD_SECONDS = 5
 FREED_WITHIN_MILLISECONDS = (CHAIR_HOLD_SECONDS + 10) * 1000
 
@@ -56,5 +57,5 @@ def test_an_away_members_chair_turns_free_on_every_open_page_after_the_hold_and_
     expect(plate_of(onlooker, 1)).not_to_contain_text("anna")
     sit_in(onlooker, 1)
 
-    expect(plate_of(onlooker, 1)).to_have_text("ben")
+    expect(plate_of(onlooker, 1)).to_have_text(YOU)
     assert_never_reloaded(onlooker)
