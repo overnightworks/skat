@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "6fda5924444b33a412ea1210702451f1151c8309"
 branch = "claude/issue-335-game-history"
-scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/store/game_list.py", "src/skat/store/migrations/versions/0028_game_history.py", "src/skat/store/tables.py", "tests/store/test_game_list.py", "tests/store/test_migrate.py", "tests/store/test_migrate_game_ending.py", "tests/store/test_migrate_game_history.py", "tests/store/test_migrate_ramsch.py", "tests/store/test_tables_end.py", "tests/store/test_tables_series.py"]
+scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/store/game_list.py", "src/skat/store/migrations/versions/0028_game_history.py", "src/skat/store/tables.py", "src/skat/table/transactions.py", "src/skat/web/ready.py", "tests/store/test_game_list.py", "tests/store/test_migrate.py", "tests/store/test_migrate_game_ending.py", "tests/store/test_migrate_game_history.py", "tests/store/test_migrate_ramsch.py", "tests/store/test_tables_end.py", "tests/store/test_tables_series.py"]
 opened_commit = "58de1cccba246a88a98a6b27c350b6c2cc73a0d1"
 whole_reason = "The wider key, the two columns, the removal of both deletions and the read of the current series are one change: a key without the series would reject a next series' first game, and a deletion left behind would destroy what the key now keeps; the pinned migration tests break with the same revision."
