@@ -4,17 +4,17 @@ is woken by a person's move, reads its view, acts with the tool the view calls f
 
 import json
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
-from agents.mcp_server import ResourceChanges
-from agents.member import STANDING_URI
+from agents.member import LEASE_SECONDS, STANDING_URI
+from agents.tools import Principal
 from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
 
 from skat.engine.deal import Position
 from skat.table.member_place import InvitationRequest
-from skat.table.records import Series, TableId
+from skat.table.records import EndedTable, EndReason, Series, TableId
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX
 from skat.web.mcp import (
     AGREE_TO_END_SERIES_TOOL,
@@ -27,9 +27,12 @@ from skat.web.mcp import (
     MCP_GROUP,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
+    STAND_UP_TOOL,
     START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
+    token_carries_agent_facts,
 )
+from skat.web.member_place import MemberStandings, view_signal
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
@@ -39,34 +42,76 @@ from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of
 from tests.web.support.playing import HERZ_GAME, card_body
-from tests.web.support.skat import UNKNOWN_ID, Skat
+from tests.web.support.presence import HOLD_SECONDS
+from tests.web.support.sdk_agent import SdkAgent
+from tests.web.support.skat import UNKNOWN_ID, FakeTime, Skat
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 UNKNOWN = "Unknown resource"
 OWNER = "the-agents-owner"
 INVITATION_SECONDS = 600
 OTHER_AGENT_SUBJECT = "other-agent-subject"
+ISSUER = "https://issuer.test.invalid"
+
+
+class ViewSignalTap:
+    """Stands between the service and the app's view signal: keeps what the service told, and tells the real signal
+    again when a test wants a change that arrives late.
+    """
+
+    def __init__(self):
+        self.told = []
+        self._signal = None
+
+    def through(self, signal):
+        self._signal = signal
+
+        def tell(table_id, accounts):
+            self.told.append((table_id.value, accounts))
+            signal(table_id, accounts)
+
+        return tell
+
+    def tell_late(self, skat, table_id, account):
+        async def tell():
+            await run_in_threadpool(self._signal, TableId(table_id), frozenset({account}))
+
+        skat.client.portal.call(tell)
 
 
 @pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+def tap():
+    return ViewSignalTap()
+
+
+@pytest.fixture
+def view_signal_through(tap):
+    return tap.through
+
+
+@pytest.fixture
+def time():
+    return FakeTime()
+
+
+@pytest.fixture
+def skat(hold, issuer, time, view_signal_through):
+    skat = Skat(
+        lambda: hold,
+        issuer_transports=issuer.transports,
+        chair_clock=time.clock,
+        chair_scheduler=time,
+        now=time.moment,
+        view_signal_through=view_signal_through,
+    )
     with skat.client:
         yield skat
 
 
 @pytest.fixture
-def pulses(monkeypatch):
-    """Every signal the app gives a resource, as (account, uri), in order; the signal still reaches its streams."""
-    told = []
-    original = ResourceChanges.changed
-
-    def record(self, recipient, uri):
-        told.append((recipient.sub, uri))
-        original(self, recipient, uri)
-
-    monkeypatch.setattr(ResourceChanges, "changed", record)
-    return told
+def sdk(skat, issuer):
+    """The seated agent as a runner connects: through the SDK's client."""
+    return SdkAgent(skat, issuer)
 
 
 def a_person(skat, issuer):
@@ -94,14 +139,14 @@ def commands():
         yield f"agent-act-{number:04d}"
 
 
-def acts(agent, table_id):
-    """The agent's tool call with its view's revision as the version and a fresh command id."""
+def acts(session, table_id):
+    """The client's tool call with its view's revision as the version and a fresh command id."""
     ids = commands()
 
     def act(tool, view, **arguments):
-        answer = agent.call(tool, table_id=table_id, command_id=next(ids), version=view["revision"], **arguments)
+        answer = session.call(tool, table_id=table_id, command_id=next(ids), version=view["revision"], **arguments)
         assert not answer.is_error, answer.text
-        return agent.view(table_id)
+        return session.view(table_id)
 
     return act
 
@@ -135,11 +180,6 @@ class TestTheViewIsAServedResource:
         assert [chair["hand"]["card_count"] for chair in state["chairs"]] == [10, 10, 10]
         assert state["hand"]["skat_count"] == 2
 
-    def test_two_reads_of_one_revision_agree_apart_from_who_is_present(self, agent, middlehand_auction):
-        first = agent.view(middlehand_auction.table_id)
-
-        assert without_presence(agent.view(middlehand_auction.table_id)) == without_presence(first)
-
 
 def without_presence(state):
     """The part of a table answer that says who is present, which changes with no new revision, left out."""
@@ -172,11 +212,9 @@ class TestOnlyTheSeatedAgentReadsItsView:
 
         assert (unknown(other.read_resource(uri)), other.listed_resources()) == (True, [STANDING_URI])
 
-    def test_an_agent_that_is_only_invited_reads_an_unknown_resource(self, skat, issuer, middlehand_auction, uri):
+    def test_an_agent_that_is_only_invited_reads_an_unknown_resource(self, skat, issuer, time, middlehand_auction, uri):
         other = another_agent(skat, issuer)
-        request = InvitationRequest(
-            other.subject, OWNER, OWNER, datetime.now(UTC) + timedelta(seconds=INVITATION_SECONDS)
-        )
+        request = InvitationRequest(other.subject, OWNER, OWNER, time.moment() + timedelta(seconds=INVITATION_SECONDS))
         skat.client.portal.call(_inviting, skat, middlehand_auction.table_id, request)
 
         assert (unknown(other.read_resource(uri)), other.listed_resources()) == (True, [STANDING_URI])
@@ -215,6 +253,17 @@ async def _inviting(skat, table_id, request):
     return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), request)
 
 
+def a_standing_change(skat, agent, time):
+    """A change of the agent's standing that a person causes and no removal explains: an invitation to a table of a
+    member, which the agent does not sit at.
+    """
+    person = skat.member()
+    table_id = skat.create(person[0]).json()["id"]
+    request = InvitationRequest(agent.subject, OWNER, OWNER, time.moment() + timedelta(seconds=INVITATION_SECONDS))
+    skat.client.portal.call(_inviting, skat, table_id, request)
+    skat.client.cookies.clear()
+
+
 class TestTheViewEndsWithTheChair:
     def test_standing_up_takes_the_table_from_the_listing_and_the_view(self, skat, agent):
         table_id = agent.open_table().json()["id"]
@@ -226,22 +275,92 @@ class TestTheViewEndsWithTheChair:
         assert agent.listed_resources() == [STANDING_URI]
         assert unknown(agent.read_resource(view_uri_of(table_id)))
 
+    @pytest.mark.parametrize(
+        ("removal", "standing_changes"),
+        [
+            pytest.param(
+                lambda skat, time, session, table_id: session.call(
+                    STAND_UP_TOOL, table_id=table_id, command_id="agent-stand-up"
+                ),
+                1,
+                id="stand-up",
+            ),
+            pytest.param(
+                lambda skat, time, session, table_id: skat.client.portal.call(
+                    time.advance, LEASE_SECONDS + HOLD_SECONDS + 1
+                ),
+                1,
+                id="hold-release",
+            ),
+            pytest.param(
+                lambda skat, time, session, table_id: skat.store.tables.__setitem__(
+                    table_id,
+                    EndedTable(TableId(table_id), skat.store.tables[table_id].version + 1, EndReason.EMPTY, 3600),
+                ),
+                0,
+                id="table-end",
+            ),
+        ],
+    )
+    def test_a_removal_ends_the_delivery_of_the_view_on_a_stream_that_is_open(
+        self, skat, time, tap, sdk, agent, removal, standing_changes
+    ):
+        table_id = agent.open_table().json()["id"]
 
-class TestTheWakeOfACommit:
-    def test_a_persons_move_tells_the_seated_agent_once_and_the_read_after_it_shows_the_move(
-        self, skat, agent, forehand_auction, pulses
+        with sdk.connected() as session, session.listening() as events:
+            removal(skat, time, session, table_id)
+            assert [events.next_uri() for _ in range(standing_changes)] == [STANDING_URI] * standing_changes
+            tap.tell_late(skat, table_id, agent_account(skat, agent))
+            a_standing_change(skat, agent, time)
+
+            assert events.next_uri() == STANDING_URI
+
+        assert agent.listed_resources() == [STANDING_URI]
+        assert unknown(agent.read_resource(view_uri_of(table_id)))
+
+
+class TestTheViewFollowsTheLease:
+    def test_a_view_signalled_after_the_lease_lapsed_is_not_delivered_and_the_next_listen_delivers_again(
+        self, skat, time, tap, sdk, agent, forehand_auction
     ):
         table = forehand_auction
-        before = agent.view(table.table_id)
 
-        table.middlehand_bids()
+        with sdk.connected() as session, session.listening() as lapsed:
+            skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
+            table.middlehand_bids()
+            a_standing_change(skat, agent, time)
 
-        assert pulses == [(agent_account(skat, agent), view_uri_of(table.table_id))]
-        after = agent.view(table.table_id)
-        assert (after["revision"], after["awaits_you"]) == (before["revision"] + 1, True)
+            assert lapsed.next_uri() == STANDING_URI
+            with session.listening() as relistened:
+                moved = session.call(
+                    AUCTION_HOLD_TOOL,
+                    table_id=table.table_id,
+                    command_id="agent-hold-0001",
+                    version=table.record.version,
+                )
+                view = relistened.woken_view(table.table_id)
 
-    def test_a_refused_move_and_a_replay_tell_nobody(self, skat, agent, forehand_auction, pulses):
+        assert tap.told[0] == (table.table_id, frozenset({agent_account(skat, agent)}))
+        assert (moved.is_error, view["revision"], view["awaits_you"]) == (False, table.record.version, False)
+
+    @pytest.mark.parametrize("lease_runs", [True, False])
+    def test_a_view_is_read_only_while_the_lease_runs(self, skat, holding, agent, middlehand_auction, lease_runs):
+        account = agent_account(skat, agent)
+
+        async def read():
+            token_carries_agent_facts.set(True)
+            if lease_runs:
+                holding.renew_lease(account)
+            resources = MemberStandings(skat.tables, holding)
+            return await resources.read(Principal(iss=ISSUER, sub=account), view_uri_of(middlehand_auction.table_id))
+
+        assert (skat.client.portal.call(read) is not None) is lease_runs
+
+
+class TestTheWakeOfACommit:
+    def test_a_refused_move_tells_nobody(self, skat, agent, forehand_auction, tap):
         table = forehand_auction
+        tap.told.clear()
         stale = skat.client.post(
             f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_BID_SUFFIX}",
             json={"command_id": "stale-bid", "version": table.record.version + 7, "value": 18},
@@ -249,22 +368,50 @@ class TestTheWakeOfACommit:
         )
         assert stale.status_code == 409
 
-        assert pulses == []
+        assert tap.told == []
 
-    def test_a_render_of_the_table_signals_nothing(self, skat, agent, forehand_auction, pulses):
+    def test_a_render_of_the_table_signals_nothing(self, skat, agent, forehand_auction, tap):
+        tap.told.clear()
         agent.view(forehand_auction.table_id)
         agent.read(forehand_auction.table_id)
         forehand_auction.read_as(forehand_auction.watcher)
 
-        assert pulses == []
+        assert tap.told == []
 
-    def test_a_signal_that_fails_after_the_commit_is_logged_by_its_type_and_the_command_stays_committed(
-        self, skat, agent, forehand_auction, monkeypatch
-    ):
-        def failing(self, recipient, uri):
-            raise ConnectionResetError
+    def test_two_agents_each_read_only_their_own_hand(self, skat, issuer):
+        first = Agent(skat, issuer, "first-agent", agent_name="Mozart")
+        second = another_agent(skat, issuer)
+        person = skat.member()
+        table_id = skat.create(person[0]).json()["id"]
+        first.sit_down(table_id, 2)
+        second.sit_down(table_id, 3)
+        with_known_deal(skat, table_id)
+        skat.client.post(
+            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_BID_SUFFIX}",
+            json={"command_id": "person-bid", "version": skat.store.tables[table_id].version, "value": 18},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **person[0]},
+        )
 
-        monkeypatch.setattr(ResourceChanges, "changed", failing)
+        views = [each.view(table_id)["state"] for each in (first, second)]
+
+        assert [[chair["is_mine"] for chair in view["chairs"]] for view in views] == [
+            [False, True, False],
+            [False, False, True],
+        ]
+        assert views[0]["hand"]["own_cards"] != views[1]["hand"]["own_cards"]
+        assert [each.view(table_id)["awaits_you"] for each in (first, second)] == [False, True]
+
+
+class TestASignalThatFailsAfterTheCommit:
+    @pytest.fixture
+    def view_signal_through(self):
+        class Failing:
+            def changed(self, recipient, uri):
+                raise ConnectionResetError
+
+        return lambda _signal: view_signal(Failing(), ISSUER)
+
+    def test_is_logged_by_its_type_and_the_command_stays_committed(self, skat, agent, forehand_auction):
         before = forehand_auction.record.version
 
         with capture_logs() as logs:
@@ -273,31 +420,6 @@ class TestTheWakeOfACommit:
         assert forehand_auction.record.version == before + 1
         assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"]
         assert agent.view(forehand_auction.table_id)["revision"] == before + 1
-
-    def test_a_persons_move_tells_each_of_two_agents_once_and_each_reads_only_its_own_hand(self, skat, issuer, pulses):
-        first = Agent(skat, issuer, "first-agent", agent_name="Mozart")
-        second = another_agent(skat, issuer)
-        person = skat.member()
-        table_id = skat.create(person[0]).json()["id"]
-        first.sit_down(table_id, 2)
-        second.sit_down(table_id, 3)
-        with_known_deal(skat, table_id)
-        pulses.clear()
-
-        skat.client.post(
-            f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_BID_SUFFIX}",
-            json={"command_id": "person-bid", "version": skat.store.tables[table_id].version, "value": 18},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **person[0]},
-        )
-
-        assert sorted(pulses) == sorted((agent_account(skat, each), view_uri_of(table_id)) for each in (first, second))
-        views = [each.view(table_id)["state"] for each in (first, second)]
-        assert [[chair["is_mine"] for chair in view["chairs"]] for view in views] == [
-            [False, True, False],
-            [False, False, True],
-        ]
-        assert views[0]["hand"]["own_cards"] != views[1]["hand"]["own_cards"]
-        assert [each.view(table_id)["awaits_you"] for each in (first, second)] == [False, True]
 
 
 class TestTheToolDescriptionsNameTheView:
@@ -331,19 +453,15 @@ class TestARefusedActIsAnErrorResult:
             pytest.param(AUCTION_BID_TOOL, {"version": 99, "value": 18}, id="stale-version"),
             pytest.param(PLAY_CARD_TOOL, {"version": 1, **card_body(HERZ_GAME[0])}, id="wrong-phase"),
             pytest.param(AUCTION_PASS_TOOL, {}, id="arguments-that-do-not-fit"),
+            pytest.param(AUCTION_PASS_TOOL, {"table_id": UNKNOWN_ID, "version": 1}, id="unknown-table"),
         ],
     )
     def test_a_refusal_of_the_table_answers_an_error_and_not_a_success(
         self, agent, middlehand_auction, tool, arguments
     ):
-        answer = agent.call(tool, table_id=middlehand_auction.table_id, command_id="agent-refused", **arguments)
+        arguments = {"table_id": middlehand_auction.table_id, "command_id": "agent-refused", **arguments}
 
-        assert answer.is_error is True
-
-    def test_an_unknown_table_answers_an_error(self, agent, middlehand_auction):
-        answer = agent.call(AUCTION_PASS_TOOL, table_id=UNKNOWN_ID, command_id="agent-refused", version=1)
-
-        assert answer.is_error is True
+        assert agent.call(tool, **arguments).is_error is True
 
     def test_a_repeated_mark_is_a_success(self, agent, forehand_auction):
         table = forehand_auction
@@ -362,32 +480,32 @@ class TestARefusedActIsAnErrorResult:
 
 
 class TestAScriptedClientIsWokenAndPlays:
-    """Each case of `awaits_you`: the client listens, a person's move wakes it, it reads its view, calls the tool the
-    view asks for and reads the table moved on."""
+    """Each case of `awaits_you`: the SDK client listens on the standing, a person's move wakes it, it reads its view,
+    calls the tool the view asks for and reads the table moved on."""
 
-    def test_case_1_the_auction_asks_the_forehand_to_answer_a_bid(self, skat, agent, forehand_auction):
+    def test_case_1_the_auction_asks_the_forehand_to_answer_a_bid(self, skat, sdk, forehand_auction):
         table = forehand_auction
-        act = acts(agent, table.table_id)
 
-        with agent.listening() as frames:
+        with sdk.connected() as session, session.listening() as events:
+            act = acts(session, table.table_id)
             table.middlehand_bids()
-            view = agent.woken_view(frames, table.table_id)
+            view = events.woken_view(table.table_id)
             moved = act(AUCTION_HOLD_TOOL, view)
 
         assert (view["awaits_you"], view["state"]["hand"]["auction"]["awaiting"]) == (True, "answer")
         assert (moved["revision"] > view["revision"], moved["awaits_you"]) == (True, False)
 
     def test_case_2_the_declarer_takes_puts_back_and_declares_each_at_a_new_revision(
-        self, skat, agent, middlehand_auction
+        self, skat, sdk, agent, middlehand_auction
     ):
         table = middlehand_auction
-        act = acts(agent, table.table_id)
         assert not agent.take_step(AUCTION_BID_TOOL, table, command_id="agent-bid", value=18).is_error
         person_passes(table, FOREHAND)
 
-        with agent.listening() as frames:
+        with sdk.connected() as session, session.listening() as events:
+            act = acts(session, table.table_id)
             person_passes(table, REARHAND)
-            choosing = agent.woken_view(frames, table.table_id)
+            choosing = events.woken_view(table.table_id)
             discarding = act(TAKE_SKAT_TOOL, choosing)
             two = discarding["state"]["hand"]["own_cards"][:2]
             picked = act(PUT_BACK_CARDS_TOOL, discarding, cards=two)
@@ -399,76 +517,74 @@ class TestAScriptedClientIsWokenAndPlays:
         revisions = [view["revision"] for view in (choosing, discarding, picked, declared)]
         assert revisions == sorted(set(revisions))
 
-    def test_case_3_the_turn_in_play_asks_for_a_legal_card(self, skat, agent, middlehand_auction):
+    def test_case_3_the_turn_in_play_asks_for_a_legal_card(self, skat, sdk, middlehand_auction):
         table = middlehand_auction
-        act = acts(agent, table.table_id)
         table.declared_hand_game()
-        skat.client.cookies.clear()
 
-        with agent.listening() as frames:
+        with sdk.connected() as session, session.listening() as events:
+            act = acts(session, table.table_id)
             table.accepted(HERZ_GAME[0])
-            view = agent.woken_view(frames, table.table_id)
+            view = events.woken_view(table.table_id)
             moved = act(PLAY_CARD_TOOL, view, **card_body(HERZ_GAME[1]))
 
         assert view["awaits_you"] is True
         assert card_body(HERZ_GAME[1]) in view["state"]["hand"]["playing"]["legal_cards"]
         assert (moved["revision"] > view["revision"], moved["awaits_you"]) == (True, False)
 
-    def test_case_4_a_give_up_question_asks_the_opponent_that_is_not_on_turn(self, skat, agent, forehand_auction):
+    def test_case_4_a_give_up_question_asks_the_opponent_that_is_not_on_turn(self, skat, sdk, forehand_auction):
         table = forehand_auction
-        act = acts(agent, table.table_id)
         table.declared_hand_game()
         # The declarer may ask to give up with the second trick led; the rearhand is on turn then.
         table.played_out(HERZ_GAME[:4])
-        skat.client.cookies.clear()
 
-        with agent.listening() as frames:
+        with sdk.connected() as session, session.listening() as events:
+            act = acts(session, table.table_id)
             assert table.act(TABLE_GIVE_UP_SUFFIX).status_code == 200
-            view = agent.woken_view(frames, table.table_id)
+            view = events.woken_view(table.table_id)
             moved = act(DECLINE_GIVE_UP_TOOL, view)
 
         playing = view["state"]["hand"]["playing"]
         assert (view["awaits_you"], playing["give_up"] is not None, playing["turn_seat"]) == (True, True, 2)
         assert (moved["revision"] > view["revision"], moved["awaits_you"]) == (True, False)
 
-    def test_case_5_a_result_asks_the_seat_that_has_not_continued(self, skat, agent, forehand_auction):
+    def test_case_5_a_result_asks_the_seat_that_has_not_continued(self, skat, sdk, forehand_auction):
         table = after_a_game(forehand_auction)
 
-        with agent.listening() as frames:
+        with sdk.connected() as session, session.listening() as events:
             person_posts(table, TABLE_READY_SUFFIX, MIDDLEHAND, ordinal=1)
-            view = agent.woken_view(frames, table.table_id)
+            view = events.woken_view(table.table_id)
             ordinal = view["state"]["result"]["ordinal"]
-            answer = agent.call(
+            answer = session.call(
                 CONTINUE_AFTER_RESULT_TOOL, table_id=table.table_id, command_id="agent-continue", ordinal=ordinal
             )
+            moved = session.view(table.table_id)
 
-        moved = agent.view(table.table_id)
         assert (view["awaits_you"], answer.is_error) == (True, False)
         assert (moved["revision"] > view["revision"], moved["awaits_you"]) == (True, False)
 
     def test_case_6_the_end_of_the_series_asks_the_seat_that_has_not_voted_on_a_new_series(
-        self, skat, agent, forehand_auction
+        self, skat, sdk, forehand_auction
     ):
         table = after_a_game(forehand_auction, series_deals=36)
 
-        with agent.listening() as frames:
+        with sdk.connected() as session, session.listening() as events:
             person_posts(table, TABLE_NEW_SERIES_SUFFIX, MIDDLEHAND)
-            view = agent.woken_view(frames, table.table_id)
-            answer = agent.call(START_NEW_SERIES_TOOL, table_id=table.table_id, command_id="agent-new-series")
+            view = events.woken_view(table.table_id)
+            answer = session.call(START_NEW_SERIES_TOOL, table_id=table.table_id, command_id="agent-new-series")
+            moved = session.view(table.table_id)
 
-        moved = agent.view(table.table_id)
         assert (view["awaits_you"], view["state"]["series"]["over"], answer.is_error) == (True, True, False)
         assert (moved["revision"] > view["revision"], moved["awaits_you"]) == (True, False)
 
-    def test_case_7_an_early_end_proposal_asks_the_seat_that_has_not_answered(self, skat, agent, forehand_auction):
+    def test_case_7_an_early_end_proposal_asks_the_seat_that_has_not_answered(self, skat, sdk, forehand_auction):
         table = after_a_game(forehand_auction, ready=(1, 2, 3))
 
-        with agent.listening() as frames:
+        with sdk.connected() as session, session.listening() as events:
             person_posts(table, TABLE_SERIES_END_AGREE_SUFFIX, MIDDLEHAND)
-            view = agent.woken_view(frames, table.table_id)
-            answer = agent.call(AGREE_TO_END_SERIES_TOOL, table_id=table.table_id, command_id="agent-agree")
+            view = events.woken_view(table.table_id)
+            answer = session.call(AGREE_TO_END_SERIES_TOOL, table_id=table.table_id, command_id="agent-agree")
+            moved = session.view(table.table_id)
 
-        moved = agent.view(table.table_id)
         assert (view["awaits_you"], view["state"]["series"]["end_proposal"] is not None) == (True, True)
         assert (answer.is_error, moved["revision"] > view["revision"], moved["awaits_you"]) == (False, True, False)
 

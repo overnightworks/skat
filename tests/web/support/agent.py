@@ -94,12 +94,6 @@ class Agent:
         assert answer.status_code == 200, answer.text
         return json.loads(answer.json()["result"]["contents"][0]["text"])
 
-    def woken_view(self, frames, table_id):
-        """Waits for the pulse of the table's view and reads the view after it."""
-        pulse = next(frames)
-        assert (pulse["method"], pulse["params"]["uri"]) == (UPDATED, view_uri_of(table_id))
-        return self.view(table_id)
-
     def listed_resources(self):
         answer = self.request("resources/list")
         assert answer.status_code == 200, answer.text

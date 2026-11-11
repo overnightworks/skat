@@ -73,9 +73,10 @@ class FakeTime:
 class WiredTableService(TableService):
     """The service the test hands the app, remembering the clone the app wires: the one its routes and timers use."""
 
-    def __init__(self, *arguments, wired, **options):
+    def __init__(self, *arguments, wired, view_signal_through=None, **options):
         super().__init__(*arguments, **options)
         self._wired = wired
+        self._view_signal_through = view_signal_through
 
     def with_standing_signal(self, signal):
         clone = super().with_standing_signal(signal)
@@ -83,13 +84,15 @@ class WiredTableService(TableService):
         return clone
 
     def with_view_signal(self, signal):
-        clone = super().with_view_signal(signal)
+        clone = super().with_view_signal(
+            signal if self._view_signal_through is None else self._view_signal_through(signal)
+        )
         self._wired.append(clone)
         return clone
 
 
 class Skat:
-    def __init__(self, sign_in_settings, store=None, stores=None, now=None, **app_options):
+    def __init__(self, sign_in_settings, store=None, stores=None, now=None, view_signal_through=None, **app_options):
         self.stores = stores if stores is not None else in_memory_stores()
         self.store = store if store is not None else FakeTableStore()
         self.rule_set_store = FakeRuleSetStore()
@@ -97,9 +100,12 @@ class Skat:
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
-            tables=WiredTableService(self.store, wired=self._wired)
-            if now is None
-            else WiredTableService(self.store, now=now, wired=self._wired),
+            tables=WiredTableService(
+                self.store,
+                wired=self._wired,
+                view_signal_through=view_signal_through,
+                **({} if now is None else {"now": now}),
+            ),
             rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
             **app_options,

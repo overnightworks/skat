@@ -6,9 +6,10 @@ the agent facts of the request's token decide who may read it, so a token withou
 for an account stored as an agent's. A listening agent whose lease has lapsed still presents its facts, so the signal
 that its hold freed its chair or its table ended reaches it.
 
-Each table in the standing as active is served as a view: the table as `read_table` answers it for the agent's chair,
-its version as the revision and whether the table waits for the agent. Only the agent seated there reads it, and the
-signal that a table changed tells it after the commit.
+Each table in the standing as active is served as a view while the agent's lease runs: the table as `read_table`
+answers it for the agent's chair, its version as the revision and whether the table waits for the agent. Only the agent
+seated there reads it, and the signal that a table changed tells it after the commit; once the lease has lapsed the view
+is neither listed nor read, so an open stream gets no more of it until the agent calls again.
 """
 
 from dataclasses import dataclass
@@ -76,13 +77,13 @@ def _refused(refusal: AcceptInvitationRefusal) -> ToolOutcome:
     return ToolOutcome(AcceptInvitationRefused(refused=refusal).model_dump_json(), is_error=True)
 
 
-def _standing_of(standing: TableStanding) -> Standing:
+def _standing_of(standing: TableStanding, lease_runs: bool) -> Standing:
     offer = standing.invitation
     return Standing(
         place=PlaceRef(kind=TABLE_PLACE_KIND, id=standing.table_id.value),
         state=StandingState(standing.state.value),
         invitation=None if offer is None else Invitation(id=offer.id, epoch=offer.epoch, expires_at=offer.expires_at),
-        serves_view=standing.state is MembershipState.ACTIVE,
+        serves_view=lease_runs and standing.state is MembershipState.ACTIVE,
     )
 
 
@@ -116,7 +117,7 @@ class MemberStandings:
         if uri == STANDING_URI:
             return MemberStanding(standings=await self._standings(principal))
         place = place_ref_from_view_uri(uri)
-        if place is None or place.kind != TABLE_PLACE_KIND:
+        if place is None or place.kind != TABLE_PLACE_KIND or not self._lease_runs(principal):
             return None
         # Presence belongs to the event loop's thread; only the store read leaves it.
         connected = self._presence.connected(place.id)
@@ -129,9 +130,13 @@ class MemberStandings:
             state=answer_of(member.view).model_dump(mode="json"),
         )
 
+    def _lease_runs(self, principal: Principal) -> bool:
+        return principal.sub in self._presence.live_leases()
+
     async def _standings(self, principal: Principal) -> tuple[Standing, ...]:
         held = await run_in_threadpool(self._tables.standings_of, principal.sub)
-        return tuple(map(_standing_of, held))
+        lease_runs = self._lease_runs(principal)
+        return tuple(_standing_of(each, lease_runs) for each in held)
 
 
 def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTool:
