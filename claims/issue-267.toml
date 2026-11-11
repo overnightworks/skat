@@ -1,8 +1,0 @@
-claim_id = "c1be59fa028b433eb88163c611c5d53a"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "04c28a7a18bcd1fd00903f6408c599807c7270ec"
-branch = "claude/issue-267-coasters-zero"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/routes/(start)/tables.ts", "src/skat/store/migrations/versions/0020_series_number.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/table/views.py", "tests/store/test_migrate_series_number.py", "tests/store/test_tables_series.py", "tests/table/test_rules.py", "tests/table/test_views.py", "tests/web/test_ready_new_series.py", "tests/web/test_series_end.py"]
-opened_commit = "e0b790bf321cf603556340feb8aa56f316cd804e"
-whole_reason = "The stored number, the deal that raises it, the store that keys its deletion off it and the view that reads it are one path: a number nothing raises is dead, and a view without it cannot tell a first series from a later one."
