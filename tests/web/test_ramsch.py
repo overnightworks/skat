@@ -1,13 +1,17 @@
+from dataclasses import replace
+
 import pytest
 
 from skat.engine.deal import next_dealer, positions_from
+from skat.table.records import Refusal, Series
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, cards_in_text, wire_cards
+from tests.support.payload_cards import DEALER_SEAT, cards_in_text, wire_cards, with_known_deal
+from tests.support.played_game import a_whole_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import (
     FOREHAND,
@@ -25,6 +29,7 @@ from tests.web.support.playing import (
     cards,
     reason_of,
 )
+from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
 from tests.web.support.skat import streams_of
 
 SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
@@ -350,3 +355,62 @@ class TestOpeningARamschTable:
 
         assert answer.status_code == 422
         assert skat.store.tables == {}
+
+
+class TestARamschEndingASeries:
+    @pytest.fixture
+    def ended(self, skat):
+        """A series of three whose first two games were declared and whose third, the last, was a Ramsch played out.
+
+        Returns the table and the seats' totals before the Ramsch.
+        """
+        table = Table(skat, RAMSCH)
+        skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
+        for game in (1, 2):
+            table.declared_hand_game()
+            table.played_out(each.card for each in a_whole_game(table.record))
+            for number, headers in enumerate(headers_of(table), start=1):
+                assert tap_weiter(skat, headers, table.table_id, f"weiter-{game}-{number}", game).status_code == 200
+            accounts = [chair.occupant.account_id for chair in table.record.chairs]
+            assert deal_next(skat, table.table_id, accounts)
+            with_known_deal(skat, table.table_id)
+        table.with_deal(PLAIN_DEAL)
+        before = {chair["seat"]: chair["total"] for chair in read(table)["chairs"]}
+        three_pass(table)
+        table.played_out(PLAIN_HAND)
+        return table, before
+
+    def test_the_series_is_over_and_the_standings_count_the_ramsch_in_the_totals_only(self, ended):
+        table, before = ended
+        scores = {1: 0, 2: -86, 3: 0}
+
+        series = read(table)["series"]
+
+        assert (series["game_number"], series["over"]) == (3, True)
+        assert sorted(each["total"] for each in series["standings"]) == sorted(
+            before[seat] + scores[seat] for seat in scores
+        )
+        assert sum(each["won"] + each["lost"] for each in series["standings"]) == 2
+        assert read(table)["passed_in"] is None
+
+    def test_weiter_is_refused_as_series_over(self, skat, ended):
+        table, _ = ended
+
+        skat.client.cookies.clear()
+        answer = tap_weiter(skat, headers_of(table)[0], table.table_id, "weiter-after-ramsch", ordinal=3)
+
+        assert (answer.status_code, reason_of(answer)) == (409, Refusal.SERIES_OVER)
+
+    def test_three_taps_of_neue_serie_deal_the_next_series_with_an_empty_list(self, skat, ended):
+        table, _ = ended
+        for number, headers in enumerate(headers_of(table), start=1):
+            skat.client.cookies.clear()
+            assert tap_new_series(skat, headers, table.table_id, f"tap-new-{number}").status_code == 200
+        accounts = [chair.occupant.account_id for chair in table.record.chairs]
+
+        assert deal_next(skat, table.table_id, accounts)
+
+        series = read(table)["series"]
+        assert (series["game_number"], series["over"], series["standings"]) == (1, False, None)
+        assert read_list(table) == []
+        assert [chair["total"] for chair in read(table)["chairs"]] == [0, 0, 0]
