@@ -101,7 +101,7 @@ def test_the_words_go_with_the_hand_and_the_entry_keeps_the_last_word_and_the_do
     all_four_words(game)
     command = GiveUpCommand(command_id="give-up", table_id=game.table_id, version=game.record.version)
 
-    result = game.service.give_up(game.actors[MIDDLEHAND], command, nobody_connected(), lambda _accounts: None)
+    result = game.service.give_up(game.actors[MIDDLEHAND], command, nobody_connected())
 
     assert result.refusal is None
     assert count_rows(engine, "kontra_words") == 0

@@ -58,7 +58,7 @@ def test_a_bock_game_stores_its_multiplied_score_and_its_factor_and_the_games_le
     hold_pending_bock_games(transactions, game.table_id, 3)
     command = GiveUpCommand(command_id="give-up", table_id=game.table_id, version=game.record.version)
 
-    result = game.service.give_up(game.actors[Position.MIDDLEHAND], command, frozenset(), lambda _accounts: None)
+    result = game.service.give_up(game.actors[Position.MIDDLEHAND], command, frozenset())
 
     assert result.refusal is None
     with engine.connect() as connection:

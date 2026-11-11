@@ -26,6 +26,7 @@ export const words = {
     tableLoadFailed: "Der Tisch lässt sich gerade nicht laden",
     tableLoadFailedHint: "Lade die Seite neu, um es noch einmal zu versuchen.",
     watchers: "Zuschauer",
+    lobby: "Lobby",
     reconnecting: "verbinde neu",
     sitDown: "Hinsetzen",
     standUp: "Aufstehen",

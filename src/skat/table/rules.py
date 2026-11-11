@@ -383,10 +383,19 @@ def decide_stand(table: TableRecord, actor: Actor) -> Decision:
     return decide_free_chair(table, actor.account_id)
 
 
+def hold_frees_chair(table: TableRecord) -> bool:
+    """The away hold may free a chair only at a table on which no hand was ever dealt.
+
+    At a dealt table a chair is kept in every phase until its holder stands up, an agent's chair is sent away or the
+    table ends.
+    """
+    return not hand_was_dealt(table)
+
+
 def decide_free_chair(table: TableRecord, account_id: str) -> Decision:
     """The account's chair is freed and keeps its number, only while the account still holds it and no hand runs.
 
-    A person standing up and the server ending an away member's hold ask the same question.
+    A person standing up asks this alone; the server's away hold asks `hold_frees_chair` first.
     """
     own = seat_of(table, account_id)
     if own is None:

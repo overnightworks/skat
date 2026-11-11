@@ -104,12 +104,12 @@ class TestAStepOfPlay:
     def play_first_card(self, scene, *, position=Position.FOREHAND, version=None):
         card = scene.table.hand.hands[position][0]
         command = PlayCardCommand("command-card", scene.table_id, version or scene.table.version, card)
-        return scene.service.play_card(scene.holder(position), command, ALL_THREE, on_hand_ended=lambda _: None)
+        return scene.service.play_card(scene.holder(position), command, ALL_THREE)
 
     def request_give_up(self, scene, command_id="command-give-up"):
         declarer = scene.holder(Position.MIDDLEHAND)
         command = GiveUpCommand(command_id, scene.table_id, scene.table.version)
-        return scene.service.give_up(declarer, command, ALL_THREE, lambda _: None)
+        return scene.service.give_up(declarer, command, ALL_THREE)
 
     def test_a_played_card_moves_the_time(self, scene):
         assert self.play_first_card(scene.at(LATER)).refusal is None
@@ -135,7 +135,7 @@ class TestAStepOfPlay:
         opponent = scene.holder(Position.FOREHAND)
         agreed_at = LATER + timedelta(days=1)
 
-        result = scene.at(agreed_at).service.agree_to_give_up(opponent, command, ALL_THREE, lambda _: None)
+        result = scene.at(agreed_at).service.agree_to_give_up(opponent, command, ALL_THREE)
 
         assert result.refusal is None
         assert scene.played_at == agreed_at
@@ -143,9 +143,7 @@ class TestAStepOfPlay:
     def test_a_throw_down_moves_the_time(self, scene):
         command = ThrowDownCommand("command-throw", scene.table_id, scene.table.version)
 
-        result = scene.at(LATER).service.throw_down(
-            scene.holder(Position.MIDDLEHAND), command, ALL_THREE, lambda _: None
-        )
+        result = scene.at(LATER).service.throw_down(scene.holder(Position.MIDDLEHAND), command, ALL_THREE)
 
         assert result.refusal is None
         assert scene.played_at == LATER
