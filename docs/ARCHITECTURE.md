@@ -139,7 +139,7 @@ The model is Skat's own.
 
 ### Texts
 
-`frontend/src/lib/catalogs/de.po` owns every visible Skat text. `scripts/generate_words.py` writes the typed `frontend/src/lib/words.ts` from it (`make words`; `make words-check`, part of `make lint`, fails on drift). A missing, empty or fuzzy translation fails the generator and a missing key fails the type check, so nothing fails at runtime. The sign-in pages keep design's English. A further language is one more catalog checked against `de.po`'s keys; choosing it is a later item.
+`frontend/src/lib/catalogs/de.po` owns every visible Skat text. `scripts/generate_words.py` writes the typed `frontend/src/lib/words.ts` from it (`make words`; `make words-check`, part of `make lint`, fails on drift). A missing, empty or fuzzy translation fails the generator and a missing key fails the type check, so nothing fails at runtime. The server writes the shell's `lang` from webauth's resolver, which answers the account's language the issuer gave at sign-in, else the browser's, else the default; Skat offers German only (`src/skat/web/languages.py`), and `PageBuild.shell_in` writes that answer into `<html lang>` and nothing else of the shell. The plain sign-in pages keep design's English and say `lang="en"`. A further language is one more catalog checked against `de.po`'s keys; choosing it is a later item.
 
 ### Proof strategy
 
