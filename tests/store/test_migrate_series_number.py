@@ -42,8 +42,7 @@ class TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen:
         ids=["a series numbered below one", "a later number without a series"],
     )
     def test_refuses_a_number_the_table_cannot_hold(self, migrated, table_id, number):
+        update = text("UPDATE tables SET series_number = :number WHERE id = :id").bindparams(number=number, id=table_id)
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(
-                migrated,
-                text("UPDATE tables SET series_number = :number WHERE id = :id").bindparams(number=number, id=table_id),
-            )
+            run_in_transaction(migrated, update)
