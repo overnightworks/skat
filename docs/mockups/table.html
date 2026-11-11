@@ -1355,27 +1355,23 @@ Object.assign(I,{
   kontra:sv('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',2),
   bock:sv('<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/>',1.8),
   lock:sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>'),
-  list:sv('<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',2.2),
 });
-/* the rules a table can have today; each carries its chip, its row on the opening sheet and its settings as short words */
+/* the rules a table can have today; each carries its chip, its name and its settings as short words */
 const TABLE_RULES=[
-  {id:'points',ic:I.points,chip:'Augen',name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel',settings:'Aus fertigen Stichen, nie in einer Null'},
-  {id:'kontra',ic:I.kontra,chip:'Kontra',name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',settings:'Nur wer gereizt hat, bis Hirsch'},
-  {id:'bock',ic:I.bock,chip:'Bock',name:'Bockrunden',line:'Manche Spiele zählen doppelt',settings:'Bei 60 zu 60, Schneider und Schwarz; neue Runden hängen sich an'},
+  {id:'points',ic:I.points,chip:'Augen',name:'Laufende Augen zeigen',settings:'Aus fertigen Stichen, nie in einer Null'},
+  {id:'kontra',ic:I.kontra,chip:'Kontra',name:'Kontra und Re',settings:'Nur wer gereizt hat, bis Hirsch'},
+  {id:'bock',ic:I.bock,chip:'Bock',name:'Bockrunden',settings:'Bei 60 zu 60, Schneider und Schwarz; neue Runden hängen sich an'},
 ];
 const ANNAS_RULES=['points','kontra','bock'];
 const ruleChips=(on)=>`<span class="chips">${on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
 /* the chips are one tap target; centred above the felt, or starting at x */
 const rulePill=(x,y,on,o={})=>`<div class="rulepill ${o.mid?'mid':''} ${o.open?'on':''}" role="button" aria-label="Regeln" style="${at({left:x,top:y})}">${ruleChips(on)}</div>`;
-const ruleRows=(on,named)=>on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<div class="rrow"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${named?r.line:r.settings}</small></span></div>`).join(''):'';
-const rulesSheet=(d,o={})=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:8,ANNAS_RULES,{mid:true,open:true})
+const ruleRows=(on)=>on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<div class="rrow"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.settings}</small></span></div>`).join(''):'';
+const rulesSheet=(d)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:8,ANNAS_RULES,{mid:true,open:true})
   +`<div class="result rules" role="dialog" aria-label="Regeln" style="${at({left:d?640:195,top:d?84:76,width:d?460:354,'z-index':'50'})}"><h3>Regeln</h3>
-  ${o.setName?`<div class="sub">${o.setName}</div>`:''}
   <span class="lockbadge" role="status">${I.lock}Fest für diesen Tisch<span class="info" role="button" tabindex="0" aria-label="Info" title="Andere Regeln heißen neuer Tisch.">i</span></span>
-  <div class="rrows">${ruleRows(ANNAS_RULES,o.names)}</div>
+  <div class="rrows">${ruleRows(ANNAS_RULES)}</div>
   <div class="btns"><span class="button button-glass">Schließen</span></div></div>`;
-/* before the first deal: Anna's table, one chair free, Felix looking on */
-const ruleBarButton=`<span class="cb wide glass" role="button">${I.list}Regeln</span>`;
 /* during play the series count and the chips share the top; on a phone the chips take a row of their own and the two top chairs step down */
 const DROP=14;
 const PBR={...PB,anna:{...PB.anna,y:PB.anna.y+DROP},nova:{...PB.nova,y:PB.nova.y+DROP},coasters:[[100,112+DROP,34,-10],[256,112+DROP,34,8],PB.coasters[2]]};
@@ -1388,7 +1384,6 @@ const rulePlay=(d,o)=>{const L=d?DB:PBR;
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
     +ownHand(d,RULE_HAND)+tableBar(d);};
 const runningPoints=(d)=>points(28,41,d?190:150);
-const runningNumbers=(d)=>`<div class="points" style="--pw:${d?190:150}px"><div class="nums"><span class="d">Anna 28</span><span class="o">Wir 41</span></div></div>`;
 /* Lena looks on: the chairs are Anna's, Nova's and Felix's, and the points read Anna against the others */
 P.felixSeen={...P.felix,n:'Felix'};
 const ruleWatch=(d)=>{const L=d?DB:PBR;
@@ -1396,7 +1391,6 @@ const ruleWatch=(d)=>{const L=d?DB:PBR;
     +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+pointsNamed([28,41],['Anna','Gegner'],d?190:150))+announcedTrick(d).replace(d?ghost(640,432,96):ghost(195,440,70),'')
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felixSeen',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
     +tableBar(d);};
-const WATCH_SIT=(d)=>S3.watch(d);
 const RULES_SCENES=[
   ['rules-sit','Die Regeln vor dem Hinsetzen',(d)=>S3.watch(d)+rulePill(d?640:195,d?14:8,ANNAS_RULES,{mid:true}),
     ['Oben auf dem Tisch stehen die Marken der Hausregeln, vom Aufmachen an: dieselben Marken wie in der Liste, auch für den, der nur zuschaut.',
@@ -1411,18 +1405,6 @@ const RULES_SCENES=[
      'Vor dem ersten fertigen Stich steht dort 0 und 0, in einem Null-Spiel steht dort nichts.']],
   ['rules-watch','Zuschauen mit Augen',ruleWatch,
     ['Wer zuschaut, sieht dieselben Marken und dieselben laufenden Augen, nur gegen „Gegner“ statt „Wir“; kein Stich in der Mitte zählt, bevor er fertig ist.']],
-  ['rules-where-bar','Wahl 1 B: Knopf in der Leiste',(d)=>S3.watch(d).replace(/<\/div>$/,`${ruleBarButton}</div>`),
-    ['Die Leiste trägt einen Knopf „Regeln“, der die Regeln öffnet; auf dem Filz stehen keine Marken, die Liste der Tische nennt sie schon.']],
-  ['rules-where-list','Wahl 1 C: in der Spieleliste',(d)=>seriesPlay(d,'')+gameList(d).replace('<h3>Spiele</h3>',`<h3>Spiele</h3><div class="rulehead">${ruleChips(ANNAS_RULES)}</div>`),
-    ['Die Regeln stehen über der Liste der Spiele, die der Zähler „Spiel 8 von 36“ öffnet, und nirgends sonst.']],
-  ['rules-where-list-sit','Wahl 1 C: vor dem ersten Geben',(d)=>S3.watch(d),
-    ['Vor dem ersten Geben gibt es keine Serie zum Antippen: Wer sich setzen will, sieht keine Regeln.']],
-  ['rules-sheet-names','Wahl 2 B: nur die Namen',(d)=>S3.watch(d)+rulesSheet(d,{names:true}),
-    ['Jede Regel steht mit ihrem Namen und der einen Zeile vom Aufmachen da, ohne Einstellungen.']],
-  ['rules-sheet-set','Wahl 3 B: Name des Regelsatzes',(d)=>S3.watch(d)+rulesSheet(d,{setName:'Regeln von Felix'}),
-    ['Über den Regeln steht der Name des Regelsatzes, wie er beim Aufmachen hieß; ändert Felix den Satz später, ändert sich am Tisch nichts.']],
-  ['rules-points-numbers','Wahl 4 B: nur zwei Zahlen',(d)=>rulePlay(d,{chips:ANNAS_RULES,plaque:runningNumbers}),
-    ['Eine Zeile „Anna 28, Wir 41“ in der Tafel, ohne Balken; dieselben Zahlen, 0 und 0 vor dem ersten Stich und keine im Null-Spiel.']],
 ];
 scenes(RULES_SCENES);
 ORDER.push(...RULES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
@@ -1525,7 +1507,6 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .rrow .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .rrow b{font-size:15px;font-weight:600;line-height:1.2}
 .rrow small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
-.gamelist .rulehead{display:flex;justify-content:center;padding:0 6px 0 0}
 </style>
 <style>
 /* Open Sans (latin, 400 and 600) and Oswald (latin, 400) as appkit ships them, embedded so the page needs no network */
