@@ -44,7 +44,7 @@ class TestAnAgentAtARamschTable:
         opened = agent.open_table(options=RAMSCH)
 
         assert "ramsch" in json.dumps(tools[OPEN_TABLE_TOOL]["inputSchema"])
-        assert opened.json()["options"]["ramsch"] == RAMSCH["ramsch"]
+        assert opened.json()["options"]["ramsch"] == {**RAMSCH["ramsch"], "pushing": None}
 
     def test_plays_a_whole_ramsch_with_play_card_and_continues_after_its_result(self, skat, agent):
         table = AgentRamschTable(skat, agent)
