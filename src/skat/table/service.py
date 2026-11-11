@@ -25,6 +25,7 @@ from skat.table.member_place import (
     forgotten_if_expired,
     standings_among,
 )
+from skat.table.member_view import MemberView, ViewSignal, member_view_of, view_recipients
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -143,6 +144,10 @@ def _tell_nobody(accounts: frozenset[str]) -> None:
     """The signal of a service no one listens to."""
 
 
+def _show_nobody(table_id: TableId, accounts: frozenset[str]) -> None:
+    """The view signal of a service no one listens to."""
+
+
 class TableService:
     """The table commands and views; every command is one transaction."""
 
@@ -156,6 +161,7 @@ class TableService:
         self._transactions = transactions
         self._live_leases: Callable[[], frozenset[str]] = frozenset
         self._standings_changed: Callable[[frozenset[str]], None] = _tell_nobody
+        self._view_changed: ViewSignal = _show_nobody
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -175,6 +181,14 @@ class TableService:
         """
         clone = copy.copy(self)
         clone._standings_changed = signal  # noqa: SLF001 - the clone is this class's own instance
+        return clone
+
+    def with_view_signal(self, signal: ViewSignal) -> TableService:
+        """The same service where each commit that raised a table's version tells `signal` the table and the agents
+        seated at it after the commit, on the thread the command ran on; a change that raised nothing tells it nothing.
+        """
+        clone = copy.copy(self)
+        clone._view_changed = signal  # noqa: SLF001 - the clone is this class's own instance
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
@@ -416,6 +430,7 @@ class TableService:
                 return False
             transaction.save_table(decision.table, played_at=None)
         self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
+        self._tell_view(table_id, view_recipients(table, decision.table))
         return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
@@ -433,8 +448,10 @@ class TableService:
             connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if connected is None or not next_deal_due(table, connected):
                 return False
-            transaction.save_table(dealt_next(table, self._new_hand(table)), played_at=self._now())
-            return True
+            dealt = dealt_next(table, self._new_hand(table))
+            transaction.save_table(dealt, played_at=self._now())
+        self._tell_view(table_id, view_recipients(table, dealt))
+        return True
 
     def end_empty_table(
         self,
@@ -597,6 +614,7 @@ class TableService:
                 self._save_decided(transaction, SIT_DOWN_COMMAND, table, decision.table)
         if decision.entry != entry:
             self._tell(frozenset({agent.account_id}))
+        self._tell_view(table_id, view_recipients(table, decision.table))
         return AcceptResult(decision.refusal, result_pending(decision.table))
 
     def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
@@ -616,6 +634,10 @@ class TableService:
     def _tell(self, accounts: frozenset[str]) -> None:
         if accounts:
             self._standings_changed(accounts)
+
+    def _tell_view(self, table_id: TableId, accounts: frozenset[str]) -> None:
+        if accounts:
+            self._view_changed(table_id, accounts)
 
     @staticmethod
     def _members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
@@ -679,11 +701,13 @@ class TableService:
             seated_when_hand_ended: frozenset[str] = frozenset()
             away_when_hand_ended: frozenset[str] = frozenset()
             told: frozenset[str] = frozenset()
+            viewers: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
                     self._save_decided(transaction, command, table, decision.table)
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
+                    viewers = view_recipients(table, decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
@@ -701,6 +725,7 @@ class TableService:
                 away_when_hand_ended,
             )
         self._tell(told)
+        self._tell_view(identifier, viewers)
         return result
 
     def _save_decided(
@@ -728,6 +753,15 @@ class TableService:
             else present_at(table, connected_accounts, self._live_leases())
         )
         return view_of(table, actor.account_id, present)
+
+    def member_view(self, account_id: str, table_id: str, connected_accounts: frozenset[str]) -> MemberView | None:
+        """The live table's view for the account that holds a chair there, with whether the table waits for it; None
+        for any other account, an ended table and a table that is not there.
+        """
+        table = self._table_read(table_id)
+        if not isinstance(table, TableRecord):
+            return None
+        return member_view_of(table, account_id, present_at(table, connected_accounts, self._live_leases()))
 
     def series_list(self, table_id: str) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...] | None:
         """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""
