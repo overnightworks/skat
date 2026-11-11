@@ -61,6 +61,7 @@ from skat.table.records import (
     Decision,
     EndedTable,
     NewHand,
+    SendAway,
     SitDown,
     StandUp,
     TableId,
@@ -101,6 +102,7 @@ from skat.table.rules import (
     sit_payload,
     stand_payload,
 )
+from skat.table.send_away import SEND_AWAY_COMMAND, book_after_send_away, decide_send_away, send_away_payload
 from skat.table.series_end import (
     AGREE_TO_END_SERIES_COMMAND,
     REFUSE_TO_END_SERIES_COMMAND,
@@ -231,6 +233,28 @@ class TableService:
             STAND_UP_COMMAND,
             stand_payload(command),
             lambda table: decide_stand(table, actor),
+        )
+
+    def send_away(self, actor: Actor, command: SendAway, connected_accounts: frozenset[str]) -> CommandResult | None:
+        """Free an agent's chair at once, in every phase of a hand, and take the place from its standing in the same
+        transaction: the agent's book row at this table gets a higher epoch and no invitation.
+
+        `actor` is the person who sends; who may send away is the caller's to check. The hand stays and waits for a
+        sitter. A replay and a refusal write no book row.
+        """
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            SEND_AWAY_COMMAND,
+            send_away_payload(command),
+            lambda table: decide_send_away(table, command.agent_account),
+            lambda transaction, table: transaction.save_book_entry(
+                book_after_send_away(
+                    transaction.locked_book_entry(table.id, command.agent_account), table.id, command.agent_account
+                )
+            ),
         )
 
     def take_auction_step(
@@ -666,13 +690,16 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
+        after_accepted: Callable[[TableTransaction, TableRecord], None] | None = None,
     ) -> CommandResult | None:
+        """Run the command once; `after_accepted` writes more inside the transaction, after an accepted first run."""
+        arguments = (actor, connected_accounts, table_id, command_id, command, payload, decide, after_accepted)
         try:
-            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
+            return self._run_command_once(*arguments)
         except DuplicateReceiptError:
             # The same command id committed on another table between this one's lookup and its receipt;
             # the retry finds that receipt and replays it or refuses the reuse.
-            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
+            return self._run_command_once(*arguments)
 
     def _run_command_once(
         self,
@@ -683,6 +710,7 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
+        after_accepted: Callable[[TableTransaction, TableRecord], None] | None,
     ) -> CommandResult | None:
         """Lock the table row, replay by actor and command id, decide, write, store the receipt; None for no table."""
         identifier = TableId.parse(table_id)
@@ -700,6 +728,8 @@ class TableService:
                 decision = decide(table)
                 if decision.refusal is None:
                     self._save_decided(transaction, command, table, decision.table)
+                    if after_accepted is not None:
+                        after_accepted(transaction, decision.table)
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                     viewers = view_recipients(table, decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))

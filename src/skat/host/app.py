@@ -61,6 +61,7 @@ from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
     LoggingAuditSink,
+    SignInConfigs,
     build_relying_party,
     build_sign_in_configs,
     install_sign_in,
@@ -72,6 +73,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
+    from webauth.config import WebAuthConfig
+    from webauth.oidc import OidcRelyingParty
     from webauth.ports import SessionRecordStore
 
     from skat.table.rule_sets import RuleSetService
@@ -116,6 +119,17 @@ def _install_web_auth(
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
     )
+
+
+def _install_sign_in(
+    app: FastAPI,
+    sign_in_configs: SignInConfigs,
+    relying_party: OidcRelyingParty,
+    stores: SingleProcessStores,
+    page_build: PageBuild,
+) -> None:
+    install_web_auth_config(app, sign_in_configs.web_auth)
+    install_sign_in(app, relying_party, stores.transaction, page_build, stores.sessions, sign_in_configs.web_auth)
 
 
 def _chair_hold(
@@ -177,9 +191,16 @@ def _presence(
     )
 
 
-def _include_table_routers(app: FastAPI, tables: TableService, page_build: PageBuild, presence: Presence) -> None:
+def _include_table_routers(
+    app: FastAPI,
+    tables: TableService,
+    page_build: PageBuild,
+    presence: Presence,
+    sessions: SessionRecordStore,
+    web_auth: WebAuthConfig,
+) -> None:
     app.include_router(create_seating_router(tables, presence))
-    app.include_router(create_tables_router(tables, page_build, presence))
+    app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
 
 
 def _include_table_sub_routers(
@@ -259,16 +280,15 @@ def create_app(
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
-    app.include_router(create_router(page_build))
+    app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
-    _include_table_routers(app, tables, page_build, presence)
+    _include_table_routers(app, tables, page_build, presence, sign_in_stores.sessions, sign_in_configs.web_auth)
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
     app.state.stop_streams = presence.stop
-    install_web_auth_config(app, sign_in_configs.web_auth)
-    install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
+    _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(
         app,
         relying_party,

@@ -23,7 +23,9 @@ from skat.table.records import (
     TableId,
     TableOptions,
 )
+from skat.table.rules import decide_sit
 from skat.table.views import view_of
+from tests.support.open_chairs import PHASES, REARHAND_SEAT, newcomer, sent_away
 from tests.support.played_game import asked_by_the_declarer, between_games, declared_herz_hand, table_in
 
 MIDDLEHAND, REARHAND, FOREHAND = "account-middlehand", "account-rearhand", "account-forehand"
@@ -157,3 +159,41 @@ class TestNothingIsAwaited:
         ended = EndedTable(TableId("0" * 32), 9, EndReason.EMPTY, 3600)
 
         assert awaits_you(view_of(ended, MIDDLEHAND, frozenset())) is False
+
+
+class TestAnOpenChair:
+    """The hand waits for a sitter, so no seat is awaited and the revision rises when one joins."""
+
+    @pytest.mark.parametrize("phase", PHASES)
+    def test_no_seat_is_awaited_while_a_chair_of_the_running_hand_is_open(self, phase):
+        running = PHASES[phase]()
+        waiting = sent_away(running, REARHAND_SEAT)
+
+        assert waiting_for(running)
+        assert waiting_for(waiting) == set()
+
+    @pytest.mark.parametrize(
+        ("phase", "on_turn"),
+        [("pushing-start", FOREHAND), ("pushing-after-the-take", FOREHAND), ("pushing-after-the-push", MIDDLEHAND)],
+    )
+    def test_the_seat_pushing_is_awaited_but_not_while_a_chair_is_open(self, phase, on_turn):
+        running = PHASES[phase]()
+
+        assert waiting_for(running) == {on_turn}
+        assert waiting_for(sent_away(running, REARHAND_SEAT)) == set()
+        assert waiting_for(sent_away(running, SEAT_OF[on_turn])) == set()
+
+    def test_no_seat_is_awaited_for_a_give_up_question_either(self):
+        asked = asked_by_the_declarer()
+
+        assert waiting_for(sent_away(asked, REARHAND_SEAT)) == set()
+
+    def test_the_seat_on_turn_is_awaited_again_under_a_higher_revision_once_a_sitter_joins(self):
+        running = PHASES["auction"]()
+        waiting = sent_away(running, SEAT_OF[REARHAND])
+        sitter = newcomer()
+
+        taken = decide_sit(waiting, sitter, SEAT_OF[REARHAND], None).table
+
+        assert waiting_for(taken) == waiting_for(running)
+        assert taken.version > waiting.version

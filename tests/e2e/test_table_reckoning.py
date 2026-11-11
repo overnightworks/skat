@@ -9,6 +9,7 @@ from playwright.sync_api import Locator, Page, expect
 from skat.engine.declaration import Announcement, Declaration
 from skat.engine.games import GameKind
 from skat.engine.value import Matadors
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import THEY, WE
 from tests.e2e.support.people import WIDTHS
@@ -30,7 +31,6 @@ from tests.e2e.support.result_card import (
     expect_the_page_around_the_card,
     loosely,
 )
-from tests.e2e.support.words import catalog_text
 from tests.support.played_game import an_entry
 
 if TYPE_CHECKING:
@@ -42,21 +42,21 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-HAND = catalog_text("hand")
-SCHNEIDER = catalog_text("levelSchneider")
-SCHWARZ = catalog_text("levelSchwarz")
-OUVERT_CHIP = catalog_text("levelOuvert")
-SCHNEIDER_ANNOUNCED = catalog_text("announcedSchneider")
-SCHWARZ_ANNOUNCED = catalog_text("announcedSchwarz")
-MIT = catalog_text("matadorsWith")
-OHNE = catalog_text("matadorsWithout")
-NOT_REACHED = catalog_text("notReached")
-OUVERT = catalog_text("ouvert")
-GAME_KARO = catalog_text("gameKaro")
-GAME_HERZ = catalog_text("gameHerz")
-GAME_KREUZ = catalog_text("gameKreuz")
-GAME_GRAND = catalog_text("gameGrand")
-GAME_NULL = catalog_text("gameNull")
+HAND = text(SOURCE_LANGUAGE, "result.hand")
+SCHNEIDER = text(SOURCE_LANGUAGE, "result.levelSchneider")
+SCHWARZ = text(SOURCE_LANGUAGE, "result.levelSchwarz")
+OUVERT_CHIP = text(SOURCE_LANGUAGE, "result.levelOuvert")
+SCHNEIDER_ANNOUNCED = text(SOURCE_LANGUAGE, "result.announcedSchneider")
+SCHWARZ_ANNOUNCED = text(SOURCE_LANGUAGE, "result.announcedSchwarz")
+MIT = text(SOURCE_LANGUAGE, "result.matadorsWith")
+OHNE = text(SOURCE_LANGUAGE, "result.matadorsWithout")
+NOT_REACHED = text(SOURCE_LANGUAGE, "result.notReached")
+OUVERT = text(SOURCE_LANGUAGE, "game.ouvert")
+GAME_KARO = text(SOURCE_LANGUAGE, "game.karo")
+GAME_HERZ = text(SOURCE_LANGUAGE, "game.herz")
+GAME_KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
+GAME_GRAND = text(SOURCE_LANGUAGE, "game.grand")
+GAME_NULL = text(SOURCE_LANGUAGE, "game.null")
 
 
 @dataclass(frozen=True)

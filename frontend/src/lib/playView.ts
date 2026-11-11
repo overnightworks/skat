@@ -51,7 +51,7 @@ export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
             card,
             seat,
             slot: TRICK_SLOTS[place] as TrickSlot,
-            name: chair.is_mine ? words.sideYou : accountName,
+            name: chair.is_mine ? words["play.sideYou"] : accountName,
             initial: accountName.slice(0, 1),
         };
     });
@@ -61,9 +61,9 @@ export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
 export function sideNames(chairs: readonly Chair[], declarerSeat: number): SideNames {
     const declarer = (chairs.find((chair) => chair.seat === declarerSeat) as Chair).occupant_name ?? "";
     const mine = chairs.find((chair) => chair.is_mine);
-    if (mine === undefined) return { declarer, opponents: words.sideThem };
-    if (mine.seat === declarerSeat) return { declarer: words.sideUs, opponents: words.sideThem };
-    return { declarer, opponents: words.sideUs };
+    if (mine === undefined) return { declarer, opponents: words["play.sideThem"] };
+    if (mine.seat === declarerSeat) return { declarer: words["play.sideUs"], opponents: words["play.sideThem"] };
+    return { declarer, opponents: words["play.sideUs"] };
 }
 
 export type GameInPlay = { declaration: NonNullable<Declaring["declaration"]>; declarerSeat: number; playing: Playing };
