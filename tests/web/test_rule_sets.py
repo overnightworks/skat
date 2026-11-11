@@ -105,9 +105,10 @@ class TestSaveAndRead:
 
         saved = save(skat, headers, "Ramsch", RAMSCH)
 
-        assert saved.json()["options"]["ramsch"] == RAMSCH["ramsch"]
+        answered = {**RAMSCH["ramsch"], "pushing": None}
+        assert saved.json()["options"]["ramsch"] == answered
         assert names_of(read(skat, headers)) == ["Ramsch"]
-        assert skat.create(headers, options=RAMSCH).json()["options"]["ramsch"] == RAMSCH["ramsch"]
+        assert skat.create(headers, options=RAMSCH).json()["options"]["ramsch"] == answered
 
     def test_a_set_with_ramsch_and_bock_is_saved_and_opens_a_table_with_both(self, skat):
         headers, _ = skat.member()

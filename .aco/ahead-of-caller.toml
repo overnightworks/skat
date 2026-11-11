@@ -10,8 +10,8 @@ reason = "S13.3b2 wires the first-card deadline: `decline`, `awaits_words` and `
 
 [[code]]
 path = "src/skat/engine/schieberamsch.py"
-item = "overnightworks/skat#39"
-reason = "S13.4d lets each seat take or push the skat through the API."
+item = "overnightworks/skat#327"
+reason = "S13.4d3 lets a seat declare a Grand Hand instead of a Ramsch: `declare_grand_hand`, `DeclareGrandHand`, `GrandHandRule.ALLOWED` and `PushRefusal.GRAND_HAND_OFF`."
 
 [[code]]
 path = "src/skat/table/member_place.py"
