@@ -16,8 +16,7 @@ from skat.web.playing import (
 )
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, cards_in_text, wire_cards, with_known_deal
-from tests.support.played_game import a_whole_game
+from tests.support.payload_cards import DEALER_SEAT, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import (
     FOREHAND,
@@ -35,7 +34,7 @@ from tests.web.support.playing import (
     cards,
     reason_of,
 )
-from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
+from tests.web.support.series import deal_next, headers_of, play_the_dealt_series, tap_new_series, tap_weiter
 from tests.web.support.skat import streams_of
 
 SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
@@ -390,14 +389,7 @@ class TestARamschEndingASeries:
         """
         table = Table(skat, RAMSCH)
         skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
-        for game in (1, 2):
-            table.declared_hand_game()
-            table.played_out(each.card for each in a_whole_game(table.record))
-            for number, headers in enumerate(headers_of(table), start=1):
-                assert tap_weiter(skat, headers, table.table_id, f"weiter-{game}-{number}", game).status_code == 200
-            accounts = [chair.occupant.account_id for chair in table.record.chairs]
-            assert deal_next(skat, table.table_id, accounts)
-            with_known_deal(skat, table.table_id)
+        play_the_dealt_series(skat, table, 2, deal_after_last=True)
         table.with_deal(PLAIN_DEAL)
         before = {chair["seat"]: chair["total"] for chair in read(table)["chairs"]}
         three_pass(table)
