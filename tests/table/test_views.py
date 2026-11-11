@@ -320,10 +320,7 @@ class TestChairTotals:
         [
             pytest.param({}, id="no-hand"),
             pytest.param({"hand": KNOWN_DEAL}, id="hand-running"),
-            pytest.param(
-                {"steps": (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))},
-                id="hand-passed-in",
-            ),
+            pytest.param({"steps": THREE_PASSES}, id="hand-passed-in"),
         ],
     )
     @pytest.mark.parametrize(
