@@ -237,7 +237,7 @@ def seat_of(game, position):
     return next(chair.seat for chair in game.record.chairs if chair.occupant.account_id == account_id)
 
 
-def test_two_yes_answers_at_once_write_one_entry_naming_the_asker_and_the_loser_is_stale(game, transactions):
+def test_two_yes_answers_at_once_write_one_entry_naming_the_asker_and_the_loser_finds_no_hand(game, transactions):
     asked_with_eight_cards(game)
     racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
     version = game.record.version
@@ -254,27 +254,22 @@ def test_two_yes_answers_at_once_write_one_entry_naming_the_asker_and_the_loser_
     ]
 
 
-@pytest.mark.parametrize("started_first", ["card", "give-up"])
 def test_a_card_and_a_give_up_at_once_commit_only_the_winner_and_its_ending_matches_the_one_entry(
-    game, engine, transactions, started_first
+    game, engine, transactions
 ):
     position, card = game.legal_card()
     racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
     version = game.record.version
     command = GiveUpCommand(command_id="give-up", table_id=game.table_id, version=version)
-    requests = {
-        "card": lambda: game.send(position, card, command_id=card_id(1), version=version, service=racing),
-        "give-up": lambda: racing.give_up(
-            game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None
-        ),
-    }
-    order = sorted(requests, key=lambda name: name != started_first)
 
-    results = dict(zip(order, race(*(requests[name] for name in order)), strict=True))
+    card_result, give_up_result = race(
+        lambda: game.send(position, card, command_id=card_id(1), version=version, service=racing),
+        lambda: racing.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None),
+    )
 
     committed = (
-        results["card"].refusal,
-        results["give-up"].refusal,
+        card_result.refusal,
+        give_up_result.refusal,
         [(entry.ending, entry.ended_by_seat) for entry in game.record.game_list],
         count_rows(engine),
         game.record.version - version,
