@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
-from tests.e2e.support.words import catalog_text
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.support.sign_in_settings import TEST_ISSUER
 
 if TYPE_CHECKING:
@@ -11,16 +11,16 @@ if TYPE_CHECKING:
 
 LEGAL_ORIGIN = "https://hallucinai.de"
 LEGAL_LINKS = {
-    "legalImprint": f"{LEGAL_ORIGIN}/impressum#skat",
-    "legalPrivacy": f"{LEGAL_ORIGIN}/datenschutz#skat",
-    "legalTerms": f"{LEGAL_ORIGIN}/nutzungsbedingungen#skat",
+    "legal.imprint": f"{LEGAL_ORIGIN}/impressum#skat",
+    "legal.privacy": f"{LEGAL_ORIGIN}/datenschutz#skat",
+    "legal.terms": f"{LEGAL_ORIGIN}/nutzungsbedingungen#skat",
 }
 ISSUER_END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
 ACCOUNT_AVATAR = ".account-button"
 ACCOUNT_MENU = "#accountMenu"
 # Chromium words a 401 answer to a fetch like this, and names the address in the message location.
 SIGNED_OUT_ANSWER_LINE = "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
-NEW_TABLE_BUTTON = catalog_text("newTable")
+NEW_TABLE_BUTTON = text(SOURCE_LANGUAGE, "start.newTable")
 
 
 def record_page_errors(

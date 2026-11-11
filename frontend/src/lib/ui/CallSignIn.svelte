@@ -92,5 +92,5 @@
 
 <!-- The wrapper recognises the tab link by its address and hears its tap on the way down; the link keeps design's behaviour. -->
 <div class="sign-in" bind:this={face} onclickcapture={tabOpened}>
-    <SignInPage appName={words.appName} state={signInState} legalLinks={LEGAL_LINKS} legalLinksNewTab />
+    <SignInPage appName={words["app.name"]} state={signInState} legalLinks={LEGAL_LINKS} legalLinksNewTab />
 </div>

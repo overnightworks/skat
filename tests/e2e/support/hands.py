@@ -10,10 +10,10 @@ from skat.engine.games import GameKind
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets
 from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
-WE = catalog_text("sideUs")
-THEY = catalog_text("sideThem")
+WE = text(SOURCE_LANGUAGE, "play.sideUs")
+THEY = text(SOURCE_LANGUAGE, "play.sideThem")
 TURN_CHAIR = ".chair.turn"
 
 command_numbers = itertools.count(1)

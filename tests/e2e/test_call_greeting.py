@@ -5,6 +5,7 @@ import pytest
 from playwright.sync_api import expect
 
 from skat.web.call import CALL_ORIGIN_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
     CHAIR,
@@ -20,7 +21,6 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.tables import SIT_DOWN, table_id_of
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -33,8 +33,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 BAR = ".bar"
-SEAT_FREE = catalog_text("seatFree")
-YOU = catalog_text("sideYou")
+SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
+YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 OTHER_ORIGIN = f"https://{OTHER_HOST}:{OTHER_PORT}"
 VALID_HELLO = {"v": 1, "type": "hello", "attachment": 1, "attempt": None}
 LOG_IN = "Log in"

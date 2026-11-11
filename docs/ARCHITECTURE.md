@@ -139,7 +139,7 @@ The model is Skat's own.
 
 ### Texts
 
-`frontend/src/lib/catalogs/de.po` owns every visible Skat text. `scripts/generate_words.py` writes the typed `frontend/src/lib/words.ts` from it (`make words`; `make words-check`, part of `make lint`, fails on drift). A missing, empty or fuzzy translation fails the generator and a missing key fails the type check, so nothing fails at runtime. The sign-in pages keep design's English. A further language is one more catalog checked against `de.po`'s keys; choosing it is a later item.
+`frontend/src/lib/catalogs/de.po` owns every visible Skat text, in the shape of the fleet's language standard: the key `surface.camelCase` in `msgctxt`, the German text in `msgid`. design's `design-catalogs` writes `frontend/src/lib/words/de.ts` and `src/skat/web/words.py` from it (`make words`); `make words-check`, part of `make lint`, fails on a broken catalog or a module that differs from it. A page reads a text as `words["table.seatFree"]` through `frontend/src/lib/words.ts`, the one import of every component, so a missing key fails the type check and nothing fails at runtime. Tests read expected texts from the Python module by key. The sign-in pages keep design's English. A further language is one more catalog checked against `de.po`'s keys; choosing it is a later item.
 
 ### Proof strategy
 

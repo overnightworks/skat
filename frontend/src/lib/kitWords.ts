@@ -2,9 +2,9 @@ import type { AccountMenuWords } from "overnightworks-design";
 import { words } from "#lib/words.ts";
 
 export const accountMenuWords: AccountMenuWords = {
-    theme: words.themeTitle,
-    followSystem: words.themeFollowSystem,
-    light: words.themeLight,
-    dark: words.themeDark,
-    logOut: words.logOut,
+    theme: words["account.theme"],
+    followSystem: words["account.followSystem"],
+    light: words["account.light"],
+    dark: words["account.dark"],
+    logOut: words["account.logOut"],
 };
