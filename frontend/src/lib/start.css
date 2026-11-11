@@ -2906,10 +2906,6 @@ body {
     .room .result .ladder > span {
         height: 24px;
     }
-
-    .room .result .reck {
-        padding: 8px 4px;
-    }
 }
 
 /* On a short desktop the near chair stands beside the card, as the scene draws it, so the bar stays on the screen. */
@@ -2957,6 +2953,13 @@ body {
     box-shadow:
         0 3px 0 #d8ccb0,
         0 10px 18px -6px rgba(0, 0, 0, 0.8);
+}
+
+/* Declared after the base card: both set its padding at the same specificity, so the packing must come later to apply. */
+@media (max-width: 899px) and (max-height: 780px) {
+    .room .result .reck {
+        padding: 8px 4px;
+    }
 }
 
 .room .result .reck.win {
