@@ -4,8 +4,10 @@ from alembic.migration import MigrationContext
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from skat.store.game_list import read_game_list
 from skat.store.migrate import migrate
 from skat.store.tables import metadata
+from skat.table.game_list import GameEnding, ListEntry
 from tests.support.migrations import list_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
@@ -52,6 +54,12 @@ class TestFromAListOfEveryKindAtRevisionTwentyFour:
             rows = connection.execute(text("SELECT ending, ended_by_seat FROM game_list ORDER BY ordinal")).all()
 
         assert [tuple(row) for row in rows] == [("played-out", None)] * 3
+
+    def test_the_store_reads_an_old_declared_entry_as_played_out_with_no_seat(self, migrated):
+        with migrated.connect() as connection:
+            declared = [entry for entry in read_game_list(connection, "t") if isinstance(entry, ListEntry)]
+
+        assert [(entry.ending, entry.ended_by_seat) for entry in declared] == [(GameEnding.PLAYED_OUT, None)] * 2
 
     def test_the_migrated_schema_is_the_one_the_store_writes_to(self, migrated):
         with migrated.connect() as connection:
