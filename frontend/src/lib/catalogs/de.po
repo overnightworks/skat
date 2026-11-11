@@ -78,6 +78,9 @@ msgstr "Lade die Seite neu, um es noch einmal zu versuchen."
 msgid "watchers"
 msgstr "Zuschauer"
 
+msgid "lobby"
+msgstr "Lobby"
+
 msgid "reconnecting"
 msgstr "verbinde neu"
 

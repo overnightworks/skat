@@ -383,6 +383,63 @@ body {
     text-transform: uppercase;
 }
 
+/* The way home from a solo table: a round glass button with the house, its word beside it from 900 px. The link is the 44 px tap target; the glass inside it is 40 px. */
+.room .lobby {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    color: var(--on-stage);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.room .lobby-face {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.7);
+}
+
+.room .lobby svg {
+    flex: none;
+    width: 22px;
+    height: 22px;
+}
+
+.room .lobby-word {
+    display: none;
+}
+
+@media (min-width: 900px) {
+    .room .lobby {
+        width: auto;
+    }
+
+    .room .lobby-face {
+        width: auto;
+        height: 40px;
+        padding: 0 16px 0 12px;
+        border-radius: 999px;
+    }
+
+    .room .lobby svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .room .lobby-word {
+        display: inline;
+    }
+}
+
 /* The table moves up when the call's greeting drops the bar; a tap aimed at the old place must not reach a control that moved under it. The animation moves nothing, so it stays outside prefers-reduced-motion. */
 .room .stage.after-drop {
     animation: stage-untouchable 1s;
