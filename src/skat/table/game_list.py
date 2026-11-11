@@ -1,4 +1,5 @@
 from dataclasses import dataclass, replace
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from skat.engine.bock import bock_factor, bock_settlement
@@ -11,12 +12,23 @@ from skat.engine.value import Breakdown, breakdown_of, value_of
 from skat.table.rules import result_pending
 
 if TYPE_CHECKING:
+    from skat.engine.deal import Position
     from skat.engine.declaration import Declaration
     from skat.engine.kontra import Doubling, Word
     from skat.engine.ramsch import RamschPlayedOut
     from skat.engine.tricks import PlayedOut
     from skat.engine.value import Level, Matadors
     from skat.table.records import Occupant, TableOptions, TableRecord
+
+
+class GameEnding(StrEnum):
+    """How a declared game ended, as the table knows it; the engine's ending cannot tell a give-up from a game its
+    points decided.
+    """
+
+    PLAYED_OUT = "played-out"
+    GIVEN_UP = "given-up"
+    THROWN_DOWN = "thrown-down"
 
 
 @dataclass(frozen=True)
@@ -26,7 +38,8 @@ class ListEntry:
     Schneider and Schwarz are the levels the valuation counted; the matadors are None exactly in Null. Each seat's
     display name is the one held at the end of the game, None for an entry stored before names were kept. The score
     is the list score with the Bock factor and the doubling applied; `bock_factor` is 1 outside a Bock game and
-    `kontra_word` the last word said, None for a game without one.
+    `kontra_word` the last word said, None for a game without one. `ended_by_seat` is the seat whose give-up or
+    throw-down ended the game, None exactly when the game was played out.
     """
 
     seat_accounts: tuple[str, str, str]
@@ -44,6 +57,8 @@ class ListEntry:
     declarer_points: int
     kontra_word: Word | None
     bock_factor: int
+    ending: GameEnding
+    ended_by_seat: int | None
 
     @property
     def opponents_points(self) -> int:
@@ -99,8 +114,12 @@ def bock_factor_of(table: TableRecord) -> int:
     return 1 if options is None else bock_factor(table.bock, options.overlap)
 
 
-def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | None) -> ListEntry:
-    """The entry a played-out game writes: its numbers come from the engine, its seats from the table.
+def list_entry_of(
+    played: PlayedOut, table: TableRecord, doubling: Doubling | None, ending: GameEnding, ended_by: Position | None
+) -> ListEntry:
+    """The entry a finished game writes: its numbers come from the engine, its seats and its ending from the table.
+
+    `ended_by` is the position whose give-up or throw-down ended the game, None for a game played out.
 
     A Bock game multiplies its list score by the table's Bock factor, and the words said double it after that; a table
     without Kontra has no doubling.
@@ -134,6 +153,8 @@ def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | No
         declarer_points=played.declarer_points,
         kontra_word=None if doubling is None else doubling.last_word,
         bock_factor=bock_factor_of(table),
+        ending=ending,
+        ended_by_seat=None if ended_by is None else seats[ended_by],
     )
 
 
@@ -225,6 +246,8 @@ class ResultView:
     gains: tuple[SeatGain, ...]
     kontra: KontraResult | None
     bock_factor: int
+    ending: GameEnding
+    ended_by_seat: int | None
 
 
 @dataclass(frozen=True)
@@ -350,6 +373,8 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
         gains=_gains(entry, reach),
         kontra=None if entry.kontra_word is None else KontraResult(entry.kontra_word, entry.kontra_word.factor),
         bock_factor=entry.bock_factor,
+        ending=entry.ending,
+        ended_by_seat=entry.ended_by_seat,
     )
 
 
