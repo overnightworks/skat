@@ -183,14 +183,14 @@ class MemberStandings:
         self,
         principal: Principal,
     ) -> Collection[str]:
-        if not token_carries_agent_facts.get():
+        if token_carries_agent_facts.get() is None:
             return ()
         return _listed(await self._standings(principal))
 
     async def read(  # NOSONAR(S7503) MemberResources is async
         self, principal: Principal, uri: str
     ) -> MemberStanding | PlaceWindow | PlaceView | None:
-        if not token_carries_agent_facts.get():
+        if token_carries_agent_facts.get() is None:
             return None
         if uri == STANDING_URI:
             return MemberStanding(standings=await self._standings(principal))
