@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, cast
 
 import structlog
+from agents.mcp_server import ResourceChanges
 from agents.member import LEASE_SECONDS
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -37,6 +38,7 @@ from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
 from skat.web.mcp import McpAccess, mount_mcp
+from skat.web.member_place import member_front, standing_signal
 from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
@@ -67,7 +69,7 @@ from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
-    from contextlib import AbstractContextManager
+    from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
     from webauth.ports import SessionRecordStore
 
@@ -153,6 +155,17 @@ def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
     return EmptyTable(settings.empty_table_seconds, end, note)
 
 
+def _presence(
+    settings: ServerSettings, tables: TableService, clock: Callable[[], float], scheduler: Scheduler | None
+) -> Presence:
+    return Presence(
+        _chair_hold(settings, tables, clock, scheduler if scheduler is not None else LoopScheduler()),
+        _next_deal(tables),
+        _empty_table(settings, tables),
+        _agent_lease(tables),
+    )
+
+
 def _include_table_routers(app: FastAPI, tables: TableService, page_build: PageBuild, presence: Presence) -> None:
     app.include_router(create_seating_router(tables, presence))
     app.include_router(create_tables_router(tables, page_build, presence))
@@ -178,6 +191,26 @@ def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONRespon
     return JSONResponse({"detail": jsonable_encoder(kept)}, status_code=422)
 
 
+def _serving(
+    settings: ServerSettings, tables: TableService, presence: Presence
+) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
+    @asynccontextmanager
+    async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
+        # Leave times are not stored, so every chair seated at the start is held for a full hold from now.
+        # A table already past its wait has ended before the first request; every other waits what is left of it.
+        occupied = await run_in_threadpool(tables.occupied_chairs)
+        presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
+        presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
+        try:
+            async with serving.state.mcp_front.running():
+                yield
+        finally:
+            presence.stop()
+            await presence.finish_writes()
+
+    return hold_chairs_while_serving
+
+
 def create_app(
     settings: ServerSettings,
     *,
@@ -197,30 +230,14 @@ def create_app(
     sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    # Wrapped first, so the timers' commands capture the service that counts a lease as presence.
-    tables = tables.with_leases(lambda: presence.live_leases())
-    presence = Presence(
-        _chair_hold(settings, tables, chair_clock, chair_scheduler if chair_scheduler is not None else LoopScheduler()),
-        _next_deal(tables),
-        _empty_table(settings, tables),
-        _agent_lease(tables),
+    changes = ResourceChanges()
+    # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing.
+    tables = tables.with_leases(lambda: presence.live_leases()).with_standing_signal(
+        standing_signal(changes, relying_party.issuer)
     )
+    presence = _presence(settings, tables, chair_clock, chair_scheduler)
 
-    @asynccontextmanager
-    async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
-        # Leave times are not stored, so every chair seated at the start is held for a full hold from now.
-        # A table already past its wait has ended before the first request; every other waits what is left of it.
-        occupied = await run_in_threadpool(tables.occupied_chairs)
-        presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
-        presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
-        try:
-            async with serving.state.mcp_front.running():
-                yield
-        finally:
-            presence.stop()
-            await presence.finish_writes()
-
-    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=hold_chairs_while_serving)
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
     app.include_router(create_router(page_build))
     app.include_router(create_account_router(settings.oidc_issuer))
@@ -232,7 +249,14 @@ def create_app(
     app.state.stop_streams = presence.stop
     install_web_auth_config(app, sign_in_configs.web_auth)
     install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
-    mcp = mount_mcp(app, relying_party, sign_in_stores.transaction, settings.public_origin, presence.renew_lease)
+    mcp = mount_mcp(
+        app,
+        relying_party,
+        sign_in_stores.transaction,
+        settings.public_origin,
+        presence.renew_lease,
+        member_front(tables, presence, changes),
+    )
     app.state.mcp_front = mcp.front
     _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)
 
