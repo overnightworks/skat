@@ -23,7 +23,7 @@ class TestRuleSets:
 
         assert not saved.is_error
         assert listed.json() == {"sets": [saved.json()]}
-        assert saved.json()["options"] == {"show_running_points": True, "kontra": None, "bock": None}
+        assert saved.json()["options"] == {"show_running_points": True, "kontra": None, "bock": None, "ramsch": None}
         assert skat.client.get(RULE_SETS_PATH, headers=owner).json() == {"sets": []}
         assert [each.owner_account for each in skat.rule_set_store.rule_sets.values()] == [
             skat.stores.accounts.get(SUBJECT).id

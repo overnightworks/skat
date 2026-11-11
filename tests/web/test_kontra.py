@@ -438,7 +438,7 @@ class TestOpeningATable:
         answer = server.create(opener, options=options)
 
         assert answer.status_code == 200, answer.text
-        assert answer.json()["options"] == {"show_running_points": False, "bock": None, **options}
+        assert answer.json()["options"] == {"show_running_points": False, "bock": None, "ramsch": None, **options}
 
     @pytest.mark.parametrize(
         "options", [pytest.param({}, id="no-kontra"), pytest.param({"kontra": None}, id="kontra-null")]

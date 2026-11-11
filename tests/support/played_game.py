@@ -8,7 +8,7 @@ from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed, play_card
 from skat.engine.value import Matadors
-from skat.table.game_list import ListEntry
+from skat.table.game_list import ListEntry, RamschEntry
 from skat.table.hand_state import playing_of
 from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
 
@@ -101,3 +101,16 @@ def after_a_game(record: TableRecord, entry: ListEntry, *ready_seats: int) -> Ta
 def after_the_first_game(record: TableRecord, *ready_seats: int) -> TableRecord:
     """The seated table as the thirtieth card leaves it, with `ready_seats` having tapped „Weiter“."""
     return after_a_game(replace(record, game_list=()), an_entry(), *ready_seats)
+
+
+def a_ramsch_entry(
+    seat_scores: tuple[int, int, int] = (-47, 0, 0), seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO
+) -> RamschEntry:
+    return RamschEntry(
+        seat_accounts=seat_accounts,
+        seat_names=("Anna", "Ben", "Cleo"),
+        seat_points=(47, 40, 33),
+        seat_scores=seat_scores,
+        durchmarsch_seat=None,
+        jungfrau=False,
+    )

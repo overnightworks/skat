@@ -5,8 +5,9 @@ import pytest
 
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.store.rule_sets import PostgresRuleSets
-from skat.table.records import Actor, RuleSetId, TableOptions
+from skat.table.records import Actor, RamschOccasion, RamschSetting, RuleSetId, TableOptions
 from skat.table.rule_sets import DuplicateRuleSetError, RuleSet, RuleSetRefusal, RuleSetService
 
 pytestmark = pytest.mark.postgres
@@ -16,6 +17,12 @@ BEN = Actor(account_id="account-ben", display_name="Ben")
 EVENING = TableOptions(show_running_points=True)
 FELIX = TableOptions(kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD))
 BOCK = TableOptions(bock=BockOptions(frozenset({BockTrigger.RE, BockTrigger.SCHWARZ}), BockOverlap.MULTIPLY))
+RAMSCH = TableOptions(
+    ramsch=RamschSetting(
+        RamschOccasion.PASSED_IN,
+        RamschOptions(RamschScoring.POINTS_BY_TEN, JungfrauRule.OFF, DurchmarschRule.WINS_120_FLAT),
+    )
+)
 RACE_SECONDS = 10
 
 
@@ -43,6 +50,8 @@ class TestStoredOptions:
             TableOptions(True, FELIX.kontra),
             BOCK,
             TableOptions(True, FELIX.kontra, BOCK.bock),
+            RAMSCH,
+            TableOptions(True, FELIX.kontra, ramsch=RAMSCH.ramsch),
         ],
     )
     def test_the_options_of_a_set_read_back_as_saved(self, service, options):

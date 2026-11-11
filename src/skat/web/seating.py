@@ -9,18 +9,17 @@ from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENG
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import OPEN_TABLE_MARK, SIT_DOWN_MARK, STAND_UP_MARK
+from skat.web.table_options import OptionsRequest, table_options_of
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
     CommandRequest,
-    OptionsRequest,
     TableAnswer,
     actor_of,
     answer_of,
     command_answer,
-    table_options_of,
 )
 
 if TYPE_CHECKING:

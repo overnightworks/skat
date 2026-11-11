@@ -1,20 +1,23 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
 from skat.engine.giving_up import give_up, throw_down
-from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
+from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
+from skat.engine.tricks import CardPlayed, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
-from skat.table.game_list import list_entry_of
-from skat.table.hand_state import doubling_of, playing_of
+from skat.table.game_list import list_entry_of, ramsch_entry_of
+from skat.table.hand_state import doubling_of, game_of, playing_of
 from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
 
 if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.engine.tricks import PlayedOut, Playing, PlayOutcome, Sides
+    from skat.engine.tricks import PlayedOut, PlayOutcome, Sides
+    from skat.table.game_list import GameEntry
     from skat.table.kontra import KontraView
     from skat.table.records import Actor
 
@@ -119,18 +122,30 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
         return Decision(table, position)
-    state = playing_of(table)
+    state = game_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    outcome = play_card(state, position, command.card)
+    outcome = _card_played(state, position, command.card)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     plays = (*table.progress.plays, CardPlayed(position, command.card))
-    if outcome.state.result is None:
+    played = outcome.state.result
+    if played is None:
         return Decision(
             replace(table, version=table.version + 1, progress=replace(table.progress, plays=plays, give_up=None))
         )
-    return Decision(_ended(table, outcome.state.result))
+    if isinstance(played, RamschPlayedOut):
+        return Decision(_ended(table, ramsch_entry_of(played, table), BockRounds.start()))
+    return Decision(_ended_declared(table, played))
+
+
+def _card_played(
+    state: Playing | RamschPlaying, position: Position, card: Card
+) -> PlayOutcome[Playing] | PlayOutcome[RamschPlaying]:
+    """The card in the game that runs: a Ramsch's cards and a declared game's are played alike by the engine."""
+    if isinstance(state, RamschPlaying):
+        return play_ramsch_card(state, position, card)
+    return play_card(state, position, card)
 
 
 def give_up_payload(command: GiveUpCommand) -> str:
@@ -234,15 +249,19 @@ def _end_of(table: TableRecord, outcome: PlayOutcome) -> Decision:
     """The hand ended with the result of a step that ends the game."""
     played = outcome.state.result
     assert played is not None  # noqa: S101 - a replayed game is never over and its ending step always leaves a result
-    return Decision(_ended(table, played))
+    return Decision(_ended_declared(table, played))
 
 
-def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
-    """The card, give-up or throw-down that ends the game ends the hand.
-
-    Its cards and steps go, its entry joins the list, and the Bock rounds are asked once the entry exists.
+def _ended_declared(table: TableRecord, played: PlayedOut) -> TableRecord:
+    """The card, give-up or throw-down that ends a declared game ends the hand; the Bock rounds are asked once its
+    entry exists.
     """
     entry = list_entry_of(played, table, doubling_of(table))
+    return _ended(table, entry, bock_after(table, played, entry))
+
+
+def _ended(table: TableRecord, entry: GameEntry, bock: BockRounds) -> TableRecord:
+    """The hand ends: its cards and steps go, and its entry joins the list."""
     return TableRecord(
         id=table.id,
         version=table.version + 1,
@@ -253,21 +272,21 @@ def _ended(table: TableRecord, played: PlayedOut) -> TableRecord:
         game_list=(*table.game_list, entry),
         series=table.series,
         options=table.options,
-        bock=bock_after(table, played, entry),
+        bock=bock,
     )
 
 
-def _legal_cards(state: Playing, viewer_positions: frozenset[Position]) -> tuple[Card, ...]:
+def _legal_cards(state: Playing | RamschPlaying, viewer_positions: frozenset[Position]) -> tuple[Card, ...]:
     """The cards the engine accepts from the player on turn, in deck order, for that player alone."""
     turn = state.turn
     if turn not in viewer_positions:
         return ()
     held = state.hands[turn]
-    return tuple(card for card in DECK if card in held and play_card(state, turn, card).refusal is None)
+    return tuple(card for card in DECK if card in held and _card_played(state, turn, card).refusal is None)
 
 
 def playing_view_of(
-    state: Playing | None,
+    state: Playing | RamschPlaying | None,
     dealer: int,
     viewer_positions: frozenset[Position],
     *,
@@ -275,12 +294,12 @@ def playing_view_of(
     asked: GiveUpAsked | None,
     kontra: KontraView | None,
 ) -> PlayingView | None:
-    """The game in play for one viewer; None until the game is declared.
+    """The game in play for one viewer; None until a game is played.
 
     Everyone sees the turn, the trick in progress and the last completed trick.
     Only the seated player on turn gets the cards they may play.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
-    the skat; a Null game has none. The words said are the caller's `kontra` view.
+    the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
     A give-up waiting for an opponent's yes is the same for every viewer.
     """
     if state is None:
@@ -292,7 +311,9 @@ def playing_view_of(
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
         last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
         legal_cards=_legal_cards(state, viewer_positions),
-        running_points=state.tally.points if show_running_points and state.counts_card_points else None,
+        running_points=state.tally.points
+        if show_running_points and isinstance(state, Playing) and state.counts_card_points
+        else None,
         give_up=None if asked is None else _give_up_view_of(asked, seats),
         kontra=kontra,
     )

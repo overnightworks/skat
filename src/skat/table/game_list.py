@@ -2,8 +2,9 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from skat.engine.bock import bock_factor, bock_settlement
-from skat.engine.deal import SEATS, seats_from
+from skat.engine.deal import SEATS, positions_from, seats_from
 from skat.engine.kontra import KontraReach, doubled_reckoning, doubled_settlement
+from skat.engine.ramsch import reckon_ramsch
 from skat.engine.score import Reckoning, Settlement, announcement_missed, overbid, settle
 from skat.engine.tricks import opponents_points_of
 from skat.engine.value import Breakdown, breakdown_of, value_of
@@ -12,6 +13,7 @@ from skat.table.rules import result_pending
 if TYPE_CHECKING:
     from skat.engine.declaration import Declaration
     from skat.engine.kontra import Doubling, Word
+    from skat.engine.ramsch import RamschPlayedOut
     from skat.engine.tricks import PlayedOut
     from skat.engine.value import Level, Matadors
     from skat.table.records import Occupant, TableOptions, TableRecord
@@ -58,6 +60,24 @@ class ListEntry:
     @property
     def levels(self) -> tuple[Level, ...]:
         return self.breakdown.levels
+
+
+@dataclass(frozen=True)
+class RamschEntry:
+    """One finished Ramsch in the table's list, by seat: the card points each seat counted, its list score, the seat
+    that took all ten tricks and won by it (None if no seat did or the table scores it as any loser) and whether
+    a seat with no trick doubled the loser's score. Each seat's display name is the one held at the end of the game.
+    """
+
+    seat_accounts: tuple[str, str, str]
+    seat_names: tuple[str | None, str | None, str | None]
+    seat_points: tuple[int, int, int]
+    seat_scores: tuple[int, int, int]
+    durchmarsch_seat: int | None
+    jungfrau: bool
+
+
+type GameEntry = ListEntry | RamschEntry
 
 
 def _seated(table: TableRecord) -> tuple[Occupant, Occupant, Occupant]:
@@ -111,6 +131,32 @@ def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | No
         declarer_points=played.declarer_points,
         kontra_word=None if doubling is None else doubling.last_word,
         bock_factor=bock_factor_of(table),
+    )
+
+
+def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
+    """The entry a Ramsch writes: the engine reckons it by the table's Ramsch options, the table gives the seats.
+
+    Pushes and Bock are not played at a table with Ramsch, so the multiplier is 1.
+    """
+    ramsch = table.options.ramsch
+    # A Ramsch is played only at a table that plays one, and the store writes the dealer with the hand.
+    if ramsch is None or table.dealer is None:  # pragma: no cover
+        message = f"table {table.id.value} ended a Ramsch without the setting or a dealer"
+        raise RuntimeError(message)
+    reckoning = reckon_ramsch(played, ramsch.reckoning, multiplier=1)
+    positions = positions_from(table.dealer)
+    seats = seats_from(table.dealer)
+    first, second, third = _seated(table)
+    points = tuple(reckoning.counted_points[positions[seat]] for seat in SEATS)
+    scores = tuple(reckoning.gains[positions[seat]] for seat in SEATS)
+    return RamschEntry(
+        seat_accounts=(first.account_id, second.account_id, third.account_id),
+        seat_names=(first.display_name, second.display_name, third.display_name),
+        seat_points=(points[0], points[1], points[2]),
+        seat_scores=(scores[0], scores[1], scores[2]),
+        durchmarsch_seat=None if reckoning.durchmarsch is None else seats[reckoning.durchmarsch],
+        jungfrau=reckoning.jungfrau,
     )
 
 
@@ -177,12 +223,36 @@ class ResultView:
     bock_factor: int
 
 
+@dataclass(frozen=True)
+class RamschSeatResult:
+    """What one seat counted and scored in a Ramsch."""
+
+    seat: int
+    points: int
+    score: int
+
+
+@dataclass(frozen=True)
+class RamschResultView:
+    """The last Ramsch's result while it stands, the same for every viewer; it names no account and no card."""
+
+    ordinal: int
+    seats: tuple[RamschSeatResult, ...]
+    durchmarsch_seat: int | None
+    jungfrau: bool
+
+
 def _reckoning_of(entry: ListEntry, reach: KontraReach) -> Reckoning:
     settlement = Settlement(won=entry.won, value=entry.settled_value, score=entry.score)
     return doubled_reckoning(settlement, entry.kontra_word, reach)
 
 
-def _gains(entry: ListEntry, reach: KontraReach) -> tuple[SeatGain, ...]:
+def _gains(entry: GameEntry, reach: KontraReach) -> tuple[SeatGain, ...]:
+    """What the game adds to each seat's total; a Ramsch's gains are its seat scores, whatever the table's Kontra
+    reach, and only a Durchmarsch that wins is a won game.
+    """
+    if isinstance(entry, RamschEntry):
+        return tuple(SeatGain(seat, entry.seat_scores[seat - 1], won=entry.durchmarsch_seat == seat) for seat in SEATS)
     reckoning = _reckoning_of(entry, reach)
     return tuple(
         SeatGain(
@@ -194,7 +264,7 @@ def _gains(entry: ListEntry, reach: KontraReach) -> tuple[SeatGain, ...]:
     )
 
 
-def total_of(game_list: tuple[ListEntry, ...], account_id: str, reach: KontraReach) -> int:
+def total_of(game_list: tuple[GameEntry, ...], account_id: str, reach: KontraReach) -> int:
     """What the account has gained over the list, on whichever chair it held in each game."""
     return sum(
         gain.gain
@@ -204,8 +274,13 @@ def total_of(game_list: tuple[ListEntry, ...], account_id: str, reach: KontraRea
     )
 
 
-def _standing_without_place(game_list: tuple[ListEntry, ...], account_id: str, reach: KontraReach) -> Standing:
-    declared = [entry for entry in game_list if entry.seat_accounts[entry.declarer_seat - 1] == account_id]
+def _standing_without_place(game_list: tuple[GameEntry, ...], account_id: str, reach: KontraReach) -> Standing:
+    """Won and lost count the games the account declared; a Ramsch has no declarer, so it adds to the total alone."""
+    declared = [
+        entry
+        for entry in game_list
+        if isinstance(entry, ListEntry) and entry.seat_accounts[entry.declarer_seat - 1] == account_id
+    ]
     last = next(entry for entry in reversed(game_list) if account_id in entry.seat_accounts)
     won = sum(entry.won for entry in declared)
     name = last.seat_names[last.seat_accounts.index(account_id)]
@@ -216,7 +291,7 @@ def _rank_key(standing: Standing) -> tuple[int, int, int]:
     return -standing.total, -standing.won, standing.lost
 
 
-def standings_of(game_list: tuple[ListEntry, ...], reach: KontraReach) -> tuple[Standing, ...]:
+def standings_of(game_list: tuple[GameEntry, ...], reach: KontraReach) -> tuple[Standing, ...]:
     """Every account the list seated, ranked by total, then more games won, then fewer lost as declarer.
 
     Accounts with all three equal share a place, and the next place counts everyone above it.
@@ -227,16 +302,26 @@ def standings_of(game_list: tuple[ListEntry, ...], reach: KontraReach) -> tuple[
     return tuple(replace(each, place=1 + sum(key < _rank_key(each) for key in keys)) for each in standings)
 
 
-def result_view_of(table: TableRecord) -> ResultView | None:
+def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
     """The list's last entry while its result is pending, numbered by its place in the list; None otherwise."""
     if not result_pending(table):
         return None
     entry = table.game_list[-1]
+    ordinal = len(table.game_list)
+    if isinstance(entry, RamschEntry):
+        return RamschResultView(
+            ordinal=ordinal,
+            seats=tuple(
+                RamschSeatResult(seat, entry.seat_points[seat - 1], entry.seat_scores[seat - 1]) for seat in SEATS
+            ),
+            durchmarsch_seat=entry.durchmarsch_seat,
+            jungfrau=entry.jungfrau,
+        )
     breakdown = entry.breakdown
     reach = reach_of(table.options)
     reckoning = _reckoning_of(entry, reach)
     return ResultView(
-        ordinal=len(table.game_list),
+        ordinal=ordinal,
         declarer_seat=entry.declarer_seat,
         declaration=entry.declaration,
         schneider=entry.schneider,
@@ -279,18 +364,51 @@ class SeriesEntryView:
     bock_factor: int
 
 
-def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView, ...]:
-    """One row per finished game of the table, numbered from 1 in the order played."""
-    return tuple(
-        SeriesEntryView(
+@dataclass(frozen=True)
+class RamschSeriesSeat:
+    """One seat of a Ramsch's row: the name stored with the game (None for an entry stored before names were kept)
+    and the seat's list score.
+    """
+
+    name: str | None
+    score: int
+
+
+@dataclass(frozen=True)
+class RamschSeriesEntryView:
+    """One finished Ramsch in the table's list, the same for every viewer: its place, each seat's stored name and
+    score, whether a seat took all ten tricks and won by it, and whether a Jungfrau doubled the loser's score.
+    It names no account and no card.
+    """
+
+    number: int
+    seats: tuple[RamschSeriesSeat, ...]
+    durchmarsch: bool
+    jungfrau: bool
+
+
+def _series_entry_view_of(number: int, entry: GameEntry) -> SeriesEntryView | RamschSeriesEntryView:
+    if isinstance(entry, RamschEntry):
+        return RamschSeriesEntryView(
             number=number,
-            declarer_name=entry.seat_names[entry.declarer_seat - 1],
-            declaration=entry.declaration,
-            levels=entry.levels,
-            settled_value=entry.settled_value,
-            score=entry.score,
-            kontra_word=entry.kontra_word,
-            bock_factor=entry.bock_factor,
+            seats=tuple(
+                RamschSeriesSeat(name, score) for name, score in zip(entry.seat_names, entry.seat_scores, strict=True)
+            ),
+            durchmarsch=entry.durchmarsch_seat is not None,
+            jungfrau=entry.jungfrau,
         )
-        for number, entry in enumerate(table.game_list, 1)
+    return SeriesEntryView(
+        number=number,
+        declarer_name=entry.seat_names[entry.declarer_seat - 1],
+        declaration=entry.declaration,
+        levels=entry.levels,
+        settled_value=entry.settled_value,
+        score=entry.score,
+        kontra_word=entry.kontra_word,
+        bock_factor=entry.bock_factor,
     )
+
+
+def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...]:
+    """One row per finished game of the table, numbered from 1 in the order played."""
+    return tuple(_series_entry_view_of(number, entry) for number, entry in enumerate(table.game_list, 1))

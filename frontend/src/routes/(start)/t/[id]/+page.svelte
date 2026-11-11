@@ -15,7 +15,7 @@
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
-    import { resultView, weiterBar, withMinus } from "#lib/result.ts";
+    import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { LegalLinks } from "overnightworks-design";
     import BackFan from "#lib/ui/BackFan.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
@@ -46,7 +46,6 @@
         type AuctionAction,
         type Outcome,
         type Picking,
-        type Result,
         type Table,
     } from "../../tables.ts";
 
@@ -161,7 +160,9 @@
     // „Weiter“ names the result on the page; the button stays busy until the stream brings a newer version.
     async function tapWeiter(table: Table): Promise<void> {
         sentFromVersion = table.version;
-        const answer = await seat(markReady(id, crypto.randomUUID(), (table.result as Result).ordinal));
+        const answer = await seat(
+            markReady(id, crypto.randomUUID(), (table.result as NonNullable<Table["result"]>).ordinal),
+        );
         if (answer.kind !== "table") sentFromVersion = null;
     }
 
@@ -267,8 +268,9 @@
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
             {@const turnSeat = inPlay?.playing.turn_seat}
-            {@const settledDeclarerSeat = outcome.table.result?.declarer_seat ?? inPlay?.declarerSeat}
-            {@const view = outcome.table.result === null ? null : resultView(outcome.table)}
+            {@const declared = declaredResult(outcome.table)}
+            {@const settledDeclarerSeat = declared?.declarer_seat ?? inPlay?.declarerSeat}
+            {@const view = declared === null ? null : resultView(outcome.table)}
             {@const winners = new Set(view?.rows.filter((row) => row.won).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}

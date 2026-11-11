@@ -78,6 +78,13 @@ def create_payload(command: CreateTable) -> str:
     if bock is not None:
         triggers = ",".join(f'"{trigger.value}"' for trigger in sorted(bock.triggers))
         members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
+    ramsch = command.options.ramsch
+    if ramsch is not None:
+        members.append(
+            f'"ramsch":{{"durchmarsch":"{ramsch.reckoning.durchmarsch.value}",'
+            f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
+            f'"scoring":"{ramsch.reckoning.scoring.value}"}}'
+        )
     return "{" + ",".join(members) + "}"
 
 

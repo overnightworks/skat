@@ -7,7 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from skat.table.rule_sets import RULE_SET_NAME_MAX, RuleSet, RuleSetRefusal, rule_set_name
 from skat.web.mcp import READ_RULE_SETS_MARK, SAVE_RULE_SET_MARK, Exclusion, excluded
-from skat.web.tables import OptionsAnswer, OptionsRequest, actor_of, options_answer_of, table_options_of
+from skat.web.table_options import OptionsAnswer, OptionsRequest, options_answer_of, table_options_of
+from skat.web.tables import actor_of
 
 if TYPE_CHECKING:
     from skat.table.rule_sets import RuleSetService

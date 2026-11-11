@@ -136,7 +136,12 @@ class TestOptions:
 
         answer = skat.create(headers, options={"show_running_points": True})
 
-        assert answer.json()["options"] == {"show_running_points": True, "kontra": None, "bock": None}
+        assert answer.json()["options"] == {
+            "show_running_points": True,
+            "kontra": None,
+            "bock": None,
+            "ramsch": None,
+        }
 
     @pytest.mark.parametrize("extra", [{}, {"options": {}}, {"options": {"show_running_points": False}}])
     def test_a_table_opened_without_the_switch_or_with_it_off_answers_it_off(self, skat, extra):
@@ -146,6 +151,7 @@ class TestOptions:
             "show_running_points": False,
             "kontra": None,
             "bock": None,
+            "ramsch": None,
         }
 
     def test_a_read_and_a_watcher_see_the_options_the_table_was_opened_with(self, skat):
@@ -157,6 +163,7 @@ class TestOptions:
             "show_running_points": True,
             "kontra": None,
             "bock": None,
+            "ramsch": None,
         }
 
     @pytest.mark.parametrize(

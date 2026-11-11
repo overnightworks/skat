@@ -102,10 +102,36 @@ def play_a_series(skat, game_count=3, *, swap_after_first=None, passed_in_hand=N
     return table, first_names
 
 
+def deal_the_next_game(skat, table, number, game, *, after_pass=False):
+    """Every chair not yet ready taps Weiter on game `game` of series `number`, unless everyone passed it in, then the
+    next game is dealt.
+    """
+    for chair in table.record.chairs if not after_pass else ():
+        if not chair.ready:
+            position = positions_from(DEALER_SEAT)[chair.seat]
+            command_id = f"weiter-{number}-{game}-{chair.seat}"
+            answer = tap_weiter(skat, table.at[position], table.table_id, command_id, game)
+            assert answer.status_code == 200, answer.text
+    accounts = [chair.occupant.account_id for chair in table.record.chairs]
+    assert deal_next(skat, table.table_id, accounts)
+    with_known_deal(skat, table.table_id)
+
+
 def play_the_dealt_series(
-    skat, table, game_count, *, number=1, swap_after_first=None, passed_in_hand=None, games_to_play=None
+    skat,
+    table,
+    game_count,
+    *,
+    number=1,
+    swap_after_first=None,
+    passed_in_hand=None,
+    games_to_play=None,
+    deal_after_last=False,
 ):
-    """Play series `number`, whose first game is dealt, to its last game's end; options as in `play_a_series`."""
+    """Play series `number`, whose first game is dealt, to its last game's end; options as in `play_a_series`.
+
+    `deal_after_last` also taps Weiter and deals the game that follows the last, which the caller then plays itself.
+    """
     for game in range(1, game_count + 1):
         if game == passed_in_hand:
             pass_the_hand_in(skat, table.table_id, headers_of(table))
@@ -122,12 +148,6 @@ def play_the_dealt_series(
                 skat.sit(table.watcher, table.table_id, swap_after_first, command_id="sit-for-swap").status_code == 200
             )
             table.at[position] = table.watcher
-        for chair in table.record.chairs if game != passed_in_hand else ():
-            if not chair.ready:
-                position = positions_from(DEALER_SEAT)[chair.seat]
-                command_id = f"weiter-{number}-{game}-{chair.seat}"
-                answer = tap_weiter(skat, table.at[position], table.table_id, command_id, game)
-                assert answer.status_code == 200, answer.text
-        accounts = [chair.occupant.account_id for chair in table.record.chairs]
-        assert deal_next(skat, table.table_id, accounts)
-        with_known_deal(skat, table.table_id)
+        deal_the_next_game(skat, table, number, game, after_pass=game == passed_in_hand)
+    if deal_after_last:
+        deal_the_next_game(skat, table, number, game)

@@ -18,7 +18,7 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.game_list import ListEntry, standings_of
+from skat.table.game_list import ListEntry, RamschEntry, standings_of
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, SitDown
@@ -130,6 +130,24 @@ OUVERT_HAND = an_entry(
     score=110,
     declarer_points=120,
 )
+
+
+def a_ramsch_entry(**numbers):
+    fields = {
+        "seat_accounts": tuple(actor.account_id for actor in SEATED),
+        "seat_names": tuple(actor.display_name for actor in SEATED),
+        "seat_points": (12, 40, 68),
+        "seat_scores": (-12, -40, -68),
+        "durchmarsch_seat": None,
+        "jungfrau": False,
+        **numbers,
+    }
+    return RamschEntry(**fields)
+
+
+A_RAMSCH = a_ramsch_entry()
+A_DURCHMARSCH = a_ramsch_entry(seat_points=(120, 0, 0), seat_scores=(120, -7, -9), durchmarsch_seat=1)
+A_JUNGFRAU = a_ramsch_entry(seat_points=(0, 50, 70), seat_scores=(-4, -25, -35), jungfrau=True)
 
 
 def rows_of(engine, table_id, name):
@@ -290,6 +308,15 @@ class TestTheList:
         stored_matadors = None if row.matadors_mit is None else (row.matadors_mit, row.matadors_count)
         built_matadors = None if entry.matadors is None else (entry.matadors.mit, entry.matadors.count)
         assert stored_matadors == built_matadors
+
+    @pytest.mark.parametrize("entry", [A_RAMSCH, A_DURCHMARSCH, A_JUNGFRAU], ids=["plain", "durchmarsch", "jungfrau"])
+    def test_a_ramsch_entry_after_a_declared_one_reads_back_as_written(self, ended, transactions, entry):
+        record = ended.record
+
+        with transactions.begin() as transaction:
+            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, entry)))
+
+        assert ended.record.game_list == (*record.game_list, entry)
 
     def test_the_schema_keeps_matadors_only_outside_null(self, ended, engine):
         statement = text("UPDATE game_list SET matadors_mit = NULL WHERE table_id = :table_id")

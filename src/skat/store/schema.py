@@ -24,12 +24,15 @@ from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.table.records import (
     SERIES_LENGTH_MAX,
     SERIES_LENGTH_MIN,
     SERIES_LENGTH_STEP,
     EndReason,
     OccupantKind,
+    RamschOccasion,
+    RamschSetting,
     TableOptions,
 )
 from skat.table.rule_sets import RULE_SET_NAME_MAX
@@ -60,6 +63,10 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
         Column("kontra_deadline", Text),
         Column("bock_triggers", ARRAY(Text)),
         Column("bock_overlap", Text),
+        Column("ramsch_occasion", Text),
+        Column("ramsch_scoring", Text),
+        Column("ramsch_jungfrau", Text),
+        Column("ramsch_durchmarsch", Text),
         CheckConstraint(
             "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)",
             name=f"{table_name}_kontra_is_all_or_nothing",
@@ -79,6 +86,30 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
             name=f"{table_name}_bock_triggers_are_triggers",
         ),
         one_of("bock_overlap", (overlap.value for overlap in BockOverlap), f"{table_name}_bock_overlap_is_an_overlap"),
+        CheckConstraint(
+            "num_nonnulls(ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch) IN (0, 4)",
+            name=f"{table_name}_ramsch_is_all_or_nothing",
+        ),
+        one_of(
+            "ramsch_occasion",
+            (occasion.value for occasion in RamschOccasion),
+            f"{table_name}_ramsch_occasion_is_an_occasion",
+        ),
+        one_of(
+            "ramsch_scoring",
+            (scoring.value for scoring in RamschScoring),
+            f"{table_name}_ramsch_scoring_is_a_scoring",
+        ),
+        one_of(
+            "ramsch_jungfrau",
+            (rule.value for rule in JungfrauRule),
+            f"{table_name}_ramsch_jungfrau_is_a_jungfrau_rule",
+        ),
+        one_of(
+            "ramsch_durchmarsch",
+            (rule.value for rule in DurchmarschRule),
+            f"{table_name}_ramsch_durchmarsch_is_a_durchmarsch_rule",
+        ),
     )
 
 
@@ -94,13 +125,24 @@ def options_of(row: Row[Any]) -> TableOptions:
         bock = BockOptions(
             frozenset(BockTrigger(trigger) for trigger in row.bock_triggers), BockOverlap(row.bock_overlap)
         )
-    return TableOptions(show_running_points=row.show_running_points, kontra=kontra, bock=bock)
+    ramsch = None
+    if row.ramsch_occasion is not None:
+        ramsch = RamschSetting(
+            RamschOccasion(row.ramsch_occasion),
+            RamschOptions(
+                RamschScoring(row.ramsch_scoring),
+                JungfrauRule(row.ramsch_jungfrau),
+                DurchmarschRule(row.ramsch_durchmarsch),
+            ),
+        )
+    return TableOptions(show_running_points=row.show_running_points, kontra=kontra, bock=bock, ramsch=ramsch)
 
 
 def option_values(options: TableOptions) -> dict[str, object]:
     """The column values that store the options, as `options_of` reads them back."""
     kontra = options.kontra
     bock = options.bock
+    ramsch = options.ramsch
     return {
         "show_running_points": options.show_running_points,
         "kontra_sayer": None if kontra is None else kontra.sayer.value,
@@ -109,6 +151,10 @@ def option_values(options: TableOptions) -> dict[str, object]:
         # sorted by token, so the column reads the same however the request listed the triggers
         "bock_triggers": None if bock is None else sorted(trigger.value for trigger in bock.triggers),
         "bock_overlap": None if bock is None else bock.overlap.value,
+        "ramsch_occasion": None if ramsch is None else ramsch.occasion.value,
+        "ramsch_scoring": None if ramsch is None else ramsch.reckoning.scoring.value,
+        "ramsch_jungfrau": None if ramsch is None else ramsch.reckoning.jungfrau.value,
+        "ramsch_durchmarsch": None if ramsch is None else ramsch.reckoning.durchmarsch.value,
     }
 
 

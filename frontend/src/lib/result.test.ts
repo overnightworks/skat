@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awaitedNames, resultView, weiterBar, withMinus } from "#lib/result.ts";
+import { awaitedNames, declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, Result, Table } from "../routes/(start)/tables.ts";
 
@@ -21,6 +21,7 @@ function chairs(mine: number, changes: Record<number, Partial<Chair>> = {}): Cha
 
 // Kreuz mit 2, won by the declarer at seat 2: 3 × 12 = 36 plus the list's 50 (ISkO 2.1, 4.1).
 const WON_GAME: Result = {
+    kind: "declared",
     ordinal: 3,
     declarer_seat: DECLARER_SEAT,
     game: "kreuz",
@@ -402,6 +403,19 @@ describe("who is awaited", () => {
 
     it("does not await a free chair", () => {
         expect(awaitedNames(chairs(1, { 3: { occupant_name: null } }))).toEqual(["player 1", "player 2"]);
+    });
+});
+
+describe("a Ramsch result", () => {
+    const ramsch = (): Table => ({ ...table(1, null), result: { kind: "ramsch", ordinal: 4 } });
+
+    it("is no declared result, so the page draws no card for it", () => {
+        expect(declaredResult(ramsch())).toBeNull();
+        expect(declaredResult(table(1, {}))).toEqual(WON_GAME);
+    });
+
+    it("keeps the bar's Weiter, which taps with the result's ordinal", () => {
+        expect(weiterBar(ramsch())).toEqual({ kind: "tap", again: false });
     });
 });
 

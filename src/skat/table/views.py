@@ -4,11 +4,21 @@ from typing import TYPE_CHECKING
 from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
+from skat.engine.ramsch import RamschPlaying
+from skat.engine.tricks import Playing
 from skat.table.auction import AuctionView, auction_view_of
 from skat.table.bock import BockView, bock_view_of
 from skat.table.declaring import DeclaringView, declaring_view_of
-from skat.table.game_list import ResultView, Standing, reach_of, result_view_of, standings_of, total_of
-from skat.table.hand_state import auction_of, declaring_of, playing_of
+from skat.table.game_list import (
+    RamschResultView,
+    ResultView,
+    Standing,
+    reach_of,
+    result_view_of,
+    standings_of,
+    total_of,
+)
+from skat.table.hand_state import auction_of, declaring_of, game_of
 from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.records import EndedTable, EndReason, OccupantKind
@@ -20,7 +30,6 @@ if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
-    from skat.engine.tricks import Playing
     from skat.table.records import Chair, EndProposal, TableOptions, TableRecord
 
 
@@ -57,6 +66,7 @@ class HandView:
     auction: AuctionView
     declaring: DeclaringView | None
     playing: PlayingView | None
+    ramsch: bool
 
 
 @dataclass(frozen=True)
@@ -102,7 +112,7 @@ class TableView:
     watchers: int
     hand: HandView | None
     passed_in: PassedInView | None
-    result: ResultView | None
+    result: ResultView | RamschResultView | None
     series: SeriesView | None
     options: TableOptions | None
     bock: BockView | None
@@ -113,7 +123,9 @@ def _is_occupied_by(chair: Chair, account_id: str) -> bool:
     return chair.occupant is not None and chair.occupant.account_id == account_id
 
 
-def _hands_now(deal: Deal, state: Declaring | None, playing: Playing | None) -> Mapping[Position, tuple[Card, ...]]:
+def _hands_now(
+    deal: Deal, state: Declaring | None, playing: Playing | RamschPlaying | None
+) -> Mapping[Position, tuple[Card, ...]]:
     """Each position's cards now: what is left in play, the declarer's own while declaring, else the deal."""
     if playing is not None:
         return playing.hands
@@ -132,7 +144,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         raise RuntimeError(message)
     positions = positions_from(table.dealer)
     state = declaring_of(table)
-    playing = playing_of(table)
+    playing = game_of(table)
     hands = _hands_now(table.hand, state, playing)
     viewer_positions = frozenset(
         positions[chair.seat] for chair in table.chairs if _is_occupied_by(chair, viewer_account_id)
@@ -150,8 +162,11 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
             viewer_positions,
             show_running_points=table.options.show_running_points,
             asked=table.progress.give_up,
-            kontra=None if playing is None else kontra_view_of(table, playing, table.dealer, viewer_positions),
+            kontra=kontra_view_of(table, playing, table.dealer, viewer_positions)
+            if isinstance(playing, Playing)
+            else None,
         ),
+        isinstance(playing, RamschPlaying),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
