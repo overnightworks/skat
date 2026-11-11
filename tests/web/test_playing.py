@@ -626,6 +626,8 @@ HERZ_RESULT = {
     "opponents_points": 50,
     "kontra": None,
     "bock_factor": 1,
+    "ending": "played-out",
+    "ended_by_seat": None,
     "gains": [
         {"seat": 1, "gain": 80, "won": True},
         {"seat": 2, "gain": 0, "won": False},

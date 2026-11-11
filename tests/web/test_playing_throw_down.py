@@ -8,7 +8,7 @@ from skat.engine.tricks import ALL_POINTS
 from skat.web.declaring import GameToken
 from skat.web.playing import TABLE_THROW_DOWN_SUFFIX
 from tests.support.payload_cards import FOREHAND_CARDS, KNOWN_DEAL, cards_in_text
-from tests.web.support.playing import Table, card, game_of, points_of_cards
+from tests.web.support.playing import Table, card, ending_of, game_of, points_of_cards
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # The skat of the known deal is the Karo King and the Karo Ace.
@@ -45,6 +45,29 @@ def result_of(table, position):
 
 def shown(result, *keys):
     return {key: result[key] for key in keys}
+
+
+class TestTheEnding:
+    @pytest.mark.parametrize(
+        ("position", "seat"),
+        [
+            pytest.param(MIDDLEHAND, 1, id="the-declarer"),
+            pytest.param(REARHAND, 2, id="the-opponent-in-seat-two"),
+            pytest.param(FOREHAND, 3, id="the-opponent-in-seat-three"),
+        ],
+    )
+    def test_the_answer_and_every_chair_and_the_watcher_read_the_seat_that_threw_down(self, herz_hand, position, seat):
+        assert ending_of(result_of(herz_hand, position)) == ("thrown-down", seat)
+        assert herz_hand.endings_in_every_view() == {("thrown-down", seat)}
+
+    def test_a_retried_throw_down_answers_the_same_two_fields_and_writes_one_entry(self, herz_hand):
+        body = {"command_id": "command-throw-down", "version": herz_hand.record.version}
+        first = herz_hand.act(TABLE_THROW_DOWN_SUFFIX, herz_hand.at[FOREHAND], body=body)
+
+        again = herz_hand.act(TABLE_THROW_DOWN_SUFFIX, herz_hand.at[FOREHAND], body=body)
+
+        assert ending_of(again.json()["result"]) == ending_of(first.json()["result"]) == ("thrown-down", 3)
+        assert len(herz_hand.record.game_list) == 1
 
 
 class TestTheDeclarerThrowsDown:

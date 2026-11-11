@@ -354,7 +354,9 @@ class TestTheList:
             pytest.param(A_RAMSCH, ("played-out", None), id="a-ramsch-is-played-out"),
         ],
     )
-    def test_the_row_holds_the_ending_and_the_seat_as_text_and_number(self, ended, transactions, engine, entry, columns):
+    def test_the_row_holds_the_ending_and_the_seat_as_text_and_number(
+        self, ended, transactions, engine, entry, columns
+    ):
         record = ended.record
 
         with transactions.begin() as transaction:

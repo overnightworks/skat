@@ -11,7 +11,6 @@ from tests.support.migrations import list_row, run_in_transaction, upgrade_to
 pytestmark = pytest.mark.postgres
 
 
-
 def ramsch_row(ordinal, **changed):
     columns = {
         "table_id": "'t'",
@@ -39,7 +38,9 @@ class TestFromAListOfEveryKindAtRevisionTwentyFour:
         """A database at 0024 holding a declared row, a row with a Kontra word and a Ramsch row, then taken to head."""
         upgrade_to(unmigrated_engine, "0024")
         with unmigrated_engine.begin() as connection:
-            connection.execute(text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('t', 3, 2, now())"))
+            connection.execute(
+                text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('t', 3, 2, now())")
+            )
             connection.execute(text(list_row()))
             connection.execute(text(list_row(ordinal=2, kontra_word="'kontra'")))
             connection.execute(ramsch_row(3))

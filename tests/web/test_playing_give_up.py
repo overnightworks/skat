@@ -7,7 +7,8 @@ from skat.web.declaring import GameToken
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import AnnouncementToken
 from tests.support.payload_cards import cards_in_text
-from tests.web.support.playing import Table, card, cards, points_of_cards
+from tests.web.support.playing import DECLARER_SEAT, Table, card, cards, ending_of, points_of_cards
+from tests.web.support.skat import streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # Middlehand declares; the known deal's first trick is S7 S9 D7, which he takes with S9 and leads the next.
@@ -154,6 +155,35 @@ class TestTheDeclarerGivesUp:
 
         for headers in (table.watcher, *table.at.values()):
             assert cards_in_text(table.read_as(headers).text) == set()
+
+
+class TestTheEnding:
+    @pytest.fixture(params=[0, 1], ids=["ten-cards", "nine-cards"])
+    def given_up(self, request, herz_hand):
+        if request.param:
+            herz_hand.played_out(FIRST_TRICK)
+        return give_up(herz_hand)
+
+    def test_the_answer_and_every_chair_and_the_watcher_read_the_declarer_as_the_seat_that_gave_up(
+        self, herz_hand, given_up
+    ):
+        assert ending_of(given_up.json()["result"]) == ("given-up", DECLARER_SEAT)
+        assert herz_hand.endings_in_every_view() == {("given-up", DECLARER_SEAT)}
+
+    def test_a_retried_give_up_answers_the_same_two_fields_and_writes_one_entry(self, herz_hand):
+        body = {"command_id": "command-give-up", "version": herz_hand.record.version}
+        first = give_up(herz_hand, body=body)
+
+        again = give_up(herz_hand, body=body)
+
+        assert ending_of(again.json()["result"]) == ending_of(first.json()["result"]) == ("given-up", DECLARER_SEAT)
+        assert len(herz_hand.record.game_list) == 1
+
+    def test_the_stream_of_a_watcher_carries_the_two_fields(self, herz_hand):
+        with streams_of(herz_hand.skat, herz_hand.table_id, [(herz_hand.watcher, None)]) as (watcher,):
+            give_up(herz_hand)
+
+            assert ending_of(next(watcher)["result"]) == ("given-up", DECLARER_SEAT)
 
 
 class TestRefusals:

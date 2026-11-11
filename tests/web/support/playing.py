@@ -116,8 +116,14 @@ def result_fields(**changed):
         "bid": 18,
         "kontra": None,
         "bock_factor": 1,
+        "ending": "played-out",
+        "ended_by_seat": None,
     }
     return plain | changed
+
+
+def ending_of(result):
+    return result["ending"], result["ended_by_seat"]
 
 
 def gains(declarer, each_opponent):
@@ -160,6 +166,11 @@ class Table:
         answer = self.read_as(self.watcher)
         assert answer.status_code == 200, answer.text
         return answer.json()["result"]
+
+    def endings_in_every_view(self):
+        """The ending and the seat that ended the game, as each of the three chairs and the watcher read them."""
+        results = [self.read_as(headers).json()["result"] for headers in (self.watcher, *self.at.values())]
+        return {(result["ending"], result["ended_by_seat"]) for result in results}
 
     def with_deal(self, deal):
         self.skat.store.tables[self.table_id] = replace(self.record, hand=deal)

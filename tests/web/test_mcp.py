@@ -52,7 +52,7 @@ from skat.web.tables import (
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, person_passes, person_steps
-from tests.web.support.playing import Table, card, card_body, cards
+from tests.web.support.playing import Table, card, card_body, cards, ending_of
 from tests.web.support.series import play_a_series
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, stored, streams_of
 
@@ -305,6 +305,7 @@ class TestGiveUpGame:
         result = answer.json()["result"]
         assert result["won"] is False
         assert (result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (3, -50, False)
+        assert ending_of(result) == ("given-up", 1)
         assert agent.read(table.table_id).json()["result"] == result
         assert table.read_as(table.at[MIDDLEHAND]).json()["result"] == result
         assert table.record.hand is None
@@ -364,6 +365,7 @@ class TestAnsweringAGiveUp:
         assert not answer.is_error, answer.text
         result = answer.json()["result"]
         assert (result["won"], result["list_bonus"]) == (False, -50)
+        assert ending_of(result) == ("given-up", 1)
         assert asked.record.hand is None
         assert len(asked.record.game_list) == 1
 
@@ -448,6 +450,7 @@ class TestThrowDownCards:
             50 if won else -50,
             False,
         )
+        assert ending_of(result) == ("thrown-down", 1 if position is MIDDLEHAND else 3)
         assert agent.read(table.table_id).json()["result"] == result
         assert table.record.hand is None
         assert len(table.record.game_list) == 1

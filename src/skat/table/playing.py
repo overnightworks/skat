@@ -206,7 +206,7 @@ def _answering_opponent(
 
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
-    """An opponent says yes: the game ends as the engine settles a consented give-up, given up by the seat that asked."""
+    """An opponent says yes: the game ends as the engine settles a consented give-up, by the seat that asked."""
     answering = _answering_opponent(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
@@ -250,7 +250,9 @@ def _end_of(table: TableRecord, outcome: PlayOutcome, ending: GameEnding, ended_
     return Decision(_ended_declared(table, played, ending, ended_by))
 
 
-def _ended_declared(table: TableRecord, played: PlayedOut, ending: GameEnding, ended_by: Position | None) -> TableRecord:
+def _ended_declared(
+    table: TableRecord, played: PlayedOut, ending: GameEnding, ended_by: Position | None
+) -> TableRecord:
     """The card, give-up or throw-down that ends a declared game ends the hand; the Bock rounds are asked once its
     entry exists. The entry keeps how the game ended, which the engine's ending does not say.
     """

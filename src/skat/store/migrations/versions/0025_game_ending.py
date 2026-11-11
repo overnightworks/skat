@@ -19,9 +19,7 @@ def upgrade() -> None:
     op.add_column("game_list", sa.Column("ended_by_seat", sa.SmallInteger()))
     listed = ", ".join(f"'{ending}'" for ending in ENDINGS)
     op.create_check_constraint("game_list_ending_is_an_ending", "game_list", f"ending IN ({listed})")
-    op.create_check_constraint(
-        "game_list_ended_by_seat_is_a_seat", "game_list", f"ended_by_seat BETWEEN 1 AND {SEATS}"
-    )
+    op.create_check_constraint("game_list_ended_by_seat_is_a_seat", "game_list", f"ended_by_seat BETWEEN 1 AND {SEATS}")
     op.create_check_constraint(
         "game_list_a_seat_ends_exactly_an_unplayed_game",
         "game_list",
