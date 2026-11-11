@@ -19,6 +19,7 @@ pytestmark = pytest.mark.e2e
 
 COMMAND_FAILED = catalog_text("commandFailed")
 KREUZ = catalog_text("gameKreuz")
+YOU = catalog_text("sideYou")
 HAND_CARD = ".own-hand .card"
 LEGAL_CARD = f"{HAND_CARD}.ok"
 LIFTED_CARD = f"{HAND_CARD}.touch"
@@ -94,12 +95,17 @@ def reload_and_wait(person: Page) -> None:
 
 
 def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) -> None:
-    """Every viewer sees exactly these cards, each at its player's side and tagged with its player's name."""
+    """Every viewer sees exactly these cards, each at its player's side and tagged with its player's name.
+
+    A seated viewer's own card is tagged „Du“.
+    """
     for person in table.everyone:
         expect(person.locator(FELT_CARD)).to_have_count(len(laid))
         for seat, card in laid:
             play = person.locator(f"{FELT_CARD}[data-seat='{seat}']")
-            expect(play.locator(".tag .name")).to_have_text(table.names[seat])
+            expect(play.locator(".tag .name")).to_have_text(
+                YOU if table.pages.get(seat) is person else table.names[seat]
+            )
             assert faces_of(play) == {card}
             assert play.evaluate(TOWARD_CHAIR) == seat
 

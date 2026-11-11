@@ -34,6 +34,7 @@ pytestmark = pytest.mark.e2e
 
 BAR = ".bar"
 SEAT_FREE = catalog_text("seatFree")
+YOU = catalog_text("sideYou")
 OTHER_ORIGIN = f"https://{OTHER_HOST}:{OTHER_PORT}"
 VALID_HELLO = {"v": 1, "type": "hello", "attachment": 1, "attempt": None}
 LOG_IN = "Log in"
@@ -218,7 +219,7 @@ def test_a_tap_at_the_moment_the_bar_drops_seats_nobody_and_a_tap_after_it_seats
         visitor.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
         table.locator(".chair[data-seat='3']").get_by_role("button", name=SIT_DOWN).click()
 
-        expect(table.locator(".chair[data-seat='3'] .plate")).to_have_text("ben")
+        expect(table.locator(".chair[data-seat='3'] .plate")).to_have_text(YOU)
         expect(table.locator(".chair[data-seat='2'] .plate")).to_have_text(SEAT_FREE)
 
 

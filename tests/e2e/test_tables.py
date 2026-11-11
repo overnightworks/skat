@@ -45,7 +45,7 @@ def expect_a_table_seating(person: Page, opener: str, *, mine: bool) -> None:
     expect(person.get_by_role("button", name=catalog_text("copyLink"))).to_be_visible()
     chairs = person.locator(".chair")
     expect(chairs).to_have_count(3)
-    expect(person.locator(".chair[data-seat='1'] .plate")).to_have_text(opener)
+    expect(person.locator(".chair[data-seat='1'] .plate")).to_have_text(catalog_text("sideYou") if mine else opener)
     expect(person.locator(".chair.mine")).to_have_count(1 if mine else 0)
     expect(person.locator(".chair .plate", has_text=catalog_text("seatFree"))).to_have_count(2)
 
