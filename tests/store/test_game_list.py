@@ -140,6 +140,7 @@ def a_ramsch_entry(**numbers):
         "seat_scores": (-12, -40, -68),
         "durchmarsch_seat": None,
         "jungfrau": False,
+        "bock_factor": 1,
         **numbers,
     }
     return RamschEntry(**fields)
@@ -148,6 +149,8 @@ def a_ramsch_entry(**numbers):
 A_RAMSCH = a_ramsch_entry()
 A_DURCHMARSCH = a_ramsch_entry(seat_points=(120, 0, 0), seat_scores=(120, -7, -9), durchmarsch_seat=1)
 A_JUNGFRAU = a_ramsch_entry(seat_points=(0, 50, 70), seat_scores=(-4, -25, -35), jungfrau=True)
+A_BOCK_RAMSCH = a_ramsch_entry(seat_scores=(-24, -80, -136), bock_factor=2)
+A_RAMSCH_IN_TWO_ROUNDS = a_ramsch_entry(seat_scores=(-48, -160, -272), bock_factor=4)
 
 
 def rows_of(engine, table_id, name):
@@ -309,7 +312,11 @@ class TestTheList:
         built_matadors = None if entry.matadors is None else (entry.matadors.mit, entry.matadors.count)
         assert stored_matadors == built_matadors
 
-    @pytest.mark.parametrize("entry", [A_RAMSCH, A_DURCHMARSCH, A_JUNGFRAU], ids=["plain", "durchmarsch", "jungfrau"])
+    @pytest.mark.parametrize(
+        "entry",
+        [A_RAMSCH, A_DURCHMARSCH, A_JUNGFRAU, A_BOCK_RAMSCH, A_RAMSCH_IN_TWO_ROUNDS],
+        ids=["plain", "durchmarsch", "jungfrau", "bock", "two-rounds"],
+    )
     def test_a_ramsch_entry_after_a_declared_one_reads_back_as_written(self, ended, transactions, entry):
         record = ended.record
 

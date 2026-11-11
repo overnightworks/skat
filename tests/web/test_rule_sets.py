@@ -109,11 +109,19 @@ class TestSaveAndRead:
         assert names_of(read(skat, headers)) == ["Ramsch"]
         assert skat.create(headers, options=RAMSCH).json()["options"]["ramsch"] == RAMSCH["ramsch"]
 
-    def test_a_set_with_ramsch_and_bock_is_refused_and_stores_nothing(self, skat):
+    def test_a_set_with_ramsch_and_bock_is_saved_and_opens_a_table_with_both(self, skat):
         headers, _ = skat.member()
+        both = {**RAMSCH, **BOCK}
 
-        assert save(skat, headers, "Beides", {**RAMSCH, **BOCK}).status_code == 422
-        assert names_of(read(skat, headers)) == []
+        saved = save(skat, headers, "Beides", both)
+
+        assert saved.status_code == 200
+        assert names_of(read(skat, headers)) == ["Beides"]
+        opened = skat.create(headers, options=both).json()["options"]
+        assert (opened["ramsch"], opened["bock"]) == (
+            saved.json()["options"]["ramsch"],
+            saved.json()["options"]["bock"],
+        )
 
     def test_sets_are_listed_by_case_folded_name(self, skat):
         headers, _ = skat.member()

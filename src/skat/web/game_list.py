@@ -50,6 +50,7 @@ class RamschSeriesEntryAnswer(BaseModel):
     seats: list[RamschSeriesSeatAnswer]
     durchmarsch: bool
     jungfrau: bool
+    bock_factor: int
 
 
 class SeriesListAnswer(BaseModel):
@@ -64,6 +65,7 @@ def _entry_answer_of(entry: SeriesEntryView | RamschSeriesEntryView) -> SeriesEn
             seats=[RamschSeriesSeatAnswer(name=seat.name, score=seat.score) for seat in entry.seats],
             durchmarsch=entry.durchmarsch,
             jungfrau=entry.jungfrau,
+            bock_factor=entry.bock_factor,
         )
     declaration = entry.declaration
     return SeriesEntryAnswer(
@@ -101,8 +103,10 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         `bock_factor`. A `ramsch` entry, played at a table with Ramsch when all three passed, has no declarer: it
         names each seat's stored `name` and list `score` (the seat that lost carries the minus points, a Durchmarsch
         the plus points), whether a seat took all ten tricks and won by it (`durchmarsch`), and whether a seat with
-        no trick doubled the loser's score (`jungfrau`). A hand everyone passed in at a table without Ramsch leaves
-        no entry. A 404 means no table has this id; a table that has ended answers an empty list.
+        no trick doubled the loser's score (`jungfrau`). The seats' scores are multiplied by the entry's `bock_factor`,
+        1 outside a Bock game, a Durchmarsch's too unless the table scores it flat. A hand everyone passed in at a
+        table without Ramsch leaves no entry. A 404 means no table has this id; a table that has ended answers an
+        empty list.
         """
         response.headers["Cache-Control"] = "no-store"
         entries = await run_in_threadpool(tables.series_list, table_id)

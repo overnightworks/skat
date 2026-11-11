@@ -1,7 +1,6 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
-from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
 from skat.engine.giving_up import give_up, throw_down
@@ -14,6 +13,7 @@ from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, Tab
 from skat.table.rules import acting_position, card_text
 
 if TYPE_CHECKING:
+    from skat.engine.bock import BockRounds
     from skat.engine.cards import Card
     from skat.engine.deal import Position
     from skat.engine.tricks import PlayedOut, PlayOutcome, Sides
@@ -118,7 +118,10 @@ def card_payload(command: PlayCardCommand) -> str:
 
 
 def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> Decision:
-    """One card: no hand, no chair, a stale version, the wrong phase, then the engine's reason."""
+    """One card: no hand, no chair, a stale version, the wrong phase, then the engine's reason.
+
+    The card that ends the game, a Ramsch's too, ends the hand; the Bock rounds are asked once its entry exists.
+    """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
         return Decision(table, position)
@@ -135,7 +138,8 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
             replace(table, version=table.version + 1, progress=replace(table.progress, plays=plays, give_up=None))
         )
     if isinstance(played, RamschPlayedOut):
-        return Decision(_ended(table, ramsch_entry_of(played, table), BockRounds.start()))
+        entry = ramsch_entry_of(played, table)
+        return Decision(_ended(table, entry, bock_after(table, played, entry)))
     return Decision(_ended_declared(table, played))
 
 

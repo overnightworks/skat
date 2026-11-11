@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Final
 from skat.engine.bidding import PassedIn
 from skat.engine.games import GameKind
 from skat.engine.kontra import Doubling, Word
+from skat.engine.ramsch import RamschPlayedOut
 from skat.engine.score import Settlement, settle
 from skat.engine.value import value_of
 
@@ -79,12 +80,19 @@ def _is_grand_hand(declaration: Declaration) -> bool:
 
 def bock_triggered(
     triggers: frozenset[BockTrigger],
-    ended: PlayedOut | PassedIn,
+    ended: PlayedOut | PassedIn | RamschPlayedOut,
     doubling: Doubling,
     totals: tuple[TotalChange, ...],
 ) -> bool:
-    """Whether the hand meets a trigger the table has on; meeting several still starts one round."""
-    met = frozenset({BockTrigger.PASSED_IN}) if isinstance(ended, PassedIn) else _triggers_met_by_play(ended, doubling)
+    """Whether the hand meets a trigger the table has on; meeting several still starts one round.
+
+    A Ramsch is the hand all three passed, played out: it meets `passed-in`, and no other trigger of a game.
+    """
+    met = (
+        frozenset({BockTrigger.PASSED_IN})
+        if isinstance(ended, PassedIn | RamschPlayedOut)
+        else _triggers_met_by_play(ended, doubling)
+    )
     if any(change.now_ends_in_00 for change in totals):
         met |= {BockTrigger.TOTAL_ENDING_IN_00}
     return not triggers.isdisjoint(met)

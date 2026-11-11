@@ -61,6 +61,7 @@ class TestTheRamschResult:
             seats=(RamschSeatResult(1, 47, -47), RamschSeatResult(2, 40, 0), RamschSeatResult(3, 33, 0)),
             durchmarsch_seat=None,
             jungfrau=False,
+            bock_factor=1,
         )
 
     def test_stands_as_a_result_that_deals_the_next_hand(self):
@@ -79,6 +80,7 @@ class TestTheSeriesRows:
             seats=(RamschSeriesSeat("Anna", -47), RamschSeriesSeat("Ben", 0), RamschSeriesSeat("Cleo", 0)),
             durchmarsch=False,
             jungfrau=False,
+            bock_factor=1,
         )
 
     @pytest.mark.parametrize(("durchmarsch_seat", "jungfrau"), [(None, True), (2, False)])

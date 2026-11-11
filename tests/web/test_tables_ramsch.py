@@ -33,6 +33,7 @@ from tests.web.support.playing import (
     Table,
     cards,
     reason_of,
+    three_pass,
 )
 from tests.web.support.series import deal_next, headers_of, play_the_dealt_series, tap_new_series, tap_weiter
 from tests.web.support.skat import streams_of
@@ -54,12 +55,14 @@ def seat_results(*points_and_scores):
 
 
 def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False):
-    return {"kind": "ramsch", "ordinal": 1, "seats": seats, "durchmarsch_seat": durchmarsch_seat, "jungfrau": jungfrau}
-
-
-def three_pass(table):
-    for position in (MIDDLEHAND, REARHAND, FOREHAND):
-        table.passes(position)
+    return {
+        "kind": "ramsch",
+        "ordinal": 1,
+        "seats": seats,
+        "durchmarsch_seat": durchmarsch_seat,
+        "jungfrau": jungfrau,
+        "bock_factor": 1,
+    }
 
 
 def ramsch_table(skat, deal, options=RAMSCH):
@@ -366,15 +369,6 @@ class TestOpeningARamschTable:
         headers, _ = skat.member()
 
         answer = skat.create(headers, options={"ramsch": ramsch})
-
-        assert answer.status_code == 422
-        assert skat.store.tables == {}
-
-    @pytest.mark.parametrize("trigger", [["re"], ["passed-in"]])
-    def test_refuses_ramsch_together_with_bock(self, skat, trigger):
-        headers, _ = skat.member()
-
-        answer = skat.create(headers, options={**RAMSCH, "bock": {"triggers": trigger, "overlap": "append"}})
 
         assert answer.status_code == 422
         assert skat.store.tables == {}
