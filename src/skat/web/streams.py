@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import suppress
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 from fastapi import APIRouter, HTTPException, Request
@@ -22,6 +23,16 @@ if TYPE_CHECKING:
     from skat.web.presence import Presence
 
 EVENT_STREAM: Final = "text/event-stream"
+# A comment line is ignored by every event source; it keeps an idle stream's bytes moving past an edge's read timeout.
+HEARTBEAT_COMMENT: Final = ": \n\n"
+
+
+@dataclass(frozen=True)
+class IdleHeartbeat:
+    """What a stream yields for a heartbeat that passed with no change to send: a comment line, no view."""
+
+
+IDLE_HEARTBEAT: Final = IdleHeartbeat()
 
 
 async def _ask_for_next_deal(presence: Presence, table_id: str, view: TableView) -> None:
@@ -49,7 +60,7 @@ async def table_views(
     account_id: str,
     *,
     heartbeat_seconds: float,
-) -> AsyncIterator[TableView]:
+) -> AsyncIterator[TableView | IdleHeartbeat]:
     """The views one stream sends: the full view first, then a fresh one after each change.
 
     The stream registers before it reads, so a change after registering is never lost. Changes that pile up
@@ -57,9 +68,10 @@ async def table_views(
     and delays no other stream. The session is admitted again before every view and on every idle
     heartbeat; the stream ends, sending nothing more, when `admit` refuses or the presence stops. Each idle
     heartbeat reads the view again and sends it only when the table's version moved since the last view
-    sent, which recovers a lost wake. A stream's first view of a passed-in table asks for the next deal, so a
-    member's return, a restart or a lost deal starts a fresh pause; its first view of a pending result asks for
-    the deal at once, and the marks decide. A stream that finds its table ended sends that view as its last.
+    sent, which recovers a lost wake; an unchanged one yields the idle heartbeat instead. A stream's first view
+    of a passed-in table asks for the next deal, so a member's return, a restart or a lost deal starts a fresh
+    pause; its first view of a pending result asks for the deal at once, and the marks decide. A stream that
+    finds its table ended sends that view as its last.
     """
     changed = asyncio.Event()
     subscription = await presence.subscribe(table_id, account_id, changed.set)
@@ -81,7 +93,9 @@ async def table_views(
                 return
             if sent_version is None:
                 await _ask_for_next_deal(presence, table_id, view)
-            if not heartbeat_read or view.version != sent_version:
+            if heartbeat_read and view.version == sent_version:
+                yield IDLE_HEARTBEAT
+            else:
                 yield view
                 sent_version = view.version
             heartbeat_read = await _wait_for_change_or_heartbeat(changed, heartbeat_seconds)
@@ -130,10 +144,13 @@ def create_streams_router(
             if first_view.ended is not None:
                 yield f"data: {answer_of(first_view).model_dump_json()}\n\n"
                 return
-            async for view in table_views(
+            async for item in table_views(
                 presence, read_view, admit, table_id, opened_as.account_id, heartbeat_seconds=heartbeat_seconds
             ):
-                yield f"data: {answer_of(view).model_dump_json()}\n\n"
+                if isinstance(item, IdleHeartbeat):
+                    yield HEARTBEAT_COMMENT
+                else:
+                    yield f"data: {answer_of(item).model_dump_json()}\n\n"
 
         return StreamingResponse(
             messages(), media_type=EVENT_STREAM, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
