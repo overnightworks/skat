@@ -1,0 +1,8 @@
+claim_id = "bf34befcc066430a8457e2e8c6a8adc5"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "bb41d7fced64f5ec56d5196e4824c0404a682e96"
+branch = "claude/issue-355-ask-again"
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/table/asking.py", "src/skat/web/member_place.py", "tests/table/test_asking.py", "tests/table/test_service_member_view.py", "tests/web/support/sdk_agent.py", "tests/web/support/skat.py", "tests/web/test_member_place_asking.py"]
+opened_commit = "dad4fba1da64026b4782637010b1aab86b283c8b"
+whole_reason = "The revision shape, the in-process clock with its one scheduler and the deadline pulses are one contract: a revision that moves without a pulse is read late, and a pulse without a new revision wakes the runner to one it skips."
