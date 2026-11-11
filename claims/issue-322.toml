@@ -1,8 +1,0 @@
-claim_id = "4f22ddcb7af94cf78744a34bfc1d3f8d"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "533c34a152c266d509049e42f70ef8ee1a97e530"
-branch = "claude/issue-322-ramsch-bock"
-scope = ["docs/ARCHITECTURE.md", "src/skat/engine/bock.py", "src/skat/store/game_list.py", "src/skat/store/migrations/versions/0023_felix_with_ramsch.py", "src/skat/table/auction.py", "src/skat/table/bock.py", "src/skat/table/game_list.py", "src/skat/table/playing.py", "src/skat/web/game_list.py", "src/skat/web/table_options.py", "src/skat/web/tables.py", "tests/engine/test_bock.py", "tests/store/conftest.py", "tests/store/test_game_list.py", "tests/store/test_migrate_felix_ramsch.py", "tests/store/test_migrate_felix_set.py", "tests/support/migrations.py", "tests/support/played_game.py", "tests/support/rule_set_rows.py", "tests/table/test_bock.py", "tests/table/test_game_list_ramsch.py", "tests/web/support/playing.py", "tests/web/test_game_list.py", "tests/web/test_rule_sets.py", "tests/web/test_tables_bock.py", "tests/web/test_tables_ramsch.py", "tests/web/test_tables_ramsch_bock.py"]
-opened_commit = "88fd3e75f94bf8bae4c6f94f24a5f6aaeece6371"
-whole_reason = "A table that may have Ramsch and Bock together must end a Ramsch as a Bock game does: its factor in the entry, its trigger and the lapse at a series' end in one decision; the refusal goes with them, and the operator's Felix holds the combination only once both can be played."
