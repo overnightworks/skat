@@ -175,9 +175,12 @@ def _hand_commands(table: TableRecord) -> dict[str, object]:
         "declaring-step": lambda actor: decide_declaring_step(
             table, actor, DeclaringCommand("command-1", *ids, TakeSkat())
         ),
-        "pushing-step": lambda actor: decide_pushing_step(
-            table, actor, PushingCommand("command-1", *ids, PushingKind.TAKE)
-        ),
+        **{
+            f"pushing-{kind.value}": lambda actor, kind=kind: decide_pushing_step(
+                table, actor, PushingCommand("command-1", *ids, kind, DECK[:2] if kind is PushingKind.PUT_BACK else ())
+            )
+            for kind in PushingKind
+        },
         "kontra": lambda actor: decide_kontra(table, actor, KontraCommand("command-1", *ids, Word.KONTRA)),
         "card": lambda actor: decide_card(table, actor, PlayCardCommand("command-1", *ids, DECK[0])),
         "give-up": lambda actor: decide_give_up(table, actor, GiveUpCommand("command-1", *ids)),
