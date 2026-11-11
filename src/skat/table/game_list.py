@@ -5,9 +5,11 @@ from skat.engine.bock import bock_factor, bock_settlement
 from skat.engine.deal import SEATS, positions_from, seats_from
 from skat.engine.kontra import KontraReach, doubled_reckoning, doubled_settlement
 from skat.engine.ramsch import reckon_ramsch
+from skat.engine.schieberamsch import push_factor
 from skat.engine.score import Reckoning, Settlement, announcement_missed, overbid, settle
 from skat.engine.tricks import opponents_points_of
 from skat.engine.value import Breakdown, breakdown_of, value_of
+from skat.table.hand_state import pushing_of
 from skat.table.rules import result_pending
 
 if TYPE_CHECKING:
@@ -67,8 +69,8 @@ class RamschEntry:
     """One finished Ramsch in the table's list, by seat: the card points each seat counted, its list score, the seat
     that took all ten tricks and won by it (None if no seat did or the table scores it as any loser) and whether
     a seat with no trick doubled the loser's score. Each seat's display name is the one held at the end of the game.
-    `bock_factor` is the Bock factor the Ramsch ran under, 1 outside a Bock game; the scores are multiplied by it,
-    a Durchmarsch's too unless the table scores it flat.
+    `bock_factor` is the Bock factor the Ramsch ran under, 1 outside a Bock game, and `pushes` the times the skat was
+    pushed on unseen; the scores are multiplied by both, a Durchmarsch's too unless the table scores it flat.
     """
 
     seat_accounts: tuple[str, str, str]
@@ -78,6 +80,7 @@ class RamschEntry:
     durchmarsch_seat: int | None
     jungfrau: bool
     bock_factor: int
+    pushes: int
 
 
 type GameEntry = ListEntry | RamschEntry
@@ -97,6 +100,14 @@ def bock_factor_of(table: TableRecord) -> int:
     """What the table's pending Bock rounds multiply the next game's list score by; 1 without Bock."""
     options = table.options.bock
     return 1 if options is None else bock_factor(table.bock, options.overlap)
+
+
+def pushes_factor(pushes: int, options: TableOptions) -> int:
+    """What `pushes` unseen pushes multiply a Ramsch's list score by at a table with these options; 1 without the
+    rule.
+    """
+    ramsch = options.ramsch
+    return 1 if ramsch is None or ramsch.pushing is None else push_factor(pushes, ramsch.pushing)
 
 
 def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | None) -> ListEntry:
@@ -139,7 +150,8 @@ def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | No
 
 def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
     """The entry a Ramsch writes: the engine reckons it by the table's Ramsch options and the Bock factor the Ramsch
-    ran under, the table gives the seats.
+    ran under times the factor of its pushes, the table gives the seats. The stage's steps are read before the hand's
+    progress goes.
     """
     ramsch = table.options.ramsch
     # A Ramsch is played only at a table that plays one, and the store writes the dealer with the hand.
@@ -147,7 +159,9 @@ def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
         message = f"table {table.id.value} ended a Ramsch without the setting or a dealer"
         raise RuntimeError(message)
     factor = bock_factor_of(table)
-    reckoning = reckon_ramsch(played, ramsch.reckoning, multiplier=factor)
+    stage = pushing_of(table)
+    pushes = 0 if stage is None else stage.pushes
+    reckoning = reckon_ramsch(played, ramsch.reckoning, multiplier=factor * pushes_factor(pushes, table.options))
     positions = positions_from(table.dealer)
     seats = seats_from(table.dealer)
     first, second, third = _seated(table)
@@ -161,6 +175,7 @@ def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
         durchmarsch_seat=None if reckoning.durchmarsch is None else seats[reckoning.durchmarsch],
         jungfrau=reckoning.jungfrau,
         bock_factor=factor,
+        pushes=pushes,
     )
 
 
@@ -238,13 +253,17 @@ class RamschSeatResult:
 
 @dataclass(frozen=True)
 class RamschResultView:
-    """The last Ramsch's result while it stands, the same for every viewer; it names no account and no card."""
+    """The last Ramsch's result while it stands, the same for every viewer; it names no account and no card. `pushes`
+    is how often the skat was pushed on unseen and `push_factor` what that made of the scores, beside the Bock factor.
+    """
 
     ordinal: int
     seats: tuple[RamschSeatResult, ...]
     durchmarsch_seat: int | None
     jungfrau: bool
     bock_factor: int
+    pushes: int
+    push_factor: int
 
 
 def _reckoning_of(entry: ListEntry, reach: KontraReach) -> Reckoning:
@@ -322,6 +341,8 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
             durchmarsch_seat=entry.durchmarsch_seat,
             jungfrau=entry.jungfrau,
             bock_factor=entry.bock_factor,
+            pushes=entry.pushes,
+            push_factor=pushes_factor(entry.pushes, table.options),
         )
     breakdown = entry.breakdown
     reach = reach_of(table.options)
@@ -383,8 +404,8 @@ class RamschSeriesSeat:
 @dataclass(frozen=True)
 class RamschSeriesEntryView:
     """One finished Ramsch in the table's list, the same for every viewer: its place, each seat's stored name and
-    score, whether a seat took all ten tricks and won by it, and whether a Jungfrau doubled the loser's score.
-    It names no account and no card.
+    score, whether a seat took all ten tricks and won by it, whether a Jungfrau doubled the loser's score, and how often
+    the skat was pushed on unseen with the factor that made of the scores. It names no account and no card.
     """
 
     number: int
@@ -392,9 +413,13 @@ class RamschSeriesEntryView:
     durchmarsch: bool
     jungfrau: bool
     bock_factor: int
+    pushes: int
+    push_factor: int
 
 
-def _series_entry_view_of(number: int, entry: GameEntry) -> SeriesEntryView | RamschSeriesEntryView:
+def _series_entry_view_of(
+    number: int, entry: GameEntry, options: TableOptions
+) -> SeriesEntryView | RamschSeriesEntryView:
     if isinstance(entry, RamschEntry):
         return RamschSeriesEntryView(
             number=number,
@@ -404,6 +429,8 @@ def _series_entry_view_of(number: int, entry: GameEntry) -> SeriesEntryView | Ra
             durchmarsch=entry.durchmarsch_seat is not None,
             jungfrau=entry.jungfrau,
             bock_factor=entry.bock_factor,
+            pushes=entry.pushes,
+            push_factor=pushes_factor(entry.pushes, options),
         )
     return SeriesEntryView(
         number=number,
@@ -419,4 +446,4 @@ def _series_entry_view_of(number: int, entry: GameEntry) -> SeriesEntryView | Ra
 
 def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...]:
     """One row per finished game of the table, numbered from 1 in the order played."""
-    return tuple(_series_entry_view_of(number, entry) for number, entry in enumerate(table.game_list, 1))
+    return tuple(_series_entry_view_of(number, entry, table.options) for number, entry in enumerate(table.game_list, 1))

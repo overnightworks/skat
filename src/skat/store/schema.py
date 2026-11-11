@@ -25,6 +25,7 @@ from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
+from skat.engine.schieberamsch import PushingRule
 from skat.table.records import (
     SERIES_LENGTH_MAX,
     SERIES_LENGTH_MIN,
@@ -67,6 +68,7 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
         Column("ramsch_scoring", Text),
         Column("ramsch_jungfrau", Text),
         Column("ramsch_durchmarsch", Text),
+        Column("ramsch_pushing", Text),
         CheckConstraint(
             "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)",
             name=f"{table_name}_kontra_is_all_or_nothing",
@@ -110,6 +112,12 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
             (rule.value for rule in DurchmarschRule),
             f"{table_name}_ramsch_durchmarsch_is_a_durchmarsch_rule",
         ),
+        one_of(
+            "ramsch_pushing", (rule.value for rule in PushingRule), f"{table_name}_ramsch_pushing_is_a_pushing_rule"
+        ),
+        CheckConstraint(
+            "ramsch_pushing IS NULL OR ramsch_occasion IS NOT NULL", name=f"{table_name}_ramsch_pushing_needs_a_ramsch"
+        ),
     )
 
 
@@ -134,6 +142,7 @@ def options_of(row: Row[Any]) -> TableOptions:
                 JungfrauRule(row.ramsch_jungfrau),
                 DurchmarschRule(row.ramsch_durchmarsch),
             ),
+            None if row.ramsch_pushing is None else PushingRule(row.ramsch_pushing),
         )
     return TableOptions(show_running_points=row.show_running_points, kontra=kontra, bock=bock, ramsch=ramsch)
 
@@ -155,6 +164,7 @@ def option_values(options: TableOptions) -> dict[str, object]:
         "ramsch_scoring": None if ramsch is None else ramsch.reckoning.scoring.value,
         "ramsch_jungfrau": None if ramsch is None else ramsch.reckoning.jungfrau.value,
         "ramsch_durchmarsch": None if ramsch is None else ramsch.reckoning.durchmarsch.value,
+        "ramsch_pushing": None if ramsch is None or ramsch.pushing is None else ramsch.pushing.value,
     }
 
 

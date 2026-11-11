@@ -13,6 +13,7 @@ from skat.store.declaring import append_declaring_steps, declaring_steps, read_d
 from skat.store.game_list import append_game_list, game_list, read_game_list
 from skat.store.kontra import append_words, kontra_words, read_words
 from skat.store.playing import append_plays, played_cards, read_plays
+from skat.store.pushing import append_pushing_steps, pushing_steps, read_pushing_steps
 from skat.store.schema import (
     POSITION_OF_TEXT,
     POSITION_TEXT,
@@ -156,6 +157,7 @@ def _table_record(
             plays=read_plays(connection, table_id),
             give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
             words=read_words(connection, table_id),
+            pushing=read_pushing_steps(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
@@ -176,7 +178,7 @@ def _series_number_of(table: TableRecord) -> int:
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
-    for rows in (hand_cards, auction_actions, declaring_steps, played_cards, kontra_words):
+    for rows in (hand_cards, auction_actions, declaring_steps, pushing_steps, played_cards, kontra_words):
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
 
 
@@ -285,6 +287,7 @@ class _PostgresTableTransaction:
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
         append_steps(self._connection, table.id.value, table.progress.auction)
         append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
+        append_pushing_steps(self._connection, table.id.value, table.progress.pushing)
         append_plays(self._connection, table.id.value, table.progress.plays)
         append_words(self._connection, table.id.value, table.progress.words)
         self._write_chairs(table)

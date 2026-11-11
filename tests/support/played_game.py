@@ -114,4 +114,5 @@ def a_ramsch_entry(
         durchmarsch_seat=None,
         jungfrau=False,
         bock_factor=1,
+        pushes=0,
     )

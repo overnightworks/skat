@@ -19,6 +19,7 @@ STORE_TABLES = {
     "hand_cards",
     "auction_actions",
     "declaring_steps",
+    "pushing_steps",
     "played_cards",
     "game_list",
     "kontra_words",

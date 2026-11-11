@@ -112,7 +112,7 @@ class TestOpeningATableWithRamschAndBock:
         assert first.status_code == 200
         answered = first.json()["options"]
         assert (answered["ramsch"], answered["bock"]) == (
-            POINTS,
+            {**POINTS, "pushing": None},
             {"triggers": ["passed-in"], "overlap": "append"},
         )
         assert (same.json()["id"], other.status_code) == (first.json()["id"], 409)
@@ -124,7 +124,7 @@ class TestAnAgentOpeningATableWithRamschAndBock:
 
         opened = agent.open_table(options=options_of("re"))
 
-        assert opened.json()["options"]["ramsch"] == POINTS
+        assert opened.json()["options"]["ramsch"] == {**POINTS, "pushing": None}
         assert opened.json()["options"]["bock"] == {"triggers": ["re"], "overlap": "append"}
 
 

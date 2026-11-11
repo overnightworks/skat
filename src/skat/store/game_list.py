@@ -15,7 +15,7 @@ from sqlalchemy import (
 )
 
 from skat.engine.bidding import VALID_BIDS
-from skat.engine.deal import SEATS
+from skat.engine.deal import SEATS, Position
 from skat.engine.declaration import Declaration
 from skat.engine.games import GameKind
 from skat.engine.kontra import Word
@@ -38,6 +38,8 @@ if TYPE_CHECKING:
     from sqlalchemy import Row
     from sqlalchemy.engine import Connection
 
+# Each of the three seats may push the skat on once.
+_MOST_PUSHES: Final = len(Position)
 _MOST_MATADORS: Final = max(kind.highest_matadors or 0 for kind in GameKind)
 DECLARED_KIND: Final = "declared"
 RAMSCH_KIND: Final = "ramsch"
@@ -105,6 +107,7 @@ game_list = Table(
     Column("seat_3_score", Integer),
     Column("durchmarsch_seat", SmallInteger),
     Column("jungfrau", Boolean),
+    Column("pushes", SmallInteger, nullable=False, server_default=text("0")),
     CheckConstraint("ordinal >= 1", name="game_list_ordinal_counts_from_one"),
     CheckConstraint(f"declarer_seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_list_declarer_seat_is_a_seat"),
     one_of("game", GAME_TEXT.values(), "game_list_game_is_a_game"),
@@ -135,6 +138,8 @@ game_list = Table(
     CheckConstraint(
         "bock_factor > 0 AND bock_factor & (bock_factor - 1) = 0", name="game_list_bock_factor_is_a_power_of_two"
     ),
+    CheckConstraint(f"pushes BETWEEN 0 AND {_MOST_PUSHES}", name="game_list_pushes_are_unseen_pushes"),
+    CheckConstraint(f"kind = '{RAMSCH_KIND}' OR pushes = 0", name="game_list_only_a_ramsch_is_pushed"),
 )
 
 
@@ -147,6 +152,7 @@ def _ramsch_entry_of(row: Row[tuple[object, ...]]) -> RamschEntry:
         durchmarsch_seat=row.durchmarsch_seat,
         jungfrau=row.jungfrau,
         bock_factor=row.bock_factor,
+        pushes=row.pushes,
     )
 
 
@@ -204,6 +210,7 @@ def _columns_of(entry: GameEntry) -> dict[str, object]:
             "durchmarsch_seat": entry.durchmarsch_seat,
             "jungfrau": entry.jungfrau,
             "bock_factor": entry.bock_factor,
+            "pushes": entry.pushes,
         }
     matadors = entry.matadors
     return {

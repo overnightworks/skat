@@ -62,6 +62,8 @@ def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False):
         "durchmarsch_seat": durchmarsch_seat,
         "jungfrau": jungfrau,
         "bock_factor": 1,
+        "pushes": 0,
+        "push_factor": 1,
     }
 
 
@@ -342,6 +344,7 @@ class TestOpeningARamschTable:
             **POINTS,
             "scoring": "skat-to-loser",
             "durchmarsch": "off",
+            "pushing": None,
         }
         assert without.json()["options"]["ramsch"] is None
 

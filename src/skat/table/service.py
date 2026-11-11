@@ -27,6 +27,7 @@ from skat.table.playing import (
     give_up_payload,
     throw_down_payload,
 )
+from skat.table.pushing import PUSHING_STEP_COMMAND, PushingCommand, decide_pushing_step, pushing_payload
 from skat.table.ready import (
     NEW_SERIES_COMMAND,
     READY_COMMAND,
@@ -322,6 +323,19 @@ class TableService:
             DECLARING_STEP_COMMAND,
             declaring_payload(command),
             lambda table: decide_declaring_step(table, actor, command),
+        )
+
+    def take_pushing_step(
+        self, actor: Actor, command: PushingCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            PUSHING_STEP_COMMAND,
+            pushing_payload(command),
+            lambda table: decide_pushing_step(table, actor, command),
         )
 
     def play_card(

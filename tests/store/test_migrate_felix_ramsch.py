@@ -11,7 +11,7 @@ from skat.table.records import Actor, CreateTable, RamschOccasion, RamschSetting
 from skat.table.rule_sets import RuleSet
 from skat.table.service import TableService
 from tests.support.migrations import upgrade_to
-from tests.support.rule_set_rows import a_set, row_count, save, sets_of
+from tests.support.rule_set_rows import a_set, row_count, save_before_pushing, sets_of
 
 pytestmark = pytest.mark.postgres
 
@@ -44,7 +44,7 @@ def test_a_migration_without_the_operator_account_leaves_an_existing_felix_and_d
     before_the_ramsch_values, operator_account_id
 ):
     earlier = a_set(operator_account_id, SET_NAME, FELIX_WITHOUT_RAMSCH)
-    save(before_the_ramsch_values, earlier)
+    save_before_pushing(before_the_ramsch_values, earlier)
 
     migrate(before_the_ramsch_values, operator_account_id=None)
 
@@ -63,7 +63,7 @@ def test_the_operator_account_gets_the_set_with_kontra_bock_and_ramsch_values_th
 
 def test_the_felix_without_ramsch_is_replaced_keeping_its_id(before_the_ramsch_values, operator_account_id):
     earlier = a_set(operator_account_id, SET_NAME, FELIX_WITHOUT_RAMSCH)
-    save(before_the_ramsch_values, earlier)
+    save_before_pushing(before_the_ramsch_values, earlier)
 
     migrate(before_the_ramsch_values, operator_account_id=operator_account_id)
 
@@ -76,8 +76,8 @@ def test_another_name_of_the_account_and_another_accounts_felix_stay_untouched(
 ):
     other_name = a_set(operator_account_id, "Abend")
     others_felix = a_set(f"account-{secrets.token_hex(8)}", SET_NAME)
-    save(before_the_ramsch_values, other_name)
-    save(before_the_ramsch_values, others_felix)
+    save_before_pushing(before_the_ramsch_values, other_name)
+    save_before_pushing(before_the_ramsch_values, others_felix)
 
     migrate(before_the_ramsch_values, operator_account_id=operator_account_id)
 
