@@ -314,6 +314,7 @@ body.key .frame *:not(.mo){animation:none!important}
 .reconnect{transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;height:48px;padding:0 20px 0 14px;border-radius:999px;background:rgba(12,14,17,.82);
   backdrop-filter:blur(14px);font-size:16px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(240,214,150,.3),0 16px 30px -10px rgba(0,0,0,.9)}
 .spin{width:20px;height:20px;border-radius:50%;border:2.5px solid rgba(122,167,240,.25);border-top-color:var(--accent-stage)}
+.outage-line{transform:translateX(-50%);width:280px;text-align:center;font-size:15px;line-height:1.4;color:var(--on-stage-soft)}
 .lobby-scroll{overflow:hidden}
 .lobby-inner{min-height:100%;display:flex;flex-direction:column;padding-bottom:var(--bar)}
 .lobby-list{display:grid;grid-template-columns:repeat(var(--cols),var(--cw));gap:var(--gap);justify-content:center;align-items:start}
@@ -693,6 +694,13 @@ function lobbyScene(width,o={}){
   const page=head+list;
   return (o.stale?`<div class="stale">${page}</div>`:page)+bar+(o.stale?`<div class="reconnect" role="status" style="${at({left:cx,top:desk?445:282})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`:'');
 }
+/* the root page while the start page's code cannot load: the stage, the wordmark and the table page's notice, nothing the root page does not know */
+function outageScene(width,o={}){
+  const z=LOBBY_SIZES[width],cx=z.w/2,mid=z.h/2;
+  return wordmark(cx,width===1280?52:40,z.wm)
+    +`<div class="reconnect" role="status" style="${at({left:cx,top:mid})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`
+    +(o.line?`<p class="outage-line" role="status" style="${at({left:cx,top:mid+40})}">Skat ist gerade nicht erreichbar.</p>`:'');
+}
 /* the lobby the sheets of a new table stand over; at 1280 the third own table fills the row */
 const lobbyBackdrop=(w)=>lobbyScene(w,{mine:w===1280?[LOBBY.anna,LOBBY.lena,LOBBY.ben]:[LOBBY.anna,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]});
 const LOBBY_SCENES=[
@@ -708,6 +716,10 @@ const LOBBY_SCENES=[
     ['Unter „Offene Tische“: „Felix\' Tisch“ mit Felix, Anna und dem freien Platz und dem Akzentchip „Spiel wartet“; ein Spiel ohne Spieler braucht eine Person. In „Meine Tische“ trüge derselbe Tisch den Chip neutral, weil er auf jemand anderen wartet.']],
   ['lobby-reconnect','Lobby verbindet neu','reconnect',(w)=>lobbyScene(w,{stale:true,mine:[LOBBY.anna,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]}),[390,1280],
     ['Die Liste bleibt, gedimmt und still; „Neuer Tisch“ geht weiter.']],
+  ['outage-tap','Tipp auf Lobby, Skat ist weg','outage-tap',(w)=>outageScene(w),[360,390,1280],
+    ['Die Adresse ist „/“; die Startseite ist noch nicht geladen, also gibt es keine Liste zum Dimmen. Nur Wortmarke und „verbinde neu“; der Ring ist die einzige Bewegung. Kommt Skat wieder, steht die Lobby (Bild „Lobby“) einfach da: kein Knopf, kein „fertig“.']],
+  ['outage-minute','Nach einer Minute: ruhige Zeile','outage-minute',(w)=>outageScene(w,{line:true}),[360,390,1280],
+    ['Variante zu „Tipp auf Lobby“: nach einer Minute eine ruhige Zeile unter der Pille, ohne Knopf und ohne Rot. Eine der beiden Varianten bleibt, die andere entfällt.']],
 ];
 LOBBY_SCENES.forEach(([id,title,,draw,widths,notes])=>widths.forEach(w=>frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,draw(w),notes)));
 ORDER.unshift(...LOBBY_SCENES.flatMap(([id,,,,widths])=>widths.map(w=>`${id}-${w}`)));
