@@ -1,10 +1,10 @@
 import json
 from dataclasses import dataclass
 
-from agent_runtime_client.mcp_wire import MCP_ENDPOINT_PATH
+from agents.mcp_wire import MCP_ENDPOINT_PATH
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.mcp import PLAY_CARD_TOOL, READ_TABLE_TOOL
+from skat.web.mcp import OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import card_body
@@ -27,14 +27,15 @@ class ToolAnswer:
 class Agent:
     """An agent's client against the app in this process: a token of its own at every request."""
 
-    def __init__(self, skat, issuer, subject=SUBJECT):
+    def __init__(self, skat, issuer, subject=SUBJECT, **claims):
         self.skat = skat
         self.issuer = issuer
         self.subject = subject
+        self.claims = claims
 
     def request(self, method, params=None, *, token_changes=None, extra_headers=None):
         headers, body = mcp_message(method, params)
-        token = self.issuer.agent_token(self.subject, **(token_changes or {}))
+        token = self.issuer.agent_token(self.subject, **{**self.claims, **(token_changes or {})})
         self.skat.client.cookies.clear()
         return self.skat.client.post(
             MCP_ENDPOINT_PATH,
@@ -50,6 +51,15 @@ class Agent:
 
     def read(self, table_id):
         return self.call(READ_TABLE_TOOL, table_id=table_id)
+
+    def open_table(self, *, command_id="agent-open-0001", series_length=36, **changes):
+        return self.call(OPEN_TABLE_TOOL, command_id=command_id, series_length=series_length, **changes)
+
+    def sit_down(self, table_id, seat, *, command_id="agent-sit-0001"):
+        return self.call(SIT_DOWN_TOOL, table_id=table_id, seat=seat, command_id=command_id)
+
+    def stand_up(self, table_id, *, command_id="agent-stand-0001"):
+        return self.call(STAND_UP_TOOL, table_id=table_id, command_id=command_id)
 
     def play(self, table, played, *, command_id="agent-move-0001", **changes):
         return self.call(

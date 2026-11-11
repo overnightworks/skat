@@ -2,108 +2,33 @@ import threading
 from dataclasses import replace
 
 import pytest
-from sqlalchemy import func, select, table, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.cards import DECK
-from skat.engine.deal import Position, positions_from
-from skat.engine.declaration import Announcement, Declare
-from skat.engine.games import GameKind
-from skat.engine.play import legal_cards
-from skat.engine.tricks import CardPlayed, PlayRefusal
+from skat.engine.deal import Position
+from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
-from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.declaring import DeclaringCommand
 from skat.table.hand_state import playing_of
-from skat.table.playing import GiveUpCommand, PlayCardCommand, ThrowDownCommand
-from skat.table.records import Actor, CreateTable, Refusal, SitDown
+from skat.table.playing import (
+    AgreeToGiveUpCommand,
+    DeclineGiveUpCommand,
+    GiveUpCommand,
+    ThrowDownCommand,
+)
+from skat.table.records import GiveUpAsked, Refusal
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
+from tests.support.stored_game import card_id, count_rows, nobody_connected, seated_game
 
 pytestmark = pytest.mark.postgres
-
-GAME_CARDS = 30
-
-
-def person(name):
-    return Actor(account_id=f"account-{name.lower()}", display_name=name)
-
-
-def nobody_connected() -> frozenset[str]:
-    return frozenset()
-
-
-def card_id(number):
-    return f"card-{number}"
-
-
-def count_rows(engine, name="played_cards"):
-    with engine.connect() as connection:
-        return connection.execute(select(func.count()).select_from(table(name))).scalar_one()
-
-
-class Game:
-    """A table whose middlehand won at 18 and declared a Herz Hand game; forehand leads."""
-
-    def __init__(self, service, transactions, stored, table_id):
-        self.service = service
-        self.transactions = transactions
-        self.stored = stored
-        self.table_id = table_id
-        by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
-        self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
-        self._auction(Position.MIDDLEHAND, AuctionAction.BID, 18, "bid")
-        self._auction(Position.FOREHAND, AuctionAction.PASS, None, "forehand-passes")
-        self._auction(Position.REARHAND, AuctionAction.PASS, None, "rearhand-passes")
-        declare = Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
-        self.service.take_declaring_step(
-            self.actors[Position.MIDDLEHAND],
-            DeclaringCommand(command_id="declare", table_id=table_id, version=self.record.version, step=declare),
-            nobody_connected(),
-        )
-
-    @property
-    def record(self):
-        return self.stored(self.transactions, self.table_id)
-
-    @property
-    def plays(self):
-        return self.record.progress.plays
-
-    def _auction(self, position, action, value, command_id):
-        command = AuctionCommand(
-            command_id=command_id, table_id=self.table_id, version=self.record.version, action=action, value=value
-        )
-        self.service.take_auction_step(self.actors[position], command, nobody_connected())
-
-    def legal_card(self):
-        state = playing_of(self.record)
-        first = state.current[0] if state.current else None
-        return state.turn, legal_cards(state.hands[state.turn], first, state.declared.declaration.kind)[0]
-
-    def send(self, position, card, *, command_id, version=None, service=None):
-        command = PlayCardCommand(
-            command_id=command_id,
-            table_id=self.table_id,
-            version=self.record.version if version is None else version,
-            card=card,
-        )
-        return (service or self.service).play_card(self.actors[position], command, nobody_connected())
-
-    def play_legally(self, number, start=1):
-        for offset in range(number):
-            position, card = self.legal_card()
-            assert self.send(position, card, command_id=card_id(start + offset)).refusal is None
 
 
 @pytest.fixture
 def game(service, transactions, stored):
-    table_id = service.create(person("Anna"), CreateTable(command_id="command-open")).id
-    service.sit(person("Ben"), SitDown("command-ben", table_id, 2), nobody_connected())
-    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
-    return Game(service, transactions, stored, table_id)
+    return seated_game(service, transactions, stored)
 
 
 def test_the_cards_read_back_in_the_order_they_were_played(game):
@@ -125,7 +50,7 @@ def test_a_played_card_keeps_the_dealt_hand_as_dealt(game):
 
 
 def test_a_card_after_the_thirtieth_is_refused_as_no_hand_and_leaves_no_row(game, engine):
-    game.play_legally(GAME_CARDS)
+    game.play_legally(CARDS_IN_A_GAME)
     before = game.record
 
     result = game.send(Position.FOREHAND, DECK[0], command_id="card-last")
@@ -239,6 +164,55 @@ def test_an_early_end_stores_its_entry_drops_cards_and_a_new_service_replays_the
     assert (again.view, again.refusal) == (first.view, first.refusal)
     assert again.seated_when_hand_ended == frozenset()
     assert len(game.record.game_list) == 1
+
+
+def asked_with_eight_cards(game):
+    """The declarer asks to give up once he holds eight cards."""
+    while len(playing_of(game.record).hands[Position.MIDDLEHAND]) > 8:
+        game.play_legally(1, start=len(game.plays) + 1)
+    command = GiveUpCommand(command_id="ask", table_id=game.table_id, version=game.record.version)
+    result = game.service.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None)
+    assert result.refusal is None
+
+
+def stored_request(engine):
+    with engine.connect() as connection:
+        return tuple(connection.execute(text("SELECT give_up_asked_by, give_up_declined_by FROM tables")).one())
+
+
+def test_an_unanswered_request_and_a_no_are_read_back_by_a_new_service_and_a_yes_after_that_ends_the_game(
+    game, engine, database_url, stored
+):
+    asked_with_eight_cards(game)
+    assert stored_request(engine) == ("middlehand", None)
+    no = DeclineGiveUpCommand(command_id="no", table_id=game.table_id, version=game.record.version)
+    game.service.decline_give_up(game.actors[Position.FOREHAND], no, nobody_connected())
+    assert stored_request(engine) == ("middlehand", "forehand")
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        assert stored(restarted, game.table_id).progress.give_up == GiveUpAsked(Position.MIDDLEHAND, Position.FOREHAND)
+        yes = AgreeToGiveUpCommand(command_id="yes", table_id=game.table_id, version=game.record.version)
+        result = TableService(restarted).agree_to_give_up(
+            game.actors[Position.REARHAND], yes, nobody_connected(), lambda _: None
+        )
+    finally:
+        restarted_engine.dispose()
+
+    assert result.refusal is None
+    assert game.record.hand is None
+    assert len(game.record.game_list) == 1
+    assert stored_request(engine) == (None, None)
+
+
+def test_a_card_clears_the_stored_request(game, engine):
+    asked_with_eight_cards(game)
+
+    game.play_legally(1, start=len(game.plays) + 1)
+
+    assert game.record.progress.give_up is None
+    assert stored_request(engine) == (None, None)
 
 
 def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(game, engine, transactions):

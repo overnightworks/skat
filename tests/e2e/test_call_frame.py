@@ -64,6 +64,12 @@ def table_answer(person: Page, server: RunningServer, path: str) -> dict[str, ob
     return person.request.get(f"{server.base_url}{TABLES_PATH}/{table_id_of(path)}").json()
 
 
+def seating_of(answer: dict[str, object]) -> tuple[object, list[dict[str, object]]]:
+    """The table's version and its chairs without whether their members are connected, which moves on its own."""
+    chairs: list[dict[str, object]] = answer["chairs"]  # type: ignore[assignment]
+    return answer["version"], [{name: value for name, value in chair.items() if name != "is_away"} for chair in chairs]
+
+
 REFUSED_FRAMES = [
     pytest.param("unframed_server", lambda call_origin: call_origin, id="unset-setting"),
     pytest.param("framing_server", lambda _call_origin: f"https://{OTHER_HOST}:{CALL_PORT}", id="other-host"),
@@ -126,7 +132,7 @@ def test_a_request_the_call_page_sends_to_skat_is_refused_and_takes_no_chair(
 ) -> None:
     path = new_table(open_person, framing_server)
     visitor = open_person(server=framing_server)
-    before = table_answer(visitor, framing_server, path)
+    before = seating_of(table_answer(visitor, framing_server, path))
     sit_address = f"{framing_server.base_url}{TABLES_PATH}/{table_id_of(path)}{TABLE_SIT_SUFFIX}"
 
     with served_from(call_origin, visitor, browser_coverage, CALL_PAGE_WITHOUT_FRAME):
@@ -135,5 +141,4 @@ def test_a_request_the_call_page_sends_to_skat_is_refused_and_takes_no_chair(
             visitor.evaluate(SIMPLE_POST, [sit_address, '{"command_id": "call-sit-0001", "seat": 1}'])
 
     assert sit.value.status == HTTP_FORBIDDEN
-    after = table_answer(visitor, framing_server, path)
-    assert (after["version"], after["chairs"]) == (before["version"], before["chairs"])
+    assert seating_of(table_answer(visitor, framing_server, path)) == before

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 from fastapi.testclient import TestClient
 from webauth.config import install_web_auth_config, installed_web_auth_config
+from webauth.policies import RateLimitPolicy
 
 from skat.host.app import create_app
 from skat.web.constants import (
@@ -20,6 +21,7 @@ from skat.web.constants import (
 )
 from skat.web.sign_in import SignInConfigurationError, build_sign_in_configs
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -29,10 +31,12 @@ if TYPE_CHECKING:
 
     from tests.support.sign_in_settings import SignInSettings
 
-SIGN_IN_BUDGET_REQUESTS = 40
-SIGN_IN_WINDOW_SECONDS = 600
-DEFAULT_BUDGET_REQUESTS = 600
-DEFAULT_WINDOW_SECONDS = 60
+SIGN_IN_BUDGET = RateLimitPolicy().sign_in
+DEFAULT_BUDGET = RateLimitPolicy().default
+SIGN_IN_BUDGET_REQUESTS = SIGN_IN_BUDGET.max_requests
+SIGN_IN_WINDOW_SECONDS = SIGN_IN_BUDGET.window_seconds
+DEFAULT_BUDGET_REQUESTS = DEFAULT_BUDGET.max_requests
+DEFAULT_WINDOW_SECONDS = DEFAULT_BUDGET.window_seconds
 COMPLETE_SIGN_INS_IN_WINDOW = SIGN_IN_BUDGET_REQUESTS // 2
 PROXY_ADDRESS = "172.31.250.1"
 TRUSTED_PROXIES = f"{PROXY_ADDRESS},127.0.0.1"
@@ -124,6 +128,7 @@ def make_deployment(sign_in_settings: Callable[..., SignInSettings]) -> Callable
             sign_in.settings,
             page_build=fixture_page_build(),
             tables=in_memory_tables(),
+            rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
         )
         install_web_auth_config(
@@ -155,7 +160,7 @@ def exhausted_default(deployment) -> Deployment:
 
 
 class TestSignInBudget:
-    def test_twenty_complete_sign_ins_from_one_address_each_open_a_session(self, deployment):
+    def test_as_many_complete_sign_ins_as_the_window_allows_each_open_a_session(self, deployment):
         for _ in range(COMPLETE_SIGN_INS_IN_WINDOW):
             assert deployment.complete_sign_in(FIRST_ADDRESS) == HTTPStatus.SEE_OTHER
 
@@ -220,6 +225,7 @@ class TestExemptions:
         [
             ("POST", f"{BACKCHANNEL_LOGOUT_PATH}/"),
             ("POST", f"{BACKCHANNEL_LOGOUT_PATH}x"),
+            ("POST", BACKCHANNEL_LOGOUT_PATH.upper()),
             ("GET", f"{HEALTH_PATH}/"),
             ("GET", f"{HEALTH_PATH}x"),
         ],
@@ -230,7 +236,7 @@ class TestExemptions:
 
 
 class TestDefaultBudget:
-    def test_the_601st_request_in_a_minute_is_refused_and_the_next_minute_is_open(self, exhausted_default):
+    def test_the_request_past_the_default_budget_is_refused_and_the_next_window_is_open(self, exhausted_default):
         browser = exhausted_default.client()
         refused = browser.get(LOGIN_PATH)
         assert refused.status_code == HTTPStatus.TOO_MANY_REQUESTS

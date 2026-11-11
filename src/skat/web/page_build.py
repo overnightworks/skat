@@ -1,5 +1,7 @@
 import base64
 import hashlib
+import html
+import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -13,6 +15,9 @@ CALL_SIGN_IN_FILE = "login/call.html"
 LOGIN_FAILED_FILE = "login-failed.html"
 NO_ACCESS_FILE = "no-access.html"
 APP_DIRECTORY = "_app"
+CHUNK_PATTERN = "immutable/**/*.js"
+# SvelteKit's route announcer is a template literal in a built chunk; its style is set by this attribute.
+_ANNOUNCER_STYLE = re.compile(r'id="svelte-announcer"[^>]*?\sstyle="([^"]*)"')
 
 
 class PageBuildMissingError(StartRefusedError):
@@ -59,6 +64,19 @@ def _script_hash(text: str) -> str:
     return "sha256-" + base64.b64encode(hashlib.sha256(text.encode("utf-8")).digest()).decode("ascii")
 
 
+def _announcer_style_hash(app_directory: Path) -> str:
+    """The hash of the route announcer's style text, which every built chunk carrying the announcer must agree on."""
+    styles = {
+        html.unescape(match.group(1))
+        for chunk in sorted(app_directory.glob(CHUNK_PATTERN))
+        for match in _ANNOUNCER_STYLE.finditer(chunk.read_text(encoding="utf-8"))
+    }
+    if len(styles) != 1:
+        found = "no route announcer style" if not styles else "different route announcer styles"
+        raise PageBuildMissingError(f"The page build under {app_directory} holds {found}; run make frontend")
+    return _script_hash(styles.pop())
+
+
 @dataclass(frozen=True)
 class BuiltPage:
     """One page as `make frontend` wrote it, with the strong ETag of those bytes."""
@@ -73,7 +91,8 @@ class BuiltPage:
 
 @dataclass(frozen=True)
 class PageBuild:
-    """What `make frontend` wrote: the pages the server answers with, and the script hashes their policy admits.
+    """What `make frontend` wrote: the pages the server answers with, and the script and route announcer style hashes
+    their policy admits.
 
     The pages are held as read, so the served shell is the hashed shell even when a build rewrites the file
     while the server runs.
@@ -86,6 +105,7 @@ class PageBuild:
     no_access: BuiltPage
     call_sign_in: BuiltPage
     script_hashes: tuple[str, ...]
+    announcer_style_hash: str
 
     @property
     def app_directory(self) -> Path:
@@ -114,4 +134,5 @@ class PageBuild:
             no_access=BuiltPage.of(no_access_bytes),
             call_sign_in=BuiltPage.of(call_bytes),
             script_hashes=tuple(_script_hash(text) for text in (*shell_scripts.texts, *call_scripts.texts)),
+            announcer_style_hash=_announcer_style_hash(directory / APP_DIRECTORY),
         )

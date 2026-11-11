@@ -210,20 +210,27 @@ def test_a_declarer_whose_game_is_not_yet_won_gives_up_with_consent_lost_by_its_
 
 
 @pytest.mark.parametrize(
-    "scene",
+    ("scene", "expected"),
     [
-        pytest.param({**KREUZ_MIT_2, "taken": ((FOREHAND, 21), (FOREHAND, 21), (FOREHAND, 20))}, id="61 points win"),
+        pytest.param(
+            {**KREUZ_MIT_2, "taken": ((FOREHAND, 21), (FOREHAND, 21), (FOREHAND, 20))},
+            Settlement(won=True, value=36, score=36),
+            id="61 points win: (2 + 1) * 12",
+        ),
         pytest.param(
             {"kind": KARO, "bid": 20, "taken": ((FOREHAND, 32), (FOREHAND, 32), (FOREHAND, 26))},
+            Settlement(won=True, value=27, score=27),
             id="90 points make schneider: (1 + 2) * 9 = 27 reaches the bid",
         ),
     ],
 )
-def test_a_game_already_won_cannot_be_given_up_with_consent_and_nothing_changes(scene: dict[str, object]) -> None:
+def test_a_game_already_won_given_up_with_consent_ends_as_won(scene: dict[str, object], expected: Settlement) -> None:
     state = scenario(**scene)  # type: ignore[arg-type]
     outcome = give_up(state, consented=True)
-    assert outcome.refusal is PlayRefusal.ALREADY_WON
-    assert outcome.state == state
+    assert outcome.refusal is None
+    assert outcome.state.result is not None
+    assert outcome.state.result.ending is Ending.DECIDED_WON
+    assert settle(outcome.state.result, state.declared.bid) == expected
 
 
 def test_a_game_already_won_under_nine_cards_asks_for_consent_before_it_tells_whether_the_game_is_won() -> None:

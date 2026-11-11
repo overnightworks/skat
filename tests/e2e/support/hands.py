@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 WE = catalog_text("sideUs")
 THEY = catalog_text("sideThem")
 TURN_CHAIR = ".chair.turn"
-CARDS_IN_PLAY = 30
 
 command_numbers = itertools.count(1)
 

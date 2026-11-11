@@ -5,11 +5,13 @@ from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK
 from skat.engine.deal import next_dealer, positions_from
 from skat.table.auction import AuctionView, auction_view_of
+from skat.table.bock import BockView, bock_view_of
 from skat.table.declaring import DeclaringView, declaring_view_of
-from skat.table.game_list import ResultView, Standing, result_view_of, standings_of, total_of
+from skat.table.game_list import ResultView, Standing, reach_of, result_view_of, standings_of, total_of
 from skat.table.hand_state import auction_of, declaring_of, playing_of
+from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
-from skat.table.records import EndedTable, EndReason
+from skat.table.records import EndedTable, EndReason, OccupantKind
 from skat.table.rules import hand_runs, series_over
 
 if TYPE_CHECKING:
@@ -19,7 +21,7 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
     from skat.engine.tricks import Playing
-    from skat.table.records import Chair, TableOptions, TableRecord
+    from skat.table.records import Chair, EndProposal, TableOptions, TableRecord
 
 
 @dataclass(frozen=True)
@@ -37,6 +39,7 @@ class ChairView:
 
     seat: int
     occupant_name: str | None
+    occupant_kind: OccupantKind | None
     is_mine: bool
     is_away: bool
     ready: bool
@@ -73,21 +76,24 @@ class EndedView:
 
 @dataclass(frozen=True)
 class SeriesView:
-    """Which game of how many the table runs, 0 before the first deal, and whether its last game is over.
+    """Which game of how many the table runs, 0 before the first deal, and whether the series is over.
 
-    Once it is over, `standings` ranks every account the list seated, the same for every viewer.
+    The series is over once its last game is played or it ended early.
+    Once it is over, `standings` ranks every account the list seated, the same for every viewer. Between two games
+    `end_proposal` names the seats that proposed and accepted ending the series; once it is over none stands.
     """
 
     game_number: int
     game_count: int
     over: bool
     standings: tuple[Standing, ...] | None
+    end_proposal: EndProposal | None
 
 
 @dataclass(frozen=True)
 class TableView:
-    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series or
-    options.
+    """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series,
+    options or Bock games. A live table without Bock has no `bock`.
     """
 
     id: str
@@ -99,6 +105,7 @@ class TableView:
     result: ResultView | None
     series: SeriesView | None
     options: TableOptions | None
+    bock: BockView | None
     ended: EndedView | None = None
 
 
@@ -137,16 +144,26 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         len(table.hand.skat if state is None else state.skat),
         auction_view_of(table, viewer_account_id, table.dealer),
         declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
-        playing_view_of(playing, table.dealer, viewer_positions, show_running_points=table.options.show_running_points),
+        playing_view_of(
+            playing,
+            table.dealer,
+            viewer_positions,
+            show_running_points=table.options.show_running_points,
+            asked=table.progress.give_up,
+            kontra=None if playing is None else kontra_view_of(table, playing, table.dealer, viewer_positions),
+        ),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
 
 def _total_shown(table: TableRecord, chair: Chair) -> int | None:
-    """No chair shows a total until the table's first result."""
-    if chair.occupant is None or not table.game_list:
+    """No chair shows a total before its table's first result, except from a later series' first deal on, when every
+    occupied chair shows 0 until that series' first result.
+    """
+    in_a_later_series = table.series is not None and table.series.number > 1
+    if chair.occupant is None or not (table.game_list or in_a_later_series):
         return None
-    return total_of(table.game_list, chair.occupant.account_id)
+    return total_of(table.game_list, chair.occupant.account_id, reach_of(table.options))
 
 
 def _passed_in_view(table: TableRecord) -> PassedInView | None:
@@ -161,7 +178,13 @@ def _series_view(table: TableRecord) -> SeriesView | None:
     if table.series is None:
         return None
     over = series_over(table)
-    return SeriesView(table.series.deals, table.series.length, over, standings_of(table.game_list) if over else None)
+    return SeriesView(
+        table.series.deals,
+        table.series.length,
+        over,
+        standings_of(table.game_list, reach_of(table.options)) if over else None,
+        None if over else table.series.end_proposal,
+    )
 
 
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
@@ -175,7 +198,8 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     and the last completed one. Between hands the view says whether the last hand was passed in and, while three
     chairs are occupied and the series goes on, who deals next; after a played game it carries the result, the same
     for every viewer. A table with a series says which game of how many runs and whether the series is over, and
-    carries the standings once it is.
+    carries the standings once it is. A table with Bock says how many Bock games are still to come and by what the
+    running or next game's list score is multiplied.
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
@@ -189,6 +213,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             result=None,
             series=None,
             options=None,
+            bock=None,
             ended=EndedView(table.reason, table.empty_seconds),
         )
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
@@ -201,6 +226,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             ChairView(
                 seat=chair.seat,
                 occupant_name=None if chair.occupant is None else chair.occupant.display_name,
+                occupant_kind=None if chair.occupant is None else chair.occupant.kind,
                 is_mine=_is_occupied_by(chair, viewer_account_id),
                 is_away=chair.occupant is not None
                 and chair.occupant.account_id != viewer_account_id
@@ -216,4 +242,58 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
         result=result_view_of(table),
         series=_series_view(table),
         options=table.options,
+        bock=bock_view_of(table),
+    )
+
+
+@dataclass(frozen=True)
+class PausedChairView:
+    """A chair of a paused table: who sits there, whether it is the viewer's own and its running total."""
+
+    seat: int
+    occupant_name: str | None
+    is_mine: bool
+    total: int | None
+
+
+@dataclass(frozen=True)
+class PausedEntryView:
+    """A table on which a hand was dealt, as its chair holder's start page lists it.
+
+    The game number and length are None for a table without a series; `turn_seat` is the seat whose move the running
+    hand waits for, None between hands, and `result_waits` says a played game's result stands. It names no card, no
+    card count, no skat, no watcher and no account.
+    """
+
+    id: str
+    chairs: tuple[PausedChairView, ...]
+    game_number: int | None
+    game_count: int | None
+    turn_seat: int | None
+    result_waits: bool
+
+
+def _turn_seat_of(hand: HandView | None) -> int | None:
+    """The seat on turn: the playing turn while a game is played, the declarer while he declares, else the auction's."""
+    if hand is None:
+        return None
+    if hand.playing is not None:
+        return hand.playing.turn_seat
+    if hand.declaring is not None:
+        return hand.declaring.declarer_seat
+    return hand.auction.turn_seat
+
+
+def paused_entry_of(table: TableRecord, viewer_account_id: str) -> PausedEntryView:
+    """The table for the viewer as the paused list shows it, projected from the table view with nobody connected."""
+    view = view_of(table, viewer_account_id, frozenset())
+    return PausedEntryView(
+        id=view.id,
+        chairs=tuple(
+            PausedChairView(chair.seat, chair.occupant_name, chair.is_mine, chair.total) for chair in view.chairs
+        ),
+        game_number=None if view.series is None else view.series.game_number,
+        game_count=None if view.series is None else view.series.game_count,
+        turn_seat=_turn_seat_of(view.hand),
+        result_waits=view.result is not None,
     )

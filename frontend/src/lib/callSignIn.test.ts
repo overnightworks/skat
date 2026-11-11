@@ -272,12 +272,12 @@ describe("a tap on Log in", () => {
 });
 
 describe("a window that does not come up", () => {
-    it("keeps the waiting face without any watch", () => {
+    it("shows the blocked window without any watch", () => {
         const { signIn, views, live } = arrange({ opened: null });
 
         signIn.logIn();
 
-        expect(views).toEqual(["signing-in"]);
+        expect(views).toEqual(["window-blocked"]);
         expect(live(WATCH_INTERVAL_MILLISECONDS)).toEqual([]);
         expect(live(RECHECK_INTERVAL_MILLISECONDS)).toEqual([]);
     });
@@ -290,17 +290,17 @@ describe("a window that does not come up", () => {
         await fire(RECHECK_INTERVAL_MILLISECONDS);
 
         expect(new URL(host.replace.mock.calls[0]?.[0] ?? "", ORIGIN).pathname).toBe(TABLE_PATH);
-        expect(views).toEqual(["signing-in"]);
+        expect(views).toEqual(["window-blocked"]);
     });
 
-    it("keeps the waiting face while the tab's sign-in has not finished", async () => {
+    it("keeps the blocked window while the tab's sign-in has not finished", async () => {
         const { signIn, fire, views } = arrange({ opened: null, accountStatus: 401 });
         signIn.logIn();
         signIn.recheck();
 
         await fire(RECHECK_INTERVAL_MILLISECONDS);
 
-        expect(views).toEqual(["signing-in"]);
+        expect(views).toEqual(["window-blocked"]);
     });
 
     it("restarts the re-check on a second tap of the plain link", () => {

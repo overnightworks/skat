@@ -1,15 +1,16 @@
 from dataclasses import replace
 
 from skat.engine.bidding import Bid, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
-from skat.engine.deal import Position
+from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed, play_card
 from skat.engine.value import Matadors
 from skat.table.game_list import ListEntry
 from skat.table.hand_state import playing_of
-from skat.table.records import HandProgress, TableRecord
+from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
 
 HERZ_HAND = Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
 ANNA_BEN_CLEO = ("account-anna", "account-ben", "account-cleo")
@@ -20,6 +21,31 @@ def declared_herz_hand() -> HandProgress:
     return HandProgress(
         auction=(Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Position.REARHAND)),
         declaring=(HERZ_HAND,),
+    )
+
+
+def table_in(progress: HandProgress, options: TableOptions | None = None) -> TableRecord:
+    """Seat 2 deals: seat 3 is forehand, seat 1 middlehand and seat 2 rearhand, each on the account named by its
+    position, in the hand of `progress`.
+    """
+    dealer = 2
+    seats = {position: seat for seat, position in positions_from(dealer).items()}
+    chairs = tuple(
+        Chair(seats[position], Occupant(f"account-{position.name.lower()}", position.name, OccupantKind.PERSON))
+        for position in (Position.MIDDLEHAND, Position.REARHAND, Position.FOREHAND)
+    )
+    deal = Deal(forehand=DECK[0:10], middlehand=DECK[10:20], rearhand=DECK[20:30], skat=DECK[30:32])
+    return TableRecord(
+        id=TableId("0123456789abcdef0123456789abcdef"),
+        version=7,
+        chairs=chairs,
+        dealer=dealer,
+        hand=deal,
+        progress=progress,
+        game_list=(),
+        series=None,
+        options=options or TableOptions(),
+        bock=BockRounds.start(),
     )
 
 
@@ -59,6 +85,8 @@ def an_entry(seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO) -> ListEntry:
         settled_value=36,
         score=36,
         declarer_points=78,
+        kontra_word=None,
+        bock_factor=1,
     )
 
 

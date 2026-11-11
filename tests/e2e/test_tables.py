@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import Page, Route, expect
 from sqlalchemy import text
 
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP
+from skat.table.records import SERIES_LENGTH_DEFAULT, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP
 from skat.web.constants import ACCOUNT_PATH, LOGIN_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
@@ -77,7 +77,7 @@ def series_length_reading(length: int) -> str:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_sheet_offers_a_series_of_thirty_six_steps_by_three_and_stops_at_both_ends(
+def test_the_sheet_offers_the_default_series_length_in_steps_and_stops_at_both_ends(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
@@ -88,10 +88,10 @@ def test_the_sheet_offers_a_series_of_thirty_six_steps_by_three_and_stops_at_bot
     a_sheet(person, e2e_server)
 
     expect(person.get_by_role("dialog")).to_be_visible()
-    expect(reading).to_have_text(series_length_reading(36), use_inner_text=True)
+    expect(reading).to_have_text(series_length_reading(SERIES_LENGTH_DEFAULT), use_inner_text=True)
     fewer.click()
-    expect(reading).to_have_text(series_length_reading(36 - SERIES_LENGTH_STEP), use_inner_text=True)
-    for _ in range((36 - SERIES_LENGTH_MIN) // SERIES_LENGTH_STEP - 1):
+    expect(reading).to_have_text(series_length_reading(SERIES_LENGTH_DEFAULT - SERIES_LENGTH_STEP), use_inner_text=True)
+    for _ in range((SERIES_LENGTH_DEFAULT - SERIES_LENGTH_MIN) // SERIES_LENGTH_STEP - 1):
         fewer.click()
     expect(reading).to_have_text(series_length_reading(SERIES_LENGTH_MIN), use_inner_text=True)
     expect(fewer).to_be_disabled()
@@ -117,7 +117,7 @@ def test_the_sheet_fits_inside_the_screen(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_sheet_reopened_after_cancelling_reads_thirty_six_again(
+def test_a_sheet_reopened_after_cancelling_reads_the_default_length_again(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
@@ -128,7 +128,7 @@ def test_a_sheet_reopened_after_cancelling_reads_thirty_six_again(
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
 
     expect(person.get_by_role("spinbutton", name=catalog_text("seriesGames"))).to_have_text(
-        series_length_reading(36), use_inner_text=True
+        series_length_reading(SERIES_LENGTH_DEFAULT), use_inner_text=True
     )
 
 
@@ -270,7 +270,9 @@ def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
     expect_a_table_seating(person, "anna", mine=True)
     person.route(f"**{TABLES_PATH}/{UNKNOWN_ID}", hold_the_first_read)
 
-    person.go_back()
+    # Going back makes the page read the unknown table; going forward before that read leaves nothing to hold.
+    with person.expect_request(re.compile(f"{TABLES_PATH}/{UNKNOWN_ID}$")):
+        person.go_back()
     expect(person).to_have_url(re.compile(f"{UNKNOWN_ID}$"))
     person.go_forward()
     expect(person).to_have_url(TABLE_URL)
@@ -446,7 +448,7 @@ def test_a_visitor_without_a_session_gets_the_sign_in_page_for_a_link_and_no_tab
     expect(visitor.get_by_text(catalog_text("waitingForPlayers"))).to_have_count(0)
     answer = visitor.request.post(
         f"{e2e_server.base_url}{TABLES_PATH}",
-        data={"command_id": "command-0001", "series_length": 36},
+        data={"command_id": "command-0001", "series_length": SERIES_LENGTH_DEFAULT},
         headers=same_origin(e2e_server),
     )
     assert answer.status == UNAUTHORIZED
@@ -472,7 +474,7 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
     assert outsider.request.get(events).status == UNAUTHORIZED
     answer = outsider.request.post(
         f"{e2e_server.base_url}{TABLES_PATH}",
-        data={"command_id": "command-0001", "series_length": 36},
+        data={"command_id": "command-0001", "series_length": SERIES_LENGTH_DEFAULT},
         headers=same_origin(e2e_server),
     )
     assert answer.status == UNAUTHORIZED

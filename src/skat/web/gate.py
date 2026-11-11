@@ -14,7 +14,6 @@ from skat.web.constants import (
     LOGIN_PATH,
     NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
-    SIGN_IN_PATHS,
     VERSION_FILE_PATH,
 )
 
@@ -37,7 +36,6 @@ def session_gate(sessions: SessionRecordStore, resource_rule: PublicRule) -> Ses
         public=(
             PublicRule(PathRules(exact=PUBLIC_PATHS)),
             PublicRule(IMMUTABLE_ASSET_PATH_RULES),
-            *SIGN_IN_PATHS.public_rules,
             resource_rule,
         ),
     )

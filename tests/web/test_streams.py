@@ -537,20 +537,21 @@ class TestWatchTableAdmission:
 
     def test_admitting_a_view_renews_the_session_of_the_open_stream(self, sign_in_settings):
         skat = Skat(sign_in_settings, heartbeat_seconds=NO_HEARTBEAT_SECONDS)
-        headers, member = skat.member(expires_in=timedelta(hours=1))
+        seeded = seed_member(skat.stores, skat.config, expires_in=timedelta(hours=1))
+        headers = {"cookie": cookie_header(seeded.set_cookie_headers), **FETCH}
         table = skat.create(headers).json()
         skat.client.cookies.clear()
         sessions = skat.stores.sessions
 
         def expiry():
-            return next(row.expires_at for row in sessions.snapshot().rows.values() if row.user_id == member.id)
+            return sessions.records_of(seeded.account.id).sessions[0].expires_at
 
         with skat.client.stream("GET", self.events(table["id"]), headers=headers) as watching:
             lines = watching.iter_lines()
             next(lines)
             next(lines)
             opened_with = expiry()
-            sessions.touch(next(iter(sessions.snapshot().rows)), expires_at=opened_with - timedelta(hours=1))
+            sessions.touch(seeded.session.id, expires_at=opened_with - timedelta(hours=1))
             # A second member joining is the change whose view the stream admits again for.
             other_headers, _ = skat.member()
             with skat.client.stream("GET", self.events(table["id"]), headers=other_headers) as other:
@@ -651,6 +652,7 @@ class TestHandOnTheStream:
             "result",
             "series",
             "options",
+            "bock",
             "ended",
         }
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1

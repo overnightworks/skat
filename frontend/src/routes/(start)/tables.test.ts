@@ -127,6 +127,16 @@ describe("watchTable after a stream error", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
+    async function refuseAfterTheFirstRead() {
+        const reading = readTableAfresh(TABLE_ID);
+        answer(0, 200);
+        await reading;
+        watchTable(TABLE_ID, vi.fn(), vi.fn());
+        fail();
+        answer(1, 401);
+        await settle();
+    }
+
     it("signs in once when two errors overlap and both checks answer 401", async () => {
         watchTable(TABLE_ID, vi.fn(), vi.fn());
         fail();
@@ -163,6 +173,22 @@ describe("watchTable after a stream error", () => {
         expect(reload).not.toHaveBeenCalled();
     });
 
+    it("closes the stream on an ended view, hands it on once and ignores a later error", async () => {
+        const onTable = vi.fn();
+        const onConnection = vi.fn();
+        watchTable(TABLE_ID, onTable, onConnection);
+        const ended = { id: TABLE_ID, ended: { reason: "empty", empty_seconds: 1800 } };
+
+        FakeEventSource.last.onmessage?.({ data: JSON.stringify(ended) } as MessageEvent<string>);
+        fail();
+        await settle();
+
+        expect(FakeEventSource.last.close).toHaveBeenCalledOnce();
+        expect(onTable).toHaveBeenCalledExactlyOnceWith(ended);
+        expect(onConnection).not.toHaveBeenCalledWith(false);
+        expect(answers).toHaveLength(0);
+    });
+
     it("ignores a check that answers after the page stopped watching", async () => {
         const stop = watchTable(TABLE_ID, vi.fn(), vi.fn());
         fail();
@@ -186,13 +212,7 @@ describe("watchTable after a stream error", () => {
 
     it("reloads instead of navigating when the page was reached by signing in a moment ago", async () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
-        const reading = readTableAfresh(TABLE_ID);
-        answer(0, 200);
-        await reading;
-        watchTable(TABLE_ID, vi.fn(), vi.fn());
-        fail();
-        answer(1, 401);
-        await settle();
+        await refuseAfterTheFirstRead();
 
         expect(reload).toHaveBeenCalledTimes(1);
         expect(assign).not.toHaveBeenCalled();
@@ -221,13 +241,7 @@ describe("watchTable after a stream error", () => {
     it("signs in again when the page reached by signing in has been open past the window", async () => {
         location(`?${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
         vi.stubGlobal("performance", { now: () => 3_600_000 });
-        const reading = readTableAfresh(TABLE_ID);
-        answer(0, 200);
-        await reading;
-        watchTable(TABLE_ID, vi.fn(), vi.fn());
-        fail();
-        answer(1, 401);
-        await settle();
+        await refuseAfterTheFirstRead();
 
         expect(assign).toHaveBeenCalledTimes(1);
     });
@@ -251,13 +265,7 @@ describe("watchTable after a stream error", () => {
             frame(true);
             location(`${CALL_SEARCH}&${SIGNED_IN_AGAIN_QUERY_NAME}=1`);
             vi.stubGlobal("performance", { now: () => 3_600_000 });
-            const reading = readTableAfresh(TABLE_ID);
-            answer(0, 200);
-            await reading;
-            watchTable(TABLE_ID, vi.fn(), vi.fn());
-            fail();
-            answer(1, 401);
-            await settle();
+            await refuseAfterTheFirstRead();
 
             expect(reload).toHaveBeenCalledTimes(1);
             expect(assign).not.toHaveBeenCalled();
@@ -280,17 +288,20 @@ describe("watchTable after a stream error", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
         watchTable(TABLE_ID, onTable, onConnection);
-        FakeEventSource.last.onmessage?.({ data: JSON.stringify({ id: TABLE_ID }) } as MessageEvent<string>);
+        FakeEventSource.last.onmessage?.({
+            data: JSON.stringify({ id: TABLE_ID, ended: null }),
+        } as MessageEvent<string>);
 
         expect(FakeEventSource.last.url).toContain(TABLES_PATH);
-        expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID });
+        expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID, ended: null });
+        expect(FakeEventSource.last.close).not.toHaveBeenCalled();
         expect(onConnection).toHaveBeenCalledWith(true);
     });
 });
 
 describe("asking for a table", () => {
     const reload = vi.fn();
-    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null, passed_in: null };
+    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null, passed_in: null, ended: null };
 
     beforeEach(() => {
         reload.mockClear();
@@ -507,6 +518,7 @@ describe("what the declaring stage asks of this viewer", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        ended: null,
         hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring, playing: null },
     });
     const tableAt = (stage: Stage, mine: number): Table =>
@@ -545,6 +557,7 @@ describe("the auction's value while declaring", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        ended: null,
         hand: {
             dealer_seat: 1,
             own_cards: [],

@@ -9,13 +9,22 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import Level
 from skat.table.auction import AuctionAction
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, TABLE_ID_PATTERN
+from skat.table.records import (
+    SERIES_LENGTH_DEFAULT,
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    TABLE_ID_PATTERN,
+    EndReason,
+)
+from skat.table.rules import CHAIRS_PER_TABLE
 from skat.web.auction import (
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
+from skat.web.call import CALL_ORIGIN_PATH
 from skat.web.constants import (
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -61,6 +70,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("AUTH_START_PATH", AUTH_START_PATH),
         ("LOGOUT_PATH", LOGOUT_PATH),
         ("ACCOUNT_PATH", ACCOUNT_PATH),
+        ("CALL_ORIGIN_PATH", CALL_ORIGIN_PATH),
         ("ACCOUNT_CONSOLE_PATH", ACCOUNT_CONSOLE_PATH),
         ("TABLES_PATH", TABLES_PATH),
         ("TABLE_PAGE_PREFIX", TABLE_PAGE_PREFIX),
@@ -94,12 +104,17 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("AWAITING_TOKENS", AwaitingToken),
         ("AUCTION_ACTION_TOKENS", AuctionAction),
         ("LEVEL_TOKENS", Level),
+        ("END_REASON_TOKENS", EndReason),
     ],
 )
 def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, tokens: type[StrEnum]) -> None:
     declaration = generate_wire.render().partition(f"export const {name} = ")[2].partition("as const;")[0]
 
     assert all(f'"{token.value}"' in declaration for token in tokens)
+
+
+def test_render_names_the_chairs_of_a_table() -> None:
+    assert f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};" in generate_wire.render()
 
 
 def test_render_lists_every_valid_bid_in_rising_order() -> None:
@@ -112,12 +127,13 @@ def test_render_names_the_card_points_of_a_whole_deck() -> None:
     assert f"export const ALL_POINTS = {ALL_POINTS};" in generate_wire.render().splitlines()
 
 
-def test_render_names_the_bounds_and_step_of_a_series_length() -> None:
+def test_render_names_the_bounds_step_and_default_of_a_series_length() -> None:
     lines = generate_wire.render().splitlines()
 
     assert f"export const SERIES_LENGTH_MIN = {SERIES_LENGTH_MIN};" in lines
     assert f"export const SERIES_LENGTH_MAX = {SERIES_LENGTH_MAX};" in lines
     assert f"export const SERIES_LENGTH_STEP = {SERIES_LENGTH_STEP};" in lines
+    assert f"export const SERIES_LENGTH_DEFAULT = {SERIES_LENGTH_DEFAULT};" in lines
 
 
 def test_main_writes_the_module_and_a_following_check_passes(tmp_path: Path) -> None:

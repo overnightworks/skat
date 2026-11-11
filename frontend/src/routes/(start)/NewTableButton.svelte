@@ -1,21 +1,19 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
-    import { SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP } from "#lib/wire.ts";
+    import { SERIES_LENGTH_DEFAULT, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
     import { createTable } from "./tables.ts";
 
-    const DEFAULT_LENGTH = 36;
-
     let choosing = $state(false);
-    let length = $state(DEFAULT_LENGTH);
+    let length = $state(SERIES_LENGTH_DEFAULT);
     let opening = $state(false);
     let failed = $state(false);
     let commandId = crypto.randomUUID();
 
     function choose(): void {
         failed = false;
-        setLength(DEFAULT_LENGTH);
+        setLength(SERIES_LENGTH_DEFAULT);
         choosing = true;
     }
 
@@ -116,7 +114,7 @@
             <p role="alert">{words.newTableFailed}</p>
         {/if}
         <div class="btns">
-            <button type="button" class="open" disabled={opening} onclick={open}>
+            <button type="button" class="confirm" disabled={opening} onclick={open}>
                 <svg
                     viewBox="0 0 24 24"
                     fill="none"

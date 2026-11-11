@@ -16,11 +16,12 @@ from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.secret_files import StartRefusedError
-from skat.web.stores import SignInStores
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.idle_presence import IdleScheduler
+from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import CALL_PAGE_SCRIPT_HASH, FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -28,15 +29,20 @@ from tests.support.signed_in import cookie_header, seed_member
 if TYPE_CHECKING:
     from skat.web.settings import ServerSettings
 
-SESSION_COOKIE = "__Host-session_id"
 OPENER = Actor(account_id="account-anna", display_name="Anna")
 VISITOR = Actor(account_id="account-ben", display_name="Ben")
 THIRD = Actor(account_id="account-cleo", display_name="Cleo")
 
 
 def signed_in_client(settings: ServerSettings) -> TestClient:
-    stores = SignInStores.in_memory()
-    app = create_app(settings, page_build=fixture_page_build(), tables=in_memory_tables(), stores=stores)
+    stores = in_memory_stores()
+    app = create_app(
+        settings,
+        page_build=fixture_page_build(),
+        tables=in_memory_tables(),
+        rule_sets=in_memory_rule_sets(),
+        stores=stores,
+    )
     member = seed_member(stores, installed_web_auth_config(app))
     headers = {"cookie": cookie_header(member.set_cookie_headers)}
     return TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers, follow_redirects=False)
@@ -99,7 +105,7 @@ class TestCreateApp:
         tables = FreeingSignal(FakeTableStore())
         tables.create(Actor(account_id="account-anna", display_name="Anna"), CreateTable(command_id="command-open"))
         settings = sign_in_settings().settings.model_copy(update={"chair_hold_seconds": 0.05})
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables, rule_sets=in_memory_rule_sets())
 
         with TestClient(app):
             assert tables.chair_freed.wait(timeout=10)
@@ -111,7 +117,7 @@ class TestCreateApp:
         tables.release_end.set()
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         settings = sign_in_settings(empty_table_seconds=1).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables, rule_sets=in_memory_rule_sets())
 
         with TestClient(app):
             assert tables.table_ended.wait(timeout=10)
@@ -126,11 +132,12 @@ class TestCreateApp:
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
         settings = sign_in_settings(empty_table_seconds=1800).settings
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores()
         app = create_app(
             settings,
             page_build=fixture_page_build(),
             tables=tables,
+            rule_sets=in_memory_rule_sets(),
             stores=stores,
             chair_scheduler=IdleScheduler(),
         )
@@ -148,7 +155,10 @@ class TestCreateApp:
                 raise ConnectionError
 
         app = create_app(
-            sign_in_settings().settings, page_build=fixture_page_build(), tables=TableService(Unreadable())
+            sign_in_settings().settings,
+            page_build=fixture_page_build(),
+            tables=TableService(Unreadable()),
+            rule_sets=in_memory_rule_sets(),
         )
 
         with pytest.raises(ConnectionError), TestClient(app):
@@ -163,7 +173,13 @@ class TestCreateApp:
         tables.sit(THIRD, SitDown("command-sit-cleo", opened.id, 3), frozenset())
         store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
         settings = sign_in_settings(empty_table_seconds=1).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables, chair_scheduler=IdleScheduler())
+        app = create_app(
+            settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            rule_sets=in_memory_rule_sets(),
+            chair_scheduler=IdleScheduler(),
+        )
 
         with TestClient(app):
             pass
@@ -175,7 +191,7 @@ class TestCreateApp:
         tables = EndingSignal(FakeTableStore())
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         settings = sign_in_settings(empty_table_seconds=1).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables)
+        app = create_app(settings, page_build=fixture_page_build(), tables=tables, rule_sets=in_memory_rule_sets())
         client = TestClient(app)
         client.__enter__()
         assert tables.end_entered.wait(timeout=10)
@@ -194,7 +210,12 @@ class TestCreateApp:
     def test_installs_the_web_auth_config_built_from_its_settings(self, sign_in_settings):
         sign_in = sign_in_settings()
         config = installed_web_auth_config(
-            create_app(sign_in.settings, page_build=fixture_page_build(), tables=in_memory_tables())
+            create_app(
+                sign_in.settings,
+                page_build=fixture_page_build(),
+                tables=in_memory_tables(),
+                rule_sets=in_memory_rule_sets(),
+            )
         )
         assert isinstance(config, WebAuthConfig)
         assert config.session_secret.get_secret_value() == sign_in.session_secret
@@ -204,8 +225,9 @@ class TestCreateApp:
         settings.session_secret_file.unlink()
         page_build = fixture_page_build()
         tables = in_memory_tables()
+        rule_sets = in_memory_rule_sets()
         with pytest.raises(StartRefusedError, match="session_secret_file"):
-            create_app(settings, page_build=page_build, tables=tables)
+            create_app(settings, page_build=page_build, tables=tables, rule_sets=rule_sets)
 
     def test_account_route_reads_the_sessions_the_sign_in_wrote(self, sign_in_settings):
         sign_in = sign_in_settings()
@@ -214,6 +236,7 @@ class TestCreateApp:
             sign_in.settings,
             page_build=fixture_page_build(),
             tables=in_memory_tables(),
+            rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
@@ -226,20 +249,21 @@ class TestCreateApp:
     def test_signs_members_in_to_the_stores_it_is_given(self, sign_in_settings):
         sign_in = sign_in_settings()
         issuer = FakeIssuer(sign_in)
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores()
         app = create_app(
             sign_in.settings,
             page_build=fixture_page_build(),
             tables=in_memory_tables(),
+            rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
             stores=stores,
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
-        cookie = f"{SESSION_COOKIE}={browser.cookies[SESSION_COOKIE]}"
-        session_id = session_id_from_request(
-            Request({"type": "http", "headers": [(b"cookie", cookie.encode())]}), installed_web_auth_config(app)
-        )
+        config = installed_web_auth_config(app)
+        cookie = f"{config.session_cookie_name}={browser.cookies[config.session_cookie_name]}"
+        request = Request({"type": "http", "headers": [(b"cookie", cookie.encode())]})
+        session_id = session_id_from_request(request, config)
         assert session_id is not None
         session = stores.sessions.load(session_id)
         assert session is not None
@@ -282,7 +306,12 @@ class TestCreateApp:
 
 class TestLoggedExceptions:
     def test_rendered_traceback_leaves_out_the_values_of_local_variables(self, sign_in_settings, capsys):
-        create_app(sign_in_settings().settings, page_build=fixture_page_build(), tables=in_memory_tables())
+        create_app(
+            sign_in_settings().settings,
+            page_build=fixture_page_build(),
+            tables=in_memory_tables(),
+            rule_sets=in_memory_rule_sets(),
+        )
         sentinel = secrets.token_urlsafe(16)
 
         def fail_holding_the_sentinel():

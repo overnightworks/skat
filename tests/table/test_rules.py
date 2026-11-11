@@ -5,13 +5,16 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.engine.bidding import Pass
+from skat.engine.bock import BockRounds
 from skat.engine.deal import Position, deal
 from skat.table.records import (
     Actor,
     Chair,
+    EndProposal,
     HandProgress,
     NewHand,
     Occupant,
+    OccupantKind,
     Refusal,
     Series,
     TableId,
@@ -31,6 +34,7 @@ from skat.table.rules import (
     present_at,
     result_pending,
     resume_step,
+    series_over,
     sit_deals,
 )
 from tests.support.played_game import an_entry
@@ -43,7 +47,7 @@ DRAWN = NewHand(dealer=2, hand=deal(random.Random(3)))  # noqa: S311 - a seeded 
 
 
 def table_with(*seated: tuple[int, Actor]) -> TableRecord:
-    occupants = {seat: Occupant(actor.account_id, actor.display_name) for seat, actor in seated}
+    occupants = {seat: Occupant(actor.account_id, actor.display_name, actor.kind) for seat, actor in seated}
     return TableRecord(
         TableId("0" * 32),
         4,
@@ -54,6 +58,7 @@ def table_with(*seated: tuple[int, Actor]) -> TableRecord:
         game_list=(),
         series=None,
         options=TableOptions(),
+        bock=BockRounds.start(),
     )
 
 
@@ -68,6 +73,12 @@ class TestSit:
         assert decision.refusal is None
         assert occupants_of(decision.table) == ["Anna", None, "Ben"]
         assert decision.table.version == 5
+
+    @pytest.mark.parametrize("kind", list(OccupantKind))
+    def test_seats_the_actor_with_the_kind_and_name_it_carries(self, kind):
+        decision = decide_sit(table_with(), replace(BEN, display_name="Mozart", kind=kind), 2, None)
+
+        assert decision.table.chairs[1].occupant == Occupant("account-ben", "Mozart", kind)
 
     def test_refuses_a_taken_chair_and_names_who_holds_it(self):
         table = table_with((2, ANNA))
@@ -299,6 +310,10 @@ def ready_seats(table: TableRecord) -> list[int]:
     return [chair.seat for chair in table.chairs if chair.ready]
 
 
+def at_the_series_end(table: TableRecord, *seats: int) -> TableRecord:
+    return replace(ready_at(table, *seats), series=Series(3, 3))
+
+
 class TestNextDealAfterAResult:
     @pytest.mark.parametrize(
         ("table", "connected", "due"),
@@ -313,9 +328,19 @@ class TestNextDealAfterAResult:
                 False,
                 id="a-chair-free",
             ),
+            pytest.param(at_the_series_end(played_out(), 1, 2, 3), ALL_THREE, True, id="a-played-last-game-all-tapped"),
+            pytest.param(
+                at_the_series_end(passed_in(), 1, 2, 3), ALL_THREE, True, id="a-passed-in-last-game-all-tapped"
+            ),
+            pytest.param(at_the_series_end(played_out(), 1, 2), ALL_THREE, False, id="a-played-last-game-two-tapped"),
+            pytest.param(at_the_series_end(passed_in(), 1, 2), ALL_THREE, False, id="a-passed-in-last-game-two-tapped"),
+            pytest.param(at_the_series_end(passed_in()), ALL_THREE, False, id="a-passed-in-last-game-nobody-tapped"),
+            pytest.param(
+                at_the_series_end(played_out(), 1, 2, 3), ALL_THREE - {BEN.account_id}, False, id="all-tapped-one-away"
+            ),
         ],
     )
-    def test_is_due_only_with_all_three_ready_and_connected(self, table, connected, due):
+    def test_is_due_only_with_all_three_marked_and_connected(self, table, connected, due):
         assert next_deal_due(table, connected) is due
 
     def test_a_passed_in_hand_needs_no_mark(self):
@@ -368,6 +393,65 @@ class TestLeavingClearsOnlyTheOwnMark:
         assert ready_seats(decision.table) == [2]
 
 
+class TestTheSeriesEnd:
+    def test_the_deal_that_follows_empties_the_list_and_counts_one(self):
+        table = at_the_series_end(replace(passed_in(), game_list=(an_entry(), an_entry())), 1, 2, 3)
+
+        next_series = dealt_next(table, DRAWN)
+
+        assert (next_series.game_list, next_series.series) == ((), Series(3, 1, number=2))
+        assert (next_series.dealer, next_series.hand) == (DRAWN.dealer, DRAWN.hand)
+
+
+class TestTheEarlyEnd:
+    def test_an_early_end_is_a_series_end_while_no_hand_runs(self):
+        ended = replace(played_out(), series=Series(12, 2, ended_early=True))
+
+        assert series_over(ended) is True
+        assert series_over(replace(ended, hand=DRAWN.hand)) is False
+
+    def test_the_next_deal_clears_a_standing_proposal(self):
+        table = ready_at(replace(played_out(), series=Series(12, 2, end_proposal=EndProposal(1, 2))), 1, 2, 3)
+
+        assert dealt_next(table, DRAWN).series == Series(12, 3)
+
+    def test_the_next_series_deals_with_no_early_end(self):
+        table = ready_at(replace(played_out(), series=Series(12, 2, ended_early=True)), 1, 2, 3)
+
+        next_series = dealt_next(table, DRAWN)
+
+        assert (next_series.series, next_series.game_list) == (Series(12, 1, number=2), ())
+
+    @pytest.mark.parametrize(
+        ("leaver", "proposal_left"),
+        [
+            pytest.param(ANNA, None, id="the-proposers-leave-clears-the-proposal"),
+            pytest.param(BEN, EndProposal(1), id="an-accepters-leave-clears-only-the-acceptance"),
+            pytest.param(CLEO, EndProposal(1, 2), id="anyone-elses-leave-changes-nothing"),
+        ],
+    )
+    def test_a_chair_change_takes_only_its_holders_part_of_the_proposal(self, leaver, proposal_left):
+        table = replace(played_out(), series=Series(12, 2, end_proposal=EndProposal(1, 2)))
+
+        decision = decide_free_chair(table, leaver.account_id)
+
+        assert decision.table.series.end_proposal == proposal_left
+
+    def test_a_standing_acceptance_survives_a_sit_in_another_chair(self):
+        table = replace(a_free_chair_during_a_result(), series=Series(12, 2, end_proposal=EndProposal(1, 2)))
+
+        decision = decide_sit(table, DORA, 3, None)
+
+        assert decision.table.series.end_proposal == EndProposal(1, 2)
+
+    def test_a_sit_after_an_early_end_is_not_ready_and_deals_nothing(self):
+        table = replace(a_free_chair_during_a_result(), series=Series(12, 2, ended_early=True))
+
+        decision = decide_sit(table, DORA, 3, DRAWN)
+
+        assert (sit_deals(table), decision.table.hand, ready_seats(decision.table)) == (False, None, [])
+
+
 class TestSeries:
     @pytest.mark.parametrize("length", [0, 2, 4, 100, 102])
     def test_refuses_a_length_outside_the_range_or_off_the_step(self, length):
@@ -378,6 +462,10 @@ class TestSeries:
     def test_refuses_deals_outside_zero_to_its_length(self, deals):
         with pytest.raises(ValueError, match=r"no .* deals"):
             Series(12, deals)
+
+    def test_refuses_a_number_below_one(self):
+        with pytest.raises(ValueError, match="numbered from one"):
+            Series(3, 1, number=0)
 
     @pytest.mark.parametrize("length", [3, 12, 99])
     def test_takes_each_length_the_rules_name(self, length):

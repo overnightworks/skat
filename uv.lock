@@ -692,9 +692,9 @@ wheels = [
 ]
 
 [[package]]
-name = "overnightworks-agent-runtime-client"
-version = "0.27.1"
-source = { git = "https://github.com/overnightworks/agent-runtime?rev=v0.27.1#808b04dce52a72d66fa0b17b06a87e60554da607" }
+name = "overnightworks-agents"
+version = "0.30.0"
+source = { git = "https://github.com/overnightworks/agents?rev=v0.30.0#350bc834f18f04b13b33d20206558c035349709e" }
 dependencies = [
     { name = "pydantic" },
     { name = "ruamel-yaml" },
@@ -708,8 +708,8 @@ mcp-server = [
 
 [[package]]
 name = "overnightworks-webauth"
-version = "0.34.0"
-source = { git = "https://github.com/overnightworks/webauth?rev=v0.34.0#88bf39b23d08d414fbdcd740b0e48ca31bfbfd1a" }
+version = "0.36.0"
+source = { git = "https://github.com/overnightworks/webauth?rev=v0.36.0#c02e10cfec6fdd4d179a56b2a95864744e53f440" }
 dependencies = [
     { name = "anyio" },
     { name = "cryptography" },
@@ -1195,7 +1195,7 @@ source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "fastapi" },
-    { name = "overnightworks-agent-runtime-client", extra = ["mcp-server"] },
+    { name = "overnightworks-agents", extra = ["mcp-server"] },
     { name = "overnightworks-webauth" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -1226,8 +1226,8 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.16" },
     { name = "fastapi", specifier = ">=0.123.7" },
-    { name = "overnightworks-agent-runtime-client", extras = ["mcp-server"], git = "https://github.com/overnightworks/agent-runtime?rev=v0.27.1" },
-    { name = "overnightworks-webauth", git = "https://github.com/overnightworks/webauth?rev=v0.34.0" },
+    { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.30.0" },
+    { name = "overnightworks-webauth", git = "https://github.com/overnightworks/webauth?rev=v0.36.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },

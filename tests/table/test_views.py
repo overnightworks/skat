@@ -3,18 +3,24 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bidding import Awaiting, Bid, Pass
+from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declare, Stage, TakeSkat
 from skat.engine.games import GameKind
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.engine.value import Matadors
 from skat.table.game_list import ListEntry
 from skat.table.records import (
+    SERIES_LENGTH_MIN,
     Chair,
     EndedTable,
+    EndProposal,
     EndReason,
     HandProgress,
     Occupant,
+    OccupantKind,
+    Series,
     TableId,
     TableOptions,
     TableRecord,
@@ -37,8 +43,10 @@ def seated_table(
     dealer: int | None = None, hand: Deal | None = None, steps: tuple[Pass | Bid, ...] = ()
 ) -> TableRecord:
     people = ((1, ANNA, "Anna"), (2, BEN, "Ben"), (3, CLEO, "Cleo"))
-    chairs = tuple(Chair(seat, Occupant(account_id, name)) for seat, account_id, name in people)
-    return TableRecord(TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None, TableOptions())
+    chairs = tuple(Chair(seat, Occupant(account_id, name, OccupantKind.PERSON)) for seat, account_id, name in people)
+    return TableRecord(
+        TableId("0" * 32), 5, chairs, dealer, hand, HandProgress(steps), (), None, TableOptions(), BockRounds.start()
+    )
 
 
 class TestChairPositions:
@@ -113,6 +121,19 @@ class TestSkatStaysHidden:
         assert view.hand.skat_count == len(KNOWN_DEAL.skat)
 
 
+class TestOccupantKind:
+    def test_a_chair_says_who_sits_in_it_for_every_viewer_and_a_free_chair_says_nobody(self):
+        agent = Chair(2, Occupant("account-ben", "Mozart", OccupantKind.AGENT))
+        table = seated_table()
+        table = replace(table, chairs=(table.chairs[0], agent, Chair(3, None)))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, "account-watcher")]
+
+        assert [[(c.occupant_name, c.occupant_kind) for c in view.chairs] for view in views] == [
+            [("Anna", OccupantKind.PERSON), ("Mozart", OccupantKind.AGENT), (None, None)]
+        ] * 3
+
+
 class TestNoHand:
     def test_a_table_without_a_hand_has_no_hand_view_and_no_chair_hand(self):
         view = view_of(seated_table(), ANNA, NOBODY_CONNECTED)
@@ -168,7 +189,33 @@ def a_played_game() -> ListEntry:
         settled_value=30,
         score=30,
         declarer_points=70,
+        kontra_word=None,
+        bock_factor=1,
     )
+
+
+class TestTheDoublingOfTheStandings:
+    @pytest.mark.parametrize(
+        ("reach", "declarer_total"),
+        [
+            pytest.param(KontraReach.KONTRA_RE, 110, id="the-list-score-alone"),
+            pytest.param(KontraReach.KONTRA_RE_STANDINGS, 160, id="the-fifty-too"),
+        ],
+    )
+    def test_the_chair_totals_and_the_series_standings_count_the_fifty_by_the_reach(self, reach, declarer_total):
+        options = TableOptions(kontra=KontraOptions(KontraSayer.ANY_OPPONENT, reach, KontraDeadline.OWN_CARD))
+        doubled = replace(a_played_game(), kontra_word=Word.KONTRA, score=60)
+        table = replace(
+            seated_table(1),
+            options=options,
+            game_list=(doubled,),
+            series=Series(SERIES_LENGTH_MIN, SERIES_LENGTH_MIN),
+        )
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert [chair.total for chair in view.chairs] == [0, declarer_total, 0]
+        assert view.series.standings[0].total == declarer_total
 
 
 class TestResult:
@@ -261,21 +308,69 @@ class TestChairTotals:
 
         assert [[chair.total for chair in view.chairs] for view in views] == [[0, 160, 0]] * 3
 
-    def test_no_chair_carries_a_total_while_the_tables_list_is_empty(self):
+    def test_no_chair_carries_a_total_while_a_table_without_a_series_has_an_empty_list(self):
         table = seated_table(1)
 
         view = view_of(table, ANNA, NOBODY_CONNECTED)
 
         assert [chair.total for chair in view.chairs] == [None, None, None]
 
+    @pytest.mark.parametrize(
+        "hand_state",
+        [
+            pytest.param({}, id="no-hand"),
+            pytest.param({"hand": KNOWN_DEAL}, id="hand-running"),
+            pytest.param({"steps": THREE_PASSES}, id="hand-passed-in"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("number", "expected"),
+        [pytest.param(1, None, id="first-series"), pytest.param(2, 0, id="later-series")],
+    )
+    def test_a_chair_total_before_a_series_first_result_reads_null_in_the_first_series_and_zero_in_a_later_one(
+        self, hand_state, number, expected
+    ):
+        table = replace(seated_table(1, **hand_state), series=Series(12, 1, number=number))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, DORA)]
+
+        assert [[chair.total for chair in view.chairs] for view in views] == [[expected] * 3] * 3
+
+    def test_a_free_chair_carries_none_in_a_later_series(self):
+        table = seated_table(1)
+        table = replace(
+            table, chairs=(table.chairs[0], table.chairs[1], Chair(3, None)), series=Series(12, 1, number=2)
+        )
+
+        view = view_of(table, ANNA, NOBODY_CONNECTED)
+
+        assert [chair.total for chair in view.chairs] == [0, 0, None]
+
     def test_a_free_chair_carries_none_and_a_newcomer_starts_at_zero(self):
         table = seated_table(1)
-        newcomer = Chair(2, Occupant(DORA, "Dora"))
+        newcomer = Chair(2, Occupant(DORA, "Dora", OccupantKind.PERSON))
         table = replace(table, chairs=(table.chairs[0], newcomer, Chair(3, None)), game_list=(a_played_game(),))
 
         view = view_of(table, ANNA, NOBODY_CONNECTED)
 
         assert [chair.total for chair in view.chairs] == [0, 0, None]
+
+
+class TestEndProposalInTheSeries:
+    def test_a_standing_proposal_shows_its_seats_to_every_viewer(self):
+        table = replace(seated_table(2), series=Series(12, 2, end_proposal=EndProposal(1, 3)))
+
+        views = [view_of(table, viewer, NOBODY_CONNECTED).series for viewer in (ANNA, BEN, DORA)]
+
+        assert [view.end_proposal for view in views] == [EndProposal(1, 3)] * 3
+
+    def test_an_early_end_is_over_with_no_proposal_below_the_game_count(self):
+        table = replace(seated_table(2), series=Series(12, 2, ended_early=True))
+
+        series = view_of(table, ANNA, NOBODY_CONNECTED).series
+
+        assert (series.over, series.game_number, series.game_count, series.end_proposal) == (True, 2, 12, None)
+        assert series.standings == ()
 
 
 class TestOptions:

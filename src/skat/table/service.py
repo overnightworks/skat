@@ -9,21 +9,39 @@ from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
+from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
 from skat.table.playing import (
+    AGREE_TO_GIVE_UP_COMMAND,
+    DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
     THROW_DOWN_COMMAND,
+    AgreeToGiveUpCommand,
+    DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
     ThrowDownCommand,
+    agree_to_give_up_payload,
     card_payload,
+    decide_agree_to_give_up,
     decide_card,
+    decide_decline_give_up,
     decide_give_up,
     decide_throw_down,
+    decline_give_up_payload,
     give_up_payload,
     throw_down_payload,
 )
-from skat.table.ready import READY_COMMAND, ReadyCommand, decide_ready, ready_payload
+from skat.table.ready import (
+    NEW_SERIES_COMMAND,
+    READY_COMMAND,
+    NewSeriesCommand,
+    ReadyCommand,
+    decide_new_series,
+    decide_ready,
+    new_series_payload,
+    ready_payload,
+)
 from skat.table.records import (
     Actor,
     CommandRefusal,
@@ -59,12 +77,21 @@ from skat.table.rules import (
     replayed_decision,
     replayed_table,
     resume_step,
+    seat_of,
     seated_if_hand_ended,
     sit_deals,
     sit_payload,
     stand_payload,
 )
-from skat.table.views import TableView, view_of
+from skat.table.series_end import (
+    AGREE_TO_END_SERIES_COMMAND,
+    REFUSE_TO_END_SERIES_COMMAND,
+    SeriesEndCommand,
+    decide_agree_to_end,
+    decide_refuse_to_end,
+    series_end_payload,
+)
+from skat.table.views import PausedEntryView, TableView, paused_entry_of, view_of
 
 if TYPE_CHECKING:
     import random
@@ -106,7 +133,9 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
         hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
         dealt: a record whose hand differs from it while the hand has progress raises, unless the third pass ended
-        the hand. A list that does not continue the stored one raises, and so does a free chair that is ready.
+        the hand. A list that does not continue the stored one raises, unless the record is a newly dealt hand whose
+        series number is above the stored one, which empties the stored list first; a free chair that is ready
+        raises too.
         """
         ...
 
@@ -291,6 +320,19 @@ class TableService:
             on_hand_ended,
         )
 
+    def say_kontra(
+        self, actor: Actor, command: KontraCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            KONTRA_COMMAND,
+            kontra_payload(command),
+            lambda table: decide_kontra(table, actor, command),
+        )
+
     def give_up(
         self,
         actor: Actor,
@@ -307,6 +349,37 @@ class TableService:
             give_up_payload(command),
             lambda table: decide_give_up(table, actor, command),
             on_hand_ended,
+        )
+
+    def agree_to_give_up(
+        self,
+        actor: Actor,
+        command: AgreeToGiveUpCommand,
+        connected_accounts: frozenset[str],
+        on_hand_ended: Callable[[frozenset[str]], None],
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            AGREE_TO_GIVE_UP_COMMAND,
+            agree_to_give_up_payload(command),
+            lambda table: decide_agree_to_give_up(table, actor, command),
+            on_hand_ended,
+        )
+
+    def decline_give_up(
+        self, actor: Actor, command: DeclineGiveUpCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            DECLINE_GIVE_UP_COMMAND,
+            decline_give_up_payload(command),
+            lambda table: decide_decline_give_up(table, actor, command),
         )
 
     def throw_down(
@@ -338,6 +411,45 @@ class TableService:
             READY_COMMAND,
             ready_payload(command),
             lambda table: decide_ready(table, actor, command),
+        )
+
+    def start_new_series(
+        self, actor: Actor, command: NewSeriesCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            NEW_SERIES_COMMAND,
+            new_series_payload(command),
+            lambda table: decide_new_series(table, actor),
+        )
+
+    def agree_to_end_series(
+        self, actor: Actor, command: SeriesEndCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            AGREE_TO_END_SERIES_COMMAND,
+            series_end_payload(command),
+            lambda table: decide_agree_to_end(table, actor),
+        )
+
+    def refuse_to_end_series(
+        self, actor: Actor, command: SeriesEndCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            REFUSE_TO_END_SERIES_COMMAND,
+            series_end_payload(command),
+            lambda table: decide_refuse_to_end(table, actor),
         )
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
@@ -454,6 +566,28 @@ class TableService:
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
             return transaction.occupied_chairs()
+
+    def tables_held_by(self, account_id: str) -> tuple[TableId, ...]:
+        """The tables the account holds a chair at, each once, in id order; an unlocked scan, so a candidate list."""
+        held = {chair.table_id for chair in self.occupied_chairs() if chair.account_id == account_id}
+        return tuple(sorted(held, key=lambda table_id: table_id.value))
+
+    def paused_tables(self, actor: Actor) -> tuple[PausedEntryView, ...]:
+        """The live tables on which a hand was dealt and whose chair the actor holds, in id order.
+
+        The chair scan is unlocked, so each candidate is read again in one transaction under its shared row lock: an
+        ended table, a table without a dealt hand and one whose chair the actor left meanwhile are skipped.
+        """
+        candidates = self.tables_held_by(actor.account_id)
+        with self._transactions.begin() as transaction:
+            tables = (transaction.table(table_id) for table_id in candidates)
+            return tuple(
+                paused_entry_of(table, actor.account_id)
+                for table in tables
+                if isinstance(table, TableRecord)
+                and hand_was_dealt(table)
+                and seat_of(table, actor.account_id) is not None
+            )
 
     def _new_hand(self, table: TableRecord) -> NewHand:
         """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.

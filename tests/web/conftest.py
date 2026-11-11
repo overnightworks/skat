@@ -30,7 +30,7 @@ def agent(skat, issuer):
 @pytest.fixture
 def middlehand_auction(skat, agent):
     """A dealt table, no step taken yet, where the agent holds the middlehand chair, whose turn it is."""
-    table = AgentTable(skat, agent.admitted(), MIDDLEHAND)
+    table = AgentTable(skat, agent, MIDDLEHAND)
     skat.client.cookies.clear()
     return table
 
@@ -38,7 +38,7 @@ def middlehand_auction(skat, agent):
 @pytest.fixture
 def forehand_auction(skat, agent):
     """A dealt table, no step taken yet, where the agent holds the forehand chair."""
-    table = AgentTable(skat, agent.admitted(), FOREHAND)
+    table = AgentTable(skat, agent, FOREHAND)
     skat.client.cookies.clear()
     return table
 
