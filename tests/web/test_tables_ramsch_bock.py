@@ -7,6 +7,7 @@ from skat.table.records import Series
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in_text, with_known_deal
+from tests.support.played_game import a_ramsch_entry
 from tests.web.support.playing import (
     FOREHAND,
     HERZ_GAME,
@@ -49,12 +50,21 @@ def seat_scores_of(result):
     return [seat["score"] for seat in result["seats"]]
 
 
-def ramsch_table(skat, *triggers, deal=PLAIN_DEAL, pending=(), series=None):
+def with_totals(table, *seat_scores):
+    """The list holds one earlier Ramsch whose seats scored `seat_scores`, so the totals start there."""
+    accounts = tuple(chair.occupant.account_id for chair in sorted(table.record.chairs, key=lambda chair: chair.seat))
+    earlier = a_ramsch_entry(seat_scores, accounts)
+    table.skat.store.tables[table.table_id] = replace(table.record, game_list=(earlier,))
+
+
+def ramsch_table(skat, *triggers, deal=PLAIN_DEAL, pending=(), totals=None, series=None):
     table = Table(skat, options_of(*triggers))
     if deal is not None:
         table.with_deal(deal)
     if pending:
         with_pending(table, *pending)
+    if totals is not None:
+        with_totals(table, *totals)
     if series is not None:
         skat.store.tables[table.table_id] = replace(table.record, series=series)
     return table
@@ -186,6 +196,11 @@ class TestWhatARamschStartsAndUsesUp:
         table = played_ramsch(ramsch_table(skat, "schneider", "schwarz", deal=deal), hand)
 
         assert bock_of(table) == NO_ROUND
+
+    def test_the_total_rule_reads_the_totals_the_ramsch_itself_moved_to_100(self, skat):
+        table = played_ramsch(ramsch_table(skat, "total-ending-in-00", totals=(0, 186, 0)))
+
+        assert bock_of(table) == A_ROUND_STARTS
 
     def test_three_ramsch_hands_in_a_row_each_fire_and_append_after_the_pending_rounds(self, skat):
         table = ramsch_table(skat, "passed-in")
