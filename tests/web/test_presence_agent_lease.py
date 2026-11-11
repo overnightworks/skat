@@ -28,6 +28,7 @@ from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, FakeTime, Skat
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 SEAT_OF = seats_from(DEALER_SEAT)
 AGENT_SEAT = SEAT_OF[MIDDLEHAND]
+UNDEALT_AGENT_SEAT = 2
 FIRST_RESULT = 1
 # Often enough that the lease never runs out between two calls.
 CALL_EVERY_SECONDS = LEASE_SECONDS // 2
@@ -68,7 +69,7 @@ def undealt_table(skat, agent):
     )
     owner, _ = skat.member(account)
     table_id = skat.create(owner).json()["id"]
-    agent.sit_down(table_id, 2)
+    agent.sit_down(table_id, UNDEALT_AGENT_SEAT)
     skat.client.cookies.clear()
     return owner, table_id
 
@@ -598,19 +599,23 @@ class TestWhenTheTablesCannotBeRead:
 
         store.occupied_chairs = occupied_chairs
 
-    def test_a_failed_read_at_a_lapse_is_retried_and_loses_not_the_wake(self, skat, time, result_table, hold_seconds):
-        with streams_of(skat, result_table.table_id, [(result_table.watcher, None)]) as (messages,):
+    def test_a_failed_read_at_a_lapse_is_retried_and_loses_neither_the_wake_nor_the_hold(
+        self, skat, time, undealt_table, hold_seconds
+    ):
+        owner, table_id = undealt_table
+        with streams_of(skat, table_id, [(owner, None)]) as (messages,):
             advance(skat, time, CALL_EVERY_SECONDS)
             self.failing_once(skat.store)
             with capture_logs() as logs:
                 advance(skat, time, LEASE_SECONDS - CALL_EVERY_SECONDS + 1)
             advance(skat, time, CHAIR_RELEASE_RETRY_SECONDS)
-            woken = next(message for message in messages if message["chairs"][AGENT_SEAT - 1]["is_away"])
+            woken = next(message for message in messages if message["chairs"][UNDEALT_AGENT_SEAT - 1]["is_away"])
 
             advance(skat, time, hold_seconds)
 
         assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
-        assert woken["chairs"][AGENT_SEAT - 1]["is_away"] is True
+        assert woken["chairs"][UNDEALT_AGENT_SEAT - 1]["is_away"] is True
+        assert UNDEALT_AGENT_SEAT not in occupied_seats(skat, table_id)
 
     def test_a_failed_read_at_a_lease_start_is_retried_and_the_deal_still_comes(self, skat, time, agent, result_table):
         advance(skat, time, LEASE_SECONDS + 1)
