@@ -18,11 +18,10 @@ from skat.table.playing import (
     PlayCardCommand,
     ThrowDownCommand,
 )
-from skat.table.ready import ReadyCommand
 from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableId
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
-from tests.support.played_game import HERZ_HAND, after_the_first_game, before_the_last_card, declared_herz_hand
+from tests.support.played_game import HERZ_HAND, before_the_last_card, declared_herz_hand
 
 if TYPE_CHECKING:
     from skat.engine.tricks import CardPlayed
@@ -204,35 +203,3 @@ class TestTheAuctionAndTheDeclaration:
 
         assert result.refusal is None
         assert scene.played_at == DEALT_AT
-
-
-class TestEveryoneLeftBetweenGames:
-    HOLD_DAYS = 90
-
-    def test_the_table_stays_in_every_holders_list_across_a_restart_and_deals_when_all_three_tap_weiter(self, scene):
-        scene.store.tables[scene.table_id] = after_the_first_game(scene.table)
-        table_id = TableId(scene.table_id)
-        for person in PEOPLE:
-            assert scene.service.free_chair(table_id, person.account_id, nullcontext(True)) is False
-        restarted = TableService(
-            scene.store,
-            new_table_id=lambda: TableId("f" * 32),
-            random_source=random.Random(2),  # noqa: S311 - a seeded source makes the deal reproducible
-            now=lambda: scene.now,
-        )
-
-        listed = {person: restarted.paused_tables(person, self.HOLD_DAYS) for person in PEOPLE}
-
-        for seat, person in enumerate(PEOPLE, start=1):
-            (entry,) = listed[person]
-            assert entry.id == scene.table_id
-            assert [(chair.seat, chair.is_mine) for chair in entry.chairs] == [
-                (each, each == seat) for each in (1, 2, 3)
-            ]
-        ordinal = restarted.view(OPENER, scene.table_id, ALL_THREE).result.ordinal
-        for person in PEOPLE:
-            restarted.mark_ready(
-                person, ReadyCommand(f"weiter-{person.account_id}", scene.table_id, ordinal), ALL_THREE
-            )
-        assert restarted.deal_next(table_id, nullcontext(ALL_THREE)) is True
-        assert scene.table.hand is not None

@@ -6,6 +6,7 @@ from structlog.testing import capture_logs
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, next_dealer
 from skat.table.records import HandProgress, Refusal
+from skat.web.paused import PAUSED_TABLES_PATH
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
@@ -277,3 +278,38 @@ def test_a_restart_with_three_marks_deals_once_when_the_streams_reopen(sign_in_s
 
     assert (dealt.version, dealt.hand is not None) == (before.version + 1, True)
     assert after_restart.store.tables[table_id] == dealt
+
+
+def test_a_restart_with_everyone_away_keeps_every_holders_listed_table_past_the_startup_holds_and_deals_at_weiter(hold):
+    before_time = FakeTime()
+    before_restart = Skat(lambda: hold, chair_clock=before_time.clock, chair_scheduler=before_time)
+    with before_restart.client:
+        table_id, people = seated_three(before_restart)
+        before = end_the_first_game(before_restart.store, table_id)
+    time = FakeTime()
+    after_restart = Skat(
+        lambda: hold,
+        store=before_restart.store,
+        stores=before_restart.stores,
+        chair_clock=time.clock,
+        chair_scheduler=time,
+    )
+    with after_restart.client:
+        advance(after_restart, time, hold.settings.chair_hold_seconds + 1)
+        kept = occupied_seats(after_restart, table_id)
+        listed = {}
+        for seat, (headers, _) in enumerate(people[:3], start=1):
+            answer = after_restart.client.get(PAUSED_TABLES_PATH, headers=headers)
+            after_restart.client.cookies.clear()
+            listed[seat] = answer.json()["tables"]
+        with streams_of(after_restart, table_id, people[:3]):
+            for seat, (headers, _) in enumerate(people[:3], start=1):
+                weiter(after_restart, headers, table_id, command_id=f"weiter-{seat}")
+            dealt = after_restart.store.tables[table_id]
+
+    assert kept == {1, 2, 3}
+    for seat, tables in listed.items():
+        (entry,) = tables
+        assert entry["id"] == table_id
+        assert [chair["is_mine"] for chair in entry["chairs"]] == [chair == seat for chair in (1, 2, 3)]
+    assert (dealt.version, dealt.hand is not None) == (before.version + 3 + 1, True)
