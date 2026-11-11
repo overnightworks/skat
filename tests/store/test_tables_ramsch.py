@@ -102,6 +102,7 @@ def test_the_thirtieth_card_stores_a_ramsch_entry_and_forgets_the_hand_and_the_r
 ):
     table = RamschTable(service, transactions, stored)
     table.play(30)
+    before = service.view(table.actors[Position.FOREHAND], table.table_id, frozenset())
     engine, again = restarted(database_url)
     try:
         view = again.view(table.actors[Position.FOREHAND], table.table_id, frozenset())
@@ -113,3 +114,4 @@ def test_the_thirtieth_card_stores_a_ramsch_entry_and_forgets_the_hand_and_the_r
 
     assert (tuple(row), cards) == (("ramsch", None, 1), 0)
     assert (view.hand, view.result.ordinal, len(view.result.seats)) == (None, 1, 3)
+    assert view.result == before.result
