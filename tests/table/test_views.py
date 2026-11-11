@@ -315,19 +315,29 @@ class TestChairTotals:
 
         assert [chair.total for chair in view.chairs] == [None, None, None]
 
-    def test_no_chair_carries_a_total_in_the_first_series_before_its_first_result(self):
-        table = replace(seated_table(1), series=Series(12, 1))
+    @pytest.mark.parametrize(
+        "hand_state",
+        [
+            pytest.param({}, id="no-hand"),
+            pytest.param({"hand": KNOWN_DEAL}, id="hand-running"),
+            pytest.param(
+                {"steps": (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))},
+                id="hand-passed-in",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("number", "expected"),
+        [pytest.param(1, None, id="first-series"), pytest.param(2, 0, id="later-series")],
+    )
+    def test_a_chair_total_before_a_series_first_result_reads_null_in_the_first_series_and_zero_in_a_later_one(
+        self, hand_state, number, expected
+    ):
+        table = replace(seated_table(1, **hand_state), series=Series(12, 1, number=number))
 
         views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, DORA)]
 
-        assert [[chair.total for chair in view.chairs] for view in views] == [[None, None, None]] * 3
-
-    def test_every_occupied_chair_carries_zero_in_a_later_series_before_its_first_result(self):
-        table = replace(seated_table(1), series=Series(12, 1, number=2))
-
-        views = [view_of(table, viewer, NOBODY_CONNECTED) for viewer in (ANNA, BEN, DORA)]
-
-        assert [[chair.total for chair in view.chairs] for view in views] == [[0, 0, 0]] * 3
+        assert [[chair.total for chair in view.chairs] for view in views] == [[expected] * 3] * 3
 
     def test_a_free_chair_carries_none_in_a_later_series(self):
         table = seated_table(1)
