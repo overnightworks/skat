@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    DateTime,
     ForeignKey,
     Integer,
     SmallInteger,
@@ -15,7 +16,7 @@ from sqlalchemy import (
 )
 
 from skat.engine.bidding import VALID_BIDS
-from skat.engine.deal import SEATS
+from skat.engine.deal import SEATS, Position
 from skat.engine.declaration import Declaration
 from skat.engine.games import GameKind
 from skat.engine.kontra import Word
@@ -35,9 +36,13 @@ from skat.table.game_list import GameEnding, GameEntry, ListEntry, RamschEntry
 from skat.table.rules import CHAIRS_PER_TABLE
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from sqlalchemy import Row
     from sqlalchemy.engine import Connection
 
+# Each of the three seats may push the skat on once.
+_MOST_PUSHES: Final = len(Position)
 _MOST_MATADORS: Final = max(kind.highest_matadors or 0 for kind in GameKind)
 DECLARED_KIND: Final = "declared"
 RAMSCH_KIND: Final = "ramsch"
@@ -72,7 +77,9 @@ game_list = Table(
     "game_list",
     metadata,
     Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
+    Column("series_number", SmallInteger, primary_key=True),
     Column("ordinal", SmallInteger, primary_key=True),
+    Column("finished_at", DateTime(timezone=True)),
     Column("seat_1_account", Text, nullable=False),
     Column("seat_2_account", Text, nullable=False),
     Column("seat_3_account", Text, nullable=False),
@@ -107,6 +114,8 @@ game_list = Table(
     Column("jungfrau", Boolean),
     Column("ending", Text, nullable=False, server_default=text(f"'{GameEnding.PLAYED_OUT.value}'")),
     Column("ended_by_seat", SmallInteger),
+    Column("pushes", SmallInteger, nullable=False, server_default=text("0")),
+    CheckConstraint("series_number >= 1", name="game_list_series_number_counts_from_one"),
     CheckConstraint("ordinal >= 1", name="game_list_ordinal_counts_from_one"),
     CheckConstraint(f"declarer_seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_list_declarer_seat_is_a_seat"),
     one_of("game", GAME_TEXT.values(), "game_list_game_is_a_game"),
@@ -146,6 +155,8 @@ game_list = Table(
     CheckConstraint(
         "bock_factor > 0 AND bock_factor & (bock_factor - 1) = 0", name="game_list_bock_factor_is_a_power_of_two"
     ),
+    CheckConstraint(f"pushes BETWEEN 0 AND {_MOST_PUSHES}", name="game_list_pushes_are_unseen_pushes"),
+    CheckConstraint(f"kind = '{RAMSCH_KIND}' OR pushes = 0", name="game_list_only_a_ramsch_is_pushed"),
 )
 
 
@@ -158,6 +169,7 @@ def _ramsch_entry_of(row: Row[tuple[object, ...]]) -> RamschEntry:
         durchmarsch_seat=row.durchmarsch_seat,
         jungfrau=row.jungfrau,
         bock_factor=row.bock_factor,
+        pushes=row.pushes,
     )
 
 
@@ -217,6 +229,7 @@ def _columns_of(entry: GameEntry) -> dict[str, object]:
             "durchmarsch_seat": entry.durchmarsch_seat,
             "jungfrau": entry.jungfrau,
             "bock_factor": entry.bock_factor,
+            "pushes": entry.pushes,
         }
     matadors = entry.matadors
     return {
@@ -245,13 +258,35 @@ def _columns_of(entry: GameEntry) -> dict[str, object]:
 
 
 def read_game_list(connection: Connection, table_id: str) -> tuple[GameEntry, ...]:
-    rows = connection.execute(select(game_list).where(game_list.c.table_id == table_id).order_by(game_list.c.ordinal))
+    """The games of the table's current series, the series number its row holds."""
+    current_series = select(tables.c.series_number).where(tables.c.id == table_id).scalar_subquery()
+    rows = connection.execute(
+        select(game_list)
+        .where(game_list.c.table_id == table_id, game_list.c.series_number == current_series)
+        .order_by(game_list.c.ordinal)
+    )
     return tuple(_entry_of(row) for row in rows)
 
 
-def append_game_list(connection: Connection, table_id: str, entries: tuple[GameEntry, ...]) -> None:
-    """Store the entries not yet stored; a stored list that is no prefix of `entries` raises."""
+def append_game_list(
+    connection: Connection,
+    table_id: str,
+    series_number: int,
+    entries: tuple[GameEntry, ...],
+    finished_at: datetime | None,
+) -> None:
+    """Store the entries of the current series not yet stored, each as finished at `finished_at`; a stored list that
+    is no prefix of `entries` raises.
+    """
     stored = read_game_list(connection, table_id)
     fresh = unstored_steps(table_id, stored, entries)
     for ordinal, entry in enumerate(fresh, start=len(stored) + 1):
-        connection.execute(insert(game_list).values(table_id=table_id, ordinal=ordinal, **_columns_of(entry)))
+        connection.execute(
+            insert(game_list).values(
+                table_id=table_id,
+                series_number=series_number,
+                ordinal=ordinal,
+                finished_at=finished_at,
+                **_columns_of(entry),
+            )
+        )

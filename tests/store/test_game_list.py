@@ -1,10 +1,12 @@
+import random
 from dataclasses import replace
+from datetime import UTC, datetime
 from functools import partial
 from operator import attrgetter
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, positions_from
@@ -22,12 +24,14 @@ from skat.table.game_list import GameEnding, ListEntry, RamschEntry, standings_o
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, SitDown
+from skat.table.service import TableService
 
 pytestmark = pytest.mark.postgres
 
 HAND_TABLES = ("hand_cards", "auction_actions", "declaring_steps", "played_cards")
 NOBODY_CONNECTED = frozenset[str]()
 LAST_CARD = "card-30"
+FINISHED_AT = datetime(2026, 11, 11, 20, 15, tzinfo=UTC)
 
 
 def person(name):
@@ -147,6 +151,7 @@ def a_ramsch_entry(**numbers):
         "durchmarsch_seat": None,
         "jungfrau": False,
         "bock_factor": 1,
+        "pushes": 0,
         **numbers,
     }
     return RamschEntry(**fields)
@@ -180,6 +185,12 @@ def game(service, transactions, stored):
 
 
 @pytest.fixture
+def clocked_game(transactions, stored):
+    clocked = TableService(transactions, random_source=random.Random(8), now=lambda: FINISHED_AT)  # noqa: S311 - seeded
+    return Game(clocked, transactions, stored).declared()
+
+
+@pytest.fixture
 def last(game):
     """The table before its thirtieth card, the card's seat and the card, and the version it is played at."""
     position, card = game.played_to_the_last_card()
@@ -204,6 +215,45 @@ class TestTheThirtiethCard:
         assert record.hand is None
         assert record.progress.plays == ()
         assert len(record.game_list) == 1
+
+    def test_the_row_holds_the_series_number_and_the_instant_of_the_command_that_played_the_last_card(
+        self, clocked_game, engine
+    ):
+        position, card = clocked_game.played_to_the_last_card()
+        assert clocked_game.play(position, card, LAST_CARD).refusal is None
+
+        (row,) = stored_list_rows(engine, clocked_game.table_id)
+
+        assert (row.series_number, row.finished_at) == (1, FINISHED_AT)
+
+    def test_a_list_insert_that_fails_keeps_the_hand_the_version_and_the_receipts_as_they_were(
+        self, game, last, engine
+    ):
+        position, card, version = last
+        before = game.record
+        hand_rows = list(map(partial(rows_of, engine, game.table_id), HAND_TABLES))
+        receipts = rows_of(engine, game.table_id, "receipts")
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE FUNCTION refuse_list_rows() RETURNS trigger LANGUAGE plpgsql"
+                    " AS $$ BEGIN RAISE EXCEPTION 'the list refuses this row'; END $$"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TRIGGER refuse_list_rows BEFORE INSERT ON game_list"
+                    " FOR EACH ROW EXECUTE FUNCTION refuse_list_rows()"
+                )
+            )
+
+        with pytest.raises(DBAPIError):
+            game.play(position, card, LAST_CARD, version)
+
+        assert game.record == before
+        assert len(stored_list_rows(engine, game.table_id)) == 0
+        assert list(map(partial(rows_of, engine, game.table_id), HAND_TABLES)) == hand_rows
+        assert rows_of(engine, game.table_id, "receipts") == receipts
 
     def test_a_retry_of_the_last_card_writes_no_second_row(self, ended, engine, last):
         position, card, version = last
@@ -263,6 +313,29 @@ class TestTheList:
 
         assert list(map(attrgetter("ordinal"), stored_list_rows(engine, ended.table_id))) == [1, 2]
         assert ended.record.game_list == (first, second)
+
+    @pytest.mark.parametrize(
+        ("entry", "played_at"),
+        [
+            (END_OVER, FINISHED_AT),
+            (GIVEN_UP, FINISHED_AT),
+            (THROWN_DOWN, FINISHED_AT),
+            (A_RAMSCH, FINISHED_AT),
+            (END_OVER, None),
+        ],
+        ids=["played-out", "given-up", "thrown-down", "ramsch", "no-instant-saved"],
+    )
+    def test_an_entry_is_stored_with_the_instant_of_the_save_that_wrote_it_and_null_without_one(
+        self, ended, transactions, engine, entry, played_at
+    ):
+        record = ended.record
+
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, entry)), played_at=played_at
+            )
+
+        assert stored_list_rows(engine, ended.table_id)[1].finished_at == played_at
 
     def test_a_list_that_does_not_continue_the_stored_one_raises_and_writes_nothing(self, ended, transactions):
         before = ended.record

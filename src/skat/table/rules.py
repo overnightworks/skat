@@ -88,10 +88,11 @@ def create_payload(command: CreateTable) -> str:
         members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
     ramsch = command.options.ramsch
     if ramsch is not None:
+        pushing = "" if ramsch.pushing is None else f'"pushing":{{"rule":"{ramsch.pushing.value}"}},'
         members.append(
             f'"ramsch":{{"durchmarsch":"{ramsch.reckoning.durchmarsch.value}",'
             f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
-            f'"scoring":"{ramsch.reckoning.scoring.value}"}}'
+            f'{pushing}"scoring":"{ramsch.reckoning.scoring.value}"}}'
         )
     return "{" + ",".join(members) + "}"
 
@@ -165,8 +166,8 @@ def is_deal_or_step_of_play(command: str, before: TableRecord, after: TableRecor
     """An accepted decision dealt a hand, or was a step of play that changed the table.
 
     A step is a played card, a give-up request, its agreement or a throw-down whose table version rose: a second
-    give-up request while one stands changes nothing. The third pass that starts a Ramsch deals nothing, since the
-    hand runs before and after it.
+    give-up request while one stands changes nothing. A take, a put-back and a push are none of these. The third pass
+    that starts a Ramsch deals nothing, since the hand runs before and after it.
     """
     dealt = not hand_runs(before) and hand_runs(after)
     return dealt or (command in STEP_OF_PLAY_COMMANDS and after.version > before.version)

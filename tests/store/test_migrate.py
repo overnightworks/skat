@@ -19,6 +19,7 @@ STORE_TABLES = {
     "hand_cards",
     "auction_actions",
     "declaring_steps",
+    "pushing_steps",
     "played_cards",
     "game_list",
     "kontra_words",
@@ -366,15 +367,22 @@ class TestFromAHandAtRevisionFive:
 
 class TestFromAPlayedCardAtRevisionSix:
     @pytest.fixture
-    def migrated(self, unmigrated_engine):
-        """A database at 0006 holding a hand with one played card, then taken to head."""
+    def at_revision(self, unmigrated_engine):
+        """A database at 0006 holding a hand with one played card, then taken to its successor 0007, the revision that
+        creates the list: its checks and key stand.
+        """
         upgrade_to(unmigrated_engine, "0006")
         with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 6, 2)"))
             connection.execute(text("INSERT INTO hand_cards VALUES ('t', 'hearts', 'ace', 'skat')"))
             connection.execute(text(_played_row()))
-        migrate(unmigrated_engine)
+        upgrade_to(unmigrated_engine, "0007")
         return unmigrated_engine
+
+    @pytest.fixture
+    def migrated(self, at_revision):
+        migrate(at_revision)
+        return at_revision
 
     def test_keeps_the_hand_and_the_played_card(self, migrated):
         with migrated.connect() as connection:
@@ -396,10 +404,10 @@ class TestFromAPlayedCardAtRevisionSix:
             ),
         ],
     )
-    def test_accepts_a_list_entry(self, migrated, statement):
-        run_in_transaction(migrated, text(statement))
+    def test_accepts_a_list_entry(self, at_revision, statement):
+        run_in_transaction(at_revision, text(statement))
 
-        with migrated.connect() as connection:
+        with at_revision.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM game_list")).scalar_one() == 1
 
     @pytest.mark.parametrize(
@@ -419,18 +427,18 @@ class TestFromAPlayedCardAtRevisionSix:
             pytest.param(list_row(table_id="'gone'"), id="unknown-table"),
         ],
     )
-    def test_the_checks_refuse_a_row_that_is_no_list_entry(self, migrated, statement):
+    def test_the_checks_refuse_a_row_that_is_no_list_entry(self, at_revision, statement):
         refused = text(statement)
 
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, refused)
+            run_in_transaction(at_revision, refused)
 
-    def test_the_schema_holds_each_ordinal_once_per_table(self, migrated):
-        run_in_transaction(migrated, text(list_row()))
+    def test_the_schema_holds_each_ordinal_once_per_table(self, at_revision):
+        run_in_transaction(at_revision, text(list_row()))
         duplicate = text(list_row(score=-96))
 
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, duplicate)
+            run_in_transaction(at_revision, duplicate)
 
 
 class TestFromChairsAtRevisionSeven:

@@ -44,8 +44,8 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
         dealt: a record whose hand differs from it while the hand has progress raises, unless the third pass ended
         the hand of a table without Ramsch. A list that does not continue the stored one raises, unless the record is
-        a newly dealt hand whose series number is above the stored one, which empties the stored list first; a free
-        chair that is ready raises too.
+        of a later series than the stored one: the stored rows of the earlier series stay and the table reads only
+        its current series; a free chair that is ready raises too.
         """
         ...
 

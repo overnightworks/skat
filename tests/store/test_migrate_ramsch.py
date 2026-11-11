@@ -35,15 +35,22 @@ def ramsch_row(**changed):
 
 class TestFromALiveTableAndAGameAtRevisionTwenty:
     @pytest.fixture
-    def migrated(self, unmigrated_engine):
-        """A database at 0020 holding a table in play, a game list row and a saved rule set, then taken to head."""
+    def at_revision(self, unmigrated_engine):
+        """A database at 0020 holding a table in play, a game list row and a saved rule set, then taken to its
+        successor 0021, where the list's checks of that revision stand.
+        """
         upgrade_to(unmigrated_engine, "0020")
         with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('t', 3, 2)"))
             connection.execute(text(list_row()))
             connection.execute(text("INSERT INTO rule_sets (id, owner_account, name) VALUES ('1', 'a', 'x')"))
-        migrate(unmigrated_engine)
+        upgrade_to(unmigrated_engine, "0021")
         return unmigrated_engine
+
+    @pytest.fixture
+    def migrated(self, at_revision):
+        migrate(at_revision)
+        return at_revision
 
     def test_the_old_row_reads_declared_with_its_values_and_no_ramsch_column(self, migrated):
         with migrated.connect() as connection:
@@ -68,10 +75,10 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
         with migrated.connect() as connection:
             assert compare_metadata(MigrationContext.configure(connection), metadata) == []
 
-    def test_accepts_a_ramsch_row_with_its_seats_and_a_score_beyond_a_smallint(self, migrated):
-        run_in_transaction(migrated, ramsch_row(seat_1_score=-61440, durchmarsch_seat=2))
+    def test_accepts_a_ramsch_row_with_its_seats_and_a_score_beyond_a_smallint(self, at_revision):
+        run_in_transaction(at_revision, ramsch_row(seat_1_score=-61440, durchmarsch_seat=2))
 
-        with migrated.connect() as connection:
+        with at_revision.connect() as connection:
             row = connection.execute(
                 text("SELECT kind, game, seat_1_score, durchmarsch_seat FROM game_list WHERE ordinal = 2")
             ).one()
@@ -95,11 +102,11 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
             pytest.param({"kind": "'push'"}, id="an-unknown-kind"),
         ],
     )
-    def test_refuses_a_ramsch_row_that_is_no_ramsch(self, migrated, changed):
+    def test_refuses_a_ramsch_row_that_is_no_ramsch(self, at_revision, changed):
         refused = ramsch_row(**changed)
 
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, refused)
+            run_in_transaction(at_revision, refused)
 
     @pytest.mark.parametrize(
         "change",
