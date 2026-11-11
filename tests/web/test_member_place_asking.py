@@ -6,8 +6,8 @@ import asyncio
 import threading
 from contextlib import nullcontext
 from dataclasses import replace
-from functools import partial
 from datetime import timedelta
+from functools import partial
 from types import SimpleNamespace
 
 import pytest
