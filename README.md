@@ -13,7 +13,7 @@ Today a signed-in member reaches Skat's start page and opens a table with „Neu
 
 ## Quick start
 
-You need Python 3.14+, [uv](https://docs.astral.sh/uv/), Node 24 or 26 and pnpm. `make install` installs the Python side, and `make run` builds the page (`make frontend`) and starts `skat serve`. The server refuses to start without the page build, without the settings below and against a database that is not at the newest migration; `skat migrate` brings it there and needs only `SKAT_DATABASE_URL` and `SKAT_DATABASE_PASSWORD_FILE`.
+You need Python 3.14+, [uv](https://docs.astral.sh/uv/), Node 24 or 26 and pnpm. `make install` installs the Python side, and `make run` builds the page (`make frontend`) and starts `skat serve`. The server refuses to start without the page build, without the settings below and against a database that is not at the newest migration; `skat migrate` brings it there and needs only `SKAT_DATABASE_URL` and `SKAT_DATABASE_PASSWORD_FILE` and reads `SKAT_OPERATOR_ACCOUNT_ID` when set.
 
 Sign-in returns the person to `SKAT_PUBLIC_ORIGIN`, which must be https, so open Skat at that origin (behind a TLS-terminating proxy), not at the plain listen address. The issuer needs a client whose redirect URI is `SKAT_PUBLIC_ORIGIN` + `/auth/callback` and that sends the groups claim.
 
@@ -33,6 +33,7 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_SESSION_SECRET_FILE` | required | Absolute path of the file holding the session signing key. |
 | `SKAT_DATABASE_URL` | required | The Postgres connection URL without a password, as `postgresql://user@host/database`; Skat refuses to start if it carries a password or any query parameter. |
 | `SKAT_DATABASE_PASSWORD_FILE` | required | Absolute path of the file holding only the database password. |
+| `SKAT_OPERATOR_ACCOUNT_ID` | unset | The sign-in account id of the operator. `skat migrate` reads it when it runs and installs the operator's rule set „Felix“ on that account, or replaces it keeping its id; unset or empty, no set is installed. A migration applies once, so set it before the first `skat migrate` that reaches the revision. |
 | `SKAT_TRUSTED_PROXIES` | empty | Addresses and CIDR blocks, comma-separated, of the proxies allowed to name the client in `X-Forwarded-For`. |
 | `SKAT_CHAIR_HOLD_SECONDS` | `300` | How long a seated member whose last stream ended keeps the chair while no hand runs; a positive number. |
 | `SKAT_EMPTY_TABLE_SECONDS` | `1800` | How long a table on which no hand was dealt stays after nobody is connected to it, before it ends; a positive whole number. |

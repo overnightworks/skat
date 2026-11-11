@@ -29,14 +29,17 @@ def _alembic_config() -> Config:
     return config
 
 
-def migrate(engine: Engine) -> None:
-    """Bring the database to head; concurrent runs wait for one another on a Postgres advisory lock."""
+def migrate(engine: Engine, operator_account_id: str | None = None) -> None:
+    """Bring the database to head; concurrent runs wait for one another on a Postgres advisory lock. The operator's
+    account id, when given, is the owner of the rule set a migration installs for him.
+    """
     config = _alembic_config()
     with engine.connect() as connection:
         connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": MIGRATION_LOCK_KEY})
         connection.commit()
         try:
             config.attributes["connection"] = connection
+            config.attributes["operator_account_id"] = operator_account_id
             command.upgrade(config, "head")
         finally:
             connection.rollback()

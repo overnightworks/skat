@@ -1,4 +1,5 @@
 import os
+import secrets
 from unittest.mock import patch
 
 import pytest
@@ -133,6 +134,22 @@ class TestServerSettings:
 
     def test_an_empty_call_origin_counts_as_unset(self, sign_in_settings):
         assert sign_in_settings(call_origin="").settings.call_origin is None
+
+    def test_the_operator_account_is_unset_by_default_and_when_empty(self, sign_in_settings):
+        assert sign_in_settings().settings.operator_account_id is None
+        assert sign_in_settings(operator_account_id="").settings.operator_account_id is None
+
+    def test_the_operator_account_is_kept_verbatim(self, sign_in_settings):
+        account_id = f"account {secrets.token_hex(4)}"
+
+        assert sign_in_settings(operator_account_id=account_id).settings.operator_account_id == account_id
+
+    @pytest.mark.parametrize("account_id", [" ", "a\nb", "\t"])
+    def test_an_operator_account_without_a_visible_character_or_with_a_control_character_is_refused_by_name(
+        self, sign_in_settings, account_id
+    ):
+        with pytest.raises(ValidationError, match="operator_account_id"):
+            sign_in_settings(operator_account_id=account_id)
 
     def test_an_empty_public_origin_is_refused_by_name(self, sign_in_settings):
         with pytest.raises(ValidationError, match="public_origin"):
