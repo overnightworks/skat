@@ -14,6 +14,7 @@ from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, Kontr
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import Level, Matadors
 from skat.table.game_list import (
+    GameEnding,
     KontraResult,
     Standing,
     list_entry_of,
@@ -91,7 +92,7 @@ def seated_table():
 
 
 def entry_of(game):
-    return list_entry_of(game, seated_table(), None)
+    return list_entry_of(game, seated_table(), None, GameEnding.PLAYED_OUT, None)
 
 
 def outcome(entry):
@@ -209,7 +210,9 @@ class TestTheEntrysGame:
 def pending_result(*games):
     """The table after its games: no hand, no steps, and one list entry per game."""
     table = seated_table()
-    return replace(table, game_list=tuple(list_entry_of(game, table, None) for game in games))
+    return replace(
+        table, game_list=tuple(list_entry_of(game, table, None, GameEnding.PLAYED_OUT, None) for game in games)
+    )
 
 
 class TestTheResult:
@@ -270,6 +273,18 @@ class TestTheResult:
         assert attrgetter("schneider", "schwarz", "matadors")(result) == (False, False, Matadors(mit=True, count=1))
         assert attrgetter("overbid", "bid", "game_value", "settled_value")(result) == (True, 20, 18, 27)
         assert attrgetter("declarer_points", "opponents_points")(result) == (70, 50)
+
+    @pytest.mark.parametrize(
+        ("ending", "ended_by"),
+        [(GameEnding.PLAYED_OUT, None), (GameEnding.GIVEN_UP, 2), (GameEnding.THROWN_DOWN, 3)],
+    )
+    def test_names_how_the_game_ended_and_the_seat_that_did_it(self, ending, ended_by):
+        table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
+        entry = replace(table.game_list[0], ending=ending, ended_by_seat=ended_by)
+
+        result = result_view_of(replace(table, game_list=(entry,)))
+
+        assert (result.ending, result.ended_by_seat) == (ending, ended_by)
 
     @pytest.mark.parametrize(
         "changed",

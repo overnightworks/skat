@@ -17,7 +17,7 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH, AnnouncementToken
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import Table, card, cards, game_of, reason_of
+from tests.web.support.playing import DECLARER_SEAT, Table, card, cards, ending_of, game_of, reason_of
 from tests.web.support.presence import OvertakenStore, occupied_seats
 from tests.web.support.skat import Skat, streams_of
 
@@ -228,6 +228,31 @@ class TestAnOpponentSaysYes:
         assert asked.record.hand is None
         assert len(asked.record.game_list) == 1
         assert asked.result() == answer.json()["result"]
+
+    @pytest.mark.parametrize("position", OPPONENTS)
+    def test_the_game_is_given_up_by_the_asking_declarer_and_not_the_opponent_who_said_yes(self, asked, position):
+        assert asked.result() is None
+
+        answer = agree(asked, position)
+
+        assert ending_of(answer.json()["result"]) == ("given-up", DECLARER_SEAT)
+        assert asked.endings_in_every_view() == {("given-up", DECLARER_SEAT)}
+
+    def test_a_yes_after_the_other_opponents_no_ends_the_game_the_same_way(self, asked):
+        decline(asked, REARHAND)
+
+        agree(asked, FOREHAND)
+
+        assert asked.endings_in_every_view() == {("given-up", DECLARER_SEAT)}
+
+    def test_a_game_his_tricks_and_the_skat_already_win_is_still_given_up(self, herz_hand):
+        herz_hand.played_out(SEVEN_TRICKS)
+        ask(herz_hand)
+
+        answer = agree(herz_hand, FOREHAND)
+
+        assert answer.json()["result"]["won"] is True
+        assert ending_of(answer.json()["result"]) == ("given-up", DECLARER_SEAT)
 
     def test_a_game_his_tricks_and_the_skat_already_win_ends_as_won_with_the_skat_counted(self, herz_hand):
         herz_hand.played_out(SEVEN_TRICKS)
