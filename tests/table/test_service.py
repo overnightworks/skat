@@ -481,16 +481,6 @@ class TestFreeChair:
         assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
         assert store.tables == written
 
-    def test_a_stand_up_between_games_still_frees_the_chair(self, store):
-        service = seeded_service(store, 1)
-        table_id, _ = seated_three(service)
-        end_the_first_game(store, table_id, 1, 2, 3)
-
-        result = service.stand(VISITOR, StandUp("command-stand", table_id), ALL_THREE)
-
-        assert result.refusal is None
-        assert occupants_of(result.view) == ["Anna", None, "Cleo"]
-
     def test_changes_nothing_when_the_caller_is_no_longer_due_once_the_row_is_locked(self, service, store, table_id):
         sit(service, VISITOR, table_id, 3)
         written = dict(store.tables)

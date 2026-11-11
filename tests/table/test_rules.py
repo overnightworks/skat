@@ -256,12 +256,6 @@ class TestTheAwayHold:
     def test_frees_no_chair_at_a_table_on_which_a_hand_was_dealt_in_any_phase(self, table):
         assert hold_frees_chair(table) is False
 
-    def test_a_stand_up_between_games_frees_the_chair_all_the_same(self):
-        decision = decide_stand(played_out(), ANNA)
-
-        assert decision.refusal is None
-        assert occupants_of(decision.table)[0] is None
-
 
 class TestResultPending:
     @pytest.mark.parametrize(

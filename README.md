@@ -35,7 +35,7 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_DATABASE_PASSWORD_FILE` | required | Absolute path of the file holding only the database password. |
 | `SKAT_OPERATOR_ACCOUNT_ID` | unset | The sign-in account id of the operator. `skat migrate` reads it when it runs and installs the operator's rule set „Felix“ on that account, or replaces it keeping its id; unset or empty, no set is installed. A migration applies once, so set it before the first `skat migrate` that reaches the revision. |
 | `SKAT_TRUSTED_PROXIES` | empty | Addresses and CIDR blocks, comma-separated, of the proxies allowed to name the client in `X-Forwarded-For`. |
-| `SKAT_CHAIR_HOLD_SECONDS` | `300` | How long a seated member whose last stream ended keeps the chair at a table on which no hand was dealt; a positive number. At a table on which a hand was dealt the chair is kept until its holder stands up. |
+| `SKAT_CHAIR_HOLD_SECONDS` | `300` | How long a seated member whose last stream ended keeps the chair at a table on which no hand was dealt; a positive number. At a table on which a hand was dealt the chair is kept until its holder stands up or the table ends. |
 | `SKAT_EMPTY_TABLE_SECONDS` | `1800` | How long a table on which no hand was dealt stays after nobody is connected to it, before it ends; a positive whole number. |
 | `SKAT_PAUSED_TABLE_DAYS` | `90` | How many days after its last deal or step of play a table on which a hand was dealt ends, as each paused entry's `ends_at` names; a positive whole number, at most 36500. |
 | `SKAT_HOST` | `0.0.0.0` | The listen address. |
