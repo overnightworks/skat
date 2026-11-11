@@ -117,7 +117,6 @@ export type Words = {
     readonly "game.rankQueen": string;
     readonly "game.rankKing": string;
     readonly "game.rankAce": string;
-    readonly "game.gameWorth": string;
     readonly "legal.imprint": string;
     readonly "legal.privacy": string;
     readonly "legal.terms": string;
@@ -242,7 +241,6 @@ export const words: Words = {
     "game.rankQueen": "Dame",
     "game.rankKing": "König",
     "game.rankAce": "Ass",
-    "game.gameWorth": "Wert",
     "legal.imprint": "Impressum",
     "legal.privacy": "Datenschutz",
     "legal.terms": "Nutzungsbedingungen",

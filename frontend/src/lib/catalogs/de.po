@@ -459,10 +459,6 @@ msgctxt "game.rankAce"
 msgid "Ass"
 msgstr ""
 
-msgctxt "game.gameWorth"
-msgid "Wert"
-msgstr ""
-
 msgctxt "legal.imprint"
 msgid "Impressum"
 msgstr ""

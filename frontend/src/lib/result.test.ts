@@ -208,7 +208,7 @@ describe("the overbid", () => {
 
     it("states the worth against the bid and the value it was raised to", () => {
         expect(resultView(table(2, overbid)).raise).toBe(
-            `${words["game.gameWorth"]} 18 < ${words["result.bidValue"]} 20 → 27`,
+            `${words["result.gameWorth"]} 18 < ${words["result.bidValue"]} 20 → 27`,
         );
     });
 
