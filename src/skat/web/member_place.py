@@ -244,6 +244,8 @@ class MemberStandings:
         )
         if member is None or not member.awaits_you or member.view.version != version:
             return
+        if not self._asks.is_current(table_id, version):
+            return
         try:
             self._changes.changed(principal, uri)
         except Exception as failure:

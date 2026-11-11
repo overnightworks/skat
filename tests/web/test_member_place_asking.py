@@ -6,6 +6,7 @@ import asyncio
 import threading
 from contextlib import nullcontext
 from dataclasses import replace
+from functools import partial
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -462,29 +463,30 @@ class TestAnEndedTablesWaitIsDropped:
         assert (answer, clock.is_current(TABLE, 6)) == (ended, not ended)
 
 
+class _OvertakenDuringTheRead:
+    """The service whose read of a view is overtaken: `overtaking` runs on the event loop after the store was read
+    and before the read goes on, as the table's end or a newer read does.
+    """
+
+    def __init__(self, tables, loop, overtaking):
+        self._tables = tables
+        self._loop = loop
+        self._overtaking = overtaking
+
+    def member_view(self, account_id, table_id, connected_accounts):
+        member = self._tables.member_view(account_id, table_id, connected_accounts)
+        overtaken = threading.Event()
+
+        def overtake():
+            self._overtaking()
+            overtaken.set()
+
+        self._loop.call_soon_threadsafe(overtake)
+        overtaken.wait()
+        return member
+
+
 class TestAViewReadWhileTheTableEnds:
-    class _EndedDuringTheRead:
-        """The service whose read of a view is overtaken by the table's end: the end drops the wait on the event loop
-        after the store was read and before the read goes on.
-        """
-
-        def __init__(self, tables, asks, loop):
-            self._tables = tables
-            self._asks = asks
-            self._loop = loop
-
-        def member_view(self, account_id, table_id, connected_accounts):
-            member = self._tables.member_view(account_id, table_id, connected_accounts)
-            dropped = threading.Event()
-
-            def end():
-                self._asks.drop(table_id)
-                dropped.set()
-
-            self._loop.call_soon_threadsafe(end)
-            dropped.wait()
-            return member
-
     def test_leaves_no_wait_and_no_pulse_behind(self, skat, agent, middlehand_auction):
         table_id = middlehand_auction.table_id
         version = middlehand_auction.record.version
@@ -493,7 +495,7 @@ class TestAViewReadWhileTheTableEnds:
         presence = SimpleNamespace(connected=lambda _table_id: frozenset())
 
         async def read():
-            tables = self._EndedDuringTheRead(skat.tables, asks, asyncio.get_running_loop())
+            tables = _OvertakenDuringTheRead(skat.tables, asyncio.get_running_loop(), partial(asks.drop, table_id))
             standings = MemberStandings(tables, presence, asks, scheduler, RecordedChanges())
             token_carries_agent_facts.set(True)
             return await standings.read(Principal(iss="an-issuer", sub=account_of(skat, agent)), view_uri_of(table_id))
@@ -502,6 +504,36 @@ class TestAViewReadWhileTheTableEnds:
 
         assert view.revision == revision_of(version, 0)
         assert (asks.is_current(table_id, version), scheduler.pending) == (False, 0)
+
+
+class TestAPulseOvertakenDuringItsRead:
+    @pytest.mark.parametrize("overtaking", ["the table ends", "the table moves on"])
+    def test_tells_nobody(self, skat, agent, middlehand_auction, overtaking):
+        table_id = middlehand_auction.table_id
+        version = middlehand_auction.record.version
+        scheduler = FakeTime()
+        asks = AskClock(scheduler.clock)
+        overtakes = {
+            "the table ends": partial(asks.drop, table_id),
+            "the table moves on": partial(asks.see, table_id, version + 1),
+        }
+        armed = []
+        changes = RecordedChanges()
+        presence = SimpleNamespace(connected=lambda _table_id: frozenset())
+
+        async def read_then_wait_past_the_deadline():
+            tables = _OvertakenDuringTheRead(
+                skat.tables, asyncio.get_running_loop(), lambda: armed and overtakes[overtaking]()
+            )
+            standings = MemberStandings(tables, presence, asks, scheduler, changes)
+            token_carries_agent_facts.set(True)
+            await standings.read(Principal(iss="an-issuer", sub=account_of(skat, agent)), view_uri_of(table_id))
+            armed.append(True)
+            await scheduler.advance(ASK_AGAIN_AFTER)
+
+        asyncio.run(read_then_wait_past_the_deadline())
+
+        assert changes.told == []
 
 
 class TestAScriptedClientIsAskedAgain:
