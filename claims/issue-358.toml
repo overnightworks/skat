@@ -1,0 +1,8 @@
+claim_id = "f6d2e33151784a4dbc81d0dac8267b56"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "e54a5f22197975f9e3eaf0bf77b4d8c73d6e8740"
+branch = "claude/issue-358-chairs-index"
+scope = ["src/skat/store/migrations/versions", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/service.py", "src/skat/table/transactions.py", "tests/store/test_migrate.py", "tests/store/test_tables_held.py", "tests/support/fake_tables.py", "tests/support/migrations.py"]
+opened_commit = "fb6bf988ae2bb8ae296a0c4ed667ee7c37c8dfbd"
+whole_reason = "The index, the one read that uses it and the two callers moved onto it are one change: an index nothing reads is dead, and a read without the index is the scan it replaces."
