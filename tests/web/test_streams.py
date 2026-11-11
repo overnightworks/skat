@@ -68,7 +68,7 @@ class Admission:
         return self.actor if answer else None
 
 
-async def idle_heartbeats_through(stream, admission):
+async def idle_heartbeats_through(stream):
     """Takes the next items of a stream with nothing changed, one per heartbeat; these are the items it yielded."""
     async with asyncio.timeout(ALLOWED_SECONDS):
         return [await anext(stream) for _ in range(IDLE_HEARTBEATS)]
@@ -291,7 +291,7 @@ class TestReadmission:
                 idle_presence(), service, OPENER, table_id, admit=admission, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS
             )
             await next_view(stream)
-            marks = await idle_heartbeats_through(stream, admission)
+            marks = await idle_heartbeats_through(stream)
             return marks, admission.asked
 
         marks, asked = run_on_a_loop_of_its_own(scenario())
@@ -333,7 +333,7 @@ class TestReadmission:
             )
             first = await next_view(stream)
             second = await next_view(stream)
-            return first, second, await idle_heartbeats_through(stream, admission)
+            return first, second, await idle_heartbeats_through(stream)
 
         first, second, marks = run_on_a_loop_of_its_own(scenario())
 
