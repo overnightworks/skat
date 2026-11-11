@@ -15,10 +15,10 @@ from skat.web.auction import (
     TABLE_AUCTION_PLAY_SUFFIX,
 )
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,16 +29,16 @@ pytestmark = pytest.mark.e2e
 
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-BIDDING = catalog_text("bidding")
-HOLD = catalog_text("hold")
-COMMAND_FAILED = catalog_text("commandFailed")
-WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
-PASS = catalog_text("pass")
-WAITING_FOR = catalog_text("waitingFor")
-WAITS_FOR_YOU = catalog_text("waitsForYou")
-PASSED_IN = catalog_text("passedIn")
-GIVES = catalog_text("gives")
-YOU = catalog_text("sideYou")
+BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
+HOLD = text(SOURCE_LANGUAGE, "bid.hold")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
+PASS = text(SOURCE_LANGUAGE, "bid.pass")
+WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
+WAITS_FOR_YOU = text(SOURCE_LANGUAGE, "table.waitsForYou")
+PASSED_IN = text(SOURCE_LANGUAGE, "table.passedIn")
+GIVES = text(SOURCE_LANGUAGE, "table.gives")
+YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 LOWEST_BID = 18
 SKAT_CARD = ".skat-card"
 LADDER = ".ladder"

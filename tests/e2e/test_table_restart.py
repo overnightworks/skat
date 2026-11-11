@@ -10,11 +10,12 @@ from sqlalchemy import text
 
 from skat.web.constants import AUTH_START_PATH, GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.tables import TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE
+from skat.web.words import text as word_text
 from tests.e2e.support.browser import sign_in_at_issuer
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-RECONNECTING = catalog_text("reconnecting")
+RECONNECTING = word_text(SOURCE_LANGUAGE, "table.reconnecting")
 CARDS_PLAYED_BEFORE = 4
 ISSUER_LOGIN_FORM = "issuer login form"
 FACES = "(faces) => faces.map((face) => face.dataset.suit + face.dataset.rank).sort()"

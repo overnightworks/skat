@@ -644,46 +644,62 @@ describe("the table's seats and link", () => {
     });
 
     it.each([
-        ["forehand", words.forehand],
-        ["middlehand", words.middlehand],
-        ["rearhand", words.rearhand],
+        ["forehand", words["game.forehand"]],
+        ["middlehand", words["game.middlehand"]],
+        ["rearhand", words["game.rearhand"]],
     ] as [Position, string][])("names the position %s with its word", (position, word) => {
         expect(positionWord(position)).toBe(word);
     });
 
     it.each([
-        ["karo", words.gameKaro],
-        ["herz", words.gameHerz],
-        ["pik", words.gamePik],
-        ["kreuz", words.gameKreuz],
-        ["grand", words.gameGrand],
-        ["null", words.gameNull],
+        ["karo", words["game.karo"]],
+        ["herz", words["game.herz"]],
+        ["pik", words["game.pik"]],
+        ["kreuz", words["game.kreuz"]],
+        ["grand", words["game.grand"]],
+        ["null", words["game.null"]],
     ] as [Game, string][])("names the game %s with its word", (game, word) => {
         expect(gameWord(game)).toBe(word);
     });
 
     it.each([
-        ["a plain game", "grand", false, false, "none", words.gameGrand, null],
-        ["a Hand game", "grand", true, false, "none", `${words.gameGrand} ${words.hand}`, null],
+        ["a plain game", "grand", false, false, "none", words["game.grand"], null],
+        ["a Hand game", "grand", true, false, "none", `${words["game.grand"]} ${words["game.hand"]}`, null],
         [
             "an ouvert game, which includes Hand",
             "grand",
             true,
             true,
             "schwarz",
-            `${words.gameGrand} ${words.ouvert}`,
+            `${words["game.grand"]} ${words["game.ouvert"]}`,
             null,
         ],
-        ["Null ouvert after the take", "null", false, true, "none", `${words.gameNull} ${words.ouvert}`, null],
-        ["Null ouvert Hand", "null", true, true, "none", `${words.gameNull} ${words.ouvert} ${words.hand}`, null],
+        [
+            "Null ouvert after the take",
+            "null",
+            false,
+            true,
+            "none",
+            `${words["game.null"]} ${words["game.ouvert"]}`,
+            null,
+        ],
+        [
+            "Null ouvert Hand",
+            "null",
+            true,
+            true,
+            "none",
+            `${words["game.null"]} ${words["game.ouvert"]} ${words["game.hand"]}`,
+            null,
+        ],
         [
             "a Hand game with Schneider announced",
             "herz",
             true,
             false,
             "schneider",
-            `${words.gameHerz} ${words.hand}`,
-            words.announcedSchneider,
+            `${words["game.herz"]} ${words["game.hand"]}`,
+            words["game.announcedSchneider"],
         ],
         [
             "a Hand game with Schwarz announced",
@@ -691,8 +707,8 @@ describe("the table's seats and link", () => {
             true,
             false,
             "schwarz",
-            `${words.gameGrand} ${words.hand}`,
-            words.announcedSchwarz,
+            `${words["game.grand"]} ${words["game.hand"]}`,
+            words["game.announcedSchwarz"],
         ],
     ] as const)("labels %s", (_name, game, hand, ouvert, announcement, name, announced) => {
         expect(gameLabel({ game, hand, ouvert, announcement })).toEqual({ name, announcement: announced });
@@ -700,8 +716,8 @@ describe("the table's seats and link", () => {
 
     it.each([
         ["none", null],
-        ["schneider", words.announcedSchneider],
-        ["schwarz", words.announcedSchwarz],
+        ["schneider", words["game.announcedSchneider"]],
+        ["schwarz", words["game.announcedSchwarz"]],
     ] as const)("words the announcement %s", (announcement, word) => {
         expect(announcedWord(announcement)).toBe(word);
     });
@@ -718,7 +734,7 @@ describe("the table's seats and link", () => {
     });
 
     it("names a card by its suit's game word and its rank word", () => {
-        expect(cardName({ suit: "herz", rank: "ace" })).toBe(`${words.gameHerz} ${words.rankAce}`);
+        expect(cardName({ suit: "herz", rank: "ace" })).toBe(`${words["game.herz"]} ${words["game.rankAce"]}`);
     });
 
     it("copies the table's link to the clipboard", async () => {

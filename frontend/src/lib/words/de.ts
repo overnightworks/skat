@@ -1,0 +1,254 @@
+// Generated from the de catalog by design-catalogs. Do not edit.
+
+export const language = "de";
+// prettier-ignore
+export type Words = {
+    readonly "app.name": string;
+    readonly "account.title": string;
+    readonly "account.theme": string;
+    readonly "account.followSystem": string;
+    readonly "account.light": string;
+    readonly "account.dark": string;
+    readonly "account.logOut": string;
+    readonly "start.newTable": string;
+    readonly "start.seriesLength": string;
+    readonly "start.seriesGames": string;
+    readonly "start.seriesFewer": string;
+    readonly "start.seriesMore": string;
+    readonly "start.openTable": string;
+    readonly "start.cancelNewTable": string;
+    readonly "start.newTableFailed": string;
+    readonly "table.waitingForPlayers": string;
+    readonly "table.seatFree": string;
+    readonly "table.seatAway": string;
+    readonly "table.copyLink": string;
+    readonly "table.linkCopied": string;
+    readonly "table.linkCopyFailed": string;
+    readonly "table.loadFailed": string;
+    readonly "table.loadFailedHint": string;
+    readonly "table.watchers": string;
+    readonly "table.lobby": string;
+    readonly "table.reconnecting": string;
+    readonly "table.sitDown": string;
+    readonly "table.standUp": string;
+    readonly "table.seatTaken": string;
+    readonly "table.commandFailed": string;
+    readonly "table.bidding": string;
+    readonly "table.pass": string;
+    readonly "table.waitingFor": string;
+    readonly "table.passedIn": string;
+    readonly "table.gives": string;
+    readonly "table.waitsForYou": string;
+    readonly "table.bidValue": string;
+    readonly "table.plays": string;
+    readonly "table.chooses": string;
+    readonly "table.discards": string;
+    readonly "table.dealer": string;
+    readonly "table.cardCount": string;
+    readonly "table.open": string;
+    readonly "table.openForAll": string;
+    readonly "table.sideYou": string;
+    readonly "table.weiter": string;
+    readonly "table.readyMark": string;
+    readonly "table.notReadyMark": string;
+    readonly "result.seatFree": string;
+    readonly "result.bidValue": string;
+    readonly "result.hand": string;
+    readonly "result.levelSpiel": string;
+    readonly "result.levelSchneider": string;
+    readonly "result.levelSchwarz": string;
+    readonly "result.levelOuvert": string;
+    readonly "result.matadorsWith": string;
+    readonly "result.matadorsWithout": string;
+    readonly "result.listBonus": string;
+    readonly "result.each": string;
+    readonly "result.notReached": string;
+    readonly "result.announcedSchneider": string;
+    readonly "result.announcedSchwarz": string;
+    readonly "result.sideThem": string;
+    readonly "result.trickPoints": string;
+    readonly "result.sideYou": string;
+    readonly "result.won": string;
+    readonly "result.lost": string;
+    readonly "result.wins": string;
+    readonly "result.loses": string;
+    readonly "result.overbid": string;
+    readonly "result.gameWorth": string;
+    readonly "result.and": string;
+    readonly "closed.notFound": string;
+    readonly "closed.nobodyThereClosed": string;
+    readonly "closed.minute": string;
+    readonly "closed.minutes": string;
+    readonly "closed.second": string;
+    readonly "closed.seconds": string;
+    readonly "declare.commandFailed": string;
+    readonly "declare.takeSkat": string;
+    readonly "declare.putBack": string;
+    readonly "declare.announceGame": string;
+    readonly "declare.hand": string;
+    readonly "declare.levelSchneider": string;
+    readonly "declare.levelSchwarz": string;
+    readonly "declare.levelOuvert": string;
+    readonly "play.commandFailed": string;
+    readonly "play.sideUs": string;
+    readonly "play.sideThem": string;
+    readonly "play.trick": string;
+    readonly "play.sideYou": string;
+    readonly "bid.hold": string;
+    readonly "bid.pass": string;
+    readonly "game.forehand": string;
+    readonly "game.middlehand": string;
+    readonly "game.rearhand": string;
+    readonly "game.hand": string;
+    readonly "game.announcedSchneider": string;
+    readonly "game.announcedSchwarz": string;
+    readonly "game.ouvert": string;
+    readonly "game.karo": string;
+    readonly "game.herz": string;
+    readonly "game.pik": string;
+    readonly "game.kreuz": string;
+    readonly "game.grand": string;
+    readonly "game.null": string;
+    readonly "game.rankSeven": string;
+    readonly "game.rankEight": string;
+    readonly "game.rankNine": string;
+    readonly "game.rankTen": string;
+    readonly "game.rankJack": string;
+    readonly "game.rankQueen": string;
+    readonly "game.rankKing": string;
+    readonly "game.rankAce": string;
+    readonly "game.gameWorth": string;
+    readonly "legal.imprint": string;
+    readonly "legal.privacy": string;
+    readonly "legal.terms": string;
+    readonly "card.letterJack": string;
+    readonly "card.letterQueen": string;
+    readonly "card.letterKing": string;
+    readonly "card.letterAce": string;
+};
+// prettier-ignore
+export const words: Words = {
+    "app.name": "Skat",
+    "account.title": "Konto",
+    "account.theme": "Darstellung",
+    "account.followSystem": "System",
+    "account.light": "Hell",
+    "account.dark": "Dunkel",
+    "account.logOut": "Abmelden",
+    "start.newTable": "Neuer Tisch",
+    "start.seriesLength": "Länge der Serie",
+    "start.seriesGames": "Spiele",
+    "start.seriesFewer": "3 Spiele weniger",
+    "start.seriesMore": "3 Spiele mehr",
+    "start.openTable": "Aufmachen",
+    "start.cancelNewTable": "Abbrechen",
+    "start.newTableFailed": "Der Tisch konnte nicht eröffnet werden.",
+    "table.waitingForPlayers": "Warte auf Mitspieler",
+    "table.seatFree": "Frei",
+    "table.seatAway": "nicht da",
+    "table.copyLink": "Link kopieren",
+    "table.linkCopied": "Link kopiert",
+    "table.linkCopyFailed": "Der Link ließ sich nicht kopieren",
+    "table.loadFailed": "Der Tisch lässt sich gerade nicht laden",
+    "table.loadFailedHint": "Lade die Seite neu, um es noch einmal zu versuchen.",
+    "table.watchers": "Zuschauer",
+    "table.lobby": "Lobby",
+    "table.reconnecting": "verbinde neu",
+    "table.sitDown": "Hinsetzen",
+    "table.standUp": "Aufstehen",
+    "table.seatTaken": "Platz vergeben",
+    "table.commandFailed": "Das hat nicht geklappt",
+    "table.bidding": "Reizen",
+    "table.pass": "Weg",
+    "table.waitingFor": "Warte auf",
+    "table.passedIn": "Eingepasst",
+    "table.gives": "gibt",
+    "table.waitsForYou": "wartet auf dich",
+    "table.bidValue": "Reizwert",
+    "table.plays": "spielt",
+    "table.chooses": "wählt",
+    "table.discards": "drückt",
+    "table.dealer": "Geber",
+    "table.cardCount": "Karten",
+    "table.open": "Offen",
+    "table.openForAll": "Offen für alle",
+    "table.sideYou": "Du",
+    "table.weiter": "Weiter",
+    "table.readyMark": "Weiter getippt",
+    "table.notReadyMark": "noch nicht getippt",
+    "result.seatFree": "Frei",
+    "result.bidValue": "Reizwert",
+    "result.hand": "Hand",
+    "result.levelSpiel": "Spiel",
+    "result.levelSchneider": "Schneider",
+    "result.levelSchwarz": "Schwarz",
+    "result.levelOuvert": "Ouvert",
+    "result.matadorsWith": "mit",
+    "result.matadorsWithout": "ohne",
+    "result.listBonus": "Liste",
+    "result.each": "je",
+    "result.notReached": "nicht erreicht",
+    "result.announcedSchneider": "Schneider angesagt",
+    "result.announcedSchwarz": "Schwarz angesagt",
+    "result.sideThem": "Gegner",
+    "result.trickPoints": "Augen",
+    "result.sideYou": "Du",
+    "result.won": "Gewonnen!",
+    "result.lost": "Verloren",
+    "result.wins": "gewinnt",
+    "result.loses": "verliert",
+    "result.overbid": "Überreizt",
+    "result.gameWorth": "Wert",
+    "result.and": "und",
+    "closed.notFound": "Tisch nicht gefunden",
+    "closed.nobodyThereClosed": "niemand da: Tisch geschlossen",
+    "closed.minute": "Minute",
+    "closed.minutes": "Minuten",
+    "closed.second": "Sekunde",
+    "closed.seconds": "Sekunden",
+    "declare.commandFailed": "Das hat nicht geklappt",
+    "declare.takeSkat": "Aufnehmen",
+    "declare.putBack": "Drücken",
+    "declare.announceGame": "Ansagen",
+    "declare.hand": "Hand",
+    "declare.levelSchneider": "Schneider",
+    "declare.levelSchwarz": "Schwarz",
+    "declare.levelOuvert": "Ouvert",
+    "play.commandFailed": "Das hat nicht geklappt",
+    "play.sideUs": "Wir",
+    "play.sideThem": "Gegner",
+    "play.trick": "Stich",
+    "play.sideYou": "Du",
+    "bid.hold": "Halten",
+    "bid.pass": "Weg",
+    "game.forehand": "Vorhand",
+    "game.middlehand": "Mittelhand",
+    "game.rearhand": "Hinterhand",
+    "game.hand": "Hand",
+    "game.announcedSchneider": "Schneider angesagt",
+    "game.announcedSchwarz": "Schwarz angesagt",
+    "game.ouvert": "ouvert",
+    "game.karo": "Karo",
+    "game.herz": "Herz",
+    "game.pik": "Pik",
+    "game.kreuz": "Kreuz",
+    "game.grand": "Grand",
+    "game.null": "Null",
+    "game.rankSeven": "Sieben",
+    "game.rankEight": "Acht",
+    "game.rankNine": "Neun",
+    "game.rankTen": "Zehn",
+    "game.rankJack": "Bube",
+    "game.rankQueen": "Dame",
+    "game.rankKing": "König",
+    "game.rankAce": "Ass",
+    "game.gameWorth": "Wert",
+    "legal.imprint": "Impressum",
+    "legal.privacy": "Datenschutz",
+    "legal.terms": "Nutzungsbedingungen",
+    "card.letterJack": "B",
+    "card.letterQueen": "D",
+    "card.letterKing": "K",
+    "card.letterAce": "A",
+};
+export type Key = keyof Words;

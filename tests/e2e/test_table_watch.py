@@ -12,12 +12,13 @@ from skat.table.records import Actor, CreateTable
 from skat.table.service import TableService
 from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE
+from skat.web.words import text as word_text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import self_signed_tolerant_context
 from tests.e2e.support.server import LOOPBACK_HOST, loopback_sign_in, running_skat
 from tests.e2e.support.tables import open_new_table, table_id_of
-from tests.e2e.support.words import catalog_text
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -35,7 +36,7 @@ FIRST_EVENT = """(url) => new Promise((resolve) => {
     const source = new EventSource(url);
     source.onmessage = (event) => { source.close(); resolve(event.data); };
 })"""
-RECONNECTING = catalog_text("reconnecting")
+RECONNECTING = word_text(SOURCE_LANGUAGE, "table.reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
 

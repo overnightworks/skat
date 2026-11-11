@@ -89,10 +89,10 @@ function table(
 
 describe("the card's words and sides for each viewer", () => {
     it.each([
-        { viewer: "the declarer who won", mine: 2, won: true, word: words.resultWon, good: true },
-        { viewer: "the declarer who lost", mine: 2, won: false, word: words.resultLost, good: false },
-        { viewer: "an opponent when the declarer won", mine: 1, won: true, word: words.resultLost, good: false },
-        { viewer: "an opponent when the declarer lost", mine: 1, won: false, word: words.resultWon, good: true },
+        { viewer: "the declarer who won", mine: 2, won: true, word: words["result.won"], good: true },
+        { viewer: "the declarer who lost", mine: 2, won: false, word: words["result.lost"], good: false },
+        { viewer: "an opponent when the declarer won", mine: 1, won: true, word: words["result.lost"], good: false },
+        { viewer: "an opponent when the declarer lost", mine: 1, won: false, word: words["result.won"], good: true },
         { viewer: "a watcher when the declarer won", mine: NOBODY, won: true, word: "player 2 gewinnt", good: true },
         {
             viewer: "a watcher when the declarer lost",
@@ -109,37 +109,43 @@ describe("the card's words and sides for each viewer", () => {
     });
 
     it.each([
-        { viewer: "the declarer", mine: 2, sides: { declarer: words.sideYou, opponents: words.sideThem } },
-        { viewer: "an opponent", mine: 1, sides: { declarer: "player 2", opponents: words.sideUs } },
-        { viewer: "a watcher", mine: NOBODY, sides: { declarer: "player 2", opponents: words.sideThem } },
+        {
+            viewer: "the declarer",
+            mine: 2,
+            sides: { declarer: words["result.sideYou"], opponents: words["result.sideThem"] },
+        },
+        { viewer: "an opponent", mine: 1, sides: { declarer: "player 2", opponents: words["play.sideUs"] } },
+        { viewer: "a watcher", mine: NOBODY, sides: { declarer: "player 2", opponents: words["play.sideThem"] } },
     ])("names the sides for $viewer", ({ mine, sides }) => {
         expect(resultView(table(mine, {})).sides).toEqual(sides);
     });
 
     it.each([
-        { hand: false, label: words.gameKreuz },
-        { hand: true, label: `${words.gameKreuz} ${words.hand}` },
+        { hand: false, label: words["game.kreuz"] },
+        { hand: true, label: `${words["game.kreuz"]} ${words["game.hand"]}` },
     ])("names the game with its levels when hand is $hand", ({ hand, label }) => {
         expect(resultView(table(2, { hand })).gameLine).toBe(label);
     });
 
     it("names an announced Hand game without its announcement, which stands as a chip", () => {
         expect(resultView(table(2, { hand: true, announcement: "schneider" })).gameLine).toBe(
-            `${words.gameKreuz} ${words.hand}`,
+            `${words["game.kreuz"]} ${words["game.hand"]}`,
         );
     });
 
     it.each([
-        { game: "kreuz", word: words.gameKreuz },
-        { game: "grand", word: words.gameGrand },
-        { game: "null", word: words.gameNull },
+        { game: "kreuz", word: words["game.kreuz"] },
+        { game: "grand", word: words["game.grand"] },
+        { game: "null", word: words["game.null"] },
     ] as const)("carries the word $word for the equation", ({ game, word }) => {
         expect(resultView(table(2, { game })).gameWord).toBe(word);
     });
 
     it("names a Null game with its levels in the equation", () => {
         const nullOuvertHand = { game: "null", hand: true, ouvert: true } as const;
-        expect(resultView(table(2, nullOuvertHand)).gameWord).toBe(`${words.gameNull} ${words.ouvert} ${words.hand}`);
+        expect(resultView(table(2, nullOuvertHand)).gameWord).toBe(
+            `${words["game.null"]} ${words["game.ouvert"]} ${words["game.hand"]}`,
+        );
     });
 
     it("carries the points of both sides as the server counted them", () => {
@@ -168,9 +174,9 @@ describe("the card's words and sides for each viewer", () => {
     });
 
     it.each([
-        { viewer: "the declarer", mine: 2, gameLine: words.gameKreuz },
-        { viewer: "an opponent", mine: 1, gameLine: `player 2, ${words.gameKreuz}` },
-        { viewer: "a watcher", mine: NOBODY, gameLine: words.gameKreuz },
+        { viewer: "the declarer", mine: 2, gameLine: words["game.kreuz"] },
+        { viewer: "an opponent", mine: 1, gameLine: `player 2, ${words["game.kreuz"]}` },
+        { viewer: "a watcher", mine: NOBODY, gameLine: words["game.kreuz"] },
     ])("names the declarer on the game line for $viewer only when it is not their own game", ({ mine, gameLine }) => {
         const view = resultView(table(mine, {}));
 
@@ -185,7 +191,7 @@ describe("the card's words and sides for each viewer", () => {
 
 describe("a declarer who has left", () => {
     it("leaves their name empty on the opponent's game line", () => {
-        expect(resultView(table(1, {}, { 2: { occupant_name: null } })).gameLine).toBe(`, ${words.gameKreuz}`);
+        expect(resultView(table(1, {}, { 2: { occupant_name: null } })).gameLine).toBe(`, ${words["game.kreuz"]}`);
     });
 });
 
@@ -201,7 +207,9 @@ describe("the overbid", () => {
     };
 
     it("states the worth against the bid and the value it was raised to", () => {
-        expect(resultView(table(2, overbid)).raise).toBe(`${words.gameWorth} 18 < ${words.bidValue} 20 → 27`);
+        expect(resultView(table(2, overbid)).raise).toBe(
+            `${words["game.gameWorth"]} 18 < ${words["result.bidValue"]} 20 → 27`,
+        );
     });
 
     it("states nothing when the game was not overbid", () => {
@@ -212,15 +220,15 @@ describe("the overbid", () => {
 describe("the chips", () => {
     it("ticks each counted level after the unticked matadors", () => {
         expect(resultView(table(2, {})).chips).toEqual([
-            { word: `${words.matadorsWith} 2`, ticked: false },
-            { word: words.levelSpiel, ticked: true },
+            { word: `${words["result.matadorsWith"]} 2`, ticked: false },
+            { word: words["result.levelSpiel"], ticked: true },
         ]);
     });
 
     it("counts the matadors a game is played without", () => {
         const view = resultView(table(2, { matadors: { mit: false, count: 2 }, game: "grand" }));
 
-        expect(view.chips[0]).toEqual({ word: `${words.matadorsWithout} 2`, ticked: false });
+        expect(view.chips[0]).toEqual({ word: `${words["result.matadorsWithout"]} 2`, ticked: false });
     });
 
     it("words every level the answer sends", () => {
@@ -239,13 +247,13 @@ describe("the chips", () => {
                 .chips.slice(1)
                 .map(({ word }) => word),
         ).toEqual([
-            words.levelSpiel,
-            words.hand,
-            words.levelSchneider,
-            words.announcedSchneider,
-            words.levelSchwarz,
-            words.announcedSchwarz,
-            words.levelOuvert,
+            words["result.levelSpiel"],
+            words["result.hand"],
+            words["result.levelSchneider"],
+            words["result.announcedSchneider"],
+            words["result.levelSchwarz"],
+            words["result.announcedSchwarz"],
+            words["result.levelOuvert"],
         ]);
     });
 
@@ -284,8 +292,8 @@ describe("the doubling and the list line", () => {
 
         expect(view.doubled).toBe(false);
         expect(view.list).toEqual({
-            side: words.sideYou,
-            steps: [`${words.levelSpiel} +36`, `${words.listBonus} +50`, "= +86"],
+            side: words["result.sideYou"],
+            steps: [`${words["result.levelSpiel"]} +36`, `${words["result.listBonus"]} +50`, "= +86"],
             share: null,
         });
     });
@@ -295,31 +303,31 @@ describe("the doubling and the list line", () => {
 
         expect(view.doubled).toBe(true);
         expect(view.list).toEqual({
-            side: words.sideYou,
-            steps: [`${words.levelSpiel} −72`, `${words.listBonus} −50`, "= −122"],
-            share: `· ${words.sideThem} ${words.each} +40`,
+            side: words["result.sideYou"],
+            steps: [`${words["result.levelSpiel"]} −72`, `${words["result.listBonus"]} −50`, "= −122"],
+            share: `· ${words["result.sideThem"]} ${words["result.each"]} +40`,
         });
     });
 
     it.each([
-        { viewer: "an opponent", mine: 1, side: "player 2", opponents: words.sideUs },
-        { viewer: "a watcher", mine: NOBODY, side: "player 2", opponents: words.sideThem },
+        { viewer: "an opponent", mine: 1, side: "player 2", opponents: words["play.sideUs"] },
+        { viewer: "a watcher", mine: NOBODY, side: "player 2", opponents: words["play.sideThem"] },
     ])("names the sides of the list line for $viewer", ({ mine, side, opponents }) => {
         const view = resultView(table(mine, LOST_GAME));
 
         expect(view.list.side).toBe(side);
-        expect(view.list.share).toBe(`· ${opponents} ${words.each} +40`);
+        expect(view.list.share).toBe(`· ${opponents} ${words["result.each"]} +40`);
     });
 });
 
 describe("the missed announcement", () => {
     it.each([
-        { announcement: "schneider", word: words.announcedSchneider },
-        { announcement: "schwarz", word: words.announcedSchwarz },
+        { announcement: "schneider", word: words["game.announcedSchneider"] },
+        { announcement: "schwarz", word: words["game.announcedSchwarz"] },
     ] as const)("says that $word was not reached", ({ announcement, word }) => {
         const view = resultView(table(2, { ...LOST_GAME, announcement, announcement_missed: true }));
 
-        expect(view.missed).toBe(`${word}, ${words.notReached}`);
+        expect(view.missed).toBe(`${word}, ${words["result.notReached"]}`);
     });
 
     it("says Schwarz was not reached for a lost ouvert game, which counts as announced Schwarz", () => {
@@ -327,8 +335,8 @@ describe("the missed announcement", () => {
             table(2, { ...LOST_GAME, ouvert: true, game: "grand", announcement: "schwarz", announcement_missed: true }),
         );
 
-        expect(view.missed).toBe(`${words.announcedSchwarz}, ${words.notReached}`);
-        expect(view.gameLine).toBe(`${words.gameGrand} ${words.ouvert}`);
+        expect(view.missed).toBe(`${words["game.announcedSchwarz"]}, ${words["result.notReached"]}`);
+        expect(view.gameLine).toBe(`${words["game.grand"]} ${words["game.ouvert"]}`);
     });
 
     it("says nothing when the announcement was reached or none was made", () => {
@@ -343,7 +351,7 @@ describe("the reckoning row", () => {
         expect(rows.map(({ seat }) => seat)).toEqual([3, 1, 2]);
         expect(rows.map(({ gain }) => gain)).toEqual([0, 0, 86]);
         expect(rows.map(({ won }) => won)).toEqual([false, false, true]);
-        expect(rows.map(({ name }) => name)).toEqual([words.sideYou, "player 1", "player 2"]);
+        expect(rows.map(({ name }) => name)).toEqual([words["result.sideYou"], "player 1", "player 2"]);
         expect(rows.map(({ initial }) => initial)).toEqual(["p", "p", "p"]);
     });
 
