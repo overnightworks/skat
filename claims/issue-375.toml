@@ -1,0 +1,8 @@
+claim_id = "d955c32004a94ffd9056ea5b00cca367"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "6fda5924444b33a412ea1210702451f1151c8309"
+branch = "claude/issue-375-card-lands"
+scope = ["docs/mockups/sounds.html", "frontend/src/lib/auctionMarks.test.ts", "frontend/src/lib/auctionMarks.ts", "frontend/src/lib/cues.test.ts", "frontend/src/lib/cues.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/PlayedTrick.svelte", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/conftest.py", "tests/e2e/test_table_card_lands.py", "tests/e2e/test_table_deal_marks.py"]
+opened_commit = "08b419972fd41e9d2f9382166703e6724eae82a4"
+whole_reason = "The one owner of what just happened, its predecessor's exit, its first motion and the end-to-end default that keeps every measurement still are one proof; the owner alone has no caller and the motion alone would derive its own cue."
