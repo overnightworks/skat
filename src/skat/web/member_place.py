@@ -2,7 +2,8 @@
 no route, and the signal that tells a listening agent its standing changed.
 
 The standing is read from `TableService`, which derives it from the chairs an agent holds and the invitations to it;
-the lease table of `Presence` decides which accounts are agents with a running lease.
+the stored kind of an account decides which accounts are agents. A listening agent whose lease has lapsed is still an
+agent, so the signal that its hold freed its chair or its table ended reaches it.
 """
 
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import HTTPConnection
 from webauth.middleware.bearer_gate import resource_person
+from webauth.ports import AccountKind
 
 from skat.table.member_place import Acceptance, MembershipState
 from skat.web.tables import actor_for
@@ -38,6 +40,7 @@ if TYPE_CHECKING:
     from agents.mcp_server import MemberResources
     from agents.member import PlaceWindow
     from agents.tools import JsonObject
+    from webauth.ports import SignInTransaction
 
     from skat.table.member_place import TableStanding
     from skat.table.service import TableService
@@ -70,20 +73,33 @@ def _standing_of(standing: TableStanding) -> Standing:
     )
 
 
+def agent_accounts(transaction: SignInTransaction) -> Callable[[str], bool]:
+    """Whether an account is stored as an agent's; it runs on a worker thread, where the stores are read."""
+
+    def is_agent(account: str) -> bool:
+        with transaction() as stores:
+            record = stores.accounts.get(account)
+            return record is not None and record.kind is AccountKind.AGENT
+
+    return is_agent
+
+
 class MemberStandings:
-    """What an agent with a running lease reads: its standing at the tables, and nothing for any other account."""
+    """What an agent reads: its standing at the tables, and nothing for any other account."""
 
-    def __init__(self, tables: TableService, live_leases: Callable[[], frozenset[str]]) -> None:
+    def __init__(self, tables: TableService, is_agent: Callable[[str], bool]) -> None:
         self._tables = tables
-        self._live_leases = live_leases
+        self._is_agent = is_agent
 
-    async def current(self, principal: Principal) -> Collection[str]:  # NOSONAR(S7503) MemberResources is async
-        return (STANDING_URI,) if principal.sub in self._live_leases() else ()
+    async def current(self, principal: Principal) -> Collection[str]:
+        if await run_in_threadpool(self._is_agent, principal.sub):
+            return (STANDING_URI,)
+        return ()
 
     async def read(  # NOSONAR(S7503) MemberResources is async
         self, principal: Principal, uri: str
     ) -> MemberStanding | PlaceWindow | None:
-        if uri != STANDING_URI or principal.sub not in self._live_leases():
+        if uri != STANDING_URI or not await run_in_threadpool(self._is_agent, principal.sub):
             return None
         standings = await run_in_threadpool(self._tables.standings_of, principal.sub)
         return MemberStanding(standings=tuple(map(_standing_of, standings)))
@@ -141,5 +157,9 @@ class MemberFront:
     changes: ResourceChanges
 
 
-def member_front(tables: TableService, presence: Presence, changes: ResourceChanges) -> MemberFront:
-    return MemberFront(accept_invitation_tool(tables, presence), MemberStandings(tables, presence.live_leases), changes)
+def member_front(
+    tables: TableService, presence: Presence, changes: ResourceChanges, transaction: SignInTransaction
+) -> MemberFront:
+    return MemberFront(
+        accept_invitation_tool(tables, presence), MemberStandings(tables, agent_accounts(transaction)), changes
+    )

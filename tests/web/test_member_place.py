@@ -354,6 +354,19 @@ class TestTheStandingFollowsTheChair:
         assert chairs_of(skat, table_id)[1] is None
         assert standing_of(agent) == []
 
+    @pytest.mark.usefixtures("seated")
+    def test_a_listening_agent_whose_lease_lapsed_is_told_when_the_hold_frees_its_chair(
+        self, skat, time, agent, table_id
+    ):
+        with agent.listening() as frames:
+            skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + 1)
+            freed = next(frames)
+            after = standing_of(agent)
+
+        assert freed["method"] == UPDATED
+        assert chairs_of(skat, table_id)[1] is None
+        assert after == []
+
     def test_the_end_of_the_table_leaves_an_invited_agent_told_and_with_no_table(
         self, invite, skat, time, agent, owner, table_id
     ):
@@ -362,9 +375,7 @@ class TestTheStandingFollowsTheChair:
         invite(agent, table_id, owner)
 
         with agent.listening() as frames:
-            for _ in range(DEFAULT_EMPTY_TABLE_SECONDS // (LEASE_SECONDS - 1) + 1):
-                skat.client.portal.call(time.advance, LEASE_SECONDS - 1)
-                agent.request("tools/list")  # a call renews the lease, so the agent stays offered
+            skat.client.portal.call(time.advance, DEFAULT_EMPTY_TABLE_SECONDS + 1)
             ended = next(frames)
             after = standing_of(agent)
 
