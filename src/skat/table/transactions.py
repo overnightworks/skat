@@ -86,7 +86,8 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
 
     def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
         """The live tables the account holds a chair at, each with its version, in id order; no row is locked, so the
-        list is a candidate list that every caller reads again under the lock before it shows anything.
+        list is a candidate list: a table may end or a chair move before the caller uses it, and a caller that shows
+        more than the table ids reads each table again under its lock.
         """
         ...
 
