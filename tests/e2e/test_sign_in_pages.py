@@ -7,6 +7,7 @@ from playwright.sync_api import Page, expect
 from skat.web.constants import AUTH_CALLBACK_PATH, LOGIN_PATH, NO_ACCESS_PATH
 from tests.e2e.support.browser import LEGAL_LINKS, record_page_errors
 from tests.e2e.support.people import FORM_FACTORS
+from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -42,14 +43,14 @@ def test_each_sign_in_page_names_skat_offers_its_one_action_and_links_both_legal
 
     assert response is not None
     assert response.status == status
-    expect(person).to_have_title("Skat")
+    expect(person).to_have_title(catalog_text("appName"))
     expect(person.get_by_role("heading", level=1)).to_be_visible()
-    expect(person.get_by_text("Skat").first).to_be_visible()
+    expect(person.get_by_text(catalog_text("appName")).first).to_be_visible()
     action_element = person.get_by_role("link", name=action, exact=True).or_(
         person.get_by_role("button", name=action, exact=True)
     )
     expect(action_element).to_have_count(1)
-    for label, href in LEGAL_LINKS.items():
-        expect(person.get_by_role("link", name=label)).to_have_attribute("href", href)
+    for key, href in LEGAL_LINKS.items():
+        expect(person.get_by_role("link", name=catalog_text(key))).to_have_attribute("href", href)
     expect(person.locator("body")).to_have_css("margin", "0px")
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
