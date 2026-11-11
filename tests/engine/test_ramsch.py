@@ -448,3 +448,53 @@ def test_the_reckoning_of_real_play_names_the_winner_or_the_loser(
     reckoning = reckon_ramsch(finished.result, with_options(jungfrau=jungfrau, durchmarsch=durchmarsch), multiplier=1)
 
     assert (reckoning.gains[FOREHAND], reckoning.losers) == (gain, losers)
+
+
+COUNTED = {
+    "the skat goes to the last trick's taker under points": (
+        played_out((47, 40, 23), (4, 4, 2), 10, REARHAND),
+        with_options(),
+        (47, 40, 33),
+    ),
+    "the skat goes to the last trick's taker under points divided by ten": (
+        played_out((47, 40, 23), (4, 4, 2), 10, REARHAND),
+        with_options(BY_TEN),
+        (47, 40, 33),
+    ),
+    "the skat goes to the seat with the most trick points under skat to loser": (
+        played_out((47, 40, 23), (4, 4, 2), 10, REARHAND),
+        with_options(SKAT_TO_LOSER),
+        (57, 40, 23),
+    ),
+    "each tied seat with the most trick points adds the skat under skat to loser": (
+        played_out((45, 45, 20), (4, 4, 2), 10, REARHAND),
+        with_options(SKAT_TO_LOSER),
+        (55, 55, 20),
+    ),
+    "a seat without the most trick points adds no skat under skat to loser even as the last trick's taker": (
+        played_out((30, 50, 40), (3, 4, 3), 10, FOREHAND),
+        with_options(SKAT_TO_LOSER),
+        (30, 60, 40),
+    ),
+    "a sweep counts 120 under points": (ROW_15, with_options(), (120, 0, 0)),
+    "a sweep counts 120 under points divided by ten": (ROW_15, with_options(BY_TEN), (120, 0, 0)),
+    "a sweep counts 120 under skat to loser": (ROW_15, with_options(SKAT_TO_LOSER), (120, 0, 0)),
+}
+
+
+@pytest.mark.parametrize(("played", "options", "points"), COUNTED.values(), ids=COUNTED.keys())
+def test_each_seat_counts_the_points_its_scoring_gives_it(
+    played: RamschPlayedOut, options: RamschOptions, points: tuple[int, int, int]
+) -> None:
+    reckoning = reckon_ramsch(played, options, multiplier=1)
+
+    assert dict(reckoning.counted_points) == dict(zip(POSITIONS, points, strict=True))
+
+
+def test_a_reckoning_cannot_be_changed_by_its_reader() -> None:
+    reckoning = reckon_ramsch(ROW_2, with_options(), multiplier=1)
+
+    with pytest.raises(TypeError):
+        reckoning.gains[FOREHAND] = 0  # type: ignore[index]
+    with pytest.raises(TypeError):
+        reckoning.counted_points[FOREHAND] = 0  # type: ignore[index]

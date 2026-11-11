@@ -191,7 +191,7 @@ def assert_no_hand_is_drawn(person: Page) -> None:
     assert person.evaluate(EMPTY_CHAIRS) == 0
 
 
-def write_dealer(server: RunningServer, table_id: str, seat: int | None) -> None:
+def write_dealer(server: RunningServer, table_id: str, seat: int) -> None:
     with server.engine.begin() as connection:
         connection.execute(update(tables).where(tables.c.id == table_id).values(dealer=seat))
 
@@ -199,7 +199,7 @@ def write_dealer(server: RunningServer, table_id: str, seat: int | None) -> None
 def end_the_hand(server: RunningServer, table_id: str) -> None:
     with server.engine.begin() as connection:
         connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table_id))
-    write_dealer(server, table_id, None)
+        connection.execute(update(tables).where(tables.c.id == table_id).values(dealer=None, last_played_at=None))
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

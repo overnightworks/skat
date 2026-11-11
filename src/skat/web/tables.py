@@ -3,29 +3,29 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
 from skat.engine.bidding import Awaiting
-from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement, Stage
 from skat.engine.games import GameKind
-from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
+from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
+from skat.table.game_list import RamschResultView
 from skat.table.records import (
     Actor,
     CommandRefusal,
     EndReason,
     OccupantKind,
-    TableOptions,
 )
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
+from skat.web.table_options import OptionsAnswer, options_answer_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -59,45 +59,6 @@ class CommandRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
-
-
-class KontraOptionsRequest(BaseModel):
-    """The opener names all three Kontra choices or none: the program defaults none of them. The table accepts the
-    deadline of the player's own next card only.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    sayer: KontraSayer
-    reach: KontraReach
-    deadline: Literal[KontraDeadline.OWN_CARD]
-
-
-class BockOptionsRequest(BaseModel):
-    """The opener names the triggers, at least one and none twice, and what a trigger does inside a Bock round."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    triggers: Annotated[list[BockTrigger], Field(min_length=1)]
-    overlap: BockOverlap
-
-    @field_validator("triggers")
-    @classmethod
-    def _names_each_trigger_once(cls, triggers: list[BockTrigger]) -> list[BockTrigger]:
-        if len(set(triggers)) != len(triggers):
-            message = "a trigger is named once"
-            raise ValueError(message)
-        return triggers
-
-
-class OptionsRequest(BaseModel):
-    """The rule options an opener sets; every later option joins this record."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    show_running_points: Annotated[bool, Field(strict=True)] = TableOptions().show_running_points
-    kontra: KontraOptionsRequest | None = None
-    bock: BockOptionsRequest | None = None
 
 
 class RefusalAnswer(BaseModel):
@@ -301,6 +262,7 @@ class HandAnswer(BaseModel):
     auction: AuctionAnswer
     declaring: DeclaringAnswer | None
     playing: PlayingAnswer | None
+    ramsch: bool
 
 
 class ChairAnswer(BaseModel):
@@ -335,6 +297,7 @@ class KontraResultAnswer(BaseModel):
 
 
 class ResultAnswer(BaseModel):
+    kind: Literal["declared"]
     ordinal: int
     declarer_seat: int
     game: GameToken
@@ -360,6 +323,21 @@ class ResultAnswer(BaseModel):
     opponents_points: int
     gains: list[SeatGainAnswer]
     kontra: KontraResultAnswer | None
+    bock_factor: int
+
+
+class RamschSeatAnswer(BaseModel):
+    seat: int
+    points: int
+    score: int
+
+
+class RamschResultAnswer(BaseModel):
+    kind: Literal["ramsch"]
+    ordinal: int
+    seats: list[RamschSeatAnswer]
+    durchmarsch_seat: int | None
+    jungfrau: bool
     bock_factor: int
 
 
@@ -389,23 +367,6 @@ class SeriesAnswer(BaseModel):
     end_proposal: SeriesEndProposalAnswer | None
 
 
-class KontraOptionsAnswer(BaseModel):
-    sayer: KontraSayer
-    reach: KontraReach
-    deadline: KontraDeadline
-
-
-class BockOptionsAnswer(BaseModel):
-    triggers: list[BockTrigger]
-    overlap: BockOverlap
-
-
-class OptionsAnswer(BaseModel):
-    show_running_points: bool
-    kontra: KontraOptionsAnswer | None
-    bock: BockOptionsAnswer | None
-
-
 class BockAnswer(BaseModel):
     games_left: int
     factor: int
@@ -418,7 +379,7 @@ class TableAnswer(BaseModel):
     watchers: int
     hand: HandAnswer | None
     passed_in: PassedInAnswer | None
-    result: ResultAnswer | None
+    result: Annotated[ResultAnswer | RamschResultAnswer, Field(discriminator="kind")] | None
     series: SeriesAnswer | None
     options: OptionsAnswer | None
     bock: BockAnswer | None
@@ -528,6 +489,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         auction=auction_answer_of(hand.auction),
         declaring=declaring_answer_of(hand.declaring),
         playing=playing_answer_of(hand.playing),
+        ramsch=hand.ramsch,
     )
 
 
@@ -563,11 +525,21 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
     )
 
 
-def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
+def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnswer | RamschResultAnswer | None:
     if result is None:
         return None
+    if isinstance(result, RamschResultView):
+        return RamschResultAnswer(
+            kind="ramsch",
+            ordinal=result.ordinal,
+            seats=[RamschSeatAnswer(seat=each.seat, points=each.points, score=each.score) for each in result.seats],
+            durchmarsch_seat=result.durchmarsch_seat,
+            jungfrau=result.jungfrau,
+            bock_factor=result.bock_factor,
+        )
     declaration, matadors = result.declaration, result.matadors
     return ResultAnswer(
+        kind="declared",
         ordinal=result.ordinal,
         declarer_seat=result.declarer_seat,
         game=GAME_TOKENS[declaration.kind],
@@ -599,17 +571,6 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
     )
 
 
-def options_answer_of(options: TableOptions) -> OptionsAnswer:
-    kontra, bock = options.kontra, options.bock
-    return OptionsAnswer(
-        show_running_points=options.show_running_points,
-        kontra=None
-        if kontra is None
-        else KontraOptionsAnswer(sayer=kontra.sayer, reach=kontra.reach, deadline=kontra.deadline),
-        bock=None if bock is None else BockOptionsAnswer(triggers=sorted(bock.triggers), overlap=bock.overlap),
-    )
-
-
 def answer_of(view: TableView) -> TableAnswer:
     return TableAnswer(
         id=view.id,
@@ -637,17 +598,6 @@ def answer_of(view: TableView) -> TableAnswer:
         ended=None
         if view.ended is None
         else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
-    )
-
-
-def table_options_of(requested: OptionsRequest | None) -> TableOptions:
-    if requested is None:
-        return TableOptions()
-    kontra, bock = requested.kontra, requested.bock
-    return TableOptions(
-        show_running_points=requested.show_running_points,
-        kontra=None if kontra is None else KontraOptions(kontra.sayer, kontra.reach, kontra.deadline),
-        bock=None if bock is None else BockOptions(frozenset(bock.triggers), bock.overlap),
     )
 
 

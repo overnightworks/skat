@@ -15,8 +15,9 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import DeclaringStep
     from skat.engine.kontra import WordSaid
+    from skat.engine.ramsch import RamschOptions
     from skat.engine.tricks import CardPlayed
-    from skat.table.game_list import ListEntry
+    from skat.table.game_list import GameEntry
 
 TABLE_ID_BYTES: Final = 16
 TABLE_ID_PATTERN: Final = "[0-9a-f]{32}"
@@ -69,6 +70,20 @@ class Actor:
     kind: OccupantKind = OccupantKind.PERSON
 
 
+class RamschOccasion(StrEnum):
+    """When a table plays a Ramsch; the stored token, also the request's and the answer's."""
+
+    PASSED_IN = "passed-in"
+
+
+@dataclass(frozen=True)
+class RamschSetting:
+    """A table's Ramsch: when it is played, and how the engine reckons it."""
+
+    occasion: RamschOccasion
+    reckoning: RamschOptions
+
+
 @dataclass(frozen=True)
 class TableOptions:
     """The rule options a table is opened with; they stay fixed for its life and the default is the official rules.
@@ -76,11 +91,14 @@ class TableOptions:
     `show_running_points` shows everyone the card points each side has taken in completed tricks while a suit or
     Grand game is played. `kontra` makes the table play the words Kontra and Re up to its reach; None plays without.
     `bock` makes the table deal Bock rounds as its triggers and overlap say; None plays without.
+    `ramsch` makes the table play a Ramsch where its occasion says, a hand all three pass instead of passing it in;
+    None plays the International Skat Order, which has no Ramsch.
     """
 
     show_running_points: bool = False
     kontra: KontraOptions | None = None
     bock: BockOptions | None = None
+    ramsch: RamschSetting | None = None
 
 
 @dataclass(frozen=True)
@@ -206,13 +224,15 @@ class EndProposal:
 @dataclass(frozen=True)
 class Series:
     """A table's series: its fixed `length` in games, the `deals` made so far, a passed-in hand included, whether it
-    `ended_early` by consent before its last game and the `end_proposal` standing between two games.
+    `ended_early` by consent before its last game and the `end_proposal` standing between two games. `number` numbers
+    the table's series, 1 for the first.
     """
 
     length: int
     deals: int
     ended_early: bool = False
     end_proposal: EndProposal | None = None
+    number: int = 1
 
     def __post_init__(self) -> None:
         if not SERIES_LENGTH_MIN <= self.length <= SERIES_LENGTH_MAX or self.length % SERIES_LENGTH_STEP:
@@ -229,6 +249,9 @@ class Series:
         if self.ended_early and self.deals == self.length:
             message = "a series that played its last game did not end early"
             raise ValueError(message)
+        if self.number < 1:
+            message = "a series is numbered from one"
+            raise ValueError(message)
 
 
 @dataclass(frozen=True)
@@ -242,7 +265,7 @@ class TableRecord:
     dealer: int | None
     hand: Deal | None
     progress: HandProgress
-    game_list: tuple[ListEntry, ...]
+    game_list: tuple[GameEntry, ...]
     series: Series | None
     options: TableOptions
     bock: BockRounds

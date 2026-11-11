@@ -124,13 +124,15 @@ def ended_series(service, transactions, table_id):
     """The series' only game played and its last game over: one list row, no hand, nobody has tapped."""
     record = read(transactions, table_id)
     with transactions.begin() as transaction:
-        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1, series=Series(3, 3)))
+        transaction.save_table(
+            replace(after_the_first_game(record), version=record.version + 1, series=Series(3, 3)), played_at=None
+        )
     return table_id
 
 
-def tap_all(service, table_id):
+def tap_all(service, table_id, round_name="new-series"):
     for seat, person in PEOPLE.items():
-        command = NewSeriesCommand(f"new-series-{seat}", table_id)
+        command = NewSeriesCommand(f"{round_name}-{seat}", table_id)
         assert service.start_new_series(person, command, ALL_THREE).refusal is None
 
 
@@ -145,7 +147,7 @@ class TestNewSeries:
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
 
         dealt = read(transactions, ended_series)
-        assert (dealt.series, dealt.game_list) == (Series(3, 1), ())
+        assert (dealt.series, dealt.game_list) == (Series(3, 1, number=2), ())
         assert [chair.ready for chair in dealt.chairs] == [False, False, False]
         assert rows_of(engine, game_list) == 0
         assert rows_of(engine, hand_cards) == 32
@@ -187,7 +189,7 @@ class TestNewSeries:
 
             assert TableService(restarted_transactions).deal_next(TableId(ended_series), nullcontext(ALL_THREE))
 
-            assert read(restarted_transactions, ended_series).series == Series(3, 1)
+            assert read(restarted_transactions, ended_series).series == Series(3, 1, number=2)
             assert rows_of(restarted_engine, game_list) == 0
         finally:
             restarted_engine.dispose()
@@ -209,7 +211,29 @@ class TestNewSeries:
             thread.join()
 
         assert sorted(answers) == [False, True]
-        assert read(transactions, ended_series).series == Series(3, 1)
+        assert read(transactions, ended_series).series == Series(3, 1, number=2)
+        assert rows_of(engine, game_list) == 0
+
+    def test_a_second_new_series_reads_number_three_and_deletes_the_list_again(
+        self, service, transactions, engine, ended_series
+    ):
+        tap_all(service, ended_series)
+        assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
+        record = read(transactions, ended_series)
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                replace(
+                    after_the_first_game(record),
+                    version=record.version + 1,
+                    series=Series(3, 3, number=2),
+                ),
+                played_at=None,
+            )
+        tap_all(service, ended_series, "second-new-series")
+
+        assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
+
+        assert read(transactions, ended_series).series == Series(3, 1, number=3)
         assert rows_of(engine, game_list) == 0
 
     def test_a_retried_tap_after_the_deal_changes_nothing(self, service, transactions, engine, ended_series):
@@ -225,15 +249,16 @@ class TestNewSeries:
 
     @pytest.mark.parametrize(
         ("deals", "dealt"),
-        [(2, False), (3, False), (1, False), (2, True)],
+        [(2, False), (3, False), (1, False), (2, True), (1, True)],
         ids=[
             "handless-inside-a-series",
             "handless-at-its-last-game",
             "handless-at-its-first-game",
             "dealt-inside-a-series",
+            "dealt-with-the-same-number-and-an-empty-list",
         ],
     )
-    def test_a_list_that_does_not_continue_the_stored_one_raises_outside_a_series_first_deal(
+    def test_a_list_that_does_not_continue_the_stored_one_raises_unless_the_series_number_rises(
         self, transactions, engine, ended_series, deals, dealt
     ):
         record = read(transactions, ended_series)
@@ -244,7 +269,7 @@ class TestNewSeries:
 
         def save():
             with transactions.begin() as transaction:
-                transaction.save_table(rewritten)
+                transaction.save_table(rewritten, played_at=None)
 
         with pytest.raises(StepLogRewrittenError):
             save()
@@ -258,7 +283,7 @@ def between_games(service, transactions, table_id):
     """A series of three whose first game is played: its result stands, nobody has tapped."""
     record = read(transactions, table_id)
     with transactions.begin() as transaction:
-        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1))
+        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1), played_at=None)
     return table_id
 
 
@@ -392,5 +417,5 @@ class TestEndingEarly:
 
         assert service.deal_next(TableId(between_games), nullcontext(ALL_THREE)) is True
 
-        assert read(transactions, between_games).series == Series(3, 1)
+        assert read(transactions, between_games).series == Series(3, 1, number=2)
         assert rows_of(engine, game_list) == 0

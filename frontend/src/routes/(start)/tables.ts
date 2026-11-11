@@ -90,13 +90,17 @@ export type Chair = {
     is_mine: boolean;
     is_away: boolean;
     ready: boolean;
-    // The person's running total; null on a free chair and until the table's first result.
+    // The person's running total; null on a free chair and, in a table's first series, until its first result;
+    // a later series reads 0 from its first deal.
     total: number | null;
     hand: ChairHand | null;
 };
+// A Ramsch result is a result with an ordinal; the page draws no card for it.
+export type RamschResult = { kind: "ramsch"; ordinal: number };
 export type SeatGain = { seat: number; gain: number; won: boolean };
 // The finished game as the server counted it; the page draws these numbers and decides no rule.
 export type Result = {
+    kind: "declared";
     ordinal: number;
     declarer_seat: number;
     game: Game;
@@ -132,7 +136,7 @@ export type Table = {
     chairs: Chair[];
     watchers: number;
     hand: Hand | null;
-    result: Result | null;
+    result: Result | RamschResult | null;
     passed_in: PassedIn | null;
     ended: Ended | null;
 };

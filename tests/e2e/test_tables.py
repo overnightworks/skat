@@ -270,7 +270,9 @@ def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
     expect_a_table_seating(person, "anna", mine=True)
     person.route(f"**{TABLES_PATH}/{UNKNOWN_ID}", hold_the_first_read)
 
-    person.go_back()
+    # Going back makes the page read the unknown table; going forward before that read leaves nothing to hold.
+    with person.expect_request(re.compile(f"{TABLES_PATH}/{UNKNOWN_ID}$")):
+        person.go_back()
     expect(person).to_have_url(re.compile(f"{UNKNOWN_ID}$"))
     person.go_forward()
     expect(person).to_have_url(TABLE_URL)

@@ -2,7 +2,7 @@ import copy
 import secrets
 from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Protocol
 
 from skat.engine.deal import deal, draw_dealer, next_dealer
@@ -11,11 +11,6 @@ from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decid
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
 from skat.table.playing import (
-    AGREE_TO_GIVE_UP_COMMAND,
-    DECLINE_GIVE_UP_COMMAND,
-    GIVE_UP_COMMAND,
-    PLAY_CARD_COMMAND,
-    THROW_DOWN_COMMAND,
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
     GiveUpCommand,
@@ -57,8 +52,13 @@ from skat.table.records import (
     TableRecord,
 )
 from skat.table.rules import (
+    AGREE_TO_GIVE_UP_COMMAND,
+    DECLINE_GIVE_UP_COMMAND,
+    GIVE_UP_COMMAND,
+    PLAY_CARD_COMMAND,
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
+    THROW_DOWN_COMMAND,
     CommandIdReusedError,
     PresenceStep,
     ResumeStep,
@@ -71,6 +71,7 @@ from skat.table.rules import (
     decide_stand,
     ends_empty,
     hand_was_dealt,
+    is_deal_or_step_of_play,
     next_deal_due,
     presence_step,
     present_at,
@@ -98,7 +99,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from contextlib import AbstractContextManager
 
-    from skat.table.game_list import SeriesEntryView
+    from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
 
 __all__ = [
     "CommandIdReusedError",
@@ -106,6 +107,7 @@ __all__ = [
     "DuplicateReceiptError",
     "LiveWait",
     "OccupiedChair",
+    "PausedFacts",
     "TableService",
     "TableTransaction",
     "TableTransactions",
@@ -127,27 +129,38 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         """
         ...
 
-    def save_table(self, table: TableRecord) -> None:
+    def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         """Write the table's version, chairs and dealer, a new hand's cards and steps, and new list entries.
+
+        `played_at` is the time of the deal or step of play this save records and is written in the same statement
+        as the dealer; None leaves the stored time as it is, so a save that deals a hand with none is refused.
 
         A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
         hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
         dealt: a record whose hand differs from it while the hand has progress raises, unless the third pass ended
-        the hand. A list that does not continue the stored one raises, unless the record is a series' first deal, which
-        empties the stored list first; a free chair that is ready raises too.
+        the hand of a table without Ramsch. A list that does not continue the stored one raises, unless the record is
+        a newly dealt hand whose series number is above the stored one, which empties the stored list first; a free
+        chair that is ready raises too.
         """
         ...
 
-    def add_table(self, table: TableRecord) -> None: ...
+    def add_table(self, table: TableRecord, opener_name: str) -> None:
+        """Insert the table with the opener's display name, which no later write changes."""
+        ...
 
     def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
-        """End the table whose row this transaction locked, once: its version rises by one, its dealer clears, and
-        it keeps only its row and its create receipt, so its id is never issued again and a create retry finds it.
+        """End the table whose row this transaction locked, once: its version rises by one, its dealer, last
+        played time and opener's name clear, and it keeps only its row and its create receipt, so its id is never
+        issued again and a create retry finds it.
         """
         ...
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         """Since when nobody has been at the table, or None while it is unset."""
+        ...
+
+    def paused_facts(self, table_id: TableId) -> PausedFacts:
+        """The last played time and the opener's name of a live table on which a hand was dealt."""
         ...
 
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
@@ -178,6 +191,16 @@ class LiveWait:
     table_id: TableId
     dealer: int | None
     empty_since: datetime | None
+
+
+@dataclass(frozen=True)
+class PausedFacts:
+    """What the store keeps beside a dealt table's record: the time of its last deal or step of play, and the name its
+    opener had when he opened it, None for a table opened before the name was kept.
+    """
+
+    last_played_at: datetime
+    opener_name: str | None
 
 
 @dataclass(frozen=True)
@@ -243,7 +266,7 @@ class TableService:
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset())
             table = decide_create(actor, self._new_table_id(), command.series_length, command.options)
-            transaction.add_table(table)
+            transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())
@@ -466,7 +489,7 @@ class TableService:
             decision = decide_free_chair(table, account_id)
             if decision.refusal is not None:
                 return False
-            transaction.save_table(decision.table)
+            transaction.save_table(decision.table, played_at=None)
             return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
@@ -484,7 +507,7 @@ class TableService:
             connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if connected is None or not next_deal_due(table, connected):
                 return False
-            transaction.save_table(dealt_next(table, self._new_hand(table)))
+            transaction.save_table(dealt_next(table, self._new_hand(table)), played_at=self._now())
             return True
 
     def end_empty_table(
@@ -571,8 +594,9 @@ class TableService:
         held = {chair.table_id for chair in self.occupied_chairs() if chair.account_id == account_id}
         return tuple(sorted(held, key=lambda table_id: table_id.value))
 
-    def paused_tables(self, actor: Actor) -> tuple[PausedEntryView, ...]:
-        """The live tables on which a hand was dealt and whose chair the actor holds, in id order.
+    def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
+        """The live tables on which a hand was dealt and whose chair the actor holds, the soonest end first, ties in
+        id order; a table ends `days` days after the time of its last deal or step of play.
 
         The chair scan is unlocked, so each candidate is read again in one transaction under its shared row lock: an
         ended table, a table without a dealt hand and one whose chair the actor left meanwhile are skipped.
@@ -580,13 +604,17 @@ class TableService:
         candidates = self.tables_held_by(actor.account_id)
         with self._transactions.begin() as transaction:
             tables = (transaction.table(table_id) for table_id in candidates)
-            return tuple(
-                paused_entry_of(table, actor.account_id)
-                for table in tables
-                if isinstance(table, TableRecord)
-                and hand_was_dealt(table)
-                and seat_of(table, actor.account_id) is not None
-            )
+            entries: list[PausedEntryView] = []
+            for table in tables:
+                if (
+                    isinstance(table, TableRecord)
+                    and hand_was_dealt(table)
+                    and seat_of(table, actor.account_id) is not None
+                ):
+                    facts = transaction.paused_facts(table.id)
+                    ends_at = facts.last_played_at.astimezone(UTC) + timedelta(days=days)
+                    entries.append(paused_entry_of(table, actor.account_id, ends_at, facts.opener_name))
+        return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
     def _new_hand(self, table: TableRecord) -> NewHand:
         """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
@@ -647,9 +675,7 @@ class TableService:
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
-                    transaction.save_table(decision.table)
-                    if hand_was_dealt(decision.table) and not hand_was_dealt(table):
-                        transaction.set_empty_since(identifier, None)
+                    self._save_decided(transaction, command, table, decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
@@ -666,6 +692,14 @@ class TableService:
                 seated_when_hand_ended,
                 away_when_hand_ended,
             )
+
+    def _save_decided(
+        self, transaction: TableTransaction, command: str, before: TableRecord, after: TableRecord
+    ) -> None:
+        played = is_deal_or_step_of_play(command, before, after)
+        transaction.save_table(after, played_at=self._now() if played else None)
+        if hand_was_dealt(after) and not hand_was_dealt(before):
+            transaction.set_empty_since(after.id, None)
 
     def _table_read(self, table_id: str) -> TableRecord | EndedTable | None:
         identifier = TableId.parse(table_id)
@@ -685,7 +719,7 @@ class TableService:
         )
         return view_of(table, actor.account_id, present)
 
-    def series_list(self, table_id: str) -> tuple[SeriesEntryView, ...] | None:
+    def series_list(self, table_id: str) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...] | None:
         """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""
         table = self._table_read(table_id)
         if table is None:

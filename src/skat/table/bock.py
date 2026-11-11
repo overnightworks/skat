@@ -9,8 +9,9 @@ from skat.table.rules import series_games_left
 
 if TYPE_CHECKING:
     from skat.engine.bidding import PassedIn
+    from skat.engine.ramsch import RamschPlayedOut
     from skat.engine.tricks import PlayedOut
-    from skat.table.game_list import ListEntry
+    from skat.table.game_list import GameEntry
     from skat.table.records import TableRecord
 
 
@@ -24,7 +25,7 @@ class BockView:
     factor: int
 
 
-def _total_changes(table: TableRecord, entry: ListEntry) -> tuple[TotalChange, ...]:
+def _total_changes(table: TableRecord, entry: GameEntry) -> tuple[TotalChange, ...]:
     reach = reach_of(table.options)
     accounts = (chair.occupant.account_id for chair in table.chairs if chair.occupant is not None)
     return tuple(
@@ -38,11 +39,14 @@ def bock_at_series_end() -> BockRounds:
     return BockRounds.start()
 
 
-def bock_after(table: TableRecord, ended: PlayedOut | PassedIn, entry: ListEntry | None) -> BockRounds:
+def bock_after(
+    table: TableRecord, ended: PlayedOut | PassedIn | RamschPlayedOut, entry: GameEntry | None
+) -> BockRounds:
     """The pending Bock rounds once the table's running hand has ended; `entry` is the hand's list entry, None for a
     passed-in hand, which leaves none.
 
-    The hand uses up a Bock game and meets the table's triggers; the series' last game lets every round lapse.
+    The hand, a Ramsch included, uses up a Bock game and meets the table's triggers; the series' last game lets every
+    round lapse.
     """
     options = table.options.bock
     if options is None:

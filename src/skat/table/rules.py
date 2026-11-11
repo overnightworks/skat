@@ -36,6 +36,14 @@ FIRST_VERSION: Final = 1
 CREATE_TABLE_COMMAND: Final = "create-table"
 SIT_DOWN_COMMAND: Final = "sit-down"
 STAND_UP_COMMAND: Final = "stand-up"
+PLAY_CARD_COMMAND: Final = "play-card"
+GIVE_UP_COMMAND: Final = "give-up"
+THROW_DOWN_COMMAND: Final = "throw-down"
+AGREE_TO_GIVE_UP_COMMAND: Final = "give-up-agree"
+DECLINE_GIVE_UP_COMMAND: Final = "give-up-decline"
+STEP_OF_PLAY_COMMANDS: Final = frozenset(
+    {PLAY_CARD_COMMAND, GIVE_UP_COMMAND, AGREE_TO_GIVE_UP_COMMAND, THROW_DOWN_COMMAND}
+)
 
 
 class CommandIdReusedError(Exception):
@@ -78,6 +86,13 @@ def create_payload(command: CreateTable) -> str:
     if bock is not None:
         triggers = ",".join(f'"{trigger.value}"' for trigger in sorted(bock.triggers))
         members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
+    ramsch = command.options.ramsch
+    if ramsch is not None:
+        members.append(
+            f'"ramsch":{{"durchmarsch":"{ramsch.reckoning.durchmarsch.value}",'
+            f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
+            f'"scoring":"{ramsch.reckoning.scoring.value}"}}'
+        )
     return "{" + ",".join(members) + "}"
 
 
@@ -146,6 +161,17 @@ def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
 
 
+def is_deal_or_step_of_play(command: str, before: TableRecord, after: TableRecord) -> bool:
+    """An accepted decision dealt a hand, or was a step of play that changed the table.
+
+    A step is a played card, a give-up request, its agreement or a throw-down whose table version rose: a second
+    give-up request while one stands changes nothing. The third pass that starts a Ramsch deals nothing, since the
+    hand runs before and after it.
+    """
+    dealt = not hand_runs(before) and hand_runs(after)
+    return dealt or (command in STEP_OF_PLAY_COMMANDS and after.version > before.version)
+
+
 def series_games_left(table: TableRecord) -> int | None:
     """The games the series still deals, a running hand included; None for a table with no series."""
     if table.series is None:
@@ -170,13 +196,19 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
-    in its series; at a series' end this deal is the next series' first, so the list empties and the count starts
-    at one. A deal clears the end proposal and the early end. Every deal goes through here.
+    in its series; at a series' end this deal is the next series' first, so the list empties, the count starts at
+    one and the series' number rises. A deal clears the end proposal and the early end. Every deal goes through here.
     """
     starts_series = series_over(table)
     series = table.series
     if series is not None:
-        series = replace(series, deals=1 if starts_series else series.deals + 1, ended_early=False, end_proposal=None)
+        series = replace(
+            series,
+            deals=1 if starts_series else series.deals + 1,
+            ended_early=False,
+            end_proposal=None,
+            number=series.number + 1 if starts_series else series.number,
+        )
     return TableRecord(
         id=table.id,
         version=version,

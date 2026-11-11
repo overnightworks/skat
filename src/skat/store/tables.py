@@ -45,7 +45,7 @@ from skat.table.records import (
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, TableTransaction
+from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableTransaction
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -113,6 +113,7 @@ def _series_of(table: Row[Any]) -> Series | None:
     return Series(
         table.series_length,
         table.series_deals,
+        number=table.series_number,
         ended_early=table.series_ended_early,
         end_proposal=end_proposal,
     )
@@ -169,9 +170,8 @@ def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked 
     return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
 
 
-def _starts_series(table: TableRecord) -> bool:
-    """The record holds a hand that is its series' first deal, which empties the list."""
-    return table.series is not None and table.series.deals == 1 and table.hand is not None
+def _series_number_of(table: TableRecord) -> int:
+    return 1 if table.series is None else table.series.number
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
@@ -218,16 +218,21 @@ class _PostgresTableTransaction:
         table = _table_record(self._connection, table_id.value, row_lock="update")
         return table if isinstance(table, TableRecord) else None
 
-    def _write_table_row(self, table: TableRecord) -> None:
-        """The row's changing columns: the series length and the options are written by `add_table` and never here."""
+    def _write_table_row(self, table: TableRecord, played_at: datetime | None) -> None:
+        """The row's changing columns: the series length, the options and the opener's name are written by `add_table`
+        and never here; no time leaves the last played time as it is.
+        """
         asked = table.progress.give_up
+        played = {} if played_at is None else {"last_played_at": played_at}
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table.id.value)
             .values(
                 version=table.version,
                 dealer=table.dealer,
+                **played,
                 series_deals=None if table.series is None else table.series.deals,
+                series_number=_series_number_of(table),
                 **_series_end_columns(table.series),
                 bock_rounds=list(table.bock.remaining),
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
@@ -251,7 +256,14 @@ class _PostgresTableTransaction:
                 )
             )
 
-    def save_table(self, table: TableRecord) -> None:
+    def _raises_series_number(self, table: TableRecord) -> bool:
+        """The record's series number is above the stored one, read before the row is written."""
+        stored = self._connection.execute(
+            select(tables.c.series_number).where(tables.c.id == table.id.value)
+        ).scalar_one()
+        return _series_number_of(table) > stored
+
+    def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         dealt = _read_hand(self._connection, table.id.value)
         ended = dealt is not None and table.hand is None
         passed_in = ended and isinstance(auction_of(table).result, PassedIn)
@@ -259,8 +271,9 @@ class _PostgresTableTransaction:
         if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not passed_in:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
-        self._write_table_row(table)
-        if dealt is None and _starts_series(table):
+        starts_series = dealt is None and table.hand is not None and self._raises_series_number(table)
+        self._write_table_row(table, played_at)
+        if starts_series:
             self._connection.execute(delete(game_list).where(game_list.c.table_id == table.id.value))
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
@@ -276,13 +289,15 @@ class _PostgresTableTransaction:
         append_words(self._connection, table.id.value, table.progress.words)
         self._write_chairs(table)
 
-    def add_table(self, table: TableRecord) -> None:
+    def add_table(self, table: TableRecord, opener_name: str) -> None:
         self._connection.execute(
             insert(tables).values(
                 id=table.id.value,
                 version=table.version,
+                opener_name=opener_name,
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
+                series_number=_series_number_of(table),
                 **option_values(table.options),
             )
         )
@@ -307,6 +322,8 @@ class _PostgresTableTransaction:
             .values(
                 version=tables.c.version + 1,
                 dealer=None,
+                last_played_at=None,
+                opener_name=None,
                 ended_at=at,
                 end_reason=EndReason.EMPTY.value,
                 empty_seconds=empty_seconds,
@@ -321,6 +338,12 @@ class _PostgresTableTransaction:
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self._connection.execute(select(tables.c.empty_since).where(tables.c.id == table_id.value)).scalar_one()
+
+    def paused_facts(self, table_id: TableId) -> PausedFacts:
+        row = self._connection.execute(
+            select(tables.c.last_played_at, tables.c.opener_name).where(tables.c.id == table_id.value)
+        ).one()
+        return PausedFacts(row.last_played_at, row.opener_name)
 
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
         self._connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=since))

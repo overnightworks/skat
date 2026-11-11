@@ -18,7 +18,7 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.game_list import ListEntry, standings_of
+from skat.table.game_list import ListEntry, RamschEntry, standings_of
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, SitDown
@@ -132,6 +132,27 @@ OUVERT_HAND = an_entry(
 )
 
 
+def a_ramsch_entry(**numbers):
+    fields = {
+        "seat_accounts": tuple(actor.account_id for actor in SEATED),
+        "seat_names": tuple(actor.display_name for actor in SEATED),
+        "seat_points": (12, 40, 68),
+        "seat_scores": (-12, -40, -68),
+        "durchmarsch_seat": None,
+        "jungfrau": False,
+        "bock_factor": 1,
+        **numbers,
+    }
+    return RamschEntry(**fields)
+
+
+A_RAMSCH = a_ramsch_entry()
+A_DURCHMARSCH = a_ramsch_entry(seat_points=(120, 0, 0), seat_scores=(120, -7, -9), durchmarsch_seat=1)
+A_JUNGFRAU = a_ramsch_entry(seat_points=(0, 50, 70), seat_scores=(-4, -25, -35), jungfrau=True)
+A_BOCK_RAMSCH = a_ramsch_entry(seat_scores=(-24, -80, -136), bock_factor=2)
+A_RAMSCH_IN_TWO_ROUNDS = a_ramsch_entry(seat_scores=(-48, -160, -272), bock_factor=4)
+
+
 def rows_of(engine, table_id, name):
     with engine.connect() as connection:
         return connection.execute(
@@ -230,7 +251,9 @@ class TestTheList:
         second = replace(first, won=not first.won)
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(first, second)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(first, second)), played_at=None
+            )
 
         assert list(map(attrgetter("ordinal"), stored_list_rows(engine, ended.table_id))) == [1, 2]
         assert ended.record.game_list == (first, second)
@@ -241,7 +264,7 @@ class TestTheList:
 
         def save():
             with transactions.begin() as transaction:
-                transaction.save_table(rewritten)
+                transaction.save_table(rewritten, played_at=None)
 
         with pytest.raises(StepLogRewrittenError):
             save()
@@ -254,7 +277,9 @@ class TestTheList:
         sat_again = replace(sat_again, seat_names=("Anna", "Dora", "Cleo"))
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(first, sat_again)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(first, sat_again)), played_at=None
+            )
 
         names = {
             each.account_id: each.display_name for each in standings_of(ended.record.game_list, KontraReach.KONTRA_RE)
@@ -266,7 +291,9 @@ class TestTheList:
         nameless = replace(record.game_list[0], seat_names=(None, None, None))
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, nameless)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, nameless)), played_at=None
+            )
 
         assert ended.record.game_list[1].seat_names == (None, None, None)
         assert {each.display_name for each in standings_of(ended.record.game_list, KontraReach.KONTRA_RE)} == {None}
@@ -276,7 +303,9 @@ class TestTheList:
         record = ended.record
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, entry)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, entry)), played_at=None
+            )
 
         assert ended.record.game_list[1] == entry
         row = stored_list_rows(engine, ended.table_id)[1]
@@ -290,6 +319,21 @@ class TestTheList:
         stored_matadors = None if row.matadors_mit is None else (row.matadors_mit, row.matadors_count)
         built_matadors = None if entry.matadors is None else (entry.matadors.mit, entry.matadors.count)
         assert stored_matadors == built_matadors
+
+    @pytest.mark.parametrize(
+        "entry",
+        [A_RAMSCH, A_DURCHMARSCH, A_JUNGFRAU, A_BOCK_RAMSCH, A_RAMSCH_IN_TWO_ROUNDS],
+        ids=["plain", "durchmarsch", "jungfrau", "bock", "two-rounds"],
+    )
+    def test_a_ramsch_entry_after_a_declared_one_reads_back_as_written(self, ended, transactions, entry):
+        record = ended.record
+
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, entry)), played_at=None
+            )
+
+        assert ended.record.game_list == (*record.game_list, entry)
 
     def test_the_schema_keeps_matadors_only_outside_null(self, ended, engine):
         statement = text("UPDATE game_list SET matadors_mit = NULL WHERE table_id = :table_id")

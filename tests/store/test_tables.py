@@ -3,6 +3,7 @@ import random
 import threading
 from contextlib import contextmanager, nullcontext
 from dataclasses import replace
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import func, select, table, text
@@ -326,9 +327,9 @@ class TestHand:
         other_id = dealing.create(OPENER, CreateTable(command_id="command-other")).id
         other = self.stored(engine, other_id)
         with PostgresTableTransactions(engine).begin() as transaction:
-            transaction.save_table(replace(other, dealer=dealt.dealer))
+            transaction.save_table(replace(other, dealer=dealt.dealer), played_at=datetime(2026, 11, 1, 12, tzinfo=UTC))
         with PostgresTableTransactions(engine).begin() as transaction:
-            transaction.save_table(replace(other, dealer=dealt.dealer, hand=dealt.hand))
+            transaction.save_table(replace(other, dealer=dealt.dealer, hand=dealt.hand), played_at=None)
 
         record = self.stored(engine, other_id)
         assert (record.dealer, record.hand) == (dealt.dealer, dealt.hand)
@@ -480,7 +481,7 @@ class TestDealtHandStays:
 
         def save():
             with transactions.begin() as transaction:
-                transaction.save_table(changed)
+                transaction.save_table(changed, played_at=None)
 
         with pytest.raises(DealtHandRewrittenError):
             save()
@@ -492,7 +493,7 @@ class TestDealtHandStays:
         changed = replace(record, hand=differing_hand, version=record.version + 1)
 
         with transactions.begin() as transaction:
-            transaction.save_table(changed)
+            transaction.save_table(changed, played_at=None)
 
         assert self.read(transactions, record).hand == record.hand
 
@@ -610,7 +611,7 @@ class TestReadyMarks:
         """Three seated after their first game, its result pending."""
         table_id = TestDealNext.seated(service)
         with transactions.begin() as transaction:
-            transaction.save_table(after_the_first_game(stored(transactions, table_id)))
+            transaction.save_table(after_the_first_game(stored(transactions, table_id)), played_at=None)
         return table_id
 
     def tap(self, service, actor, table_id, command_id):

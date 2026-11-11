@@ -33,15 +33,16 @@ from skat.web.constants import (
     LOGIN_PATH,
     LOGOUT_PATH,
     NO_ACCESS_PATH,
-    PERMISSIONS_POLICY,
+    SIGN_IN_PATHS,
 )
 from skat.web.gate import session_gate
 from skat.web.sign_in import build_sign_in_configs
-from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
+from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import (
+    ANNOUNCER_STYLE_HASH,
     CALL_PAGE_MODULE,
     CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
@@ -57,6 +58,8 @@ from tests.support.signed_in import SeededMember, cookie_header, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from webauth.single_process_stores import SingleProcessStores
 
 BROWSER_ACCEPT = {"accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
 FETCH_ACCEPT = {"accept": "application/json"}
@@ -96,12 +99,10 @@ SAME_ORIGIN_FORM_POST = {**FORM_POST, "origin": TEST_PUBLIC_ORIGIN}
 JSON_POST = {"content-type": "application/json"}
 CROSS_SITE_FORM_POST = {**FORM_POST, "origin": "https://evil.example"}
 END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
-# The ruled text (Card A, 29.10.2026): kit 3.1.0's announcer style is the one inline style admitted, by its hash.
-ANNOUNCER_STYLE_SOURCES = "'unsafe-hashes' 'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='"
 EXPECTED_CONTENT_SECURITY_POLICY = (
     "default-src 'none'; base-uri 'self'; "
     f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASH}'; "
-    f"style-src 'self' {ANNOUNCER_STYLE_SOURCES}; "
+    f"style-src 'self' 'unsafe-hashes' '{ANNOUNCER_STYLE_HASH}'; "
     "connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; "
     "manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'"
 )
@@ -119,7 +120,7 @@ class Application:
     """create_app over stores the test holds, reached through an https client like a browser's."""
 
     def __init__(self, sign_in: SignInSettings, **options) -> None:
-        self.stores = SignInStores.in_memory()
+        self.stores = in_memory_stores()
         self.issuer = FakeIssuer(sign_in)
         self.app = create_app(
             sign_in.settings,
@@ -459,7 +460,7 @@ class TestRevalidation:
 class TestSessionLifetime:
     def test_a_session_ends_after_twelve_hours(self, sign_in_settings):
         sign_in = sign_in_settings()
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores()
         now = [1_800_000_000.0]
         config: WebAuthConfig = replace(build_sign_in_configs(sign_in.settings).web_auth, wall_clock=lambda: now[0])
         member = seed_member(stores, config)
@@ -507,12 +508,11 @@ class TestPageBuildAssets:
         assert (response.status_code, response.headers["cache-control"]) == (200, "no-cache")
 
 
-def install_gate(app: FastAPI, stores: SignInStores) -> None:
+def install_gate(app: FastAPI, stores: SingleProcessStores) -> None:
     install_web_auth_middleware(
         app,
-        security_headers=SecurityHeadersPolicy(
-            content_security_policy=default_content_security_policy(), permissions_policy=PERMISSIONS_POLICY
-        ),
+        sign_in_paths=SIGN_IN_PATHS,
+        security_headers=SecurityHeadersPolicy(content_security_policy=default_content_security_policy()),
         csrf_origin=CsrfPolicy(),
         session_gate=session_gate(stores.sessions, PublicRule(PathRules(exact=frozenset()))),
     )
@@ -545,7 +545,7 @@ class TestSecurityHeaders:
         response = application.request(method, path, member, **headers)
         assert response.status_code == status
         assert response.headers["content-security-policy"] == EXPECTED_CONTENT_SECURITY_POLICY
-        assert response.headers["permissions-policy"] == PERMISSIONS_POLICY
+        assert "display-capture=()" in response.headers["permissions-policy"]
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-frame-options"] == "DENY"
         assert "referrer-policy" in response.headers

@@ -1,7 +1,7 @@
 import secrets
 import threading
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,13 +15,14 @@ from skat.host.app import create_app
 from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
+from skat.web.paused import PAUSED_TABLES_PATH
 from skat.web.secret_files import StartRefusedError
-from skat.web.stores import SignInStores
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.idle_presence import IdleScheduler
+from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import CALL_PAGE_SCRIPT_HASH, FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -35,7 +36,7 @@ THIRD = Actor(account_id="account-cleo", display_name="Cleo")
 
 
 def signed_in_client(settings: ServerSettings) -> TestClient:
-    stores = SignInStores.in_memory()
+    stores = in_memory_stores()
     app = create_app(
         settings,
         page_build=fixture_page_build(),
@@ -132,7 +133,7 @@ class TestCreateApp:
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
         settings = sign_in_settings(empty_table_seconds=1800).settings
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores()
         app = create_app(
             settings,
             page_build=fixture_page_build(),
@@ -148,6 +149,31 @@ class TestCreateApp:
             answer = client.get(f"{TABLES_PATH}/{opened.id}")
 
         assert answer.json()["ended"] == {"reason": EndReason.EMPTY, "empty_seconds": 1800}
+
+    def test_the_paused_table_days_setting_decides_the_end_a_paused_entry_names(self, sign_in_settings):
+        dealt_at = datetime(2026, 11, 1, 12, tzinfo=UTC)
+        tables = TableService(FakeTableStore(), now=lambda: dealt_at)
+        stores = in_memory_stores()
+        settings = sign_in_settings(paused_table_days=7).settings
+        app = create_app(
+            settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            rule_sets=in_memory_rule_sets(),
+            stores=stores,
+            chair_scheduler=IdleScheduler(),
+        )
+        member = seed_member(stores, installed_web_auth_config(app))
+        opened = tables.create(Actor(member.account.id, "Anna"), CreateTable(command_id="command-open"))
+        for seat, person in ((2, VISITOR), (3, THIRD)):
+            tables.sit(person, SitDown(f"command-{seat}", opened.id, seat), frozenset())
+        headers = {"cookie": cookie_header(member.set_cookie_headers), "accept": "application/json"}
+
+        with TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers) as client:
+            answer = client.get(PAUSED_TABLES_PATH)
+
+        (entry,) = answer.json()["tables"]
+        assert entry["ends_at"] == (dealt_at + timedelta(days=7)).isoformat().replace("+00:00", "Z")
 
     def test_a_store_failure_when_the_server_starts_fails_the_start(self, sign_in_settings):
         class Unreadable(FakeTableStore):
@@ -249,7 +275,7 @@ class TestCreateApp:
     def test_signs_members_in_to_the_stores_it_is_given(self, sign_in_settings):
         sign_in = sign_in_settings()
         issuer = FakeIssuer(sign_in)
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores()
         app = create_app(
             sign_in.settings,
             page_build=fixture_page_build(),

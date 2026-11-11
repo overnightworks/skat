@@ -23,7 +23,9 @@ BOCK_OPTIONS = TableOptions(bock=BockOptions(frozenset({BockTrigger.PASSED_IN, B
 
 def hold_pending_bock_games(transactions, table_id, *rounds):
     with transactions.begin() as transaction:
-        transaction.save_table(replace(transaction.locked_table(TableId(table_id)), bock=BockRounds(rounds)))
+        transaction.save_table(
+            replace(transaction.locked_table(TableId(table_id)), bock=BockRounds(rounds)), played_at=None
+        )
 
 
 def test_a_table_reads_back_its_bock_options_and_its_pending_games_after_a_restart(service, transactions, database_url):

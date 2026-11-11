@@ -137,11 +137,11 @@ def _add_give_up(router: APIRouter, tables: TableService, presence: Presence) ->
         the opponents are asked: `hand.playing.give_up` in the answer names the asking seat and an opponent's seat
         that said no. The game ends once one opponent agrees, lost as declared, or won as it stands if the caller's
         tricks and the skat already win it. A card played, or a no from both, ends the request and play goes on.
-        Use it when `hand.declaring.declarer_seat` in the answer of read_table is the chair marked `is_mine`, once
-        `hand.playing` is set, on anyone's turn. The table id and the version come from that answer. The command id
-        names this step: the same id with the same version is a retry that changes nothing twice. A refusal (a stale
-        version, not the declarer) comes back as a failed result with its reason, leaves the table as it was and
-        spends the command id: the next attempt takes a new command id.
+        Use it when `hand.declaring.declarer_seat` in the answer of read_table is the chair marked `is_mine`, once a
+        declared game is played (`hand.declaring.declaration` is set), on anyone's turn. The table id and the
+        version come from that answer. The command id names this step: the same id with the same version is a retry
+        that changes nothing twice. A refusal (a stale version, not the declarer) comes back as a failed result with
+        its reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
         """
         command = GiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
@@ -229,11 +229,11 @@ def _add_throw_down(router: APIRouter, tables: TableService, presence: Presence)
 
         The caller's side keeps the tricks it has completed; every card in no completed trick, the trick in progress
         included, counts for the other side, and the skat for the declarer. No card is shown. Use it from the
-        caller's chair once `hand.playing` is set in the answer of read_table, on anyone's turn, as declarer or as
-        opponent. The table id and the version come from that answer. The command id names this step: the same id
-        with the same version is a retry that changes nothing twice. A refusal (a stale version, no game in play,
-        not seated) comes back as a failed result with its reason, leaves the table as it was and spends the
-        command id: the next attempt takes a new command id.
+        caller's chair once a declared game is played (`hand.declaring.declaration` is set in the answer of
+        read_table), on anyone's turn, as declarer or as opponent. The table id and the version come from that
+        answer. The command id names this step: the same id with the same version is a retry that changes nothing
+        twice. A refusal (a stale version, no game in play, not seated) comes back as a failed result with its
+        reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
         """
         command = ThrowDownCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
