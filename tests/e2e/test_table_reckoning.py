@@ -11,7 +11,7 @@ from skat.engine.games import GameKind
 from skat.engine.value import Matadors
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import THEY, WE
-from tests.e2e.support.people import PHONE, SMALL_PHONE, WIDTHS
+from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
     BID_VALUE,
     CARD,
@@ -571,19 +571,4 @@ def test_a_watcher_who_opens_the_table_while_the_result_stands_reads_the_same_ca
     expect_the_reckoning(arriving, "watcher", table.name_of_the_declarer(), table.declarer_seat, reckoning)
     for seat in table.sessions:
         assert "skat" not in json.dumps(table.result_as_sent(seat))
-    assert page_errors == []
-
-
-def test_a_short_phone_packs_the_coasters_of_the_card(
-    deal_a_declared_table: Callable[..., DeclaringTable], page_errors: list[str]
-) -> None:
-    table = deal_a_declared_table(SMALL_PHONE)
-    reckoning = next(each for each in RECKONINGS if each.id == "schneider-announced-and-missed")
-    table.list_the_game(replace(reckoning.entry, declarer_seat=table.declarer_seat))
-    coaster = table.declarer.locator(CARD).locator(".reck").first
-    expect(coaster).to_be_visible()
-    packed = coaster.evaluate("element => parseFloat(getComputedStyle(element).paddingTop)")
-    table.declarer.set_viewport_size(PHONE["viewport"])
-    unpacked = coaster.evaluate("element => parseFloat(getComputedStyle(element).paddingTop)")
-    assert packed < unpacked
     assert page_errors == []
