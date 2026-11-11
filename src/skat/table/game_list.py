@@ -67,6 +67,7 @@ class RamschEntry:
     """One finished Ramsch in the table's list, by seat: the card points each seat counted, its list score, the seat
     that took all ten tricks and won by it (None if no seat did or the table scores it as any loser) and whether
     a seat with no trick doubled the loser's score. Each seat's display name is the one held at the end of the game.
+    The scores are the Ramsch's own times `bock_factor`, 1 outside a Bock game.
     """
 
     seat_accounts: tuple[str, str, str]
@@ -75,6 +76,7 @@ class RamschEntry:
     seat_scores: tuple[int, int, int]
     durchmarsch_seat: int | None
     jungfrau: bool
+    bock_factor: int = 1
 
 
 type GameEntry = ListEntry | RamschEntry
@@ -135,16 +137,16 @@ def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | No
 
 
 def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
-    """The entry a Ramsch writes: the engine reckons it by the table's Ramsch options, the table gives the seats.
-
-    Pushes and Bock are not played at a table with Ramsch, so the multiplier is 1.
+    """The entry a Ramsch writes: the engine reckons it by the table's Ramsch options and the Bock factor the Ramsch
+    ran under, the table gives the seats.
     """
     ramsch = table.options.ramsch
     # A Ramsch is played only at a table that plays one, and the store writes the dealer with the hand.
     if ramsch is None or table.dealer is None:  # pragma: no cover
         message = f"table {table.id.value} ended a Ramsch without the setting or a dealer"
         raise RuntimeError(message)
-    reckoning = reckon_ramsch(played, ramsch.reckoning, multiplier=1)
+    factor = bock_factor_of(table)
+    reckoning = reckon_ramsch(played, ramsch.reckoning, multiplier=factor)
     positions = positions_from(table.dealer)
     seats = seats_from(table.dealer)
     first, second, third = _seated(table)
@@ -157,6 +159,7 @@ def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
         seat_scores=(scores[0], scores[1], scores[2]),
         durchmarsch_seat=None if reckoning.durchmarsch is None else seats[reckoning.durchmarsch],
         jungfrau=reckoning.jungfrau,
+        bock_factor=factor,
     )
 
 
@@ -240,6 +243,7 @@ class RamschResultView:
     seats: tuple[RamschSeatResult, ...]
     durchmarsch_seat: int | None
     jungfrau: bool
+    bock_factor: int
 
 
 def _reckoning_of(entry: ListEntry, reach: KontraReach) -> Reckoning:
@@ -316,6 +320,7 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
             ),
             durchmarsch_seat=entry.durchmarsch_seat,
             jungfrau=entry.jungfrau,
+            bock_factor=entry.bock_factor,
         )
     breakdown = entry.breakdown
     reach = reach_of(table.options)
@@ -385,6 +390,7 @@ class RamschSeriesEntryView:
     seats: tuple[RamschSeriesSeat, ...]
     durchmarsch: bool
     jungfrau: bool
+    bock_factor: int
 
 
 def _series_entry_view_of(number: int, entry: GameEntry) -> SeriesEntryView | RamschSeriesEntryView:
@@ -396,6 +402,7 @@ def _series_entry_view_of(number: int, entry: GameEntry) -> SeriesEntryView | Ra
             ),
             durchmarsch=entry.durchmarsch_seat is not None,
             jungfrau=entry.jungfrau,
+            bock_factor=entry.bock_factor,
         )
     return SeriesEntryView(
         number=number,

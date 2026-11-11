@@ -32,6 +32,11 @@ class TestARamschInTheList:
     def test_totals_count_both_kinds_of_game(self):
         assert [total_of(DECLARED_THEN_RAMSCH, account, REACH) for account in ANNA_BEN_CLEO] == [86 - 47, 0, 0]
 
+    def test_a_bock_ramsch_counts_its_multiplied_score_in_the_total(self):
+        bock_ramsch = replace(a_ramsch_entry((-94, 0, 0)), bock_factor=2)
+
+        assert [total_of((bock_ramsch,), account, REACH) for account in ANNA_BEN_CLEO] == [-94, 0, 0]
+
     def test_a_ramsch_scores_without_the_fifty_and_the_forty_whatever_the_kontra_reach(self):
         for reach in KontraReach:
             assert total_of((a_ramsch_entry((-47, 0, 0)),), ANNA, reach) == -47
@@ -61,7 +66,15 @@ class TestTheRamschResult:
             seats=(RamschSeatResult(1, 47, -47), RamschSeatResult(2, 40, 0), RamschSeatResult(3, 33, 0)),
             durchmarsch_seat=None,
             jungfrau=False,
+            bock_factor=1,
         )
+
+    def test_names_the_factor_the_ramsch_ran_under(self):
+        entry = replace(a_ramsch_entry((-94, 0, 0)), bock_factor=2)
+
+        view = result_view_of(self.at_the_end(entry))
+
+        assert (view.bock_factor, view.seats[0].score) == (2, -94)
 
     def test_stands_as_a_result_that_deals_the_next_hand(self):
         assert result_pending(self.at_the_end(a_ramsch_entry()))
@@ -79,7 +92,16 @@ class TestTheSeriesRows:
             seats=(RamschSeriesSeat("Anna", -47), RamschSeriesSeat("Ben", 0), RamschSeriesSeat("Cleo", 0)),
             durchmarsch=False,
             jungfrau=False,
+            bock_factor=1,
         )
+
+    def test_a_ramsch_row_names_the_factor_the_ramsch_ran_under(self):
+        entry = replace(a_ramsch_entry((-94, 0, 0)), bock_factor=2)
+        table = replace(table_in(HandProgress()), hand=None, game_list=(entry,))
+
+        (row,) = series_list_view_of(table)
+
+        assert (row.bock_factor, row.seats[0].score) == (2, -94)
 
     @pytest.mark.parametrize(("durchmarsch_seat", "jungfrau"), [(None, True), (2, False)])
     def test_a_row_says_whether_a_durchmarsch_or_a_jungfrau_made_it(self, durchmarsch_seat, jungfrau):

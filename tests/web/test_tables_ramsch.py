@@ -54,7 +54,14 @@ def seat_results(*points_and_scores):
 
 
 def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False):
-    return {"kind": "ramsch", "ordinal": 1, "seats": seats, "durchmarsch_seat": durchmarsch_seat, "jungfrau": jungfrau}
+    return {
+        "kind": "ramsch",
+        "ordinal": 1,
+        "seats": seats,
+        "durchmarsch_seat": durchmarsch_seat,
+        "jungfrau": jungfrau,
+        "bock_factor": 1,
+    }
 
 
 def three_pass(table):
@@ -366,15 +373,6 @@ class TestOpeningARamschTable:
         headers, _ = skat.member()
 
         answer = skat.create(headers, options={"ramsch": ramsch})
-
-        assert answer.status_code == 422
-        assert skat.store.tables == {}
-
-    @pytest.mark.parametrize("trigger", [["re"], ["passed-in"]])
-    def test_refuses_ramsch_together_with_bock(self, skat, trigger):
-        headers, _ = skat.member()
-
-        answer = skat.create(headers, options={**RAMSCH, "bock": {"triggers": trigger, "overlap": "append"}})
 
         assert answer.status_code == 422
         assert skat.store.tables == {}

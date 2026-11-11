@@ -1,6 +1,6 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
@@ -51,10 +51,7 @@ class RamschOptionsRequest(BaseModel):
 
 
 class OptionsRequest(BaseModel):
-    """The rule options an opener sets; every later option joins this record.
-
-    A table cannot play Ramsch and Bock rounds together: a Ramsch would have to use up a Bock game.
-    """
+    """The rule options an opener sets; every later option joins this record."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -62,13 +59,6 @@ class OptionsRequest(BaseModel):
     kontra: KontraOptionsRequest | None = None
     bock: BockOptionsRequest | None = None
     ramsch: RamschOptionsRequest | None = None
-
-    @model_validator(mode="after")
-    def _plays_no_ramsch_with_bock(self) -> Self:
-        if self.ramsch is not None and self.bock is not None:
-            message = "a table plays no Ramsch and Bock rounds together"
-            raise ValueError(message)
-        return self
 
 
 class KontraOptionsAnswer(BaseModel):

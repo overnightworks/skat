@@ -338,6 +338,7 @@ class RamschResultAnswer(BaseModel):
     seats: list[RamschSeatAnswer]
     durchmarsch_seat: int | None
     jungfrau: bool
+    bock_factor: int
 
 
 class EndedAnswer(BaseModel):
@@ -534,6 +535,7 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
             seats=[RamschSeatAnswer(seat=each.seat, points=each.points, score=each.score) for each in result.seats],
             durchmarsch_seat=result.durchmarsch_seat,
             jungfrau=result.jungfrau,
+            bock_factor=result.bock_factor,
         )
     declaration, matadors = result.declaration, result.matadors
     return ResultAnswer(

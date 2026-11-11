@@ -146,6 +146,7 @@ def _ramsch_entry_of(row: Row[tuple[object, ...]]) -> RamschEntry:
         seat_scores=(row.seat_1_score, row.seat_2_score, row.seat_3_score),
         durchmarsch_seat=row.durchmarsch_seat,
         jungfrau=row.jungfrau,
+        bock_factor=row.bock_factor,
     )
 
 
@@ -202,6 +203,7 @@ def _columns_of(entry: GameEntry) -> dict[str, object]:
             "seat_3_score": entry.seat_scores[2],
             "durchmarsch_seat": entry.durchmarsch_seat,
             "jungfrau": entry.jungfrau,
+            "bock_factor": entry.bock_factor,
         }
     matadors = entry.matadors
     return {

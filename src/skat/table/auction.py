@@ -77,7 +77,8 @@ def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> De
     """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason.
 
     At a table without Ramsch the third pass ends the hand: its cards go, its steps stay until the next deal, and the
-    Bock rounds are asked. At a table with Ramsch the hand stays and its steps start the Ramsch.
+    Bock rounds are asked. At a table with Ramsch the hand stays and its steps start the Ramsch, whose end asks the
+    Bock rounds.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
