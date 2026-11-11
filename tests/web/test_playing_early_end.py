@@ -14,9 +14,9 @@ from skat.web.playing import (
 )
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT
+from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import Table, card, cards, game_of, reason_of
+from tests.web.support.playing import Table, card, cards, ending_of, game_of, reason_of
 from tests.web.support.presence import OvertakenStore, occupied_seats, pass_hand_in
 from tests.web.support.skat import UNKNOWN_ID, Skat, streams_of
 
@@ -238,7 +238,46 @@ class TestRetries:
         assert len(herz_hand.record.game_list) == 1
 
 
+def given_up_again(table):
+    return table.act(TABLE_GIVE_UP_SUFFIX)
+
+
+def thrown_down_again(table):
+    return table.act(TABLE_THROW_DOWN_SUFFIX)
+
+
+def played_to_the_end(table):
+    table.played_out(HERZ_GAME[:-1])
+    return table.accepted(HERZ_GAME[-1])
+
+
 class TestAfterTheEnd:
+    @pytest.mark.parametrize(
+        ("first", "second", "ending_of_the_second"),
+        [
+            pytest.param(TABLE_GIVE_UP_SUFFIX, thrown_down_again, ("thrown-down", 2), id="given-up-then-thrown-down"),
+            pytest.param(TABLE_THROW_DOWN_SUFFIX, given_up_again, ("given-up", 2), id="thrown-down-then-given-up"),
+            pytest.param(TABLE_GIVE_UP_SUFFIX, played_to_the_end, ("played-out", None), id="given-up-then-played-out"),
+        ],
+    )
+    def test_the_next_game_names_its_own_ending_and_seat_and_none_carries_over(
+        self, server, first, second, ending_of_the_second
+    ):
+        table = Table(server)
+        table.declared_hand_game()
+        table.act(first)
+        with everyone_connected(table):
+            for position in table.at:
+                ready(table, position)
+        table.reseated_for_the_next_hand()
+        table.with_deal(KNOWN_DEAL)
+        table.declared_hand_game()
+
+        answer = second(table)
+
+        assert ending_of(answer.json()["result"]) == ending_of_the_second
+        assert (table.result()["ordinal"], table.endings_in_every_view()) == (2, {ending_of_the_second})
+
     def test_all_three_readies_deal_the_next_hand_with_the_dealer_moved(self, server, route):
         table = Table(server)
         table.declared_hand_game()
