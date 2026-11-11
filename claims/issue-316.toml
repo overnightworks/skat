@@ -1,8 +1,0 @@
-claim_id = "96b6de4c2d06431fabc5472531b5dd1f"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "bce25e44aa49e93c29261158b180e2a93a977ae7"
-branch = "claude/issue-316-announcer-hash"
-scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/web/constants.py", "src/skat/web/page_build.py", "tests/support/page_build.py", "tests/support/page_build_fixture/_app/immutable/chunks/announcer.js", "tests/web/test_gate.py", "tests/web/test_page_build.py", "tests/web/test_sign_in_rate_limit.py"]
-opened_commit = "766b29245328e00f29fd29afe6be5c87fb0f178d"
-whole_reason = "The hash derivation, the policy that uses it, the fixture chunk and the expected hash are one path: a derivation without its start refusal fails silently in the browser."
