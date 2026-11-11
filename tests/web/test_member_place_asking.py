@@ -419,8 +419,8 @@ class TestWhenTheTableEndsThePulseTellsNobody:
     def test_the_deadline_after_the_end_delivers_nothing_on_a_stream_that_is_open(
         self, skat, time, sdk, middlehand_auction
     ):
-        """The stream-level outcome: the table is ended in the store with no view read after it, so the pulse is
-        stopped by the listen stream, which delivers only a resource the agent still has.
+        """The table is ended in the store with no view read after it: the stream delivers the standing change and
+        nothing of the table.
         """
         table_id = middlehand_auction.table_id
 
