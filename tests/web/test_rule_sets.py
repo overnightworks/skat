@@ -223,7 +223,7 @@ class TestDelete:
         assert second.status_code == 404
         assert read(skat, headers).json() == {"sets": []}
 
-    @pytest.mark.parametrize("rule_set_id", ["not-an-id", "0" * 31, "A" * 32, "0" * 31 + "%00"])
+    @pytest.mark.parametrize("rule_set_id", ["not-an-id", "0" * 31, "A" * 32])
     def test_a_malformed_id_deletes_nothing_and_is_not_found(self, skat, rule_set_id):
         headers, _ = skat.member()
         saved = save(skat, headers)

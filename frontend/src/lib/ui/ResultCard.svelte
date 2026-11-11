@@ -44,7 +44,7 @@
             <span>{view.gameLine}</span>
         </span>
         {#if view.raise !== null}
-            <span class="stamp">{words.overbid}</span>
+            <span class="stamp">{words["result.overbid"]}</span>
         {/if}
     </div>
     {#if view.chips.length > 0}
@@ -98,7 +98,7 @@
         {/if}
     </div>
     {#if view.points !== null}
-        <div class="points" role="group" aria-label={words.trickPoints}>
+        <div class="points" role="group" aria-label={words["result.trickPoints"]}>
             <span class="sides">
                 <span class="declarer">{`${view.sides.declarer} ${String(view.points.declarer)}`}</span>
                 <span class="opponents">{`${view.sides.opponents} ${String(view.points.opponents)}`}</span>
@@ -121,7 +121,7 @@
         {#each view.rows as row (row.seat)}
             <div class="reck" class:win={row.won} data-seat={row.seat}>
                 <span class="dot" aria-hidden="true">{row.initial}</span>
-                <span class="nm">{row.name ?? words.seatFree}</span>
+                <span class="nm">{row.name ?? words["result.seatFree"]}</span>
                 <span class="dl" class:minus={row.gain <= 0}>{row.gainText}</span>
             </div>
         {/each}

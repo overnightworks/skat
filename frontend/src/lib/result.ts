@@ -63,13 +63,13 @@ const MINUS = "−";
 const SNUG_LEVELS = 2;
 
 const LEVEL_WORDS: Record<Level, string> = {
-    spiel: words.levelSpiel,
-    hand: words.hand,
-    schneider: words.levelSchneider,
-    schneider_announced: words.announcedSchneider,
-    schwarz: words.levelSchwarz,
-    schwarz_announced: words.announcedSchwarz,
-    ouvert: words.levelOuvert,
+    spiel: words["result.levelSpiel"],
+    hand: words["result.hand"],
+    schneider: words["result.levelSchneider"],
+    schneider_announced: words["result.announcedSchneider"],
+    schwarz: words["result.levelSchwarz"],
+    schwarz_announced: words["result.announcedSchwarz"],
+    ouvert: words["result.levelOuvert"],
 };
 
 export function withMinus(number: number): string {
@@ -92,7 +92,7 @@ function ownFirst(chairs: readonly Chair[]): Chair[] {
 
 function chipsOf(result: Result): Chip[] {
     if (result.matadors === null) return [];
-    const matadors = `${result.matadors.mit ? words.matadorsWith : words.matadorsWithout} ${String(result.matadors.count)}`;
+    const matadors = `${result.matadors.mit ? words["result.matadorsWith"] : words["result.matadorsWithout"]} ${String(result.matadors.count)}`;
     return [
         { word: matadors, ticked: false },
         ...result.levels.map((level) => ({ word: LEVEL_WORDS[level], ticked: true })),
@@ -111,11 +111,11 @@ function listLineOf(result: Result, sides: SideNames): ListLine {
     return {
         side: sides.declarer,
         steps: [
-            `${words.levelSpiel} ${signed(result.score)}`,
-            `${words.listBonus} ${signed(result.list_bonus)}`,
+            `${words["result.levelSpiel"]} ${signed(result.score)}`,
+            `${words["result.listBonus"]} ${signed(result.list_bonus)}`,
             `= ${signed(declarerGain)}`,
         ],
-        share: result.doubled ? `· ${sides.opponents} ${words.each} ${signed(opponentGain.gain)}` : null,
+        share: result.doubled ? `· ${sides.opponents} ${words["result.each"]} ${signed(opponentGain.gain)}` : null,
     };
 }
 
@@ -131,11 +131,11 @@ export function resultView(table: Table): ResultView {
     const isDeclarer = own?.seat === result.declarer_seat;
     const declarerName = nameOf(chairs, result.declarer_seat) ?? "";
     const sides = sideNames(chairs, result.declarer_seat);
-    const shownSides = isDeclarer ? { declarer: words.sideYou, opponents: words.sideThem } : sides;
+    const shownSides = isDeclarer ? { declarer: words["result.sideYou"], opponents: words["result.sideThem"] } : sides;
     const good = own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
     let word: string;
-    if (own === undefined) word = `${declarerName} ${result.won ? words.resultWins : words.resultLoses}`;
-    else word = good ? words.resultWon : words.resultLost;
+    if (own === undefined) word = `${declarerName} ${result.won ? words["result.wins"] : words["result.loses"]}`;
+    else word = good ? words["result.won"] : words["result.lost"];
     const name = gameLabel(result).name;
     return {
         word,
@@ -144,12 +144,12 @@ export function resultView(table: Table): ResultView {
         gameWord: result.game === "null" ? name : gameWord(result.game),
         gameLine: own !== undefined && !isDeclarer ? `${declarerName}, ${name}` : name,
         missed: result.announcement_missed
-            ? `${announcedWord(result.announcement) as string}, ${words.notReached}`
+            ? `${announcedWord(result.announcement) as string}, ${words["result.notReached"]}`
             : null,
         chips: chipsOf(result),
         equation: equationOf(result),
         raise: result.overbid
-            ? `${words.gameWorth} ${String(result.game_value)} < ${words.bidValue} ${String(result.bid)} → ${String(result.settled_value)}`
+            ? `${words["result.gameWorth"]} ${String(result.game_value)} < ${words["result.bidValue"]} ${String(result.bid)} → ${String(result.settled_value)}`
             : null,
         doubled: result.doubled,
         score: signed(result.score),
@@ -163,7 +163,7 @@ export function resultView(table: Table): ResultView {
             return {
                 seat,
                 initial: (nameOf(chairs, seat) ?? "").slice(0, 1),
-                name: seat === own?.seat ? words.sideYou : nameOf(chairs, seat),
+                name: seat === own?.seat ? words["result.sideYou"] : nameOf(chairs, seat),
                 gain,
                 gainText: gain > 0 ? signed(gain) : withMinus(gain),
                 won,
@@ -187,5 +187,5 @@ export function weiterBar(table: Table): WeiterBar | null {
     const awaited = awaitedNames(table.chairs);
     if (!own.ready) return { kind: "tap", again: false };
     if (awaited.length === 0) return { kind: "tap", again: true };
-    return { kind: "wait", names: awaited.join(` ${words.and} `) };
+    return { kind: "wait", names: awaited.join(` ${words["result.and"]} `) };
 }

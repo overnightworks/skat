@@ -11,11 +11,11 @@ from skat.engine.play import legal_cards, trick_winner
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, MutableSequence
@@ -30,20 +30,21 @@ pytestmark = pytest.mark.e2e
 CARDS_IN_A_HAND = 10
 WINNING_DEAL_SEED = 1
 NARROW_BELOW = 900
-GRAND_OUVERT = f"{catalog_text('gameGrand')} {catalog_text('ouvert')}"
+GRAND_OUVERT = f"{text(SOURCE_LANGUAGE, 'game.grand')} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
 TOKEN_SUITS: dict[str, Suit] = {token: suit for suit, token in SUIT_TOKENS.items()}
 TOKEN_RANKS: dict[str, Rank] = {token: rank for rank, token in RANK_TOKENS.items()}
-OPEN_TAG = catalog_text("open")
-NULL_GAME = catalog_text("gameNull")
-NULL_OUVERT = f"{NULL_GAME} {catalog_text('ouvert')}"
-NULL_OUVERT_HAND = f"{NULL_OUVERT} {catalog_text('hand')}"
-OUVERT_RUNG = catalog_text("levelOuvert")
-SCHNEIDER = catalog_text("levelSchneider")
-SCHWARZ = catalog_text("levelSchwarz")
-HAND = catalog_text("hand")
-TAKE_SKAT = catalog_text("takeSkat")
-PUT_BACK = catalog_text("putBack")
-ANNOUNCE = catalog_text("announceGame")
+OPEN_TAG = text(SOURCE_LANGUAGE, "table.open")
+NULL_GAME = text(SOURCE_LANGUAGE, "game.null")
+NULL_OUVERT = f"{NULL_GAME} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
+NULL_OUVERT_HAND = f"{NULL_OUVERT} {text(SOURCE_LANGUAGE, 'game.hand')}"
+OUVERT_RUNG = text(SOURCE_LANGUAGE, "declare.levelOuvert")
+SCHNEIDER = text(SOURCE_LANGUAGE, "declare.levelSchneider")
+SCHWARZ = text(SOURCE_LANGUAGE, "declare.levelSchwarz")
+HAND = text(SOURCE_LANGUAGE, "declare.hand")
+PLAQUE_HAND = text(SOURCE_LANGUAGE, "game.hand")
+TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
+PUT_BACK = text(SOURCE_LANGUAGE, "declare.putBack")
+ANNOUNCE = text(SOURCE_LANGUAGE, "declare.announceGame")
 ANNOUNCED_MARK = ".plaque .announced"
 LADDER = ".declare .ladder"
 RESULT_CARD = ".result"
@@ -184,7 +185,9 @@ def test_the_declarer_keeps_the_own_hand_and_wears_the_tag_instead_of_open_rows(
 
     expect(table.declarer.locator(".own-hand .card")).to_have_count(CARDS_IN_A_HAND)
     expect(table.declarer.locator(OPEN_TAG_SELECTOR)).to_contain_text(OPEN_TAG)
-    expect(table.declarer.locator(OPEN_TAG_SELECTOR)).to_have_attribute("title", catalog_text("openForAll"))
+    expect(table.declarer.locator(OPEN_TAG_SELECTOR)).to_have_attribute(
+        "title", text(SOURCE_LANGUAGE, "table.openForAll")
+    )
     expect(table.declarer.locator(".open")).to_have_count(0)
     expect(table.declarer.locator(PLAQUE)).to_contain_text(GRAND_OUVERT)
     assert page_errors == []
@@ -225,7 +228,7 @@ def test_a_game_that_is_not_ouvert_keeps_its_back_fans_and_shows_no_tag(
     table.declare_through_the_api(action="declare", game="grand", hand=True, ouvert=False, announcement="none")
 
     for person in (*onlookers(table), table.declarer):
-        expect(person.locator(PLAQUE)).to_contain_text(catalog_text("gameGrand"))
+        expect(person.locator(PLAQUE)).to_contain_text(text(SOURCE_LANGUAGE, "game.grand"))
         expect(person.locator(".open")).to_have_count(0)
         expect(person.locator(OPEN_TAG_SELECTOR)).to_have_count(0)
     for person in onlookers(table):
@@ -312,7 +315,7 @@ def test_null_ouvert_after_the_take_is_offered_without_levels_and_declared_with_
     for person in (*onlookers(table), declarer):
         reload_and_wait(person)
         expect(person.locator(PLAQUE)).to_contain_text(NULL_OUVERT)
-        expect(person.locator(PLAQUE)).not_to_contain_text(HAND)
+        expect(person.locator(PLAQUE)).not_to_contain_text(PLAQUE_HAND)
         expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
     expect_open_cards_without_the_skat(table, cards_put_back)
     assert page_errors == []
@@ -375,7 +378,7 @@ def test_a_given_up_null_ouvert_hand_game_is_valued_and_named_on_every_result_ca
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-@pytest.mark.parametrize(("game", "word_key"), [("herz", "gameHerz"), ("grand", "gameGrand")])
+@pytest.mark.parametrize(("game", "word_key"), [("herz", "game.herz"), ("grand", "game.grand")])
 def test_the_ouvert_rung_releases_a_level_and_declares_an_ouvert_game_named_without_an_announcement(
     deal_a_declaring_table: Callable[..., DeclaringTable],
     page_errors: list[str],
@@ -390,7 +393,7 @@ def test_the_ouvert_rung_releases_a_level_and_declares_an_ouvert_game_named_with
         "request", lambda request: posts.append((request.url, request.post_data)) if request.method == "POST" else None
     )
     button_of(declarer, HAND).click()
-    button_of(declarer, catalog_text(word_key)).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, word_key)).click()
     button_of(declarer, SCHNEIDER).click()
     button_of(declarer, OUVERT_RUNG).click()
     expect(button_of(declarer, OUVERT_RUNG)).to_have_attribute(PRESSED, "true")
@@ -408,14 +411,16 @@ def test_the_ouvert_rung_releases_a_level_and_declares_an_ouvert_game_named_with
     assert declaration == {"game": game, "hand": True, "ouvert": True, "announcement": "schwarz"}
     playing = PlayingTable(table, None)
     for person in playing.everyone:
-        expect(person.locator(PLAQUE)).to_contain_text(f"{catalog_text(word_key)} {catalog_text('ouvert')}")
+        expect(person.locator(PLAQUE)).to_contain_text(
+            f"{text(SOURCE_LANGUAGE, word_key)} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
+        )
         expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
         plaque = person.locator(PLAQUE).element_handle()
         for covered in (*person.locator(".fan-spot").all(), *person.locator(".own-hand").all()):
             assert not person.evaluate(BOXES_OVERLAP, [plaque, covered.element_handle()])
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     reload_and_wait(table.watcher)
-    expect(table.watcher.locator(PLAQUE)).to_contain_text(catalog_text("ouvert"))
+    expect(table.watcher.locator(PLAQUE)).to_contain_text(text(SOURCE_LANGUAGE, "game.ouvert"))
     assert page_errors == []
 
 
@@ -426,7 +431,7 @@ def test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null
     table = deal_a_declaring_table(form_factor)
     declarer = table.declarer
     button_of(declarer, HAND).click()
-    button_of(declarer, catalog_text("gameGrand")).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, "game.grand")).click()
     button_of(declarer, OUVERT_RUNG).click()
     button_of(declarer, OUVERT_RUNG).click()
     expect(button_of(declarer, OUVERT_RUNG)).to_have_attribute(PRESSED, "false")
@@ -434,7 +439,7 @@ def test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null
     button_of(declarer, NULL_GAME).click()
     for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
         expect(button_of(declarer, level)).to_have_count(0)
-    button_of(declarer, catalog_text("gameGrand")).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, "game.grand")).click()
     for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
         expect(button_of(declarer, level)).to_have_attribute(PRESSED, "false")
 
@@ -446,7 +451,7 @@ def test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null
     reload_and_wait(declarer)
     expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
     button_of(declarer, HAND).click()
-    button_of(declarer, catalog_text("gameGrand")).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, "game.grand")).click()
     button_of(declarer, OUVERT_RUNG).click()
     button_of(declarer, ANNOUNCE).click()
     expect(declarer.locator(OPEN_TAG_SELECTOR)).to_contain_text(OPEN_TAG)
@@ -462,7 +467,7 @@ def test_the_keyboard_reaches_the_ouvert_rung_and_the_null_ouvert_tile(
     declarer = deal_a_declaring_table(form_factor).declarer
     button_of(declarer, HAND).focus()
     declarer.keyboard.press("Enter")
-    for name in (NULL_OUVERT, catalog_text("gameGrand"), OUVERT_RUNG):
+    for name in (NULL_OUVERT, text(SOURCE_LANGUAGE, "game.grand"), OUVERT_RUNG):
         control = button_of(declarer, name)
         control.focus()
         declarer.keyboard.press("Space")
@@ -476,7 +481,7 @@ def test_the_hand_panel_causes_no_sideways_scroll_and_covers_no_far_fan_skat_bac
 ) -> None:
     declarer = deal_a_declaring_table(form_factor).declarer
     button_of(declarer, HAND).click()
-    button_of(declarer, catalog_text("gameGrand")).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, "game.grand")).click()
     panel = declarer.locator(".declare").element_handle()
     assert declarer.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert declarer.locator(".declare").evaluate(INSIDE_THE_VIEWPORT)
@@ -495,10 +500,10 @@ def test_a_game_without_ouvert_is_stored_with_ouvert_false_and_plaque_as_before(
     table = deal_a_declaring_table(form_factor)
     declarer = table.declarer
     button_of(declarer, HAND).click()
-    button_of(declarer, catalog_text("gameHerz")).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, "game.herz")).click()
     button_of(declarer, SCHNEIDER).click()
     button_of(declarer, ANNOUNCE).click()
-    expect(declarer.locator(PLAQUE)).to_contain_text(f"{catalog_text('gameHerz')} {HAND}")
+    expect(declarer.locator(PLAQUE)).to_contain_text(f"{text(SOURCE_LANGUAGE, 'game.herz')} {PLAQUE_HAND}")
     expect(declarer.locator(ANNOUNCED_MARK)).to_have_count(1)
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
     assert declaration == {"game": "herz", "hand": True, "ouvert": False, "announcement": "schneider"}

@@ -5,10 +5,10 @@ import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.tables import SIT_DOWN
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 COASTER = ".chair .coaster"
-STAND_UP = catalog_text("standUp")
+STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 NEVER_UNDER_A_COASTER = (".plate", COASTER, ".mark", ".fan", ".plaque", ".result", ".actions")
 
 

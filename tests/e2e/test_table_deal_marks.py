@@ -9,10 +9,10 @@ from sqlalchemy import delete, update
 
 from skat.store.schema import hand_cards, tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.tables import open_new_table, table_id_of
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -25,11 +25,11 @@ pytestmark = pytest.mark.e2e
 
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-SIT_DOWN = catalog_text("sitDown")
-STAND_UP = catalog_text("standUp")
-COMMAND_FAILED = catalog_text("commandFailed")
-SEAT_AWAY = catalog_text("seatAway")
-DEALER = catalog_text("dealer")
+SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
+STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
+DEALER = text(SOURCE_LANGUAGE, "table.dealer")
 USUAL_TIMEOUT_SECONDS = 5
 POLL_MILLISECONDS = 100
 SKAT_CARD = ".skat-card"
@@ -147,7 +147,7 @@ def picture_of_answer(answer: dict[str, Any]) -> dict[str, Any]:
                 "seat": chair["seat"],
                 "backs": 0 if chair["is_mine"] else chair["hand"]["card_count"],
                 "count": None if chair["is_mine"] else str(chair["hand"]["card_count"]),
-                "position": catalog_text(chair["hand"]["position"]),
+                "position": text(SOURCE_LANGUAGE, f"game.{chair['hand']['position']}"),
                 "dealer": DEALER if chair["seat"] == answer["hand"]["dealer_seat"] else None,
                 "away": chair["is_away"],
             }

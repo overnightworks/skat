@@ -14,5 +14,5 @@
 </script>
 
 <div class="sign-in">
-    <SignInPage appName={words.appName} state={signInState} legalLinks={LEGAL_LINKS} />
+    <SignInPage appName={words["app.name"]} state={signInState} legalLinks={LEGAL_LINKS} />
 </div>

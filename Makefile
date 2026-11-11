@@ -18,10 +18,10 @@ wire-check:
 	uv run python scripts/generate_wire.py --check
 
 words:
-	uv run python scripts/generate_words.py
+	uv run design-catalogs
 
 words-check:
-	uv run python scripts/generate_words.py --check
+	uv run design-catalogs --check
 
 format:
 	uv run ruff check --fix .

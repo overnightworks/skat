@@ -153,14 +153,20 @@ def _words(steps: tuple[AuctionStep, ...], seats: dict[Position, int]) -> tuple[
     return tuple(latest[seat] for seat in sorted(latest))
 
 
-def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int) -> AuctionView:
-    """The running hand's auction for one account; only the viewer whose turn it is to bid is told the values."""
+def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int, *, waiting: bool) -> AuctionView:
+    """The running hand's auction for one account; only the viewer whose turn it is to bid is told the values, and
+    nobody while the hand `waiting` for a sitter.
+    """
     seats = seats_from(dealer)
     auction = auction_of(table)
     viewer = seat_of(table, viewer_account_id)
     running = auction.result is None
     my_turn_to_bid = (
-        running and auction.awaiting is Awaiting.BID and viewer is not None and viewer.seat == seats[auction.actor]
+        running
+        and not waiting
+        and auction.awaiting is Awaiting.BID
+        and viewer is not None
+        and viewer.seat == seats[auction.actor]
     )
     standing = auction.standing
     faced = _faced(auction)

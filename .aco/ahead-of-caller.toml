@@ -19,6 +19,11 @@ item = "overnightworks/skat#315"
 reason = "K3 calls an agent to a table: `decide_invite` with its request, refusal and invitation id."
 
 [[code]]
+path = "src/skat/table/send_away.py"
+item = "overnightworks/skat#315"
+reason = "K3 sends an agent away from its chair: `decide_send_away`."
+
+[[code]]
 path = "src/skat/table/service.py"
 item = "overnightworks/skat#315"
-reason = "K3 calls an agent to a table: `TableService.invite_agent`."
+reason = "K3 calls an agent to a table and sends it away: `TableService.invite_agent` and `TableService.send_away`."

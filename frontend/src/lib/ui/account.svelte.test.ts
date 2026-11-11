@@ -43,7 +43,7 @@ describe("readAccount", () => {
 
         await readAccount();
 
-        expect(menuName()).toBe(words.account);
+        expect(menuName()).toBe(words["account.title"]);
     });
 
     it("leaves the menu unnamed when the account cannot be reached", async () => {
@@ -52,7 +52,7 @@ describe("readAccount", () => {
 
         await readAccount();
 
-        expect(menuName()).toBe(words.account);
+        expect(menuName()).toBe(words["account.title"]);
     });
 
     it("goes through the sign-in again when the session has ended", async () => {

@@ -297,7 +297,8 @@ def playing_view_of(
     """The game in play for one viewer; None until a game is played.
 
     Everyone sees the turn, the trick in progress and the last completed trick.
-    Only the seated player on turn gets the cards they may play.
+    Only the seated player on turn gets the cards they may play, and nobody while the hand waits for a sitter, which
+    the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
     the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
     A give-up waiting for an opponent's yes is the same for every viewer.

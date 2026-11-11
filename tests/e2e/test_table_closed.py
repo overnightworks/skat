@@ -9,12 +9,12 @@ from sqlalchemy import select
 
 from skat.store.schema import tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.tables import click_new_table, open_new_table, table_id_of
-from tests.e2e.support.words import catalog_text
 from tests.support.signed_in import new_account, seed_member
 
 if TYPE_CHECKING:
@@ -100,10 +100,10 @@ def test_the_old_link_of_an_ended_table_shows_the_wait_and_offers_no_seat_and_op
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     expect(person.locator(".chair")).to_have_count(3)
     for absent in (
-        catalog_text("sitDown"),
-        catalog_text("standUp"),
-        catalog_text("copyLink"),
-        catalog_text("reconnecting"),
+        text(SOURCE_LANGUAGE, "table.sitDown"),
+        text(SOURCE_LANGUAGE, "table.standUp"),
+        text(SOURCE_LANGUAGE, "table.copyLink"),
+        text(SOURCE_LANGUAGE, "table.reconnecting"),
     ):
         expect(person.get_by_text(absent)).to_be_hidden()
     expect(person.locator(".watchers")).to_have_count(0)
@@ -135,7 +135,7 @@ def test_a_page_whose_stream_arrives_after_the_wait_shows_the_closed_face_and_as
         route.continue_()
 
     expect(person.get_by_role("heading", name=CLOSED_HEADING)).to_be_visible()
-    expect(person.get_by_text(catalog_text("reconnecting"))).to_be_hidden()
+    expect(person.get_by_text(text(SOURCE_LANGUAGE, "table.reconnecting"))).to_be_hidden()
     person.wait_for_timeout(RECONNECT_WINDOW_MILLISECONDS)
     assert len(requests) == 1
 
@@ -148,7 +148,7 @@ def test_a_new_table_opens_from_the_closed_face(
 
     click_new_table(person)
 
-    expect(person.get_by_text(catalog_text("waitingForPlayers"))).to_be_visible()
+    expect(person.get_by_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_be_visible()
     assert urlsplit(person.url).path != ended_table_path
 
 

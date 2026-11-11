@@ -59,7 +59,9 @@ def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter
         The table id is the last part of the table's link /t/{id}, which a person gives the caller, or the id of a
         table the caller opened. `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the
         answer of read_table. Whoever sits first has the chair. The sit that fills the third chair deals the first
-        hand; while a game's result stands, sitting down counts as continuing. The command id names this step: the
+        hand; while a game's result stands, sitting down counts as continuing. At a table whose running hand waits
+        for a sitter (`hand.waiting_seat` is set in the answer), the sit takes that seat over as it stands: its cards,
+        its role and its turn, and the hand moves again once no chair is open. The command id names this step: the
         same id with the same seat is a retry that changes nothing twice. A refusal (the chair is taken, and the
         answer names who holds it; the caller already sits at this table) comes back as a failed result with its
         reason, leaves the table as it was and spends the command id.
@@ -84,10 +86,11 @@ def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter
     ) -> Response | TableAnswer:
         """Leave the caller's own chair at a Skat table.
 
-        The chair keeps its number and becomes free. Nobody stands up while a hand runs: stand up between hands, when
-        `hand` is null in the answer of read_table or the state of your table's view. The command id names this step:
-        the same id again is a retry that changes nothing twice. A refusal (a hand runs; the caller holds no chair here)
-        comes back as a failed result with its reason, leaves the table as it was and spends the command id.
+        The chair keeps its number and becomes free. Nobody stands up while a hand runs, a chair taken over included:
+        stand up between hands, when `hand` is null in the answer of read_table or the state of your table's view.
+        The command id names this step: the same id again is a retry that changes nothing twice. A refusal (a hand
+        runs; the caller holds no chair here) comes back as a failed result with its reason, leaves the table as it
+        was and spends the command id.
         """
         command = StandUp(command_id=body.command_id, table_id=table_id)
         answer = await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)

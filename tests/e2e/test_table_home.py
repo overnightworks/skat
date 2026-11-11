@@ -8,12 +8,12 @@ from sqlalchemy import select
 
 from skat.store.schema import tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.tables import open_new_table
-from tests.e2e.support.words import catalog_text
 from tests.support.signed_in import new_account, seed_member
 
 if TYPE_CHECKING:
@@ -27,11 +27,11 @@ EMPTY_TABLE_SECONDS = 2
 ENDS_WITHIN_SECONDS = EMPTY_TABLE_SECONDS + 20
 POLL_SECONDS = 0.2
 UNKNOWN_ID = "0" * 32
-LOBBY = catalog_text("lobby")
-RECONNECTING = catalog_text("reconnecting")
-STAND_UP = catalog_text("standUp")
+LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
+RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
+STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = f"{EMPTY_TABLE_SECONDS} Sekunden niemand da: Tisch geschlossen"
-NOT_FOUND_HEADING = catalog_text("tableNotFound")
+NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
 TRANSPARENT_COLOR = "rgba(0, 0, 0, 0)"

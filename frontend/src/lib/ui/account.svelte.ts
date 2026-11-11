@@ -6,7 +6,7 @@ const SIGNED_OUT_STATUS = 401;
 const account: { name: string | null } = $state({ name: null });
 
 export function menuName(): string {
-    return account.name ?? words.account;
+    return account.name ?? words["account.title"];
 }
 
 // A session that ended while the page was open goes through the sign-in again; any other failure
