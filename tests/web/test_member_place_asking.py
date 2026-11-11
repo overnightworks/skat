@@ -1,0 +1,458 @@
+"""A seat the table waits for is asked again: the agent's view gets a new revision at each deadline, a pulse on its
+view's URI wakes the agent to read it, and the table's version never moves for an ask.
+"""
+
+import threading
+from dataclasses import replace
+from datetime import timedelta
+
+import pytest
+from agents.mcp_server import ResourceChanges
+from agents.member import LEASE_SECONDS, STANDING_URI
+from starlette.concurrency import run_in_threadpool
+from structlog.testing import capture_logs
+
+from skat.engine.deal import Position
+from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, revision_of
+from skat.table.member_place import InvitationRequest
+from skat.table.records import EndedTable, EndReason, Series, TableId
+from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL
+from skat.web.member_place import AskClock
+from skat.web.ready import TABLE_READY_SUFFIX
+from tests.support.payload_cards import with_known_deal
+from tests.support.played_game import after_the_first_game
+from tests.web.support.agent import SUBJECT, Agent, person_posts, view_uri_of
+from tests.web.support.sdk_agent import SdkAgent
+from tests.web.support.skat import FakeTime, Skat, stored
+
+MIDDLEHAND = Position.MIDDLEHAND
+OTHER_AGENT_SUBJECT = "other-agent-subject"
+TABLE = "a-table"
+ACCOUNT = "an-account"
+OTHER_ACCOUNT = "another-account"
+OWNER = "the-agents-owner"
+INVITATION_SECONDS = 600
+
+
+class Moments:
+    """A clock the test sets."""
+
+    def __init__(self):
+        self.now = 500.0
+
+    def __call__(self):
+        return self.now
+
+
+class TestTheWaitIsKeptPerTableAndVersion:
+    @pytest.fixture
+    def moments(self):
+        return Moments()
+
+    @pytest.fixture
+    def clock(self, moments):
+        return AskClock(moments)
+
+    def test_the_first_sight_of_a_version_starts_its_wait_now(self, clock, moments):
+        assert clock.see(TABLE, 5) == moments.now
+
+    def test_a_later_sight_of_the_same_version_keeps_the_earliest_time(self, clock, moments):
+        first = moments.now
+        clock.see(TABLE, 5)
+        moments.now += 30
+
+        assert clock.see(TABLE, 5) == first
+
+    def test_a_higher_version_replaces_the_entry_and_starts_afresh(self, clock, moments):
+        clock.see(TABLE, 5)
+        moments.now += 30
+
+        assert clock.see(TABLE, 6) == moments.now
+
+    def test_a_lower_version_changes_nothing_and_has_no_wait_of_its_own(self, clock, moments):
+        clock.see(TABLE, 6)
+        moments.now += 30
+
+        assert clock.see(TABLE, 5) is None
+        assert (clock.is_current(TABLE, 6), clock.is_current(TABLE, 5)) == (True, False)
+
+    def test_each_table_has_its_own_entry(self, clock, moments):
+        clock.see(TABLE, 6)
+        moments.now += 30
+
+        assert clock.see("another-table", 5) == moments.now
+
+    def test_the_pulses_of_a_version_are_claimed_once_for_each_account(self, clock):
+        clock.see(TABLE, 5)
+
+        claims = [clock.claim_pulses(TABLE, 5, account) for account in (ACCOUNT, ACCOUNT, OTHER_ACCOUNT)]
+
+        assert claims == [True, False, True]
+
+    def test_a_new_version_can_be_claimed_again(self, clock):
+        clock.see(TABLE, 5)
+        clock.claim_pulses(TABLE, 5, ACCOUNT)
+        clock.see(TABLE, 6)
+
+        assert clock.claim_pulses(TABLE, 6, ACCOUNT) is True
+
+    def test_a_version_that_is_not_the_entrys_cannot_be_claimed(self, clock):
+        clock.see(TABLE, 6)
+
+        assert clock.claim_pulses(TABLE, 5, ACCOUNT) is False
+
+    def test_a_dropped_table_starts_afresh(self, clock, moments):
+        clock.see(TABLE, 6)
+        clock.drop(TABLE)
+        moments.now += 30
+
+        assert (clock.is_current(TABLE, 6), clock.see(TABLE, 5)) == (False, moments.now)
+
+    def test_dropping_a_table_without_an_entry_does_nothing(self, clock):
+        clock.drop(TABLE)
+
+        assert clock.is_current(TABLE, 1) is False
+
+
+@pytest.fixture
+def skat(hold, issuer, time):
+    skat = Skat(
+        lambda: hold,
+        issuer_transports=issuer.transports,
+        chair_clock=time.clock,
+        chair_scheduler=time,
+        now=time.moment,
+    )
+    with skat.client:
+        yield skat
+
+
+@pytest.fixture
+def sdk(skat, issuer):
+    """The seated agent as a runner connects: through the SDK's client."""
+    return SdkAgent(skat, issuer)
+
+
+@pytest.fixture
+def pulses(monkeypatch):
+    """Every change `ResourceChanges` is told of, as (account, uri), in the order told."""
+    told = []
+    original = ResourceChanges.changed
+
+    def changed(self, recipient, uri):
+        told.append((recipient.sub, uri))
+        original(self, recipient, uri)
+
+    monkeypatch.setattr(ResourceChanges, "changed", changed)
+    return told
+
+
+def account_of(skat, agent):
+    return skat.stores.accounts.get(agent.subject).id
+
+
+def wait(skat, time, seconds):
+    skat.client.portal.call(time.advance, seconds)
+
+
+def a_result_stands(table):
+    """The agent's table after a played game, the result waiting for each seat that has not continued."""
+    table.declared_hand_game()
+    table.skat.store.tables[table.table_id] = replace(after_the_first_game(table.record), series=Series(36, 1))
+    table.skat.client.cookies.clear()
+    return table
+
+
+class TestASeatTheTableWaitsForIsAskedAgain:
+    def test_each_deadline_raises_the_revision_by_one_and_pulses_the_agent_until_the_last_ask(
+        self, skat, time, agent, middlehand_auction, pulses
+    ):
+        table_id = middlehand_auction.table_id
+        first = agent.view(table_id)
+        version = first["state"]["version"]
+        pulses.clear()
+
+        revisions = []
+        for _ in range(ASKS_AGAIN):
+            wait(skat, time, ASK_AGAIN_AFTER)
+            revisions.append(agent.view(table_id))
+        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+        after_the_last = agent.view(table_id)
+
+        assert first["revision"] == revision_of(version, 0)
+        assert [view["revision"] for view in revisions] == [revision_of(version, asks) for asks in (1, 2)]
+        assert after_the_last["revision"] == revision_of(version, ASKS_AGAIN)
+        assert pulses == [(account_of(skat, agent), view_uri_of(table_id))] * ASKS_AGAIN
+        assert [(view["awaits_you"], view["state"]) for view in (*revisions, after_the_last)] == [
+            (True, first["state"])
+        ] * (ASKS_AGAIN + 1)
+
+    def test_a_seat_the_table_does_not_wait_for_keeps_its_revision_and_is_not_pulsed(
+        self, skat, time, agent, forehand_auction, pulses
+    ):
+        table_id = forehand_auction.table_id
+        first = agent.view(table_id)
+        pulses.clear()
+
+        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+
+        assert (first["awaits_you"], agent.view(table_id)["revision"], pulses) == (
+            False,
+            revision_of(first["state"]["version"], 0),
+            [],
+        )
+
+    def test_an_act_of_the_seat_before_the_deadline_starts_the_new_version_afresh_and_the_old_pulse_tells_nobody(
+        self, skat, time, agent, middlehand_auction, pulses
+    ):
+        table = middlehand_auction
+        agent.view(table.table_id)
+        wait(skat, time, ASK_AGAIN_AFTER - 1)
+        assert not agent.take_step(AUCTION_BID_TOOL, table, command_id="agent-bid", value=18).is_error
+        moved = agent.view(table.table_id)
+        pulses.clear()
+
+        wait(skat, time, 1)
+
+        assert (moved["revision"], pulses) == (revision_of(table.record.version, 0), [])
+
+    def test_an_act_of_another_seat_starts_the_pause_afresh_while_the_seat_still_waits(
+        self, skat, time, agent, forehand_auction, pulses
+    ):
+        table = a_result_stands(forehand_auction)
+        agent.view(table.table_id)
+        wait(skat, time, ASK_AGAIN_AFTER - 10)
+        person_posts(table, TABLE_READY_SUFFIX, MIDDLEHAND, ordinal=1)
+        moved = agent.view(table.table_id)
+        pulses.clear()
+
+        wait(skat, time, 10)
+        before_the_new_deadline = agent.view(table.table_id)
+        wait(skat, time, ASK_AGAIN_AFTER - 10)
+        asked = agent.view(table.table_id)
+
+        version = table.record.version
+        assert (moved["awaits_you"], before_the_new_deadline["revision"]) == (True, revision_of(version, 0))
+        assert (asked["revision"], pulses) == (
+            revision_of(version, 1),
+            [(account_of(skat, agent), view_uri_of(table.table_id))],
+        )
+
+
+class TestTwoAgentsAtOneTable:
+    """The awaited agent opened the table and holds the middlehand chair; the other agent sits at the rearhand's."""
+
+    @pytest.fixture
+    def awaited(self, skat, issuer):
+        return Agent(skat, issuer, "awaited-agent", agent_name="Mozart")
+
+    @pytest.fixture
+    def other(self, skat, issuer):
+        return Agent(skat, issuer, OTHER_AGENT_SUBJECT, agent_name="Bach")
+
+    @pytest.fixture
+    def table_id(self, skat, awaited, other):
+        table_id = awaited.open_table().json()["id"]
+        skat.sit(skat.member()[0], table_id, 2)
+        other.sit_down(table_id, 3)
+        with_known_deal(skat, table_id)
+        return table_id
+
+    def test_the_agent_that_the_table_does_not_wait_for_gets_no_new_revision_and_no_pulse(
+        self, skat, time, awaited, other, table_id, pulses
+    ):
+        views = {each: each.view(table_id) for each in (awaited, other)}
+        pulses.clear()
+
+        wait(skat, time, ASK_AGAIN_AFTER)
+
+        assert (views[awaited]["awaits_you"], views[other]["awaits_you"]) == (True, False)
+        assert pulses == [(account_of(skat, awaited), view_uri_of(table_id))]
+        assert awaited.view(table_id)["revision"] == views[awaited]["revision"] + 1
+        assert other.view(table_id)["revision"] == views[other]["revision"]
+
+    def test_an_agent_that_reads_after_a_deadline_has_passed_reads_that_ask_and_is_pulsed_for_the_rest(
+        self, skat, time, awaited, other, table_id, pulses
+    ):
+        version = other.view(table_id)["state"]["version"]
+        wait(skat, time, ASK_AGAIN_AFTER + 10)
+        pulses.clear()
+
+        late = awaited.view(table_id)
+        wait(skat, time, ASK_AGAIN_AFTER)
+
+        assert late["revision"] == revision_of(version, 1)
+        assert pulses == [(account_of(skat, awaited), view_uri_of(table_id))] * (ASKS_AGAIN - 1)
+
+
+class TestAnAskLeavesTheTableAlone:
+    def test_the_tables_version_the_stored_rows_and_the_version_a_command_names_are_as_before(
+        self, skat, time, agent, middlehand_auction
+    ):
+        table = middlehand_auction
+        agent.view(table.table_id)
+        before = stored(skat)
+
+        wait(skat, time, ASK_AGAIN_AFTER)
+        asked = agent.view(table.table_id)
+        after_the_ask = stored(skat)
+        bid = agent.call(
+            AUCTION_BID_TOOL,
+            table_id=table.table_id,
+            command_id="agent-bid",
+            version=asked["state"]["version"],
+            value=18,
+        )
+
+        assert after_the_ask == before
+        assert asked["state"]["version"] == before[0][table.table_id].version
+        assert bid.is_error is False
+
+
+class TestWhereAPulseIsScheduled:
+    def test_the_pulses_are_scheduled_on_the_event_loops_thread_and_once_for_a_version_and_agent(
+        self, skat, time, agent, middlehand_auction
+    ):
+        loop_thread = skat.client.portal.call(threading.get_ident)
+        time.callers.clear()
+        pending = time.pending
+
+        agent.view(middlehand_auction.table_id)
+        agent.view(middlehand_auction.table_id)
+
+        assert time.callers == [loop_thread] * ASKS_AGAIN
+        assert time.pending == pending + ASKS_AGAIN
+
+    def test_stopping_the_presence_cancels_the_pulses_with_the_other_timers(
+        self, skat, time, agent, middlehand_auction, pulses
+    ):
+        agent.view(middlehand_auction.table_id)
+        pulses.clear()
+
+        skat.app.state.stop_streams()
+        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+
+        assert (time.pending, pulses) == (0, [])
+
+
+class TestARestartAndALapsedLease:
+    def test_a_restart_reads_no_ask_and_asks_again_one_pause_after_its_first_read(
+        self, skat, issuer, hold, time, agent, middlehand_auction, pulses
+    ):
+        table_id = middlehand_auction.table_id
+        agent.view(table_id)
+        wait(skat, time, ASK_AGAIN_AFTER)
+        version = agent.view(table_id)["state"]["version"]
+        restarted_time = FakeTime()
+
+        restarted = Skat(
+            lambda: hold,
+            store=skat.store,
+            stores=skat.stores,
+            issuer_transports=issuer.transports,
+            chair_clock=restarted_time.clock,
+            chair_scheduler=restarted_time,
+            now=restarted_time.moment,
+        )
+        with restarted.client:
+            returned = Agent(restarted, issuer, agent.subject)
+            first = returned.view(table_id)
+            pulses.clear()
+            restarted.client.portal.call(restarted_time.advance, ASK_AGAIN_AFTER)
+            asked = returned.view(table_id)
+
+        assert (first["revision"], asked["revision"]) == (revision_of(version, 0), revision_of(version, 1))
+        assert pulses == [(account_of(restarted, returned), view_uri_of(table_id))]
+
+    def test_an_agent_that_returns_after_its_lease_lapsed_reads_the_asks_due_so_far_and_no_more_than_the_cap(
+        self, skat, time, agent, middlehand_auction
+    ):
+        table_id = middlehand_auction.table_id
+        version = agent.view(table_id)["state"]["version"]
+
+        wait(skat, time, LEASE_SECONDS + (ASKS_AGAIN + 3) * ASK_AGAIN_AFTER)
+
+        assert agent.view(table_id)["revision"] == revision_of(version, ASKS_AGAIN)
+
+
+class TestWhenTheTableEndsThePulseTellsNobody:
+    def test_the_deadline_after_the_end_delivers_nothing_on_a_stream_that_is_open(
+        self, skat, time, sdk, middlehand_auction
+    ):
+        table_id = middlehand_auction.table_id
+
+        with sdk.connected() as session, session.listening() as events:
+            session.view(table_id)
+            skat.store.tables[table_id] = EndedTable(
+                TableId(table_id), skat.store.tables[table_id].version + 1, EndReason.EMPTY, 3600
+            )
+            wait(skat, time, ASK_AGAIN_AFTER)
+            a_standing_change(skat, time)
+
+            assert events.next_uri() == STANDING_URI
+
+    def test_an_undealt_table_that_ends_after_its_view_was_read_is_dropped_from_the_clock(
+        self, skat, time, agent, hold
+    ):
+        table_id = agent.open_table().json()["id"]
+        agent.view(table_id)
+
+        wait(skat, time, LEASE_SECONDS + hold.settings.chair_hold_seconds + hold.settings.empty_table_seconds + 1)
+
+        assert isinstance(skat.store.tables[table_id], EndedTable)
+        assert agent.read_resource(view_uri_of(table_id)).json()["error"]["message"] == "Unknown resource"
+
+
+class TestAScriptedClientIsAskedAgain:
+    def test_a_client_that_makes_no_call_on_its_first_turn_is_woken_again_reads_a_new_revision_and_plays(
+        self, skat, time, sdk, forehand_auction
+    ):
+        table = forehand_auction
+
+        with sdk.connected() as session, session.listening() as events:
+            table.middlehand_bids()
+            view = events.woken_view(table.table_id)
+            wait(skat, time, ASK_AGAIN_AFTER)
+            asked = events.woken_view(table.table_id)
+            answer = session.call(
+                AUCTION_HOLD_TOOL,
+                table_id=table.table_id,
+                command_id="agent-hold",
+                version=asked["state"]["version"],
+            )
+            moved = session.view(table.table_id)
+
+        assert (view["awaits_you"], asked["awaits_you"], asked["state"]) == (True, True, view["state"])
+        assert asked["revision"] == view["revision"] + 1
+        assert (answer.is_error, moved["awaits_you"]) == (False, False)
+
+
+async def _inviting(skat, table_id, request):
+    return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), request)
+
+
+def a_standing_change(skat, time):
+    """A change of the agent's standing that nobody's removal explains: an invitation to a table of a member."""
+    person = skat.member()
+    table_id = skat.create(person[0]).json()["id"]
+    request = InvitationRequest(SUBJECT, OWNER, OWNER, time.moment() + timedelta(seconds=INVITATION_SECONDS))
+    skat.client.portal.call(_inviting, skat, table_id, request)
+    skat.client.cookies.clear()
+
+
+class TestAPulseThatFails:
+    def test_is_logged_by_its_type_and_the_next_read_still_shows_the_ask(
+        self, skat, time, agent, middlehand_auction, monkeypatch
+    ):
+        def failing(_changes, _recipient, _uri):
+            raise ConnectionResetError
+
+        table_id = middlehand_auction.table_id
+        version = agent.view(table_id)["state"]["version"]
+        monkeypatch.setattr(ResourceChanges, "changed", failing)
+
+        with capture_logs() as logs:
+            wait(skat, time, ASK_AGAIN_AFTER)
+
+        assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"]
+        assert agent.view(table_id)["revision"] == revision_of(version, 1)
