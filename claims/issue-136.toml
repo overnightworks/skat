@@ -1,0 +1,8 @@
+claim_id = "fe9935f04bdc42dfa77eab9ffbe70d17"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "41188aa6d6b722b45aa52252e10a953086c80d9c"
+branch = "claude/issue-136-own-plate-du"
+scope = ["frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/ui/PlayedTrick.svelte", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/support/tables.py", "tests/e2e/support/words.py", "tests/e2e/test_agent_plays.py", "tests/e2e/test_call_greeting.py", "tests/e2e/test_chair_hold.py", "tests/e2e/test_table_bidding.py", "tests/e2e/test_table_playing.py", "tests/e2e/test_table_seats.py", "tests/e2e/test_tables.py"]
+opened_commit = "fefa116ffb73ec65143ab201ac631c8d84fb1fa8"
+whole_reason = "One visible word on the own chair, in the plate and the tag, and the end-to-end tests that pin it, change together or the suite is red."
