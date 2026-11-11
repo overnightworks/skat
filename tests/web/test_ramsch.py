@@ -88,6 +88,13 @@ class TestTheThirdPass:
             assert (hand["playing"]["legal_cards"] != []) == (position is FOREHAND)
         assert read(table)["passed_in"] is None
 
+    @pytest.mark.parametrize("options", [None, RAMSCH], ids=["a-table-without-ramsch", "a-table-with-ramsch"])
+    def test_a_declared_game_is_no_ramsch_whatever_the_table_plays(self, skat, options):
+        table = Table(skat, options)
+        table.declared_hand_game()
+
+        assert read(table)["hand"]["ramsch"] is False
+
     def test_passes_the_hand_in_at_a_table_without_ramsch(self, skat):
         table = Table(skat)
         three_pass(table)
