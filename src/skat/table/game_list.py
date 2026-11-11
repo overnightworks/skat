@@ -67,7 +67,8 @@ class RamschEntry:
     """One finished Ramsch in the table's list, by seat: the card points each seat counted, its list score, the seat
     that took all ten tricks and won by it (None if no seat did or the table scores it as any loser) and whether
     a seat with no trick doubled the loser's score. Each seat's display name is the one held at the end of the game.
-    The scores are the Ramsch's own times `bock_factor`, 1 outside a Bock game.
+    `bock_factor` is the Bock factor the Ramsch ran under, 1 outside a Bock game; the scores are multiplied by it,
+    a Durchmarsch's too unless the table scores it flat.
     """
 
     seat_accounts: tuple[str, str, str]
