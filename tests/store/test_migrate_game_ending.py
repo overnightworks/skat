@@ -36,8 +36,10 @@ def ramsch_row(ordinal, **changed):
 
 class TestFromAListOfEveryKindAtRevisionTwentyFive:
     @pytest.fixture
-    def migrated(self, unmigrated_engine):
-        """A database at 0025 holding a declared row, a row with a Kontra word and a Ramsch row, then taken to head."""
+    def at_revision(self, unmigrated_engine):
+        """A database at 0025 holding a declared row, a row with a Kontra word and a Ramsch row, then taken to its
+        successor 0026, where the list's checks of that revision stand.
+        """
         upgrade_to(unmigrated_engine, "0025")
         with unmigrated_engine.begin() as connection:
             connection.execute(
@@ -46,8 +48,13 @@ class TestFromAListOfEveryKindAtRevisionTwentyFive:
             connection.execute(text(list_row()))
             connection.execute(text(list_row(ordinal=2, kontra_word="'kontra'")))
             connection.execute(ramsch_row(3))
-        migrate(unmigrated_engine)
+        upgrade_to(unmigrated_engine, "0026")
         return unmigrated_engine
+
+    @pytest.fixture
+    def migrated(self, at_revision):
+        migrate(at_revision)
+        return at_revision
 
     def test_every_old_row_reads_played_out_with_no_seat(self, migrated):
         with migrated.connect() as connection:
@@ -74,11 +81,11 @@ class TestFromAListOfEveryKindAtRevisionTwentyFive:
     @pytest.mark.parametrize(
         ("ending", "seat"), [("given-up", 2), ("thrown-down", 3)], ids=["a give-up", "a throw-down"]
     )
-    def test_accepts_an_ending_by_a_seat(self, migrated, ending, seat):
-        run_in_transaction(migrated, text(list_row(ordinal=4, ending=f"'{ending}'", ended_by_seat=seat)))
+    def test_accepts_an_ending_by_a_seat(self, at_revision, ending, seat):
+        run_in_transaction(at_revision, text(list_row(ordinal=4, ending=f"'{ending}'", ended_by_seat=seat)))
 
-    def test_accepts_a_played_out_game_with_no_seat(self, migrated):
-        run_in_transaction(migrated, text(list_row(ordinal=4, ending="'played-out'")))
+    def test_accepts_a_played_out_game_with_no_seat(self, at_revision):
+        run_in_transaction(at_revision, text(list_row(ordinal=4, ending="'played-out'")))
 
     @pytest.mark.parametrize(
         "changed",
@@ -91,13 +98,13 @@ class TestFromAListOfEveryKindAtRevisionTwentyFive:
             pytest.param({"ending": "'thrown-down'"}, id="thrown-down-without-a-seat"),
         ],
     )
-    def test_refuses_a_declared_row_whose_ending_and_seat_do_not_fit(self, migrated, changed):
+    def test_refuses_a_declared_row_whose_ending_and_seat_do_not_fit(self, at_revision, changed):
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, text(list_row(ordinal=4, **changed)))
+            run_in_transaction(at_revision, text(list_row(ordinal=4, **changed)))
 
     @pytest.mark.parametrize("ending", ["given-up", "thrown-down"])
-    def test_refuses_a_ramsch_row_that_ends_any_other_way_than_played_out(self, migrated, ending):
+    def test_refuses_a_ramsch_row_that_ends_any_other_way_than_played_out(self, at_revision, ending):
         statement = ramsch_row(4, ending=f"'{ending}'", ended_by_seat=1)
 
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, statement)
+            run_in_transaction(at_revision, statement)

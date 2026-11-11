@@ -10,7 +10,7 @@ from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
-from skat.store.game_list import append_game_list, game_list, read_game_list
+from skat.store.game_list import append_game_list, read_game_list
 from skat.store.kontra import append_words, kontra_words, read_words
 from skat.store.member_book import accounts_at, forget_table, locked_entries_of, locked_entry, save_entry
 from skat.store.playing import append_plays, played_cards, read_plays
@@ -261,13 +261,6 @@ class _PostgresTableTransaction:
                 )
             )
 
-    def _raises_series_number(self, table: TableRecord) -> bool:
-        """The record's series number is above the stored one, read before the row is written."""
-        stored = self._connection.execute(
-            select(tables.c.series_number).where(tables.c.id == table.id.value)
-        ).scalar_one()
-        return _series_number_of(table) > stored
-
     def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         dealt = _read_hand(self._connection, table.id.value)
         ended = dealt is not None and table.hand is None
@@ -276,15 +269,12 @@ class _PostgresTableTransaction:
         if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not passed_in:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
-        starts_series = dealt is None and table.hand is not None and self._raises_series_number(table)
         self._write_table_row(table, played_at)
-        if starts_series:
-            self._connection.execute(delete(game_list).where(game_list.c.table_id == table.id.value))
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if played_out:
             _forget_played_hand(self._connection, table.id.value)
-        append_game_list(self._connection, table.id.value, table.game_list)
+        append_game_list(self._connection, table.id.value, _series_number_of(table), table.game_list, played_at)
         if table.hand is not None and dealt is None:
             delete_steps(self._connection, table.id.value)
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
@@ -336,8 +326,7 @@ class _PostgresTableTransaction:
             )
         )
         _forget_played_hand(self._connection, table_id.value)
-        for rows in (chairs, game_list):
-            self._connection.execute(delete(rows).where(rows.c.table_id == table_id.value))
+        self._connection.execute(delete(chairs).where(chairs.c.table_id == table_id.value))
         forget_table(self._connection, table_id.value)
         self._connection.execute(
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
