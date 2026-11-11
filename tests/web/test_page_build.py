@@ -195,8 +195,10 @@ class TestShellInLanguage:
         ids=["no-attribute", "other-language", "two-attributes"],
     )
     def test_a_shell_without_its_one_english_lang_attribute_refuses_the_start(self, tmp_path, shell):
+        root = build_with_shell(tmp_path, shell)
+
         with pytest.raises(PageBuildMissingError, match="lang"):
-            PageBuild.load(build_with_shell(tmp_path, shell))
+            PageBuild.load(root)
 
     def test_the_shell_in_a_language_holds_that_language_and_the_built_bytes_otherwise(self, tmp_path):
         shell = '<html lang="en"><script>first();</script></html>'
