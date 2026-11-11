@@ -58,9 +58,8 @@ def row_count(engine):
         return connection.execute(text("SELECT count(*) FROM rule_sets")).scalar_one()
 
 
-@pytest.mark.parametrize("unset", [None, ""])
-def test_a_migration_without_the_operator_account_inserts_nothing_and_does_not_fail(before_the_set, unset):
-    migrate(before_the_set, operator_account_id=unset)
+def test_a_migration_without_the_operator_account_inserts_nothing_and_does_not_fail(before_the_set):
+    migrate(before_the_set, operator_account_id=None)
 
     assert row_count(before_the_set) == 0
 

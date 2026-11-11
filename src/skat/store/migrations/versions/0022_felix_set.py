@@ -43,5 +43,5 @@ def _install(operator_account_id: str) -> None:
 
 def upgrade() -> None:
     operator_account_id = context.config.attributes.get("operator_account_id")
-    if operator_account_id:
+    if operator_account_id is not None:
         _install(operator_account_id)
