@@ -31,7 +31,10 @@ class TestAsksDue:
 
 class TestRevisionOf:
     def test_one_version_and_one_count_give_the_same_revision(self):
-        assert revision_of(7, 1) == revision_of(7, 1)
+        first_reading = revision_of(7, 1)
+        second_reading = revision_of(7, 1)
+
+        assert first_reading == second_reading
 
     def test_every_count_of_a_version_stays_below_the_next_version(self):
         highest = max(revision_of(7, asks) for asks in range(ASKS_AGAIN + 1))
