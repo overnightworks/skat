@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import text
 
-from skat.engine.cards import DECK
+from skat.engine.cards import DECK, Rank
 from skat.engine.deal import Position, positions_from
 from skat.engine.ramsch import (
     DurchmarschRule,
@@ -64,7 +64,7 @@ class StageTable:
 
     def two_cards_to_put_back(self, position):
         hand = pushing_of(self.record).deal.hands[position]
-        return tuple(card for card in hand if card.rank.name != "JACK")[:2]
+        return tuple(card for card in hand if card.rank is not Rank.JACK)[:2]
 
     def take_and_put_back(self, position):
         assert self.step(position, PushingKind.TAKE).refusal is None
@@ -161,7 +161,7 @@ def test_a_refused_put_back_keeps_its_refusal_across_a_restart_and_stores_no_ste
 ):
     table = StageTable(service, transactions, stored)
     a_take(table)
-    jack = next(card for card in pushing_of(table.record).deal.hands[FOREHAND] if card.rank.name == "JACK")
+    jack = next(card for card in pushing_of(table.record).deal.hands[FOREHAND] if card.rank is Rank.JACK)
     other = next(card for card in pushing_of(table.record).deal.hands[FOREHAND] if card != jack)
     first = table.step(FOREHAND, PushingKind.PUT_BACK, (jack, other), command_id="put-back-1")
     engine, again = restarted(database_url)

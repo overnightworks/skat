@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import seats_from
 from skat.engine.declaration import Stage
-from skat.engine.schieberamsch import GrandHandRule, Push, PushOptions, Put, Take, push_factor, pushing_step
+from skat.engine.schieberamsch import GrandHandRule, Push, PushOptions, Put, Take, pushing_step
+from skat.table.game_list import pushes_factor
 from skat.table.hand_state import pushing_of
 from skat.table.records import Decision, Refusal
 from skat.table.rules import acting_position, card_text
@@ -12,8 +13,8 @@ from skat.table.rules import acting_position, card_text
 if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.engine.schieberamsch import Pushing, PushingRule
-    from skat.table.records import Actor, PushingStep, TableRecord
+    from skat.engine.schieberamsch import Pushing
+    from skat.table.records import Actor, PushingStep, TableOptions, TableRecord
 
 PUSHING_STEP_COMMAND: Final = "pushing-step"
 
@@ -109,16 +110,17 @@ def _moves_of(steps: tuple[PushingStep, ...], dealer: int) -> tuple[PushingMove,
 
 
 def pushing_view_of(
-    state: Pushing | None, rule: PushingRule | None, steps: tuple[PushingStep, ...], dealer: int
+    state: Pushing | None, options: TableOptions, steps: tuple[PushingStep, ...], dealer: int
 ) -> PushingView | None:
     """The stage for every viewer alike; None unless a stage runs, which no Ramsch without pushing has and none has
     once its first card may be played.
     """
-    if state is None or rule is None or state.result is not None:
+    ramsch = options.ramsch
+    if state is None or ramsch is None or ramsch.pushing is None or state.result is not None:
         return None
     return PushingView(
         turn_seat=seats_from(dealer)[state.turn],
         stage=Stage.DISCARDING if state.holds_twelve else Stage.CHOOSING,
         moves=_moves_of(steps, dealer),
-        factor=push_factor(state.pushes, rule),
+        factor=pushes_factor(state.pushes, options),
     )

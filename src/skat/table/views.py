@@ -186,9 +186,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
             else None,
         ),
         isinstance(playing, RamschPlaying) or stage is not None,
-        pushing_view_of(
-            stage, table.options.ramsch.pushing if table.options.ramsch else None, table.progress.pushing, table.dealer
-        ),
+        pushing_view_of(stage, table.options, table.progress.pushing, table.dealer),
         0 if stage is None else stage.pushes,
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
