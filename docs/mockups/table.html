@@ -546,6 +546,17 @@ body.solo section.shot .rule{display:none}
   @keyframes runout{to{transform:scaleX(0)}}
 }
 </style>
+<style>
+/* ---------- S3.7p: the lobby button on the table page; a round 40 px glass button inside a 44 px tap area, a pill with its word on the desktop; lighter than the other glass so it reads on the dark wood ---------- */
+.cb.home{position:absolute;left:10px;top:3px;width:40px;height:40px;cursor:pointer;background:rgba(244,246,248,.26);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 4px 10px -4px rgba(0,0,0,.7)}
+.cb.home::after{content:"";position:absolute;inset:-2px}
+.cb.home svg{width:22px;height:22px}
+.cb.wide.glass.home{left:20px;top:9px;width:auto;height:40px;padding:0 16px 0 12px;font-size:14px;gap:8px}
+.cb.wide.glass.home svg{width:20px;height:20px}
+.cb.wide.glass.home::after{inset:-2px 0}
+.badge{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;background:var(--accent-stage);color:var(--stage);
+  font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--stage)}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -748,6 +759,13 @@ const PB={
 const BACK=72;
 const PB_BACK={...PB,you:{...PB.you,y:PB.you.y+BACK},coasters:[PB.coasters[0],PB.coasters[1],[PB.coasters[2][0],PB.coasters[2][1]+BACK,...PB.coasters[2].slice(2)]]};
 
+/* the way home: the lobby button at the top left of every solo table, the watchers at the top right; a call table has neither */
+I.home=sv('<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/>');
+let homeBadge=null;
+const withBadge=(draw,badge)=>(d)=>{const before=homeBadge;homeBadge=badge;try{return draw(d);}finally{homeBadge=before;}};
+const homeButton=(d,badge)=>{const mark=badge?`<span class="badge" aria-hidden="true">${badge}</span>`:'';
+  return d?`<span class="cb wide glass home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}Lobby${mark}</span>`
+          :`<span class="cb home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}${mark}</span>`;};
 const pbRoom=(o)=>table({...PB.table,thud:o.thud})+(o.glow||'')+(o.call===false?'':people(4,12,8)+watchers(296,4,[['ben',56,40]]))
   +fan(o.left,{x:80,y:168,w:26,rot:150,spread:6,dim:o.annaOut,deal:o.deal&&150})+fan(o.left,{x:310,y:168,w:26,rot:210,spread:6,dim:o.novaOut,deal:o.deal&&150,d0:.1});
 const pbSeats=(o)=>seat('anna',{...PB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...PB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
@@ -893,14 +911,14 @@ frame('solo-play-390','Tisch ohne Anruf','Handy 390 px','p390',
   +plaque(195,176,gameLine('','Grand'))
   +stamp('Kontra!','felix',{x:195,y:350,sf:30,ss:230,k:.42})
   +pbSeats({video:false,anna:['decl'],nova:['turn','think'],score:[148,62,55]})
-  +hand(BID_HAND,PHONE_HAND)+soloBar());
+  +hand(BID_HAND,PHONE_HAND)+soloBar()+homeButton(false));
 
 frame('solo-play-1280','Tisch ohne Anruf','Desktop 1280 px','d1280',
   dbRoom({left:10,call:false,thud:'0s',glow:glow(980,270,220,260)})
   +plaque(640,98,gameLine('','Grand'))
   +stamp('Kontra!','felix',{x:640,y:330,sf:50,ss:380,k:.42})
   +dbSeats({video:false,anna:['decl'],nova:['turn','think'],score:[148,62,55]})
-  +hand(BID_HAND,DESK_HAND)+soloBar());
+  +hand(BID_HAND,DESK_HAND)+soloBar()+homeButton(true));
 
 /* ===== after the auction: you won it at 20, take the skat or play Hand, put two back, declare; then Anna's declaration seen from your chair ===== */
 I.down=sv('<path d="M12 5v14M6 13l6 6 6-6"/>',2.4);
@@ -975,6 +993,7 @@ const IDEAS=[
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-button, giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
+  ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -996,7 +1015,7 @@ const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'id
   <div class="chair"><div class="tile">${o.idle?'':`<span class="sit">${I.plus}</span>`}</div></div><span class="plate"><b>Frei</b></span></div>`;
 /* the chair stays held: the nameplate keeps the name and says the player is not there */
 const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
-const watching=(n,x,y)=>`<div class="tag-glass" title="Zuschauer" style="${at({left:x,top:y})}">${I.eye}<span>${n}</span></div>`;
+const watching=(n,d)=>`${homeButton(d,homeBadge)}<div class="tag-glass" title="Zuschauer" style="${at(d?{right:20,top:14}:{right:12,top:8})}">${I.eye}<span>${n}</span></div>`;
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
 const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
 const tableBar=(desk,o={})=>{
@@ -1014,14 +1033,14 @@ const DE={anna:{x:60,y:190,w:200,h:150},right:{x:1020,y:190,w:200,h:150},you:{x:
 
 /* the two views every S3 scene starts from: watching Anna's table, and sitting at your own */
 const S3={
-  watch:(d)=>(d?dbRoom({left:0,call:false})+waiting(640,98)+seat('anna',DB.anna)+seat('ben',DB.nova)+freeSeat(DB.you)+watching(3,16,14)
-             :pbRoom({left:0,call:false})+waiting(195,176)+seat('anna',PB.anna)+seat('ben',PB.nova)+freeSeat(PB.you)+watching(3,12,8))+tableBar(d),
-  mine:(d)=>(d?dbRoom({left:0,call:false})+waiting(640,98)+awaySeat('anna',DB.anna)+freeSeat(DB.nova,{idle:true})+seat('felix',DB.you)+watching(1,16,14)
-            :pbRoom({left:0,call:false})+waiting(195,176)+awaySeat('anna',PB.anna)+freeSeat(PB.nova,{idle:true})+seat('felix',PB.you)+watching(1,12,8))+tableBar(d,{seated:true,opener:true}),
-  taken:(d)=>(d?dbRoom({left:0,call:false})+seat('anna',DB.anna)+seat('ben',DB.nova)+seat('lena',{...DB.you,got:'.6s;--d:.25s'})+watching(4,16,14)+notice('Platz vergeben','lena',187,522)
-             :pbRoom({left:0,call:false})+seat('anna',PB.anna)+seat('ben',PB.nova)+seat('lena',{...PB.you,got:'.6s;--d:.25s'})+watching(4,12,8)+notice('Platz vergeben','lena',195,462))+tableBar(d),
+  watch:(d)=>(d?dbRoom({left:0,call:false})+waiting(640,98)+seat('anna',DB.anna)+seat('ben',DB.nova)+freeSeat(DB.you)+watching(3,true)
+             :pbRoom({left:0,call:false})+waiting(195,176)+seat('anna',PB.anna)+seat('ben',PB.nova)+freeSeat(PB.you)+watching(3,false))+tableBar(d),
+  mine:(d)=>(d?dbRoom({left:0,call:false})+waiting(640,98)+awaySeat('anna',DB.anna)+freeSeat(DB.nova,{idle:true})+seat('felix',DB.you)+watching(1,true)
+            :pbRoom({left:0,call:false})+waiting(195,176)+awaySeat('anna',PB.anna)+freeSeat(PB.nova,{idle:true})+seat('felix',PB.you)+watching(1,false))+tableBar(d,{seated:true,opener:true}),
+  taken:(d)=>(d?dbRoom({left:0,call:false})+seat('anna',DB.anna)+seat('ben',DB.nova)+seat('lena',{...DB.you,got:'.6s;--d:.25s'})+watching(4,true)+notice('Platz vergeben','lena',187,522)
+             :pbRoom({left:0,call:false})+seat('anna',PB.anna)+seat('ben',PB.nova)+seat('lena',{...PB.you,got:'.6s;--d:.25s'})+watching(4,false)+notice('Platz vergeben','lena',195,462))+tableBar(d),
   ended:(d,o)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)+panel({x:640,y:214,w:460,...o})
-               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+panel({x:195,y:250,w:330,...o})),
+               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+panel({x:195,y:250,w:330,...o}))+homeButton(d,homeBadge),
 };
 const S3_SCENES=[
   ['s3-watch','Zuschauen',(d)=>S3.watch(d)],
@@ -1032,9 +1051,9 @@ const S3_SCENES=[
   ['s3-closed','Geschlossen',(d)=>S3.ended(d,{k:'anna',text:'Anna hat den Tisch geschlossen',buttons:NEW_TABLE})],
   ['s3-idle','Leer geschlossen',(d)=>S3.ended(d,{icon:I.clock,text:'30 Minuten niemand da: Tisch geschlossen',buttons:NEW_TABLE})],
   ['s3-missing','Nicht gefunden',(d)=>back(at({left:d?600:158,top:d?470:520,'--w':d?84:70,transform:'rotate(-16deg)'}))
-    +panel({...(d?{x:640,y:200,w:460}:{x:195,y:250,w:330}),icon:I.ask,text:'Tisch nicht gefunden',buttons:NEW_TABLE})],
-  ['s3-reconnect','Verbinde neu',(d)=>`<div class="stale">${S3.mine(d)}</div>`
-    +`<div class="reconnect" role="status" style="${at({left:d?640:195,top:d?330:340})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`],
+    +panel({...(d?{x:640,y:200,w:460}:{x:195,y:250,w:330}),icon:I.ask,text:'Tisch nicht gefunden',buttons:NEW_TABLE})+homeButton(d,homeBadge)],
+  ['s3-reconnect','Verbinde neu',(d)=>{const home=homeButton(d,homeBadge);return `<div class="stale">${S3.mine(d).replace(home,'')}</div>`+home
+    +`<div class="reconnect" role="status" style="${at({left:d?640:195,top:d?330:340})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`;}],
 ];
 scenes(S3_SCENES);
 
@@ -1063,7 +1082,7 @@ function dealSeats(d,o){
   return CLOCKWISE.map(spot=>who[spot]===o.away?awaySeat(who[spot],place[spot],marks(spot))
     :seat(who[spot],{...place[spot],marks:marks(spot),got:who[spot]===o.sits?'.6s;--d:.25s':undefined})).join('');
 }
-const dealRoom=(d,o)=>room(d,{left:o.left||0,call:false,deal:o.deal,annaOut:o.away==='anna'})+watching(o.watchers,d?16:12,d?14:8);
+const dealRoom=(d,o)=>room(d,{left:o.left||0,call:false,deal:o.deal,annaOut:o.away==='anna'})+watching(o.watchers,d);
 /* on the phone a long line drops below the fans to the middle of the felt */
 const tablePlaque=(d,text,phoneY=176)=>plaque(d?640:195,d?98:phoneY,`<div class="game">${text}</div>`);
 const DEAL_SCENES=[
@@ -1096,7 +1115,7 @@ const annaDecides=(d)=>seats(d,{video:true,anna:['decl','turn'],score:[148,62,55
 const SKAT_OTHER_SCENES=[
   ['skat-wait','Anna entscheidet',(d)=>room(d,{left:10,glow:annaTurn(d)})+skatStep(d,'wählt')+tableSkat(d)+annaDecides(d)],
   ['skat-taken','Anna drückt',(d)=>room(d,{left:0,glow:annaTurn(d)})+sideFans(d,12,10)+skatStep(d,'drückt')+leftCount(d,12)+annaDecides(d)],
-  ['skat-watch','Zuschauen beim Skat',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:annaTurn(d)})+watching(3,d?16:12,d?14:8)
+  ['skat-watch','Zuschauen beim Skat',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:annaTurn(d)})+watching(3,d)
     +sideFans(d,12,10)+nearFan(d,10)+skatStep(d,'drückt')
     +leftCount(d,12)+(d?cardCount(952,340)+cardCount(420,600):cardCount(310,200)+cardCount(250,456))
     +seat('anna',{...L.anna,marks:['decl','turn']})+seat('ben',L.nova)+seat('lena',L.you)+tableBar(d);}],
@@ -1108,13 +1127,13 @@ ORDER.splice(ORDER.indexOf('skat-declared-390'),0,...SKAT_OTHER_SCENES.flatMap((
 const TRICK_SLOT={left:(d)=>({x:d?560:136,y:d?276:318,w:d?96:70,rot:d?-11:-9}),right:(d)=>({x:d?720:254,y:d?276:318,w:d?96:70,rot:d?9:8}),near:(d)=>({x:d?640:195,y:d?432:440,w:d?96:70,rot:0})};
 const pointsNamed=(eyes,names,pw)=>points(eyes[0],eyes[1],pw).replace(`Anna ${eyes[0]}`,`${names[0]} ${eyes[0]}`).replace(`Wir ${eyes[1]}`,`${names[1]} ${eyes[1]}`);
 const PLAY_OTHER_SCENES=[
-  ['play-watch','Zuschauen beim Stich',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d?16:12,d?14:8)
+  ['play-watch','Zuschauen beim Stich',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d)
     +sideFans(d,7,7)+nearFan(d,8)
     +plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))
     +played('K','s','anna',TRICK_SLOT.left(d))
     +played('7','s','ben',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})
     +seat('anna',{...L.anna,marks:['decl']})+seat('ben',L.nova)+seat('lena',{...L.you,marks:['turn']})+tableBar(d);}],
-  ['play-away','Anna ist weg',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false})+watching(1,d?16:12,d?14:8)
+  ['play-away','Anna ist weg',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false})+watching(1,d)
     +sideFans(d,8,7,{dim:true})
     +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+`<div class="game">Warte auf Anna${waitDots()}</div>`)
     +played('K','s','ben',TRICK_SLOT.right(d))+played('A','s','felix',TRICK_SLOT.near(d))
@@ -1210,7 +1229,7 @@ const BID_SCENES=[
   ['bid-passed','Eingepasst',(d)=>room(d,{left:0})
     +plaque(d?640:195,d?98:176,`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
     +seats(d,{video:true,anna:['pass'],nova:['drawn','pass'],you:['pass'],score:[148,62,55]})+callBar(d)],
-  ['bid-watch','Zuschauen beim Reizen',(d)=>{const L=d?DB:PB;return room(d,{left:10,call:false,annaOut:true,glow:d?glow(187,632,300,200):yourTurn(d)})+watching(3,d?16:12,d?14:8)+auction(d)
+  ['bid-watch','Zuschauen beim Reizen',(d)=>{const L=d?DB:PB;return room(d,{left:10,call:false,annaOut:true,glow:d?glow(187,632,300,200):yourTurn(d)})+watching(3,d)+auction(d)
     +(d?fan(10,{x:370,y:590,w:42,rot:45,spread:6}):fan(10,{x:195,y:476,w:26,rot:0,spread:6}))
     +bubble('ben','23',d?{x:1062,y:392,tail:'50%'}:{x:250,y:228,tail:'72%'})
     +bubble('lena',`${I.check}22`,d?{x:110,y:496,tail:'40%',bottom:true,quiet:true}:{x:52,y:456,tail:'92%',bottom:true,quiet:true})
@@ -1261,7 +1280,7 @@ const OUVERT_SCENES=[
   ['ouvert-before','Offen, vor der ersten Karte',(d)=>room(d,{left:0,glow:yourTurn(d)})+sideFans(d,0,10)
     +ouvertPlaque(d)+openHand(OUVERT_HAND,d)+(d?ghost(640,432,96):ghost(195,440,70))
     +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,FELIX_AGAINST)+callBar(d)],
-  ['ouvert-watch','Zuschauen bei offenen Karten',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d?16:12,d?14:8)
+  ['ouvert-watch','Zuschauen bei offenen Karten',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d)
     +sideFans(d,0,7)+nearFan(d,8)+ouvertPlaque(d)
     +openHand([['B','c'],['B','s'],['B','h'],['10','c'],['K','s'],['10','h'],['A','d']],d)
     +played('A','s','anna',TRICK_SLOT.left(d))
@@ -1388,7 +1407,7 @@ const giveUpBar=(d,control='')=>tableBar(d,{seated:true}).replace(STAND_UP,contr
 const barKey=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
 const GIVE_UP=barKey('glass',I.flag,'Aufgeben');
 const GIVE_UP_ARMED=barKey('leave arm',I.flag,'Wirklich aufgeben?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
-const giveUpTable=(d,o={})=>room(d,{left:0,call:false,glow:o.glow})+watching(o.watchers||1,d?16:12,d?14:8)
+const giveUpTable=(d,o={})=>room(d,{left:0,call:false,glow:o.glow})+watching(o.watchers||1,d)
   +sideFans(d,o.left??8,o.left??8,{dim:o.dim,dimRight:o.dim});
 const giveUpSeats=(d,o)=>{const L=d?DB:PB;
   return seat('anna',{...L.anna,short:true,marks:o.anna||[]})+seat('ben',{...L.nova,marks:o.ben||[]})+seat(o.near||'felix',{...L.you,marks:o.you||[]});};
@@ -1476,7 +1495,7 @@ const ruleTop=(d,on)=>seriesCount(d,8)+(on?(d?rulePill(716,15,on):rulePill(195,3
 const ruleRoom=(d,glow)=>{const room_=room(d,{left:7,call:false,glow});return d?room_:`<div class="drop" style="inset:0;transform:translateY(${DROP}px)">${room_}</div>`;};
 const RULE_HAND=[['B','h','no'],['D','c','no'],['7','c','no'],['9','s','ok'],['10','h','no'],['K','d','no'],['8','d','no']];
 const rulePlay=(d,o)=>{const L=d?DB:PBR;
-  return ruleRoom(d,yourTurn(d))+watching(1,d?16:12,d?14:8)+ruleTop(d,o.chips)
+  return ruleRoom(d,yourTurn(d))+watching(1,d)+ruleTop(d,o.chips)
     +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+(o.plaque?o.plaque(d):''))+announcedTrick(d)
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
     +ownHand(d,RULE_HAND)+tableBar(d);};
@@ -1484,7 +1503,7 @@ const runningPoints=(d)=>points(28,41,d?190:150);
 /* Lena looks on: the chairs are Anna's, Nova's and Felix's, and the points read Anna against the others */
 P.felixSeen={...P.felix,n:'Felix'};
 const ruleWatch=(d)=>{const L=d?DB:PBR;
-  return ruleRoom(d,nearTurn(d))+watching(2,d?16:12,d?14:8)+ruleTop(d,ANNAS_RULES)+nearFan(d,7)
+  return ruleRoom(d,nearTurn(d))+watching(2,d)+ruleTop(d,ANNAS_RULES)+nearFan(d,7)
     +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+pointsNamed([28,41],['Anna','Gegner'],d?190:150))+announcedTrick(d).replace(d?ghost(640,432,96):ghost(195,440,70),'')
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felixSeen',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
     +tableBar(d);};
@@ -1505,6 +1524,14 @@ const RULES_SCENES=[
 ];
 scenes(RULES_SCENES);
 ORDER.push(...RULES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
+/* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
+const HOME_SCENES=[
+  ['home-badge','Lobby mit Zahl',withBadge((d)=>rulePlay(d,{chips:ANNAS_RULES,plaque:runningPoints}),1),
+    ['Eine Zahl am Lobby-Knopf sagt, an wie vielen anderen Tischen du dran bist.']],
+];
+scenes(HOME_SCENES);
+ORDER.unshift(...HOME_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');

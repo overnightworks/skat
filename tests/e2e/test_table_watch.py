@@ -110,6 +110,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
     path = open_new_table(opener, e2e_server)
     watcher = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
     watch(watcher, e2e_server, path)
+    expect(watchers_of(opener)).to_have_text("1")
     url = f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}{TABLE_EVENTS_SUFFIX}"
 
     seen = {
