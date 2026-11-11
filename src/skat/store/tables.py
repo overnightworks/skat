@@ -45,7 +45,7 @@ from skat.table.records import (
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableTransaction
+from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableTransaction
 
 if TYPE_CHECKING:
     from collections.abc import Generator

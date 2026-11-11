@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.records import EndedTable, Receipt, Replay, TableId, TableRecord
-    from skat.table.service import LiveWait, OccupiedChair, PausedFacts, TableTransaction, TableTransactions
+    from skat.table.transactions import LiveWait, OccupiedChair, PausedFacts, TableTransaction, TableTransactions
 
 
 BARRIER_TIMEOUT_SECONDS = 0.5

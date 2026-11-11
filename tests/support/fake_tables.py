@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING
 
 from skat.table.records import EndedTable, EndReason, Receipt, Replay, TableRecord
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableService
+from skat.table.service import TableService
+from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
