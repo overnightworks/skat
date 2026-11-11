@@ -70,7 +70,7 @@ def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_no_copy_
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_top_level_call_mode_table_keeps_its_linked_wordmark_and_its_copy_link(
+def test_a_top_level_call_mode_table_offers_the_lobby_button_and_its_copy_link(
     open_person: Callable[..., Page], framing_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
     path = new_table(open_person, framing_server)
