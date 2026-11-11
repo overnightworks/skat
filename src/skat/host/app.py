@@ -72,6 +72,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
+    from webauth.config import WebAuthConfig
     from webauth.ports import SessionRecordStore
 
     from skat.table.rule_sets import RuleSetService
@@ -167,9 +168,16 @@ def _presence(
     )
 
 
-def _include_table_routers(app: FastAPI, tables: TableService, page_build: PageBuild, presence: Presence) -> None:
+def _include_table_routers(
+    app: FastAPI,
+    tables: TableService,
+    page_build: PageBuild,
+    presence: Presence,
+    sessions: SessionRecordStore,
+    web_auth: WebAuthConfig,
+) -> None:
     app.include_router(create_seating_router(tables, presence))
-    app.include_router(create_tables_router(tables, page_build, presence))
+    app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
 
 
 def _include_table_sub_routers(
@@ -244,10 +252,10 @@ def create_app(
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
-    app.include_router(create_router(page_build))
+    app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
-    _include_table_routers(app, tables, page_build, presence)
+    _include_table_routers(app, tables, page_build, presence, sign_in_stores.sessions, sign_in_configs.web_auth)
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
