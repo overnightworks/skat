@@ -1,6 +1,6 @@
 import pytest
 
-from skat.engine.deal import Deal, next_dealer, positions_from
+from skat.engine.deal import next_dealer, positions_from
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
@@ -9,50 +9,28 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND, Table, cards, game_of, reason_of
+from tests.web.support.playing import (
+    FOREHAND,
+    JUNGFRAU_DEAL,
+    JUNGFRAU_HAND,
+    MIDDLEHAND,
+    PLAIN_DEAL,
+    PLAIN_HAND,
+    REARHAND,
+    SWEEP_DEAL,
+    SWEEP_HAND,
+    TIE_DEAL,
+    TIE_HAND,
+    Table,
+    cards,
+    reason_of,
+)
 from tests.web.support.skat import UNKNOWN_ID, streams_of
 
 SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
 FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT = SEATS[FOREHAND], SEATS[MIDDLEHAND], SEATS[REARHAND]
 POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
 RAMSCH = {"ramsch": POINTS}
-
-
-def deal_of(forehand, middlehand, rearhand, skat):
-    return Deal(forehand=cards(forehand), middlehand=cards(middlehand), rearhand=cards(rearhand), skat=cards(skat))
-
-
-# Each hand is played by taking the first legal card in the deck's order; a trick lists its cards from the seat that
-# led it, and each trick's card points are summed by hand beside it.
-# Rearhand takes tricks 1 to 4 (2, 3, 4, 21), 9 and 10 (17, 24): 71 points, the skat's DK and DA (15) go to him as
-# the last trick's taker, forehand takes 12 and middlehand 5 + 3 + 14 = 22.
-PLAIN_DEAL = deal_of(
-    "C7 C8 C9 CT CJ CQ CK CA S7 S8", "S9 ST SJ SQ SK SA H7 H8 H9 HT", "HJ HQ HK HA D7 D8 D9 DT DJ DQ", "DK DA"
-)
-PLAIN_HAND = game_of(
-    "C7 S9 HJ / HQ C8 H7 / HK C9 H8 / HA CT H9 / D7 CJ ST", "CQ SJ D8 / SQ D9 S7 / SK DT S8 / SA DJ CK / DQ CA HT"
-)
-# Forehand takes no trick: middlehand takes 86 and the skat's CA and SK (15) as the last trick's taker.
-JUNGFRAU_DEAL = deal_of(
-    "H7 D8 H9 H8 HK DJ SA S8 HQ HA", "DA DQ HJ SJ SQ DT C8 CQ D9 ST", "C7 CJ S9 D7 CK HT S7 DK C9 CT", "CA SK"
-)
-JUNGFRAU_HAND = game_of(
-    "S8 ST S7 / C8 C7 SA / CQ C9 H7 / SJ CJ DJ / CT H8 SQ", "CK H9 HJ / D9 D7 D8 / DT DK HQ / DQ S9 HK / DA HT HA"
-)
-# Rearhand and middlehand take 41 each, forehand 34 and the skat's SK (4) as the last trick's taker.
-TIE_DEAL = deal_of(
-    "DJ D8 CQ ST SJ CJ HK DT C7 S9", "HQ CA DA HA C8 HT HJ S8 C9 S7", "DK H7 CK D9 CT D7 DQ SA SQ H8", "H9 SK"
-)
-TIE_HAND = game_of(
-    "C7 C8 CT / CK CQ C9 / SQ S9 S7 / SA ST S8 / H7 HK HT", "CA H8 CJ / SJ HJ D7 / D8 DA D9 / HQ DQ DT / HA DK DJ"
-)
-# Forehand holds the four jacks and the aces and tens that win every trick: all 120 points but the skat's HT and HK.
-SWEEP_DEAL = deal_of(
-    "CJ SJ HJ DJ CA CT SA ST HA DA", "C7 C8 C9 S7 S8 H7 H8 D7 D8 D9", "CK CQ S9 SK SQ H9 HQ DT DK DQ", "HT HK"
-)
-SWEEP_HAND = game_of(
-    "CT C7 CQ / CJ C8 CK / CA C9 S9 / ST S7 SQ / SJ S8 SK", "SA H7 H9 / HJ H8 HQ / HA D7 DT / DJ D8 DQ / DA D9 DK"
-)
 
 
 def options_of(**changed):

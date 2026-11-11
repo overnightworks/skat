@@ -2,7 +2,7 @@ import itertools
 from dataclasses import replace
 
 from skat.engine.cards import Card, Rank, Suit
-from skat.engine.deal import Position, positions_from
+from skat.engine.deal import Deal, Position, positions_from
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
@@ -45,6 +45,43 @@ def game_of(*halves):
 HERZ_GAME = game_of(
     "S7 S9 D7 / H7 DJ CJ / S8 ST D8 / SQ D9 C7 / SK DT C8",
     "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
+)
+
+
+def deal_of(forehand, middlehand, rearhand, skat):
+    return Deal(forehand=cards(forehand), middlehand=cards(middlehand), rearhand=cards(rearhand), skat=cards(skat))
+
+
+# Ramsch hands, each played by taking the first legal card in the deck's order; a trick lists its cards from the
+# seat that led it.
+# Rearhand takes tricks 1 to 4 (2, 3, 4, 21), 9 and 10 (17, 24): 71 points, the skat's DK and DA (15) go to him as
+# the last trick's taker, forehand takes 12 and middlehand 5 + 3 + 14 = 22.
+PLAIN_DEAL = deal_of(
+    "C7 C8 C9 CT CJ CQ CK CA S7 S8", "S9 ST SJ SQ SK SA H7 H8 H9 HT", "HJ HQ HK HA D7 D8 D9 DT DJ DQ", "DK DA"
+)
+PLAIN_HAND = game_of(
+    "C7 S9 HJ / HQ C8 H7 / HK C9 H8 / HA CT H9 / D7 CJ ST", "CQ SJ D8 / SQ D9 S7 / SK DT S8 / SA DJ CK / DQ CA HT"
+)
+# Forehand takes no trick: middlehand takes 86 and the skat's CA and SK (15) as the last trick's taker.
+JUNGFRAU_DEAL = deal_of(
+    "H7 D8 H9 H8 HK DJ SA S8 HQ HA", "DA DQ HJ SJ SQ DT C8 CQ D9 ST", "C7 CJ S9 D7 CK HT S7 DK C9 CT", "CA SK"
+)
+JUNGFRAU_HAND = game_of(
+    "S8 ST S7 / C8 C7 SA / CQ C9 H7 / SJ CJ DJ / CT H8 SQ", "CK H9 HJ / D9 D7 D8 / DT DK HQ / DQ S9 HK / DA HT HA"
+)
+# Rearhand and middlehand take 41 each, forehand 34 and the skat's SK (4) as the last trick's taker.
+TIE_DEAL = deal_of(
+    "DJ D8 CQ ST SJ CJ HK DT C7 S9", "HQ CA DA HA C8 HT HJ S8 C9 S7", "DK H7 CK D9 CT D7 DQ SA SQ H8", "H9 SK"
+)
+TIE_HAND = game_of(
+    "C7 C8 CT / CK CQ C9 / SQ S9 S7 / SA ST S8 / H7 HK HT", "CA H8 CJ / SJ HJ D7 / D8 DA D9 / HQ DQ DT / HA DK DJ"
+)
+# Forehand holds the four jacks and the aces and tens that win every trick: all 120 points but the skat's HT and HK.
+SWEEP_DEAL = deal_of(
+    "CJ SJ HJ DJ CA CT SA ST HA DA", "C7 C8 C9 S7 S8 H7 H8 D7 D8 D9", "CK CQ S9 SK SQ H9 HQ DT DK DQ", "HT HK"
+)
+SWEEP_HAND = game_of(
+    "CT C7 CQ / CJ C8 CK / CA C9 S9 / ST S7 SQ / SJ S8 SK", "SA H7 H9 / HJ H8 HQ / HA D7 DT / DJ D8 DQ / DA D9 DK"
 )
 
 

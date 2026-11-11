@@ -12,6 +12,7 @@ OFFICIAL = {"show_running_points": False, "kontra": None, "bock": None, "ramsch"
 EVENING_ANSWER = {"show_running_points": True, "kontra": None, "bock": None, "ramsch": None}
 FELIX_ANSWER = {"show_running_points": False, "bock": None, "ramsch": None, **FELIX}
 BOCK = {"bock": {"triggers": ["re", "schwarz"], "overlap": "multiply"}}
+RAMSCH = {"ramsch": {"occasion": "passed-in", "scoring": "points", "jungfrau": "off", "durchmarsch": "wins-120-flat"}}
 BOCK_ANSWER = {"show_running_points": False, "kontra": None, "ramsch": None, **BOCK}
 SAME_ORIGIN = {"origin": TEST_PUBLIC_ORIGIN}
 
@@ -98,6 +99,21 @@ class TestSaveAndRead:
         headers, _ = skat.member()
 
         assert save(skat, headers, "x" * RULE_SET_NAME_MAX).status_code == 200
+
+    def test_a_set_keeps_the_ramsch_options_it_was_saved_with_and_a_table_opened_with_it_plays_them(self, skat):
+        headers, _ = skat.member()
+
+        saved = save(skat, headers, "Ramsch", RAMSCH)
+
+        assert saved.json()["options"]["ramsch"] == RAMSCH["ramsch"]
+        assert names_of(read(skat, headers)) == ["Ramsch"]
+        assert skat.create(headers, options=RAMSCH).json()["options"]["ramsch"] == RAMSCH["ramsch"]
+
+    def test_a_set_with_ramsch_and_bock_is_refused_and_stores_nothing(self, skat):
+        headers, _ = skat.member()
+
+        assert save(skat, headers, "Beides", {**RAMSCH, **BOCK}).status_code == 422
+        assert names_of(read(skat, headers)) == []
 
     def test_sets_are_listed_by_case_folded_name(self, skat):
         headers, _ = skat.member()
