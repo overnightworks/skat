@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.16",
     "fastapi>=0.123.7",
-    "overnightworks-agents[mcp-server] @ git+https://github.com/overnightworks/agents@v0.30.0",
+    "overnightworks-agents[mcp-server] @ git+https://github.com/overnightworks/agents@v0.31.0",
     "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.36.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
