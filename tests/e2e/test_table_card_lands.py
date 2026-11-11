@@ -20,7 +20,6 @@ FELT_FACE = ".trick .laid .face"
 LANDING = "land"
 STILL = "none"
 MOTION = "no-preference"
-REDUCED_MOTION = "reduce"
 
 
 @pytest.fixture
