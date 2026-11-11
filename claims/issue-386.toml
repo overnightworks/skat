@@ -1,0 +1,7 @@
+claim_id = "3be5aa6f31b44fbca007365b8371d239"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "fd3ea5c85c46cb24eac4ad7e494c6ff5dbfa7d00"
+branch = "claude/issue-386-outage-picture"
+scope = ["docs/mockups/start.html"]
+opened_commit = "274d259f7624a1cd9000daa53c8653e11db7ec6f"
