@@ -23,6 +23,7 @@ SEAT_TAKEN = catalog_text("seatTaken")
 COMMAND_FAILED = catalog_text("commandFailed")
 SEAT_FREE = catalog_text("seatFree")
 SEAT_AWAY = catalog_text("seatAway")
+YOU = catalog_text("sideYou")
 # The page hides its notice after a few seconds.
 NOTICE_GONE_TIMEOUT_MILLISECONDS = 10_000
 SEAT_BUTTON = "button.tile.free"
@@ -50,8 +51,10 @@ def test_a_watcher_sits_and_stands_and_every_open_page_follows_without_a_reload(
 
     sit_in(sitter, 2)
 
-    for person in pages:
+    for person in (opener, onlooker):
         expect(plate_of(person, 2)).to_have_text("ben")
+    expect(plate_of(sitter, 2)).to_have_text(YOU)
+    for person in pages:
         expect(watchers_of(person)).to_have_text("1")
     expect(sitter.get_by_role("button", name=STAND_UP)).to_be_visible()
     expect(sitter.get_by_role("button", name=SIT_DOWN)).to_have_count(0)
@@ -141,7 +144,7 @@ def lose_the_last_chair(
 
     def let_the_winner_sit_first(route: Route) -> None:
         sit_in(winner, 3)
-        expect(plate_of(winner, 3)).to_have_text(holder_name)
+        expect(plate_of(winner, 3)).to_have_text(YOU)
         route.continue_()
 
     loser.route(f"**{TABLES_PATH}/*{TABLE_SIT_SUFFIX}", let_the_winner_sit_first)

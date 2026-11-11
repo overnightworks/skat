@@ -10,11 +10,11 @@
 </script>
 
 <ul class="trick" aria-label={words.trick}>
-    {#each laid as { card, seat, slot, name } (`${card.suit}-${card.rank}`)}
+    {#each laid as { card, seat, slot, name, initial } (`${card.suit}-${card.rank}`)}
         <li class={`laid ${slot}`} data-seat={seat}>
             <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
             <span class="tag">
-                <span class="dot" aria-hidden="true">{name.slice(0, 1)}</span>
+                <span class="dot" aria-hidden="true">{initial}</span>
                 <span class="name">{name}</span>
             </span>
         </li>

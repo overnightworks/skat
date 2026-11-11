@@ -17,7 +17,7 @@ import {
 const TRICK_SLOTS = ["left", "right", "near"] as const;
 
 export type TrickSlot = (typeof TRICK_SLOTS)[number];
-export type LaidCard = { card: Card; seat: number; slot: TrickSlot; name: string };
+export type LaidCard = { card: Card; seat: number; slot: TrickSlot; name: string; initial: string };
 export type SideNames = { declarer: string; opponents: string };
 // What the hand needs while its holder is on turn to play: a first tap lifts a legal card, a second plays it.
 export type PlayingHand = { legal: readonly Card[]; lifted: Card | null; disabled: boolean; tap: (card: Card) => void };
@@ -45,11 +45,14 @@ export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
     const order = drawingOrder(chairs);
     return trick.map(({ seat, card }) => {
         const place = order.findIndex((chair) => chair.seat === seat);
+        const chair = order[place] as Chair;
+        const accountName = chair.occupant_name ?? "";
         return {
             card,
             seat,
             slot: TRICK_SLOTS[place] as TrickSlot,
-            name: (order[place] as Chair).occupant_name ?? "",
+            name: chair.is_mine ? words.sideYou : accountName,
+            initial: accountName.slice(0, 1),
         };
     });
 }
