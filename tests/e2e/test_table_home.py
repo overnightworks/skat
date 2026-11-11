@@ -58,9 +58,8 @@ def ended_table_path(ended_server: RunningServer) -> str:
     """The link of a table nobody ever watched, which ended after the wait."""
     account = new_account(ended_server.stores, ended_server.config)
     member = seed_member(ended_server.stores, ended_server.config, account=account)
-    created = json.loads(
-        RawSession(ended_server, member).post(TABLES_PATH, {"command_id": "home-ended-create-0001", "series_length": 36})
-    )
+    body = {"command_id": "home-ended-create-0001", "series_length": 36}
+    created = json.loads(RawSession(ended_server, member).post(TABLES_PATH, body))
     wait_for_end(ended_server, created["id"])
     return f"{TABLE_PAGE_PREFIX}{created['id']}"
 
@@ -183,4 +182,3 @@ def test_the_lobby_button_of_an_ended_table_takes_the_person_home(
     expect(person.get_by_role("heading", name=CLOSED_HEADING)).to_be_visible()
     expect_the_lobby_top_left_and_tappable(person)
     expect_the_lobby_to_take_the_person_to_the_start_page(person, ended_server.base_url)
-
