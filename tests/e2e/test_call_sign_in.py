@@ -478,7 +478,7 @@ def test_a_framed_table_whose_issuer_session_ended_too_signs_in_again_in_the_win
     window.close()
 
     expect(framed.frame.get_by_text(UNFINISHED_NOTICE)).to_be_visible(timeout=WAIT_MILLISECONDS)
-    assert not any(row.user_id == "subject-hugo" for row in signing_server.stores.sessions.snapshot().rows.values())
+    assert signing_server.stores.sessions.records_of("subject-hugo").sessions == ()
     sign_in_at_issuer(framed.visitor, signing_server, username="hugo")
     start_sign_in(framed)
 
