@@ -561,8 +561,9 @@ class TestSignals:
         )
         failing = failing.with_standing_signal(scene.signals.append)
         arguments = Acceptance(scene.table_id, offer.id, offer.epoch)
+        owner_present = frozenset({OWNER})
 
         with pytest.raises(ConnectionError):
-            failing.accept_invitation(MOZART, OWNER, arguments, frozenset({OWNER}))
+            failing.accept_invitation(MOZART, OWNER, arguments, owner_present)
 
         assert scene.signals == []
