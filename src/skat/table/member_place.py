@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from skat.table.records import OccupantKind, OpaqueId, TableId, TableRecord
-from skat.table.rules import decide_sit, seat_of
+from skat.table.rules import decide_sit, lowest_free_seat, seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -205,10 +205,6 @@ def decide_invite(
     invitation = OpenInvitation(invitation_id.value, request.expires_at, request.owner_account, request.inviter_account)
     epoch = 0 if entry is None else entry.epoch
     return BookEntry(table.id, request.agent_account, epoch, invitation), invitation.offered(epoch)
-
-
-def lowest_free_seat(table: TableRecord) -> int | None:
-    return next((chair.seat for chair in table.chairs if chair.occupant is None), None)
 
 
 def decide_accept(

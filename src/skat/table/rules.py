@@ -11,6 +11,7 @@ from skat.table.records import (
     CreateTable,
     Decision,
     EndProposal,
+    GiveUpAsked,
     HandProgress,
     NewHand,
     Occupant,
@@ -116,11 +117,12 @@ def seat_of(table: TableRecord, account_id: str) -> Chair | None:
     return next((chair for chair in table.chairs if chair.occupant and chair.occupant.account_id == account_id), None)
 
 
-def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
+def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> TableRecord:
     """The table with a chair's new occupant, the one way a chair changes hands.
 
     A freed chair is never ready, and whoever sits while a result is pending counts as ready, unless the series is
-    over: a mark at the end is consent to „Neue Serie“, which only a tap gives.
+    over: a mark at the end is consent to „Neue Serie“, which only a tap gives. The chair's holder leaves his part of
+    a standing end proposal and of a standing give-up request behind.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
@@ -133,7 +135,7 @@ def _with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> 
         chairs=chairs,
         dealer=table.dealer,
         hand=table.hand,
-        progress=table.progress,
+        progress=replace(table.progress, give_up=_give_up_without(table, seat)),
         game_list=table.game_list,
         series=series,
         options=table.options,
@@ -150,6 +152,21 @@ def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | 
     if proposal.accepter == seat:
         return EndProposal(proposal.proposer)
     return proposal
+
+
+def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
+    """A chair's change takes its holder's part of the standing give-up request: the asker's goes with the request,
+    an opponent's no alone, anyone else's changes nothing.
+    """
+    asked = table.progress.give_up
+    if asked is None or table.dealer is None:
+        return asked
+    position = positions_from(table.dealer)[seat]
+    if asked.asker is position:
+        return None
+    if asked.declined_by is position:
+        return GiveUpAsked(asked.asker)
+    return asked
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -365,21 +382,25 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
     """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
 
     The sit that fills the last chair deals `new_hand` in the same version bump, unless a result is pending; then
-    the sitter counts as ready instead. At a series end nothing deals and the sitter is not ready.
+    the sitter counts as ready instead. At a series end nothing deals and the sitter is not ready. A chair that a
+    send-away opened in a running hand is taken like any other: the sitter holds the seat's cards, role and turn, and
+    the hand moves again once no chair is open.
     """
     if seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)
     holder = table.chairs[seat - 1].occupant
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
-    seated = _with_occupant(table, seat, Occupant(actor.account_id, actor.display_name, actor.kind))
+    seated = with_occupant(table, seat, Occupant(actor.account_id, actor.display_name, actor.kind))
     if new_hand is not None and sit_deals(table):
         seated = dealt(seated, new_hand, version=seated.version)
     return Decision(seated)
 
 
 def decide_stand(table: TableRecord, actor: Actor) -> Decision:
-    """The actor leaves their own chair, which keeps its number; nobody leaves while a hand runs."""
+    """The actor leaves their own chair, which keeps its number; nobody stands up while a hand runs, so only a
+    send-away opens a chair of a running hand.
+    """
     return decide_free_chair(table, actor.account_id)
 
 
@@ -402,11 +423,25 @@ def decide_free_chair(table: TableRecord, account_id: str) -> Decision:
         return Decision(table, Refusal.NOT_SEATED)
     if hand_runs(table):
         return Decision(table, Refusal.HAND_RUNNING)
-    return Decision(_with_occupant(table, own.seat, None))
+    return Decision(with_occupant(table, own.seat, None))
+
+
+def lowest_free_seat(table: TableRecord) -> int | None:
+    return next((chair.seat for chair in table.chairs if chair.occupant is None), None)
+
+
+def waiting_seat_of(table: TableRecord) -> int | None:
+    """The seat the running hand waits for: its lowest free chair, none while every chair is taken or no hand runs.
+
+    The hand cannot move while this is set; the lowest seat is named, and the number moves on when it is filled.
+    """
+    return lowest_free_seat(table) if hand_runs(table) else None
 
 
 def acting_position(table: TableRecord, actor: Actor, version: int) -> Position | Refusal:
-    """The actor's position in the running hand, or why a hand command stops: no hand, no chair, a stale version."""
+    """The actor's position in the running hand, or why a hand command stops: no hand, no chair, a stale version, an
+    open chair, which stops every hand command for everyone.
+    """
     if table.dealer is None or not hand_runs(table):
         return Refusal.NO_HAND
     chair = seat_of(table, actor.account_id)
@@ -414,6 +449,8 @@ def acting_position(table: TableRecord, actor: Actor, version: int) -> Position 
         return Refusal.NOT_SEATED
     if version != table.version:
         return Refusal.STALE_VERSION
+    if waiting_seat_of(table) is not None:
+        return Refusal.SEAT_OPEN
     return positions_from(table.dealer)[chair.seat]
 
 

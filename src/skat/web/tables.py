@@ -279,6 +279,7 @@ class HandAnswer(BaseModel):
     declaring: DeclaringAnswer | None
     playing: PlayingAnswer | None
     ramsch: bool
+    waiting_seat: int | None
     pushing: PushingAnswer | None
     pushes: int
 
@@ -523,6 +524,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         declaring=declaring_answer_of(hand.declaring),
         playing=playing_answer_of(hand.playing),
         ramsch=hand.ramsch,
+        waiting_seat=hand.waiting_seat,
         pushing=pushing_answer_of(hand.pushing),
         pushes=hand.pushes,
     )
@@ -723,7 +725,9 @@ def create_tables_router(
         it is its turn. The ids and the version that the caller's moves need come from this answer. A table the
         caller sits at is also a resource of its standing, whose state is this same answer. A result of a declared
         game says how it ended (played-out, given-up or thrown-down) and, for a give-up or a throw-down, the seat that
-        did it. A 404 means no table has this id.
+        did it. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
+        it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
+        moves again once someone sits in the chair. A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.

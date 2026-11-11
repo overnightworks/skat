@@ -472,6 +472,7 @@ HAND_KEYS = {
     "declaring",
     "playing",
     "ramsch",
+    "waiting_seat",
     "pushing",
     "pushes",
 }
