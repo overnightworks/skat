@@ -119,11 +119,11 @@ function listLineOf(result: Result, sides: SideNames): ListLine {
     };
 }
 
-// The card reads only what the server counted: the sides, the ticks and the glow follow its answer.
 export function declaredResult(table: Table): Result | null {
     return table.result?.kind === "declared" ? table.result : null;
 }
 
+// The card reads only what the server counted: the sides, the ticks and the glow follow its answer.
 export function resultView(table: Table): ResultView {
     const result = declaredResult(table) as Result;
     const { chairs } = table;

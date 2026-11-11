@@ -137,7 +137,7 @@ def list_entry_of(played: PlayedOut, table: TableRecord, doubling: Doubling | No
 def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
     """The entry a Ramsch writes: the engine reckons it by the table's Ramsch options, the table gives the seats.
 
-    Pushes and Bock are not played at a table with Ramsch yet, so the multiplier is 1.
+    Pushes and Bock are not played at a table with Ramsch, so the multiplier is 1.
     """
     ramsch = table.options.ramsch
     # A Ramsch is played only at a table that plays one, and the store writes the dealer with the hand.

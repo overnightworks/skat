@@ -95,7 +95,7 @@ export type Chair = {
     total: number | null;
     hand: ChairHand | null;
 };
-// A Ramsch result is a result with an ordinal; the page draws no card for it yet.
+// A Ramsch result is a result with an ordinal; the page draws no card for it.
 export type RamschResult = { kind: "ramsch"; ordinal: number };
 export type SeatGain = { seat: number; gain: number; won: boolean };
 // The finished game as the server counted it; the page draws these numbers and decides no rule.

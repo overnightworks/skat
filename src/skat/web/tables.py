@@ -110,7 +110,7 @@ class RamschOptionsRequest(BaseModel):
 class OptionsRequest(BaseModel):
     """The rule options an opener sets; every later option joins this record.
 
-    A table cannot play Ramsch and Bock rounds together yet: a Ramsch would have to use up a Bock game.
+    A table cannot play Ramsch and Bock rounds together: a Ramsch would have to use up a Bock game.
     """
 
     model_config = ConfigDict(extra="forbid")

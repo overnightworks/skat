@@ -39,7 +39,7 @@ class SeriesEntryAnswer(BaseModel):
     bock_factor: int
 
 
-class RamschSeatAnswer(BaseModel):
+class RamschSeriesSeatAnswer(BaseModel):
     name: str | None
     score: int
 
@@ -47,7 +47,7 @@ class RamschSeatAnswer(BaseModel):
 class RamschSeriesEntryAnswer(BaseModel):
     kind: Literal["ramsch"]
     number: int
-    seats: list[RamschSeatAnswer]
+    seats: list[RamschSeriesSeatAnswer]
     durchmarsch: bool
     jungfrau: bool
 
@@ -61,7 +61,7 @@ def _entry_answer_of(entry: SeriesEntryView | RamschSeriesEntryView) -> SeriesEn
         return RamschSeriesEntryAnswer(
             kind="ramsch",
             number=entry.number,
-            seats=[RamschSeatAnswer(name=seat.name, score=seat.score) for seat in entry.seats],
+            seats=[RamschSeriesSeatAnswer(name=seat.name, score=seat.score) for seat in entry.seats],
             durchmarsch=entry.durchmarsch,
             jungfrau=entry.jungfrau,
         )
