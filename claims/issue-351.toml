@@ -1,0 +1,8 @@
+claim_id = "deaac12499764a9bb86d0ce330c82f30"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "9a3f56f73189ccbed3f7f6fffc573e76a89750bd"
+branch = "claude/issue-351-sentences-generator"
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/closed.test.ts", "frontend/src/lib/closed.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/NewTableButton.svelte", "scripts/generate_words.py", "tests/e2e/support/words.py", "tests/e2e/test_table_closed.py", "tests/e2e/test_tables.py", "tests/scripts/test_generate_words.py"]
+opened_commit = "5de33a5996f048ca1d06efaf5f5db11d53bb9a4c"
+whole_reason = "The generator's new entry shapes need a real caller, and the heading's fragment keys and their literal test pins go with the sentence that replaces them; production stays three hand-written files."
