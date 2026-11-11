@@ -1,0 +1,8 @@
+claim_id = "97757d5826c54b6f8fb032b361975086"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "b3ff79641447e35dfa21ef6177a691d78ee3d2f8"
+branch = "claude/issue-248-store-swap"
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/web/sign_in.py", "src/skat/web/stores.py", "tests/e2e/support/server.py", "tests/e2e/support/sessions.py", "tests/e2e/test_call_sign_in.py", "tests/e2e/test_table_restart.py", "tests/host/test_app.py", "tests/host/test_main_stream_shutdown.py", "tests/support/in_memory_stores.py", "tests/support/signed_in.py", "tests/web/support/skat.py", "tests/web/test_account.py", "tests/web/test_call.py", "tests/web/test_gate.py", "tests/web/test_sign_in_routes.py", "tests/web/test_stores.py", "tests/web/test_streams.py"]
+opened_commit = "619d0734f6852d5f784d12282464889aea694fa3"
+whole_reason = "Deleting the fork stores.py and its test module together with every importer: the fork's types are imported by ten test modules and supports and by app.py, so a partial change leaves a red build and a second source of truth for accounts and sessions."
