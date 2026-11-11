@@ -149,7 +149,14 @@ class TestPlayingARamsch:
             (TABLE_THROW_DOWN_SUFFIX, None),
             (TABLE_KONTRA_SUFFIX, {"word": "kontra"}),
         ],
-        ids=["a-declaring-step", "a-give-up", "a-give-up-consent", "a-give-up-refusal", "a-throw-down", "a-kontra-word"],
+        ids=[
+            "a-declaring-step",
+            "a-give-up",
+            "a-give-up-consent",
+            "a-give-up-refusal",
+            "a-throw-down",
+            "a-kontra-word",
+        ],
     )
     @pytest.mark.parametrize("position", [FOREHAND, MIDDLEHAND, REARHAND])
     def test_refuses_a_declared_games_steps_as_wrong_phase(self, skat, suffix, body, position):
