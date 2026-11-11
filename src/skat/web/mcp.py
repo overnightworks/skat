@@ -3,7 +3,8 @@
 A route becomes a tool only by carrying `agent_tool` as its `openapi_extra`; every other route carries an exclusion
 with its reason, and an undecided route stops the build. A tool calls its route in-process through the whole app, so
 every middleware and every check of the route applies to it as to a browser; the actor is the account the bearer
-gate admitted, never a name the tool's caller gives.
+gate admitted, never a name the tool's caller gives. The one tool that is no route is `accept_invitation`, whose
+arguments are the agents library's and not a route's body; the front also serves the agent's standing as a resource.
 """
 
 import warnings
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
     from webauth.oidc import OidcRelyingParty
     from webauth.policies import PublicRule
     from webauth.ports import SignInTransaction
+
+    from skat.web.member_place import MemberFront
 
 # The realm's objects for Skat's MCP path: the scope and audience a token carries, the group whose members the gate
 # admits, the group of agents' own accounts it admits from any client, and the fleet's client agents sign in with.
@@ -148,11 +151,13 @@ def mount_mcp(
     transaction: SignInTransaction,
     public_origin: str,
     renew_lease: Callable[[str], None],
+    member: MemberFront,
 ) -> McpAccess:
     """Serve /mcp and the resource's metadata document; call it after the last route of the schema is registered.
 
     The front serves only inside `running()`, which the host's lifespan enters. `renew_lease(account_id)` hears every
-    admitted call of an agent.
+    admitted call of an agent. Beside the routes' tools the front serves the member's accept tool, its standing as a
+    resource and the changes that signal it.
     """
     with warnings.catch_warnings():
         # A route for GET and HEAD gives both operations one id, which the tool generator never reads.
@@ -173,7 +178,9 @@ def mount_mcp(
     def resolve_person(scope: Scope) -> Principal:
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
 
-    front = McpPersonFront(tools.tools, resolve_person=resolve_person)
+    front = McpPersonFront(
+        (*tools.tools, member.tool), resolve_person=resolve_person, resources=member.resources, changes=member.changes
+    )
     # No methods named, so every method reaches the front, which refuses all but POST itself.
     app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=_LeaseRenewingFront(front, renew_lease)))
     install_resource_metadata(app, resource, issuer=issuer)

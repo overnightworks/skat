@@ -2,6 +2,7 @@ from dataclasses import replace
 
 import pytest
 from agents.mcp_wire import MCP_ENDPOINT_PATH
+from agents.member import ACCEPT_INVITATION_TOOL
 from webauth.ports import AccountKind
 
 from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass
@@ -91,6 +92,7 @@ class TestTools:
         assert (
             set(tools)
             == {
+                ACCEPT_INVITATION_TOOL,
                 READ_TABLE_TOOL,
                 READ_SERIES_LIST_TOOL,
                 READ_PAUSED_TABLES_TOOL,
