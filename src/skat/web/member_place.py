@@ -117,7 +117,7 @@ class MemberStandings:
         if uri == STANDING_URI:
             return MemberStanding(standings=await self._standings(principal))
         place = place_ref_from_view_uri(uri)
-        if place is None or place.kind != TABLE_PLACE_KIND or not self._lease_runs(principal):
+        if place is None or place.kind != TABLE_PLACE_KIND:
             return None
         # Presence belongs to the event loop's thread; only the store read leaves it.
         connected = self._presence.connected(place.id)

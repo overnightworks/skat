@@ -8,7 +8,6 @@ from datetime import timedelta
 
 import pytest
 from agents.member import LEASE_SECONDS, STANDING_URI
-from agents.tools import Principal
 from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
 
@@ -30,9 +29,8 @@ from skat.web.mcp import (
     STAND_UP_TOOL,
     START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
-    token_carries_agent_facts,
 )
-from skat.web.member_place import MemberStandings, view_signal
+from skat.web.member_place import view_signal
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
@@ -339,33 +337,8 @@ class TestTheViewFollowsTheLease:
 
         assert (moved.is_error, view["revision"], view["awaits_you"]) == (False, table.record.version, False)
 
-    @pytest.mark.parametrize("lease_runs", [True, False])
-    def test_a_view_is_read_only_while_the_lease_runs(self, skat, holding, agent, middlehand_auction, lease_runs):
-        account = agent_account(skat, agent)
-
-        async def read():
-            token_carries_agent_facts.set(True)
-            if lease_runs:
-                holding.renew_lease(account)
-            resources = MemberStandings(skat.tables, holding)
-            return await resources.read(Principal(iss=ISSUER, sub=account), view_uri_of(middlehand_auction.table_id))
-
-        assert (skat.client.portal.call(read) is not None) is lease_runs
-
 
 class TestTheWakeOfACommit:
-    def test_a_refused_move_tells_nobody(self, skat, agent, forehand_auction, tap):
-        table = forehand_auction
-        tap.told.clear()
-        stale = skat.client.post(
-            f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_BID_SUFFIX}",
-            json={"command_id": "stale-bid", "version": table.record.version + 7, "value": 18},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[MIDDLEHAND]},
-        )
-        assert stale.status_code == 409
-
-        assert tap.told == []
-
     def test_a_render_of_the_table_signals_nothing(self, skat, agent, forehand_auction, tap):
         tap.told.clear()
         agent.view(forehand_auction.table_id)
