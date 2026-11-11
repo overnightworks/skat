@@ -57,9 +57,8 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
 
     @pytest.mark.parametrize("table", ["tables", "rule_sets"])
     def test_the_old_table_and_rule_set_play_without_ramsch(self, migrated, table):
-        select = text(  # noqa: S608 - only the test's fixed literals reach this text
-            f"SELECT ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch FROM {table}"
-        )
+        columns = "ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch"
+        select = text(f"SELECT {columns} FROM {table}")  # noqa: S608 - only the test's fixed literals reach this text
         with migrated.connect() as connection:
             options = connection.execute(select).one()
 
@@ -97,8 +96,10 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
         ],
     )
     def test_refuses_a_ramsch_row_that_is_no_ramsch(self, migrated, changed):
+        refused = ramsch_row(**changed)
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, ramsch_row(**changed))
+            run_in_transaction(migrated, refused)
 
     @pytest.mark.parametrize(
         "change",
@@ -157,10 +158,11 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
 
     @pytest.mark.parametrize("table", ["tables", "rule_sets"])
     def test_accepts_the_four_ramsch_options_together(self, migrated, table):
-        update = text(  # noqa: S608 - only the test's fixed literals reach this text
-            f"UPDATE {table} SET ramsch_occasion = 'passed-in', ramsch_scoring = 'skat-to-loser',"
+        options = (
+            "ramsch_occasion = 'passed-in', ramsch_scoring = 'skat-to-loser',"
             " ramsch_jungfrau = 'off', ramsch_durchmarsch = 'wins-120-flat'"
         )
+        update = text(f"UPDATE {table} SET {options}")  # noqa: S608 - only the test's fixed literals reach this text
         run_in_transaction(migrated, update)
 
         with migrated.connect() as connection:
