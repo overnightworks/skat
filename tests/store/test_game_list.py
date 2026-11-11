@@ -365,7 +365,7 @@ class TestTheList:
             )
 
         row = stored_list_rows(engine, ended.table_id)[1]
-        assert (row.ending, row.ended_by_seat) == columns
+        assert columns == (row.ending, row.ended_by_seat)
 
     def test_the_schema_keeps_matadors_only_outside_null(self, ended, engine):
         statement = text("UPDATE game_list SET matadors_mit = NULL WHERE table_id = :table_id")

@@ -97,5 +97,7 @@ class TestFromAListOfEveryKindAtRevisionTwentyFive:
 
     @pytest.mark.parametrize("ending", ["given-up", "thrown-down"])
     def test_refuses_a_ramsch_row_that_ends_any_other_way_than_played_out(self, migrated, ending):
+        statement = ramsch_row(4, ending=f"'{ending}'", ended_by_seat=1)
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, ramsch_row(4, ending=f"'{ending}'", ended_by_seat=1))
+            run_in_transaction(migrated, statement)
