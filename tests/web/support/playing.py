@@ -142,10 +142,17 @@ class Table:
     def __init__(self, skat, options=None):
         self.skat = skat
         self.table_id, people = seated_three(skat, options)
-        by_seat = {seat: people[seat - 1][0] for seat in (1, 2, 3)}
-        self.at = {position: by_seat[seat] for seat, position in positions_from(DEALER_SEAT).items()}
+        self._by_seat = {seat: people[seat - 1][0] for seat in (1, 2, 3)}
+        self.at = self._at(DEALER_SEAT)
         self.watcher = people[3][0]
         self._commands = itertools.count(1)
+
+    def _at(self, dealer):
+        return {position: self._by_seat[seat] for seat, position in positions_from(dealer).items()}
+
+    def reseated_for_the_next_hand(self):
+        """The people by position once the deal has moved to the next dealer."""
+        self.at = self._at(self.record.dealer)
 
     @property
     def record(self):
