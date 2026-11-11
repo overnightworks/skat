@@ -39,14 +39,14 @@ def create_kontra_router(tables: TableService, presence: Presence) -> APIRouter:
         """Say Kontra, Re, Supra or Hirsch at a Skat table that plays Kontra; each word doubles the game's list score
         once more.
 
-        An opponent says Kontra, the declarer answers with Re, the opponent who said Kontra with Supra and the
-        declarer with Hirsch, as far as the table's `options.kontra.reach` allows. Send the word
-        `hand.playing.kontra.my_word` names in the answer of read_table; a word stays open until the caller plays his
-        next card, and play never waits for it. The table id and the version come from that answer. The command id
+        An opponent says Kontra, the declarer answers with Re, the opponent who said Kontra with Supra and the declarer
+        with Hirsch, as far as the table's `options.kontra.reach` allows. Send the word `hand.playing.kontra.my_word`
+        names in the answer of read_table or the state of your table's view; a word stays open until the caller plays
+        his next card, and play never waits for it. The table id and the version come from that answer. The command id
         names this step: the same id with the same word and the same version is a retry that changes nothing twice. A
-        refusal (a stale version, not the caller's word, too late, beyond the table's reach, an opponent who did not
-        bid where the table asks it, a table without Kontra) comes back as a failed result with its reason, leaves
-        the table as it was and spends the command id: the next attempt takes a new command id.
+        refusal (a stale version, not the caller's word, too late, beyond the table's reach, an opponent who did not bid
+        where the table asks it, a table without Kontra) comes back as a failed result with its reason, leaves the table
+        as it was and spends the command id: the next attempt takes a new command id.
         """
         command = KontraCommand(command_id=body.command_id, table_id=table_id, version=body.version, word=body.word)
         return await command_answer(
