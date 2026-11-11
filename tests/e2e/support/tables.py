@@ -6,16 +6,16 @@ from playwright.sync_api import expect
 
 from skat.table.records import TABLE_ID_PATTERN
 from skat.web.tables import TABLE_PAGE_PREFIX
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
     from tests.e2e.support.server import RunningServer
 
-OPEN_TABLE = catalog_text("openTable")
-SIT_DOWN = catalog_text("sitDown")
+OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
+SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}{TABLE_ID_PATTERN}$")
 
 

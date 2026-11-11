@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.server import skat_on_new_database
@@ -15,7 +16,6 @@ from tests.e2e.support.tables import (
     sit_in,
     watch,
 )
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -26,8 +26,8 @@ pytestmark = pytest.mark.e2e
 
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-SEAT_AWAY = catalog_text("seatAway")
-YOU = catalog_text("sideYou")
+SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
+YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 CHAIR_HOLD_SECONDS = 5
 FREED_WITHIN_MILLISECONDS = (CHAIR_HOLD_SECONDS + 10) * 1000
 

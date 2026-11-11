@@ -7,6 +7,7 @@ import pytest
 from playwright.sync_api import Page, Route, expect
 
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, LOGIN_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import (
     ACCOUNT_AVATAR,
     ACCOUNT_MENU,
@@ -16,7 +17,6 @@ from tests.e2e.support.browser import (
     record_page_errors,
 )
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
-from tests.e2e.support.words import catalog_text
 from tests.support.sign_in_settings import TEST_ISSUER
 
 if TYPE_CHECKING:
@@ -46,12 +46,12 @@ def test_the_start_page_shows_the_wordmark_the_account_button_the_legal_links_an
 ) -> None:
     person = open_start_page(open_person, e2e_server, page_errors, **form_factor)
 
-    expect(person).to_have_title(catalog_text("appName"))
-    expect(person.locator(".wordmark")).to_have_text(catalog_text("appName"))
+    expect(person).to_have_title(text(SOURCE_LANGUAGE, "app.name"))
+    expect(person.locator(".wordmark")).to_have_text(text(SOURCE_LANGUAGE, "app.name"))
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
     legal_row = person.locator(".start-legal").get_by_role("link")
     assert {(link.inner_text(), link.get_attribute("href")) for link in legal_row.all()} == {
-        (catalog_text(key), href) for key, href in LEGAL_LINKS.items()
+        (text(SOURCE_LANGUAGE, key), href) for key, href in LEGAL_LINKS.items()
     }
     expect(person.locator("body")).to_have_css("margin", "0px")
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
@@ -67,9 +67,9 @@ def test_the_account_button_opens_a_menu_with_the_username_one_log_out_and_the_l
 
     menu = person.locator(ACCOUNT_MENU)
     expect(menu.get_by_role("link").first).to_have_text("felix.hummert")
-    expect(menu.get_by_role("button", name=catalog_text("logOut"))).to_have_count(1)
+    expect(menu.get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut"))).to_have_count(1)
     assert {(link.inner_text(), link.get_attribute("href")) for link in menu.locator("nav a").all()} == {
-        (catalog_text(key), href) for key, href in LEGAL_LINKS.items()
+        (text(SOURCE_LANGUAGE, key), href) for key, href in LEGAL_LINKS.items()
     }
 
 
@@ -124,11 +124,11 @@ def test_the_account_button_and_menu_speak_german(
 ) -> None:
     person = open_start_page(open_person, e2e_server, page_errors, **form_factor)
 
-    expect(person.locator(ACCOUNT_AVATAR)).to_have_attribute("aria-label", catalog_text("account"))
+    expect(person.locator(ACCOUNT_AVATAR)).to_have_attribute("aria-label", text(SOURCE_LANGUAGE, "account.title"))
     person.locator(ACCOUNT_AVATAR).click()
 
     menu = person.locator(ACCOUNT_MENU)
-    expect(menu.get_by_role("button", name=catalog_text("logOut"))).to_be_visible()
+    expect(menu.get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut"))).to_be_visible()
     expect(menu.get_by_role("button", name="Log out")).to_have_count(0)
     expect(person.locator("[lang=de]").locator(ACCOUNT_MENU)).to_have_count(1)
 
@@ -142,8 +142,10 @@ def test_a_menu_the_account_cannot_name_is_called_account_and_still_logs_out(
     person.goto(f"{e2e_server.base_url}/")
     person.locator(ACCOUNT_AVATAR).click()
 
-    expect(person.locator(ACCOUNT_MENU).get_by_role("link").first).to_have_text(catalog_text("account"))
-    expect(person.locator(ACCOUNT_MENU).get_by_role("button", name=catalog_text("logOut"))).to_be_visible()
+    expect(person.locator(ACCOUNT_MENU).get_by_role("link").first).to_have_text(text(SOURCE_LANGUAGE, "account.title"))
+    expect(
+        person.locator(ACCOUNT_MENU).get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut"))
+    ).to_be_visible()
 
 
 def test_a_session_that_ended_sends_the_page_to_the_sign_in_page_once_when_the_account_answers_401(
@@ -190,7 +192,7 @@ def test_signing_out_ends_the_session_and_the_sign_in_page_follows(
     person.route(ISSUER_END_SESSION_URL, end_the_session_at_the_issuer)
     person.locator(ACCOUNT_AVATAR).click()
 
-    person.locator(ACCOUNT_MENU).get_by_role("button", name=catalog_text("logOut")).click()
+    person.locator(ACCOUNT_MENU).get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut")).click()
 
     expect(person.get_by_role("link", name="Log in", exact=True)).to_be_visible()
     assert urlsplit(person.url).path == LOGIN_PATH

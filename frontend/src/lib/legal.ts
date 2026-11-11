@@ -9,7 +9,7 @@ function centralLegalAddress(path: string): string {
 }
 
 export const LEGAL_LINKS = [
-    { label: words.legalImprint, href: centralLegalAddress("impressum") },
-    { label: words.legalPrivacy, href: centralLegalAddress("datenschutz") },
-    { label: words.legalTerms, href: centralLegalAddress("nutzungsbedingungen") },
+    { label: words["legal.imprint"], href: centralLegalAddress("impressum") },
+    { label: words["legal.privacy"], href: centralLegalAddress("datenschutz") },
+    { label: words["legal.terms"], href: centralLegalAddress("nutzungsbedingungen") },
 ];

@@ -5,6 +5,7 @@ import pytest
 from playwright.sync_api import expect
 
 from skat.web.tables import TABLE_PAGE_PREFIX
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
@@ -18,7 +19,6 @@ from tests.e2e.support.call_frame import (
     table_url,
 )
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -33,10 +33,10 @@ pytestmark = pytest.mark.e2e
 UNKNOWN_ID = "0" * 32
 BAR = ".bar"
 WORDMARK = ".bar .wordmark"
-APP_NAME = catalog_text("appName")
-COPY_LINK = catalog_text("copyLink")
-NEW_TABLE = catalog_text("newTable")
-LOBBY = catalog_text("lobby")
+APP_NAME = text(SOURCE_LANGUAGE, "app.name")
+COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
+NEW_TABLE = text(SOURCE_LANGUAGE, "start.newTable")
+LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 
 
 @pytest.fixture(scope="module")
@@ -97,7 +97,7 @@ def test_a_framed_call_mode_address_of_a_missing_table_offers_no_new_table(
     with in_the_call_frame(
         visitor, browser_coverage, table_url(framing_server, f"{TABLE_PAGE_PREFIX}{UNKNOWN_ID}")
     ) as table:
-        expect(table.get_by_role("heading", name=catalog_text("tableNotFound"))).to_be_visible()
+        expect(table.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.notFound"))).to_be_visible()
         expect(table.get_by_role("button", name=NEW_TABLE)).to_have_count(0)
 
 
@@ -109,5 +109,5 @@ def test_a_top_level_call_mode_address_of_a_missing_table_offers_a_new_table(
 
     visitor.goto(table_url(framing_server, f"{TABLE_PAGE_PREFIX}{UNKNOWN_ID}"))
 
-    expect(visitor.get_by_role("heading", name=catalog_text("tableNotFound"))).to_be_visible()
+    expect(visitor.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.notFound"))).to_be_visible()
     expect(visitor.get_by_role("button", name=NEW_TABLE)).to_be_visible()

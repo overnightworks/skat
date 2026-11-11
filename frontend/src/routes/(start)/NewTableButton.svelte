@@ -58,19 +58,19 @@
         >
             <path d="M12 5v14M5 12h14" />
         </svg>
-        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-        {`${words.newTable}`}
+        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+        {`${words["start.newTable"]}`}
     </button>
 </div>
 {#if choosing}
     <div class="scrim"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label={words.newTable}>
-        <h3>{words.newTable}</h3>
-        <div class="stepper" role="group" aria-label={words.seriesLength}>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label={words["start.newTable"]}>
+        <h3>{words["start.newTable"]}</h3>
+        <div class="stepper" role="group" aria-label={words["start.seriesLength"]}>
             <button
                 type="button"
                 class="step"
-                aria-label={words.seriesFewer}
+                aria-label={words["start.seriesFewer"]}
                 disabled={length <= SERIES_LENGTH_MIN || opening}
                 onclick={() => {
                     step(-SERIES_LENGTH_STEP);
@@ -85,14 +85,14 @@
                 aria-valuemin={SERIES_LENGTH_MIN}
                 aria-valuemax={SERIES_LENGTH_MAX}
                 aria-valuenow={length}
-                aria-label={words.seriesGames}
+                aria-label={words["start.seriesGames"]}
             >
-                {length}<small>{words.seriesGames}</small>
+                {length}<small>{words["start.seriesGames"]}</small>
             </span>
             <button
                 type="button"
                 class="step"
-                aria-label={words.seriesMore}
+                aria-label={words["start.seriesMore"]}
                 disabled={length >= SERIES_LENGTH_MAX || opening}
                 onclick={() => {
                     step(SERIES_LENGTH_STEP);
@@ -111,7 +111,7 @@
             </button>
         </div>
         {#if failed}
-            <p role="alert">{words.newTableFailed}</p>
+            <p role="alert">{words["start.newTableFailed"]}</p>
         {/if}
         <div class="btns">
             <button type="button" class="confirm" disabled={opening} onclick={open}>
@@ -126,11 +126,11 @@
                 >
                     <path d="M5 12.5l4.5 4.5L19 7.5" />
                 </svg>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                {`${words.openTable}`}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                {`${words["start.openTable"]}`}
             </button>
             <button type="button" class="cancel" disabled={opening} onclick={close}>
-                {words.cancelNewTable}
+                {words["start.cancelNewTable"]}
             </button>
         </div>
     </div>

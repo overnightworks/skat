@@ -14,10 +14,10 @@
         eight: "8",
         nine: "9",
         ten: "10",
-        jack: words.cardLetterJack,
-        queen: words.cardLetterQueen,
-        king: words.cardLetterKing,
-        ace: words.cardLetterAce,
+        jack: words["card.letterJack"],
+        queen: words["card.letterQueen"],
+        king: words["card.letterKing"],
+        ace: words["card.letterAce"],
     };
 
     const LEFT = 34;
