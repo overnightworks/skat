@@ -469,6 +469,53 @@ class TestFromChairsAtRevisionSeven:
             run_in_transaction(migrated, refused)
 
 
+class TestFromChairsAtRevisionTwentyEight:
+    @pytest.fixture
+    def at_revision(self, unmigrated_engine):
+        """A database at 0028 holding a table with one occupied and two free chairs."""
+        upgrade_to(unmigrated_engine, "0028")
+        with unmigrated_engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 7)"))
+            connection.execute(
+                text(
+                    "INSERT INTO chairs (table_id, seat, account_id, display_name, occupant_kind)"
+                    " VALUES ('t', 1, 'account-anna', 'Anna', 'person')"
+                )
+            )
+            connection.execute(text("INSERT INTO chairs (table_id, seat) VALUES ('t', 2), ('t', 3)"))
+        return unmigrated_engine
+
+    @staticmethod
+    def chair_rows(engine):
+        with engine.connect() as connection:
+            return connection.execute(text("SELECT * FROM chairs ORDER BY seat")).all()
+
+    @staticmethod
+    def indexed_columns(engine):
+        return [index["column_names"] for index in inspect(engine).get_indexes("chairs")]
+
+    def test_the_chairs_are_indexed_by_account_once_migrated_and_not_before(self, at_revision):
+        assert ["account_id"] not in self.indexed_columns(at_revision)
+
+        migrate(at_revision)
+
+        assert self.indexed_columns(at_revision) == [["account_id"]]
+
+    def test_no_chair_changes_and_a_second_migration_changes_nothing(self, at_revision):
+        before = self.chair_rows(at_revision)
+
+        migrate(at_revision)
+        migrate(at_revision)
+
+        assert (self.chair_rows(at_revision), self.indexed_columns(at_revision)) == (before, [["account_id"]])
+
+    def test_the_migrated_schema_is_the_one_the_store_writes_to(self, at_revision):
+        migrate(at_revision)
+
+        with at_revision.connect() as connection:
+            assert compare_metadata(MigrationContext.configure(connection), metadata) == []
+
+
 class TestRequireHead:
     def test_accepts_a_database_at_head(self, unmigrated_engine):
         migrate(unmigrated_engine)

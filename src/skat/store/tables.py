@@ -47,7 +47,14 @@ from skat.table.records import (
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableTransaction
+from skat.table.transactions import (
+    DuplicateReceiptError,
+    HeldTable,
+    LiveWait,
+    OccupiedChair,
+    PausedFacts,
+    TableTransaction,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -359,6 +366,17 @@ class _PostgresTableTransaction:
             OccupiedChair(TableId(row.table_id), row.account_id)
             for row in self._connection.execute(
                 select(chairs.c.table_id, chairs.c.account_id).where(chairs.c.account_id.is_not(None))
+            )
+        )
+
+    def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
+        return tuple(
+            HeldTable(TableId(row.id), row.version)
+            for row in self._connection.execute(
+                select(tables.c.id, tables.c.version)
+                .join(chairs, chairs.c.table_id == tables.c.id)
+                .where(chairs.c.account_id == account_id, tables.c.end_reason.is_(None))
+                .order_by(tables.c.id)
             )
         )
 

@@ -542,15 +542,15 @@ class TableService:
             return transaction.occupied_chairs()
 
     def tables_held_by(self, account_id: str) -> tuple[TableId, ...]:
-        """The tables the account holds a chair at, each once, in id order; an unlocked scan, so a candidate list."""
-        held = {chair.table_id for chair in self.occupied_chairs() if chair.account_id == account_id}
-        return tuple(sorted(held, key=lambda table_id: table_id.value))
+        """The tables the account holds a chair at, each once, in id order; an unlocked read, so a candidate list."""
+        with self._transactions.begin() as transaction:
+            return tuple(held.table_id for held in transaction.tables_of(account_id))
 
     def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
         """The live tables on which a hand was dealt and whose chair the actor holds, the soonest end first, ties in
         id order; a table ends `days` days after the time of its last deal or step of play.
 
-        The chair scan is unlocked, so each candidate is read again in one transaction under its shared row lock: an
+        The chair read is unlocked, so each candidate is read again in one transaction under its shared row lock: an
         ended table, a table without a dealt hand and one whose chair the actor left meanwhile are skipped.
         """
         candidates = self.tables_held_by(actor.account_id)
@@ -633,7 +633,7 @@ class TableService:
             for before, after in zip(entries, kept, strict=True):
                 if after != before:
                     transaction.save_book_entry(after)
-            held = [chair.table_id for chair in transaction.occupied_chairs() if chair.account_id == agent_account]
+            held = [each.table_id for each in transaction.tables_of(agent_account)]
         return standings_among(kept, held, now)
 
     def _tell(self, accounts: frozenset[str]) -> None:
