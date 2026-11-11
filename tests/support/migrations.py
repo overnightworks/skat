@@ -18,6 +18,11 @@ def run_in_transaction(engine, statement):
         connection.execute(statement)
 
 
+def insert_into_game_list(columns):
+    names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
+    return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
+
+
 def list_row(**changed):
     columns = {
         "table_id": "'t'",
@@ -42,8 +47,7 @@ def list_row(**changed):
         "declarer_points": 95,
         **changed,
     }
-    names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
-    return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
+    return insert_into_game_list(columns)
 
 
 def ramsch_list_row(**changed):
@@ -63,5 +67,4 @@ def ramsch_list_row(**changed):
         "jungfrau": "false",
         **changed,
     }
-    names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
-    return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
+    return insert_into_game_list(columns)
