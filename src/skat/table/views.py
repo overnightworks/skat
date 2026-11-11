@@ -157,7 +157,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     )
     own_cards = {card for position in viewer_positions for card in hands[position]}
     waiting_seat = waiting_seat_of(table)
-    acting_positions = frozenset() if waiting_seat is not None else viewer_positions
+    acting_positions: frozenset[Position] = frozenset() if waiting_seat is not None else viewer_positions
     hand_view = HandView(
         table.dealer,
         tuple(card for card in DECK if card in own_cards),
