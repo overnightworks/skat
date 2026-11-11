@@ -169,15 +169,13 @@ class RunningServer:
         self._thread.join(timeout=SERVER_STOP_TIMEOUT_SECONDS)
         assert not self._thread.is_alive(), f"Skat did not stop within {SERVER_STOP_TIMEOUT_SECONDS} seconds"
 
-    def restart(self, *, while_stopping: Callable[[], None], keep_sessions: bool = False) -> None:
+    def restart(self, *, while_stopping: Callable[[], None]) -> None:
         """Stops Skat, then starts a new process on the same database, address and issuer.
 
-        The new process starts with no session, as after an update, unless `keep_sessions` carries them over.
-        `while_stopping` runs as in `stop`.
+        The new process starts with no session, as after an update. `while_stopping` runs as in `stop`.
         """
         self.stop(while_stopping=while_stopping)
-        if not keep_sessions:
-            self.stores = in_memory_stores()
+        self.stores = in_memory_stores()
         self.start()
 
 
