@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from skat.table.records import EndedTable, EndReason, Receipt, Replay, TableRecord
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, TableService
+from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -17,6 +17,10 @@ class FreeChairReadyError(Exception):
     """The store's check refuses a free chair that is ready."""
 
 
+class DealtWithoutTimeError(Exception):
+    """The store's check refuses a dealt table that holds no last played time."""
+
+
 class FakeTableStore:
     """The transaction port in memory: a block that raises leaves the store as it found it."""
 
@@ -25,14 +29,32 @@ class FakeTableStore:
         self.receipts: dict[tuple[str, str], Receipt] = {}
         self.ended_at: dict[str, datetime] = {}
         self.empty_since_by_table: dict[str, datetime | None] = {}
+        self.last_played_at: dict[str, datetime] = {}
+        self.opener_names: dict[str, str] = {}
 
     @contextmanager
     def begin(self) -> Iterator[FakeTableStore]:
-        before = copy.deepcopy((self.tables, self.receipts, self.ended_at, self.empty_since_by_table))
+        before = copy.deepcopy(
+            (
+                self.tables,
+                self.receipts,
+                self.ended_at,
+                self.empty_since_by_table,
+                self.last_played_at,
+                self.opener_names,
+            )
+        )
         try:
             yield self
         except BaseException:
-            self.tables, self.receipts, self.ended_at, self.empty_since_by_table = before
+            (
+                self.tables,
+                self.receipts,
+                self.ended_at,
+                self.empty_since_by_table,
+                self.last_played_at,
+                self.opener_names,
+            ) = before
             raise
 
     def replay(self, account_id: str, command_id: str) -> Replay | None:
@@ -50,19 +72,27 @@ class FakeTableStore:
         table = self.table(table_id)
         return table if isinstance(table, TableRecord) else None
 
-    def save_table(self, table: TableRecord) -> None:
+    def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         if any(chair.ready and chair.occupant is None for chair in table.chairs):
             message = f"table {table.id.value} would keep a free chair ready"
             raise FreeChairReadyError(message)
+        if played_at is not None:
+            self.last_played_at[table.id.value] = played_at
+        if table.dealer is not None and table.id.value not in self.last_played_at:
+            message = f"table {table.id.value} is dealt and holds no last played time"
+            raise DealtWithoutTimeError(message)
         self.tables[table.id.value] = table
 
-    def add_table(self, table: TableRecord) -> None:
+    def add_table(self, table: TableRecord, opener_name: str) -> None:
         self.tables[table.id.value] = table
+        self.opener_names[table.id.value] = opener_name
 
     def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
         table = self.tables[table_id.value]
         self.tables[table_id.value] = EndedTable(table.id, table.version + 1, EndReason.EMPTY, empty_seconds)
         self.ended_at[table_id.value] = at
+        self.last_played_at.pop(table_id.value, None)
+        self.opener_names.pop(table_id.value, None)
         self.receipts = {
             key: receipt
             for key, receipt in self.receipts.items()
@@ -71,6 +101,9 @@ class FakeTableStore:
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self.empty_since_by_table.get(table_id.value)
+
+    def paused_facts(self, table_id: TableId) -> PausedFacts:
+        return PausedFacts(self.last_played_at[table_id.value], self.opener_names.get(table_id.value))
 
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
         self.empty_since_by_table[table_id.value] = since

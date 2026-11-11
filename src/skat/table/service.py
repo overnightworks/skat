@@ -11,11 +11,6 @@ from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decid
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
 from skat.table.playing import (
-    AGREE_TO_GIVE_UP_COMMAND,
-    DECLINE_GIVE_UP_COMMAND,
-    GIVE_UP_COMMAND,
-    PLAY_CARD_COMMAND,
-    THROW_DOWN_COMMAND,
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
     GiveUpCommand,
@@ -57,8 +52,13 @@ from skat.table.records import (
     TableRecord,
 )
 from skat.table.rules import (
+    AGREE_TO_GIVE_UP_COMMAND,
+    DECLINE_GIVE_UP_COMMAND,
+    GIVE_UP_COMMAND,
+    PLAY_CARD_COMMAND,
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
+    THROW_DOWN_COMMAND,
     CommandIdReusedError,
     PresenceStep,
     ResumeStep,
@@ -71,6 +71,7 @@ from skat.table.rules import (
     decide_stand,
     ends_empty,
     hand_was_dealt,
+    is_deal_or_step_of_play,
     next_deal_due,
     presence_step,
     present_at,
@@ -106,6 +107,7 @@ __all__ = [
     "DuplicateReceiptError",
     "LiveWait",
     "OccupiedChair",
+    "PausedFacts",
     "TableService",
     "TableTransaction",
     "TableTransactions",
@@ -127,8 +129,11 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         """
         ...
 
-    def save_table(self, table: TableRecord) -> None:
+    def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         """Write the table's version, chairs and dealer, a new hand's cards and steps, and new list entries.
+
+        `played_at` is the time of the deal or step of play this save records and is written in the same statement
+        as the dealer; None leaves the stored time as it is, so a save that deals a hand with none is refused.
 
         A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
         hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
@@ -139,16 +144,23 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         """
         ...
 
-    def add_table(self, table: TableRecord) -> None: ...
+    def add_table(self, table: TableRecord, opener_name: str) -> None:
+        """Insert the table with the opener's display name, which no later write changes."""
+        ...
 
     def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
-        """End the table whose row this transaction locked, once: its version rises by one, its dealer clears, and
-        it keeps only its row and its create receipt, so its id is never issued again and a create retry finds it.
+        """End the table whose row this transaction locked, once: its version rises by one, its dealer, last
+        played time and opener's name clear, and it keeps only its row and its create receipt, so its id is never
+        issued again and a create retry finds it.
         """
         ...
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         """Since when nobody has been at the table, or None while it is unset."""
+        ...
+
+    def paused_facts(self, table_id: TableId) -> PausedFacts:
+        """The last played time and the opener's name of a live table on which a hand was dealt."""
         ...
 
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
@@ -179,6 +191,16 @@ class LiveWait:
     table_id: TableId
     dealer: int | None
     empty_since: datetime | None
+
+
+@dataclass(frozen=True)
+class PausedFacts:
+    """What the store keeps beside a dealt table's record: the time of its last deal or step of play, and the name its
+    opener had when he opened it, None for a table opened before the name was kept.
+    """
+
+    last_played_at: datetime
+    opener_name: str | None
 
 
 @dataclass(frozen=True)
@@ -244,7 +266,7 @@ class TableService:
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset())
             table = decide_create(actor, self._new_table_id(), command.series_length, command.options)
-            transaction.add_table(table)
+            transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
             return view_of(table, actor.account_id, frozenset())
@@ -467,7 +489,7 @@ class TableService:
             decision = decide_free_chair(table, account_id)
             if decision.refusal is not None:
                 return False
-            transaction.save_table(decision.table)
+            transaction.save_table(decision.table, played_at=None)
             return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
@@ -485,7 +507,7 @@ class TableService:
             connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if connected is None or not next_deal_due(table, connected):
                 return False
-            transaction.save_table(dealt_next(table, self._new_hand(table)))
+            transaction.save_table(dealt_next(table, self._new_hand(table)), played_at=self._now())
             return True
 
     def end_empty_table(
@@ -648,7 +670,8 @@ class TableService:
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
-                    transaction.save_table(decision.table)
+                    played = is_deal_or_step_of_play(command, table, decision.table)
+                    transaction.save_table(decision.table, played_at=self._now() if played else None)
                     if hand_was_dealt(decision.table) and not hand_was_dealt(table):
                         transaction.set_empty_since(identifier, None)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))

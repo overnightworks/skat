@@ -175,6 +175,8 @@ tables = Table(
     Column("end_reason", Text),
     Column("empty_seconds", Integer),
     Column("empty_since", DateTime(timezone=True)),
+    Column("last_played_at", DateTime(timezone=True)),
+    Column("opener_name", Text),
     Column("series_length", SmallInteger),
     Column("series_deals", SmallInteger),
     Column("series_number", SmallInteger, nullable=False, server_default="1"),
@@ -192,6 +194,11 @@ tables = Table(
         name="tables_empty_seconds_only_for_an_empty_end",
     ),
     CheckConstraint("empty_seconds > 0", name="tables_empty_seconds_are_positive"),
+    CheckConstraint(
+        "(dealer IS NULL) = (last_played_at IS NULL)", name="tables_a_dealt_table_has_its_last_played_time"
+    ),
+    CheckConstraint("ended_at IS NULL OR opener_name IS NULL", name="tables_an_ended_table_keeps_no_opener_name"),
+    CheckConstraint("char_length(opener_name) >= 1", name="tables_opener_name_is_not_empty"),
     CheckConstraint("(series_length IS NULL) = (series_deals IS NULL)", name="tables_series_is_both_or_neither"),
     CheckConstraint(
         f"series_length BETWEEN {SERIES_LENGTH_MIN} AND {SERIES_LENGTH_MAX}"

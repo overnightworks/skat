@@ -124,7 +124,9 @@ def ended_series(service, transactions, table_id):
     """The series' only game played and its last game over: one list row, no hand, nobody has tapped."""
     record = read(transactions, table_id)
     with transactions.begin() as transaction:
-        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1, series=Series(3, 3)))
+        transaction.save_table(
+            replace(after_the_first_game(record), version=record.version + 1, series=Series(3, 3)), played_at=None
+        )
     return table_id
 
 
@@ -224,7 +226,8 @@ class TestNewSeries:
                     after_the_first_game(record),
                     version=record.version + 1,
                     series=Series(3, 3, number=2),
-                )
+                ),
+                played_at=None,
             )
         tap_all(service, ended_series, "second-new-series")
 
@@ -266,7 +269,7 @@ class TestNewSeries:
 
         def save():
             with transactions.begin() as transaction:
-                transaction.save_table(rewritten)
+                transaction.save_table(rewritten, played_at=None)
 
         with pytest.raises(StepLogRewrittenError):
             save()
@@ -280,7 +283,7 @@ def between_games(service, transactions, table_id):
     """A series of three whose first game is played: its result stands, nobody has tapped."""
     record = read(transactions, table_id)
     with transactions.begin() as transaction:
-        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1))
+        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1), played_at=None)
     return table_id
 
 
