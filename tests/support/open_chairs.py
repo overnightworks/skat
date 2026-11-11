@@ -11,6 +11,7 @@ from skat.engine.deal import Position
 from skat.engine.declaration import PutBack, TakeSkat
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring, play_ramsch_card
+from skat.engine.schieberamsch import Push, PushingRule, Take
 from skat.engine.tricks import CardPlayed
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
 from skat.table.declaring import DeclaringCommand, decide_declaring_step
@@ -28,6 +29,7 @@ from skat.table.playing import (
     decide_give_up,
     decide_throw_down,
 )
+from skat.table.pushing import PushingCommand, PushingKind, decide_pushing_step
 from skat.table.records import (
     Actor,
     HandProgress,
@@ -46,6 +48,13 @@ RAMSCH = TableOptions(
     ramsch=RamschSetting(
         RamschOccasion.PASSED_IN,
         RamschOptions(RamschScoring.SKAT_TO_LOSER, JungfrauRule.OFF, DurchmarschRule.WINS_120_FLAT),
+    )
+)
+PUSHING = TableOptions(
+    ramsch=RamschSetting(
+        RamschOccasion.PASSED_IN,
+        RamschOptions(RamschScoring.SKAT_TO_LOSER, JungfrauRule.OFF, DurchmarschRule.WINS_120_FLAT),
+        PushingRule.JACKS_STAY,
     )
 )
 KONTRA = TableOptions(kontra=KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD))
@@ -131,6 +140,18 @@ def in_a_ramsch_trick() -> TableRecord:
     return replace(table, progress=replace(table.progress, plays=tuple(plays)))
 
 
+def at_the_pushing_start() -> TableRecord:
+    return table_in(HandProgress(auction=ALL_PASS), PUSHING)
+
+
+def after_the_pushing_take() -> TableRecord:
+    return table_in(HandProgress(auction=ALL_PASS, pushing=(Take(FOREHAND),)), PUSHING)
+
+
+def after_the_push() -> TableRecord:
+    return table_in(HandProgress(auction=ALL_PASS, pushing=(Push(FOREHAND),)), PUSHING)
+
+
 PHASES = {
     "auction": in_the_auction,
     "after-the-take": after_the_take,
@@ -140,6 +161,9 @@ PHASES = {
     "between-tricks": between_tricks,
     "ramsch-start": at_the_ramsch_start,
     "in-a-ramsch-trick": in_a_ramsch_trick,
+    "pushing-start": at_the_pushing_start,
+    "pushing-after-the-take": after_the_pushing_take,
+    "pushing-after-the-push": after_the_push,
 }
 
 
@@ -151,6 +175,9 @@ def _hand_commands(table: TableRecord) -> dict[str, object]:
         ),
         "declaring-step": lambda actor: decide_declaring_step(
             table, actor, DeclaringCommand("command-1", *ids, TakeSkat())
+        ),
+        "pushing-step": lambda actor: decide_pushing_step(
+            table, actor, PushingCommand("command-1", *ids, PushingKind.TAKE)
         ),
         "kontra": lambda actor: decide_kontra(table, actor, KontraCommand("command-1", *ids, Word.KONTRA)),
         "card": lambda actor: decide_card(table, actor, PlayCardCommand("command-1", *ids, DECK[0])),

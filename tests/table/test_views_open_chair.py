@@ -35,6 +35,18 @@ class TestTheWaitingSeat:
 
         assert {view_of(table, viewer, NOBODY).hand.waiting_seat for viewer in VIEWERS} == {REARHAND_SEAT}
 
+    @pytest.mark.parametrize("phase", ["pushing-start", "pushing-after-the-take", "pushing-after-the-push"])
+    @pytest.mark.parametrize("viewer", VIEWERS)
+    def test_names_the_open_seat_beside_the_stage_and_its_pushes_which_stay_facts_of_the_hand(self, phase, viewer):
+        running = PHASES[phase]()
+        waiting = sent_away(running, REARHAND_SEAT)
+
+        before = view_of(running, viewer, NOBODY).hand
+        after = view_of(waiting, viewer, NOBODY).hand
+
+        assert before.pushing is not None
+        assert (after.waiting_seat, after.pushing, after.pushes) == (REARHAND_SEAT, before.pushing, before.pushes)
+
     def test_names_the_lowest_of_two_open_seats(self):
         table = sent_away(sent_away(PHASES["auction"](), FOREHAND_SEAT), REARHAND_SEAT)
 

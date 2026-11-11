@@ -172,6 +172,17 @@ class TestAnOpenChair:
         assert waiting_for(running)
         assert waiting_for(waiting) == set()
 
+    @pytest.mark.parametrize(
+        ("phase", "on_turn"),
+        [("pushing-start", FOREHAND), ("pushing-after-the-take", FOREHAND), ("pushing-after-the-push", MIDDLEHAND)],
+    )
+    def test_the_seat_pushing_is_awaited_but_not_while_a_chair_is_open(self, phase, on_turn):
+        running = PHASES[phase]()
+
+        assert waiting_for(running) == {on_turn}
+        assert waiting_for(sent_away(running, REARHAND_SEAT)) == set()
+        assert waiting_for(sent_away(running, SEAT_OF[on_turn])) == set()
+
     def test_no_seat_is_awaited_for_a_give_up_question_either(self):
         asked = asked_by_the_declarer()
 

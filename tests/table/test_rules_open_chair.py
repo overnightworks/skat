@@ -8,7 +8,7 @@ from skat.engine.bidding import Pass
 from skat.engine.bock import BockOptions, BockOverlap, BockRounds, BockTrigger
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
-from skat.engine.declaration import Announcement, Declare
+from skat.engine.declaration import Announcement, Declare, Stage
 from skat.engine.games import GameKind
 from skat.engine.kontra import Word, WordSaid
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
@@ -23,6 +23,7 @@ from skat.table.playing import (
     decide_card,
     decide_decline_give_up,
 )
+from skat.table.pushing import PushingCommand, PushingKind, decide_pushing_step
 from skat.table.records import GiveUpAsked, HandProgress, NewHand, OccupantKind, Refusal, Series, TableOptions
 from skat.table.rules import acting_position, decide_sit, decide_stand, waiting_seat_of
 from skat.table.views import turn_seat_of, view_of
@@ -225,6 +226,41 @@ class TestTheTakeOver:
 
         assert (taken.hand, taken.dealer, taken.progress) == (table.hand, table.dealer, table.progress)
         assert not any(chair.ready for chair in taken.chairs)
+
+
+class TestThePushingStageAfterATakeOver:
+    def test_the_sitter_holds_the_twelve_cards_while_the_seat_holds_the_skat_and_puts_two_back(self):
+        table, sitter = PHASES["pushing-after-the-take"](), newcomer()
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+
+        hand = view_of(taken, sitter.account_id, NOBODY).hand
+        put_back = PushingCommand("command-1", taken.id.value, taken.version, PushingKind.PUT_BACK, hand.own_cards[:2])
+        decision = decide_pushing_step(taken, sitter, put_back)
+
+        assert (len(hand.own_cards), hand.skat_count, hand.pushing.stage) == (12, 0, Stage.DISCARDING)
+        assert decision.refusal is None
+
+    def test_the_sitter_sees_no_card_the_seat_may_not_see_after_the_skat_was_pushed_on(self):
+        table, sitter = PHASES["pushing-after-the-push"](), newcomer()
+        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+
+        hand = view_of(taken, sitter.account_id, NOBODY).hand
+
+        assert (hand.own_cards, hand.skat_count) == (tuple(DECK[10:20]), 2)
+        assert (hand.pushing.moves, hand.pushes) == (
+            view_of(table, account_of(MIDDLEHAND), NOBODY).hand.pushing.moves,
+            1,
+        )
+
+    def test_the_sitter_moves_the_stage_on_and_the_hand_goes_on(self):
+        table, sitter = PHASES["pushing-start"](), newcomer()
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        push = PushingCommand("command-1", taken.id.value, taken.version, PushingKind.PUSH)
+
+        pushed = decide_pushing_step(taken, sitter, push).table
+
+        assert seat_on_turn(pushed) == MIDDLEHAND_SEAT
+        assert view_of(pushed, sitter.account_id, NOBODY).hand.pushes == 1
 
 
 class TestTheKontraWordAfterATakeOver:
