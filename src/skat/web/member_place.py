@@ -81,7 +81,7 @@ class MemberStandings:
 
     async def current(  # NOSONAR(S7503) MemberResources is async
         self,
-        principal: Principal,  # noqa: ARG002 - the port passes it
+        principal: Principal,  # noqa: ARG002 - the port passes it  # NOSONAR(S1172) the protocol fixes the signature
     ) -> Collection[str]:
         return (STANDING_URI,) if token_carries_agent_facts.get() else ()
 
