@@ -57,15 +57,15 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
     ) -> Response | TableAnswer:
         """Say „Weiter“ after a result of a Skat table: the caller's chair is ready for the next hand of the series.
 
-        Use it when read_table shows a `result`, the series is not over (`series` is null or `series.over` is false),
-        and the caller's own chair (`is_mine`) has `ready: false`. The `ordinal` is `result.ordinal` and the table id
-        comes from the same read. The command id names this step: the same id with the same ordinal is a retry that
-        changes nothing twice. A refusal (not seated, no result, a stale ordinal, the series is over) comes back as a
-        failed result with its reason and spends the command id: the next attempt takes a new command id. Once
-        read_table shows `series.over: true` no next hand follows; call start_new_series for the next series, also
-        after a passed-in last game (`passed_in`). After any other passed-in hand the next hand follows once all three
-        are there. The answer still shows the result; the next hand appears in a later read_table, once all three
-        chairs are ready and the series is not over.
+        Use it when read_table or your table's view shows a `result`, the series is not over (`series` is null or
+        `series.over` is false), and the caller's own chair (`is_mine`) has `ready: false`. The `ordinal` is
+        `result.ordinal` and the table id comes from the same read. The command id names this step: the same id with the
+        same ordinal is a retry that changes nothing twice. A refusal (not seated, no result, a stale ordinal, the
+        series is over) comes back as a failed result with its reason and spends the command id: the next attempt takes
+        a new command id. Once read_table or your table's view shows `series.over: true` no next hand follows; call
+        start_new_series for the next series, also after a passed-in last game (`passed_in`). After any other passed-in
+        hand the next hand follows once all three are there. The answer still shows the result; the next hand appears in
+        a later read_table, once all three chairs are ready and the series is not over.
         """
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal)
         return await _answer_and_deal(
@@ -83,13 +83,13 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
     ) -> Response | TableAnswer:
         """Say „Neue Serie“ after a Skat table's series has ended: the caller's chair is ready for the next series.
 
-        Use it when read_table shows `series.over: true` and the caller's own chair (`is_mine`) has `ready: false`; the
-        table id comes from the same read. Once all three seated members have tapped and are connected, the third tap
-        deletes the finished series' list for good, the count starts again and the next series' first hand is dealt.
-        The command id names this step: the same id is a retry that changes nothing twice. A refusal (not seated, no
-        series, the series is not over) comes back as a failed result with its reason and spends the command id: the
-        next attempt takes a new command id. The answer to the third tap still shows the series' end; the next series'
-        first hand appears in the next read.
+        Use it when read_table or your table's view shows `series.over: true` and the caller's own chair (`is_mine`) has
+        `ready: false`; the table id comes from the same read. Once all three seated members have tapped and are
+        connected, the third tap deletes the finished series' list for good, the count starts again and the next series'
+        first hand is dealt. The command id names this step: the same id is a retry that changes nothing twice. A
+        refusal (not seated, no series, the series is not over) comes back as a failed result with its reason and spends
+        the command id: the next attempt takes a new command id. The answer to the third tap still shows the series'
+        end; the next series' first hand appears in the next read.
         """
         command = NewSeriesCommand(command_id=body.command_id, table_id=table_id)
         return await _answer_and_deal(

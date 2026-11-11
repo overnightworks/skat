@@ -99,11 +99,11 @@ def _add_play_card(router: APIRouter, tables: TableService, presence: Presence) 
     ) -> Response | TableAnswer:
         """Play one card from the caller's own hand on its turn at a Skat table.
 
-        The table id and the version come from the answer of read_table, and the card from its legal cards. The
-        command id names this move: the same id with the same card and the same version is a retry that changes
-        nothing twice. A refusal (a stale version, a card that is not legal, not the caller's turn) comes back as a
-        failed result with its reason, leaves the table as it was and spends the command id: the next attempt takes
-        a new command id.
+        The table id and the version come from the answer of read_table or the state of your table's view, and the card
+        from its legal cards. The command id names this move: the same id with the same card and the same version is a
+        retry that changes nothing twice. A refusal (a stale version, a card that is not legal, not the caller's turn)
+        comes back as a failed result with its reason, leaves the table as it was and spends the command id: the next
+        attempt takes a new command id.
         """
         command = PlayCardCommand(
             command_id=body.command_id, table_id=table_id, version=body.version, card=card_of(body)
@@ -133,15 +133,15 @@ def _add_give_up(router: APIRouter, tables: TableService, presence: Presence) ->
     ) -> Response | TableAnswer:
         """Give up the game the caller declared; this cannot be undone.
 
-        While the caller's chair holds nine or more cards the game is lost at once, valued as declared. With fewer,
-        the opponents are asked: `hand.playing.give_up` in the answer names the asking seat and an opponent's seat
-        that said no. The game ends once one opponent agrees, lost as declared, or won as it stands if the caller's
-        tricks and the skat already win it. A card played, or a no from both, ends the request and play goes on.
-        Use it when `hand.declaring.declarer_seat` in the answer of read_table is the chair marked `is_mine`, once a
-        declared game is played (`hand.declaring.declaration` is set), on anyone's turn. The table id and the
-        version come from that answer. The command id names this step: the same id with the same version is a retry
-        that changes nothing twice. A refusal (a stale version, not the declarer) comes back as a failed result with
-        its reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
+        While the caller's chair holds nine or more cards the game is lost at once, valued as declared. With fewer, the
+        opponents are asked: `hand.playing.give_up` in the answer names the asking seat and an opponent's seat that said
+        no. The game ends once one opponent agrees, lost as declared, or won as it stands if the caller's tricks and the
+        skat already win it. A card played, or a no from both, ends the request and play goes on. Use it when
+        `hand.declaring.declarer_seat` in the answer of read_table or the state of your table's view is the chair marked
+        `is_mine`, once a declared game is played (`hand.declaring.declaration` is set), on anyone's turn. The table id
+        and the version come from that answer. The command id names this step: the same id with the same version is a
+        retry that changes nothing twice. A refusal (a stale version, not the declarer) comes back as a failed result
+        with its reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
         """
         command = GiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
@@ -170,11 +170,11 @@ def _add_agree_to_give_up(router: APIRouter, tables: TableService, presence: Pre
         """Agree, from an opponent's chair, that the declarer gives up: the game ends at once and joins the list.
 
         It is lost for the declarer as declared, or won as it stands if his tricks and the skat already win it; this
-        cannot be undone. One opponent's yes is enough, also after saying no. Use it while `hand.playing.give_up` is
-        set in the answer of read_table. The table id and the version come from that answer. The command id names
-        this step: the same id with the same version is a retry that changes nothing twice. A refusal (a stale
-        version, nothing asked, the declarer's own chair, not seated) comes back as a failed result with its reason,
-        leaves the table as it was and spends the command id: the next attempt takes a new command id.
+        cannot be undone. One opponent's yes is enough, also after saying no. Use it while `hand.playing.give_up` is set
+        in the answer of read_table or the state of your table's view. The table id and the version come from that
+        answer. The command id names this step: the same id with the same version is a retry that changes nothing twice.
+        A refusal (a stale version, nothing asked, the declarer's own chair, not seated) comes back as a failed result
+        with its reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
         """
         command = AgreeToGiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
@@ -202,9 +202,9 @@ def _add_decline_give_up(router: APIRouter, tables: TableService, presence: Pres
     ) -> Response | TableAnswer:
         """Say no, from an opponent's chair, to the declarer's request to give up; play goes on.
 
-        Once both opponents said no the request ends, and a second no from the same chair changes nothing. Use it
-        while `hand.playing.give_up` is set in the answer of read_table. The table id, the version, the retry and the
-        refusals are as for agree_to_give_up.
+        Once both opponents said no the request ends, and a second no from the same chair changes nothing. Use it while
+        `hand.playing.give_up` is set in the answer of read_table or the state of your table's view. The table id, the
+        version, the retry and the refusals are as for agree_to_give_up.
         """
         command = DeclineGiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
@@ -230,10 +230,11 @@ def _add_throw_down(router: APIRouter, tables: TableService, presence: Presence)
         The caller's side keeps the tricks it has completed; every card in no completed trick, the trick in progress
         included, counts for the other side, and the skat for the declarer. No card is shown. Use it from the
         caller's chair once a declared game is played (`hand.declaring.declaration` is set in the answer of
-        read_table), on anyone's turn, as declarer or as opponent. The table id and the version come from that
-        answer. The command id names this step: the same id with the same version is a retry that changes nothing
-        twice. A refusal (a stale version, no game in play, not seated) comes back as a failed result with its
-        reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
+        read_table or the state of your table's view), on anyone's turn, as declarer or as opponent. The table id and
+        the version come from that answer. The command id names this step: the same id with the same version is a
+        retry that changes nothing twice. A refusal (a stale version, no game in play, not seated) comes back as a
+        failed result with its reason, leaves the table as it was and spends the command id: the next attempt takes a
+        new command id.
         """
         command = ThrowDownCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(

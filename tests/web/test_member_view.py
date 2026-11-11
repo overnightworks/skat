@@ -300,6 +300,18 @@ class TestTheWakeOfACommit:
         assert [each.view(table_id)["awaits_you"] for each in (first, second)] == [False, True]
 
 
+class TestTheToolDescriptionsNameTheView:
+    def test_every_description_that_sends_a_seated_agent_to_read_table_also_names_the_table_view(self, agent):
+        tools = agent.request("tools/list").json()["result"]["tools"]
+        before_a_chair = {"sit_down", "open_table", "read_paused_tables"}
+
+        naming_read_table = {tool["name"] for tool in tools if "read_table" in tool["description"]} - before_a_chair
+        naming_the_view = {tool["name"] for tool in tools if "view" in tool["description"]}
+
+        assert naming_read_table <= naming_the_view
+        assert len(naming_read_table) > 10
+
+
 class TestARestartReadsTheSameView:
     def test_the_view_after_a_restart_is_the_view_before_it(self, skat, issuer, hold, agent, middlehand_auction):
         before = agent.view(middlehand_auction.table_id)

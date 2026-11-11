@@ -676,8 +676,9 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         """Read one Skat table by its id: what the caller's own chair may see.
 
         The answer holds the table's version, its chairs, and the caller's own cards and the cards it may play when
-        it is its turn. The ids and the version that the caller's moves need come from this answer. A 404 means no
-        table has this id.
+        it is its turn. The ids and the version that the caller's moves need come from this answer. A table the
+        caller sits at is also a resource of its standing, whose state is this same answer. A 404 means no table has
+        this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.
