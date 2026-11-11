@@ -45,8 +45,8 @@ def step(**changed):
 class TestFromARamschTableAndItsListAtRevisionTwentyFour:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        """A database at 0024 holding a table that plays Ramsch, its list and a saved set, then taken to head."""
-        upgrade_to(unmigrated_engine, "0024")
+        """A database at 0025 holding a table that plays Ramsch, its list and a saved set, then taken to head."""
+        upgrade_to(unmigrated_engine, "0025")
         with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 3)"))
             connection.execute(text(f"UPDATE tables SET {RAMSCH_OPTIONS}"))  # noqa: S608 - a fixed literal

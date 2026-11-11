@@ -3,13 +3,28 @@ import secrets
 from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
+from skat.table.member_place import (
+    Acceptance,
+    AcceptResult,
+    InvitationId,
+    InvitationOffer,
+    InvitationRequest,
+    InviteRefusal,
+    MemberRefusal,
+    TableStanding,
+    agents_seated_at,
+    decide_accept,
+    decide_invite,
+    forgotten_if_expired,
+    standings_among,
+)
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -45,8 +60,6 @@ from skat.table.records import (
     Decision,
     EndedTable,
     NewHand,
-    Receipt,
-    Replay,
     SitDown,
     StandUp,
     TableId,
@@ -78,6 +91,7 @@ from skat.table.rules import (
     present_at,
     replayed_decision,
     replayed_table,
+    result_pending,
     resume_step,
     seat_of,
     seated_if_hand_ended,
@@ -93,6 +107,7 @@ from skat.table.series_end import (
     decide_refuse_to_end,
     series_end_payload,
 )
+from skat.table.transactions import DuplicateReceiptError
 from skat.table.views import PausedEntryView, TableView, paused_entry_of, view_of
 
 if TYPE_CHECKING:
@@ -101,113 +116,9 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
+    from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
-__all__ = [
-    "CommandIdReusedError",
-    "CommandResult",
-    "DuplicateReceiptError",
-    "LiveWait",
-    "OccupiedChair",
-    "PausedFacts",
-    "TableService",
-    "TableTransaction",
-    "TableTransactions",
-]
-
-
-class DuplicateReceiptError(Exception):
-    """Another transaction stored a receipt under the same (account, command id) first."""
-
-
-class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
-    def replay(self, account_id: str, command_id: str) -> Replay | None: ...
-
-    def table(self, table_id: TableId) -> TableRecord | EndedTable | None: ...
-
-    def locked_table(self, table_id: TableId) -> TableRecord | None:
-        """A live table, its row locked exclusively for the transaction; only the commands that change it read this
-        way. An ended table reads as none.
-        """
-        ...
-
-    def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
-        """Write the table's version, chairs and dealer, a new hand's cards and steps, and new list entries.
-
-        `played_at` is the time of the deal or step of play this save records and is written in the same statement
-        as the dealer; None leaves the stored time as it is, so a save that deals a hand with none is refused.
-
-        A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
-        hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
-        dealt: a record whose hand differs from it while the hand has progress raises, unless the third pass ended
-        the hand of a table without Ramsch. A list that does not continue the stored one raises, unless the record is
-        a newly dealt hand whose series number is above the stored one, which empties the stored list first; a free
-        chair that is ready raises too.
-        """
-        ...
-
-    def add_table(self, table: TableRecord, opener_name: str) -> None:
-        """Insert the table with the opener's display name, which no later write changes."""
-        ...
-
-    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
-        """End the table whose row this transaction locked, once: its version rises by one, its dealer, last
-        played time and opener's name clear, and it keeps only its row and its create receipt, so its id is never
-        issued again and a create retry finds it.
-        """
-        ...
-
-    def empty_since(self, table_id: TableId) -> datetime | None:
-        """Since when nobody has been at the table, or None while it is unset."""
-        ...
-
-    def paused_facts(self, table_id: TableId) -> PausedFacts:
-        """The last played time and the opener's name of a live table on which a hand was dealt."""
-        ...
-
-    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
-        """Write the time since when nobody has been at the table, on the row this transaction locked; it changes
-        nothing else, not even the version.
-        """
-        ...
-
-    def live_empty_since(self) -> tuple[LiveWait, ...]:
-        """Every live table with whether a hand was dealt on it and its time since when nobody has been there, each
-        row locked by this transaction.
-        """
-        ...
-
-    def add_receipt(self, receipt: Receipt) -> None: ...
-
-    def occupied_chairs(self) -> tuple[OccupiedChair, ...]: ...
-
-
-class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
-    def begin(self) -> AbstractContextManager[TableTransaction]:
-        """One transaction: it commits when the block ends and rolls back when the block raises."""
-        ...
-
-
-@dataclass(frozen=True)
-class LiveWait:
-    table_id: TableId
-    dealer: int | None
-    empty_since: datetime | None
-
-
-@dataclass(frozen=True)
-class PausedFacts:
-    """What the store keeps beside a dealt table's record: the time of its last deal or step of play, and the name its
-    opener had when he opened it, None for a table opened before the name was kept.
-    """
-
-    last_played_at: datetime
-    opener_name: str | None
-
-
-@dataclass(frozen=True)
-class OccupiedChair:
-    table_id: TableId
-    account_id: str
+__all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
 
 
 @dataclass(frozen=True)
@@ -229,6 +140,10 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def _tell_nobody(accounts: frozenset[str]) -> None:
+    """The signal of a service no one listens to."""
+
+
 class TableService:
     """The table commands and views; every command is one transaction."""
 
@@ -241,6 +156,7 @@ class TableService:
     ) -> None:
         self._transactions = transactions
         self._live_leases: Callable[[], frozenset[str]] = frozenset
+        self._standings_changed: Callable[[frozenset[str]], None] = _tell_nobody
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -252,6 +168,14 @@ class TableService:
         """
         clone = copy.copy(self)
         clone._live_leases = live_leases  # noqa: SLF001 - the clone is this class's own instance
+        return clone
+
+    def with_standing_signal(self, signal: Callable[[frozenset[str]], None]) -> TableService:
+        """The same service where each commit that changes whether an agent is a member of a table tells `signal` the
+        agents it concerns, after the commit and on the thread the command ran on; no change tells it nothing.
+        """
+        clone = copy.copy(self)
+        clone._standings_changed = signal  # noqa: SLF001 - the clone is this class's own instance
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
@@ -270,7 +194,8 @@ class TableService:
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
-            return view_of(table, actor.account_id, frozenset())
+        self._tell(agents_seated_at(table))
+        return view_of(table, actor.account_id, frozenset())
 
     def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
@@ -504,7 +429,8 @@ class TableService:
             if decision.refusal is not None:
                 return False
             transaction.save_table(decision.table, played_at=None)
-            return True
+        self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
+        return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         """Deal the next hand on the server's own account, with no actor, command id or receipt.
@@ -545,8 +471,10 @@ class TableService:
             present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if not ends_empty(table, present):
                 return False
+            members = self._members_of(transaction, table)
             transaction.end_table(table_id, self._now(), empty_seconds)
-            return True
+        self._tell(members)
+        return True
 
     def note_presence(
         self,
@@ -568,11 +496,13 @@ class TableService:
             present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             now = self._now()
             step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
+            members: frozenset[str] = self._members_of(transaction, table) if step is PresenceStep.END else frozenset()
             if step is PresenceStep.END:
                 transaction.end_table(table_id, now, empty_seconds)
             elif step is not PresenceStep.KEEP:
                 transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
-            return step is PresenceStep.END
+        self._tell(members)
+        return step is PresenceStep.END
 
     def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
         """At the server's start: give every live table on which no hand was dealt and that has no time one, end
@@ -630,6 +560,82 @@ class TableService:
                     entries.append(paused_entry_of(table, actor.account_id, ends_at, facts.opener_name))
         return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
+    def invite_agent(self, table_id: TableId, request: InvitationRequest) -> InvitationOffer | InviteRefusal:
+        """Write an invitation to the agent for the table, with the expiry instant the caller names.
+
+        Refused, and nothing written, when the table is not live, an invitation to the agent is open or the agent
+        holds a chair there. Room at the table and the owner's presence are the caller's to check.
+        """
+        with self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            entry = transaction.locked_book_entry(table_id, request.agent_account)
+            written = decide_invite(table, entry, request, InvitationId.random(), self._now())
+            if isinstance(written, InviteRefusal):
+                return written
+            transaction.save_book_entry(written[0])
+        self._tell(frozenset({request.agent_account}))
+        return written[1]
+
+    def accept_invitation(
+        self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]
+    ) -> AcceptResult:
+        """Seat the agent at the table's lowest free chair for the invitation it names, in one transaction under the
+        table's row lock, dealing as a sit does; or refuse and say why.
+
+        `owner_account` is the owner its token names, None for a token that names none, and `connected_accounts` who
+        holds an open stream at the table. The command carries no command id and writes no receipt: a retry finds no
+        open invitation and is stale.
+        """
+        table_id = TableId.parse(acceptance.table_id)
+        stale = AcceptResult(MemberRefusal.STALE_INVITATION)
+        if table_id is None:
+            return stale
+        with self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            entry = transaction.locked_book_entry(table_id, agent.account_id)
+            if table is None or entry is None:
+                return stale
+            decision = decide_accept(
+                table,
+                entry,
+                agent,
+                owner_account,
+                acceptance,
+                owner_present=owner_account in connected_accounts,
+                now=self._now(),
+                new_hand=self._new_hand(table) if sit_deals(table) else None,
+            )
+            if decision.entry != entry:
+                transaction.save_book_entry(decision.entry)
+            if decision.table is not table:
+                self._save_decided(transaction, SIT_DOWN_COMMAND, table, decision.table)
+        if decision.entry != entry:
+            self._tell(frozenset({agent.account_id}))
+        return AcceptResult(decision.refusal, result_pending(decision.table))
+
+    def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
+        """Every table the agent holds a chair at or has an open invitation to, from one read; the read forgets an
+        invitation of the agent that ran out on the service's clock.
+        """
+        now = self._now()
+        with self._transactions.begin() as transaction:
+            entries = transaction.locked_book_entries_of(agent_account)
+            kept = tuple(forgotten_if_expired(entry, now) for entry in entries)
+            for before, after in zip(entries, kept, strict=True):
+                if after != before:
+                    transaction.save_book_entry(after)
+            held = [chair.table_id for chair in transaction.occupied_chairs() if chair.account_id == agent_account]
+        return standings_among(kept, held, now)
+
+    def _tell(self, accounts: frozenset[str]) -> None:
+        if accounts:
+            self._standings_changed(accounts)
+
+    @staticmethod
+    def _members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
+        """The agents whose standing the table's end changes: those that hold a chair and those invited."""
+        return agents_seated_at(table) | transaction.book_accounts_at(table.id)
+
     def _new_hand(self, table: TableRecord) -> NewHand:
         """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
 
@@ -686,10 +692,12 @@ class TableService:
             replay = transaction.replay(actor.account_id, command_id)
             seated_when_hand_ended: frozenset[str] = frozenset()
             away_when_hand_ended: frozenset[str] = frozenset()
+            told: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
                     self._save_decided(transaction, command, table, decision.table)
+                    told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
@@ -699,13 +707,15 @@ class TableService:
                 away_when_hand_ended = seated_when_hand_ended - present
                 if on_hand_ended is not None:
                     on_hand_ended(away_when_hand_ended)
-            return CommandResult(
+            result = CommandResult(
                 view_of(decision.table, actor.account_id, present),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
                 away_when_hand_ended,
             )
+        self._tell(told)
+        return result
 
     def _save_decided(
         self, transaction: TableTransaction, command: str, before: TableRecord, after: TableRecord
