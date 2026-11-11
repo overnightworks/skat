@@ -265,6 +265,23 @@ chairs = Table(
     one_of("occupant_kind", (kind.value for kind in OccupantKind), "chairs_occupant_kind_is_a_kind"),
 )
 
+member_book = Table(
+    "member_book",
+    metadata,
+    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
+    Column("agent_account", Text, primary_key=True),
+    Column("epoch", Integer, nullable=False, server_default="0"),
+    Column("invitation_id", Text),
+    Column("invitation_expires_at", DateTime(timezone=True)),
+    Column("owner_account", Text),
+    Column("inviter_account", Text),
+    CheckConstraint(
+        "num_nonnulls(invitation_id, invitation_expires_at, owner_account, inviter_account) IN (0, 4)",
+        name="member_book_invitation_is_all_or_nothing",
+    ),
+    CheckConstraint("epoch >= 0", name="member_book_epoch_is_not_negative"),
+)
+
 SKAT_HOLDER: Final = "skat"
 SUIT_TEXT: Final = {Suit.KARO: "diamonds", Suit.HERZ: "hearts", Suit.PIK: "spades", Suit.KREUZ: "clubs"}
 RANK_TEXT: Final = {
