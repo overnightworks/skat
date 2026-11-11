@@ -1,7 +1,0 @@
-claim_id = "81d970af344843668b22ba3b363cdde3"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "678b8c62bb7ed9b26d7209af0994b91d72cfd53e"
-branch = "claude/issue-307-late-not-found"
-scope = ["tests/e2e/test_tables.py"]
-opened_commit = "a11a82aaff987075eb44adf7f7120bb5b473107d"
