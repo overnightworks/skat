@@ -39,7 +39,7 @@ from tests.support.idle_presence import (
     idle_next_deal,
     idle_presence,
 )
-from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
+from tests.support.page_build import fixture_page_build
 from tests.support.payload_cards import (
     CARDS_BY_SEAT,
     DEALER_SEAT,
@@ -151,6 +151,8 @@ class TestReadTable:
                 TableService(skat.store),
                 fixture_page_build(),
                 ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease()),
+                skat.stores.sessions,
+                skat.config,
             )
         )
         # The probing router goes first so that it, not the composed one, answers the read.
@@ -210,7 +212,7 @@ class TestTablePage:
         for table_id in (UNKNOWN_ID, "anything"):
             answer = skat.client.get(f"{TABLE_PAGE_PREFIX}{table_id}", headers={**headers, **NAVIGATION})
             assert answer.status_code == 200
-            assert answer.content == (FIXTURE_DIRECTORY / "index.html").read_bytes()
+            assert answer.content == fixture_page_build().shell_in("de").content
             assert answer.headers["cache-control"] == "no-cache"
 
     def test_sends_a_signed_out_visitor_to_the_sign_in_page(self, skat):
@@ -244,7 +246,9 @@ def answering_first(skat, tables, presence):
     """
     composed = list(skat.app.router.routes)
     skat.app.include_router(create_seating_router(tables, presence))
-    skat.app.include_router(create_tables_router(tables, fixture_page_build(), presence))
+    skat.app.include_router(
+        create_tables_router(tables, fixture_page_build(), presence, skat.stores.sessions, skat.config)
+    )
     skat.app.router.routes[:] = skat.app.router.routes[len(composed) :] + composed
 
 
@@ -468,6 +472,7 @@ HAND_KEYS = {
     "declaring",
     "playing",
     "ramsch",
+    "waiting_seat",
     "pushing",
     "pushes",
 }

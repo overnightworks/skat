@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -12,12 +12,15 @@ from skat.web.constants import (
     IMMUTABLE_ASSET_CACHE_CONTROL,
     IMMUTABLE_ASSET_PATH_RULES,
 )
+from skat.web.languages import language_of_request
 from skat.web.mcp import Exclusion, excluded
 
 if TYPE_CHECKING:
     import os
 
     from starlette.types import Scope
+    from webauth.config import WebAuthConfig
+    from webauth.ports import SessionRecordStore
 
     from skat.web.page_build import BuiltPage, PageBuild
 
@@ -45,7 +48,7 @@ class _PageBuildFiles(StaticFiles):
         return response
 
 
-def create_router(page_build: PageBuild) -> APIRouter:
+def create_router(page_build: PageBuild, sessions: SessionRecordStore, web_auth: WebAuthConfig) -> APIRouter:
     router = APIRouter()
 
     @router.api_route(HEALTH_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.READINESS_PROBE))
@@ -53,8 +56,10 @@ def create_router(page_build: PageBuild) -> APIRouter:
         return JSONResponse({"status": "ok"})
 
     @router.api_route(HOME_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
-    def home_page() -> Response:
-        return built_page_response(page_build.shell)
+    def home_page(request: Request) -> Response:
+        return built_page_response(
+            page_build.shell_in(language_of_request(request, sessions=sessions, config=web_auth))
+        )
 
     router.mount(APP_ASSET_PATH, _PageBuildFiles(page_build.app_directory), name="page-build")
     return router

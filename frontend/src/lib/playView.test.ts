@@ -140,7 +140,7 @@ describe("the trick on the felt", () => {
 
         expect(trickOnTheFelt(named, twoCards).map(({ name, initial }) => [name, initial])).toEqual([
             ["player 1", "p"],
-            [words.sideYou, "F"],
+            [words["play.sideYou"], "F"],
         ]);
     });
 
@@ -153,9 +153,13 @@ describe("the trick on the felt", () => {
 
 describe("the names of the two sides", () => {
     it.each([
-        { who: "the declarer", viewer: DECLARER_SEAT, names: { declarer: words.sideUs, opponents: words.sideThem } },
-        { who: "an opponent", viewer: 1, names: { declarer: "player 2", opponents: words.sideUs } },
-        { who: "a watcher", viewer: WATCHER, names: { declarer: "player 2", opponents: words.sideThem } },
+        {
+            who: "the declarer",
+            viewer: DECLARER_SEAT,
+            names: { declarer: words["play.sideUs"], opponents: words["play.sideThem"] },
+        },
+        { who: "an opponent", viewer: 1, names: { declarer: "player 2", opponents: words["play.sideUs"] } },
+        { who: "a watcher", viewer: WATCHER, names: { declarer: "player 2", opponents: words["play.sideThem"] } },
     ])("names the sides as $who sees them", ({ viewer, names }) => {
         expect(sideNames(chairs(viewer), DECLARER_SEAT)).toEqual(names);
     });
@@ -163,7 +167,7 @@ describe("the names of the two sides", () => {
     it("names the declarer's side with nothing when its chair has no name", () => {
         const empty = chairs(WATCHER).map((chair) => ({ ...chair, occupant_name: null }));
 
-        expect(sideNames(empty, DECLARER_SEAT)).toEqual({ declarer: "", opponents: words.sideThem });
+        expect(sideNames(empty, DECLARER_SEAT)).toEqual({ declarer: "", opponents: words["play.sideThem"] });
     });
 });
 

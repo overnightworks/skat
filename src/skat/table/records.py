@@ -134,6 +134,15 @@ class StandUp:
     table_id: str
 
 
+@dataclass(frozen=True)
+class SendAway:
+    """The command to send an agent away from its chair; `agent_account` is the agent whose chair is freed."""
+
+    command_id: str
+    table_id: str
+    agent_account: str
+
+
 class Refusal(StrEnum):
     """Why a table command changed nothing."""
 
@@ -154,6 +163,8 @@ class Refusal(StrEnum):
     NO_GAME_YET = "no-game-yet"
     NO_PROPOSAL = "no-proposal"
     RULE_OFF = "rule-off"
+    NOT_AN_AGENT = "not-an-agent"
+    SEAT_OPEN = "seat-open"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal | KontraRefusal | PushRefusal

@@ -75,8 +75,8 @@
             >
                 {#if ladder.main.action === "hold"}
                     {@render check()}
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                    {`${words.hold}`}
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                    {`${words["bid.hold"]}`}
                 {:else}
                     <svg
                         viewBox="0 0 24 24"
@@ -112,8 +112,8 @@
             >
                 <path d="M6 6l12 12M18 6L6 18" />
             </svg>
-            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-            {`${words.pass}`}
+            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+            {`${words["bid.pass"]}`}
         </button>
     </div>
 </div>

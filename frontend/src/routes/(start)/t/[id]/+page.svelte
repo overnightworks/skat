@@ -149,7 +149,7 @@
     });
 
     async function copy(): Promise<void> {
-        note = (await copyTableLink(id)) ? words.linkCopied : words.linkCopyFailed;
+        note = (await copyTableLink(id)) ? words["table.linkCopied"] : words["table.linkCopyFailed"];
     }
 
     // A seated or freed chair reaches this page through its stream like every other page's: the answer's table
@@ -165,7 +165,7 @@
             clearTimeout(takenTimer);
             takenTimer = setTimeout(() => (taken = null), TAKEN_NOTICE_MILLISECONDS);
         } else if (answer.kind !== "table") {
-            note = words.commandFailed;
+            note = words["table.commandFailed"];
         }
         return answer;
     }
@@ -187,8 +187,8 @@
 </script>
 
 <svelte:head>
-    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-    <title>{`${words.appName}`}</title>
+    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+    <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
 <div class="room" data-theme="dark">
@@ -247,9 +247,14 @@
     {#if !greeted}
         <header class="bar">
             {#if callMode}
-                <span class="wordmark" class:stale={!connected}>{words.appName}</span>
+                <span class="wordmark" class:stale={!connected}>{words["app.name"]}</span>
             {:else}
-                <a class="lobby" href={resolve("/(start)")} title={words.lobby} aria-label={words.lobby}>
+                <a
+                    class="lobby"
+                    href={resolve("/(start)")}
+                    title={words["table.lobby"]}
+                    aria-label={words["table.lobby"]}
+                >
                     <span class="lobby-face button-glass">
                         <svg
                             viewBox="0 0 24 24"
@@ -263,7 +268,7 @@
                             <path d="M4 11.5 12 5l8 6.5" />
                             <path d="M6.5 10v9h11v-9" />
                         </svg>
-                        <span class="lobby-word">{words.lobby}</span>
+                        <span class="lobby-word">{words["table.lobby"]}</span>
                     </span>
                 </a>
             {/if}
@@ -271,9 +276,9 @@
                 <div
                     class="watchers"
                     class:stale={!connected}
-                    title={words.watchers}
+                    title={words["table.watchers"]}
                     role="group"
-                    aria-label={words.watchers}
+                    aria-label={words["table.watchers"]}
                 >
                     <svg
                         viewBox="0 0 24 24"
@@ -315,18 +320,18 @@
             {:else if deciding !== null}
                 <div class="plaque deciding">
                     {#if deciding.kind === "won"}
-                        <span>{`${deciding.name} ${words.plays}, ${String(deciding.value)}`}</span>
+                        <span>{`${deciding.name} ${words["table.plays"]}, ${String(deciding.value)}`}</span>
                     {:else}
-                        <span>{`${words.bidValue} ${String(deciding.value)}`}</span>
+                        <span>{`${words["table.bidValue"]} ${String(deciding.value)}`}</span>
                         <span class="gives">
-                            {`${deciding.name} ${deciding.kind === "choosing" ? words.chooses : words.discards}`}
+                            {`${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
                 </div>
             {:else if bidValue !== null}
                 <div class="plaque">
-                    <span>{`${words.bidValue} ${String(bidValue)}`}</span>
+                    <span>{`${words["table.bidValue"]} ${String(bidValue)}`}</span>
                 </div>
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
@@ -347,21 +352,21 @@
                 {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
                 <div class="plaque" class:hand-over={passedIn !== null}>
                     {#if passedIn !== null}
-                        <span class="verdict">{words.passedIn}</span>
+                        <span class="verdict">{words["table.passedIn"]}</span>
                         {#if passedIn.dealerName !== null}
                             <span class="gives">
-                                {`${passedIn.dealerName} ${words.gives}`}
+                                {`${passedIn.dealerName} ${words["table.gives"]}`}
                                 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                             </span>
                         {/if}
                     {:else if outcome.table.hand === null}
-                        <span>{words.waitingForPlayers}</span>
+                        <span>{words["table.waitingForPlayers"]}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else if awayName}
-                        <span>{`${words.waitingFor} ${awayName}`}</span>
+                        <span>{`${words["table.waitingFor"]} ${awayName}`}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else}
-                        <span>{words.bidding}</span>
+                        <span>{words["table.bidding"]}</span>
                     {/if}
                 </div>
             {/if}
@@ -414,7 +419,7 @@
                             </span>
                             {#if chair.hand !== null || passedIn !== null || view !== null}
                                 {#if chair.seat === dealerSeat}
-                                    <span class="mark dealer" title={words.dealer}>
+                                    <span class="mark dealer" title={words["table.dealer"]}>
                                         <svg
                                             viewBox="0 0 24 24"
                                             fill="none"
@@ -428,8 +433,8 @@
                                                 d="M3 7h3c4.5 0 6.5 10 11 10h3.5M3 17h3c1.7 0 3-1.4 4.1-3.4M13.9 10.4C15 8.4 16.3 7 18 7h2.5M18 4l3 3-3 3M18 14l3 3-3 3"
                                             />
                                         </svg>
-                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                                        {`${words.dealer}`}
+                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                                        {`${words["table.dealer"]}`}
                                     </span>
                                 {/if}
                                 {#if chair.hand !== null}
@@ -442,8 +447,8 @@
                                                 d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.5 6 20.9l1.3-6.7-5-4.7 6.8-.8z"
                                             />
                                         </svg>
-                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                                        {`${words.plays}`}
+                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                                        {`${words["table.plays"]}`}
                                     </span>
                                 {/if}
                                 {#if marks.turn || chair.seat === turnSeat}
@@ -464,11 +469,11 @@
                                         >
                                             <path d="M6 6l12 12M18 6L6 18" />
                                         </svg>
-                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                                        {`${words.pass}`}
+                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                                        {`${words["table.pass"]}`}
                                     </span>
                                 {:else if marks.waits}
-                                    <span class="mark waits" title={words.waitsForYou}>
+                                    <span class="mark waits" title={words["table.waitsForYou"]}>
                                         <span class="dot" aria-hidden="true">{ownInitial}</span>
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
@@ -479,7 +484,7 @@
                             {/if}
                             {#if view !== null}
                                 {#if chair.ready}
-                                    <span class="mark ready" title={words.readyMark}>
+                                    <span class="mark ready" title={words["table.readyMark"]}>
                                         <svg
                                             viewBox="0 0 24 24"
                                             fill="none"
@@ -493,7 +498,7 @@
                                         </svg>
                                     </span>
                                 {:else}
-                                    <span class="mark waits" title={words.notReadyMark}>
+                                    <span class="mark waits" title={words["table.notReadyMark"]}>
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
@@ -518,7 +523,7 @@
                             <button
                                 type="button"
                                 class="tile empty free"
-                                aria-label={words.sitDown}
+                                aria-label={words["table.sitDown"]}
                                 onclick={() => seat(sitDown(id, chair.seat, crypto.randomUUID()))}
                             >
                                 <svg
@@ -535,9 +540,9 @@
                         {/if}
                         <span class="plate"
                             >{chair.is_mine
-                                ? words.sideYou
-                                : (chair.occupant_name ?? words.seatFree)}{#if chair.is_away}<small class="away-note"
-                                    >{words.seatAway}</small
+                                ? words["table.sideYou"]
+                                : (chair.occupant_name ?? words["table.seatFree"])}{#if chair.is_away}<small
+                                    class="away-note">{words["table.seatAway"]}</small
                                 >{/if}</span
                         >
                         {#if chair.total !== null}
@@ -546,7 +551,7 @@
                         {#if chair.hand !== null}
                             {#if openCards.length > 0}
                                 {#if chair.is_mine}
-                                    <span class="open-tag" title={words.openForAll}>
+                                    <span class="open-tag" title={words["table.openForAll"]}>
                                         <svg
                                             viewBox="0 0 24 24"
                                             fill="none"
@@ -559,7 +564,7 @@
                                             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
                                             <circle cx="12" cy="12" r="3" />
                                         </svg>
-                                        <span>{words.open}</span>
+                                        <span>{words["table.open"]}</span>
                                     </span>
                                 {:else}
                                     <OpenHand cards={openCards} />
@@ -570,7 +575,7 @@
                                 </div>
                             {/if}
                             {#if !chair.is_mine && openCards.length === 0}
-                                <span class="count-tag" title={words.cardCount}>
+                                <span class="count-tag" title={words["table.cardCount"]}>
                                     <svg
                                         viewBox="0 0 24 24"
                                         fill="none"
@@ -628,12 +633,12 @@
                             >
                                 <path d="M5 12.5l4.5 4.5L19 7" />
                             </svg>
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                            {`${words.weiter}`}
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                            {`${words["table.weiter"]}`}
                         </button>
                     {:else if bar !== null}
                         <span class="copy wait" role="status">
-                            {`${words.waitingFor} ${bar.names}`}
+                            {`${words["table.waitingFor"]} ${bar.names}`}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
@@ -651,12 +656,12 @@
                                 <path d="M4.5 4v16M4.5 13.5h8.5v6.5" />
                                 <path d="M18.5 15V4M15 7.5l3.5-3.5L22 7.5" />
                             </svg>
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                            {`${words.standUp}`}
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                            {`${words["table.standUp"]}`}
                         </button>
                     {/if}
                     {#if !callMode}
-                        <button type="button" class="copy link" aria-label={words.copyLink} onclick={copy}>
+                        <button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={copy}>
                             <svg
                                 viewBox="0 0 24 24"
                                 fill="none"
@@ -668,8 +673,8 @@
                                 <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
                                 <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
                             </svg>
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                            <span class="label">{`${words.copyLink}`}</span>
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                            <span class="label">{`${words["table.copyLink"]}`}</span>
                         </button>
                     {/if}
                 </div>
@@ -678,8 +683,8 @@
             {#if taken !== null}
                 <p class="notice" role="status">
                     <span class="dot" aria-hidden="true">{taken.slice(0, 1)}</span>
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                    <span class="label">{`${words.seatTaken}`}</span>
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                    <span class="label">{`${words["table.seatTaken"]}`}</span>
                     <b>{taken}</b>
                 </p>
             {/if}
@@ -687,12 +692,14 @@
             <TableClosed ended={null} />
         {:else if outcome?.kind === "failed"}
             <section class="panel" role="alert">
-                <h1>{words.tableLoadFailed}</h1>
-                <p>{words.tableLoadFailedHint}</p>
+                <h1>{words["table.loadFailed"]}</h1>
+                <p>{words["table.loadFailedHint"]}</p>
             </section>
         {/if}
     </main>
-    <div class="reconnect" role="status" hidden={connected}><span class="spin"></span>{words.reconnecting}</div>
+    <div class="reconnect" role="status" hidden={connected}>
+        <span class="spin"></span>{words["table.reconnecting"]}
+    </div>
     <footer class="legal">
         <LegalLinks links={LEGAL_LINKS} newTab />
     </footer>

@@ -44,7 +44,7 @@
             {/if}
         </svg>
     </span>
-    <h1>{ended === null ? words.tableNotFound : closedWords(ended)}</h1>
+    <h1>{ended === null ? words["closed.notFound"] : closedWords(ended)}</h1>
     {#if !isFramedInCallMode()}
         <NewTableButton />
     {/if}

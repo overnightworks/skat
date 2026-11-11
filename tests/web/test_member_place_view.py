@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
 
 from skat.engine.deal import Position
+from skat.table.asking import revision_of
 from skat.table.member_place import InvitationRequest
 from skat.table.records import EndedTable, EndReason, Series, TableId
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX
@@ -133,11 +134,13 @@ def commands():
 
 
 def acts(session, table_id):
-    """The client's tool call with its view's revision as the version and a fresh command id."""
+    """The client's tool call with its view's table version and a fresh command id."""
     ids = commands()
 
     def act(tool, view, **arguments):
-        answer = session.call(tool, table_id=table_id, command_id=next(ids), version=view["revision"], **arguments)
+        answer = session.call(
+            tool, table_id=table_id, command_id=next(ids), version=view["state"]["version"], **arguments
+        )
         assert not answer.is_error, answer.text
         return session.view(table_id)
 
@@ -153,10 +156,12 @@ class TestTheViewIsAServedResource:
         assert agent.listed_resources() == sorted([STANDING_URI, view_uri_of(middlehand_auction.table_id)])
         assert [(each["state"], each["serves_view"]) for each in standing] == [("active", True)]
 
-    def test_the_revision_is_the_tables_version_and_the_seat_on_turn_awaits(self, agent, middlehand_auction):
+    def test_the_revision_is_the_tables_version_with_no_ask_and_the_seat_on_turn_awaits(
+        self, agent, middlehand_auction
+    ):
         view = agent.view(middlehand_auction.table_id)
 
-        assert (view["revision"], view["awaits_you"]) == (middlehand_auction.record.version, True)
+        assert (view["revision"], view["awaits_you"]) == (revision_of(middlehand_auction.record.version, 0), True)
 
     def test_the_state_is_what_read_table_answers_for_the_same_seat(self, agent, middlehand_auction):
         view = agent.view(middlehand_auction.table_id)
@@ -335,7 +340,11 @@ class TestTheViewFollowsTheLease:
                 )
                 view = relistened.woken_view(table.table_id)
 
-        assert (moved.is_error, view["revision"], view["awaits_you"]) == (False, table.record.version, False)
+        assert (moved.is_error, view["revision"], view["awaits_you"]) == (
+            False,
+            revision_of(table.record.version, 0),
+            False,
+        )
 
 
 class TestTheWakeOfACommit:
@@ -420,7 +429,7 @@ class TestASignalThatFailsAfterTheCommit:
 
         assert forehand_auction.record.version == before + 1
         assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"]
-        assert agent.view(forehand_auction.table_id)["revision"] == before + 1
+        assert agent.view(forehand_auction.table_id)["revision"] == revision_of(before + 1, 0)
 
 
 class TestTheToolDescriptionsNameTheView:

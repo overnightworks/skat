@@ -15,6 +15,8 @@ CALL_SIGN_IN_FILE = "login/call.html"
 LOGIN_FAILED_FILE = "login-failed.html"
 NO_ACCESS_FILE = "no-access.html"
 APP_DIRECTORY = "_app"
+# The shell's language as the build writes it; the server replaces it with the language it answers in.
+SHELL_ENGLISH_LANG = b'<html lang="en">'
 CHUNK_PATTERN = "immutable/**/*.js"
 # SvelteKit's route announcer is a template literal in a built chunk; its style is set by this attribute.
 _ANNOUNCER_STYLE = re.compile(r'id="svelte-announcer"[^>]*?\sstyle="([^"]*)"')
@@ -111,6 +113,10 @@ class PageBuild:
     def app_directory(self) -> Path:
         return self.directory / APP_DIRECTORY
 
+    def shell_in(self, language: str) -> BuiltPage:
+        """The shell with its `lang` set to the language the server answers in; the rest of its bytes stay."""
+        return BuiltPage.of(self.shell.content.replace(SHELL_ENGLISH_LANG, f'<html lang="{language}">'.encode()))
+
     @classmethod
     def load(cls, directory: Path) -> PageBuild:
         plain_files = (SIGNED_OUT_FILE, LOGIN_FAILED_FILE, NO_ACCESS_FILE)
@@ -124,6 +130,11 @@ class PageBuild:
         for name, page in zip(plain_files, plain_pages, strict=True):
             if _scripts_of(page).element_count:
                 raise SignInPageScriptError(f"The sign-in page {name} carries a script; only {CALL_SIGN_IN_FILE} may")
+        if shell_bytes.count(SHELL_ENGLISH_LANG) != 1:
+            raise PageBuildMissingError(
+                f"The shell {SHELL_FILE} holds no single {SHELL_ENGLISH_LANG.decode()} to write the language into; "
+                "run make frontend"
+            )
         shell_scripts = _scripts_of(shell_bytes)
         call_scripts = _scripts_of(call_bytes)
         return cls(

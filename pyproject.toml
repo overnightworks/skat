@@ -8,7 +8,7 @@ dependencies = [
     "alembic>=1.16",
     "fastapi>=0.123.7",
     "overnightworks-agents[mcp-server] @ git+https://github.com/overnightworks/agents@v0.31.0",
-    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.36.0",
+    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.37.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
@@ -79,6 +79,9 @@ external = ["S", "T20"]
 runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRouter.get"]
 
 [tool.ruff.lint.per-file-ignores]
+"src/skat/web/words.py" = [
+    "E501",    # design-catalogs lays the generated module out itself
+]
 "tests/**/*.py" = [
     "ANN",     # relax annotations in tests
     "ARG",     # allow unused arguments in fixtures
@@ -87,6 +90,11 @@ runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRoute
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+# --- Catalogs ---
+
+[tool.design-catalogs]
+python = "src/skat/web/words.py"
 
 # --- Pyright ---
 
@@ -185,10 +193,10 @@ layers = ["main", "app"]
 
 [dependency-groups]
 dev = [
-    "babel>=2.18",
     "cryptography>=50.0.2",
     "httpx2>=2.13.1",
     "import-linter>=2.3",
+    "overnightworks-design[catalogs] @ https://github.com/overnightworks/design/releases/download/v0.22.0/overnightworks_design-0.22.0-py3-none-any.whl#sha256=2d1a5b6ea008f5a6d990e10d6077d6142d01f494000373191e761495c372f8b8",
     "pyjwt>=2.15.1",
     "pyright>=1.1.414",
     "pytest>=9.0.2",

@@ -5,7 +5,6 @@ version tells the agents seated after it.
 import itertools
 import random
 from contextlib import nullcontext
-from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -264,8 +263,8 @@ class TestTheSignalOfACommit:
         scene = Scene()
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
         scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
+        scene.service.stand(ANNA, StandUp("command-anna-stand", scene.table_id), NOBODY)
         scene.service.sit(BACH, SitDown("command-bach", scene.table_id, 3), NOBODY)
-        scene.put(replace(scene.table, hand=None, dealer=None))
         scene.signals.clear()
 
         freed = scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))

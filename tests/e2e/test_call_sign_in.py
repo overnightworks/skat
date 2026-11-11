@@ -20,6 +20,7 @@ from skat.web.constants import (
     SIGNED_IN_AGAIN_QUERY_NAME,
 )
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import LEGAL_LINKS, LEGAL_ORIGIN, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
@@ -38,7 +39,6 @@ from tests.e2e.support.call_frame import (
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, SMALL_PHONE, WIDTHS, playwright_cookie
 from tests.e2e.support.sessions import end_sessions_of
 from tests.e2e.support.tables import open_new_table
-from tests.e2e.support.words import catalog_text
 from tests.support.sign_in_settings import TEST_ISSUER
 from tests.support.signed_in import seed_member
 
@@ -413,7 +413,7 @@ def test_a_legal_link_of_the_table_opens_the_central_page_in_a_new_tab_and_the_t
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS, timeout=WAIT_MILLISECONDS)
 
         with visitor.context.expect_page() as opened:
-            table.get_by_role("link", name=catalog_text(link_name), exact=True).click()
+            table.get_by_role("link", name=text(SOURCE_LANGUAGE, link_name), exact=True).click()
 
         assert opened.value.url == LEGAL_LINKS[link_name]
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
@@ -513,7 +513,7 @@ def test_a_legal_link_of_the_framed_sign_in_face_opens_in_a_new_tab_and_starts_n
     framed.requests.clear()
 
     with framed.visitor.context.expect_page() as opened:
-        framed.frame.get_by_role("link", name=catalog_text(link_name), exact=True).click()
+        framed.frame.get_by_role("link", name=text(SOURCE_LANGUAGE, link_name), exact=True).click()
 
     assert opened.value.url == LEGAL_LINKS[link_name]
     assert framed.frame_address == face_address
@@ -539,8 +539,8 @@ def test_a_tap_on_log_in_before_the_script_has_run_reloads_the_face_and_a_legal_
     assert RETURN_PATH_QUERY_NAME in face_address
 
     with framed.visitor.context.expect_page() as opened:
-        framed.frame.get_by_role("link", name=catalog_text("legalPrivacy"), exact=True).click()
-    assert opened.value.url == LEGAL_LINKS["legalPrivacy"]
+        framed.frame.get_by_role("link", name=text(SOURCE_LANGUAGE, "legal.privacy"), exact=True).click()
+    assert opened.value.url == LEGAL_LINKS["legal.privacy"]
     assert framed.frame_address == face_address
 
     with framed.visitor.expect_event("framenavigated", lambda frame: frame.parent_frame is not None):

@@ -16,14 +16,14 @@
 </script>
 
 <svelte:head>
-    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-    <title>{`${words.appName}`}</title>
+    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+    <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
 <div class="start" data-theme="dark">
     <header class="start-bar">
-        <span class="wordmark">{words.appName}</span>
-        <button type="button" class="account-button" aria-label={words.account} popovertarget="accountMenu">
+        <span class="wordmark">{words["app.name"]}</span>
+        <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
             <svg
                 viewBox="0 0 24 24"
                 fill="none"

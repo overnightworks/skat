@@ -15,10 +15,10 @@ from skat.web.declaring import (
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.tables import TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
-from tests.e2e.support.words import catalog_text
 from tests.support.payload_cards import wire_cards
 from tests.support.played_game import after_a_game
 
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
-TAKE_SKAT = catalog_text("takeSkat")
+TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 command_numbers = itertools.count(1)
 DECLARING_STEP_SUFFIXES = {
     "take": TABLE_DECLARING_TAKE_SUFFIX,

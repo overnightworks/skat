@@ -24,6 +24,7 @@ from skat.table.records import (
     OccupantKind,
 )
 from skat.table.service import CommandIdReusedError
+from skat.web.languages import language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.table_options import OptionsAnswer, options_answer_of
@@ -31,7 +32,8 @@ from skat.web.table_options import OptionsAnswer, options_answer_of
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from webauth.ports import AuthenticatedUser
+    from webauth.config import WebAuthConfig
+    from webauth.ports import AuthenticatedUser, SessionRecordStore
 
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
@@ -277,6 +279,7 @@ class HandAnswer(BaseModel):
     declaring: DeclaringAnswer | None
     playing: PlayingAnswer | None
     ramsch: bool
+    waiting_seat: int | None
     pushing: PushingAnswer | None
     pushes: int
 
@@ -521,6 +524,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         declaring=declaring_answer_of(hand.declaring),
         playing=playing_answer_of(hand.playing),
         ramsch=hand.ramsch,
+        waiting_seat=hand.waiting_seat,
         pushing=pushing_answer_of(hand.pushing),
         pushes=hand.pushes,
     )
@@ -683,22 +687,30 @@ async def command_answer(
     return answer_of(result.view)
 
 
-def _create_page_router(page_build: PageBuild) -> APIRouter:
+def _create_page_router(page_build: PageBuild, sessions: SessionRecordStore, web_auth: WebAuthConfig) -> APIRouter:
     router = APIRouter()
 
     # Any id gets the page: it asks the API and shows "Tisch nicht gefunden" for an id that is no table.
     @router.api_route(
         TABLE_PAGE_PREFIX + "{table_id}", methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE)
     )
-    def table_page(table_id: str) -> Response:  # noqa: ARG001 - the page reads the id from its own address
-        response = built_page_response(page_build.shell)
+    def table_page(table_id: str, request: Request) -> Response:  # noqa: ARG001 - the page reads its id from the URL
+        response = built_page_response(
+            page_build.shell_in(language_of_request(request, sessions=sessions, config=web_auth))
+        )
         response.headers["Cache-Control"] = "no-cache"
         return response
 
     return router
 
 
-def create_tables_router(tables: TableService, page_build: PageBuild, presence: Presence) -> APIRouter:
+def create_tables_router(
+    tables: TableService,
+    page_build: PageBuild,
+    presence: Presence,
+    sessions: SessionRecordStore,
+    web_auth: WebAuthConfig,
+) -> APIRouter:
     router = APIRouter()
 
     @router.get(
@@ -713,7 +725,9 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         it is its turn. The ids and the version that the caller's moves need come from this answer. A table the
         caller sits at is also a resource of its standing, whose state is this same answer. A result of a declared
         game says how it ended (played-out, given-up or thrown-down) and, for a give-up or a throw-down, the seat that
-        did it. A 404 means no table has this id.
+        did it. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
+        it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
+        moves again once someone sits in the chair. A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.
@@ -722,6 +736,6 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
             raise HTTPException(status_code=404, detail="table not found")
         return answer_of(view)
 
-    router.include_router(_create_page_router(page_build))
+    router.include_router(_create_page_router(page_build, sessions, web_auth))
 
     return router
