@@ -12,12 +12,11 @@ from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config
 from webauth.middleware import install_web_auth_middleware
 from webauth.policies import (
-    BodySizePolicy,
     CacheControlRule,
     CspDirective,
     CsrfPolicy,
+    PathRules,
     RateLimitPolicy,
-    RateLimitRule,
     SecurityHeadersPolicy,
     default_content_security_policy,
 )
@@ -28,13 +27,9 @@ from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
 from skat.web.constants import (
     ANNOUNCER_STYLE_SOURCES,
-    DEFAULT_RATE_LIMIT_BUDGET,
-    DEFAULT_REQUEST_BODY_MAX_BYTES,
+    HEALTH_PATH,
     NO_CACHE_PATH_RULES,
-    PERMISSIONS_POLICY,
-    RATE_LIMIT_EXEMPT_PATH_RULES,
     SIGN_IN_PATHS,
-    SIGN_IN_RATE_LIMIT_BUDGET,
     STREAM_HEARTBEAT_SECONDS,
 )
 from skat.web.declaring import create_declaring_router
@@ -103,24 +98,13 @@ def _install_web_auth(
 ) -> None:
     install_web_auth_middleware(
         app,
+        sign_in_paths=SIGN_IN_PATHS,
         security_headers=SecurityHeadersPolicy(
             content_security_policy=_content_security_policy(page_build, call_origin),
-            permissions_policy=PERMISSIONS_POLICY,
-            cache_control_rules=(
-                SIGN_IN_PATHS.cache_control_rule,
-                CacheControlRule(paths=NO_CACHE_PATH_RULES, value="no-cache"),
-            ),
+            cache_control_rules=(CacheControlRule(paths=NO_CACHE_PATH_RULES, value="no-cache"),),
         ),
-        csrf_origin=CsrfPolicy(exempt=SIGN_IN_PATHS.backchannel),
-        body_size=BodySizePolicy(
-            default_max_bytes=DEFAULT_REQUEST_BODY_MAX_BYTES,
-            rules=(SIGN_IN_PATHS.backchannel_body_size_rule,),
-        ),
-        rate_limit=RateLimitPolicy(
-            default=DEFAULT_RATE_LIMIT_BUDGET,
-            rules=(RateLimitRule(paths=SIGN_IN_PATHS.browser_paths, budget=SIGN_IN_RATE_LIMIT_BUDGET),),
-            exempt=RATE_LIMIT_EXEMPT_PATH_RULES,
-        ),
+        csrf_origin=CsrfPolicy(),
+        rate_limit=RateLimitPolicy(exempt=PathRules(exact=frozenset({HEALTH_PATH}))),
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
     )
