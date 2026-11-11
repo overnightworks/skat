@@ -322,6 +322,13 @@ export function tablePath(id: string): string {
     return `${TABLE_PAGE_PREFIX}${id}`;
 }
 
+// The name of an agent that sat down between two streamed views: a chair that was free and now holds an agent.
+export function agentWhoSat(previous: Table, table: Table): string | null {
+    const freed = new Set(previous.chairs.filter((chair) => chair.occupant_name === null).map((chair) => chair.seat));
+    const sat = table.chairs.find((chair) => chair.occupant_kind === "agent" && freed.has(chair.seat));
+    return sat?.occupant_name ?? null;
+}
+
 // The seats in drawing order: the viewer's own chair comes last, which is the one at the bottom.
 export function drawingOrder(chairs: Chair[]): Chair[] {
     const afterMine = chairs.findIndex((chair) => chair.is_mine) + 1;

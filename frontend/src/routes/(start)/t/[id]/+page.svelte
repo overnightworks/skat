@@ -16,7 +16,9 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
-    import { LegalLinks } from "overnightworks-design";
+    import { fillName } from "#lib/kitWords.ts";
+    import { AiMark, LegalLinks } from "overnightworks-design";
+    import AgentsPill from "#lib/ui/AgentsPill.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
@@ -31,6 +33,7 @@
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
     import {
+        agentWhoSat,
         bidValueWhileDeclaring,
         copyTableLink,
         drawingOrder,
@@ -51,6 +54,7 @@
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
+    const AGENT_SITS_MILLISECONDS = 4000;
 
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
@@ -63,8 +67,20 @@
     // The first moment of the declaring, which only a page that sees the auction end shows.
     let justWon = $state(false);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
+    // The version of the latest streamed table, which the control that calls agents follows.
+    let streamedVersion = $state<number | null>(null);
+    // The agent that has just sat down, named once.
+    let agentSat = $state<string | null>(null);
+    let agentSatTimer: ReturnType<typeof setTimeout> | undefined;
 
     function showTable(previous: Table, table: Table): void {
+        streamedVersion = table.version;
+        const sitter = agentWhoSat(previous, table);
+        if (sitter !== null) {
+            agentSat = sitter;
+            clearTimeout(agentSatTimer);
+            agentSatTimer = setTimeout(() => (agentSat = null), AGENT_SITS_MILLISECONDS);
+        }
         if (auctionJustEnded(previous, table)) {
             justWon = true;
             clearTimeout(wonTimer);
@@ -78,6 +94,8 @@
         outcome = null;
         connected = true;
         justWon = false;
+        streamedVersion = null;
+        agentSat = null;
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -96,6 +114,7 @@
         return () => {
             current = false;
             clearTimeout(wonTimer);
+            clearTimeout(agentSatTimer);
             stopWatching();
         };
     });
@@ -401,8 +420,24 @@
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
-                            <span class="tile">
-                                <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
+                            <span class="tile" class:agent={chair.occupant_kind === "agent"}>
+                                {#if chair.occupant_kind === "agent"}
+                                    <span class="orb" aria-hidden="true">
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <path d="M10.5 4l1.9 5.6 5.6 1.9-5.6 1.9-1.9 5.6-1.9-5.6L3 11.5l5.6-1.9z" />
+                                            <path d="M18.5 3v4M16.5 5h4" />
+                                        </svg>
+                                    </span>
+                                {:else}
+                                    <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
+                                {/if}
                             </span>
                             {#if chair.hand !== null || passedIn !== null || view !== null}
                                 {#if chair.seat === dealerSeat}
@@ -528,8 +563,9 @@
                         <span class="plate"
                             >{chair.is_mine
                                 ? words["table.sideYou"]
-                                : (chair.occupant_name ?? words["table.seatFree"])}{#if chair.is_away}<small
-                                    class="away-note">{words["table.seatAway"]}</small
+                                : (chair.occupant_name ??
+                                  words["table.seatFree"])}{#if chair.occupant_kind === "agent"}<AiMark
+                                />{/if}{#if chair.is_away}<small class="away-note">{words["table.seatAway"]}</small
                                 >{/if}</span
                         >
                         {#if chair.total !== null}
@@ -647,6 +683,7 @@
                             {`${words["table.standUp"]}`}
                         </button>
                     {/if}
+                    <AgentsPill tableId={id} {streamedVersion} />
                     {#if !callMode}
                         <button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={copy}>
                             <svg
@@ -667,6 +704,24 @@
                 </div>
                 <p class="note" role="status">{note}</p>
             </div>
+            {#if agentSat !== null}
+                <p class="notice" role="status">
+                    <span class="dot agent" aria-hidden="true">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M10.5 4l1.9 5.6 5.6 1.9-5.6 1.9-1.9 5.6-1.9-5.6L3 11.5l5.6-1.9z" />
+                            <path d="M18.5 3v4M16.5 5h4" />
+                        </svg>
+                    </span>
+                    <span class="label">{fillName(words["table.agentSits"], agentSat)}</span>
+                </p>
+            {/if}
             {#if taken !== null}
                 <p class="notice" role="status">
                     <span class="dot" aria-hidden="true">{taken.slice(0, 1)}</span>

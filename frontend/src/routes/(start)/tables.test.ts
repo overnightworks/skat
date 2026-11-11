@@ -20,6 +20,7 @@ import {
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
+    agentWhoSat,
     bidValueWhileDeclaring,
     announcedWord,
     callAgent,
@@ -1032,5 +1033,49 @@ describe("the control that calls agents", () => {
             expect(shown).toEqual([controlOf(nova("inviting", 5))]);
             expect(fetcher).toHaveBeenCalledTimes(3);
         });
+    });
+});
+
+describe("the agent that sat down", () => {
+    const chairOf = (seat: number, occupant_name: string | null, occupant_kind: Chair["occupant_kind"]): Chair => ({
+        seat,
+        occupant_name,
+        occupant_kind,
+        is_mine: false,
+        is_away: false,
+        ready: false,
+        total: null,
+        hand: null,
+    });
+    const tableOf = (...chairs: Chair[]): Table => ({
+        id: TABLE_ID,
+        version: 1,
+        chairs,
+        watchers: 0,
+        hand: null,
+        result: null,
+        passed_in: null,
+        ended: null,
+    });
+
+    it("is named when a chair that was free now holds an agent", () => {
+        const before = tableOf(chairOf(1, "Felix", "person"), chairOf(2, null, null));
+        const after = tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent"));
+
+        expect(agentWhoSat(before, after)).toBe("Nova");
+    });
+
+    it.each([
+        ["a person sat down", chairOf(2, "Anna", "person")],
+        ["the chair is still free", chairOf(2, null, null)],
+        ["the agent sat there before", chairOf(2, "Nova", "agent")],
+    ])("is nobody when %s", (_case, now) => {
+        const sitting = _case === "the agent sat there before";
+        const before = tableOf(
+            chairOf(1, "Felix", "person"),
+            sitting ? chairOf(2, "Nova", "agent") : chairOf(2, null, null),
+        );
+
+        expect(agentWhoSat(before, tableOf(chairOf(1, "Felix", "person"), now))).toBeNull();
     });
 });
