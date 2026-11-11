@@ -44,3 +44,24 @@ def list_row(**changed):
     }
     names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
     return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
+
+
+def ramsch_list_row(**changed):
+    columns = {
+        "table_id": "'t'",
+        "ordinal": 1,
+        "seat_1_account": "'account-anna'",
+        "seat_2_account": "'account-ben'",
+        "seat_3_account": "'account-cleo'",
+        "kind": "'ramsch'",
+        "seat_1_points": 47,
+        "seat_2_points": 40,
+        "seat_3_points": 33,
+        "seat_1_score": -47,
+        "seat_2_score": 0,
+        "seat_3_score": 0,
+        "jungfrau": "false",
+        **changed,
+    }
+    names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
+    return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text
