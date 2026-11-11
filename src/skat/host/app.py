@@ -38,7 +38,7 @@ from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
 from skat.web.mcp import McpAccess, mount_mcp
-from skat.web.member_place import member_front, standing_signal, view_signal
+from skat.web.member_place import AskClock, member_front, standing_signal, view_signal
 from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
@@ -143,27 +143,37 @@ def _next_deal(tables: TableService) -> NextDeal:
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
 
 
-def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
+def _empty_table(settings: ServerSettings, tables: TableService, asks: AskClock) -> EmptyTable:
     async def end(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        return await run_in_threadpool(
+        ended = await run_in_threadpool(
             tables.end_empty_table, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
+        if ended:
+            asks.drop(table_id)
+        return ended
 
     async def note(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        return await run_in_threadpool(
+        ended = await run_in_threadpool(
             tables.note_presence, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
+        if ended:
+            asks.drop(table_id)
+        return ended
 
     return EmptyTable(settings.empty_table_seconds, end, note)
 
 
 def _presence(
-    settings: ServerSettings, tables: TableService, clock: Callable[[], float], scheduler: Scheduler | None
+    settings: ServerSettings,
+    tables: TableService,
+    clock: Callable[[], float],
+    scheduler: Scheduler,
+    asks: AskClock,
 ) -> Presence:
     return Presence(
-        _chair_hold(settings, tables, clock, scheduler if scheduler is not None else LoopScheduler()),
+        _chair_hold(settings, tables, clock, scheduler),
         _next_deal(tables),
-        _empty_table(settings, tables),
+        _empty_table(settings, tables, asks),
         _agent_lease(tables),
     )
 
@@ -232,6 +242,7 @@ def create_app(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
+    resource_changes: ResourceChanges | None = None,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
 
@@ -240,7 +251,7 @@ def create_app(
     sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    changes = ResourceChanges()
+    changes = resource_changes if resource_changes is not None else ResourceChanges()
     # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing and
     # their tables' views.
     tables = (
@@ -248,7 +259,11 @@ def create_app(
         .with_standing_signal(standing_signal(changes, relying_party.issuer))
         .with_view_signal(view_signal(changes, relying_party.issuer))
     )
-    presence = _presence(settings, tables, chair_clock, chair_scheduler)
+    # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
+    # the pulses that ask a seat again with the chair holds' timers.
+    scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
+    asks = AskClock(chair_clock)
+    presence = _presence(settings, tables, chair_clock, scheduler, asks)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
@@ -270,7 +285,7 @@ def create_app(
         sign_in_stores.transaction,
         settings.public_origin,
         presence.renew_lease,
-        member_front(tables, presence, changes),
+        member_front(tables, presence, changes, scheduler, asks),
     )
     app.state.mcp_front = mcp.front
     _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)

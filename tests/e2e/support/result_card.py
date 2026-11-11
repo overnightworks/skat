@@ -2,21 +2,21 @@ import re
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.support.words import catalog_text
+from skat.web.words import SOURCE_LANGUAGE, text
 
-YOU = catalog_text("sideYou")
-WON = catalog_text("resultWon")
-LOST = catalog_text("resultLost")
-WINS = catalog_text("resultWins")
-LOSES = catalog_text("resultLoses")
-OVERBID = catalog_text("overbid")
-SPIEL = catalog_text("levelSpiel")
-LIST_BONUS = catalog_text("listBonus")
-EACH = catalog_text("each")
-WORTH = catalog_text("gameWorth")
-BID_VALUE = catalog_text("bidValue")
+YOU = text(SOURCE_LANGUAGE, "result.sideYou")
+WON = text(SOURCE_LANGUAGE, "result.won")
+LOST = text(SOURCE_LANGUAGE, "result.lost")
+WINS = text(SOURCE_LANGUAGE, "result.wins")
+LOSES = text(SOURCE_LANGUAGE, "result.loses")
+OVERBID = text(SOURCE_LANGUAGE, "result.overbid")
+SPIEL = text(SOURCE_LANGUAGE, "result.levelSpiel")
+LIST_BONUS = text(SOURCE_LANGUAGE, "result.listBonus")
+EACH = text(SOURCE_LANGUAGE, "result.each")
+WORTH = text(SOURCE_LANGUAGE, "result.gameWorth")
+BID_VALUE = text(SOURCE_LANGUAGE, "result.bidValue")
 MINUS = chr(0x2212)
-WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
+WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
 TIMES = chr(0x00D7)
 CARD = ".result"
 

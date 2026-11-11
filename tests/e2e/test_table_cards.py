@@ -4,10 +4,10 @@ import pytest
 from playwright.sync_api import Locator, Page, Response, expect
 
 from skat.web.tables import TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.tables import open_new_table
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -18,9 +18,9 @@ pytestmark = pytest.mark.e2e
 
 SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-SIT_DOWN = catalog_text("sitDown")
-WAITING_FOR_PLAYERS = catalog_text("waitingForPlayers")
-BIDDING = catalog_text("bidding")
+SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
+WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
+BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
 CARD_FACE = ".card-face"
 HAND_CARD = ".own-hand .card"
 WATCHER_COUNT = ".watchers span"

@@ -43,7 +43,7 @@
         const answer = await playCard(id, table.version, crypto.randomUUID(), card);
         if (answer.kind !== "table") {
             sentAtVersion = null;
-            note = words.commandFailed;
+            note = words["play.commandFailed"];
         }
     }
 </script>

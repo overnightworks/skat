@@ -7,11 +7,11 @@ from playwright.sync_api import Page, Route, expect
 
 from skat.web.constants import AUTH_START_PATH, LOGIN_PATH, SIGNED_IN_AGAIN_QUERY_NAME
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.sessions import end_sessions_of
 from tests.e2e.support.tables import open_new_table, table_id_of
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 WIDTHS = [pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-RECONNECTING = catalog_text("reconnecting")
+RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
 

@@ -4,11 +4,11 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import FORM_FACTORS
 from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.tables import SIT_DOWN, open_new_table, watch
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-SEAT_AWAY = catalog_text("seatAway")
+SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 CHAIR_HOLD_SECONDS = 5
 FREED_WITHIN_MILLISECONDS = (CHAIR_HOLD_SECONDS + 10) * 1000
 

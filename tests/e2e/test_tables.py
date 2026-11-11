@@ -10,10 +10,11 @@ from sqlalchemy import text
 from skat.table.records import SERIES_LENGTH_DEFAULT, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP
 from skat.web.constants import ACCOUNT_PATH, LOGIN_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE
+from skat.web.words import text as word_text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.tables import OPEN_TABLE, TABLE_URL, click_new_table, open_new_table, table_id_of
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -41,13 +42,15 @@ def same_origin(server: RunningServer) -> dict[str, str]:
 
 
 def expect_a_table_seating(person: Page, opener: str, *, mine: bool) -> None:
-    expect(person.get_by_text(catalog_text("waitingForPlayers"))).to_be_visible()
-    expect(person.get_by_role("button", name=catalog_text("copyLink"))).to_be_visible()
+    expect(person.get_by_text(word_text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_be_visible()
+    expect(person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "table.copyLink"))).to_be_visible()
     chairs = person.locator(".chair")
     expect(chairs).to_have_count(3)
-    expect(person.locator(".chair[data-seat='1'] .plate")).to_have_text(catalog_text("sideYou") if mine else opener)
+    expect(person.locator(".chair[data-seat='1'] .plate")).to_have_text(
+        word_text(SOURCE_LANGUAGE, "table.sideYou") if mine else opener
+    )
     expect(person.locator(".chair.mine")).to_have_count(1 if mine else 0)
-    expect(person.locator(".chair .plate", has_text=catalog_text("seatFree"))).to_have_count(2)
+    expect(person.locator(".chair .plate", has_text=word_text(SOURCE_LANGUAGE, "table.seatFree"))).to_have_count(2)
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
@@ -73,7 +76,7 @@ def a_sheet(person: Page, server: RunningServer) -> None:
 
 
 def series_length_reading(length: int) -> str:
-    return f"{length} {catalog_text('seriesGames')}"
+    return f"{length} {word_text(SOURCE_LANGUAGE, 'start.seriesGames')}"
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -81,9 +84,9 @@ def test_the_sheet_offers_the_default_series_length_in_steps_and_stops_at_both_e
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
-    fewer = person.get_by_role("button", name=catalog_text("seriesFewer"))
-    more = person.get_by_role("button", name=catalog_text("seriesMore"))
-    reading = person.get_by_role("spinbutton", name=catalog_text("seriesGames"))
+    fewer = person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer"))
+    more = person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesMore"))
+    reading = person.get_by_role("spinbutton", name=word_text(SOURCE_LANGUAGE, "start.seriesGames"))
 
     a_sheet(person, e2e_server)
 
@@ -122,12 +125,12 @@ def test_a_sheet_reopened_after_cancelling_reads_the_default_length_again(
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
     a_sheet(person, e2e_server)
-    person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer")).click()
 
-    person.get_by_role("button", name=catalog_text("cancelNewTable")).click()
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.cancelNewTable")).click()
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
 
-    expect(person.get_by_role("spinbutton", name=catalog_text("seriesGames"))).to_have_text(
+    expect(person.get_by_role("spinbutton", name=word_text(SOURCE_LANGUAGE, "start.seriesGames"))).to_have_text(
         series_length_reading(SERIES_LENGTH_DEFAULT), use_inner_text=True
     )
 
@@ -142,7 +145,7 @@ def test_a_table_opens_with_the_chosen_length_in_one_request_even_when_the_butto
     before = table_count(e2e_server)
     a_sheet(person, e2e_server)
     for _ in range(2):
-        person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+        person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer")).click()
 
     person.get_by_role("button", name=OPEN_TABLE).dblclick()
 
@@ -165,7 +168,7 @@ def test_cancelling_the_sheet_closes_it_and_sends_nothing(
     before = table_count(e2e_server)
     a_sheet(person, e2e_server)
 
-    person.get_by_role("button", name=catalog_text("cancelNewTable")).click()
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.cancelNewTable")).click()
 
     expect(person.get_by_role("dialog")).to_have_count(0)
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
@@ -204,7 +207,7 @@ def test_a_member_may_open_any_number_of_tables_each_under_a_link_of_its_own(
     before = table_count(e2e_server)
 
     first = open_new_table(person, e2e_server)
-    person.get_by_role("link", name=catalog_text("lobby"), exact=True).click()
+    person.get_by_role("link", name=word_text(SOURCE_LANGUAGE, "table.lobby"), exact=True).click()
     second = click_new_table(person)
 
     assert first != second
@@ -220,7 +223,7 @@ def test_an_unknown_or_malformed_id_shows_not_found_and_offers_a_new_table(
 
     person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table_id}")
 
-    expect(person.get_by_role("heading", name=catalog_text("tableNotFound"))).to_be_visible()
+    expect(person.get_by_role("heading", name=word_text(SOURCE_LANGUAGE, "closed.notFound"))).to_be_visible()
     expect(person.get_by_text(re.compile("error|sql|postgres", re.IGNORECASE))).to_have_count(0)
     click_new_table(person)
 
@@ -234,9 +237,9 @@ def test_the_link_control_copies_the_absolute_link_of_the_table(
     person.context.grant_permissions(["clipboard-read", "clipboard-write"], origin=e2e_server.base_url)
     path = open_new_table(person, e2e_server)
 
-    person.get_by_role("button", name=catalog_text("copyLink")).click()
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "table.copyLink")).click()
 
-    expect(person.get_by_role("status")).to_have_text(catalog_text("linkCopied"))
+    expect(person.get_by_role("status")).to_have_text(word_text(SOURCE_LANGUAGE, "table.linkCopied"))
     assert person.evaluate("navigator.clipboard.readText()") == f"{e2e_server.base_url}{path}"
 
 
@@ -247,9 +250,9 @@ def test_a_refused_copy_says_so(
     open_new_table(person, e2e_server)
     person.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error('refused')); }")
 
-    person.get_by_role("button", name=catalog_text("copyLink")).click()
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "table.copyLink")).click()
 
-    expect(person.get_by_role("status")).to_have_text(catalog_text("linkCopyFailed"))
+    expect(person.get_by_role("status")).to_have_text(word_text(SOURCE_LANGUAGE, "table.linkCopyFailed"))
 
 
 def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
@@ -265,7 +268,7 @@ def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
             held.append(route)
 
     person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{UNKNOWN_ID}")
-    expect(person.get_by_role("heading", name=catalog_text("tableNotFound"))).to_be_visible()
+    expect(person.get_by_role("heading", name=word_text(SOURCE_LANGUAGE, "closed.notFound"))).to_be_visible()
     click_new_table(person)
     expect_a_table_seating(person, "anna", mine=True)
     person.route(f"**{TABLES_PATH}/{UNKNOWN_ID}", hold_the_first_read)
@@ -283,7 +286,7 @@ def test_a_late_not_found_answer_does_not_replace_the_table_the_address_shows(
     person.evaluate("() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))")
 
     expect_a_table_seating(person, "anna", mine=True)
-    expect(person.get_by_role("heading", name=catalog_text("tableNotFound"))).to_have_count(0)
+    expect(person.get_by_role("heading", name=word_text(SOURCE_LANGUAGE, "closed.notFound"))).to_have_count(0)
 
 
 def test_a_table_the_server_cannot_read_says_so(
@@ -296,7 +299,7 @@ def test_a_table_the_server_cannot_read_says_so(
 
     person.goto(f"{e2e_server.base_url}{path}")
 
-    expect(person.get_by_role("alert")).to_contain_text(catalog_text("tableLoadFailed"))
+    expect(person.get_by_role("alert")).to_contain_text(word_text(SOURCE_LANGUAGE, "table.loadFailed"))
 
 
 @pytest.mark.parametrize("failure", ["server error", "lost connection", "unreadable answer"])
@@ -332,7 +335,7 @@ def test_a_table_that_could_not_be_opened_says_so_and_a_retry_opens_it(
 
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
-    expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
+    expect(person.get_by_role("alert")).to_have_text(word_text(SOURCE_LANGUAGE, "start.newTableFailed"))
     person.get_by_role("button", name=OPEN_TABLE).click()
 
     expect(person).to_have_url(TABLE_URL)
@@ -367,9 +370,9 @@ def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
     attempts = lose_the_first_answer_of_opening_a_table(person)
     a_sheet(person, e2e_server)
     person.get_by_role("button", name=OPEN_TABLE).click()
-    expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
+    expect(person.get_by_role("alert")).to_have_text(word_text(SOURCE_LANGUAGE, "start.newTableFailed"))
 
-    person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer")).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
 
     expect(person).to_have_url(TABLE_URL)
@@ -396,11 +399,11 @@ def test_a_sheet_reopened_after_a_lost_answer_replays_the_lost_table_unless_the_
     before = table_count(e2e_server)
     a_sheet(person, e2e_server)
     for _ in range(steps_before_the_lost_answer):
-        person.get_by_role("button", name=catalog_text("seriesFewer")).click()
+        person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer")).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
-    expect(person.get_by_role("alert")).to_have_text(catalog_text("newTableFailed"))
+    expect(person.get_by_role("alert")).to_have_text(word_text(SOURCE_LANGUAGE, "start.newTableFailed"))
 
-    person.get_by_role("button", name=catalog_text("cancelNewTable")).click()
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.cancelNewTable")).click()
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
 
@@ -445,7 +448,7 @@ def test_a_visitor_without_a_session_gets_the_sign_in_page_for_a_link_and_no_tab
     visitor.goto(f"{e2e_server.base_url}{path}")
 
     expect(visitor).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
-    expect(visitor.get_by_text(catalog_text("waitingForPlayers"))).to_have_count(0)
+    expect(visitor.get_by_text(word_text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_have_count(0)
     answer = visitor.request.post(
         f"{e2e_server.base_url}{TABLES_PATH}",
         data={"command_id": "command-0001", "series_length": SERIES_LENGTH_DEFAULT},
@@ -468,7 +471,7 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
 
     outsider.goto(f"{e2e_server.base_url}{path}")
 
-    expect(outsider.get_by_text(catalog_text("waitingForPlayers"))).to_have_count(0)
+    expect(outsider.get_by_text(word_text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_have_count(0)
     assert outsider.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}").status == UNAUTHORIZED
     events = f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(path)}{TABLE_EVENTS_SUFFIX}"
     assert outsider.request.get(events).status == UNAUTHORIZED

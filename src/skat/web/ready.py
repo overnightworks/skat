@@ -85,11 +85,11 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
 
         Use it when read_table or your table's view shows `series.over: true` and the caller's own chair (`is_mine`) has
         `ready: false`; the table id comes from the same read. Once all three seated members have tapped and are
-        connected, the third tap deletes the finished series' list for good, the count starts again and the next series'
-        first hand is dealt. The command id names this step: the same id is a retry that changes nothing twice. A
-        refusal (not seated, no series, the series is not over) comes back as a failed result with its reason and spends
-        the command id: the next attempt takes a new command id. The answer to the third tap still shows the series'
-        end; the next series' first hand appears in the next read.
+        connected, the third tap makes the table's list read empty (the finished games stay stored), the count starts
+        again and the next series' first hand is dealt. The command id names this step: the same id is a retry that
+        changes nothing twice. A refusal (not seated, no series, the series is not over) comes back as a failed
+        result with its reason and spends the command id: the next attempt takes a new command id. The answer to the
+        third tap still shows the series' end; the next series' first hand appears in the next read.
         """
         command = NewSeriesCommand(command_id=body.command_id, table_id=table_id)
         return await _answer_and_deal(
