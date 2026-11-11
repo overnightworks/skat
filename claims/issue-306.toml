@@ -1,8 +1,0 @@
-claim_id = "29e7269f75d847449d9c08afc0e960be"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "e60f64155ce986b464b909026091d57cd7274c66"
-branch = "claude/issue-306-agent-woken"
-scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/table", "src/skat/web", "tests/e2e", "tests/host", "tests/support", "tests/table", "tests/web"]
-opened_commit = "ec382e0c07e51ff0f733d1fd1549d72e827fa58b"
-whole_reason = "The decision, the view served on the front, the listing and the signal are one contract: a view nobody is woken for is a poll, a wake with no view to read is noise, and a listing that differs from serves_view is dropped by the library."
