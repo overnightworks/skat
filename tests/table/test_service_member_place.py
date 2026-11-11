@@ -11,16 +11,18 @@ import pytest
 
 from skat.table.member_place import (
     Acceptance,
+    CallOffer,
     InvitationOffer,
-    InvitationRequest,
     InviteRefusal,
     MemberRefusal,
     MembershipState,
+    OfferState,
     TableStanding,
 )
 from skat.table.records import Actor, CreateTable, OccupantKind, Series, SitDown, StandUp, TableId
 from skat.table.rules import decide_free_chair
 from skat.table.service import TableService
+from tests.support.calls import call_facts
 from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
@@ -65,9 +67,12 @@ class Scene:
     def table(self):
         return self.store.tables[self.table_id]
 
-    def invite(self, agent=MOZART, *, owner=OWNER, inviter=OWNER, lasting=INVITATION_SECONDS, table_id=None):
-        request = InvitationRequest(agent.account_id, owner, inviter, self.now + timedelta(seconds=lasting))
-        return self.service.invite_agent(TableId(table_id or self.table_id), request)
+    def invite(self, agent=MOZART, *, owner=OWNER, inviter=OWNER, lasting=INVITATION_SECONDS, table_id=None, **facts):
+        return self.service.invite_agent(
+            TableId(table_id or self.table_id),
+            call_facts(agent.account_id, owner, inviter, **facts),
+            timedelta(seconds=lasting),
+        )
 
     def accept(self, offer, agent=MOZART, *, owner=OWNER, connected=frozenset({OWNER}), **changes):
         arguments = {"table_id": self.table_id, "invitation_id": offer.id, "epoch": offer.epoch, **changes}
@@ -124,20 +129,61 @@ class TestInviteAnAgent:
         assert scene.standing(BACH) == ()
 
     @pytest.mark.parametrize(
-        ("arrange", "refusal"),
+        ("arrange", "inviter"),
         [
-            pytest.param(lambda scene: scene.invite(), InviteRefusal.INVITATION_OPEN, id="an-invitation-is-open"),
-            pytest.param(
-                lambda scene: scene.sit(MOZART, 2), InviteRefusal.ALREADY_SEATED, id="the-agent-holds-a-chair"
-            ),
+            pytest.param(lambda scene: scene.invite(inviter=VISITOR.account_id), OWNER, id="someone-else-invited-it"),
+            pytest.param(lambda scene: scene.sit(MOZART, 2), OWNER, id="the-agent-holds-a-chair"),
         ],
     )
-    def test_is_refused_and_writes_nothing_when_the_agent_is_invited_or_seated(self, scene, arrange, refusal):
+    def test_is_refused_and_writes_nothing_when_the_agent_is_invited_by_someone_else_or_seated(
+        self, scene, arrange, inviter
+    ):
         arrange(scene)
         before = scene.snapshot()
 
-        assert scene.invite() == refusal
+        assert scene.invite(inviter=inviter) is InviteRefusal.NOT_OFFERED
         assert scene.snapshot() == before
+
+    @pytest.mark.parametrize(
+        ("facts", "refusal"),
+        [
+            ({"viewer_present": False}, InviteRefusal.NOT_PRESENT),
+            ({"viewer_is_member": False}, InviteRefusal.NOT_A_MEMBER),
+            ({"agent_listens": False}, InviteRefusal.NOT_OFFERED),
+            ({"owner_present": False}, InviteRefusal.OWNER_ABSENT),
+        ],
+    )
+    def test_is_refused_and_writes_nothing_when_a_fact_of_the_call_is_against_it(self, scene, facts, refusal):
+        before = scene.snapshot()
+
+        assert scene.invite(**facts) is refusal
+        assert scene.snapshot() == before
+
+    def test_is_refused_and_writes_nothing_when_no_chair_is_free(self, scene):
+        scene.sit(VISITOR, 2)
+        scene.sit(CLEO, 3)
+        before = scene.snapshot()
+
+        assert scene.invite() is InviteRefusal.NO_FREE_CHAIR
+        assert scene.snapshot() == before
+
+    def test_the_expiry_is_the_duration_after_the_services_own_clock(self, scene):
+        scene.at(START + timedelta(minutes=7))
+
+        offer = scene.invite(lasting=45)
+
+        assert offer.expires_at == START + timedelta(minutes=7, seconds=45)
+
+    def test_the_inviter_who_asks_again_gets_the_open_invitation_and_nothing_is_written_or_told(self, scene):
+        first = scene.invite()
+        before = scene.snapshot()
+        scene.signals.clear()
+
+        again = scene.invite(lasting=5)
+
+        assert again == first
+        assert scene.snapshot() == before
+        assert scene.signals == []
 
     @pytest.mark.parametrize("table_id", [UNKNOWN_TABLE, "not-a-table"])
     def test_is_refused_for_a_table_that_is_not_live(self, scene, table_id):
@@ -158,6 +204,42 @@ class TestInviteAnAgent:
         assert isinstance(second, InvitationOffer)
         assert second.id != first.id
         assert scene.standing() == (invited_standing(scene, second),)
+
+
+class TestOffersAtATable:
+    def offers(self, scene, *agents, table_id=None, **facts):
+        calls = [call_facts(agent.account_id, OWNER, **facts) for agent in agents]
+        return scene.service.offers_at(TableId(table_id or scene.table_id), calls)
+
+    def test_each_agent_has_its_own_offer_from_one_read(self, scene):
+        scene.invite(MOZART)
+
+        offers = self.offers(scene, MOZART, BACH)
+
+        assert offers == (CallOffer(OfferState.INVITING, INVITATION_SECONDS), CallOffer(OfferState.AVAILABLE))
+
+    def test_an_inviting_row_counts_down_on_the_services_clock(self, scene):
+        scene.invite(MOZART)
+        scene.at(START + timedelta(seconds=INVITATION_SECONDS - 30))
+
+        assert self.offers(scene, MOZART) == (CallOffer(OfferState.INVITING, 30),)
+
+    def test_an_invitation_that_ran_out_is_no_row_state_and_the_read_forgets_nothing(self, scene):
+        scene.invite(MOZART)
+        scene.at(START + timedelta(seconds=INVITATION_SECONDS))
+        before = scene.snapshot()
+
+        assert self.offers(scene, MOZART) == (CallOffer(OfferState.AVAILABLE),)
+        assert scene.snapshot() == before
+
+    @pytest.mark.parametrize("table_id", [UNKNOWN_TABLE, "not-a-table"])
+    def test_a_table_that_is_not_live_has_no_offers(self, scene, table_id):
+        assert self.offers(scene, MOZART, table_id=table_id) is None
+
+    def test_a_table_that_ended_has_no_offers(self, scene):
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+
+        assert self.offers(scene, MOZART) is None
 
 
 class TestAnAcceptSeatsTheAgent:
@@ -375,18 +457,18 @@ class TestSponsorAway:
         assert result.refusal is MemberRefusal.SPONSOR_AWAY
 
     def test_is_answered_before_the_table_is_found_full(self, scene):
+        offer = scene.invite()
         scene.sit(VISITOR, 2)
         scene.sit(CLEO, 3)
-        offer = scene.invite()
 
         assert scene.accept(offer, connected=NOBODY).refusal is MemberRefusal.SPONSOR_AWAY
 
 
 class TestBusy:
     def test_when_no_chair_is_free_and_the_invitation_ends(self, scene):
+        offer = scene.invite()
         scene.sit(VISITOR, 2)
         scene.sit(CLEO, 3)
-        offer = scene.invite()
         before = scene.table
 
         result = scene.accept(offer)

@@ -11,9 +11,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.member_place import Acceptance, InvitationRequest, MemberRefusal, MembershipState, TableStanding
+from skat.table.member_place import Acceptance, MemberRefusal, MembershipState, TableStanding
 from skat.table.records import Actor, CreateTable, OccupantKind, Refusal, SendAway, SitDown, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
+from tests.support.calls import call_facts
 from tests.support.fake_tables import FakeTableStore
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
@@ -153,8 +154,9 @@ class TestWhileTheChairIsOpen:
     def test_an_agent_accepting_its_invitation_takes_the_lowest_free_chair_of_the_running_hand(self):
         scene = Scene()
         scene.send_away()
-        request = InvitationRequest(BACH.account_id, ANNA.account_id, ANNA.account_id, START + timedelta(hours=1))
-        offer = scene.service.invite_agent(TableId(scene.table_id), request)
+        offer = scene.service.invite_agent(
+            TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
+        )
 
         result = scene.service.accept_invitation(
             BACH, ANNA.account_id, Acceptance(scene.table_id, offer.id, offer.epoch), frozenset({ANNA.account_id})
@@ -187,8 +189,9 @@ class TestRefusals:
 class TestTheBook:
     def test_an_open_invitation_is_cleared_and_the_epoch_raised(self):
         scene = Scene(agent_seated=False)
-        request = InvitationRequest(MOZART.account_id, ANNA.account_id, ANNA.account_id, START + timedelta(hours=1))
-        offer = scene.service.invite_agent(TableId(scene.table_id), request)
+        offer = scene.service.invite_agent(
+            TableId(scene.table_id), call_facts(MOZART.account_id, ANNA.account_id), timedelta(hours=1)
+        )
         scene.sit(MOZART, MOZARTS_SEAT)
 
         scene.send_away()
@@ -198,8 +201,9 @@ class TestTheBook:
 
     def test_an_accept_with_the_old_epoch_is_stale_and_the_standing_lists_no_table(self):
         scene = Scene(agent_seated=False)
-        request = InvitationRequest(MOZART.account_id, ANNA.account_id, ANNA.account_id, START + timedelta(hours=1))
-        offer = scene.service.invite_agent(TableId(scene.table_id), request)
+        offer = scene.service.invite_agent(
+            TableId(scene.table_id), call_facts(MOZART.account_id, ANNA.account_id), timedelta(hours=1)
+        )
         scene.sit(MOZART, MOZARTS_SEAT)
         scene.send_away()
 

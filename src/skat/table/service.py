@@ -15,11 +15,11 @@ from skat.table.member_place import (
     AcceptResult,
     InvitationId,
     InvitationOffer,
-    InvitationRequest,
     InviteRefusal,
     MemberRefusal,
     TableStanding,
     agents_seated_at,
+    call_offer_of,
     decide_accept,
     decide_invite,
     forgotten_if_expired,
@@ -116,10 +116,11 @@ from skat.table.views import PausedEntryView, TableView, paused_entry_of, view_o
 
 if TYPE_CHECKING:
     import random
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
     from contextlib import AbstractContextManager
 
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
+    from skat.table.member_place import CallFacts, CallOffer
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
 __all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
@@ -592,21 +593,36 @@ class TableService:
                     entries.append(paused_entry_of(table, actor.account_id, ends_at, facts.opener_name))
         return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
-    def invite_agent(self, table_id: TableId, request: InvitationRequest) -> InvitationOffer | InviteRefusal:
-        """Write an invitation to the agent for the table, with the expiry instant the caller names.
-
-        Refused, and nothing written, when the table is not live, an invitation to the agent is open or the agent
-        holds a chair there. Room at the table and the owner's presence are the caller's to check.
+    def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
+        """Write an invitation to the agent for the table, which stands `lasting` from this service's now, when the
+        person's call is offered: the decision runs again here under the table's and the agent's row locks, so room and
+        an open invitation are read exactly. A person who has invited the agent already gets that invitation, and
+        nothing is written.
         """
         with self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            entry = transaction.locked_book_entry(table_id, request.agent_account)
-            written = decide_invite(table, entry, request, InvitationId.random(), self._now())
+            entry = transaction.locked_book_entry(table_id, facts.agent_account)
+            written = decide_invite(table, entry, facts, InvitationId.random(), self._now(), lasting)
             if isinstance(written, InviteRefusal):
                 return written
-            transaction.save_book_entry(written[0])
-        self._tell(frozenset({request.agent_account}))
-        return written[1]
+            book_row, offer = written
+            if book_row != entry:
+                transaction.save_book_entry(book_row)
+        if book_row != entry:
+            self._tell(frozenset({facts.agent_account}))
+        return offer
+
+    def offers_at(self, table_id: TableId, calls: Sequence[CallFacts]) -> tuple[CallOffer, ...] | None:
+        """What each call comes to now, from one read of the table and the agents' rows; None when no live table has
+        the id. It forgets no invitation that ran out: the agent's own read of its standing does.
+        """
+        now = self._now()
+        with self._transactions.begin() as transaction:
+            table = transaction.table(table_id)
+            if not isinstance(table, TableRecord):
+                return None
+            entries = [transaction.locked_book_entry(table_id, call.agent_account) for call in calls]
+        return tuple(call_offer_of(call, table, entry, now) for call, entry in zip(calls, entries, strict=True))
 
     def accept_invitation(
         self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]
