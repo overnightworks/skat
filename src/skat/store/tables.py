@@ -12,6 +12,7 @@ from skat.store.auction import append_steps, auction_actions, delete_steps, read
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
 from skat.store.game_list import append_game_list, game_list, read_game_list
 from skat.store.kontra import append_words, kontra_words, read_words
+from skat.store.member_book import accounts_at, forget_table, locked_entries_of, locked_entry, save_entry
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.schema import (
     POSITION_OF_TEXT,
@@ -45,7 +46,7 @@ from skat.table.records import (
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.table.service import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableTransaction
+from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableTransaction
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -53,6 +54,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy import Row
     from sqlalchemy.engine import Connection, Engine
+
+    from skat.table.member_place import BookEntry
 
 __all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
 
@@ -332,6 +335,7 @@ class _PostgresTableTransaction:
         _forget_played_hand(self._connection, table_id.value)
         for rows in (chairs, game_list):
             self._connection.execute(delete(rows).where(rows.c.table_id == table_id.value))
+        forget_table(self._connection, table_id.value)
         self._connection.execute(
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
         )
@@ -365,6 +369,18 @@ class _PostgresTableTransaction:
                 select(chairs.c.table_id, chairs.c.account_id).where(chairs.c.account_id.is_not(None))
             )
         )
+
+    def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:
+        return locked_entry(self._connection, table_id.value, agent_account)
+
+    def locked_book_entries_of(self, agent_account: str) -> tuple[BookEntry, ...]:
+        return locked_entries_of(self._connection, agent_account)
+
+    def save_book_entry(self, entry: BookEntry) -> None:
+        save_entry(self._connection, entry)
+
+    def book_accounts_at(self, table_id: TableId) -> frozenset[str]:
+        return accounts_at(self._connection, table_id.value)
 
     def add_receipt(self, receipt: Receipt) -> None:
         try:

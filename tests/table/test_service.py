@@ -12,7 +12,8 @@ from skat.engine.tricks import CardPlayed
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, HandProgress, Receipt, Refusal, SitDown, StandUp, TableId
-from skat.table.service import CommandIdReusedError, OccupiedChair, TableService
+from skat.table.service import CommandIdReusedError, TableService
+from skat.table.transactions import OccupiedChair
 from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game, before_the_last_card, declared_herz_hand

@@ -8,7 +8,8 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.store.schema import tables
 from skat.table.records import Actor, CreateTable, SitDown, TableId
-from skat.table.service import PausedFacts, TableService
+from skat.table.service import TableService
+from skat.table.transactions import PausedFacts
 
 pytestmark = pytest.mark.postgres
 
