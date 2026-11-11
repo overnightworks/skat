@@ -269,9 +269,7 @@ class TestAfterTheEnd:
         assert table.record == dealt
         assert len(table.record.game_list) == 1
 
-    def test_an_old_expiry_reaching_the_table_right_after_the_end_committed_leaves_the_fresh_hold_alone(
-        self, hold, time, route
-    ):
+    def test_an_expiry_reaching_the_table_right_after_the_end_committed_frees_nothing(self, hold, time, route):
         store = OvertakenStore()
         server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
         with server.client:
@@ -285,7 +283,5 @@ class TestAfterTheEnd:
             table.act(route)
 
             assert occupied_seats(server, table.table_id) == {1, 2, 3}
-            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds * 2)
             assert occupied_seats(server, table.table_id) == {1, 2, 3}
-            server.client.portal.call(time.advance, 2)
-            assert occupied_seats(server, table.table_id) == set()

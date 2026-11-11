@@ -62,7 +62,7 @@ class ChairHold:
 
     `free_chair(table_id, account_id, due)` answers whether it freed the chair, and raises when the store
     fails. It enters `due` in its worker once it holds the table, leaves it after the commit, and frees nothing
-    when it yields False.
+    when it yields False. It frees nothing either at a table on which a hand was dealt, and answers False.
     """
 
     seconds: float
@@ -119,12 +119,13 @@ class Presence:
 
     The event loop owns every write to the subscriptions and makes it under `_state`, so a deal's worker can read
     them there. Otherwise a worker touches only the leave times, the committing markers and the lease ends, all
-    under `_state`: inside `due` and in `restart_leaves`, and where `TableService`'s worker reads `live_leases`. A
+    under `_state`: inside `due`, and where `TableService`'s worker reads `live_leases`. A
     wake carries no data: a stream that falls behind finds several changes folded into one wake and reads the
     latest state, which is its fresh snapshot.
 
     An account whose last stream on a table ended gets one timer; when it fires the chair is freed unless the
-    account came back or left again since, which a newer leave time shows, or the presence has stopped. The
+    account came back or left again since, which a newer leave time shows, the presence has stopped or a hand was
+    dealt at the table; the hold starts at every table and the freeing refuses at a dealt one. The
     check inside `due` and a reconnect order themselves under `_state`, which guards only dictionary
     operations and is never held across the write. A reconnect before the check wins; one after it awaits the
     commit, so it finds the chair freed instead of losing it unseen, and the event loop is never blocked.
@@ -197,7 +198,7 @@ class Presence:
             return frozenset(self._lease_ends)
 
     def hold_chairs(self, occupied: Iterable[tuple[str, str]]) -> None:
-        """Start a fresh hold of each (table id, account id): at the server's start, and when a hand ends."""
+        """Start a fresh hold of each (table id, account id) at the server's start."""
         for table_id, account_id in occupied:
             self._start_hold(table_id, account_id)
 
@@ -254,15 +255,6 @@ class Presence:
             self._start_hold(table_id, account_id)
             if table_id not in self._subscriptions:
                 self._start_empty_wait(table_id)
-
-    def restart_leaves(self, table_id: str, account_ids: Iterable[str]) -> None:
-        """Give each account a newer leave time than any pending timer knows; call it on a worker inside the
-        transaction that ended a hand, so a freeing that reaches the table after the commit finds itself superseded.
-        """
-        left_at = self._hold.clock()
-        with self._state:
-            for account_id in account_ids:
-                self._left_at[table_id, account_id] = left_at
 
     async def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
         """Register before the stream reads its view, so a change after this call wakes it.

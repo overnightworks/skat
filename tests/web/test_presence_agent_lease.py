@@ -239,15 +239,26 @@ class TestWhenTheLeaseLapses:
             views = (message for message in messages if message["chairs"][AGENT_SEAT - 1]["is_away"])
             assert next(views)["chairs"][AGENT_SEAT - 1]["is_away"] is True
 
-    def test_between_hands_the_hold_then_frees_the_chair_as_it_does_a_persons(
+    def test_between_games_the_hold_frees_nothing_and_the_agent_keeps_its_chair(
         self, skat, time, result_table, hold_seconds
     ):
+        before = result_table.record
+
+        advance(skat, time, LEASE_SECONDS + hold_seconds * 2)
+
+        assert result_table.record == before
+        assert is_away(result_table, AGENT_SEAT)
+
+    def test_at_a_table_with_no_hand_dealt_the_hold_frees_the_lapsed_agents_chair(
+        self, skat, time, undealt_table, hold_seconds
+    ):
+        _, table_id = undealt_table
         advance(skat, time, LEASE_SECONDS + hold_seconds - 1)
-        before = occupied_seats(skat, result_table.table_id)
+        before = occupied_seats(skat, table_id)
         advance(skat, time, 2)
 
-        assert AGENT_SEAT in before
-        assert AGENT_SEAT not in occupied_seats(skat, result_table.table_id)
+        assert before == {1, 2}
+        assert occupied_seats(skat, table_id) == {1}
 
     def test_during_a_hand_nothing_frees_the_chair_and_the_hand_waits(self, skat, time, hand_table, hold_seconds):
         before = hand_table.record
@@ -256,18 +267,17 @@ class TestWhenTheLeaseLapses:
         assert hand_table.record == before
         assert is_away(hand_table, AGENT_SEAT)
 
-    def test_a_hand_that_ends_after_the_lapse_starts_a_fresh_hold(self, skat, time, agent, hand_table, hold_seconds):
+    def test_a_hand_that_ends_after_the_lapse_leaves_the_agents_chair_alone(
+        self, skat, time, agent, hand_table, hold_seconds
+    ):
         agent.take_step(AUCTION_PASS_TOOL, hand_table, command_id="agent-pass")
         advance(skat, time, LEASE_SECONDS + hold_seconds + 10)
         person_passes(hand_table, REARHAND)
         person_passes(hand_table, FOREHAND)
 
-        advance(skat, time, hold_seconds - 1)
-        before = occupied_seats(skat, hand_table.table_id)
-        advance(skat, time, 2)
+        advance(skat, time, hold_seconds * 3)
 
-        assert AGENT_SEAT in before
-        assert AGENT_SEAT not in occupied_seats(skat, hand_table.table_id)
+        assert AGENT_SEAT in occupied_seats(skat, hand_table.table_id)
 
     def test_a_return_before_the_hold_ends_clears_the_mark_and_keeps_the_chair(
         self, skat, time, agent, result_table, hold_seconds
@@ -283,17 +293,16 @@ class TestWhenTheLeaseLapses:
         assert not is_away(result_table, AGENT_SEAT)
         assert AGENT_SEAT in occupied_seats(skat, result_table.table_id)
 
-    def test_a_return_after_the_hold_finds_no_chair_and_reads_a_watchers_view(
+    def test_a_return_after_the_hold_finds_the_chair_kept_at_a_dealt_table(
         self, skat, time, agent, result_table, hold_seconds
     ):
         advance(skat, time, LEASE_SECONDS + hold_seconds + 1)
 
         view = agent.read(result_table.table_id).json()
 
-        assert not any(chair["is_mine"] for chair in view["chairs"])
-        assert view["watchers"] == 0
+        assert [chair["is_mine"] for chair in view["chairs"]].count(True) == 1
 
-    def test_a_person_s_stream_that_closes_is_away_and_held_while_the_agent_is_not(
+    def test_a_person_s_stream_that_closes_is_away_while_the_agent_is_not_and_both_chairs_are_kept(
         self, skat, time, agent, result_table, hold_seconds
     ):
         person_seat = SEAT_OF[FOREHAND]
@@ -304,7 +313,7 @@ class TestWhenTheLeaseLapses:
         stay_connected(skat, time, agent, hold_seconds + 1)
 
         assert (away[person_seat], away[AGENT_SEAT]) == (True, False)
-        assert occupied_seats(skat, result_table.table_id) == {1, 2, 3} - {person_seat}
+        assert occupied_seats(skat, result_table.table_id) == {1, 2, 3}
 
 
 class TestTheNextDeal:
@@ -387,14 +396,14 @@ class TestTheNextDeal:
         assert waiting is None
         assert hand_of(hand_table) is not None
 
-    def test_a_hand_that_ends_while_the_lease_runs_holds_only_the_chairs_of_those_without_a_stream(
+    def test_a_hand_that_ends_while_the_lease_runs_leaves_every_chair_in_place(
         self, skat, time, agent, hand_table, hold_seconds
     ):
         pass_the_hand_in(hand_table, agent)
 
         stay_connected(skat, time, agent, hold_seconds + 1)
 
-        assert occupied_seats(skat, hand_table.table_id) == {AGENT_SEAT}
+        assert occupied_seats(skat, hand_table.table_id) == {1, 2, 3}
 
     def test_a_lapsed_agent_gets_the_deal_asked_again_when_it_returns_and_it_comes_once(
         self, skat, time, agent, result_table
@@ -568,12 +577,12 @@ class TestRestart:
         assert not answer.is_error, answer.text
         assert again.store.tables[result_table.table_id].hand is not None
 
-    def test_an_agent_silent_for_the_hold_loses_its_chair_between_hands(self, restarted, result_table, hold_seconds):
+    def test_an_agent_silent_for_the_hold_keeps_its_chair_between_games(self, restarted, result_table, hold_seconds):
         again, time = restarted
         with streams_of(again, result_table.table_id, [(result_table.at[p], None) for p in (FOREHAND, REARHAND)]):
             advance(again, time, hold_seconds + 1)
 
-        assert AGENT_SEAT not in occupied_seats(again, result_table.table_id)
+        assert AGENT_SEAT in occupied_seats(again, result_table.table_id)
 
 
 class TestWhenTheTablesCannotBeRead:
@@ -589,9 +598,7 @@ class TestWhenTheTablesCannotBeRead:
 
         store.occupied_chairs = occupied_chairs
 
-    def test_a_failed_read_at_a_lapse_is_retried_and_loses_neither_the_wake_nor_the_hold(
-        self, skat, time, result_table, hold_seconds
-    ):
+    def test_a_failed_read_at_a_lapse_is_retried_and_loses_not_the_wake(self, skat, time, result_table, hold_seconds):
         with streams_of(skat, result_table.table_id, [(result_table.watcher, None)]) as (messages,):
             advance(skat, time, CALL_EVERY_SECONDS)
             self.failing_once(skat.store)
@@ -604,7 +611,6 @@ class TestWhenTheTablesCannotBeRead:
 
         assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
         assert woken["chairs"][AGENT_SEAT - 1]["is_away"] is True
-        assert AGENT_SEAT not in occupied_seats(skat, result_table.table_id)
 
     def test_a_failed_read_at_a_lease_start_is_retried_and_the_deal_still_comes(self, skat, time, agent, result_table):
         advance(skat, time, LEASE_SECONDS + 1)

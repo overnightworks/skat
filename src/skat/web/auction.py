@@ -47,12 +47,7 @@ def _step_taker(tables: TableService, presence: Presence) -> StepTaker:
             value=body.value if isinstance(body, BidRequest) else None,
         )
         return await command_answer(
-            partial(
-                tables.take_auction_step,
-                actor_of(request),
-                command,
-                on_hand_ended=partial(presence.restart_leaves, table_id),
-            ),
+            partial(tables.take_auction_step, actor_of(request), command),
             presence,
             table_id,
             response,

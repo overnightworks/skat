@@ -274,12 +274,8 @@ class TestChairsChangingHands:
 
         assert ended.json()["series"]["over"] is True
 
-    @pytest.mark.parametrize(
-        ("leaver", "left"),
-        [(1, None), (2, EndProposal(1)), (3, EndProposal(1, 2))],
-        ids=["the-proposers-hold", "an-accepters-hold", "anyone-elses-hold"],
-    )
-    def test_an_away_hold_that_frees_a_chair_takes_only_its_holders_part(self, skat, mid_series, leaver, left):
+    @pytest.mark.parametrize("leaver", [1, 2, 3])
+    def test_an_away_hold_frees_no_chair_and_leaves_the_proposal_whole(self, skat, mid_series, leaver):
         table = mid_series
         yes(skat, table, 1)
         yes(skat, table, 2)
@@ -288,8 +284,8 @@ class TestChairsChangingHands:
             TableId(table.table_id), accounts_of(table)[leaver - 1], nullcontext(True)
         )
 
-        assert freed is True
-        assert table.record.series.end_proposal == left
+        assert freed is False
+        assert table.record.series.end_proposal == EndProposal(1, 2)
 
     def test_a_sitter_after_the_early_end_is_not_ready_and_the_sit_that_fills_the_last_chair_deals_nothing(
         self, skat, mid_series

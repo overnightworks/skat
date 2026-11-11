@@ -219,7 +219,7 @@ class TestAway:
 
         assert (after.version, after.hand is not None) == (before.version + 2, True)
 
-    def test_an_away_member_s_hold_frees_the_chair_and_its_mark_and_deals_nothing(self, server, hold, time, table):
+    def test_an_away_member_s_hold_frees_nothing_between_games_and_deals_nothing(self, server, hold, time, table):
         table_id, people = table
         end_the_first_game(server.store, table_id, 1, 2, 3)
         with streams_of(server, table_id, people[:1]):
@@ -227,8 +227,8 @@ class TestAway:
         with streams_of(server, table_id, people[1:3]):
             advance(server, time, hold.settings.chair_hold_seconds + 1)
 
-            assert occupied_seats(server, table_id) == {2, 3}
-            assert stored_marks(server, table_id) == [False, True, True]
+            assert occupied_seats(server, table_id) == {1, 2, 3}
+            assert stored_marks(server, table_id) == [True, True, True]
             assert server.store.tables[table_id].hand is None
 
 
