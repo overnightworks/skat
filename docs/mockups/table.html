@@ -546,6 +546,17 @@ body.solo section.shot .rule{display:none}
   @keyframes runout{to{transform:scaleX(0)}}
 }
 </style>
+<style>
+/* ---------- S3.7p: the lobby button on the table page; a round 40 px glass button inside a 44 px tap area, a pill with its word on the desktop ---------- */
+.cb.home{position:absolute;left:10px;top:3px;width:40px;height:40px;cursor:pointer}
+.cb.home::after{content:"";position:absolute;inset:-2px}
+.cb.home svg{width:22px;height:22px}
+.cb.wide.glass.home{left:20px;top:9px;width:auto;height:40px;padding:0 16px 0 12px;font-size:14px;gap:8px}
+.cb.wide.glass.home svg{width:20px;height:20px}
+.cb.wide.glass.home::after{inset:-2px 0}
+.badge{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;background:var(--accent-stage);color:var(--stage);
+  font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--stage)}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -975,6 +986,7 @@ const IDEAS=[
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-button, giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
+  ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','home-wait, home-play, home-badge'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -996,7 +1008,16 @@ const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'id
   <div class="chair"><div class="tile">${o.idle?'':`<span class="sit">${I.plus}</span>`}</div></div><span class="plate"><b>Frei</b></span></div>`;
 /* the chair stays held: the nameplate keeps the name and says the player is not there */
 const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
-const watching=(n,x,y)=>`<div class="tag-glass" title="Zuschauer" style="${at({left:x,top:y})}">${I.eye}<span>${n}</span></div>`;
+/* the way home: an option, off by default so the blessed scenes stay as they are; ?home turns it on for every solo scene.
+   On: the lobby button at the top left, the watchers at the top right. The call sites pass the old left position, 16 on the desktop and 12 on the phone. */
+I.home=sv('<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/>');
+let homeLayout=new URLSearchParams(location.search).has('home'),homeBadge=null;
+const withHome=(draw,badge=null)=>(d)=>{const before=[homeLayout,homeBadge];[homeLayout,homeBadge]=[true,badge];try{return draw(d);}finally{[homeLayout,homeBadge]=before;}};
+const homeButton=(d,badge)=>{const mark=badge?`<span class="badge" aria-hidden="true">${badge}</span>`:'';
+  return d?`<span class="cb wide glass home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}Lobby${mark}</span>`
+          :`<span class="cb home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}${mark}</span>`;};
+const watching=(n,x,y)=>{const tag=(pos)=>`<div class="tag-glass" title="Zuschauer" style="${at(pos)}">${I.eye}<span>${n}</span></div>`;
+  return homeLayout?homeButton(x===16,homeBadge)+tag(x===16?{right:20,top:14}:{right:12,top:8}):tag({left:x,top:y});};
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
 const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
 const tableBar=(desk,o={})=>{
@@ -1021,7 +1042,7 @@ const S3={
   taken:(d)=>(d?dbRoom({left:0,call:false})+seat('anna',DB.anna)+seat('ben',DB.nova)+seat('lena',{...DB.you,got:'.6s;--d:.25s'})+watching(4,16,14)+notice('Platz vergeben','lena',187,522)
              :pbRoom({left:0,call:false})+seat('anna',PB.anna)+seat('ben',PB.nova)+seat('lena',{...PB.you,got:'.6s;--d:.25s'})+watching(4,12,8)+notice('Platz vergeben','lena',195,462))+tableBar(d),
   ended:(d,o)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)+panel({x:640,y:214,w:460,...o})
-               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+panel({x:195,y:250,w:330,...o})),
+               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+panel({x:195,y:250,w:330,...o}))+(homeLayout?homeButton(d,homeBadge):''),
 };
 const S3_SCENES=[
   ['s3-watch','Zuschauen',(d)=>S3.watch(d)],
@@ -1033,8 +1054,8 @@ const S3_SCENES=[
   ['s3-idle','Leer geschlossen',(d)=>S3.ended(d,{icon:I.clock,text:'30 Minuten niemand da: Tisch geschlossen',buttons:NEW_TABLE})],
   ['s3-missing','Nicht gefunden',(d)=>back(at({left:d?600:158,top:d?470:520,'--w':d?84:70,transform:'rotate(-16deg)'}))
     +panel({...(d?{x:640,y:200,w:460}:{x:195,y:250,w:330}),icon:I.ask,text:'Tisch nicht gefunden',buttons:NEW_TABLE})],
-  ['s3-reconnect','Verbinde neu',(d)=>`<div class="stale">${S3.mine(d)}</div>`
-    +`<div class="reconnect" role="status" style="${at({left:d?640:195,top:d?330:340})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`],
+  ['s3-reconnect','Verbinde neu',(d)=>{const home=homeLayout?homeButton(d,homeBadge):'';return `<div class="stale">${S3.mine(d).replace(home,'')}</div>`+home
+    +`<div class="reconnect" role="status" style="${at({left:d?640:195,top:d?330:340})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`;}],
 ];
 scenes(S3_SCENES);
 
@@ -1505,6 +1526,20 @@ const RULES_SCENES=[
 ];
 scenes(RULES_SCENES);
 ORDER.push(...RULES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
+/* ===== S3.7p: the way home from a table: the lobby button top left, the watchers top right ===== */
+const homeScenes=(list)=>list.forEach(([id,title,draw,rules])=>{frame(`${id}-390`,title,'Handy 390 px','p390 homed',draw(false),rules);frame(`${id}-1280`,title,'Desktop 1280 px','d1280 homed',draw(true),rules);});
+const SERIES_POINTS=(d)=>rulePlay(d,{chips:ANNAS_RULES,plaque:runningPoints});
+const HOME_SCENES=[
+  ['home-wait','Zurück zur Lobby',withHome((d)=>S3.mine(d)),
+    ['Der Knopf mit dem Haus bringt dich in die Lobby, ohne dass du aufstehst; „Aufstehen“ bleibt unten.']],
+  ['home-play','Zurück zur Lobby im Spiel',withHome(SERIES_POINTS),
+    ['Die dichteste Zeile: Lobby links, Spielstand der Serie in der Mitte, die Marken darunter, die Zuschauer rechts; nichts stößt aneinander.']],
+  ['home-badge','Lobby mit Zahl',withHome(SERIES_POINTS,1),
+    ['Entwurf zur Wahl: eine Zahl am Lobby-Knopf sagt, an wie vielen anderen Tischen du dran bist (E4 A).']],
+];
+homeScenes(HOME_SCENES);
+ORDER.unshift(...HOME_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');

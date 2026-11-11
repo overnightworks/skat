@@ -306,6 +306,45 @@ body.key .frame *:not(.mo){animation:none!important}
   @keyframes rise{from{translate:0 30px;opacity:0;scale:.94}}
 }
 </style>
+<style>
+/* ---------- S3.7p: the lobby; my tables above the open tables, one sticky action ---------- */
+.mark.away{width:26px;height:26px;padding:0;justify-content:center;background:var(--glass-dark);color:var(--on-stage);backdrop-filter:blur(12px)}
+.seat.free.idle{cursor:default}
+.seat.free.idle .tile::before,.seat.free.locked .tile::before{border-color:rgba(244,246,248,.2)}
+.seat.free.locked{cursor:default}
+.lock-tile{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:clamp(26px,46cqmin,60px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:var(--glass);color:var(--on-stage-soft)}
+.lock-tile svg{width:52%;height:52%}
+.stale{inset:0;filter:saturate(.45) brightness(.55);pointer-events:none}
+.stale > *{position:absolute}
+.reconnect{transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;height:48px;padding:0 20px 0 14px;border-radius:999px;background:rgba(12,14,17,.82);
+  backdrop-filter:blur(14px);font-size:16px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(240,214,150,.3),0 16px 30px -10px rgba(0,0,0,.9)}
+.spin{width:20px;height:20px;border-radius:50%;border:2.5px solid rgba(122,167,240,.25);border-top-color:var(--accent-stage)}
+.lobby-scroll{overflow:hidden}
+.lobby-scroll.scrolled{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22px);mask-image:linear-gradient(to bottom,transparent 0,#000 22px)}
+.lobby-inner{min-height:100%;display:flex;flex-direction:column;padding-bottom:var(--bar)}
+.lobby-list{display:grid;grid-template-columns:repeat(var(--cols),var(--cw));gap:var(--gap);justify-content:center;align-items:start}
+.lobby-inner .legal{margin-top:auto;padding-top:12px}
+.lobby-inner .legal.below{margin-top:var(--bar)}
+.section-head{grid-column:1/-1;margin:6px 0 calc(12px - var(--gap));font-size:14px;font-weight:600;line-height:20px;color:color-mix(in srgb,var(--brass) 80%,transparent)}
+.section-head:first-child{margin-top:8px}
+.quiet{grid-column:1/-1;display:flex;align-items:center;justify-content:center;min-height:64px;border-radius:22px;border:1.5px dashed rgba(240,214,150,.22);color:var(--on-stage-soft);font-size:15px;font-weight:600}
+.lobbybar{left:0;right:0;bottom:0;height:var(--bar);background:linear-gradient(to top,rgba(14,9,7,.97) 46%,transparent)}
+.entry.lobby{cursor:pointer}
+.entry.lobby header{align-items:center}
+.entry.lobby .chip-line{display:flex;flex-wrap:wrap;gap:6px}
+.entry.lobby .chip-line .chips{display:contents}
+.entry.lobby.closed{cursor:default;box-shadow:inset 0 0 0 1px rgba(240,214,150,.12),0 18px 30px -14px rgba(0,0,0,.9)}
+.entry.lobby.closed h3,.entry.lobby.closed .chip{opacity:.72}
+.entry h3 .lock{display:inline-flex;vertical-align:-2px;margin-left:8px;color:var(--on-stage-soft)}
+.entry h3 .lock svg{width:16px;height:16px}
+/* what needs me: a solid accent chip, the only filled one on the page */
+.chip.now{background:var(--accent-stage);color:var(--stage);box-shadow:0 0 0 3px rgba(122,167,240,.22)}
+.chip.free{background:var(--glass);color:var(--on-stage);box-shadow:inset 0 0 0 1px rgba(240,214,150,.22)}
+@media (prefers-reduced-motion:no-preference){
+  .chip.now{animation:nudge 2.4s ease-in-out infinite}
+  @keyframes nudge{0%,100%{box-shadow:0 0 0 3px rgba(122,167,240,.22)}50%{box-shadow:0 0 0 7px rgba(122,167,240,.04)}}
+}
+</style>
 </head>
 <body>
 <!-- sprite: kept out of layout with zero size; display:none would break gradient and pattern references in Chrome -->
@@ -526,8 +565,8 @@ Object.assign(P,{
   ida:{n:'Ida',i:'I',c:['#b9e39a','#5f9e3c'],v:['#33422a','#1a2215'],l:['#3d5a2c','#1e2d16']},
 });
 I.lock=sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>');
-const freeSeat=(pos)=>`<div class="seat free sm" role="button" tabindex="0" aria-label="Hinsetzen" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h})}">
-  <div class="chair"><div class="tile"><span class="sit">${I.plus}</span></div></div><span class="plate"><b>Frei</b></span></div>`;
+const freeSeat=(pos,o={})=>`<div class="seat free sm${o.idle?' idle':''}${o.locked?' locked':''}" ${o.idle||o.locked?'':'role="button" tabindex="0" aria-label="Hinsetzen"'} style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h})}">
+  <div class="chair"><div class="tile">${o.idle?'':o.locked?`<span class="lock-tile">${I.lock}</span>`:`<span class="sit">${I.plus}</span>`}</div></div><span class="plate"><b>${o.locked?'Privat':'Frei'}</b></span></div>`;
 /* one open table: the opener names it, the chairs say who sits and what is free, the eye counts who watches */
 const entry=(opener,chairs,watch,o,rules,length,away)=>`<article class="entry" style="${at({width:o.w})}"><header>${rules?`<div class="who"><h3>${P[opener].n}s Tisch</h3>${ruleChips(rules)}</div>`:`<h3>${P[opener].n}s Tisch</h3>`}
   <span class="side">${length?`<span class="chip official length" title="Länge der Serie">${length} Spiele</span>`:''}<span class="watch ${watch?'':'none'}" title="Zuschauer">${I.eye}${watch}</span></span></header>
@@ -561,8 +600,8 @@ const saveOffer=(name)=>`<div class="save" role="group" aria-label="Als eigene R
 /* a switch changed away from the picked set offers to save the result as the person's own rules */
 const savedName=(picked,on)=>{const set=RULE_SETS.find(t=>t.id===picked),added=HOUSE_RULES.filter(r=>r.chip&&on.includes(r.id)&&!set.on.includes(r.id)).map(r=>r.chip);
   return on.length===set.on.length&&on.every(id=>set.on.includes(id))?'':`${set.name}, mit ${added.join(' und ')}`};
-const newTable=(x,y,w,on=[],picked='official',length=36)=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
-  <span class="info" role="button" tabindex="0" title="Offen: steht in der Liste. Privat: nur mit dem Link." aria-label="Info">i</span>
+const newTable=(x,y,w,on=[],picked='official',length=36,hint='Offen: steht in der Liste. Privat: nur mit dem Link.')=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
+  <span class="info" role="button" tabindex="0" title="${hint}" aria-label="Info">i</span>
   <div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
   <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
   ${lengthChoice(length)}
@@ -655,6 +694,89 @@ const PAUSED_NOTES={
  ['paused-none','Kein Tisch pausiert','none',[],'none']]
 .forEach(([id,title,tab,list,note])=>[360,390,1280].forEach(w=>frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,PAUSED_SIZES[w].cls,pausedScene(w,tab,list),PAUSED_NOTES[note])));
 ORDER.push(...['paused-open','paused-open-listed','paused-list','paused-none'].flatMap(f=>[360,390,1280].map(w=>`${f}-${w}`)));
+/* ===== S3.7p: the lobby; „Meine Tische“ above „Offene Tische“, one sticky „Neuer Tisch“ ===== */
+I.moon=sv('<path d="M19.5 14.6A7.8 7.8 0 1 1 9.4 4.5a6.3 6.3 0 0 0 10.1 10.1z"/>');
+MARK.away=`<span class="mark away" title="nicht da">${I.moon}</span>`;
+const LOBBY_SIZES={
+  360:{...PAUSED_SIZES[360],h:780,cols:1,gap:12,top:128,bar:104},
+  390:{...PAUSED_SIZES[390],h:844,cols:1,gap:12,top:128,bar:104},
+  1280:{...PAUSED_SIZES[1280],wm:{ws:88,ps:24,rule:70,wg:12},h:800,cols:3,gap:22,top:168,bar:100},
+};
+/* a chair of a lobby card: a person (turn, away, minutes left to hold it, standing) or a free chair (sit, idle, locked) */
+const lobbyChair=(c,i,o)=>{
+  const pos={x:i*o.step,y:0,w:o.cw,h:o.ch},stand=c.coaster===undefined?'':coaster(standing(c.coaster),pos.x-8,-10,'40px',[-8,6,-4][i]);
+  if(c.free) return freeSeat(pos,{idle:c.free==='idle',locked:c.free==='locked'})+stand;
+  const seated=seat(c.k,{...pos,sm:true,short:true,out:c.away,marks:[c.turn&&'turn',c.away&&'away'].filter(Boolean)});
+  return (c.minutes?seated.replace('</b></span>',`</b><small title="Dein Platz wird in ${c.minutes} Minuten frei">noch ${c.minutes} Min</small></span>`):seated)+stand;
+};
+/* one table of the lobby, mine or open: title (with the lock of a private one), series length, who watches, the chairs, and a line of marks */
+const lobbyEntry=(t,o)=>`<article class="entry lobby${t.closed?' closed':''}"${t.mine?` role="link" tabindex="0" aria-label="${t.title} öffnen"`:''}${t.closed?' aria-disabled="true"':''} style="${at({width:o.w})}">
+  <header><h3>${t.title}${t.lock?`<span class="lock" role="img" aria-label="Privat" title="Privat">${I.lock}</span>`:''}</h3>
+  <span class="side"><span class="chip official length"${t.lengthTitle?` title="${t.lengthTitle}"`:''}>${t.length}</span>${t.watch===undefined?'':`<span class="watch ${t.watch?'':'none'}" title="Zuschauer">${I.eye}${t.watch}</span>`}</span></header>
+  <div class="row" style="${at({'--rh':o.ch+34,'--th':42})}">${t.chairs.map((c,i)=>lobbyChair(c,i,o)).join('')}
+  <div class="table" style="--tr:21px;--rim:7px"><div class="felt" style="--line:5px"></div></div></div>
+  ${t.rules||t.chips?`<div class="chip-line">${t.rules?ruleChips(t.rules):''}${t.chips?`<span class="chips">${t.chips.map(([cls,icon,text])=>`<span class="chip ${cls}">${icon}${text}</span>`).join('')}</span>`:''}</div>`:''}</article>`;
+const LOBBY={
+  anna:{mine:true,title:'Annas Tisch',length:'Spiel 9 von 36',lengthTitle:'Länge der Serie: 36 Spiele',
+    chairs:[{k:'anna',coaster:142},{k:'ben',coaster:-30},{k:'felix',coaster:96,turn:true}],chips:[['now',I.play,'Du bist dran']]},
+  lena:{mine:true,title:'Lenas Tisch',lock:true,length:'Spiel 5 von 12',lengthTitle:'Länge der Serie: 12 Spiele',
+    chairs:[{k:'tom',coaster:48,away:true},{k:'lena',coaster:210,away:true},{k:'felix',coaster:120,away:true}],chips:[['',I.trophy,'Ergebnis wartet'],['official',I.clock,'endet in 41 Tagen']]},
+  ben:{mine:true,title:'Bens Tisch',length:'Spiel 36 von 36',lengthTitle:'Länge der Serie: 36 Spiele',
+    chairs:[{k:'anna',coaster:412},{k:'ben',coaster:-64},{k:'felix',coaster:238}],chips:[['',I.trophy,'Serie vorbei']]},
+  stoodUp:{mine:true,title:'Bens Tisch',length:'Spiel 9 von 36',lengthTitle:'Länge der Serie: 36 Spiele',
+    chairs:[{k:'ben',coaster:-30,away:true},{k:'tom',coaster:142,away:true},{free:'sit',coaster:96}],chips:[['free',I.plus,'Platz frei · hinsetzen'],['official',I.clock,'endet in 12 Tagen']]},
+  stoodUpNarrow:{mine:true,title:'Bens Tisch',length:'Spiel 9 von 36',lengthTitle:'Länge der Serie: 36 Spiele',
+    chairs:[{k:'ben',coaster:-30,away:true},{k:'tom',coaster:142,away:true},{free:'sit',coaster:96}],chips:[['free',I.plus,'Platz frei'],['official',I.clock,'endet in 12 Tagen']]},
+  waitingOwn:{mine:true,title:"Felix' Tisch",length:'36 Spiele',chairs:[{k:'felix',away:true,minutes:4},{free:'idle'},{free:'idle'}]},
+  waitingPrivate:{mine:true,title:"Felix' Tisch",lock:true,length:'12 Spiele',chairs:[{k:'felix',away:true,minutes:2},{k:'anna'},{free:'idle'}]},
+  tom:{title:'Toms Tisch',rules:['kontra','ramsch','bock'],length:'12 Spiele',watch:2,chairs:[{k:'tom'},{k:'lena'},{free:'sit'}]},
+  ida:{title:'Idas Tisch',rules:[],length:'36 Spiele',watch:3,chairs:[{k:'ida'},{k:'mia'},{k:'ben'}]},
+  annaPaused:{title:'Annas Tisch',length:'36 Spiele',watch:0,chairs:[{k:'anna'},{k:'ben'},{free:'sit'}],chips:[['official',I.clock,'pausiert']]},
+  idaOpen:{title:'Idas Tisch',length:'36 Spiele',watch:0,chairs:[{k:'ida'},{free:'sit'},{free:'sit'}]},
+  benPrivate:{closed:true,title:'Bens Tisch',lock:true,length:'36 Spiele',chairs:[{k:'ben'},{k:'ida'},{free:'locked'}]},
+};
+/* the lobby scene: a fixed head, a list that scrolls under it, and the action over a fade at the bottom; the legal links end the scroll */
+function lobbyScene(width,o={}){
+  const z=LOBBY_SIZES[width],cx=z.w/2,desk=width===1280,mine=o.mine||[],open=o.open||[];
+  const cols=desk?Math.min(3,Math.max(mine.length,open.length,o.filter?3:1)):1,card=(t)=>lobbyEntry(t,z.o);
+  const head=wordmark(cx,desk?52:40,z.wm)+`<div class="account" style="--ar:${z.ar}px;--at:${z.at}px"><span class="av">F</span>${z.account}${I.chev}</div>`;
+  const filter=o.filter?`<div class="sets" role="tablist" aria-label="Tische" style="${at(desk?{left:cx,top:z.switchTop,width:z.o.w,transform:'translateX(-50%)'}:{left:16,top:z.switchTop,width:z.o.w})}"><span class="set on" role="tab" aria-selected="true" tabindex="0">${I.check}Alle</span><span class="set" role="tab" aria-selected="false" tabindex="0">Meine · ${mine.length}</span><span class="set" role="tab" aria-selected="false" tabindex="0">Offen · ${open.length}</span></div>`:'';
+  const top=o.filter?z.switchTop+56:z.top;
+  const body=o.filter?[...mine,...open].map(card).join('')
+    :(mine.length?`<div class="section-head" role="heading" aria-level="2">Meine Tische</div>${mine.map(card).join('')}`:'')
+     +`<div class="section-head" role="heading" aria-level="2">Offene Tische</div>${open.length?open.map(card).join(''):`<p class="quiet" role="status">Sonst ist kein Tisch offen</p>`}`;
+  const list=`<div class="lobby-scroll ${o.scroll?'scrolled':''}" style="${at({left:0,right:0,top,bottom:0,'--bar':`${z.bar}px`})}"><div class="lobby-inner" style="${at({transform:o.scroll?`translateY(-${o.scroll}px)`:undefined})}">
+    <div class="lobby-list" style="${at({'--cols':String(cols),'--cw':`${z.o.w}px`,'--gap':`${z.gap}px`})}">${body}</div>${desk&&mine.length&&open.length?legal.replace('class="legal"','class="legal below"'):legal}</div></div>`;
+  const bar=`<div class="lobbybar" style="--bar:${z.bar}px"></div>${cta(cx,z.h-z.bar+16).replace('class="cta"','class="cta sticky"')}`;
+  const page=head+filter+list;
+  return (o.stale?`<div class="stale">${page}</div>`:page)+bar+(o.stale?`<div class="reconnect" role="status" style="${at({left:cx,top:desk?445:282})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`:'');
+}
+const LOBBY_SCENES=[
+  ['lobby','Lobby','lobby',(w)=>lobbyScene(w,{mine:w===1280?[LOBBY.anna,LOBBY.lena,LOBBY.ben]:[LOBBY.anna,LOBBY.lena],open:w===1280?[LOBBY.tom,LOBBY.ida]:[LOBBY.tom,LOBBY.ida]}),[360,390,1280],
+    ['Zwei feste Bereiche: was dich braucht steht oben, darunter die offenen Tische; ein Tipp auf einen eigenen Tisch öffnet ihn.']],
+  ['lobby-filter','Lobby mit Filter','filter',(w)=>lobbyScene(w,{filter:true,mine:[LOBBY.anna,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]}),[390,1280],
+    ['Entwurf zur Wahl: eine Liste mit den Schaltern Alle, Meine und Offen statt zweier Bereiche (E2 B).']],
+  ['lobby-private-shown','Lobby mit privatem Tisch','private',(w)=>lobbyScene(w,{mine:[LOBBY.anna,LOBBY.lena],open:[LOBBY.benPrivate,LOBBY.tom,LOBBY.ida],scroll:330}),[390],
+    ['Entwurf zur Wahl: jedes Mitglied sieht jeden privaten Tisch mit Schloss, ohne sich setzen zu können (E1 B); die Karte lässt sich nicht antippen.']],
+  ['lobby-waiting','Lobby: Platz wartet','waiting',(w)=>lobbyScene(w,{mine:[LOBBY.waitingOwn,LOBBY.waitingPrivate],open:[]}),[360,390,1280],
+    ['Die fünf Minuten gelten nur an einem Tisch, an dem noch kein Spiel gegeben wurde; an einem Tisch mit gegebenem Spiel wird ein Platz durch Weggehen nie frei, auch zwischen den Spielen nicht.']],
+  ['lobby-open','Lobby ohne eigene Tische','open',(w)=>lobbyScene(w,{mine:[],open:[LOBBY.annaPaused,LOBBY.tom,LOBBY.idaOpen]}),[360,390,1280],
+    ['Ohne eigene Tische fällt der obere Bereich weg.']],
+  ['lobby-return','Lobby: aufgestanden, Stand bleibt','return',(w)=>lobbyScene(w,{mine:[LOBBY.anna,w===360?LOBBY.stoodUpNarrow:LOBBY.stoodUp],open:[LOBBY.tom,LOBBY.ida]}),[360,390,1280],
+    ['Du hast in dieser Serie mitgespielt und bist aufgestanden; dein Stand bleibt.']],
+  ['lobby-reconnect','Lobby verbindet neu','reconnect',(w)=>lobbyScene(w,{stale:true,mine:[LOBBY.anna,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]}),[390,1280],
+    ['Die Liste bleibt, gedimmt und still; „Neuer Tisch“ geht weiter.']],
+  ['lobby-new','Neuer Tisch über der Lobby','new',(w)=>lobbyScene(w,{mine:[LOBBY.anna,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]})+newTable(195,100,354,[],'official',36,'Offen: steht in der Lobby. Privat: nur mit dem Link.'),[390],
+    ['Der Hintergrund des Fensters ist die Lobby statt der Liste von s3-new, rules-on und rules-set.']],
+];
+LOBBY_SCENES.forEach(([id,title,,draw,widths,notes])=>widths.forEach(w=>frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,draw(w),notes)));
+ORDER.unshift(...LOBBY_SCENES.flatMap(([id,,,,widths])=>widths.map(w=>`${id}-${w}`)));
+/* the scenes this one replaces carry a line saying so, until the operator has blessed the new ones */
+const REPLACED_BY={'start':'s3-empty','s3-list':'lobby-open','rules-list':'lobby','paused-open':'lobby, lobby-open und lobby-waiting','paused-open-listed':'lobby, lobby-open und lobby-waiting','paused-list':'lobby, lobby-open und lobby-waiting','paused-none':'lobby, lobby-open und lobby-waiting'};
+const BACKDROP=new Set(['s3-new','rules-on','rules-set']);
+FRAMES.forEach((f)=>{const base=f[0].replace(/-\d+$/,''),by=REPLACED_BY[base];
+  const line=by?`Wird durch ${by} ersetzt, sobald der Segen da ist.`:BACKDROP.has(base)?'Die Liste hinter dem Fenster wird durch lobby ersetzt, sobald der Segen da ist (siehe lobby-new).':'';
+  if(line) f[1]=f[1].replace(/<\/section>$/,`<p class="note">${line}</p></section>`);});
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
