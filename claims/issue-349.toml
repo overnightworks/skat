@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "9a3f56f73189ccbed3f7f6fffc573e76a89750bd"
 branch = "claude/issue-349-lobby-home-button"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/test_call_mode_table.py", "tests/e2e/test_table_home.py"]
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/test_call_mode_table.py", "tests/e2e/test_table_home.py", "tests/e2e/test_tables.py"]
 opened_commit = "49b812752bb19b76a874cf4e478d1cc202b07241"
 whole_reason = "The button, its style, its one word and the e2e pin it moves are one control; the words file only follows its catalog."
