@@ -110,13 +110,14 @@ def test_an_end_whose_store_fails_after_it_writes_leaves_the_table_live_with_all
     assert isinstance(stored(transactions, table_id.value), TableRecord)
 
 
-def test_the_end_step_deletes_the_game_list(service, transactions, stored, engine):
+def test_the_end_step_keeps_the_game_list(service, transactions, stored, engine):
     table_id = listed_game(service, transactions, stored, "one")
-    assert rows_of(engine, table_id.value)["game_list"]
+    before = rows_of(engine, table_id.value)["game_list"]
+    assert before
 
     end_at_the_store(transactions, table_id)
 
-    assert rows_of(engine, table_id.value)["game_list"] == []
+    assert rows_of(engine, table_id.value)["game_list"] == before
 
 
 def test_ending_a_table_keeps_its_create_receipt_and_deletes_every_other_receipt_of_it(
