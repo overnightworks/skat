@@ -136,7 +136,7 @@ def auction_bid(service, actor, table_id, version):
 
 
 def agree_to_give_up(service, actor, table_id, version):
-    return service.agree_to_give_up(actor, AgreeToGiveUpCommand("act", table_id, version), NOBODY, lambda away: None)
+    return service.agree_to_give_up(actor, AgreeToGiveUpCommand("act", table_id, version), NOBODY)
 
 
 def continue_after_result(service, actor, table_id, version):
