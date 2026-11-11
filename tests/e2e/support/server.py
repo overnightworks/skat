@@ -22,8 +22,8 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
-from skat.web.stores import SignInStores
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.in_memory_stores import in_memory_stores
 from tests.support.postgres import created_database, migrated_template
 from tests.support.sign_in_settings import build_sign_in_settings
 
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from sqlalchemy import Engine
+    from webauth.single_process_stores import SingleProcessStores
 
     from tests.support.sign_in_settings import SignInSettings
 
@@ -80,7 +81,7 @@ class LoopbackSignIn:
     host: str
     port: int
     sign_in: SignInSettings
-    stores: SignInStores
+    stores: SingleProcessStores
     issuer: FakeIssuer
 
 
@@ -99,7 +100,7 @@ def loopback_sign_in(
             **overrides,
         },
     )
-    return LoopbackSignIn(host, port, sign_in, SignInStores.in_memory(), FakeIssuer(sign_in))
+    return LoopbackSignIn(host, port, sign_in, in_memory_stores(), FakeIssuer(sign_in))
 
 
 class RunningServer:
@@ -170,7 +171,7 @@ class RunningServer:
         The new process starts with no session, as after an update. `while_stopping` runs as in `stop`.
         """
         self.stop(while_stopping=while_stopping)
-        self.stores = SignInStores.in_memory()
+        self.stores = in_memory_stores()
         self.start()
 
 

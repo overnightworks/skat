@@ -20,13 +20,13 @@ from webauth.policies import (
     SecurityHeadersPolicy,
     default_content_security_policy,
 )
+from webauth.single_process_stores import SingleProcessStores
 
 from skat.table.records import TableId
 from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
 from skat.web.constants import (
-    ANNOUNCER_STYLE_SOURCES,
     HEALTH_PATH,
     NO_CACHE_PATH_RULES,
     SIGN_IN_PATHS,
@@ -57,17 +57,19 @@ from skat.web.series_end import create_series_end_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
+    LoggingAuditSink,
     build_relying_party,
     build_sign_in_configs,
     install_sign_in,
 )
-from skat.web.stores import InMemorySessions, SignInStores
 from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
     from contextlib import AbstractContextManager
+
+    from webauth.ports import SessionRecordStore
 
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
@@ -87,14 +89,16 @@ def _configure_logging() -> None:
 
 
 def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> str:
-    added_sources: dict[CspDirective, Sequence[str]] = {CspDirective.STYLE_SRC: ANNOUNCER_STYLE_SOURCES}
+    added_sources: dict[CspDirective, Sequence[str]] = {
+        CspDirective.STYLE_SRC: ("'unsafe-hashes'", f"'{page_build.announcer_style_hash}'")
+    }
     if call_origin is not None:
         added_sources[CspDirective.FRAME_ANCESTORS] = (call_origin,)
     return default_content_security_policy(page_build.script_hashes, added_sources=added_sources)
 
 
 def _install_web_auth(
-    app: FastAPI, sessions: InMemorySessions, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
+    app: FastAPI, sessions: SessionRecordStore, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
 ) -> None:
     install_web_auth_middleware(
         app,
@@ -104,6 +108,7 @@ def _install_web_auth(
             cache_control_rules=(CacheControlRule(paths=NO_CACHE_PATH_RULES, value="no-cache"),),
         ),
         csrf_origin=CsrfPolicy(),
+        # /health is the edge's readiness probe.
         rate_limit=RateLimitPolicy(exempt=PathRules(exact=frozenset({HEALTH_PATH}))),
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
@@ -178,7 +183,7 @@ def create_app(
     tables: TableService,
     rule_sets: RuleSetService,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
-    stores: SignInStores | None = None,
+    stores: SingleProcessStores | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
@@ -187,7 +192,7 @@ def create_app(
 
     _configure_logging()
 
-    sign_in_stores = stores if stores is not None else SignInStores.in_memory()
+    sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     # Wrapped first, so the timers' commands capture the service that counts a lease as presence.

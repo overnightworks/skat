@@ -16,12 +16,12 @@ from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.secret_files import StartRefusedError
-from skat.web.stores import SignInStores
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.idle_presence import IdleScheduler
+from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import CALL_PAGE_SCRIPT_HASH, FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -35,7 +35,7 @@ THIRD = Actor(account_id="account-cleo", display_name="Cleo")
 
 
 def signed_in_client(settings: ServerSettings) -> TestClient:
-    stores = SignInStores.in_memory()
+    stores = in_memory_stores()
     app = create_app(
         settings,
         page_build=fixture_page_build(),
@@ -132,7 +132,7 @@ class TestCreateApp:
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
         settings = sign_in_settings(empty_table_seconds=1800).settings
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores()
         app = create_app(
             settings,
             page_build=fixture_page_build(),
@@ -249,7 +249,7 @@ class TestCreateApp:
     def test_signs_members_in_to_the_stores_it_is_given(self, sign_in_settings):
         sign_in = sign_in_settings()
         issuer = FakeIssuer(sign_in)
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores()
         app = create_app(
             sign_in.settings,
             page_build=fixture_page_build(),

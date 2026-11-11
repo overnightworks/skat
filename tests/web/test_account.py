@@ -4,9 +4,9 @@ from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH
-from skat.web.stores import SignInStores
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
+from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -14,7 +14,7 @@ from tests.support.signed_in import cookie_header, seed_member
 
 @pytest.fixture
 def stores():
-    return SignInStores.in_memory()
+    return in_memory_stores()
 
 
 @pytest.fixture

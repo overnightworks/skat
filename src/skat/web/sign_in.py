@@ -45,7 +45,7 @@ from skat.web.tables import TABLE_PAGE_PREFIX
 if TYPE_CHECKING:
     from pydantic import SecretStr
     from webauth.jwt_verification import KeySetFetch
-    from webauth.ports import SignInTransaction
+    from webauth.ports import AccountEvent, SignInTransaction
 
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
@@ -55,6 +55,13 @@ LOGOUT_LABEL = "Log out"
 SIGN_IN_ADDRESS = f'href="{AUTH_START_PATH}"'.encode()
 
 logger = structlog.get_logger()
+
+
+class LoggingAuditSink:
+    """Logs each account event by its kind, the issuer's subject and the role, never a username."""
+
+    def account_event(self, event: AccountEvent) -> None:
+        logger.info("account_event", kind=event.kind.value, subject_id=event.subject_id, role=event.role)
 
 
 class SignInConfigurationError(StartRefusedError):

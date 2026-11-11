@@ -156,6 +156,10 @@ def playing_table(
     return deal
 
 
+def holds_a_session(server: RunningServer, name: str) -> bool:
+    return bool(server.stores.sessions.records_of(f"subject-{name}").sessions)
+
+
 def stored_session_tables(server: RunningServer) -> list[str]:
     with server.engine.connect() as connection:
         query = text("SELECT table_name FROM information_schema.tables WHERE table_name ILIKE '%session%'")
@@ -178,8 +182,7 @@ def test_open_pages_come_back_through_the_issuer_without_a_click_after_skat_rest
     assert restart.dimmed_views == restart.views_before
     expect_back_at_the_table(table, restart, names)
     assert stored_session_tables(e2e_server) == []
-    signed_in_again = {row.user_id for row in e2e_server.stores.sessions.snapshot().rows.values()}
-    assert signed_in_again == {f"subject-{name}" for name in names}
+    assert all(holds_a_session(e2e_server, name) for name in names)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -197,8 +200,8 @@ def test_a_person_whose_issuer_session_ended_waits_at_the_issuer_and_the_others_
     expect(table.watcher).to_have_title(ISSUER_LOGIN_FORM)
     assert len(restart.sign_in_starts["dora"]) == 1
     expect_back_at_the_table(table, restart, others)
-    signed_in_again = {row.user_id for row in e2e_server.stores.sessions.snapshot().rows.values()}
-    assert signed_in_again == {f"subject-{name}" for name in others}
+    assert all(holds_a_session(e2e_server, name) for name in others)
+    assert not holds_a_session(e2e_server, "dora")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
