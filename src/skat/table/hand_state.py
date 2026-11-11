@@ -4,6 +4,7 @@ from skat.engine.bidding import Declared, PassedIn, auction_after
 from skat.engine.declaration import Declaring, declaring_after
 from skat.engine.kontra import Doubling, bidders_of, doubling_after
 from skat.engine.ramsch import ramsch_after, start_ramsch
+from skat.engine.schieberamsch import GrandHandRule, Pushing, PushOptions, RamschOn, pushing_after
 from skat.engine.tricks import playing_after, start_play
 
 if TYPE_CHECKING:
@@ -39,16 +40,34 @@ def playing_of(table: TableRecord) -> Playing | None:
     return None if start is None else playing_after(start, table.progress.plays)
 
 
+def pushing_of(table: TableRecord) -> Pushing | None:
+    """The stage of takes and pushes a Ramsch with pushing plays before its first card, its stored steps replayed
+    through the engine; None at a table without pushing, before the third pass and at a declared game.
+    """
+    ramsch = table.options.ramsch
+    if table.hand is None or ramsch is None or ramsch.pushing is None:
+        return None
+    if not isinstance(auction_of(table).result, PassedIn):
+        return None
+    options = PushOptions(ramsch.pushing, GrandHandRule.OFF)
+    return pushing_after(Pushing.start(table.hand), table.progress.pushing, options)
+
+
 def game_of(table: TableRecord) -> Playing | RamschPlaying | None:
     """The game that runs: the declared game's cards played so far, else the Ramsch a table that plays one starts
-    when all three pass, replayed from its stored cards; None while no game is played.
+    when all three pass, or once its stage ended, replayed from its stored cards; None while no game is played.
     """
     declared = playing_of(table)
     if declared is not None:
         return declared
     if table.hand is None or table.options.ramsch is None or not isinstance(auction_of(table).result, PassedIn):
         return None
-    return ramsch_after(start_ramsch(table.hand), table.progress.plays)
+    stage = pushing_of(table)
+    if stage is None:
+        return ramsch_after(start_ramsch(table.hand), table.progress.plays)
+    if not isinstance(stage.result, RamschOn):
+        return None
+    return ramsch_after(start_ramsch(stage.deal), table.progress.plays)
 
 
 def doubling_of(table: TableRecord) -> Doubling | None:

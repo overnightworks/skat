@@ -18,9 +18,10 @@ from skat.table.game_list import (
     standings_of,
     total_of,
 )
-from skat.table.hand_state import auction_of, declaring_of, game_of
+from skat.table.hand_state import auction_of, declaring_of, game_of, pushing_of
 from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
+from skat.table.pushing import PushingView, pushing_view_of
 from skat.table.records import EndedTable, EndReason, OccupantKind
 from skat.table.rules import hand_runs, series_over
 
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
+    from skat.engine.schieberamsch import Pushing
     from skat.table.records import Chair, EndProposal, TableOptions, TableRecord
 
 
@@ -59,7 +61,11 @@ class ChairView:
 
 @dataclass(frozen=True)
 class HandView:
-    """The running hand as one viewer may see it: the dealer, their own cards in deck order, the skat's count."""
+    """The running hand as one viewer may see it: the dealer, their own cards in deck order, the skat's count.
+
+    `pushing` is the Ramsch's stage before its first card while it runs, and `pushes` how often the skat was pushed on
+    unseen so far, through the Ramsch's play; no card is named by either.
+    """
 
     dealer_seat: int
     own_cards: tuple[Card, ...]
@@ -68,6 +74,8 @@ class HandView:
     declaring: DeclaringView | None
     playing: PlayingView | None
     ramsch: bool
+    pushing: PushingView | None
+    pushes: int
 
 
 @dataclass(frozen=True)
@@ -125,14 +133,23 @@ def _is_occupied_by(chair: Chair, account_id: str) -> bool:
 
 
 def _hands_now(
-    deal: Deal, state: Declaring | None, playing: Playing | RamschPlaying | None
+    deal: Deal, state: Declaring | None, playing: Playing | RamschPlaying | None, stage: Pushing | None
 ) -> Mapping[Position, tuple[Card, ...]]:
-    """Each position's cards now: what is left in play, the declarer's own while declaring, else the deal."""
+    """Each position's cards now: what is left in play, the declarer's own while declaring, a Ramsch stage's cards as
+    they lie, else the deal.
+    """
     if playing is not None:
         return playing.hands
     if state is not None:
         return {**deal.hands, state.declarer: state.hand}
-    return deal.hands
+    return deal.hands if stage is None else stage.deal.hands
+
+
+def _skat_count(deal: Deal, state: Declaring | None, stage: Pushing | None) -> int:
+    """The cards of the skat as it lies: the declarer's while he declares, a stage's while a Ramsch is pushed."""
+    if state is not None:
+        return len(state.skat)
+    return len(deal.skat if stage is None else stage.deal.skat)
 
 
 def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | None, dict[int, ChairHand]]:
@@ -146,7 +163,8 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     positions = positions_from(table.dealer)
     state = declaring_of(table)
     playing = game_of(table)
-    hands = _hands_now(table.hand, state, playing)
+    stage = pushing_of(table)
+    hands = _hands_now(table.hand, state, playing, stage)
     viewer_positions = frozenset(
         positions[chair.seat] for chair in table.chairs if _is_occupied_by(chair, viewer_account_id)
     )
@@ -154,7 +172,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     hand_view = HandView(
         table.dealer,
         tuple(card for card in DECK if card in own_cards),
-        len(table.hand.skat if state is None else state.skat),
+        _skat_count(table.hand, state, stage),
         auction_view_of(table, viewer_account_id, table.dealer),
         declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
         playing_view_of(
@@ -167,7 +185,9 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
             if isinstance(playing, Playing)
             else None,
         ),
-        isinstance(playing, RamschPlaying),
+        isinstance(playing, RamschPlaying) or stage is not None,
+        pushing_view_of(stage, table.options, table.progress.pushing, table.dealer),
+        0 if stage is None else stage.pushes,
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
@@ -293,13 +313,17 @@ class PausedEntryView:
 
 
 def turn_seat_of(hand: HandView | None) -> int | None:
-    """The seat on turn: the playing turn while a game is played, the declarer while he declares, else the auction's."""
+    """The seat on turn: the playing turn while a game is played, the declarer while he declares, the seat of a
+    Ramsch's stage, else the auction's.
+    """
     if hand is None:
         return None
     if hand.playing is not None:
         return hand.playing.turn_seat
     if hand.declaring is not None:
         return hand.declaring.declarer_seat
+    if hand.pushing is not None:
+        return hand.pushing.turn_seat
     return hand.auction.turn_seat
 
 

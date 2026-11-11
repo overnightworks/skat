@@ -67,6 +67,9 @@ START_NEW_SERIES_TOOL: Final = "start_new_series"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
+RAMSCH_TAKE_SKAT_TOOL: Final = "ramsch_take_skat"
+RAMSCH_PUT_BACK_CARDS_TOOL: Final = "ramsch_put_back_cards"
+RAMSCH_PUSH_SKAT_TOOL: Final = "ramsch_push_skat"
 SAY_KONTRA_TOOL: Final = "say_kontra"
 OPEN_TABLE_TOOL: Final = "open_table"
 SIT_DOWN_TOOL: Final = "sit_down"
@@ -110,6 +113,9 @@ START_NEW_SERIES_MARK: Final = agent_tool(name=START_NEW_SERIES_TOOL, effect=Too
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+RAMSCH_TAKE_SKAT_MARK: Final = agent_tool(name=RAMSCH_TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+RAMSCH_PUT_BACK_CARDS_MARK: Final = agent_tool(name=RAMSCH_PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+RAMSCH_PUSH_SKAT_MARK: Final = agent_tool(name=RAMSCH_PUSH_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 OPEN_TABLE_MARK: Final = agent_tool(name=OPEN_TABLE_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SIT_DOWN_MARK: Final = agent_tool(name=SIT_DOWN_TOOL, effect=ToolEffect.SIDE_EFFECTING)
