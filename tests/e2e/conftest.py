@@ -97,6 +97,7 @@ def open_person(
         signed_in: bool = True,
         username: str | None = None,
         server: RunningServer = e2e_server,
+        groups: tuple[str, ...] | None = None,
         **device_options: Any,
     ) -> Page:
         person_address = PERSON_ADDRESS_BASE + next(person_address_offsets)
@@ -114,7 +115,11 @@ def open_person(
                 account = server.stores.accounts.create_for_subject(
                     f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
                 )
-            member = seed_member(server.stores, server.config, account=account)
+            # With `groups` the session holds a refresh token and the issuer reports them as the person's groups.
+            refresh_token = None if groups is None else server.issuer.refresh_token_for(account.id)
+            if groups is not None:
+                server.issuer.grant_groups(account.id, groups)
+            member = seed_member(server.stores, server.config, account=account, refresh_token=refresh_token)
             context.add_cookies(
                 [playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers]
             )
