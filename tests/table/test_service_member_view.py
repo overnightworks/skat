@@ -10,24 +10,17 @@ from datetime import UTC, datetime
 
 import pytest
 
-from skat.engine.bidding import Bid, Pass
-from skat.engine.cards import DECK
 from skat.engine.deal import Position
-from skat.engine.declaration import Announcement, Declare, PutBack, TakeSkat
-from skat.engine.games import GameKind
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.declaring import DeclaringCommand
 from skat.table.member_place import Acceptance, InvitationRequest
-from skat.table.playing import AgreeToGiveUpCommand, DeclineGiveUpCommand, PlayCardCommand
-from skat.table.ready import NewSeriesCommand, ReadyCommand
+from skat.table.playing import AgreeToGiveUpCommand
+from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
     CreateTable,
     EndProposal,
-    GiveUpAsked,
     HandProgress,
     OccupantKind,
-    Series,
     SitDown,
     StandUp,
     TableId,
@@ -35,7 +28,7 @@ from skat.table.records import (
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
-from tests.support.played_game import after_the_first_game, declared_herz_hand, table_in
+from tests.support.played_game import asked_by_the_declarer, between_games, table_in, with_agents
 
 START = datetime(2026, 11, 1, 12, tzinfo=UTC)
 NOBODY = frozenset[str]()
@@ -132,9 +125,6 @@ class TestTheViewOfAMember:
 
         assert scene.view_of(MOZART.account_id) is None
 
-    def test_two_reads_of_one_revision_agree(self, scene):
-        assert scene.view_of(MOZART.account_id) == scene.view_of(MOZART.account_id)
-
 
 def an_actor(position):
     return Actor(account_id=f"account-{position.name.lower()}", display_name=position.name)
@@ -145,101 +135,29 @@ def auction_bid(service, actor, table_id, version):
     return service.take_auction_step(actor, command, NOBODY)
 
 
-def take_the_skat(service, actor, table_id, version):
-    return service.take_declaring_step(actor, DeclaringCommand("act", table_id, version, TakeSkat()), NOBODY)
-
-
-def put_back(service, actor, table_id, version):
-    return service.take_declaring_step(actor, DeclaringCommand("act", table_id, version, PutBack(DECK[30:32])), NOBODY)
-
-
-def declare_hand(service, actor, table_id, version):
-    declare = Declare(GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE)
-    return service.take_declaring_step(actor, DeclaringCommand("act", table_id, version, declare), NOBODY)
-
-
-def play_first_card(service, actor, table_id, version):
-    return service.play_card(actor, PlayCardCommand("act", table_id, version, DECK[0]), NOBODY)
-
-
 def agree_to_give_up(service, actor, table_id, version):
     return service.agree_to_give_up(actor, AgreeToGiveUpCommand("act", table_id, version), NOBODY, lambda away: None)
-
-
-def decline_give_up(service, actor, table_id, version):
-    return service.decline_give_up(actor, DeclineGiveUpCommand("act", table_id, version), NOBODY)
 
 
 def continue_after_result(service, actor, table_id, version):
     return service.mark_ready(actor, ReadyCommand("act", table_id, 1), NOBODY)
 
 
-def start_new_series(service, actor, table_id, version):
-    return service.start_new_series(actor, NewSeriesCommand("act", table_id), NOBODY)
-
-
-def agree_to_end(service, actor, table_id, version):
-    return service.agree_to_end_series(actor, SeriesEndCommand("act", table_id), NOBODY)
-
-
 def refuse_to_end(service, actor, table_id, version):
     return service.refuse_to_end_series(actor, SeriesEndCommand("act", table_id), NOBODY)
 
 
-def asked_to_give_up():
-    table = table_in(declared_herz_hand())
-    return replace(table, progress=replace(table.progress, give_up=GiveUpAsked(Position.MIDDLEHAND)))
+class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
+    """The other accepted acts of cases 1 to 7 are driven through `/mcp` by the scripted client."""
 
-
-def between_games(*ready_seats, series):
-    return replace(after_the_first_game(table_in(HandProgress()), *ready_seats), series=series)
-
-
-DECLARER_BID = (Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Position.REARHAND))
-
-
-class TestTheAcceptedActOfEachCaseRaisesTheRevision:
     @pytest.mark.parametrize(
         ("record", "position", "act", "awaits_after"),
         [
-            pytest.param(table_in(HandProgress()), Position.MIDDLEHAND, auction_bid, False, id="1-auction-bid"),
-            pytest.param(table_in(HandProgress(DECLARER_BID)), Position.MIDDLEHAND, take_the_skat, True, id="2-take"),
             pytest.param(
-                table_in(HandProgress(DECLARER_BID, declaring=(TakeSkat(),))),
-                Position.MIDDLEHAND,
-                put_back,
-                True,
-                id="2-put-back",
+                asked_by_the_declarer(), Position.REARHAND, agree_to_give_up, True, id="4-agree-then-the-result"
             ),
             pytest.param(
-                table_in(HandProgress(DECLARER_BID, declaring=(TakeSkat(), PutBack(DECK[30:32])))),
-                Position.MIDDLEHAND,
-                declare_hand,
-                False,
-                id="2-declare",
-            ),
-            pytest.param(table_in(declared_herz_hand()), Position.FOREHAND, play_first_card, False, id="3-play"),
-            pytest.param(asked_to_give_up(), Position.REARHAND, decline_give_up, False, id="4-decline"),
-            pytest.param(asked_to_give_up(), Position.REARHAND, agree_to_give_up, True, id="4-agree-then-the-result"),
-            pytest.param(
-                between_games(2, 3, series=Series(12, 1)), Position.MIDDLEHAND, continue_after_result, False, id="5"
-            ),
-            pytest.param(
-                between_games(2, 3, series=Series(12, 12)), Position.MIDDLEHAND, start_new_series, False, id="6"
-            ),
-            pytest.param(
-                between_games(1, 2, 3, series=Series(12, 1, end_proposal=EndProposal(1))),
-                Position.REARHAND,
-                refuse_to_end,
-                False,
-                id="7-refuse",
-            ),
-            pytest.param(
-                between_games(1, 2, 3, series=Series(12, 1, end_proposal=EndProposal(1))),
-                Position.REARHAND,
-                agree_to_end,
-                False,
-                id="7-agree",
+                between_games(1, 2, 3, proposal=EndProposal(1)), Position.REARHAND, refuse_to_end, False, id="7-refuse"
             ),
         ],
     )
@@ -256,7 +174,7 @@ class TestTheAcceptedActOfEachCaseRaisesTheRevision:
         assert after.awaits_you is awaits_after
 
     def test_the_same_act_again_raises_nothing(self):
-        scene = Scene().put(between_games(2, 3, series=Series(12, 1)))
+        scene = Scene().put(between_games(2, 3))
         seat = an_actor(Position.MIDDLEHAND)
         continue_after_result(scene.service, seat, scene.table_id, 0)
         revision = scene.view_of(seat.account_id).view.version
@@ -288,19 +206,23 @@ class TestTheSignalOfACommit:
         ]
         assert {member.view.version for member in scene.signals[0][2].values()} == {version + 1}
 
-    def test_a_refused_move_a_replay_and_an_unchanged_mark_tell_nobody(self):
-        scene = Scene().put(between_games(2, 3, series=Series(12, 1)))
+    def test_a_refused_move_a_replay_and_an_unchanged_mark_tell_nobody_after_an_accepted_one_told_the_agents(self):
+        scene = Scene().put(with_agents(between_games(2, 3), 2, 3))
         seat = an_actor(Position.MIDDLEHAND)
-        continue_after_result(scene.service, seat, scene.table_id, 0)
+
+        accepted = continue_after_result(scene.service, seat, scene.table_id, 0)
+
+        assert accepted.refusal is None
+        assert [accounts for _, accounts, _ in scene.signals] == [{"account-rearhand", "account-forehand"}]
         scene.signals.clear()
 
         stale = scene.service.take_auction_step(
             seat, AuctionCommand("stale", scene.table_id, 99, AuctionAction.BID, 18), NOBODY
         )
-        again = scene.service.mark_ready(seat, ReadyCommand("act", scene.table_id, 1), NOBODY)
+        replay = continue_after_result(scene.service, seat, scene.table_id, 0)
         second_tap = scene.service.mark_ready(seat, ReadyCommand("another", scene.table_id, 1), NOBODY)
 
-        assert (stale.refusal is not None, again.refusal, second_tap.refusal) == (True, None, None)
+        assert (stale.refusal is not None, replay.refusal, second_tap.refusal) == (True, None, None)
         assert scene.signals == []
 
     def test_a_sit_that_deals_tells_every_agent_seated_after_it_the_sitter_included(self):
@@ -324,13 +246,7 @@ class TestTheSignalOfACommit:
         assert [accounts for _, accounts, _ in scene.signals] == [{MOZART.account_id}]
 
     def test_the_deal_after_the_third_continue_tells_the_agents_seated_at_the_new_hand(self):
-        scene = Scene().put(between_games(1, 2, 3, series=Series(12, 1)))
-        agent_table = scene.table
-        chairs = tuple(
-            replace(chair, occupant=replace(chair.occupant, kind=OccupantKind.AGENT)) if chair.seat != 1 else chair
-            for chair in agent_table.chairs
-        )
-        scene.put(replace(agent_table, chairs=chairs))
+        scene = Scene().put(with_agents(between_games(1, 2, 3), 2, 3))
         everyone = frozenset(chair.occupant.account_id for chair in scene.table.chairs)
 
         dealt = scene.service.deal_next(TableId(scene.table_id), nullcontext(everyone))

@@ -16,7 +16,6 @@ from skat.table.records import (
     EndedTable,
     EndProposal,
     EndReason,
-    GiveUpAsked,
     HandProgress,
     RamschOccasion,
     RamschSetting,
@@ -25,7 +24,7 @@ from skat.table.records import (
     TableOptions,
 )
 from skat.table.views import view_of
-from tests.support.played_game import after_the_first_game, declared_herz_hand, table_in
+from tests.support.played_game import asked_by_the_declarer, between_games, declared_herz_hand, table_in
 
 MIDDLEHAND, REARHAND, FOREHAND = "account-middlehand", "account-rearhand", "account-forehand"
 EVERYONE = (MIDDLEHAND, REARHAND, FOREHAND)
@@ -45,15 +44,6 @@ DECLARER_BID = (Bid(Position.MIDDLEHAND, 18), Pass(Position.FOREHAND), Pass(Posi
 def waiting_for(table):
     """The accounts of the seated whose own view says the table waits for them."""
     return {account for account in EVERYONE if awaits_you(view_of(table, account, frozenset()))}
-
-
-def between_games(*ready_seats, series=None, proposal=None):
-    table = after_the_first_game(table_in(HandProgress()), *ready_seats)
-    return replace(table, series=series or replace(Series(12, 1), end_proposal=proposal))
-
-
-def over_series():
-    return Series(12, 12)
 
 
 class TestTheTurnOfTheHand:
@@ -82,68 +72,81 @@ class TestTheTurnOfTheHand:
 
 
 class TestAGiveUpQuestion:
-    def asked_by_the_declarer(self, declined_by=None):
-        table = table_in(declared_herz_hand())
-        asked = GiveUpAsked(Position.MIDDLEHAND, declined_by)
-        return replace(table, progress=replace(table.progress, give_up=asked))
-
-    def test_an_opponent_who_has_not_answered_is_awaited_though_it_is_not_on_turn(self):
-        assert waiting_for(self.asked_by_the_declarer()) == {FOREHAND, REARHAND}
-
-    def test_the_opponent_who_declined_and_the_asker_are_not_awaited(self):
-        table = self.asked_by_the_declarer(declined_by=Position.REARHAND)
-
-        assert REARHAND not in waiting_for(table)
-        assert MIDDLEHAND not in waiting_for(table)
+    @pytest.mark.parametrize(
+        ("declined_by", "waiting"),
+        [
+            pytest.param(None, {FOREHAND, REARHAND}, id="an-opponent-who-has-not-answered-though-not-on-turn"),
+            pytest.param(Position.REARHAND, {FOREHAND}, id="not-the-opponent-who-declined-nor-the-asker"),
+        ],
+    )
+    def test_the_opponents_who_have_not_answered_are_awaited(self, declined_by, waiting):
+        assert waiting_for(asked_by_the_declarer(declined_by)) == waiting
 
 
 class TestAResultAndTheEndOfTheSeries:
-    def test_a_result_awaits_every_seat_that_has_not_continued(self):
-        assert waiting_for(between_games(SEAT_OF[REARHAND])) == {MIDDLEHAND, FOREHAND}
-
-    def test_a_result_awaits_nobody_once_every_seat_continued(self):
-        assert waiting_for(between_games(1, 2, 3)) == set()
-
-    def test_the_end_of_the_series_awaits_every_seat_that_has_not_marked_new_series(self):
-        assert waiting_for(between_games(SEAT_OF[MIDDLEHAND], series=over_series())) == {REARHAND, FOREHAND}
-
-    def test_a_series_that_ended_early_awaits_the_unmarked_seats_like_a_series_that_ran_out(self):
-        table = between_games(series=Series(12, 1, ended_early=True))
-
-        assert waiting_for(table) == set(EVERYONE)
-
-    def test_a_series_over_awaits_nobody_once_every_seat_marked(self):
-        assert waiting_for(between_games(1, 2, 3, series=over_series())) == set()
+    @pytest.mark.parametrize(
+        ("table", "waiting"),
+        [
+            pytest.param(
+                between_games(SEAT_OF[REARHAND]), {MIDDLEHAND, FOREHAND}, id="a-result-awaits-who-has-not-continued"
+            ),
+            pytest.param(between_games(1, 2, 3), set(), id="a-result-awaits-nobody-once-all-continued"),
+            pytest.param(
+                between_games(SEAT_OF[MIDDLEHAND], series=Series(12, 12)),
+                {REARHAND, FOREHAND},
+                id="a-series-over-awaits-who-has-not-marked-new-series",
+            ),
+            pytest.param(
+                between_games(series=Series(12, 1, ended_early=True)),
+                set(EVERYONE),
+                id="a-series-ended-early-awaits-the-unmarked-like-one-that-ran-out",
+            ),
+            pytest.param(
+                between_games(1, 2, 3, series=Series(12, 12)), set(), id="a-series-over-awaits-nobody-once-all-marked"
+            ),
+        ],
+    )
+    def test_the_seats_that_have_not_answered_the_result_are_awaited(self, table, waiting):
+        assert waiting_for(table) == waiting
 
 
 class TestAnEarlyEndProposal:
-    def proposed_by(self, seat, accepter=None):
-        return between_games(1, 2, 3, proposal=EndProposal(seat, accepter))
+    @pytest.mark.parametrize(
+        ("proposal", "waiting"),
+        [
+            pytest.param(EndProposal(1), {REARHAND, FOREHAND}, id="the-seats-that-have-not-answered"),
+            pytest.param(EndProposal(1, accepter=2), {FOREHAND}, id="not-the-proposer-nor-the-accepter"),
+        ],
+    )
+    def test_the_seats_that_have_not_answered_are_awaited(self, proposal, waiting):
+        assert waiting_for(between_games(1, 2, 3, proposal=proposal)) == waiting
 
-    def test_the_seats_that_have_not_answered_are_awaited(self):
-        assert waiting_for(self.proposed_by(1)) == {REARHAND, FOREHAND}
 
-    def test_the_proposer_and_the_accepter_are_not_awaited(self):
-        assert waiting_for(self.proposed_by(1, accepter=2)) == {FOREHAND}
+def with_a_free_first_chair(table):
+    return replace(table, chairs=(Chair(1, None), *table.chairs[1:]))
+
+
+def with_a_free_third_chair(table):
+    return replace(table, hand=None, chairs=(table.chairs[0], table.chairs[1], Chair(3, None)))
 
 
 class TestNothingIsAwaited:
-    def test_a_free_chair_is_not_awaited_and_the_result_awaits_only_the_seated(self):
-        table = between_games()
-        freed = replace(table, chairs=(Chair(1, None), *table.chairs[1:]))
-
-        assert waiting_for(freed) == {REARHAND, FOREHAND}
-
-    def test_a_passed_in_hand_awaits_nobody_while_it_pauses(self):
-        table = replace(table_in(HandProgress(ALL_PASS)), hand=None)
-
-        assert waiting_for(table) == set()
-
-    def test_a_table_with_fewer_than_three_chairs_and_no_result_awaits_nobody(self):
-        table = table_in(HandProgress())
-        two = replace(table, hand=None, chairs=(table.chairs[0], table.chairs[1], Chair(3, None)))
-
-        assert waiting_for(two) == set()
+    @pytest.mark.parametrize(
+        ("table", "waiting"),
+        [
+            pytest.param(
+                with_a_free_first_chair(between_games()), {REARHAND, FOREHAND}, id="a-free-chair-is-not-awaited"
+            ),
+            pytest.param(
+                replace(table_in(HandProgress(ALL_PASS)), hand=None), set(), id="a-passed-in-hand-while-it-pauses"
+            ),
+            pytest.param(
+                with_a_free_third_chair(table_in(HandProgress())), set(), id="fewer-than-three-chairs-and-no-result"
+            ),
+        ],
+    )
+    def test_the_seats_that_nothing_waits_for_are_not_awaited(self, table, waiting):
+        assert waiting_for(table) == waiting
 
     def test_an_account_without_a_chair_is_not_awaited(self):
         view = view_of(between_games(), "account-watcher", frozenset({"account-watcher"}))
