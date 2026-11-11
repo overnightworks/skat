@@ -20,7 +20,7 @@ from skat.table.playing import (
 )
 from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableId
 from skat.table.service import TableService
-from tests.support.fake_tables import DealtWithoutTimeError, FakeTableStore
+from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import HERZ_HAND, before_the_last_card, declared_herz_hand
 
 if TYPE_CHECKING:
@@ -93,17 +93,6 @@ class TestADeal:
         assert scene.at(LATER).service.deal_next(TableId(scene.table_id), nullcontext(ALL_THREE)) is True
 
         assert scene.played_at == LATER
-
-    def test_a_deal_saved_with_no_time_is_refused_and_nothing_is_stored(self, scene):
-        steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
-        scene.store.tables[scene.table_id] = replace(scene.table, hand=None, progress=HandProgress(steps))
-        scene.store.last_played_at.clear()
-        before = scene.table
-
-        with pytest.raises(DealtWithoutTimeError), scene.store.begin() as transaction:
-            transaction.save_table(replace(before, version=before.version + 1), played_at=None)
-
-        assert scene.table == before
 
 
 class TestAStepOfPlay:

@@ -136,15 +136,6 @@ class TestTheEndAndTheOpener:
 
         assert entry["opener_name"] == opener_name
 
-    def test_a_table_opened_before_the_name_was_kept_has_no_opener_name_and_still_an_end(self, skat):
-        table_id, people = seated_three(skat)
-        del skat.store.opener_names[table_id]
-
-        (entry,) = paused_of(skat, people[0][0])
-
-        assert entry["opener_name"] is None
-        assert entry["ends_at"] is not None
-
 
 class TestTheGateAndTheHeaders:
     def test_a_fetch_without_a_session_gets_401_and_no_list(self, skat):

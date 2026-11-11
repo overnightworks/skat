@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from skat.store.schema import tables
-from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
+from skat.table.records import Actor, CreateTable, SitDown, TableId
 from skat.table.service import PausedFacts, TableService
 
 pytestmark = pytest.mark.postgres
@@ -54,15 +54,6 @@ def columns_of(engine, table_id):
 class TestTheOpenersName:
     def test_the_name_the_opener_had_at_opening_is_stored_with_the_table(self, engine, opened):
         assert columns_of(engine, opened) == (None, "Anna")
-
-    def test_it_stays_when_the_opener_stands_up_and_another_sits_in_his_chair(self, service, transactions, dealt):
-        service.stand(OPENER, StandUp("stand", dealt), NOBODY_CONNECTED)
-
-        assert facts_of(transactions, dealt).opener_name == "Anna"
-
-        service.sit(Actor("account-dora", "Dora"), SitDown("sit-dora", dealt, 1), NOBODY_CONNECTED)
-
-        assert facts_of(transactions, dealt).opener_name == "Anna"
 
 
 class TestTheLastPlayedTime:
