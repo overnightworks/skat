@@ -148,7 +148,7 @@ def test_an_early_end_stores_its_entry_drops_cards_and_a_new_service_replays_the
     command = command_type(command_id="early-end", table_id=game.table_id, version=game.record.version)
     declarer = game.actors[Position.MIDDLEHAND]
 
-    first = run(game.service)(declarer, command, nobody_connected(), lambda _accounts: None)
+    first = run(game.service)(declarer, command, nobody_connected())
 
     assert first.refusal is None
     for hand_table in ("hand_cards", "auction_actions", "declaring_steps", "played_cards"):
@@ -157,9 +157,7 @@ def test_an_early_end_stores_its_entry_drops_cards_and_a_new_service_replays_the
     assert len(game.record.game_list) == 1
     restarted_engine = create_store_engine(database_url)
     try:
-        again = run(TableService(PostgresTableTransactions(restarted_engine)))(
-            declarer, command, nobody_connected(), lambda _accounts: None
-        )
+        again = run(TableService(PostgresTableTransactions(restarted_engine)))(declarer, command, nobody_connected())
     finally:
         restarted_engine.dispose()
     assert (again.view, again.refusal) == (first.view, first.refusal)
@@ -172,7 +170,7 @@ def asked_with_eight_cards(game):
     while len(playing_of(game.record).hands[Position.MIDDLEHAND]) > 8:
         game.play_legally(1, start=len(game.plays) + 1)
     command = GiveUpCommand(command_id="ask", table_id=game.table_id, version=game.record.version)
-    result = game.service.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None)
+    result = game.service.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected())
     assert result.refusal is None
 
 
@@ -195,9 +193,7 @@ def test_an_unanswered_request_and_a_no_are_read_back_by_a_new_service_and_a_yes
         restarted = PostgresTableTransactions(restarted_engine)
         assert stored(restarted, game.table_id).progress.give_up == GiveUpAsked(Position.MIDDLEHAND, Position.FOREHAND)
         yes = AgreeToGiveUpCommand(command_id="yes", table_id=game.table_id, version=game.record.version)
-        result = TableService(restarted).agree_to_give_up(
-            game.actors[Position.REARHAND], yes, nobody_connected(), lambda _: None
-        )
+        result = TableService(restarted).agree_to_give_up(game.actors[Position.REARHAND], yes, nobody_connected())
     finally:
         restarted_engine.dispose()
 
@@ -244,7 +240,7 @@ def test_two_yes_answers_at_once_write_one_entry_naming_the_asker_and_the_loser_
 
     def agree(position, command_id):
         command = AgreeToGiveUpCommand(command_id=command_id, table_id=game.table_id, version=version)
-        return lambda: racing.agree_to_give_up(game.actors[position], command, nobody_connected(), lambda _: None)
+        return lambda: racing.agree_to_give_up(game.actors[position], command, nobody_connected())
 
     results = race(agree(Position.FOREHAND, "yes-forehand"), agree(Position.REARHAND, "yes-rearhand"))
 
@@ -264,7 +260,7 @@ def test_a_card_and_a_give_up_at_once_commit_only_the_winner_and_its_ending_matc
 
     card_result, give_up_result = race(
         lambda: game.send(position, card, command_id=card_id(1), version=version, service=racing),
-        lambda: racing.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None),
+        lambda: racing.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected()),
     )
 
     committed = (

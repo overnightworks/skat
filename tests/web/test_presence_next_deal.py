@@ -228,9 +228,11 @@ class TestNextHandComes:
                 advance(server, time, NEXT_DEAL_PAUSE_SECONDS * 2)
                 assert server.store.tables[table_id].version == passed_in.version + 1
 
-    def test_a_member_away_when_the_pause_ends_keeps_the_table_waiting_and_their_hold_running(self, server, hold, time):
+    def test_a_member_away_when_the_pause_ends_keeps_the_table_waiting_and_the_chair(self, server, hold, time):
         table_id, people = seated_three(server)
         server.client.cookies.clear()
+        with streams_of(server, table_id, people[2:3]):
+            pass
         with streams_of(server, table_id, people[:2]):
             pass_hand_in(server, table_id, people)
             passed_in = server.store.tables[table_id]
@@ -260,24 +262,20 @@ class TestNextHandComes:
                 advance(server, time, hold.settings.chair_hold_seconds)
                 assert occupied_seats(server, table_id) == {1, 2, 3}
 
-    def test_the_hold_of_an_away_member_frees_the_chair_with_no_deal_and_the_filling_sit_deals_at_once(
+    def test_the_hold_of_an_away_member_frees_no_chair_after_a_passed_in_hand_and_the_table_deals_nothing(
         self, server, hold, time
     ):
         table_id, people = seated_three(server)
         server.client.cookies.clear()
+        with streams_of(server, table_id, people[2:3]):
+            pass
         with streams_of(server, table_id, people[:2]):
             pass_hand_in(server, table_id, people)
-            advance(server, time, hold.settings.chair_hold_seconds + 1)
-            assert occupied_seats(server, table_id) == {1, 2}
-            assert server.store.tables[table_id].hand is None
+            passed_in = server.store.tables[table_id]
 
-            server.client.cookies.clear()
-            answer = server.sit(people[3][0], table_id, 3, command_id="command-sit-away")
+            advance(server, time, hold.settings.chair_hold_seconds * 2)
 
-        assert answer.status_code == 200, answer.text
-        record = server.store.tables[table_id]
-        assert record.hand is not None
-        assert record.dealer == next_dealer(DEALER_SEAT)
+            assert server.store.tables[table_id] == passed_in
 
     def test_standing_up_during_the_pause_is_allowed_and_the_pause_then_deals_nothing(self, server, time):
         table_id, people = seated_three(server)
@@ -471,9 +469,7 @@ class TestAfterAPlayedGame:
 
         assert server.store.tables[table_id] == ended
 
-    def test_a_member_away_at_the_last_card_gets_a_fresh_hold_and_the_connected_keep_their_chairs(
-        self, server, hold, time
-    ):
+    def test_a_member_away_at_the_last_card_keeps_the_chair_like_the_connected(self, server, hold, time):
         table_id, people = seated_three(server)
         server.client.cookies.clear()
         hold_seconds = hold.settings.chair_hold_seconds
@@ -483,17 +479,12 @@ class TestAfterAPlayedGame:
             advance(server, time, hold_seconds / 2)
             last_card_played(server, table_id, people)
 
-            advance(server, time, hold_seconds - 1)
+            advance(server, time, hold_seconds * 2)
             assert occupied_seats(server, table_id) == {1, 2, 3}
-
-            advance(server, time, 2)
-            assert occupied_seats(server, table_id) == {1, 2}
 
 
 class TestHoldWhenAPlayedGameEnds:
-    def test_an_old_expiry_reaching_the_table_right_after_the_thirtieth_card_committed_leaves_the_fresh_hold_alone(
-        self, hold, time
-    ):
+    def test_an_expiry_reaching_the_table_right_after_the_thirtieth_card_committed_frees_nothing(self, hold, time):
         store = OvertakenStore()
         server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
         with server.client:
@@ -508,10 +499,8 @@ class TestHoldWhenAPlayedGameEnds:
             play_last()
 
             assert occupied_seats(server, table_id) == {1, 2, 3}
-            advance(server, time, hold.settings.chair_hold_seconds - 1)
+            advance(server, time, hold.settings.chair_hold_seconds * 2)
             assert occupied_seats(server, table_id) == {1, 2, 3}
-            advance(server, time, 2)
-            assert occupied_seats(server, table_id) == set()
 
 
 class TestNextDealTrigger:

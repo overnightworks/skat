@@ -85,6 +85,7 @@ from skat.table.rules import (
     decide_stand,
     ends_empty,
     hand_was_dealt,
+    hold_frees_chair,
     is_deal_or_step_of_play,
     next_deal_due,
     presence_step,
@@ -126,14 +127,13 @@ class CommandResult:
     """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
 
     `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
-    retry restarts no timer. `away_when_hand_ended` names those of them who were not present then.
+    retry restarts no pause.
     """
 
     view: TableView
     refusal: CommandRefusal | None = None
     holder: str | None = None
     seated_when_hand_ended: frozenset[str] = frozenset()
-    away_when_hand_ended: frozenset[str] = frozenset()
 
 
 def _utc_now() -> datetime:
@@ -237,7 +237,6 @@ class TableService:
         actor: Actor,
         command: AuctionCommand,
         connected_accounts: frozenset[str],
-        on_hand_ended: Callable[[frozenset[str]], None] | None = None,
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -247,7 +246,6 @@ class TableService:
             AUCTION_STEP_COMMAND,
             auction_payload(command),
             lambda table: decide_step(table, actor, command),
-            on_hand_ended,
         )
 
     def take_declaring_step(
@@ -268,7 +266,6 @@ class TableService:
         actor: Actor,
         command: PlayCardCommand,
         connected_accounts: frozenset[str],
-        on_hand_ended: Callable[[frozenset[str]], None] | None = None,
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -278,7 +275,6 @@ class TableService:
             PLAY_CARD_COMMAND,
             card_payload(command),
             lambda table: decide_card(table, actor, command),
-            on_hand_ended,
         )
 
     def say_kontra(
@@ -299,7 +295,6 @@ class TableService:
         actor: Actor,
         command: GiveUpCommand,
         connected_accounts: frozenset[str],
-        on_hand_ended: Callable[[frozenset[str]], None],
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -309,7 +304,6 @@ class TableService:
             GIVE_UP_COMMAND,
             give_up_payload(command),
             lambda table: decide_give_up(table, actor, command),
-            on_hand_ended,
         )
 
     def agree_to_give_up(
@@ -317,7 +311,6 @@ class TableService:
         actor: Actor,
         command: AgreeToGiveUpCommand,
         connected_accounts: frozenset[str],
-        on_hand_ended: Callable[[frozenset[str]], None],
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -327,7 +320,6 @@ class TableService:
             AGREE_TO_GIVE_UP_COMMAND,
             agree_to_give_up_payload(command),
             lambda table: decide_agree_to_give_up(table, actor, command),
-            on_hand_ended,
         )
 
     def decline_give_up(
@@ -348,7 +340,6 @@ class TableService:
         actor: Actor,
         command: ThrowDownCommand,
         connected_accounts: frozenset[str],
-        on_hand_ended: Callable[[frozenset[str]], None],
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -358,7 +349,6 @@ class TableService:
             THROW_DOWN_COMMAND,
             throw_down_payload(command),
             lambda table: decide_throw_down(table, actor, command),
-            on_hand_ended,
         )
 
     def mark_ready(
@@ -418,12 +408,13 @@ class TableService:
 
         `due` is entered once the row is locked, so a command that committed meanwhile has had its say, and left
         after the commit; it yields whether the caller still wants the chair freed, and False changes nothing.
-        The decision re-reads the chair under the row lock, so a repeat, or a chair the account left in the
-        meantime, changes nothing either. True when it freed the chair.
+        A table on which a hand was dealt frees no chair this way, and the refusal writes nothing. The decision
+        re-reads the chair under the row lock, so a repeat, or a chair the account left in the meantime, changes
+        nothing either. True when it freed the chair.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            if table is None or not after_commit.enter_context(due):
+            if table is None or not after_commit.enter_context(due) or not hold_frees_chair(table):
                 return False
             decision = decide_free_chair(table, account_id)
             if decision.refusal is not None:
@@ -661,18 +652,13 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
-        on_hand_ended: Callable[[frozenset[str]], None] | None = None,
     ) -> CommandResult | None:
         try:
-            return self._run_command_once(
-                actor, connected_accounts, table_id, command_id, command, payload, decide, on_hand_ended
-            )
+            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
         except DuplicateReceiptError:
             # The same command id committed on another table between this one's lookup and its receipt;
             # the retry finds that receipt and replays it or refuses the reuse.
-            return self._run_command_once(
-                actor, connected_accounts, table_id, command_id, command, payload, decide, on_hand_ended
-            )
+            return self._run_command_once(actor, connected_accounts, table_id, command_id, command, payload, decide)
 
     def _run_command_once(
         self,
@@ -683,13 +669,8 @@ class TableService:
         command: str,
         payload: str,
         decide: Callable[[TableRecord], Decision],
-        on_hand_ended: Callable[[frozenset[str]], None] | None,
     ) -> CommandResult | None:
-        """Lock the table row, replay by actor and command id, decide, write, store the receipt; None for no table.
-
-        When the command ended the hand, `on_hand_ended` hears who sat at the table and is not connected, before
-        the commit, so no one else locks the row between the end of the hand and what the caller does about it.
-        """
+        """Lock the table row, replay by actor and command id, decide, write, store the receipt; None for no table."""
         identifier = TableId.parse(table_id)
         if identifier is None:
             return None
@@ -699,7 +680,6 @@ class TableService:
                 return None
             replay = transaction.replay(actor.account_id, command_id)
             seated_when_hand_ended: frozenset[str] = frozenset()
-            away_when_hand_ended: frozenset[str] = frozenset()
             told: frozenset[str] = frozenset()
             viewers: frozenset[str] = frozenset()
             if replay is None:
@@ -714,15 +694,11 @@ class TableService:
             present = present_at(decision.table, connected_accounts, self._live_leases())
             if replay is None:
                 seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
-                away_when_hand_ended = seated_when_hand_ended - present
-                if on_hand_ended is not None:
-                    on_hand_ended(away_when_hand_ended)
             result = CommandResult(
                 view_of(decision.table, actor.account_id, present),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
-                away_when_hand_ended,
             )
         self._tell(told)
         self._tell_view(identifier, viewers)

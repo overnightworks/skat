@@ -1,8 +1,5 @@
 import asyncio
-import json
 import threading
-from contextlib import contextmanager
-from functools import partial
 
 import pytest
 from structlog.testing import capture_logs
@@ -26,15 +23,13 @@ from tests.web.support.presence import (
     NAMED_FAILURE,
     OTHER_TABLE,
     TABLE,
-    THIRD_PASS_COMMAND,
-    OvertakenStore,
     connect,
+    end_the_first_game,
     occupied_seats,
     pass_hand_in,
-    post_pass,
     run,
 )
-from tests.web.support.skat import FakeTime, Skat
+from tests.web.support.skat import FakeTime
 
 
 @pytest.fixture
@@ -416,144 +411,65 @@ class TestChairHold:
         assert (time.pending, releases.calls) == (0, [])
 
 
-@contextmanager
-def one_second_before_the_hold_ends_after_two_passes(hold, time):
-    """A server with three seated, away members and two passes made, one second before the hold would end."""
-    store = OvertakenStore()
-    server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
-    with server.client:
+def leaves_the_table(server, table_id, headers):
+    """The member opens the table's stream, reads its first view and closes it, which starts their hold."""
+    with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=headers) as stream:
+        next(stream.iter_lines())
+        stream.close()
+    server.client.cookies.clear()
+
+
+def two_seated_at_a_new_table(server):
+    """Anna opens a table and Ben sits in seat 2, so no hand is dealt; Cleo has no chair yet."""
+    people = [server.member() for _ in range(3)]
+    table_id = server.create(people[0][0]).json()["id"]
+    server.sit(people[1][0], table_id, 2, command_id="command-sit-2")
+    return table_id, people
+
+
+def advance(server, time, seconds):
+    server.client.portal.call(time.advance, seconds)
+
+
+class TestHoldAtADealtTable:
+    def test_a_member_who_left_during_a_hand_keeps_the_chair_while_it_runs_and_after_it_ended(self, server, hold, time):
         table_id, people = seated_three(server)
-        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[0][0]) as s:
-            next(s.iter_lines())
-            s.close()
-        server.client.cookies.clear()
-        for seat in (1, 2):
-            version = store.tables[table_id].version
-            post_pass(server, table_id, people[seat - 1][0], command_id=f"pass-seat-{seat}", version=version)
-        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
-        yield server, store, table_id, people
+        leaves_the_table(server, table_id, people[0][0])
 
-
-def assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time):
-    assert occupied_seats(server, table_id) == {1, 2, 3}
-    server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
-    assert occupied_seats(server, table_id) == {1, 2, 3}
-    server.client.portal.call(time.advance, 2)
-    assert occupied_seats(server, table_id) == set()
-
-
-class TestHoldWhenTheHandEnds:
-    def test_a_freeing_waiting_for_the_table_while_the_third_pass_ends_the_hand_leaves_the_fresh_hold_alone(
-        self, hold, time
-    ):
-        with one_second_before_the_hold_ends_after_two_passes(hold, time) as (server, store, table_id, people):
-            store.meanwhile = partial(
-                post_pass,
-                server,
-                table_id,
-                people[2][0],
-                command_id=THIRD_PASS_COMMAND,
-                version=store.tables[table_id].version,
-            )
-
-            server.client.portal.call(time.advance, 1)
-
-            assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time)
-
-    def test_an_old_expiry_reaching_the_table_right_after_the_third_pass_committed_leaves_the_fresh_hold_alone(
-        self, hold, time
-    ):
-        with one_second_before_the_hold_ends_after_two_passes(hold, time) as (server, store, table_id, people):
-            store.after_commit = partial(server.client.portal.call, time.advance, 1)
-
-            post_pass(
-                server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=store.tables[table_id].version
-            )
-
-            assert_fresh_hold_runs_a_full_hold(server, table_id, hold, time)
-
-    def test_a_member_away_when_the_hand_ends_keeps_the_chair_until_a_fresh_hold_has_passed(self, server, hold, time):
-        table_id, people = seated_three(server)
-        server.client.cookies.clear()
-
+        advance(server, time, hold.settings.chair_hold_seconds + 1)
         pass_hand_in(server, table_id, people)
-        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
-
-        assert occupied_seats(server, table_id) == {1, 2, 3}
-        server.client.portal.call(time.advance, 2)
-        assert occupied_seats(server, table_id) == set()
-
-    def test_a_member_who_left_during_the_hand_keeps_the_chair_a_full_hold_after_it_ended(self, server, hold, time):
-        table_id, people = seated_three(server)
-        server.client.cookies.clear()
-        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[0][0]) as s:
-            next(s.iter_lines())
-            s.close()
-        server.client.cookies.clear()
-        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds / 2)
-
-        pass_hand_in(server, table_id, people)
-        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds - 1)
+        advance(server, time, hold.settings.chair_hold_seconds * 3)
 
         assert occupied_seats(server, table_id) == {1, 2, 3}
 
-    def test_a_stream_wakes_when_the_hold_after_the_hand_frees_a_chair(self, server, hold, time):
+    def test_a_member_who_left_between_games_keeps_the_chair_and_the_hold_writes_nothing(self, server, hold, time):
         table_id, people = seated_three(server)
-        server.client.cookies.clear()
+        end_the_first_game(server.store, table_id)
+        leaves_the_table(server, table_id, people[1][0])
+        before = server.store.tables[table_id]
 
-        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[3][0]) as s:
-            messages = (line for line in s.iter_lines() if line.startswith("data: "))
-            opened = json.loads(next(messages).removeprefix("data: "))
-            server.client.cookies.clear()
-            pass_hand_in(server, table_id, people)
-            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds + 1)
-            freed = next(
-                line
-                for line in messages
-                if all(chair["occupant_name"] is None for chair in json.loads(line.removeprefix("data: "))["chairs"])
-            )
+        advance(server, time, hold.settings.chair_hold_seconds * 3)
 
-        assert json.loads(freed.removeprefix("data: "))["version"] > opened["version"]
+        assert server.store.tables[table_id] == before
 
-    def test_a_member_connected_at_the_end_keeps_the_chair_and_starts_no_timer(self, server, hold, time):
-        table_id, people = seated_three(server)
-        server.client.cookies.clear()
+    def test_a_member_who_left_a_table_with_no_hand_dealt_loses_the_chair_after_the_hold(self, server, hold, time):
+        table_id, people = two_seated_at_a_new_table(server)
+        leaves_the_table(server, table_id, people[1][0])
 
-        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[2][0]) as s:
-            lines = s.iter_lines()
-            next(lines)
-            server.client.cookies.clear()
-            pass_hand_in(server, table_id, people)
-            two_holds_the_pause_and_the_tables_empty_wait = 4
-            assert time.pending == two_holds_the_pause_and_the_tables_empty_wait
-            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds + 1)
-            assert occupied_seats(server, table_id) == {3}
+        advance(server, time, hold.settings.chair_hold_seconds - 1)
+        assert occupied_seats(server, table_id) == {1, 2}
+        advance(server, time, 2)
+        assert occupied_seats(server, table_id) == {1}
 
-    def test_a_member_back_before_the_hold_ends_keeps_the_chair(self, server, hold, time):
-        table_id, people = seated_three(server)
-        server.client.cookies.clear()
-        pass_hand_in(server, table_id, people)
-        server.client.portal.call(time.advance, hold.settings.chair_hold_seconds * 3 / 5)
+    def test_a_member_who_left_before_the_third_sit_keeps_the_chair_once_the_hold_ends(self, server, hold, time):
+        table_id, people = two_seated_at_a_new_table(server)
+        leaves_the_table(server, table_id, people[1][0])
+        advance(server, time, hold.settings.chair_hold_seconds - 1)
+        server.sit(people[2][0], table_id, 3, command_id="command-sit-3")
 
-        with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=people[1][0]) as s:
-            lines = s.iter_lines()
-            next(lines)
-            server.client.portal.call(time.advance, hold.settings.chair_hold_seconds)
-            assert occupied_seats(server, table_id) == {2}
+        advance(server, time, 2)
 
-    def test_the_same_third_pass_again_starts_no_timer(self, server, time):
-        table_id, people = seated_three(server)
-        server.client.cookies.clear()
-        version = server.store.tables[table_id].version
-        post_pass(server, table_id, people[0][0], command_id="pass-seat-1", version=version)
-        post_pass(server, table_id, people[1][0], command_id="pass-seat-2", version=version + 1)
-        first = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
-        pending = time.pending
-
-        again = post_pass(server, table_id, people[2][0], command_id=THIRD_PASS_COMMAND, version=version + 2)
-
-        assert (first.status_code, again.status_code) == (200, 200)
-        assert time.pending == pending
+        assert occupied_seats(server, table_id) == {1, 2, 3}
 
 
 class TestLoopScheduler:

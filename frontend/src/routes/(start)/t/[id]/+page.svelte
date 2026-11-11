@@ -232,14 +232,36 @@
         </defs>
     </svg>
     {#if !greeted}
-        <header class="bar" class:stale={!connected}>
+        <header class="bar">
             {#if callMode}
-                <span class="wordmark">{words.appName}</span>
+                <span class="wordmark" class:stale={!connected}>{words.appName}</span>
             {:else}
-                <a class="wordmark" href={resolve("/(start)")}>{words.appName}</a>
+                <a class="lobby" href={resolve("/(start)")} title={words.lobby} aria-label={words.lobby}>
+                    <span class="lobby-face button-glass">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M4 11.5 12 5l8 6.5" />
+                            <path d="M6.5 10v9h11v-9" />
+                        </svg>
+                        <span class="lobby-word">{words.lobby}</span>
+                    </span>
+                </a>
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
-                <div class="watchers" title={words.watchers} role="group" aria-label={words.watchers}>
+                <div
+                    class="watchers"
+                    class:stale={!connected}
+                    title={words.watchers}
+                    role="group"
+                    aria-label={words.watchers}
+                >
                     <svg
                         viewBox="0 0 24 24"
                         fill="none"

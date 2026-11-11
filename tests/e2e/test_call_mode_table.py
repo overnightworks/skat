@@ -36,6 +36,7 @@ WORDMARK = ".bar .wordmark"
 APP_NAME = catalog_text("appName")
 COPY_LINK = catalog_text("copyLink")
 NEW_TABLE = catalog_text("newTable")
+LOBBY = catalog_text("lobby")
 
 
 @pytest.fixture(scope="module")
@@ -69,7 +70,7 @@ def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_no_copy_
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_top_level_call_mode_table_keeps_its_linked_wordmark_and_its_copy_link(
+def test_a_top_level_call_mode_table_offers_the_lobby_button_and_its_copy_link(
     open_person: Callable[..., Page], framing_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
     path = new_table(open_person, framing_server)
@@ -78,7 +79,7 @@ def test_a_top_level_call_mode_table_keeps_its_linked_wordmark_and_its_copy_link
     visitor.goto(table_url(framing_server, path))
 
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
-    expect(visitor.locator(f"{BAR} a.wordmark")).to_have_text(APP_NAME)
+    expect(visitor.get_by_role("link", name=LOBBY)).to_be_visible()
     expect(visitor.get_by_role("button", name=COPY_LINK)).to_be_visible()
 
 

@@ -29,6 +29,7 @@ from skat.table.rules import (
     decide_sit,
     decide_stand,
     hand_runs,
+    hold_frees_chair,
     next_deal_due,
     presence_step,
     present_at,
@@ -237,6 +238,23 @@ def passed_in() -> TableRecord:
 def played_out() -> TableRecord:
     """The record the thirtieth card leaves: no hand, no steps, the dealer and one entry."""
     return replace(table_with((1, ANNA), (2, BEN), (3, CLEO)), dealer=2, game_list=(an_entry(),))
+
+
+class TestTheAwayHold:
+    def test_frees_a_chair_at_a_table_on_which_no_hand_was_dealt(self):
+        assert hold_frees_chair(table_with((1, ANNA), (2, BEN))) is True
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(running_hand(), id="during-a-hand"),
+            pytest.param(passed_in(), id="after-a-passed-in-hand"),
+            pytest.param(played_out(), id="at-a-result"),
+            pytest.param(replace(played_out(), series=Series(3, 3)), id="at-a-series-end"),
+        ],
+    )
+    def test_frees_no_chair_at_a_table_on_which_a_hand_was_dealt_in_any_phase(self, table):
+        assert hold_frees_chair(table) is False
 
 
 class TestResultPending:
