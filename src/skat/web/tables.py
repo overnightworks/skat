@@ -15,7 +15,7 @@ from skat.engine.games import GameKind
 from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.game_list import RamschResultView
+from skat.table.game_list import GameEnding, RamschResultView
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import (
     Actor,
@@ -340,6 +340,8 @@ class ResultAnswer(BaseModel):
     gains: list[SeatGainAnswer]
     kontra: KontraResultAnswer | None
     bock_factor: int
+    ending: GameEnding
+    ended_by_seat: int | None
 
 
 class RamschSeatAnswer(BaseModel):
@@ -601,6 +603,8 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
         if result.kontra is None
         else KontraResultAnswer(word=result.kontra.word, factor=result.kontra.factor),
         bock_factor=result.bock_factor,
+        ending=result.ending,
+        ended_by_seat=result.ended_by_seat,
     )
 
 
@@ -709,8 +713,9 @@ def create_tables_router(tables: TableService, page_build: PageBuild, presence: 
         """Read one Skat table by its id: what the caller's own chair may see.
 
         The answer holds the table's version, its chairs, and the caller's own cards and the cards it may play when
-        it is its turn. The ids and the version that the caller's moves need come from this answer. A 404 means no
-        table has this id.
+        it is its turn. The ids and the version that the caller's moves need come from this answer. A result of a
+        declared game says how it ended (played-out, given-up or thrown-down) and, for a give-up or a throw-down, the
+        seat that did it. A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.

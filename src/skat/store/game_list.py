@@ -31,7 +31,7 @@ from skat.store.schema import (
     tables,
     unstored_steps,
 )
-from skat.table.game_list import GameEntry, ListEntry, RamschEntry
+from skat.table.game_list import GameEnding, GameEntry, ListEntry, RamschEntry
 from skat.table.rules import CHAIRS_PER_TABLE
 
 if TYPE_CHECKING:
@@ -107,6 +107,8 @@ game_list = Table(
     Column("seat_3_score", Integer),
     Column("durchmarsch_seat", SmallInteger),
     Column("jungfrau", Boolean),
+    Column("ending", Text, nullable=False, server_default=text(f"'{GameEnding.PLAYED_OUT.value}'")),
+    Column("ended_by_seat", SmallInteger),
     Column("pushes", SmallInteger, nullable=False, server_default=text("0")),
     CheckConstraint("ordinal >= 1", name="game_list_ordinal_counts_from_one"),
     CheckConstraint(f"declarer_seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_list_declarer_seat_is_a_seat"),
@@ -129,6 +131,15 @@ game_list = Table(
     CheckConstraint(
         " AND ".join(f"seat_{seat}_points BETWEEN 0 AND {ALL_POINTS}" for seat in SEATS),
         name="game_list_ramsch_points_are_card_points",
+    ),
+    one_of("ending", (ending.value for ending in GameEnding), "game_list_ending_is_an_ending"),
+    CheckConstraint(f"ended_by_seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_list_ended_by_seat_is_a_seat"),
+    CheckConstraint(
+        f"(ending = '{GameEnding.PLAYED_OUT.value}') = (ended_by_seat IS NULL)",
+        name="game_list_a_seat_ends_exactly_an_unplayed_game",
+    ),
+    CheckConstraint(
+        f"kind <> '{RAMSCH_KIND}' OR ending = '{GameEnding.PLAYED_OUT.value}'", name="game_list_a_ramsch_is_played_out"
     ),
     CheckConstraint(f"durchmarsch_seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_list_durchmarsch_seat_is_a_seat"),
     CheckConstraint(f"matadors_count BETWEEN 1 AND {_MOST_MATADORS}", name="game_list_matadors_count_is_a_count"),
@@ -180,6 +191,8 @@ def _entry_of(row: Row[tuple[object, ...]]) -> GameEntry:
         declarer_points=row.declarer_points,
         kontra_word=None if row.kontra_word is None else Word(row.kontra_word),
         bock_factor=row.bock_factor,
+        ending=GameEnding(row.ending),
+        ended_by_seat=row.ended_by_seat,
     )
 
 
@@ -233,6 +246,8 @@ def _columns_of(entry: GameEntry) -> dict[str, object]:
         "declarer_points": entry.declarer_points,
         "kontra_word": None if entry.kontra_word is None else entry.kontra_word.value,
         "bock_factor": entry.bock_factor,
+        "ending": entry.ending.value,
+        "ended_by_seat": entry.ended_by_seat,
     }
 
 

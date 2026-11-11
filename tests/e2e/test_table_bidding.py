@@ -38,6 +38,7 @@ WAITING_FOR = catalog_text("waitingFor")
 WAITS_FOR_YOU = catalog_text("waitsForYou")
 PASSED_IN = catalog_text("passedIn")
 GIVES = catalog_text("gives")
+YOU = catalog_text("sideYou")
 LOWEST_BID = 18
 SKAT_CARD = ".skat-card"
 LADDER = ".ladder"
@@ -133,7 +134,7 @@ def dealt_table(
     for looker in (ben, cleo, dora):
         watch(looker, server, path)
     sit_in(ben, 2)
-    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text("ben")
+    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text(YOU)
     sit_in(cleo, 3)
     for looker in (anna, ben, cleo, dora):
         expect(looker.locator(SKAT_CARD)).to_have_count(2)

@@ -42,11 +42,11 @@ def step(**changed):
     return text(f"INSERT INTO pushing_steps ({names}) VALUES ({values})")  # noqa: S608 - only a test's fixed literals reach this text
 
 
-class TestFromARamschTableAndItsListAtRevisionTwentyFour:
+class TestFromARamschTableAndItsListAtRevisionTwentySix:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        """A database at 0025 holding a table that plays Ramsch, its list and a saved set, then taken to head."""
-        upgrade_to(unmigrated_engine, "0025")
+        """A database at 0026 holding a table that plays Ramsch, its list and a saved set, then taken to head."""
+        upgrade_to(unmigrated_engine, "0026")
         with unmigrated_engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version) VALUES ('t', 3)"))
             connection.execute(text(f"UPDATE tables SET {RAMSCH_OPTIONS}"))  # noqa: S608 - a fixed literal

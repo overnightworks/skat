@@ -6,8 +6,8 @@ unseen. A table stored before reads no pushing rule, and an old entry reads no p
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0026"
-down_revision = "0025"
+revision = "0027"
+down_revision = "0026"
 
 RULES = ("jacks-stay", "jacks-may-go", "no-doubling")
 ACTIONS = ("take", "put-back", "push")

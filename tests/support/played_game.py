@@ -8,7 +8,7 @@ from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed, play_card
 from skat.engine.value import Matadors
-from skat.table.game_list import ListEntry, RamschEntry
+from skat.table.game_list import GameEnding, ListEntry, RamschEntry
 from skat.table.hand_state import playing_of
 from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
 
@@ -87,6 +87,8 @@ def an_entry(seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO) -> ListEntry:
         declarer_points=78,
         kontra_word=None,
         bock_factor=1,
+        ending=GameEnding.PLAYED_OUT,
+        ended_by_seat=None,
     )
 
 

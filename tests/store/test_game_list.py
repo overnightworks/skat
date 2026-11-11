@@ -18,7 +18,7 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.game_list import ListEntry, RamschEntry, standings_of
+from skat.table.game_list import GameEnding, ListEntry, RamschEntry, standings_of
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, SitDown
@@ -93,6 +93,8 @@ def an_entry(declaration, **numbers):
         "matadors": Matadors(mit=True, count=2),
         "kontra_word": None,
         "bock_factor": 1,
+        "ending": GameEnding.PLAYED_OUT,
+        "ended_by_seat": None,
         **numbers,
     }
     return ListEntry(declaration=declaration, **fields)
@@ -130,6 +132,10 @@ OUVERT_HAND = an_entry(
     score=110,
     declarer_points=120,
 )
+
+
+GIVEN_UP = replace(END_OVER, ending=GameEnding.GIVEN_UP, ended_by_seat=2)
+THROWN_DOWN = replace(OUVERT_HAND, ending=GameEnding.THROWN_DOWN, ended_by_seat=3)
 
 
 def a_ramsch_entry(**numbers):
@@ -299,7 +305,11 @@ class TestTheList:
         assert ended.record.game_list[1].seat_names == (None, None, None)
         assert {each.display_name for each in standings_of(ended.record.game_list, KontraReach.KONTRA_RE)} == {None}
 
-    @pytest.mark.parametrize("entry", [END_OVER, A_NULL, OUVERT_HAND], ids=["end-over", "null", "ouvert-hand"])
+    @pytest.mark.parametrize(
+        "entry",
+        [END_OVER, A_NULL, OUVERT_HAND, GIVEN_UP, THROWN_DOWN],
+        ids=["end-over", "null", "ouvert-hand", "given-up", "thrown-down"],
+    )
     def test_an_entry_reads_back_as_built_with_its_own_numbers_in_the_row(self, ended, transactions, engine, entry):
         record = ended.record
 
@@ -335,6 +345,28 @@ class TestTheList:
             )
 
         assert ended.record.game_list == (*record.game_list, entry)
+
+    @pytest.mark.parametrize(
+        ("entry", "columns"),
+        [
+            pytest.param(END_OVER, ("played-out", None), id="played-out"),
+            pytest.param(GIVEN_UP, ("given-up", 2), id="given-up"),
+            pytest.param(THROWN_DOWN, ("thrown-down", 3), id="thrown-down"),
+            pytest.param(A_RAMSCH, ("played-out", None), id="a-ramsch-is-played-out"),
+        ],
+    )
+    def test_the_row_holds_the_ending_and_the_seat_as_text_and_number(
+        self, ended, transactions, engine, entry, columns
+    ):
+        record = ended.record
+
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, entry)), played_at=None
+            )
+
+        row = stored_list_rows(engine, ended.table_id)[1]
+        assert columns == (row.ending, row.ended_by_seat)
 
     def test_the_schema_keeps_matadors_only_outside_null(self, ended, engine):
         statement = text("UPDATE game_list SET matadors_mit = NULL WHERE table_id = :table_id")

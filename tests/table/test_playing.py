@@ -8,11 +8,19 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import TakeSkat
 from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
+from skat.table.game_list import GameEnding
 from skat.table.hand_state import playing_of
-from skat.table.playing import PlayCardCommand, card_payload, decide_card
+from skat.table.playing import (
+    AgreeToGiveUpCommand,
+    PlayCardCommand,
+    card_payload,
+    decide_agree_to_give_up,
+    decide_card,
+)
 from skat.table.records import (
     Actor,
     Chair,
+    GiveUpAsked,
     HandProgress,
     Occupant,
     OccupantKind,
@@ -22,11 +30,13 @@ from skat.table.records import (
     TableRecord,
     parsed_refusal,
 )
-from tests.support.played_game import before_the_last_card, declared_herz_hand
+from tests.support.played_game import a_whole_game, before_the_last_card, declared_herz_hand
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 TABLE_VERSION = 7
 FOREHAND_ACCOUNT = "account-forehand"
+# The dealer sits in seat 2, so forehand sits in seat 3.
+FOREHAND_SEAT = 3
 
 
 def table_id():
@@ -211,6 +221,23 @@ class TestTheLastCard:
 
         assert decision.table.game_list[0] == first
         assert len(decision.table.game_list) == 2
+
+
+def after_two_tricks(request):
+    """A declared table in which the declarer holds eight cards, with the request standing, if one is given."""
+    table = table_in(declared_herz_hand())
+    plays = a_whole_game(table)[:6]
+    return replace(table, progress=replace(table.progress, plays=plays, give_up=request))
+
+
+class TestTheEndingTheEntryRecords:
+    def test_a_request_an_opponent_asked_names_the_asking_opponent(self):
+        table = after_two_tricks(GiveUpAsked(FOREHAND))
+        command = AgreeToGiveUpCommand("command-1", table_id(), TABLE_VERSION)
+
+        entry = decide_agree_to_give_up(table, actor("account-rearhand"), command).table.game_list[0]
+
+        assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, FOREHAND_SEAT)
 
 
 class TestParsedRefusal:
