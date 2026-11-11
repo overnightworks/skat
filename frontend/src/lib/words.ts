@@ -100,4 +100,11 @@ export const words = {
     minutes: "Minuten",
     second: "Sekunde",
     seconds: "Sekunden",
+    legalImprint: "Impressum",
+    legalPrivacy: "Datenschutz",
+    legalTerms: "Nutzungsbedingungen",
+    cardLetterJack: "B",
+    cardLetterQueen: "D",
+    cardLetterKing: "K",
+    cardLetterAce: "A",
 } as const;
