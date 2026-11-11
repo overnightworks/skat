@@ -34,6 +34,7 @@ CLOSED_HEADING = f"{EMPTY_TABLE_SECONDS} Sekunden niemand da: Tisch geschlossen"
 NOT_FOUND_HEADING = catalog_text("tableNotFound")
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
+TRANSPARENT_COLOR = "rgba(0, 0, 0, 0)"
 
 
 @pytest.fixture(scope="module")
@@ -88,6 +89,13 @@ def expect_the_lobby_top_left_and_tappable(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
+def expect_the_lobby_glass_on_the_wood(person: Page) -> None:
+    """The button has a translucent fill and a hairline ring, so the wood shows through it and the ring marks it."""
+    face = person.locator(".lobby-face")
+    expect(face).not_to_have_css("background-color", TRANSPARENT_COLOR)
+    assert face.evaluate("element => getComputedStyle(element).boxShadow.includes('inset')")
+
+
 def expect_the_lobby_to_take_the_person_to_the_start_page(person: Page, base_url: str) -> None:
     lobby_of(person).click()
     expect(person).to_have_url(f"{base_url}/")
@@ -102,6 +110,7 @@ def test_a_seated_table_offers_the_lobby_button_top_left_and_no_wordmark_link(
     open_new_table(person, e2e_server)
 
     expect_the_lobby_top_left_and_tappable(person)
+    expect_the_lobby_glass_on_the_wood(person)
     expect(person.locator(".bar a")).to_have_count(1)
     expect(lobby_of(person)).to_have_attribute("href", "/")
 
