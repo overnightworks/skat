@@ -611,7 +611,6 @@ body.solo section.shot .rule{display:none}
 .mark.shaken::before,.mark.shaken::after{content:"";position:absolute;top:6px;width:6px;height:16px;border:2px solid var(--accent-stage);border-radius:50%}
 .mark.shaken::before{left:-10px;border-right:0}
 .mark.shaken::after{right:-10px;border-left:0}
-.cb.bell{box-shadow:inset 0 0 0 2px var(--accent-stage)}
 .result.closed .line{font-size:15px;line-height:1.4;font-weight:400;color:var(--on-stage-soft);text-align:center}
 </style>
 </head>
@@ -1052,9 +1051,9 @@ const IDEAS=[
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-button, giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
-  ['🤖','Agenten rufen','Die Pille „AI“ in Skats Leiste öffnet die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht weder Pille noch Zeile. (#315)','agents-strip, agents-strip-word, agents-list, agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
+  ['🤖','Agenten rufen','Die Pille „AI“ in Skats Leiste öffnet die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht weder Pille noch Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','seat-open, seat-open-bid, seat-open-watch, seat-open-ask, seat-open-took, seat-open-back, lobby-seat-open (start.html)'],
-  ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-strip, nudge-sent, nudge-mine'],
+  ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-sent, nudge-mine'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
 ];
@@ -1085,9 +1084,9 @@ const tableBar=(desk,o={})=>{
   const wide=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
   const round=(cls,icon,label)=>`<span class="cb ${cls}" role="button" title="${label}" aria-label="${label}">${icon}</span>`;
   const copy=desk||!o.seated?wide('glass',I.link,'Link kopieren'):round('',I.link,'Link kopieren');
-  const stand=o.seated?(o.roundStand&&!desk?round('',I.stand,'Aufstehen'):wide('glass',I.stand,'Aufstehen')):'';
+  const stand=o.seated?wide('glass',I.stand,'Aufstehen'):'';
   const close=o.opener?(desk?wide('leave',I.power,'Tisch schließen'):round('leave',I.power,'Tisch schließen')):'';
-  return `<div class="sbar${o.above?' above':''}">${stand}${o.bell||''}${o.pill||''}${copy}${close}</div>`;};
+  return `<div class="sbar${o.above?' above':''}">${stand}${o.pill||''}${copy}${close}</div>`;};
 const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3>${o.line?`<p class="line">${o.line}</p>`:''}<div class="btns">${o.buttons}</div></div>`;
 const NEW_TABLE=`<span class="button button-stage">${I.plus}Neuer Tisch</span>`;
 const CONFIRM=`<span class="button button-leave">${I.power}Schließen</span><span class="button button-glass">Abbrechen</span>`;
@@ -1620,7 +1619,7 @@ const novaGlow=(d)=>d?glow(980,270,220,260):glow(PB.cx+105,190,190,110);
 /* the trigger: a round glass pill with the AI mark on a phone, a wide one with its word at 1280; the list hangs on it */
 const agentPill=(d,o={})=>{
   const state=`${o.open?'on':''}" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="${!!o.open}`;
-  const pill=d||o.word?`<span class="cb wide glass agents ${state}">${aiMark()}Agenten</span>`
+  const pill=d?`<span class="cb wide glass agents ${state}">${aiMark()}Agenten</span>`
     :`<span class="cb agents ${state}" title="Agenten" aria-label="Agenten">${aiMark()}</span>`;
   return `<span class="pill-anchor">${pill}${o.panel||''}</span>`;
 };
@@ -1641,13 +1640,12 @@ const agentPanel=(rows,o={})=>`<div class="agents-pop" role="dialog" aria-label=
     :'<p class="empty">Gerade ist kein Agent erreichbar.</p>'}</div></div>`;
 const NOVA_CALLABLE=[['Nova','available']],NOVA_HERE=[['Nova','here']];
 
-/* Skat's strip: Aufstehen (or what takes its place), the bell, the pill, the link and, for the opener, the close button */
+/* Skat's strip: Aufstehen (or what takes its place), the pill, the link and, for the opener, the close button */
 const stripOf=(d,o={})=>{
-  const bar=tableBar(d,{seated:true,opener:o.opener,pill:o.pill,bell:o.bell,roundStand:o.roundStand,above:o.above});
+  const bar=tableBar(d,{seated:true,opener:o.opener,pill:o.pill,above:o.above});
   return o.lead===undefined?bar:bar.replace(STAND_UP,o.lead);
 };
 const ABORT=barKey('glass',I.stop,'Abbrechen');
-const NUDGE=`<span class="cb bell" role="button" tabindex="0" title="Nova anstupsen" aria-label="Nova anstupsen">${I.bell}</span>`;
 
 /* the table of Felix and Anna with Nova's chair free, before any hand */
 const tableOf=(d,o={})=>room(d,{left:o.fans||0,call:false,glow:o.glow})+watching(o.watchers||1,d)+(o.count?centred(d,seriesCount(d,8)):'');
@@ -1699,20 +1697,15 @@ const NUDGE_NOTE='Die Glocke steht erst, wenn der Tisch eine Minute auf diesen S
 const waitingForNova=(d,o={})=>{const L=seatsOf(d);
   return tableOf(d,{fans:8,count:true,glow:novaGlow(d)})+kreuz(d)+lead(d,'anna','left')
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',{...L.nova,marks:['turn','think',...(o.bell?[o.bell]:[])]})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
-    +ownCards(d)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d),bell:o.strip?NUDGE:''});};
+    +ownCards(d)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)});};
 const nudgedFelix=(d)=>{const L=seatsOf(d);
   return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)+notice('Anna stupst dich an','anna',mid(d),d?432:440)
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn','shaken']})+chairCoasters(L,TOTALS_BEFORE)
     +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)});};
 
-const CHOICE_1='Zeile 1 (Agenten-Knopf auf dem Handy)';
 const AGENT_SCENES=[
   ['agents-strip','Agenten: die Leiste',[360,390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d))),
-    [`${AT_TABLE}; die Leiste trägt „Aufstehen“, die runde AI-Pille, den Link und „Tisch schließen“. Am Rechner steht „Agenten“ neben dem Zeichen. Gezählt: 326 von 332 Pixeln bei 360.`],
-    `${CHOICE_1}, Antwort A: auf dem Handy nur das Zeichen`],
-  ['agents-strip-word','Agenten: die Leiste mit Wort',[360,390],(d)=>idleTable(d,stripOf(d,{opener:true,pill:agentPill(d,{word:true}),roundStand:true})),
-    ['Dasselbe mit „Agenten“ ausgeschrieben und „Aufstehen“ rund. Gezählt: 311 von 332 Pixeln bei 360; „Aufstehen“ steht dann ohne Wort.'],
-    `${CHOICE_1}, Antwort B: „Agenten“ mit Wort, „Aufstehen“ rund`],
+    [`${AT_TABLE}; die Leiste trägt „Aufstehen“, die runde AI-Pille, den Link und „Tisch schließen“. Am Rechner steht „Agenten“ neben dem Zeichen. Gezählt: 326 von 332 Pixeln bei 360.`]],
   ['agents-list','Agenten: die Liste',[390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel(NOVA_CALLABLE)}))),
     ['Felix öffnet die Pille: die Zeile „Nova“ mit „Rufen“, der freie Platz wartet.']],
   ['agents-calling','Agenten: wird gerufen',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel([['Nova','inviting']])}))),
@@ -1742,8 +1735,7 @@ const AGENT_SCENES=[
   ['seat-open-watch','Freier Platz, Zuschauen',[360,390,1280],watchOpen,
     ['Lena schaut zu: dieselbe Tafel, das Plus auf dem freien Stuhl neben seinen Karten, keine Karte von irgendwem zu sehen.']],
   ['seat-open-ask','Freier Platz: Frage',[390,1280],sitQuestion,
-    ['Lena tippt auf das Plus: „Mitten ins Spiel setzen?“ mit „Du übernimmst Novas Karten.“ und „Hinsetzen“, „Abbrechen“. Wer sich so setzt, übernimmt Novas Karten.'],
-    'Zeile 2, Antwort A: eine kurze Frage vor dem Hinsetzen; bei Antwort B entfällt dieses Bild, und ein Tipp auf das Plus setzt sofort'],
+    ['Lena tippt auf das Plus: „Mitten ins Spiel setzen?“ mit „Du übernimmst Novas Karten.“ und „Hinsetzen“, „Abbrechen“. Wer sich so setzt, übernimmt Novas Karten.']],
   ['seat-open-took','Freier Platz: gesetzt',[390,1280],lenaSits,
     ['Lena sitzt: Novas Karten sind ihre Hand, ihr Stuhl sagt „Du“, sie ist dran, die spielbaren Karten leuchten. Ihre Sicht dreht sich: ihr Stuhl ist jetzt der untere, Felix links, Anna rechts.']],
   ['seat-open-back','Freier Platz: besetzt',[390],(d)=>{const L=seatsOf(d);
@@ -1766,19 +1758,15 @@ const AGENT_SCENES=[
       +stripOf(d,{pill:agentPill(d)});},
     ['Beide waren einverstanden: der Filz ist leer, „Spiel abgebrochen“; der Stuhl bleibt frei, bis wieder drei sitzen, und „Aufstehen“ ist zurück.']],
   ['nudge-chair','Anstupsen: die Glocke am Stuhl',[360,390,1280],(d)=>waitingForNova(d,{bell:'bell'}),
-    [`Nova denkt schon über eine Minute: eine Glocke an ihrem Stuhl, für Anna und Felix. ${NUDGE_NOTE}`],
-    'Zeilen 3 und 4, Antwort A: die Glocke am wartenden Stuhl, nach einer Minute; bei 4 B stünde sie vom Zug an'],
-  ['nudge-strip','Anstupsen: die Glocke in der Leiste',[360,390],(d)=>waitingForNova(d,{strip:true}),
-    ['Dieselbe Glocke als runder Knopf in der Leiste neben „Aufgeben“, der Pille und dem Link; gezählt: 320 von 332 Pixeln bei 360.'],
-    'Zeile 3, Antwort B: die Glocke in der Leiste statt am Stuhl'],
+    [`Nova denkt schon über eine Minute: eine Glocke an ihrem Stuhl, für Anna und Felix. ${NUDGE_NOTE}`]],
   ['nudge-sent','Anstupsen: angestupst',[390,1280],(d)=>waitingForNova(d,{bell:'belled'}),
     ['Anna tippte: die Glocke ruht mit einem Haken an Novas Stuhl, für alle am Tisch, und „denkt“ bewegt sich wieder.']],
   ['nudge-mine','Anstupsen: du wirst angestupst',[390,1280],nudgedFelix,
     ['Felix wird angestupst: die Glocke an seinem eigenen Stuhl wackelt einmal, „Anna stupst dich an“ steht über seiner Hand, und er ist dran.']],
 ];
-const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes,choice])=>widths.forEach(w=>{
+const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.forEach(w=>{
   const desk=w===1280,html=w===360?withPhone360(()=>draw(false)):draw(desk);
-  frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,choice?[...notes,`Entwurf zur Wahl: ${choice}.`]:notes);
+  frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,notes);
   ORDER.push(`${id}-${w}`);}));
 agentScenes(AGENT_SCENES);
 
