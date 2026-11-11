@@ -240,7 +240,7 @@ def test_two_yes_answers_at_once_write_one_entry_naming_the_asker_and_the_loser_
 
     def agree(position, command_id):
         command = AgreeToGiveUpCommand(command_id=command_id, table_id=game.table_id, version=version)
-        return lambda: racing.agree_to_give_up(game.actors[position], command, nobody_connected(), lambda _: None)
+        return lambda: racing.agree_to_give_up(game.actors[position], command, nobody_connected())
 
     results = race(agree(Position.FOREHAND, "yes-forehand"), agree(Position.REARHAND, "yes-rearhand"))
 
@@ -260,7 +260,7 @@ def test_a_card_and_a_give_up_at_once_commit_only_the_winner_and_its_ending_matc
 
     card_result, give_up_result = race(
         lambda: game.send(position, card, command_id=card_id(1), version=version, service=racing),
-        lambda: racing.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected(), lambda _: None),
+        lambda: racing.give_up(game.actors[Position.MIDDLEHAND], command, nobody_connected()),
     )
 
     committed = (
