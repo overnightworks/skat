@@ -245,12 +245,10 @@ class TestThePushingStageAfterATakeOver:
         taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
 
         hand = view_of(taken, sitter.account_id, NOBODY).hand
+        seats_own = view_of(table, account_of(MIDDLEHAND), NOBODY).hand
 
-        assert (hand.own_cards, hand.skat_count) == (tuple(DECK[10:20]), 2)
-        assert (hand.pushing.moves, hand.pushes) == (
-            view_of(table, account_of(MIDDLEHAND), NOBODY).hand.pushing.moves,
-            1,
-        )
+        assert (hand.own_cards, hand.skat_count) == (seats_own.own_cards, seats_own.skat_count)
+        assert (hand.pushing.moves, hand.pushes) == (seats_own.pushing.moves, 1)
 
     def test_the_sitter_moves_the_stage_on_and_the_hand_goes_on(self):
         table, sitter = PHASES["pushing-start"](), newcomer()

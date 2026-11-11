@@ -3,10 +3,12 @@
 from dataclasses import replace
 
 import pytest
+from agents.mcp_server import ResourceChanges
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position
 from skat.engine.schieberamsch import Push
+from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN
 from skat.table.records import Actor, HandProgress, SendAway
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import AUCTION_PASS_TOOL, RAMSCH_TAKE_SKAT_TOOL
@@ -78,9 +80,33 @@ class WaitingTable:
         )
 
 
+class RecordedChanges(ResourceChanges):
+    """The changes the app tells, in the order told."""
+
+    def __init__(self):
+        super().__init__()
+        self.told = []
+
+    def changed(self, recipient, uri):
+        self.told.append((recipient.sub, uri))
+        super().changed(recipient, uri)
+
+
 @pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+def changes():
+    return RecordedChanges()
+
+
+@pytest.fixture
+def skat(hold, issuer, time, changes):
+    skat = Skat(
+        lambda: hold,
+        issuer_transports=issuer.transports,
+        chair_clock=time.clock,
+        chair_scheduler=time,
+        now=time.moment,
+        resource_changes=changes,
+    )
     with skat.client:
         yield skat
 
@@ -132,18 +158,19 @@ class TestAnOpenChairInThePushingStage:
         assert (by_tool.is_error, by_tool.json()["reason"]) == (True, "seat-open")
         assert waiting.record == before
 
-    def test_the_agent_on_turn_is_awaited_again_once_a_sitter_joins_and_takes_the_skat(
+    def test_the_agent_on_turn_is_awaited_again_once_a_sitter_joins_and_the_agent_takes_the_skat(
         self, waiting_in_the_pushing_stage
     ):
         waiting = waiting_in_the_pushing_stage
         waiting.newcomer.admitted()
 
         waiting.newcomer.sit_down(waiting.table_id, SENT_SEAT, command_id="agent-sit-newcomer")
+        awaited = waiting.staying.view(waiting.table_id)["awaits_you"]
         taken = waiting.staying.call(
             RAMSCH_TAKE_SKAT_TOOL, table_id=waiting.table_id, command_id="agent-take", version=waiting.record.version
         )
 
-        assert waiting.staying.view(waiting.table_id)["awaits_you"] is True
+        assert awaited is True
         assert not taken.is_error, taken.text
 
 
@@ -173,6 +200,20 @@ class TestTheAnswersSayTheHandWaits:
 
         assert (waiting_view["awaits_you"], moved["awaits_you"]) == (False, True)
         assert moved["revision"] > waiting_view["revision"]
+
+
+class TestAnOpenChairIsNotAskedAgain:
+    def test_no_seat_is_asked_and_no_revision_moves_with_time_while_a_chair_is_open(self, skat, time, waiting, changes):
+        first = waiting.staying.view(waiting.table_id)
+        changes.told.clear()
+
+        skat.client.portal.call(time.advance, (ASKS_AGAIN + 1) * ASK_AGAIN_AFTER)
+
+        assert (first["awaits_you"], waiting.staying.view(waiting.table_id)["revision"], changes.told) == (
+            False,
+            first["revision"],
+            [],
+        )
 
 
 class TestEveryHandCommandIsRefused:
