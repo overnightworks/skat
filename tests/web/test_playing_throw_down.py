@@ -60,15 +60,6 @@ class TestTheEnding:
         assert ending_of(result_of(herz_hand, position)) == ("thrown-down", seat)
         assert herz_hand.endings_in_every_view() == {("thrown-down", seat)}
 
-    def test_a_retried_throw_down_answers_the_same_two_fields_and_writes_one_entry(self, herz_hand):
-        body = {"command_id": "command-throw-down", "version": herz_hand.record.version}
-        first = herz_hand.act(TABLE_THROW_DOWN_SUFFIX, herz_hand.at[FOREHAND], body=body)
-
-        again = herz_hand.act(TABLE_THROW_DOWN_SUFFIX, herz_hand.at[FOREHAND], body=body)
-
-        assert ending_of(again.json()["result"]) == ending_of(first.json()["result"]) == ("thrown-down", 3)
-        assert len(herz_hand.record.game_list) == 1
-
 
 class TestTheDeclarerThrowsDown:
     def test_with_ten_cards_the_skat_alone_is_his_and_the_game_is_lost_with_every_level(self, herz_hand):

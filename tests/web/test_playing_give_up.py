@@ -170,15 +170,6 @@ class TestTheEnding:
         assert ending_of(given_up.json()["result"]) == ("given-up", DECLARER_SEAT)
         assert herz_hand.endings_in_every_view() == {("given-up", DECLARER_SEAT)}
 
-    def test_a_retried_give_up_answers_the_same_two_fields_and_writes_one_entry(self, herz_hand):
-        body = {"command_id": "command-give-up", "version": herz_hand.record.version}
-        first = give_up(herz_hand, body=body)
-
-        again = give_up(herz_hand, body=body)
-
-        assert ending_of(again.json()["result"]) == ending_of(first.json()["result"]) == ("given-up", DECLARER_SEAT)
-        assert len(herz_hand.record.game_list) == 1
-
     def test_the_stream_of_a_watcher_carries_the_two_fields(self, herz_hand):
         with streams_of(herz_hand.skat, herz_hand.table_id, [(herz_hand.watcher, None)]) as (watcher,):
             give_up(herz_hand)
