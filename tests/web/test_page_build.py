@@ -1,5 +1,3 @@
-import base64
-import hashlib
 from typing import TYPE_CHECKING
 
 import pytest
@@ -58,14 +56,13 @@ class TestLoad:
         root = build_with_shell(tmp_path, EMPTY_PAGE)
         write_chunk(root, "announcer.js", announcer_chunk(style="content: &quot;a&quot; &amp; b"))
 
-        expected = "sha256-" + base64.b64encode(hashlib.sha256(b'content: "a" & b').digest()).decode("ascii")
-        assert PageBuild.load(root).announcer_style_hash == expected
+        assert PageBuild.load(root).announcer_style_hash == "sha256-oAiM+JIjGn/N6JGc5nBesq1haQCNhQxjavjeTnBaAVw="
 
     def test_the_same_announcer_style_in_two_chunks_loads(self, tmp_path):
         root = build_with_shell(tmp_path, EMPTY_PAGE)
         write_chunk(root, "other.js", announcer_chunk(attributes='aria-atomic="true"'))
 
-        assert PageBuild.load(root).announcer_style_hash
+        assert PageBuild.load(root).announcer_style_hash == "sha256-xsTtEarutAcxswPJ7Dh39bdibYH5aZAiRSjgNKIUIyM="
 
     def test_a_build_without_the_announcer_style_refuses_the_start_naming_the_announcer(self, tmp_path):
         root = build_with_shell(tmp_path, EMPTY_PAGE)

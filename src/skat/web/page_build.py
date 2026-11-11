@@ -16,7 +16,7 @@ LOGIN_FAILED_FILE = "login-failed.html"
 NO_ACCESS_FILE = "no-access.html"
 APP_DIRECTORY = "_app"
 CHUNK_PATTERN = "immutable/**/*.js"
-# SvelteKit's route announcer is a template literal in one built chunk; its style is set by this attribute.
+# SvelteKit's route announcer is a template literal in a built chunk; its style is set by this attribute.
 _ANNOUNCER_STYLE = re.compile(r'id="svelte-announcer"[^>]*?\sstyle="([^"]*)"')
 
 
