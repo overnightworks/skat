@@ -1,0 +1,8 @@
+claim_id = "c0736f0423674d7ba517a9e1cee5cce5"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "9f2a6ec1658a9a6bea660ab250e3e4fe8b716ae0"
+branch = "claude/issue-313-member-place"
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests/host", "tests/store", "tests/support", "tests/table", "tests/web"]
+opened_commit = "596ceb514db60586a789a1be89e79c95c6489da8"
+whole_reason = "The book, its store and migration, the standing's resource and signals and the accept are one contract: an accept without a stored book loses its epoch on a restart, and a book nobody serves is dead."
