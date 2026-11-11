@@ -232,6 +232,7 @@ def create_app(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
+    resource_changes: ResourceChanges | None = None,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
 
@@ -240,7 +241,7 @@ def create_app(
     sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    changes = ResourceChanges()
+    changes = resource_changes if resource_changes is not None else ResourceChanges()
     # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing and
     # their tables' views.
     tables = (

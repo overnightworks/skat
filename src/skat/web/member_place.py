@@ -17,6 +17,7 @@ on the event loop's thread, in the read of the view, which also schedules the pu
 each deadline; the signal of a commit, which runs on a worker thread, touches neither.
 """
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING, Final
@@ -51,7 +52,7 @@ from skat.web.mcp import token_carries_agent_facts
 from skat.web.tables import actor_for, answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Iterable
+    from collections.abc import Callable, Collection, Generator, Iterable
 
     from agents.mcp_server import MemberResources
     from agents.member import PlaceWindow
@@ -110,18 +111,37 @@ class AskClock:
     scheduled. A restart starts every wait afresh at its first read. Only the event loop's thread touches it.
 
     Only a higher version replaces a table's entry; a version already seen keeps the earliest time, and a lower one,
-    read by a transaction that began before a newer commit, changes nothing and has no wait.
+    read by a transaction that began before a newer commit, changes nothing and has no wait. A table that ends while
+    one of its views is being read gets no entry from that read, so an entry never outlives its table.
     """
 
     def __init__(self, clock: Callable[[], float]) -> None:
         self._clock = clock
         self._waits: dict[str, _Wait] = {}
+        self._reading: dict[str, int] = {}
+        self._ended_while_reading: set[str] = set()
 
     def now(self) -> float:
         return self._clock()
 
+    @contextmanager
+    def reading(self, table_id: str) -> Generator[None]:
+        """Around the read of a table's view, from before the store is read until the version is seen."""
+        self._reading[table_id] = self._reading.get(table_id, 0) + 1
+        try:
+            yield
+        finally:
+            self._reading[table_id] -= 1
+            if not self._reading[table_id]:
+                del self._reading[table_id]
+                self._ended_while_reading.discard(table_id)
+
     def see(self, table_id: str, version: int) -> float | None:
-        """Since when the table has been at `version`, noting it first; None when the entry holds a higher one."""
+        """Since when the table has been at `version`, noting it first; None when the entry holds a higher one or
+        the table ended while it was being read.
+        """
+        if table_id in self._ended_while_reading:
+            return None
         wait = self._waits.get(table_id)
         if wait is None or version > wait.version:
             wait = self._waits[table_id] = _Wait(version, self._clock())
@@ -141,6 +161,8 @@ class AskClock:
 
     def drop(self, table_id: str) -> None:
         self._waits.pop(table_id, None)
+        if table_id in self._reading:
+            self._ended_while_reading.add(table_id)
 
 
 class MemberStandings:
@@ -176,12 +198,15 @@ class MemberStandings:
         if place is None or place.kind != TABLE_PLACE_KIND:
             return None
         # Presence belongs to the event loop's thread; only the store read leaves it.
-        connected = self._presence.connected(place.id)
-        member = await run_in_threadpool(self._tables.member_view, principal.sub, place.id, connected)
-        if member is None:
-            return None
+        with self._asks.reading(place.id):
+            member = await run_in_threadpool(
+                self._tables.member_view, principal.sub, place.id, self._presence.connected(place.id)
+            )
+            if member is None:
+                return None
+            asks = self._asks_due(principal, uri, place.id, member)
         return PlaceView(
-            revision=revision_of(member.view.version, self._asks_due(principal, uri, place.id, member)),
+            revision=revision_of(member.view.version, asks),
             awaits_you=member.awaits_you,
             state=answer_of(member.view).model_dump(mode="json"),
         )
@@ -208,10 +233,16 @@ class MemberStandings:
     async def _pulse(
         self, principal: Principal, uri: str, table_id: str, version: int
     ) -> None:  # NOSONAR(S7503) a scheduled action is async
-        """Tells the agent its view changed, unless the table has moved on since. A failure is logged by its type:
-        the next listen of the agent reads today's truth.
+        """Tells the agent its view changed, unless the table has moved on since or no longer waits for the agent:
+        what the store holds decides, not what was last read. A failure is logged by its type: the next listen of the
+        agent reads today's truth.
         """
         if not self._asks.is_current(table_id, version):
+            return
+        member = await run_in_threadpool(
+            self._tables.member_view, principal.sub, table_id, self._presence.connected(table_id)
+        )
+        if member is None or not member.awaits_you or member.view.version != version:
             return
         try:
             self._changes.changed(principal, uri)

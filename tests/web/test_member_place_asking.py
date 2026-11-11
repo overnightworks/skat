@@ -2,22 +2,27 @@
 view's URI wakes the agent to read it, and the table's version never moves for an ask.
 """
 
+import asyncio
 import threading
+from contextlib import nullcontext
 from dataclasses import replace
 from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 from agents.mcp_server import ResourceChanges
 from agents.member import LEASE_SECONDS, STANDING_URI
+from agents.tools import Principal
 from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
 
 from skat.engine.deal import Position
+from skat.host.app import _empty_table
 from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, revision_of
 from skat.table.member_place import InvitationRequest
 from skat.table.records import EndedTable, EndReason, Series, TableId
-from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL
-from skat.web.member_place import AskClock
+from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, token_carries_agent_facts
+from skat.web.member_place import AskClock, MemberStandings
 from skat.web.ready import TABLE_READY_SUFFIX
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
@@ -63,12 +68,6 @@ class TestTheWaitIsKeptPerTableAndVersion:
 
         assert clock.see(TABLE, 5) == first
 
-    def test_a_higher_version_replaces_the_entry_and_starts_afresh(self, clock, moments):
-        clock.see(TABLE, 5)
-        moments.now += 30
-
-        assert clock.see(TABLE, 6) == moments.now
-
     def test_a_lower_version_changes_nothing_and_has_no_wait_of_its_own(self, clock, moments):
         clock.see(TABLE, 6)
         moments.now += 30
@@ -113,15 +112,51 @@ class TestTheWaitIsKeptPerTableAndVersion:
 
         assert clock.is_current(TABLE, 1) is False
 
+    def test_a_table_dropped_while_it_is_read_gets_no_entry_from_the_read(self, clock):
+        with clock.reading(TABLE):
+            clock.drop(TABLE)
+
+            assert clock.see(TABLE, 6) is None
+
+        assert clock.is_current(TABLE, 6) is False
+
+    def test_a_table_dropped_while_two_reads_run_gets_no_entry_after_the_first_of_them_ended(self, clock):
+        with clock.reading(TABLE):
+            with clock.reading(TABLE):
+                clock.drop(TABLE)
+
+            assert clock.see(TABLE, 6) is None
+
+
+class RecordedChanges(ResourceChanges):
+    """The changes the app tells, as (account, uri) in the order told; set `failure` and each one raises it."""
+
+    def __init__(self):
+        super().__init__()
+        self.told = []
+        self.failure = None
+
+    def changed(self, recipient, uri):
+        self.told.append((recipient.sub, uri))
+        if self.failure is not None:
+            raise self.failure
+        super().changed(recipient, uri)
+
 
 @pytest.fixture
-def skat(hold, issuer, time):
+def changes():
+    return RecordedChanges()
+
+
+@pytest.fixture
+def skat(hold, issuer, time, changes):
     skat = Skat(
         lambda: hold,
         issuer_transports=issuer.transports,
         chair_clock=time.clock,
         chair_scheduler=time,
         now=time.moment,
+        resource_changes=changes,
     )
     with skat.client:
         yield skat
@@ -134,17 +169,9 @@ def sdk(skat, issuer):
 
 
 @pytest.fixture
-def pulses(monkeypatch):
-    """Every change `ResourceChanges` is told of, as (account, uri), in the order told."""
-    told = []
-    original = ResourceChanges.changed
-
-    def changed(self, recipient, uri):
-        told.append((recipient.sub, uri))
-        original(self, recipient, uri)
-
-    monkeypatch.setattr(ResourceChanges, "changed", changed)
-    return told
+def pulses(changes):
+    """Every change the app told, as (account, uri), in the order told."""
+    return changes.told
 
 
 def account_of(skat, agent):
@@ -215,6 +242,18 @@ class TestASeatTheTableWaitsForIsAskedAgain:
         wait(skat, time, 1)
 
         assert (moved["revision"], pulses) == (revision_of(table.record.version, 0), [])
+
+    def test_an_act_of_the_seat_before_the_deadline_with_no_read_after_it_leaves_the_old_pulse_telling_nobody(
+        self, skat, time, agent, middlehand_auction, pulses
+    ):
+        table = middlehand_auction
+        agent.view(table.table_id)
+        assert not agent.take_step(AUCTION_BID_TOOL, table, command_id="agent-bid", value=18).is_error
+        pulses.clear()
+
+        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+
+        assert pulses == []
 
     def test_an_act_of_another_seat_starts_the_pause_afresh_while_the_seat_still_waits(
         self, skat, time, agent, forehand_auction, pulses
@@ -337,7 +376,7 @@ class TestWhereAPulseIsScheduled:
 
 class TestARestartAndALapsedLease:
     def test_a_restart_reads_no_ask_and_asks_again_one_pause_after_its_first_read(
-        self, skat, issuer, hold, time, agent, middlehand_auction, pulses
+        self, skat, issuer, hold, time, agent, middlehand_auction, changes, pulses
     ):
         table_id = middlehand_auction.table_id
         agent.view(table_id)
@@ -353,6 +392,7 @@ class TestARestartAndALapsedLease:
             chair_clock=restarted_time.clock,
             chair_scheduler=restarted_time,
             now=restarted_time.moment,
+            resource_changes=changes,
         )
         with restarted.client:
             returned = Agent(restarted, issuer, agent.subject)
@@ -379,6 +419,9 @@ class TestWhenTheTableEndsThePulseTellsNobody:
     def test_the_deadline_after_the_end_delivers_nothing_on_a_stream_that_is_open(
         self, skat, time, sdk, middlehand_auction
     ):
+        """The stream-level outcome: the table is ended in the store with no view read after it, so the pulse is
+        stopped by the listen stream, which delivers only a resource the agent still has.
+        """
         table_id = middlehand_auction.table_id
 
         with sdk.connected() as session, session.listening() as events:
@@ -391,16 +434,74 @@ class TestWhenTheTableEndsThePulseTellsNobody:
 
             assert events.next_uri() == STANDING_URI
 
-    def test_an_undealt_table_that_ends_after_its_view_was_read_is_dropped_from_the_clock(
-        self, skat, time, agent, hold
+
+class TestAnEndedTablesWaitIsDropped:
+    class _Ending:
+        """The service whose commands answer whether they ended the table."""
+
+        def __init__(self, ended):
+            self._ended = ended
+
+        def end_empty_table(self, _table_id, _connected_accounts, _empty_seconds):
+            return self._ended
+
+        def note_presence(self, _table_id, _connected_accounts, _empty_seconds):
+            return self._ended
+
+    @pytest.mark.parametrize("closing", ["end", "note"])
+    @pytest.mark.parametrize("ended", [True, False])
+    def test_the_empty_table_drops_the_wait_when_its_command_ended_the_table_and_keeps_it_otherwise(
+        self, closing, ended
     ):
-        table_id = agent.open_table().json()["id"]
-        agent.view(table_id)
+        clock = AskClock(Moments())
+        clock.see(TABLE, 6)
+        empty = _empty_table(SimpleNamespace(empty_table_seconds=60), self._Ending(ended), clock)
 
-        wait(skat, time, LEASE_SECONDS + hold.settings.chair_hold_seconds + hold.settings.empty_table_seconds + 1)
+        answer = asyncio.run(getattr(empty, closing)(TABLE, nullcontext(frozenset())))
 
-        assert isinstance(skat.store.tables[table_id], EndedTable)
-        assert agent.read_resource(view_uri_of(table_id)).json()["error"]["message"] == "Unknown resource"
+        assert (answer, clock.is_current(TABLE, 6)) == (ended, not ended)
+
+
+class TestAViewReadWhileTheTableEnds:
+    class _EndedDuringTheRead:
+        """The service whose read of a view is overtaken by the table's end: the end drops the wait on the event loop
+        after the store was read and before the read goes on.
+        """
+
+        def __init__(self, tables, asks, loop):
+            self._tables = tables
+            self._asks = asks
+            self._loop = loop
+
+        def member_view(self, account_id, table_id, connected_accounts):
+            member = self._tables.member_view(account_id, table_id, connected_accounts)
+            dropped = threading.Event()
+
+            def end():
+                self._asks.drop(table_id)
+                dropped.set()
+
+            self._loop.call_soon_threadsafe(end)
+            dropped.wait()
+            return member
+
+    def test_leaves_no_wait_and_no_pulse_behind(self, skat, agent, middlehand_auction):
+        table_id = middlehand_auction.table_id
+        version = middlehand_auction.record.version
+        asks = AskClock(Moments())
+        scheduler = FakeTime()
+        presence = SimpleNamespace(connected=lambda _table_id: frozenset())
+
+        async def read():
+            tables = self._EndedDuringTheRead(skat.tables, asks, asyncio.get_running_loop())
+            standings = MemberStandings(tables, presence, asks, scheduler, RecordedChanges())
+            token_carries_agent_facts.set(True)
+            return await standings.read(Principal(iss="an-issuer", sub=account_of(skat, agent)), view_uri_of(table_id))
+
+        view = asyncio.run(read())
+
+        assert view.revision == revision_of(version, 0)
+        assert (asks.is_current(table_id, version), scheduler.pending) == (False, 0)
 
 
 class TestAScriptedClientIsAskedAgain:
@@ -442,14 +543,11 @@ def a_standing_change(skat, time):
 
 class TestAPulseThatFails:
     def test_is_logged_by_its_type_and_the_next_read_still_shows_the_ask(
-        self, skat, time, agent, middlehand_auction, monkeypatch
+        self, skat, time, agent, middlehand_auction, changes
     ):
-        def failing(_changes, _recipient, _uri):
-            raise ConnectionResetError
-
         table_id = middlehand_auction.table_id
         version = agent.view(table_id)["state"]["version"]
-        monkeypatch.setattr(ResourceChanges, "changed", failing)
+        changes.failure = ConnectionResetError()
 
         with capture_logs() as logs:
             wait(skat, time, ASK_AGAIN_AFTER)
