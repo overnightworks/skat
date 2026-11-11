@@ -7,8 +7,6 @@ from tests.support.migrations import run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
-ENDED_ROW = "ended_at = now(), end_reason = 'empty', empty_seconds = 60, dealer = NULL"
-
 
 class TestFromADealtLiveTableAnUndealtTableAndAnEndedTableAtRevisionTwentyThree:
     @pytest.fixture
@@ -61,7 +59,8 @@ class TestFromADealtLiveTableAnUndealtTableAndAnEndedTableAtRevisionTwentyThree:
             "UPDATE tables SET dealer = 1, last_played_at = NULL WHERE id = 'dealt'",
             "UPDATE tables SET last_played_at = now() WHERE id = 'undealt'",
             "UPDATE tables SET opener_name = '' WHERE id = 'undealt'",
-            f"UPDATE tables SET {ENDED_ROW}, opener_name = 'Ben' WHERE id = 'dealt'",
+            "UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 60, dealer = NULL,"
+            " opener_name = 'Ben' WHERE id = 'dealt'",
         ],
         ids=[
             "an ended row with an opener name",
@@ -79,7 +78,10 @@ class TestFromADealtLiveTableAnUndealtTableAndAnEndedTableAtRevisionTwentyThree:
     def test_accepts_the_end_that_clears_both_facts(self, migrated):
         run_in_transaction(
             migrated,
-            text(f"UPDATE tables SET {ENDED_ROW}, last_played_at = NULL, opener_name = NULL WHERE id = 'dealt'"),
+            text(
+                "UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 60, dealer = NULL,"
+                " last_played_at = NULL, opener_name = NULL WHERE id = 'dealt'"
+            ),
         )
 
     def test_accepts_a_name_and_a_time_on_a_dealt_live_table(self, migrated):
