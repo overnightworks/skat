@@ -140,6 +140,7 @@ def a_ramsch_entry(**numbers):
         "seat_scores": (-12, -40, -68),
         "durchmarsch_seat": None,
         "jungfrau": False,
+        "bock_factor": 1,
         **numbers,
     }
     return RamschEntry(**fields)

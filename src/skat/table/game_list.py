@@ -76,7 +76,7 @@ class RamschEntry:
     seat_scores: tuple[int, int, int]
     durchmarsch_seat: int | None
     jungfrau: bool
-    bock_factor: int = 1
+    bock_factor: int
 
 
 type GameEntry = ListEntry | RamschEntry
