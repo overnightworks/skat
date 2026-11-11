@@ -23,7 +23,7 @@ from skat.table.playing import (
     decide_card,
     decide_decline_give_up,
 )
-from skat.table.records import GiveUpAsked, HandProgress, NewHand, OccupantKind, Refusal, TableOptions
+from skat.table.records import GiveUpAsked, HandProgress, NewHand, OccupantKind, Refusal, Series, TableOptions
 from skat.table.rules import acting_position, decide_sit, decide_stand, waiting_seat_of
 from skat.table.views import turn_seat_of, view_of
 from tests.support.open_chairs import (
@@ -53,6 +53,7 @@ from tests.support.played_game import (
 )
 
 NOBODY = frozenset[str]()
+BOCK = BockOptions(frozenset({BockTrigger.PASSED_IN}), BockOverlap.APPEND)
 THIRD_PASS_BY_FOREHAND = HandProgress(auction=(Pass(MIDDLEHAND), Pass(REARHAND)))
 
 
@@ -350,6 +351,24 @@ class TestAStandingGiveUpRequest:
         assert freed.progress.give_up == table.progress.give_up
 
 
+def before_the_last_game_of_a_bock_series():
+    """The third game of three, in a Bock round, played but for its last card; the agent's seat earlier took part."""
+    declared, last = before_the_last_card(table_in(HandProgress(), TableOptions(bock=BOCK)))
+    earlier = an_entry((account_of(MIDDLEHAND), account_of(REARHAND), account_of(FOREHAND)))
+    table = replace(declared, game_list=(earlier,), series=Series(3, 3), bock=BockRounds((3,)))
+    return table, last, seats_from(table.dealer)[last.position]
+
+
+def last_card(table, actor, last):
+    return decide_card(table, actor, PlayCardCommand("command-1", table.id.value, table.version, last.card)).table
+
+
+def totals_of(table):
+    return {
+        standing.account_id: standing.total for standing in view_of(table, "account-nobody", NOBODY).series.standings
+    }
+
+
 class TestAGameEndedAfterATakeOver:
     def test_the_entry_names_the_account_and_name_of_the_one_who_finished_it_and_keeps_the_agents_earlier_games(self):
         declared, last = before_the_last_card(table_in(HandProgress()))
@@ -366,9 +385,40 @@ class TestAGameEndedAfterATakeOver:
         assert (finished.seat_accounts[seat - 1], finished.seat_names[seat - 1]) == (sitter.account_id, "Dora")
         assert isinstance(finished, ListEntry)
 
+    def test_the_send_away_keeps_the_series_the_bock_rounds_and_the_list(self):
+        table, _, seat = before_the_last_game_of_a_bock_series()
+
+        freed = sent_away(table, seat)
+
+        assert (freed.series, freed.bock, freed.game_list) == (table.series, table.bock, table.game_list)
+
+    def test_the_sitter_is_credited_the_game_and_the_former_agent_keeps_his_earlier_credit(self):
+        table, last, seat = before_the_last_game_of_a_bock_series()
+        agent_account = actor_at(table, seat).account_id
+        credit_before = view_of(table, "account-nobody", NOBODY).chairs[seat - 1].total
+        sitter = newcomer()
+
+        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        ended = last_card(taken, sitter, last)
+        agent_finishing = last_card(table, actor_at(table, seat), last)
+
+        totals = totals_of(ended)
+        assert totals[agent_account] == credit_before
+        assert totals[sitter.account_id] == totals_of(agent_finishing)[agent_account] - credit_before
+
+    def test_the_game_scores_under_the_bock_factor_it_ran_under_as_if_the_agent_had_finished_it(self):
+        table, last, seat = before_the_last_game_of_a_bock_series()
+        sitter = newcomer()
+
+        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        finished = last_card(taken, sitter, last).game_list[-1]
+        by_agent = last_card(table, actor_at(table, seat), last).game_list[-1]
+
+        assert finished.bock_factor > 1
+        assert replace(finished, seat_accounts=by_agent.seat_accounts, seat_names=by_agent.seat_names) == by_agent
+
     def test_a_hand_all_pass_after_a_take_over_is_passed_in_and_fires_the_bock_trigger(self):
-        bock = BockOptions(frozenset({BockTrigger.PASSED_IN}), BockOverlap.APPEND)
-        table = table_in(THIRD_PASS_BY_FOREHAND, TableOptions(bock=bock))
+        table = table_in(THIRD_PASS_BY_FOREHAND, TableOptions(bock=BOCK))
         sitter = newcomer()
         taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
         command = AuctionCommand("command-1", taken.id.value, taken.version, AuctionAction.PASS, None)
