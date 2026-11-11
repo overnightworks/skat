@@ -2951,6 +2951,15 @@ body {
         margin-top: 14px;
     }
 
+    /* At 88 px a chair is narrower than its plate and the declarer's mark, so the two outer coasters hang 30 px past the chair's side. */
+    .room .stage:has(> .result) .chair:nth-child(1) .coaster {
+        right: -30px;
+    }
+
+    .room .stage:has(> .result) .chair:nth-child(2) .coaster {
+        left: -30px;
+    }
+
     /* A snug card (three levels or an overbid) sets its own gap and padding above, so the packing names it too. */
     .room .result,
     .room .result.snug {
