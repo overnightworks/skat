@@ -5,7 +5,6 @@ from sqlalchemy import text
 
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
-from skat.store.migrate import migrate
 from skat.store.rule_sets import PostgresRuleSets
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable, RuleSetId, TableOptions
@@ -17,6 +16,7 @@ pytestmark = pytest.mark.postgres
 
 SET_NAME = "Felix"
 BEFORE_THE_SET = "0021"
+THE_SET = "0022"
 FELIX_OPTIONS = TableOptions(
     show_running_points=False,
     kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD),
@@ -59,7 +59,7 @@ def row_count(engine):
 
 
 def test_a_migration_without_the_operator_account_inserts_nothing_and_does_not_fail(before_the_set):
-    migrate(before_the_set, operator_account_id=None)
+    upgrade_to(before_the_set, THE_SET)
 
     assert row_count(before_the_set) == 0
 
@@ -67,7 +67,7 @@ def test_a_migration_without_the_operator_account_inserts_nothing_and_does_not_f
 def test_the_operator_account_gets_the_set_with_the_ruled_options_though_it_never_signed_in(
     before_the_set, operator_account_id
 ):
-    migrate(before_the_set, operator_account_id=operator_account_id)
+    upgrade_to(before_the_set, THE_SET, operator_account_id)
 
     [felix] = sets_of(before_the_set, operator_account_id)
     assert (felix.name, felix.options) == (SET_NAME, FELIX_OPTIONS)
@@ -78,7 +78,7 @@ def test_a_felix_the_account_already_holds_is_replaced_keeping_its_id(before_the
     own = a_set(operator_account_id, SET_NAME)
     save(before_the_set, own)
 
-    migrate(before_the_set, operator_account_id=operator_account_id)
+    upgrade_to(before_the_set, THE_SET, operator_account_id)
 
     replaced = RuleSet(own.id, operator_account_id, SET_NAME, FELIX_OPTIONS)
     assert sets_of(before_the_set, operator_account_id) == (replaced,)
@@ -90,7 +90,7 @@ def test_another_name_of_the_account_and_another_accounts_felix_stay_untouched(b
     save(before_the_set, other_name)
     save(before_the_set, others_felix)
 
-    migrate(before_the_set, operator_account_id=operator_account_id)
+    upgrade_to(before_the_set, THE_SET, operator_account_id)
 
     assert sets_of(before_the_set, others_felix.owner_account) == (others_felix,)
     assert {rule_set.name: rule_set for rule_set in sets_of(before_the_set, operator_account_id)}["Abend"] == other_name
@@ -98,7 +98,7 @@ def test_another_name_of_the_account_and_another_accounts_felix_stay_untouched(b
 
 
 def test_a_table_opened_with_the_sets_options_answers_exactly_them(before_the_set, operator_account_id):
-    migrate(before_the_set, operator_account_id=operator_account_id)
+    upgrade_to(before_the_set, THE_SET, operator_account_id)
     [felix] = sets_of(before_the_set, operator_account_id)
     actor = Actor(account_id=operator_account_id, display_name="Operator")
     service = TableService(PostgresTableTransactions(before_the_set))
