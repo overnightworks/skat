@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Annotated, Final
 from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
-from skat.engine.declaration import SKAT_SIZE
 from skat.table.pushing import PushingCommand, PushingKind
 from skat.web.mcp import RAMSCH_PUSH_SKAT_MARK, RAMSCH_PUT_BACK_CARDS_MARK, RAMSCH_TAKE_SKAT_MARK
 from skat.web.tables import (
@@ -37,7 +36,7 @@ class _PushingRequest(CommandRequest):
 
 
 class PutBackRequest(_PushingRequest):
-    cards: Annotated[list[CardChoice], Field(min_length=SKAT_SIZE, max_length=SKAT_SIZE)]
+    cards: list[CardChoice]
 
 
 type StepTaker = Callable[

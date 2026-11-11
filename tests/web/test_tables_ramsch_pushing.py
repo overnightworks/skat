@@ -263,15 +263,6 @@ class TestTheStage:
         else:
             refused(table, FOREHAND, "put-back", "jack-put-back", cards("CJ C7"))
 
-    @pytest.mark.parametrize("count", [1, 3])
-    def test_a_put_back_of_other_than_two_cards_is_no_request(self, skat, count):
-        table = stage_table(skat)
-        accepted(table, FOREHAND, "take")
-
-        answer = step(table, FOREHAND, "put-back", cards("C7 C8 C9")[:count])
-
-        assert answer.status_code == 422
-
     @pytest.mark.parametrize(
         ("before", "position", "kind", "put", "reason"),
         [
@@ -298,6 +289,17 @@ class TestTheStage:
                 cards("S9 C7"),
                 "not-two-of-the-twelve",
                 id="a-card-not-held",
+            ),
+            pytest.param(
+                ((FOREHAND, "take"),), FOREHAND, "put-back", cards("C7"), "not-two-of-the-twelve", id="a-single-card"
+            ),
+            pytest.param(
+                ((FOREHAND, "take"),),
+                FOREHAND,
+                "put-back",
+                cards("C7 C8 C9"),
+                "not-two-of-the-twelve",
+                id="three-cards",
             ),
         ],
     )
