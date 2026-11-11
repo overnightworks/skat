@@ -4,11 +4,12 @@ from alembic.config import Config
 from skat.store.migrate import MIGRATIONS_DIRECTORY
 
 
-def upgrade_to(engine, revision):
+def upgrade_to(engine, revision, operator_account_id=None):
     config = Config()
     config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
     with engine.connect() as connection:
         config.attributes["connection"] = connection
+        config.attributes["operator_account_id"] = operator_account_id
         command.upgrade(config, revision)
 
 
