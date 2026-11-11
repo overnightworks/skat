@@ -85,14 +85,14 @@
         const answer = await takeDeclaringStep(id, table.version, crypto.randomUUID(), step);
         if (answer.kind !== "table") {
             sentAtVersion = null;
-            note = words.commandFailed;
+            note = words["declare.commandFailed"];
         }
     }
 
     const LEVELS: readonly { token: Exclude<Rung, "none">; word: string }[] = [
-        { token: "schneider", word: words.levelSchneider },
-        { token: "schwarz", word: words.levelSchwarz },
-        { token: "ouvert", word: words.levelOuvert },
+        { token: "schneider", word: words["declare.levelSchneider"] },
+        { token: "schwarz", word: words["declare.levelSchwarz"] },
+        { token: "ouvert", word: words["declare.levelOuvert"] },
     ];
 
     function announcementOf(rung: Rung): Announcement {
@@ -109,12 +109,12 @@
         {#if panel === "choosing"}
             <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                {`${words.takeSkat}`}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                {`${words["declare.takeSkat"]}`}
             </button>
             <button type="button" class="step hand" disabled={busy} onclick={() => (handChosen = true)}>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                {`${words.hand}`}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                {`${words["declare.hand"]}`}
             </button>
         {:else if panel === "discarding"}
             <div class="slots" aria-hidden="true">
@@ -131,8 +131,8 @@
                 onclick={() => send({ action: "put_back", cards: picked })}
             >
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                {`${words.putBack}`}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                {`${words["declare.putBack"]}`}
             </button>
         {:else}
             <div class="games">
@@ -171,8 +171,8 @@
                     <div class="ladder">
                         <span class="held">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                            {`${words.hand}`}
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                            {`${words["declare.hand"]}`}
                         </span>
                         {#if chosen?.game !== "null"}
                             {#each LEVELS as { token, word } (token)}
@@ -202,8 +202,8 @@
                         })}
                 >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words.x} compiles to a `?? ""` branch no word can take -->
-                    {`${words.announceGame}`}
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                    {`${words["declare.announceGame"]}`}
                 </button>
             </div>
         {/if}

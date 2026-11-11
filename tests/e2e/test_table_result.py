@@ -7,6 +7,7 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
@@ -29,7 +30,6 @@ from tests.e2e.support.result_card import (
     loosely,
 )
 from tests.e2e.support.tables import SIT_DOWN
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -39,14 +39,14 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-WEITER = catalog_text("weiter")
-STAND_UP = catalog_text("standUp")
-COPY_LINK = catalog_text("copyLink")
-WAITING_FOR = catalog_text("waitingFor")
-AND = catalog_text("and")
-COMMAND_FAILED = catalog_text("commandFailed")
-SEAT_AWAY = catalog_text("seatAway")
-SEAT_FREE = catalog_text("seatFree")
+WEITER = text(SOURCE_LANGUAGE, "table.weiter")
+STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
+COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
+WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
+AND = text(SOURCE_LANGUAGE, "result.and")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
+SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10

@@ -5,9 +5,9 @@ from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.playing import TABLE_CARD_SUFFIX
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -17,9 +17,9 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-COMMAND_FAILED = catalog_text("commandFailed")
-KREUZ = catalog_text("gameKreuz")
-YOU = catalog_text("sideYou")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "play.commandFailed")
+KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
+YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 HAND_CARD = ".own-hand .card"
 LEGAL_CARD = f"{HAND_CARD}.ok"
 LIFTED_CARD = f"{HAND_CARD}.touch"

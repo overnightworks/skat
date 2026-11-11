@@ -344,9 +344,9 @@ export function drawingOrder(chairs: Chair[]): Chair[] {
 }
 
 const POSITION_WORDS: Record<Position, string> = {
-    forehand: words.forehand,
-    middlehand: words.middlehand,
-    rearhand: words.rearhand,
+    forehand: words["game.forehand"],
+    middlehand: words["game.middlehand"],
+    rearhand: words["game.rearhand"],
 };
 
 // The auction's value, shown to everyone until the game is declared.
@@ -382,12 +382,12 @@ export function includesCard(cards: readonly Card[], card: Card): boolean {
 export type Picking = { picked: readonly Card[]; disabled: boolean; toggle: (card: Card) => void };
 
 const GAME_WORDS: Record<Game, string> = {
-    karo: words.gameKaro,
-    herz: words.gameHerz,
-    pik: words.gamePik,
-    kreuz: words.gameKreuz,
-    grand: words.gameGrand,
-    null: words.gameNull,
+    karo: words["game.karo"],
+    herz: words["game.herz"],
+    pik: words["game.pik"],
+    kreuz: words["game.kreuz"],
+    grand: words["game.grand"],
+    null: words["game.null"],
 };
 
 const SUIT_GAMES: ReadonlySet<Game> = new Set(SUIT_TOKENS);
@@ -403,8 +403,8 @@ export function gameWord(game: Game): string {
 
 // The announcement's own words; no announcement has none.
 export function announcedWord(announcement: Announcement): string | null {
-    if (announcement === "schneider") return words.announcedSchneider;
-    return announcement === "schwarz" ? words.announcedSchwarz : null;
+    if (announcement === "schneider") return words["game.announcedSchneider"];
+    return announcement === "schwarz" ? words["game.announcedSchwarz"] : null;
 }
 
 // The one name of a declared game, with its levels: „Grand Hand“. A suit or Grand ouvert game includes Hand, so it
@@ -422,22 +422,22 @@ export function gameLabel({
     announcement: Announcement;
 }): { name: string; announcement: string | null } {
     if (ouvert) {
-        const handSuffix = game === "null" && hand ? ` ${words.hand}` : "";
-        return { name: `${gameWord(game)} ${words.ouvert}${handSuffix}`, announcement: null };
+        const handSuffix = game === "null" && hand ? ` ${words["game.hand"]}` : "";
+        return { name: `${gameWord(game)} ${words["game.ouvert"]}${handSuffix}`, announcement: null };
     }
-    const name = hand ? `${gameWord(game)} ${words.hand}` : gameWord(game);
+    const name = hand ? `${gameWord(game)} ${words["game.hand"]}` : gameWord(game);
     return { name, announcement: announcedWord(announcement) };
 }
 
 const RANK_WORDS: Record<Rank, string> = {
-    seven: words.rankSeven,
-    eight: words.rankEight,
-    nine: words.rankNine,
-    ten: words.rankTen,
-    jack: words.rankJack,
-    queen: words.rankQueen,
-    king: words.rankKing,
-    ace: words.rankAce,
+    seven: words["game.rankSeven"],
+    eight: words["game.rankEight"],
+    nine: words["game.rankNine"],
+    ten: words["game.rankTen"],
+    jack: words["game.rankJack"],
+    queen: words["game.rankQueen"],
+    king: words["game.rankKing"],
+    ace: words["game.rankAce"],
 };
 
 // A card's own name: a suit's word is the word of the game of that suit.

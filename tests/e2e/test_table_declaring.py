@@ -10,10 +10,10 @@ from skat.web.declaring import (
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,24 +23,28 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-TAKE_SKAT = catalog_text("takeSkat")
-PUT_BACK = catalog_text("putBack")
-ANNOUNCE = catalog_text("announceGame")
-HAND = catalog_text("hand")
-SCHNEIDER = catalog_text("levelSchneider")
-SCHWARZ = catalog_text("levelSchwarz")
-OUVERT_RUNG = catalog_text("levelOuvert")
-ANNOUNCED_WORDS = {"schneider": catalog_text("announcedSchneider"), "schwarz": catalog_text("announcedSchwarz")}
-COMMAND_FAILED = catalog_text("commandFailed")
-BIDDING = catalog_text("bidding")
-BID_VALUE = catalog_text("bidValue")
-PLAYS = catalog_text("plays")
-CHOOSES = catalog_text("chooses")
-DISCARDS = catalog_text("discards")
-NULL_GAME = catalog_text("gameNull")
-NULL_OUVERT = f"{NULL_GAME} {catalog_text('ouvert')}"
+TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
+PUT_BACK = text(SOURCE_LANGUAGE, "declare.putBack")
+ANNOUNCE = text(SOURCE_LANGUAGE, "declare.announceGame")
+HAND = text(SOURCE_LANGUAGE, "declare.hand")
+PLAQUE_HAND = text(SOURCE_LANGUAGE, "game.hand")
+SCHNEIDER = text(SOURCE_LANGUAGE, "declare.levelSchneider")
+SCHWARZ = text(SOURCE_LANGUAGE, "declare.levelSchwarz")
+OUVERT_RUNG = text(SOURCE_LANGUAGE, "declare.levelOuvert")
+ANNOUNCED_WORDS = {
+    "schneider": text(SOURCE_LANGUAGE, "game.announcedSchneider"),
+    "schwarz": text(SOURCE_LANGUAGE, "game.announcedSchwarz"),
+}
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "declare.commandFailed")
+BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
+BID_VALUE = text(SOURCE_LANGUAGE, "table.bidValue")
+PLAYS = text(SOURCE_LANGUAGE, "table.plays")
+CHOOSES = text(SOURCE_LANGUAGE, "table.chooses")
+DISCARDS = text(SOURCE_LANGUAGE, "table.discards")
+NULL_GAME = text(SOURCE_LANGUAGE, "game.null")
+NULL_OUVERT = f"{NULL_GAME} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
 GAME_NAMES = [
-    *(catalog_text(key) for key in ("gameKaro", "gameHerz", "gamePik", "gameKreuz", "gameGrand")),
+    *(text(SOURCE_LANGUAGE, key) for key in ("game.karo", "game.herz", "game.pik", "game.kreuz", "game.grand")),
     NULL_GAME,
     NULL_OUVERT,
 ]
@@ -163,7 +167,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
     assert declaration == {"game": "null", "hand": False, "ouvert": False, "announcement": "none"}
     expect(declarer.locator(PLAQUE)).to_contain_text(NULL_GAME)
-    expect(declarer.locator(PLAQUE)).not_to_contain_text(HAND)
+    expect(declarer.locator(PLAQUE)).not_to_contain_text(PLAQUE_HAND)
     reload_and_wait(declarer)
     expect_no_controls(declarer)
     assert page_errors == []
@@ -355,7 +359,7 @@ def test_the_declarer_carries_the_mark_and_the_turn_and_keeps_the_own_plaque(
     assert page_errors == []
 
 
-HAND_GAMES = [("herz", "gameHerz"), ("grand", "gameGrand"), ("null", "gameNull")]
+HAND_GAMES = [("herz", "game.herz"), ("grand", "game.grand"), ("null", "game.null")]
 
 
 def expect_the_choice(declarer: Page) -> None:
@@ -415,7 +419,7 @@ def test_the_declarer_declares_each_game_as_hand_after_a_page_step_and_a_reload_
     assert table.declaring_as_the_declarer_sees_it()["stage"] == "choosing"
 
     button_of(declarer, HAND).click()
-    button_of(declarer, catalog_text(word_key)).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, word_key)).click()
     expect(button_of(declarer, ANNOUNCE)).to_be_enabled()
     for far_fan in declarer.locator(".chair:not(.mine) .fan").all():
         assert not overlaps(far_fan.bounding_box(), declarer.locator(".declare").bounding_box())
@@ -500,12 +504,12 @@ def test_a_grand_hand_game_is_named_on_every_plaque_and_result_card(
 ) -> None:
     declaring = deal_a_declaring_table(form_factor)
     button_of(declaring.declarer, HAND).click()
-    button_of(declaring.declarer, catalog_text("gameGrand")).click()
+    button_of(declaring.declarer, text(SOURCE_LANGUAGE, "game.grand")).click()
     button_of(declaring.declarer, ANNOUNCE).click()
     expect_no_controls(declaring.declarer)
     table = PlayingTable(declaring, None)
 
-    grand_hand = f"{catalog_text('gameGrand')} {HAND}"
+    grand_hand = f"{text(SOURCE_LANGUAGE, 'game.grand')} {PLAQUE_HAND}"
     for person in table.everyone:
         expect(person.locator(PLAQUE)).to_contain_text(grand_hand)
         expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
@@ -551,7 +555,7 @@ def test_the_last_tap_on_a_level_clears_it_and_the_game_declares_without_an_anno
     button_of(declarer, HAND).click()
     for level in (SCHNEIDER, SCHWARZ, SCHWARZ):
         button_of(declarer, level).click()
-    button_of(declarer, catalog_text("gameHerz")).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, "game.herz")).click()
     button_of(declarer, ANNOUNCE).click()
     expect_no_controls(declarer)
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
@@ -570,7 +574,7 @@ def test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announ
     button_of(declarer, NULL_GAME).click()
     for level in (SCHNEIDER, SCHWARZ, OUVERT_RUNG):
         expect(button_of(declarer, level)).to_have_count(0)
-    button_of(declarer, catalog_text("gameGrand")).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, "game.grand")).click()
     expect(button_of(declarer, SCHWARZ)).to_have_attribute(PRESSED, "false")
     button_of(declarer, NULL_GAME).click()
     button_of(declarer, ANNOUNCE).click()
@@ -582,7 +586,7 @@ def test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announ
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
 @pytest.mark.parametrize(
-    ("token", "word_key", "level"), [("herz", "gameHerz", "schneider"), ("grand", "gameGrand", "schwarz")]
+    ("token", "word_key", "level"), [("herz", "game.herz", "schneider"), ("grand", "game.grand", "schwarz")]
 )
 def test_an_announced_hand_game_is_stored_with_one_command_and_every_plaque_names_it_without_covering_a_fan(
     deal_a_declaring_table: Callable[..., DeclaringTable],
@@ -597,7 +601,7 @@ def test_an_announced_hand_game_is_stored_with_one_command_and_every_plaque_name
     posts: list[str] = []
     declarer.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
     button_of(declarer, HAND).click()
-    button_of(declarer, catalog_text(word_key)).click()
+    button_of(declarer, text(SOURCE_LANGUAGE, word_key)).click()
     button_of(declarer, LEVEL_NAMES[level]).click()
     button_of(declarer, ANNOUNCE).dblclick()
     expect_no_controls(declarer)
@@ -608,7 +612,7 @@ def test_an_announced_hand_game_is_stored_with_one_command_and_every_plaque_name
 
     reload_and_wait(declarer)
     for person in table.everyone:
-        expect(person.locator(PLAQUE)).to_contain_text(f"{catalog_text(word_key)} {HAND}")
+        expect(person.locator(PLAQUE)).to_contain_text(f"{text(SOURCE_LANGUAGE, word_key)} {PLAQUE_HAND}")
         expect(person.locator(ANNOUNCED_MARK)).to_have_text(ANNOUNCED_WORDS[level])
         plaque = person.locator(PLAQUE).bounding_box()
         for covered in (*person.locator(".fan-spot").all(), *person.locator(".own-hand").all()):

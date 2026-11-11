@@ -9,7 +9,7 @@
     const laid = $derived(trickOnTheFelt(chairs, playing));
 </script>
 
-<ul class="trick" aria-label={words.trick}>
+<ul class="trick" aria-label={words["play.trick"]}>
     {#each laid as { card, seat, slot, name, initial } (`${card.suit}-${card.rank}`)}
         <li class={`laid ${slot}`} data-seat={seat}>
             <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
