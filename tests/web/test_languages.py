@@ -1,9 +1,11 @@
+from typing import TYPE_CHECKING
+
 import pytest
 from fastapi.testclient import TestClient
 from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
-from skat.web.constants import HOME_PATH
+from skat.web.constants import HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
@@ -12,16 +14,23 @@ from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
-def member_client(sign_in_settings, *, account_language: str | None, accept_language: str | None) -> TestClient:
-    stores = in_memory_stores()
-    app = create_app(
+
+def skat_app(sign_in_settings, stores=None) -> FastAPI:
+    return create_app(
         sign_in_settings().settings,
         page_build=fixture_page_build(),
         tables=in_memory_tables(),
         rule_sets=in_memory_rule_sets(),
         stores=stores,
     )
+
+
+def member_client(sign_in_settings, *, account_language: str | None, accept_language: str | None) -> TestClient:
+    stores = in_memory_stores()
+    app = skat_app(sign_in_settings, stores)
     member = seed_member(stores, installed_web_auth_config(app), account_language=account_language)
     headers = {"cookie": cookie_header(member.set_cookie_headers)}
     if accept_language is not None:
@@ -46,3 +55,11 @@ class TestShellLanguage:
         assert response.status_code == 200
         assert response.content.count(b'<html lang="de">') == 1
         assert b'<html lang="en">' not in response.content
+
+
+class TestPlainSignInPages:
+    @pytest.mark.parametrize("path", [LOGIN_PATH, NO_ACCESS_PATH])
+    def test_a_plain_sign_in_page_keeps_english_until_the_kit_speaks_german(self, sign_in_settings, path):
+        client = TestClient(skat_app(sign_in_settings), base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
+
+        assert b'<html lang="en">' in client.get(path).content
