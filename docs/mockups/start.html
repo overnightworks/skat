@@ -718,8 +718,8 @@ const LOBBY_SCENES=[
     ['Die Liste bleibt, gedimmt und still; „Neuer Tisch“ geht weiter.']],
   ['outage-tap','Tipp auf Lobby, Skat ist weg','outage-tap',(w)=>outageScene(w),[360,390,1280],
     ['Die Adresse ist „/“; die Startseite ist noch nicht geladen, also gibt es keine Liste zum Dimmen. Nur Wortmarke und „verbinde neu“; der Ring ist die einzige Bewegung. Kommt Skat wieder, steht die Lobby (Bild „Lobby“) einfach da: kein Knopf, kein „fertig“.']],
-  ['outage-minute','Nach einer Minute: ruhige Zeile','outage-minute',(w)=>outageScene(w,{line:true}),[360,390,1280],
-    ['Variante zu „Tipp auf Lobby“: nach einer Minute eine ruhige Zeile unter der Pille, ohne Knopf und ohne Rot. Eine der beiden Varianten bleibt, die andere entfällt.']],
+  ['outage-minute','Nach einer Minute','outage-minute',(w)=>outageScene(w,{line:true}),[360,390,1280],
+    ['Nach einer Minute ohne Skat kommt die ruhige Zeile „Skat ist gerade nicht erreichbar.“ unter die Pille: ohne Knopf und ohne Rot. Kommt Skat wieder, geht die Zeile.']],
 ];
 LOBBY_SCENES.forEach(([id,title,,draw,widths,notes])=>widths.forEach(w=>frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,draw(w),notes)));
 ORDER.unshift(...LOBBY_SCENES.flatMap(([id,,,,widths])=>widths.map(w=>`${id}-${w}`)));
