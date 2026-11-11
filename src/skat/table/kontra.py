@@ -75,7 +75,7 @@ def kontra_view_of(
     """The words for one viewer; None at a table without Kontra.
 
     The viewer's own chair gets the word it may say now: the next word, if the engine accepts it from that position.
-    A watcher has no chair, so no word.
+    A watcher has no chair, so no word; the caller passes no viewer position while the hand waits for a sitter.
     """
     options, doubling = table.options.kontra, doubling_of(table)
     if options is None or doubling is None:

@@ -17,7 +17,7 @@ from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.paused import PAUSED_TABLES_PATH
 from skat.web.secret_files import StartRefusedError
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
@@ -298,6 +298,13 @@ class TestCreateApp:
     @pytest.mark.parametrize("path", ["/", SIGN_IN_STYLESHEET])
     def test_serves_the_page_and_its_assets_to_a_member(self, sign_in_settings, path):
         assert signed_in_client(sign_in_settings().settings).get(path).status_code == 200
+
+    @pytest.mark.parametrize("path", [f"{TABLE_PAGE_PREFIX}table-1%0A", f"{TABLES_PATH}/table-1%0A"])
+    def test_a_path_with_a_control_character_answers_400_through_the_app(self, sign_in_settings, path):
+        response = signed_in_client(sign_in_settings().settings).get(path)
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": "Malformed request path"}
 
     def test_the_policy_admits_the_scripts_of_the_shell_and_of_the_call_sign_in_page_by_their_hash(
         self, sign_in_settings
