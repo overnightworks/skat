@@ -6,7 +6,7 @@ from operator import attrgetter
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, positions_from
@@ -225,6 +225,35 @@ class TestTheThirtiethCard:
         (row,) = stored_list_rows(engine, clocked_game.table_id)
 
         assert (row.series_number, row.finished_at) == (1, FINISHED_AT)
+
+    def test_a_list_insert_that_fails_keeps_the_hand_the_version_and_the_receipts_as_they_were(
+        self, game, last, engine
+    ):
+        position, card, version = last
+        before = game.record
+        hand_rows = list(map(partial(rows_of, engine, game.table_id), HAND_TABLES))
+        receipts = rows_of(engine, game.table_id, "receipts")
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE FUNCTION refuse_list_rows() RETURNS trigger LANGUAGE plpgsql"
+                    " AS $$ BEGIN RAISE EXCEPTION 'the list refuses this row'; END $$"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TRIGGER refuse_list_rows BEFORE INSERT ON game_list"
+                    " FOR EACH ROW EXECUTE FUNCTION refuse_list_rows()"
+                )
+            )
+
+        with pytest.raises(DBAPIError):
+            game.play(position, card, LAST_CARD, version)
+
+        assert game.record == before
+        assert len(stored_list_rows(engine, game.table_id)) == 0
+        assert list(map(partial(rows_of, engine, game.table_id), HAND_TABLES)) == hand_rows
+        assert rows_of(engine, game.table_id, "receipts") == receipts
 
     def test_a_retry_of_the_last_card_writes_no_second_row(self, ended, engine, last):
         position, card, version = last
