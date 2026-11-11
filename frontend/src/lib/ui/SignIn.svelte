@@ -1,6 +1,7 @@
 <script lang="ts">
     import { SignInPage, type SignInState } from "overnightworks-design";
     import { LEGAL_LINKS } from "#lib/legal.ts";
+    import { words } from "#lib/words.ts";
     import { AUTH_START_PATH, LOGOUT_PATH } from "#lib/wire.ts";
 
     const { page }: { page: "signed-out" | "login-failed" | "no-access" } = $props();
@@ -13,5 +14,5 @@
 </script>
 
 <div class="sign-in">
-    <SignInPage appName="Skat" state={signInState} legalLinks={LEGAL_LINKS} />
+    <SignInPage appName={words.appName} state={signInState} legalLinks={LEGAL_LINKS} />
 </div>

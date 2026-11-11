@@ -46,11 +46,13 @@ def test_the_start_page_shows_the_wordmark_the_account_button_the_legal_links_an
 ) -> None:
     person = open_start_page(open_person, e2e_server, page_errors, **form_factor)
 
-    expect(person).to_have_title("Skat")
-    expect(person.locator(".wordmark")).to_have_text("Skat")
+    expect(person).to_have_title(catalog_text("appName"))
+    expect(person.locator(".wordmark")).to_have_text(catalog_text("appName"))
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
     legal_row = person.locator(".start-legal").get_by_role("link")
-    assert {(link.inner_text(), link.get_attribute("href")) for link in legal_row.all()} == set(LEGAL_LINKS.items())
+    assert {(link.inner_text(), link.get_attribute("href")) for link in legal_row.all()} == {
+        (catalog_text(key), href) for key, href in LEGAL_LINKS.items()
+    }
     expect(person.locator("body")).to_have_css("margin", "0px")
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
@@ -66,9 +68,9 @@ def test_the_account_button_opens_a_menu_with_the_username_one_log_out_and_the_l
     menu = person.locator(ACCOUNT_MENU)
     expect(menu.get_by_role("link").first).to_have_text("felix.hummert")
     expect(menu.get_by_role("button", name=catalog_text("logOut"))).to_have_count(1)
-    assert {(link.inner_text(), link.get_attribute("href")) for link in menu.locator("nav a").all()} == set(
-        LEGAL_LINKS.items()
-    )
+    assert {(link.inner_text(), link.get_attribute("href")) for link in menu.locator("nav a").all()} == {
+        (catalog_text(key), href) for key, href in LEGAL_LINKS.items()
+    }
 
 
 def test_the_menu_closes_on_escape_and_on_a_press_outside(
