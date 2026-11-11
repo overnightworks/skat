@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Annotated, Final
 from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
+from skat.engine.declaration import SKAT_SIZE
+from skat.engine.tricks import TRICKS_IN_A_GAME
 from skat.table.pushing import PushingCommand, PushingKind
 from skat.web.mcp import RAMSCH_PUSH_SKAT_MARK, RAMSCH_PUT_BACK_CARDS_MARK, RAMSCH_TAKE_SKAT_MARK
 from skat.web.tables import (
@@ -36,7 +38,9 @@ class _PushingRequest(CommandRequest):
 
 
 class PutBackRequest(_PushingRequest):
-    cards: list[CardChoice]
+    """The engine refuses a wrong count; the cap is the most a seat can hold after the take, so a body stays small."""
+
+    cards: Annotated[list[CardChoice], Field(max_length=TRICKS_IN_A_GAME + SKAT_SIZE)]
 
 
 type StepTaker = Callable[

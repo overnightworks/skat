@@ -35,7 +35,7 @@ from tests.web.support.playing import (
     with_totals,
 )
 from tests.web.support.series import deal_the_next_game, headers_of, tap_new_series, tap_weiter
-from tests.web.support.skat import Skat, streams_of
+from tests.web.support.skat import Skat, stored, streams_of
 
 SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
 FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT = SEATS[FOREHAND], SEATS[MIDDLEHAND], SEATS[REARHAND]
@@ -334,6 +334,23 @@ class TestTheStage:
             accepted(table, earlier_position, earlier_kind)
 
         refused(table, position, kind, reason, put)
+
+    @pytest.mark.parametrize(
+        "put",
+        [
+            pytest.param(cards("C7 C8 C9 CT CJ CQ CK CA S7 S8 S9 ST S7"), id="one-more-than-a-seat-can-hold"),
+            pytest.param(cards("C7 C8 C9 CT CJ CQ CK CA S7 S8 S9 ST SJ SQ SK SA H7 H8 H9 HT HJ HQ HK HA"), id="a-deck"),
+        ],
+    )
+    def test_refuses_more_cards_than_a_seat_can_hold_with_422_and_stores_nothing(self, skat, put):
+        table = stage_table(skat)
+        accepted(table, FOREHAND, "take")
+        before = stored(skat)
+
+        answer = step(table, FOREHAND, "put-back", put)
+
+        assert answer.status_code == 422
+        assert stored(skat) == before
 
     def test_refuses_what_the_table_refuses_before_the_engine(self, skat):
         table = stage_table(skat)
