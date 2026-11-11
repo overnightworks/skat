@@ -1684,7 +1684,7 @@ const lenaSits=(d)=>{const L=seatsOf(d);
     +seat('felixSeen',L.anna)+seat('anna',{...L.nova,marks:['decl']})+seat('lenaSelf',{...L.you,marks:['turn']})+chairCoasters(L,[TOTALS_BEFORE[2],TOTALS_BEFORE[0],TOTALS_BEFORE[1]])
     +ownCards(d,SPARE_FOLLOWING)+stripOf(d,{lead:GIVE_UP});};
 const sitQuestion=(d)=>watchOpen(d)+'<div class="scrim"></div>'+panel({x:mid(d),y:d?220:270,w:d?460:340,role:'dialog',icon:I.plus,text:'Mitten ins Spiel setzen?',
-  line:'Du spielst Novas Karten bis zum Ende dieses Spiels.',buttons:`<span class="button button-stage">${I.plus}Hinsetzen</span><span class="button button-glass">Abbrechen</span>`});
+  line:'Du übernimmst Novas Karten.',buttons:`<span class="button button-stage">${I.plus}Hinsetzen</span><span class="button button-glass">Abbrechen</span>`});
 
 /* the vote to end the hand while a chair is free */
 const ANSWER_ABORT=`<div class="answers"><span class="button button-stage" role="button">${I.check}Abbrechen</span><span class="button button-glass" role="button">${I.cross}Warten</span></div>`;
@@ -1742,7 +1742,7 @@ const AGENT_SCENES=[
   ['seat-open-watch','Freier Platz, Zuschauen',[360,390,1280],watchOpen,
     ['Lena schaut zu: dieselbe Tafel, das Plus auf dem freien Stuhl neben seinen Karten, keine Karte von irgendwem zu sehen.']],
   ['seat-open-ask','Freier Platz: Frage',[390,1280],sitQuestion,
-    ['Lena tippt auf das Plus: „Mitten ins Spiel setzen?“ mit „Du spielst Novas Karten bis zum Ende dieses Spiels.“ und „Hinsetzen“, „Abbrechen“. Wer sich so setzt, kann erst nach dem Spiel aufstehen.'],
+    ['Lena tippt auf das Plus: „Mitten ins Spiel setzen?“ mit „Du übernimmst Novas Karten.“ und „Hinsetzen“, „Abbrechen“. Wer sich so setzt, übernimmt Novas Karten.'],
     'Zeile 2, Antwort A: eine kurze Frage vor dem Hinsetzen; bei Antwort B entfällt dieses Bild, und ein Tipp auf das Plus setzt sofort'],
   ['seat-open-took','Freier Platz: gesetzt',[390,1280],lenaSits,
     ['Lena sitzt: Novas Karten sind ihre Hand, ihr Stuhl sagt „Du“, sie ist dran, die spielbaren Karten leuchten. Ihre Sicht dreht sich: ihr Stuhl ist jetzt der untere, Felix links, Anna rechts.']],
