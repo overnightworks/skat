@@ -1,0 +1,8 @@
+claim_id = "8e16bbcf7b5e46048dcab657dd5a7255"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "b317e6b23951c2e866025e5456594a045210f896"
+branch = "claude/issue-311-felix-set"
+scope = ["README.md", "src/skat/host/main.py", "src/skat/store/migrate.py", "src/skat/store/migrations/versions/0022_felix_set.py", "src/skat/web/settings.py", "tests/host/test_main.py", "tests/store/test_migrate_felix_set.py", "tests/support/migrations.py", "tests/web/test_settings.py"]
+opened_commit = "dcfe4c76b8750675cf331784981f287e6d51ec62"
+whole_reason = "The setting, its path through skat migrate into one migration and the test that drives it are one path: a setting nothing reads is dead and a migration without its setting inserts nothing."
