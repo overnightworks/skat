@@ -1,3 +1,4 @@
+import type { AgentControlRefusal } from "overnightworks-design";
 import { isFramedInCallMode } from "#lib/callFrame.ts";
 import { openStream } from "#lib/stream.ts";
 import {
@@ -22,6 +23,8 @@ import {
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
+    TABLE_AGENT_CALL_SUFFIX,
+    TABLE_AGENTS_SUFFIX,
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_READY_SUFFIX,
@@ -88,6 +91,7 @@ export type Hand = {
 export type Chair = {
     seat: number;
     occupant_name: string | null;
+    occupant_kind: "person" | "agent" | null;
     is_mine: boolean;
     is_away: boolean;
     ready: boolean;
@@ -149,19 +153,26 @@ function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_nam
     return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
 }
 
-// A session that ended while the page was open goes through the sign-in again; any other failure
-// is shown to the person as it is, and nothing is retried behind their back.
-async function ask(path: string, init?: RequestInit): Promise<Outcome> {
+// A session that ended while the page was open goes through the sign-in again; the answer is null then and when the
+// server cannot be reached.
+async function fetchSigningInAgain(path: string, init?: RequestInit): Promise<Response | null> {
     let answer: Response;
     try {
         answer = await fetch(path, init);
     } catch {
-        return { kind: "failed" };
+        return null;
     }
     if (answer.status === SIGNED_OUT_STATUS) {
         location.reload();
-        return { kind: "failed" };
+        return null;
     }
+    return answer;
+}
+
+// Any other failure is shown to the person as it is, and nothing is retried behind their back.
+async function ask(path: string, init?: RequestInit): Promise<Outcome> {
+    const answer = await fetchSigningInAgain(path, init);
+    if (answer === null) return { kind: "failed" };
     if (answer.status === NOT_FOUND_STATUS) return { kind: "missing" };
     try {
         const body: unknown = await answer.json();
@@ -430,4 +441,123 @@ export async function copyTableLink(id: string): Promise<boolean> {
     } catch {
         return false;
     }
+}
+
+// One row of the control that calls agents. `key` is Skat's opaque key; an `inviting` row says in whole seconds on the
+// server's clock how long its invitation stays open.
+export type AgentRow =
+    | { key: string; name: string; state: "available"; ends_in_seconds: null }
+    | { key: string; name: string; state: "inviting"; ends_in_seconds: number };
+export type AgentsControl = { shown: boolean; rows: AgentRow[] };
+type AgentsAnswer = { kind: "control"; control: AgentsControl } | { kind: "missing" } | { kind: "failed" };
+type CallAnswer = AgentsAnswer | { kind: "refused"; reason: AgentControlRefusal };
+
+const REFUSAL_REASONS: ReadonlySet<unknown> = new Set<AgentControlRefusal>([
+    "not-allowed",
+    "owner-absent",
+    "place-full",
+    "agent-unavailable",
+    "try-again",
+]);
+// The next read of an `inviting` row is at least this long after the last, so a clock that runs ahead asks once more
+// and never in a tight loop; a read that failed is asked again after the retry wait while a row is `inviting`.
+const MINIMUM_REREAD_SECONDS = 1;
+const FAILED_REREAD_MILLISECONDS = 5000;
+
+function agentsPath(id: string): string {
+    return `${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_AGENTS_SUFFIX}`;
+}
+
+async function answerOfAgents(answer: Response | null): Promise<AgentsAnswer> {
+    if (answer === null) return { kind: "failed" };
+    if (answer.status === NOT_FOUND_STATUS) return { kind: "missing" };
+    if (!answer.ok) return { kind: "failed" };
+    return { kind: "control", control: (await answer.json()) as AgentsControl };
+}
+
+export async function readAgents(id: string): Promise<AgentsAnswer> {
+    return answerOfAgents(await fetchSigningInAgain(agentsPath(id)));
+}
+
+// The tap is the call: no command id, because the same call again changes nothing twice.
+export async function callAgent(id: string, key: string): Promise<CallAnswer> {
+    const answer = await fetchSigningInAgain(`${agentsPath(id)}/${encodeURIComponent(key)}${TABLE_AGENT_CALL_SUFFIX}`, {
+        method: "POST",
+    });
+    if (answer?.status !== CONFLICT_STATUS) return answerOfAgents(answer);
+    try {
+        const body: unknown = await answer.json();
+        const reason = typeof body === "object" && body !== null && "reason" in body ? body.reason : null;
+        return REFUSAL_REASONS.has(reason)
+            ? { kind: "refused", reason: reason as AgentControlRefusal }
+            : { kind: "failed" };
+    } catch {
+        return { kind: "failed" };
+    }
+}
+
+// Seconds until the nearest `inviting` row's invitation ends on the server, never less than one; null with none.
+export function rereadAfterSeconds(control: AgentsControl): number | null {
+    const waits = control.rows.flatMap((row) => (row.state === "inviting" ? [row.ends_in_seconds] : []));
+    return waits.length === 0 ? null : Math.max(MINIMUM_REREAD_SECONDS, Math.min(...waits));
+}
+
+export type AgentsFollower = {
+    read: () => Promise<void>;
+    call: (key: string) => Promise<void>;
+    stop: () => void;
+};
+
+// Reads the control and follows it: while a row is `inviting`, it reads again after that row's own seconds, until no
+// row is. The server's clock decides when an invitation ends; the page's clock only times the next read.
+export function followAgents(
+    id: string,
+    onControl: (control: AgentsControl) => void,
+    onRefusal: (reason: AgentControlRefusal | null) => void,
+): AgentsFollower {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    let inviting = false;
+
+    function schedule(milliseconds: number | null): void {
+        clearTimeout(timer);
+        inviting = milliseconds !== null;
+        if (milliseconds !== null) timer = setTimeout(() => void read(), milliseconds);
+    }
+
+    function show(answer: AgentsAnswer): void {
+        if (answer.kind === "control") {
+            onControl(answer.control);
+            const seconds = rereadAfterSeconds(answer.control);
+            schedule(seconds === null ? null : seconds * 1000);
+        } else if (answer.kind === "failed" && inviting) {
+            schedule(FAILED_REREAD_MILLISECONDS);
+        }
+    }
+
+    async function read(): Promise<void> {
+        const answer = await readAgents(id);
+        if (!stopped) show(answer);
+    }
+
+    async function call(key: string): Promise<void> {
+        onRefusal(null);
+        const answer = await callAgent(id, key);
+        if (stopped) return;
+        if (answer.kind === "refused" || answer.kind === "failed") {
+            onRefusal(answer.kind === "refused" ? answer.reason : "try-again");
+            await read();
+        } else {
+            show(answer);
+        }
+    }
+
+    return {
+        read,
+        call,
+        stop: () => {
+            stopped = true;
+            clearTimeout(timer);
+        },
+    };
 }

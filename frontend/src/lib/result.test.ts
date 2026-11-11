@@ -10,6 +10,7 @@ function chairs(mine: number, changes: Record<number, Partial<Chair>> = {}): Cha
     return [1, 2, 3].map((seat) => ({
         seat,
         occupant_name: `player ${String(seat)}`,
+        occupant_kind: "person",
         is_mine: seat === mine,
         is_away: false,
         ready: false,

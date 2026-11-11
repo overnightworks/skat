@@ -124,6 +124,19 @@ export type Words = {
     readonly "card.letterQueen": string;
     readonly "card.letterKing": string;
     readonly "card.letterAce": string;
+    readonly "agents.pill": string;
+    readonly "agents.call": string;
+    readonly "agents.calling": string;
+    readonly "agents.askToLeave": string;
+    readonly "agents.callLabel": string;
+    readonly "agents.askToLeaveLabel": string;
+    readonly "agents.empty": string;
+    readonly "agents.refusalNotAllowed": string;
+    readonly "agents.refusalOwnerAbsent": string;
+    readonly "agents.refusalPlaceFull": string;
+    readonly "agents.refusalAgentUnavailable": string;
+    readonly "agents.refusalTryAgain": string;
+    readonly "table.agentSits": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -248,5 +261,18 @@ export const words: Words = {
     "card.letterQueen": "D",
     "card.letterKing": "K",
     "card.letterAce": "A",
+    "agents.pill": "Agenten",
+    "agents.call": "Rufen",
+    "agents.calling": "Wird gerufen…",
+    "agents.askToLeave": "Bitten zu gehen",
+    "agents.callLabel": "{name} rufen",
+    "agents.askToLeaveLabel": "{name} bitten zu gehen",
+    "agents.empty": "Gerade ist kein Agent erreichbar.",
+    "agents.refusalNotAllowed": "Du darfst diesen Agenten nicht rufen.",
+    "agents.refusalOwnerAbsent": "Sein Besitzer ist nicht hier.",
+    "agents.refusalPlaceFull": "Hier ist kein Platz für einen weiteren Agenten.",
+    "agents.refusalAgentUnavailable": "Der Agent ist gerade nicht erreichbar.",
+    "agents.refusalTryAgain": "Das hat nicht geklappt. Versuch es noch einmal.",
+    "table.agentSits": "{name} setzt sich",
 };
 export type Key = keyof Words;
