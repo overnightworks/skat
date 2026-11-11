@@ -82,6 +82,11 @@ class WiredTableService(TableService):
         self._wired.append(clone)
         return clone
 
+    def with_view_signal(self, signal):
+        clone = super().with_view_signal(signal)
+        self._wired.append(clone)
+        return clone
+
 
 class Skat:
     def __init__(self, sign_in_settings, store=None, stores=None, now=None, **app_options):

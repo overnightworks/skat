@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
+from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_view_uri
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
@@ -15,6 +15,11 @@ from tests.web.support.skat import mcp_message
 SUBJECT = "agent-subject"
 ACKNOWLEDGED = "notifications/subscriptions/acknowledged"
 UPDATED = "notifications/resources/updated"
+
+
+def view_uri_of(table_id):
+    """The resource a seated agent reads its table through."""
+    return place_view_uri(PlaceRef(kind="table", id=table_id))
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,22 @@ class Agent:
         assert answer.status_code == 200, answer.text
         return answer.json()["result"]["contents"][0]["text"]
 
+    def read_resource(self, uri):
+        """The answer of `resources/read` as it came, for a resource that may be unknown."""
+        return self.request("resources/read", {"uri": uri})
+
+    def view(self, table_id):
+        """The agent's view of its table, as a runner reads it: revision, awaits_you and state."""
+        answer = self.read_resource(view_uri_of(table_id))
+        assert answer.status_code == 200, answer.text
+        return json.loads(answer.json()["result"]["contents"][0]["text"])
+
+    def woken_view(self, frames, table_id):
+        """Waits for the pulse of the table's view and reads the view after it."""
+        pulse = next(frames)
+        assert (pulse["method"], pulse["params"]["uri"]) == (UPDATED, view_uri_of(table_id))
+        return self.view(table_id)
+
     def listed_resources(self):
         answer = self.request("resources/list")
         assert answer.status_code == 200, answer.text
@@ -127,6 +148,18 @@ def person_steps(table, position, suffix):
     answer = table.skat.client.post(
         f"{TABLES_PATH}/{table.table_id}{suffix}",
         json={"command_id": table.fresh_id(), "version": table.record.version},
+        headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
+    )
+    assert answer.status_code == 200, answer.text
+    table.skat.client.cookies.clear()
+
+
+def person_posts(table, suffix, position, **body):
+    """The person at `position` posts an act without a version through its route with a cookie session."""
+    table.skat.client.cookies.clear()
+    answer = table.skat.client.post(
+        f"{TABLES_PATH}/{table.table_id}{suffix}",
+        json={"command_id": table.fresh_id(), **body},
         headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
     )
     assert answer.status_code == 200, answer.text
