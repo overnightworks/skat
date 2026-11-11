@@ -10,9 +10,11 @@ from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
 from skat.engine.declaration import Announcement, Declare
 from skat.engine.games import GameKind
+from skat.engine.kontra import Word, WordSaid
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
 from skat.table.declaring import DeclaringCommand, decide_declaring_step
 from skat.table.game_list import ListEntry
+from skat.table.kontra import KontraCommand, SeatedWord, decide_kontra
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -28,6 +30,7 @@ from tests.support.open_chairs import (
     FOREHAND,
     FOREHAND_SEAT,
     HAND_COMMANDS,
+    KONTRA,
     MIDDLEHAND,
     MIDDLEHAND_SEAT,
     OWN_PUT_BACK,
@@ -40,7 +43,14 @@ from tests.support.open_chairs import (
     newcomer,
     sent_away,
 )
-from tests.support.played_game import an_entry, asked_by_the_declarer, before_the_last_card, table_in, with_agents
+from tests.support.played_game import (
+    an_entry,
+    asked_by_the_declarer,
+    before_the_last_card,
+    declared_herz_hand,
+    table_in,
+    with_agents,
+)
 
 NOBODY = frozenset[str]()
 THIRD_PASS_BY_FOREHAND = HandProgress(auction=(Pass(MIDDLEHAND), Pass(REARHAND)))
@@ -214,6 +224,33 @@ class TestTheTakeOver:
 
         assert (taken.hand, taken.dealer, taken.progress) == (table.hand, table.dealer, table.progress)
         assert not any(chair.ready for chair in taken.chairs)
+
+
+class TestTheKontraWordAfterATakeOver:
+    def test_the_sitter_in_an_opponents_seat_is_offered_the_word_and_has_it_accepted(self):
+        table, sitter = table_in(declared_herz_hand(), KONTRA), newcomer()
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+
+        offered = view_of(taken, sitter.account_id, NOBODY).hand.playing.kontra.my_word
+        said = decide_kontra(taken, sitter, KontraCommand("command-1", taken.id.value, taken.version, Word.KONTRA))
+
+        assert offered is Word.KONTRA
+        assert said.refusal is None
+        assert view_of(said.table, sitter.account_id, NOBODY).hand.playing.kontra.said == (
+            SeatedWord(REARHAND_SEAT, Word.KONTRA),
+        )
+
+    def test_a_word_the_seat_said_stays_said_for_the_sitter(self):
+        table = table_in(declared_herz_hand(), KONTRA)
+        table = replace(table, progress=replace(table.progress, words=(WordSaid(REARHAND, Word.KONTRA, 0),)))
+        sitter = newcomer()
+
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+
+        before = view_of(table, account_of(MIDDLEHAND), NOBODY).hand.playing.kontra
+        after = view_of(taken, sitter.account_id, NOBODY).hand.playing.kontra
+        assert before.said == (SeatedWord(REARHAND_SEAT, Word.KONTRA),)
+        assert (after.said, after.factor) == (before.said, before.factor)
 
 
 class TestTheDeclarersSkat:
