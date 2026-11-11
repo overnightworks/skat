@@ -37,7 +37,8 @@ from skat.table.records import (
     TableOptions,
     TableRecord,
 )
-from tests.support.played_game import a_whole_game, declared_herz_hand, table_in
+from skat.table.send_away import decide_send_away
+from tests.support.played_game import a_whole_game, declared_herz_hand, table_in, with_agents
 
 MIDDLEHAND, REARHAND, FOREHAND = Position.MIDDLEHAND, Position.REARHAND, Position.FOREHAND
 MIDDLEHAND_SEAT, REARHAND_SEAT, FOREHAND_SEAT = 1, 2, 3
@@ -62,6 +63,14 @@ def actor_at(table: TableRecord, seat: int) -> Actor:
     occupant = table.chairs[seat - 1].occupant
     assert occupant is not None
     return Actor(occupant.account_id, occupant.display_name, occupant.kind)
+
+
+def sent_away(table: TableRecord, seat: int) -> TableRecord:
+    """The table once the agent in `seat` was sent away; the occupant of the seat is made an agent first."""
+    agents = with_agents(table, seat)
+    occupant = agents.chairs[seat - 1].occupant
+    assert occupant is not None
+    return decide_send_away(agents, occupant.account_id).table
 
 
 def newcomer(kind: OccupantKind = OccupantKind.PERSON, name: str = "Dora") -> Actor:

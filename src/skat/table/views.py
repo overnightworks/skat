@@ -22,7 +22,7 @@ from skat.table.hand_state import auction_of, declaring_of, game_of
 from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.records import EndedTable, EndReason, OccupantKind
-from skat.table.rules import hand_runs, series_over
+from skat.table.rules import hand_runs, series_over, waiting_seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -59,7 +59,11 @@ class ChairView:
 
 @dataclass(frozen=True)
 class HandView:
-    """The running hand as one viewer may see it: the dealer, their own cards in deck order, the skat's count."""
+    """The running hand as one viewer may see it: the dealer, their own cards in deck order, the skat's count.
+
+    `waiting_seat` is the open seat the hand waits for, the same for every viewer; while it is set the hand offers no
+    step: no card to play, no value to bid, no word to say.
+    """
 
     dealer_seat: int
     own_cards: tuple[Card, ...]
@@ -68,6 +72,7 @@ class HandView:
     declaring: DeclaringView | None
     playing: PlayingView | None
     ramsch: bool
+    waiting_seat: int | None
 
 
 @dataclass(frozen=True)
@@ -151,23 +156,26 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         positions[chair.seat] for chair in table.chairs if _is_occupied_by(chair, viewer_account_id)
     )
     own_cards = {card for position in viewer_positions for card in hands[position]}
+    waiting_seat = waiting_seat_of(table)
+    acting_positions = frozenset() if waiting_seat is not None else viewer_positions
     hand_view = HandView(
         table.dealer,
         tuple(card for card in DECK if card in own_cards),
         len(table.hand.skat if state is None else state.skat),
-        auction_view_of(table, viewer_account_id, table.dealer),
+        auction_view_of(table, viewer_account_id, table.dealer, waiting=waiting_seat is not None),
         declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
         playing_view_of(
             playing,
             table.dealer,
-            viewer_positions,
+            acting_positions,
             show_running_points=table.options.show_running_points,
             asked=table.progress.give_up,
-            kontra=kontra_view_of(table, playing, table.dealer, viewer_positions)
+            kontra=kontra_view_of(table, playing, table.dealer, acting_positions)
             if isinstance(playing, Playing)
             else None,
         ),
         isinstance(playing, RamschPlaying),
+        waiting_seat,
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 

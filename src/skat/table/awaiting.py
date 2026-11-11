@@ -1,7 +1,7 @@
 """Whether the table waits for the viewer's seat to act, decided from the viewer's own view so that the view and the
 decision cannot disagree. A running hand waits for the seat on turn and, while a give-up is asked, for the opponent who
-has not answered; between hands it waits for each seat that has not continued, and for each that has not answered a
-proposal to end the series early.
+has not answered, unless a chair of the hand is open: then it waits for a sitter and for no seat. Between hands it
+waits for each seat that has not continued, and for each that has not answered a proposal to end the series early.
 """
 
 from skat.table.views import TableView, turn_seat_of
@@ -15,6 +15,8 @@ def awaits_you(view: TableView) -> bool:
     if own is None:
         return False
     if view.hand is not None:
+        if view.hand.waiting_seat is not None:
+            return False
         return turn_seat_of(view.hand) == own.seat or _give_up_waits_for(view, own.seat)
     return (_a_result_or_series_end_stands(view) and not own.ready) or _proposal_waits_for(view, own.seat)
 

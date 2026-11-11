@@ -23,7 +23,6 @@ from skat.table.playing import (
 )
 from skat.table.records import GiveUpAsked, HandProgress, NewHand, OccupantKind, Refusal, TableOptions
 from skat.table.rules import acting_position, decide_sit, decide_stand, waiting_seat_of
-from skat.table.send_away import decide_send_away
 from skat.table.views import turn_seat_of, view_of
 from tests.support.open_chairs import (
     FOREHAND,
@@ -39,6 +38,7 @@ from tests.support.open_chairs import (
     actor_at,
     hand_command,
     newcomer,
+    sent_away,
 )
 from tests.support.played_game import an_entry, asked_by_the_declarer, before_the_last_card, table_in, with_agents
 
@@ -49,12 +49,6 @@ THIRD_PASS_BY_FOREHAND = HandProgress(auction=(Pass(MIDDLEHAND), Pass(REARHAND))
 def without_occupants(table, *seats):
     chairs = tuple(replace(chair, occupant=None) if chair.seat in seats else chair for chair in table.chairs)
     return replace(table, chairs=chairs)
-
-
-def sent_away(table, seat):
-    """The table once the agent in `seat` was sent away."""
-    agents = with_agents(table, seat)
-    return decide_send_away(agents, agents.chairs[seat - 1].occupant.account_id).table
 
 
 def waiting_in(phase):

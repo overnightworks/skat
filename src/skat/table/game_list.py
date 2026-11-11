@@ -100,7 +100,7 @@ type GameEntry = ListEntry | RamschEntry
 
 def _seated(table: TableRecord) -> tuple[Occupant, Occupant, Occupant]:
     occupants = tuple(chair.occupant for chair in table.chairs if chair.occupant is not None)
-    # Nobody leaves a chair while a hand runs, so a game ends with three seated people.
+    # Every hand command is refused while a chair is open, so a game ends with three seated people.
     if len(occupants) != len(table.chairs):  # pragma: no cover
         message = f"table {table.id.value} ended a game with a free chair"
         raise RuntimeError(message)
