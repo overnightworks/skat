@@ -59,7 +59,6 @@ PUSHING = TableOptions(
 )
 KONTRA = TableOptions(kontra=KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD))
 ALL_PASS = (Pass(MIDDLEHAND), Pass(REARHAND), Pass(FOREHAND))
-SKAT_BACK = PutBack(DECK[30:32])
 OWN_PUT_BACK = PutBack((DECK[10], DECK[11]))
 
 
