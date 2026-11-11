@@ -51,6 +51,7 @@ from skat.web.presence import (
     Presence,
     Scheduler,
 )
+from skat.web.pushing import create_pushing_router
 from skat.web.ready import create_ready_router
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
@@ -186,6 +187,7 @@ def _include_table_sub_routers(
 ) -> None:
     app.include_router(create_auction_router(tables, presence))
     app.include_router(create_declaring_router(tables, presence))
+    app.include_router(create_pushing_router(tables, presence))
     app.include_router(create_playing_router(tables, presence))
     app.include_router(create_kontra_router(tables, presence))
     app.include_router(create_ready_router(tables, presence))
