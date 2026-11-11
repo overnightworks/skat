@@ -100,8 +100,10 @@ class TestFromARamschTableAndItsListAtRevisionTwentySix:
     def test_accepts_the_steps_of_a_stage_and_refuses_a_position_outside_the_vocabulary(self, migrated):
         run_in_transaction(migrated, step())
 
+        outside_the_vocabulary = step(ordinal=2, position="'dealer'", action="'push'")
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, step(ordinal=2, position="'dealer'", action="'push'"))
+            run_in_transaction(migrated, outside_the_vocabulary)
 
     @pytest.mark.parametrize(
         "changed",
@@ -123,5 +125,7 @@ class TestFromARamschTableAndItsListAtRevisionTwentySix:
         ],
     )
     def test_refuses_a_step_that_is_none(self, migrated, changed):
+        refused_step = step(**changed)
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, step(**changed))
+            run_in_transaction(migrated, refused_step)

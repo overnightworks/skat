@@ -102,6 +102,17 @@ class OptionsAnswer(BaseModel):
     ramsch: RamschOptionsAnswer | None
 
 
+def ramsch_answer_of(ramsch: RamschSetting) -> RamschOptionsAnswer:
+    pushing = None if ramsch.pushing is None else PushingOptionsAnswer(rule=ramsch.pushing)
+    return RamschOptionsAnswer(
+        occasion=ramsch.occasion,
+        scoring=ramsch.reckoning.scoring,
+        jungfrau=ramsch.reckoning.jungfrau,
+        durchmarsch=ramsch.reckoning.durchmarsch,
+        pushing=pushing,
+    )
+
+
 def options_answer_of(options: TableOptions) -> OptionsAnswer:
     kontra, bock, ramsch = options.kontra, options.bock, options.ramsch
     return OptionsAnswer(
@@ -110,15 +121,16 @@ def options_answer_of(options: TableOptions) -> OptionsAnswer:
         if kontra is None
         else KontraOptionsAnswer(sayer=kontra.sayer, reach=kontra.reach, deadline=kontra.deadline),
         bock=None if bock is None else BockOptionsAnswer(triggers=sorted(bock.triggers), overlap=bock.overlap),
-        ramsch=None
-        if ramsch is None
-        else RamschOptionsAnswer(
-            occasion=ramsch.occasion,
-            scoring=ramsch.reckoning.scoring,
-            jungfrau=ramsch.reckoning.jungfrau,
-            durchmarsch=ramsch.reckoning.durchmarsch,
-            pushing=None if ramsch.pushing is None else PushingOptionsAnswer(rule=ramsch.pushing),
-        ),
+        ramsch=None if ramsch is None else ramsch_answer_of(ramsch),
+    )
+
+
+def ramsch_setting_of(ramsch: RamschOptionsRequest) -> RamschSetting:
+    pushing = None if ramsch.pushing is None else ramsch.pushing.rule
+    return RamschSetting(
+        ramsch.occasion,
+        RamschOptions(ramsch.scoring, ramsch.jungfrau, ramsch.durchmarsch),
+        pushing,
     )
 
 
@@ -130,11 +142,5 @@ def table_options_of(requested: OptionsRequest | None) -> TableOptions:
         show_running_points=requested.show_running_points,
         kontra=None if kontra is None else KontraOptions(kontra.sayer, kontra.reach, kontra.deadline),
         bock=None if bock is None else BockOptions(frozenset(bock.triggers), bock.overlap),
-        ramsch=None
-        if ramsch is None
-        else RamschSetting(
-            ramsch.occasion,
-            RamschOptions(ramsch.scoring, ramsch.jungfrau, ramsch.durchmarsch),
-            None if ramsch.pushing is None else ramsch.pushing.rule,
-        ),
+        ramsch=None if ramsch is None else ramsch_setting_of(ramsch),
     )

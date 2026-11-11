@@ -549,9 +549,11 @@ class TestTheMultiplier:
 
         result = table.result()
         assert scores_of(result) == scores
-        assert (result["pushes"], result["push_factor"], result["bock_factor"]) == factors
+        result_factors = (result["pushes"], result["push_factor"], result["bock_factor"])
+        assert result_factors == factors
         row = list_rows(table)[0]
-        assert (row["pushes"], row["push_factor"], row["bock_factor"]) == factors
+        row_factors = (row["pushes"], row["push_factor"], row["bock_factor"])
+        assert row_factors == factors
 
     def test_a_pushed_ramsch_uses_up_a_pending_bock_game_and_starts_a_round_for_passed_in(self, skat):
         extra = {"bock": {"triggers": ["passed-in"], "overlap": "append"}}
