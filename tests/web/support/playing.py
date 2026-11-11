@@ -64,6 +64,7 @@ def reason_of(answer):
 def result_fields(**changed):
     """A result answer for a plain first game of the declarer in seat 1; a test names what differs."""
     plain = {
+        "kind": "declared",
         "ordinal": 1,
         "declarer_seat": DECLARER_SEAT,
         "hand": False,

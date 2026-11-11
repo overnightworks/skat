@@ -600,6 +600,7 @@ class TestEveryViewersPlaying:
 
 # Middlehand's Herz Hand game at 18: ohne 1, Spiel and Hand make 30, and 55 trick points plus the skat's 15 win it.
 HERZ_RESULT = {
+    "kind": "declared",
     "ordinal": 1,
     "declarer_seat": SEATS[MIDDLEHAND],
     "game": "herz",
@@ -748,8 +749,8 @@ class TestRunningPoints:
 
         assert results[0]["result"] == results[1]["result"]
         assert [body["options"] for body in results] == [
-            {"show_running_points": False, "kontra": None, "bock": None},
-            {"show_running_points": True, "kontra": None, "bock": None},
+            {"show_running_points": False, "kontra": None, "bock": None, "ramsch": None},
+            {"show_running_points": True, "kontra": None, "bock": None, "ramsch": None},
         ]
 
 

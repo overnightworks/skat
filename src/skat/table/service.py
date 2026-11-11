@@ -98,7 +98,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from contextlib import AbstractContextManager
 
-    from skat.table.game_list import SeriesEntryView
+    from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
 
 __all__ = [
     "CommandIdReusedError",
@@ -133,9 +133,9 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
         A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
         hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as
         dealt: a record whose hand differs from it while the hand has progress raises, unless the third pass ended
-        the hand. A list that does not continue the stored one raises, unless the record is a newly dealt hand whose
-        series number is above the stored one, which empties the stored list first; a free chair that is ready
-        raises too.
+        the hand of a table without Ramsch. A list that does not continue the stored one raises, unless the record is
+        a newly dealt hand whose series number is above the stored one, which empties the stored list first; a free
+        chair that is ready raises too.
         """
         ...
 
@@ -686,7 +686,7 @@ class TableService:
         )
         return view_of(table, actor.account_id, present)
 
-    def series_list(self, table_id: str) -> tuple[SeriesEntryView, ...] | None:
+    def series_list(self, table_id: str) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...] | None:
         """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""
         table = self._table_read(table_id)
         if table is None:

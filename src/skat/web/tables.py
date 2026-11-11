@@ -1,9 +1,9 @@
 from enum import StrEnum
-from typing import TYPE_CHECKING, Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Final, Literal, Self
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
@@ -14,13 +14,17 @@ from skat.engine.deal import Position
 from skat.engine.declaration import Announcement, Stage
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
+from skat.table.game_list import RamschResultView
 from skat.table.records import (
     Actor,
     CommandRefusal,
     EndReason,
     OccupantKind,
+    RamschOccasion,
+    RamschSetting,
     TableOptions,
 )
 from skat.table.service import CommandIdReusedError
@@ -90,14 +94,38 @@ class BockOptionsRequest(BaseModel):
         return triggers
 
 
+class RamschOptionsRequest(BaseModel):
+    """The opener names all four Ramsch choices or none: the program defaults none of them. The table plays a Ramsch
+    for a hand all three pass only.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    occasion: Literal[RamschOccasion.PASSED_IN]
+    scoring: RamschScoring
+    jungfrau: JungfrauRule
+    durchmarsch: DurchmarschRule
+
+
 class OptionsRequest(BaseModel):
-    """The rule options an opener sets; every later option joins this record."""
+    """The rule options an opener sets; every later option joins this record.
+
+    A table cannot play Ramsch and Bock rounds together yet: a Ramsch would have to use up a Bock game.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     show_running_points: Annotated[bool, Field(strict=True)] = TableOptions().show_running_points
     kontra: KontraOptionsRequest | None = None
     bock: BockOptionsRequest | None = None
+    ramsch: RamschOptionsRequest | None = None
+
+    @model_validator(mode="after")
+    def _plays_no_ramsch_with_bock(self) -> Self:
+        if self.ramsch is not None and self.bock is not None:
+            message = "a table plays no Ramsch and Bock rounds together"
+            raise ValueError(message)
+        return self
 
 
 class RefusalAnswer(BaseModel):
@@ -301,6 +329,7 @@ class HandAnswer(BaseModel):
     auction: AuctionAnswer
     declaring: DeclaringAnswer | None
     playing: PlayingAnswer | None
+    ramsch: bool
 
 
 class ChairAnswer(BaseModel):
@@ -335,6 +364,7 @@ class KontraResultAnswer(BaseModel):
 
 
 class ResultAnswer(BaseModel):
+    kind: Literal["declared"]
     ordinal: int
     declarer_seat: int
     game: GameToken
@@ -361,6 +391,20 @@ class ResultAnswer(BaseModel):
     gains: list[SeatGainAnswer]
     kontra: KontraResultAnswer | None
     bock_factor: int
+
+
+class RamschSeatAnswer(BaseModel):
+    seat: int
+    points: int
+    score: int
+
+
+class RamschResultAnswer(BaseModel):
+    kind: Literal["ramsch"]
+    ordinal: int
+    seats: list[RamschSeatAnswer]
+    durchmarsch_seat: int | None
+    jungfrau: bool
 
 
 class EndedAnswer(BaseModel):
@@ -400,10 +444,18 @@ class BockOptionsAnswer(BaseModel):
     overlap: BockOverlap
 
 
+class RamschOptionsAnswer(BaseModel):
+    occasion: RamschOccasion
+    scoring: RamschScoring
+    jungfrau: JungfrauRule
+    durchmarsch: DurchmarschRule
+
+
 class OptionsAnswer(BaseModel):
     show_running_points: bool
     kontra: KontraOptionsAnswer | None
     bock: BockOptionsAnswer | None
+    ramsch: RamschOptionsAnswer | None
 
 
 class BockAnswer(BaseModel):
@@ -418,7 +470,7 @@ class TableAnswer(BaseModel):
     watchers: int
     hand: HandAnswer | None
     passed_in: PassedInAnswer | None
-    result: ResultAnswer | None
+    result: Annotated[ResultAnswer | RamschResultAnswer, Field(discriminator="kind")] | None
     series: SeriesAnswer | None
     options: OptionsAnswer | None
     bock: BockAnswer | None
@@ -528,6 +580,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         auction=auction_answer_of(hand.auction),
         declaring=declaring_answer_of(hand.declaring),
         playing=playing_answer_of(hand.playing),
+        ramsch=hand.ramsch,
     )
 
 
@@ -563,11 +616,20 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
     )
 
 
-def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
+def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnswer | RamschResultAnswer | None:
     if result is None:
         return None
+    if isinstance(result, RamschResultView):
+        return RamschResultAnswer(
+            kind="ramsch",
+            ordinal=result.ordinal,
+            seats=[RamschSeatAnswer(seat=each.seat, points=each.points, score=each.score) for each in result.seats],
+            durchmarsch_seat=result.durchmarsch_seat,
+            jungfrau=result.jungfrau,
+        )
     declaration, matadors = result.declaration, result.matadors
     return ResultAnswer(
+        kind="declared",
         ordinal=result.ordinal,
         declarer_seat=result.declarer_seat,
         game=GAME_TOKENS[declaration.kind],
@@ -600,13 +662,21 @@ def result_answer_of(result: ResultView | None) -> ResultAnswer | None:
 
 
 def options_answer_of(options: TableOptions) -> OptionsAnswer:
-    kontra, bock = options.kontra, options.bock
+    kontra, bock, ramsch = options.kontra, options.bock, options.ramsch
     return OptionsAnswer(
         show_running_points=options.show_running_points,
         kontra=None
         if kontra is None
         else KontraOptionsAnswer(sayer=kontra.sayer, reach=kontra.reach, deadline=kontra.deadline),
         bock=None if bock is None else BockOptionsAnswer(triggers=sorted(bock.triggers), overlap=bock.overlap),
+        ramsch=None
+        if ramsch is None
+        else RamschOptionsAnswer(
+            occasion=ramsch.occasion,
+            scoring=ramsch.reckoning.scoring,
+            jungfrau=ramsch.reckoning.jungfrau,
+            durchmarsch=ramsch.reckoning.durchmarsch,
+        ),
     )
 
 
@@ -643,11 +713,14 @@ def answer_of(view: TableView) -> TableAnswer:
 def table_options_of(requested: OptionsRequest | None) -> TableOptions:
     if requested is None:
         return TableOptions()
-    kontra, bock = requested.kontra, requested.bock
+    kontra, bock, ramsch = requested.kontra, requested.bock, requested.ramsch
     return TableOptions(
         show_running_points=requested.show_running_points,
         kontra=None if kontra is None else KontraOptions(kontra.sayer, kontra.reach, kontra.deadline),
         bock=None if bock is None else BockOptions(frozenset(bock.triggers), bock.overlap),
+        ramsch=None
+        if ramsch is None
+        else RamschSetting(ramsch.occasion, RamschOptions(ramsch.scoring, ramsch.jungfrau, ramsch.durchmarsch)),
     )
 
 
