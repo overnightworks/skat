@@ -6,10 +6,10 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.edge import BehindEdge, skat_behind_an_edge
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.tables import open_new_table, watch
-from tests.e2e.support.words import catalog_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-RECONNECTING = catalog_text("reconnecting")
+RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 HEARTBEAT_SECONDS = 1.0
 IDLE_CUT_SECONDS = 3.0
 IDLE_CUT_PERIODS = 10
