@@ -84,10 +84,10 @@ def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter
     ) -> Response | TableAnswer:
         """Leave the caller's own chair at a Skat table.
 
-        The chair keeps its number and becomes free. Nobody stands up while a hand runs: stand up between hands,
-        when `hand` is null in the answer of read_table. The command id names this step: the same id again is a
-        retry that changes nothing twice. A refusal (a hand runs; the caller holds no chair here) comes back as a
-        failed result with its reason, leaves the table as it was and spends the command id.
+        The chair keeps its number and becomes free. Nobody stands up while a hand runs: stand up between hands, when
+        `hand` is null in the answer of read_table or the state of your table's view. The command id names this step:
+        the same id again is a retry that changes nothing twice. A refusal (a hand runs; the caller holds no chair here)
+        comes back as a failed result with its reason, leaves the table as it was and spends the command id.
         """
         command = StandUp(command_id=body.command_id, table_id=table_id)
         answer = await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
