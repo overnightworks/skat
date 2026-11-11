@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "843d643a82b915102365fa29151309a2485d67cb"
 branch = "claude/issue-356-stream-alive"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/stream.test.ts", "frontend/src/lib/stream.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/web/streams.py", "tests/e2e/support/edge.py", "tests/e2e/support/server.py", "tests/e2e/test_table_stream_alive.py", "tests/web/test_streams.py"]
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/stream.test.ts", "frontend/src/lib/stream.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/web/streams.py", "tests/e2e/support/edge.py", "tests/e2e/support/server.py", "tests/e2e/test_table_stream_alive.py", "tests/web/support/streams.py", "tests/web/test_streams.py"]
 opened_commit = "f2f839c0013d6577ab0264f2ee0d7f24f98202e5"
 whole_reason = "The comment line and the page's reconnect are the two halves of one promise, that an open page stays connected; the proxy stand-in is the only way to prove either on a real server."
