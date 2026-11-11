@@ -1,0 +1,8 @@
+claim_id = "98034bc32a7c4533b975982227d81ce2"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "9a3f56f73189ccbed3f7f6fffc573e76a89750bd"
+branch = "claude/issue-352-visible-words"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/legal.ts", "frontend/src/lib/ui/CallSignIn.svelte", "frontend/src/lib/ui/CardFace.svelte", "frontend/src/lib/ui/SignIn.svelte", "frontend/src/lib/words.ts", "tests/e2e/support/browser.py", "tests/e2e/test_sign_in_pages.py", "tests/e2e/test_start_page.py", "tests/e2e/test_tables.py"]
+opened_commit = "5c772168620ad1b3d22099d0e9912e0f9cbaae5e"
+whole_reason = "Four production files of one or two lines each move Skat's last literal words into its catalog; the pins of those words move with them."
