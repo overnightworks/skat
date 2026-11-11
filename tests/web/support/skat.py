@@ -1,6 +1,7 @@
 import copy
 import itertools
 import json
+import threading
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -37,11 +38,13 @@ def stored(skat):
 
 
 class FakeTime:
-    """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order."""
+    """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order, and
+    `callers` keeps the thread of each call of `schedule`."""
 
     def __init__(self, now=SERVER_START_SECONDS):
         self.now = now
         self._scheduled = []
+        self.callers = []
 
     def clock(self):
         return self.now
@@ -51,6 +54,7 @@ class FakeTime:
         return FAKE_EPOCH + timedelta(seconds=self.now)
 
     def schedule(self, delay, action):
+        self.callers.append(threading.get_ident())
         self._scheduled.append((self.now + delay, action))
 
     def cancel_all(self):
