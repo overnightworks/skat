@@ -1,16 +1,15 @@
 import secrets
 
 import pytest
-from sqlalchemy import text
 
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
-from skat.store.rule_sets import PostgresRuleSets
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable, RuleSetId, TableOptions
 from skat.table.rule_sets import RuleSet
 from skat.table.service import TableService
 from tests.support.migrations import upgrade_to
+from tests.support.rule_set_rows import a_set, row_count, save, sets_of
 
 pytestmark = pytest.mark.postgres
 
@@ -25,37 +24,12 @@ FELIX_OPTIONS = TableOptions(
         BockOverlap.APPEND,
     ),
 )
-OTHER_OPTIONS = TableOptions(show_running_points=True)
-
-
-@pytest.fixture
-def operator_account_id():
-    return f"account-{secrets.token_hex(8)}"
 
 
 @pytest.fixture
 def before_the_set(unmigrated_engine):
     upgrade_to(unmigrated_engine, BEFORE_THE_SET)
     return unmigrated_engine
-
-
-def sets_of(engine, account_id):
-    with PostgresRuleSets(engine).begin() as transaction:
-        return transaction.sets_of(account_id)
-
-
-def save(engine, rule_set):
-    with PostgresRuleSets(engine).begin() as transaction:
-        transaction.add(rule_set)
-
-
-def a_set(owner, name, options=OTHER_OPTIONS):
-    return RuleSet(RuleSetId.random(), owner, name, options)
-
-
-def row_count(engine):
-    with engine.connect() as connection:
-        return connection.execute(text("SELECT count(*) FROM rule_sets")).scalar_one()
 
 
 def test_a_migration_without_the_operator_account_inserts_nothing_and_does_not_fail(before_the_set):

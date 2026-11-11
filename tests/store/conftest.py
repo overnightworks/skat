@@ -1,4 +1,5 @@
 import random
+import secrets
 
 import pytest
 
@@ -13,6 +14,11 @@ def engine(database_url):
     engine = create_store_engine(database_url)
     yield engine
     engine.dispose()
+
+
+@pytest.fixture
+def operator_account_id():
+    return f"account-{secrets.token_hex(8)}"
 
 
 @pytest.fixture
