@@ -1,6 +1,6 @@
 import re
 
-from webauth.policies import PathRules, RateLimitBudget
+from webauth.policies import PathRules
 from webauth.sign_in_routes import SignInPaths
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - the container must listen on every interface and SKAT_HOST overrides it
@@ -32,12 +32,6 @@ BACKCHANNEL_LOGOUT_PATH = "/auth/backchannel-logout"
 SIGN_IN_PATHS = SignInPaths(
     start=AUTH_START_PATH, callback=AUTH_CALLBACK_PATH, logout=LOGOUT_PATH, backchannel_logout=BACKCHANNEL_LOGOUT_PATH
 )
-DEFAULT_REQUEST_BODY_MAX_BYTES = 4 * 1024
-# A complete sign-in is two requests, so 40 requests in ten minutes admit 20 sign-ins from one address.
-SIGN_IN_RATE_LIMIT_BUDGET = RateLimitBudget(name="sign-in", max_requests=40, window_seconds=10 * 60)
-DEFAULT_RATE_LIMIT_BUDGET = RateLimitBudget(name="requests", max_requests=600, window_seconds=60)
-# The health check is the edge's readiness probe; the back-channel logout comes from Keycloak's shared addresses.
-RATE_LIMIT_EXEMPT_PATH_RULES = PathRules(exact=SIGN_IN_PATHS.backchannel.exact | {HEALTH_PATH})
 
 # The immutable files of the page build set their own header on success (routes.py): a rule here would also
 # stamp it onto the 401, 429 and 404 that the same path can answer. Every other build file is revalidated.
@@ -54,8 +48,6 @@ IMMUTABLE_ASSET_PATH_RULES = PathRules(
     )
 )
 
-# The page asks for no device; every capability a browser could grant stays off.
-PERMISSIONS_POLICY = "camera=(), microphone=(), display-capture=(), geolocation=()"
 # SvelteKit 3.1.0 writes this one inline style on its route announcer (src/runtime/components/root.svelte):
 # 'unsafe-hashes' with the hash of exactly that text admits it, and every other inline style stays refused.
 ANNOUNCER_STYLE_SOURCES = ("'unsafe-hashes'", "'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='")
@@ -65,7 +57,6 @@ LOGIN_GROUP = "/apps/skat"
 OIDC_SCOPES = ("openid", "profile", "groups")
 OIDC_LEEWAY_SECONDS = 30
 SESSION_LIFETIME_SECONDS = 12 * 60 * 60
-SESSION_SWEEP_SECONDS = 10 * 60
 
 # An open table stream admits its session again this often when nothing changes, so an ended session's stream
 # stops within one interval.

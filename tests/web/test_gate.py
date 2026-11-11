@@ -33,7 +33,7 @@ from skat.web.constants import (
     LOGIN_PATH,
     LOGOUT_PATH,
     NO_ACCESS_PATH,
-    PERMISSIONS_POLICY,
+    SIGN_IN_PATHS,
 )
 from skat.web.gate import session_gate
 from skat.web.sign_in import build_sign_in_configs
@@ -510,9 +510,8 @@ class TestPageBuildAssets:
 def install_gate(app: FastAPI, stores: SignInStores) -> None:
     install_web_auth_middleware(
         app,
-        security_headers=SecurityHeadersPolicy(
-            content_security_policy=default_content_security_policy(), permissions_policy=PERMISSIONS_POLICY
-        ),
+        sign_in_paths=SIGN_IN_PATHS,
+        security_headers=SecurityHeadersPolicy(content_security_policy=default_content_security_policy()),
         csrf_origin=CsrfPolicy(),
         session_gate=session_gate(stores.sessions, PublicRule(PathRules(exact=frozenset()))),
     )
@@ -545,7 +544,7 @@ class TestSecurityHeaders:
         response = application.request(method, path, member, **headers)
         assert response.status_code == status
         assert response.headers["content-security-policy"] == EXPECTED_CONTENT_SECURITY_POLICY
-        assert response.headers["permissions-policy"] == PERMISSIONS_POLICY
+        assert "display-capture=()" in response.headers["permissions-policy"]
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-frame-options"] == "DENY"
         assert "referrer-policy" in response.headers

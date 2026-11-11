@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 from fastapi.testclient import TestClient
 from webauth.config import install_web_auth_config, installed_web_auth_config
+from webauth.policies import RateLimitPolicy
 
 from skat.host.app import create_app
 from skat.web.constants import (
@@ -30,10 +31,12 @@ if TYPE_CHECKING:
 
     from tests.support.sign_in_settings import SignInSettings
 
-SIGN_IN_BUDGET_REQUESTS = 40
-SIGN_IN_WINDOW_SECONDS = 600
-DEFAULT_BUDGET_REQUESTS = 600
-DEFAULT_WINDOW_SECONDS = 60
+SIGN_IN_BUDGET = RateLimitPolicy().sign_in
+DEFAULT_BUDGET = RateLimitPolicy().default
+SIGN_IN_BUDGET_REQUESTS = SIGN_IN_BUDGET.max_requests
+SIGN_IN_WINDOW_SECONDS = SIGN_IN_BUDGET.window_seconds
+DEFAULT_BUDGET_REQUESTS = DEFAULT_BUDGET.max_requests
+DEFAULT_WINDOW_SECONDS = DEFAULT_BUDGET.window_seconds
 COMPLETE_SIGN_INS_IN_WINDOW = SIGN_IN_BUDGET_REQUESTS // 2
 PROXY_ADDRESS = "172.31.250.1"
 TRUSTED_PROXIES = f"{PROXY_ADDRESS},127.0.0.1"
