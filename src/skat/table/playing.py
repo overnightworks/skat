@@ -7,7 +7,7 @@ from skat.engine.giving_up import give_up, throw_down
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
 from skat.engine.tricks import CardPlayed, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
-from skat.table.game_list import list_entry_of, ramsch_entry_of
+from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
 from skat.table.hand_state import doubling_of, game_of, playing_of
 from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
@@ -134,7 +134,7 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
     if isinstance(played, RamschPlayedOut):
         entry = ramsch_entry_of(played, table)
         return Decision(_ended(table, entry, bock_after(table, played, entry)))
-    return Decision(_ended_declared(table, played))
+    return Decision(_ended_declared(table, played, GameEnding.PLAYED_OUT, None))
 
 
 def _card_played(
@@ -167,7 +167,7 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
         return Decision(table, Refusal.NOT_DECLARER)
     outcome = give_up(state)
     if outcome.refusal is not PlayRefusal.NEEDS_CONSENT:
-        return _end_of(table, outcome)
+        return _end_of(table, outcome, GameEnding.GIVEN_UP, position)
     if table.progress.give_up is not None:
         return Decision(table)
     return _with_request(table, GiveUpAsked(position))
@@ -206,12 +206,12 @@ def _answering_opponent(
 
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
-    """An opponent says yes: the game ends as the engine settles a consented give-up."""
+    """An opponent says yes: the game ends as the engine settles a consented give-up, by the seat that asked."""
     answering = _answering_opponent(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
-    state, _, _ = answering
-    return _end_of(table, give_up(state, consented=True))
+    state, asked, _ = answering
+    return _end_of(table, give_up(state, consented=True), GameEnding.GIVEN_UP, asked.asker)
 
 
 def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiveUpCommand) -> Decision:
@@ -240,21 +240,23 @@ def decide_throw_down(table: TableRecord, actor: Actor, command: ThrowDownComman
     state = playing_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    return _end_of(table, throw_down(state, position))
+    return _end_of(table, throw_down(state, position), GameEnding.THROWN_DOWN, position)
 
 
-def _end_of(table: TableRecord, outcome: PlayOutcome) -> Decision:
-    """The hand ended with the result of a step that ends the game."""
+def _end_of(table: TableRecord, outcome: PlayOutcome, ending: GameEnding, ended_by: Position) -> Decision:
+    """The hand ended with the result of a give-up or throw-down by `ended_by`."""
     played = outcome.state.result
     assert played is not None  # noqa: S101 - a replayed game is never over and its ending step always leaves a result
-    return Decision(_ended_declared(table, played))
+    return Decision(_ended_declared(table, played, ending, ended_by))
 
 
-def _ended_declared(table: TableRecord, played: PlayedOut) -> TableRecord:
+def _ended_declared(
+    table: TableRecord, played: PlayedOut, ending: GameEnding, ended_by: Position | None
+) -> TableRecord:
     """The card, give-up or throw-down that ends a declared game ends the hand; the Bock rounds are asked once its
-    entry exists.
+    entry exists. The entry keeps how the game ended, which the engine's ending does not say.
     """
-    entry = list_entry_of(played, table, doubling_of(table))
+    entry = list_entry_of(played, table, doubling_of(table), ending, ended_by)
     return _ended(table, entry, bock_after(table, played, entry))
 
 
