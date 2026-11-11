@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
+from skat.table.member_place import MemberBook
+
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
@@ -21,7 +23,7 @@ class DuplicateReceiptError(Exception):
     """Another transaction stored a receipt under the same (account, command id) first."""
 
 
-class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
+class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's method bodies are signatures
     def replay(self, account_id: str, command_id: str) -> Replay | None: ...
 
     def table(self, table_id: TableId) -> TableRecord | EndedTable | None: ...
@@ -54,7 +56,7 @@ class TableTransaction(Protocol):  # pragma: no cover - a port's method bodies a
     def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
         """End the table whose row this transaction locked, once: its version rises by one, its dealer, last
         played time and opener's name clear, and it keeps only its row and its create receipt, so its id is never
-        issued again and a create retry finds it.
+        issued again and a create retry finds it. Its book rows go with it.
         """
         ...
 

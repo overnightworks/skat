@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from datetime import datetime
 
+    from skat.table.member_place import BookEntry
     from skat.table.records import TableId
 
 
@@ -32,6 +33,7 @@ class FakeTableStore:
         self.empty_since_by_table: dict[str, datetime | None] = {}
         self.last_played_at: dict[str, datetime] = {}
         self.opener_names: dict[str, str] = {}
+        self.book: dict[tuple[str, str], BookEntry] = {}
 
     @contextmanager
     def begin(self) -> Iterator[FakeTableStore]:
@@ -43,6 +45,7 @@ class FakeTableStore:
                 self.empty_since_by_table,
                 self.last_played_at,
                 self.opener_names,
+                self.book,
             )
         )
         try:
@@ -55,6 +58,7 @@ class FakeTableStore:
                 self.empty_since_by_table,
                 self.last_played_at,
                 self.opener_names,
+                self.book,
             ) = before
             raise
 
@@ -94,6 +98,7 @@ class FakeTableStore:
         self.ended_at[table_id.value] = at
         self.last_played_at.pop(table_id.value, None)
         self.opener_names.pop(table_id.value, None)
+        self.book = {key: entry for key, entry in self.book.items() if entry.table_id != table_id}
         self.receipts = {
             key: receipt
             for key, receipt in self.receipts.items()
@@ -124,6 +129,18 @@ class FakeTableStore:
             for chair in table.chairs
             if chair.occupant is not None
         )
+
+    def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:
+        return self.book.get((table_id.value, agent_account))
+
+    def locked_book_entries_of(self, agent_account: str) -> tuple[BookEntry, ...]:
+        return tuple(entry for (_, account), entry in sorted(self.book.items()) if account == agent_account)
+
+    def save_book_entry(self, entry: BookEntry) -> None:
+        self.book[entry.table_id.value, entry.agent_account] = entry
+
+    def book_accounts_at(self, table_id: TableId) -> frozenset[str]:
+        return frozenset(account for (at_table, account) in self.book if at_table == table_id.value)
 
     def add_receipt(self, receipt: Receipt) -> None:
         key = (receipt.account_id, receipt.command_id)

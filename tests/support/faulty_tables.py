@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from datetime import datetime
 
+    from skat.table.member_place import BookEntry
     from skat.table.records import EndedTable, Receipt, Replay, TableId, TableRecord
     from skat.table.transactions import LiveWait, OccupiedChair, PausedFacts, TableTransaction, TableTransactions
 
@@ -104,6 +105,18 @@ class _FaultyTransaction:
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         return self._inner.occupied_chairs()
+
+    def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:
+        return self._inner.locked_book_entry(table_id, agent_account)
+
+    def locked_book_entries_of(self, agent_account: str) -> tuple[BookEntry, ...]:
+        return self._inner.locked_book_entries_of(agent_account)
+
+    def save_book_entry(self, entry: BookEntry) -> None:
+        self._inner.save_book_entry(entry)
+
+    def book_accounts_at(self, table_id: TableId) -> frozenset[str]:
+        return self._inner.book_accounts_at(table_id)
 
     def add_receipt(self, receipt: Receipt) -> None:
         if self._faults.receipt_failure is not None:

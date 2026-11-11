@@ -10,6 +10,21 @@ from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_pay
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
+from skat.table.member_place import (
+    Acceptance,
+    AcceptResult,
+    InvitationId,
+    InvitationOffer,
+    InvitationRequest,
+    InviteRefusal,
+    MemberRefusal,
+    TableStanding,
+    agents_seated_at,
+    decide_accept,
+    decide_invite,
+    forgotten_if_expired,
+    standings_among,
+)
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -75,6 +90,7 @@ from skat.table.rules import (
     present_at,
     replayed_decision,
     replayed_table,
+    result_pending,
     resume_step,
     seat_of,
     seated_if_hand_ended,
@@ -123,6 +139,10 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def _tell_nobody(accounts: frozenset[str]) -> None:
+    """The signal of a service no one listens to."""
+
+
 class TableService:
     """The table commands and views; every command is one transaction."""
 
@@ -135,6 +155,7 @@ class TableService:
     ) -> None:
         self._transactions = transactions
         self._live_leases: Callable[[], frozenset[str]] = frozenset
+        self._standings_changed: Callable[[frozenset[str]], None] = _tell_nobody
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -146,6 +167,14 @@ class TableService:
         """
         clone = copy.copy(self)
         clone._live_leases = live_leases  # noqa: SLF001 - the clone is this class's own instance
+        return clone
+
+    def with_standing_signal(self, signal: Callable[[frozenset[str]], None]) -> TableService:
+        """The same service where each commit that changes whether an agent is a member of a table tells `signal` the
+        agents it concerns, after the commit and on the thread the command ran on; no change tells it nothing.
+        """
+        clone = copy.copy(self)
+        clone._standings_changed = signal  # noqa: SLF001 - the clone is this class's own instance
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
@@ -164,7 +193,8 @@ class TableService:
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
-            return view_of(table, actor.account_id, frozenset())
+        self._tell(agents_seated_at(table))
+        return view_of(table, actor.account_id, frozenset())
 
     def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
@@ -385,7 +415,8 @@ class TableService:
             if decision.refusal is not None:
                 return False
             transaction.save_table(decision.table, played_at=None)
-            return True
+        self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
+        return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         """Deal the next hand on the server's own account, with no actor, command id or receipt.
@@ -426,8 +457,10 @@ class TableService:
             present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if not ends_empty(table, present):
                 return False
+            members = self._members_of(transaction, table)
             transaction.end_table(table_id, self._now(), empty_seconds)
-            return True
+        self._tell(members)
+        return True
 
     def note_presence(
         self,
@@ -449,11 +482,13 @@ class TableService:
             present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             now = self._now()
             step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
+            members: frozenset[str] = self._members_of(transaction, table) if step is PresenceStep.END else frozenset()
             if step is PresenceStep.END:
                 transaction.end_table(table_id, now, empty_seconds)
             elif step is not PresenceStep.KEEP:
                 transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
-            return step is PresenceStep.END
+        self._tell(members)
+        return step is PresenceStep.END
 
     def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
         """At the server's start: give every live table on which no hand was dealt and that has no time one, end
@@ -511,6 +546,82 @@ class TableService:
                     entries.append(paused_entry_of(table, actor.account_id, ends_at, facts.opener_name))
         return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
+    def invite_agent(self, table_id: TableId, request: InvitationRequest) -> InvitationOffer | InviteRefusal:
+        """Write an invitation to the agent for the table, with the expiry instant the caller names.
+
+        Refused, and nothing written, when the table is not live, an invitation to the agent is open or the agent
+        holds a chair there. Room at the table and the owner's presence are the caller's to check.
+        """
+        with self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            entry = transaction.locked_book_entry(table_id, request.agent_account)
+            written = decide_invite(table, entry, request, InvitationId.random(), self._now())
+            if isinstance(written, InviteRefusal):
+                return written
+            transaction.save_book_entry(written[0])
+        self._tell(frozenset({request.agent_account}))
+        return written[1]
+
+    def accept_invitation(
+        self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]
+    ) -> AcceptResult:
+        """Seat the agent at the table's lowest free chair for the invitation it names, in one transaction under the
+        table's row lock, dealing as a sit does; or refuse and say why.
+
+        `owner_account` is the owner its token names, None for a token that names none, and `connected_accounts` who
+        holds an open stream at the table. The command carries no command id and writes no receipt: a retry finds no
+        open invitation and is stale.
+        """
+        table_id = TableId.parse(acceptance.table_id)
+        stale = AcceptResult(MemberRefusal.STALE_INVITATION)
+        if table_id is None:
+            return stale
+        with self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            entry = transaction.locked_book_entry(table_id, agent.account_id)
+            if table is None or entry is None:
+                return stale
+            decision = decide_accept(
+                table,
+                entry,
+                agent,
+                owner_account,
+                acceptance,
+                owner_present=owner_account in connected_accounts,
+                now=self._now(),
+                new_hand=self._new_hand(table) if sit_deals(table) else None,
+            )
+            if decision.entry != entry:
+                transaction.save_book_entry(decision.entry)
+            if decision.table is not table:
+                self._save_decided(transaction, SIT_DOWN_COMMAND, table, decision.table)
+        if decision.entry != entry:
+            self._tell(frozenset({agent.account_id}))
+        return AcceptResult(decision.refusal, result_pending(decision.table))
+
+    def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
+        """Every table the agent holds a chair at or has an open invitation to, from one read; the read forgets an
+        invitation of the agent that ran out on the service's clock.
+        """
+        now = self._now()
+        with self._transactions.begin() as transaction:
+            entries = transaction.locked_book_entries_of(agent_account)
+            kept = tuple(forgotten_if_expired(entry, now) for entry in entries)
+            for before, after in zip(entries, kept, strict=True):
+                if after != before:
+                    transaction.save_book_entry(after)
+            held = [chair.table_id for chair in transaction.occupied_chairs() if chair.account_id == agent_account]
+        return standings_among(kept, held, now)
+
+    def _tell(self, accounts: frozenset[str]) -> None:
+        if accounts:
+            self._standings_changed(accounts)
+
+    @staticmethod
+    def _members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
+        """The agents whose standing the table's end changes: those that hold a chair and those invited."""
+        return agents_seated_at(table) | transaction.book_accounts_at(table.id)
+
     def _new_hand(self, table: TableRecord) -> NewHand:
         """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
 
@@ -567,10 +678,12 @@ class TableService:
             replay = transaction.replay(actor.account_id, command_id)
             seated_when_hand_ended: frozenset[str] = frozenset()
             away_when_hand_ended: frozenset[str] = frozenset()
+            told: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
                     self._save_decided(transaction, command, table, decision.table)
+                    told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
@@ -580,13 +693,15 @@ class TableService:
                 away_when_hand_ended = seated_when_hand_ended - present
                 if on_hand_ended is not None:
                     on_hand_ended(away_when_hand_ended)
-            return CommandResult(
+            result = CommandResult(
                 view_of(decision.table, actor.account_id, present),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
                 away_when_hand_ended,
             )
+        self._tell(told)
+        return result
 
     def _save_decided(
         self, transaction: TableTransaction, command: str, before: TableRecord, after: TableRecord
