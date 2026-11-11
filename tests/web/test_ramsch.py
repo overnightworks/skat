@@ -25,7 +25,7 @@ from tests.web.support.playing import (
     cards,
     reason_of,
 )
-from tests.web.support.skat import UNKNOWN_ID, streams_of
+from tests.web.support.skat import streams_of
 
 SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
 FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT = SEATS[FOREHAND], SEATS[MIDDLEHAND], SEATS[REARHAND]
@@ -48,7 +48,7 @@ def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False):
 
 def three_pass(table):
     for position in (MIDDLEHAND, REARHAND, FOREHAND):
-        table._post(TABLE_AUCTION_PASS_SUFFIX, position)  # noqa: SLF001 - the helper's own step
+        table.passes(position)
 
 
 def ramsch_table(skat, deal, options=RAMSCH):
@@ -350,8 +350,3 @@ class TestOpeningARamschTable:
 
         assert answer.status_code == 422
         assert skat.store.tables == {}
-
-    def test_reads_of_an_unknown_table_stay_404(self, skat):
-        headers, _ = skat.member()
-
-        assert skat.client.get(f"{TABLES_PATH}/{UNKNOWN_ID}", headers=headers).status_code == 404

@@ -2,7 +2,6 @@ import json
 
 import pytest
 
-from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL, OPEN_TABLE_TOOL
 from tests.support.payload_cards import with_known_deal
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, PLAIN_DEAL, PLAIN_HAND, REARHAND, Table
@@ -50,8 +49,8 @@ class TestAnAgentAtARamschTable:
     def test_plays_a_whole_ramsch_with_play_card_and_continues_after_its_result(self, skat, agent):
         table = AgentRamschTable(skat, agent)
         assert not agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-pass").is_error
-        table._post(TABLE_AUCTION_PASS_SUFFIX, REARHAND)  # noqa: SLF001 - the helper's own step
-        table._post(TABLE_AUCTION_PASS_SUFFIX, FOREHAND)  # noqa: SLF001 - the helper's own step
+        table.passes(REARHAND)
+        table.passes(FOREHAND)
 
         for number, played in enumerate(PLAIN_HAND, 1):
             if table.holder_of(played) is MIDDLEHAND:

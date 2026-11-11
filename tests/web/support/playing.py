@@ -171,13 +171,16 @@ class Table:
         )
         assert answer.status_code == 200, answer.text
 
+    def passes(self, position):
+        self._post(TABLE_AUCTION_PASS_SUFFIX, position)
+
     def middlehand_bids(self, value=18):
         self._post(TABLE_AUCTION_BID_SUFFIX, MIDDLEHAND, value=value)
 
     def middlehand_wins(self, bid=18):
         self.middlehand_bids(bid)
-        self._post(TABLE_AUCTION_PASS_SUFFIX, FOREHAND)
-        self._post(TABLE_AUCTION_PASS_SUFFIX, REARHAND)
+        self.passes(FOREHAND)
+        self.passes(REARHAND)
 
     def _declare(self, game, *, hand, ouvert=False, announcement=AnnouncementToken.NONE):
         self._post(
