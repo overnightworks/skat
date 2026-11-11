@@ -146,6 +146,8 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
             build_relying_party(configs, transports),
             stores.transaction,
             fixture_page_build() if page_build is None else page_build,
+            stores.sessions,
+            configs.web_auth,
         )
 
         @app.get(WHO_AM_I_PATH)
@@ -226,6 +228,10 @@ def assert_pending_login_cleared(
 
 
 class TestStart:
+    @pytest.mark.parametrize("path", [LOGIN_PATH, NO_ACCESS_PATH])
+    def test_a_plain_sign_in_page_keeps_english_until_the_kit_speaks_german(self, harness, path):
+        assert b'<html lang="en">' in harness.browser().get(path).content
+
     def test_sends_the_browser_to_the_authorization_endpoint_with_a_pending_login(self, harness):
         response = harness.start(harness.browser(), "/c/abc")
         location = urlsplit(response.headers["location"])
@@ -234,11 +240,13 @@ class TestStart:
         assert f"{location.scheme}://{location.netloc}{location.path}" == (
             f"{harness.sign_in.settings.oidc_issuer}/protocol/openid-connect/auth"
         )
-        assert {name: query[name] for name in ("client_id", "redirect_uri", "response_type", "scope")} == {
+        names = ("client_id", "redirect_uri", "response_type", "scope", "ui_locales")
+        assert {name: query[name] for name in names} == {
             "client_id": [harness.sign_in.settings.oidc_client_id],
             "redirect_uri": [TEST_PUBLIC_ORIGIN + AUTH_CALLBACK_PATH],
             "response_type": ["code"],
             "scope": ["openid profile groups"],
+            "ui_locales": ["de"],
         }
         assert query["code_challenge_method"] == ["S256"]
         assert {"state", "nonce", "code_challenge"} <= query.keys()
@@ -558,7 +566,12 @@ class TestBackchannelLogout:
         account = harness.accounts.create_for_subject("anna", USERNAME, role="user", kind=AccountKind.PERSON)
         now = datetime.now(UTC)
         session = harness.sessions.create(
-            account.id, now=now, expires_at=now + timedelta(hours=1), refresh_token=None, id_token=new_id_token()
+            account.id,
+            now=now,
+            expires_at=now + timedelta(hours=1),
+            refresh_token=None,
+            id_token=new_id_token(),
+            account_language=None,
         )
         harness.issuer.key_set_is_down = True
 

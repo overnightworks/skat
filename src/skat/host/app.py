@@ -253,7 +253,9 @@ def create_app(
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
     app.state.stop_streams = presence.stop
     install_web_auth_config(app, sign_in_configs.web_auth)
-    install_sign_in(app, relying_party, sign_in_stores.transaction, page_build)
+    install_sign_in(
+        app, relying_party, sign_in_stores.transaction, page_build, sign_in_stores.sessions, sign_in_configs.web_auth
+    )
     mcp = mount_mcp(
         app,
         relying_party,

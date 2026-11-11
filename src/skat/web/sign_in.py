@@ -36,6 +36,7 @@ from skat.web.constants import (
     SIGN_IN_PATHS,
 )
 from skat.web.gate import admission_for
+from skat.web.languages import language_of_request
 from skat.web.mcp import Exclusion, excluded
 from skat.web.page_build import BuiltPage
 from skat.web.routes import READ_METHODS, built_page_response
@@ -45,7 +46,7 @@ from skat.web.tables import TABLE_PAGE_PREFIX
 if TYPE_CHECKING:
     from pydantic import SecretStr
     from webauth.jwt_verification import KeySetFetch
-    from webauth.ports import AccountEvent, SignInTransaction
+    from webauth.ports import AccountEvent, SessionRecordStore, SignInTransaction
 
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
@@ -153,7 +154,12 @@ def build_relying_party(sign_in_configs: SignInConfigs, issuer_transports: Issue
 
 
 def install_sign_in(
-    app: FastAPI, relying_party: OidcRelyingParty, transaction: SignInTransaction, page_build: PageBuild
+    app: FastAPI,
+    relying_party: OidcRelyingParty,
+    transaction: SignInTransaction,
+    page_build: PageBuild,
+    sessions: SessionRecordStore,
+    web_auth: WebAuthConfig,
 ) -> None:
     """The library serves the start, callback, logout and back-channel routes; the pages stay Skat's."""
     install_sign_in_routes(
@@ -166,6 +172,7 @@ def install_sign_in(
         keeps_id_token=True,
         max_sessions=None,
         logout_page_text=lambda _request: LogoutPageText(language="en", button_label=LOGOUT_LABEL),
+        ui_language=lambda request: language_of_request(request, sessions=sessions, config=web_auth),
     )
     app.include_router(_create_pages_router(page_build))
 
