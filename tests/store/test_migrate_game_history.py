@@ -14,13 +14,9 @@ SECOND_SERIES_TABLE = "second"
 
 
 def stored_rows(engine, columns="*"):
+    statement = text(f"SELECT {columns} FROM game_list ORDER BY table_id, ordinal")  # noqa: S608 - the test's own column list
     with engine.connect() as connection:
-        return [
-            dict(row)
-            for row in connection.execute(
-                text(f"SELECT {columns} FROM game_list ORDER BY table_id, ordinal")
-            ).mappings()  # noqa: S608 - the test's own column list
-        ]
+        return [dict(row) for row in connection.execute(statement).mappings()]
 
 
 class TestFromTablesInTheirFirstAndThirdSeriesAtRevisionTwentySeven:
