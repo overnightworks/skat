@@ -83,11 +83,11 @@ def _add_take(router: APIRouter, take_step: StepTaker) -> None:
     ) -> Response | TableAnswer:
         """Take the two skat cards into the hand of the declarer of a Skat table, who then holds twelve cards.
 
-        Use it as the declarer, the winner of the auction, when `hand.declaring.stage` in the answer of read_table
-        is "choosing" and `hand.declaring.declarer_seat` is the seat of the caller's own chair. Not taking the skat
-        is how a Hand game is said, through declare_game. The table id and the version come from that answer. The
-        answer holds all twelve cards in `hand.own_cards`; next is put_back_cards. The command id names this step:
-        the same id with the same version is a retry that changes nothing twice. A refusal (for example
+        Use it as the declarer, the winner of the auction, when `hand.declaring.stage` in the answer of read_table or
+        the state of your table's view is "choosing" and `hand.declaring.declarer_seat` is the seat of the caller's own
+        chair. Not taking the skat is how a Hand game is said, through declare_game. The table id and the version come
+        from that answer. The answer holds all twelve cards in `hand.own_cards`; next is put_back_cards. The command id
+        names this step: the same id with the same version is a retry that changes nothing twice. A refusal (for example
         stale-version, already-declared, not-declarer, out-of-order) comes back as a failed result with its reason,
         leaves the table as it was and spends the command id: the next attempt takes a new command id.
         """
@@ -106,13 +106,13 @@ def _add_put_back(router: APIRouter, take_step: StepTaker) -> None:
     ) -> Response | TableAnswer:
         """Put two cards back as the skat, any two of the twelve, from the hand of the declarer of a Skat table.
 
-        Use it as the declarer when `hand.declaring.stage` in the answer of read_table is "discarding" and
-        `hand.declaring.declarer_seat` is the seat of the caller's own chair. The table id and the version come from
-        that answer. The two cards count for the declarer and vanish from every answer; next is declare_game with
-        `hand` false. The command id names this step: the same id with the same cards and the same version is a
-        retry that changes nothing twice. A refusal (for example stale-version, already-declared, not-declarer,
-        out-of-order, not-two-of-the-twelve) comes back as a failed result with its reason, leaves the table as it
-        was and spends the command id: the next attempt takes a new command id.
+        Use it as the declarer when `hand.declaring.stage` in the answer of read_table or the state of your table's view
+        is "discarding" and `hand.declaring.declarer_seat` is the seat of the caller's own chair. The table id and the
+        version come from that answer. The two cards count for the declarer and vanish from every answer; next is
+        declare_game with `hand` false. The command id names this step: the same id with the same cards and the same
+        version is a retry that changes nothing twice. A refusal (for example stale-version, already-declared,
+        not-declarer, out-of-order, not-two-of-the-twelve) comes back as a failed result with its reason, leaves the
+        table as it was and spends the command id: the next attempt takes a new command id.
         """
         return await take_step(table_id, body, request, response, PutBack(tuple(card_of(card) for card in body.cards)))
 
@@ -129,16 +129,16 @@ def _add_declare(router: APIRouter, take_step: StepTaker) -> None:
     ) -> Response | TableAnswer:
         """Declare the game the declarer of a Skat table plays, and with it start the play of the hand.
 
-        Use it as the declarer when `hand.declaring.stage` in the answer of read_table is "picked", with `hand`
-        false, `announcement` "none" and `ouvert` only for a Null game, or is "choosing", with `hand` true, to play
-        Hand without the skat: `announcement` "schneider" or "schwarz" then only for a suit or Grand game, and
-        `ouvert` for Null, or for a suit or Grand game, which counts as announced Schwarz. The table id and the
-        version come from that answer. The bid is `hand.auction.declared.value`; a game worth less is accepted and
-        lost as overbid. Next the forehand leads with play_card. The command id names this step: the same id with
+        Use it as the declarer when `hand.declaring.stage` in the answer of read_table or the state of your table's view
+        is "picked", with `hand` false, `announcement` "none" and `ouvert` only for a Null game, or is "choosing", with
+        `hand` true, to play Hand without the skat: `announcement` "schneider" or "schwarz" then only for a suit or
+        Grand game, and `ouvert` for Null, or for a suit or Grand game, which counts as announced Schwarz. The table id
+        and the version come from that answer. The bid is `hand.auction.declared.value`; a game worth less is accepted
+        and lost as overbid. Next the forehand leads with play_card. The command id names this step: the same id with
         the same fields and the same version is a retry that changes nothing twice. A refusal (for example
         stale-version, already-declared, not-declarer, out-of-order, level-not-allowed-after-pick-up,
-        announcement-in-null) comes back as a failed result with its reason, leaves the table as it was and spends
-        the command id: the next attempt takes a new command id.
+        announcement-in-null) comes back as a failed result with its reason, leaves the table as it was and spends the
+        command id: the next attempt takes a new command id.
         """
         step = Declare(
             _GAME_KINDS[body.game], hand=body.hand, ouvert=body.ouvert, announcement=_ANNOUNCEMENTS[body.announcement]
