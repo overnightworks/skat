@@ -173,7 +173,7 @@ def forgotten_if_expired(entry: BookEntry, now: datetime) -> BookEntry:
     """The entry without an invitation that ran out, so its two people's ids are not kept."""
     if entry.invitation is None or open_invitation(entry, now) is not None:
         return entry
-    return replace(entry, invitation=None)
+    return BookEntry(table_id=entry.table_id, agent_account=entry.agent_account, epoch=entry.epoch)
 
 
 def agents_seated_at(table: TableRecord) -> frozenset[str]:
