@@ -1,4 +1,5 @@
 import { isFramedInCallMode } from "#lib/callFrame.ts";
+import { openStream } from "#lib/stream.ts";
 import {
     type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
@@ -279,19 +280,8 @@ function takeSignedInAgainMarker(): void {
     reachedBySigningIn = true;
 }
 
-// A stream that ends is a refused session or a dropped connection; the table's own session check tells
-// them apart. Only a 401 signs in again: a drop, or any other answer, leaves the stream to reconnect.
-async function sessionIsRefused(id: string): Promise<boolean> {
-    try {
-        return (await fetch(`${TABLES_PATH}/${encodeURIComponent(id)}`)).status === SIGNED_OUT_STATUS;
-    } catch {
-        // The connection is down: the dimmed page and the stream's own reconnect carry on.
-        return false;
-    }
-}
-
-// The server sends the full view first and a fresh one after every change; a lost connection
-// reconnects by itself and starts again from a full view, so a view always replaces the last.
+// The server sends the full view first and a fresh one after every change. The stream reader reconnects by
+// itself after a lost or ended stream, and each new stream starts from a full view, so a view replaces the last.
 // The returned function closes the stream.
 export function watchTable(
     id: string,
@@ -299,38 +289,22 @@ export function watchTable(
     onConnection: (connected: boolean) => void,
 ): () => void {
     const reachedNow = reachedBySigningIn;
-    const source = new EventSource(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_EVENTS_SUFFIX}`);
-    let finished = false;
-    // An ended table sends nothing more: the stream closes here, so it never reconnects to a table that has ended.
-    source.onmessage = (event: MessageEvent<string>) => {
-        const table = JSON.parse(event.data) as Table;
-        if (table.ended !== null) {
-            finished = true;
-            source.close();
-        }
-        onConnection(true);
-        onTable(table);
-    };
-    // One check at a time, and none counts once the page navigates or stops watching: a second 401 would
-    // otherwise reload under the loop guard and cancel the sign-in navigation that the first one started.
-    let checking = false;
-    source.onerror = () => {
-        if (finished) return;
-        onConnection(false);
-        if (checking) return;
-        checking = true;
-        void sessionIsRefused(id).then((refused) => {
-            checking = false;
-            if (!refused || finished) return;
-            finished = true;
-            source.close();
+    const path = `${TABLES_PATH}/${encodeURIComponent(id)}`;
+    return openStream(`${path}${TABLE_EVENTS_SUFFIX}`, {
+        events: {
+            message: (data, end) => {
+                const table = JSON.parse(data) as Table;
+                // An ended table sends nothing more: the stream closes here, so it never reconnects to a table that has ended.
+                if (table.ended !== null) end();
+                onTable(table);
+            },
+        },
+        sessionPath: path,
+        onConnection,
+        onRefused: () => {
             signInAgain(id, reachedNow);
-        });
-    };
-    return () => {
-        finished = true;
-        source.close();
-    };
+        },
+    });
 }
 
 export function tablePath(id: string): string {

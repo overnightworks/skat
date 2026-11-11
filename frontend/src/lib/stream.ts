@@ -1,0 +1,100 @@
+// The page's one reader of a server-sent stream. It owns every reconnect: each failed source is closed at once,
+// so the browser's own retry stays off, and the reader opens the next one itself.
+
+const SIGNED_OUT_STATUS = 401;
+const FIRST_RETRY_MILLISECONDS = 1_000;
+const RETRY_LIMIT_MILLISECONDS = 30_000;
+
+export type StreamHandler = (data: string, end: () => void) => void;
+
+export type StreamOptions = {
+    // Handlers by event name; the stream's unnamed messages arrive under `message`.
+    events: Record<string, StreamHandler>;
+    // Asked after a failed or ended stream: a 401 there means the session ended, so nothing reconnects.
+    sessionPath: string;
+    onConnection: (connected: boolean) => void;
+    onRefused: () => void;
+};
+
+// Doubles from the first retry to the limit, and each wait lies between half and all of that, so that
+// many pages after one restart do not all ask again at the same moment.
+function retryDelayMilliseconds(failedOpens: number): number {
+    const full = Math.min(RETRY_LIMIT_MILLISECONDS, FIRST_RETRY_MILLISECONDS * 2 ** failedOpens);
+    return full / 2 + (Math.random() * full) / 2;
+}
+
+async function sessionIsRefused(sessionPath: string): Promise<boolean> {
+    try {
+        return (await fetch(sessionPath)).status === SIGNED_OUT_STATUS;
+    } catch {
+        // The connection is down: the stream's own retry carries on.
+        return false;
+    }
+}
+
+// The returned function closes the stream for good: no reconnect, no check, and no visibility handling after it.
+export function openStream(url: string, options: StreamOptions): () => void {
+    let source: EventSource | null = null;
+    let closed = false;
+    let checking = false;
+    let failedOpens = 0;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+
+    function end(): void {
+        closed = true;
+        clearTimeout(retry);
+        if (source !== null) source.close();
+        source = null;
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+    }
+
+    function open(): void {
+        clearTimeout(retry);
+        const opened = new EventSource(url);
+        source = opened;
+        for (const [name, handle] of Object.entries(options.events)) {
+            opened.addEventListener(name, (event) => {
+                failedOpens = 0;
+                options.onConnection(true);
+                handle((event as MessageEvent<string>).data, end);
+            });
+        }
+        opened.onerror = () => {
+            fail(opened);
+        };
+    }
+
+    function fail(failed: EventSource): void {
+        if (closed) return;
+        failed.close();
+        source = null;
+        options.onConnection(false);
+        // A check in flight schedules the retry when it answers.
+        if (checking) return;
+        void checkThenRetry();
+    }
+
+    async function checkThenRetry(): Promise<void> {
+        checking = true;
+        const refused = await sessionIsRefused(options.sessionPath);
+        checking = false;
+        if (closed) return;
+        if (refused) {
+            end();
+            options.onRefused();
+            return;
+        }
+        // A tab that became visible already opened a stream while this check ran.
+        if (source !== null) return;
+        retry = setTimeout(open, retryDelayMilliseconds(failedOpens));
+        failedOpens += 1;
+    }
+
+    function onVisibilityChange(): void {
+        if (document.visibilityState === "visible" && source === null) open();
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    open();
+    return end;
+}
