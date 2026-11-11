@@ -23,6 +23,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
 from tests.e2e.support.people import DESKTOP, McpAgent
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
+from tests.e2e.support.words import catalog_text
 from tests.support.signed_in import seed_member
 
 if TYPE_CHECKING:
@@ -123,7 +124,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
     ben = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
     watch(ben, e2e_server, path)
     sit_in(ben, 2)
-    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text("ben")
+    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text(catalog_text("sideYou"))
     api_path = f"{TABLES_PATH}/{table_id_of(path)}"
     sessions = {
         1: AddressedSession(e2e_server, member_of(anna)),
