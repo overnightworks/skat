@@ -71,7 +71,7 @@ def test_the_operator_account_gets_the_set_with_the_ruled_options_though_it_neve
 
     [felix] = sets_of(before_the_set, operator_account_id)
     assert (felix.name, felix.options) == (SET_NAME, FELIX_OPTIONS)
-    assert len(felix.id.value) == len(RuleSetId.random().value)
+    assert RuleSetId.parse(felix.id.value) == felix.id
 
 
 def test_a_felix_the_account_already_holds_is_replaced_keeping_its_id(before_the_set, operator_account_id):

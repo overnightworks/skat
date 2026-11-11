@@ -1,4 +1,5 @@
 import os
+import secrets
 from unittest.mock import patch
 
 import pytest
@@ -139,7 +140,9 @@ class TestServerSettings:
         assert sign_in_settings(operator_account_id="").settings.operator_account_id is None
 
     def test_the_operator_account_is_kept_verbatim(self, sign_in_settings):
-        assert sign_in_settings(operator_account_id="account-x y").settings.operator_account_id == "account-x y"
+        account_id = f"account {secrets.token_hex(4)}"
+
+        assert sign_in_settings(operator_account_id=account_id).settings.operator_account_id == account_id
 
     @pytest.mark.parametrize("account_id", [" ", "a\nb", "\t"])
     def test_an_operator_account_without_a_visible_character_or_with_a_control_character_is_refused_by_name(

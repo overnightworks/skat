@@ -1,7 +1,7 @@
 """The operator's rule set „Felix“ is installed on his account, or replaced there keeping its id.
 
 The account id comes from the config attributes `migrate` sets; a deployment that names no operator gets no row. The
-set holds no Ramsch: a Ramsch and Bock rounds do not play together, and „Felix“ holds Bock.
+set holds no Ramsch: a table with Ramsch does not deal Bock rounds, and „Felix“ holds Bock.
 """
 
 import secrets
