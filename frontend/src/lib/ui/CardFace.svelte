@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Card, Rank, Suit } from "../../routes/(start)/tables.ts";
+    import { words } from "#lib/words.ts";
 
     type NumeralRank = Exclude<Rank, "ace" | "jack" | "queen" | "king">;
 
@@ -13,10 +14,10 @@
         eight: "8",
         nine: "9",
         ten: "10",
-        jack: "B",
-        queen: "D",
-        king: "K",
-        ace: "A",
+        jack: words.cardLetterJack,
+        queen: words.cardLetterQueen,
+        king: words.cardLetterKing,
+        ace: words.cardLetterAce,
     };
 
     const LEFT = 34;
