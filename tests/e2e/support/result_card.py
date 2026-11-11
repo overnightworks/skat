@@ -37,3 +37,6 @@ def expect_the_page_around_the_card(people: list[Page]) -> None:
         assert card is not None
         assert card["y"] >= 0
         assert card["y"] + card["height"] <= bar["y"]
+        viewport = person.viewport_size
+        assert viewport is not None
+        assert bar["y"] + bar["height"] <= viewport["height"]
