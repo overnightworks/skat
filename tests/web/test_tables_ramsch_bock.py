@@ -149,7 +149,9 @@ class TestWhatARamschInABockGameScores:
         [
             pytest.param(PLAIN_DEAL, PLAIN_HAND, "append", (), {}, [0, -86, 0], 1, id="outside-a-bock-game"),
             pytest.param(PLAIN_DEAL, PLAIN_HAND, "append", (2,), {}, [0, -172, 0], 2, id="in-a-bock-game"),
-            pytest.param(PLAIN_DEAL, PLAIN_HAND, "multiply", (2, 2), {}, [0, -344, 0], 4, id="in-two-multiplied-rounds"),
+            pytest.param(
+                PLAIN_DEAL, PLAIN_HAND, "multiply", (2, 2), {}, [0, -344, 0], 4, id="in-two-multiplied-rounds"
+            ),
             pytest.param(
                 PLAIN_DEAL, PLAIN_HAND, "append", (2,), {"scoring": "points-by-ten"}, [0, -16, 0], 2, id="by-ten-first"
             ),
@@ -222,7 +224,9 @@ class TestWhatARamschStartsAndUsesUp:
         ("triggers", "overlap", "pending", "expected"),
         [
             pytest.param(("passed-in",), "append", (), A_ROUND_STARTS, id="starts-a-round"),
-            pytest.param(("passed-in",), "append", (2,), {"games_left": 4, "factor": 2}, id="appends-after-the-pending"),
+            pytest.param(
+                ("passed-in",), "append", (2,), {"games_left": 4, "factor": 2}, id="appends-after-the-pending"
+            ),
             pytest.param(("passed-in",), "multiply", (2,), {"games_left": 3, "factor": 4}, id="multiplies-the-rounds"),
             pytest.param(("passed-in",), "ignore", (2,), {"games_left": 1, "factor": 2}, id="ignores-inside-a-round"),
             pytest.param(EVERY_TRIGGER_BUT_PASSED_IN, "append", (), NO_ROUND, id="no-other-trigger-starts-one"),
@@ -244,7 +248,10 @@ class TestWhatARamschStartsAndUsesUp:
 
     @pytest.mark.parametrize(
         ("deal", "hand"),
-        [pytest.param(SWEEP_DEAL, SWEEP_HAND, id="a-sweep"), pytest.param(JUNGFRAU_DEAL, JUNGFRAU_HAND, id="a-jungfrau")],
+        [
+            pytest.param(SWEEP_DEAL, SWEEP_HAND, id="a-sweep"),
+            pytest.param(JUNGFRAU_DEAL, JUNGFRAU_HAND, id="a-jungfrau"),
+        ],
     )
     def test_a_sweep_and_a_jungfrau_are_no_schneider_and_no_schwarz(self, skat, deal, hand):
         table = played_ramsch(ramsch_table(skat, "schneider", "schwarz", deal=deal), hand)
@@ -290,7 +297,11 @@ class TestARamschEndingTheSeriesOrNearIt:
     def test_the_last_game_stores_its_factor_and_lets_every_round_lapse(self, skat):
         table = played_ramsch(ramsch_table(skat, "passed-in", pending=(2,), series=Series(3, 3)))
 
-        assert (read(table)["result"]["bock_factor"], bock_of(table), table.record.bock) == (2, NO_ROUND, BockRounds(()))
+        assert (read(table)["result"]["bock_factor"], bock_of(table), table.record.bock) == (
+            2,
+            NO_ROUND,
+            BockRounds(()),
+        )
         assert list_rows(table)[0]["bock_factor"] == 2
 
     def test_a_new_series_after_it_deals_with_no_pending_round(self, skat):

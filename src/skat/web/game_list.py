@@ -105,7 +105,8 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         the plus points), whether a seat took all ten tricks and won by it (`durchmarsch`), and whether a seat with
         no trick doubled the loser's score (`jungfrau`). The seats' scores are multiplied by the entry's `bock_factor`,
         1 outside a Bock game, a Durchmarsch's too unless the table scores it flat. A hand everyone passed in at a
-        table without Ramsch leaves no entry. A 404 means no table has this id; a table that has ended answers an empty list.
+        table without Ramsch leaves no entry. A 404 means no table has this id; a table that has ended answers an
+        empty list.
         """
         response.headers["Cache-Control"] = "no-store"
         entries = await run_in_threadpool(tables.series_list, table_id)

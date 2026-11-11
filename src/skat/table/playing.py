@@ -1,7 +1,6 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
-from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
 from skat.engine.giving_up import give_up, throw_down
@@ -14,6 +13,7 @@ from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, Tab
 from skat.table.rules import acting_position, card_text
 
 if TYPE_CHECKING:
+    from skat.engine.bock import BockRounds
     from skat.engine.cards import Card
     from skat.engine.deal import Position
     from skat.engine.tricks import PlayedOut, PlayOutcome, Sides

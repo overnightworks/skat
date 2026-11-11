@@ -67,7 +67,9 @@ class TestARamschEnd:
             pytest.param((PASSED_IN,), (2,), None, BockOverlap.IGNORE, (1,), id="starts-none-inside-a-round-at-ignore"),
             pytest.param((), (2,), None, BockOverlap.APPEND, (1,), id="passed-in-off-uses-the-game-up-only"),
             pytest.param((), (), None, BockOverlap.APPEND, (), id="passed-in-off-with-nothing-pending"),
-            pytest.param((PASSED_IN,), (2,), Series(6, 6), BockOverlap.APPEND, (), id="the-last-game-lets-rounds-lapse"),
+            pytest.param(
+                (PASSED_IN,), (2,), Series(6, 6), BockOverlap.APPEND, (), id="the-last-game-lets-rounds-lapse"
+            ),
         ],
     )
     def test_it_uses_up_a_game_and_starts_a_round_only_when_passed_in_is_on(

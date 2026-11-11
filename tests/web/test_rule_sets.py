@@ -118,7 +118,10 @@ class TestSaveAndRead:
         assert saved.status_code == 200
         assert names_of(read(skat, headers)) == ["Beides"]
         opened = skat.create(headers, options=both).json()["options"]
-        assert (opened["ramsch"], opened["bock"]) == (saved.json()["options"]["ramsch"], saved.json()["options"]["bock"])
+        assert (opened["ramsch"], opened["bock"]) == (
+            saved.json()["options"]["ramsch"],
+            saved.json()["options"]["bock"],
+        )
 
     def test_sets_are_listed_by_case_folded_name(self, skat):
         headers, _ = skat.member()
