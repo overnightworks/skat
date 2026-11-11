@@ -1,8 +1,0 @@
-claim_id = "1e7a7d45de4040e1bd06b4f5bf8830c8"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "6fda5924444b33a412ea1210702451f1151c8309"
-branch = "claude/issue-371-webauth-0-37"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/app.html", "pyproject.toml", "src/skat/host/app.py", "src/skat/web/languages.py", "src/skat/web/page_build.py", "src/skat/web/routes.py", "src/skat/web/sign_in.py", "src/skat/web/tables.py", "tests/host/test_app.py", "tests/support/page_build_fixture/index.html", "tests/support/signed_in.py", "tests/web/test_languages.py", "tests/web/test_page_build.py", "tests/web/test_routes.py", "tests/web/test_rule_sets.py", "tests/web/test_sign_in_routes.py", "tests/web/test_tables.py", "uv.lock"]
-opened_commit = "8d2a2c01d69238b76165a6a9d8c42bcd3a08f39a"
-whole_reason = "The release makes ui_language and the session's account_language required together, so the dependency pin, the one language function, the two shell routes and the test seeds must land in one change to keep main running; the edits are small and each is one line or one function."
