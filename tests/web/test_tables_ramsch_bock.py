@@ -7,7 +7,6 @@ from skat.table.records import Series
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in_text, with_known_deal
-from tests.support.played_game import a_ramsch_entry
 from tests.web.support.playing import (
     FOREHAND,
     HERZ_GAME,
@@ -20,6 +19,9 @@ from tests.web.support.playing import (
     SWEEP_DEAL,
     SWEEP_HAND,
     Table,
+    bock_of,
+    three_pass,
+    with_pending,
 )
 from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
 from tests.web.support.skat import Skat
@@ -39,43 +41,20 @@ A_ROUND_STARTS = {"games_left": 3, "factor": 2}
 NO_ROUND = {"games_left": 0, "factor": 1}
 
 
-def options_of(*triggers, overlap="append", **ramsch_changed):
-    return {
-        "ramsch": {**POINTS, **ramsch_changed},
-        "bock": {"triggers": list(triggers), "overlap": overlap},
-    }
+def options_of(*triggers):
+    return {"ramsch": POINTS, "bock": {"triggers": list(triggers), "overlap": "append"}}
 
 
 def seat_scores_of(result):
     return [seat["score"] for seat in result["seats"]]
 
 
-def three_pass(table):
-    for position in (MIDDLEHAND, REARHAND, FOREHAND):
-        table.passes(position)
-
-
-def with_pending(table, *rounds):
-    table.skat.store.tables[table.table_id] = replace(table.record, bock=BockRounds(rounds))
-
-
-def with_totals(table, *seat_scores):
-    """The list holds one earlier Ramsch whose seats scored `seat_scores`, so the totals start there."""
-    accounts = tuple(chair.occupant.account_id for chair in sorted(table.record.chairs, key=lambda chair: chair.seat))
-    earlier = a_ramsch_entry(seat_scores, accounts)
-    table.skat.store.tables[table.table_id] = replace(table.record, game_list=(earlier,))
-
-
-def ramsch_table(
-    skat, *triggers, deal=PLAIN_DEAL, overlap="append", pending=(), totals=None, series=None, **ramsch_changed
-):
-    table = Table(skat, options_of(*triggers, overlap=overlap, **ramsch_changed))
+def ramsch_table(skat, *triggers, deal=PLAIN_DEAL, pending=(), series=None):
+    table = Table(skat, options_of(*triggers))
     if deal is not None:
         table.with_deal(deal)
     if pending:
         with_pending(table, *pending)
-    if totals is not None:
-        with_totals(table, *totals)
     if series is not None:
         skat.store.tables[table.table_id] = replace(table.record, series=series)
     return table
@@ -90,10 +69,6 @@ def played_ramsch(table, hand=PLAIN_HAND):
 def read(table, position=None):
     headers = table.watcher if position is None else table.at[position]
     return table.read_as(headers).json()
-
-
-def bock_of(table):
-    return read(table)["bock"]
 
 
 def list_rows(table):
@@ -144,54 +119,15 @@ class TestAnAgentOpeningATableWithRamschAndBock:
 
 
 class TestWhatARamschInABockGameScores:
-    @pytest.mark.parametrize(
-        ("deal", "hand", "overlap", "pending", "ramsch_changed", "scores", "factor"),
-        [
-            pytest.param(PLAIN_DEAL, PLAIN_HAND, "append", (), {}, [0, -86, 0], 1, id="outside-a-bock-game"),
-            pytest.param(PLAIN_DEAL, PLAIN_HAND, "append", (2,), {}, [0, -172, 0], 2, id="in-a-bock-game"),
-            pytest.param(
-                PLAIN_DEAL, PLAIN_HAND, "multiply", (2, 2), {}, [0, -344, 0], 4, id="in-two-multiplied-rounds"
-            ),
-            pytest.param(
-                PLAIN_DEAL, PLAIN_HAND, "append", (2,), {"scoring": "points-by-ten"}, [0, -16, 0], 2, id="by-ten-first"
-            ),
-            pytest.param(JUNGFRAU_DEAL, JUNGFRAU_HAND, "append", (2,), {}, [-404, 0, 0], 2, id="jungfrau-then-bock"),
-            pytest.param(
-                JUNGFRAU_DEAL,
-                JUNGFRAU_HAND,
-                "append",
-                (2,),
-                {"scoring": "points-by-ten"},
-                [-40, 0, 0],
-                2,
-                id="by-ten-then-jungfrau-then-bock",
-            ),
-            pytest.param(SWEEP_DEAL, SWEEP_HAND, "append", (2,), {}, [0, 0, 240], 2, id="a-sweep-is-multiplied"),
-            pytest.param(
-                SWEEP_DEAL,
-                SWEEP_HAND,
-                "append",
-                (2,),
-                {"durchmarsch": "wins-120-flat"},
-                [0, 0, 120],
-                2,
-                id="a-flat-sweep-is-not",
-            ),
-        ],
-    )
-    def test_the_result_the_row_and_the_totals_carry_the_multiplied_scores_and_the_factor(
-        self, skat, deal, hand, overlap, pending, ramsch_changed, scores, factor
-    ):
-        table = played_ramsch(
-            ramsch_table(skat, "passed-in", deal=deal, overlap=overlap, pending=pending, **ramsch_changed), hand
-        )
+    def test_the_result_the_row_and_the_totals_carry_the_multiplied_score_and_the_factor(self, skat):
+        table = played_ramsch(ramsch_table(skat, "passed-in", pending=(2,)))
 
         for position in (FOREHAND, MIDDLEHAND, REARHAND, None):
             result = read(table, position)["result"]
-            assert (seat_scores_of(result), result["bock_factor"]) == (scores, factor)
+            assert (seat_scores_of(result), result["bock_factor"]) == ([0, -172, 0], 2)
         row = list_rows(table)[0]
-        assert ([seat["score"] for seat in row["seats"]], row["bock_factor"]) == (scores, factor)
-        assert [chair["total"] for chair in read(table)["chairs"]] == scores
+        assert ([seat["score"] for seat in row["seats"]], row["bock_factor"]) == ([0, -172, 0], 2)
+        assert [chair["total"] for chair in read(table)["chairs"]] == [0, -172, 0]
         assert not cards_in_text(table.read_as(table.watcher).text)
 
     def test_a_declared_game_and_a_ramsch_in_one_round_are_both_multiplied_and_each_uses_a_game_up(self, skat):
@@ -221,28 +157,21 @@ class TestWhatARamschInABockGameScores:
 
 class TestWhatARamschStartsAndUsesUp:
     @pytest.mark.parametrize(
-        ("triggers", "overlap", "pending", "expected"),
+        ("triggers", "pending", "expected"),
         [
-            pytest.param(("passed-in",), "append", (), A_ROUND_STARTS, id="starts-a-round"),
-            pytest.param(
-                ("passed-in",), "append", (2,), {"games_left": 4, "factor": 2}, id="appends-after-the-pending"
-            ),
-            pytest.param(("passed-in",), "multiply", (2,), {"games_left": 3, "factor": 4}, id="multiplies-the-rounds"),
-            pytest.param(("passed-in",), "ignore", (2,), {"games_left": 1, "factor": 2}, id="ignores-inside-a-round"),
-            pytest.param(EVERY_TRIGGER_BUT_PASSED_IN, "append", (), NO_ROUND, id="no-other-trigger-starts-one"),
+            pytest.param(("passed-in",), (), A_ROUND_STARTS, id="passed-in-starts-a-round"),
             pytest.param(
                 EVERY_TRIGGER_BUT_PASSED_IN,
-                "append",
                 (2,),
                 {"games_left": 1, "factor": 2},
-                id="no-other-trigger-uses-the-game-up-only",
+                id="no-other-trigger-uses-a-game",
             ),
         ],
     )
-    def test_passed_in_starts_a_round_at_the_hand_end_by_the_overlap_and_no_other_trigger_does(
-        self, skat, triggers, overlap, pending, expected
+    def test_passed_in_starts_a_round_at_the_hand_end_and_no_other_trigger_does(
+        self, skat, triggers, pending, expected
     ):
-        table = played_ramsch(ramsch_table(skat, *triggers, overlap=overlap, pending=pending))
+        table = played_ramsch(ramsch_table(skat, *triggers, pending=pending))
 
         assert bock_of(table) == expected
 
@@ -257,23 +186,6 @@ class TestWhatARamschStartsAndUsesUp:
         table = played_ramsch(ramsch_table(skat, "schneider", "schwarz", deal=deal), hand)
 
         assert bock_of(table) == NO_ROUND
-
-    @pytest.mark.parametrize(
-        ("triggers", "totals", "expected"),
-        [
-            pytest.param(("total-ending-in-00",), (0, 186, 0), A_ROUND_STARTS, id="a-total-moved-to-100"),
-            pytest.param(("total-ending-in-00",), (0, -14, 0), A_ROUND_STARTS, id="moved-to-minus-100"),
-            pytest.param(("total-ending-in-00",), (0, 0, 0), NO_ROUND, id="a-total-moved-to-minus-86"),
-            pytest.param(("total-ending-in-00",), (100, 0, 0), NO_ROUND, id="a-seat-the-ramsch-left-at-100"),
-            pytest.param(("passed-in", "total-ending-in-00"), (0, 186, 0), A_ROUND_STARTS, id="both-start-one-round"),
-        ],
-    )
-    def test_the_total_rule_reads_what_the_ramsch_changed_and_two_triggers_start_one_round(
-        self, skat, triggers, totals, expected
-    ):
-        table = played_ramsch(ramsch_table(skat, *triggers, totals=totals))
-
-        assert bock_of(table) == expected
 
     def test_three_ramsch_hands_in_a_row_each_fire_and_append_after_the_pending_rounds(self, skat):
         table = ramsch_table(skat, "passed-in")

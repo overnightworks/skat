@@ -33,6 +33,7 @@ from tests.web.support.playing import (
     Table,
     cards,
     reason_of,
+    three_pass,
 )
 from tests.web.support.series import deal_next, headers_of, play_the_dealt_series, tap_new_series, tap_weiter
 from tests.web.support.skat import streams_of
@@ -62,11 +63,6 @@ def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False):
         "jungfrau": jungfrau,
         "bock_factor": 1,
     }
-
-
-def three_pass(table):
-    for position in (MIDDLEHAND, REARHAND, FOREHAND):
-        table.passes(position)
 
 
 def ramsch_table(skat, deal, options=RAMSCH):

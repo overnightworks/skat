@@ -1,6 +1,7 @@
 import itertools
 from dataclasses import replace
 
+from skat.engine.bock import BockRounds
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Deal, Position, positions_from
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
@@ -267,3 +268,16 @@ class Table:
     def played_out(self, game):
         for played in game:
             self.accepted(played)
+
+
+def three_pass(table):
+    for position in (MIDDLEHAND, REARHAND, FOREHAND):
+        table.passes(position)
+
+
+def with_pending(table, *rounds):
+    table.skat.store.tables[table.table_id] = replace(table.record, bock=BockRounds(rounds))
+
+
+def bock_of(table):
+    return table.read_as(table.watcher).json()["bock"]

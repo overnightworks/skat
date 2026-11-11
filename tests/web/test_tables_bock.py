@@ -12,7 +12,7 @@ from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX, T
 from skat.web.tables import TABLES_PATH, AnnouncementToken
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import an_entry
-from tests.web.support.playing import HERZ_GAME, Table, cards
+from tests.web.support.playing import HERZ_GAME, Table, bock_of, cards, with_pending
 from tests.web.support.series import deal_next, headers_of, pass_the_hand_in, tap_new_series, tap_weiter
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
@@ -46,14 +46,6 @@ def open_table(server):
         return Table(server, bock_options(*triggers, overlap=overlap) | options)
 
     return open_with
-
-
-def bock_of(table):
-    return table.read_as(table.watcher).json()["bock"]
-
-
-def with_pending(table, *rounds):
-    table.skat.store.tables[table.table_id] = replace(table.record, bock=BockRounds(rounds))
 
 
 def say(table, position, word):
