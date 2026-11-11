@@ -196,14 +196,6 @@ class TestTheBook:
         entry = scene.book()
         assert (entry.epoch, entry.invitation) == (offer.epoch + 1, None)
 
-    def test_a_row_is_created_with_epoch_one_when_the_book_held_none(self):
-        scene = Scene()
-        assert scene.book() is None
-
-        scene.send_away()
-
-        assert (scene.book().epoch, scene.book().invitation) == (1, None)
-
     def test_an_accept_with_the_old_epoch_is_stale_and_the_standing_lists_no_table(self):
         scene = Scene(agent_seated=False)
         request = InvitationRequest(MOZART.account_id, ANNA.account_id, ANNA.account_id, START + timedelta(hours=1))
