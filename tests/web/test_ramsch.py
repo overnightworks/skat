@@ -7,7 +7,13 @@ from skat.table.records import Refusal, Series
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
+from skat.web.kontra import TABLE_KONTRA_SUFFIX
+from skat.web.playing import (
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
+    TABLE_THROW_DOWN_SUFFIX,
+)
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, cards_in_text, wire_cards, with_known_deal
@@ -36,6 +42,7 @@ SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items(
 FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT = SEATS[FOREHAND], SEATS[MIDDLEHAND], SEATS[REARHAND]
 POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
 RAMSCH = {"ramsch": POINTS}
+KONTRA = {"kontra": {"sayer": "any-opponent", "reach": "kontra-re", "deadline": "own-card"}}
 
 
 def options_of(**changed):
@@ -130,13 +137,16 @@ class TestPlayingARamsch:
         [
             (TABLE_DECLARING_DECLARE_SUFFIX, {"game": "herz", "hand": True, "ouvert": False, "announcement": "none"}),
             (TABLE_GIVE_UP_SUFFIX, None),
+            (TABLE_GIVE_UP_AGREE_SUFFIX, None),
+            (TABLE_GIVE_UP_DECLINE_SUFFIX, None),
             (TABLE_THROW_DOWN_SUFFIX, None),
+            (TABLE_KONTRA_SUFFIX, {"word": "kontra"}),
         ],
-        ids=["a-declaring-step", "a-give-up", "a-throw-down"],
+        ids=["a-declaring-step", "a-give-up", "a-give-up-consent", "a-give-up-refusal", "a-throw-down", "a-kontra-word"],
     )
     @pytest.mark.parametrize("position", [FOREHAND, MIDDLEHAND, REARHAND])
     def test_refuses_a_declared_games_steps_as_wrong_phase(self, skat, suffix, body, position):
-        table = ramsch_table(skat, PLAIN_DEAL)
+        table = ramsch_table(skat, PLAIN_DEAL, {**RAMSCH, **KONTRA})
 
         table.refused_act(suffix, table.at[position], "wrong-phase", body=body)
 
