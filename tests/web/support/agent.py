@@ -1,7 +1,9 @@
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from agents.mcp_wire import MCP_ENDPOINT_PATH
+from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
@@ -11,6 +13,8 @@ from tests.web.support.playing import card_body
 from tests.web.support.skat import mcp_message
 
 SUBJECT = "agent-subject"
+ACKNOWLEDGED = "notifications/subscriptions/acknowledged"
+UPDATED = "notifications/resources/updated"
 
 
 @dataclass(frozen=True)
@@ -43,6 +47,23 @@ class Agent:
             headers={"authorization": f"Bearer {token}", **headers, **(extra_headers or {})},
         )
 
+    @contextmanager
+    def listening(self):
+        """A `subscriptions/listen` stream on the agent's standing; yields its frames, the acknowledgement read."""
+        headers, body = mcp_message(
+            "subscriptions/listen", {"notifications": {"resourceSubscriptions": [STANDING_URI]}}
+        )
+        token = self.issuer.agent_token(self.subject, **self.claims)
+        self.skat.client.cookies.clear()
+        with self.skat.client.stream(
+            "POST", MCP_ENDPOINT_PATH, json=body, headers={"authorization": f"Bearer {token}", **headers}
+        ) as stream:
+            frames = (
+                json.loads(line.removeprefix("data: ")) for line in stream.iter_lines() if line.startswith("data: ")
+            )
+            assert next(frames)["method"] == ACKNOWLEDGED
+            yield frames
+
     def call(self, tool, **arguments):
         answer = self.request("tools/call", {"name": tool, "arguments": arguments})
         assert answer.status_code == 200, answer.text
@@ -51,6 +72,27 @@ class Agent:
 
     def read(self, table_id):
         return self.call(READ_TABLE_TOOL, table_id=table_id)
+
+    def standing(self):
+        """The standing as the agent reads it: the answer's text, the whole of what the agent is shown."""
+        answer = self.request("resources/read", {"uri": STANDING_URI})
+        assert answer.status_code == 200, answer.text
+        return answer.json()["result"]["contents"][0]["text"]
+
+    def listed_resources(self):
+        answer = self.request("resources/list")
+        assert answer.status_code == 200, answer.text
+        return [resource["uri"] for resource in answer.json()["result"]["resources"]]
+
+    def accept(self, table_id, offer, **changes):
+        """`accept_invitation` for the offer's id and epoch; a change replaces one argument."""
+        arguments = {
+            "place": {"kind": "table", "id": table_id},
+            "invitation": offer.id,
+            "epoch": offer.epoch,
+            **changes,
+        }
+        return self.call(ACCEPT_INVITATION_TOOL, **arguments)
 
     def open_table(self, *, command_id="agent-open-0001", series_length=36, **changes):
         return self.call(OPEN_TABLE_TOOL, command_id=command_id, series_length=series_length, **changes)

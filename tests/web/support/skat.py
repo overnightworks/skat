@@ -70,21 +70,42 @@ class FakeTime:
         self.now = horizon
 
 
+class WiredTableService(TableService):
+    """The service the test hands the app, remembering the clone the app wires: the one its routes and timers use."""
+
+    def __init__(self, *arguments, wired, **options):
+        super().__init__(*arguments, **options)
+        self._wired = wired
+
+    def with_standing_signal(self, signal):
+        clone = super().with_standing_signal(signal)
+        self._wired.append(clone)
+        return clone
+
+
 class Skat:
     def __init__(self, sign_in_settings, store=None, stores=None, now=None, **app_options):
         self.stores = stores if stores is not None else in_memory_stores()
         self.store = store if store is not None else FakeTableStore()
         self.rule_set_store = FakeRuleSetStore()
+        self._wired = []
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
-            tables=TableService(self.store) if now is None else TableService(self.store, now=now),
+            tables=WiredTableService(self.store, wired=self._wired)
+            if now is None
+            else WiredTableService(self.store, now=now, wired=self._wired),
             rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
             **app_options,
         )
         self.config = installed_web_auth_config(self.app)
         self.client = TestClient(self.app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
+
+    @property
+    def tables(self):
+        """The table service as the app wired it, which tells a listening agent when its standing changed."""
+        return self._wired[-1]
 
     def run_on_clock(self, now):
         """Reads webauth's time from `now[0]`, a list the test moves; call before the first member is seeded."""

@@ -34,11 +34,11 @@ def ramsch_row(ordinal, **changed):
     return text(f"INSERT INTO game_list ({names}) VALUES ({values})")  # noqa: S608 - only a test's fixed literals reach this text
 
 
-class TestFromAListOfEveryKindAtRevisionTwentyFour:
+class TestFromAListOfEveryKindAtRevisionTwentyFive:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        """A database at 0024 holding a declared row, a row with a Kontra word and a Ramsch row, then taken to head."""
-        upgrade_to(unmigrated_engine, "0024")
+        """A database at 0025 holding a declared row, a row with a Kontra word and a Ramsch row, then taken to head."""
+        upgrade_to(unmigrated_engine, "0025")
         with unmigrated_engine.begin() as connection:
             connection.execute(
                 text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('t', 3, 2, now())")
