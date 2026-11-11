@@ -3,7 +3,6 @@
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
     import {
-        auctionJustEnded,
         awayOnTurn,
         chairMarks,
         decidingMarks,
@@ -12,6 +11,7 @@
         passedInScene,
     } from "#lib/auctionMarks.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
+    import { cuesBetween } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
@@ -64,11 +64,13 @@
     let justWon = $state(false);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
 
-    function showTable(previous: Table, table: Table): void {
-        if (auctionJustEnded(previous, table)) {
-            justWon = true;
-            clearTimeout(wonTimer);
-            wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
+    function showTable(previous: Table | undefined, table: Table): void {
+        for (const cue of cuesBetween(previous, table)) {
+            if (cue.kind === "auction-ended") {
+                justWon = true;
+                clearTimeout(wonTimer);
+                wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
+            }
         }
         outcome = { kind: "table", table };
     }
@@ -84,12 +86,16 @@
             if (!current) return;
             outcome = answer;
             if (answer.kind === "table" && answer.table.ended === null) {
-                let shown = answer.table;
+                let shown: Table | undefined = answer.table;
                 const show = (table: Table): void => {
                     showTable(shown, table);
                     shown = table;
                 };
-                stopWatching = watchTable(id, show, (isConnected) => (connected = isConnected));
+                // A dropped connection forgets the table shown: the first table after it stands still.
+                stopWatching = watchTable(id, show, (isConnected) => {
+                    connected = isConnected;
+                    if (!isConnected) shown = undefined;
+                });
             }
         });
         // An answer for an address the person has left must not replace the current table.
