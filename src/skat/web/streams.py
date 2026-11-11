@@ -35,6 +35,12 @@ class IdleHeartbeat:
 IDLE_HEARTBEAT: Final = IdleHeartbeat()
 
 
+def _message_of(item: TableView | IdleHeartbeat) -> str:
+    if isinstance(item, IdleHeartbeat):
+        return HEARTBEAT_COMMENT
+    return f"data: {answer_of(item).model_dump_json()}\n\n"
+
+
 async def _ask_for_next_deal(presence: Presence, table_id: str, view: TableView) -> None:
     if view.passed_in is not None:
         presence.deal_soon(table_id)
@@ -142,15 +148,12 @@ def create_streams_router(
         async def messages() -> AsyncIterator[str]:
             # An ended table has nobody to watch: its one message is its answer, and nothing registers.
             if first_view.ended is not None:
-                yield f"data: {answer_of(first_view).model_dump_json()}\n\n"
+                yield _message_of(first_view)
                 return
             async for item in table_views(
                 presence, read_view, admit, table_id, opened_as.account_id, heartbeat_seconds=heartbeat_seconds
             ):
-                if isinstance(item, IdleHeartbeat):
-                    yield HEARTBEAT_COMMENT
-                else:
-                    yield f"data: {answer_of(item).model_dump_json()}\n\n"
+                yield _message_of(item)
 
         return StreamingResponse(
             messages(), media_type=EVENT_STREAM, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
