@@ -2882,13 +2882,18 @@ body {
 /* A short phone packs the result so the bar stays on the screen. */
 @media (max-width: 899px) and (max-height: 780px) {
     .room .stage:has(> .result) {
-        padding-top: 4px;
+        padding-top: 0;
+        --chair-width: 88px;
+    }
+
+    .room .stage:has(> .result) .controls {
+        margin-top: 0;
     }
 
     .room .result {
         gap: 4px;
-        margin: 4px 0;
-        padding: 12px 14px;
+        margin: 0;
+        padding: 8px 14px;
     }
 
     .room .result h3 {
