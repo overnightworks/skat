@@ -8,6 +8,7 @@ import secrets
 
 import sqlalchemy as sa
 from alembic import context, op
+from sqlalchemy.dialects import postgresql
 
 revision = "0023"
 down_revision = "0022"
@@ -25,20 +26,20 @@ OPTIONS = {
     "ramsch_jungfrau": "doubles-loser",
     "ramsch_durchmarsch": "wins-120",
 }
+RULE_SETS = sa.table(
+    "rule_sets",
+    sa.column("id"),
+    sa.column("owner_account"),
+    sa.column("name"),
+    *(sa.column(option, sa.ARRAY(sa.Text()) if option == "bock_triggers" else None) for option in OPTIONS),
+)
 
 
 def _install(operator_account_id: str) -> None:
-    columns = ", ".join(OPTIONS)
-    values = ", ".join(f":{column}" for column in OPTIONS)
-    replacements = ", ".join(f"{column} = EXCLUDED.{column}" for column in OPTIONS)
-    statement = sa.text(
-        f"INSERT INTO rule_sets (id, owner_account, name, {columns}) "  # noqa: S608 - only this file's fixed column names reach this text
-        f"VALUES (:id, :owner_account, :name, {values}) "
-        f"ON CONFLICT (owner_account, name) DO UPDATE SET {replacements}"
-    ).bindparams(sa.bindparam("bock_triggers", type_=sa.ARRAY(sa.Text())))
-    op.get_bind().execute(
-        statement, {"id": secrets.token_hex(16), "owner_account": operator_account_id, "name": SET_NAME, **OPTIONS}
-    )
+    values = {"id": secrets.token_hex(16), "owner_account": operator_account_id, "name": SET_NAME, **OPTIONS}
+    insertion = postgresql.insert(RULE_SETS).values(values)
+    replacement = {column: insertion.excluded[column] for column in OPTIONS}
+    op.get_bind().execute(insertion.on_conflict_do_update(index_elements=["owner_account", "name"], set_=replacement))
 
 
 def upgrade() -> None:
