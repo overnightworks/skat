@@ -265,7 +265,7 @@ class TestTheSignalOfACommit:
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
         scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
         scene.service.sit(BACH, SitDown("command-bach", scene.table_id, 3), NOBODY)
-        scene.put(replace(scene.table, hand=None))
+        scene.put(replace(scene.table, hand=None, dealer=None))
         scene.signals.clear()
 
         freed = scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
