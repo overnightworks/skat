@@ -44,6 +44,7 @@
         takeAuctionStep,
         watchTable,
         type AuctionAction,
+        type Card,
         type Outcome,
         type Picking,
         type Table,
@@ -62,11 +63,16 @@
     let playing = $state<PlayingHand | undefined>();
     // The first moment of the declaring, which only a page that sees the auction end shows.
     let justWon = $state(false);
+    // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
+    let playedThisHand = $state<Card[]>([]);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
 
     function showTable(previous: Table | undefined, table: Table): void {
+        if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
         for (const cue of cuesBetween(previous, table)) {
-            if (cue.kind === "auction-ended") {
+            if (cue.kind === "card-played") {
+                playedThisHand = [...playedThisHand, cue.card];
+            } else {
                 justWon = true;
                 clearTimeout(wonTimer);
                 wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
@@ -80,6 +86,7 @@
         outcome = null;
         connected = true;
         justWon = false;
+        playedThisHand = [];
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -363,7 +370,7 @@
                 <ResultCard {view} />
             {/if}
             {#if inPlay !== null}
-                <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} />
+                <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} {playedThisHand} />
             {/if}
             {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
             {@const auction = outcome.table.hand?.auction}
