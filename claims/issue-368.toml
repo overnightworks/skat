@@ -1,0 +1,7 @@
+claim_id = "52f84c605e2848be96f67cf01d1343d0"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "bb41d7fced64f5ec56d5196e4824c0404a682e96"
+branch = "claude/issue-368-agent-pictures"
+scope = ["docs/mockups/start.html", "docs/mockups/table.html"]
+opened_commit = "4dec95bf28aa9fa245961dd2de1481392dbd3d96"
