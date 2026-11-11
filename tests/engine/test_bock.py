@@ -20,6 +20,7 @@ from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind, Trump
 from skat.engine.kontra import Doubling, KontraReach, Word, doubled_reckoning
+from skat.engine.ramsch import RamschPlayedOut
 from skat.engine.score import Reckoning, Settlement, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
 
@@ -51,6 +52,8 @@ ALL_TRICKS = (12,) * 10
 NO_TRICKS: tuple[int, ...] = ()
 NO_TOTALS: tuple[TotalChange, ...] = ()
 NO_WORDS = Doubling.start()
+A_RAMSCH = RamschPlayedOut(tricks=(), skat=())
+EVERY_OTHER_TRIGGER = (SIXTY_SIXTY, WON_GRAND_HAND, LOST_AFTER_KONTRA, RE_SAID, SCHNEIDER, SCHWARZ)
 
 
 def trick_worth(points: int) -> tuple[Card, Card, Card]:
@@ -144,6 +147,14 @@ SCHWARZ_ANNOUNCED_MISSED = game(HERZ, WIN_SCHNEIDER, hand=True, announcement=Ann
             True,
             id="12-one-of-three-seats",
         ),
+        pytest.param((PASSED_IN,), A_RAMSCH, NO_WORDS, NO_TOTALS, True, id="17-ramsch-meets-passed-in"),
+        pytest.param(EVERY_OTHER_TRIGGER, A_RAMSCH, NO_WORDS, NO_TOTALS, False, id="17-ramsch-meets-no-other-trigger"),
+        pytest.param((TOTAL_IN_00,), A_RAMSCH, NO_WORDS, (TotalChange(0, 100),), True, id="17-ramsch-to-100"),
+        pytest.param((TOTAL_IN_00,), A_RAMSCH, NO_WORDS, (TotalChange(0, 0),), False, id="17-ramsch-left-at-0"),
+        pytest.param((TOTAL_IN_00,), A_RAMSCH, NO_WORDS, (TotalChange(100, 100),), False, id="17-ramsch-left-at-100"),
+        pytest.param(
+            (PASSED_IN, TOTAL_IN_00), A_RAMSCH, NO_WORDS, (TotalChange(0, -100),), True, id="17-ramsch-meets-both"
+        ),
         pytest.param((SIXTY_SIXTY,), HERZ_WON, NO_WORDS, NO_TOTALS, False, id="14-trigger-off"),
         pytest.param((), HERZ_SIXTY, said(KONTRA, RE), (TotalChange(150, 200),), False, id="14-empty-set"),
         pytest.param(
@@ -177,7 +188,7 @@ SCHWARZ_ANNOUNCED_MISSED = game(HERZ, WIN_SCHNEIDER, hand=True, announcement=Ann
 )
 def test_a_hand_triggers_a_bock_round_when_it_meets_a_trigger_the_table_has_on(
     triggers: tuple[BockTrigger, ...],
-    ended: PlayedOut | PassedIn,
+    ended: PlayedOut | PassedIn | RamschPlayedOut,
     doubling: Doubling,
     totals: tuple[TotalChange, ...],
     expected: bool,

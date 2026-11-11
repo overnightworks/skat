@@ -236,7 +236,7 @@ def test_a_failure_inside_the_command_stores_no_row_no_version_and_no_receipt(ga
 def _rewrite(transactions, record, plays):
     rewritten = replace(record, version=record.version + 1, progress=replace(record.progress, plays=plays))
     with transactions.begin() as transaction:
-        transaction.save_table(rewritten)
+        transaction.save_table(rewritten, played_at=None)
 
 
 def test_cards_that_rewrite_a_stored_card_raise_and_change_nothing(game, transactions):

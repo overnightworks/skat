@@ -1,4 +1,5 @@
 import logging
+import secrets
 
 import pytest
 from pydantic import ValidationError
@@ -7,6 +8,7 @@ from sqlalchemy.engine import make_url
 
 from skat.host.main import create_database_engine, main, uvicorn_options
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine
+from skat.store.rule_sets import PostgresRuleSets
 from skat.web.constants import UVICORN_LOG_LEVEL
 from skat.web.secret_files import StartRefusedError
 from skat.web.settings import DatabaseSettings
@@ -157,6 +159,17 @@ class TestMigrate:
 
         engine = create_store_engine(only_the_database_setting)
         assert {"tables", "chairs", "receipts"} <= set(inspect(engine).get_table_names())
+        engine.dispose()
+
+    def test_hands_the_operator_account_setting_to_the_migration(self, only_the_database_setting, monkeypatch):
+        operator_account_id = f"account-{secrets.token_hex(8)}"
+        monkeypatch.setenv("SKAT_OPERATOR_ACCOUNT_ID", operator_account_id)
+
+        main(["migrate"])
+
+        engine = create_store_engine(only_the_database_setting)
+        with PostgresRuleSets(engine).begin() as transaction:
+            assert [rule_set.name for rule_set in transaction.sets_of(operator_account_id)] == ["Felix"]
         engine.dispose()
 
     def test_leaves_a_database_that_serve_then_accepts(self, only_the_database_setting, server, configured_environment):

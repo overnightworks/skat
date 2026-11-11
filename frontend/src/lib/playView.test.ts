@@ -209,6 +209,14 @@ describe("the game in play", () => {
         });
     });
 
+    it("is none in a Ramsch, which has no declaration", () => {
+        const ramsch = table(1, { turn_seat: 1 });
+        ramsch.hand = { ...(ramsch.hand as NonNullable<Table["hand"]>), declaring: null };
+
+        expect(gameInPlay(ramsch)).toBeNull();
+        expect(cardsToPlay(ramsch)).toEqual(playing({}).legal_cards);
+    });
+
     it("is none before the game is declared", () => {
         expect(gameInPlay(table(1, null))).toBeNull();
     });

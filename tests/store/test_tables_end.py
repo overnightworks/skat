@@ -41,7 +41,7 @@ def undealt_table(service, name):
 
 def save(transactions, record):
     with transactions.begin() as transaction:
-        transaction.save_table(record)
+        transaction.save_table(record, played_at=None)
 
 
 def played_hand(service, transactions, stored, name):

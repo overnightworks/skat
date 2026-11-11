@@ -36,6 +36,14 @@ FIRST_VERSION: Final = 1
 CREATE_TABLE_COMMAND: Final = "create-table"
 SIT_DOWN_COMMAND: Final = "sit-down"
 STAND_UP_COMMAND: Final = "stand-up"
+PLAY_CARD_COMMAND: Final = "play-card"
+GIVE_UP_COMMAND: Final = "give-up"
+THROW_DOWN_COMMAND: Final = "throw-down"
+AGREE_TO_GIVE_UP_COMMAND: Final = "give-up-agree"
+DECLINE_GIVE_UP_COMMAND: Final = "give-up-decline"
+STEP_OF_PLAY_COMMANDS: Final = frozenset(
+    {PLAY_CARD_COMMAND, GIVE_UP_COMMAND, AGREE_TO_GIVE_UP_COMMAND, THROW_DOWN_COMMAND}
+)
 
 
 class CommandIdReusedError(Exception):
@@ -78,6 +86,13 @@ def create_payload(command: CreateTable) -> str:
     if bock is not None:
         triggers = ",".join(f'"{trigger.value}"' for trigger in sorted(bock.triggers))
         members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
+    ramsch = command.options.ramsch
+    if ramsch is not None:
+        members.append(
+            f'"ramsch":{{"durchmarsch":"{ramsch.reckoning.durchmarsch.value}",'
+            f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
+            f'"scoring":"{ramsch.reckoning.scoring.value}"}}'
+        )
     return "{" + ",".join(members) + "}"
 
 
@@ -144,6 +159,17 @@ def sit_deals(table: TableRecord) -> bool:
 
 def hand_runs(table: TableRecord) -> bool:
     return table.hand is not None
+
+
+def is_deal_or_step_of_play(command: str, before: TableRecord, after: TableRecord) -> bool:
+    """An accepted decision dealt a hand, or was a step of play that changed the table.
+
+    A step is a played card, a give-up request, its agreement or a throw-down whose table version rose: a second
+    give-up request while one stands changes nothing. The third pass that starts a Ramsch deals nothing, since the
+    hand runs before and after it.
+    """
+    dealt = not hand_runs(before) and hand_runs(after)
+    return dealt or (command in STEP_OF_PLAY_COMMANDS and after.version > before.version)
 
 
 def series_games_left(table: TableRecord) -> int | None:

@@ -2,6 +2,7 @@ import random
 import threading
 from contextlib import suppress
 from dataclasses import replace
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import event, text
@@ -17,6 +18,7 @@ pytestmark = pytest.mark.postgres
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
+DEALT_AT = datetime(2026, 11, 1, 12, tzinfo=UTC)
 
 
 def run_in_thread(work):
@@ -45,7 +47,7 @@ class TestOneMomentRead:
     def test_a_read_during_the_deal_waits_and_returns_the_dealer_and_every_card_together(self, engine, table_id, dealt):
         with PostgresTableTransactions(engine).begin() as writer:
             empty = writer.locked_table(TableId(table_id))
-            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand), played_at=DEALT_AT)
             reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
 
             wait_until_a_session_waits_for_a_lock(engine, reader)
@@ -56,7 +58,7 @@ class TestOneMomentRead:
     def test_a_read_that_waited_for_a_rolled_back_deal_returns_the_table_as_it_was(self, engine, table_id, dealt):
         with suppress(RuntimeError), PostgresTableTransactions(engine).begin() as writer:
             empty = writer.locked_table(TableId(table_id))
-            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand), played_at=DEALT_AT)
             reader, outcome = run_in_thread(lambda: self.read(engine, table_id))
             wait_until_a_session_waits_for_a_lock(engine, reader)
             raise RuntimeError("rolled back")
@@ -73,7 +75,7 @@ class TestOneMomentRead:
 
         with PostgresTableTransactions(engine).begin() as writer:
             empty = writer.locked_table(TableId(table_id))
-            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand))
+            writer.save_table(replace(empty, version=2, dealer=dealt.dealer, hand=dealt.hand), played_at=DEALT_AT)
             reader, outcome = run_in_thread(replay_create)
 
             wait_until_a_session_waits_for_a_lock(engine, reader)
@@ -85,7 +87,7 @@ class TestOneMomentRead:
         def write():
             with PostgresTableTransactions(engine).begin() as writer:
                 record = writer.locked_table(TableId(table_id))
-                writer.save_table(replace(record, version=2))
+                writer.save_table(replace(record, version=2), played_at=None)
 
         with PostgresTableTransactions(engine).begin() as reading:
             reading.table(TableId(table_id))

@@ -1,12 +1,14 @@
 from typing import TYPE_CHECKING
 
-from skat.engine.bidding import Declared, auction_after
+from skat.engine.bidding import Declared, PassedIn, auction_after
 from skat.engine.declaration import Declaring, declaring_after
 from skat.engine.kontra import Doubling, bidders_of, doubling_after
+from skat.engine.ramsch import ramsch_after, start_ramsch
 from skat.engine.tricks import playing_after, start_play
 
 if TYPE_CHECKING:
     from skat.engine.bidding import Auction
+    from skat.engine.ramsch import RamschPlaying
     from skat.engine.tricks import Playing
     from skat.table.records import TableRecord
 
@@ -35,6 +37,18 @@ def playing_of(table: TableRecord) -> Playing | None:
     """The cards played so far replayed through the engine; None until the game is declared."""
     start = _play_start(table)
     return None if start is None else playing_after(start, table.progress.plays)
+
+
+def game_of(table: TableRecord) -> Playing | RamschPlaying | None:
+    """The game that runs: the declared game's cards played so far, else the Ramsch a table that plays one starts
+    when all three pass, replayed from its stored cards; None while no game is played.
+    """
+    declared = playing_of(table)
+    if declared is not None:
+        return declared
+    if table.hand is None or table.options.ramsch is None or not isinstance(auction_of(table).result, PassedIn):
+        return None
+    return ramsch_after(start_ramsch(table.hand), table.progress.plays)
 
 
 def doubling_of(table: TableRecord) -> Doubling | None:

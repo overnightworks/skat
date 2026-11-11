@@ -94,7 +94,7 @@ def main(
     # The required settings come from the environment, which the type checker cannot see.
     if command == "migrate":
         database = DatabaseSettings()  # pyright: ignore[reportCallIssue]
-        migrate(create_database_engine(database))
+        migrate(create_database_engine(database), operator_account_id=database.operator_account_id)
         return
     settings = ServerSettings()  # pyright: ignore[reportCallIssue]
     engine = create_database_engine(settings)

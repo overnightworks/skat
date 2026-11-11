@@ -135,7 +135,7 @@ class DeclaringTable:
     def list_the_game(self, entry: ListEntry) -> None:
         """Ends the running hand with `entry` as its game, through the store, and reloads every page on its result."""
         with PostgresTableTransactions(self.server.engine).begin() as transaction:
-            transaction.save_table(after_a_game(self.stored(), entry))
+            transaction.save_table(after_a_game(self.stored(), entry), played_at=None)
         for person in (self.declarer, *self.others, self.watcher):
             reload_and_wait(person)
 

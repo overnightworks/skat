@@ -12,7 +12,3 @@ reason = "S13.3b2 wires the first-card deadline: `decline`, `awaits_words` and `
 path = "src/skat/engine/schieberamsch.py"
 item = "overnightworks/skat#39"
 reason = "S13.4d lets each seat take or push the skat through the API."
-[[code]]
-path = "src/skat/engine/ramsch.py"
-item = "overnightworks/skat#39"
-reason = "S13.4c starts a Ramsch at the third pass when the table's switch is on."

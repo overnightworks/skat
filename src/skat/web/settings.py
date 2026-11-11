@@ -10,6 +10,8 @@ from sqlalchemy.exc import ArgumentError
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
 
 DEFAULT_EMPTY_TABLE_SECONDS: Final = 1800
+DEFAULT_PAUSED_TABLE_DAYS: Final = 90
+HIGHEST_PAUSED_TABLE_DAYS: Final = 36_500
 
 
 def _require_no_trailing_slash(issuer: str) -> str:
@@ -54,6 +56,12 @@ def _unset_when_empty(origin: object) -> object:
     return None if origin == "" else origin
 
 
+def _require_visible_text(text: str) -> str:
+    if not text.isprintable() or not text.strip():
+        raise ValueError("must be text with a visible character and no control character")
+    return text
+
+
 def _require_absolute_path(path: Path) -> Path:
     if not path.is_absolute():
         raise ValueError("must be an absolute path")
@@ -81,6 +89,8 @@ def _require_postgres_url_without_password(url: str) -> str:
 IssuerUrl = Annotated[str, AfterValidator(_require_no_trailing_slash)]
 OriginUrl = Annotated[str, AfterValidator(_require_browser_origin)]
 OptionalOriginUrl = Annotated[OriginUrl | None, BeforeValidator(_unset_when_empty)]
+VisibleText = Annotated[str, AfterValidator(_require_visible_text)]
+OptionalAccountId = Annotated[VisibleText | None, BeforeValidator(_unset_when_empty)]
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
 PasswordlessPostgresUrl = Annotated[str, AfterValidator(_require_postgres_url_without_password)]
 
@@ -93,6 +103,8 @@ class DatabaseSettings(BaseSettings):
 
     database_url: PasswordlessPostgresUrl = Field(repr=False)
     database_password_file: AbsolutePath = Field(repr=False)
+    # The account `skat migrate` installs the operator's rule set on; unset, no set is installed.
+    operator_account_id: OptionalAccountId = None
 
 
 class ServerSettings(DatabaseSettings):
@@ -112,3 +124,6 @@ class ServerSettings(DatabaseSettings):
     # How long a table on which no hand was dealt stays after nobody is connected to it, before it ends; whole seconds,
     # which the ended table's answer names.
     empty_table_seconds: int = Field(default=DEFAULT_EMPTY_TABLE_SECONDS, gt=0)
+    # How many days after its last deal or step of play a table on which a hand was dealt ends; whole days, at most a
+    # hundred years so the end is always a date.
+    paused_table_days: int = Field(default=DEFAULT_PAUSED_TABLE_DAYS, gt=0, le=HIGHEST_PAUSED_TABLE_DAYS)

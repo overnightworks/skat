@@ -86,7 +86,8 @@ def _counted_points(played: RamschPlayedOut, scoring: RamschScoring) -> dict[Pos
     skat_points = sum(card.points for card in played.skat)
     counted = {position: played.points_of(position) for position in _ALL_POSITIONS}
     if scoring is RamschScoring.SKAT_TO_LOSER:
-        return {position: points + skat_points for position, points in counted.items()}
+        most = max(counted.values())
+        return {position: points + skat_points if points == most else points for position, points in counted.items()}
     counted[played.last_trick_taker] += skat_points
     return counted
 
@@ -99,7 +100,9 @@ def reckon_ramsch(played: RamschPlayedOut, options: RamschOptions, *, multiplier
         factor = 1 if options.durchmarsch is DurchmarschRule.WINS_120_FLAT else multiplier
         gains = dict.fromkeys(_ALL_POSITIONS, 0)
         gains[sweeper] = _DURCHMARSCH_GAIN * factor
-        return RamschReckoning(counted, frozenset(), sweeper, jungfrau=False, gains=gains)
+        return RamschReckoning(
+            MappingProxyType(counted), frozenset(), sweeper, jungfrau=False, gains=MappingProxyType(gains)
+        )
     most = max(counted.values())
     losers = frozenset(position for position, points in counted.items() if points == most)
     jungfrau = options.jungfrau is JungfrauRule.DOUBLES_LOSER and any(
@@ -109,7 +112,7 @@ def reckon_ramsch(played: RamschPlayedOut, options: RamschOptions, *, multiplier
     if jungfrau:
         payment *= 2
     gains = {position: -payment * multiplier if position in losers else 0 for position in _ALL_POSITIONS}
-    return RamschReckoning(counted, losers, None, jungfrau=jungfrau, gains=gains)
+    return RamschReckoning(MappingProxyType(counted), losers, None, jungfrau=jungfrau, gains=MappingProxyType(gains))
 
 
 @dataclass(frozen=True)
