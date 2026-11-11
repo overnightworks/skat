@@ -61,6 +61,7 @@ from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
     LoggingAuditSink,
+    SignInConfigs,
     build_relying_party,
     build_sign_in_configs,
     install_sign_in,
@@ -73,6 +74,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
     from webauth.config import WebAuthConfig
+    from webauth.oidc import OidcRelyingParty
     from webauth.ports import SessionRecordStore
 
     from skat.table.rule_sets import RuleSetService
@@ -117,6 +119,17 @@ def _install_web_auth(
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
     )
+
+
+def _install_sign_in(
+    app: FastAPI,
+    sign_in_configs: SignInConfigs,
+    relying_party: OidcRelyingParty,
+    stores: SingleProcessStores,
+    page_build: PageBuild,
+) -> None:
+    install_web_auth_config(app, sign_in_configs.web_auth)
+    install_sign_in(app, relying_party, stores.transaction, page_build, stores.sessions, sign_in_configs.web_auth)
 
 
 def _chair_hold(
@@ -275,10 +288,7 @@ def create_app(
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
     app.state.stop_streams = presence.stop
-    install_web_auth_config(app, sign_in_configs.web_auth)
-    install_sign_in(
-        app, relying_party, sign_in_stores.transaction, page_build, sign_in_stores.sessions, sign_in_configs.web_auth
-    )
+    _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(
         app,
         relying_party,
