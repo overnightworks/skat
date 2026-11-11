@@ -675,10 +675,7 @@ class TableService:
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
-                    played = is_deal_or_step_of_play(command, table, decision.table)
-                    transaction.save_table(decision.table, played_at=self._now() if played else None)
-                    if hand_was_dealt(decision.table) and not hand_was_dealt(table):
-                        transaction.set_empty_since(identifier, None)
+                    self._save_decided(transaction, command, table, decision.table)
                 transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
@@ -695,6 +692,14 @@ class TableService:
                 seated_when_hand_ended,
                 away_when_hand_ended,
             )
+
+    def _save_decided(
+        self, transaction: TableTransaction, command: str, before: TableRecord, after: TableRecord
+    ) -> None:
+        played = is_deal_or_step_of_play(command, before, after)
+        transaction.save_table(after, played_at=self._now() if played else None)
+        if hand_was_dealt(after) and not hand_was_dealt(before):
+            transaction.set_empty_since(after.id, None)
 
     def _table_read(self, table_id: str) -> TableRecord | EndedTable | None:
         identifier = TableId.parse(table_id)
