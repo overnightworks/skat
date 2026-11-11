@@ -204,7 +204,7 @@ def _rewrite(stored, transactions, table_id, steps):
     before = stored(transactions, table_id)
     rewritten = replace(before, version=before.version + 1, progress=replace(before.progress, declaring=steps))
     with transactions.begin() as transaction:
-        transaction.save_table(rewritten)
+        transaction.save_table(rewritten, played_at=None)
 
 
 def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transactions, stored):

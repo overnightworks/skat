@@ -6,7 +6,12 @@ import pytest
 from pydantic import ValidationError
 
 from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS, ServerSettings
+from skat.web.settings import (
+    DEFAULT_EMPTY_TABLE_SECONDS,
+    DEFAULT_PAUSED_TABLE_DAYS,
+    HIGHEST_PAUSED_TABLE_DAYS,
+    ServerSettings,
+)
 
 REQUIRED_SIGN_IN_SETTINGS = [
     "oidc_issuer",
@@ -27,6 +32,7 @@ class TestServerSettings:
         assert settings.trusted_proxies == ""
         assert settings.call_origin is None
         assert settings.empty_table_seconds == DEFAULT_EMPTY_TABLE_SECONDS
+        assert settings.paused_table_days == DEFAULT_PAUSED_TABLE_DAYS
 
     def test_each_setting_is_read_from_its_skat_environment_variable(self, sign_in_settings):
         sign_in = sign_in_settings()
@@ -39,6 +45,7 @@ class TestServerSettings:
             "SKAT_CALL_ORIGIN": "https://call.test.invalid",
             "SKAT_CHAIR_HOLD_SECONDS": "90.5",
             "SKAT_EMPTY_TABLE_SECONDS": "42",
+            "SKAT_PAUSED_TABLE_DAYS": "30",
         }
         with patch.dict(os.environ, env):
             settings = ServerSettings()
@@ -49,6 +56,7 @@ class TestServerSettings:
             assert settings.call_origin == "https://call.test.invalid"
             assert settings.chair_hold_seconds == 90.5
             assert settings.empty_table_seconds == 42
+            assert settings.paused_table_days == 30
             assert settings.oidc_issuer == sign_in.settings.oidc_issuer
             assert settings.public_origin == sign_in.settings.public_origin
             assert settings.oidc_client_secret_file == sign_in.settings.oidc_client_secret_file
@@ -199,3 +207,17 @@ def test_a_chair_hold_that_is_not_a_positive_number_is_refused_by_name(sign_in_s
 def test_an_empty_table_wait_that_is_not_a_positive_whole_number_is_refused_by_name(sign_in_settings, value):
     with pytest.raises(ValidationError, match="empty_table_seconds"):
         sign_in_settings(empty_table_seconds=value)
+
+
+@pytest.mark.parametrize("value", [0, -5, "abc", "90.5", HIGHEST_PAUSED_TABLE_DAYS + 1])
+def test_paused_table_days_that_are_not_a_whole_number_of_days_up_to_the_limit_are_refused_by_name(
+    sign_in_settings, value
+):
+    with pytest.raises(ValidationError, match="paused_table_days"):
+        sign_in_settings(paused_table_days=value)
+
+
+def test_the_highest_paused_table_days_are_accepted(sign_in_settings):
+    assert sign_in_settings(paused_table_days=HIGHEST_PAUSED_TABLE_DAYS).settings.paused_table_days == (
+        HIGHEST_PAUSED_TABLE_DAYS
+    )

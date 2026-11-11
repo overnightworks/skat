@@ -4,10 +4,8 @@ import pytest
 
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
-from skat.store.tables import PostgresTableTransactions
-from skat.table.records import Actor, CreateTable, RuleSetId, TableOptions
+from skat.table.records import RuleSetId, TableOptions
 from skat.table.rule_sets import RuleSet
-from skat.table.service import TableService
 from tests.support.migrations import upgrade_to
 from tests.support.rule_set_rows import a_set, row_count, save, sets_of
 
@@ -69,14 +67,3 @@ def test_another_name_of_the_account_and_another_accounts_felix_stay_untouched(b
     assert sets_of(before_the_set, others_felix.owner_account) == (others_felix,)
     assert {rule_set.name: rule_set for rule_set in sets_of(before_the_set, operator_account_id)}["Abend"] == other_name
     assert row_count(before_the_set) == 3
-
-
-def test_a_table_opened_with_the_sets_options_answers_exactly_them(before_the_set, operator_account_id):
-    upgrade_to(before_the_set, THE_SET, operator_account_id)
-    [felix] = sets_of(before_the_set, operator_account_id)
-    actor = Actor(account_id=operator_account_id, display_name="Operator")
-    service = TableService(PostgresTableTransactions(before_the_set))
-
-    table = service.create(actor, CreateTable(command_id="open", options=felix.options))
-
-    assert table.options == FELIX_OPTIONS

@@ -251,7 +251,9 @@ class TestTheList:
         second = replace(first, won=not first.won)
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(first, second)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(first, second)), played_at=None
+            )
 
         assert list(map(attrgetter("ordinal"), stored_list_rows(engine, ended.table_id))) == [1, 2]
         assert ended.record.game_list == (first, second)
@@ -262,7 +264,7 @@ class TestTheList:
 
         def save():
             with transactions.begin() as transaction:
-                transaction.save_table(rewritten)
+                transaction.save_table(rewritten, played_at=None)
 
         with pytest.raises(StepLogRewrittenError):
             save()
@@ -275,7 +277,9 @@ class TestTheList:
         sat_again = replace(sat_again, seat_names=("Anna", "Dora", "Cleo"))
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(first, sat_again)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(first, sat_again)), played_at=None
+            )
 
         names = {
             each.account_id: each.display_name for each in standings_of(ended.record.game_list, KontraReach.KONTRA_RE)
@@ -287,7 +291,9 @@ class TestTheList:
         nameless = replace(record.game_list[0], seat_names=(None, None, None))
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, nameless)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, nameless)), played_at=None
+            )
 
         assert ended.record.game_list[1].seat_names == (None, None, None)
         assert {each.display_name for each in standings_of(ended.record.game_list, KontraReach.KONTRA_RE)} == {None}
@@ -297,7 +303,9 @@ class TestTheList:
         record = ended.record
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, entry)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, entry)), played_at=None
+            )
 
         assert ended.record.game_list[1] == entry
         row = stored_list_rows(engine, ended.table_id)[1]
@@ -321,7 +329,9 @@ class TestTheList:
         record = ended.record
 
         with transactions.begin() as transaction:
-            transaction.save_table(replace(record, version=record.version + 1, game_list=(*record.game_list, entry)))
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(*record.game_list, entry)), played_at=None
+            )
 
         assert ended.record.game_list == (*record.game_list, entry)
 

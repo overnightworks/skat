@@ -290,7 +290,7 @@ def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transac
 
     def save():
         with transactions.begin() as transaction:
-            transaction.save_table(rewritten)
+            transaction.save_table(rewritten, played_at=None)
 
     with pytest.raises(StepLogRewrittenError):
         save()
@@ -305,7 +305,7 @@ def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, trans
 
     def save():
         with transactions.begin() as transaction:
-            transaction.save_table(shortened)
+            transaction.save_table(shortened, played_at=None)
 
     with pytest.raises(StepLogRewrittenError):
         save()

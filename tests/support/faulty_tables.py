@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.records import EndedTable, Receipt, Replay, TableId, TableRecord
-    from skat.table.service import LiveWait, OccupiedChair, TableTransaction, TableTransactions
+    from skat.table.service import LiveWait, OccupiedChair, PausedFacts, TableTransaction, TableTransactions
 
 
 BARRIER_TIMEOUT_SECONDS = 0.5
@@ -77,13 +77,13 @@ class _FaultyTransaction:
     def locked_table(self, table_id: TableId) -> TableRecord | None:
         return self._inner.locked_table(table_id)
 
-    def save_table(self, table: TableRecord) -> None:
-        self._inner.save_table(table)
+    def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
+        self._inner.save_table(table, played_at=played_at)
         if self._faults.save_failure is not None:
             raise self._faults.save_failure
 
-    def add_table(self, table: TableRecord) -> None:
-        self._inner.add_table(table)
+    def add_table(self, table: TableRecord, opener_name: str) -> None:
+        self._inner.add_table(table, opener_name)
 
     def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
         self._inner.end_table(table_id, at, empty_seconds)
@@ -92,6 +92,9 @@ class _FaultyTransaction:
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self._inner.empty_since(table_id)
+
+    def paused_facts(self, table_id: TableId) -> PausedFacts:
+        return self._inner.paused_facts(table_id)
 
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
         self._inner.set_empty_since(table_id, since)

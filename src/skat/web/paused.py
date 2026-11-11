@@ -1,3 +1,4 @@
+from datetime import datetime  # noqa: TC003 - pydantic reads the field type at runtime
 from typing import TYPE_CHECKING, Final
 
 from fastapi import APIRouter, Request, Response
@@ -28,6 +29,8 @@ class PausedTableAnswer(BaseModel):
     game_count: int | None
     turn_seat: int | None
     result_waits: bool
+    ends_at: datetime
+    opener_name: str | None
 
 
 class PausedTablesAnswer(BaseModel):
@@ -47,10 +50,12 @@ def _table_answer_of(entry: PausedEntryView) -> PausedTableAnswer:
         game_count=entry.game_count,
         turn_seat=entry.turn_seat,
         result_waits=entry.result_waits,
+        ends_at=entry.ends_at,
+        opener_name=entry.opener_name,
     )
 
 
-def create_paused_router(tables: TableService) -> APIRouter:
+def create_paused_router(tables: TableService, paused_table_days: int) -> APIRouter:
     router = APIRouter()
 
     @router.get(PAUSED_TABLES_PATH, openapi_extra=READ_PAUSED_TABLES_MARK)
@@ -58,10 +63,12 @@ def create_paused_router(tables: TableService) -> APIRouter:
         """Read the Skat tables on which a hand was dealt and where the caller holds a chair: for each its id for
         read_table, the chairs in order with their names, the caller's own and the running totals, the game number
         and series length (null for a table without a series), and the seat whose move the hand waits for or whether
-        a result waits. No card is in it. An empty list means the caller holds no chair at a dealt table.
+        a result waits, the instant the table ends (ends_at, UTC) and the name its opener had when he opened it
+        (opener_name, null for a table opened before the name was kept). The soonest end comes first. No card is in it.
+        An empty list means the caller holds no chair at a dealt table.
         """
         response.headers["Cache-Control"] = "no-store"
-        entries = await run_in_threadpool(tables.paused_tables, actor_of(request))
+        entries = await run_in_threadpool(tables.paused_tables, actor_of(request), paused_table_days)
         return PausedTablesAnswer(tables=[_table_answer_of(entry) for entry in entries])
 
     return router

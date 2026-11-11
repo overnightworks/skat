@@ -1,5 +1,5 @@
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
@@ -20,12 +20,6 @@ if TYPE_CHECKING:
     from skat.table.game_list import GameEntry
     from skat.table.kontra import KontraView
     from skat.table.records import Actor
-
-PLAY_CARD_COMMAND: Final = "play-card"
-GIVE_UP_COMMAND: Final = "give-up"
-THROW_DOWN_COMMAND: Final = "throw-down"
-AGREE_TO_GIVE_UP_COMMAND: Final = "give-up-agree"
-DECLINE_GIVE_UP_COMMAND: Final = "give-up-decline"
 
 
 @dataclass(frozen=True)
