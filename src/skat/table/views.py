@@ -312,7 +312,7 @@ class PausedEntryView:
     opener_name: str | None
 
 
-def _turn_seat_of(hand: HandView | None) -> int | None:
+def turn_seat_of(hand: HandView | None) -> int | None:
     """The seat on turn: the playing turn while a game is played, the declarer while he declares, the seat of a
     Ramsch's stage, else the auction's.
     """
@@ -339,7 +339,7 @@ def paused_entry_of(
         ),
         game_number=None if view.series is None else view.series.game_number,
         game_count=None if view.series is None else view.series.game_count,
-        turn_seat=_turn_seat_of(view.hand),
+        turn_seat=turn_seat_of(view.hand),
         result_waits=view.result is not None,
         ends_at=ends_at,
         opener_name=opener_name,

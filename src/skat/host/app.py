@@ -38,7 +38,7 @@ from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
 from skat.web.mcp import McpAccess, mount_mcp
-from skat.web.member_place import member_front, standing_signal
+from skat.web.member_place import member_front, standing_signal, view_signal
 from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
@@ -233,9 +233,12 @@ def create_app(
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     changes = ResourceChanges()
-    # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing.
-    tables = tables.with_leases(lambda: presence.live_leases()).with_standing_signal(
-        standing_signal(changes, relying_party.issuer)
+    # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing and
+    # their tables' views.
+    tables = (
+        tables.with_leases(lambda: presence.live_leases())
+        .with_standing_signal(standing_signal(changes, relying_party.issuer))
+        .with_view_signal(view_signal(changes, relying_party.issuer))
     )
     presence = _presence(settings, tables, chair_clock, chair_scheduler)
 

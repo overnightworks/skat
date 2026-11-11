@@ -40,11 +40,11 @@ def create_series_end_router(tables: TableService, presence: Presence) -> APIRou
 
         With no proposal standing this proposes the end; with one standing it accepts it. Once the other two seated
         members have both said yes, the series ends at once with the standings so far (`series.over` turns true and
-        `series.standings` appears), and no next hand follows. Use it from the caller's chair when read_table shows a
-        `series` that is not over and no `hand`; `series.end_proposal` names the seat that proposed and the seat that
-        accepted. The table id comes from that read. The command id names this step: the same id is a retry that
-        changes nothing twice. A refusal (not seated, no series, the series is over, a hand runs, no game yet) comes
-        back as a failed result with its reason and spends the command id.
+        `series.standings` appears), and no next hand follows. Use it from the caller's chair when read_table or your
+        table's view shows a `series` that is not over and no `hand`; `series.end_proposal` names the seat that proposed
+        and the seat that accepted. The table id comes from that read. The command id names this step: the same id is a
+        retry that changes nothing twice. A refusal (not seated, no series, the series is over, a hand runs, no game
+        yet) comes back as a failed result with its reason and spends the command id.
         """
         command = SeriesEndCommand(command_id=body.command_id, table_id=table_id)
         return await command_answer(
@@ -62,9 +62,9 @@ def create_series_end_router(tables: TableService, presence: Presence) -> APIRou
     ) -> Response | TableAnswer:
         """Say no to the proposal to end a Skat table's series early: the proposal goes and the series plays on.
 
-        Use it from the caller's chair when read_table shows `series.end_proposal`. The command id names this step:
-        the same id is a retry that changes nothing twice. A refusal (not seated, no proposal) comes back as a failed
-        result with its reason and spends the command id.
+        Use it from the caller's chair when read_table or your table's view shows `series.end_proposal`. The command id
+        names this step: the same id is a retry that changes nothing twice. A refusal (not seated, no proposal) comes
+        back as a failed result with its reason and spends the command id.
         """
         command = SeriesEndCommand(command_id=body.command_id, table_id=table_id)
         return await command_answer(

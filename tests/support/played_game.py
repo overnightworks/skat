@@ -10,7 +10,18 @@ from skat.engine.tricks import CardPlayed, play_card
 from skat.engine.value import Matadors
 from skat.table.game_list import GameEnding, ListEntry, RamschEntry
 from skat.table.hand_state import playing_of
-from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
+from skat.table.records import (
+    Chair,
+    EndProposal,
+    GiveUpAsked,
+    HandProgress,
+    Occupant,
+    OccupantKind,
+    Series,
+    TableId,
+    TableOptions,
+    TableRecord,
+)
 
 HERZ_HAND = Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
 ANNA_BEN_CLEO = ("account-anna", "account-ben", "account-cleo")
@@ -118,3 +129,27 @@ def a_ramsch_entry(
         bock_factor=1,
         pushes=0,
     )
+
+
+def between_games(*ready_seats: int, series: Series | None = None, proposal: EndProposal | None = None) -> TableRecord:
+    """The seated table after its first game, with `ready_seats` having tapped „Weiter“, in a series of 12 games at its
+    first game unless `series` says another, and `proposal` as the early end proposed in it.
+    """
+    table = after_the_first_game(table_in(HandProgress()), *ready_seats)
+    return replace(table, series=series or replace(Series(12, 1), end_proposal=proposal))
+
+
+def asked_by_the_declarer(declined_by: Position | None = None) -> TableRecord:
+    """The declared Herz Hand game where the declarer asked the opponents to give up, `declined_by` having declined."""
+    table = table_in(declared_herz_hand())
+    asked = GiveUpAsked(Position.MIDDLEHAND, declined_by)
+    return replace(table, progress=replace(table.progress, give_up=asked))
+
+
+def with_agents(record: TableRecord, *seats: int) -> TableRecord:
+    """The table where the occupants of `seats` are agents."""
+    chairs = tuple(
+        replace(chair, occupant=replace(chair.occupant, kind=OccupantKind.AGENT)) if chair.seat in seats else chair
+        for chair in record.chairs
+    )
+    return replace(record, chairs=chairs)
