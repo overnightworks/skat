@@ -204,7 +204,7 @@ def test_a_member_may_open_any_number_of_tables_each_under_a_link_of_its_own(
     before = table_count(e2e_server)
 
     first = open_new_table(person, e2e_server)
-    person.get_by_role("link", name="Skat", exact=True).click()
+    person.get_by_role("link", name=catalog_text("appName"), exact=True).click()
     second = click_new_table(person)
 
     assert first != second

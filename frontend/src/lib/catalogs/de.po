@@ -296,3 +296,24 @@ msgstr "Sekunde"
 
 msgid "seconds"
 msgstr "Sekunden"
+
+msgid "legalImprint"
+msgstr "Impressum"
+
+msgid "legalPrivacy"
+msgstr "Datenschutz"
+
+msgid "legalTerms"
+msgstr "Nutzungsbedingungen"
+
+msgid "cardLetterJack"
+msgstr "B"
+
+msgid "cardLetterQueen"
+msgstr "D"
+
+msgid "cardLetterKing"
+msgstr "K"
+
+msgid "cardLetterAce"
+msgstr "A"

@@ -1,3 +1,5 @@
+import { words } from "#lib/words.ts";
+
 // Every legal row links these, in this order.
 const CENTRAL_LEGAL_ORIGIN = "https://hallucinai.de";
 const APP_LEGAL_ANCHOR = "#skat";
@@ -7,7 +9,7 @@ function centralLegalAddress(path: string): string {
 }
 
 export const LEGAL_LINKS = [
-    { label: "Impressum", href: centralLegalAddress("impressum") },
-    { label: "Datenschutz", href: centralLegalAddress("datenschutz") },
-    { label: "Nutzungsbedingungen", href: centralLegalAddress("nutzungsbedingungen") },
+    { label: words.legalImprint, href: centralLegalAddress("impressum") },
+    { label: words.legalPrivacy, href: centralLegalAddress("datenschutz") },
+    { label: words.legalTerms, href: centralLegalAddress("nutzungsbedingungen") },
 ];
