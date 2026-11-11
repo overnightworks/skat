@@ -157,8 +157,11 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
 
 
 def _total_shown(table: TableRecord, chair: Chair) -> int | None:
-    """No chair shows a total until the table's first result."""
-    if chair.occupant is None or not table.game_list:
+    """No chair shows a total before its table's first result, except from a later series' first deal on, when every
+    occupied chair shows 0 until that series' first result.
+    """
+    in_a_later_series = table.series is not None and table.series.number > 1
+    if chair.occupant is None or not (table.game_list or in_a_later_series):
         return None
     return total_of(table.game_list, chair.occupant.account_id, reach_of(table.options))
 

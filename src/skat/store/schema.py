@@ -131,6 +131,7 @@ tables = Table(
     Column("empty_since", DateTime(timezone=True)),
     Column("series_length", SmallInteger),
     Column("series_deals", SmallInteger),
+    Column("series_number", SmallInteger, nullable=False, server_default="1"),
     Column("series_ended_early", Boolean, nullable=False, server_default=false()),
     Column("series_end_proposer", SmallInteger),
     Column("series_end_accepter", SmallInteger),
@@ -152,6 +153,8 @@ tables = Table(
         name="tables_series_length_is_a_length",
     ),
     CheckConstraint("series_deals BETWEEN 0 AND series_length", name="tables_series_deals_are_within_the_length"),
+    CheckConstraint("series_number >= 1", name="tables_series_number_is_a_number"),
+    CheckConstraint("series_length IS NOT NULL OR series_number = 1", name="tables_series_numbers_only_with_a_series"),
     CheckConstraint(
         "series_end_proposer BETWEEN 1 AND 3 AND series_end_accepter BETWEEN 1 AND 3",
         name="tables_series_end_seats_are_seats",

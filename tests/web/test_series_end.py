@@ -148,7 +148,8 @@ class TestTheProposal:
 
         series = table.read_as(table.watcher).json()["series"]
         assert (series["game_number"], series["over"], series["end_proposal"]) == (1, False, None)
-        assert table.record.series == Series(SERIES_LENGTH, 1)
+        assert table.record.series == Series(SERIES_LENGTH, 1, number=2)
+        assert [chair["total"] for chair in table.read_as(table.watcher).json()["chairs"]] == [0, 0, 0]
         assert entries_of(skat, table) == []
 
     def test_a_viewer_sees_the_same_series_with_seats_only_during_a_proposal_and_after_the_end(self, skat, mid_series):

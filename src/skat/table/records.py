@@ -206,13 +206,15 @@ class EndProposal:
 @dataclass(frozen=True)
 class Series:
     """A table's series: its fixed `length` in games, the `deals` made so far, a passed-in hand included, whether it
-    `ended_early` by consent before its last game and the `end_proposal` standing between two games.
+    `ended_early` by consent before its last game and the `end_proposal` standing between two games. `number` numbers
+    the table's series, 1 for the first.
     """
 
     length: int
     deals: int
     ended_early: bool = False
     end_proposal: EndProposal | None = None
+    number: int = 1
 
     def __post_init__(self) -> None:
         if not SERIES_LENGTH_MIN <= self.length <= SERIES_LENGTH_MAX or self.length % SERIES_LENGTH_STEP:
@@ -228,6 +230,9 @@ class Series:
             raise ValueError(message)
         if self.ended_early and self.deals == self.length:
             message = "a series that played its last game did not end early"
+            raise ValueError(message)
+        if self.number < 1:
+            message = "a series is numbered from one"
             raise ValueError(message)
 
 

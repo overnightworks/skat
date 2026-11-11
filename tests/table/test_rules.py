@@ -399,7 +399,7 @@ class TestTheSeriesEnd:
 
         next_series = dealt_next(table, DRAWN)
 
-        assert (next_series.game_list, next_series.series) == ((), Series(3, 1))
+        assert (next_series.game_list, next_series.series) == ((), Series(3, 1, number=2))
         assert (next_series.dealer, next_series.hand) == (DRAWN.dealer, DRAWN.hand)
 
 
@@ -420,7 +420,7 @@ class TestTheEarlyEnd:
 
         next_series = dealt_next(table, DRAWN)
 
-        assert (next_series.series, next_series.game_list) == (Series(12, 1), ())
+        assert (next_series.series, next_series.game_list) == (Series(12, 1, number=2), ())
 
     @pytest.mark.parametrize(
         ("leaver", "proposal_left"),
@@ -462,6 +462,10 @@ class TestSeries:
     def test_refuses_deals_outside_zero_to_its_length(self, deals):
         with pytest.raises(ValueError, match=r"no .* deals"):
             Series(12, deals)
+
+    def test_refuses_a_number_below_one(self):
+        with pytest.raises(ValueError, match="numbered from one"):
+            Series(3, 1, number=0)
 
     @pytest.mark.parametrize("length", [3, 12, 99])
     def test_takes_each_length_the_rules_name(self, length):
