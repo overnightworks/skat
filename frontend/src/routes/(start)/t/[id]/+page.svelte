@@ -499,7 +499,9 @@
                             </button>
                         {/if}
                         <span class="plate"
-                            >{chair.occupant_name ?? words.seatFree}{#if chair.is_away}<small class="away-note"
+                            >{chair.is_mine
+                                ? words.sideYou
+                                : (chair.occupant_name ?? words.seatFree)}{#if chair.is_away}<small class="away-note"
                                     >{words.seatAway}</small
                                 >{/if}</span
                         >
