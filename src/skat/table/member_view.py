@@ -1,7 +1,8 @@
 """A seated member's view of its table: what the member reads and when the members seated there are told it changed.
 
 The view is the member's own `TableView` with the decision whether the table waits for it, both from one record, so
-the seat check and the view cannot drift. The revision a reader sees is the view's `version`.
+the seat check and the view cannot drift. `skat.web.member_place` builds the revision of a seat's view from
+the table's version and the asks due.
 """
 
 from collections.abc import Callable
