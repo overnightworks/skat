@@ -8,9 +8,17 @@ from skat.table.records import RamschOccasion, RamschSetting, RuleSetId, TableOp
 from skat.table.rule_sets import RuleSet
 
 # The columns a rule set has before the pushing revision; a later option column is none of their business.
-COLUMNS_BEFORE_PUSHING = (
-    "id, owner_account, name, show_running_points, kontra_sayer, kontra_reach, kontra_deadline,"
+INSERT_BEFORE_PUSHING = text(
+    "INSERT INTO rule_sets (id, owner_account, name, show_running_points, kontra_sayer, kontra_reach,"
+    " kontra_deadline, bock_triggers, bock_overlap, ramsch_occasion, ramsch_scoring, ramsch_jungfrau,"
+    " ramsch_durchmarsch) VALUES (:id, :owner_account, :name, :show_running_points, :kontra_sayer, :kontra_reach,"
+    " :kontra_deadline, CAST(:bock_triggers AS text[]), :bock_overlap, :ramsch_occasion, :ramsch_scoring,"
+    " :ramsch_jungfrau, :ramsch_durchmarsch)"
+)
+SELECT_BEFORE_PUSHING = text(
+    "SELECT id, owner_account, name, show_running_points, kontra_sayer, kontra_reach, kontra_deadline,"
     " bock_triggers, bock_overlap, ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch"
+    " FROM rule_sets WHERE owner_account = :account_id"
 )
 
 
@@ -40,18 +48,14 @@ def save_before_pushing(engine, rule_set):
         "ramsch_jungfrau": None if ramsch is None else ramsch.reckoning.jungfrau.value,
         "ramsch_durchmarsch": None if ramsch is None else ramsch.reckoning.durchmarsch.value,
     }
-    marks = ", ".join(f"CAST(:{name} AS text[])" if name == "bock_triggers" else f":{name}" for name in values)
     with engine.begin() as connection:
-        connection.execute(text(f"INSERT INTO rule_sets ({', '.join(values)}) VALUES ({marks})"), values)
+        connection.execute(INSERT_BEFORE_PUSHING, values)
 
 
 def sets_before_pushing(engine, account_id):
     """The sets a database before the pushing revision holds, read with the columns it has; none plays pushing."""
     with engine.connect() as connection:
-        rows = connection.execute(
-            text(f"SELECT {COLUMNS_BEFORE_PUSHING} FROM rule_sets WHERE owner_account = :account_id"),
-            {"account_id": account_id},
-        )
+        rows = connection.execute(SELECT_BEFORE_PUSHING, {"account_id": account_id})
         return tuple(
             RuleSet(RuleSetId(row.id), row.owner_account, row.name, _options_before_pushing(row)) for row in rows
         )
