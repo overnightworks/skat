@@ -146,6 +146,8 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
             build_relying_party(configs, transports),
             stores.transaction,
             fixture_page_build() if page_build is None else page_build,
+            stores.sessions,
+            configs.web_auth,
         )
 
         @app.get(WHO_AM_I_PATH)
@@ -240,6 +242,7 @@ class TestStart:
             "response_type": ["code"],
             "scope": ["openid profile groups"],
         }
+        assert query["ui_locales"] == ["de"]
         assert query["code_challenge_method"] == ["S256"]
         assert {"state", "nonce", "code_challenge"} <= query.keys()
         pending = [
@@ -558,7 +561,12 @@ class TestBackchannelLogout:
         account = harness.accounts.create_for_subject("anna", USERNAME, role="user", kind=AccountKind.PERSON)
         now = datetime.now(UTC)
         session = harness.sessions.create(
-            account.id, now=now, expires_at=now + timedelta(hours=1), refresh_token=None, id_token=new_id_token()
+            account.id,
+            now=now,
+            expires_at=now + timedelta(hours=1),
+            refresh_token=None,
+            id_token=new_id_token(),
+            account_language=None,
         )
         harness.issuer.key_set_is_down = True
 

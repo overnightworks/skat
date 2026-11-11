@@ -65,12 +65,14 @@ def seed_member(
     account: StoredAccount | None = None,
     expires_in: timedelta | None = None,
     refresh_token: str | None = None,
+    account_language: str | None = None,
 ) -> SeededMember:
     """Seed a session inside the configured lifetime, and the cookies webauth issues for it.
 
     Without `account` the member is a fresh account; with it, the session is a further device of that account.
     `expires_in` ends the session that far from now instead of at the full lifetime. Without `refresh_token`
-    the session holds none, as one opened before Skat kept them.
+    the session holds none, as one opened before Skat kept them. `account_language` is the locale the issuer gave
+    at sign-in; without it the session holds none.
     """
     if account is None:
         account = new_account(stores, config)
@@ -82,6 +84,7 @@ def seed_member(
         expires_at=now + lifetime,
         refresh_token=None if refresh_token is None else SecretStr(refresh_token),
         id_token=new_id_token(),
+        account_language=account_language,
     )
     response = Response()
     issue_session_cookies(response, session.id, config)
