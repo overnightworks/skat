@@ -428,6 +428,18 @@ class TestTheStandingFollowsTheChair:
 
         assert scene.standing() == ()
 
+    def test_the_holds_freeing_keeps_an_agents_chair_and_its_standing_at_a_dealt_table_between_games(self, scene):
+        scene.sit(VISITOR, 2)
+        scene.sit(MOZART, 3)
+        scene.store.tables[scene.table_id] = after_the_first_game(scene.table)
+        scene.signals.clear()
+        before = scene.snapshot()
+
+        freed = scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
+
+        assert freed is False
+        assert (scene.snapshot(), scene.standing(), scene.signals) == (before, (active_standing(scene),), [])
+
     def test_the_end_of_the_table_ends_the_membership_and_removes_its_book_rows(self, scene):
         scene.invite(BACH)
         scene.sit(MOZART, 2)

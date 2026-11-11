@@ -471,6 +471,16 @@ class TestFreeChair:
         assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
         assert store.tables[table_id] == dealt
 
+    @pytest.mark.parametrize("ready_seats", [(), (1, 2), (1, 2, 3)], ids=["nobody-ready", "two-ready", "all-ready"])
+    def test_changes_nothing_between_games_at_a_table_on_which_a_hand_was_dealt(self, store, ready_seats):
+        service = seeded_service(store, 1)
+        table_id, _ = seated_three(service)
+        end_the_first_game(store, table_id, *ready_seats)
+        written = dict(store.tables)
+
+        assert service.free_chair(TableId(table_id), VISITOR.account_id, always_due()) is False
+        assert store.tables == written
+
     def test_changes_nothing_when_the_caller_is_no_longer_due_once_the_row_is_locked(self, service, store, table_id):
         sit(service, VISITOR, table_id, 3)
         written = dict(store.tables)
@@ -645,42 +655,36 @@ class TestPlayCard:
         table_id, _ = seated_three(seeded_service(store, 1))
         return table_id
 
-    def play(self, service, store, table_id, played, heard, version):
+    def play(self, service, store, table_id, played, version):
         """Only the opener is connected; the card comes from whoever holds its position."""
         seat = {position: seat for seat, position in positions_from(store.tables[table_id].dealer).items()}
         actor = (OPENER, VISITOR, CLEO)[seat[played.position] - 1]
         command = PlayCardCommand("command-card", table_id, version, played.card)
-        return service.play_card(actor, command, frozenset({OPENER.account_id}), on_hand_ended=heard.append)
+        return service.play_card(actor, command, frozenset({OPENER.account_id}))
 
-    def test_the_thirtieth_card_names_who_sat_and_tells_the_caller_who_was_away(self, service, store, table_id):
+    def test_the_thirtieth_card_names_who_sat(self, service, store, table_id):
         last = at_the_last_card(store, table_id)
-        heard = []
 
-        result = self.play(service, store, table_id, last, heard, store.tables[table_id].version)
+        result = self.play(service, store, table_id, last, store.tables[table_id].version)
 
         assert result.seated_when_hand_ended == {OPENER.account_id, VISITOR.account_id, CLEO.account_id}
-        assert heard == [{VISITOR.account_id, CLEO.account_id}]
 
     def test_a_card_before_the_thirtieth_ends_no_hand(self, service, store, table_id):
         declared(store, table_id)
         lead = CardPlayed(Position.FOREHAND, playing_of(store.tables[table_id]).hands[Position.FOREHAND][0])
-        heard = []
 
-        result = self.play(service, store, table_id, lead, heard, store.tables[table_id].version)
+        result = self.play(service, store, table_id, lead, store.tables[table_id].version)
 
         assert result.seated_when_hand_ended == frozenset()
-        assert heard == [frozenset()]
 
-    def test_a_retry_of_the_thirtieth_card_restarts_no_hold(self, service, store, table_id):
+    def test_a_retry_of_the_thirtieth_card_names_nobody(self, service, store, table_id):
         last = at_the_last_card(store, table_id)
         version = store.tables[table_id].version
-        self.play(service, store, table_id, last, [], version)
-        heard = []
+        self.play(service, store, table_id, last, version)
 
-        again = self.play(service, store, table_id, last, heard, version)
+        again = self.play(service, store, table_id, last, version)
 
         assert again.seated_when_hand_ended == frozenset()
-        assert heard == []
 
 
 class TestOccupiedChairs:
