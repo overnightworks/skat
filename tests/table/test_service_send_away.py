@@ -36,8 +36,8 @@ class Scene:
         self.commands = itertools.count(1)
         self.service = TableService(
             self.store,
-            random_source=random.Random(1),
-            now=lambda: self.now,  # noqa: S311 - seeded for a known deal
+            random_source=random.Random(1),  # noqa: S311 - seeded for a known deal
+            now=lambda: self.now,
         )
         self.told = []
         self.service = self.service.with_standing_signal(self.told.append)
