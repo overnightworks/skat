@@ -15,6 +15,7 @@ from skat.web.declaring import (
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
+from tests.support.played_game import a_ramsch_entry
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -281,3 +282,10 @@ def with_pending(table, *rounds):
 
 def bock_of(table):
     return table.read_as(table.watcher).json()["bock"]
+
+
+def with_totals(table, *seat_scores):
+    """The list holds one earlier Ramsch whose seats scored `seat_scores`, so the totals start there."""
+    accounts = tuple(chair.occupant.account_id for chair in sorted(table.record.chairs, key=lambda chair: chair.seat))
+    earlier = a_ramsch_entry(seat_scores, accounts)
+    table.skat.store.tables[table.table_id] = replace(table.record, game_list=(earlier,))

@@ -24,13 +24,17 @@ from tests.web.support.playing import (
     SWEEP_DEAL,
     SWEEP_HAND,
     Table,
+    bock_of,
+    card,
     card_body,
     cards,
+    game_of,
     reason_of,
     three_pass,
     with_pending,
+    with_totals,
 )
-from tests.web.support.series import headers_of, tap_new_series, tap_weiter
+from tests.web.support.series import deal_the_next_game, headers_of, tap_new_series, tap_weiter
 from tests.web.support.skat import Skat, streams_of
 
 SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
@@ -219,6 +223,25 @@ class TestTheStage:
         row = list_rows(table)[0]
         assert (row["kind"], row["pushes"], row["push_factor"], row["bock_factor"]) == ("ramsch", 2, 4, 1)
 
+    def test_the_ramsch_starts_on_the_hands_the_stage_left_and_not_on_the_dealt_ones(self, skat):
+        table = stage_table(skat)
+        accepted(table, FOREHAND, "take")
+        accepted(table, FOREHAND, "put-back", cards("C7 C8"))
+        accepted(table, MIDDLEHAND, "push")
+        accepted(table, REARHAND, "push")
+
+        held = {
+            position: cards_in(read(table, position)["hand"]["own_cards"])
+            for position in (FOREHAND, MIDDLEHAND, REARHAND)
+        }
+        assert held == {
+            FOREHAND: wire_cards(cards("C9 CT CJ CQ CK CA S7 S8 DK DA")),
+            MIDDLEHAND: wire_cards(PLAIN_DEAL.middlehand),
+            REARHAND: wire_cards(PLAIN_DEAL.rearhand),
+        }
+        table.refused(table.at[FOREHAND], card("C7"), "not-in-hand")
+        assert table.send(table.at[FOREHAND], card("DK")).status_code == 200
+
     def test_the_moves_list_each_seat_that_finished_in_order_and_the_factor_follows_the_pushes(self, skat):
         table = stage_table(skat)
         accepted(table, FOREHAND, "push")
@@ -342,6 +365,42 @@ class TestTheStage:
             "series-not-over",
             "hand-running",
         ]
+
+
+# Forehand put back C7 C8, middlehand pushed and rearhand took them and put DT and C7 back (keeping C8), so the Ramsch
+# is played with these hands and the skat DT C7. Forehand takes tricks 1, 8, 9 and 10 (0, 6, 18, 13 points) and the
+# skat's 10 as the last trick's taker: 47. Middlehand takes tricks 2, 3 and 7 (0, 11, 24): 35. Rearhand takes tricks 4,
+# 5 and 6 (15, 15, 8): 38. Forehand loses 47 and one push doubles it.
+RESHAPED_HANDS = {
+    FOREHAND: cards("C9 CT CJ CQ CK CA S7 S8 DK DA"),
+    MIDDLEHAND: cards("S9 ST SJ SQ SK SA H7 H8 H9 HT"),
+    REARHAND: cards("HJ HQ HK HA D7 D8 D9 DJ DQ C8"),
+}
+RESHAPED_GAME = game_of(
+    "C9 H7 C8 / S7 S9 D8 / SA D9 S8 / ST HJ CQ / HA CK H8", "HK DK H9 / HQ DA HT / SJ DJ CJ / CA SK DQ / CT SQ D7"
+)
+
+
+class TestARamschPlayedOnTheCardsTheStageMoved:
+    def test_the_cards_kept_and_the_skat_rearhand_put_back_decide_the_points_and_the_score(self, skat):
+        table = stage_table(skat)
+        accepted(table, FOREHAND, "take")
+        accepted(table, FOREHAND, "put-back", cards("C7 C8"))
+        accepted(table, MIDDLEHAND, "push")
+        accepted(table, REARHAND, "take")
+        accepted(table, REARHAND, "put-back", cards("DT C7"))
+        holders = {played: position for position, held in RESHAPED_HANDS.items() for played in held}
+
+        for played in RESHAPED_GAME:
+            assert table.send(table.at[holders[played]], played).status_code == 200
+
+        result = table.result()
+        assert {seat["seat"]: (seat["points"], seat["score"]) for seat in result["seats"]} == {
+            FOREHAND_SEAT: (47, -94),
+            MIDDLEHAND_SEAT: (35, 0),
+            REARHAND_SEAT: (38, 0),
+        }
+        assert (result["pushes"], result["push_factor"], result["bock_factor"]) == (1, 2, 1)
 
 
 class TestTheMultiplier:
@@ -477,14 +536,25 @@ class TestTheMultiplier:
         row = list_rows(table)[0]
         assert (row["pushes"], row["push_factor"], row["bock_factor"]) == factors
 
-    def test_a_pushed_ramsch_is_a_ramsch_for_bock_and_uses_up_its_game(self, skat):
+    def test_a_pushed_ramsch_uses_up_a_pending_bock_game_and_starts_a_round_for_passed_in(self, skat):
         extra = {"bock": {"triggers": ["passed-in"], "overlap": "append"}}
         table = stage_table(skat, extra=extra)
+        with_pending(table, 2)
         play_stage(table, "back", "push", "push")
 
         table.played_out(PLAIN_HAND)
 
-        assert read(table)["bock"] == {"games_left": 3, "factor": 2}
+        assert bock_of(table) == {"games_left": 4, "factor": 2}
+
+    def test_a_pushed_ramsch_reads_the_multiplied_score_for_the_total_trigger(self, skat):
+        extra = {"bock": {"triggers": ["total-ending-in-00"], "overlap": "append"}}
+        table = stage_table(skat, extra=extra)
+        with_totals(table, 0, 444, 0)
+        play_stage(table, "back", "push", "push")
+
+        table.played_out(PLAIN_HAND)
+
+        assert bock_of(table) == {"games_left": 3, "factor": 2}
 
     def test_the_last_game_of_the_series_stores_both_factors_and_lets_every_round_lapse(self, skat):
         extra = {"bock": {"triggers": ["re"], "overlap": "append"}}
@@ -510,13 +580,20 @@ class TestTheMultiplier:
         listed = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
         assert not cards_in_text(listed.text)
 
-    def test_the_next_hand_after_a_pushed_ramsch_starts_with_no_step_left_of_the_stage(self, skat):
+    def test_weiter_after_a_pushed_ramsch_deals_a_hand_whose_stage_starts_with_no_step_and_no_push(self, skat):
         table = stage_table(skat)
         play_stage(table, "back", "push", "push")
-
         table.played_out(PLAIN_HAND)
 
+        deal_the_next_game(skat, table, 1, 1)
+
+        dealt = read(table, FOREHAND)["hand"]
+        assert (dealt["ramsch"], dealt["pushing"], dealt["pushes"]) == (False, None, 0)
         assert table.record.progress.pushing == ()
+        three_pass(table)
+        stage = read(table, FOREHAND)["hand"]
+        assert stage["pushing"] == {"turn_seat": FOREHAND_SEAT, "stage": "choosing", "moves": [], "factor": 1}
+        assert stage["pushes"] == 0
 
 
 class TestWhoLearnsTheSkat:
@@ -579,17 +656,38 @@ class TestWhoLearnsTheSkat:
 
 
 class TestARetriedStep:
-    @pytest.mark.parametrize("kind", ["take", "push"])
+    @pytest.mark.parametrize("kind", ["take", "push", "put-back"])
     def test_the_same_id_and_version_answers_the_same_and_stores_one_step(self, skat, kind):
         table = stage_table(skat)
+        if kind == "put-back":
+            accepted(table, FOREHAND, "take")
+        stored = len(table.record.progress.pushing)
         version = table.record.version
-        retry = {"command_id": "retry-0001", "version": version}
+        retry = {
+            "command_id": "retry-0001",
+            "version": version,
+            **(step_body(cards("C7 C8")) if kind == "put-back" else {}),
+        }
 
         first = table.act(SUFFIXES[kind], table.at[FOREHAND], body=retry)
         again = table.act(SUFFIXES[kind], table.at[FOREHAND], body=retry)
 
         assert (again.status_code, again.json()) == (first.status_code, first.json())
-        assert (len(table.record.progress.pushing), table.record.version) == (1, version + 1)
+        assert (len(table.record.progress.pushing), table.record.version) == (stored + 1, version + 1)
+
+    def test_the_same_id_with_other_cards_is_refused_and_the_first_put_back_stays(self, skat):
+        table = stage_table(skat)
+        accepted(table, FOREHAND, "take")
+        retry = {"command_id": "retry-0001", "version": table.record.version}
+        table.act(SUFFIXES["put-back"], table.at[FOREHAND], body={**retry, **step_body(cards("C7 C8"))})
+        stored = table.record
+
+        other = table.act(SUFFIXES["put-back"], table.at[FOREHAND], body={**retry, **step_body(cards("S7 S8"))})
+
+        assert other.status_code == 409
+        assert table.record == stored
+        assert cards_in(read(table, FOREHAND)["hand"]["own_cards"]) >= wire_cards(cards("S7 S8"))
+        assert not cards_in(read(table, FOREHAND)["hand"]["own_cards"]) & wire_cards(cards("C7 C8"))
 
     def test_the_same_id_for_another_step_is_refused_and_a_refused_step_keeps_its_refusal(self, skat):
         table = stage_table(skat)
