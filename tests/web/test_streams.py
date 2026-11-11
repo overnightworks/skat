@@ -7,7 +7,6 @@ import pytest
 from skat.engine.deal import next_dealer
 from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
-from skat.table.views import TableView
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.presence import Presence
@@ -299,15 +298,6 @@ class TestReadmission:
 
         assert marks == [IDLE_HEARTBEAT] * IDLE_HEARTBEATS
         assert asked == IDLE_HEARTBEATS + 1
-
-    def test_an_idle_heartbeat_yields_a_mark_and_no_view(self, service, table_id):
-        async def scenario():
-            stream = stream_of(idle_presence(), service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
-            await next_view(stream)
-            async with asyncio.timeout(ALLOWED_SECONDS):
-                return await anext(stream)
-
-        assert not isinstance(run_on_a_loop_of_its_own(scenario()), TableView)
 
     def test_a_refusal_at_an_idle_heartbeat_ends_the_stream(self, service, table_id):
         async def scenario():
