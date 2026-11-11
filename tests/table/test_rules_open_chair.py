@@ -212,7 +212,7 @@ class TestTheTakeOver:
 
         taken = decide_sit(sent_away(table, FOREHAND_SEAT), newcomer(), FOREHAND_SEAT, new_hand).table
 
-        assert taken.hand == table.hand
+        assert (taken.hand, taken.dealer, taken.progress) == (table.hand, table.dealer, table.progress)
         assert not any(chair.ready for chair in taken.chairs)
 
 
