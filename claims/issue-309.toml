@@ -1,8 +1,0 @@
-claim_id = "6f0f1b47cdc6497cacbee0ceb688c34d"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "3b3a613f5508404157bb6b7bb18bb8fa404aefde"
-branch = "claude/issue-309-webauth-wiring"
-scope = ["pyproject.toml", "src/skat/host/app.py", "src/skat/web/constants.py", "src/skat/web/gate.py", "tests/web/test_gate.py", "tests/web/test_sign_in_rate_limit.py", "uv.lock"]
-opened_commit = "cdd0eb3c96dac84c816d666d841c03649bc8faab"
-whole_reason = "The pin removes SignInPaths members that app.py, gate.py and constants.py all use, so no pin from v0.35.0 on is green until all three change together; the two test modules restate the removed constants and the installer call."
