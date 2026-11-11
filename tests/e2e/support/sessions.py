@@ -5,9 +5,11 @@ if TYPE_CHECKING:
 
 
 def end_sessions_of(server: RunningServer, username: str) -> None:
-    """Ends every session of the person who signed in as `username`, as a sign-out elsewhere would."""
+    """Ends every session of the person who signed in as `username`, keeping the account as a sign-out would."""
     sessions = server.stores.sessions
-    ended = [id_ for id_, row in sessions.snapshot().rows.items() if row.user_id == f"subject-{username}"]
-    assert ended, f"{username} has no session to end"
-    for session_id in ended:
-        sessions.delete(session_id)
+    records = sessions.records_of(f"subject-{username}")
+    assert records.account is not None
+    assert records.sessions, f"{username} has no session to end"
+    account = records.account
+    sessions.delete_for_user(account.id)
+    server.stores.accounts.create_for_subject(account.id, account.username, role=account.role, kind=account.kind)

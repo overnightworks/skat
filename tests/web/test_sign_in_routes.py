@@ -38,20 +38,14 @@ from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import (
     LOGOUT_LABEL,
     IssuerTransports,
+    LoggingAuditSink,
     build_relying_party,
     build_sign_in_configs,
     install_sign_in,
 )
-from skat.web.stores import (
-    InMemoryAccounts,
-    InMemorySessions,
-    InMemorySignInTransaction,
-    LoggingAuditSink,
-    ProcessWriteLock,
-    SignInStores,
-)
 from skat.web.tables import TABLE_PAGE_PREFIX
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import new_id_token
@@ -60,6 +54,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from httpx2 import Response
+    from webauth.single_process_stores import SingleProcessAccountStore, SingleProcessSessionStore
 
 RETURN_TO_QUERY = SIGN_IN_PATHS.login_redirect.redirect_query_param
 SESSION_COOKIE = "__Host-session_id"
@@ -73,8 +68,8 @@ USERNAME = "alice"
 class SignInHarness:
     sign_in: SignInSettings
     issuer: FakeIssuer
-    accounts: InMemoryAccounts
-    sessions: InMemorySessions
+    accounts: SingleProcessAccountStore
+    sessions: SingleProcessSessionStore
     config: WebAuthConfig
     app: FastAPI
     started: list[Response] = field(default_factory=list)
@@ -142,17 +137,14 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
         transports = issuer.transports
         if key_set_of is not None:
             transports = IssuerTransports(transports.post_token_request, key_set_of.fetch_key_set)
-        stores = SignInStores.in_memory()
+        stores = in_memory_stores(audit)
         accounts, sessions = stores.accounts, stores.sessions
         app = FastAPI()
         install_web_auth_config(app, configs.web_auth)
-        transaction = InMemorySignInTransaction(
-            sessions, LoggingAuditSink() if audit is None else audit, ProcessWriteLock()
-        )
         install_sign_in(
             app,
             build_relying_party(configs, transports),
-            transaction,
+            stores.transaction,
             fixture_page_build() if page_build is None else page_build,
         )
 

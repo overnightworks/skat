@@ -20,6 +20,7 @@ from webauth.policies import (
     SecurityHeadersPolicy,
     default_content_security_policy,
 )
+from webauth.single_process_stores import SingleProcessStores
 
 from skat.table.records import TableId
 from skat.web.account import create_account_router
@@ -56,17 +57,19 @@ from skat.web.series_end import create_series_end_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
+    LoggingAuditSink,
     build_relying_party,
     build_sign_in_configs,
     install_sign_in,
 )
-from skat.web.stores import InMemorySessions, SignInStores
 from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
     from contextlib import AbstractContextManager
+
+    from webauth.ports import SessionRecordStore
 
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
@@ -95,7 +98,7 @@ def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> 
 
 
 def _install_web_auth(
-    app: FastAPI, sessions: InMemorySessions, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
+    app: FastAPI, sessions: SessionRecordStore, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
 ) -> None:
     install_web_auth_middleware(
         app,
@@ -180,7 +183,7 @@ def create_app(
     tables: TableService,
     rule_sets: RuleSetService,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
-    stores: SignInStores | None = None,
+    stores: SingleProcessStores | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
@@ -189,7 +192,7 @@ def create_app(
 
     _configure_logging()
 
-    sign_in_stores = stores if stores is not None else SignInStores.in_memory()
+    sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     # Wrapped first, so the timers' commands capture the service that counts a lease as presence.
