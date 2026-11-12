@@ -11,7 +11,7 @@ from skat.engine.declaration import Announcement, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word, WordSaid
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
-from skat.table.awaiting import WaitingCase, awaits_you, waiting_case
+from skat.table.awaiting import WaitingCase, awaited_seats, awaits_you, waiting_case
 from skat.table.kontra import KontraCommand, decide_kontra
 from skat.table.records import (
     Actor,
@@ -323,6 +323,44 @@ class TestNothingIsAwaited:
         ended = EndedTable(TableId("0" * 32), 9, EndReason.EMPTY, 3600)
 
         assert awaits_you(view_of(ended, MIDDLEHAND, frozenset())) is False
+
+
+class TestTheAwaitedSeats:
+    """The seats the table waits for are the same for every viewer, a watcher included, and hold no Kontra word."""
+
+    @pytest.mark.parametrize(
+        ("table", "seats"),
+        [
+            pytest.param(table_in(HandProgress()), {1}, id="the-turn"),
+            pytest.param(asked_by_the_declarer(Position.REARHAND), {3}, id="a-declarers-give-up-the-opponent-unanswered"),
+            pytest.param(asked_by_the_declarer(None), {2, 3}, id="a-declarers-give-up-both-opponents"),
+            pytest.param(asked_by_an_opponent(), {1}, id="an-opponents-give-up-the-declarer-alone"),
+            pytest.param(between_games(SEAT_OF[REARHAND]), {1, 3}, id="a-result-the-seats-not-ready"),
+            pytest.param(
+                between_games(series=Series(12, 12)), set(SEAT_OF.values()), id="a-series-end-the-seats-not-ready"
+            ),
+            pytest.param(
+                between_games(1, 2, 3, proposal=EndProposal(1, accepter=2)), {3}, id="an-end-proposal-the-unanswered"
+            ),
+            pytest.param(kontra_hand(plays=1), {1}, id="an-open-kontra-word-is-no-seat-but-the-turn-is"),
+            pytest.param(sent_away(kontra_hand(), REARHAND_SEAT), set(), id="none-while-a-chair-of-the-hand-is-open"),
+            pytest.param(with_a_free_first_chair(between_games()), {2, 3}, id="no-seat-without-a-sitter"),
+        ],
+    )
+    def test_the_seats_are_the_same_for_each_viewer(self, table, seats):
+        viewers = (*EVERYONE, "account-watcher")
+
+        assert [awaited_seats(view_of(table, each, frozenset())) for each in viewers] == [seats] * len(viewers)
+
+    def test_a_seat_with_only_a_kontra_word_open_awaits_you_but_is_no_awaited_seat(self):
+        view = view_of(kontra_hand(), REARHAND, frozenset())
+
+        assert (awaits_you(view), SEAT_OF[REARHAND] in awaited_seats(view)) == (True, False)
+
+    def test_an_ended_table_has_none(self):
+        ended = EndedTable(TableId("0" * 32), 9, EndReason.EMPTY, 3600)
+
+        assert awaited_seats(view_of(ended, MIDDLEHAND, frozenset())) == frozenset()
 
 
 class TestAnOpenChair:
