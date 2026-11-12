@@ -5,7 +5,7 @@ from sqlalchemy import CheckConstraint, Column, ForeignKey, SmallInteger, Table,
 
 from skat.engine.cards import Card
 from skat.engine.deal import Position
-from skat.engine.schieberamsch import Push, Put, Take
+from skat.engine.schieberamsch import DeclareGrandHand, Push, Put, Take
 from skat.store.schema import (
     POSITION_OF_TEXT,
     POSITION_TEXT,
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
     from skat.table.records import PushingStep
 
-# A take and a put-back, or a push, for each seat.
+# A take and a put-back, or a push, for each seat; a declared Grand Hand ends the stage.
 MOST_PUSHING_STEPS = 2 * len(Position)
 
 
@@ -33,6 +33,7 @@ class _Action(StrEnum):
     TAKE = "take"
     PUT_BACK = "put-back"
     PUSH = "push"
+    GRAND_HAND = "grand-hand"
 
 
 pushing_steps = Table(
@@ -75,6 +76,8 @@ def _step_of(row: Row[tuple[str, ...]]) -> PushingStep:
         return Take(position)
     if action is _Action.PUSH:
         return Push(position)
+    if action is _Action.GRAND_HAND:
+        return DeclareGrandHand(position)
     return Put(position, (_card_of(row.first_suit, row.first_rank), _card_of(row.second_suit, row.second_rank)))
 
 
@@ -84,6 +87,8 @@ def _columns_of(step: PushingStep) -> dict[str, object]:
         return {**position, "action": _Action.TAKE.value}
     if isinstance(step, Push):
         return {**position, "action": _Action.PUSH.value}
+    if isinstance(step, DeclareGrandHand):
+        return {**position, "action": _Action.GRAND_HAND.value}
     first, second = step.cards
     return {
         **position,
