@@ -1,14 +1,16 @@
-"""A person calls an agent to a table: the control's rows, the call, the roster of listening agents and the held answers
-of whether a session's person may call.
+"""A person calls an agent to a table or sends one away: the control's rows, the call, the send-away, the roster of
+listening agents and the held answers of whether a session's person may call.
 
-`skat.table.member_place` decides who may call which agent; this module gathers the facts of a call (who is at the
-table, which agents listen, whether the person counts as a member of the calling group), runs that decision through
-`TableService` and maps its refusals onto the kit's reason tokens. Every route here is a person's act and no agent's
-tool, and every one runs on the event loop, which is also where the roster and the changes' `listens_to` live.
+`skat.table.member_place` decides who may call which agent and which agent is here; this module gathers the facts of a
+call (who is at the table, which agents listen, whether the person counts as a member of the calling group), runs that
+decision through `TableService` and maps its refusals onto the kit's reason tokens. Every route here is a person's act
+and no agent's tool, and every one runs on the event loop, which is also where the roster and the changes'
+`listens_to` live.
 
-The roster holds an agent exactly while it listens on its standing, under its token's name and owner and a key minted
-here, in this process only. The held answers are one yes or no per session, kept in this process only: the display
-never reads the issuer per render, and a call reads the person's groups fresh at the act.
+The roster holds an agent exactly while it listens on its standing, under its token's name and owner, and a key per
+agent account, minted here at first need and kept in this process only, so a row keeps its key from the call to the
+seat, whether or not the agent listens. The held answers are one yes or no per session, kept in this process only: the
+display never reads the issuer per render, and a call or a send-away reads the person's groups fresh at the act.
 """
 
 import secrets
@@ -28,9 +30,10 @@ from webauth.dependencies import session_id_from_request
 from webauth.oidc_login import AccessTokenRefusal
 
 from skat.table.member_place import CallFacts, InviteRefusal, OfferState, control_shown
-from skat.table.records import TableId
+from skat.table.records import SendAway, TableId
+from skat.table.service import CommandIdReusedError
 from skat.web.mcp import Exclusion, excluded, token_carries_agent_facts
-from skat.web.tables import TABLES_PATH, actor_of
+from skat.web.tables import TABLES_PATH, CommandRequest, actor_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection
@@ -44,9 +47,11 @@ if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.web.presence import Presence
 
-# The control and its call: `TABLES_PATH/{table_id}` plus the first, and plus `/agents/{key}` and the second.
+# The control, its call and its send-away: `TABLES_PATH/{table_id}` plus the first, and plus `/agents/{key}` and the
+# second or the third.
 TABLE_AGENTS_SUFFIX: Final = "/agents"
 TABLE_AGENT_CALL_SUFFIX: Final = "/call"
+TABLE_AGENT_SEND_AWAY_SUFFIX: Final = "/send-away"
 # The realm's group whose members may call any owner's agent to a table.
 AGENT_ADDERS_GROUP: Final = "/agent-adders"
 # How long a read of the groups the issuer refused counts as "not a member" before the next control read asks again.
@@ -58,7 +63,7 @@ type ListeningChanged = Callable[[Principal, str, bool], None]
 
 
 class CallRefusal(StrEnum):
-    """Why a call changed nothing, in the words the kit's control has a sentence for."""
+    """Why a call or a send-away changed nothing, in the words the kit's control has a sentence for."""
 
     NOT_ALLOWED = "not-allowed"
     OWNER_ABSENT = "owner-absent"
@@ -78,8 +83,8 @@ REFUSAL_TOKENS: Final = {
 
 
 class AgentRowAnswer(BaseModel):
-    """One agent the person may call; `key` is opaque and the same in every state of the row, and an `inviting` row
-    says in whole seconds on the server's clock how long its invitation stays open.
+    """One agent the person may call or send away; `key` is opaque and the same in every state of the row, and an
+    `inviting` row says in whole seconds on the server's clock how long its invitation stays open.
     """
 
     key: str
@@ -96,9 +101,13 @@ class AgentControlAnswer(BaseModel):
 
 
 class CallRefusalAnswer(BaseModel):
-    """A call that changed nothing, as one of the control's five reasons."""
+    """A call or a send-away that changed nothing, as one of the control's five reasons."""
 
     reason: CallRefusal
+
+
+class SendAwayRequest(CommandRequest):
+    """The body of a send-away: only its retry key."""
 
 
 @dataclass(frozen=True)
@@ -112,11 +121,13 @@ class RosterEntry:
 
 class AgentRoster:
     """The agents that listen on their standing right now, by account. An entry is made when the agent starts to listen,
-    with the name and owner its token carries, and dropped when it has stopped. Only the front's event loop touches it.
+    with the name and owner its token carries, and dropped when it has stopped. Every agent account the page has seen
+    has one key for good. Only the front's event loop touches it.
     """
 
     def __init__(self) -> None:
         self._entries: dict[str, RosterEntry] = {}
+        self._keys: dict[str, str] = {}
 
     def listening_changed(self, principal: Principal, uri: str, listens: bool) -> None:
         """The callback `ResourceChanges` calls when the answer of `listens_to` changes; it does not block."""
@@ -139,10 +150,20 @@ class AgentRoster:
     def entries(self) -> dict[str, RosterEntry]:
         return dict(self._entries)
 
+    def key_of(self, account_id: str) -> str:
+        """The agent's key, made when it is first asked for."""
+        key = self._keys.get(account_id)
+        if key is None:
+            key = secrets.token_urlsafe(ROSTER_KEY_BYTES)
+            self._keys[account_id] = key
+        return key
+
+    def account_of(self, key: str) -> str | None:
+        """The account a key names, or None for a key no agent was given."""
+        return next((account for account, held in self._keys.items() if held == key), None)
+
     def _remember(self, account_id: str, facts: AgentFacts) -> None:
-        held = self._entries.get(account_id)
-        if held is None or (held.name, held.owner) != (facts.name, facts.owner):
-            self._entries[account_id] = RosterEntry(secrets.token_urlsafe(ROSTER_KEY_BYTES), facts.name, facts.owner)
+        self._entries[account_id] = RosterEntry(self.key_of(account_id), facts.name, facts.owner)
 
 
 @dataclass(frozen=True)
@@ -237,10 +258,35 @@ def _facts_of(
     )
 
 
-def _row_of(entry: RosterEntry, offer: CallOffer) -> AgentRowAnswer | None:
-    if not isinstance(offer.answer, OfferState):
+def _seated_facts_of(account: str, *, viewer: str, present: frozenset[str], viewer_is_member: bool) -> CallFacts:
+    """The facts of a seated agent the roster does not hold: no token states its owner, and it does not listen."""
+    return CallFacts(
+        viewer_account=viewer,
+        viewer_present=viewer in present,
+        viewer_is_member=viewer_is_member,
+        agent_account=account,
+        agent_listens=False,
+        owner_account=None,
+        owner_present=False,
+    )
+
+
+@dataclass(frozen=True)
+class _Offered:
+    """An agent of the control with the key of its row, the facts of the person's call to it and what that comes to."""
+
+    key: str
+    name: str
+    facts: CallFacts
+    offer: CallOffer
+
+
+def _row_of(offered: _Offered) -> AgentRowAnswer | None:
+    if not isinstance(offered.offer.answer, OfferState):
         return None
-    return AgentRowAnswer(key=entry.key, name=entry.name, state=offer.answer, ends_in_seconds=offer.ends_in_seconds)
+    return AgentRowAnswer(
+        key=offered.key, name=offered.name, state=offered.offer.answer, ends_in_seconds=offered.offer.ends_in_seconds
+    )
 
 
 def _table_of(table_id: str) -> TableId:
@@ -251,8 +297,8 @@ def _table_of(table_id: str) -> TableId:
 
 
 class _Calling:
-    """The facts, the control and the call of the person routes, over one app's service, presence, roster and
-    membership.
+    """The facts, the control, the call and the send-away of the person routes, over one app's service, presence,
+    roster and membership.
     """
 
     def __init__(
@@ -269,12 +315,13 @@ class _Calling:
         self._listens = listens
         self._membership = membership
 
-    def _facts_for(
-        self, request: Request, table_id: TableId, *, viewer_is_member: bool
-    ) -> list[tuple[RosterEntry, CallFacts]]:
+    async def _offered(self, request: Request, table_id: TableId, *, viewer_is_member: bool) -> list[_Offered]:
+        """Every agent of the control, the roster's first and then the seated agents it does not hold, from one read of
+        the table.
+        """
         viewer = actor_of(request).account_id
         present = self._presence.connected(table_id.value)
-        return [
+        calls = [
             (
                 entry,
                 _facts_of(
@@ -289,14 +336,27 @@ class _Calling:
             for account, entry in self._roster.entries().items()
         ]
 
+        def seated_facts(account: str) -> CallFacts:
+            return _seated_facts_of(account, viewer=viewer, present=present, viewer_is_member=viewer_is_member)
+
+        offers = await run_in_threadpool(self._tables.offers_at, table_id, [facts for _, facts in calls], seated_facts)
+        if offers is None:
+            raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
+        listed = [
+            _Offered(entry.key, entry.name, facts, offer)
+            for (entry, facts), offer in zip(calls, offers.listed, strict=True)
+        ]
+        seated = [
+            _Offered(self._roster.key_of(seated.account), seated.name, seated_facts(seated.account), seated.offer)
+            for seated in offers.seated
+        ]
+        return listed + seated
+
     async def control_of(self, request: Request, table_id: TableId) -> AgentControlAnswer:
         viewer_present = actor_of(request).account_id in self._presence.connected(table_id.value)
         viewer_is_member = viewer_present and await self._membership.displayed(request)
-        calls = self._facts_for(request, table_id, viewer_is_member=viewer_is_member)
-        offers = await run_in_threadpool(self._tables.offers_at, table_id, [facts for _, facts in calls])
-        if offers is None:
-            raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
-        rows = [row for (entry, _), offer in zip(calls, offers, strict=True) if (row := _row_of(entry, offer))]
+        offered = await self._offered(request, table_id, viewer_is_member=viewer_is_member)
+        rows = [row for agent in offered if (row := _row_of(agent))]
         shown = control_shown(viewer_present=viewer_present, viewer_is_member=viewer_is_member)
         return AgentControlAnswer(shown=shown, rows=rows)
 
@@ -304,17 +364,16 @@ class _Calling:
         """What the call comes to. The cheap checks run first with the person counted a member, so a double tap, a full
         table or an absent owner cost no read of the issuer; the membership that grants the write is the fresh one.
         """
-        chosen = [
-            facts for entry, facts in self._facts_for(request, table_id, viewer_is_member=True) if entry.key == key
-        ]
-        offers = await run_in_threadpool(self._tables.offers_at, table_id, chosen)
-        if offers is None:
-            raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
-        if not chosen:
+        chosen = next(
+            (agent for agent in await self._offered(request, table_id, viewer_is_member=True) if agent.key == key), None
+        )
+        if chosen is None:
             return CallRefusal.AGENT_UNAVAILABLE
-        answer = offers[0].answer
+        answer = chosen.offer.answer
         if answer is OfferState.INVITING:
             return None
+        if answer is OfferState.HERE:
+            return CallRefusal.AGENT_UNAVAILABLE
         if isinstance(answer, InviteRefusal):
             return REFUSAL_TOKENS[answer]
         fresh = await self._membership.fresh(request)
@@ -323,12 +382,126 @@ class _Calling:
         written = await run_in_threadpool(
             self._tables.invite_agent,
             table_id,
-            replace(chosen[0], viewer_is_member=fresh),
+            replace(chosen.facts, viewer_is_member=fresh),
             timedelta(seconds=INVITATION_SECONDS),
         )
         if written is InviteRefusal.NO_TABLE:
             raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
         return REFUSAL_TOKENS[written] if isinstance(written, InviteRefusal) else None
+
+    async def send_away_of(self, request: Request, table_id: TableId, key: str, command_id: str) -> CallRefusal | None:
+        """What the send-away comes to. `offer_of` decides it as it decides the row: a `here` answer with the person
+        counted a member, then the same answer with the groups read fresh, and the service decides under the table's
+        lock whether the agent still holds a chair. An agent that is not here is no new act, but a command id the person
+        used for it already replays its answer, as long as no other request used the id.
+        """
+        refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=True)
+        if refusal is None:
+            fresh = await self._membership.fresh(request)
+            if isinstance(fresh, AccessTokenRefusal):
+                return CallRefusal.TRY_AGAIN
+            refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=fresh)
+        account = self._roster.account_of(key)
+        if account is None:
+            return refusal
+        command = SendAway(command_id, table_id.value, account)
+        if refusal is CallRefusal.AGENT_UNAVAILABLE:
+            return await self._replayed_send_away(request, command)
+        if refusal is not None:
+            return refusal
+        connected = self._presence.connected(table_id.value)
+        try:
+            sent = await run_in_threadpool(self._tables.send_away, actor_of(request), command, connected)
+        except CommandIdReusedError:
+            return CallRefusal.TRY_AGAIN
+        if sent is None:
+            raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
+        if sent.refusal is not None:
+            return CallRefusal.AGENT_UNAVAILABLE
+        self._presence.wake_table(table_id.value)
+        return None
+
+    async def _send_away_refusal(
+        self, request: Request, table_id: TableId, key: str, *, viewer_is_member: bool
+    ) -> CallRefusal | None:
+        """None exactly when `offer_of` answers `here` for the agent of the key."""
+        chosen = next(
+            (
+                agent
+                for agent in await self._offered(request, table_id, viewer_is_member=viewer_is_member)
+                if agent.key == key
+            ),
+            None,
+        )
+        if chosen is None:
+            return CallRefusal.AGENT_UNAVAILABLE
+        answer = chosen.offer.answer
+        if answer is OfferState.HERE:
+            return None
+        return REFUSAL_TOKENS[answer] if isinstance(answer, InviteRefusal) else CallRefusal.AGENT_UNAVAILABLE
+
+    async def _replayed_send_away(self, request: Request, command: SendAway) -> CallRefusal | None:
+        try:
+            replayed = await run_in_threadpool(self._tables.replayed_send_away, actor_of(request), command)
+        except CommandIdReusedError:
+            return CallRefusal.TRY_AGAIN
+        if replayed is None or replayed.refusal is not None:
+            return CallRefusal.AGENT_UNAVAILABLE
+        return None
+
+
+async def _answered(
+    calling: _Calling, request: Request, table_id: TableId, refusal: CallRefusal | None
+) -> Response | AgentControlAnswer:
+    """The viewer's control after an act that changed something, or the refusal of one that changed nothing."""
+    if refusal is None:
+        return await calling.control_of(request, table_id)
+    answer = CallRefusalAnswer(reason=refusal)
+    return JSONResponse(answer.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
+
+
+def _create_acts_router(calling: _Calling) -> APIRouter:
+    router = APIRouter()
+
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_CALL_SUFFIX,
+        response_model=AgentControlAnswer,
+        responses={
+            404: {"description": "No table has this id."},
+            409: {"model": CallRefusalAnswer, "description": "The call changed nothing."},
+        },
+        openapi_extra=excluded(Exclusion.PERSON_ACT),
+    )
+    async def call_agent(
+        table_id: str, key: str, request: Request, response: Response
+    ) -> Response | AgentControlAnswer:
+        """Call the agent of the row `key` to the table; the same call again changes nothing twice."""
+        response.headers["Cache-Control"] = "no-store"
+        parsed = _table_of(table_id)
+        return await _answered(calling, request, parsed, await calling.call_of(request, parsed, key))
+
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_SEND_AWAY_SUFFIX,
+        response_model=AgentControlAnswer,
+        responses={
+            404: {"description": "No table has this id."},
+            409: {"model": CallRefusalAnswer, "description": "The send-away changed nothing."},
+        },
+        openapi_extra=excluded(Exclusion.PERSON_ACT),
+    )
+    async def send_agent_away(
+        table_id: str, key: str, body: SendAwayRequest, request: Request, response: Response
+    ) -> Response | AgentControlAnswer:
+        """Ask the agent of the row `key` to leave the table: its chair opens at once, in every phase of a hand, and
+        the hand waits for a sitter. The same command id again changes nothing twice.
+        """
+        response.headers["Cache-Control"] = "no-store"
+        parsed = _table_of(table_id)
+        return await _answered(
+            calling, request, parsed, await calling.send_away_of(request, parsed, key, body.command_id)
+        )
+
+    return router
 
 
 def create_calling_router(
@@ -351,31 +524,11 @@ def create_calling_router(
         openapi_extra=excluded(Exclusion.PERSON_ACT),
     )
     async def read_agents(table_id: str, request: Request, response: Response) -> AgentControlAnswer:
-        """The viewer's control for calling agents: whether it is shown, and a row for each agent the viewer may call or
-        has called and is waiting for.
+        """The viewer's control for calling agents: whether it is shown, and a row for each agent the viewer may call,
+        has called and is waiting for, or may send away.
         """
         response.headers["Cache-Control"] = "no-store"
         return await calling.control_of(request, _table_of(table_id))
 
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_CALL_SUFFIX,
-        response_model=AgentControlAnswer,
-        responses={
-            404: {"description": "No table has this id."},
-            409: {"model": CallRefusalAnswer, "description": "The call changed nothing."},
-        },
-        openapi_extra=excluded(Exclusion.PERSON_ACT),
-    )
-    async def call_agent(
-        table_id: str, key: str, request: Request, response: Response
-    ) -> Response | AgentControlAnswer:
-        """Call the agent of the row `key` to the table; the same call again changes nothing twice."""
-        response.headers["Cache-Control"] = "no-store"
-        parsed = _table_of(table_id)
-        refusal = await calling.call_of(request, parsed, key)
-        if refusal is not None:
-            answer = CallRefusalAnswer(reason=refusal)
-            return JSONResponse(answer.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
-        return await calling.control_of(request, parsed)
-
+    router.include_router(_create_acts_router(calling))
     return router

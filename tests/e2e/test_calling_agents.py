@@ -1,4 +1,6 @@
-"""A member of the calling group opens the pill „Agenten“, taps „Rufen“ on an agent's row, and the agent sits."""
+"""A member of the calling group opens the pill „Agenten“, taps „Rufen“ on an agent's row and the agent sits, or taps
+„Bitten zu gehen“ on the row of a seated agent and the chair opens.
+"""
 
 from typing import TYPE_CHECKING
 
@@ -26,6 +28,7 @@ pytestmark = pytest.mark.e2e
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
 CALLING = text(SOURCE_LANGUAGE, "agents.calling")
 EMPTY = text(SOURCE_LANGUAGE, "agents.empty")
+SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
 # The list keeps this far from either edge of the viewport, in pixels.
@@ -54,6 +57,10 @@ def wait_until_inside_the_margin(person: Page, selector: str) -> None:
 
 def call_label(name: str) -> str:
     return text(SOURCE_LANGUAGE, "agents.callLabel", name=name)
+
+
+def ask_to_leave_label(name: str) -> str:
+    return text(SOURCE_LANGUAGE, "agents.askToLeaveLabel", name=name)
 
 
 def sits_note(name: str) -> str:
@@ -123,6 +130,40 @@ def test_the_list_left_open_stays_inside_the_margin_when_the_hand_deals(
         expect(popover).to_be_visible()
 
         wait_until_inside_the_margin(felix, ".agents-pop")
+    finally:
+        agent.close()
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_member_sends_a_seated_agent_away_mid_hand_and_the_row_offers_the_call_again(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict,
+) -> None:
+    felix = record_page_errors(
+        open_person(username="felix-sends-away", groups=(AGENT_ADDERS_GROUP,), **form_factor), page_errors
+    )
+    path = open_new_table(felix, e2e_server)
+    ben = record_page_errors(open_person(username="ben-keeps-his-chair", **DESKTOP), page_errors)
+    watch(ben, e2e_server, path)
+    sit_in(ben, 2)
+    agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Nova", "agent-subject-nova-leaves")
+    try:
+        pill(felix).click()
+        felix.get_by_role("button", name=call_label("Nova")).click()
+        agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
+        expect(plate_of(felix, 3)).to_contain_text("Nova")
+        expect(felix.locator(".chair .mark.pos")).to_have_count(3)
+
+        felix.get_by_role("button", name=ask_to_leave_label("Nova")).click()
+
+        for person in (felix, ben):
+            expect(plate_of(person, 3)).to_contain_text(SEAT_FREE)
+            expect(plate_of(person, 3)).not_to_contain_text("Nova")
+        expect(felix.get_by_role("button", name=call_label("Nova"))).to_be_visible()
     finally:
         agent.close()
 

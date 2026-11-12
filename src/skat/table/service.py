@@ -17,13 +17,14 @@ from skat.table.member_place import (
     InvitationOffer,
     InviteRefusal,
     MemberRefusal,
+    TableOffers,
     TableStanding,
     agents_seated_at,
-    call_offer_of,
     decide_accept,
     decide_invite,
     forgotten_if_expired,
     standings_among,
+    table_offers_of,
 )
 from skat.table.member_view import MemberView, ViewSignal, member_view_of, view_recipients
 from skat.table.playing import (
@@ -121,7 +122,7 @@ if TYPE_CHECKING:
 
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
     from skat.table.lobby import LobbyEntryView
-    from skat.table.member_place import CallFacts, CallOffer
+    from skat.table.member_place import CallFacts
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
 __all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
@@ -244,6 +245,14 @@ class TableService:
                 )
             ),
         )
+
+    def replayed_send_away(self, actor: Actor, command: SendAway) -> Decision | None:
+        """The outcome of this person's earlier send-away under the command id, None if none; it writes nothing and
+        raises `CommandIdReusedError` for another request under the id.
+        """
+        with self._transactions.begin() as transaction:
+            replay = transaction.replay(actor.account_id, command.command_id)
+        return None if replay is None else replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
 
     def take_auction_step(
         self,
@@ -600,13 +609,17 @@ class TableService:
             self._tell(frozenset({facts.agent_account}))
         return offer
 
-    def offers_at(self, table_id: TableId, calls: Sequence[CallFacts]) -> tuple[CallOffer, ...] | None:
-        """Each call's offer from one read of the table and the agents' rows; None when no live table has the id."""
+    def offers_at(
+        self, table_id: TableId, calls: Sequence[CallFacts], seated_facts: Callable[[str], CallFacts]
+    ) -> TableOffers | None:
+        """Each call's offer and, from the same read of the table and the agents' rows, the offer of each seated agent
+        no call names, on the facts `seated_facts` gives for its account; None when no live table has the id.
+        """
         with self._transactions.begin() as transaction:
             if not isinstance(table := transaction.table(table_id), TableRecord):
                 return None
             entries = [transaction.locked_book_entry(table_id, call.agent_account) for call in calls]
-        return tuple(call_offer_of(call, table, entry, self._now()) for call, entry in zip(calls, entries, strict=True))
+        return table_offers_of(table, calls, entries, seated_facts, self._now())
 
     def accept_invitation(
         self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]

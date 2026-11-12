@@ -24,6 +24,7 @@ import {
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_AGENT_CALL_SUFFIX,
+    TABLE_AGENT_SEND_AWAY_SUFFIX,
     TABLE_AGENTS_SUFFIX,
     TABLE_EVENTS_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -478,10 +479,11 @@ export async function copyTableLink(id: string): Promise<boolean> {
 }
 
 // One row of the control that calls agents. `key` is Skat's opaque key; an `inviting` row says in whole seconds on the
-// server's clock how long its invitation stays open.
+// server's clock how long its invitation stays open, and a `here` row is an agent seated at the table.
 export type AgentRow =
     | { key: string; name: string; state: "available"; ends_in_seconds: null }
-    | { key: string; name: string; state: "inviting"; ends_in_seconds: number };
+    | { key: string; name: string; state: "inviting"; ends_in_seconds: number }
+    | { key: string; name: string; state: "here"; ends_in_seconds: null };
 export type AgentsControl = { shown: boolean; rows: AgentRow[] };
 type AgentsAnswer = { kind: "control"; control: AgentsControl } | { kind: "missing" } | { kind: "failed" };
 type CallAnswer = AgentsAnswer | { kind: "refused"; reason: AgentControlRefusal };
@@ -520,11 +522,8 @@ export async function readAgents(id: string): Promise<AgentsAnswer> {
     return answerOfAgents(await fetchOrNull(agentsPath(id)));
 }
 
-// The tap is the call: no command id, because the same call again changes nothing twice.
-export async function callAgent(id: string, key: string): Promise<CallAnswer> {
-    const answer = await fetchSigningInAgain(`${agentsPath(id)}/${encodeURIComponent(key)}${TABLE_AGENT_CALL_SUFFIX}`, {
-        method: "POST",
-    });
+async function actOnAgent(id: string, key: string, suffix: string, init: RequestInit): Promise<CallAnswer> {
+    const answer = await fetchSigningInAgain(`${agentsPath(id)}/${encodeURIComponent(key)}${suffix}`, init);
     if (answer?.status !== CONFLICT_STATUS) return answerOfAgents(answer);
     try {
         const body: unknown = await answer.json();
@@ -537,6 +536,20 @@ export async function callAgent(id: string, key: string): Promise<CallAnswer> {
     }
 }
 
+// The tap is the call: no command id, because the same call again changes nothing twice.
+export function callAgent(id: string, key: string): Promise<CallAnswer> {
+    return actOnAgent(id, key, TABLE_AGENT_CALL_SUFFIX, { method: "POST" });
+}
+
+// The command id is the retry key of the send-away: each tap brings its own, and nothing is retried.
+export function sendAgentAway(id: string, key: string, commandId: string): Promise<CallAnswer> {
+    return actOnAgent(id, key, TABLE_AGENT_SEND_AWAY_SUFFIX, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command_id: commandId }),
+    });
+}
+
 // Seconds until the nearest `inviting` row's invitation ends on the server, never less than one; null with none.
 export function rereadAfterSeconds(control: AgentsControl): number | null {
     const waits = control.rows.flatMap((row) => (row.state === "inviting" ? [row.ends_in_seconds] : []));
@@ -546,6 +559,7 @@ export function rereadAfterSeconds(control: AgentsControl): number | null {
 export type AgentsFollower = {
     read: () => Promise<void>;
     call: (key: string) => Promise<void>;
+    sendAway: (key: string) => Promise<void>;
     stop: () => void;
 };
 
@@ -592,10 +606,11 @@ export function followAgents(
         });
     }
 
-    async function call(key: string): Promise<void> {
+    // A tap on a row: the refusal is cleared, the request goes in its turn, and a refused one is followed by a read.
+    async function act(request: () => Promise<CallAnswer>): Promise<void> {
         onRefusal(null);
         const refused = await inOrder(async () => {
-            const answer = await callAgent(id, key);
+            const answer = await request();
             if (stopped) return false;
             if (answer.kind === "control" || answer.kind === "missing") {
                 show(answer);
@@ -609,7 +624,8 @@ export function followAgents(
 
     return {
         read,
-        call,
+        call: (key) => act(() => callAgent(id, key)),
+        sendAway: (key) => act(() => sendAgentAway(id, key, crypto.randomUUID())),
         stop: () => {
             stopped = true;
             clearTimeout(timer);
