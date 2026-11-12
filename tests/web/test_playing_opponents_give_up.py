@@ -581,7 +581,7 @@ class TestWhatTheViewsOfferWhileItWaits:
         assert playing_as(kontra_table, kontra_table.at[FOREHAND])["kontra"]["my_word"] == "kontra"
         assert everyone_reads(kontra_table) == [None] * 4
 
-    def test_the_stream_of_a_watcher_carries_the_request_the_no_and_the_end(self, herz_hand):
+    def test_the_stream_of_a_watcher_carries_the_request_and_then_the_no(self, herz_hand):
         with streams_of(herz_hand.skat, herz_hand.table_id, [(herz_hand.watcher, None)]) as (watcher,):
             gives_up(herz_hand, REARHAND)
             assert next(watcher)["hand"]["playing"]["give_up"] == asked_by(REARHAND)
