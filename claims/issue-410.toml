@@ -1,0 +1,8 @@
+claim_id = "0843cfc6c83849ebae7feffdb3c929f7"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "90b6f041871aec66c57118a04a38491c8cbff05a"
+branch = "claude/issue-410-offered-languages"
+scope = ["docs/ARCHITECTURE.md", "src/skat/web/languages.py", "src/skat/web/routes.py", "src/skat/web/tables.py", "tests/e2e/conftest.py", "tests/web/test_languages.py"]
+opened_commit = "4009b28a247ed3bd906e42f0a8d72d4c065092fb"
+whole_reason = "Three small production files that answer one question (which languages Skat offers and how a page chosen by one says so), the test that pinned the old offer, the end-to-end locale that keeps tests in the source language, and one ARCHITECTURE sentence."
