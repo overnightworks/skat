@@ -294,6 +294,8 @@ chairs = Table(
     Column("account_id", Text),
     Column("display_name", Text),
     Column("occupant_kind", Text),
+    # Who an agent at this chair works for, as its token named them when it sat; it goes with the chair.
+    Column("owner_account", Text),
     Column("ready", Boolean, nullable=False, server_default=false()),
     # The accounts that held this chair in the running hand and left it; they no longer sit here, so a query of an
     # account's tables reads `account_id` and never counts them.
@@ -302,6 +304,10 @@ chairs = Table(
     CheckConstraint("array_position(held_in_hand, NULL) IS NULL", name="chairs_held_in_hand_has_no_null"),
     CheckConstraint("(account_id IS NULL) = (occupant_kind IS NULL)", name="chairs_kind_only_when_occupied"),
     one_of("occupant_kind", (kind.value for kind in OccupantKind), "chairs_occupant_kind_is_a_kind"),
+    CheckConstraint(
+        f"owner_account IS NULL OR occupant_kind IS NOT DISTINCT FROM '{OccupantKind.AGENT.value}'",
+        name="chairs_owner_only_of_an_agent",
+    ),
     Index("chairs_by_account", "account_id", postgresql_where=text("account_id IS NOT NULL")),
 )
 

@@ -124,6 +124,32 @@ class TestWhatACallComesTo:
 
         assert offer_of(replace(seated_facts(seated), **changes), seated, None, NOW) is refusal
 
+    @pytest.mark.parametrize(
+        ("changes", "answer"),
+        [
+            pytest.param({}, OfferState.HERE, id="the-owner-at-the-table"),
+            pytest.param({"viewer_present": False}, InviteRefusal.NOT_PRESENT, id="the-owner-is-not-at-the-table"),
+            pytest.param({"viewer_account": OTHER_PERSON}, InviteRefusal.NOT_A_MEMBER, id="another-person"),
+        ],
+    )
+    def test_the_owner_of_a_seated_agent_has_it_here_without_being_a_member(self, changes, answer):
+        seated = with_agents(a_table_with_a_free_chair(), 1, owner_account=OWNER)
+        outside_the_group = replace(call_facts(seated_agent(seated), OWNER, OWNER), viewer_is_member=False)
+
+        assert offer_of(replace(outside_the_group, **changes), seated, None, NOW) is answer
+
+    def test_a_chair_that_stores_no_owner_gives_no_right_to_a_person_outside_the_group(self):
+        seated = with_agents(a_table_with_a_free_chair(), 1)
+        outside_the_group = replace(call_facts(seated_agent(seated), OWNER, OWNER), viewer_is_member=False)
+
+        assert offer_of(outside_the_group, seated, None, NOW) is InviteRefusal.NOT_A_MEMBER
+
+    def test_an_owner_has_no_right_to_the_agent_of_another_owner(self):
+        seated = with_agents(a_table_with_a_free_chair(), 1, owner_account=OTHER_PERSON)
+        outside_the_group = replace(call_facts(seated_agent(seated), OWNER, OWNER), viewer_is_member=False)
+
+        assert offer_of(outside_the_group, seated, None, NOW) is InviteRefusal.NOT_A_MEMBER
+
     def test_a_seated_agent_is_here_even_when_an_invitation_to_it_stands(self):
         seated = with_agents(a_table_with_a_free_chair(), 1)
         entry = BookEntry(
@@ -175,11 +201,20 @@ class TestWhatACallComesTo:
 
 class TestTheControlIsShown:
     @pytest.mark.parametrize(
-        ("present", "member", "shown"),
-        [(True, True, True), (True, False, False), (False, True, False), (False, False, False)],
+        ("present", "member", "sends_away", "shown"),
+        [
+            (True, True, False, True),
+            (True, False, False, False),
+            (False, True, False, False),
+            (False, False, False, False),
+            (True, False, True, True),
+            (False, False, True, False),
+        ],
     )
-    def test_to_a_member_who_is_at_the_table_and_to_nobody_else(self, present, member, shown):
-        assert control_shown(viewer_present=present, viewer_is_member=member) is shown
+    def test_to_a_member_or_one_who_may_send_an_agent_away_and_is_at_the_table_and_to_nobody_else(
+        self, present, member, sends_away, shown
+    ):
+        assert control_shown(viewer_present=present, viewer_is_member=member, sends_agent_away=sends_away) is shown
 
 
 class TestAnInvitingRowTellsWhenItsInvitationEnds:

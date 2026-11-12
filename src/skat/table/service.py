@@ -103,7 +103,7 @@ from skat.table.rules import (
     sit_payload,
     stand_payload,
 )
-from skat.table.send_away import SEND_AWAY_COMMAND, book_after_send_away, decide_send_away, send_away_payload
+from skat.table.send_away import SEND_AWAY_COMMAND, decide_send_away_by, save_book_after_send_away, send_away_payload
 from skat.table.series_end import (
     AGREE_TO_END_SERIES_COMMAND,
     REFUSE_TO_END_SERIES_COMMAND,
@@ -238,12 +238,15 @@ class TableService:
             lambda table: decide_stand(table, actor),
         )
 
-    def send_away(self, actor: Actor, command: SendAway, connected_accounts: frozenset[str]) -> CommandResult | None:
+    def send_away(
+        self, actor: Actor, command: SendAway, connected_accounts: frozenset[str], is_member: bool
+    ) -> CommandResult | None:
         """Free an agent's chair at once, in every phase of a hand, and take the place from its standing in the same
         transaction: the agent's book row at this table gets a higher epoch and no invitation.
 
-        `actor` is the person who sends; who may send away is the caller's to check. The hand stays and waits for a
-        sitter. A replay and a refusal write no book row.
+        `actor` must be at the table (`connected_accounts`) and, under its lock, a member of the calling group
+        (`is_member`) or the agent's owner, else `not-allowed`. The hand waits for a sitter. A replay and a refusal
+        write no book row.
         """
         return self._run_command(
             actor,
@@ -252,12 +255,8 @@ class TableService:
             command.command_id,
             SEND_AWAY_COMMAND,
             send_away_payload(command),
-            lambda table: decide_send_away(table, command.agent_account),
-            lambda transaction, table: transaction.save_book_entry(
-                book_after_send_away(
-                    transaction.locked_book_entry(table.id, command.agent_account), table.id, command.agent_account
-                )
-            ),
+            lambda table: decide_send_away_by(table, command, actor, connected_accounts, is_member, self._now()),
+            lambda transaction, table: save_book_after_send_away(transaction, table.id, command.agent_account),
         )
 
     def replayed_send_away(self, actor: Actor, command: SendAway) -> Decision | None:
