@@ -590,14 +590,14 @@ class TestWhenTheTablesCannotBeRead:
     @staticmethod
     def failing_once(store):
         failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
-        read = store.occupied_chairs
+        read = store.tables_of
 
-        def occupied_chairs():
+        def tables_of(account_id):
             if failures:
                 raise failures.pop()
-            return read()
+            return read(account_id)
 
-        store.occupied_chairs = occupied_chairs
+        store.tables_of = tables_of
 
     def test_a_failed_read_at_a_lapse_is_retried_and_loses_neither_the_wake_nor_the_hold(
         self, skat, time, undealt_table, hold_seconds

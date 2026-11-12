@@ -2,6 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from skat.table.records import Actor
+from skat.table.views import TableView
 from skat.web.streams import table_views
 
 OPENER = Actor(account_id="opener", display_name="Anna")
@@ -42,4 +43,9 @@ def run_on_a_loop_of_its_own(scenario):
 
 
 async def next_view(stream):
-    return await asyncio.wait_for(anext(stream), ALLOWED_SECONDS)
+    """The next view; the idle heartbeats before it send no view and are passed over."""
+    async with asyncio.timeout(ALLOWED_SECONDS):
+        while True:
+            item = await anext(stream)
+            if isinstance(item, TableView):
+                return item
