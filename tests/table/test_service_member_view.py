@@ -5,13 +5,13 @@ version tells the agents seated after it.
 import itertools
 import random
 from contextlib import nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from skat.engine.deal import Position
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.member_place import Acceptance, InvitationRequest
+from skat.table.member_place import Acceptance
 from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
@@ -26,6 +26,7 @@ from skat.table.records import (
 )
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
+from tests.support.calls import call_facts
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import (
     asked_by_the_declarer,
@@ -301,10 +302,8 @@ class TestTheSignalOfACommit:
         scene = Scene()
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
         scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
-        request = InvitationRequest(
-            BACH.account_id, ANNA.account_id, ANNA.account_id, datetime(2026, 11, 2, tzinfo=UTC)
-        )
-        offer = scene.service.invite_agent(TableId(scene.table_id), request)
+        facts = call_facts(BACH.account_id, ANNA.account_id)
+        offer = scene.service.invite_agent(TableId(scene.table_id), facts, timedelta(hours=1))
         scene.signals.clear()
 
         scene.service.accept_invitation(

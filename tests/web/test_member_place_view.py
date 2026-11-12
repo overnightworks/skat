@@ -14,7 +14,6 @@ from structlog.testing import capture_logs
 from skat.engine.deal import Position
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.table.asking import revision_of
-from skat.table.member_place import InvitationRequest
 from skat.table.records import EndedTable, EndReason, Series, TableId, TableOptions
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX
 from skat.web.mcp import (
@@ -39,6 +38,7 @@ from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLES_PATH
+from tests.support.calls import call_facts
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -215,8 +215,7 @@ class TestOnlyTheSeatedAgentReadsItsView:
 
     def test_an_agent_that_is_only_invited_reads_an_unknown_resource(self, skat, issuer, time, middlehand_auction, uri):
         other = another_agent(skat, issuer)
-        request = InvitationRequest(other.subject, OWNER, OWNER, time.moment() + timedelta(seconds=INVITATION_SECONDS))
-        skat.client.portal.call(_inviting, skat, middlehand_auction.table_id, request)
+        skat.client.portal.call(_inviting, skat, middlehand_auction.table_id, call_facts(other.subject, OWNER))
 
         assert (unknown(other.read_resource(uri)), other.listed_resources()) == (True, [STANDING_URI])
 
@@ -250,8 +249,10 @@ class TestOnlyTheSeatedAgentReadsItsView:
         assert len(answers) == 1
 
 
-async def _inviting(skat, table_id, request):
-    return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), request)
+async def _inviting(skat, table_id, facts):
+    return await run_in_threadpool(
+        skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
+    )
 
 
 def a_standing_change(skat, agent, time):
@@ -260,8 +261,7 @@ def a_standing_change(skat, agent, time):
     """
     person = skat.member()
     table_id = skat.create(person[0]).json()["id"]
-    request = InvitationRequest(agent.subject, OWNER, OWNER, time.moment() + timedelta(seconds=INVITATION_SECONDS))
-    skat.client.portal.call(_inviting, skat, table_id, request)
+    skat.client.portal.call(_inviting, skat, table_id, call_facts(agent.subject, OWNER))
     skat.client.cookies.clear()
 
 

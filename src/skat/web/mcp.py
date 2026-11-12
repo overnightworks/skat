@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
     from webauth.oidc import OidcRelyingParty
     from webauth.policies import PublicRule
-    from webauth.ports import SignInTransaction
+    from webauth.ports import AgentFacts, SignInTransaction
 
     from skat.web.member_place import MemberFront
 
@@ -88,6 +88,7 @@ class Exclusion(StrEnum):
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
     CALL_ORIGIN = "the framed page's call origin; an agent sits in no frame"
     FINAL_DELETION = "a final deletion is not yet a tool"
+    PERSON_ACT = "calling an agent is a person's act, no agent's tool"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
@@ -126,29 +127,28 @@ READ_RULE_SETS_MARK: Final = agent_tool(name=READ_RULE_SETS_TOOL, effect=ToolEff
 SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
-# Whether the admitted call's token carries the agent facts; the port that lists and reads resources is given only the
-# account, and a stored agent's account also holds a token without them, which is a person's.
-token_carries_agent_facts: Final[ContextVar[bool]] = ContextVar("token_carries_agent_facts", default=False)
+# The agent facts the admitted call's token carries, None for a person's token; the port that lists and reads resources
+# is given only the account, and a stored agent's account also holds a token without them, which is a person's.
+token_carries_agent_facts: Final[ContextVar[AgentFacts | None]] = ContextVar("token_carries_agent_facts", default=None)
 
 
-class _LeaseRenewingFront:
-    """The front, after it renews the lease of the agent whose call the gate admitted and tells what its token carries.
+class _AgentHearingFront:
+    """The front, after it tells the host of the agent whose call the gate admitted and hands it what its token carries.
 
     Every call that reaches here counts, a refusal by the front included: only the token's holder can make one. The
-    routes a tool calls in-process do not pass through here, so a request renews once. A person's token renews
-    nothing.
+    routes a tool calls in-process do not pass through here, so a request is heard once. A person's token is heard by
+    nobody.
     """
 
-    def __init__(self, front: ASGIApp, renew_lease: Callable[[str], None]) -> None:
+    def __init__(self, front: ASGIApp, agent_heard: Callable[[str, AgentFacts], None]) -> None:
         self._front = front
-        self._renew_lease = renew_lease
+        self._agent_heard = agent_heard
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         person = resource_person(HTTPConnection(scope))
-        carries_agent_facts = person.agent is not None
-        if carries_agent_facts:
-            self._renew_lease(person.id)
-        marker = token_carries_agent_facts.set(carries_agent_facts)
+        if person.agent is not None:
+            self._agent_heard(person.id, person.agent)
+        marker = token_carries_agent_facts.set(person.agent)
         try:
             await self._front(scope, receive, send)
         finally:
@@ -169,14 +169,14 @@ def mount_mcp(
     relying_party: OidcRelyingParty,
     transaction: SignInTransaction,
     public_origin: str,
-    renew_lease: Callable[[str], None],
+    agent_heard: Callable[[str, AgentFacts], None],
     member: MemberFront,
 ) -> McpAccess:
     """Serve /mcp and the resource's metadata document; call it after the last route of the schema is registered.
 
-    The front serves only inside `running()`, which the host's lifespan enters. `renew_lease(account_id)` hears every
-    admitted call of an agent. Beside the routes' tools the front serves the member's accept tool, its standing as a
-    resource and the changes that signal it.
+    The front serves only inside `running()`, which the host's lifespan enters. `agent_heard(account_id, facts)` hears
+    every admitted call of an agent with the facts of its token. Beside the routes' tools the front serves the member's
+    accept tool, its standing as a resource and the changes that signal it.
     """
     with warnings.catch_warnings():
         # A route for GET and HEAD gives both operations one id, which the tool generator never reads.
@@ -201,7 +201,7 @@ def mount_mcp(
         (*tools.tools, member.tool), resolve_person=resolve_person, resources=member.resources, changes=member.changes
     )
     # No methods named, so every method reaches the front, which refuses all but POST itself.
-    app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=_LeaseRenewingFront(front, renew_lease)))
+    app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=_AgentHearingFront(front, agent_heard)))
     install_resource_metadata(app, resource, issuer=issuer)
     admission = admission_for(issuer)
     return McpAccess(front, BearerGate(relying_party, admission, resource=resource), resource.public_rule)

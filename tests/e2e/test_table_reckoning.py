@@ -14,19 +14,12 @@ from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import THEY, WE
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
-    BID_VALUE,
     CARD,
-    EACH,
-    LIST_BONUS,
-    LOSES,
     LOST,
     MINUS,
     OVERBID,
-    SPIEL,
     TIMES,
-    WINS,
     WON,
-    WORTH,
     YOU,
     expect_the_page_around_the_card,
     loosely,
@@ -48,10 +41,7 @@ SCHWARZ = text(SOURCE_LANGUAGE, "result.levelSchwarz")
 OUVERT_CHIP = text(SOURCE_LANGUAGE, "result.levelOuvert")
 SCHNEIDER_ANNOUNCED = text(SOURCE_LANGUAGE, "result.announcedSchneider")
 SCHWARZ_ANNOUNCED = text(SOURCE_LANGUAGE, "result.announcedSchwarz")
-MIT = text(SOURCE_LANGUAGE, "result.matadorsWith")
-OHNE = text(SOURCE_LANGUAGE, "result.matadorsWithout")
-NOT_REACHED = text(SOURCE_LANGUAGE, "result.notReached")
-OUVERT = text(SOURCE_LANGUAGE, "game.ouvert")
+SPIEL = text(SOURCE_LANGUAGE, "result.levelSpiel")
 GAME_KARO = text(SOURCE_LANGUAGE, "game.karo")
 GAME_HERZ = text(SOURCE_LANGUAGE, "game.herz")
 GAME_KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
@@ -90,20 +80,35 @@ def listed(
 
 
 def steps_of(score: str, bonus: str, gain: str) -> tuple[str, str, str]:
-    return f"{SPIEL} {score}", f"{LIST_BONUS} {bonus}", f"= {gain}"
+    return (
+        text(SOURCE_LANGUAGE, "result.listGame", score=score),
+        text(SOURCE_LANGUAGE, "result.listBonus", bonus=bonus),
+        f"= {gain}",
+    )
+
+
+def matadors_chip(mit: bool, count: int) -> str:
+    return text(SOURCE_LANGUAGE, "result.matadorsWith" if mit else "result.matadorsWithout", count=count)
+
+
+# The unticked chip of the matadors, in both its forms and the counts the listed games use.
+MATADORS_CHIPS = {matadors_chip(mit, count) for mit in (True, False) for count in (1, 2)}
 
 
 MIT_2 = Matadors(mit=True, count=2)
 MIT_1 = Matadors(mit=True, count=1)
-KREUZ_MIT_2 = (f"{MIT} 2", SPIEL)
-HERZ_HAND_MIT_1 = (f"{MIT} 1", SPIEL, HAND)
+KREUZ_MIT_2 = (matadors_chip(True, 2), SPIEL)
+HERZ_HAND_MIT_1 = (matadors_chip(True, 1), SPIEL, HAND)
 HERZ_HAND_SCHNEIDER = (*HERZ_HAND_MIT_1, SCHNEIDER, SCHNEIDER_ANNOUNCED)
 GRAND_HAND_SCHWARZ = (*HERZ_HAND_SCHNEIDER, SCHWARZ, SCHWARZ_ANNOUNCED)
 GRAND_OUVERT_CHIPS = (*GRAND_HAND_SCHWARZ, OUVERT_CHIP)
-GRAND_OUVERT_WORDS = f"{GAME_GRAND} {OUVERT}"
-NULL_OUVERT_HAND_WORDS = f"{GAME_NULL} {OUVERT} {HAND}"
-SCHNEIDER_MISSED = f"{SCHNEIDER_ANNOUNCED}, {NOT_REACHED}"
-SCHWARZ_MISSED = f"{SCHWARZ_ANNOUNCED}, {NOT_REACHED}"
+GRAND_OUVERT_WORDS = text(SOURCE_LANGUAGE, "game.ouvertName", game=GAME_GRAND)
+NULL_OUVERT_HAND_WORDS = text(SOURCE_LANGUAGE, "game.ouvertHandName", game=GAME_NULL)
+NULL_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_NULL)
+HERZ_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_HERZ)
+GRAND_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_GRAND)
+SCHNEIDER_MISSED = text(SOURCE_LANGUAGE, "result.missedSchneider")
+SCHWARZ_MISSED = text(SOURCE_LANGUAGE, "result.missedSchwarz")
 LOST_GAME_SHARE = "+40"
 
 RECKONINGS = [
@@ -158,12 +163,12 @@ RECKONINGS = [
             declarer_points=70,
         ),
         GAME_KARO,
-        (f"{MIT} 1", SPIEL),
+        (matadors_chip(True, 1), SPIEL),
         ("2", TIMES, "9", "=", "18"),
         f"{MINUS}54",
         steps_of(f"{MINUS}54", f"{MINUS}50", f"{MINUS}104"),
         LOST_GAME_SHARE,
-        raised=f"{WORTH} 18 < {BID_VALUE} 20 \u2192 27",
+        raised=text(SOURCE_LANGUAGE, "result.raise", value="18", bid="20", settled="27"),
     ),
     Reckoning(
         "null-hand-won",
@@ -178,7 +183,7 @@ RECKONINGS = [
             score=35,
             declarer_points=0,
         ),
-        f"{GAME_NULL} {HAND}",
+        NULL_HAND_WORDS,
         (),
         None,
         "+35",
@@ -219,7 +224,7 @@ RECKONINGS = [
             declarer_points=70,
         ),
         GAME_GRAND,
-        (f"{OHNE} 2", SPIEL),
+        (matadors_chip(False, 2), SPIEL),
         ("3", TIMES, GAME_GRAND, "24"),
         "+72",
         steps_of("+72", "+50", "+122"),
@@ -238,7 +243,7 @@ RECKONINGS = [
             score=30,
             declarer_points=80,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_MIT_1,
         ("3", TIMES, "10"),
         "+30",
@@ -260,7 +265,7 @@ RECKONINGS = [
             score=50,
             declarer_points=95,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_SCHNEIDER,
         ("5", TIMES, "10"),
         "+50",
@@ -282,7 +287,7 @@ RECKONINGS = [
             score=-100,
             declarer_points=75,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_SCHNEIDER,
         ("5", TIMES, "10", "=", "50"),
         f"{MINUS}100",
@@ -306,7 +311,7 @@ RECKONINGS = [
             score=-336,
             declarer_points=90,
         ),
-        f"{GAME_GRAND} {HAND}",
+        GRAND_HAND_WORDS,
         GRAND_HAND_SCHWARZ,
         ("7", TIMES, GAME_GRAND, "24", "=", "168"),
         f"{MINUS}336",
@@ -329,13 +334,13 @@ RECKONINGS = [
             score=-120,
             declarer_points=75,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_SCHNEIDER,
         ("5", TIMES, "10", "=", "50"),
         f"{MINUS}120",
         steps_of(f"{MINUS}120", f"{MINUS}50", f"{MINUS}170"),
         LOST_GAME_SHARE,
-        raised=f"{WORTH} 50 < {BID_VALUE} 60 \u2192 60",
+        raised=text(SOURCE_LANGUAGE, "result.raise", value="50", bid="60", settled="60"),
     ),
     Reckoning(
         "grand-ouvert-won",
@@ -456,7 +461,7 @@ def expect_the_ladder(card: Locator, reckoning: Reckoning) -> None:
     if reckoning.chips:
         expect(card.locator(".ladder > *")).to_have_text(list(reckoning.chips))
         expect_one_pill_per_chip(card)
-        expect_the_ticks_drawn(card, sum(not chip.startswith((MIT, OHNE)) for chip in reckoning.chips))
+        expect_the_ticks_drawn(card, sum(chip not in MATADORS_CHIPS for chip in reckoning.chips))
     else:
         expect(card.locator(".ladder")).to_have_count(0)
 
@@ -487,7 +492,11 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     card = person.locator(CARD)
     expect(card).to_have_count(1)
     if role == "watcher":
-        heading = f"{declarer_name} {WINS if entry.won else LOSES}"
+        heading = text(
+            SOURCE_LANGUAGE,
+            "result.declarerWins" if entry.won else "result.declarerLoses",
+            name=declarer_name,
+        )
     else:
         heading = WON if entry.won == (role == "declarer") else LOST
     expect(card.locator("h3")).to_have_text(heading)
@@ -496,7 +505,11 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
         "opponent": (declarer_name, WE),
         "watcher": (declarer_name, THEY),
     }[role]
-    game = f"{declarer_name}, {reckoning.game}" if role == "opponent" else reckoning.game
+    game = (
+        text(SOURCE_LANGUAGE, "result.opponentGameLine", declarer=declarer_name, game=reckoning.game)
+        if role == "opponent"
+        else reckoning.game
+    )
     expect(card.locator(".sub .game")).to_have_text(game)
     expect_the_ladder(card, reckoning)
     expect_the_equation(card, reckoning)
@@ -505,7 +518,7 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     expect(card.locator(".value")).to_have_text(reckoning.value)
     steps = [declarer_side, *reckoning.steps]
     if not entry.won:
-        steps.append(f"\u00b7 {opponents_side} {EACH} {reckoning.opponent_gain}")
+        steps.append(text(SOURCE_LANGUAGE, "result.share", opponents=opponents_side, gain=reckoning.opponent_gain))
     expect(card.locator(".list")).to_have_text(loosely(*steps))
     expect(card.locator(".points")).to_have_count(1 if reckoning.points else 0)
     for seat in (1, 2, 3):

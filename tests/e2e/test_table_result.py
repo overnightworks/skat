@@ -6,25 +6,19 @@ from playwright.sync_api import Locator, Page, Route, expect
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
-    BID_VALUE,
     CARD,
-    EACH,
-    LIST_BONUS,
-    LOSES,
     LOST,
     MINUS,
     OVERBID,
-    SPIEL,
     TIMES,
-    WINS,
     WON,
-    WORTH,
     YOU,
     expect_the_page_around_the_card,
     loosely,
@@ -42,6 +36,7 @@ pytestmark = pytest.mark.e2e
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
+AGENTS_PILL = text(SOURCE_LANGUAGE, "agents.pill")
 WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
 AND = text(SOURCE_LANGUAGE, "result.and")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
@@ -123,7 +118,11 @@ def expected_word(table: PlayingTable, person: Page) -> str:
     won = table.result()["won"]
     role = role_of(table, person)
     if role == "watcher":
-        return f"{table.names[table.declarer_seat]} {WINS if won else LOSES}"
+        return text(
+            SOURCE_LANGUAGE,
+            "result.declarerWins" if won else "result.declarerLoses",
+            name=table.names[table.declarer_seat],
+        )
     return WON if won == (role == "declarer") else LOST
 
 
@@ -131,7 +130,13 @@ def expect_the_raise(card: Locator, result: dict[str, Any]) -> None:
     if result["overbid"]:
         expect(card.locator(".stamp")).to_have_text(OVERBID)
         expect(card.locator(".miss:not(.missed)")).to_have_text(
-            f"{WORTH} {result['game_value']} < {BID_VALUE} {result['bid']} \u2192 {result['settled_value']}"
+            text(
+                SOURCE_LANGUAGE,
+                "result.raise",
+                value=str(result["game_value"]),
+                bid=str(result["bid"]),
+                settled=str(result["settled_value"]),
+            )
         )
     else:
         expect(card.locator(".stamp")).to_have_count(0)
@@ -169,18 +174,22 @@ def expect_the_card(table: PlayingTable) -> None:
         names = {"declarer": (YOU, THEY), "opponent": (table.names[table.declarer_seat], WE)}.get(
             role, (table.names[table.declarer_seat], THEY)
         )
-        expect(card.locator(".sides .declarer")).to_have_text(f"{names[0]} {result['declarer_points']}")
-        expect(card.locator(".sides .opponents")).to_have_text(f"{names[1]} {result['opponents_points']}")
+        expect(card.locator(".sides .declarer")).to_have_text(
+            text(SOURCE_LANGUAGE, "result.sidePoints", side=names[0], points=str(result["declarer_points"]))
+        )
+        expect(card.locator(".sides .opponents")).to_have_text(
+            text(SOURCE_LANGUAGE, "result.sidePoints", side=names[1], points=str(result["opponents_points"]))
+        )
         declarer_gain = next(gain for gain in result["gains"] if gain["seat"] == result["declarer_seat"])["gain"]
         opponent_gain = next(gain for gain in result["gains"] if gain["seat"] != result["declarer_seat"])["gain"]
         steps = [
             names[0],
-            f"{SPIEL} {signed(result['score'])}",
-            f"{LIST_BONUS} {signed(result['list_bonus'])}",
+            text(SOURCE_LANGUAGE, "result.listGame", score=signed(result["score"])),
+            text(SOURCE_LANGUAGE, "result.listBonus", bonus=signed(result["list_bonus"])),
             f"= {signed(declarer_gain)}",
         ]
         if result["doubled"]:
-            steps.append(f"\u00b7 {names[1]} {EACH} {signed(opponent_gain)}")
+            steps.append(text(SOURCE_LANGUAGE, "result.share", opponents=names[1], gain=signed(opponent_gain)))
         expect(card.locator(".list")).to_have_text(loosely(*steps))
         expect_the_rows(card, table, person, role, result)
 
@@ -255,6 +264,17 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     for person in table.pages.values():
         expect(person.locator(OWN_HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     assert page_errors == []
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_result_bar_stays_inside_the_page_with_the_agents_pill(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
+    for person in table.everyone:
+        expect(person.locator(".actions").get_by_role("button", name=AGENTS_PILL)).to_be_visible()
+    expect_the_bars_inside_the_pages(table)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

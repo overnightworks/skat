@@ -1,11 +1,15 @@
 // Generated from the de catalog by design-catalogs. Do not edit.
 
 export const language = "de";
+const numberFormat = new Intl.NumberFormat("de");
+const pluralRules = new Intl.PluralRules("de");
 // prettier-ignore
 export type Words = {
     readonly "app.name": string;
     readonly "app.reconnecting": string;
     readonly "app.unreachable": string;
+    readonly "app.pageNotFound": string;
+    readonly "app.pageFailed": string;
     readonly "account.title": string;
     readonly "account.theme": string;
     readonly "account.followSystem": string;
@@ -14,7 +18,7 @@ export type Words = {
     readonly "account.logOut": string;
     readonly "start.newTable": string;
     readonly "start.seriesLength": string;
-    readonly "start.seriesGames": string;
+    readonly "start.seriesGames": (count: number) => string;
     readonly "start.seriesFewer": string;
     readonly "start.seriesMore": string;
     readonly "start.openTable": string;
@@ -60,17 +64,16 @@ export type Words = {
     readonly "table.readyMark": string;
     readonly "table.notReadyMark": string;
     readonly "result.seatFree": string;
-    readonly "result.bidValue": string;
     readonly "result.hand": string;
     readonly "result.levelSpiel": string;
     readonly "result.levelSchneider": string;
     readonly "result.levelSchwarz": string;
     readonly "result.levelOuvert": string;
-    readonly "result.matadorsWith": string;
-    readonly "result.matadorsWithout": string;
-    readonly "result.listBonus": string;
-    readonly "result.each": string;
-    readonly "result.notReached": string;
+    readonly "result.matadorsWith": (count: number) => string;
+    readonly "result.matadorsWithout": (count: number) => string;
+    readonly "result.listGame": (gaps: { readonly score: string }) => string;
+    readonly "result.listBonus": (gaps: { readonly bonus: string }) => string;
+    readonly "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => string;
     readonly "result.announcedSchneider": string;
     readonly "result.announcedSchwarz": string;
     readonly "result.sideThem": string;
@@ -78,17 +81,18 @@ export type Words = {
     readonly "result.sideYou": string;
     readonly "result.won": string;
     readonly "result.lost": string;
-    readonly "result.wins": string;
-    readonly "result.loses": string;
     readonly "result.overbid": string;
-    readonly "result.gameWorth": string;
     readonly "result.and": string;
+    readonly "result.declarerWins": (gaps: { readonly name: string }) => string;
+    readonly "result.declarerLoses": (gaps: { readonly name: string }) => string;
+    readonly "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => string;
+    readonly "result.missedSchneider": string;
+    readonly "result.missedSchwarz": string;
+    readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
+    readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
     readonly "closed.notFound": string;
-    readonly "closed.nobodyThereClosed": string;
-    readonly "closed.minute": string;
-    readonly "closed.minutes": string;
-    readonly "closed.second": string;
-    readonly "closed.seconds": string;
+    readonly "closed.emptySeconds": (count: number) => string;
+    readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "declare.putBack": string;
@@ -107,10 +111,11 @@ export type Words = {
     readonly "game.forehand": string;
     readonly "game.middlehand": string;
     readonly "game.rearhand": string;
-    readonly "game.hand": string;
+    readonly "game.handName": (gaps: { readonly game: string }) => string;
     readonly "game.announcedSchneider": string;
     readonly "game.announcedSchwarz": string;
-    readonly "game.ouvert": string;
+    readonly "game.ouvertName": (gaps: { readonly game: string }) => string;
+    readonly "game.ouvertHandName": (gaps: { readonly game: string }) => string;
     readonly "game.karo": string;
     readonly "game.herz": string;
     readonly "game.pik": string;
@@ -125,6 +130,7 @@ export type Words = {
     readonly "game.rankQueen": string;
     readonly "game.rankKing": string;
     readonly "game.rankAce": string;
+    readonly "game.cardName": (gaps: { readonly rank: string; readonly suit: string }) => string;
     readonly "legal.imprint": string;
     readonly "legal.privacy": string;
     readonly "legal.terms": string;
@@ -132,12 +138,28 @@ export type Words = {
     readonly "card.letterQueen": string;
     readonly "card.letterKing": string;
     readonly "card.letterAce": string;
+    readonly "agents.pill": string;
+    readonly "agents.call": string;
+    readonly "agents.calling": string;
+    readonly "agents.askToLeave": string;
+    readonly "agents.callLabel": (gaps: { readonly name: string }) => string;
+    readonly "agents.askToLeaveLabel": (gaps: { readonly name: string }) => string;
+    readonly "agents.empty": string;
+    readonly "agents.refusalNotAllowed": string;
+    readonly "agents.refusalOwnerAbsent": string;
+    readonly "agents.refusalPlaceFull": string;
+    readonly "agents.refusalAgentUnavailable": string;
+    readonly "agents.refusalTryAgain": string;
+    readonly "table.agentSits": (gaps: { readonly name: string }) => string;
+    readonly "logout.button": string;
 };
 // prettier-ignore
 export const words: Words = {
     "app.name": "Skat",
     "app.reconnecting": "verbinde neu",
     "app.unreachable": "Skat ist gerade nicht erreichbar.",
+    "app.pageNotFound": "Diese Seite gibt es nicht.",
+    "app.pageFailed": "Diese Seite lässt sich nicht laden.",
     "account.title": "Konto",
     "account.theme": "Darstellung",
     "account.followSystem": "System",
@@ -146,7 +168,14 @@ export const words: Words = {
     "account.logOut": "Abmelden",
     "start.newTable": "Neuer Tisch",
     "start.seriesLength": "Länge der Serie",
-    "start.seriesGames": "Spiele",
+    "start.seriesGames": (count: number) => ({
+        zero: "Spiele",
+        one: "Spiel",
+        two: "Spiele",
+        few: "Spiele",
+        many: "Spiele",
+        other: "Spiele",
+    })[pluralRules.select(count)],
     "start.seriesFewer": "3 Spiele weniger",
     "start.seriesMore": "3 Spiele mehr",
     "start.openTable": "Aufmachen",
@@ -192,17 +221,30 @@ export const words: Words = {
     "table.readyMark": "Weiter getippt",
     "table.notReadyMark": "noch nicht getippt",
     "result.seatFree": "Frei",
-    "result.bidValue": "Reizwert",
     "result.hand": "Hand",
     "result.levelSpiel": "Spiel",
     "result.levelSchneider": "Schneider",
     "result.levelSchwarz": "Schwarz",
     "result.levelOuvert": "Ouvert",
-    "result.matadorsWith": "mit",
-    "result.matadorsWithout": "ohne",
-    "result.listBonus": "Liste",
-    "result.each": "je",
-    "result.notReached": "nicht erreicht",
+    "result.matadorsWith": (count: number) => ({
+        zero: "mit " + numberFormat.format(count),
+        one: "mit " + numberFormat.format(count),
+        two: "mit " + numberFormat.format(count),
+        few: "mit " + numberFormat.format(count),
+        many: "mit " + numberFormat.format(count),
+        other: "mit " + numberFormat.format(count),
+    })[pluralRules.select(count)],
+    "result.matadorsWithout": (count: number) => ({
+        zero: "ohne " + numberFormat.format(count),
+        one: "ohne " + numberFormat.format(count),
+        two: "ohne " + numberFormat.format(count),
+        few: "ohne " + numberFormat.format(count),
+        many: "ohne " + numberFormat.format(count),
+        other: "ohne " + numberFormat.format(count),
+    })[pluralRules.select(count)],
+    "result.listGame": (gaps: { readonly score: string }) => "Spiel " + gaps.score,
+    "result.listBonus": (gaps: { readonly bonus: string }) => "Liste " + gaps.bonus,
+    "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => "· " + gaps.opponents + " je " + gaps.gain,
     "result.announcedSchneider": "Schneider angesagt",
     "result.announcedSchwarz": "Schwarz angesagt",
     "result.sideThem": "Gegner",
@@ -210,17 +252,32 @@ export const words: Words = {
     "result.sideYou": "Du",
     "result.won": "Gewonnen!",
     "result.lost": "Verloren",
-    "result.wins": "gewinnt",
-    "result.loses": "verliert",
     "result.overbid": "Überreizt",
-    "result.gameWorth": "Wert",
     "result.and": "und",
+    "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " gewinnt",
+    "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " verliert",
+    "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => gaps.declarer + ", " + gaps.game,
+    "result.missedSchneider": "Schneider angesagt, nicht erreicht",
+    "result.missedSchwarz": "Schwarz angesagt, nicht erreicht",
+    "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
+    "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
     "closed.notFound": "Tisch nicht gefunden",
-    "closed.nobodyThereClosed": "niemand da: Tisch geschlossen",
-    "closed.minute": "Minute",
-    "closed.minutes": "Minuten",
-    "closed.second": "Sekunde",
-    "closed.seconds": "Sekunden",
+    "closed.emptySeconds": (count: number) => ({
+        zero: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        one: numberFormat.format(count) + " Sekunde niemand da: Tisch geschlossen",
+        two: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        few: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        many: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        other: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+    })[pluralRules.select(count)],
+    "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => ({
+        zero: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        one: gaps.minutes + " Minute niemand da: Tisch geschlossen",
+        two: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        few: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        many: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        other: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+    })[pluralRules.select(count)],
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "declare.putBack": "Drücken",
@@ -239,10 +296,11 @@ export const words: Words = {
     "game.forehand": "Vorhand",
     "game.middlehand": "Mittelhand",
     "game.rearhand": "Hinterhand",
-    "game.hand": "Hand",
+    "game.handName": (gaps: { readonly game: string }) => gaps.game + " Hand",
     "game.announcedSchneider": "Schneider angesagt",
     "game.announcedSchwarz": "Schwarz angesagt",
-    "game.ouvert": "ouvert",
+    "game.ouvertName": (gaps: { readonly game: string }) => gaps.game + " ouvert",
+    "game.ouvertHandName": (gaps: { readonly game: string }) => gaps.game + " ouvert Hand",
     "game.karo": "Karo",
     "game.herz": "Herz",
     "game.pik": "Pik",
@@ -257,6 +315,7 @@ export const words: Words = {
     "game.rankQueen": "Dame",
     "game.rankKing": "König",
     "game.rankAce": "Ass",
+    "game.cardName": (gaps: { readonly rank: string; readonly suit: string }) => gaps.suit + " " + gaps.rank,
     "legal.imprint": "Impressum",
     "legal.privacy": "Datenschutz",
     "legal.terms": "Nutzungsbedingungen",
@@ -264,5 +323,19 @@ export const words: Words = {
     "card.letterQueen": "D",
     "card.letterKing": "K",
     "card.letterAce": "A",
+    "agents.pill": "Agenten",
+    "agents.call": "Rufen",
+    "agents.calling": "Wird gerufen…",
+    "agents.askToLeave": "Bitten zu gehen",
+    "agents.callLabel": (gaps: { readonly name: string }) => gaps.name + " rufen",
+    "agents.askToLeaveLabel": (gaps: { readonly name: string }) => gaps.name + " bitten zu gehen",
+    "agents.empty": "Gerade ist kein Agent erreichbar.",
+    "agents.refusalNotAllowed": "Du darfst diesen Agenten nicht rufen.",
+    "agents.refusalOwnerAbsent": "Sein Besitzer ist nicht hier.",
+    "agents.refusalPlaceFull": "Hier ist kein Platz für einen weiteren Agenten.",
+    "agents.refusalAgentUnavailable": "Der Agent ist gerade nicht erreichbar.",
+    "agents.refusalTryAgain": "Das hat nicht geklappt. Versuch es noch einmal.",
+    "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
+    "logout.button": "Abmelden",
 };
 export type Key = keyof Words;

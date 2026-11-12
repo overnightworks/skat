@@ -27,7 +27,6 @@ TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 PUT_BACK = text(SOURCE_LANGUAGE, "declare.putBack")
 ANNOUNCE = text(SOURCE_LANGUAGE, "declare.announceGame")
 HAND = text(SOURCE_LANGUAGE, "declare.hand")
-PLAQUE_HAND = text(SOURCE_LANGUAGE, "game.hand")
 SCHNEIDER = text(SOURCE_LANGUAGE, "declare.levelSchneider")
 SCHWARZ = text(SOURCE_LANGUAGE, "declare.levelSchwarz")
 OUVERT_RUNG = text(SOURCE_LANGUAGE, "declare.levelOuvert")
@@ -42,7 +41,8 @@ PLAYS = text(SOURCE_LANGUAGE, "table.plays")
 CHOOSES = text(SOURCE_LANGUAGE, "table.chooses")
 DISCARDS = text(SOURCE_LANGUAGE, "table.discards")
 NULL_GAME = text(SOURCE_LANGUAGE, "game.null")
-NULL_OUVERT = f"{NULL_GAME} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
+NULL_OUVERT = text(SOURCE_LANGUAGE, "game.ouvertName", game=NULL_GAME)
+NULL_HAND = text(SOURCE_LANGUAGE, "game.handName", game=NULL_GAME)
 GAME_NAMES = [
     *(text(SOURCE_LANGUAGE, key) for key in ("game.karo", "game.herz", "game.pik", "game.kreuz", "game.grand")),
     NULL_GAME,
@@ -167,7 +167,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
     assert declaration == {"game": "null", "hand": False, "ouvert": False, "announcement": "none"}
     expect(declarer.locator(PLAQUE)).to_contain_text(NULL_GAME)
-    expect(declarer.locator(PLAQUE)).not_to_contain_text(PLAQUE_HAND)
+    expect(declarer.locator(PLAQUE)).not_to_contain_text(NULL_HAND)
     reload_and_wait(declarer)
     expect_no_controls(declarer)
     assert page_errors == []
@@ -509,7 +509,7 @@ def test_a_grand_hand_game_is_named_on_every_plaque_and_result_card(
     expect_no_controls(declaring.declarer)
     table = PlayingTable(declaring, None)
 
-    grand_hand = f"{text(SOURCE_LANGUAGE, 'game.grand')} {PLAQUE_HAND}"
+    grand_hand = text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, "game.grand"))
     for person in table.everyone:
         expect(person.locator(PLAQUE)).to_contain_text(grand_hand)
         expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
@@ -612,7 +612,9 @@ def test_an_announced_hand_game_is_stored_with_one_command_and_every_plaque_name
 
     reload_and_wait(declarer)
     for person in table.everyone:
-        expect(person.locator(PLAQUE)).to_contain_text(f"{text(SOURCE_LANGUAGE, word_key)} {PLAQUE_HAND}")
+        expect(person.locator(PLAQUE)).to_contain_text(
+            text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, word_key))
+        )
         expect(person.locator(ANNOUNCED_MARK)).to_have_text(ANNOUNCED_WORDS[level])
         plaque = person.locator(PLAQUE).bounding_box()
         for covered in (*person.locator(".fan-spot").all(), *person.locator(".own-hand").all()):

@@ -6,7 +6,7 @@ reason = "The generated loader (`languages`, `sourceLanguage`, `loadWords`) that
 [[code]]
 path = "src/skat/engine/giving_up.py"
 item = "overnightworks/skat#27"
-reason = "S5.4b lets the declarer shorten and lets an opponent play open."
+reason = "S5.4b lets an opponent give up, lets the declarer shorten and lets an opponent play open."
 
 [[code]]
 path = "src/skat/engine/kontra.py"
@@ -19,16 +19,11 @@ item = "overnightworks/skat#327"
 reason = "S13.4d3 lets a seat declare a Grand Hand instead of a Ramsch: `declare_grand_hand`, `DeclareGrandHand`, `GrandHandRule.ALLOWED` and `PushRefusal.GRAND_HAND_OFF`."
 
 [[code]]
-path = "src/skat/table/member_place.py"
-item = "overnightworks/skat#315"
-reason = "K3 calls an agent to a table: `decide_invite` with its request, refusal and invitation id."
-
-[[code]]
 path = "src/skat/table/send_away.py"
-item = "overnightworks/skat#315"
-reason = "K3 sends an agent away from its chair: `decide_send_away`."
+item = "overnightworks/skat#384"
+reason = "K3c sends an agent away from its chair: `decide_send_away`."
 
 [[code]]
 path = "src/skat/table/service.py"
-item = "overnightworks/skat#315"
-reason = "K3 calls an agent to a table and sends it away: `TableService.invite_agent` and `TableService.send_away`."
+item = "overnightworks/skat#384"
+reason = "K3c sends an agent away from its chair: `TableService.send_away`."

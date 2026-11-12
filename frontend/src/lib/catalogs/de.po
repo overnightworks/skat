@@ -15,6 +15,14 @@ msgctxt "app.unreachable"
 msgid "Skat ist gerade nicht erreichbar."
 msgstr ""
 
+msgctxt "app.pageNotFound"
+msgid "Diese Seite gibt es nicht."
+msgstr ""
+
+msgctxt "app.pageFailed"
+msgid "Diese Seite lässt sich nicht laden."
+msgstr ""
+
 msgctxt "account.title"
 msgid "Konto"
 msgstr ""
@@ -47,7 +55,11 @@ msgctxt "start.seriesLength"
 msgid "Länge der Serie"
 msgstr ""
 
-msgctxt "start.seriesGames"
+msgctxt "start.seriesGames.one"
+msgid "Spiel"
+msgstr ""
+
+msgctxt "start.seriesGames.other"
 msgid "Spiele"
 msgstr ""
 
@@ -231,10 +243,6 @@ msgctxt "result.seatFree"
 msgid "Frei"
 msgstr ""
 
-msgctxt "result.bidValue"
-msgid "Reizwert"
-msgstr ""
-
 msgctxt "result.hand"
 msgid "Hand"
 msgstr ""
@@ -255,24 +263,32 @@ msgctxt "result.levelOuvert"
 msgid "Ouvert"
 msgstr ""
 
-msgctxt "result.matadorsWith"
-msgid "mit"
+msgctxt "result.matadorsWith.one"
+msgid "mit {count}"
 msgstr ""
 
-msgctxt "result.matadorsWithout"
-msgid "ohne"
+msgctxt "result.matadorsWith.other"
+msgid "mit {count}"
+msgstr ""
+
+msgctxt "result.matadorsWithout.one"
+msgid "ohne {count}"
+msgstr ""
+
+msgctxt "result.matadorsWithout.other"
+msgid "ohne {count}"
+msgstr ""
+
+msgctxt "result.listGame"
+msgid "Spiel {score}"
 msgstr ""
 
 msgctxt "result.listBonus"
-msgid "Liste"
+msgid "Liste {bonus}"
 msgstr ""
 
-msgctxt "result.each"
-msgid "je"
-msgstr ""
-
-msgctxt "result.notReached"
-msgid "nicht erreicht"
+msgctxt "result.share"
+msgid "· {opponents} je {gain}"
 msgstr ""
 
 msgctxt "result.announcedSchneider"
@@ -303,48 +319,60 @@ msgctxt "result.lost"
 msgid "Verloren"
 msgstr ""
 
-msgctxt "result.wins"
-msgid "gewinnt"
-msgstr ""
-
-msgctxt "result.loses"
-msgid "verliert"
-msgstr ""
-
 msgctxt "result.overbid"
 msgid "Überreizt"
-msgstr ""
-
-msgctxt "result.gameWorth"
-msgid "Wert"
 msgstr ""
 
 msgctxt "result.and"
 msgid "und"
 msgstr ""
 
+msgctxt "result.declarerWins"
+msgid "{name} gewinnt"
+msgstr ""
+
+msgctxt "result.declarerLoses"
+msgid "{name} verliert"
+msgstr ""
+
+msgctxt "result.opponentGameLine"
+msgid "{declarer}, {game}"
+msgstr ""
+
+msgctxt "result.missedSchneider"
+msgid "Schneider angesagt, nicht erreicht"
+msgstr ""
+
+msgctxt "result.missedSchwarz"
+msgid "Schwarz angesagt, nicht erreicht"
+msgstr ""
+
+msgctxt "result.raise"
+msgid "Wert {value} < Reizwert {bid} → {settled}"
+msgstr ""
+
+msgctxt "result.sidePoints"
+msgid "{side} {points}"
+msgstr ""
+
 msgctxt "closed.notFound"
 msgid "Tisch nicht gefunden"
 msgstr ""
 
-msgctxt "closed.nobodyThereClosed"
-msgid "niemand da: Tisch geschlossen"
+msgctxt "closed.emptySeconds.one"
+msgid "{count} Sekunde niemand da: Tisch geschlossen"
 msgstr ""
 
-msgctxt "closed.minute"
-msgid "Minute"
+msgctxt "closed.emptySeconds.other"
+msgid "{count} Sekunden niemand da: Tisch geschlossen"
 msgstr ""
 
-msgctxt "closed.minutes"
-msgid "Minuten"
+msgctxt "closed.emptyMinutes.one"
+msgid "{minutes} Minute niemand da: Tisch geschlossen"
 msgstr ""
 
-msgctxt "closed.second"
-msgid "Sekunde"
-msgstr ""
-
-msgctxt "closed.seconds"
-msgid "Sekunden"
+msgctxt "closed.emptyMinutes.other"
+msgid "{minutes} Minuten niemand da: Tisch geschlossen"
 msgstr ""
 
 msgctxt "declare.commandFailed"
@@ -419,8 +447,8 @@ msgctxt "game.rearhand"
 msgid "Hinterhand"
 msgstr ""
 
-msgctxt "game.hand"
-msgid "Hand"
+msgctxt "game.handName"
+msgid "{game} Hand"
 msgstr ""
 
 msgctxt "game.announcedSchneider"
@@ -431,8 +459,12 @@ msgctxt "game.announcedSchwarz"
 msgid "Schwarz angesagt"
 msgstr ""
 
-msgctxt "game.ouvert"
-msgid "ouvert"
+msgctxt "game.ouvertName"
+msgid "{game} ouvert"
+msgstr ""
+
+msgctxt "game.ouvertHandName"
+msgid "{game} ouvert Hand"
 msgstr ""
 
 msgctxt "game.karo"
@@ -491,6 +523,10 @@ msgctxt "game.rankAce"
 msgid "Ass"
 msgstr ""
 
+msgctxt "game.cardName"
+msgid "{suit} {rank}"
+msgstr ""
+
 msgctxt "legal.imprint"
 msgid "Impressum"
 msgstr ""
@@ -517,4 +553,60 @@ msgstr ""
 
 msgctxt "card.letterAce"
 msgid "A"
+msgstr ""
+
+msgctxt "agents.pill"
+msgid "Agenten"
+msgstr ""
+
+msgctxt "agents.call"
+msgid "Rufen"
+msgstr ""
+
+msgctxt "agents.calling"
+msgid "Wird gerufen…"
+msgstr ""
+
+msgctxt "agents.askToLeave"
+msgid "Bitten zu gehen"
+msgstr ""
+
+msgctxt "agents.callLabel"
+msgid "{name} rufen"
+msgstr ""
+
+msgctxt "agents.askToLeaveLabel"
+msgid "{name} bitten zu gehen"
+msgstr ""
+
+msgctxt "agents.empty"
+msgid "Gerade ist kein Agent erreichbar."
+msgstr ""
+
+msgctxt "agents.refusalNotAllowed"
+msgid "Du darfst diesen Agenten nicht rufen."
+msgstr ""
+
+msgctxt "agents.refusalOwnerAbsent"
+msgid "Sein Besitzer ist nicht hier."
+msgstr ""
+
+msgctxt "agents.refusalPlaceFull"
+msgid "Hier ist kein Platz für einen weiteren Agenten."
+msgstr ""
+
+msgctxt "agents.refusalAgentUnavailable"
+msgid "Der Agent ist gerade nicht erreichbar."
+msgstr ""
+
+msgctxt "agents.refusalTryAgain"
+msgid "Das hat nicht geklappt. Versuch es noch einmal."
+msgstr ""
+
+msgctxt "table.agentSits"
+msgid "{name} setzt sich"
+msgstr ""
+
+msgctxt "logout.button"
+msgid "Abmelden"
 msgstr ""

@@ -3,7 +3,6 @@
 from dataclasses import replace
 
 import pytest
-from agents.mcp_server import ResourceChanges
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position
@@ -17,6 +16,7 @@ from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent
+from tests.web.support.changes import RecordedChanges
 from tests.web.support.skat import Skat
 
 SENT_SEAT = 2
@@ -80,18 +80,6 @@ class WaitingTable:
         )
 
 
-class RecordedChanges(ResourceChanges):
-    """The changes the app tells, in the order told."""
-
-    def __init__(self):
-        super().__init__()
-        self.told = []
-
-    def changed(self, recipient, uri):
-        self.told.append((recipient.sub, uri))
-        super().changed(recipient, uri)
-
-
 @pytest.fixture
 def changes():
     return RecordedChanges()
@@ -105,7 +93,7 @@ def skat(hold, issuer, time, changes):
         chair_clock=time.clock,
         chair_scheduler=time,
         now=time.moment,
-        resource_changes=changes,
+        resource_changes=changes.wired,
     )
     with skat.client:
         yield skat
