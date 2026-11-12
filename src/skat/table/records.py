@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from skat.engine.bock import BockOptions, BockRounds
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import DeclaringStep
-    from skat.engine.kontra import WordSaid
+    from skat.engine.kontra import Word, WordSaid
     from skat.engine.ramsch import RamschOptions
     from skat.engine.schieberamsch import Push, PushingRule, Put, Take
     from skat.engine.tricks import CardPlayed
@@ -213,12 +213,21 @@ type PushingStep = Take | Put | Push
 
 
 @dataclass(frozen=True)
+class NoWordSaid:
+    """A seat's answer that it says no word now: the seat's position and the word it may say, which stays open."""
+
+    position: Position
+    word: Word
+
+
+@dataclass(frozen=True)
 class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
     cards, so each carries how many cards were played before it. `pushing` holds the steps of a Ramsch's stage before
     its first card.
 
-    `give_up` is no step log: a card, the end of the hand or a deal clears it.
+    `give_up` and `no_words` are no step logs: the end of the hand or a deal clears them, a card clears `give_up`,
+    and a chair that changes hands takes its seat's part of them.
     """
 
     auction: tuple[AuctionStep, ...] = ()
@@ -226,6 +235,7 @@ class HandProgress:
     plays: tuple[CardPlayed, ...] = ()
     give_up: GiveUpAsked | None = None
     words: tuple[WordSaid, ...] = ()
+    no_words: frozenset[NoWordSaid] = frozenset()
     pushing: tuple[PushingStep, ...] = ()
 
 

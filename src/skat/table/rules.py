@@ -14,6 +14,7 @@ from skat.table.records import (
     GiveUpAsked,
     HandProgress,
     NewHand,
+    NoWordSaid,
     Occupant,
     Receipt,
     Refusal,
@@ -122,7 +123,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
 
     A freed chair is never ready, and whoever sits while a result is pending counts as ready, unless the series is
     over: a mark at the end is consent to „Neue Serie“, which only a tap gives. The chair's holder leaves his part of
-    a standing end proposal and of a standing give-up request behind.
+    a standing end proposal, of a standing give-up request and his no-word answers behind.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
@@ -135,7 +136,9 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
         chairs=chairs,
         dealer=table.dealer,
         hand=table.hand,
-        progress=replace(table.progress, give_up=_give_up_without(table, seat)),
+        progress=replace(
+            table.progress, give_up=_give_up_without(table, seat), no_words=_no_words_without(table, seat)
+        ),
         game_list=table.game_list,
         series=series,
         options=table.options,
@@ -167,6 +170,14 @@ def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
     if asked.declined_by is position:
         return GiveUpAsked(asked.asker)
     return asked
+
+
+def _no_words_without(table: TableRecord, seat: int) -> frozenset[NoWordSaid]:
+    """A chair's change takes its holder's answers of no word, so whoever sits there is asked the word afresh."""
+    if table.dealer is None:
+        return table.progress.no_words
+    position = positions_from(table.dealer)[seat]
+    return frozenset(answered for answered in table.progress.no_words if answered.position is not position)
 
 
 def sit_deals(table: TableRecord) -> bool:
