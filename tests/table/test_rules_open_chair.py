@@ -453,15 +453,34 @@ def totals_of(table):
     }
 
 
+def stood_up(table, seat):
+    """The table once the occupant of `seat` stood up."""
+    decision = decide_stand(table, actor_at(table, seat))
+    assert decision.refusal is None
+    return decision.table
+
+
+def sat(table, actor, seat):
+    decision = decide_sit(table, actor, seat, None)
+    assert decision.refusal is None
+    return decision.table
+
+
+OPENINGS = pytest.mark.parametrize("opening", [sent_away, stood_up], ids=["send-away", "stand-up"])
+
+
 class TestAGameEndedAfterATakeOver:
-    def test_the_entry_names_the_account_and_name_of_the_one_who_finished_it_and_keeps_the_agents_earlier_games(self):
+    @OPENINGS
+    def test_the_entry_names_the_account_and_name_of_the_one_who_finished_it_and_keeps_the_agents_earlier_games(
+        self, opening
+    ):
         declared, last = before_the_last_card(table_in(HandProgress()))
         earlier = an_entry((account_of(MIDDLEHAND), account_of(REARHAND), account_of(FOREHAND)))
         table = replace(declared, game_list=(earlier,))
         seat = seats_from(table.dealer)[last.position]
         sitter = newcomer(OccupantKind.PERSON, "Dora")
 
-        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        taken = decide_sit(opening(table, seat), sitter, seat, None).table
         ended = decide_card(taken, sitter, PlayCardCommand("command-1", taken.id.value, taken.version, last.card))
 
         finished = ended.table.game_list[-1]
@@ -476,13 +495,14 @@ class TestAGameEndedAfterATakeOver:
 
         assert (freed.series, freed.bock, freed.game_list) == (table.series, table.bock, table.game_list)
 
-    def test_the_sitter_is_credited_the_game_and_the_former_agent_keeps_his_earlier_credit(self):
+    @OPENINGS
+    def test_the_sitter_is_credited_the_game_and_the_former_agent_keeps_his_earlier_credit(self, opening):
         table, last, seat = before_the_last_game_of_a_bock_series()
         agent_account = actor_at(table, seat).account_id
         credit_before = view_of(table, "account-nobody", NOBODY).chairs[seat - 1].total
         sitter = newcomer()
 
-        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        taken = decide_sit(opening(table, seat), sitter, seat, None).table
         ended = last_card(taken, sitter, last)
         agent_finishing = last_card(table, actor_at(table, seat), last)
 
@@ -490,11 +510,12 @@ class TestAGameEndedAfterATakeOver:
         assert totals[agent_account] == credit_before
         assert totals[sitter.account_id] == totals_of(agent_finishing)[agent_account] - credit_before
 
-    def test_the_game_scores_under_the_bock_factor_it_ran_under_as_if_the_agent_had_finished_it(self):
+    @OPENINGS
+    def test_the_game_scores_under_the_bock_factor_it_ran_under_as_if_the_agent_had_finished_it(self, opening):
         table, last, seat = before_the_last_game_of_a_bock_series()
         sitter = newcomer()
 
-        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        taken = decide_sit(opening(table, seat), sitter, seat, None).table
         finished = last_card(taken, sitter, last).game_list[-1]
         by_agent = last_card(table, actor_at(table, seat), last).game_list[-1]
 
@@ -511,19 +532,6 @@ class TestAGameEndedAfterATakeOver:
 
         assert ended.hand is None
         assert ended.bock != BockRounds.start()
-
-
-def stood_up(table, seat):
-    """The table once the occupant of `seat` stood up."""
-    decision = decide_stand(table, actor_at(table, seat))
-    assert decision.refusal is None
-    return decision.table
-
-
-def sat(table, actor, seat):
-    decision = decide_sit(table, actor, seat, None)
-    assert decision.refusal is None
-    return decision.table
 
 
 def replaced(table, leaver_seat):
@@ -576,6 +584,26 @@ class TestAStandUpDuringAHand:
             SeatHeld(actor_at(table, FOREHAND_SEAT).account_id, FOREHAND_SEAT),
             SeatHeld(first.account_id, FOREHAND_SEAT),
             SeatHeld(second.account_id, FOREHAND_SEAT),
+        }
+
+    def test_a_newcomer_plays_a_card_stands_up_and_the_next_sitter_resumes_the_hand_where_it_stood(self):
+        table = PHASES["in-a-trick"]()
+        seat = seat_on_turn(table)
+        first, second = newcomer(name="Dora"), newcomer(name="Erik")
+        taken = sat(stood_up(table, seat), first, seat)
+        card = view_of(taken, first.account_id, NOBODY).hand.playing.legal_cards[0]
+        played = decide_card(taken, first, PlayCardCommand("command-1", taken.id.value, taken.version, card)).table
+
+        left = stood_up(played, seat)
+        resumed = sat(left, second, seat)
+
+        assert waiting_seat_of(left) == seat
+        assert waiting_seat_of(resumed) is None
+        assert (resumed.progress.plays, seat_on_turn(resumed)) == (played.progress.plays, seat_on_turn(played))
+        assert resumed.progress.plays[-1].card == card
+        assert resumed.progress.seats_held == {
+            SeatHeld(actor_at(table, seat).account_id, seat),
+            SeatHeld(first.account_id, seat),
         }
 
     def test_a_second_leave_of_the_same_chair_is_the_same_mark(self):
