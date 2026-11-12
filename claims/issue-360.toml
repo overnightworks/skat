@@ -1,8 +1,0 @@
-claim_id = "b68cd147068b4223b23513fefdb071cd"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "103b7da6b0b4ab2929216a616a5e392509268175"
-branch = "claude/issue-360-s3-7b-lobby-count"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/web/lobby.py", "src/skat/web/streams.py", "tests/e2e/test_table_home.py", "tests/web/test_streams.py"]
-opened_commit = "29a3dc1571ad84611698efedd6f77c760386bd03"
-whole_reason = "The count's source on the table stream and the circle that draws it are one mark: a count nobody draws is dead, a circle without its source lies."
