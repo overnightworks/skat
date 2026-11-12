@@ -154,13 +154,13 @@ class TestDeclaringAGrandHandInstead:
         refused(table, FOREHAND, "grand-hand", "wrong-phase")
         refused(table, MIDDLEHAND, "grand-hand", "wrong-phase")
 
-    def test_a_declaration_or_an_announcement_after_it_is_refused_as_already_declared(self, skat):
+    @pytest.mark.parametrize("announcement", ["schneider", "schwarz", "none"])
+    def test_a_declaration_or_an_announcement_after_it_is_refused_as_already_declared(self, skat, announcement):
         table = grand_hand_table(skat)
         accepted(table, FOREHAND, "grand-hand")
+        body = {"game": "grand", "hand": True, "ouvert": False, "announcement": announcement}
 
-        for announcement in ("schneider", "schwarz", "none"):
-            body = {"game": "grand", "hand": True, "ouvert": False, "announcement": announcement}
-            table.refused_act(TABLE_DECLARING_DECLARE_SUFFIX, table.at[FOREHAND], "already-declared", body=body)
+        table.refused_act(TABLE_DECLARING_DECLARE_SUFFIX, table.at[FOREHAND], "already-declared", body=body)
 
     @pytest.mark.parametrize(
         ("deal", "game"),
