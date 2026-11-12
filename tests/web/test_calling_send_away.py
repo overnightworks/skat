@@ -8,7 +8,6 @@ import pytest
 from agents.member import LEASE_SECONDS
 
 from skat.table.records import Actor, SendAway, TableId
-from skat.table.service import TableService
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
@@ -351,14 +350,14 @@ class TestASendAwayThatChangesNothing:
         nova = Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova")
         nova.sit_down(table_id, 2)
         key = only_row(skat, felix, table_id)["key"]
-        send_away_of_service = TableService.send_away
+        send_away_of_service = skat.tables.send_away
 
-        def ends_the_table_first(service, actor, command, connected):
+        def ends_the_table_first(actor, command, connected):
             skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
-            assert service.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
-            return send_away_of_service(service, actor, command, connected)
+            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+            return send_away_of_service(actor, command, connected)
 
-        monkeypatch.setattr(TableService, "send_away", ends_the_table_first)
+        monkeypatch.setattr(skat.tables, "send_away", ends_the_table_first)
 
         assert send_away(skat, felix, table_id, key).status_code == 404
 
