@@ -113,6 +113,12 @@ class TestTheWaitingCase:
             pytest.param(table_in(HandProgress()), MIDDLEHAND, WaitingCase.TURN, id="the-seat-on-turn"),
             pytest.param(asked_by_the_declarer(None), REARHAND, WaitingCase.GIVE_UP, id="an-unanswered-give-up"),
             pytest.param(asked_by_the_declarer(None), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-give-up"),
+            pytest.param(
+                asked_by_an_opponent(), MIDDLEHAND, WaitingCase.GIVE_UP, id="the-declarer-on-an-opponents-give-up"
+            ),
+            pytest.param(
+                asked_by_an_opponent(), FOREHAND, None, id="nothing-for-the-seat-on-turn-while-the-declarer-is-asked"
+            ),
             pytest.param(kontra_hand(), REARHAND, WaitingCase.KONTRA, id="an-unanswered-kontra-word"),
             pytest.param(kontra_hand(), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-kontra-word"),
             pytest.param(
