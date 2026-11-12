@@ -2259,10 +2259,23 @@ body {
     background: var(--on-stage);
 }
 
+/* A long name ends in an ellipsis inside the tag's width, padding included, so the tag stays clear of the next card and of
+   the next tag. On a phone the tag is no wider than its card, because the near card's tag lies close under the far ones'. */
+@media (max-width: 899px) {
+    .room .laid .tag {
+        box-sizing: border-box;
+        max-width: var(--card-width);
+    }
+}
+
 @media (min-width: 900px) {
     .room .trick {
         height: calc(var(--card-width) * 2.6);
         --card-width: 80px;
+    }
+
+    .room .laid .tag {
+        box-sizing: border-box;
     }
 
     .room .laid.left {
