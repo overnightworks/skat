@@ -19,20 +19,19 @@ def awaits_you(view: TableView) -> bool:
     if view.hand is not None:
         if view.hand.waiting_seat is not None:
             return False
-        if _opponents_give_up_stands(view.hand):
-            return view.hand.declaring is not None and own.seat == view.hand.declaring.declarer_seat
+        declarer_seat = _declarer_awaited_for_an_opponents_give_up(view.hand)
+        if declarer_seat is not None:
+            return own.seat == declarer_seat
         return turn_seat_of(view.hand) == own.seat or _give_up_waits_for(view, own.seat) or _kontra_word_waits(view)
     return (_a_result_or_series_end_stands(view) and not own.ready) or _proposal_waits_for(view, own.seat)
 
 
-def _opponents_give_up_stands(hand: HandView) -> bool:
+def _declarer_awaited_for_an_opponents_give_up(hand: HandView) -> int | None:
+    """The declarer's seat while an opponent's give-up stands, else None."""
     playing, declaring = hand.playing, hand.declaring
-    return (
-        playing is not None
-        and playing.give_up is not None
-        and declaring is not None
-        and playing.give_up.asking_seat != declaring.declarer_seat
-    )
+    if playing is None or playing.give_up is None or declaring is None:
+        return None
+    return None if playing.give_up.asking_seat == declaring.declarer_seat else declaring.declarer_seat
 
 
 def _give_up_waits_for(view: TableView, seat: int) -> bool:
