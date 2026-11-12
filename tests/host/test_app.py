@@ -435,7 +435,7 @@ class TestUnplayedTables:
 
     def test_a_table_that_fails_at_the_start_fails_the_start(self, sign_in_settings):
         class Failing(TableService):
-            def end_unplayed_table(self, table_id, days):
+            def end_unplayed_table(self, table_id, days, writing):
                 raise ConnectionError
 
         unplayed = UnplayedTables(sign_in_settings, Failing)
@@ -449,11 +449,11 @@ class TestUnplayedTables:
         class FailingOnce(TableService):
             failing = None
 
-            def end_unplayed_table(self, table_id, days):
+            def end_unplayed_table(self, table_id, days, writing):
                 if table_id == self.failing:
                     type(self).failing = None
                     raise ConnectionError("account-anna")
-                return super().end_unplayed_table(table_id, days)
+                return super().end_unplayed_table(table_id, days, writing)
 
         unplayed = UnplayedTables(sign_in_settings, FailingOnce)
         first, second = unplayed.dealt("command-first"), unplayed.dealt("command-second")
@@ -510,6 +510,16 @@ class TestUnplayedTables:
             ("unplayed tables read failed", "ConnectionError")
         ]
         assert runs_asked_for == 2
+
+    def test_a_run_after_the_server_stopped_ends_no_table(self, unplayed):
+        table_id = unplayed.dealt("command-open")
+        with TestClient(unplayed.app()):
+            ((_, tick),) = unplayed.scheduler.sweeps()
+        unplayed.play_on(UNPLAYED_DAYS)
+
+        asyncio.run(tick())
+
+        assert unplayed.ended(table_id) is None
 
     def test_a_run_after_the_server_stopped_asks_for_no_further_run(self, unplayed):
         with TestClient(unplayed.app()):

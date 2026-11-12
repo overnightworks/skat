@@ -286,7 +286,7 @@ async def _end_unplayed_tables(
     days = settings.paused_table_days
     for table_id in await run_in_threadpool(tables.unplayed_tables, days):
         try:
-            ended = await run_in_threadpool(tables.end_unplayed_table, table_id, days)
+            ended = await run_in_threadpool(tables.end_unplayed_table, table_id, days, presence.writing(table_id.value))
         except Exception as failure:
             if at_start:
                 raise

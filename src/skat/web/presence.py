@@ -190,6 +190,13 @@ class Presence:
         self._hold.scheduler.cancel_all()
         self._wakes.wake_all()
 
+    def writing(self, table_id: str) -> AbstractContextManager[frozenset[str] | None]:
+        """The guard of a write the server makes on its own account at a table: enter it on the worker once the row is
+        locked, and it yields None once the presence has stopped. `finish_writes` waits for it to be left. Call it on
+        the event loop.
+        """
+        return self._connected_while_writing(table_id, asyncio.get_running_loop())
+
     def wake_table(self, table_id: str) -> None:
         """Tell every stream of a table that a committed write changed its view; call it after the commit."""
         self._wakes.wake(TableTopic(table_id))

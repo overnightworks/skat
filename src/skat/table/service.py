@@ -539,14 +539,21 @@ class TableService:
         with self._transactions.begin() as transaction:
             return transaction.played_before(self._now() - timedelta(days=days))
 
-    def end_unplayed_table(self, table_id: TableId, days: int) -> bool:
+    def end_unplayed_table(
+        self, table_id: TableId, days: int, writing: AbstractContextManager[frozenset[str] | None]
+    ) -> bool:
         """End a dealt table whose last deal or step of play lies `days` days back, whoever is connected and whether
-        or not a hand runs, on the server's own account, with no actor, command id or receipt. The decision re-reads
-        the table under the row lock, so a table played at or ended since changes nothing. True when it ended it.
+        or not a hand runs, on the server's own account, with no actor, command id or receipt.
+
+        `writing` is entered once the row is locked and left after the commit; it yields None once the presence has
+        stopped, which ends nothing. The decision re-reads the table under the row lock, so a table played at or ended
+        since changes nothing. True when it ended it.
         """
-        with self._transactions.begin() as transaction:
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table, now = transaction.locked_table(table_id), self._now()
-            if table is None or not ends_unplayed(table, transaction.paused_facts(table_id).last_played_at, now, days):
+            if table is None or after_commit.enter_context(writing) is None:
+                return False
+            if not ends_unplayed(table, transaction.paused_facts(table_id).last_played_at, now, days):
                 return False
             members = self._members_of(transaction, table)
             transaction.end_table(table_id, now, Ending.unplayed(days))
