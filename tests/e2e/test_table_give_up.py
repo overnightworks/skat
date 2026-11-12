@@ -218,6 +218,7 @@ def test_an_answer_to_a_request_a_card_took_back_shows_the_failure_and_ends_noth
 
 
 HELD_CARDS = ".controls.held"
+OWN_CARDS = ".own-hand .card"
 
 
 def gives_up(opponent: str) -> str:
@@ -261,28 +262,35 @@ def test_an_opponents_give_up_shows_the_declarer_his_cards_held_and_the_two_answ
     assert page_errors == []
 
 
-def test_the_declarers_yes_ends_the_game_on_every_page_with_the_result_and_no_request(
-    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str]
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_declarers_yes_ends_the_game_on_every_page_with_the_result_and_no_request_and_no_card(
+    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
-    table = deal_an_opponents_give_up(PHONE)
+    table = deal_an_opponents_give_up(form_factor)
+    declarer = table.pages[table.declarer_seat]
+    expect(declarer.locator(OWN_CARDS).first).to_be_visible()
 
-    button_of(table.pages[table.declarer_seat], ACCEPT).click()
+    button_of(declarer, ACCEPT).click()
 
     for person in table.everyone:
         expect(person.locator(CARD)).to_be_visible()
         expect(person.locator(REQUEST)).to_have_count(0)
+        expect(person.locator(OWN_CARDS)).to_have_count(0)
     assert page_errors == []
 
 
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_declarers_no_lets_the_hand_go_on_with_his_cards_lit_again(
-    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str]
+    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
-    table = deal_an_opponents_give_up(PHONE)
+    table = deal_an_opponents_give_up(form_factor)
+    declarer = table.pages[table.declarer_seat]
 
-    button_of(table.pages[table.declarer_seat], PLAY_ON).click()
+    button_of(declarer, PLAY_ON).click()
 
     expect_the_game_again(table)
-    expect(table.pages[table.declarer_seat].locator(HELD_CARDS)).to_have_count(0)
+    expect(declarer.locator(HELD_CARDS)).to_have_count(0)
+    expect(declarer.locator(OWN_CARDS).first).to_be_visible()
     for person in table.everyone:
         expect(person.locator(CARD)).to_have_count(0)
     assert page_errors == []
