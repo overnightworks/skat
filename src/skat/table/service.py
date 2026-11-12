@@ -19,6 +19,7 @@ from skat.table.member_place import (
     MemberRefusal,
     TableOffers,
     TableStanding,
+    agent_in_chair,
     agents_seated_at,
     decide_accept,
     decide_invite,
@@ -61,7 +62,6 @@ from skat.table.records import (
     Decision,
     EndedTable,
     NewHand,
-    OccupantKind,
     SendAway,
     SitDown,
     StandUp,
@@ -783,8 +783,7 @@ class TableService:
         table = self._table_read(table_id)
         if not isinstance(table, TableRecord):
             return None
-        occupant = next((chair.occupant for chair in table.chairs if chair.seat == seat), None)
-        return occupant.account_id if occupant is not None and occupant.kind is OccupantKind.AGENT else None
+        return agent_in_chair(table, seat)
 
     def series_list(self, table_id: str) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...] | None:
         """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""
