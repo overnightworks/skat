@@ -17,7 +17,6 @@ from tests.e2e.support.tables import (
     mark_page,
     open_new_table,
     sit_in,
-    table_id_of,
     watch,
 )
 
@@ -49,7 +48,12 @@ def open_start_page(person: Page, server: RunningServer) -> Page:
     return person
 
 
-def card_of(person: Page, owner: str):
+def card_of(person: Page, path: str):
+    """The card that opens the table at `path`: an account keeps the tables of every test that signed in as it."""
+    return person.locator(f"a.lobby-card[href='{path}']")
+
+
+def card_named(person: Page, owner: str):
     return person.get_by_role("link", name=text(SOURCE_LANGUAGE, "lobby.openTable", title=owner))
 
 
@@ -71,8 +75,9 @@ def test_a_member_sees_the_table_he_sits_at_and_one_tap_opens_it(
     open_start_page(person, e2e_server)
 
     expect(person.get_by_role("heading", name=MY_TABLES)).to_be_visible()
-    card = card_of(person, "Berts Tisch")
+    card = card_of(person, path)
     expect(card).to_have_count(1)
+    expect(card).to_have_attribute("aria-label", text(SOURCE_LANGUAGE, "lobby.openTable", title="Berts Tisch"))
     expect(card).to_contain_text(LENGTH)
     expect(plates_of(card)).to_have_text([YOU, SEAT_FREE, SEAT_FREE])
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
@@ -97,7 +102,7 @@ def test_the_list_follows_another_person_sitting_down_and_standing_up_without_a_
     watch(guest, e2e_server, path)
     open_start_page(host, e2e_server)
     mark_page(host)
-    card = card_of(host, "Hannas Tisch")
+    card = card_of(host, path)
     expect(plates_of(card)).to_have_text([YOU, SEAT_FREE, SEAT_FREE])
 
     sit_in(guest, 2)
@@ -130,16 +135,17 @@ def test_the_chip_and_the_ring_follow_whose_turn_it_is(
 ) -> None:
     table = deal_a_declaring_table(form_factor)
     declarer_name = table.name_of_the_declarer()
+    table_path = f"{TABLE_PAGE_PREFIX}{table.table_id}"
     waiting = table.others[0]
 
     open_start_page(table.declarer, e2e_server)
     open_start_page(waiting, e2e_server)
 
-    own_card = table.declarer.locator(".lobby-card")
+    own_card = card_of(table.declarer, table_path)
     expect(chip_texts_of(own_card)).to_have_text([YOUR_TURN])
     expect(chip_texts_of(own_card).first).to_have_class(re.compile(r"\bnow\b"))
     expect(own_card.locator(".lobby-seat.turn")).to_have_count(1)
-    other_card = waiting.locator(".lobby-card")
+    other_card = card_of(waiting, table_path)
     expect(chip_texts_of(other_card)).to_have_count(0)
     expect(other_card.locator(".lobby-seat.turn .lobby-plate b")).to_have_text(declarer_name)
 
@@ -151,7 +157,7 @@ def test_a_dealt_table_everybody_left_shows_the_away_marks_and_its_end(
     for person in (table.declarer, *table.others, table.watcher):
         open_start_page(person, e2e_server)
 
-    card = table.declarer.locator(".lobby-card")
+    card = card_of(table.declarer, f"{TABLE_PAGE_PREFIX}{table.table_id}")
 
     expect(card.locator(".lobby-seat.away")).to_have_count(SEAT_COUNT)
     expect(card.locator(".lobby-chips .chip", has_text=ENDS_IN_DAYS)).to_have_count(1)
@@ -221,7 +227,7 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
 
     person.goto(f"{e2e_server.base_url}/")
 
-    card = card_of(person, "Maras Tisch")
+    card = card_named(person, "Maras Tisch")
     expect(card.locator(".lobby-seat.away")).to_have_count(2)
     expect(card.locator(".lobby-plate small")).to_have_text(
         [
@@ -253,8 +259,8 @@ def test_going_back_from_a_table_returns_to_a_current_list(
     path = open_new_table(person, e2e_server)
     open_start_page(person, e2e_server)
 
-    card_of(person, "Ritas Tisch").click()
-    expect(person).to_have_url(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table_id_of(path)}")
+    card_of(person, path).click()
+    expect(person).to_have_url(f"{e2e_server.base_url}{path}")
     person.go_back()
 
-    expect(card_of(person, "Ritas Tisch")).to_be_visible()
+    expect(card_of(person, path)).to_be_visible()
