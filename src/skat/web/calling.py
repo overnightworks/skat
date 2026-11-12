@@ -417,6 +417,60 @@ class _Calling:
         return None
 
 
+async def _answered(
+    calling: _Calling, request: Request, table_id: TableId, refusal: CallRefusal | None
+) -> Response | AgentControlAnswer:
+    """The viewer's control after an act that changed something, or the refusal of one that changed nothing."""
+    if refusal is None:
+        return await calling.control_of(request, table_id)
+    answer = CallRefusalAnswer(reason=refusal)
+    return JSONResponse(answer.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
+
+
+def _create_acts_router(calling: _Calling) -> APIRouter:
+    router = APIRouter()
+
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_CALL_SUFFIX,
+        response_model=AgentControlAnswer,
+        responses={
+            404: {"description": "No table has this id."},
+            409: {"model": CallRefusalAnswer, "description": "The call changed nothing."},
+        },
+        openapi_extra=excluded(Exclusion.PERSON_ACT),
+    )
+    async def call_agent(
+        table_id: str, key: str, request: Request, response: Response
+    ) -> Response | AgentControlAnswer:
+        """Call the agent of the row `key` to the table; the same call again changes nothing twice."""
+        response.headers["Cache-Control"] = "no-store"
+        parsed = _table_of(table_id)
+        return await _answered(calling, request, parsed, await calling.call_of(request, parsed, key))
+
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_SEND_AWAY_SUFFIX,
+        response_model=AgentControlAnswer,
+        responses={
+            404: {"description": "No table has this id."},
+            409: {"model": CallRefusalAnswer, "description": "The send-away changed nothing."},
+        },
+        openapi_extra=excluded(Exclusion.PERSON_ACT),
+    )
+    async def send_agent_away(
+        table_id: str, key: str, body: SendAwayRequest, request: Request, response: Response
+    ) -> Response | AgentControlAnswer:
+        """Ask the agent of the row `key` to leave the table: its chair opens at once, in every phase of a hand, and
+        the hand waits for a sitter. The same command id again changes nothing twice.
+        """
+        response.headers["Cache-Control"] = "no-store"
+        parsed = _table_of(table_id)
+        return await _answered(
+            calling, request, parsed, await calling.send_away_of(request, parsed, key, body.command_id)
+        )
+
+    return router
+
+
 def create_calling_router(
     tables: TableService,
     presence: Presence,
@@ -437,54 +491,11 @@ def create_calling_router(
         openapi_extra=excluded(Exclusion.PERSON_ACT),
     )
     async def read_agents(table_id: str, request: Request, response: Response) -> AgentControlAnswer:
-        """The viewer's control for calling agents: whether it is shown, and a row for each agent the viewer may call or
-        has called and is waiting for.
+        """The viewer's control for calling agents: whether it is shown, and a row for each agent the viewer may call,
+        has called and is waiting for, or may send away.
         """
         response.headers["Cache-Control"] = "no-store"
         return await calling.control_of(request, _table_of(table_id))
 
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_CALL_SUFFIX,
-        response_model=AgentControlAnswer,
-        responses={
-            404: {"description": "No table has this id."},
-            409: {"model": CallRefusalAnswer, "description": "The call changed nothing."},
-        },
-        openapi_extra=excluded(Exclusion.PERSON_ACT),
-    )
-    async def call_agent(
-        table_id: str, key: str, request: Request, response: Response
-    ) -> Response | AgentControlAnswer:
-        """Call the agent of the row `key` to the table; the same call again changes nothing twice."""
-        response.headers["Cache-Control"] = "no-store"
-        parsed = _table_of(table_id)
-        refusal = await calling.call_of(request, parsed, key)
-        if refusal is not None:
-            answer = CallRefusalAnswer(reason=refusal)
-            return JSONResponse(answer.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
-        return await calling.control_of(request, parsed)
-
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_SEND_AWAY_SUFFIX,
-        response_model=AgentControlAnswer,
-        responses={
-            404: {"description": "No table has this id."},
-            409: {"model": CallRefusalAnswer, "description": "The send-away changed nothing."},
-        },
-        openapi_extra=excluded(Exclusion.PERSON_ACT),
-    )
-    async def send_agent_away(
-        table_id: str, key: str, body: SendAwayRequest, request: Request, response: Response
-    ) -> Response | AgentControlAnswer:
-        """Ask the agent of the row `key` to leave the table: its chair opens at once, in every phase of a hand, and
-        the hand waits for a sitter. The same command id again changes nothing twice.
-        """
-        response.headers["Cache-Control"] = "no-store"
-        parsed = _table_of(table_id)
-        refusal = await calling.send_away_of(request, parsed, key, body.command_id)
-        if refusal is not None:
-            answer = CallRefusalAnswer(reason=refusal)
-            return JSONResponse(answer.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
-        return await calling.control_of(request, parsed)
-
+    router.include_router(_create_acts_router(calling))
     return router

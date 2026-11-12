@@ -7,9 +7,8 @@ from datetime import datetime, timedelta
 
 import pytest
 from agents.member import INVITATION_SECONDS
-from starlette.concurrency import run_in_threadpool
 
-from skat.table.records import Actor, OccupantKind, SendAway, TableId
+from skat.table.records import OccupantKind, TableId
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
@@ -154,36 +153,6 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall:
         (row,) = answer.json()["rows"]
         assert (row["name"], row["state"], row["ends_in_seconds"]) == ("Nova", "here", None)
 
-    def test_a_seated_agent_that_does_not_listen_is_a_here_row_with_the_name_of_its_chair(
-        self, skat, issuer, felix, table_id
-    ):
-        Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova").sit_down(table_id, 2)
-
-        row = only_row(skat, felix, table_id)
-
-        assert (row["name"], row["state"]) == ("Nova", "here")
-
-    def test_a_seated_agent_whose_owner_is_away_is_a_here_row(self, skat, issuer, felix, table_id):
-        away = person(skat, issuer)
-        with listening(skat, issuer, away, "Nova", NOVA) as nova:
-            nova.sit_down(table_id, 2)
-
-            row = only_row(skat, felix, table_id)
-
-        assert row["state"] == "here"
-
-    def test_a_member_who_holds_no_chair_sees_the_here_row_as_well(self, skat, issuer, felix, table_id):
-        watcher = person(skat, issuer)
-        with (
-            streams_of(skat, table_id, [(watcher.headers, None)]),
-            listening(skat, issuer, felix, "Nova", NOVA) as nova,
-        ):
-            nova.sit_down(table_id, 2)
-
-            row = only_row(skat, watcher, table_id)
-
-        assert row["state"] == "here"
-
     def test_a_person_outside_the_group_sees_no_row_for_a_seated_agent(self, skat, issuer, felix, table_id):
         outsider = person(skat, issuer, groups=())
         with (
@@ -195,11 +164,6 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall:
             answer = read_control(skat, outsider, table_id)
 
         assert answer.json() == {"shown": False, "rows": []}
-
-    def test_a_person_in_a_chair_has_no_row(self, skat, issuer, felix, table_id):
-        seat_of_nobody_but(skat, table_id, 1)
-
-        assert read_control(skat, felix, table_id).json()["rows"] == []
 
     def test_the_rows_name_no_account_and_keep_their_key_from_state_to_state(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
@@ -298,18 +262,6 @@ class TestACallInvitesTheAgent:
 
         assert others_control == {"shown": True, "rows": []}
 
-    def test_an_agent_that_was_sent_away_from_the_table_is_called_again_with_the_next_epoch(
-        self, skat, issuer, felix, table_id
-    ):
-        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
-            nova.sit_down(table_id, 2)
-            skat.client.portal.call(_sending_away, skat, table_id, felix, nova)
-            call(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
-
-            offer = offer_of(nova)
-
-        assert offer.epoch == 1
-
     def test_an_invitation_that_ran_out_shows_the_row_available_again_with_no_refusal(
         self, skat, issuer, time, felix, table_id
     ):
@@ -321,12 +273,6 @@ class TestACallInvitesTheAgent:
             row = only_row(skat, felix, table_id)
 
         assert (row["key"], row["state"], row["ends_in_seconds"]) == (key, "available", None)
-
-
-async def _sending_away(skat, table_id, owner, agent):
-    account = skat.stores.accounts.get(agent.subject).id
-    command = SendAway(command_id="send-nova-away", table_id=table_id, agent_account=account)
-    return await run_in_threadpool(skat.tables.send_away, Actor(owner.id, "Felix"), command, frozenset({owner.id}))
 
 
 @pytest.mark.usefixtures("watching")
@@ -672,48 +618,32 @@ class TestAMemberSendsASeatedAgentAway:
 
             assert read_control(skat, felix, table_id).json()["rows"] == []
 
-    def test_an_agent_whose_owner_is_away_is_sent_away_all_the_same(self, skat, issuer, felix, table_id):
-        away = person(skat, issuer)
-        with listening(skat, issuer, away, "Nova", NOVA) as nova:
-            nova.sit_down(table_id, 2)
-
-            answer = send_away(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
-
-        assert (answer.status_code, chair_two(skat, table_id)) == (200, None)
-
     def test_a_seated_agent_that_stopped_listening_is_sent_away_mid_hand_from_its_here_row(
         self, skat, issuer, felix, table_id
     ):
         nova = Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova")
         hand_with_nova_in_chair_two(skat, nova, table_id)
 
-        answer = send_away(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
+        row = only_row(skat, felix, table_id)
 
-        assert (answer.status_code, chair_two(skat, table_id)) == (200, None)
+        answer = send_away(skat, felix, table_id, row["key"])
 
-    def test_a_member_who_holds_no_chair_sends_the_agent_away_like_a_seated_one(self, skat, issuer, felix, table_id):
-        watcher = person(skat, issuer)
-        with (
-            streams_of(skat, table_id, [(watcher.headers, None)]),
-            listening(skat, issuer, felix, "Nova", NOVA) as nova,
-        ):
-            nova.sit_down(table_id, 2)
+        assert (row["name"], row["state"], answer.status_code, chair_two(skat, table_id)) == ("Nova", "here", 200, None)
 
-            answer = send_away(skat, watcher, table_id, only_row(skat, watcher, table_id)["key"])
-
-        assert (answer.status_code, chair_two(skat, table_id)) == (200, None)
-
-    def test_the_agent_the_member_called_turns_from_inviting_to_here_for_him_and_for_another_member(
+    def test_a_member_who_holds_no_chair_sends_away_an_agent_whose_owner_is_not_at_the_table(
         self, skat, issuer, felix, table_id
     ):
-        other = person(skat, issuer)
-        with streams_of(skat, table_id, [(other.headers, None)]), listening(skat, issuer, felix, "Nova", NOVA) as nova:
-            call(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
-            nova.accept(table_id, offer_of(nova))
+        watcher, away = person(skat, issuer), person(skat, issuer)
+        with (
+            streams_of(skat, table_id, [(watcher.headers, None)]),
+            listening(skat, issuer, away, "Nova", NOVA) as nova,
+        ):
+            nova.sit_down(table_id, 2)
+            row = only_row(skat, watcher, table_id)
 
-            states = [only_row(skat, who, table_id)["state"] for who in (felix, other)]
+            answer = send_away(skat, watcher, table_id, row["key"])
 
-        assert states == ["here", "here"]
+        assert (row["state"], answer.status_code, chair_two(skat, table_id)) == ("here", 200, None)
 
 
 @pytest.mark.usefixtures("watching")

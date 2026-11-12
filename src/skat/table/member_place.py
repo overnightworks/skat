@@ -11,7 +11,7 @@ from skat.table.records import OccupantKind, OpaqueId, TableId, TableRecord
 from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable, Sequence
     from datetime import datetime, timedelta
 
     from skat.table.records import Actor, NewHand
@@ -45,6 +45,7 @@ __all__ = [
     "open_invitation",
     "seated_agents",
     "standings_among",
+    "table_offers_of",
 ]
 
 
@@ -289,6 +290,27 @@ def call_offer_of(facts: CallFacts, table: TableRecord | None, entry: BookEntry 
     answer = offer_of(facts, table, entry, now)
     invitation = open_invitation(entry, now) if answer is OfferState.INVITING else None
     return CallOffer(answer, None if invitation is None else math.ceil((invitation.expires_at - now).total_seconds()))
+
+
+def table_offers_of(
+    table: TableRecord,
+    calls: Sequence[CallFacts],
+    entries: Sequence[BookEntry | None],
+    seated_facts: Callable[[str], CallFacts],
+    now: datetime,
+) -> TableOffers:
+    """Each call's offer from the agent's book row, and the offer of each seated agent no call names, on the facts
+    `seated_facts` gives for its account.
+    """
+    named = {call.agent_account for call in calls}
+    return TableOffers(
+        tuple(call_offer_of(call, table, entry, now) for call, entry in zip(calls, entries, strict=True)),
+        tuple(
+            SeatedOffer(agent.account, agent.name, call_offer_of(seated_facts(agent.account), table, None, now))
+            for agent in seated_agents(table)
+            if agent.account not in named
+        ),
+    )
 
 
 def decide_invite(

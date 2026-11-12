@@ -18,16 +18,14 @@ from skat.table.member_place import (
     InvitationOffer,
     InviteRefusal,
     MemberRefusal,
-    SeatedOffer,
     TableOffers,
     TableStanding,
     agents_seated_at,
-    call_offer_of,
     decide_accept,
     decide_invite,
     forgotten_if_expired,
-    seated_agents,
     standings_among,
+    table_offers_of,
 )
 from skat.table.member_view import MemberView, ViewSignal, member_view_of, view_recipients
 from skat.table.playing import (
@@ -608,16 +606,7 @@ class TableService:
             if not isinstance(table := transaction.table(table_id), TableRecord):
                 return None
             entries = [transaction.locked_book_entry(table_id, call.agent_account) for call in calls]
-        now = self._now()
-        named = {call.agent_account for call in calls}
-        return TableOffers(
-            tuple(call_offer_of(call, table, entry, now) for call, entry in zip(calls, entries, strict=True)),
-            tuple(
-                SeatedOffer(agent.account, agent.name, call_offer_of(seated_facts(agent.account), table, None, now))
-                for agent in seated_agents(table)
-                if agent.account not in named
-            ),
-        )
+        return table_offers_of(table, calls, entries, seated_facts, self._now())
 
     def accept_invitation(
         self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]
