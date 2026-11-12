@@ -554,3 +554,7 @@ msgstr ""
 msgctxt "card.letterAce"
 msgid "A"
 msgstr ""
+
+msgctxt "logout.button"
+msgid "Abmelden"
+msgstr ""
