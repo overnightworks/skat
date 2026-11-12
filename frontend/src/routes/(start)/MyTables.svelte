@@ -57,7 +57,7 @@
                     <a
                         class="lobby-card"
                         href={resolve("/(start)/t/[id]", { id: card.id })}
-                        aria-label={words["lobby.openTable"]({ title: card.title })}
+                        aria-label={card.openLabel}
                     >
                         <header>
                             <h3>{card.title}</h3>

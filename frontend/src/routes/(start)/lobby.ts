@@ -55,6 +55,8 @@ export type SeatCard = {
 export type Card = {
     id: string;
     title: string;
+    // What a screen reader says for the card's link.
+    openLabel: string;
     progress: string | null;
     seats: SeatCard[];
     chips: Chip[];
@@ -163,9 +165,11 @@ function chipsOf(table: LobbyTable, nowMilliseconds: number): Chip[] {
 
 // `heldMilliseconds` is how long the page has held this list, so a hold counts down between two lists.
 export function cardOf(table: LobbyTable, nowMilliseconds: number, heldMilliseconds: number): Card {
+    const title = titleOf(table.title_name);
     return {
         id: table.id,
-        title: titleOf(table.title_name),
+        title,
+        openLabel: words["lobby.openTable"]({ title }),
         progress: progressOf(table),
         seats: table.chairs.map((chair) => seatOf(chair, table, heldMilliseconds)),
         chips: chipsOf(table, nowMilliseconds),

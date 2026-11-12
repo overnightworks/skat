@@ -96,6 +96,7 @@ describe("cardOf", () => {
         const card = cardOf(tableOf({ id: "b".repeat(32) }), NOW, 0);
 
         expect(card.title).toBe("Bens Tisch");
+        expect(card.openLabel).toBe("Bens Tisch öffnen");
         expect(card.id).toBe("b".repeat(32));
     });
 
