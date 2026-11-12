@@ -7,8 +7,9 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from skat.engine.deal import Position
+from skat.engine.deal import Position, positions_from
 from skat.store.schema import tables
+from skat.table.playing import PlayCardCommand
 from skat.table.records import (
     Actor,
     CreateTable,
@@ -24,7 +25,7 @@ from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
-from tests.support.played_game import after_the_first_game, before_the_last_card
+from tests.support.played_game import a_whole_game, after_the_first_game, before_the_last_card, declared_herz_hand
 from tests.support.table_rows import WorkInAThread, rows_of, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
@@ -491,28 +492,70 @@ class HeldWrite:
         return None
 
 
+class HoldingAfterSave:
+    """A transactions port whose saves wait in their worker until `hold` is released, so the command that saved keeps
+    the row lock it took.
+    """
+
+    def __init__(self, inner, hold):
+        self._inner = inner
+        self._hold = hold
+
+    @contextmanager
+    def begin(self):
+        with self._inner.begin() as transaction:
+            yield _HoldingTransaction(transaction, self._hold)
+
+
+class _HoldingTransaction:
+    def __init__(self, inner, hold):
+        self._inner = inner
+        self._hold = hold
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    def save_table(self, table, *, played_at):
+        self._inner.save_table(table, played_at=played_at)
+        with self._hold:
+            pass
+
+
 class Rivals:
-    """A table between games, past its days, that two writes reach at once: the first holds the row lock, the second
-    waits for it, and `settle` lets the first commit and returns both outcomes in that order.
+    """A table with a hand running and a game listed, past its days, that two writes reach at once: the first holds the
+    row lock, the second waits for it, and `settle` lets the first commit and returns both outcomes in that order.
     """
 
     def __init__(self, service, transactions, engine, stored):
         self.engine = engine
+        self.transactions = transactions
         self.service = unplayed_service(transactions)
         self.table_id = seated_table(service, "one")
-        save(transactions, after_the_first_game(stored(transactions, self.table_id.value), 1, 2, 3))
+        seated = stored(transactions, self.table_id.value)
+        declared = replace(seated, progress=declared_herz_hand())
+        plays = a_whole_game(declared)
+        running = replace(declared, progress=replace(declared.progress, plays=plays[:3]))
+        save(transactions, replace(running, game_list=after_the_first_game(seated).game_list))
         played_at(transactions, self.table_id, PLAYED_AT)
         self.everyone = frozenset(chair.account_id for chair in SEATED)
         self.first_hold = HeldWrite(self.everyone)
         self.stored = lambda: stored(transactions, self.table_id.value)
+        self.next_card = plays[3].card
+        seats = {position: seat for seat, position in positions_from(running.dealer).items()}
+        self.card_player = SEATED[seats[plays[3].position] - 1]
 
     def expire(self, writing=None):
         return WorkInAThread(
             lambda: self.service.end_unplayed_table(self.table_id, UNPLAYED_DAYS, writing or nullcontext(frozenset()))
         )
 
-    def play(self, writing=None):
-        return WorkInAThread(lambda: self.service.deal_next(self.table_id, writing or nullcontext(self.everyone)))
+    def play(self, holding=None):
+        """The next card of the running hand, played by its player through the card command; with `holding`, the
+        command keeps the row lock until that hold is released.
+        """
+        transactions = self.transactions if holding is None else HoldingAfterSave(self.transactions, holding)
+        command = PlayCardCommand("card-rival", self.table_id.value, self.stored().version, self.next_card)
+        return WorkInAThread(lambda: unplayed_service(transactions).play_card(self.card_player, command, self.everyone))
 
     def settle(self, first, second):
         first.start()
@@ -531,18 +574,19 @@ def rivals(service, transactions, engine, stored):
 
 
 def test_a_table_played_while_its_expiry_waits_for_the_row_is_not_ended_by_it(rivals):
-    first_hold = rivals.first_hold
-    played, expired = rivals.settle(rivals.play(first_hold), rivals.expire())
+    played, expired = rivals.settle(rivals.play(rivals.first_hold), rivals.expire())
 
-    assert (played, expired) == ([True], [False])
+    assert [result.refusal for result in played] == [None]
+    assert expired == [False]
     assert isinstance(rivals.stored(), TableRecord)
+    assert len(rivals.stored().progress.plays) == 4
 
 
-def test_a_play_that_meets_the_expiry_holding_the_row_finds_the_table_ended_and_deals_nothing(rivals):
+def test_a_play_that_meets_the_expiry_holding_the_row_finds_the_table_ended_and_plays_nothing(rivals):
     version = rivals.stored().version
     expired, played = rivals.settle(rivals.expire(rivals.first_hold), rivals.play())
 
-    assert (expired, played) == ([True], [False])
+    assert (expired, played) == ([True], [None])
     assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
     assert {name for name, rows in rows_of(rivals.engine, rivals.table_id.value).items() if rows} == {
         "tables",
