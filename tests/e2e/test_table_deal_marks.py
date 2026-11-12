@@ -26,7 +26,6 @@ SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "ha
 WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 DEALER = text(SOURCE_LANGUAGE, "table.dealer")
 USUAL_TIMEOUT_SECONDS = 5
