@@ -62,9 +62,15 @@
 />
 
 <!-- Escape closes the popover natively; the click is the tap on everything around the panel. -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="panel-overlay" popover="auto" role="presentation" bind:this={overlay} ontoggle={followToggle} onclick={closeAtTap}>
-    <div class="panel" class:above={side === "above"} role="dialog" aria-label={title} bind:this={panel}>
+<div
+    class="anchored-overlay"
+    popover="auto"
+    role="presentation"
+    bind:this={overlay}
+    ontoggle={followToggle}
+    onclick={closeAtTap}
+>
+    <div class="anchored-panel" class:above={side === "above"} role="dialog" aria-label={title} bind:this={panel}>
         {@render children()}
     </div>
 </div>

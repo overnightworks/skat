@@ -29,6 +29,7 @@
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
+    import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
@@ -287,6 +288,9 @@
                 </a>
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
+                {#if !callMode}
+                    <SoundButton place="bar" />
+                {/if}
                 <div
                     class="watchers"
                     class:stale={!connected}
@@ -708,7 +712,9 @@
                             {`${words["table.standUp"]}`}
                         </button>
                     {/if}
-                    {#if !callMode}
+                    {#if callMode}
+                        <SoundButton place="strip" />
+                    {:else}
                         <button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={copy}>
                             <svg
                                 viewBox="0 0 24 24"

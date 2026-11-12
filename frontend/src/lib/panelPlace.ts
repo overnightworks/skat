@@ -26,7 +26,7 @@ export interface PanelPlace {
 
 export const EDGE_MARGIN = 16;
 /** The caret and its breathing space between the button and the panel. */
-const GAP = 12;
+const GAP = 10;
 /** The caret keeps this far from a panel's corner, which is rounded. */
 const CARET_INSET = 18;
 const TALLEST_SHARE = 0.7;
@@ -50,7 +50,10 @@ export function placePanel(anchor: Box, view: Viewport, wanted: number, side: Pa
 }
 
 /** The content security policy admits no inline style, so the place goes in as custom properties the stylesheet reads. */
-export function applyPanelPlace(panel: { readonly style: Pick<CSSStyleDeclaration, "setProperty"> }, place: PanelPlace): void {
+export function applyPanelPlace(
+    panel: { readonly style: Pick<CSSStyleDeclaration, "setProperty"> },
+    place: PanelPlace,
+): void {
     panel.style.setProperty("--panel-width", `${String(place.width)}px`);
     panel.style.setProperty("--panel-left", `${String(place.left)}px`);
     panel.style.setProperty("--panel-caret", `${String(place.caret)}px`);
