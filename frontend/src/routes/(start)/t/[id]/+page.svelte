@@ -16,7 +16,7 @@
     import { giveUpView } from "#lib/giveUp.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
-    import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
+    import { declaredResult, ramschResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
@@ -30,6 +30,7 @@
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
+    import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
@@ -348,12 +349,14 @@
             {@const declared = declaredResult(outcome.table)}
             {@const settledDeclarerSeat = declared?.declarer_seat ?? inPlay?.declarerSeat}
             {@const view = declared === null ? null : resultView(outcome.table)}
-            {@const winners = new Set(view?.rows.filter((row) => row.won).map((row) => row.seat))}
+            {@const ramschView = ramschResult(outcome.table) === null ? null : ramschResultView(outcome.table)}
+            {@const onResult = view !== null || ramschView !== null}
+            {@const winners = new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
             {@const giveUp = giveUpView(outcome.table)}
-            {#if view !== null}
+            {#if onResult}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
             {:else if deciding !== null}
                 <div class="plaque deciding">
@@ -422,6 +425,8 @@
             <div class="felt" aria-hidden="true"></div>
             {#if view !== null}
                 <ResultCard {view} />
+            {:else if ramschView !== null}
+                <RamschResultCard view={ramschView} />
             {/if}
             {#if inPlay !== null}
                 <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} {playedThisHand} />
@@ -472,7 +477,7 @@
                                     <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                                 {/if}
                             </span>
-                            {#if chair.hand !== null || passedIn !== null || view !== null}
+                            {#if chair.hand !== null || passedIn !== null || onResult}
                                 {#if chair.seat === dealerSeat}
                                     <span class="mark dealer" title={words["table.dealer"]}>
                                         <svg
@@ -556,7 +561,7 @@
                                     <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
                                 {/if}
                             {/if}
-                            {#if view !== null}
+                            {#if onResult}
                                 {#if chair.ready}
                                     <span class="mark ready" title={words["table.readyMark"]}>
                                         <svg
@@ -691,7 +696,7 @@
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}
-                <div class="actions" class:on-result={view !== null}>
+                <div class="actions" class:on-result={onResult}>
                     {#if bar?.kind === "tap"}
                         {@const table = outcome.table}
                         <button

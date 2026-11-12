@@ -90,6 +90,13 @@ export type Words = {
     readonly "result.missedSchwarz": string;
     readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
+    readonly "result.eyes": (gaps: { readonly points: string }) => string;
+    readonly "result.loses": (gaps: { readonly name: string }) => string;
+    readonly "result.losesTogether": (gaps: { readonly names: string }) => string;
+    readonly "result.jungfrau": string;
+    readonly "result.durchmarsch": string;
+    readonly "push.times": (gaps: { readonly count: number; readonly factor: string }) => string;
+    readonly "push.timesFlat": (gaps: { readonly count: number }) => string;
     readonly "closed.notFound": string;
     readonly "closed.emptySeconds": (count: number) => string;
     readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
@@ -122,6 +129,7 @@ export type Words = {
     readonly "game.kreuz": string;
     readonly "game.grand": string;
     readonly "game.null": string;
+    readonly "game.ramsch": string;
     readonly "game.rankSeven": string;
     readonly "game.rankEight": string;
     readonly "game.rankNine": string;
@@ -265,6 +273,13 @@ export const words: Words = {
     "result.missedSchwarz": "Schwarz angesagt, nicht erreicht",
     "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
+    "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
+    "result.loses": (gaps: { readonly name: string }) => gaps.name + " verliert",
+    "result.losesTogether": (gaps: { readonly names: string }) => gaps.names + " verlieren",
+    "result.jungfrau": "Jungfrau ×2",
+    "result.durchmarsch": "Durchmarsch",
+    "push.times": (gaps: { readonly count: number; readonly factor: string }) => numberFormat.format(gaps.count) + "× geschoben ×" + gaps.factor,
+    "push.timesFlat": (gaps: { readonly count: number }) => numberFormat.format(gaps.count) + "× geschoben",
     "closed.notFound": "Tisch nicht gefunden",
     "closed.emptySeconds": (count: number) => ({
         zero: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
@@ -311,6 +326,7 @@ export const words: Words = {
     "game.kreuz": "Kreuz",
     "game.grand": "Grand",
     "game.null": "Null",
+    "game.ramsch": "Ramsch",
     "game.rankSeven": "Sieben",
     "game.rankEight": "Acht",
     "game.rankNine": "Neun",

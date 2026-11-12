@@ -107,8 +107,19 @@ export type Chair = {
     total: number | null;
     hand: ChairHand | null;
 };
-// A Ramsch result is a result with an ordinal; the page draws no card for it.
-export type RamschResult = { kind: "ramsch"; ordinal: number };
+export type RamschSeat = { seat: number; points: number; score: number };
+// The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
+// Durchmarsch, and the factors the losers' score carries.
+export type RamschResult = {
+    kind: "ramsch";
+    ordinal: number;
+    seats: RamschSeat[];
+    durchmarsch_seat: number | null;
+    jungfrau: boolean;
+    bock_factor: number;
+    pushes: number;
+    push_factor: number;
+};
 export type SeatGain = { seat: number; gain: number; won: boolean };
 // The finished game as the server counted it; the page draws these numbers and decides no rule.
 export type Result = {
