@@ -165,7 +165,14 @@ def test_a_framed_table_holds_the_speaker_in_its_strip_beside_the_stand_up_butto
             == 1
         )
 
+        face = speaker.locator(".sound-face")
+        glass = face.evaluate("face => getComputedStyle(face).backgroundColor")
         speaker.click()
+        expect(speaker).to_have_attribute("aria-expanded", "true")
+        open_face = face.evaluate("face => [getComputedStyle(face).backgroundColor, getComputedStyle(face).color]")
+        assert open_face[0] != glass
+        assert open_face[0].startswith("rgb(")
+        assert open_face[0] != open_face[1]
         panel = table.get_by_role("dialog", name=SOUND_ON_NAME).bounding_box()
         assert panel is not None
         assert panel["y"] >= 0

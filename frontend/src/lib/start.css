@@ -3454,11 +3454,6 @@ body {
     display: none;
 }
 
-.room .sound-button[aria-expanded="true"] .sound-face {
-    background: var(--on-stage);
-    color: var(--stage-ink, #0c0e11);
-}
-
 .room .sound-button:focus-visible,
 .room .sound-switch:focus-visible {
     outline: 2px solid var(--accent-stage, #7aa7f0);
@@ -3489,6 +3484,12 @@ body {
     height: 52px;
     background: rgba(255, 255, 255, 0.15);
     box-shadow: none;
+}
+
+/* After the strip face, which is as specific: the open speaker is filled in the strip as in the top row. */
+.room .sound-button[aria-expanded="true"] .sound-face {
+    background: var(--on-stage);
+    color: var(--stage-ink, #0c0e11);
 }
 
 .room .sound-button.sound-strip .sound-face svg {
