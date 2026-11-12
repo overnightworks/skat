@@ -439,8 +439,8 @@ msgctxt "game.rearhand"
 msgid "Hinterhand"
 msgstr ""
 
-msgctxt "game.hand"
-msgid "Hand"
+msgctxt "game.handName"
+msgid "{game} Hand"
 msgstr ""
 
 msgctxt "game.announcedSchneider"
@@ -451,8 +451,12 @@ msgctxt "game.announcedSchwarz"
 msgid "Schwarz angesagt"
 msgstr ""
 
-msgctxt "game.ouvert"
-msgid "ouvert"
+msgctxt "game.ouvertName"
+msgid "{game} ouvert"
+msgstr ""
+
+msgctxt "game.ouvertHandName"
+msgid "{game} ouvert Hand"
 msgstr ""
 
 msgctxt "game.karo"
@@ -509,6 +513,10 @@ msgstr ""
 
 msgctxt "game.rankAce"
 msgid "Ass"
+msgstr ""
+
+msgctxt "game.cardName"
+msgid "{suit} {rank}"
 msgstr ""
 
 msgctxt "legal.imprint"
