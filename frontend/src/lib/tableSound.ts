@@ -1,5 +1,6 @@
 import type { Cue } from "./cues.ts";
-import { createSound, DEFAULT_SOUND_SETTINGS, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
+import { loadSettings, soundSettings } from "./settings.svelte.ts";
+import { createSound, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
 import { createWebAudioPort } from "./webAudio.ts";
 import type { Table } from "../routes/(start)/tables.ts";
@@ -69,12 +70,16 @@ export function createTableSound({ port, settings, motion }: TableSoundParts): T
 let shared: TableSound | undefined;
 
 // Made at the first use: the page is prerendered, so nothing of the browser is read at import.
+// The device's settings are read before the engine exists, whichever of the tap and the first cue comes first.
 function pageSound(): TableSound {
-    shared ??= createTableSound({
-        port: createWebAudioPort(window),
-        settings: () => DEFAULT_SOUND_SETTINGS,
-        motion: () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    });
+    if (shared === undefined) {
+        loadSettings();
+        shared = createTableSound({
+            port: createWebAudioPort(window),
+            settings: soundSettings,
+            motion: () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        });
+    }
     return shared;
 }
 

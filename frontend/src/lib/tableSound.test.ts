@@ -166,7 +166,7 @@ describe("the page's sound", () => {
         vi.unstubAllGlobals();
     });
 
-    function stubBrowser(options: { reducedMotion: boolean }) {
+    function stubBrowser(options: { reducedMotion: boolean; stored?: string }) {
         const started: number[] = [];
         const node = () => ({
             gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
@@ -200,6 +200,7 @@ describe("the page's sound", () => {
             navigator: {},
             document: { hidden: false },
             matchMedia: () => ({ matches: options.reducedMotion }),
+            localStorage: { getItem: () => options.stored ?? null },
             addEventListener: (type: string, handler: () => void) => listeners.set(type, handler),
             removeEventListener: (type: string) => listeners.delete(type),
         });
@@ -239,4 +240,31 @@ describe("the page's sound", () => {
             expect(Math.min(...started) > 0.2).toBe(soundsAfterLanding);
         },
     );
+
+    it.each([
+        { name: "the tap arms it first", armFirst: true },
+        { name: "a cue comes first", armFirst: false },
+    ])("sounds no card while the device holds a muted table when $name", async ({ armFirst }) => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true, stored: JSON.stringify({ muted: true }) });
+        const { armSound, soundForCues } = await import("./tableSound.ts");
+        if (armFirst) armSound();
+
+        soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
+        if (!armFirst) armSound();
+        listeners.get("pointerup")?.();
+        soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
+
+        expect(started).toEqual([]);
+    });
+
+    it("sounds a card when the device holds nothing", async () => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true });
+        const { armSound, soundForCues } = await import("./tableSound.ts");
+        armSound();
+        listeners.get("pointerup")?.();
+
+        soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
+
+        expect(started.length).toBeGreaterThan(0);
+    });
 });
