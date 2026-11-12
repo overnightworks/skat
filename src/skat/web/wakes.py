@@ -6,10 +6,20 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class Topic:
+class TableTopic:
     """What a wake is about: one table."""
 
     table_id: str
+
+
+@dataclass(frozen=True)
+class AccountTopic:
+    """What a wake is about: one account, whichever tables it holds."""
+
+    account_id: str
+
+
+Topic = TableTopic | AccountTopic
 
 
 @dataclass(frozen=True, eq=False)
