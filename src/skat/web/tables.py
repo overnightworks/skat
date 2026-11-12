@@ -754,8 +754,9 @@ def create_tables_router(
         did it. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
         it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
         moves again once someone sits in the chair. `nudge` on a chair is set for a chair the table waits for: `nudges`
-        is how often it was nudged at this version and `may_nudge` whether the caller may nudge it now (see nudge_seat);
-        for the chair's own occupant it also names the latest nudger. A 404 means no table has this id.
+        is how often it was nudged at this version and `may_nudge` whether the caller may nudge it at all, the cap not
+        reached; whether the minute has passed is judged by nudge_seat. For the chair's own occupant it also names the
+        latest nudger. A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.
