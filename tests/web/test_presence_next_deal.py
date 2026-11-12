@@ -10,6 +10,7 @@ from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableI
 from skat.table.service import TableService
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
+from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.payload_cards import DEALER_SEAT, cards_in, seated_three, wire_cards
@@ -31,7 +32,15 @@ from tests.web.support.presence import (
     view_of_version,
 )
 from tests.web.support.skat import Skat, streams_of
-from tests.web.support.streams import OPENER, VISITOR, next_view, run_on_a_loop_of_its_own, stream_of
+from tests.web.support.streams import (
+    OPENER,
+    SHORT_HEARTBEAT_SECONDS,
+    VISITOR,
+    next_item,
+    next_view,
+    run_on_a_loop_of_its_own,
+    stream_of,
+)
 
 CLEO = Actor(account_id="cleo", display_name="Cleo")
 
@@ -529,13 +538,13 @@ class TestNextDealTrigger:
         deals.dealt = False
 
         async def scenario():
-            stream = stream_of(holding, service, OPENER, table_id)
+            stream = stream_of(holding, service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
             await next_view(stream)
             assert time.pending == 1
             await time.advance(NEXT_DEAL_PAUSE_SECONDS)
             assert time.pending == 0
             holding.wake_table(table_id)
-            await next_view(stream)
+            assert await next_item(stream) == IDLE_HEARTBEAT
             assert time.pending == 0
             await stream.aclose()
 
@@ -552,11 +561,11 @@ class TestNextDealTrigger:
         deals.dealt = False
 
         async def scenario():
-            stream = stream_of(holding, service, OPENER, table_id)
+            stream = stream_of(holding, service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
             await next_view(stream)
             assert (len(deals.calls), time.pending) == (1, 0)
             holding.wake_table(table_id)
-            await next_view(stream)
+            assert await next_item(stream) == IDLE_HEARTBEAT
             await stream.aclose()
 
         run_on_a_loop_of_its_own(scenario())
