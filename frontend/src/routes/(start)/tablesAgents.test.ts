@@ -19,6 +19,10 @@ const nova = (state: "available" | "inviting", ends = 120): AgentRow =>
         ? { key: "key-nova", name: "Nova", state, ends_in_seconds: null }
         : { key: "key-nova", name: "Nova", state, ends_in_seconds: ends };
 const controlOf = (...rows: AgentRow[]): AgentsControl => ({ shown: true, rows });
+const cutOff = () =>
+    new ReadableStream({
+        start: (stream) => stream.error(new TypeError("the transfer broke off")),
+    });
 
 describe("the control that calls agents", () => {
     const reload = vi.fn();
@@ -60,6 +64,15 @@ describe("the control that calls agents", () => {
             answerWith(response);
 
             expect(await readAgents(TABLE_ID)).toEqual({ kind });
+        });
+
+        it.each([
+            ["a body that is cut off", new Response(cutOff())],
+            ["a body that is no JSON", new Response("<html>")],
+        ])("answers %s as failed", async (_case, response) => {
+            answerWith(response);
+
+            expect(await readAgents(TABLE_ID)).toEqual({ kind: "failed" });
         });
 
         it("goes through the sign-in again when the session has ended", async () => {
@@ -184,6 +197,23 @@ describe("the control that calls agents", () => {
         it("asks again after a failed read while a row was inviting, and keeps what it showed", async () => {
             vi.useFakeTimers();
             const fetcher = answers(controlOf(nova("inviting", 1)), new TypeError("offline"), controlOf());
+            const { following, shown } = follower();
+
+            await following.read();
+            await vi.advanceTimersByTimeAsync(1_000);
+            await vi.advanceTimersByTimeAsync(5_000);
+
+            expect(fetcher).toHaveBeenCalledTimes(3);
+            expect(shown).toEqual([controlOf(nova("inviting", 1)), controlOf()]);
+        });
+
+        it("asks again when the answer of an expiry read could not be read to its end", async () => {
+            vi.useFakeTimers();
+            const fetcher = vi.fn();
+            fetcher.mockResolvedValueOnce(Response.json(controlOf(nova("inviting", 1))));
+            fetcher.mockResolvedValueOnce(new Response(cutOff()));
+            fetcher.mockResolvedValueOnce(Response.json(controlOf()));
+            vi.stubGlobal("fetch", fetcher);
             const { following, shown } = follower();
 
             await following.read();

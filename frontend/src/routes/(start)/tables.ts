@@ -479,7 +479,12 @@ async function answerOfAgents(answer: Response | null): Promise<AgentsAnswer> {
     if (answer === null) return { kind: "failed" };
     if (answer.status === NOT_FOUND_STATUS) return { kind: "missing" };
     if (!answer.ok) return { kind: "failed" };
-    return { kind: "control", control: (await answer.json()) as AgentsControl };
+    try {
+        return { kind: "control", control: (await answer.json()) as AgentsControl };
+    } catch {
+        // A body that could not be read or decoded is a failed answer, so the follower asks again.
+        return { kind: "failed" };
+    }
 }
 
 export async function readAgents(id: string): Promise<AgentsAnswer> {
