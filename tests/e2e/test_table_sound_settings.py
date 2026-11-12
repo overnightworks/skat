@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, playing_table, tap, voices_started
 from tests.e2e.support.browser import record_page_errors
@@ -259,7 +260,11 @@ def test_the_open_panel_follows_its_button_when_the_viewport_changes(
 def test_changing_the_setting_makes_no_request(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
 ) -> None:
-    watcher = open_watcher(open_person, page_errors, table)
+    watcher = record_page_errors(open_person(**PHONE), page_errors)
+    # The page reads the agents once the stream brings its first table, which may come after the chairs show.
+    with watcher.expect_request(lambda request: request.url.endswith(TABLE_AGENTS_SUFFIX)):
+        watcher.goto(table.watcher.url)
+    expect(watcher.locator(".chair")).to_have_count(3)
     requested: list[str] = []
     watcher.on("request", lambda request: requested.append(request.url))
 
