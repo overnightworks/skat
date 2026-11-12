@@ -6,6 +6,8 @@ from contextlib import nullcontext
 
 import pytest
 
+from skat.store.migrate import create_store_engine
+from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.lobby import LOBBY_EVENTS_PATH, LobbySource
@@ -634,3 +636,47 @@ class TestTheRoute:
         assert first == "event: mine"
         assert rest[-1] == ""
         assert not any(line.startswith("event") for line in rest)
+
+
+@pytest.mark.postgres
+class TestTheRouteOverTheStoredTables:
+    @pytest.fixture
+    def stored_skat(self, hold, issuer, database_url):
+        engine = create_store_engine(database_url)
+        skat = Skat(lambda: hold, store=PostgresTableTransactions(engine), issuer_transports=issuer.transports)
+        with skat.client:
+            yield skat
+        engine.dispose()
+
+    def test_a_table_opened_and_sat_at_through_the_routes_reaches_the_lobbies_of_the_stored_chairs_and_no_stranger(
+        self, stored_skat
+    ):
+        skat = stored_skat
+        annas_headers, anna = skat.member()
+        bens_headers, ben = skat.member()
+        strangers_headers, _ = skat.member()
+        skat.client.cookies.clear()
+
+        with (
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=annas_headers) as annas,
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=bens_headers) as bens,
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=strangers_headers) as strangers,
+        ):
+            lines = [stream.iter_lines() for stream in (annas, bens, strangers)]
+            assert [next_event(each) for each in lines] == [("mine", EMPTY)] * 3
+            skat.client.cookies.clear()
+            table_id = skat.create(annas_headers).json()["id"]
+            _, opened = next_event(lines[0])
+            skat.client.cookies.clear()
+            skat.sit(bens_headers, table_id, 2)
+            _, named = next_event(lines[0])
+            _, sat = next_event(lines[1])
+            strangers.close()
+            annas.close()
+            bens.close()
+
+        entry = named["tables"][0]
+        assert ids_of(opened["tables"]) == [table_id]
+        assert (entry["id"], entry["title_name"], entry["dealt"]) == (table_id, anna.username, False)
+        assert [chair["occupant_name"] for chair in entry["chairs"]] == [anna.username, ben.username, None]
+        assert [chair["is_mine"] for chair in sat["tables"][0]["chairs"]] == [False, True, False]
