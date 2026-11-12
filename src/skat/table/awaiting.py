@@ -1,6 +1,7 @@
 """Whether the table waits for the viewer's seat to act, decided from the viewer's own view so that the view and the
 decision cannot disagree. A running hand waits for the seat on turn and, while a give-up is asked, for the opponent who
-has not answered, unless a chair of the hand is open: then it waits for a sitter and for no seat. Between hands it
+has not answered, and for each seat with a Kontra word open that it has not answered with no word, play never
+waiting for it, unless a chair of the hand is open: then it waits for a sitter and for no seat. Between hands it
 waits for each seat that has not continued, and for each that has not answered a proposal to end the series early.
 """
 
@@ -17,13 +18,18 @@ def awaits_you(view: TableView) -> bool:
     if view.hand is not None:
         if view.hand.waiting_seat is not None:
             return False
-        return turn_seat_of(view.hand) == own.seat or _give_up_waits_for(view, own.seat)
+        return turn_seat_of(view.hand) == own.seat or _give_up_waits_for(view, own.seat) or _kontra_word_waits(view)
     return (_a_result_or_series_end_stands(view) and not own.ready) or _proposal_waits_for(view, own.seat)
 
 
 def _give_up_waits_for(view: TableView, seat: int) -> bool:
     asked = None if view.hand is None or view.hand.playing is None else view.hand.playing.give_up
     return asked is not None and seat not in (asked.asking_seat, asked.declined_seat)
+
+
+def _kontra_word_waits(view: TableView) -> bool:
+    kontra = None if view.hand is None or view.hand.playing is None else view.hand.playing.kontra
+    return kontra is not None and kontra.my_word is not None and not kontra.my_word_answered
 
 
 def _a_result_or_series_end_stands(view: TableView) -> bool:

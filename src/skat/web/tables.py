@@ -247,6 +247,7 @@ class KontraAnswer(BaseModel):
     said: list[SaidWordAnswer]
     factor: int
     my_word: Word | None
+    my_word_answered: bool
 
 
 class PlayingAnswer(BaseModel):
@@ -483,6 +484,7 @@ def kontra_answer_of(kontra: KontraView | None) -> KontraAnswer | None:
         said=[SaidWordAnswer(seat=each.seat, word=each.word) for each in kontra.said],
         factor=kontra.factor,
         my_word=kontra.my_word,
+        my_word_answered=kontra.my_word_answered,
     )
 
 

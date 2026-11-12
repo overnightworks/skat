@@ -11,7 +11,7 @@ from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
 from skat.store.game_list import append_game_list, read_game_list
-from skat.store.kontra import append_words, kontra_words, read_words
+from skat.store.kontra import append_words, kontra_no_words, kontra_words, read_no_words, read_words, write_no_words
 from skat.store.member_book import accounts_at, forget_table, locked_entries_of, locked_entry, save_entry
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.pushing import append_pushing_steps, pushing_steps, read_pushing_steps
@@ -41,6 +41,7 @@ from skat.table.records import (
     OccupantKind,
     Receipt,
     Replay,
+    SeatHeld,
     Series,
     TableId,
     TableRecord,
@@ -142,7 +143,14 @@ def _table_record(
     if table.end_reason is not None:
         return EndedTable(TableId(table_id), table.version, EndReason(table.end_reason), table.empty_seconds)
     seats = connection.execute(
-        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.occupant_kind, chairs.c.ready)
+        select(
+            chairs.c.seat,
+            chairs.c.account_id,
+            chairs.c.display_name,
+            chairs.c.occupant_kind,
+            chairs.c.ready,
+            chairs.c.held_in_hand,
+        )
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
@@ -167,7 +175,9 @@ def _table_record(
             plays=read_plays(connection, table_id),
             give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
             words=read_words(connection, table_id),
+            no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
+            seats_held=frozenset(SeatHeld(account_id, seat.seat) for seat in seats for account_id in seat.held_in_hand),
         ),
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
@@ -188,7 +198,15 @@ def _series_number_of(table: TableRecord) -> int:
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
-    for rows in (hand_cards, auction_actions, declaring_steps, pushing_steps, played_cards, kontra_words):
+    for rows in (
+        hand_cards,
+        auction_actions,
+        declaring_steps,
+        pushing_steps,
+        played_cards,
+        kontra_words,
+        kontra_no_words,
+    ):
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
 
 
@@ -265,6 +283,9 @@ class _PostgresTableTransaction:
                     display_name=None if occupant is None else occupant.display_name,
                     occupant_kind=None if occupant is None else occupant.kind.value,
                     ready=chair.ready,
+                    held_in_hand=sorted(
+                        mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
+                    ),
                 )
             )
 
@@ -290,6 +311,7 @@ class _PostgresTableTransaction:
         append_pushing_steps(self._connection, table.id.value, table.progress.pushing)
         append_plays(self._connection, table.id.value, table.progress.plays)
         append_words(self._connection, table.id.value, table.progress.words)
+        write_no_words(self._connection, table.id.value, table.progress.no_words)
         self._write_chairs(table)
 
     def add_table(self, table: TableRecord, opener_name: str) -> None:

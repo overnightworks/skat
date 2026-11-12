@@ -1,7 +1,7 @@
 import asyncio
-from contextlib import suppress
+import hashlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Protocol
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from skat.table.records import Actor
     from skat.table.service import TableService
     from skat.table.views import TableView
-    from skat.web.presence import Presence
+    from skat.web.presence import Presence, Subscription
 
 EVENT_STREAM: Final = "text/event-stream"
 # A comment line is ignored by every event source; it keeps an idle stream's bytes moving past an edge's read timeout.
@@ -35,78 +35,136 @@ class IdleHeartbeat:
 IDLE_HEARTBEAT: Final = IdleHeartbeat()
 
 
-def _message_of(item: TableView | IdleHeartbeat) -> str:
+@dataclass(frozen=True)
+class SourceMessage:
+    """The whole state of one source as the stream sends it; `last` ends the stream after it."""
+
+    data: str
+    last: bool = False
+
+
+class StreamSource(Protocol):  # pragma: no cover - a port's method bodies are signatures; the sources run
+    async def open(self, wake: Callable[[], None]) -> None:
+        """Register `wake` for every change of this source's state; the stream reads only after this returns."""
+        ...
+
+    async def read(self, actor: Actor) -> SourceMessage:
+        """The whole state for `actor`."""
+        ...
+
+    def close(self) -> None: ...
+
+
+def _message_of(item: SourceMessage | IdleHeartbeat) -> str:
     if isinstance(item, IdleHeartbeat):
         return HEARTBEAT_COMMENT
-    return f"data: {answer_of(item).model_dump_json()}\n\n"
+    return f"data: {item.data}\n\n"
 
 
-async def _ask_for_next_deal(presence: Presence, table_id: str, view: TableView) -> None:
-    if view.passed_in is not None:
-        presence.deal_soon(table_id)
-    if view.result is not None:
-        await presence.deal_now(table_id)
+def _table_message(view: TableView) -> SourceMessage:
+    return SourceMessage(answer_of(view).model_dump_json(), last=view.ended is not None)
 
 
-async def _wait_for_change_or_heartbeat(changed: asyncio.Event, heartbeat_seconds: float) -> bool:
-    """Wait until a change is set or one heartbeat passes idle; true when the heartbeat passed idle."""
-    heartbeat_read = False
-    while not changed.is_set() and not heartbeat_read:
-        with suppress(TimeoutError):
-            await asyncio.wait_for(changed.wait(), heartbeat_seconds)
-        heartbeat_read = not changed.is_set()
-    return heartbeat_read
+class TableSource:
+    """The table view of one account as a stream source: it asks for the next deal with its first view."""
+
+    def __init__(
+        self,
+        presence: Presence,
+        read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
+        table_id: str,
+        account_id: str,
+    ) -> None:
+        self._presence = presence
+        self._read_view = read_view
+        self._table_id = table_id
+        self._account_id = account_id
+        self._subscription: Subscription | None = None
+        self._first_read = True
+
+    async def open(self, wake: Callable[[], None]) -> None:
+        self._subscription = await self._presence.subscribe(self._table_id, self._account_id, wake)
+
+    async def read(self, actor: Actor) -> SourceMessage:
+        view = await self._read_view(actor, self._presence.connected(self._table_id))
+        if view is None:
+            message = f"table {self._table_id} vanished while a stream watched it"
+            raise RuntimeError(message)
+        if self._first_read and view.ended is None:
+            await self._ask_for_next_deal(view)
+        self._first_read = False
+        return _table_message(view)
+
+    def close(self) -> None:
+        assert self._subscription is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
+        self._presence.unsubscribe(self._subscription)
+
+    async def _ask_for_next_deal(self, view: TableView) -> None:
+        if view.passed_in is not None:
+            self._presence.deal_soon(self._table_id)
+        if view.result is not None:
+            await self._presence.deal_now(self._table_id)
 
 
-async def table_views(
-    presence: Presence,
-    read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
+def _digest_of(message: SourceMessage) -> bytes:
+    return hashlib.blake2b(message.data.encode(), digest_size=16).digest()
+
+
+async def _wait_for_wake_or_deadline(changed: asyncio.Event, deadline: float) -> bool:
+    """Wait for a wake or the deadline; true once the deadline has passed."""
+    loop = asyncio.get_running_loop()
+    try:
+        await asyncio.wait_for(changed.wait(), max(deadline - loop.time(), 0))
+    except TimeoutError:
+        return True
+    return loop.time() >= deadline
+
+
+async def stream_messages(
+    source: StreamSource,
     admit: Callable[[], Awaitable[Actor | None]],
-    table_id: str,
-    account_id: str,
+    stopped: Callable[[], bool],
     *,
     heartbeat_seconds: float,
-) -> AsyncIterator[TableView | IdleHeartbeat]:
-    """The views one stream sends: the full view first, then a fresh one after each change.
+) -> AsyncIterator[SourceMessage | IdleHeartbeat]:
+    """The items one stream sends: the source's whole state first, then a fresh one after each change.
 
-    The stream registers before it reads, so a change after registering is never lost. Changes that pile up
-    while the consumer is slow fold into one wake and one fresh read, so a slow consumer holds no queue
-    and delays no other stream. The session is admitted again before every view and on every idle
-    heartbeat; the stream ends, sending nothing more, when `admit` refuses or the presence stops. Each idle
-    heartbeat reads the view again and sends it only when the table's version moved since the last view
-    sent, which recovers a lost wake; an unchanged one yields the idle heartbeat instead. A stream's first view
-    of a passed-in table asks for the next deal, so a member's return, a restart or a lost deal starts a fresh
-    pause; its first view of a pending result asks for the deal at once, and the marks decide. A stream that
-    finds its table ended sends that view as its last.
+    The stream opens the source before it reads, so a change after opening is never lost. Wakes that pile up
+    while the consumer is slow fold into one wake and one fresh read, so a slow consumer holds no queue and
+    delays no other stream. The session is admitted again before every read; the stream ends, sending nothing
+    more, when `admit` refuses or `stopped` holds, and `stopped` is read after the admission because a stop
+    during it has already set the wake. A read is sent only when it differs from the last one sent, so a wake
+    that changes nothing sends nothing. A heartbeat deadline counts from the last item yielded; when it
+    passes, the stream reads again, which recovers a lost wake, and yields the idle heartbeat unless that read
+    differs. A `last` message ends the stream after it.
     """
     changed = asyncio.Event()
-    subscription = await presence.subscribe(table_id, account_id, changed.set)
-    sent_version: int | None = None
-    heartbeat_read = False
+    await source.open(changed.set)
+    loop = asyncio.get_running_loop()
     try:
+        sent_digest: bytes | None = None
+        deadline = loop.time() + heartbeat_seconds
+        deadline_passed = False
         while True:
             changed.clear()
             # A stop that lands during the admission has set `changed`, so the check follows the call.
             actor = await admit()
-            if actor is None or presence.stopped:
+            if actor is None or stopped():
                 return
-            view = await read_view(actor, presence.connected(table_id))
-            if view is None:
-                message = f"table {table_id} vanished while a stream watched it"
-                raise RuntimeError(message)
-            if view.ended is not None:
-                yield view
-                return
-            if sent_version is None:
-                await _ask_for_next_deal(presence, table_id, view)
-            if heartbeat_read and view.version == sent_version:
+            message = await source.read(actor)
+            digest = _digest_of(message)
+            if digest != sent_digest:
+                sent_digest = digest
+                yield message
+                if message.last:
+                    return
+                deadline = loop.time() + heartbeat_seconds
+            elif deadline_passed:
                 yield IDLE_HEARTBEAT
-            else:
-                yield view
-                sent_version = view.version
-            heartbeat_read = await _wait_for_change_or_heartbeat(changed, heartbeat_seconds)
+                deadline = loop.time() + heartbeat_seconds
+            deadline_passed = await _wait_for_wake_or_deadline(changed, deadline)
     finally:
-        presence.unsubscribe(subscription)
+        source.close()
 
 
 def create_streams_router(
@@ -148,10 +206,11 @@ def create_streams_router(
         async def messages() -> AsyncIterator[str]:
             # An ended table has nobody to watch: its one message is its answer, and nothing registers.
             if first_view.ended is not None:
-                yield _message_of(first_view)
+                yield _message_of(_table_message(first_view))
                 return
-            async for item in table_views(
-                presence, read_view, admit, table_id, opened_as.account_id, heartbeat_seconds=heartbeat_seconds
+            source = TableSource(presence, read_view, table_id, opened_as.account_id)
+            async for item in stream_messages(
+                source, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
             ):
                 yield _message_of(item)
 

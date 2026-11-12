@@ -283,7 +283,11 @@ chairs = Table(
     Column("display_name", Text),
     Column("occupant_kind", Text),
     Column("ready", Boolean, nullable=False, server_default=false()),
+    # The accounts that held this chair in the running hand and left it; they no longer sit here, so a query of an
+    # account's tables reads `account_id` and never counts them.
+    Column("held_in_hand", ARRAY(Text), nullable=False, server_default=text("'{}'")),
     CheckConstraint("account_id IS NOT NULL OR NOT ready", name="chairs_ready_only_when_occupied"),
+    CheckConstraint("array_position(held_in_hand, NULL) IS NULL", name="chairs_held_in_hand_has_no_null"),
     CheckConstraint("(account_id IS NULL) = (occupant_kind IS NULL)", name="chairs_kind_only_when_occupied"),
     one_of("occupant_kind", (kind.value for kind in OccupantKind), "chairs_occupant_kind_is_a_kind"),
     Index("chairs_by_account", "account_id", postgresql_where=text("account_id IS NOT NULL")),

@@ -1,5 +1,6 @@
 # Generated from the catalogs by design-catalogs. Do not edit.
 # fmt: off
+from string import Formatter
 from typing import TYPE_CHECKING, Final, Literal
 
 if TYPE_CHECKING:
@@ -7,6 +8,8 @@ if TYPE_CHECKING:
 
 type Key = Literal[
     'app.name',
+    'app.reconnecting',
+    'app.unreachable',
     'account.title',
     'account.theme',
     'account.followSystem',
@@ -39,6 +42,12 @@ type Key = Literal[
     'table.bidding',
     'table.pass',
     'table.waitingFor',
+    'table.wantsToGiveUp',
+    'table.givesUp',
+    'table.accept',
+    'table.playOn',
+    'table.saidNo',
+    'table.noAnswerYet',
     'table.passedIn',
     'table.gives',
     'table.waitsForYou',
@@ -55,7 +64,6 @@ type Key = Literal[
     'table.readyMark',
     'table.notReadyMark',
     'result.seatFree',
-    'result.bidValue',
     'result.hand',
     'result.levelSpiel',
     'result.levelSchneider',
@@ -63,9 +71,9 @@ type Key = Literal[
     'result.levelOuvert',
     'result.matadorsWith',
     'result.matadorsWithout',
+    'result.listGame',
     'result.listBonus',
-    'result.each',
-    'result.notReached',
+    'result.share',
     'result.announcedSchneider',
     'result.announcedSchwarz',
     'result.sideThem',
@@ -73,11 +81,15 @@ type Key = Literal[
     'result.sideYou',
     'result.won',
     'result.lost',
-    'result.wins',
-    'result.loses',
     'result.overbid',
-    'result.gameWorth',
     'result.and',
+    'result.declarerWins',
+    'result.declarerLoses',
+    'result.opponentGameLine',
+    'result.missedSchneider',
+    'result.missedSchwarz',
+    'result.raise',
+    'result.sidePoints',
     'closed.notFound',
     'closed.nobodyThereClosed',
     'closed.minute',
@@ -131,14 +143,24 @@ type Key = Literal[
 type Language = Literal[
     'de',
 ]
+type Category = Literal[
+    'zero',
+    'one',
+    'two',
+    'few',
+    'many',
+    'other',
+]
 
 SOURCE_LANGUAGE: Final[Language] = 'de'
 LANGUAGES: Final[tuple[Language, ...]] = (
     'de',
 )
-WORDS: Final[Mapping[Language, Mapping[Key, str]]] = {
+WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
     'de': {
         'app.name': 'Skat',
+        'app.reconnecting': 'verbinde neu',
+        'app.unreachable': 'Skat ist gerade nicht erreichbar.',
         'account.title': 'Konto',
         'account.theme': 'Darstellung',
         'account.followSystem': 'System',
@@ -171,6 +193,12 @@ WORDS: Final[Mapping[Language, Mapping[Key, str]]] = {
         'table.bidding': 'Reizen',
         'table.pass': 'Weg',
         'table.waitingFor': 'Warte auf',
+        'table.wantsToGiveUp': '{name} will aufgeben',
+        'table.givesUp': '{name} gibt auf',
+        'table.accept': 'Annehmen',
+        'table.playOn': 'Weiterspielen',
+        'table.saidNo': 'sagte Nein',
+        'table.noAnswerYet': 'noch keine Antwort',
         'table.passedIn': 'Eingepasst',
         'table.gives': 'gibt',
         'table.waitsForYou': 'wartet auf dich',
@@ -187,17 +215,22 @@ WORDS: Final[Mapping[Language, Mapping[Key, str]]] = {
         'table.readyMark': 'Weiter getippt',
         'table.notReadyMark': 'noch nicht getippt',
         'result.seatFree': 'Frei',
-        'result.bidValue': 'Reizwert',
         'result.hand': 'Hand',
         'result.levelSpiel': 'Spiel',
         'result.levelSchneider': 'Schneider',
         'result.levelSchwarz': 'Schwarz',
         'result.levelOuvert': 'Ouvert',
-        'result.matadorsWith': 'mit',
-        'result.matadorsWithout': 'ohne',
-        'result.listBonus': 'Liste',
-        'result.each': 'je',
-        'result.notReached': 'nicht erreicht',
+        'result.matadorsWith': {
+            'one': 'mit {count}',
+            'other': 'mit {count}',
+        },
+        'result.matadorsWithout': {
+            'one': 'ohne {count}',
+            'other': 'ohne {count}',
+        },
+        'result.listGame': 'Spiel {score}',
+        'result.listBonus': 'Liste {bonus}',
+        'result.share': '· {opponents} je {gain}',
         'result.announcedSchneider': 'Schneider angesagt',
         'result.announcedSchwarz': 'Schwarz angesagt',
         'result.sideThem': 'Gegner',
@@ -205,11 +238,15 @@ WORDS: Final[Mapping[Language, Mapping[Key, str]]] = {
         'result.sideYou': 'Du',
         'result.won': 'Gewonnen!',
         'result.lost': 'Verloren',
-        'result.wins': 'gewinnt',
-        'result.loses': 'verliert',
         'result.overbid': 'Überreizt',
-        'result.gameWorth': 'Wert',
         'result.and': 'und',
+        'result.declarerWins': '{name} gewinnt',
+        'result.declarerLoses': '{name} verliert',
+        'result.opponentGameLine': '{declarer}, {game}',
+        'result.missedSchneider': 'Schneider angesagt, nicht erreicht',
+        'result.missedSchwarz': 'Schwarz angesagt, nicht erreicht',
+        'result.raise': 'Wert {value} < Reizwert {bid} → {settled}',
+        'result.sidePoints': '{side} {points}',
         'closed.notFound': 'Tisch nicht gefunden',
         'closed.nobodyThereClosed': 'niemand da: Tisch geschlossen',
         'closed.minute': 'Minute',
@@ -263,5 +300,36 @@ WORDS: Final[Mapping[Language, Mapping[Key, str]]] = {
 }
 
 
-def text(language: Language, key: Key) -> str:
-    return WORDS[language][key]
+def plural_category(language: Language, count: int) -> Category:
+    n = abs(count)
+    match language:
+        case 'de':
+            if (n == 1):
+                return 'one'
+            return 'other'
+
+
+def text(language: Language, key: Key, /, *, count: int | None = None, **gaps: str) -> str:
+    if language not in WORDS:
+        raise KeyError(f'unknown language {language!r}; the languages are {list(WORDS)}')
+    if key not in WORDS[language]:
+        family = key.rpartition('.')[0]
+        is_family = any(name == family and not isinstance(entry, str) for name, entry in WORDS[language].items())
+        hint = f'; a plural family is named by its family key {family!r}' if is_family else ''
+        raise KeyError(f'unknown key {key!r}{hint}')
+    words = WORDS[language][key]
+    if isinstance(words, str):
+        sentence, counted = words, False
+    elif count is None:
+        raise TypeError(f'{key!r} is a plural family: pass count')
+    else:
+        sentence, counted = words.get(plural_category(language, count), words['other']), True
+    values = gaps if count is None else {**gaps, 'count': str(count)}
+    named = {name for _, name, _, _ in Formatter().parse(sentence) if name is not None}
+    # A family's sentence may leave out the count.
+    unknown = values.keys() - named - ({'count'} if counted else set())
+    if missing := named - values.keys():
+        raise TypeError(f'{key!r} in {language!r} is missing the gaps {sorted(missing)}')
+    if unknown:
+        raise TypeError(f'{key!r} in {language!r} has no gaps {sorted(unknown)}')
+    return sentence.format(**values)

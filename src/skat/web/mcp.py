@@ -71,6 +71,7 @@ RAMSCH_TAKE_SKAT_TOOL: Final = "ramsch_take_skat"
 RAMSCH_PUT_BACK_CARDS_TOOL: Final = "ramsch_put_back_cards"
 RAMSCH_PUSH_SKAT_TOOL: Final = "ramsch_push_skat"
 SAY_KONTRA_TOOL: Final = "say_kontra"
+SAY_NO_WORD_TOOL: Final = "say_no_word"
 OPEN_TABLE_TOOL: Final = "open_table"
 SIT_DOWN_TOOL: Final = "sit_down"
 STAND_UP_TOOL: Final = "stand_up"
@@ -117,6 +118,7 @@ RAMSCH_TAKE_SKAT_MARK: Final = agent_tool(name=RAMSCH_TAKE_SKAT_TOOL, effect=Too
 RAMSCH_PUT_BACK_CARDS_MARK: Final = agent_tool(name=RAMSCH_PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 RAMSCH_PUSH_SKAT_MARK: Final = agent_tool(name=RAMSCH_PUSH_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+SAY_NO_WORD_MARK: Final = agent_tool(name=SAY_NO_WORD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 OPEN_TABLE_MARK: Final = agent_tool(name=OPEN_TABLE_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SIT_DOWN_MARK: Final = agent_tool(name=SIT_DOWN_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 STAND_UP_MARK: Final = agent_tool(name=STAND_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)

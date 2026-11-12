@@ -12,19 +12,12 @@ from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
-    BID_VALUE,
     CARD,
-    EACH,
-    LIST_BONUS,
-    LOSES,
     LOST,
     MINUS,
     OVERBID,
-    SPIEL,
     TIMES,
-    WINS,
     WON,
-    WORTH,
     YOU,
     expect_the_page_around_the_card,
     loosely,
@@ -123,7 +116,11 @@ def expected_word(table: PlayingTable, person: Page) -> str:
     won = table.result()["won"]
     role = role_of(table, person)
     if role == "watcher":
-        return f"{table.names[table.declarer_seat]} {WINS if won else LOSES}"
+        return text(
+            SOURCE_LANGUAGE,
+            "result.declarerWins" if won else "result.declarerLoses",
+            name=table.names[table.declarer_seat],
+        )
     return WON if won == (role == "declarer") else LOST
 
 
@@ -131,7 +128,13 @@ def expect_the_raise(card: Locator, result: dict[str, Any]) -> None:
     if result["overbid"]:
         expect(card.locator(".stamp")).to_have_text(OVERBID)
         expect(card.locator(".miss:not(.missed)")).to_have_text(
-            f"{WORTH} {result['game_value']} < {BID_VALUE} {result['bid']} \u2192 {result['settled_value']}"
+            text(
+                SOURCE_LANGUAGE,
+                "result.raise",
+                value=str(result["game_value"]),
+                bid=str(result["bid"]),
+                settled=str(result["settled_value"]),
+            )
         )
     else:
         expect(card.locator(".stamp")).to_have_count(0)
@@ -169,18 +172,22 @@ def expect_the_card(table: PlayingTable) -> None:
         names = {"declarer": (YOU, THEY), "opponent": (table.names[table.declarer_seat], WE)}.get(
             role, (table.names[table.declarer_seat], THEY)
         )
-        expect(card.locator(".sides .declarer")).to_have_text(f"{names[0]} {result['declarer_points']}")
-        expect(card.locator(".sides .opponents")).to_have_text(f"{names[1]} {result['opponents_points']}")
+        expect(card.locator(".sides .declarer")).to_have_text(
+            text(SOURCE_LANGUAGE, "result.sidePoints", side=names[0], points=str(result["declarer_points"]))
+        )
+        expect(card.locator(".sides .opponents")).to_have_text(
+            text(SOURCE_LANGUAGE, "result.sidePoints", side=names[1], points=str(result["opponents_points"]))
+        )
         declarer_gain = next(gain for gain in result["gains"] if gain["seat"] == result["declarer_seat"])["gain"]
         opponent_gain = next(gain for gain in result["gains"] if gain["seat"] != result["declarer_seat"])["gain"]
         steps = [
             names[0],
-            f"{SPIEL} {signed(result['score'])}",
-            f"{LIST_BONUS} {signed(result['list_bonus'])}",
+            text(SOURCE_LANGUAGE, "result.listGame", score=signed(result["score"])),
+            text(SOURCE_LANGUAGE, "result.listBonus", bonus=signed(result["list_bonus"])),
             f"= {signed(declarer_gain)}",
         ]
         if result["doubled"]:
-            steps.append(f"\u00b7 {names[1]} {EACH} {signed(opponent_gain)}")
+            steps.append(text(SOURCE_LANGUAGE, "result.share", opponents=names[1], gain=signed(opponent_gain)))
         expect(card.locator(".list")).to_have_text(loosely(*steps))
         expect_the_rows(card, table, person, role, result)
 

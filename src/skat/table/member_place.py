@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from skat.table.records import OccupantKind, OpaqueId, TableId, TableRecord
-from skat.table.rules import decide_sit, lowest_free_seat, seat_of
+from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -218,11 +218,13 @@ def decide_accept(
     now: datetime,
     new_hand: NewHand | None,
 ) -> AcceptDecision:
-    """Seat the agent at the lowest free chair through the sit decision, or refuse; the decisions run in this order.
+    """Seat the agent at the chair it held in the running hand, or at the lowest free chair when it holds no mark of
+    the running hand, through the sit decision, or refuse; the decisions run in this order.
 
     Stale changes nothing: no invitation stands (none, expired, another id or epoch, another owner than the one it is
     bound to, a chair the agent already holds). Without the owner at the table the accept is `sponsor_away`, and with no
-    free chair `busy`; both end the invitation.
+    free chair for the agent (the chair it held in the running hand being taken included) `busy`; both end the
+    invitation.
     """
     invitation = open_invitation(entry, now)
     stale = (
@@ -237,7 +239,7 @@ def decide_accept(
     ended = replace(entry, invitation=None)
     if not owner_present:
         return AcceptDecision(table, ended, MemberRefusal.SPONSOR_AWAY)
-    seat = lowest_free_seat(table)
+    seat = free_seat_for(table, agent.account_id)
     if seat is None:
         return AcceptDecision(table, ended, MemberRefusal.BUSY)
     return AcceptDecision(decide_sit(table, agent, seat, new_hand).table, ended)

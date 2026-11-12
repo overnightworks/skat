@@ -120,6 +120,13 @@ describe("the card's words and sides for each viewer", () => {
         expect(resultView(table(mine, {})).sides).toEqual(sides);
     });
 
+    it("reads a side's trick points as one sentence with the points as its gap", () => {
+        const sentence = words["result.sidePoints"]({ side: words["result.sideYou"], points: "61" });
+
+        expect(sentence).toContain(words["result.sideYou"]);
+        expect(sentence).toContain("61");
+    });
+
     it.each([
         { hand: false, label: words["game.kreuz"] },
         { hand: true, label: `${words["game.kreuz"]} ${words["game.hand"]}` },
@@ -208,7 +215,7 @@ describe("the overbid", () => {
 
     it("states the worth against the bid and the value it was raised to", () => {
         expect(resultView(table(2, overbid)).raise).toBe(
-            `${words["result.gameWorth"]} 18 < ${words["result.bidValue"]} 20 → 27`,
+            words["result.raise"]({ value: "18", bid: "20", settled: "27" }),
         );
     });
 
@@ -220,7 +227,7 @@ describe("the overbid", () => {
 describe("the chips", () => {
     it("ticks each counted level after the unticked matadors", () => {
         expect(resultView(table(2, {})).chips).toEqual([
-            { word: `${words["result.matadorsWith"]} 2`, ticked: false },
+            { word: words["result.matadorsWith"](2), ticked: false },
             { word: words["result.levelSpiel"], ticked: true },
         ]);
     });
@@ -228,7 +235,7 @@ describe("the chips", () => {
     it("counts the matadors a game is played without", () => {
         const view = resultView(table(2, { matadors: { mit: false, count: 2 }, game: "grand" }));
 
-        expect(view.chips[0]).toEqual({ word: `${words["result.matadorsWithout"]} 2`, ticked: false });
+        expect(view.chips[0]).toEqual({ word: words["result.matadorsWithout"](2), ticked: false });
     });
 
     it("words every level the answer sends", () => {
@@ -293,7 +300,7 @@ describe("the doubling and the list line", () => {
         expect(view.doubled).toBe(false);
         expect(view.list).toEqual({
             side: words["result.sideYou"],
-            steps: [`${words["result.levelSpiel"]} +36`, `${words["result.listBonus"]} +50`, "= +86"],
+            steps: [words["result.listGame"]({ score: "+36" }), words["result.listBonus"]({ bonus: "+50" }), "= +86"],
             share: null,
         });
     });
@@ -304,8 +311,8 @@ describe("the doubling and the list line", () => {
         expect(view.doubled).toBe(true);
         expect(view.list).toEqual({
             side: words["result.sideYou"],
-            steps: [`${words["result.levelSpiel"]} −72`, `${words["result.listBonus"]} −50`, "= −122"],
-            share: `· ${words["result.sideThem"]} ${words["result.each"]} +40`,
+            steps: [words["result.listGame"]({ score: "−72" }), words["result.listBonus"]({ bonus: "−50" }), "= −122"],
+            share: words["result.share"]({ opponents: words["result.sideThem"], gain: "+40" }),
         });
     });
 
@@ -316,18 +323,18 @@ describe("the doubling and the list line", () => {
         const view = resultView(table(mine, LOST_GAME));
 
         expect(view.list.side).toBe(side);
-        expect(view.list.share).toBe(`· ${opponents} ${words["result.each"]} +40`);
+        expect(view.list.share).toBe(words["result.share"]({ opponents, gain: "+40" }));
     });
 });
 
 describe("the missed announcement", () => {
     it.each([
-        { announcement: "schneider", word: words["game.announcedSchneider"] },
-        { announcement: "schwarz", word: words["game.announcedSchwarz"] },
-    ] as const)("says that $word was not reached", ({ announcement, word }) => {
+        { announcement: "schneider", missed: words["result.missedSchneider"] },
+        { announcement: "schwarz", missed: words["result.missedSchwarz"] },
+    ] as const)("says that the $announcement announcement was not reached", ({ announcement, missed }) => {
         const view = resultView(table(2, { ...LOST_GAME, announcement, announcement_missed: true }));
 
-        expect(view.missed).toBe(`${word}, ${words["result.notReached"]}`);
+        expect(view.missed).toBe(missed);
     });
 
     it("says Schwarz was not reached for a lost ouvert game, which counts as announced Schwarz", () => {
@@ -335,7 +342,7 @@ describe("the missed announcement", () => {
             table(2, { ...LOST_GAME, ouvert: true, game: "grand", announcement: "schwarz", announcement_missed: true }),
         );
 
-        expect(view.missed).toBe(`${words["game.announcedSchwarz"]}, ${words["result.notReached"]}`);
+        expect(view.missed).toBe(words["result.missedSchwarz"]);
         expect(view.gameLine).toBe(`${words["game.grand"]} ${words["game.ouvert"]}`);
     });
 

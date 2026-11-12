@@ -23,6 +23,7 @@ STORE_TABLES = {
     "played_cards",
     "game_list",
     "kontra_words",
+    "kontra_no_words",
     "rule_sets",
     "member_book",
 }
@@ -488,7 +489,9 @@ class TestFromChairsAtRevisionTwentyEight:
     @staticmethod
     def chair_rows(engine):
         with engine.connect() as connection:
-            return connection.execute(text("SELECT * FROM chairs ORDER BY seat")).all()
+            return connection.execute(
+                text("SELECT table_id, seat, account_id, display_name, occupant_kind, ready FROM chairs ORDER BY seat")
+            ).all()
 
     @staticmethod
     def indexed_columns(engine):

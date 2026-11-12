@@ -44,6 +44,7 @@ from skat.web.constants import (  # noqa: E402
     NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    VERSION_FILE_PATH,
 )
 from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_DECLARE_SUFFIX,
@@ -51,7 +52,12 @@ from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
-from skat.web.playing import TABLE_CARD_SUFFIX  # noqa: E402
+from skat.web.kontra import TABLE_NO_WORD_SUFFIX  # noqa: E402
+from skat.web.playing import (  # noqa: E402
+    TABLE_CARD_SUFFIX,
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
+)
 from skat.web.ready import TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
@@ -108,6 +114,7 @@ def render() -> str:
         "CALL_MODE": CALL_MODE,
         "LOGOUT_PATH": LOGOUT_PATH,
         "ACCOUNT_PATH": ACCOUNT_PATH,
+        "VERSION_FILE_PATH": VERSION_FILE_PATH,
         "CALL_ORIGIN_PATH": CALL_ORIGIN_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
         "TABLES_PATH": TABLES_PATH,
@@ -124,7 +131,10 @@ def render() -> str:
         "TABLE_AUCTION_PASS_SUFFIX": TABLE_AUCTION_PASS_SUFFIX,
         "TABLE_AUCTION_PLAY_SUFFIX": TABLE_AUCTION_PLAY_SUFFIX,
         "TABLE_CARD_SUFFIX": TABLE_CARD_SUFFIX,
+        "TABLE_GIVE_UP_AGREE_SUFFIX": TABLE_GIVE_UP_AGREE_SUFFIX,
+        "TABLE_GIVE_UP_DECLINE_SUFFIX": TABLE_GIVE_UP_DECLINE_SUFFIX,
         "TABLE_LIST_SUFFIX": TABLE_LIST_SUFFIX,
+        "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())

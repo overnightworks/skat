@@ -370,18 +370,26 @@ class TestTheStage:
         refused(after_the_stage, FOREHAND, "take", "wrong-phase")
         refused(declared, FOREHAND, "take", "wrong-phase")
 
-    def test_weiter_and_neue_serie_and_standing_up_are_refused_as_in_any_running_hand(self, skat):
+    def test_weiter_and_neue_serie_are_refused_as_in_any_running_hand(self, skat):
         table = stage_table(skat)
         people = headers_of(table)
         tap = tap_weiter(skat, people[0], table.table_id, "tap-0001")
         new_series = tap_new_series(skat, people[0], table.table_id, "new-series-0001")
-        stand = skat.stand(people[0], table.table_id)
 
-        assert [reason_of(each) for each in (tap, new_series, stand)] == [
-            "no-result",
-            "series-not-over",
-            "hand-running",
-        ]
+        assert [reason_of(each) for each in (tap, new_series)] == ["no-result", "series-not-over"]
+
+    def test_standing_up_in_the_push_stage_opens_the_chair_and_the_stage_waits_until_a_sitter_comes(self, skat):
+        table = stage_table(skat)
+        stage = table.record.progress.pushing
+
+        stood = skat.stand(headers_of(table)[0], table.table_id)
+        refused(table, FOREHAND, "take", "seat-open")
+        sat = skat.sit(table.watcher, table.table_id, 1)
+
+        assert (stood.status_code, stood.json()["hand"]["waiting_seat"]) == (200, 1)
+        assert (sat.status_code, sat.json()["hand"]["waiting_seat"]) == (200, None)
+        assert table.record.progress.pushing == stage
+        accepted(table, FOREHAND, "take")
 
 
 # Forehand put back C7 C8, middlehand pushed and rearhand took them and put DT and C7 back (keeping C8), so the Ramsch

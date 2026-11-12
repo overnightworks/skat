@@ -31,6 +31,7 @@ function playing(changes: Partial<Playing>): Playing {
         current_trick: [],
         last_trick: null,
         legal_cards: [],
+        give_up: null,
         ...changes,
     };
 }
@@ -46,6 +47,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             dealer_seat: 3,
             own_cards: [],
             skat_count: 2,
+            waiting_seat: null,
             auction: {
                 turn_seat: null,
                 facing_seat: null,
