@@ -588,6 +588,46 @@ body {
     box-shadow: inset 0 0 0 2px rgba(244, 246, 248, 0.2);
 }
 
+/* An agent's chair is a glowing orb in a night sky with a dashed accent outline, never a person's colour. */
+.room .tile.agent {
+    container-type: size;
+    background:
+        radial-gradient(1.2px 1.2px at 18% 24%, #fff, transparent),
+        radial-gradient(1px 1px at 78% 30%, #cfe0ff, transparent),
+        radial-gradient(1.4px 1.4px at 64% 78%, #fff, transparent),
+        radial-gradient(1px 1px at 30% 70%, #cfe0ff, transparent),
+        radial-gradient(1px 1px at 88% 64%, #fff, transparent),
+        radial-gradient(60% 60% at 50% 46%, rgba(122, 167, 240, 0.22), transparent 70%),
+        linear-gradient(160deg, #1c2a44, #0c1220);
+}
+
+.room .tile.agent::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1.5px dashed var(--accent-stage, #7aa7f0);
+    pointer-events: none;
+}
+
+.room .orb {
+    display: grid;
+    place-items: center;
+    width: clamp(30px, 42cqmin, 96px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    color: #fff;
+    background: radial-gradient(circle at 34% 30%, #d9e6ff 0, #8fb4f6 18%, #4467b8 52%, #1d2c55 100%);
+    box-shadow:
+        0 0 22px 4px rgba(122, 167, 240, 0.45),
+        inset 0 -4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.room .orb svg {
+    width: 50%;
+    height: 50%;
+}
+
 .room .initial {
     font-size: 36px;
     font-weight: 700;
@@ -2567,6 +2607,16 @@ body {
     text-transform: uppercase;
 }
 
+.room .notice .dot.agent {
+    color: #fff;
+    background: radial-gradient(circle at 34% 30%, #d9e6ff, #4467b8 60%, #1d2c55);
+}
+
+.room .notice .dot svg {
+    width: 16px;
+    height: 16px;
+}
+
 .room .copy svg {
     width: 20px;
     height: 20px;
@@ -3136,6 +3186,71 @@ body {
 .room .copy:disabled {
     opacity: 0.6;
     cursor: default;
+}
+
+/* The pill that opens the agents' list: the AI mark with its word at 900 px and wider, the mark alone round on a phone. */
+.room .pill-anchor {
+    position: relative;
+    display: inline-flex;
+}
+
+.room .copy.agents.on {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--on-stage);
+}
+
+@media (max-width: 899px) {
+    .room .copy.agents,
+    .room .actions.on-result .copy.agents {
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .copy.agents .word {
+        display: none;
+    }
+}
+
+/* The list hangs on its pill as dark glass, its caret over the pill's middle; the kit's tokens inside are the dark ones. */
+.room .agents-pop {
+    --text: #e0e0e0;
+    --text-muted: #888;
+    --border: #333;
+    --surface-hover: #1a1a1a;
+    --fail: #f44;
+    --fail-soft: #3a1a1a;
+
+    position: absolute;
+    z-index: 60;
+    bottom: calc(100% + 10px);
+    box-sizing: border-box;
+    padding: 6px 0 2px;
+    border-radius: 12px;
+    background: rgba(17, 17, 17, 0.94);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        0 18px 36px -10px rgba(0, 0, 0, 0.9);
+    font-size: 14px;
+    font-weight: 400;
+    text-align: left;
+    white-space: normal;
+}
+
+.room .agents-pop::after {
+    content: "";
+    position: absolute;
+    left: var(--caret, 50%);
+    bottom: -6px;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    rotate: 45deg;
+    background: rgb(17, 17, 17);
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 /* The result's bar is one row: on a phone the link is its icon alone and the buttons close up. */
