@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "34c73e9ca2272cc3ce1a762c0ed32b8d89200d22"
 branch = "claude/issue-412-logout-page-words"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/words/de.ts", "src/skat/web/sign_in.py", "src/skat/web/words.py", "tests/web/test_sign_in_routes.py"]
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/words/de.ts", "src/skat/web/sign_in.py", "src/skat/web/words.py", "tests/support/end_session_page.py", "tests/web/test_sign_in_routes.py"]
 opened_commit = "cc157cab34b474d5ebfc356961a8e1bb76c91ca2"
 whole_reason = "One production file, the catalog with its two generated modules, and the test that pinned the English label."
