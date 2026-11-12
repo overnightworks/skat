@@ -1,0 +1,8 @@
+claim_id = "a0468f514d8a471b9c41de03ce3825c3"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "df4e066bb6efda583194cefbdfdbc619f6eeef68"
+branch = "claude/issue-359-lobby-stream-mine"
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/table/awaiting.py", "src/skat/table/lobby.py", "src/skat/table/service.py", "src/skat/table/transactions.py", "src/skat/web/lobby.py", "src/skat/web/presence.py", "src/skat/web/seating.py", "src/skat/web/streams.py", "src/skat/web/wakes.py", "tests/store/test_tables_paused.py", "tests/support/fake_tables.py", "tests/support/idle_presence.py", "tests/table/test_awaiting.py", "tests/table/test_lobby.py", "tests/web/conftest.py", "tests/web/test_lobby_stream.py", "tests/web/test_presence.py", "tests/web/test_presence_empty_table.py", "tests/web/test_streams_end.py", "tests/web/test_tables.py", "tests/web/test_wakes.py"]
+opened_commit = "4b1b730720a02e082db3c8de776e03d03be3e330"
+whole_reason = "The projection, its source on the loop, the topics that wake it, the lifted wake list and the route have no caller without each other: a source nobody wakes is a poll, a topic nothing reads is noise, and a route nobody serves leaves the projection dead; the three safeguards and the paused list are already cut into later slices."
