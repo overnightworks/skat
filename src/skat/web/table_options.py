@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
-from skat.engine.schieberamsch import PushingRule  # noqa: TC001 - pydantic reads the field type at runtime
+from skat.engine.schieberamsch import GrandHandRule, PushingRule
 from skat.table.records import RamschOccasion, RamschSetting, TableOptions
 
 
@@ -39,11 +39,14 @@ class BockOptionsRequest(BaseModel):
 
 
 class PushingOptionsRequest(BaseModel):
-    """What a take, a push and the cards put back do in a Ramsch; the object leaves room for what joins the rule."""
+    """What a take, a push and the cards put back do in a Ramsch, and whether a seat may declare a Grand Hand instead;
+    left out, `grand_hand` is off.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     rule: PushingRule
+    grand_hand: GrandHandRule = GrandHandRule.OFF
 
 
 class RamschOptionsRequest(BaseModel):
@@ -85,6 +88,7 @@ class BockOptionsAnswer(BaseModel):
 
 class PushingOptionsAnswer(BaseModel):
     rule: PushingRule
+    grand_hand: GrandHandRule
 
 
 class RamschOptionsAnswer(BaseModel):
@@ -103,7 +107,9 @@ class OptionsAnswer(BaseModel):
 
 
 def ramsch_answer_of(ramsch: RamschSetting) -> RamschOptionsAnswer:
-    pushing = None if ramsch.pushing is None else PushingOptionsAnswer(rule=ramsch.pushing)
+    pushing = (
+        None if ramsch.pushing is None else PushingOptionsAnswer(rule=ramsch.pushing, grand_hand=ramsch.grand_hand)
+    )
     return RamschOptionsAnswer(
         occasion=ramsch.occasion,
         scoring=ramsch.reckoning.scoring,
@@ -126,11 +132,12 @@ def options_answer_of(options: TableOptions) -> OptionsAnswer:
 
 
 def ramsch_setting_of(ramsch: RamschOptionsRequest) -> RamschSetting:
-    pushing = None if ramsch.pushing is None else ramsch.pushing.rule
+    pushing = ramsch.pushing
     return RamschSetting(
         ramsch.occasion,
         RamschOptions(ramsch.scoring, ramsch.jungfrau, ramsch.durchmarsch),
-        pushing,
+        None if pushing is None else pushing.rule,
+        GrandHandRule.OFF if pushing is None else pushing.grand_hand,
     )
 
 

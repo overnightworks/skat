@@ -15,6 +15,14 @@ INSERT_BEFORE_PUSHING = text(
     " :kontra_deadline, CAST(:bock_triggers AS text[]), :bock_overlap, :ramsch_occasion, :ramsch_scoring,"
     " :ramsch_jungfrau, :ramsch_durchmarsch)"
 )
+# The same columns and the pushing rule, which the grand-hand revision follows.
+INSERT_BEFORE_GRAND_HAND = text(
+    "INSERT INTO rule_sets (id, owner_account, name, show_running_points, kontra_sayer, kontra_reach,"
+    " kontra_deadline, bock_triggers, bock_overlap, ramsch_occasion, ramsch_scoring, ramsch_jungfrau,"
+    " ramsch_durchmarsch, ramsch_pushing) VALUES (:id, :owner_account, :name, :show_running_points, :kontra_sayer,"
+    " :kontra_reach, :kontra_deadline, CAST(:bock_triggers AS text[]), :bock_overlap, :ramsch_occasion,"
+    " :ramsch_scoring, :ramsch_jungfrau, :ramsch_durchmarsch, :ramsch_pushing)"
+)
 SELECT_BEFORE_PUSHING = text(
     "SELECT id, owner_account, name, show_running_points, kontra_sayer, kontra_reach, kontra_deadline,"
     " bock_triggers, bock_overlap, ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch"
@@ -32,13 +40,12 @@ def save(engine, rule_set):
         transaction.add(rule_set)
 
 
-def save_before_pushing(engine, rule_set):
-    """Write a set into a database before the pushing revision, with the columns and values that revision has."""
+def _values_before_pushing(rule_set):
     options = rule_set.options
     kontra = options.kontra
     bock = options.bock
     ramsch = options.ramsch
-    values = {
+    return {
         "id": rule_set.id.value,
         "owner_account": rule_set.owner_account,
         "name": rule_set.name,
@@ -53,8 +60,23 @@ def save_before_pushing(engine, rule_set):
         "ramsch_jungfrau": None if ramsch is None else ramsch.reckoning.jungfrau.value,
         "ramsch_durchmarsch": None if ramsch is None else ramsch.reckoning.durchmarsch.value,
     }
+
+
+def save_before_pushing(engine, rule_set):
+    """Write a set into a database before the pushing revision, with the columns and values that revision has."""
     with engine.begin() as connection:
-        connection.execute(INSERT_BEFORE_PUSHING, values)
+        connection.execute(INSERT_BEFORE_PUSHING, _values_before_pushing(rule_set))
+
+
+def save_before_grand_hand(engine, rule_set):
+    """Write a set into a database before the grand-hand revision, with the columns and values that revision has."""
+    ramsch = rule_set.options.ramsch
+    values = {
+        **_values_before_pushing(rule_set),
+        "ramsch_pushing": None if ramsch is None or ramsch.pushing is None else ramsch.pushing.value,
+    }
+    with engine.begin() as connection:
+        connection.execute(INSERT_BEFORE_GRAND_HAND, values)
 
 
 def sets_before_pushing(engine, account_id):

@@ -11,7 +11,7 @@ from skat.table.records import OccupantKind, OpaqueId, TableId, TableRecord
 from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable, Sequence
     from datetime import datetime, timedelta
 
     from skat.table.records import Actor, NewHand
@@ -31,6 +31,9 @@ __all__ = [
     "MembershipState",
     "OfferState",
     "OpenInvitation",
+    "SeatedAgent",
+    "SeatedOffer",
+    "TableOffers",
     "TableStanding",
     "agents_seated_at",
     "call_offer_of",
@@ -40,7 +43,9 @@ __all__ = [
     "forgotten_if_expired",
     "offer_of",
     "open_invitation",
+    "seated_agents",
     "standings_among",
+    "table_offers_of",
 ]
 
 
@@ -71,10 +76,13 @@ class InviteRefusal(StrEnum):
 
 
 class OfferState(StrEnum):
-    """What an agent is to the person who may call it: free to call, or called by that person and not yet answered."""
+    """What an agent is to the person who may call it: free to call, called by that person and not yet answered, or
+    seated at the table, where the person may send it away.
+    """
 
     AVAILABLE = "available"
     INVITING = "inviting"
+    HERE = "here"
 
 
 class InvitationId(OpaqueId):
@@ -125,7 +133,7 @@ class TableStanding:
 @dataclass(frozen=True)
 class CallFacts:
     """What the host gathered for one person's call to one agent: the person, whether it is at the table and counts as
-    a member of the group that may call agents, and the agent with whether it listens and who it works for.
+    a member of the group that may call agents, and the agent with whether it listens and who it works for, if known.
     """
 
     viewer_account: str
@@ -133,7 +141,7 @@ class CallFacts:
     viewer_is_member: bool
     agent_account: str
     agent_listens: bool
-    owner_account: str
+    owner_account: str | None
     owner_present: bool
 
 
@@ -143,6 +151,31 @@ class CallOffer:
 
     answer: OfferState | InviteRefusal
     ends_in_seconds: int | None = None
+
+
+@dataclass(frozen=True)
+class SeatedAgent:
+    """An agent that holds a chair at a table, by account and the name its chair shows."""
+
+    account: str
+    name: str
+
+
+@dataclass(frozen=True)
+class SeatedOffer:
+    """The offer of a seated agent that no call named."""
+
+    account: str
+    name: str
+    offer: CallOffer
+
+
+@dataclass(frozen=True)
+class TableOffers:
+    """The offers of the named calls, in their order, and those of the seated agents no call named."""
+
+    listed: tuple[CallOffer, ...]
+    seated: tuple[SeatedOffer, ...]
 
 
 @dataclass(frozen=True)
@@ -205,13 +238,18 @@ def forgotten_if_expired(entry: BookEntry, now: datetime) -> BookEntry:
     return BookEntry(table_id=entry.table_id, agent_account=entry.agent_account, epoch=entry.epoch)
 
 
-def agents_seated_at(table: TableRecord) -> frozenset[str]:
-    """The agents that hold a chair at the table."""
-    return frozenset(
-        chair.occupant.account_id
+def seated_agents(table: TableRecord) -> tuple[SeatedAgent, ...]:
+    """The agents that hold a chair at the table, in chair order."""
+    return tuple(
+        SeatedAgent(chair.occupant.account_id, chair.occupant.display_name)
         for chair in table.chairs
         if chair.occupant is not None and chair.occupant.kind is OccupantKind.AGENT
     )
+
+
+def agents_seated_at(table: TableRecord) -> frozenset[str]:
+    """The accounts of the agents that hold a chair at the table."""
+    return frozenset(agent.account for agent in seated_agents(table))
 
 
 def control_shown(*, viewer_present: bool, viewer_is_member: bool) -> bool:
@@ -223,17 +261,20 @@ def offer_of(
     facts: CallFacts, table: TableRecord | None, entry: BookEntry | None, now: datetime
 ) -> OfferState | InviteRefusal:
     """What the person's call to the agent comes to, decided in this order: the table is not live; the person is not
-    at it; not a member; the agent does not listen, holds a chair there or is invited there by someone else; the agent
-    is invited by this person already; the owner is not at the table; no chair is free for the agent. A chair left open
-    by a hand that waits for a sitter is free, but an agent that left a chair of that hand is offered that chair only.
+    at it; not a member; the agent holds a chair there, which the person may send it away from, whether it listens or
+    its owner is present; the agent does not listen or is invited there by someone else; the agent is invited by this
+    person already; the owner is not at the table; no chair is free for the agent. A chair left open by a hand that
+    waits for a sitter is free, but an agent that left a chair of that hand is offered that chair only.
     """
     if table is None:
         return InviteRefusal.NO_TABLE
     if not control_shown(viewer_present=facts.viewer_present, viewer_is_member=facts.viewer_is_member):
         return InviteRefusal.NOT_PRESENT if not facts.viewer_present else InviteRefusal.NOT_A_MEMBER
+    if seat_of(table, facts.agent_account) is not None:
+        return OfferState.HERE
     invitation = open_invitation(entry, now)
     invited_by_someone_else = invitation is not None and invitation.inviter_account != facts.viewer_account
-    if not facts.agent_listens or seat_of(table, facts.agent_account) is not None or invited_by_someone_else:
+    if not facts.agent_listens or invited_by_someone_else:
         return InviteRefusal.NOT_OFFERED
     if invitation is not None:
         return OfferState.INVITING
@@ -249,6 +290,27 @@ def call_offer_of(facts: CallFacts, table: TableRecord | None, entry: BookEntry 
     answer = offer_of(facts, table, entry, now)
     invitation = open_invitation(entry, now) if answer is OfferState.INVITING else None
     return CallOffer(answer, None if invitation is None else math.ceil((invitation.expires_at - now).total_seconds()))
+
+
+def table_offers_of(
+    table: TableRecord,
+    calls: Sequence[CallFacts],
+    entries: Sequence[BookEntry | None],
+    seated_facts: Callable[[str], CallFacts],
+    now: datetime,
+) -> TableOffers:
+    """Each call's offer from the agent's book row, and the offer of each seated agent no call names, on the facts
+    `seated_facts` gives for its account.
+    """
+    named = {call.agent_account for call in calls}
+    return TableOffers(
+        tuple(call_offer_of(call, table, entry, now) for call, entry in zip(calls, entries, strict=True)),
+        tuple(
+            SeatedOffer(agent.account, agent.name, call_offer_of(seated_facts(agent.account), table, None, now))
+            for agent in seated_agents(table)
+            if agent.account not in named
+        ),
+    )
 
 
 def decide_invite(
@@ -267,6 +329,8 @@ def decide_invite(
     state = offer_of(facts, table, entry, now)
     if isinstance(state, InviteRefusal):
         return state
+    if state is OfferState.HERE or facts.owner_account is None:
+        return InviteRefusal.NOT_OFFERED
     standing = open_invitation(entry, now)
     if entry is not None and standing is not None:
         return entry, standing.offered(entry.epoch)

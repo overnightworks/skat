@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import seats_from
 from skat.engine.declaration import Stage
-from skat.engine.schieberamsch import GrandHandRule, Push, PushOptions, Put, Take, pushing_step
+from skat.engine.schieberamsch import DeclareGrandHand, GrandHandRule, Push, Put, Take, pushing_step
 from skat.table.game_list import pushes_factor
 from skat.table.hand_state import pushing_of
 from skat.table.records import Decision, Refusal
@@ -32,6 +32,7 @@ class PushingKind(StrEnum):
     TAKE = "take"
     PUT_BACK = "put-back"
     PUSH = "push"
+    GRAND_HAND = "grand-hand"
 
 
 @dataclass(frozen=True)
@@ -79,20 +80,27 @@ def _step_of(command: PushingCommand, position: Position) -> PushingStep:
         return Take(position)
     if command.kind is PushingKind.PUT_BACK:
         return Put(position, command.cards)
+    if command.kind is PushingKind.GRAND_HAND:
+        return DeclareGrandHand(position)
     return Push(position)
 
 
 def decide_pushing_step(table: TableRecord, actor: Actor, command: PushingCommand) -> Decision:
-    """One step of the stage: no hand, no chair, a stale version, no stage running, then the engine's reason."""
+    """One step of the stage: no hand, no chair, a stale version, no stage running, a Grand Hand at a table that does
+    not allow it, then the engine's reason.
+    """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
         return Decision(table, position)
     state = pushing_of(table)
     ramsch = table.options.ramsch
-    if state is None or state.result is not None or ramsch is None or ramsch.pushing is None:
+    options = None if ramsch is None else ramsch.push_options
+    if state is None or state.result is not None or options is None:
+        return Decision(table, Refusal.WRONG_PHASE)
+    if command.kind is PushingKind.GRAND_HAND and options.grand_hand is GrandHandRule.OFF:
         return Decision(table, Refusal.WRONG_PHASE)
     step = _step_of(command, position)
-    outcome = pushing_step(state, step, PushOptions(ramsch.pushing, GrandHandRule.OFF))
+    outcome = pushing_step(state, step, options)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     steps = (*table.progress.pushing, step)

@@ -27,16 +27,17 @@ RUNNING_HAND = (
 )
 
 
+LATER_COLUMNS = ("held_in_hand", "ramsch_grand_hand")
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
 
 
 def rows_of(engine):
-    """Every row of the tables a running hand lives in, without the column the upgrade adds."""
+    """Every row of the tables a running hand lives in, without the columns the later upgrades add."""
     with engine.connect() as connection:
         return {
             name: sorted(
                 (
-                    {column: value for column, value in row.items() if column != "held_in_hand"}
+                    {column: value for column, value in row.items() if column not in LATER_COLUMNS}
                     for row in connection.execute(text(f"SELECT * FROM {name}")).mappings()  # noqa: S608 - fixed table names
                 ),
                 key=str,

@@ -202,7 +202,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
             if isinstance(playing, Playing)
             else None,
         ),
-        isinstance(playing, RamschPlaying) or stage is not None,
+        isinstance(playing, RamschPlaying) or (stage is not None and state is None),
         waiting_seat,
         pushing_view_of(stage, table.options, table.progress.pushing, table.dealer),
         0 if stage is None else stage.pushes,
