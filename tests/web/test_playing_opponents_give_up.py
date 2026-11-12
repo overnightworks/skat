@@ -12,6 +12,7 @@ from skat.web.declaring import (
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
+from skat.web.mcp import AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL, GIVE_UP_GAME_TOOL
 from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
@@ -22,7 +23,7 @@ from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text
 from tests.web.support.playing import Table, card, card_body, cards, ending_of, gains, game_of, three_pass
 from tests.web.support.series import tap_weiter
-from tests.web.support.skat import streams_of
+from tests.web.support.skat import AgentTable, Skat, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # Seats: the declarer (middlehand) sits in seat 1, rearhand in seat 2, forehand in seat 3.
@@ -614,3 +615,82 @@ class TestKontraWhileItWaits:
             assert playing_as(kontra_table, kontra_table.at[position])["kontra"]["my_word"] == "kontra"
         answer = kontra_table.act(TABLE_KONTRA_SUFFIX, kontra_table.at[FOREHAND], body={"word": "kontra"})
         assert answer.status_code == 200, answer.text
+
+
+class TestThroughTheMcpTools:
+    """An agent opponent gives up for his side; an agent declarer answers an opponent's give-up."""
+
+    @pytest.fixture
+    def skat(self, hold, issuer):
+        skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+        with skat.client:
+            yield skat
+
+    @pytest.fixture
+    def gave_up(self, skat, agent):
+        """The agent holds the forehand chair, on turn, and has given up through the tool."""
+        table = AgentTable(skat, agent, FOREHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+        answer = agent.call(
+            GIVE_UP_GAME_TOOL, table_id=table.table_id, command_id="agent-give-up-0001", version=table.record.version
+        )
+        assert not answer.is_error, answer.text
+        return table, answer
+
+    @pytest.fixture
+    def declarer_asked(self, skat, agent):
+        """The agent holds the declarer's chair; the person in the forehand chair has given up."""
+        table = AgentTable(skat, agent, MIDDLEHAND)
+        table.declared_hand_game()
+        assert table.act(TABLE_GIVE_UP_SUFFIX, table.at[FOREHAND]).status_code == 200
+        skat.client.cookies.clear()
+        return table
+
+    def answer(self, agent, table, tool, *, command_id="agent-answer-0001"):
+        return agent.call(tool, table_id=table.table_id, command_id=command_id, version=table.record.version)
+
+    def test_the_agent_opponents_give_up_waits_for_the_declarer_with_no_card_to_play(self, agent, gave_up):
+        table, answer = gave_up
+
+        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 3, "declined_seat": None}
+        assert agent.read(table.table_id).json()["hand"]["playing"]["legal_cards"] == []
+        assert table.record.hand is not None
+
+    def test_the_agents_card_while_it_waits_is_a_failed_result_that_spends_the_id(self, agent, gave_up):
+        table, _ = gave_up
+        before = stored(table.skat)
+
+        answer = agent.play(table, card("C7"))
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.REQUEST_PENDING
+        assert stored(table.skat)[0] == before[0]
+        assert table.act(TABLE_GIVE_UP_DECLINE_SUFFIX, table.at[MIDDLEHAND]).status_code == 200
+        assert "reused" in agent.play(table, card("C7")).text
+
+    def test_the_persons_yes_ends_the_game_won_for_the_declarer_by_the_agent_opponent(self, agent, gave_up):
+        table, _ = gave_up
+
+        assert table.act(TABLE_GIVE_UP_AGREE_SUFFIX, table.at[MIDDLEHAND]).status_code == 200
+
+        result = agent.read(table.table_id).json()["result"]
+        assert (result["won"], result["declarer_points"]) == (True, 120)
+        assert ending_of(result) == ("given-up", 3)
+
+    def test_the_agent_declarers_yes_ends_the_game_under_its_own_account(self, agent, declarer_asked):
+        answer = self.answer(agent, declarer_asked, AGREE_TO_GIVE_UP_TOOL)
+
+        assert not answer.is_error, answer.text
+        result = answer.json()["result"]
+        assert (result["won"], result["list_bonus"]) == (True, 50)
+        assert ending_of(result) == ("given-up", 3)
+        assert len(declarer_asked.record.game_list) == 1
+
+    def test_the_agent_declarers_no_demands_play_on(self, agent, declarer_asked):
+        answer = self.answer(agent, declarer_asked, DECLINE_GIVE_UP_TOOL)
+
+        assert not answer.is_error, answer.text
+        assert answer.json()["hand"]["playing"]["give_up"] is None
+        assert declarer_asked.record.hand is not None
+        assert declarer_asked.read_as(declarer_asked.at[FOREHAND]).json()["hand"]["playing"]["legal_cards"] != []
