@@ -3,7 +3,7 @@ import { flushSync, mount, unmount } from "svelte";
 import { loadKitWords, type KitWords } from "overnightworks-design/words";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import AgentsPill from "#lib/ui/AgentsPill.svelte";
-import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
+import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import { language, words } from "#lib/words.ts";
 
 const TABLE_ID = "b".repeat(32);
@@ -126,6 +126,30 @@ describe("the Agenten pill", () => {
 
         expect(fetcher).toHaveBeenCalledWith(`${CONTROL_PATH}/key-nova${TABLE_AGENT_CALL_SUFFIX}`, { method: "POST" });
         expect(popover()?.textContent).toContain(kitWords["agent.calling"]);
+    });
+
+    it("asks a here row's agent to leave with a tap on Bitten zu gehen and shows the row available again", async () => {
+        const here = { ...row, state: "here" };
+        const fetcher = server({
+            control: { shown: true, rows: [here] },
+            call: Response.json({ shown: true, rows: [row] }),
+        });
+        await show(1);
+        pill()?.click();
+        await settle();
+        flushSync();
+        const button = popover()?.querySelector<HTMLButtonElement>(".act");
+
+        button?.click();
+        await settle();
+        flushSync();
+
+        expect(button?.getAttribute("aria-label")).toBe(kitWords["agent.askToLeaveLabel"]({ name: "Nova" }));
+        const [path, init] = fetcher.mock.calls.at(-1) ?? [];
+        expect([path, init?.method]).toEqual([`${CONTROL_PATH}/key-nova${TABLE_AGENT_SEND_AWAY_SUFFIX}`, "POST"]);
+        expect(popover()?.querySelector(".act")?.getAttribute("aria-label")).toBe(
+            kitWords["agent.callLabel"]({ name: "Nova" }),
+        );
     });
 
     it("shows the refusal above the rows until the list closes", async () => {

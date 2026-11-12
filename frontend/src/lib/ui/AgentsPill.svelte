@@ -118,6 +118,7 @@
                 <AgentControl
                     rows={control.rows}
                     onCall={(key) => void follower?.call(key)}
+                    onSendAway={(key) => void follower?.sendAway(key)}
                     {refusal}
                     words={kitWords}
                 />
