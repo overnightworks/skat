@@ -15,6 +15,7 @@ REPOSITORY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY / "src"))
 
 from skat.engine.bidding import VALID_BIDS  # noqa: E402
+from skat.engine.kontra import Word  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
@@ -53,7 +54,7 @@ from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
-from skat.web.kontra import TABLE_NO_WORD_SUFFIX  # noqa: E402
+from skat.web.kontra import TABLE_KONTRA_SUFFIX  # noqa: E402
 from skat.web.playing import (  # noqa: E402
     TABLE_CARD_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -93,6 +94,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "AUCTION_ACTION_TOKENS": AuctionAction,
     "LEVEL_TOKENS": Level,
     "END_REASON_TOKENS": EndReason,
+    "WORD_TOKENS": Word,
 }
 
 
@@ -135,7 +137,7 @@ def render() -> str:
         "TABLE_GIVE_UP_AGREE_SUFFIX": TABLE_GIVE_UP_AGREE_SUFFIX,
         "TABLE_GIVE_UP_DECLINE_SUFFIX": TABLE_GIVE_UP_DECLINE_SUFFIX,
         "TABLE_LIST_SUFFIX": TABLE_LIST_SUFFIX,
-        "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
+        "TABLE_KONTRA_SUFFIX": TABLE_KONTRA_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
         "TABLE_AGENTS_SUFFIX": TABLE_AGENTS_SUFFIX,
         "TABLE_AGENT_CALL_SUFFIX": TABLE_AGENT_CALL_SUFFIX,
