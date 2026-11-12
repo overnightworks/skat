@@ -6,13 +6,13 @@ entries are ordered by what the account has to do: the tables that wait for it f
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from skat.table.awaiting import WaitingCase, waiting_case
 from skat.table.member_view import member_view_of
 from skat.table.records import OccupantKind, TableRecord
-from skat.table.rules import hand_was_dealt, present_at, seat_of
+from skat.table.rules import hand_was_dealt, present_at, seat_of, unplayed_end
 from skat.table.views import paused_entry_of, turn_seat_of
 
 if TYPE_CHECKING:
@@ -116,7 +116,7 @@ def paused_tables(
             if isinstance(table, TableRecord) and hand_was_dealt(table) and seat_of(table, account_id) is not None:
                 facts = transaction.paused_facts(table.id)
                 assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
-                ends_at = facts.last_played_at.astimezone(UTC) + timedelta(days=days)
+                ends_at = unplayed_end(facts.last_played_at, days)
                 entries.append(paused_entry_of(table, account_id, ends_at, facts.opener_name))
     return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
@@ -157,7 +157,7 @@ def _end_of(table: TableRecord, present: frozenset[str], facts: PausedFacts, day
     if not hand_was_dealt(table) or present:
         return None
     assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
-    return facts.last_played_at.astimezone(UTC) + timedelta(days=days)
+    return unplayed_end(facts.last_played_at, days)
 
 
 def _order_of(entry: LobbyEntryView) -> tuple[int, int, datetime | None, str]:
