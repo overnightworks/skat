@@ -12,18 +12,3 @@ reason = "S5.4b lets the declarer shorten and lets an opponent play open."
 path = "src/skat/engine/kontra.py"
 item = "overnightworks/skat#39"
 reason = "S13.3b2 wires the first-card deadline: `decline`, `awaits_words` and `words-due`."
-
-[[code]]
-path = "src/skat/table/send_away.py"
-item = "overnightworks/skat#384"
-reason = "K3c sends an agent away from its chair: `decide_send_away`."
-
-[[code]]
-path = "src/skat/table/service.py"
-item = "overnightworks/skat#384"
-reason = "K3c sends an agent away from its chair: `TableService.send_away`."
-
-[[code]]
-path = "src/skat/engine/schieberamsch.py"
-item = "overnightworks/skat#327"
-reason = "S13.4d3 lets a seat declare a Grand Hand instead of a Ramsch: `declare_grand_hand`, `DeclareGrandHand`, `GrandHandRule.ALLOWED` and `PushRefusal.GRAND_HAND_OFF`."
