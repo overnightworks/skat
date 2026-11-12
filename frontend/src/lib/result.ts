@@ -1,10 +1,10 @@
 import { words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
 import {
-    announcedWord,
     gameLabel,
     gameWord,
     isSuitGame,
+    type Announcement,
     type Chair,
     type Level,
     type Result,
@@ -90,9 +90,16 @@ function ownFirst(chairs: readonly Chair[]): Chair[] {
     return [...own, ...chairs.filter((chair) => !chair.is_mine)];
 }
 
+// The announcement's miss as its own sentence; no announcement has none.
+function missedWordOf(announcement: Announcement): string | null {
+    if (announcement === "schneider") return words["result.missedSchneider"];
+    return announcement === "schwarz" ? words["result.missedSchwarz"] : null;
+}
+
 function chipsOf(result: Result): Chip[] {
     if (result.matadors === null) return [];
-    const matadors = `${result.matadors.mit ? words["result.matadorsWith"] : words["result.matadorsWithout"]} ${String(result.matadors.count)}`;
+    const { count, mit } = result.matadors;
+    const matadors = mit ? words["result.matadorsWith"](count) : words["result.matadorsWithout"](count);
     return [
         { word: matadors, ticked: false },
         ...result.levels.map((level) => ({ word: LEVEL_WORDS[level], ticked: true })),
@@ -111,11 +118,13 @@ function listLineOf(result: Result, sides: SideNames): ListLine {
     return {
         side: sides.declarer,
         steps: [
-            `${words["result.levelSpiel"]} ${signed(result.score)}`,
-            `${words["result.listBonus"]} ${signed(result.list_bonus)}`,
+            words["result.listGame"]({ score: signed(result.score) }),
+            words["result.listBonus"]({ bonus: signed(result.list_bonus) }),
             `= ${signed(declarerGain)}`,
         ],
-        share: result.doubled ? `· ${sides.opponents} ${words["result.each"]} ${signed(opponentGain.gain)}` : null,
+        share: result.doubled
+            ? words["result.share"]({ opponents: sides.opponents, gain: signed(opponentGain.gain) })
+            : null,
     };
 }
 
@@ -134,22 +143,30 @@ export function resultView(table: Table): ResultView {
     const shownSides = isDeclarer ? { declarer: words["result.sideYou"], opponents: words["result.sideThem"] } : sides;
     const good = own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
     let word: string;
-    if (own === undefined) word = `${declarerName} ${result.won ? words["result.wins"] : words["result.loses"]}`;
-    else word = good ? words["result.won"] : words["result.lost"];
+    if (own === undefined) {
+        word = result.won
+            ? words["result.declarerWins"]({ name: declarerName })
+            : words["result.declarerLoses"]({ name: declarerName });
+    } else word = good ? words["result.won"] : words["result.lost"];
     const name = gameLabel(result).name;
     return {
         word,
         good,
         suit: isSuitGame(result.game) ? result.game : null,
         gameWord: result.game === "null" ? name : gameWord(result.game),
-        gameLine: own !== undefined && !isDeclarer ? `${declarerName}, ${name}` : name,
-        missed: result.announcement_missed
-            ? `${announcedWord(result.announcement) as string}, ${words["result.notReached"]}`
-            : null,
+        gameLine:
+            own !== undefined && !isDeclarer
+                ? words["result.opponentGameLine"]({ declarer: declarerName, game: name })
+                : name,
+        missed: result.announcement_missed ? missedWordOf(result.announcement) : null,
         chips: chipsOf(result),
         equation: equationOf(result),
         raise: result.overbid
-            ? `${words["result.gameWorth"]} ${String(result.game_value)} < ${words["result.bidValue"]} ${String(result.bid)} → ${String(result.settled_value)}`
+            ? words["result.raise"]({
+                  value: String(result.game_value),
+                  bid: String(result.bid),
+                  settled: String(result.settled_value),
+              })
             : null,
         doubled: result.doubled,
         score: signed(result.score),
