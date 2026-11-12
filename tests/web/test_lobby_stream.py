@@ -85,7 +85,7 @@ class Scene:
 
     def stream(self, person, admit=None, heartbeat_seconds=NO_HEARTBEAT_SECONDS):
         return stream_messages(
-            self.source(person),
+            [self.source(person)],
             admit or admitting(person),
             lambda: self.presence.stopped,
             heartbeat_seconds=heartbeat_seconds,

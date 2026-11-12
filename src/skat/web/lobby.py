@@ -150,7 +150,7 @@ def create_lobby_router(
 
         async def messages() -> AsyncIterator[str]:
             async for item in stream_messages(
-                source, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
+                [source], admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
             ):
                 yield message_of(item)
 

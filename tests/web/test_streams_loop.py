@@ -1,7 +1,7 @@
 import pytest
 
 from skat.table.records import CreateTable
-from skat.web.streams import IDLE_HEARTBEAT
+from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent, stream_messages
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import idle_presence
 from tests.web.support.skat import UNKNOWN_ID
@@ -9,7 +9,9 @@ from tests.web.support.streams import (
     OPENER,
     SHORT_HEARTBEAT_SECONDS,
     VISITOR,
+    NO_HEARTBEAT_SECONDS,
     Admission,
+    admitting,
     next_item,
     next_view,
     reader,
@@ -171,3 +173,120 @@ class TestStreamLoop:
 
         assert still_watching.watchers == 2
         assert presence.connected(table_id) == frozenset()
+
+
+class WholeNumberSource:
+    """A source whose state is one number, read as the named event; `wake` is what the loop gave it to call."""
+
+    def __init__(self, event, number=0, fails_to_open=False):
+        self.event = event
+        self.number = number
+        self.fails_to_open = fails_to_open
+        self.reads = 0
+        self.is_open = False
+        self.wake = None
+
+    async def open(self, wake):
+        if self.fails_to_open:
+            message = "cannot open"
+            raise RuntimeError(message)
+        self.wake = wake
+        self.is_open = True
+
+    async def read(self, actor):
+        self.reads += 1
+        return SourceMessage(str(self.number), event=self.event)
+
+    def close(self):
+        self.is_open = False
+
+
+def stream_of_numbers(*sources, heartbeat_seconds=NO_HEARTBEAT_SECONDS, stopped=lambda: False):
+    return stream_messages(sources, admitting(OPENER), stopped, heartbeat_seconds=heartbeat_seconds)
+
+
+async def next_numbers(stream, count):
+    return [(item.event, item.data) for item in [await next_item(stream) for _ in range(count)]]
+
+
+class TestSeveralSources:
+    def test_each_source_sends_its_whole_state_first_in_the_order_the_stream_lists_them(self):
+        async def scenario():
+            stream = stream_of_numbers(
+                WholeNumberSource(StreamEvent.MINE, 4), WholeNumberSource(StreamEvent.ATTENTION, 7)
+            )
+            first = await next_numbers(stream, 2)
+            await stream.aclose()
+            return first
+
+        assert run_on_a_loop_of_its_own(scenario()) == [(StreamEvent.MINE, "4"), (StreamEvent.ATTENTION, "7")]
+
+    def test_a_wake_of_one_source_reads_only_that_source(self):
+        async def scenario():
+            kept = WholeNumberSource(StreamEvent.MINE)
+            woken = WholeNumberSource(StreamEvent.ATTENTION)
+            stream = stream_of_numbers(kept, woken)
+            await next_numbers(stream, 2)
+            woken.number = 2
+            woken.wake()
+            message = await next_item(stream)
+            await stream.aclose()
+            return message, kept.reads
+
+        message, reads_of_the_kept = run_on_a_loop_of_its_own(scenario())
+
+        assert (message.event, message.data, reads_of_the_kept) == (StreamEvent.ATTENTION, "2", 1)
+
+    def test_a_heartbeat_reads_every_source_again_and_sends_what_changed_without_a_wake(self):
+        async def scenario():
+            quiet = WholeNumberSource(StreamEvent.MINE)
+            lost_a_wake = WholeNumberSource(StreamEvent.ATTENTION)
+            stream = stream_of_numbers(quiet, lost_a_wake, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+            await next_numbers(stream, 2)
+            lost_a_wake.number = 5
+            message = await next_item(stream)
+            await stream.aclose()
+            return message
+
+        message = run_on_a_loop_of_its_own(scenario())
+
+        assert (message.event, message.data) == (StreamEvent.ATTENTION, "5")
+
+    def test_a_last_message_ends_the_stream_before_the_sources_after_it_are_read(self):
+        class Ends(WholeNumberSource):
+            async def read(self, actor):
+                return SourceMessage("ended", last=True)
+
+        async def scenario():
+            later = WholeNumberSource(StreamEvent.ATTENTION)
+            stream = stream_of_numbers(Ends(None), later)
+            first = await next_item(stream)
+            with pytest.raises(StopAsyncIteration):
+                await next_item(stream)
+            return first, later
+
+        first, later = run_on_a_loop_of_its_own(scenario())
+
+        assert (first.data, later.reads, later.is_open) == ("ended", 0, False)
+
+    def test_a_source_that_cannot_open_closes_the_sources_opened_before_it_and_fails_the_stream(self):
+        async def scenario():
+            opened = WholeNumberSource(StreamEvent.MINE)
+            stream = stream_of_numbers(opened, WholeNumberSource(StreamEvent.ATTENTION, fails_to_open=True))
+            with pytest.raises(RuntimeError, match="cannot open"):
+                await next_item(stream)
+            return opened
+
+        opened = run_on_a_loop_of_its_own(scenario())
+
+        assert (opened.reads, opened.is_open) == (0, False)
+
+    def test_closing_the_stream_closes_every_source(self):
+        async def scenario():
+            sources = [WholeNumberSource(StreamEvent.MINE), WholeNumberSource(StreamEvent.ATTENTION)]
+            stream = stream_of_numbers(*sources)
+            await next_numbers(stream, 2)
+            await stream.aclose()
+            return [source.is_open for source in sources]
+
+        assert run_on_a_loop_of_its_own(scenario()) == [False, False]
