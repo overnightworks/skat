@@ -1,8 +1,0 @@
-claim_id = "0fded20a74e845018b96e7fa42d5d81e"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "a15e82f1dd231e1d36ca8b756bc4f7ef2d71736c"
-branch = "claude/issue-336-kontra-wake"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/wire.ts", "scripts/generate_wire.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests/e2e", "tests/store", "tests/support", "tests/table", "tests/web"]
-opened_commit = "ddba4e34ee42a35a81e5bb4af2f7a1e77170a35a"
-whole_reason = "The command, its stored row and migration, the view field and the awaits_you case are one contract: a stored answer nobody reads is dead, and a Kontra case with no answer to give costs the runner a turn at every version it is woken at, plus the asks, until the word's deadline."
