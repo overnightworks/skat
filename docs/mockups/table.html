@@ -628,6 +628,7 @@ body.solo section.shot .rule{display:none}
 .bubble.word{font-size:17px;padding:3px 12px 3px 5px;gap:5px}
 .bubble.word .dot{width:22px;height:22px;font-size:11px}
 .bubble.word .dot svg{width:13px;height:13px}
+.value.loss{color:#ff8a8f}
 .refusal{transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 10px;border-radius:999px;background:var(--glass-dark);backdrop-filter:blur(12px);
   box-shadow:inset 0 0 0 1.5px rgba(237,182,86,.65);font-size:13.5px;font-weight:600;white-space:nowrap}
 .refusal svg{width:16px;height:16px;color:var(--busy-stage)}
@@ -1870,6 +1871,50 @@ const ramschPlay=(d,plaque)=>{const L=seatsOf(d);
 RAMSCH_SCENES.push(
   ['ramsch-play','Ramsch: der Stich',[390,1280],(d)=>ramschPlay(d,{count:'line',pushes:2}),
     ['Mitten im Ramsch: „Ramsch · 2× geschoben ×4“ steht bis zum letzten Stich, der Stich liegt in der Mitte, Felix’ spielbare Karten leuchten; es gibt keinen Alleinspieler und keine laufenden Augen.']],
+);
+/* ===== the Ramsch's result: nobody plays against anybody, the most eyes lose them as minus points; the card shows how the number comes about ===== */
+/* eyes and tricks are listed in the order of the coasters' adds: Anna, Ben, the viewer's own chair */
+const RAMSCH_SEATS=(o)=>['Anna','Ben',P[o.near].n];
+const SWEEP_SCORE=120;
+/* the reckoning is derived from the table's parts as the rules say (the most eyes lose them; each push doubles unless the table does not double; a seat without a trick doubles the loser's score; ten tricks score 120 and the others nothing); a scene whose coasters disagree fails loud */
+function ramschReckon(o){
+  const r=o.ramsch,factor=r.doubling===false?1:2**r.pushes,sweeper=r.tricks.indexOf(10),most=Math.max(...r.eyes);
+  if(r.eyes.reduce((a,b)=>a+b,0)!==120)throw new Error(`${o.id}: the eyes add up to ${r.eyes.reduce((a,b)=>a+b,0)}, not 120`);
+  if(sweeper<0&&r.eyes.filter(e=>e===most).length>1)throw new Error(`${o.id}: a tie of losers is not drawn`);
+  const jungfrau=sweeper<0&&r.tricks.includes(0),value=sweeper>=0?SWEEP_SCORE*factor:most*factor*(jungfrau?2:1);
+  const want=r.eyes.map((e,i)=>sweeper>=0?(i===sweeper?value:0):(e===most?-value:0));
+  o.adds.forEach((n,i)=>{if(n!==want[i])throw new Error(`${o.id}: coaster ${i} shows ${n}, the reckoning gives ${want[i]}`);});
+  return {value,factor,jungfrau,sweeper,loser:sweeper>=0?-1:r.eyes.indexOf(most),most};
+}
+const ramschHead=(o,r)=>r.sweeper===2?['Gewonnen!',I.check,false]:r.sweeper>=0?['Durchmarsch','',false]
+  :r.loser===2?['Verloren',I.cross,true]:[`${RAMSCH_SEATS(o)[r.loser]} verliert`,'',false];
+const ramschCard=(d,o)=>{const r=ramschReckon(o),[word,icon,lost]=ramschHead(o,r),names=RAMSCH_SEATS(o),pushes=o.ramsch.pushes;
+  const chips=[...(pushes?[`${pushes}× geschoben${o.ramsch.doubling===false?'':` ×${r.factor}`}`]:[]),...(r.jungfrau?['Jungfrau ×2']:[])];
+  const strong=r.sweeper>=0?r.sweeper:r.loser;
+  const eyes=[2,0,1].map(i=>`<span>${i===strong?`<b>${names[i]} ${o.ramsch.eyes[i]}</b>`:`${names[i]} ${o.ramsch.eyes[i]}`}</span>`).join('');
+  return `<div class="result end ${lost?'lost':''} snug" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
+  <h3>${icon}${word}</h3>
+  <div class="sub"><div class="game"><span class="suit" style="color:var(--ink)">${I.ramsch}</span>Ramsch</div></div>
+  <div class="eq"><span>${r.sweeper>=0?SWEEP_SCORE:r.most} Augen</span></div>
+  ${chips.length?levelRow(chips.map(c=>[c,'held'])):''}
+  <div class="value-row"><div class="value ${r.sweeper>=0?'':'loss'}">${r.sweeper>=0?signed(r.value):withMinus(-r.value)}</div></div>
+  <div class="list">${eyes}</div>
+  ${reckoning(o)}</div>`;};
+const ramschEnd=(d,o)=>dealRoom(d,{watchers:1})+ramschCard(d,o)+endSeats(d,o)+endBar(d,tapButton);
+const RAMSCH_BASE={near:'felix',ready:[],winners:[]};
+const RAMSCH_LOST={...RAMSCH_BASE,id:'ramsch-lost',adds:[0,0,-344],ramsch:{eyes:[20,14,86],tricks:[3,2,5],pushes:2}};
+const RAMSCH_OTHER={...RAMSCH_BASE,id:'ramsch-other',adds:[0,-86,0],ramsch:{eyes:[14,86,20],tricks:[3,5,2],pushes:0}};
+const RAMSCH_JUNGFRAU={...RAMSCH_BASE,id:'ramsch-jungfrau',adds:[0,-172,0],ramsch:{eyes:[0,86,34],tricks:[0,6,4],pushes:0}};
+const RAMSCH_SWEEP={...RAMSCH_BASE,id:'ramsch-durchmarsch',adds:[120,0,0],winners:['anna'],ramsch:{eyes:[120,0,0],tricks:[10,0,0],pushes:0}};
+RAMSCH_SCENES.push(
+  ['ramsch-lost','Ramsch verloren',[390,1280],(d)=>ramschEnd(d,RAMSCH_LOST),
+    ['Felix hat die meisten Augen: „Verloren“, „Ramsch“, „86 Augen“, „2× geschoben ×4“, −344; darunter Felix 86, Anna 20, Ben 14 und die Deckel −344, 0, 0; „Weiter“.']],
+  ['ramsch-other','Ramsch, Ben verliert',[390,1280],(d)=>ramschEnd(d,RAMSCH_OTHER),
+    ['Ein Ramsch ohne Schieben, Ben verliert: „Ben verliert“, „86 Augen“, −86; bei Felix 0.']],
+  ['ramsch-jungfrau','Ramsch mit Jungfrau',[390],(d)=>ramschEnd(d,RAMSCH_JUNGFRAU),
+    ['Anna machte keinen Stich: in der Rechnung „Jungfrau ×2“, Ben −172.']],
+  ['ramsch-durchmarsch','Durchmarsch',[390],(d)=>ramschEnd(d,RAMSCH_SWEEP),
+    ['Anna machte alle Stiche: „Durchmarsch“, Anna +120, die anderen 0; wer durchmarschiert, liest „Gewonnen!“.']],
 );
 agentScenes(RAMSCH_SCENES);
 
