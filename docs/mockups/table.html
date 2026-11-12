@@ -1056,6 +1056,7 @@ const IDEAS=[
   ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-sent, nudge-mine'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
+  ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund oder „Aufgeben“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. Zwei Zeilen sind offen: wohin das Wort und ob ein Tipp erst fragt. (S11.9p)','stand-play, stand-play-word, stand-arm, stand-ask, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -1834,6 +1835,12 @@ STAND_SCENES.push(
     ['Entwurf zur Wahl (#372): wer als Letzter aufsteht, sieht alle drei Stühle frei mit dem Plus, die Rücken der Karten neben jedem Stuhl und „Kreuz · Warte auf Mitspieler“; sonst ändert sich nichts, der Tisch ist über seinen Link zu finden. Gilt #372 Zeile 1 A, sind für den, der aufstand, die Stühle der anderen gesperrt (stand-locked).']],
   ['stand-locked','Aufgestanden: ein gesperrter Stuhl',[360],lockedForFelix,
     ['Entwurf zur Wahl (#372, Zeile 1 A): wer einen Platz des laufenden Spiels hielt, darf nur auf ihn zurück. Novas freier Stuhl trägt für Felix ein Schloss statt des Plus; nur sein eigener Stuhl bietet das Plus. Mit dem Ende des Spiels fällt die Sperre. Gilt Zeile 1 B, entfällt dieses Bild.']],
+);
+STAND_SCENES.push(
+  ['stand-framed','Aufstehen im Anruf',[390,1280],(d)=>room(d,{left:8,glow:novaGlow(d)})+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
+    +seats(d,{video:true,anna:['decl'],nova:['turn','think'],score:TOTALS_BEFORE})+ownHand(d,FELIX_HAND,{bottom:d?170:164})+callBar(d)
+    +stripOf(d,{lead:standLead(d),pill:agentPill(d),above:true}),
+    ['Entwurf zur Wahl (Linie 1 A): im Anruf steht Skats Leiste mit „Aufgeben“, dem runden „Aufstehen“ und der Pille über der Leiste des Anrufs; die Hand rückt um eine Leiste nach oben, wie bei agents-framed.']],
 );
 agentScenes(STAND_SCENES);
 
