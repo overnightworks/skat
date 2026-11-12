@@ -48,6 +48,9 @@ LANDSCAPE_PHONE = {"viewport": {"width": 844, "height": 390}, "is_mobile": True,
 # The call page sizes its frame: the screen's width and the height its own page leaves (676 of 740 px, 326 of 390 px).
 SMALL_FRAME = "width:360px;height:676px"
 LANDSCAPE_FRAME = "width:844px;height:326px"
+# The small phone, taller than any short call frame: its chairs and trick keep the sizes a standalone page draws.
+TALLER_PHONE_VIEWPORT = {"width": 360, "height": 1000}
+TRICK = ".trick"
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 SPEAKER = ".actions .sound-button"
@@ -333,4 +336,28 @@ def test_a_framed_call_strip_at_390_holds_stand_up_the_agents_pill_and_the_speak
         speaker = box_of(call.locator(SPEAKER))
         assert pill["x"] < speaker["x"]
         assert bar.evaluate_all("tags => new Set(tags.map(tag => tag.offsetTop)).size") == 1
+    assert page_errors == []
+
+
+def chair_and_trick_sizes(person: Page) -> tuple[float, float]:
+    chair = box_of(person.locator(CHAIR).first)
+    trick = box_of(person.locator(TRICK).first)
+    return chair["width"], trick["height"]
+
+
+def test_a_standalone_phone_at_360_by_740_keeps_the_chair_and_trick_sizes_of_a_taller_phone(
+    open_person: Callable[..., Page],
+    member_of: Callable[[Page], SeededMember],
+    framing_server: RunningServer,
+    page_errors: list[str],
+) -> None:
+    table = deal_playing_table(
+        open_person, framing_server, member_of, page_errors, {**SMALL_PHONE, "server": framing_server}
+    )
+    person = table.pages[table.declarer_seat]
+
+    short = chair_and_trick_sizes(person)
+    person.set_viewport_size(TALLER_PHONE_VIEWPORT)
+
+    assert chair_and_trick_sizes(person) == pytest.approx(short)
     assert page_errors == []
