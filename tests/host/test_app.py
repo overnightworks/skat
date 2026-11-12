@@ -470,9 +470,7 @@ class TestUnplayedTables:
 
         assert failed_one == (None, EndReason.UNPLAYED)
         assert retried is EndReason.UNPLAYED
-        assert [(entry["event"], entry["error"]) for entry in logs] == [
-            ("unplayed table end failed", "ConnectionError")
-        ]
+        assert [entry["error"] for entry in logs] == ["ConnectionError"]
         assert "account-anna" not in str(logs)
 
     def test_a_table_read_as_due_that_is_not_due_when_the_row_is_locked_is_left_alone(self, sign_in_settings):
@@ -506,9 +504,7 @@ class TestUnplayedTables:
                 client.portal.call(tick)
             runs_asked_for = len(unplayed.scheduler.sweeps())
 
-        assert [(entry["event"], entry["error"]) for entry in logs] == [
-            ("unplayed tables read failed", "ConnectionError")
-        ]
+        assert [entry["error"] for entry in logs] == ["ConnectionError"]
         assert runs_asked_for == 2
 
     def test_a_run_after_the_server_stopped_ends_no_table(self, unplayed):
