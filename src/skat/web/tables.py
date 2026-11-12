@@ -367,7 +367,8 @@ class RamschResultAnswer(BaseModel):
 
 class EndedAnswer(BaseModel):
     reason: EndReason
-    empty_seconds: int
+    empty_seconds: int | None
+    unplayed_days: int | None
 
 
 class StandingAnswer(BaseModel):
@@ -640,7 +641,11 @@ def answer_of(view: TableView) -> TableAnswer:
         bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
         ended=None
         if view.ended is None
-        else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
+        else EndedAnswer(
+            reason=view.ended.reason,
+            empty_seconds=view.ended.empty_seconds,
+            unplayed_days=view.ended.unplayed_days,
+        ),
     )
 
 
@@ -730,7 +735,9 @@ def create_tables_router(
         game says how it ended (played-out, given-up or thrown-down) and, for a give-up or a throw-down, the seat that
         did it. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
         it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
-        moves again once someone sits in the chair. A 404 means no table has this id.
+        moves again once someone sits in the chair. `ended` is null while the table lives; once it ended it says why:
+        `reason` is `empty` (nobody was there while no hand was dealt; `empty_seconds` is the wait) or `unplayed` (no
+        hand was dealt or played at for `unplayed_days` days). A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.

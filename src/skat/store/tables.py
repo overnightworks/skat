@@ -33,6 +33,7 @@ from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
     EndedTable,
+    Ending,
     EndProposal,
     EndReason,
     GiveUpAsked,
@@ -141,7 +142,11 @@ def _table_record(
     if table is None:
         return None
     if table.end_reason is not None:
-        return EndedTable(TableId(table_id), table.version, EndReason(table.end_reason), table.empty_seconds)
+        return EndedTable(
+            TableId(table_id),
+            table.version,
+            Ending(EndReason(table.end_reason), table.empty_seconds, table.unplayed_days),
+        )
     seats = connection.execute(
         select(
             chairs.c.seat,
@@ -340,7 +345,7 @@ class _PostgresTableTransaction:
             ],
         )
 
-    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
+    def end_table(self, table_id: TableId, at: datetime, ending: Ending) -> None:
         self._connection.execute(
             update(tables)
             .where(tables.c.id == table_id.value)
@@ -350,8 +355,9 @@ class _PostgresTableTransaction:
                 last_played_at=None,
                 opener_name=None,
                 ended_at=at,
-                end_reason=EndReason.EMPTY.value,
-                empty_seconds=empty_seconds,
+                end_reason=ending.reason.value,
+                empty_seconds=ending.empty_seconds,
+                unplayed_days=ending.unplayed_days,
             )
         )
         _forget_played_hand(self._connection, table_id.value)
@@ -359,6 +365,16 @@ class _PostgresTableTransaction:
         forget_table(self._connection, table_id.value)
         self._connection.execute(
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
+        )
+
+    def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
+        return tuple(
+            TableId(table_id)
+            for table_id in self._connection.execute(
+                select(tables.c.id)
+                .where(tables.c.end_reason.is_(None), tables.c.last_played_at <= cutoff)
+                .order_by(tables.c.id)
+            ).scalars()
         )
 
     def empty_since(self, table_id: TableId) -> datetime | None:

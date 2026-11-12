@@ -1,3 +1,5 @@
+import asyncio
+import itertools
 import secrets
 import threading
 from contextlib import contextmanager
@@ -8,11 +10,12 @@ import pytest
 import structlog
 from fastapi.testclient import TestClient
 from starlette.requests import Request
+from structlog.testing import capture_logs
 from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
-from skat.host.app import create_app
-from skat.table.records import Actor, CreateTable, EndReason, SitDown
+from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
+from skat.table.records import Actor, CreateTable, EndReason, SitDown, TableId
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.paused import PAUSED_TABLES_PATH
@@ -148,7 +151,7 @@ class TestCreateApp:
         with TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers) as client:
             answer = client.get(f"{TABLES_PATH}/{opened.id}")
 
-        assert answer.json()["ended"] == {"reason": EndReason.EMPTY, "empty_seconds": 1800}
+        assert answer.json()["ended"] == {"reason": EndReason.EMPTY, "empty_seconds": 1800, "unplayed_days": None}
 
     def test_the_paused_table_days_setting_decides_the_end_a_paused_entry_names(self, sign_in_settings):
         dealt_at = datetime(2026, 11, 1, 12, tzinfo=UTC)
@@ -335,6 +338,172 @@ class TestCreateApp:
     @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
     def test_generated_documentation_is_not_served(self, sign_in_settings, path):
         assert signed_in_client(sign_in_settings().settings).get(path).status_code == 404
+
+
+class RecordedScheduler:
+    """A scheduler that keeps what it is asked to run, for the test to run on the app's loop."""
+
+    def __init__(self):
+        self.actions = []
+
+    def schedule(self, delay, action):
+        self.actions.append((delay, action))
+
+    def cancel_all(self):
+        self.actions.clear()
+
+    def sweeps(self):
+        """The runs asked for the hourly end of unplayed tables, each as its delay and action."""
+        return [(delay, action) for delay, action in self.actions if delay == UNPLAYED_SWEEP_SECONDS]
+
+
+UNPLAYED_DAYS = 7
+NOW = datetime(2026, 11, 12, 12, tzinfo=UTC)
+
+
+class UnplayedTables:
+    """Dealt tables on a service whose clock the test moves, started by an app on a scheduler the test runs."""
+
+    def __init__(self, sign_in_settings, service=TableService):
+        self.clock = [NOW]
+        self.store = FakeTableStore()
+        self.tables = service(self.store, now=lambda: self.clock[0])
+        self.scheduler = RecordedScheduler()
+        self.settings = sign_in_settings(paused_table_days=UNPLAYED_DAYS).settings
+
+    def dealt(self, command_id):
+        table = self.tables.create(OPENER, CreateTable(command_id=command_id))
+        for seat, person in ((2, VISITOR), (3, THIRD)):
+            self.tables.sit(person, SitDown(f"{command_id}-{seat}", table.id, seat), frozenset())
+        return TableId(table.id)
+
+    def play_on(self, days, seconds=0):
+        self.clock[0] = NOW + timedelta(days=days, seconds=seconds)
+
+    def app(self):
+        return create_app(
+            self.settings,
+            page_build=fixture_page_build(),
+            tables=self.tables,
+            rule_sets=in_memory_rule_sets(),
+            chair_scheduler=self.scheduler,
+        )
+
+    def ended(self, table_id):
+        return self.tables.view(OPENER, table_id.value, frozenset()).ended
+
+
+@pytest.fixture
+def unplayed(sign_in_settings):
+    return UnplayedTables(sign_in_settings)
+
+
+class TestUnplayedTables:
+    @pytest.mark.parametrize(
+        ("seconds_past_the_end", "ends"),
+        [pytest.param(-1, False, id="a-second-before-the-end"), pytest.param(0, True, id="exactly-at-the-end")],
+    )
+    def test_a_table_past_its_days_when_the_server_starts_has_ended_before_the_first_request(
+        self, unplayed, seconds_past_the_end, ends
+    ):
+        table_id = unplayed.dealt("command-open")
+        unplayed.play_on(UNPLAYED_DAYS, seconds_past_the_end)
+
+        with TestClient(unplayed.app()):
+            ended = unplayed.ended(table_id)
+
+        assert (ended is not None) is ends
+        if ends:
+            assert (ended.reason, ended.empty_seconds, ended.unplayed_days) == (EndReason.UNPLAYED, None, UNPLAYED_DAYS)
+
+    def test_a_table_that_crosses_the_line_while_the_server_runs_ends_with_the_next_hourly_run(self, unplayed):
+        table_id = unplayed.dealt("command-open")
+        with TestClient(unplayed.app()) as client:
+            ((delay, tick),) = unplayed.scheduler.sweeps()
+            unplayed.play_on(UNPLAYED_DAYS - 1)
+            client.portal.call(tick)
+            before_the_line = unplayed.ended(table_id)
+            unplayed.play_on(UNPLAYED_DAYS)
+            client.portal.call(tick)
+            after_the_line = unplayed.ended(table_id)
+            runs_asked_for = len(unplayed.scheduler.sweeps())
+
+        assert delay == UNPLAYED_SWEEP_SECONDS
+        assert before_the_line is None
+        assert after_the_line.reason is EndReason.UNPLAYED
+        assert runs_asked_for == 3
+
+    def test_a_table_that_fails_at_the_start_fails_the_start(self, sign_in_settings):
+        class Failing(TableService):
+            def end_unplayed_table(self, table_id, days):
+                raise ConnectionError
+
+        unplayed = UnplayedTables(sign_in_settings, Failing)
+        unplayed.dealt("command-open")
+        unplayed.play_on(UNPLAYED_DAYS)
+
+        with pytest.raises(ConnectionError), TestClient(unplayed.app()):
+            pass
+
+    def test_a_table_that_fails_in_an_hourly_run_leaves_the_others_ending_and_is_tried_again(self, sign_in_settings):
+        class FailingOnce(TableService):
+            failing = None
+
+            def end_unplayed_table(self, table_id, days):
+                if table_id == self.failing:
+                    type(self).failing = None
+                    raise ConnectionError("account-anna")
+                return super().end_unplayed_table(table_id, days)
+
+        unplayed = UnplayedTables(sign_in_settings, FailingOnce)
+        first, second = unplayed.dealt("command-first"), unplayed.dealt("command-second")
+        FailingOnce.failing = first
+        with TestClient(unplayed.app()) as client:
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            unplayed.play_on(UNPLAYED_DAYS)
+            with capture_logs() as logs:
+                client.portal.call(tick)
+            ((_, tick_again),) = unplayed.scheduler.sweeps()[1:]
+            failed_one = (unplayed.ended(first), unplayed.ended(second).reason)
+            client.portal.call(tick_again)
+            retried = unplayed.ended(first).reason
+
+        assert failed_one == (None, EndReason.UNPLAYED)
+        assert retried is EndReason.UNPLAYED
+        assert [(entry["event"], entry["error"]) for entry in logs] == [
+            ("unplayed table end failed", "ConnectionError")
+        ]
+        assert "account-anna" not in str(logs)
+
+    def test_a_failed_read_in_an_hourly_run_is_logged_and_the_next_run_still_comes(self, sign_in_settings):
+        class UnreadableAfterTheStart(TableService):
+            reads = itertools.count(1)
+
+            def unplayed_tables(self, days):
+                if next(self.reads) > 1:
+                    raise ConnectionError
+                return super().unplayed_tables(days)
+
+        unplayed = UnplayedTables(sign_in_settings, UnreadableAfterTheStart)
+        with TestClient(unplayed.app()) as client:
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            with capture_logs() as logs:
+                client.portal.call(tick)
+            runs_asked_for = len(unplayed.scheduler.sweeps())
+
+        assert [(entry["event"], entry["error"]) for entry in logs] == [
+            ("unplayed tables read failed", "ConnectionError")
+        ]
+        assert runs_asked_for == 2
+
+    def test_a_run_after_the_server_stopped_asks_for_no_further_run(self, unplayed):
+        with TestClient(unplayed.app()):
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            unplayed.scheduler.actions.clear()
+
+        asyncio.run(tick())
+
+        assert unplayed.scheduler.sweeps() == []
 
 
 class TestLoggedExceptions:

@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
+from skat.table.records import Actor, CreateTable, Ending, SitDown, StandUp, TableId
 from skat.table.transactions import HeldTable
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 
@@ -29,7 +29,7 @@ def test_an_accounts_live_tables_come_with_their_versions_in_id_order(service, t
     service.sit(ANNA, SitDown("sit-other", other.value, 2), NOBODY_CONNECTED)
     service.stand(ANNA, StandUp("stand-left", left.value), NOBODY_CONNECTED)
     with transactions.begin() as transaction:
-        transaction.end_table(ended, datetime(2026, 11, 9, 12, tzinfo=UTC), DEFAULT_EMPTY_TABLE_SECONDS)
+        transaction.end_table(ended, datetime(2026, 11, 9, 12, tzinfo=UTC), Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS))
 
     held = tables_of(transactions, ANNA.account_id)
 

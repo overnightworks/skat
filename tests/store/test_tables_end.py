@@ -7,7 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from skat.store.schema import tables
-from skat.table.records import Actor, CreateTable, EndedTable, EndReason, SitDown, TableId, TableRecord
+from skat.table.records import Actor, CreateTable, EndedTable, Ending, EndReason, SitDown, TableId, TableRecord
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
@@ -65,7 +65,9 @@ def end(service, table_id):
 def end_at_the_store(transactions, table_id):
     with transactions.begin() as transaction:
         assert transaction.locked_table(table_id) is not None
-        transaction.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), DEFAULT_EMPTY_TABLE_SECONDS)
+        transaction.end_table(
+            table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS)
+        )
 
 
 def test_the_end_step_deletes_the_chairs_hand_and_steps_of_a_running_hand_and_keeps_the_row(
@@ -163,7 +165,7 @@ def test_the_end_stores_the_time_the_reason_and_the_wait_and_bumps_the_version_o
             )
         ).one()
     assert tuple(row) == (at, EndReason.EMPTY.value, 42, None)
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, EndReason.EMPTY, 42)
+    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.empty(42))
 
 
 def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_ended_table(
@@ -172,7 +174,7 @@ def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_en
     table_id = undealt_table(service, "one")
 
     with transactions.begin() as ending:
-        ending.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), DEFAULT_EMPTY_TABLE_SECONDS)
+        ending.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS))
         views = []
         reading = threading.Thread(target=lambda: views.append(service.view(OPENER, table_id.value, NOBODY_CONNECTED)))
         reading.start()
@@ -342,3 +344,82 @@ def test_the_start_leaves_a_dealt_table_with_no_time_unstamped_and_unwaited(serv
     left = service.resume_empty_waits(DEFAULT_EMPTY_TABLE_SECONDS)
 
     assert (left, stored_since(engine, dealt)) == ({}, None)
+
+
+UNPLAYED_DAYS = 90
+PLAYED_AT = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
+UNPLAYED_AT = PLAYED_AT + timedelta(days=UNPLAYED_DAYS)
+
+
+def unplayed_service(transactions, now=UNPLAYED_AT):
+    return TableService(transactions, now=lambda: now)
+
+
+def played_at(transactions, table_id, when):
+    with transactions.begin() as transaction:
+        transaction.save_table(transaction.table(table_id), played_at=when)
+
+
+def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_stores_the_days(
+    service, transactions, stored, engine
+):
+    table_id = listed_game(service, transactions, stored, "one")
+    played_at(transactions, table_id, PLAYED_AT)
+    games = rows_of(engine, table_id.value)["game_list"]
+    version = stored(transactions, table_id.value).version
+    assert games
+
+    assert unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS) is True
+
+    after = rows_of(engine, table_id.value)
+    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert after["game_list"] == games
+    assert [row[2] for row in after["receipts"]] == [CREATE_TABLE_COMMAND]
+    with engine.connect() as connection:
+        row = connection.execute(
+            select(
+                tables.c.ended_at,
+                tables.c.end_reason,
+                tables.c.empty_seconds,
+                tables.c.unplayed_days,
+                tables.c.dealer,
+                tables.c.last_played_at,
+                tables.c.opener_name,
+            ).where(tables.c.id == table_id.value)
+        ).one()
+    assert tuple(row) == (UNPLAYED_AT, EndReason.UNPLAYED.value, None, UNPLAYED_DAYS, None, None, None)
+    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+
+
+def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
+    table_id = played_hand(service, transactions, stored, "one")
+    played_at(transactions, table_id, PLAYED_AT)
+
+    unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS)
+
+    after = rows_of(engine, table_id.value)
+    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+
+
+def test_a_table_played_at_after_the_unplayed_read_is_not_ended_by_it(service, transactions, stored):
+    table_id = seated_table(service, "one")
+    played_at(transactions, table_id, PLAYED_AT)
+    candidates = unplayed_service(transactions).unplayed_tables(UNPLAYED_DAYS)
+    played_at(transactions, table_id, UNPLAYED_AT)
+
+    assert candidates == (table_id,)
+    assert unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS) is False
+    assert isinstance(stored(transactions, table_id.value), TableRecord)
+
+
+def test_the_unplayed_read_lists_only_live_dealt_tables_played_at_or_before_the_line_in_id_order(service, transactions):
+    old = seated_table(service, "old")
+    played_at(transactions, old, PLAYED_AT)
+    recent = seated_table(service, "recent")
+    played_at(transactions, recent, PLAYED_AT + timedelta(seconds=1))
+    undealt_table(service, "undealt")
+    ended = seated_table(service, "ended")
+    played_at(transactions, ended, PLAYED_AT)
+    end_at_the_store(transactions, ended)
+
+    assert unplayed_service(transactions).unplayed_tables(UNPLAYED_DAYS) == (old,)

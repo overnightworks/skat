@@ -61,6 +61,7 @@ from skat.table.records import (
     CreateTable,
     Decision,
     EndedTable,
+    Ending,
     NewHand,
     SendAway,
     SitDown,
@@ -87,6 +88,7 @@ from skat.table.rules import (
     decide_sit,
     decide_stand,
     ends_empty,
+    ends_unplayed,
     hand_was_dealt,
     hold_frees_chair,
     is_deal_or_step_of_play,
@@ -506,7 +508,7 @@ class TableService:
             if not ends_empty(table, present):
                 return False
             members = self._members_of(transaction, table)
-            transaction.end_table(table_id, self._now(), empty_seconds)
+            transaction.end_table(table_id, self._now(), Ending.empty(empty_seconds))
         self._tell(members)
         return True
 
@@ -532,11 +534,30 @@ class TableService:
             step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
             members: frozenset[str] = self._members_of(transaction, table) if step is PresenceStep.END else frozenset()
             if step is PresenceStep.END:
-                transaction.end_table(table_id, now, empty_seconds)
+                transaction.end_table(table_id, now, Ending.empty(empty_seconds))
             elif step is not PresenceStep.KEEP:
                 transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
         self._tell(members)
         return step is PresenceStep.END
+
+    def unplayed_tables(self, days: int) -> tuple[TableId, ...]:
+        """The live tables that look due for `end_unplayed_table`, in id order: an unlocked read."""
+        with self._transactions.begin() as transaction:
+            return transaction.played_before(self._now() - timedelta(days=days))
+
+    def end_unplayed_table(self, table_id: TableId, days: int) -> bool:
+        """End a dealt table whose last deal or step of play lies `days` days back, whoever is connected and whether
+        or not a hand runs, on the server's own account, with no actor, command id or receipt. The decision re-reads
+        the table under the row lock, so a table played at or ended since changes nothing. True when it ended it.
+        """
+        with self._transactions.begin() as transaction:
+            table, now = transaction.locked_table(table_id), self._now()
+            if table is None or not ends_unplayed(table, transaction.paused_facts(table_id).last_played_at, now, days):
+                return False
+            members = self._members_of(transaction, table)
+            transaction.end_table(table_id, now, Ending.unplayed(days))
+        self._tell(members)
+        return True
 
     def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
         """At the server's start: give every live table on which no hand was dealt and that has no time one, end

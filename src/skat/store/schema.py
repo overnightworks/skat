@@ -209,6 +209,7 @@ tables = Table(
     Column("ended_at", DateTime(timezone=True)),
     Column("end_reason", Text),
     Column("empty_seconds", Integer),
+    Column("unplayed_days", Integer),
     Column("empty_since", DateTime(timezone=True)),
     Column("last_played_at", DateTime(timezone=True)),
     Column("opener_name", Text),
@@ -229,6 +230,11 @@ tables = Table(
         name="tables_empty_seconds_only_for_an_empty_end",
     ),
     CheckConstraint("empty_seconds > 0", name="tables_empty_seconds_are_positive"),
+    CheckConstraint(
+        f"(unplayed_days IS NOT NULL) = (end_reason IS NOT DISTINCT FROM '{EndReason.UNPLAYED.value}')",
+        name="tables_unplayed_days_only_for_an_unplayed_end",
+    ),
+    CheckConstraint("unplayed_days > 0", name="tables_unplayed_days_are_positive"),
     CheckConstraint(
         "(dealer IS NULL) = (last_played_at IS NULL)", name="tables_a_dealt_table_has_its_last_played_time"
     ),

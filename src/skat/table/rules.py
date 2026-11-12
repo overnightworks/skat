@@ -1,5 +1,5 @@
 from dataclasses import dataclass, replace
-from datetime import timedelta
+from datetime import UTC, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
@@ -317,6 +317,20 @@ def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) ->
     pauses and is kept. None says the presence cannot tell any more.
     """
     return not hand_was_dealt(table) and connected_accounts is not None and not connected_accounts
+
+
+def unplayed_end(last_played_at: datetime, days: int) -> datetime:
+    """The instant, in UTC, a dealt table ends: `days` days after its last deal or step of play. The paused list names
+    it and the end happens at it.
+    """
+    return last_played_at.astimezone(UTC) + timedelta(days=days)
+
+
+def ends_unplayed(table: TableRecord, last_played_at: datetime | None, now: datetime, days: int) -> bool:
+    """A table on which a hand was dealt ends once its `unplayed_end` has come, whether a hand runs or anybody is
+    connected; a table with no hand dealt has no last played time and never ends this way.
+    """
+    return hand_was_dealt(table) and last_played_at is not None and unplayed_end(last_played_at, days) <= now
 
 
 class PresenceStep(Enum):

@@ -700,7 +700,7 @@ class TestAnEmptyTableEnds:
 
         answer = server.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
-        assert answer["ended"] == {"reason": "empty", "empty_seconds": seconds}
+        assert answer["ended"] == {"reason": "empty", "empty_seconds": seconds, "unplayed_days": None}
         assert answer["chairs"] == []
         assert answer["watchers"] == 0
         assert [answer["hand"], answer["result"], answer["passed_in"]] == [None, None, None]

@@ -91,10 +91,13 @@ class PassedInView:
 
 @dataclass(frozen=True)
 class EndedView:
-    """Why the table ended and, for an empty one, the whole seconds nobody was there."""
+    """Why the table ended: for an empty one the whole seconds nobody was there, for an unplayed one the days that
+    passed without a deal or step of play; the other is None.
+    """
 
     reason: EndReason
-    empty_seconds: int
+    empty_seconds: int | None
+    unplayed_days: int | None
 
 
 @dataclass(frozen=True)
@@ -268,7 +271,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             series=None,
             options=None,
             bock=None,
-            ended=EndedView(table.reason, table.empty_seconds),
+            ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
         )
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
