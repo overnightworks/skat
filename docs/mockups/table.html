@@ -1770,6 +1770,27 @@ const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.fo
   ORDER.push(`${id}-${w}`);}));
 agentScenes(AGENT_SCENES);
 
+/* ===== S11.9p: standing up during a hand ===== */
+/* during a hand the strip has no room for two words on a phone: one of the two keys goes round; at 1280 both keep their word */
+const roundKey=(cls,icon,label)=>`<span class="cb ${cls}" role="button" title="${label}" aria-label="${label}">${icon}</span>`;
+const STAND_WORD=barKey('glass',I.stand,'Aufstehen');
+const STAND_ROUND=roundKey('',I.stand,'Aufstehen');
+const GIVE_UP_ROUND=roundKey('',I.flag,'Aufgeben');
+const standLead=(d)=>GIVE_UP+(d?STAND_WORD:STAND_ROUND);
+const standLeadWord=(d)=>d?GIVE_UP+STAND_WORD:STAND_WORD+GIVE_UP_ROUND;
+/* Felix has the turn in the trick: Anna led, Nova answered */
+const felixOnTurn=(d,strip)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
+    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownCards(d,FELIX_FOLLOWS)+strip;};
+const STAND_SCENES=[
+  ['stand-play','Aufstehen im Spiel: die Leiste',[360,390,1280],(d)=>felixOnTurn(d,stripOf(d,{lead:standLead(d),pill:agentPill(d)})),
+    ['Entwurf zur Wahl (Linie 1 A): Felix ist im Stich dran. Die Leiste trägt „Aufgeben“ mit Wort, den runden „Aufstehen“ mit dem Zeichen der Seite, die Pille und den Link; gezählt bei 360: 320 von 332 Pixeln. Am Rechner ist Platz, dort behält „Aufstehen“ sein Wort.']],
+  ['stand-play-word','Aufstehen im Spiel: das Wort bleibt',[360],(d)=>felixOnTurn(d,stripOf(d,{lead:standLeadWord(d),pill:agentPill(d)})),
+    ['Entwurf zur Wahl (Linie 1 B): „Aufstehen“ behält sein Wort, „Aufgeben“ wird rund mit der Flagge; gezählt bei 360: 326 von 332 Pixeln. Die folgenreichere Taste verliert dabei ihr Wort.']],
+];
+agentScenes(STAND_SCENES);
+
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
 const HOME_SCENES=[
   ['home-badge','Lobby mit Zahl',withBadge((d)=>rulePlay(d,{chips:ANNAS_RULES,plaque:runningPoints}),1),
