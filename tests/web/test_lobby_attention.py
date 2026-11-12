@@ -35,7 +35,7 @@ def waits_for(scene, person):
 
 def a_seed_where_the_deal_gives_anna_the_turn():
     for seed in count():
-        scene = Scene(TableService(FakeTableStore(), random_source=Random(seed)))
+        scene = Scene(TableService(FakeTableStore(), random_source=Random(seed)))  # noqa: S311 - a seeded generator repeats the deal
         table_id = scene.open_table(ANNA)
         scene.sit(BEN, table_id, 2)
         scene.sit(CLEO, table_id, 3)
@@ -46,7 +46,8 @@ def a_seed_where_the_deal_gives_anna_the_turn():
 
 @pytest.fixture
 def scene():
-    return Scene(TableService(FakeTableStore(), random_source=Random(a_seed_where_the_deal_gives_anna_the_turn())))
+    seed = a_seed_where_the_deal_gives_anna_the_turn()
+    return Scene(TableService(FakeTableStore(), random_source=Random(seed)))  # noqa: S311 - a seeded generator repeats the deal
 
 
 def deal_at_a_table_of_three(scene):

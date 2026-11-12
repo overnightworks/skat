@@ -132,6 +132,39 @@ async def _wait_for_wake_or_deadline(changed: asyncio.Event, deadline: float) ->
     return loop.time() >= deadline
 
 
+def _wake_of(index: int, unread: list[bool], changed: asyncio.Event) -> Callable[[], None]:
+    def wake() -> None:
+        unread[index] = True
+        changed.set()
+
+    return wake
+
+
+async def _changed_messages(
+    sources: Sequence[StreamSource],
+    actor: Actor,
+    unread: list[bool],
+    sent_digests: list[bytes | None],
+    *,
+    read_all: bool,
+) -> list[SourceMessage]:
+    """The reads, in the sources' order, that differ from the last one sent; a `last` message is the final one."""
+    changed: list[SourceMessage] = []
+    for index, source in enumerate(sources):
+        if not (unread[index] or read_all):
+            continue
+        unread[index] = False
+        message = await source.read(actor)
+        digest = _digest_of(message)
+        if digest == sent_digests[index]:
+            continue
+        sent_digests[index] = digest
+        changed.append(message)
+        if message.last:
+            break
+    return changed
+
+
 async def stream_messages(
     sources: Sequence[StreamSource],
     admit: Callable[[], Awaitable[Actor | None]],
@@ -154,18 +187,11 @@ async def stream_messages(
     changed = asyncio.Event()
     unread = [True] * len(sources)
 
-    def wake_for(index: int) -> Callable[[], None]:
-        def wake() -> None:
-            unread[index] = True
-            changed.set()
-
-        return wake
-
     opened: list[StreamSource] = []
     loop = asyncio.get_running_loop()
     try:
         for index, source in enumerate(sources):
-            await source.open(wake_for(index))
+            await source.open(_wake_of(index, unread, changed))
             opened.append(source)
         sent_digests: list[bytes | None] = [None] * len(sources)
         deadline = loop.time() + heartbeat_seconds
@@ -176,21 +202,12 @@ async def stream_messages(
             actor = await admit()
             if actor is None or stopped():
                 return
-            sent_any = False
-            for index, source in enumerate(sources):
-                if not (unread[index] or deadline_passed):
-                    continue
-                unread[index] = False
-                message = await source.read(actor)
-                digest = _digest_of(message)
-                if digest == sent_digests[index]:
-                    continue
-                sent_digests[index] = digest
-                sent_any = True
+            changed_messages = await _changed_messages(sources, actor, unread, sent_digests, read_all=deadline_passed)
+            for message in changed_messages:
                 yield message
                 if message.last:
                     return
-            if sent_any:
+            if changed_messages:
                 deadline = loop.time() + heartbeat_seconds
             elif deadline_passed:
                 yield IDLE_HEARTBEAT

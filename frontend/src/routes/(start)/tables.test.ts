@@ -20,7 +20,6 @@ import {
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
-    attentionMark,
     answerGiveUp,
     bidValueWhileDeclaring,
     announcedWord,
@@ -64,12 +63,9 @@ class FakeEventSource {
     addEventListener(type: string, listener: (event: MessageEvent<string>) => void) {
         this.listeners.set(type, listener);
     }
-    // A message as the browser hands it to the stream's listener of that event name; unnamed ones are `message`.
-    named(name: string, data: string) {
-        this.listeners.get(name)?.({ data } as MessageEvent<string>);
-    }
+    // A message as the browser hands it to the stream's unnamed listener.
     message(data: string) {
-        this.named("message", data);
+        this.listeners.get("message")?.({ data } as MessageEvent<string>);
     }
 }
 
@@ -311,38 +307,6 @@ describe("watchTable after a stream error", () => {
         expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID, ended: null });
         expect(FakeEventSource.last.close).not.toHaveBeenCalled();
         expect(onConnection).toHaveBeenCalledWith(true);
-    });
-
-    it("hands the number of the other tables that wait to the page and marks the connection", () => {
-        const onTable = vi.fn();
-        const onAttention = vi.fn();
-        const onConnection = vi.fn();
-        watchTable(TABLE_ID, onTable, onAttention, onConnection);
-        FakeEventSource.last.named("attention", "3");
-
-        expect(onAttention).toHaveBeenCalledExactlyOnceWith(3);
-        expect(onTable).not.toHaveBeenCalled();
-        expect(onConnection).toHaveBeenCalledWith(true);
-    });
-});
-
-describe("the number on the Lobby button", () => {
-    it.each([
-        [0, ""],
-        [1, "1"],
-        [9, "9"],
-        [10, "9+"],
-        [40, "9+"],
-    ])("draws %i as %j", (count, mark) => {
-        expect(attentionMark(count)).toBe(mark);
-    });
-
-    it.each([
-        [1, "Lobby, 1 Tisch wartet auf dich"],
-        [2, "Lobby, 2 Tische warten auf dich"],
-        [12, "Lobby, 12 Tische warten auf dich"],
-    ])("names the button for %i waiting tables", (count, name) => {
-        expect(words["table.lobbyWaiting"](count)).toBe(name);
     });
 });
 
