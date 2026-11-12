@@ -8,20 +8,18 @@ import pytest
 
 from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
-from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
+from skat.table.records import Actor, SitDown, TableId
 from skat.table.service import TableService
-from skat.web.lobby import LOBBY_EVENTS_PATH, LobbySource
-from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent, stream_messages
-from skat.web.wakes import AccountTopic, WakeList
-from tests.support.fake_tables import FakeTableStore, in_memory_tables
-from tests.support.idle_presence import idle_presence
+from skat.web.lobby import LOBBY_EVENTS_PATH
+from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent
+from skat.web.wakes import AccountTopic
+from tests.support.fake_tables import FakeTableStore
 from tests.web.support.agent import SUBJECT
+from tests.web.support.lobby_scene import Scene
 from tests.web.support.skat import FETCH, Skat
 from tests.web.support.streams import (
-    NO_HEARTBEAT_SECONDS,
     SHORT_HEARTBEAT_SECONDS,
     Admission,
-    admitting,
     next_item,
     run_on_a_loop_of_its_own,
 )
@@ -29,7 +27,6 @@ from tests.web.support.streams import (
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
-DAYS = 90
 
 
 @pytest.fixture
@@ -56,40 +53,6 @@ def tables_skat(request, hold, issuer):
     with (skat := Skat(lambda: hold, store=PostgresTableTransactions(engine), **options)).client:
         yield skat
     engine.dispose()
-
-
-class Scene:
-    """A service over an in-memory store, one wake list and the presence built on it, as the app wires them."""
-
-    def __init__(self, service=None):
-        self.service = service or in_memory_tables()
-        self.wakes = WakeList()
-        self.presence = idle_presence(self.wakes)
-        self.opened = 0
-
-    def open_table(self, person):
-        self.opened += 1
-        return self.service.create(person, CreateTable(command_id=f"open-{self.opened}")).id
-
-    def sit(self, person, table_id, seat):
-        self.service.sit(person, SitDown(f"sit-{person.account_id}-{seat}", table_id, seat), frozenset())
-        self.presence.wake_table(table_id)
-        self.wakes.wake(AccountTopic(person.account_id))
-
-    def stand(self, person, table_id):
-        self.service.stand(person, StandUp(f"stand-{person.account_id}", table_id), frozenset())
-        self.presence.wake_table(table_id)
-
-    def source(self, person):
-        return LobbySource(self.service, self.presence, self.wakes, person.account_id, DAYS)
-
-    def stream(self, person, admit=None, heartbeat_seconds=NO_HEARTBEAT_SECONDS):
-        return stream_messages(
-            [self.source(person)],
-            admit or admitting(person),
-            lambda: self.presence.stopped,
-            heartbeat_seconds=heartbeat_seconds,
-        )
 
 
 async def next_mine(stream):

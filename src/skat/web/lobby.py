@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from datetime import datetime  # noqa: TC003 - pydantic reads the field type at runtime
 from typing import TYPE_CHECKING, Final
 
@@ -91,21 +92,31 @@ def _table_answer_of(entry: LobbyEntryView) -> LobbyTableAnswer:
     )
 
 
-class LobbySource:
+class AccountTablesSource(ABC):
     """The tables one account holds a chair at as a stream source, woken by its account and by those tables.
 
     It is no presence: nothing here connects the account to a table. Every read swaps the registration for one that
     holds the account's topic and the topics of the tables the index lists, on the event loop's thread and with no
     await between registering the new and dropping the old, so no topic is ever unheld. The tables' records are read
-    after the swap, so a commit before it is in the read and a commit after it wakes the stream.
+    after the swap, so a commit before it is in the read and a commit after it wakes the stream. A table named as
+    `apart_from` is neither read nor held, so a change there never wakes the source.
     """
 
-    def __init__(self, tables: TableService, presence: Presence, wakes: WakeList, account_id: str, days: int) -> None:
+    def __init__(
+        self,
+        tables: TableService,
+        presence: Presence,
+        wakes: WakeList,
+        account_id: str,
+        days: int,
+        apart_from: str | None = None,
+    ) -> None:
         self._tables = tables
         self._presence = presence
         self._wakes = wakes
         self._account_id = account_id
         self._days = days
+        self._apart_from = apart_from
         self._wake: Callable[[], None] | None = None
         self._registration: Registration | None = None
 
@@ -114,16 +125,19 @@ class LobbySource:
         self._registration = self._wakes.register([AccountTopic(self._account_id)], wake)
 
     async def read(self, actor: Actor) -> SourceMessage:
-        held = await run_in_threadpool(self._tables.tables_held_by, actor.account_id)
+        listed = await run_in_threadpool(self._tables.tables_held_by, actor.account_id)
+        held = tuple(table_id for table_id in listed if table_id.value != self._apart_from)
         self._hold_topics_of(held)
         connected = {table_id.value: self._presence.connected(table_id.value) for table_id in held}
         entries = await run_in_threadpool(self._tables.my_tables, actor.account_id, held, connected, self._days)
-        answer = MineAnswer(tables=[_table_answer_of(entry) for entry in entries])
-        return SourceMessage(answer.model_dump_json(), event=StreamEvent.MINE)
+        return self._message_of(entries)
 
     def close(self) -> None:
         assert self._registration is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
         self._wakes.unregister(self._registration)
+
+    @abstractmethod
+    def _message_of(self, entries: tuple[LobbyEntryView, ...]) -> SourceMessage: ...
 
     def _hold_topics_of(self, held: tuple[TableId, ...]) -> None:
         assert self._wake is not None  # noqa: S101 - narrows the type; the loop reads only an opened source
@@ -131,6 +145,21 @@ class LobbySource:
         topics = [AccountTopic(self._account_id), *(TableTopic(table_id.value) for table_id in held)]
         previous, self._registration = self._registration, self._wakes.register(topics, self._wake)
         self._wakes.unregister(previous)
+
+
+class LobbySource(AccountTablesSource):
+    """The account's tables, whole, as the event `mine`."""
+
+    def _message_of(self, entries: tuple[LobbyEntryView, ...]) -> SourceMessage:
+        answer = MineAnswer(tables=[_table_answer_of(entry) for entry in entries])
+        return SourceMessage(answer.model_dump_json(), event=StreamEvent.MINE)
+
+
+class AttentionSource(AccountTablesSource):
+    """How many of the account's tables apart from one wait for it, as the event `attention`: one whole number."""
+
+    def _message_of(self, entries: tuple[LobbyEntryView, ...]) -> SourceMessage:
+        return SourceMessage(str(sum(entry.awaits_you for entry in entries)), event=StreamEvent.ATTENTION)
 
 
 def create_lobby_router(
