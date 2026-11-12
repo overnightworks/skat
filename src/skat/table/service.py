@@ -148,14 +148,6 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _tell_nobody(accounts: frozenset[str]) -> None:
-    """The signal of a service no one listens to."""
-
-
-def _show_nobody(table_id: TableId, accounts: frozenset[str]) -> None:
-    """The view signal of a service no one listens to."""
-
-
 class TableService:
     """The table commands and views; every command is one transaction."""
 
@@ -168,8 +160,8 @@ class TableService:
     ) -> None:
         self._transactions = transactions
         self._live_leases: Callable[[], frozenset[str]] = frozenset
-        self._standings_changed: Callable[[frozenset[str]], None] = _tell_nobody
-        self._view_changed: ViewSignal = _show_nobody
+        self._standings_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
+        self._view_changed: ViewSignal = lambda _table_id, _accounts: None
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -244,11 +236,10 @@ class TableService:
         self, actor: Actor, command: SendAway, connected_accounts: frozenset[str], is_member: bool
     ) -> CommandResult | None:
         """Free an agent's chair at once, in every phase of a hand, and take the place from its standing in the same
-        transaction: the agent's book row at this table gets a higher epoch and no invitation.
+        transaction: the agent's book row gets a higher epoch and no invitation. The hand waits for a sitter.
 
-        `actor` must be at the table (hold a chair or an open stream in `connected_accounts`) and, under its lock, a
-        member of the calling group (`is_member`) or the agent's owner, else `not-allowed`, which writes nothing, no
-        receipt either. The hand waits for a sitter. A replay and a refusal write no book row.
+        `actor` must be at the table and a member of the calling group (`is_member`) or the agent's owner, else
+        `not-allowed`, which writes no receipt. A replay and a refusal write no book row.
         """
         return self._run_command(
             actor,
@@ -257,9 +248,7 @@ class TableService:
             command.command_id,
             SEND_AWAY_COMMAND,
             send_away_payload(command),
-            lambda table: decide_send_away_by(
-                table, command, actor, at_the_table(table, connected_accounts), is_member, self._now()
-            ),
+            lambda table: decide_send_away_by(table, command, actor, connected_accounts, is_member, self._now()),
             lambda transaction, table: save_book_after_send_away(transaction, table.id, command.agent_account),
         )
 
@@ -744,8 +733,7 @@ class TableService:
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                     viewers = view_recipients(table, decision.table)
                 if decision.refusal is not Refusal.NOT_ALLOWED:
-                    # A refused authority is no outcome of the command: the id stays free for the same person once
-                    # the right is there, and a refusal writes nothing.
+                    # A refused authority is no outcome: the id stays free once the person has the right.
                     transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
@@ -789,9 +777,7 @@ class TableService:
         return view_of(table, actor.account_id, present)
 
     def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
-        """Who counts as at the live table for a call, `member_place.at_the_table`'s answer; an ended or missing table
-        counts the open streams only.
-        """
+        """Who is at the live table for a call; an ended or missing table counts the open streams only."""
         table = self._table_read(table_id.value)
         return at_the_table(table, connected_accounts) if isinstance(table, TableRecord) else connected_accounts
 

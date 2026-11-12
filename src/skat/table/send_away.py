@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Final
 
-from skat.table.member_place import BookEntry, InviteRefusal, offer_of, seated_call_facts
+from skat.table.member_place import BookEntry, InviteRefusal, at_the_table, offer_of, seated_call_facts
 from skat.table.records import Decision, OccupantKind, Refusal, SendAway, TableId, TableRecord
 from skat.table.rules import seat_of, with_occupant
 
@@ -37,18 +37,18 @@ def decide_send_away_by(
     table: TableRecord,
     command: SendAway,
     sender: Actor,
-    present_accounts: frozenset[str],
+    connected_accounts: frozenset[str],
     is_member: bool,
     now: datetime,
 ) -> Decision:
-    """The send-away of the agent by the sender, if `offer_of` lets the sender at the table: present and either a
-    member of the calling group or the owner its chair stores for the agent. Anyone else is `not-allowed` and the
-    table stays; the chair's own reasons are `decide_send_away`'s.
+    """The send-away of the agent by the sender, if `offer_of` lets the sender at the table (`at_the_table` of the
+    open streams) and either a member of the calling group or the owner its chair stores for the agent. Anyone else
+    is `not-allowed` and the table stays; the chair's own reasons are `decide_send_away`'s.
     """
     facts = seated_call_facts(
         command.agent_account,
         viewer_account=sender.account_id,
-        viewer_present=sender.account_id in present_accounts,
+        viewer_present=sender.account_id in at_the_table(table, connected_accounts),
         viewer_is_member=is_member,
     )
     if offer_of(facts, table, None, now) in {InviteRefusal.NOT_PRESENT, InviteRefusal.NOT_A_MEMBER}:
