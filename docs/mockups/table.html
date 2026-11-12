@@ -1777,6 +1777,42 @@ const HOME_SCENES=[
 ];
 scenes(HOME_SCENES);
 ORDER.unshift(...HOME_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+/* ===== S15.p: Ton und Bewegung: the speaker at the table, its panel, mute, first visit, reduced motion, in a call ===== */
+Object.assign(I,{
+  speaker:sv('<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.3 6.6a7.8 7.8 0 0 1 0 10.8"/>',2),
+  speakerOff:sv('<mask id="strike" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><path d="M3.5 3.5l17 17" stroke="#000" stroke-width="5.6"/></mask><path mask="url(#strike)" d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M3.5 3.5l17 17"/>',2),
+});
+const SOUND_WORD='Ton und Bewegung',MUTED_WORD='Ton aus';
+/* the button: a round 40 px glass twin of the Lobby button in the top row (a word pill at 1280); in a call a strip button where the link stands outside a call.
+   o.open: the panel hangs on it; o.toggle: one tap mutes and opens nothing */
+const soundButton=(d,o={})=>{
+  const label=o.muted?MUTED_WORD:o.toggle?'Ton':SOUND_WORD,icon=o.muted?I.speakerOff:I.speaker;
+  const state=o.toggle?`aria-pressed="${!!o.muted}"`:`aria-haspopup="dialog" aria-expanded="${!!o.open}"`;
+  const cls=`sound ${o.top?'top':''} ${o.muted?'muted':''} ${o.open?'on':''}`;
+  const attrs=`role="button" tabindex="0" data-snd ${state} title="${label}" aria-label="${label}" style="${at(o.at||{})}"`;
+  return d?`<span class="cb wide glass ${cls}" ${attrs}>${icon}${o.muted?MUTED_WORD:'Ton'}</span>`:`<span class="cb ${cls}" ${attrs}>${icon}</span>`;
+};
+/* the top row: the speaker stands left of the watchers, at 360 px beside Lobby (the watchers and the series pill leave no 40 px between them) */
+const SOUND_AT={360:{left:58},390:{right:74},1280:{right:84}};
+const soundTop=(d,w,o={})=>soundButton(d,{...o,top:true,at:SOUND_AT[w]});
+/* Felix's solo table in game 8 of 36, his turn: the top row and the strip as the table draws them */
+const soundTable=(d,w,o={})=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
+    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)})+soundTop(d,w,o)+(o.over||'');};
+const DRAFT_A='Entwurf zur Wahl: der Lautsprecher öffnet die Tafel „Ton und Bewegung“.';
+const DRAFT_B='Entwurf zur Wahl: ein Tipp auf den Lautsprecher schaltet stumm, die Tafel steht in der Lobby unter dem Konto.';
+const SOUND_SCENES=[
+  ['sound-button','Ton: der Knopf',[360,390,1280],(d,w)=>soundTable(d,w),
+    ['Felix spielt an seinem Tisch in Spiel 8 von 36. Oben rechts neben den Zuschauern steht der runde Lautsprecher, die Serienmarke behält ihren Platz. Gemessen: bei 360 Pixeln bleiben zwischen Marke und Zuschauern 54 Pixel, bei „Spiel 99 von 99“ nur 46; für 40 Pixel mit Rand ist das zu eng, darum steht der Lautsprecher dort neben „Lobby“. Bei 390 Pixeln bleiben 69 (bei „Spiel 99 von 99“ 54), das genügt.',DRAFT_A]],
+  ['sound-muted','Ton: stumm',[360,390,1280],(d,w)=>soundTable(d,w,{muted:true}),
+    ['Felix hat „Ton“ ausgeschaltet. Die Tafel ist zu, der Lautsprecher ist durchgestrichen; der Tisch sieht aus wie vorher.']],
+];
+const soundScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.forEach(w=>{
+  const desk=w===1280,html=w===360?withPhone360(()=>draw(false,w)):draw(desk,w);
+  frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,notes);
+  ORDER.push(`${id}-${w}`);}));
+soundScenes(SOUND_SCENES);
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
@@ -1883,6 +1919,15 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .rrow .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .rrow b{font-size:15px;font-weight:600;line-height:1.2}
 .rrow small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
+</style>
+<style>
+/* ---------- S15.p: Ton und Bewegung: the speaker button (a twin of the lobby button), its struck-through state ---------- */
+.cb.sound.top{position:absolute;top:3px;width:40px;height:40px;cursor:pointer;background:rgba(244,246,248,.26);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 4px 10px -4px rgba(0,0,0,.7)}
+.cb.sound.top::after{content:"";position:absolute;inset:-2px}
+.cb.sound.top svg{width:22px;height:22px}
+.cb.wide.glass.sound.top{top:9px;width:auto;height:40px;padding:0 16px 0 12px;font-size:14px;gap:8px}
+.cb.wide.glass.sound.top svg{width:20px;height:20px}
+.cb.sound.on,.cb.wide.glass.sound.on{background:var(--on-stage);color:var(--stage)}
 </style>
 <style>
 /* Open Sans (latin, 400 and 600) and Oswald (latin, 400) as appkit ships them, embedded so the page needs no network */
