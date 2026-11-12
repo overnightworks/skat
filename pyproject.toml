@@ -74,6 +74,8 @@ select = [
 ignore = []
 # quality owns S and T20; its noqa lines would read as unused here
 external = ["S", "T20"]
+# the generated catalog module carries the × of the blessed scene
+allowed-confusables = ["×"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRouter.get"]
@@ -81,7 +83,6 @@ runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRoute
 [tool.ruff.lint.per-file-ignores]
 "src/skat/web/words.py" = [
     "E501",    # design-catalogs lays the generated module out itself
-    "RUF001",  # the generated catalog carries the catalog's own characters, such as the × of the blessed scene
 ]
 "tests/**/*.py" = [
     "ANN",     # relax annotations in tests
