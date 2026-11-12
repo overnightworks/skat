@@ -1,7 +1,0 @@
-claim_id = "82489a65c3a14754877a3dd3c8d6f06e"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "743c496920c16d41b00eac2ddbd254a07f326fb3"
-branch = "claude/issue-431-s13-3cp-picture-kontra-and-re-at-the-tab"
-scope = ["docs/mockups/table.html"]
-opened_commit = "7971102c6046066bba76e6f28041829d9c50c6af"
