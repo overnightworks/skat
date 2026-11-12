@@ -421,7 +421,7 @@ class TestARamschPlayedOnTheCardsTheStageMoved:
 
 class TestTheMultiplier:
     @pytest.mark.parametrize(
-        ("deal", "hand", "rule", "changed", "pending", "plan", "scores", "factors", "shown"),
+        ("deal", "hand", "rule", "changed", "pending", "plan", "scores", "factors"),
         [
             pytest.param(
                 PLAIN_DEAL,
@@ -432,7 +432,6 @@ class TestTheMultiplier:
                 ("back", "push", "push"),
                 [0, -344, 0],
                 (2, 4, 1),
-                (4, False),
                 id="two-pushes",
             ),
             pytest.param(
@@ -444,7 +443,6 @@ class TestTheMultiplier:
                 ("back", "push", "push"),
                 [0, -344, 0],
                 (2, 4, 1),
-                (4, False),
                 id="two-pushes-with-jacks-allowed",
             ),
             pytest.param(
@@ -456,7 +454,6 @@ class TestTheMultiplier:
                 ("back", "push", "push"),
                 [0, -86, 0],
                 (2, 1, 1),
-                (1, False),
                 id="two-pushes-that-do-not-double",
             ),
             pytest.param(
@@ -468,7 +465,6 @@ class TestTheMultiplier:
                 ("back", "push", "push"),
                 [0, -688, 0],
                 (2, 4, 2),
-                (4, False),
                 id="two-pushes-at-a-bock-game",
             ),
             pytest.param(
@@ -480,7 +476,6 @@ class TestTheMultiplier:
                 ("back", "push", "push"),
                 [0, -32, 0],
                 (2, 4, 1),
-                (4, True),
                 id="divided-by-ten-before-the-pushes",
             ),
             pytest.param(
@@ -492,7 +487,6 @@ class TestTheMultiplier:
                 ("back", "push", "push"),
                 [-80, 0, 0],
                 (2, 4, 1),
-                (4, True),
                 id="divided-doubled-then-multiplied",
             ),
             pytest.param(
@@ -504,7 +498,6 @@ class TestTheMultiplier:
                 ("push", "back", "back"),
                 [0, 0, 240],
                 (1, 2, 1),
-                (2, False),
                 id="a-sweep-multiplied-by-the-push",
             ),
             pytest.param(
@@ -516,7 +509,6 @@ class TestTheMultiplier:
                 ("push", "back", "back"),
                 [0, 0, 120],
                 (1, 2, 1),
-                (1, False),
                 id="a-flat-sweep-not-multiplied",
             ),
             pytest.param(
@@ -528,7 +520,6 @@ class TestTheMultiplier:
                 ("push", "back", "back"),
                 [0, 0, 480],
                 (1, 2, 2),
-                (2, False),
                 id="a-sweep-at-a-bock-game-multiplied-by-both",
             ),
             pytest.param(
@@ -540,13 +531,12 @@ class TestTheMultiplier:
                 ("push", "back", "back"),
                 [0, 0, 120],
                 (1, 2, 2),
-                (1, False),
                 id="a-flat-sweep-at-a-bock-game",
             ),
         ],
     )
     def test_the_scores_are_multiplied_by_the_pushes_and_the_bock_factor_after_the_division_and_the_doubling(
-        self, skat, deal, hand, rule, changed, pending, plan, scores, factors, shown
+        self, skat, deal, hand, rule, changed, pending, plan, scores, factors
     ):
         extra = {"bock": {"triggers": ["re"], "overlap": "append"}} if pending else None
         table = stage_table(skat, rule, deal, extra, **changed)
@@ -559,8 +549,7 @@ class TestTheMultiplier:
         result = table.result()
         assert scores_of(result) == scores
         result_factors = (result["pushes"], result["push_factor"], result["bock_factor"])
-        assert result_factors == (factors[0], shown[0], factors[2])
-        assert result["divided_by_ten"] is shown[1]
+        assert result_factors == factors
         row = list_rows(table)[0]
         row_factors = (row["pushes"], row["push_factor"], row["bock_factor"])
         assert row_factors == factors

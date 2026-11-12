@@ -80,6 +80,9 @@ class TestTheFactorsTheRamschResultDraws:
             pytest.param(
                 RamschScoring.POINTS_BY_TEN, DurchmarschRule.WINS_120, True, 4, False, id="a-sweep-is-no-division"
             ),
+            pytest.param(
+                RamschScoring.POINTS, DurchmarschRule.WINS_120_FLAT, True, 1, False, id="a-flat-sweep-has-no-push"
+            ),
             pytest.param(RamschScoring.POINTS, DurchmarschRule.WINS_120_FLAT, False, 4, False, id="a-loss-under-flat"),
         ],
     )

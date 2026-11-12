@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from skat.engine.bock import bock_factor, bock_settlement
 from skat.engine.deal import SEATS, positions_from, seats_from
 from skat.engine.kontra import KontraReach, doubled_reckoning, doubled_settlement
-from skat.engine.ramsch import DurchmarschRule, RamschScoring, reckon_ramsch
+from skat.engine.ramsch import ramsch_rules_of, reckon_ramsch
 from skat.engine.schieberamsch import push_factor
 from skat.engine.score import Reckoning, Settlement, announcement_missed, overbid, settle
 from skat.engine.tricks import opponents_points_of
@@ -360,8 +360,7 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
     ordinal = len(table.game_list)
     if isinstance(entry, RamschEntry):
         ramsch = table.options.ramsch
-        sweep = entry.durchmarsch_seat is not None
-        flat_sweep = sweep and ramsch is not None and ramsch.reckoning.durchmarsch is DurchmarschRule.WINS_120_FLAT
+        rules = None if ramsch is None else ramsch_rules_of(ramsch.reckoning, swept=entry.durchmarsch_seat is not None)
         return RamschResultView(
             ordinal=ordinal,
             seats=tuple(
@@ -371,8 +370,8 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
             jungfrau=entry.jungfrau,
             bock_factor=entry.bock_factor,
             pushes=entry.pushes,
-            push_factor=1 if flat_sweep else pushes_factor(entry.pushes, table.options),
-            divided_by_ten=not sweep and ramsch is not None and ramsch.reckoning.scoring is RamschScoring.POINTS_BY_TEN,
+            push_factor=pushes_factor(entry.pushes, table.options) if rules is None or rules.multiplied else 1,
+            divided_by_ten=rules is not None and rules.divided_by_ten,
         )
     breakdown = entry.breakdown
     reach = reach_of(table.options)
