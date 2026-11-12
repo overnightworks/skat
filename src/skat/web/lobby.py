@@ -109,7 +109,7 @@ class LobbySource:
         self._wake: Callable[[], None] | None = None
         self._registration: Registration | None = None
 
-    async def open(self, wake: Callable[[], None]) -> None:
+    async def open(self, wake: Callable[[], None]) -> None:  # NOSONAR(S7503) StreamSource.open is async
         self._wake = wake
         self._registration = self._wakes.register([AccountTopic(self._account_id)], wake)
 
