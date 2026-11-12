@@ -1,13 +1,14 @@
 """A person at a table calls a listening agent from the page: the control's rows, the call and what it writes."""
 
 import threading
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 
 import pytest
 from agents.member import INVITATION_SECONDS
 from starlette.concurrency import run_in_threadpool
 
-from skat.table.records import Actor, OccupantKind, SendAway
+from skat.table.records import Actor, OccupantKind, SendAway, TableId
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
@@ -385,6 +386,23 @@ class TestACallThatChangesNothing:
 
             assert call(skat, felix, "0" * 32, key).status_code == 404
             assert call(skat, felix, "not-a-table", key).status_code == 404
+
+    def test_a_table_that_ends_while_the_fresh_read_waits_answers_404_and_writes_nothing(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            key = only_row(skat, felix, table_id)["key"]
+            hold = issuer.hold("refresh_token")
+            answers = []
+            caller = threading.Thread(target=lambda: answers.append(call(skat, felix, table_id, key)))
+            caller.start()
+            hold.arrivals.get(timeout=10)
+            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+            hold.release.set()
+            caller.join(timeout=10)
+
+            assert [answer.status_code for answer in answers] == [404]
+            assert invitations_of(nova) == []
 
     @pytest.mark.parametrize(
         ("arrange", "reason"),
