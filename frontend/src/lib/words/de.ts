@@ -8,6 +8,8 @@ export type Words = {
     readonly "app.name": string;
     readonly "app.reconnecting": string;
     readonly "app.unreachable": string;
+    readonly "app.pageNotFound": string;
+    readonly "app.pageFailed": string;
     readonly "account.title": string;
     readonly "account.theme": string;
     readonly "account.followSystem": string;
@@ -145,6 +147,8 @@ export const words: Words = {
     "app.name": "Skat",
     "app.reconnecting": "verbinde neu",
     "app.unreachable": "Skat ist gerade nicht erreichbar.",
+    "app.pageNotFound": "Diese Seite gibt es nicht.",
+    "app.pageFailed": "Diese Seite lässt sich nicht laden.",
     "account.title": "Konto",
     "account.theme": "Darstellung",
     "account.followSystem": "System",

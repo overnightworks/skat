@@ -20,6 +20,8 @@ pytestmark = pytest.mark.e2e
 RECONNECTING = text(SOURCE_LANGUAGE, "app.reconnecting")
 UNREACHABLE = text(SOURCE_LANGUAGE, "app.unreachable")
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
+PAGE_FAILED = text(SOURCE_LANGUAGE, "app.pageFailed")
+PAGE_NOT_FOUND = text(SOURCE_LANGUAGE, "app.pageNotFound")
 HEARTBEAT_SECONDS = 1.0
 IDLE_CUT_SECONDS = 30.0
 BACK_SECONDS = 30_000
@@ -70,7 +72,7 @@ def test_tapping_lobby_while_skat_is_away_shows_the_notice_and_opens_the_lobby_w
     expect(person).to_have_url(f"{server.base_url}/")
     expect(notice(person)).to_be_visible()
     expect(person.locator(".room")).to_have_count(0)
-    expect(person.get_by_text("Internal Error")).to_have_count(0)
+    expect(person.get_by_text(PAGE_FAILED)).to_have_count(0)
     expect(person.get_by_text(UNREACHABLE)).to_have_count(0)
     person.clock.fast_forward(A_MINUTE_AND_MORE_MILLISECONDS)
     expect(person.get_by_text(UNREACHABLE)).to_be_visible()
@@ -85,7 +87,7 @@ def test_tapping_lobby_while_skat_is_away_shows_the_notice_and_opens_the_lobby_w
     assert person.evaluate("window.sameDocument") is True
 
 
-def test_a_start_page_that_fails_though_the_edge_answers_ends_in_its_status_and_message_without_looping(
+def test_a_start_page_that_fails_though_the_edge_answers_ends_in_its_status_and_sentence_without_looping(
     open_person: Callable[..., Page], behind_edge: BehindEdge
 ) -> None:
     person = sit_cold_at_a_table(open_person, behind_edge.server, PHONE)
@@ -97,7 +99,7 @@ def test_a_start_page_that_fails_though_the_edge_answers_ends_in_its_status_and_
     person.get_by_role("link", name=LOBBY).click()
 
     expect(person.get_by_role("heading", name="500")).to_be_visible(timeout=BACK_SECONDS)
-    expect(person.get_by_text("Internal Error")).to_be_visible()
+    expect(person.get_by_text(PAGE_FAILED)).to_be_visible()
     expect(notice(person)).to_have_count(0)
     probes_when_it_stopped = len(probes)
     person.clock.fast_forward(A_MINUTE_AND_MORE_MILLISECONDS)
@@ -105,7 +107,7 @@ def test_a_start_page_that_fails_though_the_edge_answers_ends_in_its_status_and_
     assert len(probes) == probes_when_it_stopped
 
 
-def test_a_route_that_does_not_exist_shows_its_status_and_message_and_no_notice(
+def test_a_route_that_does_not_exist_shows_its_status_and_sentence_and_no_notice(
     open_person: Callable[..., Page], behind_edge: BehindEdge
 ) -> None:
     server = behind_edge.server
@@ -119,5 +121,5 @@ def test_a_route_that_does_not_exist_shows_its_status_and_message_and_no_notice(
     person.goto(f"{server.base_url}{ROUTE_THAT_DOES_NOT_EXIST}")
 
     expect(person.get_by_role("heading", name="404")).to_be_visible()
-    expect(person.get_by_text("Not Found")).to_be_visible()
+    expect(person.get_by_text(PAGE_NOT_FOUND)).to_be_visible()
     expect(notice(person)).to_have_count(0)
