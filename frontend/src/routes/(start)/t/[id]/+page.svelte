@@ -36,7 +36,7 @@
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
     import {
-        agentWhoSat,
+        agentSitsNote,
         answerGiveUp,
         bidValueWhileDeclaring,
         copyTableLink,
@@ -77,15 +77,15 @@
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
-    // The agent that has just sat down, named once.
+    // The sentence that names the agent who has just sat down.
     let agentSat = $state<string | null>(null);
     let agentSatTimer: ReturnType<typeof setTimeout> | undefined;
 
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
-        const sitter = previous === undefined ? null : agentWhoSat(previous, table);
-        if (sitter !== null) {
-            agentSat = sitter;
+        const sitsNote = previous === undefined ? null : agentSitsNote(previous, table);
+        if (sitsNote !== null) {
+            agentSat = sitsNote;
             clearTimeout(agentSatTimer);
             agentSatTimer = setTimeout(() => (agentSat = null), AGENT_SITS_MILLISECONDS);
         }
@@ -760,7 +760,8 @@
                     <span class="dot agent" aria-hidden="true">
                         <AgentSparkle />
                     </span>
-                    <span class="label">{words["table.agentSits"]({ name: agentSat })}</span>
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {agentSat} compiles to a `?? ""` branch no sentence can take -->
+                    <span class="label">{`${agentSat}`}</span>
                 </p>
             {/if}
             {#if taken !== null}

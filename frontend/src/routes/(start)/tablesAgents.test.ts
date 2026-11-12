@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { words } from "#lib/words.ts";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import {
-    agentWhoSat,
+    agentSitsNote,
     callAgent,
     followAgents,
     readAgents,
@@ -420,7 +421,7 @@ describe("the agent that sat down", () => {
         const before = tableOf(chairOf(1, "Felix", "person"), chairOf(2, null, null));
         const after = tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent"));
 
-        expect(agentWhoSat(before, after)).toBe("Nova");
+        expect(agentSitsNote(before, after)).toBe(words["table.agentSits"]({ name: "Nova" }));
     });
 
     it.each([
@@ -434,6 +435,6 @@ describe("the agent that sat down", () => {
             sitting ? chairOf(2, "Nova", "agent") : chairOf(2, null, null),
         );
 
-        expect(agentWhoSat(before, tableOf(chairOf(1, "Felix", "person"), now))).toBeNull();
+        expect(agentSitsNote(before, tableOf(chairOf(1, "Felix", "person"), now))).toBeNull();
     });
 });
