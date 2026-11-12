@@ -351,6 +351,25 @@ describe("the control that calls agents", () => {
             });
         });
 
+        it("answers the next request after one whose display threw", async () => {
+            const fetcher = answers(controlOf(nova("available")), controlOf());
+            const shown: AgentsControl[] = [];
+            const following = followAgents(
+                TABLE_ID,
+                (control) => {
+                    shown.push(control);
+                    if (shown.length === 1) throw new Error("the display failed");
+                },
+                () => undefined,
+            );
+
+            await expect(following.read()).rejects.toThrow("the display failed");
+            await following.read();
+
+            expect(shown).toEqual([controlOf(nova("available")), controlOf()]);
+            expect(fetcher).toHaveBeenCalledTimes(2);
+        });
+
         it("shows nothing after it was stopped, and reads no more", async () => {
             vi.useFakeTimers();
             const fetcher = answers(controlOf(nova("inviting", 5)), controlOf(), controlOf());
