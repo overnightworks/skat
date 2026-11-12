@@ -17,6 +17,7 @@ from tests.web.support.playing import (
     Table,
     bock_of,
     cards,
+    three_pass,
 )
 from tests.web.support.ramsch_stage import (
     FOREHAND_SEAT,
@@ -32,7 +33,7 @@ from tests.web.support.ramsch_stage import (
     refused,
     stage_table,
 )
-from tests.web.support.series import headers_of, tap_weiter
+from tests.web.support.series import deal_the_next_game
 
 
 def grand_hand_table(skat, deal=PLAIN_DEAL, **changed):
@@ -231,12 +232,16 @@ class TestDeclaringAGrandHandInstead:
 
         table.refused_act(TABLE_KONTRA_SUFFIX, table.at[MIDDLEHAND], "did-not-bid", body={"word": "kontra"})
 
-    def test_weiter_after_the_grand_hand_deals_a_hand_whose_stage_starts_with_no_step(self, skat):
+    def test_when_all_three_tap_weiter_the_next_hand_is_dealt_and_its_stage_starts_with_no_step(self, skat):
         table = grand_hand_table(skat)
         accepted(table, FOREHAND, "grand-hand")
         table.played_out(PLAIN_HAND)
+        before = read(table)["series"]["game_number"]
 
-        tapped = tap_weiter(skat, headers_of(table)[0], table.table_id, "tap-0001")
+        deal_the_next_game(skat, table, 1, before)
+        three_pass(table)
 
-        assert tapped.status_code == 200, tapped.text
+        assert read(table)["series"]["game_number"] == before + 1
         assert table.record.progress.pushing == ()
+        assert read(table)["hand"]["pushing"] is not None
+        accepted(table, FOREHAND, "grand-hand")
