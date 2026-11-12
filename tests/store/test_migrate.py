@@ -23,6 +23,7 @@ STORE_TABLES = {
     "played_cards",
     "game_list",
     "kontra_words",
+    "kontra_no_words",
     "rule_sets",
     "member_book",
 }

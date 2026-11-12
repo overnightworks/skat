@@ -25,6 +25,7 @@ export const TABLE_AUCTION_PASS_SUFFIX = "/auction/pass";
 export const TABLE_AUCTION_PLAY_SUFFIX = "/auction/play";
 export const TABLE_CARD_SUFFIX = "/card";
 export const TABLE_LIST_SUFFIX = "/list";
+export const TABLE_NO_WORD_SUFFIX = "/kontra/no-word";
 export const TABLE_READY_SUFFIX = "/ready";
 export const TABLE_AGENTS_SUFFIX = "/agents";
 export const TABLE_AGENT_CALL_SUFFIX = "/call";
