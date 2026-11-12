@@ -719,6 +719,7 @@ body {
 }
 
 .room .answers {
+    --glass: rgba(255, 255, 255, 0.15);
     display: flex;
     gap: 8px;
 }
@@ -735,8 +736,9 @@ body {
     height: 18px;
 }
 
-/* The cross of whoever said no stands where an opponent's chair has the declarer's star. */
-.room .mark.declined {
+/* The cross of whoever said no and the dots of whoever has not answered stand where an opponent's chair has the
+   declarer's star, clear of the turn mark. */
+.room .mark:is(.declined, .unanswered) {
     position: absolute;
     z-index: 2;
     top: 16px;
@@ -744,12 +746,19 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
     height: 26px;
     border-radius: 999px;
-    color: var(--leave, #e5484d);
     background: var(--glass-dark);
     backdrop-filter: blur(12px);
+}
+
+.room .mark.declined {
+    width: 26px;
+    color: var(--leave, #e5484d);
+}
+
+.room .mark.unanswered {
+    padding: 0 9px;
 }
 
 .room .mark.declined svg {
@@ -1407,11 +1416,14 @@ body {
     }
 
     /* The declarer's mark stands under the chair's letter, clear of the turn mark above it and of the coaster at the chair's lower corner, and a wide chair has room for the word. */
-    .room .mark.declined {
+    .room .mark:is(.declined, .unanswered) {
         top: 80px;
         left: 32px;
-        width: 28px;
         height: 28px;
+    }
+
+    .room .mark.declined {
+        width: 28px;
     }
 
     .room .mark.declarer {

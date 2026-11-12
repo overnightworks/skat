@@ -487,6 +487,11 @@
                                         </svg>
                                     </span>
                                 {/if}
+                                {#if giveUp?.marks.get(chair.seat) === "unanswered"}
+                                    <span class="mark unanswered" title={words["table.noAnswerYet"]}>
+                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                                    </span>
+                                {/if}
                                 {#if marks.turn || chair.seat === turnSeat}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -511,10 +516,6 @@
                                 {:else if marks.waits}
                                     <span class="mark waits" title={words["table.waitsForYou"]}>
                                         <span class="dot" aria-hidden="true">{ownInitial}</span>
-                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                                    </span>
-                                {:else if giveUp?.marks.get(chair.seat) === "unanswered"}
-                                    <span class="mark waits" title={words["table.noAnswerYet"]}>
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
