@@ -137,7 +137,7 @@ class AccountTablesSource(ABC):
         self._wakes.unregister(self._registration)
 
     @abstractmethod
-    def _message_of(self, entries: tuple[LobbyEntryView, ...]) -> SourceMessage: ...
+    def _message_of(self, entries: tuple[LobbyEntryView, ...]) -> SourceMessage: ...  # pragma: no cover - abstract
 
     def _hold_topics_of(self, held: tuple[TableId, ...]) -> None:
         assert self._wake is not None  # noqa: S101 - narrows the type; the loop reads only an opened source
