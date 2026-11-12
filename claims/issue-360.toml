@@ -1,0 +1,8 @@
+claim_id = "8fa05f40895e47a6a6b0764c4d334bc1"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "a5d27a563990dd91237139a6d149a73faca2b2df"
+branch = "claude/issue-360-s3-7b-the-lobby-button-counts-my-other-t"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/web/lobby.py", "src/skat/web/streams.py", "tests/e2e/test_table_home.py", "tests/web/test_streams.py"]
+opened_commit = "c8df0cd1fd4cf6c9553e3515dcddc4820f9f7e9b"
+whole_reason = "The count's source on the table stream and the circle that draws it are one mark: a count nobody draws is dead, a circle without its source lies."
