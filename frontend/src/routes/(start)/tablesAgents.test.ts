@@ -21,7 +21,9 @@ const nova = (state: "available" | "inviting", ends = 120): AgentRow =>
 const controlOf = (...rows: AgentRow[]): AgentsControl => ({ shown: true, rows });
 const cutOff = () =>
     new ReadableStream({
-        start: (stream) => stream.error(new TypeError("the transfer broke off")),
+        start: (stream) => {
+            stream.error(new TypeError("the transfer broke off"));
+        },
     });
 
 describe("the control that calls agents", () => {
@@ -288,6 +290,65 @@ describe("the control that calls agents", () => {
             await following.call("key-nova");
 
             expect([shown, refusals]).toEqual([[], [null]]);
+        });
+
+        describe("when requests overlap", () => {
+            type Pending = { method: string; settle: (response: Response) => void };
+
+            // Every request waits until the test answers it, as the server's answers arrive in any order.
+            function slowServer() {
+                const pending: Pending[] = [];
+                const fetcher = vi.fn(
+                    (_path: string, init?: RequestInit) =>
+                        new Promise<Response>((settle) => pending.push({ method: init?.method ?? "GET", settle })),
+                );
+                vi.stubGlobal("fetch", fetcher);
+                return { pending, fetcher };
+            }
+
+            // Answers the newest request first until none is left, as a server that is slower for the older one.
+            async function answerNewestFirst(pending: Pending[], control: (method: string) => AgentsControl) {
+                await vi.advanceTimersByTimeAsync(0);
+                while (pending.length > 0) {
+                    const newest = pending.pop();
+                    newest?.settle(Response.json(control(newest.method)));
+                    await vi.advanceTimersByTimeAsync(0);
+                }
+            }
+
+            it("shows the answer of the later request last, and a row that ended starts no timer again", async () => {
+                vi.useFakeTimers();
+                const { pending, fetcher } = slowServer();
+                const { following, shown } = follower();
+
+                const calling = following.call("key-nova");
+                const reading = following.read();
+                await answerNewestFirst(pending, (method) =>
+                    method === "POST" ? controlOf(nova("inviting", 120)) : controlOf(),
+                );
+                await Promise.all([calling, reading]);
+                await vi.advanceTimersByTimeAsync(600_000);
+
+                expect(shown.at(-1)).toEqual(controlOf());
+                expect(fetcher).toHaveBeenCalledTimes(2);
+            });
+
+            it("keeps the inviting row a call answered when an older read answers after it", async () => {
+                vi.useFakeTimers();
+                const { pending, fetcher } = slowServer();
+                const { following, shown } = follower();
+
+                const reading = following.read();
+                const calling = following.call("key-nova");
+                await answerNewestFirst(pending, (method) =>
+                    method === "POST" ? controlOf(nova("inviting", 30)) : controlOf(nova("available")),
+                );
+                await Promise.all([calling, reading]);
+                await vi.advanceTimersByTimeAsync(30_000);
+
+                expect(shown.at(-1)).toEqual(controlOf(nova("inviting", 30)));
+                expect(fetcher).toHaveBeenCalledTimes(3);
+            });
         });
 
         it("shows nothing after it was stopped, and reads no more", async () => {

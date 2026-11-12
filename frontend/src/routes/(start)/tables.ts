@@ -530,6 +530,15 @@ export function followAgents(
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     let inviting = false;
+    let requests: Promise<unknown> = Promise.resolve();
+
+    // One request at a time, its answer shown before the next request goes out: the server answers in the order the
+    // page asked, so an older answer never replaces a newer one or restarts the timer of a row that has ended.
+    function inOrder<T>(request: () => Promise<T>): Promise<T> {
+        const answered = requests.then(request);
+        requests = answered.catch(() => undefined);
+        return answered;
+    }
 
     function schedule(milliseconds: number | null): void {
         clearTimeout(timer);
@@ -547,21 +556,26 @@ export function followAgents(
         }
     }
 
-    async function read(): Promise<void> {
-        const answer = await readAgents(id);
-        if (!stopped) show(answer);
+    function read(): Promise<void> {
+        return inOrder(async () => {
+            const answer = await readAgents(id);
+            if (!stopped) show(answer);
+        });
     }
 
     async function call(key: string): Promise<void> {
         onRefusal(null);
-        const answer = await callAgent(id, key);
-        if (stopped) return;
-        if (answer.kind === "refused" || answer.kind === "failed") {
+        const refused = await inOrder(async () => {
+            const answer = await callAgent(id, key);
+            if (stopped) return false;
+            if (answer.kind === "control" || answer.kind === "missing") {
+                show(answer);
+                return false;
+            }
             onRefusal(answer.kind === "refused" ? answer.reason : "try-again");
-            await read();
-        } else {
-            show(answer);
-        }
+            return true;
+        });
+        if (refused) await read();
     }
 
     return {
