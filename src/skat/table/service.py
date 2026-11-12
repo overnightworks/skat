@@ -261,14 +261,12 @@ class TableService:
         )
 
     def replayed_send_away(self, actor: Actor, command: SendAway) -> Decision | None:
-        """What a send-away this person already made under the command id came to, or None when none was made; it
-        writes nothing and raises `CommandIdReusedError` for another request under the id.
+        """The outcome of this person's earlier send-away under the command id, None if none; it writes nothing and
+        raises `CommandIdReusedError` for another request under the id.
         """
         with self._transactions.begin() as transaction:
             replay = transaction.replay(actor.account_id, command.command_id)
-        if replay is None:
-            return None
-        return replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
+        return None if replay is None else replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
 
     def take_auction_step(
         self,
