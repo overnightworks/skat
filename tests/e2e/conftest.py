@@ -5,6 +5,7 @@ import pytest
 from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
+from skat.web.words import SOURCE_LANGUAGE
 from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
@@ -52,7 +53,13 @@ def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[s
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]:
     # A measured card is not in motion: a test that needs motion names "no-preference" itself.
-    return {**browser_context_args, "ignore_https_errors": True, "reduced_motion": "reduce"}
+    # Every context asks for the source language, so the suite stays in it when a further catalog lands.
+    return {
+        **browser_context_args,
+        "ignore_https_errors": True,
+        "reduced_motion": "reduce",
+        "locale": SOURCE_LANGUAGE,
+    }
 
 
 @pytest.fixture

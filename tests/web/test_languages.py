@@ -1,12 +1,16 @@
+import re
 from typing import TYPE_CHECKING
 
 import pytest
 from fastapi.testclient import TestClient
 from webauth.config import installed_web_auth_config
+from webauth.languages import AppLanguages
 
 from skat.host.app import create_app
+from skat.web import languages
 from skat.web.constants import HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX
+from skat.web.words import LANGUAGES, SOURCE_LANGUAGE
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores
@@ -38,23 +42,72 @@ def member_client(sign_in_settings, *, account_language: str | None, accept_lang
     return TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers, follow_redirects=False)
 
 
+SHELL_PATHS = pytest.mark.parametrize("path", [HOME_PATH, f"{TABLE_PAGE_PREFIX}table-1"], ids=["home", "table"])
+UNOFFERED_TAG = "tlh"
+
+
+def html_lang_of(content: bytes) -> str:
+    return re.search(rb'<html lang="([^"]+)">', content).group(1).decode()
+
+
+@pytest.fixture
+def further_language(monkeypatch) -> str:
+    """The catalogs gain a second language: the module's generated offer is the one seam the tests move."""
+    further = "en"
+    monkeypatch.setattr(languages, "LANGUAGES", (*LANGUAGES, further))
+    monkeypatch.setattr(
+        languages, "APP_LANGUAGES", AppLanguages(offered=(*LANGUAGES, further), default=SOURCE_LANGUAGE)
+    )
+    return further
+
+
 class TestShellLanguage:
-    @pytest.mark.parametrize("path", [HOME_PATH, f"{TABLE_PAGE_PREFIX}table-1"], ids=["home", "table"])
+    @SHELL_PATHS
+    @pytest.mark.parametrize("language", LANGUAGES)
+    def test_a_browser_asking_for_an_offered_language_gets_the_shell_in_it(self, sign_in_settings, path, language):
+        client = member_client(sign_in_settings, account_language=None, accept_language=language)
+
+        assert html_lang_of(client.get(path).content) == language
+
+    @SHELL_PATHS
+    @pytest.mark.parametrize("language", LANGUAGES)
+    def test_an_account_language_wins_over_a_browser_asking_for_a_tag_no_catalog_has(
+        self, sign_in_settings, path, language
+    ):
+        client = member_client(sign_in_settings, account_language=language, accept_language=UNOFFERED_TAG)
+
+        assert html_lang_of(client.get(path).content) == language
+
+    @SHELL_PATHS
     @pytest.mark.parametrize(
         ("account_language", "accept_language"),
-        [(None, None), (None, "en"), ("de-AT", None), ("fr", None)],
-        ids=["no-language", "english-browser", "austrian-account", "unoffered-account"],
+        [(None, None), (None, UNOFFERED_TAG), (UNOFFERED_TAG, None), (UNOFFERED_TAG, UNOFFERED_TAG)],
+        ids=["no-language", "unoffered-browser", "unoffered-account", "both-unoffered"],
     )
-    def test_the_shell_says_german_for_every_person_because_german_is_the_only_language_offered(
+    def test_a_person_asking_only_for_tags_no_catalog_has_gets_the_source_language(
         self, sign_in_settings, path, account_language, accept_language
     ):
-        response = member_client(
-            sign_in_settings, account_language=account_language, accept_language=accept_language
-        ).get(path)
+        client = member_client(sign_in_settings, account_language=account_language, accept_language=accept_language)
 
-        assert response.status_code == 200
-        assert response.content.count(b'<html lang="de">') == 1
-        assert b'<html lang="en">' not in response.content
+        assert html_lang_of(client.get(path).content) == SOURCE_LANGUAGE
+
+    @SHELL_PATHS
+    def test_a_language_a_catalog_adds_is_offered_without_another_change(
+        self, sign_in_settings, path, further_language
+    ):
+        browser = member_client(sign_in_settings, account_language=None, accept_language=further_language)
+        account = member_client(sign_in_settings, account_language=further_language, accept_language=UNOFFERED_TAG)
+
+        assert html_lang_of(browser.get(path).content) == further_language
+        assert html_lang_of(account.get(path).content) == further_language
+
+    @SHELL_PATHS
+    def test_a_shell_chosen_by_language_says_so_to_caches(self, sign_in_settings, path):
+        client = member_client(sign_in_settings, account_language=None, accept_language=None)
+
+        varied = {token.strip().lower() for token in client.get(path).headers["vary"].split(",")}
+
+        assert {"accept-language", "cookie"} <= varied
 
 
 class TestPlainSignInPages:
