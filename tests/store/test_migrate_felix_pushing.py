@@ -1,3 +1,4 @@
+import random
 import secrets
 import threading
 from dataclasses import replace
@@ -189,9 +190,10 @@ class TestARamschPlayedWithTheMigratedSet:
 
         result = table.result()
         assert (result.pushes, result.push_factor, result.bock_factor) == (2, 4, 2)
-        # Points scoring gives the loser minus the points, doubled for a Jungfrau; both factors multiply that.
-        base = 2 if result.jungfrau else 1
-        factor = base * result.push_factor * result.bock_factor
+        # Points scoring gives the loser minus the points; both factors multiply that. The seeded deal is an
+        # ordinary Ramsch: no Jungfrau doubling and no Durchmarsch.
+        assert not result.jungfrau
+        factor = result.push_factor * result.bock_factor
         assert [seat.score for seat in result.seats] == [
             -seat.points * factor if seat.score else 0 for seat in result.seats
         ]
@@ -203,7 +205,10 @@ class StagedTable:
 
     def __init__(self, engine, options):
         self.transactions = PostgresTableTransactions(engine)
-        self.service = TableService(self.transactions)
+        self.service = TableService(
+            self.transactions,
+            random_source=random.Random(8),  # noqa: S311 - a seeded source makes the deal reproducible
+        )
         self.table_id = seated_table_id(self.service, options)
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
