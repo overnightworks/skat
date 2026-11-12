@@ -4,7 +4,6 @@ from contextlib import ExitStack, nullcontext
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
@@ -61,7 +60,6 @@ from skat.table.records import (
     Decision,
     EndedTable,
     Ending,
-    NewHand,
     SendAway,
     SitDown,
     StandUp,
@@ -86,6 +84,7 @@ from skat.table.rules import (
     decide_free_chair,
     decide_sit,
     decide_stand,
+    drawn_hand,
     ends_empty,
     ends_unplayed,
     hand_was_dealt,
@@ -210,7 +209,9 @@ class TableService:
             command.command_id,
             SIT_DOWN_COMMAND,
             sit_payload(command),
-            lambda table: decide_sit(table, actor, command.seat, self._new_hand(table) if sit_deals(table) else None),
+            lambda table: decide_sit(
+                table, actor, command.seat, drawn_hand(table, self._random_source) if sit_deals(table) else None
+            ),
         )
 
     def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> CommandResult | None:
@@ -474,7 +475,7 @@ class TableService:
             connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if connected is None or not next_deal_due(table, connected):
                 return False
-            dealt = dealt_next(table, self._new_hand(table))
+            dealt = dealt_next(table, drawn_hand(table, self._random_source))
             transaction.save_table(dealt, played_at=self._now())
         self._tell_view(table_id, view_recipients(table, dealt))
         return True
@@ -648,7 +649,7 @@ class TableService:
                 acceptance,
                 owner_present=owner_account in connected_accounts,
                 now=self._now(),
-                new_hand=self._new_hand(table) if sit_deals(table) else None,
+                new_hand=drawn_hand(table, self._random_source) if sit_deals(table) else None,
             )
             if decision.entry != entry:
                 transaction.save_book_entry(decision.entry)
@@ -685,14 +686,6 @@ class TableService:
     def _members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
         """The agents whose standing the table's end changes: those that hold a chair and those invited."""
         return agents_seated_at(table) | transaction.book_accounts_at(table.id)
-
-    def _new_hand(self, table: TableRecord) -> NewHand:
-        """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
-
-        Randomness enters only here, both from the one source.
-        """
-        dealer = draw_dealer(self._random_source) if table.dealer is None else next_dealer(table.dealer)
-        return NewHand(dealer, deal(self._random_source))
 
     def _run_command(
         self,

@@ -4,7 +4,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.bock import BockRounds
-from skat.engine.deal import positions_from
+from skat.engine.deal import deal, draw_dealer, next_dealer, positions_from
 from skat.engine.schieberamsch import GrandHandRule
 from skat.table.records import (
     Actor,
@@ -29,6 +29,7 @@ from skat.table.records import (
 )
 
 if TYPE_CHECKING:
+    import random
     from datetime import datetime
 
     from skat.engine.cards import Card
@@ -416,6 +417,15 @@ def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> boo
         and connected_accounts.issuperset(occupants)
         and (not (result_pending(table) or series_over(table)) or all(chair.ready for chair in table.chairs))
     )
+
+
+def drawn_hand(table: TableRecord, random_source: random.Random) -> NewHand:
+    """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
+
+    Randomness enters only here, both from the one source.
+    """
+    dealer = draw_dealer(random_source) if table.dealer is None else next_dealer(table.dealer)
+    return NewHand(dealer, deal(random_source))
 
 
 def dealt_next(table: TableRecord, new_hand: NewHand) -> TableRecord:
