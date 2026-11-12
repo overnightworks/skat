@@ -302,6 +302,37 @@ class TestTheWakes:
         assert run_on_a_loop_of_its_own(scenario()) == (frozenset(), frozenset())
 
 
+class TestWhoIsAwayReachesAnOpenLobby:
+    def test_another_members_leaving_and_returning_changes_his_chair_and_the_end_of_the_table_in_the_lobby_held_open(
+        self,
+    ):
+        scene = Scene()
+        table_id = scene.open_table(ANNA)
+        scene.sit(BEN, table_id, 2)
+        scene.sit(CLEO, table_id, 3)
+
+        async def scenario():
+            stream = scene.stream(ANNA)
+            nobody = (await next_mine(stream))[0]
+            subscription = await scene.presence.subscribe(table_id, BEN.account_id, lambda: None)
+            returned = (await next_mine(stream))[0]
+            scene.presence.unsubscribe(subscription)
+            left = (await next_mine(stream))[0]
+            await stream.aclose()
+            return nobody, returned, left
+
+        def view(entry):
+            return [chair["is_away"] for chair in entry["chairs"]], entry["ends_at"] is None
+
+        nobody, returned, left = run_on_a_loop_of_its_own(scenario())
+
+        assert (view(nobody), view(returned), view(left)) == (
+            ([False, True, True], False),
+            ([False, False, True], True),
+            ([False, True, True], False),
+        )
+
+
 class PlayingInTheWindow(TableService):
     """A service whose next index read runs `window` after it has read and before it answers: a commit that lands
     between the index read and the swap of the registration.
