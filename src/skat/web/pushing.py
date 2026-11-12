@@ -8,7 +8,12 @@ from pydantic import Field
 from skat.engine.declaration import SKAT_SIZE
 from skat.engine.tricks import TRICKS_IN_A_GAME
 from skat.table.pushing import PushingCommand, PushingKind
-from skat.web.mcp import RAMSCH_PUSH_SKAT_MARK, RAMSCH_PUT_BACK_CARDS_MARK, RAMSCH_TAKE_SKAT_MARK
+from skat.web.mcp import (
+    RAMSCH_DECLARE_GRAND_HAND_MARK,
+    RAMSCH_PUSH_SKAT_MARK,
+    RAMSCH_PUT_BACK_CARDS_MARK,
+    RAMSCH_TAKE_SKAT_MARK,
+)
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
@@ -29,6 +34,7 @@ if TYPE_CHECKING:
 TABLE_PUSHING_TAKE_SUFFIX: Final = "/pushing/take"
 TABLE_PUSHING_PUT_BACK_SUFFIX: Final = "/pushing/put-back"
 TABLE_PUSHING_PUSH_SUFFIX: Final = "/pushing/push"
+TABLE_PUSHING_GRAND_HAND_SUFFIX: Final = "/pushing/grand-hand"
 
 
 class _PushingRequest(CommandRequest):
@@ -140,10 +146,37 @@ def _add_push(router: APIRouter, take_step: StepTaker) -> None:
         return await take_step(table_id, body, request, response, PushingKind.PUSH, ())
 
 
+def _add_declare_grand_hand(router: APIRouter, take_step: StepTaker) -> None:
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_PUSHING_GRAND_HAND_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=RAMSCH_DECLARE_GRAND_HAND_MARK,
+    )
+    async def declare_grand_hand(
+        table_id: str, body: _PushingRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Declare a Grand Hand instead of the Ramsch, before looking at the skat, in the stage before a Ramsch.
+
+        Use it only at a table whose `options.ramsch.pushing.grand_hand` is "allowed", when `hand.pushing` in the answer
+        of read_table or the state of your table's view is set, `hand.pushing.turn_seat` is the seat of the caller's
+        own chair and `hand.pushing.stage` is "choosing"; the other choices then are ramsch_take_skat and
+        ramsch_push_skat. The table id and the version come from that answer. The caller plays alone as declarer at the
+        lowest bid and the Ramsch is off: the skat stays unseen, the pushes so far count for nothing, the game is a
+        Grand Hand played and scored as any other, announces nothing and starts at once (`hand.declaring`, then
+        `hand.playing`). The command id names this step: the same id with the same version is a retry that changes
+        nothing twice. A refusal (for example stale-version, wrong-phase, not-your-turn, out-of-order) comes back as a
+        failed result with its reason, leaves the table as it was and spends the command id: the next attempt takes a
+        new command id. At a table that does not allow it the reason is wrong-phase.
+        """
+        return await take_step(table_id, body, request, response, PushingKind.GRAND_HAND, ())
+
+
 def create_pushing_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
     take_step = _step_taker(tables, presence)
     _add_take(router, take_step)
     _add_put_back(router, take_step)
     _add_push(router, take_step)
+    _add_declare_grand_hand(router, take_step)
     return router
