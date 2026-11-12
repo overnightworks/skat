@@ -218,8 +218,8 @@ def decide_accept(
     now: datetime,
     new_hand: NewHand | None,
 ) -> AcceptDecision:
-    """Seat the agent at the chair it held in the running hand if that is free, else at the lowest free chair, through
-    the sit decision, or refuse; the decisions run in this order.
+    """Seat the agent at the chair it held in the running hand, or at the lowest free chair when it holds no mark of
+    the running hand, through the sit decision, or refuse; the decisions run in this order.
 
     Stale changes nothing: no invitation stands (none, expired, another id or epoch, another owner than the one it is
     bound to, a chair the agent already holds). Without the owner at the table the accept is `sponsor_away`, and with no
