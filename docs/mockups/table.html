@@ -613,6 +613,25 @@ body.solo section.shot .rule{display:none}
 .mark.shaken::after{right:-10px;border-left:0}
 .result.closed .line{font-size:15px;line-height:1.4;font-weight:400;color:var(--on-stage-soft);text-align:center}
 </style>
+<style>
+/* ---------- Schieberamsch: the count line on the plaque, the arrow at a chair that pushed, the refused put-back ---------- */
+.p390 .push-row .button{padding:0 16px;gap:8px}
+.p360 .plaque.ramsch{padding:8px 8px 10px}
+.p360 .plaque.ramsch .game:not(:first-child){font-size:13px}
+.p360 .plaque.ramsch .game.pushes{font-size:12px}
+.game.pushes{font-size:13px;color:var(--on-stage-soft)}
+.game.pushes b{color:var(--cream);font-weight:700}
+.mark.pushed{top:-8px;right:auto;left:-8px;width:28px;height:28px;padding:0;justify-content:center;background:rgba(12,14,17,.86);color:var(--on-stage);backdrop-filter:blur(12px);
+  box-shadow:inset 0 0 0 1.5px rgba(240,214,150,.55),0 4px 10px -4px rgba(0,0,0,.7)}
+.mark.pushed svg{width:17px;height:17px}
+.seat.sm .mark.pushed{width:26px;height:26px}
+.bubble.word{font-size:17px;padding:3px 12px 3px 5px;gap:5px}
+.bubble.word .dot{width:22px;height:22px;font-size:11px}
+.bubble.word .dot svg{width:13px;height:13px}
+.refusal{transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 10px;border-radius:999px;background:var(--glass-dark);backdrop-filter:blur(12px);
+  box-shadow:inset 0 0 0 1.5px rgba(237,182,86,.65);font-size:13.5px;font-weight:600;white-space:nowrap}
+.refusal svg{width:16px;height:16px;color:var(--busy-stage)}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -1534,6 +1553,8 @@ Object.assign(I,{
   kontra:sv('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',2),
   bock:sv('<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/>',1.8),
   lock:sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>'),
+  ramsch:sv('<path d="M12 4v10M7 10l5 5 5-5M5 20h14"/>',2.2),
+  schieben:sv('<path d="M4 12h14M13 6l6 6-6 6"/>',2.2),
 });
 /* the rules a table can have today; each carries its chip, its name and its settings as short words */
 const TABLE_RULES=[
@@ -1769,6 +1790,79 @@ const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.fo
   frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,notes);
   ORDER.push(`${id}-${w}`);}));
 agentScenes(AGENT_SCENES);
+
+/* ===== Schieberamsch: after three passes the table plays Ramsch; each seat takes the skat or pushes it on unseen ===== */
+I.push=I.schieben;
+MARK.pushed=`<span class="mark pushed" title="geschoben">${I.push}</span>`;
+/* the plaque: „Ramsch“, then what the table adds; o.count is 'line' (n× geschoben ×factor under the name), 'flat' (the same without the factor) or 'factor' (only ×factor beside the name) */
+const pushLine=(n,factor)=>`<div class="game pushes">${n}× geschoben${factor?` <b>×${2**n}</b>`:''}</div>`;
+const ramschName=(o)=>o.count==='factor'?gameLine('','Ramsch',`<span class="x2">×${2**o.pushes}</span>`):'<div class="game">Ramsch</div>';
+const ramschLines=(o)=>1+(o.count==='line'||o.count==='flat'?1:0)+(o.who?1:0)+(o.wait?1:0);
+/* on a phone only the wait line is wide enough to reach the fans, so only it steps down */
+const ramschTop=(d,o)=>d||!o.wait?plaqueY(d):FANS_CLEAR;
+const PLAQUE_LINE=27,PLAQUE_ONE=38;
+const ramschBottom=(d,o)=>ramschTop(d,o)+PLAQUE_ONE+PLAQUE_LINE*(ramschLines(o)-1);
+const ramschPlaque=(d,o={})=>plaque(mid(d),ramschTop(d,o),ramschName(o)
+  +(o.count==='line'||o.count==='flat'?pushLine(o.pushes,o.count==='line'):'')
+  +(o.who?`<div class="game">${o.who}${waitDots()}</div>`:'')+(o.wait?WAIT_LINE:'')).replace('class="plaque"','class="plaque ramsch"');
+/* the skat lies under the plaque; its line count decides how low */
+const stageSkatY=(d,o)=>d?Math.max(190,ramschBottom(d,o)+16):Math.max(240,ramschBottom(d,o)+14);
+const stageSkat=(d,o)=>d?skat(584,stageSkatY(d,o),80):skat(PB.cx-41,stageSkatY(d,o),52);
+/* the felt of a 360 frame is 64 px shorter than the 390 one: what stands in its middle moves up by half */
+const feltShift=(d)=>d?0:(PB.you.y-496)/2;
+const stageRow=(d,discard)=>d?(discard?420:412):380+feltShift(d);
+const pushButtons=(d)=>row(mid(d),stageRow(d),`<span class="button button-stage">${I.up}Skat nehmen</span><span class="button button-glass">${I.push}Schieben</span>`).replace('class="btns"','class="btns push-row"');
+const putBackButton=(d)=>row(mid(d),stageRow(d,true),`<span class="button button-stage unlock">${I.down}Drücken</span>`);
+const feltGhosts=(d)=>d?ghost(596,300,80,I.down)+ghost(684,300,80,I.down):ghost(PB.cx-32,300+feltShift(d),56,I.down)+ghost(PB.cx+32,300+feltShift(d),56,I.down);
+const felixGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,PB.you.y+64,240,120);
+/* the word at the chair that pushed, where a bid word stands */
+const PUSH_BUBBLE_W=120;
+const pushBubble=(d,who,o={})=>{const L=seatsOf(d),seat_=who==='anna'?L.anna:L.nova,centre=seat_.x+seat_.w/2;
+  const x=d?(who==='anna'?44:1065):(who==='anna'?seat_.x+4:seat_.x+seat_.w-PUSH_BUBBLE_W),y=d?392:Math.max(228,ramschBottom(d,o)+8);
+  return bubble(who,'Schieben',{x,y,tail:`${Math.round((centre-x)/PUSH_BUBBLE_W*100)}%`}).replace('class="bubble','class="bubble word');};
+/* Felix's own hand while the skat is open: ten cards that rest, at a width that keeps the 16 px gutters on a 360 frame */
+const narrow=()=>PB.cx===180;
+const restingHand=(d)=>ownHand(d,BID_HAND,d||!narrow()?{}:{w:56,strip:{base:28}});
+/* the twelve cards of a put-back: a strip that scales with the viewport as the page's picking strip does */
+const twelveStrip=(d,keys)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
+const JACKS_DARK=TAKEN_HAND.map(([r,s,c])=>r==='B'?[r,s,'no']:[r,s,c]);
+const JACK_PICKED=TAKEN_HAND.map(([r,s,c])=>r==='B'&&s==='h'?[r,s,'touch']:r==='K'?[r,s]:[r,s,c]);
+const sideCount=(d,n)=>d?cardsAt(n,952,340):cardsAt(n,PB.cx+(narrow()?94:115),200);
+const underCount=(d,n)=>d?cardsAt(n,420,600):cardsAt(n,PB.cx+55,PB.you.y-40);
+/* the table of every stage scene: chairs, fans, plaque and the skat, the viewer's hand and strip are the scene's */
+const pushTable=(d,o)=>{const L=seatsOf(d),m=o.marks||{};
+  return tableOf(d,{fans:0,count:true,glow:o.glow,watchers:o.watchers})+sideFans(d,o.left??10,o.right??10)
+    +ramschPlaque(d,o.plaque||{})+(o.skat===false?'':stageSkat(d,o.plaque||{}))+(o.extra||'')
+    +seat('anna',{...L.anna,marks:m.anna||[]})+(o.free?freeSeat(L.nova,{idle:true}):seat(o.east||'nova',{...L.nova,marks:m.east||[]}))+seat(o.near||'felix',{...L.you,marks:m.you||[]})
+    +chairCoasters(L,TOTALS_BEFORE);};
+const RAMSCH_SCENES=[
+  ['push-mine','Ramsch: Skat nehmen oder schieben',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['Alle drei haben gepasst, es wird Ramsch: die Tafel sagt „Ramsch“, Felix ist Vorhand und dran; der Skat liegt verdeckt, darunter „Skat nehmen“ und „Schieben“; seine zehn Karten ruhen.']],
+  ['push-discard','Ramsch: zwei Karten zurücklegen',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),skat:false,marks:{you:['turn']},extra:feltGhosts(d)})+putBackButton(d)
+    +ownHand(d,JACKS_DARK,twelveStrip(d))+tableBar(d),
+    ['Felix nahm den Skat: zwölf Karten, zwei gewählt und gehoben, zwei Lücken im Skat, „Drücken“; seine Buben sind dunkel und lassen sich nicht wählen.']],
+  ['push-discard-open','Ramsch: zurücklegen, alle Karten frei',[390],(d)=>pushTable(d,{glow:felixGlow(d),skat:false,marks:{you:['turn']},extra:feltGhosts(d)+`<div class="refusal" role="status" style="${at({left:mid(d),top:stageRow(d,true)+66})}">${I.cross}Buben bleiben in der Hand</div>`})+putBackButton(d)
+    +ownHand(d,JACK_PICKED,twelveStrip(d))+tableBar(d),
+    ['Entwurf zur Wahl: dasselbe mit allen zwölf Karten hell; nach einem Buben steht unter „Drücken“ der Satz „Buben bleiben in der Hand“, die beiden Karten bleiben gewählt.']],
+  ['push-wait','Ramsch: Anna wählt',[390,1280],(d)=>pushTable(d,{glow:annaTurn(d),plaque:{who:'Anna wählt'},marks:{anna:['turn']}})+restingHand(d)+tableBar(d),
+    ['Anna ist Vorhand und dran: „Ramsch · Anna wählt…“, ihr Stuhl trägt die Marke, der Skat liegt, Felix hat keine Taste.']],
+  ['push-taken','Ramsch: Anna drückt',[390,1280],(d)=>pushTable(d,{glow:annaTurn(d),left:12,skat:false,plaque:{who:'Anna drückt'},marks:{anna:['turn']},extra:leftCount(d,12)})+restingHand(d)+tableBar(d),
+    ['Anna nahm: ihr Fächer und ihre Zahl zeigen 12, der Skat-Platz ist leer, „Ramsch · Anna drückt…“.']],
+  ['push-pushed','Ramsch: einmal geschoben',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'line',pushes:1},marks:{you:['turn']},extra:pushBubble(d,'nova',{count:'line',pushes:1})})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['Nova schob als Vorhand: die Blase „Schieben“ an ihrem Stuhl, die Tafel „Ramsch · 1× geschoben ×2“, Felix ist dran und hat seine zwei Tasten.']],
+  ['push-pushed-chairs','Ramsch: einmal geschoben, Pfeil am Stuhl',[390],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'factor',pushes:1},marks:{you:['turn'],east:['pushed']},extra:pushBubble(d,'nova',{count:'factor',pushes:1})})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['Entwurf zur Wahl: dasselbe mit einem Pfeil an Novas Stuhl und „Ramsch ×2“ auf der Tafel.']],
+  ['push-agent','Ramsch: Nova ist dran',[390,1280],(d)=>pushTable(d,{glow:novaGlow(d),plaque:{count:'line',pushes:2,who:'Nova wählt'},marks:{east:['turn','think']}})+restingHand(d)+tableBar(d),
+    ['Felix und Anna schoben, Nova ist Hinterhand und dran: „denkt“ an ihrer Kugel, „Ramsch · 2× geschoben ×4 · Nova wählt…“.']],
+  ['push-flat','Ramsch: geschoben ohne Verdoppeln',[390],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'flat',pushes:2},marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['An einem Tisch „ohne Verdoppeln“: „Ramsch · 2× geschoben“ ohne Faktor.']],
+  ['push-watch','Ramsch: Zuschauen',[360,390,1280],(d)=>pushTable(d,{glow:annaTurn(d),near:'lena',east:'ben',left:12,skat:false,watchers:3,plaque:{who:'Anna drückt'},marks:{anna:['turn']},
+      extra:nearFan(d,10)+leftCount(d,12)+sideCount(d,10)+underCount(d,10)})+tableBar(d),
+    ['Ein Zuschauer sieht dieselbe Tafel; von allen nur Rückseiten und Zahlen, 12 bei Anna nach ihrem Nehmen, keine Taste.']],
+  ['push-open','Ramsch: Platz frei',[390,1280],(d)=>pushTable(d,{free:true,plaque:{wait:true}})+openNotice(d)+restingHand(d)+stripOf(d,{lead:'',pill:agentPill(d)}),
+    ['Novas Stuhl ist frei geworden: „Ramsch · Warte auf Mitspieler“, niemand ist dran, keine Taste für irgendwen, der Skat liegt, der Hinweis „Nova ist gegangen“.']],
+];
+agentScenes(RAMSCH_SCENES);
 
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
 const HOME_SCENES=[
