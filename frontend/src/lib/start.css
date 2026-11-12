@@ -651,7 +651,6 @@ body {
     width: clamp(30px, 42cqmin, 96px);
     aspect-ratio: 1;
     border-radius: 50%;
-    color: #fff;
     background: radial-gradient(circle at 34% 30%, #d9e6ff 0, #8fb4f6 18%, #4467b8 52%, #1d2c55 100%);
     box-shadow:
         0 0 22px 4px rgba(122, 167, 240, 0.45),
@@ -661,6 +660,7 @@ body {
 .room .orb svg {
     width: 50%;
     height: 50%;
+    color: #fff;
 }
 
 .room .initial {
@@ -2731,8 +2731,11 @@ body {
 }
 
 .room .notice .dot.agent {
-    color: #fff;
     background: radial-gradient(circle at 34% 30%, #d9e6ff, #4467b8 60%, #1d2c55);
+}
+
+.room .notice .dot.agent svg {
+    color: #fff;
 }
 
 .room .notice .dot svg {
