@@ -42,9 +42,11 @@ from skat.web.page_build import BuiltPage
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.secret_files import StartRefusedError, read_secret_file
 from skat.web.tables import TABLE_PAGE_PREFIX
+from skat.web.words import text
 
 if TYPE_CHECKING:
     from pydantic import SecretStr
+    from starlette.requests import HTTPConnection
     from webauth.jwt_verification import KeySetFetch
     from webauth.ports import AccountEvent, SessionRecordStore, SignInTransaction
 
@@ -52,7 +54,6 @@ if TYPE_CHECKING:
     from skat.web.settings import ServerSettings
 
 OPENID_CONNECT_PATH = "/protocol/openid-connect"
-LOGOUT_LABEL = "Log out"
 SIGN_IN_ADDRESS = f'href="{AUTH_START_PATH}"'.encode()
 
 logger = structlog.get_logger()
@@ -171,10 +172,15 @@ def install_sign_in(
         refused=lambda _request, refusal: _refusal_response(refusal, page_build),
         keeps_id_token=True,
         max_sessions=None,
-        logout_page_text=lambda _request: LogoutPageText(language="en", button_label=LOGOUT_LABEL),
+        logout_page_text=lambda request: logout_page_text(request, sessions=sessions, config=web_auth),
         ui_language=lambda request: language_of_request(request, sessions=sessions, config=web_auth),
     )
     app.include_router(_create_pages_router(page_build))
+
+
+def logout_page_text(request: HTTPConnection, *, sessions: SessionRecordStore, config: WebAuthConfig) -> LogoutPageText:
+    language = language_of_request(request, sessions=sessions, config=config)
+    return LogoutPageText(language=language, button_label=text(language, "logout.button"))
 
 
 def _create_pages_router(page_build: PageBuild) -> APIRouter:

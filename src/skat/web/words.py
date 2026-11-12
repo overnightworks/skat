@@ -144,6 +144,7 @@ type Key = Literal[
     'card.letterQueen',
     'card.letterKing',
     'card.letterAce',
+    'logout.button',
 ]
 type Language = Literal[
     'de',
@@ -315,6 +316,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'card.letterQueen': 'D',
         'card.letterKing': 'K',
         'card.letterAce': 'A',
+        'logout.button': 'Abmelden',
     },
 }
 
