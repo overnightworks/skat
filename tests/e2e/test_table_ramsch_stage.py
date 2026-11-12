@@ -133,7 +133,9 @@ class RamschStageTable:
         self.step(seat, TABLE_CARD_SUFFIX, suit=card["suit"], rank=card["rank"])
 
     def stand_up(self, position: str) -> None:
-        self.step(self.seat_of(position), TABLE_STAND_SUFFIX)
+        self.sessions[self.seat_of(position)].post(
+            f"{self.api_path}{TABLE_STAND_SUFFIX}", {"command_id": self._command()}
+        )
 
     def reload_everyone(self) -> None:
         for person in self.everyone:
