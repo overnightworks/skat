@@ -807,6 +807,20 @@ class TestASendAwayThatChangesNothing:
             assert send_away(skat, felix, "0" * 32, key).status_code == 404
             assert send_away(skat, felix, "not-a-table", key).status_code == 404
 
+    def test_a_table_that_ends_while_the_fresh_read_waits_answers_404(self, skat, issuer, felix, table_id):
+        with listening(skat, issuer, felix, "Nova", NOVA):
+            key = only_row(skat, felix, table_id)["key"]
+            hold = issuer.hold("refresh_token")
+            answers = []
+            caller = threading.Thread(target=lambda: answers.append(send_away(skat, felix, table_id, key)))
+            caller.start()
+            hold.arrivals.get(timeout=10)
+            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+            hold.release.set()
+            caller.join(timeout=10)
+
+            assert [answer.status_code for answer in answers] == [404]
+
     def test_the_same_tap_retried_sends_away_once_and_answers_alike(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
             nova.sit_down(table_id, 2)
