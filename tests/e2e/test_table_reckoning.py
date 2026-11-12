@@ -42,7 +42,6 @@ OUVERT_CHIP = text(SOURCE_LANGUAGE, "result.levelOuvert")
 SCHNEIDER_ANNOUNCED = text(SOURCE_LANGUAGE, "result.announcedSchneider")
 SCHWARZ_ANNOUNCED = text(SOURCE_LANGUAGE, "result.announcedSchwarz")
 SPIEL = text(SOURCE_LANGUAGE, "result.levelSpiel")
-OUVERT = text(SOURCE_LANGUAGE, "game.ouvert")
 GAME_KARO = text(SOURCE_LANGUAGE, "game.karo")
 GAME_HERZ = text(SOURCE_LANGUAGE, "game.herz")
 GAME_KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
@@ -103,8 +102,11 @@ HERZ_HAND_MIT_1 = (matadors_chip(True, 1), SPIEL, HAND)
 HERZ_HAND_SCHNEIDER = (*HERZ_HAND_MIT_1, SCHNEIDER, SCHNEIDER_ANNOUNCED)
 GRAND_HAND_SCHWARZ = (*HERZ_HAND_SCHNEIDER, SCHWARZ, SCHWARZ_ANNOUNCED)
 GRAND_OUVERT_CHIPS = (*GRAND_HAND_SCHWARZ, OUVERT_CHIP)
-GRAND_OUVERT_WORDS = f"{GAME_GRAND} {OUVERT}"
-NULL_OUVERT_HAND_WORDS = f"{GAME_NULL} {OUVERT} {HAND}"
+GRAND_OUVERT_WORDS = text(SOURCE_LANGUAGE, "game.ouvertName", game=GAME_GRAND)
+NULL_OUVERT_HAND_WORDS = text(SOURCE_LANGUAGE, "game.ouvertHandName", game=GAME_NULL)
+NULL_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_NULL)
+HERZ_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_HERZ)
+GRAND_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_GRAND)
 SCHNEIDER_MISSED = text(SOURCE_LANGUAGE, "result.missedSchneider")
 SCHWARZ_MISSED = text(SOURCE_LANGUAGE, "result.missedSchwarz")
 LOST_GAME_SHARE = "+40"
@@ -181,7 +183,7 @@ RECKONINGS = [
             score=35,
             declarer_points=0,
         ),
-        f"{GAME_NULL} {HAND}",
+        NULL_HAND_WORDS,
         (),
         None,
         "+35",
@@ -241,7 +243,7 @@ RECKONINGS = [
             score=30,
             declarer_points=80,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_MIT_1,
         ("3", TIMES, "10"),
         "+30",
@@ -263,7 +265,7 @@ RECKONINGS = [
             score=50,
             declarer_points=95,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_SCHNEIDER,
         ("5", TIMES, "10"),
         "+50",
@@ -285,7 +287,7 @@ RECKONINGS = [
             score=-100,
             declarer_points=75,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_SCHNEIDER,
         ("5", TIMES, "10", "=", "50"),
         f"{MINUS}100",
@@ -309,7 +311,7 @@ RECKONINGS = [
             score=-336,
             declarer_points=90,
         ),
-        f"{GAME_GRAND} {HAND}",
+        GRAND_HAND_WORDS,
         GRAND_HAND_SCHWARZ,
         ("7", TIMES, GAME_GRAND, "24", "=", "168"),
         f"{MINUS}336",
@@ -332,7 +334,7 @@ RECKONINGS = [
             score=-120,
             declarer_points=75,
         ),
-        f"{GAME_HERZ} {HAND}",
+        HERZ_HAND_WORDS,
         HERZ_HAND_SCHNEIDER,
         ("5", TIMES, "10", "=", "50"),
         f"{MINUS}120",

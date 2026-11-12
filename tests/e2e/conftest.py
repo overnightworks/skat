@@ -5,6 +5,7 @@ import pytest
 from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
+from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT
 from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
@@ -105,6 +106,7 @@ def open_person(
             **{**browser_context_args, "extra_http_headers": {"X-Forwarded-For": str(person_address)}, **device_options}
         )
         contexts.append(context)
+        context.add_init_script(path=RECORDING_AUDIO_SCRIPT)
         browser_coverage.watch(context)
         context.on("requestfailed", note_failed_request)
         page = context.new_page()
