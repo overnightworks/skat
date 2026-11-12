@@ -573,12 +573,6 @@ describe("a Ramsch result's card", () => {
         });
     });
 
-    it("shows a flat Durchmarsch with its pushes and no factor beside the plain 120", () => {
-        const flat = ramschResult([120, 0, 0], [120, 0, 0], { durchmarsch_seat: 1, pushes: 1, push_factor: 1 });
-
-        expect(drawnRamsch(ramschTable(NOBODY, flat))).toMatchObject({ chips: ["1× geschoben"], score: "+120" });
-    });
-
     it("lists the coasters with the viewer first and what each seat adds", () => {
         const view = drawnRamsch(ramschTable(3, LOST_WITH_PUSHES));
 

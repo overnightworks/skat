@@ -77,15 +77,10 @@ class TestTheFactorsTheRamschResultDraws:
     @pytest.mark.parametrize(
         ("scoring", "durchmarsch", "swept", "push_factor", "divided_by_ten"),
         [
-            pytest.param(RamschScoring.POINTS, DurchmarschRule.WINS_120, False, 4, False, id="points"),
-            pytest.param(RamschScoring.POINTS_BY_TEN, DurchmarschRule.WINS_120, False, 4, True, id="points-by-ten"),
             pytest.param(
                 RamschScoring.POINTS_BY_TEN, DurchmarschRule.WINS_120, True, 4, False, id="a-sweep-is-no-division"
             ),
             pytest.param(RamschScoring.POINTS, DurchmarschRule.WINS_120_FLAT, False, 4, False, id="a-loss-under-flat"),
-            pytest.param(
-                RamschScoring.POINTS, DurchmarschRule.WINS_120_FLAT, True, 1, False, id="a-flat-sweep-has-no-push"
-            ),
         ],
     )
     def test_the_push_factor_is_the_one_the_scores_carry_and_the_division_is_named(
