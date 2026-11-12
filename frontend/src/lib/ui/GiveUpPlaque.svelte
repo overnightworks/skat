@@ -15,7 +15,8 @@
         {#each view.faces as face (face.name)}
             <span class="face" aria-hidden="true">{face.initial}</span>
         {/each}
-        {view.text}
+        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {view.text} compiles to a `?? ""` branch no text can take -->
+        {`${view.text}`}
         {#if view.line === "waits"}
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         {/if}
