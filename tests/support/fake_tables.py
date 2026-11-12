@@ -109,7 +109,7 @@ class FakeTableStore:
         return self.empty_since_by_table.get(table_id.value)
 
     def paused_facts(self, table_id: TableId) -> PausedFacts:
-        return PausedFacts(self.last_played_at[table_id.value], self.opener_names.get(table_id.value))
+        return PausedFacts(self.last_played_at.get(table_id.value), self.opener_names.get(table_id.value))
 
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
         self.empty_since_by_table[table_id.value] = since

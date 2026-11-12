@@ -588,6 +588,7 @@ class TableService:
                     and seat_of(table, actor.account_id) is not None
                 ):
                     facts = transaction.paused_facts(table.id)
+                    assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
                     ends_at = facts.last_played_at.astimezone(UTC) + timedelta(days=days)
                     entries.append(paused_entry_of(table, actor.account_id, ends_at, facts.opener_name))
         return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))

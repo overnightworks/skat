@@ -65,7 +65,7 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         ...
 
     def paused_facts(self, table_id: TableId) -> PausedFacts:
-        """The last played time and the opener's name of a live table on which a hand was dealt."""
+        """The last played time and the opener's name of a live table."""
         ...
 
     def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
@@ -107,11 +107,11 @@ class LiveWait:
 
 @dataclass(frozen=True)
 class PausedFacts:
-    """What the store keeps beside a dealt table's record: the time of its last deal or step of play, and the name its
-    opener had when he opened it, None for a table opened before the name was kept.
+    """What the store keeps beside a live table's record: the time of its last deal or step of play, None until the
+    first deal, and the name its opener had when he opened it, None for a table opened before the name was kept.
     """
 
-    last_played_at: datetime
+    last_played_at: datetime | None
     opener_name: str | None
 
 
