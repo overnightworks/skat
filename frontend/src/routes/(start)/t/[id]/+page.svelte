@@ -30,6 +30,7 @@
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
+    import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
     import {
@@ -73,7 +74,9 @@
 
     function showTable(previous: Table | undefined, table: Table): void {
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
-        for (const cue of cuesBetween(previous, table)) {
+        const cues = cuesBetween(previous, table);
+        soundForCues(cues, table);
+        for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
             } else {
@@ -129,6 +132,7 @@
     const callMode = isFramedInCallMode();
     // The call's first valid greeting takes Skat's own bar away; a call that never greets leaves it.
     let greeted = $state(false);
+    onMount(armSound);
     onMount(() => {
         if (!callMode) return;
         return greetCall(
