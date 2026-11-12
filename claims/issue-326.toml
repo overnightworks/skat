@@ -1,8 +1,0 @@
-claim_id = "ea74eb215e6144d5a62db09c5f49fa40"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "77281e1399de90505d7a450c4a72419ff2a3899d"
-branch = "claude/issue-326-felix-gains-pushing"
-scope = ["src/skat/store/migrations/operator_set.py", "src/skat/store/migrations/versions/0022_felix_set.py", "src/skat/store/migrations/versions/0023_felix_with_ramsch.py", "src/skat/store/migrations/versions/0032_felix_with_pushing.py", "tests/store/test_migrate_felix_pushing.py", "tests/store/test_migrate_felix_ramsch.py", "tests/store/test_migrate_felix_set.py", "tests/store/test_migrate_operator_set.py", "tests/support/rule_set_rows.py"]
-opened_commit = "56f952e16750cf96d48d3dbac869e132a49b6b13"
-whole_reason = "The helper and the three revisions that call it are one change: a third copy of the upsert is a clone pair the gate reads red, so the helper lands with all three callers."
