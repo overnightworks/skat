@@ -21,6 +21,7 @@ from skat.table.member_place import (
     TableOffers,
     TableStanding,
     agents_seated_at,
+    at_the_table,
     decide_accept,
     decide_invite,
     forgotten_if_expired,
@@ -244,9 +245,9 @@ class TableService:
         """Free an agent's chair at once, in every phase of a hand, and take the place from its standing in the same
         transaction: the agent's book row at this table gets a higher epoch and no invitation.
 
-        `actor` must be at the table (`connected_accounts`) and, under its lock, a member of the calling group
-        (`is_member`) or the agent's owner, else `not-allowed`. The hand waits for a sitter. A replay and a refusal
-        write no book row.
+        `actor` must be at the table (hold a chair or an open stream in `connected_accounts`) and, under its lock, a
+        member of the calling group (`is_member`) or the agent's owner, else `not-allowed`. The hand waits for a sitter.
+        A replay and a refusal write no book row.
         """
         return self._run_command(
             actor,
@@ -255,7 +256,9 @@ class TableService:
             command.command_id,
             SEND_AWAY_COMMAND,
             send_away_payload(command),
-            lambda table: decide_send_away_by(table, command, actor, connected_accounts, is_member, self._now()),
+            lambda table: decide_send_away_by(
+                table, command, actor, at_the_table(table, connected_accounts), is_member, self._now()
+            ),
             lambda transaction, table: save_book_after_send_away(transaction, table.id, command.agent_account),
         )
 
@@ -780,6 +783,13 @@ class TableService:
             else present_at(table, connected_accounts, self._live_leases())
         )
         return view_of(table, actor.account_id, present)
+
+    def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
+        """Who counts as at the live table for a call, `member_place.at_the_table`'s answer; an ended or missing table
+        counts the open streams only.
+        """
+        table = self._table_read(table_id.value)
+        return at_the_table(table, connected_accounts) if isinstance(table, TableRecord) else connected_accounts
 
     def member_view(self, account_id: str, table_id: str, connected_accounts: frozenset[str]) -> MemberView | None:
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None

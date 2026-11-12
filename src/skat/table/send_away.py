@@ -37,7 +37,7 @@ def decide_send_away_by(
     table: TableRecord,
     command: SendAway,
     sender: Actor,
-    connected_accounts: frozenset[str],
+    present_accounts: frozenset[str],
     is_member: bool,
     now: datetime,
 ) -> Decision:
@@ -48,7 +48,7 @@ def decide_send_away_by(
     facts = seated_call_facts(
         command.agent_account,
         viewer_account=sender.account_id,
-        viewer_present=sender.account_id in connected_accounts,
+        viewer_present=sender.account_id in present_accounts,
         viewer_is_member=is_member,
     )
     if offer_of(facts, table, None, now) in {InviteRefusal.NOT_PRESENT, InviteRefusal.NOT_A_MEMBER}:

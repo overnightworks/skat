@@ -253,6 +253,11 @@ def agents_seated_at(table: TableRecord) -> frozenset[str]:
     return frozenset(agent.account for agent in seated_agents(table))
 
 
+def at_the_table(table: TableRecord, connected_accounts: frozenset[str]) -> frozenset[str]:
+    """Who counts as at the table for a person's call: whoever holds an open stream on it and whoever holds a chair."""
+    return connected_accounts | {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
+
+
 def control_shown(*, viewer_present: bool, viewer_is_member: bool, sends_agent_away: bool) -> bool:
     """Whether the person sees the control that calls agents: at the table and either a member of the calling group or
     one who may send an agent away.

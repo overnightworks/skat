@@ -73,6 +73,7 @@ class TestAnOwnerOutsideTheGroupSendsHisAgentAway(CallingTable):
 
     @pytest.mark.usefixtures("seated")
     def test_the_control_is_shown_with_the_row_here_and_the_send_away_opens_the_chair(self, skat, table_id, owner):
+
         control = read_control(skat, owner, table_id).json()
         (row,) = control["rows"]
 
@@ -114,3 +115,17 @@ class TestAnOwnerOutsideTheGroupSendsHisAgentAway(CallingTable):
         assert control == {"shown": False, "rows": []}
         assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
         assert chair_two(skat, table_id).display_name == "Nova"
+
+
+class TestAnOwnerSeatedWithoutAStreamIsAtTheTable(CallingTable):
+    def test_the_control_shows_the_row_here_and_the_send_away_opens_the_chair(self, skat, issuer, table_id, owner):
+        Agent(skat, issuer, NOVA, agent_owner=owner.id, agent_name="Nova").sit_down(table_id, 2)
+        skat.sit(owner.headers, table_id, 3, command_id="command-owner-sits")
+        skat.client.cookies.clear()
+
+        control = read_control(skat, owner, table_id).json()
+        (row,) = control["rows"]
+        answer = send_away(skat, owner, table_id, row["key"])
+
+        assert (control["shown"], row["state"]) == (True, "here")
+        assert (answer.status_code, chair_two(skat, table_id)) == (200, None)

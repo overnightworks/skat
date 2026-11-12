@@ -243,18 +243,19 @@ def _facts_of(
     entry: RosterEntry,
     *,
     viewer: str,
-    present: frozenset[str],
+    viewer_present: bool,
+    streams: frozenset[str],
     listens: bool,
     viewer_is_member: bool,
 ) -> CallFacts:
     return CallFacts(
         viewer_account=viewer,
-        viewer_present=viewer in present,
+        viewer_present=viewer_present,
         viewer_is_member=viewer_is_member,
         agent_account=account,
         agent_listens=listens,
         owner_account=entry.owner,
-        owner_present=entry.owner in present,
+        owner_present=entry.owner in streams,
     )
 
 
@@ -302,12 +303,18 @@ class _Calling:
         self._listens = listens
         self._membership = membership
 
+    async def _at_the_table(self, table_id: TableId) -> frozenset[str]:
+        return await run_in_threadpool(
+            self._tables.accounts_at_the_table, table_id, self._presence.connected(table_id.value)
+        )
+
     async def _offered(self, request: Request, table_id: TableId, *, viewer_is_member: bool) -> list[_Offered]:
         """Every agent of the control, the roster's first and then the seated agents it does not hold, from one read of
         the table.
         """
         viewer = actor_of(request).account_id
-        present = self._presence.connected(table_id.value)
+        streams = self._presence.connected(table_id.value)
+        viewer_present = viewer in await self._at_the_table(table_id)
         calls = [
             (
                 entry,
@@ -315,7 +322,8 @@ class _Calling:
                     account,
                     entry,
                     viewer=viewer,
-                    present=present,
+                    viewer_present=viewer_present,
+                    streams=streams,
                     listens=self._listens(account),
                     viewer_is_member=viewer_is_member,
                 ),
@@ -325,7 +333,7 @@ class _Calling:
 
         def seated_facts(account: str) -> CallFacts:
             return seated_call_facts(
-                account, viewer_account=viewer, viewer_present=viewer in present, viewer_is_member=viewer_is_member
+                account, viewer_account=viewer, viewer_present=viewer_present, viewer_is_member=viewer_is_member
             )
 
         offers = await run_in_threadpool(self._tables.offers_at, table_id, [facts for _, facts in calls], seated_facts)
@@ -342,7 +350,7 @@ class _Calling:
         return listed + seated
 
     async def control_of(self, request: Request, table_id: TableId) -> AgentControlAnswer:
-        viewer_present = actor_of(request).account_id in self._presence.connected(table_id.value)
+        viewer_present = actor_of(request).account_id in await self._at_the_table(table_id)
         viewer_is_member = viewer_present and await self._membership.displayed(request)
         offered = await self._offered(request, table_id, viewer_is_member=viewer_is_member)
         rows = [row for agent in offered if (row := _row_of(agent))]
