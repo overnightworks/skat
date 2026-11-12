@@ -1799,6 +1799,26 @@ STAND_SCENES.push(
   ['stand-ask','Aufstehen im Spiel: die Frage',[390],standQuestion,
     ['Entwurf zur Wahl (Linie 2 B): ein Tipp auf „Aufstehen“ fragt in einem Satz, was er kostet; „Aufstehen“ und „Bleiben“ sind die Zwillinge von „Hinsetzen“ und „Abbrechen“. Eine dritte Möglichkeit (Linie 2 C) ist der einzelne Tipp ohne Frage: dann sieht das Bild aus wie stand-play, und das Spiel hält sofort an.']],
 );
+/* Felix stood up while Anna's lead lay and Nova was to answer: his chair is free, nobody has the turn, the notice names him once */
+/* on the phone the near card rests on the nameplate's edge, whatever the frame's height, and the left one steps down below the plaque */
+const trickAt=(d,k,slot)=>{const at_=TRICK_SLOT[slot](d);
+  return played('K','s',k,slotAt(d,{...at_,y:d?at_.y:slot==='near'?PB.you.y-57:at_.y+DROP_TRICK}));};
+const STOOD_NOTICE='Felix ist aufgestanden';
+/* Anna's view turns the table: she sits at the bottom, Nova is on her left and Felix's chair on her right */
+const annaSeesStand=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true})+kreuz(d,WAIT_LINE)+trickAt(d,'anna','near')+notice(STOOD_NOTICE,'felix',mid(d),d?330:Math.max(PB.you.y-147,322))
+    +seat('nova',L.anna)+freeSeat(L.nova,{idle:true})+seat('annaSelf',{...L.you,marks:['decl']})+chairCoasters(L,[TOTALS_BEFORE[1],TOTALS_BEFORE[2],TOTALS_BEFORE[0]])
+    +ownCards(d,SPARE_HAND)+stripOf(d,{lead:ABORT+(d?STAND_WORD:STAND_ROUND)});};
+/* Felix's own view right after: a watcher's, the table as he left it, the plus on his chair */
+const felixStoodUp=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true})+nearFan(d,8)+kreuz(d,WAIT_LINE)+trickAt(d,'anna','left')
+    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+freeSeat(L.you)+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
+STAND_SCENES.push(
+  ['stand-open','Aufgestanden: die anderen sehen den freien Stuhl',[360,390,1280],annaSeesStand,
+    ['Anna sieht Felix’ Stuhl leer, seine Karten als Rücken daneben, „Kreuz · Warte auf Mitspieler“ und einmal den Hinweis „Felix ist aufgestanden“; niemand ist dran, „Aufgeben“ fehlt. Die Leiste trägt „Abbrechen“ (#332) und „Aufstehen“; Annas Sicht: ihr Stuhl unten, Nova links, Felix rechts. Felix schaut jetzt zu: die Zahl oben rechts.']],
+  ['stand-open-self','Aufgestanden: Felix sieht zu',[360,390,1280],felixStoodUp,
+    ['Entwurf zur Wahl (#372): Felix’ Sicht danach ist die eines Zuschauers: derselbe Tisch wie vorher, das Plus auf seinem alten Stuhl, seine Karten als Rücken daneben, keine Hand und kein „Aufgeben“; die Leiste trägt nur den Link.']],
+);
 agentScenes(STAND_SCENES);
 
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
