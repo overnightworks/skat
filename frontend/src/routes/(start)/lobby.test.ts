@@ -10,7 +10,7 @@ const SECOND = 1_000;
 function chairOf(seat: number, overrides: Partial<LobbyChair> = {}): LobbyChair {
     return {
         seat,
-        occupant_name: ["Anna", "Ben", "Felix"][seat],
+        occupant_name: ["Anna", "Ben", "Felix"][seat] ?? null,
         occupant_kind: "person",
         is_mine: false,
         ready: false,

@@ -2,6 +2,7 @@
     import { AccountMenu, LegalLinks } from "overnightworks-design";
     import { onMount } from "svelte";
     import { LEGAL_LINKS } from "#lib/legal.ts";
+    import MyTables from "./MyTables.svelte";
     import NewTableButton from "./NewTableButton.svelte";
     import { accountMenuWords } from "#lib/kitWords.ts";
     import { menuName, readAccount } from "#lib/ui/account.svelte.ts";
@@ -9,6 +10,7 @@
     import { ACCOUNT_CONSOLE_PATH, LOGOUT_PATH } from "#lib/wire.ts";
 
     let accountMenu: HTMLElement;
+    let listed = $state(0);
 
     onMount(() => {
         void readAccount();
@@ -20,7 +22,7 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
-<div class="start" data-theme="dark">
+<div class="start" class:with-tables={listed > 0} data-theme="dark">
     <header class="start-bar">
         <span class="wordmark">{words["app.name"]}</span>
         <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
@@ -50,10 +52,13 @@
             words={accountMenuWords}
         />
     </div>
-    <main class="start-main">
-        <NewTableButton />
-    </main>
-    <footer class="start-legal">
-        <LegalLinks links={LEGAL_LINKS} />
-    </footer>
+    <div class="start-body">
+        <MyTables bind:listed />
+        <main class="start-main">
+            <NewTableButton />
+        </main>
+        <footer class="start-legal">
+            <LegalLinks links={LEGAL_LINKS} />
+        </footer>
+    </div>
 </div>
