@@ -224,8 +224,8 @@ def offer_of(
 ) -> OfferState | InviteRefusal:
     """What the person's call to the agent comes to, decided in this order: the table is not live; the person is not
     at it; not a member; the agent does not listen, holds a chair there or is invited there by someone else; the agent
-    is invited by this person already; the owner is not at the table; no chair is free. A chair left open by a hand
-    that waits for a sitter is free.
+    is invited by this person already; the owner is not at the table; no chair is free for the agent. A chair left open
+    by a hand that waits for a sitter is free, but an agent that left a chair of that hand is offered that chair only.
     """
     if table is None:
         return InviteRefusal.NO_TABLE
@@ -239,7 +239,7 @@ def offer_of(
         return OfferState.INVITING
     if not facts.owner_present:
         return InviteRefusal.OWNER_ABSENT
-    if lowest_free_seat(table) is None:
+    if free_seat_for(table, facts.agent_account) is None:
         return InviteRefusal.NO_FREE_CHAIR
     return OfferState.AVAILABLE
 

@@ -381,9 +381,9 @@ class TestTheAcceptDuringARunningHand:
 
     def test_the_agent_is_busy_when_the_chair_it_held_is_taken_though_another_is_free(self, left_chair_two):
         scene = left_chair_two
+        offer = scene.invite()
         scene.sit(CLEO, 2)
         scene.stand(OPENER)
-        offer = scene.invite()
         before = scene.table
 
         result = scene.accept(offer)

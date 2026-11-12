@@ -17,7 +17,7 @@ from skat.table.member_place import (
     decide_invite,
     offer_of,
 )
-from skat.table.records import HandProgress
+from skat.table.records import HandProgress, SeatHeld
 from tests.support.calls import call_facts
 from tests.support.open_chairs import PHASES, REARHAND_SEAT, sent_away
 from tests.support.played_game import after_the_first_game, table_in, with_agents
@@ -70,6 +70,19 @@ class TestWhatACallComesTo:
         table = sent_away(PHASES[phase](), REARHAND_SEAT)
 
         assert offer_of(facts(), table, None, NOW) is OfferState.AVAILABLE
+
+    @pytest.mark.parametrize(
+        ("held_seat", "offer"),
+        [
+            pytest.param(1, InviteRefusal.NO_FREE_CHAIR, id="taken"),
+            pytest.param(REARHAND_SEAT, OfferState.AVAILABLE, id="free"),
+        ],
+    )
+    def test_an_agent_that_left_a_chair_of_the_running_hand_is_offered_only_that_chair(self, held_seat, offer):
+        table = sent_away(PHASES["auction"](), REARHAND_SEAT)
+        held = replace(table, progress=replace(table.progress, seats_held=frozenset({SeatHeld(AGENT, held_seat)})))
+
+        assert offer_of(facts(), held, None, NOW) is offer
 
     def test_a_chair_between_hands_counts_as_free(self):
         between = after_the_first_game(table_in(HandProgress()))
