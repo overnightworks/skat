@@ -1789,6 +1789,16 @@ const STAND_SCENES=[
   ['stand-play-word','Aufstehen im Spiel: das Wort bleibt',[360],(d)=>felixOnTurn(d,stripOf(d,{lead:standLeadWord(d),pill:agentPill(d)})),
     ['Entwurf zur Wahl (Linie 1 B): „Aufstehen“ behält sein Wort, „Aufgeben“ wird rund mit der Flagge; gezählt bei 360: 326 von 332 Pixeln. Die folgenreichere Taste verliert dabei ihr Wort.']],
 ];
+const STAND_WORD_ARMED=barKey('leave arm',I.stand,'Wirklich aufstehen?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
+const STAND_ROUND_ARMED=roundKey('leave arm',I.stand,'Wirklich aufstehen?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
+const standQuestion=(d)=>felixOnTurn(d,stripOf(d,{lead:standLead(d),pill:agentPill(d)}))+'<div class="scrim"></div>'+panel({x:mid(d),y:d?220:270,w:d?460:340,role:'dialog',icon:I.stand,text:'Mitten im Spiel aufstehen?',
+  line:'Das Spiel wartet auf einen Mitspieler.',buttons:`<span class="button button-stage">${I.stand}Aufstehen</span><span class="button button-glass">Bleiben</span>`});
+STAND_SCENES.push(
+  ['stand-arm','Aufstehen im Spiel: erster Tipp',[360,1280],(d)=>felixOnTurn(d,stripOf(d,{lead:GIVE_UP+(d?STAND_WORD_ARMED:STAND_ROUND_ARMED),pill:agentPill(d)})),
+    ['Entwurf zur Wahl (Linie 2 A): wie bei „Aufgeben“ scharft der erste Tipp die Taste, sie wird rot, ein Strich läuft in drei Sekunden aus, erst der zweite Tipp steht auf. Auf dem Handy bleibt die runde Taste rund, am Rechner sagt sie „Wirklich aufstehen?“. Zwischen den Spielen genügt ein Tipp.']],
+  ['stand-ask','Aufstehen im Spiel: die Frage',[390],standQuestion,
+    ['Entwurf zur Wahl (Linie 2 B): ein Tipp auf „Aufstehen“ fragt in einem Satz, was er kostet; „Aufstehen“ und „Bleiben“ sind die Zwillinge von „Hinsetzen“ und „Abbrechen“. Eine dritte Möglichkeit (Linie 2 C) ist der einzelne Tipp ohne Frage: dann sieht das Bild aus wie stand-play, und das Spiel hält sofort an.']],
+);
 agentScenes(STAND_SCENES);
 
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
@@ -1904,6 +1914,15 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .rrow .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .rrow b{font-size:15px;font-weight:600;line-height:1.2}
 .rrow small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
+</style>
+<style>
+/* ---------- standing up during a hand: the round key's armed state, the locked chair ---------- */
+.cb.arm:not(.wide){position:relative}
+.cb.arm:not(.wide) i{position:absolute;left:14px;right:14px;bottom:7px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform-origin:left}
+@media (prefers-reduced-motion:no-preference){
+  .cb.arm:not(.wide) i.mo{animation:runout 3s linear both}
+}
+.seat.free.locked .sit{background:var(--glass);color:var(--on-stage-soft);box-shadow:none}
 </style>
 <style>
 /* Open Sans (latin, 400 and 600) and Oswald (latin, 400) as appkit ships them, embedded so the page needs no network */
