@@ -6,7 +6,7 @@ from skat.engine.deal import Position
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX, GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.kontra import TABLE_KONTRA_SUFFIX
+from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
@@ -57,6 +57,16 @@ def said(table, position, word):
 
 def refused(table, position, word, reason, *, headers=None):
     table.refused_act(TABLE_KONTRA_SUFFIX, headers or table.at[position], reason, body={"word": word})
+
+
+def no_word(table, position, **body):
+    return table.act(TABLE_NO_WORD_SUFFIX, table.at[position], body=body)
+
+
+def answered_no_word(table, position):
+    answer = no_word(table, position)
+    assert answer.status_code == 200, answer.text
+    return answer
 
 
 def kontra_view(table, headers):
@@ -287,6 +297,102 @@ class TestWhoSaysWhichWord:
         assert kontra_view(herz_hand, herz_hand.watcher)["my_word"] is None
 
 
+class TestAnsweringNoWord:
+    def test_an_opponent_answers_and_only_its_own_view_says_so_while_the_word_stays_open(self, herz_hand):
+        before = herz_hand.record.version
+
+        answer = answered_no_word(herz_hand, FOREHAND)
+
+        assert herz_hand.record.version == before + 1
+        assert [(each.position, each.word.value) for each in herz_hand.record.progress.no_words] == [
+            (FOREHAND, "kontra")
+        ]
+        own = answer.json()["hand"]["playing"]["kontra"]
+        assert (own["my_word"], own["my_word_answered"]) == ("kontra", True)
+        others = {
+            name: kontra_view(herz_hand, headers)
+            for name, headers in (("rearhand", herz_hand.at[REARHAND]), ("watcher", herz_hand.watcher))
+        }
+        assert {name: view["my_word_answered"] for name, view in others.items()} == {
+            "rearhand": False,
+            "watcher": False,
+        }
+        assert others["rearhand"]["my_word"] == "kontra"
+
+    def test_the_same_command_id_is_a_retry_and_another_answer_changes_nothing(self, herz_hand):
+        version = herz_hand.record.version
+        first = no_word(herz_hand, FOREHAND, command_id="no-word-1", version=version)
+
+        retried = no_word(herz_hand, FOREHAND, command_id="no-word-1", version=version)
+        again = no_word(herz_hand, FOREHAND, command_id="no-word-2")
+
+        assert (first.status_code, retried.status_code, again.status_code) == (200, 200, 200)
+        assert retried.json() == first.json()
+        assert again.json() == first.json()
+        assert herz_hand.record.version == version + 1
+
+    def test_a_later_kontra_of_the_same_seat_is_accepted_as_the_answer_did_not_forfeit_the_word(self, herz_hand):
+        answered_no_word(herz_hand, FOREHAND)
+
+        answer = said(herz_hand, FOREHAND, "kontra")
+
+        assert answer.json()["hand"]["playing"]["kontra"]["factor"] == 2
+
+    def test_the_declarer_answers_the_stage_after_a_kontra(self, herz_hand):
+        said(herz_hand, FOREHAND, "kontra")
+
+        own = answered_no_word(herz_hand, MIDDLEHAND).json()["hand"]["playing"]["kontra"]
+
+        assert (own["my_word"], own["my_word_answered"]) == ("re", True)
+
+    def test_the_answers_go_with_the_hand_and_a_new_hand_asks_afresh(self, herz_hand):
+        answered_no_word(herz_hand, FOREHAND)
+        herz_hand.act(TABLE_GIVE_UP_SUFFIX)
+
+        assert herz_hand.record.progress.no_words == frozenset()
+
+    @pytest.mark.parametrize(
+        ("position", "words", "reason"),
+        [
+            pytest.param(MIDDLEHAND, [], "not-your-word", id="the-declarer-before-a-kontra"),
+            pytest.param(REARHAND, [(FOREHAND, "kontra")], "not-your-word", id="the-other-opponent-after-a-kontra"),
+            pytest.param(FOREHAND, [(FOREHAND, "kontra"), (MIDDLEHAND, "re")], "beyond-reach", id="beyond-the-reach"),
+        ],
+    )
+    def test_a_word_the_seat_cannot_say_now_is_refused_and_nothing_changes(self, herz_hand, position, words, reason):
+        play(herz_hand, *words)
+
+        herz_hand.refused_act(TABLE_NO_WORD_SUFFIX, herz_hand.at[position], reason)
+
+    def test_the_seats_first_card_ends_its_word_and_so_the_answer(self, herz_hand):
+        play(herz_hand, 1)
+
+        herz_hand.refused_act(TABLE_NO_WORD_SUFFIX, herz_hand.at[FOREHAND], "too-late")
+
+    def test_a_stale_version_is_refused(self, herz_hand):
+        herz_hand.refused_act(
+            TABLE_NO_WORD_SUFFIX,
+            herz_hand.at[FOREHAND],
+            "stale-version",
+            body={"version": herz_hand.record.version - 1},
+        )
+
+    def test_where_the_table_asks_it_an_opponent_who_never_bid_cannot_answer(self, open_table):
+        table = open_table(sayer=BIDDERS)
+        contested_auction(table)
+
+        table.refused_act(TABLE_NO_WORD_SUFFIX, table.at[REARHAND], "did-not-bid")
+
+    def test_a_table_without_kontra_refuses_the_answer(self, server):
+        table = Table(server)
+        table.declared_hand_game()
+
+        table.refused_act(TABLE_NO_WORD_SUFFIX, table.at[FOREHAND], "rule-off")
+
+    def test_a_watcher_is_not_seated(self, herz_hand):
+        herz_hand.refused_act(TABLE_NO_WORD_SUFFIX, herz_hand.watcher, "not-seated")
+
+
 def contested_auction(table):
     """Middlehand bids 18, forehand holds, middlehand bids 20, both opponents pass; middlehand declares Herz Hand."""
 
@@ -419,7 +525,7 @@ class TestWhatEveryViewerSees:
 
         assert table.record.progress.words == ()
         assert [(kontra_view(table, table.at[position])) for position in (FOREHAND, REARHAND)] == [
-            {"said": [], "factor": 1, "my_word": "kontra"}
+            {"said": [], "factor": 1, "my_word": "kontra", "my_word_answered": False}
         ] * 2
 
 

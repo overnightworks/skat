@@ -41,6 +41,7 @@ from skat.web.mcp import (
     REFUSE_TO_END_SERIES_TOOL,
     SAVE_RULE_SET_TOOL,
     SAY_KONTRA_TOOL,
+    SAY_NO_WORD_TOOL,
     SIT_DOWN_TOOL,
     STAND_UP_TOOL,
     START_NEW_SERIES_TOOL,
@@ -110,6 +111,7 @@ class TestTools:
                 AGREE_TO_END_SERIES_TOOL,
                 REFUSE_TO_END_SERIES_TOOL,
                 SAY_KONTRA_TOOL,
+                SAY_NO_WORD_TOOL,
                 OPEN_TABLE_TOOL,
                 SIT_DOWN_TOOL,
                 STAND_UP_TOOL,
@@ -412,7 +414,12 @@ class TestSayKontra:
 
         assert not answer.is_error, answer.text
         kontra = answer.json()["hand"]["playing"]["kontra"]
-        assert kontra == {"said": [{"seat": 3, "word": "kontra"}], "factor": 2, "my_word": None}
+        assert kontra == {
+            "said": [{"seat": 3, "word": "kontra"}],
+            "factor": 2,
+            "my_word": None,
+            "my_word_answered": False,
+        }
         assert agent.read(kontra_table.table_id).json() == answer.json()
         assert kontra_table.record.progress.words[0].position is FOREHAND
 
@@ -425,6 +432,43 @@ class TestSayKontra:
         assert answer.json()["reason"] == KontraRefusal.NOT_YOUR_WORD
         assert stored(kontra_table.skat)[0] == before[0]
         assert "reused" in self.say(agent, kontra_table, "kontra", version=0).text
+
+
+class TestSayNoWord:
+    def say_no_word(self, agent, table, *, command_id="agent-no-word-0001", **changes):
+        return agent.call(
+            SAY_NO_WORD_TOOL,
+            table_id=table.table_id,
+            command_id=command_id,
+            **{"version": table.record.version, **changes},
+        )
+
+    @pytest.fixture
+    def kontra_table(self, skat, forehand_table):
+        """The forehand table, played with Kontra and Re."""
+        options = KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD)
+        record = skat.store.tables[forehand_table.table_id]
+        skat.store.tables[forehand_table.table_id] = replace(record, options=TableOptions(kontra=options))
+        return forehand_table
+
+    def test_an_agent_opponent_answers_no_word_and_the_word_stays_open_under_its_own_account(self, agent, kontra_table):
+        answer = self.say_no_word(agent, kontra_table)
+
+        assert not answer.is_error, answer.text
+        kontra = answer.json()["hand"]["playing"]["kontra"]
+        assert (kontra["my_word"], kontra["my_word_answered"], kontra["said"]) == ("kontra", True, [])
+        assert agent.read(kontra_table.table_id).json() == answer.json()
+        assert [each.position for each in kontra_table.record.progress.no_words] == [FOREHAND]
+
+    def test_a_refused_answer_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, kontra_table):
+        before = stored(kontra_table.skat)
+
+        answer = self.say_no_word(agent, kontra_table, version=0)
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.STALE_VERSION
+        assert stored(kontra_table.skat)[0] == before[0]
+        assert "reused" in self.say_no_word(agent, kontra_table, version=1).text
 
 
 class TestThrowDownCards:
