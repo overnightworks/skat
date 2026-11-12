@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { ResultView } from "#lib/result.ts";
-    import { ALL_POINTS } from "#lib/wire.ts";
+    import PointsBar from "#lib/ui/PointsBar.svelte";
     import { words } from "#lib/words.ts";
 
     import type { Suit } from "../../routes/(start)/tables.ts";
@@ -98,34 +98,7 @@
         {/if}
     </div>
     {#if view.points !== null}
-        <div class="points" role="group" aria-label={words["result.trickPoints"]}>
-            <span class="sides">
-                <span class="declarer"
-                    >{words["result.sidePoints"]({
-                        side: view.sides.declarer,
-                        points: String(view.points.declarer),
-                    })}</span
-                >
-                <span class="opponents"
-                    >{words["result.sidePoints"]({
-                        side: view.sides.opponents,
-                        points: String(view.points.opponents),
-                    })}</span
-                >
-            </span>
-            <span class="track">
-                <svg viewBox={`0 0 ${String(ALL_POINTS)} 1`} preserveAspectRatio="none" aria-hidden="true">
-                    <rect class="declarer" width={view.points.declarer} height="1" />
-                    <rect
-                        class="opponents"
-                        x={ALL_POINTS - view.points.opponents}
-                        width={view.points.opponents}
-                        height="1"
-                    />
-                </svg>
-                <i class="win-line"></i>
-            </span>
-        </div>
+        <PointsBar sides={view.sides} points={view.points} />
     {/if}
     <div class="coasters">
         {#each view.rows as row (row.seat)}

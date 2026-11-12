@@ -3825,3 +3825,368 @@ body {
         min-height: 48px;
     }
 }
+
+/* The rules part of the opening sheet: one row with a switch, off until switched on. */
+.sheet .rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 16px;
+    color: inherit;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.14);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sheet .rule:disabled {
+    cursor: progress;
+}
+
+.sheet .rule:focus-visible {
+    outline: 2px solid #7aa7f0;
+    outline-offset: 2px;
+}
+
+.sheet .rule .ic {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--on-stage-soft, rgba(244, 246, 248, 0.72));
+    background: var(--glass);
+}
+
+.sheet .rule.on .ic {
+    color: #0c0e11;
+    background: #7aa7f0;
+}
+
+.sheet .rule .ic svg {
+    width: 20px;
+    height: 20px;
+}
+
+.sheet .rule .txt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.sheet .rule b {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.sheet .rule small {
+    font-size: 12.5px;
+    line-height: 1.25;
+    color: var(--on-stage-soft, rgba(244, 246, 248, 0.72));
+}
+
+.sheet .sw {
+    flex: none;
+    position: relative;
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--glass);
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.22);
+}
+
+.sheet .sw i {
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    color: #0c0e11;
+    background: #f4ecd9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.sheet .sw i svg {
+    display: none;
+    width: 13px;
+    height: 13px;
+}
+
+.sheet .rule.on .sw {
+    background: #7aa7f0;
+    box-shadow: none;
+}
+
+.sheet .rule.on .sw i {
+    left: 23px;
+}
+
+.sheet .rule.on .sw i svg {
+    display: block;
+}
+
+/* The table's rules: the chips on the felt and the read-only sheet behind them. On a phone the chips take a row of their own under the top row; from 900 px they stand centred in it. */
+.room .bar {
+    position: relative;
+    flex-wrap: wrap;
+    row-gap: 4px;
+}
+
+.room .rules-slot {
+    order: 3;
+    display: flex;
+    flex: 0 0 100%;
+    justify-content: center;
+}
+
+.room .rulepill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 1px;
+    border: 0;
+    border-radius: 999px;
+    color: inherit;
+    background: var(--glass-dark);
+    backdrop-filter: blur(14px);
+    font: inherit;
+    cursor: pointer;
+}
+
+.room .rulepill:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+.room .chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+}
+
+.room .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px 0 7px;
+    border-radius: 999px;
+    color: var(--accent-stage, #7aa7f0);
+    background: rgba(122, 167, 240, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(122, 167, 240, 0.4);
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.room .chip svg {
+    width: 14px;
+    height: 14px;
+}
+
+.room .chip.official {
+    color: var(--on-stage-soft);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+}
+
+@media (min-width: 900px) {
+    .room .rules-slot {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        flex: none;
+        transform: translate(-50%, -50%);
+    }
+}
+
+.room .rules-sheet {
+    --glass: rgba(255, 255, 255, 0.15);
+    box-sizing: border-box;
+    width: min(354px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    margin: auto;
+    padding: 16px 14px 14px;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    border: 0;
+    border-radius: 24px;
+    color: var(--on-stage);
+    background: rgba(12, 14, 17, 0.92);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
+        0 24px 50px -16px rgba(0, 0, 0, 0.9);
+    font-family: "Open Sans", Arial, sans-serif;
+}
+
+.room .rules-sheet[open] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.room .rules-sheet::backdrop {
+    background: rgba(8, 9, 11, 0.62);
+}
+
+@media (min-width: 900px) {
+    .room .rules-sheet {
+        width: 460px;
+    }
+}
+
+.room .rules-sheet h3 {
+    margin: 0;
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    color: #f3cf7a;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.room .lockbadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 0 4px 0 10px;
+    border-radius: 999px;
+    color: var(--on-stage-soft);
+    background: var(--glass);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.room .lockbadge svg {
+    width: 15px;
+    height: 15px;
+}
+
+.room .lockbadge .info {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage);
+    background: var(--glass);
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 13px;
+    font-weight: 700;
+    font-style: italic;
+    cursor: pointer;
+}
+
+.room .lockbadge .info:focus-visible,
+.room .rules-sheet .btns button:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+.room .rules-sheet .lockinfo {
+    margin: 0;
+    color: var(--on-stage-soft);
+    font-size: 13px;
+    text-align: center;
+}
+
+.room .rrows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.room .rrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 8px 12px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.14);
+    text-align: left;
+}
+
+.room .rrow .ic {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--stage-ink, #0c0e11);
+    background: var(--accent-stage, #7aa7f0);
+}
+
+.room .rrow .ic svg {
+    width: 20px;
+    height: 20px;
+}
+
+.room .rrow .txt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.room .rrow b {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.room .rrow small {
+    font-size: 12.5px;
+    line-height: 1.25;
+    color: var(--on-stage-soft);
+}
+
+.room .rrow small span + span::before {
+    content: "; ";
+}
+
+.room .rules-sheet .btns {
+    display: flex;
+    width: 100%;
+}
+
+.room .rules-sheet .btns button {
+    flex: 1;
+    height: 52px;
+    border: 0;
+    border-radius: 999px;
+    color: var(--on-stage);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* The running points stand under the game on the plaque. */
+.room .plaque.counting {
+    flex-direction: column;
+    gap: 7px;
+    padding: 8px 12px 10px;
+}

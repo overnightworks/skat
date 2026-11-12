@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount, untrack } from "svelte";
-    import { resolve } from "$app/paths";
     import { page } from "$app/state";
     import {
         awayOnTurn,
@@ -15,7 +14,7 @@
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpView } from "#lib/giveUp.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
-    import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
+    import { gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
@@ -30,8 +29,10 @@
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
+    import PointsBar from "#lib/ui/PointsBar.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
+    import TableBar from "#lib/ui/TableBar.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
@@ -54,6 +55,7 @@
         type AuctionAction,
         type Card,
         type GiveUpAnswer,
+        type Options,
         type Outcome,
         type Picking,
         type Table,
@@ -279,60 +281,13 @@
         </defs>
     </svg>
     {#if !greeted}
-        <header class="bar">
-            {#if callMode}
-                <span class="wordmark" class:stale={!connected}>{words["app.name"]}</span>
-            {:else}
-                <a
-                    class="lobby"
-                    href={resolve("/(start)")}
-                    title={words["table.lobby"]}
-                    aria-label={words["table.lobby"]}
-                >
-                    <span class="lobby-face button-glass">
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            aria-hidden="true"
-                        >
-                            <path d="M4 11.5 12 5l8 6.5" />
-                            <path d="M6.5 10v9h11v-9" />
-                        </svg>
-                        <span class="lobby-word">{words["table.lobby"]}</span>
-                    </span>
-                </a>
-            {/if}
-            {#if outcome?.kind === "table" && outcome.table.ended === null}
-                {#if !callMode}
-                    <SoundButton place="bar" />
-                {/if}
-                <div
-                    class="watchers"
-                    class:stale={!connected}
-                    title={words["table.watchers"]}
-                    role="group"
-                    aria-label={words["table.watchers"]}
-                >
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                    >
-                        <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
-                        <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    <span>{outcome.table.watchers}</span>
-                </div>
-            {/if}
-        </header>
+        <TableBar
+            {callMode}
+            {connected}
+            live={outcome?.kind === "table" && outcome.table.ended === null
+                ? { watchers: outcome.table.watchers, options: outcome.table.options as Options }
+                : null}
+        />
     {/if}
     <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table" && outcome.table.ended !== null}
@@ -383,7 +338,8 @@
                         }}
                     />
                 {:else}
-                    <div class="plaque" class:wide={label.announcement !== null}>
+                    {@const running = inPlay.playing.running_points}
+                    <div class="plaque" class:wide={label.announcement !== null} class:counting={running !== null}>
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}
                                 <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -395,6 +351,9 @@
                                 <span class="announced">{label.announcement}</span>
                             {/if}
                         </span>
+                        {#if running !== null}
+                            <PointsBar sides={sideNames(outcome.table.chairs, inPlay.declarerSeat)} points={running} />
+                        {/if}
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
