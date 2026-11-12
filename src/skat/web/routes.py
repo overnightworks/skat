@@ -12,7 +12,7 @@ from skat.web.constants import (
     IMMUTABLE_ASSET_CACHE_CONTROL,
     IMMUTABLE_ASSET_PATH_RULES,
 )
-from skat.web.languages import language_of_request
+from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import Exclusion, excluded
 
 if TYPE_CHECKING:
@@ -57,9 +57,11 @@ def create_router(page_build: PageBuild, sessions: SessionRecordStore, web_auth:
 
     @router.api_route(HOME_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
     def home_page(request: Request) -> Response:
-        return built_page_response(
+        response = built_page_response(
             page_build.shell_in(language_of_request(request, sessions=sessions, config=web_auth))
         )
+        response.headers["Vary"] = LANGUAGE_VARY
+        return response
 
     router.mount(APP_ASSET_PATH, _PageBuildFiles(page_build.app_directory), name="page-build")
     return router

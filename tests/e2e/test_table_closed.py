@@ -30,7 +30,7 @@ POLL_SECONDS = 0.2
 # The wait of a browser's stream before it asks again, with room to spare.
 RECONNECT_WINDOW_MILLISECONDS = 6_000
 # The scenes `s3-idle` and `s3-missing` name the wait and the table in these words.
-CLOSED_HEADING = f"{EMPTY_TABLE_SECONDS} Sekunden niemand da: Tisch geschlossen"
+CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 NOT_FOUND_HEADING = "Tisch nicht gefunden"
 UNKNOWN_ID = "0" * 32
 
