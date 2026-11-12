@@ -8,6 +8,8 @@ import {
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_READY_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -18,6 +20,7 @@ import {
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
+    answerGiveUp,
     bidValueWhileDeclaring,
     announcedWord,
     cardName,
@@ -462,6 +465,19 @@ describe("asking for a table", () => {
         });
     });
 
+    it.each([
+        { answer: "agree" as const, suffix: TABLE_GIVE_UP_AGREE_SUFFIX },
+        { answer: "decline" as const, suffix: TABLE_GIVE_UP_DECLINE_SUFFIX },
+    ])("sends the version shown and a command id to $answer a give-up", async ({ answer, suffix }) => {
+        answerWith(Response.json(table));
+
+        expect(await answerGiveUp(TABLE_ID, 7, "command-5", answer)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
+    });
+
     it("reports a taken chair with who holds it", async () => {
         answerWith(Response.json({ reason: "seat-taken", holder_name: "Anna" }, { status: 409 }));
 
@@ -528,7 +544,15 @@ describe("what the declaring stage asks of this viewer", () => {
         result: null,
         passed_in: null,
         ended: null,
-        hand: { dealer_seat: 1, own_cards: [], skat_count: 2, auction: auctionWith(bidWon), declaring, playing: null },
+        hand: {
+            dealer_seat: 1,
+            own_cards: [],
+            skat_count: 2,
+            waiting_seat: null,
+            auction: auctionWith(bidWon),
+            declaring,
+            playing: null,
+        },
     });
     const tableAt = (stage: Stage, mine: number): Table =>
         tableWith({ declarer_seat: 2, stage, declaration: null, open_cards: [] }, mine);
@@ -571,6 +595,7 @@ describe("the auction's value while declaring", () => {
             dealer_seat: 1,
             own_cards: [],
             skat_count: 2,
+            waiting_seat: null,
             auction: auctionWith(declared),
             declaring,
             playing: null,

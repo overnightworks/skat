@@ -768,6 +768,84 @@ body {
     gap: 8px;
 }
 
+/* A standing give-up request: the plaque names its asker, and the answers sit under its line. */
+.room .plaque.ask {
+    flex-direction: column;
+    gap: 9px;
+    padding: 9px 12px 11px;
+}
+
+.room .plaque.ask .game {
+    white-space: nowrap;
+}
+
+.room .plaque .face {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .answers {
+    --glass: rgba(255, 255, 255, 0.15);
+    display: flex;
+    gap: 8px;
+}
+
+.room .answers .button {
+    height: 44px;
+    padding: 0 16px;
+    gap: 8px;
+    font-size: 15px;
+}
+
+.room .answers .button svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* The cross of whoever said no and the dots of whoever has not answered stand where an opponent's chair has the
+   declarer's star, clear of the turn mark. */
+.room .mark:is(.declined, .unanswered) {
+    position: absolute;
+    z-index: 2;
+    top: 16px;
+    left: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+}
+
+.room .mark.declined {
+    width: 26px;
+    color: var(--leave, #e5484d);
+}
+
+.room .mark.unanswered {
+    padding: 0 9px;
+}
+
+.room .mark.declined svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* While an opponent's request stands no card is playable, so the hand looks as a hand of illegal cards does. */
+.room .controls.held .own-hand .card {
+    filter: brightness(0.5) saturate(0.55) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
 /* The deck lies as one slightly crooked stack in the middle of the felt. */
 .room .deck {
     display: grid;
@@ -1413,6 +1491,16 @@ body {
     }
 
     /* The declarer's mark stands under the chair's letter, clear of the turn mark above it and of the coaster at the chair's lower corner, and a wide chair has room for the word. */
+    .room .mark:is(.declined, .unanswered) {
+        top: 80px;
+        left: 32px;
+        height: 28px;
+    }
+
+    .room .mark.declined {
+        width: 28px;
+    }
+
     .room .mark.declarer {
         top: 80px;
         left: 32px;

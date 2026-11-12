@@ -6,6 +6,7 @@ import copy
 import itertools
 import random
 from contextlib import nullcontext
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -85,7 +86,7 @@ class TestTheChairOpensAtOnce:
         assert result.refusal is None
         assert [chair.occupant_name for chair in result.view.chairs] == ["Anna", "Ben", None]
         assert result.view.hand.waiting_seat == MOZARTS_SEAT
-        assert (scene.table.hand, scene.table.progress, scene.table.game_list) == (
+        assert (scene.table.hand, replace(scene.table.progress, seats_held=frozenset()), scene.table.game_list) == (
             before.hand,
             before.progress,
             before.game_list,
@@ -113,6 +114,16 @@ class TestTheChairOpensAtOnce:
 
         assert again.refusal is None
         assert again.view.hand.waiting_seat is None
+
+    def test_the_agent_sits_only_in_its_old_chair_while_the_hand_runs_and_in_any_after_it(self):
+        scene = Scene()
+        scene.send_away()
+        scene.service.stand(BEN, StandUp(f"command-{next(scene.commands)}", scene.table_id), NOBODY)
+
+        into_another = scene.sit(MOZART, 2)
+        into_its_own = scene.sit(MOZART, MOZARTS_SEAT)
+
+        assert (into_another.refusal, into_its_own.refusal) == (Refusal.OWN_SEAT_ONLY, None)
 
     def test_neither_it_nor_a_sit_into_the_chair_counts_as_a_step_of_play(self):
         scene = Scene()
@@ -235,6 +246,28 @@ class TestTheStandingSignal:
         scene.send_away(command_id="command-away")
 
         assert scene.told == []
+
+
+class TestTheStandingSignalOfAnAgentsOwnStandUp:
+    def stand(self, scene, command_id="command-stand"):
+        return scene.service.stand(MOZART, StandUp(command_id, scene.table_id), NOBODY)
+
+    def test_the_agent_is_told_once_after_the_commit_and_no_book_row_is_written(self):
+        scene = Scene()
+
+        result = self.stand(scene)
+
+        assert (result.refusal, scene.told, scene.store.book) == (None, [frozenset({MOZART.account_id})], {})
+
+    def test_a_replay_and_a_refusal_tell_nobody(self):
+        scene = Scene()
+        self.stand(scene, "command-stand")
+        scene.told.clear()
+
+        replayed = self.stand(scene, "command-stand")
+        refused = self.stand(scene, "command-again")
+
+        assert (replayed.refusal, refused.refusal, scene.told) == (None, Refusal.NOT_SEATED, [])
 
 
 class TestARetry:

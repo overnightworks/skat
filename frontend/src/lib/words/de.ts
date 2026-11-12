@@ -38,6 +38,12 @@ export type Words = {
     readonly "table.bidding": string;
     readonly "table.pass": string;
     readonly "table.waitingFor": string;
+    readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
+    readonly "table.givesUp": (gaps: { readonly name: string }) => string;
+    readonly "table.accept": string;
+    readonly "table.playOn": string;
+    readonly "table.saidNo": string;
+    readonly "table.noAnswerYet": string;
     readonly "table.passedIn": string;
     readonly "table.gives": string;
     readonly "table.waitsForYou": string;
@@ -177,6 +183,12 @@ export const words: Words = {
     "table.bidding": "Reizen",
     "table.pass": "Weg",
     "table.waitingFor": "Warte auf",
+    "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",
+    "table.givesUp": (gaps: { readonly name: string }) => gaps.name + " gibt auf",
+    "table.accept": "Annehmen",
+    "table.playOn": "Weiterspielen",
+    "table.saidNo": "sagte Nein",
+    "table.noAnswerYet": "noch keine Antwort",
     "table.passedIn": "Eingepasst",
     "table.gives": "gibt",
     "table.waitsForYou": "wartet auf dich",

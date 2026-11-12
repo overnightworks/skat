@@ -27,3 +27,8 @@ reason = "K3c sends an agent away from its chair: `decide_send_away`."
 path = "src/skat/table/service.py"
 item = "overnightworks/skat#384"
 reason = "K3c sends an agent away from its chair: `TableService.send_away`."
+
+[[code]]
+path = "frontend/src/lib/giveUp.ts"
+item = "overnightworks/skat#260"
+reason = "S5.4b3 lets an opponent give up: the view's `gives-up` line, the declarer's answers to it, the asker's wait for the declarer and `cardsHeld`."

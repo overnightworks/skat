@@ -619,8 +619,8 @@ class TableService:
     def accept_invitation(
         self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]
     ) -> AcceptResult:
-        """Seat the agent at the table's lowest free chair for the invitation it names, in one transaction under the
-        table's row lock, dealing as a sit does; or refuse and say why.
+        """Seat the agent for the invitation it names at the chair it held in the running hand, else at the table's
+        lowest free chair, in one transaction under the table's row lock, dealing as a sit does; or refuse and say why.
 
         `owner_account` is the owner its token names, None for a token that names none, and `connected_accounts` who
         holds an open stream at the table. The command carries no command id and writes no receipt: a retry finds no

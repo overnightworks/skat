@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from skat.table.records import HandProgress, Refusal, SendAway
+from skat.table.records import HandProgress, Refusal, SeatHeld, SendAway
 from skat.table.send_away import decide_send_away, send_away_payload
 from tests.support.open_chairs import PHASES, REARHAND, REARHAND_SEAT, account_of
 from tests.support.played_game import after_the_first_game, table_in, with_agents
@@ -30,10 +30,20 @@ class TestSendingAnAgentAway:
 
         freed = decide_send_away(table, account_of(REARHAND)).table
 
-        assert freed == replace(table, version=table.version + 1, chairs=freed.chairs)
+        assert replace(freed, progress=replace(freed.progress, seats_held=frozenset())) == replace(
+            table, version=table.version + 1, chairs=freed.chairs
+        )
         assert [chair for chair in freed.chairs if chair.occupant is not None] == [
             chair for chair in table.chairs if chair.seat != REARHAND_SEAT
         ]
+
+    @pytest.mark.parametrize("phase", PHASES)
+    def test_marks_the_sent_away_agent_as_the_holder_of_its_seat_in_the_hand(self, phase):
+        table = agents_at_rearhand(PHASES[phase]())
+
+        freed = decide_send_away(table, account_of(REARHAND)).table
+
+        assert freed.progress.seats_held == {SeatHeld(account_of(REARHAND), REARHAND_SEAT)}
 
     def test_frees_the_chair_outside_a_hand_as_a_stand_up_does(self):
         between = agents_at_rearhand(after_the_first_game(table_in(HandProgress())))

@@ -143,6 +143,30 @@ msgctxt "table.waitingFor"
 msgid "Warte auf"
 msgstr ""
 
+msgctxt "table.wantsToGiveUp"
+msgid "{name} will aufgeben"
+msgstr ""
+
+msgctxt "table.givesUp"
+msgid "{name} gibt auf"
+msgstr ""
+
+msgctxt "table.accept"
+msgid "Annehmen"
+msgstr ""
+
+msgctxt "table.playOn"
+msgid "Weiterspielen"
+msgstr ""
+
+msgctxt "table.saidNo"
+msgid "sagte Nein"
+msgstr ""
+
+msgctxt "table.noAnswerYet"
+msgid "noch keine Antwort"
+msgstr ""
+
 msgctxt "table.passedIn"
 msgid "Eingepasst"
 msgstr ""

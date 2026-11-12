@@ -13,6 +13,7 @@
     import { bidLadder } from "#lib/bidLadder.ts";
     import { cuesBetween } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
+    import { giveUpView } from "#lib/giveUp.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
@@ -24,6 +25,7 @@
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
+    import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
@@ -33,6 +35,7 @@
     import TableClosed from "./TableClosed.svelte";
     import {
         agentWhoSat,
+        answerGiveUp,
         bidValueWhileDeclaring,
         copyTableLink,
         drawingOrder,
@@ -47,6 +50,7 @@
         watchTable,
         type AuctionAction,
         type Card,
+        type GiveUpAnswer,
         type Outcome,
         type Picking,
         type Table,
@@ -197,6 +201,12 @@
         if (answer.kind !== "table") sentFromVersion = null;
     }
 
+    async function answerRequest(table: Table, answer: GiveUpAnswer): Promise<void> {
+        sentFromVersion = table.version;
+        const reply = await seat(answerGiveUp(id, table.version, crypto.randomUUID(), answer));
+        if (reply.kind !== "table") sentFromVersion = null;
+    }
+
     async function takeStep(table: Table, action: AuctionAction, value?: number): Promise<void> {
         sentFromVersion = table.version;
         const answer = await seat(takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
@@ -333,6 +343,7 @@
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
+            {@const giveUp = giveUpView(outcome.table)}
             {#if view !== null}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
             {:else if deciding !== null}
@@ -353,19 +364,30 @@
                 </div>
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
-                <div class="plaque" class:wide={label.announcement !== null}>
-                    <span class="game">
-                        {#if isSuitGame(inPlay.declaration.game)}
-                            <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
-                                <svg viewBox="0 0 100 100"><use href={`#suit-${inPlay.declaration.game}`} /></svg>
-                            </span>
-                        {/if}
-                        {label.name}
-                        {#if label.announcement !== null}
-                            <span class="announced">{label.announcement}</span>
-                        {/if}
-                    </span>
-                </div>
+                {#if giveUp !== null}
+                    {@const table = outcome.table}
+                    <GiveUpPlaque
+                        view={giveUp}
+                        disabled={sentFromVersion === table.version}
+                        onanswer={(answer: GiveUpAnswer) => {
+                            void answerRequest(table, answer);
+                        }}
+                    />
+                {:else}
+                    <div class="plaque" class:wide={label.announcement !== null}>
+                        <span class="game">
+                            {#if isSuitGame(inPlay.declaration.game)}
+                                <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
+                                    <svg viewBox="0 0 100 100"><use href={`#suit-${inPlay.declaration.game}`} /></svg>
+                                </span>
+                            {/if}
+                            {label.name}
+                            {#if label.announcement !== null}
+                                <span class="announced">{label.announcement}</span>
+                            {/if}
+                        </span>
+                    </div>
+                {/if}
             {:else if !outcome.table.hand?.declaring}
                 {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
                 <div class="plaque" class:hand-over={passedIn !== null}>
@@ -483,6 +505,25 @@
                                         </svg>
                                         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                                         {`${words["table.plays"]}`}
+                                    </span>
+                                {/if}
+                                {#if giveUp?.marks.get(chair.seat) === "declined"}
+                                    <span class="mark declined" title={words["table.saidNo"]}>
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2.8"
+                                            stroke-linecap="round"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M6 6l12 12M18 6L6 18" />
+                                        </svg>
+                                    </span>
+                                {/if}
+                                {#if giveUp?.marks.get(chair.seat) === "unanswered"}
+                                    <span class="mark unanswered" title={words["table.noAnswerYet"]}>
+                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
                                 {#if marks.turn || chair.seat === turnSeat}
@@ -606,7 +647,10 @@
                                 {/if}
                             {:else if !chair.is_mine}
                                 <div class="fan-spot">
-                                    <BackFan count={chair.hand.card_count} dim={chair.is_away} />
+                                    <BackFan
+                                        count={chair.hand.card_count}
+                                        dim={chair.is_away || giveUp?.cardsHeld === true}
+                                    />
                                 </div>
                             {/if}
                             {#if !chair.is_mine && openCards.length === 0}
@@ -644,7 +688,7 @@
                     }}
                 />
             {/if}
-            <div class="controls">
+            <div class="controls" class:held={giveUp?.cardsHeld === true}>
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}

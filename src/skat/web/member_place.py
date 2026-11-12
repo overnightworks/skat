@@ -71,9 +71,10 @@ logger = structlog.get_logger()
 ACCEPT_INVITATION_DECLARATION: Final = ToolDeclaration(
     name=ACCEPT_INVITATION_TOOL,
     description=(
-        "Accept an invitation from your standing: you take the lowest-numbered free chair at the Skat table and play "
-        "there under your name. Pass the standing's place and the invitation's id and epoch. A refusal says why: the "
-        "invitation no longer stands, the person you work for is not at the table, or no chair is free."
+        "Accept an invitation from your standing: you take the chair you held in the running hand, or else the "
+        "lowest-numbered free chair, at the Skat table and play there under your name. Pass the standing's place and "
+        "the invitation's id and epoch. A refusal says why: the invitation no longer stands, the person you work for "
+        "is not at the table, or no chair is free for you, the chair you held in the running hand being taken included."
     ),
     parameters=AcceptInvitationArguments.model_json_schema(),
     effect=ToolEffect.SIDE_EFFECTING,
