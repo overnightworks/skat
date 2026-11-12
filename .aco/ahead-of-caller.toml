@@ -6,7 +6,7 @@ reason = "The generated loader (`languages`, `sourceLanguage`, `loadWords`) that
 [[code]]
 path = "src/skat/engine/giving_up.py"
 item = "overnightworks/skat#27"
-reason = "S5.4b lets an opponent give up, lets the declarer shorten and lets an opponent play open."
+reason = "S5.4b lets the declarer shorten and lets an opponent play open."
 
 [[code]]
 path = "src/skat/engine/kontra.py"
@@ -32,8 +32,3 @@ reason = "K3 sends an agent away from its chair: `decide_send_away`."
 path = "src/skat/table/service.py"
 item = "overnightworks/skat#315"
 reason = "K3 calls an agent to a table and sends it away: `TableService.invite_agent` and `TableService.send_away`."
-
-[[code]]
-path = "frontend/src/lib/giveUp.ts"
-item = "overnightworks/skat#260"
-reason = "S5.4b3 lets an opponent give up: the view's `gives-up` line, the declarer's answers to it, the asker's wait for the declarer and `cardsHeld`."

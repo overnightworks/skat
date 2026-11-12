@@ -203,6 +203,31 @@ def test_an_unanswered_request_and_a_no_are_read_back_by_a_new_service_and_a_yes
     assert stored_request(engine) == (None, None)
 
 
+def test_an_opponents_give_up_is_read_back_by_a_new_service_and_the_declarers_yes_after_that_ends_the_game(
+    game, engine, database_url, stored
+):
+    ask = GiveUpCommand(command_id="ask", table_id=game.table_id, version=game.record.version)
+    asked = game.service.give_up(game.actors[Position.FOREHAND], ask, nobody_connected())
+    assert asked.refusal is None
+    assert stored_request(engine) == ("forehand", None)
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        assert stored(restarted, game.table_id).progress.give_up == GiveUpAsked(Position.FOREHAND)
+        yes = AgreeToGiveUpCommand(command_id="yes", table_id=game.table_id, version=game.record.version)
+        result = TableService(restarted).agree_to_give_up(game.actors[Position.MIDDLEHAND], yes, nobody_connected())
+    finally:
+        restarted_engine.dispose()
+
+    assert result.refusal is None
+    assert game.record.hand is None
+    (entry,) = game.record.game_list
+    assert (entry.won, entry.ending) == (True, GameEnding.GIVEN_UP)
+    assert entry.seat_accounts[entry.ended_by_seat - 1] == game.actors[Position.FOREHAND].account_id
+    assert stored_request(engine) == (None, None)
+
+
 def test_a_card_clears_the_stored_request(game, engine):
     asked_with_eight_cards(game)
 
