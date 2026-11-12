@@ -426,7 +426,7 @@ class TestTheDeclarerAccepts:
 
 
 class TestRefusalsAroundTheGiveUp:
-    def test_a_chair_that_stands_up_leaves_every_command_seat_open(self, herz_hand):
+    def test_an_opponents_give_up_while_a_chair_is_open_is_seat_open(self, herz_hand):
         assert herz_hand.skat.stand(herz_hand.at[REARHAND], herz_hand.table_id).status_code == 200
 
         herz_hand.refused_act(TABLE_GIVE_UP_SUFFIX, herz_hand.at[FOREHAND], Refusal.SEAT_OPEN)
