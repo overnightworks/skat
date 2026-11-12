@@ -12,6 +12,7 @@ export const VERSION_FILE_PATH = "/_app/version.json";
 export const CALL_ORIGIN_PATH = "/api/call-origin";
 export const ACCOUNT_CONSOLE_PATH = "/account";
 export const TABLES_PATH = "/api/tables";
+export const LOBBY_EVENTS_PATH = "/api/lobby/events";
 export const TABLE_PAGE_PREFIX = "/t/";
 export const TABLE_ID_PATTERN = "[0-9a-f]{32}";
 export const TABLE_EVENTS_SUFFIX = "/events";
@@ -50,6 +51,7 @@ export const LEVEL_TOKENS = [
     "ouvert",
 ] as const;
 export const END_REASON_TOKENS = ["empty"] as const;
+export const WAITING_CASE_TOKENS = ["turn", "give_up", "kontra", "end_proposal", "result", "series_end"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,

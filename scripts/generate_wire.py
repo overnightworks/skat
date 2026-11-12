@@ -18,6 +18,7 @@ from skat.engine.bidding import VALID_BIDS  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
+from skat.table.awaiting import WaitingCase  # noqa: E402
 from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
@@ -54,6 +55,7 @@ from skat.web.declaring import (  # noqa: E402
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
 from skat.web.kontra import TABLE_NO_WORD_SUFFIX  # noqa: E402
+from skat.web.lobby import LOBBY_EVENTS_PATH  # noqa: E402
 from skat.web.playing import (  # noqa: E402
     TABLE_CARD_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -93,6 +95,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "AUCTION_ACTION_TOKENS": AuctionAction,
     "LEVEL_TOKENS": Level,
     "END_REASON_TOKENS": EndReason,
+    "WAITING_CASE_TOKENS": WaitingCase,
 }
 
 
@@ -119,6 +122,7 @@ def render() -> str:
         "CALL_ORIGIN_PATH": CALL_ORIGIN_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
         "TABLES_PATH": TABLES_PATH,
+        "LOBBY_EVENTS_PATH": LOBBY_EVENTS_PATH,
         "TABLE_PAGE_PREFIX": TABLE_PAGE_PREFIX,
         "TABLE_ID_PATTERN": TABLE_ID_PATTERN,
         "TABLE_EVENTS_SUFFIX": TABLE_EVENTS_SUFFIX,
