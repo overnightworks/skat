@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { flushSync, mount, unmount } from "svelte";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadKitWords, type KitWords } from "overnightworks-design/words";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import AgentsPill from "#lib/ui/AgentsPill.svelte";
-import { agentControlWords } from "#lib/kitWords.ts";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
-import { words } from "#lib/words.ts";
+import { language, words } from "#lib/words.ts";
 
 const TABLE_ID = "b".repeat(32);
 const CONTROL_PATH = `${TABLES_PATH}/${TABLE_ID}${TABLE_AGENTS_SUFFIX}`;
@@ -27,6 +27,11 @@ const popover = () => document.querySelector(".agents-pop");
 
 describe("the Agenten pill", () => {
     let mounted: ReturnType<typeof mount> | undefined;
+    let kitWords: KitWords;
+
+    beforeAll(async () => {
+        kitWords = await loadKitWords(language);
+    });
 
     beforeEach(() => {
         vi.stubGlobal("location", { reload: vi.fn() });
@@ -40,7 +45,7 @@ describe("the Agenten pill", () => {
     });
 
     async function show(streamedVersion: number | null) {
-        mounted = mount(AgentsPill, { target: document.body, props: { tableId: TABLE_ID, streamedVersion } });
+        mounted = mount(AgentsPill, { target: document.body, props: { tableId: TABLE_ID, streamedVersion, kitWords } });
         await settle();
         flushSync();
     }
@@ -83,7 +88,9 @@ describe("the Agenten pill", () => {
 
         expect(pill()?.getAttribute("aria-expanded")).toBe("true");
         expect(popover()?.textContent).toContain("Nova");
-        expect(popover()?.querySelector(".act")?.getAttribute("aria-label")).toBe(agentControlWords.callLabel("Nova"));
+        expect(popover()?.querySelector(".act")?.getAttribute("aria-label")).toBe(
+            kitWords["agent.callLabel"]({ name: "Nova" }),
+        );
 
         pill()?.click();
         flushSync();
@@ -99,7 +106,7 @@ describe("the Agenten pill", () => {
         await settle();
         flushSync();
 
-        expect(popover()?.textContent).toContain(words["agents.empty"]);
+        expect(popover()?.textContent).toContain(kitWords["agent.empty"]);
     });
 
     it("calls the row's agent with a tap on Rufen and shows the row calling", async () => {
@@ -118,7 +125,7 @@ describe("the Agenten pill", () => {
         flushSync();
 
         expect(fetcher).toHaveBeenCalledWith(`${CONTROL_PATH}/key-nova${TABLE_AGENT_CALL_SUFFIX}`, { method: "POST" });
-        expect(popover()?.textContent).toContain(words["agents.calling"]);
+        expect(popover()?.textContent).toContain(kitWords["agent.calling"]);
     });
 
     it("shows the refusal above the rows until the list closes", async () => {
@@ -141,7 +148,7 @@ describe("the Agenten pill", () => {
         await settle();
         flushSync();
 
-        expect(shown).toContain(words["agents.refusalPlaceFull"]);
+        expect(shown).toContain(kitWords["agent.placeFull"]);
         expect(popover()?.querySelector("[role=alert]")).toBeNull();
     });
 
