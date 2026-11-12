@@ -1,0 +1,8 @@
+claim_id = "1b7e219eaf324c108760663f47866a20"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "7cade9522b673f555a899d3bfbe790b0fd296c27"
+branch = "claude/issue-385-s11-10d-an-agent-s-owner-sends-his-own-a"
+scope = ["legal/datenschutz.html", "src/skat/store", "src/skat/table/records.py", "src/skat/table/send_away.py"]
+opened_commit = "d544c6aadbc441537bc47d3ef6a70ab55ee65a10"
+whole_reason = "One send-away decision for the owner across its route, page and tests"
