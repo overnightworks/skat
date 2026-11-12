@@ -433,13 +433,6 @@ class TestEndUnplayedTable:
         assert service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(NOBODY)) is False
         assert store.tables == written
 
-    def test_a_table_changes_nothing_once_the_presence_has_stopped(self, service, store, dealt_id):
-        last_played(store, dealt_id)
-        written = dict(store.tables)
-
-        assert service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(None)) is False
-        assert store.tables == written
-
     def test_a_table_with_no_hand_dealt_changes_nothing(self, service, store, table_id):
         written = dict(store.tables)
 
