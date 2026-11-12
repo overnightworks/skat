@@ -11,7 +11,17 @@ from sqlalchemy import text
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.member_place import InvitationRequest
-from skat.table.records import Actor, CreateTable, OccupantKind, Refusal, SendAway, SitDown, TableId
+from skat.table.records import (
+    Actor,
+    CreateTable,
+    OccupantKind,
+    Refusal,
+    SeatHeld,
+    SendAway,
+    SitDown,
+    StandUp,
+    TableId,
+)
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites
 
@@ -91,6 +101,63 @@ class TestAnOpenChairBesideAStoredHand:
 
         assert sat.refusal is None
         assert sat.view.hand.waiting_seat is None
+
+
+def stand_up(service, person, table_id, command_id="command-stand"):
+    return service.stand(person, StandUp(command_id, table_id), NOBODY)
+
+
+def stored_table(engine, table_id):
+    with PostgresTableTransactions(engine).begin() as transaction:
+        return transaction.table(TableId(table_id))
+
+
+class TestTheSeatMarkAcrossTheStore:
+    def test_a_stand_up_mid_hand_is_read_back_equal_by_a_restarted_service_and_keeps_its_leaver_to_his_chair(
+        self, service, engine, table_id
+    ):
+        send_mozart_away(service, table_id)
+        stand_up(service, VISITOR, table_id)
+        marks = {SeatHeld(VISITOR.account_id, 2), SeatHeld(MOZART.account_id, MOZARTS_SEAT)}
+        restarted = TableService(PostgresTableTransactions(engine))
+
+        read = stored_table(engine, table_id)
+        crossed = [
+            restarted.sit(VISITOR, SitDown("command-ben-3", table_id, MOZARTS_SEAT), NOBODY).refusal,
+            restarted.sit(MOZART, SitDown("command-mozart-2", table_id, 2), NOBODY).refusal,
+        ]
+        own = [
+            restarted.sit(VISITOR, SitDown("command-ben-2", table_id, 2), NOBODY).refusal,
+            restarted.sit(MOZART, SitDown("command-mozart-3", table_id, MOZARTS_SEAT), NOBODY).refusal,
+        ]
+
+        assert read.progress.seats_held == marks
+        assert (crossed, own) == ([Refusal.OWN_SEAT_ONLY] * 2, [None, None])
+
+    def test_the_refusal_of_a_sit_replays_from_its_receipt_after_a_restart(self, service, engine, table_id):
+        send_mozart_away(service, table_id)
+        stand_up(service, VISITOR, table_id)
+        sit = SitDown("command-ben-3", table_id, MOZARTS_SEAT)
+        first = service.sit(VISITOR, sit, NOBODY)
+
+        again = TableService(PostgresTableTransactions(engine)).sit(VISITOR, sit, NOBODY)
+
+        assert (first.refusal, again.refusal) == (Refusal.OWN_SEAT_ONLY, Refusal.OWN_SEAT_ONLY)
+
+    def test_a_hand_passed_in_leaves_no_mark_in_any_chair(self, service, engine, table_id):
+        send_mozart_away(service, table_id)
+        stand_up(service, VISITOR, table_id)
+        service.sit(VISITOR, SitDown("command-ben-2", table_id, 2), NOBODY)
+        service.sit(MOZART, SitDown("command-mozart-3", table_id, MOZARTS_SEAT), NOBODY)
+        people = {1: OPENER, 2: VISITOR, 3: MOZART}
+
+        for _ in range(3):
+            seat = service.view(OPENER, table_id, NOBODY).hand.auction.turn_seat
+            assert pass_as(service, people[seat], table_id).refusal is None
+
+        with engine.connect() as connection:
+            held = connection.execute(text("SELECT held_in_hand FROM chairs ORDER BY seat")).scalars().all()
+        assert (stored_table(engine, table_id).hand, held) == (None, [[], [], []])
 
 
 class TestTwoSitsForTheOpenChair:

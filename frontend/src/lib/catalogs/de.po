@@ -143,6 +143,30 @@ msgctxt "table.waitingFor"
 msgid "Warte auf"
 msgstr ""
 
+msgctxt "table.wantsToGiveUp"
+msgid "{name} will aufgeben"
+msgstr ""
+
+msgctxt "table.givesUp"
+msgid "{name} gibt auf"
+msgstr ""
+
+msgctxt "table.accept"
+msgid "Annehmen"
+msgstr ""
+
+msgctxt "table.playOn"
+msgid "Weiterspielen"
+msgstr ""
+
+msgctxt "table.saidNo"
+msgid "sagte Nein"
+msgstr ""
+
+msgctxt "table.noAnswerYet"
+msgid "noch keine Antwort"
+msgstr ""
+
 msgctxt "table.passedIn"
 msgid "Eingepasst"
 msgstr ""
@@ -207,10 +231,6 @@ msgctxt "result.seatFree"
 msgid "Frei"
 msgstr ""
 
-msgctxt "result.bidValue"
-msgid "Reizwert"
-msgstr ""
-
 msgctxt "result.hand"
 msgid "Hand"
 msgstr ""
@@ -231,24 +251,32 @@ msgctxt "result.levelOuvert"
 msgid "Ouvert"
 msgstr ""
 
-msgctxt "result.matadorsWith"
-msgid "mit"
+msgctxt "result.matadorsWith.one"
+msgid "mit {count}"
 msgstr ""
 
-msgctxt "result.matadorsWithout"
-msgid "ohne"
+msgctxt "result.matadorsWith.other"
+msgid "mit {count}"
+msgstr ""
+
+msgctxt "result.matadorsWithout.one"
+msgid "ohne {count}"
+msgstr ""
+
+msgctxt "result.matadorsWithout.other"
+msgid "ohne {count}"
+msgstr ""
+
+msgctxt "result.listGame"
+msgid "Spiel {score}"
 msgstr ""
 
 msgctxt "result.listBonus"
-msgid "Liste"
+msgid "Liste {bonus}"
 msgstr ""
 
-msgctxt "result.each"
-msgid "je"
-msgstr ""
-
-msgctxt "result.notReached"
-msgid "nicht erreicht"
+msgctxt "result.share"
+msgid "· {opponents} je {gain}"
 msgstr ""
 
 msgctxt "result.announcedSchneider"
@@ -279,24 +307,40 @@ msgctxt "result.lost"
 msgid "Verloren"
 msgstr ""
 
-msgctxt "result.wins"
-msgid "gewinnt"
-msgstr ""
-
-msgctxt "result.loses"
-msgid "verliert"
-msgstr ""
-
 msgctxt "result.overbid"
 msgid "Überreizt"
 msgstr ""
 
-msgctxt "result.gameWorth"
-msgid "Wert"
-msgstr ""
-
 msgctxt "result.and"
 msgid "und"
+msgstr ""
+
+msgctxt "result.declarerWins"
+msgid "{name} gewinnt"
+msgstr ""
+
+msgctxt "result.declarerLoses"
+msgid "{name} verliert"
+msgstr ""
+
+msgctxt "result.opponentGameLine"
+msgid "{declarer}, {game}"
+msgstr ""
+
+msgctxt "result.missedSchneider"
+msgid "Schneider angesagt, nicht erreicht"
+msgstr ""
+
+msgctxt "result.missedSchwarz"
+msgid "Schwarz angesagt, nicht erreicht"
+msgstr ""
+
+msgctxt "result.raise"
+msgid "Wert {value} < Reizwert {bid} → {settled}"
+msgstr ""
+
+msgctxt "result.sidePoints"
+msgid "{side} {points}"
 msgstr ""
 
 msgctxt "closed.notFound"

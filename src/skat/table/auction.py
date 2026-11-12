@@ -91,7 +91,12 @@ def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> De
     changed = replace(table, version=table.version + 1, progress=replace(table.progress, auction=steps))
     result = outcome.auction.result
     if isinstance(result, PassedIn) and table.options.ramsch is None:
-        changed = replace(changed, hand=None, bock=bock_after(table, result, None))
+        changed = replace(
+            changed,
+            hand=None,
+            progress=replace(changed.progress, seats_held=frozenset()),
+            bock=bock_after(table, result, None),
+        )
     return Decision(changed)
 
 
