@@ -1,8 +1,0 @@
-claim_id = "75caeb8a83e64cd9bad2c63f56406410"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "a5d27a563990dd91237139a6d149a73faca2b2df"
-branch = "claude/issue-422-the-agents-list-after-315-no-flicker-at"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/start.css", "frontend/src/lib/ui/AgentsPill.svelte", "frontend/src/lib/ui/AgentsPill.test.ts", "src/skat/web/calling.py", "tests/e2e/test_calling_agents.py", "tests/e2e/test_table_result.py", "tests/web/test_calling_roster.py"]
-opened_commit = "e9961edaf929866146cfa0aad01d542590726cfa"
-whole_reason = "One sound engine change and its tests; split would strand the page"
