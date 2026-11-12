@@ -256,13 +256,14 @@ def test_an_open_agents_list_in_a_landscape_frame_shows_both_rows_above_the_call
     ]
     try:
         with framed_at(felix, browser_coverage, table_url(framing_server, path), LANDSCAPE_FRAME) as call:
+            # Measured before the pill is tapped: a tap scrolls the frame and would hide a strip below the fold.
+            frame = box_of(felix.locator(FRAME))
+            strip = box_of(call.locator(STRIP))
+            assert bottom_of(strip) <= bottom_of(frame)
             call.get_by_role("button", name=PILL).click()
             for name in ("Mozart", "Leonardo"):
                 expect(call.get_by_role("button", name=call_label(name))).to_be_visible()
 
-            frame = box_of(felix.locator(FRAME))
-            strip = box_of(call.locator(STRIP))
-            assert bottom_of(strip) <= bottom_of(frame)
             for name in ("Mozart", "Leonardo"):
                 row = box_of(call.get_by_role("button", name=call_label(name)))
                 assert row["y"] >= frame["y"]
