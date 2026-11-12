@@ -105,6 +105,11 @@ function nameOf(chairs: readonly Chair[], seat: number): string | null {
     return (chairs.find((chair) => chair.seat === seat) as Chair).occupant_name;
 }
 
+// A chair that has been left while the result stands reads as free, as its coaster does.
+function shownName(chairs: readonly Chair[], seat: number): string {
+    return nameOf(chairs, seat) ?? words["result.seatFree"];
+}
+
 // The viewer's own chair comes first, then the others in seat order; a watcher has no own chair.
 function ownFirst(chairs: readonly Chair[]): Chair[] {
     const own = chairs.filter((chair) => chair.is_mine);
@@ -237,7 +242,7 @@ function ramschHead(
             : { word: words["result.durchmarsch"], mark: null, lost: false };
     }
     if (strong.some((one) => one.seat === own?.seat)) return { word: words["result.lost"], mark: "cross", lost: true };
-    const names = strong.map((one) => nameOf(chairs, one.seat) as string);
+    const names = strong.map((one) => shownName(chairs, one.seat));
     return {
         word:
             names.length === 1
@@ -264,7 +269,7 @@ export function ramschResultView(table: Table): RamschView | null {
         loss: sweeper === undefined,
         counts: ownFirst(chairs).map(({ seat }) => ({
             seat,
-            name: nameOf(chairs, seat) ?? "",
+            name: shownName(chairs, seat),
             points: (result.seats.find((one) => one.seat === seat) as RamschSeat).points,
             strong: strong.some((one) => one.seat === seat),
         })),

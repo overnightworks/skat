@@ -455,8 +455,8 @@ function ramschResult(
     } satisfies RamschResult;
 }
 
-function ramschTable(mine: number, result: RamschResult): Table {
-    return { ...table(mine, null, RAMSCH_NAMES), result };
+function ramschTable(mine: number, result: RamschResult, left: Record<number, Partial<Chair>> = {}): Table {
+    return { ...table(mine, null, { ...RAMSCH_NAMES, ...left }), result };
 }
 
 function drawnRamsch(table: Table): RamschView {
@@ -553,6 +553,13 @@ describe("a Ramsch result's card", () => {
         expect(drawnRamsch(ramschTable(3, tie)).word).toBe("Anna und Ben verlieren");
         expect(drawnRamsch(ramschTable(1, tie)).word).toBe("Verloren");
         expect(drawnRamsch(ramschTable(3, tie)).counts.filter((count) => count.strong)).toHaveLength(2);
+    });
+
+    it("reads a chair left while the result stands as free in the head and the counts", () => {
+        const view = drawnRamsch(ramschTable(NOBODY, OTHER_LOSES, { 2: { occupant_name: null } }));
+
+        expect(view.word).toBe(`${words["result.seatFree"]} verliert`);
+        expect(view.counts.map((count) => count.name)).toEqual(["Anna", words["result.seatFree"], "Felix"]);
     });
 
     it("names the pushes without a factor when the table does not double them", () => {
