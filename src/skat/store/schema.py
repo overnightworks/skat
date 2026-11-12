@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     MetaData,
     SmallInteger,
@@ -285,6 +286,7 @@ chairs = Table(
     CheckConstraint("account_id IS NOT NULL OR NOT ready", name="chairs_ready_only_when_occupied"),
     CheckConstraint("(account_id IS NULL) = (occupant_kind IS NULL)", name="chairs_kind_only_when_occupied"),
     one_of("occupant_kind", (kind.value for kind in OccupantKind), "chairs_occupant_kind_is_a_kind"),
+    Index("chairs_by_account", "account_id", postgresql_where=text("account_id IS NOT NULL")),
 )
 
 member_book = Table(

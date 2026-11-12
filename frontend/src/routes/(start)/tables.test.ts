@@ -51,11 +51,18 @@ import { words } from "#lib/words.ts";
 
 class FakeEventSource {
     static last: FakeEventSource;
-    onmessage: ((event: MessageEvent<string>) => void) | null = null;
     onerror: (() => void) | null = null;
+    private readonly listeners = new Map<string, (event: MessageEvent<string>) => void>();
     close = vi.fn();
     constructor(readonly url: string) {
         FakeEventSource.last = this;
+    }
+    addEventListener(type: string, listener: (event: MessageEvent<string>) => void) {
+        this.listeners.set(type, listener);
+    }
+    // A message as the browser hands it to the stream's unnamed listener.
+    message(data: string) {
+        this.listeners.get("message")?.({ data } as MessageEvent<string>);
     }
 }
 
@@ -94,6 +101,8 @@ describe("watchTable after a stream error", () => {
         vi.stubGlobal("history", { state: null, replaceState });
         answers = [];
         vi.stubGlobal("EventSource", FakeEventSource);
+        // The stream reader listens for the tab's visibility; these tests never change it.
+        vi.stubGlobal("document", { addEventListener: vi.fn(), removeEventListener: vi.fn() });
         vi.stubGlobal(
             "fetch",
             vi.fn(
@@ -165,12 +174,13 @@ describe("watchTable after a stream error", () => {
 
     it("treats a failed check as a lost connection", async () => {
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
-        watchTable(TABLE_ID, vi.fn(), vi.fn());
+        const stop = watchTable(TABLE_ID, vi.fn(), vi.fn());
         fail();
         await settle();
 
         expect(assign).not.toHaveBeenCalled();
         expect(reload).not.toHaveBeenCalled();
+        stop();
     });
 
     it("closes the stream on an ended view, hands it on once and ignores a later error", async () => {
@@ -179,7 +189,7 @@ describe("watchTable after a stream error", () => {
         watchTable(TABLE_ID, onTable, onConnection);
         const ended = { id: TABLE_ID, ended: { reason: "empty", empty_seconds: 1800 } };
 
-        FakeEventSource.last.onmessage?.({ data: JSON.stringify(ended) } as MessageEvent<string>);
+        FakeEventSource.last.message(JSON.stringify(ended));
         fail();
         await settle();
 
@@ -288,9 +298,7 @@ describe("watchTable after a stream error", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
         watchTable(TABLE_ID, onTable, onConnection);
-        FakeEventSource.last.onmessage?.({
-            data: JSON.stringify({ id: TABLE_ID, ended: null }),
-        } as MessageEvent<string>);
+        FakeEventSource.last.message(JSON.stringify({ id: TABLE_ID, ended: null }));
 
         expect(FakeEventSource.last.url).toContain(TABLES_PATH);
         expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID, ended: null });

@@ -1,6 +1,5 @@
 import asyncio
 import json
-from contextlib import suppress
 from datetime import timedelta
 
 import pytest
@@ -11,7 +10,7 @@ from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.presence import Presence
-from skat.web.streams import table_views
+from skat.web.streams import IDLE_HEARTBEAT, table_views
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import (
@@ -60,31 +59,19 @@ class Admission:
         self.then = then
         self.actor = actor
         self.asked = 0
-        self._asked_again = asyncio.Event()
 
     async def __call__(self):
         self.asked += 1
-        self._asked_again.set()
         answer = self.answers.pop(0) if self.answers else self.then
         if isinstance(answer, Exception):
             raise answer
         return self.actor if answer else None
 
-    async def asked_at_least(self, count):
-        while self.asked < count:
-            self._asked_again.clear()
-            await self._asked_again.wait()
 
-
-async def stays_pending_through_idle_heartbeats(stream, admission):
-    """Waits until the stream has admitted again three times with nothing changed; True when it sent nothing."""
-    pending = asyncio.ensure_future(anext(stream))
-    await asyncio.wait_for(admission.asked_at_least(admission.asked + IDLE_HEARTBEATS), ALLOWED_SECONDS)
-    sent = pending.done()
-    pending.cancel()
-    with suppress(asyncio.CancelledError):
-        await pending
-    return not sent
+async def idle_heartbeats_through(stream):
+    """Takes the next items of a stream with nothing changed, one per heartbeat; these are the items it yielded."""
+    async with asyncio.timeout(ALLOWED_SECONDS):
+        return [await anext(stream) for _ in range(IDLE_HEARTBEATS)]
 
 
 class TestTableViews:
@@ -304,9 +291,13 @@ class TestReadmission:
                 idle_presence(), service, OPENER, table_id, admit=admission, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS
             )
             await next_view(stream)
-            return await stays_pending_through_idle_heartbeats(stream, admission)
+            marks = await idle_heartbeats_through(stream)
+            return marks, admission.asked
 
-        assert run_on_a_loop_of_its_own(scenario())
+        marks, asked = run_on_a_loop_of_its_own(scenario())
+
+        assert marks == [IDLE_HEARTBEAT] * IDLE_HEARTBEATS
+        assert asked == IDLE_HEARTBEATS + 1
 
     def test_a_refusal_at_an_idle_heartbeat_ends_the_stream(self, service, table_id):
         async def scenario():
@@ -342,12 +333,12 @@ class TestReadmission:
             )
             first = await next_view(stream)
             second = await next_view(stream)
-            return first, second, await stays_pending_through_idle_heartbeats(stream, admission)
+            return first, second, await idle_heartbeats_through(stream)
 
-        first, second, sent_nothing_more = run_on_a_loop_of_its_own(scenario())
+        first, second, marks = run_on_a_loop_of_its_own(scenario())
 
         assert (first.watchers, second.watchers) == (0, 1)
-        assert sent_nothing_more
+        assert marks == [IDLE_HEARTBEAT] * IDLE_HEARTBEATS
 
     def test_every_view_is_read_as_the_account_the_last_admission_returned(self, service, table_id):
         renamed = Actor(account_id=OPENER.account_id, display_name="Anna Maria")
@@ -484,6 +475,21 @@ class TestWatchTableAdmission:
         assert [chair["is_away"] for chair in event["chairs"]] == [True, False, False]
         assert opener.id not in first
         assert watcher.id not in first
+
+    def test_an_idle_stream_writes_a_comment_line_at_each_heartbeat(self, sign_in_settings):
+        skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+        headers, _ = skat.member()
+        table = skat.create(headers).json()
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table["id"]), headers=headers) as answer:
+            lines = answer.iter_lines()
+            first = next(lines)
+            after_first = [next(lines) for _ in range(4)]
+            answer.close()
+
+        assert first.startswith("data: ")
+        assert after_first == ["", ": ", "", ": "]
 
     def test_a_session_ended_server_side_ends_the_stream_at_the_next_heartbeat(self, sign_in_settings):
         skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
