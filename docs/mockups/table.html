@@ -1785,10 +1785,10 @@ Object.assign(I,{
 });
 const SOUND_WORD='Ton und Bewegung',MUTED_WORD='Ton aus';
 /* the button: a round 40 px glass twin of the Lobby button in the top row (a word pill at 1280); in a call a strip button where the link stands outside a call.
-   o.open: the panel hangs on it; o.toggle: one tap mutes and opens nothing */
+   o.open: the panel hangs on it */
 const soundButton=(d,o={})=>{
-  const label=o.muted?MUTED_WORD:o.toggle?'Ton':SOUND_WORD,icon=o.muted?I.speakerOff:I.speaker;
-  const state=o.toggle?`aria-pressed="${!!o.muted}"`:`aria-haspopup="dialog" aria-expanded="${!!o.open}"`;
+  const label=o.muted?MUTED_WORD:SOUND_WORD,icon=o.muted?I.speakerOff:I.speaker;
+  const state=`aria-haspopup="dialog" aria-expanded="${!!o.open}"`;
   const cls=`sound ${o.top?'top':''} ${o.muted?'muted':''} ${o.open?'on':''}`;
   const attrs=`role="button" tabindex="0" data-snd ${state} title="${label}" aria-label="${label}" style="${at(o.at||{})}"`;
   return d?`<span class="cb wide glass ${cls}" ${attrs}>${icon}${o.muted?MUTED_WORD:'Ton'}</span>`:`<span class="cb ${cls}" ${attrs}>${icon}</span>`;
@@ -1833,17 +1833,13 @@ const tapRing=(x,y)=>`<span class="tap-ring" aria-hidden="true" style="${at({lef
 const soundCall=(d,o={})=>room(d,{left:8,glow:novaGlow(d)})+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
   +seats(d,{video:true,anna:['decl'],nova:['turn','think'],score:TOTALS_BEFORE})+ownHand(d,FELIX_HAND,{bottom:d?170:164})+callBar(d)
   +`<div class="sbar above">${GIVE_UP}${agentPill(d)}${soundButton(d,o)}</div>`+(o.over||'');
-/* the other form: one tap mutes and opens nothing; a short word under the button says what the tap did */
-const muteToast=(text,icon)=>`<div class="snd-toast" role="status" style="${at({right:12,top:56})}">${icon}${text}</div>`;
-const DRAFT_A='Entwurf zur Wahl: der Lautsprecher öffnet die Tafel „Ton und Bewegung“.';
-const DRAFT_B='Entwurf zur Wahl: ein Tipp auf den Lautsprecher schaltet stumm, die Tafel steht in der Lobby unter dem Konto.';
 const SOUND_SCENES=[
   ['sound-button','Ton: der Knopf',[360,390,1280],(d,w)=>soundTable(d,w),
-    ['Felix spielt an seinem Tisch in Spiel 8 von 36. Oben rechts neben den Zuschauern steht der runde Lautsprecher, die Serienmarke behält ihren Platz. Gemessen: bei 360 Pixeln bleiben zwischen Marke und Zuschauern 54 Pixel, bei „Spiel 99 von 99“ nur 46; für 40 Pixel mit Rand ist das zu eng, darum steht der Lautsprecher dort neben „Lobby“. Bei 390 Pixeln bleiben 69 (bei „Spiel 99 von 99“ 54), das genügt.',DRAFT_A]],
+    ['Felix spielt an seinem Tisch in Spiel 8 von 36. Oben rechts neben den Zuschauern steht der runde Lautsprecher, die Serienmarke behält ihren Platz. Gemessen: bei 360 Pixeln bleiben zwischen Marke und Zuschauern 54 Pixel, bei „Spiel 99 von 99“ nur 46; für 40 Pixel mit Rand ist das zu eng, darum steht der Lautsprecher dort neben „Lobby“. Bei 390 Pixeln bleiben 69 (bei „Spiel 99 von 99“ 54), das genügt.']],
   ['sound-panel','Ton: die Tafel',[360,390,1280],(d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState()))}),
-    ['Felix tippt auf den Lautsprecher: die Tafel „Ton und Bewegung“ zeigt Ton an, Lautstärke 70, Klänge „Leise“, Bewegung „verspielt“, Stimme aus. Auf dem Handy ist sie höchstens 70 Prozent so hoch wie der Bildschirm, der Rest rollt in ihr; ein Tipp daneben schließt sie.',DRAFT_A]],
+    ['Felix tippt auf den Lautsprecher: die Tafel „Ton und Bewegung“ zeigt Ton an, Lautstärke 70, Klänge „Leise“, Bewegung „verspielt“, Stimme aus. Auf dem Handy ist sie höchstens 70 Prozent so hoch wie der Bildschirm, der Rest rollt in ihr; ein Tipp daneben schließt sie.']],
   ['sound-panel-more','Ton: die Tafel weiter unten',[390],(d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState()),{scroll:'end'})}),
-    ['Dieselbe Tafel nach unten gerollt: „Letzter Stich: wegfegen“, „Du bist dran im Hintergrund“ aus, „Vibration“ aus.',DRAFT_A]],
+    ['Dieselbe Tafel nach unten gerollt: „Letzter Stich: wegfegen“, „Du bist dran im Hintergrund“ aus, „Vibration“ aus.']],
   ['sound-set-picked','Ton: ein Klang gewählt',[390],(d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState({sound:'Stammtisch'}),{played:'Klänge'}))}),
     ['Felix tippt „Stammtisch“. Der Chip ist gewählt, und der Kartenklang dieses Satzes spielt einmal; „spielt einmal“ steht dann kurz an der Zeile.']],
   ['sound-muted','Ton: stumm',[360,390,1280],(d,w)=>soundTable(d,w,{muted:true}),
@@ -1853,13 +1849,11 @@ const SOUND_SCENES=[
   ['sound-reduced','Ton: Bewegung reduzieren',[390],(d,w)=>lenaTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState({reduced:true})),{scroll:'Bewegung'})}),
     ['Lenas Handy meldet „Bewegung reduzieren“. Die Zeile „Bewegung“ sagt es und bietet „Bewegung trotzdem abspielen“ an; solange sie aus ist, sind die Sätze „dezent“ und „verspielt“ grau.']],
   ['sound-call','Ton: im Anruf',[390,1280],(d)=>soundCall(d),
-    ['Im Anruf ist Skats obere Zeile nach der Begrüßung weg. Der Lautsprecher steht in Skats Leiste nach „Aufgeben“ und der AI-Pille, dort, wo außerhalb eines Anrufs der Link steht.',DRAFT_A]],
+    ['Im Anruf ist Skats obere Zeile nach der Begrüßung weg. Der Lautsprecher steht in Skats Leiste nach „Aufgeben“ und der AI-Pille, dort, wo außerhalb eines Anrufs der Link steht.']],
   ['sound-call-muted','Ton: im Anruf, stumm',[390],(d)=>soundCall(d,{muted:true}),
-    ['Dasselbe stumm: der durchgestrichene Lautsprecher steht in der Leiste.',DRAFT_A]],
+    ['Dasselbe stumm: der durchgestrichene Lautsprecher steht in der Leiste.']],
   ['sound-call-panel','Ton: im Anruf, die Tafel',[390],(d)=>soundCall(d,{open:true,over:soundPanel(d,soundRows(soundState()),{above:true})}),
-    ['Im Anruf öffnet sich die Tafel über dem Lautsprecher und ist höchstens so hoch wie der Platz über der Leiste; der Rest rollt in ihr.',DRAFT_A]],
-  ['sound-mute-tap','Ton: ein Tipp schaltet stumm',[390],(d,w)=>soundTable(d,w,{toggle:true,muted:true,over:muteToast(MUTED_WORD,I.speakerOff)}),
-    ['Felix tippt auf den Lautsprecher: der Ton ist aus, der Knopf ist durchgestrichen, „Ton aus“ steht kurz darunter, und nichts öffnet sich. Ein zweiter Tipp schaltet ihn wieder an.',DRAFT_B]],
+    ['Im Anruf öffnet sich die Tafel über dem Lautsprecher und ist höchstens so hoch wie der Platz über der Leiste; der Rest rollt in ihr.']],
 ];
 const soundScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.forEach(w=>{
   const desk=w===1280,html=w===360?withPhone360(()=>draw(false,w)):draw(desk,w);
@@ -2039,9 +2033,6 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .d1280 .snd-slider{height:40px}
 .d1280 .snd-slider i{top:17px}
 .d1280 .snd-slider u{top:6px}
-.snd-toast{position:absolute;z-index:60;display:flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 10px;border-radius:999px;background:rgba(12,14,17,.88);backdrop-filter:blur(12px);
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);font-size:13.5px;font-weight:600;white-space:nowrap}
-.snd-toast svg{width:16px;height:16px;color:var(--on-stage-soft)}
 .tap-ring{position:absolute;z-index:80;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 2px rgba(255,255,255,.7);pointer-events:none}
 </style>
 <style>
