@@ -552,10 +552,22 @@ describe("a Ramsch result's card", () => {
         expect(view.counts.map((count) => count.name)).toEqual(["Anna", words["result.seatFree"], "Felix"]);
     });
 
-    it("names the pushes without a factor when the table does not double them", () => {
-        const flat = ramschResult([20, 14, 86], [0, 0, -86], { pushes: 2, push_factor: 1 });
+    it.each([
+        {
+            scene: "a lost game",
+            result: ramschResult([20, 14, 86], [0, 0, -86], { pushes: 2, push_factor: 1 }),
+            score: "\u221286",
+        },
+        {
+            scene: "a Durchmarsch",
+            result: ramschResult([120, 0, 0], [120, 0, 0], { durchmarsch_seat: 1, pushes: 2, push_factor: 1 }),
+            score: "+120",
+        },
+    ])("names the pushes of $scene without a factor when the table does not double them", ({ result, score }) => {
+        const view = drawnRamsch(ramschTable(3, result));
 
-        expect(drawnRamsch(ramschTable(3, flat)).chips).toEqual(["2× geschoben"]);
+        expect(view.chips).toEqual(["2× geschoben"]);
+        expect(view.score).toBe(score);
     });
 
     it("names the division by ten before the pushes and the doubling it comes ahead of", () => {
