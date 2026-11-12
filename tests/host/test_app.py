@@ -361,6 +361,29 @@ UNPLAYED_DAYS = 7
 NOW = datetime(2026, 11, 12, 12, tzinfo=UTC)
 
 
+class HeldUnplayedEnd(TableService):
+    """A table service whose unplayed end can wait before it takes the row and can hold its write guard open."""
+
+    def __init__(self, store, **options):
+        super().__init__(store, **options)
+        self.awaiting_the_row = threading.Event()
+        self.row_free = threading.Event()
+        self.end_entered = threading.Event()
+        self.release_end = threading.Event()
+
+    def end_unplayed_table(self, table_id, days, writing):
+        @contextmanager
+        def held_inside_the_end():
+            with writing as connected:
+                self.end_entered.set()
+                assert self.release_end.wait(timeout=10)
+                yield connected
+
+        self.awaiting_the_row.set()
+        assert self.row_free.wait(timeout=10)
+        return super().end_unplayed_table(table_id, days, held_inside_the_end())
+
+
 class UnplayedTables:
     """Dealt tables on a service whose clock the test moves, started by an app on a scheduler the test runs."""
 
@@ -517,6 +540,55 @@ class TestUnplayedTables:
         asyncio.run(tick())
 
         assert unplayed.ended(table_id) is None
+
+    def test_a_run_that_awaits_the_row_lock_when_the_server_stops_ends_no_table(self, sign_in_settings):
+        unplayed = UnplayedTables(sign_in_settings, HeldUnplayedEnd)
+        table_id = unplayed.dealt("command-open")
+        unplayed.tables.release_end.set()
+        app = unplayed.app()
+
+        async def stop_while_the_run_awaits_the_row():
+            lifespan = app.router.lifespan_context(app)
+            await lifespan.__aenter__()
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            unplayed.play_on(UNPLAYED_DAYS)
+            running = asyncio.create_task(tick())
+            await asyncio.to_thread(unplayed.tables.awaiting_the_row.wait, 10)
+            await lifespan.__aexit__(None, None, None)
+            unplayed.tables.row_free.set()
+            await running
+
+        asyncio.run(stop_while_the_run_awaits_the_row())
+
+        assert unplayed.ended(table_id) is None
+
+    def test_the_lifespan_returns_only_after_an_unplayed_end_that_holds_its_row_has_committed(self, sign_in_settings):
+        unplayed = UnplayedTables(sign_in_settings, HeldUnplayedEnd)
+        table_id = unplayed.dealt("command-open")
+        unplayed.tables.row_free.set()
+        app = unplayed.app()
+
+        async def serve_until_the_end_holds_its_row():
+            async with app.router.lifespan_context(app):
+                ((_, tick),) = unplayed.scheduler.sweeps()
+                unplayed.play_on(UNPLAYED_DAYS)
+                running = asyncio.create_task(tick())
+                await asyncio.to_thread(unplayed.tables.end_entered.wait, 10)
+            return running
+
+        async def stop_while_the_end_holds_its_row():
+            serving = asyncio.create_task(serve_until_the_end_holds_its_row())
+            await asyncio.to_thread(unplayed.tables.end_entered.wait, 10)
+            await asyncio.wait({serving}, timeout=0.3)
+            waited_for_the_end = not serving.done()
+            unplayed.tables.release_end.set()
+            await (await serving)
+            return waited_for_the_end
+
+        waited_for_the_end = asyncio.run(stop_while_the_end_holds_its_row())
+
+        assert waited_for_the_end
+        assert unplayed.ended(table_id).reason is EndReason.UNPLAYED
 
     def test_a_run_after_the_server_stopped_asks_for_no_further_run(self, unplayed):
         with TestClient(unplayed.app()):
