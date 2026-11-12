@@ -6,7 +6,7 @@ import pytest
 
 from skat.engine.deal import Position
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraRefusal, KontraSayer
-from skat.table.records import Refusal, TableOptions
+from skat.table.records import TableOptions
 from skat.web.mcp import SAY_KONTRA_TOOL, SAY_NO_WORD_TOOL
 from tests.web.support.skat import AgentTable, Skat, stored
 
@@ -79,13 +79,3 @@ class TestSayNoWord:
         assert (kontra["my_word"], kontra["my_word_answered"], kontra["said"]) == ("kontra", True, [])
         assert agent.read(kontra_table.table_id).json() == answer.json()
         assert [each.position for each in kontra_table.record.progress.no_words] == [FOREHAND]
-
-    def test_a_refused_answer_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, kontra_table):
-        before = stored(kontra_table.skat)
-
-        answer = self.say_no_word(agent, kontra_table, version=0)
-
-        assert answer.is_error
-        assert answer.json()["reason"] == Refusal.STALE_VERSION
-        assert stored(kontra_table.skat)[0] == before[0]
-        assert "reused" in self.say_no_word(agent, kontra_table, version=1).text

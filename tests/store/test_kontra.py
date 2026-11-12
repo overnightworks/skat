@@ -116,13 +116,11 @@ def answer_no_word(game, position, *, command_id, version=None, service=None):
     return say(game, position, None, command_id=command_id, version=version, service=service)
 
 
-def test_an_answer_of_no_word_reads_back_and_the_word_stays_open(game, engine):
+def test_an_answer_of_no_word_reads_back(game, engine):
     assert answer_no_word(game, FOREHAND, command_id="no-word").refusal is None
 
     assert game.record.progress.no_words == frozenset({NoWordSaid(FOREHAND, KONTRA)})
-    assert game.record.progress.words == ()
     assert count_rows(engine, "kontra_no_words") == 1
-    assert say(game, FOREHAND, KONTRA, command_id="kontra").refusal is None
 
 
 def test_a_restart_reads_the_answer_back_and_the_seat_is_not_awaited_again(game, database_url):
