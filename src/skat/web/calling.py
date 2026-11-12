@@ -138,9 +138,6 @@ class AgentRoster:
     def entries(self) -> dict[str, RosterEntry]:
         return dict(self._entries)
 
-    def account_of(self, key: str) -> str | None:
-        return next((account for account, entry in self._entries.items() if entry.key == key), None)
-
     def _remember(self, account_id: str, facts: AgentFacts) -> None:
         held = self._entries.get(account_id)
         if held is None or (held.name, held.owner) != (facts.name, facts.owner):

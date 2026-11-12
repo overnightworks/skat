@@ -73,10 +73,6 @@ class TestAnEntryExistsWhileTheAgentListens:
 
         assert len(set(keys.values())) == 2
         assert all(account not in key for account, key in keys.items())
-        assert {roster.account_of(key) for key in keys.values()} == {NOVA.sub, BACH.sub}
-
-    def test_a_key_that_no_entry_holds_names_no_account(self, roster):
-        assert roster.account_of("a-key-no-entry-holds") is None
 
 
 class TestACallOfAnAgentWithFacts:
