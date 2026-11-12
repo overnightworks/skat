@@ -1,8 +1,0 @@
-claim_id = "bd9eddbb143d44b593f899aa3b55a127"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "07f9992724c4694fdebd85ebafad7b6e999af357"
-branch = "claude/issue-404-card-sound"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/sound.test.ts", "frontend/src/lib/sound.ts", "frontend/src/lib/soundSets.test.ts", "frontend/src/lib/soundSets.ts", "frontend/src/lib/tableSound.test.ts", "frontend/src/lib/tableSound.ts", "frontend/src/lib/webAudio.test.ts", "frontend/src/lib/webAudio.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/conftest.py", "tests/e2e/support/audio.py", "tests/e2e/support/recording_audio.js", "tests/e2e/test_table_card_sound.py"]
-opened_commit = "9c93f8c1489832fb149bc7cb753530efcec5a20d"
-whole_reason = "The engine, its Web Audio adapter, the set data and the cue wiring are one sound end to end; any smaller piece would be code with no caller."
