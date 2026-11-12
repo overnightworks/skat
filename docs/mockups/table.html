@@ -625,6 +625,17 @@ body.solo section.shot .rule{display:none}
 .bubble.word .dot{width:22px;height:22px;font-size:11px}
 .bubble.word .dot svg{width:13px;height:13px}
 .value.loss{color:#ff8a8f}
+/* ---------- the Grand Hand key: under the two keys on a phone, shorter keys in one row, the armed look, the draft mark ---------- */
+.grand-stack{flex-direction:column;gap:8px}
+.grand-stack .line{display:flex;gap:10px}
+.grand-stack .button{height:48px}
+.grand-stack .line:last-child .button{flex:1}
+.p360 .grand-row{gap:8px}
+.p360 .grand-row .button{padding:0 12px;gap:6px;font-size:15px}
+.button-leave.arm{position:relative}
+.button-leave.arm i{position:absolute;left:22px;right:22px;bottom:6px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform-origin:left}
+@media (prefers-reduced-motion:no-preference){.button-leave.arm i.mo{animation:runout 3s linear both}}
+section.shot h2 .draft{height:24px;padding:0 10px;border-radius:999px;display:inline-grid;place-items:center;border:1.5px solid var(--busy-stage);color:var(--busy-stage);font-size:12px;font-weight:700;letter-spacing:.02em}
 </style>
 </head>
 <body>
@@ -1071,6 +1082,7 @@ const IDEAS=[
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
+  ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-row, push-grand-arm, push-grand-done, push-grand-off'],
   ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. (S11.9p)','stand-play, stand-arm, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
@@ -1812,7 +1824,8 @@ const stageSkat=(d,o)=>d?skat(584,stageSkatY(d,o),80):skat(PB.cx-41,stageSkatY(d
 /* the felt of a 360 frame is 64 px shorter than the 390 one: what stands in its middle moves up by half */
 const feltShift=(d)=>d?0:(PB.you.y-496)/2;
 const stageRow=(d,discard)=>d?(discard?420:412):380+feltShift(d);
-const pushButtons=(d)=>row(mid(d),stageRow(d),`<span class="button button-stage">${I.up}Skat nehmen</span><span class="button button-glass">${I.push}Schieben</span>`).replace('class="btns"','class="btns push-row"');
+const stageKeys=(take='Skat nehmen',push='Schieben')=>`<span class="button button-stage">${I.up}${take}</span><span class="button button-glass">${I.push}${push}</span>`;
+const pushButtons=(d)=>row(mid(d),stageRow(d),stageKeys()).replace('class="btns"','class="btns push-row"');
 const putBackButton=(d)=>row(mid(d),stageRow(d,true),`<span class="button button-stage unlock">${I.down}Drücken</span>`);
 const feltGhosts=(d)=>d?ghost(596,300,80,I.down)+ghost(684,300,80,I.down):ghost(PB.cx-32,300+feltShift(d),56,I.down)+ghost(PB.cx+32,300+feltShift(d),56,I.down);
 const felixGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,PB.you.y+64,240,120);
@@ -1923,6 +1936,37 @@ RAMSCH_SCENES.push(
     ['Die Regeln eines Tischs mit Ramsch: die Marke „Ramsch“ im Regel-Knopf, die Zeilen „Ramsch beim Einpassen“ und „Schieberamsch, ohne Buben, je doppelt“.']],
 );
 agentScenes(RAMSCH_SCENES);
+
+/* ===== the Grand Hand instead of a Ramsch: at a table that allows it, the seat on turn declares it beside taking and pushing ===== */
+/* the key stands in glass like „Hand“ of skat-choose; armed, it takes the look of „Aufgeben“ */
+const grandKey=(word,armed)=>armed?`<span class="button button-leave arm">${word}?<i class="mo" style="--k:1s"></i></span>`:`<span class="button button-glass">${word}</span>`;
+/* stack: on a phone the Grand Hand key takes a second row under the two keys, the skat moves up to make room; row: three shorter keys in one; the desk has room for three keys in one row */
+const GRAND_STACK_Y=()=>narrow()?314:352;
+const grandSkat=(d,stack)=>d?stageSkat(d,{}):skat(PB.cx-41,stack&&narrow()?222:stageSkatY(d,{}),52);
+const grandKeys=(d,o={})=>{const stack=!d&&o.layout==='stack',short=!d&&o.layout==='row',key=grandKey(short?'Hand':'Grand Hand',o.armed);
+  return stack?row(mid(d),GRAND_STACK_Y(),`<div class="line">${stageKeys()}</div><div class="line">${key}</div>`).replace('class="btns"','class="btns push-row grand-stack"')
+    :row(mid(d),stageRow(d),stageKeys(short?'Nehmen':undefined)+key).replace('class="btns"',`class="btns push-row${short?' grand-row':''}"`);};
+const grandTable=(d,o)=>pushTable(d,{glow:felixGlow(d),skat:false,marks:{you:['turn']},extra:grandSkat(d,o.layout==='stack')})+grandKeys(d,o)+restingHand(d)+tableBar(d);
+/* Felix declared: he leads, the plaque names the game at the lowest bid and announces nothing, every chair sees the same plaque */
+const grandPlay=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:0,count:true,glow:felixGlow(d)})+sideFans(d,10,10)
+    +plaque(mid(d),plaqueY(d),`${gameLine('','Grand Hand')}<div class="game pushes">Reizwert 18</div>`)+yourCard(d)
+    +seat('anna',L.anna)+seat('nova',L.nova)+seat('felix',{...L.you,marks:['decl','turn']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownHand(d,BID_HAND.map(([r,s])=>[r,s,'ok']),{strip:d?{base:58,no:58,ok:58,touch:78}:{base:32,no:32,ok:32,touch:56}})+giveUpBar(d,GIVE_UP);};
+const DRAFT=' <span class="draft">Entwurf zur Wahl</span>';
+const GRAND_SCENES=[
+  ['push-grand','Ramsch: Grand Hand',[360,390,1280],(d)=>grandTable(d,{layout:'stack'}),
+    ['An einem Tisch, der es erlaubt: Felix ist dran und sieht „Skat nehmen“ und „Schieben“ wie sonst, dazu „Grand Hand“ in Glas, wie „Hand“ beim Skat. Ein Tipp sagt es an. Am Handy steht die dritte Taste in einer zweiten Reihe unter den zwei anderen, der Skat rückt dafür nach oben; am Rechner stehen alle drei in einer Reihe.']],
+  ['push-grand-row','Ramsch: Grand Hand, drei Tasten in einer Reihe'+DRAFT,[360,390],(d)=>grandTable(d,{layout:'row'}),
+    ['Die andere Wahl zur ersten Frage: drei kleinere Tasten in einer Reihe mit kürzeren Worten („Nehmen“, „Schieben“, „Hand“), der Skat bleibt, wo er liegt. Am Rechner sieht es aus wie bei „push-grand“.']],
+  ['push-grand-arm','Ramsch: Grand Hand, zweiter Tipp'+DRAFT,[360,390,1280],(d)=>grandTable(d,{layout:'stack',armed:true}),
+    ['Die andere Wahl zur zweiten Frage: der erste Tipp macht „Grand Hand?“ scharf, rot mit dem Strich, der in drei Sekunden abläuft wie bei „Aufgeben“; erst der zweite Tipp sagt es an, jeder andere Tipp und die Zeit entschärfen die Taste.']],
+  ['push-grand-done','Ramsch: Grand Hand angesagt',[390,1280],grandPlay,
+    ['Felix hat angesagt: die Tafel nennt „Grand Hand“ mit „Reizwert 18“, keine Ansage steht daneben, kein Ramsch mehr; er ist Alleinspieler und spielt aus. Anna, Nova und jeder Zuschauer sehen dieselbe Tafel.']],
+  ['push-grand-off','Ramsch: Grand Hand nicht erlaubt',[390],(d)=>pushTable(d,{glow:felixGlow(d),marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['An einem Tisch, der es nicht erlaubt: dieselben zwei Tasten wie in „push-mine“, nichts ist ausgegraut und nichts erklärt.']],
+];
+agentScenes(GRAND_SCENES);
 
 /* ===== S11.9p: standing up during a hand ===== */
 /* during a hand the strip has no room for two words on a phone: one of the two keys goes round; at 1280 both keep their word */
