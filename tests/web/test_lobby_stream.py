@@ -39,6 +39,25 @@ def skat(hold, issuer):
         yield skat
 
 
+@pytest.fixture(
+    params=[
+        pytest.param("in memory", id="in-memory"),
+        pytest.param("stored", id="stored", marks=pytest.mark.postgres),
+    ]
+)
+def tables_skat(request, hold, issuer):
+    """The app over each store the tables can live in, with a heartbeat short enough to read between events."""
+    options = {"issuer_transports": issuer.transports, "heartbeat_seconds": SHORT_HEARTBEAT_SECONDS}
+    if request.param == "in memory":
+        with (skat := Skat(lambda: hold, **options)).client:
+            yield skat
+        return
+    engine = create_store_engine(request.getfixturevalue("database_url"))
+    with (skat := Skat(lambda: hold, store=PostgresTableTransactions(engine), **options)).client:
+        yield skat
+    engine.dispose()
+
+
 class Scene:
     """A service over an in-memory store, one wake list and the presence built on it, as the app wires them."""
 
@@ -513,11 +532,17 @@ CHAIR_FIELDS = {"seat", "occupant_name", "occupant_kind", "is_mine", "ready", "t
 
 
 EMPTY = {"tables": []}
+HEARTBEAT_LINE = ": "
+HEARTBEATS_AWAITED = 10
 
 
 def next_event(lines):
-    """The next event of a response's lines as (name, decoded data)."""
-    name = next(lines).removeprefix("event: ")
+    """The next event of a response's lines as (name, decoded data), past any heartbeat comment."""
+    line = next(lines)
+    while line == HEARTBEAT_LINE:
+        assert next(lines) == ""
+        line = next(lines)
+    name = line.removeprefix("event: ")
     data = json.loads(next(lines).removeprefix("data: "))
     assert next(lines) == ""
     return name, data
@@ -557,17 +582,22 @@ class TestTheRoute:
         )
         assert read == ["event: mine", 'data: {"tables":[]}', "", ": ", ""]
 
-    def test_a_table_opened_and_one_sat_at_through_the_routes_reach_the_open_lobbies_of_their_accounts(self, skat):
+    def test_a_table_opened_and_one_sat_at_through_the_routes_reach_the_open_lobbies_of_their_accounts_and_no_stranger(
+        self, tables_skat
+    ):
+        skat = tables_skat
         annas_headers, anna = skat.member()
         bens_headers, ben = skat.member()
+        strangers_headers, stranger = skat.member()
         skat.client.cookies.clear()
 
         with (
             skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=annas_headers) as annas,
             skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=bens_headers) as bens,
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=strangers_headers) as strangers,
         ):
-            annas_lines, bens_lines = annas.iter_lines(), bens.iter_lines()
-            assert (next_event(annas_lines), next_event(bens_lines)) == (("mine", EMPTY), ("mine", EMPTY))
+            annas_lines, bens_lines, strangers_lines = annas.iter_lines(), bens.iter_lines(), strangers.iter_lines()
+            firsts = [next_event(lines) for lines in (annas_lines, bens_lines, strangers_lines)]
             skat.client.cookies.clear()
             table_id = skat.create(annas_headers).json()["id"]
             _, opened = next_event(annas_lines)
@@ -575,9 +605,14 @@ class TestTheRoute:
             skat.sit(bens_headers, table_id, 2)
             _, named = next_event(annas_lines)
             _, sat = next_event(bens_lines)
+            strangers_seen = [next(strangers_lines) for _ in range(HEARTBEATS_AWAITED * 2)]
+            skat.stores.sessions.delete_for_user(stranger.id)
+            strangers_seen += list(strangers_lines)
             annas.close()
             bens.close()
 
+        assert firsts == [("mine", EMPTY)] * 3
+        assert not any(line.startswith("event") for line in strangers_seen)
         assert ids_of(opened["tables"]) == [table_id]
         assert [chair["occupant_name"] for chair in named["tables"][0]["chairs"]] == [anna.username, ben.username, None]
         assert (sat["tables"][0]["id"], [chair["is_mine"] for chair in sat["tables"][0]["chairs"]]) == (
@@ -636,47 +671,3 @@ class TestTheRoute:
         assert first == "event: mine"
         assert rest[-1] == ""
         assert not any(line.startswith("event") for line in rest)
-
-
-@pytest.mark.postgres
-class TestTheRouteOverTheStoredTables:
-    @pytest.fixture
-    def stored_skat(self, hold, issuer, database_url):
-        engine = create_store_engine(database_url)
-        skat = Skat(lambda: hold, store=PostgresTableTransactions(engine), issuer_transports=issuer.transports)
-        with skat.client:
-            yield skat
-        engine.dispose()
-
-    def test_a_table_opened_and_sat_at_through_the_routes_reaches_the_lobbies_of_the_stored_chairs_and_no_stranger(
-        self, stored_skat
-    ):
-        skat = stored_skat
-        annas_headers, anna = skat.member()
-        bens_headers, ben = skat.member()
-        strangers_headers, _ = skat.member()
-        skat.client.cookies.clear()
-
-        with (
-            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=annas_headers) as annas,
-            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=bens_headers) as bens,
-            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=strangers_headers) as strangers,
-        ):
-            lines = [stream.iter_lines() for stream in (annas, bens, strangers)]
-            assert [next_event(each) for each in lines] == [("mine", EMPTY)] * 3
-            skat.client.cookies.clear()
-            table_id = skat.create(annas_headers).json()["id"]
-            _, opened = next_event(lines[0])
-            skat.client.cookies.clear()
-            skat.sit(bens_headers, table_id, 2)
-            _, named = next_event(lines[0])
-            _, sat = next_event(lines[1])
-            strangers.close()
-            annas.close()
-            bens.close()
-
-        entry = named["tables"][0]
-        assert ids_of(opened["tables"]) == [table_id]
-        assert (entry["id"], entry["title_name"], entry["dealt"]) == (table_id, anna.username, False)
-        assert [chair["occupant_name"] for chair in entry["chairs"]] == [anna.username, ben.username, None]
-        assert [chair["is_mine"] for chair in sat["tables"][0]["chairs"]] == [False, True, False]
