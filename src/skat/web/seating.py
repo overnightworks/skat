@@ -58,17 +58,16 @@ def _create_chairs_router(tables: TableService, presence: Presence, wakes: WakeL
     ) -> Response | TableAnswer:
         """Take a free chair at a Skat table.
 
-        The table id is the last part of the table's link /t/{id}, which a person gives the caller, or the id of a
-        table the caller opened. `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the
-        answer of read_table. Whoever sits first has the chair. The sit that fills the third chair deals the first
-        hand; while a game's result stands, sitting down counts as continuing. At a table whose running hand waits
-        for a sitter (`hand.waiting_seat` is set in the answer), the sit takes that seat over as it stands: its cards,
-        its role and its turn, and the hand moves again once no chair is open; a caller that held another chair of
-        this hand cannot take it. The command id names this step: the
-        same id with the same seat is a retry that changes nothing twice. A refusal (the chair is taken, and the
-        answer names who holds it; the caller already sits at this table; `own-seat-only`: the caller left another
-        chair of the running hand and may sit only in that one until the hand ends) comes back as a failed result with
-        its reason, leaves the table as it was and spends the command id.
+        The table id is the last part of the table's link /t/{id}, which a person gives the caller, or the id of a table
+        the caller opened. `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the answer of
+        read_table. Whoever sits first has the chair. The sit that fills the third chair deals the first hand; while a
+        game's result stands, sitting down counts as continuing. At a table whose running hand waits for a sitter
+        (`hand.waiting_seat` is set in the answer), the sit takes that seat over as it stands: its cards, its role and
+        its turn, and the hand moves again once no chair is open; a caller that held another chair of this hand cannot
+        take it. The command id names this step: the same id with the same seat is a retry that changes nothing twice. A
+        refusal (the chair is taken, and the answer names who holds it; the caller already sits at this table;
+        `own-seat-only`: the caller left another chair of the running hand and may sit only in that one until the hand
+        ends) comes back as a failed result with its reason, leaves the table as it was and spends the command id.
         """
         command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
         answer = await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)

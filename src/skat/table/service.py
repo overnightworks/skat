@@ -575,7 +575,6 @@ class TableService:
     def my_tables(
         self, account_id: str, held_ids: Iterable[TableId], connected_by_table: Mapping[str, frozenset[str]], days: int
     ) -> tuple[LobbyEntryView, ...]:
-        """The live tables the account holds a chair at among `held_ids`, in the lobby's order."""
         return my_tables(self._transactions, self._live_leases(), account_id, held_ids, connected_by_table, days)
 
     def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:

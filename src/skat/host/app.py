@@ -208,6 +208,21 @@ def _include_table_routers(
     app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
 
 
+def _include_stream_routers(
+    app: FastAPI,
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    wakes: WakeList,
+    sessions: SessionRecordStore,
+    heartbeat_seconds: float,
+) -> None:
+    app.include_router(create_streams_router(tables, presence, sessions, heartbeat_seconds))
+    app.include_router(
+        create_lobby_router(tables, presence, wakes, sessions, heartbeat_seconds, settings.paused_table_days)
+    )
+
+
 def _include_table_sub_routers(
     app: FastAPI, settings: ServerSettings, tables: TableService, presence: Presence
 ) -> None:
@@ -292,12 +307,7 @@ def create_app(
     _include_table_routers(app, tables, page_build, presence, wakes, sign_in_stores.sessions, sign_in_configs.web_auth)
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
-    app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
-    app.include_router(
-        create_lobby_router(
-            tables, presence, wakes, sign_in_stores.sessions, heartbeat_seconds, settings.paused_table_days
-        )
-    )
+    _include_stream_routers(app, settings, tables, presence, wakes, sign_in_stores.sessions, heartbeat_seconds)
     app.state.stop_streams = presence.stop
     _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(
