@@ -158,6 +158,10 @@ class AgentRoster:
             self._keys[account_id] = key
         return key
 
+    def account_of(self, key: str) -> str | None:
+        """The account a key names, or None for a key no agent was given."""
+        return next((account for account, held in self._keys.items() if held == key), None)
+
     def _remember(self, account_id: str, facts: AgentFacts) -> None:
         self._entries[account_id] = RosterEntry(self.key_of(account_id), facts.name, facts.owner)
 
@@ -386,24 +390,25 @@ class _Calling:
         return REFUSAL_TOKENS[written] if isinstance(written, InviteRefusal) else None
 
     async def send_away_of(self, request: Request, table_id: TableId, key: str, command_id: str) -> CallRefusal | None:
-        """What the send-away comes to. The cheap checks run with the person counted a member; a person at the table
-        then has the groups read fresh, and a member's act goes to the service, which decides under the table's lock
-        whether the agent holds a chair and replays a command id it has seen. A retry of a tap that succeeded finds the
-        agent no longer here and still answers as the first tap did.
+        """What the send-away comes to. `offer_of` decides it as it decides the row: a `here` answer with the person
+        counted a member, then the same answer with the groups read fresh, and the service decides under the table's
+        lock whether the agent still holds a chair. An agent that is not here is no new act, but a command id the person
+        used for it already replays its answer, as long as no other request used the id.
         """
-        chosen = next(
-            (agent for agent in await self._offered(request, table_id, viewer_is_member=True) if agent.key == key), None
-        )
-        if chosen is None:
-            return CallRefusal.AGENT_UNAVAILABLE
-        if chosen.offer.answer is InviteRefusal.NOT_PRESENT:
-            return CallRefusal.TRY_AGAIN
-        fresh = await self._membership.fresh(request)
-        if isinstance(fresh, AccessTokenRefusal):
-            return CallRefusal.TRY_AGAIN
-        if not fresh:
-            return CallRefusal.NOT_ALLOWED
-        command = SendAway(command_id, table_id.value, chosen.facts.agent_account)
+        refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=True)
+        if refusal is None:
+            fresh = await self._membership.fresh(request)
+            if isinstance(fresh, AccessTokenRefusal):
+                return CallRefusal.TRY_AGAIN
+            refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=fresh)
+        account = self._roster.account_of(key)
+        if account is None:
+            return refusal
+        command = SendAway(command_id, table_id.value, account)
+        if refusal is CallRefusal.AGENT_UNAVAILABLE:
+            return await self._replayed_send_away(request, command)
+        if refusal is not None:
+            return refusal
         connected = self._presence.connected(table_id.value)
         try:
             sent = await run_in_threadpool(self._tables.send_away, actor_of(request), command, connected)
@@ -414,6 +419,34 @@ class _Calling:
         if sent.refusal is not None:
             return CallRefusal.AGENT_UNAVAILABLE
         self._presence.wake_table(table_id.value)
+        return None
+
+    async def _send_away_refusal(
+        self, request: Request, table_id: TableId, key: str, *, viewer_is_member: bool
+    ) -> CallRefusal | None:
+        """None exactly when `offer_of` answers `here` for the agent of the key."""
+        chosen = next(
+            (
+                agent
+                for agent in await self._offered(request, table_id, viewer_is_member=viewer_is_member)
+                if agent.key == key
+            ),
+            None,
+        )
+        if chosen is None:
+            return CallRefusal.AGENT_UNAVAILABLE
+        answer = chosen.offer.answer
+        if answer is OfferState.HERE:
+            return None
+        return REFUSAL_TOKENS[answer] if isinstance(answer, InviteRefusal) else CallRefusal.AGENT_UNAVAILABLE
+
+    async def _replayed_send_away(self, request: Request, command: SendAway) -> CallRefusal | None:
+        try:
+            replayed = await run_in_threadpool(self._tables.replayed_send_away, actor_of(request), command)
+        except CommandIdReusedError:
+            return CallRefusal.TRY_AGAIN
+        if replayed is None or replayed.refusal is not None:
+            return CallRefusal.AGENT_UNAVAILABLE
         return None
 
 

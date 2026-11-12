@@ -6,9 +6,10 @@ from contextlib import nullcontext
 from datetime import datetime, timedelta
 
 import pytest
-from agents.member import INVITATION_SECONDS
+from agents.member import INVITATION_SECONDS, LEASE_SECONDS
 
-from skat.table.records import OccupantKind, TableId
+from skat.table.records import Actor, OccupantKind, SendAway, TableId
+from skat.table.service import TableService
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
@@ -630,6 +631,19 @@ class TestAMemberSendsASeatedAgentAway:
 
         assert (row["name"], row["state"], answer.status_code, chair_two(skat, table_id)) == ("Nova", "here", 200, None)
 
+    def test_the_same_tap_retried_for_a_seated_agent_that_does_not_listen_answers_as_the_first_tap_did(
+        self, skat, issuer, felix, table_id
+    ):
+        nova = Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova")
+        hand_with_nova_in_chair_two(skat, nova, table_id)
+        key = only_row(skat, felix, table_id)["key"]
+
+        answers = [send_away(skat, felix, table_id, key, "command-same-tap") for _ in range(2)]
+
+        assert [answer.status_code for answer in answers] == [200, 200]
+        assert answers[0].json() == answers[1].json()
+        assert chair_two(skat, table_id) is None
+
     def test_a_member_who_holds_no_chair_sends_away_an_agent_whose_owner_is_not_at_the_table(
         self, skat, issuer, felix, table_id
     ):
@@ -730,6 +744,32 @@ class TestASendAwayThatChangesNothing:
             assert call(skat, felix, table_id, key).status_code == 200
             assert offer_of(nova).epoch == 0
 
+    def test_the_refusal_of_an_agent_that_is_not_seated_leaves_its_command_id_unused(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            key = only_row(skat, felix, table_id)["key"]
+            refused = send_away(skat, felix, table_id, key, "command-unused")
+            nova.sit_down(table_id, 2)
+
+            answer = send_away(skat, felix, table_id, key, "command-unused")
+
+            assert (refused.status_code, answer.status_code, chair_two(skat, table_id)) == (409, 200, None)
+
+    def test_a_refusal_the_service_stored_for_a_lost_race_is_replayed_as_agent_unavailable(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            key = only_row(skat, felix, table_id)["key"]
+            lost = SendAway("command-lost", table_id, skat.stores.accounts.get(NOVA).id)
+            skat.tables.send_away(Actor(account_id=felix.id, display_name="Felix"), lost, frozenset())
+            nova.sit_down(table_id, 2)
+
+            answer = send_away(skat, felix, table_id, key, "command-lost")
+
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.AGENT_UNAVAILABLE})
+            assert chair_two(skat, table_id).display_name == "Nova"
+
     def test_a_table_that_is_not_live_answers_404(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA):
             key = only_row(skat, felix, table_id)["key"]
@@ -737,19 +777,38 @@ class TestASendAwayThatChangesNothing:
             assert send_away(skat, felix, "0" * 32, key).status_code == 404
             assert send_away(skat, felix, "not-a-table", key).status_code == 404
 
-    def test_a_table_that_ends_while_the_fresh_read_waits_answers_404(self, skat, issuer, felix, table_id):
-        with listening(skat, issuer, felix, "Nova", NOVA):
-            key = only_row(skat, felix, table_id)["key"]
-            hold = issuer.hold("refresh_token")
-            answers = []
-            caller = threading.Thread(target=lambda: answers.append(send_away(skat, felix, table_id, key)))
-            caller.start()
-            hold.arrivals.get(timeout=10)
-            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
-            hold.release.set()
-            caller.join(timeout=10)
+    def test_a_table_that_ends_while_the_fresh_read_waits_answers_404(self, skat, issuer, felix, table_id, time):
+        nova = Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova")
+        nova.sit_down(table_id, 2)
+        key = only_row(skat, felix, table_id)["key"]
+        hold = issuer.hold("refresh_token")
+        answers = []
+        caller = threading.Thread(target=lambda: answers.append(send_away(skat, felix, table_id, key)))
+        caller.start()
+        hold.arrivals.get(timeout=10)
+        skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
+        assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+        hold.release.set()
+        caller.join(timeout=10)
 
-            assert [answer.status_code for answer in answers] == [404]
+        assert [answer.status_code for answer in answers] == [404]
+
+    def test_a_table_that_ends_between_the_checks_and_the_act_answers_404(
+        self, skat, issuer, felix, table_id, time, monkeypatch
+    ):
+        nova = Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova")
+        nova.sit_down(table_id, 2)
+        key = only_row(skat, felix, table_id)["key"]
+        send_away_of_service = TableService.send_away
+
+        def ends_the_table_first(service, actor, command, connected):
+            skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
+            assert service.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+            return send_away_of_service(service, actor, command, connected)
+
+        monkeypatch.setattr(TableService, "send_away", ends_the_table_first)
+
+        assert send_away(skat, felix, table_id, key).status_code == 404
 
     def test_the_same_tap_retried_sends_away_once_and_answers_alike(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
@@ -762,6 +821,18 @@ class TestASendAwayThatChangesNothing:
             assert [answer.status_code for answer in answers] == [200, 200]
             assert answers[0].json() == answers[1].json()
             assert offer_of(nova).epoch == 1
+
+    def test_a_command_id_used_for_a_send_away_is_try_again_for_an_agent_that_is_not_here(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA) as nova, listening(skat, issuer, felix, "Bach", BACH):
+            nova.sit_down(table_id, 2)
+            rows = {row["name"]: row["key"] for row in read_control(skat, felix, table_id).json()["rows"]}
+            send_away(skat, felix, table_id, rows["Nova"], "command-used")
+
+            answer = send_away(skat, felix, table_id, rows["Bach"], "command-used")
+
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.TRY_AGAIN})
 
     def test_two_members_sending_the_same_agent_away_free_the_chair_once_and_raise_the_epoch_once(
         self, skat, issuer, felix, table_id
