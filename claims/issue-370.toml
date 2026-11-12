@@ -3,6 +3,6 @@ agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
 role = "builder"
 base = "6fda5924444b33a412ea1210702451f1151c8309"
 branch = "claude/issue-370-design-0-23"
-scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "pyproject.toml", "uv.lock"]
+scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/words/index.ts", "pyproject.toml", "src/skat/web/words.py", "uv.lock"]
 opened_commit = "163fccf28382980391bd4f8b8526b596891fabb7"
 whole_reason = "The pins with their locks and, where the app already generates modules, the regenerated modules."
