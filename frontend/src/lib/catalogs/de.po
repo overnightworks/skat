@@ -351,8 +351,16 @@ msgctxt "result.raise"
 msgid "Wert {value} < Reizwert {bid} → {settled}"
 msgstr ""
 
-msgctxt "result.bockFactor"
+msgctxt "bock.factor"
 msgid "Bock ×{factor}"
+msgstr ""
+
+msgctxt "rules.chipBock"
+msgid "Bock"
+msgstr ""
+
+msgctxt "rules.bockLeft"
+msgid "noch {count}"
 msgstr ""
 
 msgctxt "result.sidePoints"

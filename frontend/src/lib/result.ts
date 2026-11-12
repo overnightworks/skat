@@ -99,7 +99,7 @@ const MISSED_WORDS: Record<Announcement, string | null> = {
 
 // A Bock game's factor is held beside the counted levels; a game outside Bock has no such step.
 function bockChipOf(factor: number): Chip[] {
-    return factor > 1 ? [{ word: words["result.bockFactor"]({ factor: String(factor) }), ticked: true }] : [];
+    return factor > 1 ? [{ word: words["bock.factor"]({ factor: String(factor) }), ticked: true }] : [];
 }
 
 function chipsOf(result: Result): Chip[] {

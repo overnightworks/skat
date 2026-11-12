@@ -33,6 +33,8 @@
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
+    import TableRules from "#lib/ui/TableRules.svelte";
+    import { bockLine } from "#lib/tableRules.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -307,6 +309,7 @@
                 </a>
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
+                <TableRules bock={outcome.table.bock} />
                 {#if !callMode}
                     <SoundButton place="bar" />
                 {/if}
@@ -373,6 +376,7 @@
                 </div>
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
+                {@const bockText = bockLine(outcome.table.bock)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
                     <GiveUpPlaque
@@ -383,7 +387,7 @@
                         }}
                     />
                 {:else}
-                    <div class="plaque" class:wide={label.announcement !== null}>
+                    <div class="plaque" class:wide={label.announcement !== null} class:bocked={bockText !== null}>
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}
                                 <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -395,6 +399,9 @@
                                 <span class="announced">{label.announcement}</span>
                             {/if}
                         </span>
+                        {#if bockText !== null}
+                            <span class="bock-line">{bockText}</span>
+                        {/if}
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}

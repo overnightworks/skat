@@ -89,7 +89,9 @@ export type Words = {
     readonly "result.missedSchneider": string;
     readonly "result.missedSchwarz": string;
     readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
-    readonly "result.bockFactor": (gaps: { readonly factor: string }) => string;
+    readonly "bock.factor": (gaps: { readonly factor: string }) => string;
+    readonly "rules.chipBock": string;
+    readonly "rules.bockLeft": (gaps: { readonly count: number }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
     readonly "closed.notFound": string;
     readonly "closed.emptySeconds": (count: number) => string;
@@ -265,7 +267,9 @@ export const words: Words = {
     "result.missedSchneider": "Schneider angesagt, nicht erreicht",
     "result.missedSchwarz": "Schwarz angesagt, nicht erreicht",
     "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
-    "result.bockFactor": (gaps: { readonly factor: string }) => "Bock ×" + gaps.factor,
+    "bock.factor": (gaps: { readonly factor: string }) => "Bock ×" + gaps.factor,
+    "rules.chipBock": "Bock",
+    "rules.bockLeft": (gaps: { readonly count: number }) => "noch " + numberFormat.format(gaps.count),
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
     "closed.notFound": "Tisch nicht gefunden",
     "closed.emptySeconds": (count: number) => ({

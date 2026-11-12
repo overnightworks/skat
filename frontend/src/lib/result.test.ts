@@ -284,7 +284,7 @@ describe("a Bock game's card", () => {
         expect(view.chips).toEqual([
             { word: words["result.matadorsWith"](2), ticked: false },
             { word: words["result.levelSpiel"], ticked: true },
-            { word: words["result.bockFactor"]({ factor: String(factor) }), ticked: true },
+            { word: words["bock.factor"]({ factor: String(factor) }), ticked: true },
         ]);
     });
 
@@ -298,7 +298,7 @@ describe("a Bock game's card", () => {
     it("holds the factor of a lost game beside its doubling", () => {
         const view = resultView(table(2, { ...LOST_GAME, bock_factor: 2, score: -144 }));
 
-        expect(view.chips.map(({ word }) => word)).toContain(words["result.bockFactor"]({ factor: "2" }));
+        expect(view.chips.map(({ word }) => word)).toContain(words["bock.factor"]({ factor: "2" }));
         expect(view.equation).toEqual({ multiplier: 3, base: 12, product: 36 });
         expect(view.score).toBe("\u2212144");
     });
@@ -306,7 +306,7 @@ describe("a Bock game's card", () => {
     it("gives a Null game the chip and its fixed value as the line", () => {
         const view = resultView(table(2, { ...NULL_GAME, bock_factor: 2, game_value: 35, score: 70 }));
 
-        expect(view.chips).toEqual([{ word: words["result.bockFactor"]({ factor: "2" }), ticked: true }]);
+        expect(view.chips).toEqual([{ word: words["bock.factor"]({ factor: "2" }), ticked: true }]);
         expect(view.equation).toEqual({ multiplier: null, base: null, product: 35 });
     });
 
