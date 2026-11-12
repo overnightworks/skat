@@ -12,9 +12,10 @@ from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
 
 from skat.engine.deal import Position
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.table.asking import revision_of
 from skat.table.member_place import InvitationRequest
-from skat.table.records import EndedTable, EndReason, Series, TableId
+from skat.table.records import EndedTable, EndReason, Series, TableId, TableOptions
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX
 from skat.web.mcp import (
     AGREE_TO_END_SERIES_TOOL,
@@ -27,6 +28,8 @@ from skat.web.mcp import (
     MCP_GROUP,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
+    SAY_KONTRA_TOOL,
+    SAY_NO_WORD_TOOL,
     STAND_UP_TOOL,
     START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
@@ -43,7 +46,7 @@ from tests.web.support.agent import Agent, person_passes, person_posts, view_uri
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import UNKNOWN_ID, Skat
+from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 UNKNOWN = "Unknown resource"
@@ -597,6 +600,50 @@ class TestAScriptedClientIsWokenAndPlays:
 
         assert (view["awaits_you"], view["state"]["series"]["end_proposal"] is not None) == (True, True)
         assert (answer.is_error, moved["revision"] > view["revision"], moved["awaits_you"]) == (False, True, False)
+
+
+class TestAScriptedClientIsAskedForItsKontraWordOnce:
+    @pytest.fixture
+    def rearhand_table(self, skat, agent):
+        """A table with Kontra where the agent holds the rearhand chair, an opponent who is not on turn."""
+        table = AgentTable(skat, agent, REARHAND)
+        options = KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD)
+        record = skat.store.tables[table.table_id]
+        skat.store.tables[table.table_id] = replace(record, options=TableOptions(kontra=options))
+        skat.client.cookies.clear()
+        return table
+
+    @pytest.mark.parametrize(
+        ("tool", "arguments"),
+        [pytest.param(SAY_NO_WORD_TOOL, {}, id="no"), pytest.param(SAY_KONTRA_TOOL, {"word": "kontra"}, id="yes")],
+    )
+    def test_the_declaration_asks_the_opponent_and_the_answer_ends_the_wait(
+        self, skat, sdk, rearhand_table, tool, arguments
+    ):
+        table = rearhand_table
+
+        with sdk.connected() as session, session.listening() as events:
+            act = acts(session, table.table_id)
+            table.declared_hand_game()
+            view = events.woken_view(table.table_id)
+            moved = act(tool, view, **arguments)
+
+        playing = view["state"]["hand"]["playing"]
+        assert (view["awaits_you"], playing["kontra"]["my_word"], playing["turn_seat"]) == (True, "kontra", 3)
+        assert (moved["revision"] > view["revision"], moved["awaits_you"]) == (True, False)
+
+    def test_play_goes_on_and_the_answered_seat_is_not_asked_again_for_the_word(self, skat, sdk, rearhand_table):
+        table = rearhand_table
+
+        with sdk.connected() as session, session.listening() as events:
+            act = acts(session, table.table_id)
+            table.declared_hand_game()
+            answered = act(SAY_NO_WORD_TOOL, events.woken_view(table.table_id))
+            table.accepted(HERZ_GAME[0])
+            later = session.view(table.table_id)
+
+        assert (answered["awaits_you"], later["awaits_you"]) == (False, False)
+        assert later["state"]["hand"]["playing"]["kontra"]["my_word_answered"] is True
 
 
 def after_a_game(table, *, series_deals=1, ready=()):
