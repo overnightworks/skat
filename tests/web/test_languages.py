@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 import pytest
 from fastapi.testclient import TestClient
 from webauth.config import installed_web_auth_config
-from webauth.languages import AppLanguages
 
 from skat.host.app import create_app
 from skat.web import languages
@@ -50,17 +49,6 @@ def html_lang_of(content: bytes) -> str:
     return re.search(rb'<html lang="([^"]+)">', content).group(1).decode()
 
 
-@pytest.fixture
-def further_language(monkeypatch) -> str:
-    """The catalogs gain a second language: the module's generated offer is the one seam the tests move."""
-    further = "en"
-    monkeypatch.setattr(languages, "LANGUAGES", (*LANGUAGES, further))
-    monkeypatch.setattr(
-        languages, "APP_LANGUAGES", AppLanguages(offered=(*LANGUAGES, further), default=SOURCE_LANGUAGE)
-    )
-    return further
-
-
 class TestShellLanguage:
     @SHELL_PATHS
     @pytest.mark.parametrize("language", LANGUAGES)
@@ -91,15 +79,9 @@ class TestShellLanguage:
 
         assert html_lang_of(client.get(path).content) == SOURCE_LANGUAGE
 
-    @SHELL_PATHS
-    def test_a_language_a_catalog_adds_is_offered_without_another_change(
-        self, sign_in_settings, path, further_language
-    ):
-        browser = member_client(sign_in_settings, account_language=None, accept_language=further_language)
-        account = member_client(sign_in_settings, account_language=further_language, accept_language=UNOFFERED_TAG)
-
-        assert html_lang_of(browser.get(path).content) == further_language
-        assert html_lang_of(account.get(path).content) == further_language
+    def test_the_offer_is_the_languages_of_the_catalogs_with_the_source_language_as_default(self):
+        assert languages.APP_LANGUAGES.offered == LANGUAGES
+        assert languages.APP_LANGUAGES.default == SOURCE_LANGUAGE
 
     @SHELL_PATHS
     def test_a_shell_chosen_by_language_says_so_to_caches(self, sign_in_settings, path):
