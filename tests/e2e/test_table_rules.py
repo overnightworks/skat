@@ -26,6 +26,8 @@ CLOSE = text(SOURCE_LANGUAGE, "rules.close")
 OFFICIAL = text(SOURCE_LANGUAGE, "rules.chipOfficial")
 WE = text(SOURCE_LANGUAGE, "play.sideUs")
 THEY = text(SOURCE_LANGUAGE, "play.sideThem")
+YOU = text(SOURCE_LANGUAGE, "result.sideYou")
+OPPONENTS = text(SOURCE_LANGUAGE, "result.sideThem")
 CARDS_IN_A_TRICK = 3
 SHOWN_POINTS = ".plaque .points"
 
@@ -250,7 +252,7 @@ def sides_as_seen_by(table: PlayingTable, person: Page) -> tuple[str, str]:
     if person is table.watcher:
         return declarer, THEY
     if person is table.pages[table.declarer_seat]:
-        return WE, THEY
+        return YOU, OPPONENTS
     return declarer, WE
 
 
