@@ -328,6 +328,7 @@
                 </div>
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
+                {@const running = inPlay.playing.running_points}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
                     <GiveUpPlaque
@@ -336,9 +337,12 @@
                         onanswer={(answer: GiveUpAnswer) => {
                             void answerRequest(table, answer);
                         }}
-                    />
+                    >
+                        {#if running !== null}
+                            <PointsBar sides={sideNames(table.chairs, inPlay.declarerSeat)} points={running} />
+                        {/if}
+                    </GiveUpPlaque>
                 {:else}
-                    {@const running = inPlay.playing.running_points}
                     <div class="plaque" class:wide={label.announcement !== null} class:counting={running !== null}>
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}

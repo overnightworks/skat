@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
+from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
@@ -29,6 +30,7 @@ THEY = text(SOURCE_LANGUAGE, "play.sideThem")
 YOU = text(SOURCE_LANGUAGE, "result.sideYou")
 OPPONENTS = text(SOURCE_LANGUAGE, "result.sideThem")
 CARDS_IN_A_TRICK = 3
+CARDS_AFTER_TWO_TRICKS = 6
 SHOWN_POINTS = ".plaque .points"
 
 RUNNING_POINTS_ONLY = {"show_running_points": True}
@@ -301,6 +303,20 @@ def test_the_plaque_counts_from_completed_tricks_for_the_players_and_a_watcher(
     expect_the_bar(table, counted["declarer"], counted["opponents"])
     for person in table.everyone:
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+def test_the_bar_stays_beside_a_standing_give_up_request(
+    deal_with_running_points: Callable[..., PlayingTable],
+) -> None:
+    table = deal_with_running_points(DESKTOP)
+    table.play_out(CARDS_AFTER_TWO_TRICKS)
+    counted = table.playing()["running_points"]
+
+    table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
+
+    for person in table.everyone:
+        expect(person.locator(".plaque.ask")).to_be_visible()
+    expect_the_bar(table, counted["declarer"], counted["opponents"])
 
 
 def test_a_null_game_shows_no_bar(deal_with_running_points: Callable[..., PlayingTable]) -> None:
