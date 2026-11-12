@@ -1928,6 +1928,13 @@ body {
     --strip: calc(100vw * 25 / 390);
 }
 
+/* On a phone the near chair stands right above the hand, so the hand makes room for a picked card's lift under the chair. */
+@media (max-width: 899px) {
+    .room .own-hand.picking {
+        margin-top: calc(var(--card-width) * 0.6 + 6px);
+    }
+}
+
 .room .own-hand .pick,
 .room .own-hand .play {
     display: block;
