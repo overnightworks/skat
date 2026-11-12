@@ -24,7 +24,7 @@ from skat.table.records import (
     OccupantKind,
 )
 from skat.table.service import CommandIdReusedError
-from skat.web.languages import language_of_request
+from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.table_options import OptionsAnswer, options_answer_of
@@ -701,6 +701,7 @@ def _create_page_router(page_build: PageBuild, sessions: SessionRecordStore, web
             page_build.shell_in(language_of_request(request, sessions=sessions, config=web_auth))
         )
         response.headers["Cache-Control"] = "no-cache"
+        response.headers["Vary"] = LANGUAGE_VARY
         return response
 
     return router

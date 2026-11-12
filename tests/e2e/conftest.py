@@ -5,6 +5,8 @@ import pytest
 from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
+from skat.web.words import SOURCE_LANGUAGE
+from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT
 from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
@@ -52,7 +54,13 @@ def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[s
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]:
     # A measured card is not in motion: a test that needs motion names "no-preference" itself.
-    return {**browser_context_args, "ignore_https_errors": True, "reduced_motion": "reduce"}
+    # Every context asks for the source language, so the suite stays in it when a further catalog lands.
+    return {
+        **browser_context_args,
+        "ignore_https_errors": True,
+        "reduced_motion": "reduce",
+        "locale": SOURCE_LANGUAGE,
+    }
 
 
 @pytest.fixture
@@ -78,6 +86,14 @@ def browser_coverage() -> BrowserCoverage:
 
 
 @pytest.fixture
+def realm_reusing_refresh_tokens(e2e_server: RunningServer) -> Iterator[None]:
+    # The realm lets a refresh token be used again, so overlapping reads of one session both succeed.
+    e2e_server.issuer.reuses_refresh_tokens = True
+    yield
+    e2e_server.issuer.reuses_refresh_tokens = False
+
+
+@pytest.fixture
 def open_person(
     browser: Browser,
     browser_context_args: dict[str, Any],
@@ -98,6 +114,7 @@ def open_person(
         signed_in: bool = True,
         username: str | None = None,
         server: RunningServer = e2e_server,
+        groups: tuple[str, ...] | None = None,
         **device_options: Any,
     ) -> Page:
         person_address = PERSON_ADDRESS_BASE + next(person_address_offsets)
@@ -105,6 +122,7 @@ def open_person(
             **{**browser_context_args, "extra_http_headers": {"X-Forwarded-For": str(person_address)}, **device_options}
         )
         contexts.append(context)
+        context.add_init_script(path=RECORDING_AUDIO_SCRIPT)
         browser_coverage.watch(context)
         context.on("requestfailed", note_failed_request)
         page = context.new_page()
@@ -115,7 +133,11 @@ def open_person(
                 account = server.stores.accounts.create_for_subject(
                     f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
                 )
-            member = seed_member(server.stores, server.config, account=account)
+            # With `groups` the session holds a refresh token and the issuer reports them as the person's groups.
+            refresh_token = None if groups is None else server.issuer.refresh_token_for(account.id)
+            if groups is not None:
+                server.issuer.grant_groups(account.id, groups)
+            member = seed_member(server.stores, server.config, account=account, refresh_token=refresh_token)
             context.add_cookies(
                 [playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers]
             )

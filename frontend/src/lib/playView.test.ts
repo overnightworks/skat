@@ -17,6 +17,7 @@ function chairs(mine: number, positions: Record<number, Position> = POSITIONS): 
     return [1, 2, 3].map((seat) => ({
         seat,
         occupant_name: `player ${String(seat)}`,
+        occupant_kind: "person",
         is_mine: seat === mine,
         is_away: false,
         ready: false,

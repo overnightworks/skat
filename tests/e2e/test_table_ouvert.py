@@ -30,18 +30,17 @@ pytestmark = pytest.mark.e2e
 CARDS_IN_A_HAND = 10
 WINNING_DEAL_SEED = 1
 NARROW_BELOW = 900
-GRAND_OUVERT = f"{text(SOURCE_LANGUAGE, 'game.grand')} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
+GRAND_OUVERT = text(SOURCE_LANGUAGE, "game.ouvertName", game=text(SOURCE_LANGUAGE, "game.grand"))
 TOKEN_SUITS: dict[str, Suit] = {token: suit for suit, token in SUIT_TOKENS.items()}
 TOKEN_RANKS: dict[str, Rank] = {token: rank for rank, token in RANK_TOKENS.items()}
 OPEN_TAG = text(SOURCE_LANGUAGE, "table.open")
 NULL_GAME = text(SOURCE_LANGUAGE, "game.null")
-NULL_OUVERT = f"{NULL_GAME} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
-NULL_OUVERT_HAND = f"{NULL_OUVERT} {text(SOURCE_LANGUAGE, 'game.hand')}"
+NULL_OUVERT = text(SOURCE_LANGUAGE, "game.ouvertName", game=NULL_GAME)
+NULL_OUVERT_HAND = text(SOURCE_LANGUAGE, "game.ouvertHandName", game=NULL_GAME)
 OUVERT_RUNG = text(SOURCE_LANGUAGE, "declare.levelOuvert")
 SCHNEIDER = text(SOURCE_LANGUAGE, "declare.levelSchneider")
 SCHWARZ = text(SOURCE_LANGUAGE, "declare.levelSchwarz")
 HAND = text(SOURCE_LANGUAGE, "declare.hand")
-PLAQUE_HAND = text(SOURCE_LANGUAGE, "game.hand")
 TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 PUT_BACK = text(SOURCE_LANGUAGE, "declare.putBack")
 ANNOUNCE = text(SOURCE_LANGUAGE, "declare.announceGame")
@@ -315,7 +314,7 @@ def test_null_ouvert_after_the_take_is_offered_without_levels_and_declared_with_
     for person in (*onlookers(table), declarer):
         reload_and_wait(person)
         expect(person.locator(PLAQUE)).to_contain_text(NULL_OUVERT)
-        expect(person.locator(PLAQUE)).not_to_contain_text(PLAQUE_HAND)
+        expect(person.locator(PLAQUE)).not_to_contain_text(NULL_OUVERT_HAND)
         expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
     expect_open_cards_without_the_skat(table, cards_put_back)
     assert page_errors == []
@@ -410,17 +409,16 @@ def test_the_ouvert_rung_releases_a_level_and_declares_an_ouvert_game_named_with
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
     assert declaration == {"game": game, "hand": True, "ouvert": True, "announcement": "schwarz"}
     playing = PlayingTable(table, None)
+    ouvert_name = text(SOURCE_LANGUAGE, "game.ouvertName", game=text(SOURCE_LANGUAGE, word_key))
     for person in playing.everyone:
-        expect(person.locator(PLAQUE)).to_contain_text(
-            f"{text(SOURCE_LANGUAGE, word_key)} {text(SOURCE_LANGUAGE, 'game.ouvert')}"
-        )
+        expect(person.locator(PLAQUE)).to_contain_text(ouvert_name)
         expect(person.locator(ANNOUNCED_MARK)).to_have_count(0)
         plaque = person.locator(PLAQUE).element_handle()
         for covered in (*person.locator(".fan-spot").all(), *person.locator(".own-hand").all()):
             assert not person.evaluate(BOXES_OVERLAP, [plaque, covered.element_handle()])
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     reload_and_wait(table.watcher)
-    expect(table.watcher.locator(PLAQUE)).to_contain_text(text(SOURCE_LANGUAGE, "game.ouvert"))
+    expect(table.watcher.locator(PLAQUE)).to_contain_text(ouvert_name)
     assert page_errors == []
 
 
@@ -503,7 +501,9 @@ def test_a_game_without_ouvert_is_stored_with_ouvert_false_and_plaque_as_before(
     button_of(declarer, text(SOURCE_LANGUAGE, "game.herz")).click()
     button_of(declarer, SCHNEIDER).click()
     button_of(declarer, ANNOUNCE).click()
-    expect(declarer.locator(PLAQUE)).to_contain_text(f"{text(SOURCE_LANGUAGE, 'game.herz')} {PLAQUE_HAND}")
+    expect(declarer.locator(PLAQUE)).to_contain_text(
+        text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, "game.herz"))
+    )
     expect(declarer.locator(ANNOUNCED_MARK)).to_have_count(1)
     declaration = table.declaring_as_the_declarer_sees_it()["declaration"]
     assert declaration == {"game": "herz", "hand": True, "ouvert": False, "announcement": "schneider"}

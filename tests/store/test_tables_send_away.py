@@ -3,14 +3,13 @@ under two sits at once, and the agent's book row.
 """
 
 import threading
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import text
 
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.member_place import InvitationRequest
 from skat.table.records import (
     Actor,
     CreateTable,
@@ -23,6 +22,7 @@ from skat.table.records import (
     TableId,
 )
 from skat.table.service import TableService
+from tests.support.calls import call_facts
 from tests.support.faulty_tables import BothReadBeforeEitherWrites
 
 pytestmark = pytest.mark.postgres
@@ -195,10 +195,7 @@ class TestTheBookRow:
     ):
         table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
         service.sit(VISITOR, SitDown("command-ben", table_id, 2), NOBODY)
-        expires = datetime.now(UTC) + timedelta(hours=1)
-        service.invite_agent(
-            TableId(table_id), InvitationRequest(MOZART.account_id, OPENER.account_id, OPENER.account_id, expires)
-        )
+        service.invite_agent(TableId(table_id), call_facts(MOZART.account_id, OPENER.account_id), timedelta(hours=1))
         service.sit(MOZART, SitDown("command-mozart", table_id, MOZARTS_SEAT), NOBODY)
 
         send_mozart_away(service, table_id)

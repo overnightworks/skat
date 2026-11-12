@@ -4,7 +4,6 @@ import secrets
 import time
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
-from html.parser import HTMLParser
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -36,7 +35,6 @@ from skat.web.constants import (
 from skat.web.page_build import BuiltPage, PageBuild
 from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import (
-    LOGOUT_LABEL,
     IssuerTransports,
     LoggingAuditSink,
     build_relying_party,
@@ -44,6 +42,8 @@ from skat.web.sign_in import (
     install_sign_in,
 )
 from skat.web.tables import TABLE_PAGE_PREFIX
+from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, text
+from tests.support.end_session_page import EndSessionPage
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
@@ -382,34 +382,6 @@ class TestMemberSignIn:
         ]
 
 
-class EndSessionPage(HTMLParser):
-    """The form webauth's logout page posts: its action, hidden fields and button text."""
-
-    def __init__(self, markup: str) -> None:
-        super().__init__()
-        self.action = ""
-        self.fields: dict[str, str] = {}
-        self.button_label = ""
-        self._in_button = False
-        self.feed(markup)
-
-    def handle_starttag(self, tag, attrs):
-        attributes = dict(attrs)
-        if tag == "form":
-            self.action = attributes["action"]
-        elif tag == "input":
-            self.fields[attributes["name"]] = attributes["value"]
-        elif tag == "button":
-            self._in_button = True
-
-    def handle_endtag(self, tag):
-        self._in_button = self._in_button and tag != "button"
-
-    def handle_data(self, data):
-        if self._in_button:
-            self.button_label += data
-
-
 class TestLogout:
     def test_a_member_is_signed_out_here_and_gets_the_page_that_posts_their_id_token_to_the_issuer(self, harness):
         browser = harness.browser()
@@ -429,11 +401,21 @@ class TestLogout:
             "post_logout_redirect_uri": TEST_PUBLIC_ORIGIN + LOGIN_PATH,
             "id_token_hint": id_token,
         }
-        assert page.button_label == LOGOUT_LABEL
+        assert page.button_label == text(SOURCE_LANGUAGE, "logout.button")
+        assert page.language == SOURCE_LANGUAGE
         assert harness.sessions.load(session_id) is None
         assert harness.who(browser) == {"user": None}
         assert {"max-age=0", "path=/"} <= cookies[SESSION_COOKIE]
         assert set(cookies) == {SESSION_COOKIE}
+
+    @pytest.mark.parametrize("language", LANGUAGES)
+    def test_the_page_says_the_button_in_the_language_the_browser_asks_for(self, harness, language):
+        browser = harness.browser()
+        harness.sign_in_through(browser)
+
+        page = EndSessionPage(browser.post(LOGOUT_PATH, headers={"accept-language": language}).text)
+
+        assert (page.language, page.button_label) == (language, text(language, "logout.button"))
 
     def test_a_logout_whose_row_is_gone_sends_no_hint_so_the_issuer_asks_once(self, harness):
         browser = harness.browser()
