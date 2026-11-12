@@ -8,6 +8,7 @@ from agents.member import INVITATION_SECONDS
 from starlette.concurrency import run_in_threadpool
 
 from skat.table.records import Actor, OccupantKind, SendAway
+from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
     call,
@@ -24,8 +25,6 @@ from tests.web.support.skat import Skat, streams_of
 
 NOVA = "agent-nova"
 BACH = "agent-bach"
-NOT_ALLOWED, OWNER_ABSENT, PLACE_FULL = "not-allowed", "owner-absent", "place-full"
-AGENT_UNAVAILABLE, TRY_AGAIN = "agent-unavailable", "try-again"
 UNKNOWN_KEY = "a-key-no-roster-made"
 
 
@@ -284,7 +283,7 @@ class TestACallThatChangesNothing:
             with streams_of(skat, table_id, [(outsider.headers, None)]):
                 answer = call(skat, outsider, table_id, key)
 
-            assert (answer.status_code, answer.json()) == (409, {"reason": NOT_ALLOWED})
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
             assert invitations_of(nova) == []
 
     def test_a_person_without_a_stream_hears_try_again_and_costs_no_grant(self, skat, issuer, felix, table_id):
@@ -295,7 +294,7 @@ class TestACallThatChangesNothing:
 
             answer = call(skat, absent, table_id, key)
 
-            assert (answer.status_code, answer.json()) == (409, {"reason": TRY_AGAIN})
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.TRY_AGAIN})
             assert (invitations_of(nova), refresh_grants(issuer)) == ([], before)
 
     @pytest.mark.parametrize(
@@ -316,7 +315,7 @@ class TestACallThatChangesNothing:
 
             answer = call(skat, felix, table_id, key)
 
-            assert (answer.status_code, answer.json()) == (409, {"reason": TRY_AGAIN}), name
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.TRY_AGAIN}), name
             assert invitations_of(nova) == []
 
     def test_a_session_without_a_refresh_token_means_try_again_and_makes_no_grant(self, skat, issuer, felix, table_id):
@@ -330,7 +329,7 @@ class TestACallThatChangesNothing:
 
             answer = call(skat, no_token, table_id, key)
 
-            assert (answer.status_code, answer.json()) == (409, {"reason": TRY_AGAIN})
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.TRY_AGAIN})
             assert (invitations_of(nova), refresh_grants(issuer)) == ([], before)
 
     def test_a_refused_fresh_read_leaves_the_held_display_answer_as_it_is(self, skat, issuer, felix, table_id):
@@ -353,7 +352,7 @@ class TestACallThatChangesNothing:
             answer = call(skat, felix, table_id, key)
             control = read_control(skat, felix, table_id).json()
 
-        assert (answer.status_code, answer.json()) == (409, {"reason": NOT_ALLOWED})
+        assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
         assert (control, invitations_of(nova)) == ({"shown": False, "rows": []}, [])
 
     def test_a_person_added_to_the_group_after_the_display_sees_the_control_at_the_next_call(
@@ -377,7 +376,7 @@ class TestACallThatChangesNothing:
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
             answer = call(skat, felix, table_id, UNKNOWN_KEY)
 
-            assert (answer.status_code, answer.json()) == (409, {"reason": AGENT_UNAVAILABLE})
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.AGENT_UNAVAILABLE})
             assert invitations_of(nova) == []
 
     def test_a_table_that_is_not_live_answers_404(self, skat, issuer, felix, table_id):
@@ -390,9 +389,9 @@ class TestACallThatChangesNothing:
     @pytest.mark.parametrize(
         ("arrange", "reason"),
         [
-            pytest.param("full", PLACE_FULL, id="no-chair-is-free"),
-            pytest.param("seated", AGENT_UNAVAILABLE, id="the-agent-sits-here"),
-            pytest.param("invited-by-someone", AGENT_UNAVAILABLE, id="someone-else-invited-it"),
+            pytest.param("full", CallRefusal.PLACE_FULL, id="no-chair-is-free"),
+            pytest.param("seated", CallRefusal.AGENT_UNAVAILABLE, id="the-agent-sits-here"),
+            pytest.param("invited-by-someone", CallRefusal.AGENT_UNAVAILABLE, id="someone-else-invited-it"),
         ],
     )
     def test_each_cheap_reason_is_answered_without_a_grant_and_writes_nothing(
@@ -426,7 +425,7 @@ class TestACallThatChangesNothing:
 
             answer = call(skat, felix, table_id, key)
 
-            assert (gone, answer.status_code, answer.json()) == ([], 409, {"reason": OWNER_ABSENT})
+            assert (gone, answer.status_code, answer.json()) == ([], 409, {"reason": CallRefusal.OWNER_ABSENT})
             assert (invitations_of(nova), refresh_grants(issuer)) == ([], before)
 
 
@@ -469,7 +468,9 @@ class TestTwoOverlappingCallsOfOneSession:
             next_call = call(skat, felix, table_id, rows["Bach"])
 
             assert sorted(answer.status_code for answer in answers) == [200, 409]
-            assert [answer.json() for answer in answers if answer.status_code == 409] == [{"reason": TRY_AGAIN}]
+            assert [answer.json() for answer in answers if answer.status_code == 409] == [
+                {"reason": CallRefusal.TRY_AGAIN}
+            ]
             assert len(invitations_of(nova)) == 1
             assert (next_call.status_code, len(invitations_of(bach))) == (200, 1)
 
