@@ -39,8 +39,27 @@ describe("the Agenten pill", () => {
         vi.unstubAllGlobals();
     });
 
+    // The page's two facts the pill follows, which a test moves like the stream does.
+    const table = $state<{ streamedVersion: number | null; agentsSeated: number }>({
+        streamedVersion: null,
+        agentsSeated: 0,
+    });
+
     async function show(streamedVersion: number | null) {
-        mounted = mount(AgentsPill, { target: document.body, props: { tableId: TABLE_ID, streamedVersion } });
+        table.streamedVersion = streamedVersion;
+        table.agentsSeated = 0;
+        mounted = mount(AgentsPill, {
+            target: document.body,
+            props: {
+                tableId: TABLE_ID,
+                get streamedVersion() {
+                    return table.streamedVersion;
+                },
+                get agentsSeated() {
+                    return table.agentsSeated;
+                },
+            },
+        });
         await settle();
         flushSync();
     }
@@ -71,6 +90,30 @@ describe("the Agenten pill", () => {
         expect(pill()?.textContent).toContain("AI");
         expect(pill()?.textContent).toContain(words["agents.pill"]);
         expect(popover()).toBeNull();
+    });
+
+    it("reads again when an agent sits, which shows the pill to an owner who had none", async () => {
+        const fetcher = server({ control: { shown: false, rows: [] } });
+        await show(1);
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.streamedVersion = 2;
+        table.agentsSeated = 1;
+        await settle();
+        flushSync();
+
+        expect([fetcher.mock.calls.length, pill() === null]).toEqual([2, false]);
+    });
+
+    it("reads nothing for a later table that seats no other agent while the list is closed", async () => {
+        const fetcher = server({ control: { shown: true, rows: [row] } });
+        await show(1);
+
+        table.streamedVersion = 2;
+        await settle();
+        flushSync();
+
+        expect(fetcher.mock.calls.length).toBe(1);
     });
 
     it("opens the kit's list on a tap, with a row per agent, and closes it with the next tap", async () => {
