@@ -114,10 +114,11 @@ export type Words = {
     readonly "game.forehand": string;
     readonly "game.middlehand": string;
     readonly "game.rearhand": string;
-    readonly "game.hand": string;
+    readonly "game.handName": (gaps: { readonly game: string }) => string;
     readonly "game.announcedSchneider": string;
     readonly "game.announcedSchwarz": string;
-    readonly "game.ouvert": string;
+    readonly "game.ouvertName": (gaps: { readonly game: string }) => string;
+    readonly "game.ouvertHandName": (gaps: { readonly game: string }) => string;
     readonly "game.karo": string;
     readonly "game.herz": string;
     readonly "game.pik": string;
@@ -132,6 +133,7 @@ export type Words = {
     readonly "game.rankQueen": string;
     readonly "game.rankKing": string;
     readonly "game.rankAce": string;
+    readonly "game.cardName": (gaps: { readonly rank: string; readonly suit: string }) => string;
     readonly "legal.imprint": string;
     readonly "legal.privacy": string;
     readonly "legal.terms": string;
@@ -265,10 +267,11 @@ export const words: Words = {
     "game.forehand": "Vorhand",
     "game.middlehand": "Mittelhand",
     "game.rearhand": "Hinterhand",
-    "game.hand": "Hand",
+    "game.handName": (gaps: { readonly game: string }) => gaps.game + " Hand",
     "game.announcedSchneider": "Schneider angesagt",
     "game.announcedSchwarz": "Schwarz angesagt",
-    "game.ouvert": "ouvert",
+    "game.ouvertName": (gaps: { readonly game: string }) => gaps.game + " ouvert",
+    "game.ouvertHandName": (gaps: { readonly game: string }) => gaps.game + " ouvert Hand",
     "game.karo": "Karo",
     "game.herz": "Herz",
     "game.pik": "Pik",
@@ -283,6 +286,7 @@ export const words: Words = {
     "game.rankQueen": "Dame",
     "game.rankKing": "König",
     "game.rankAce": "Ass",
+    "game.cardName": (gaps: { readonly rank: string; readonly suit: string }) => gaps.suit + " " + gaps.rank,
     "legal.imprint": "Impressum",
     "legal.privacy": "Datenschutz",
     "legal.terms": "Nutzungsbedingungen",
