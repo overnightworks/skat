@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { words } from "#lib/words.ts";
-import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
+import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import {
     agentSitsNote,
     callAgent,
     followAgents,
     readAgents,
     rereadAfterSeconds,
+    sendAgentAway,
     type AgentRow,
     type AgentsControl,
     type Chair,
@@ -15,10 +16,10 @@ import {
 
 const TABLE_ID = "a".repeat(32);
 
-const nova = (state: "available" | "inviting", ends = 120): AgentRow =>
-    state === "available"
-        ? { key: "key-nova", name: "Nova", state, ends_in_seconds: null }
-        : { key: "key-nova", name: "Nova", state, ends_in_seconds: ends };
+const nova = (state: "available" | "inviting" | "here", ends = 120): AgentRow =>
+    state === "inviting"
+        ? { key: "key-nova", name: "Nova", state, ends_in_seconds: ends }
+        : { key: "key-nova", name: "Nova", state, ends_in_seconds: null };
 const controlOf = (...rows: AgentRow[]): AgentsControl => ({ shown: true, rows });
 const cutOff = () =>
     new ReadableStream({
@@ -132,9 +133,45 @@ describe("the control that calls agents", () => {
         });
     });
 
+    describe("sending an agent away", () => {
+        it("posts the command id to the row's send-away path and answers the control afresh", async () => {
+            const fetcher = answerWith(Response.json(controlOf(nova("available"))));
+
+            const answer = await sendAgentAway(TABLE_ID, "key-nova", "command-away-1");
+
+            expect(answer).toEqual({ kind: "control", control: controlOf(nova("available")) });
+            expect(fetcher).toHaveBeenCalledWith(`${agentsPath}/key-nova${TABLE_AGENT_SEND_AWAY_SUFFIX}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command_id: "command-away-1" }),
+            });
+        });
+
+        it("answers a refusal as the kit's reason and a table that is not there as missing", async () => {
+            answerWith(
+                Response.json({ reason: "agent-unavailable" }, { status: 409 }),
+                new Response(null, { status: 404 }),
+            );
+
+            expect(await sendAgentAway(TABLE_ID, "key-nova", "command-away-1")).toEqual({
+                kind: "refused",
+                reason: "agent-unavailable",
+            });
+            expect(await sendAgentAway(TABLE_ID, "key-nova", "command-away-2")).toEqual({ kind: "missing" });
+        });
+
+        it("goes through the sign-in again when the session has ended", async () => {
+            answerWith(new Response(null, { status: 401 }));
+
+            expect(await sendAgentAway(TABLE_ID, "key-nova", "command-away-1")).toEqual({ kind: "failed" });
+            expect(reload).toHaveBeenCalledOnce();
+        });
+    });
+
     describe("how long until the next read", () => {
         it.each([
             ["a row that is only available", [nova("available")], null],
+            ["a row that is here", [nova("here")], null],
             ["no row at all", [], null],
             ["an inviting row, its own seconds", [nova("inviting", 90)], 90],
             ["an inviting row that ends in under a second", [nova("inviting", 0)], 1],
@@ -256,6 +293,39 @@ describe("the control that calls agents", () => {
             expect(refusals).toEqual([null]);
             expect(shown).toEqual([controlOf(nova("inviting", 20)), controlOf()]);
             expect(fetcher).toHaveBeenCalledTimes(2);
+        });
+
+        it("sends an agent away with a command id of its own at each tap and shows the control it answers", async () => {
+            const ids = ["id-one-1234", "id-two-1234"];
+            vi.stubGlobal("crypto", { randomUUID: () => ids.shift() });
+            const fetcher = answers(controlOf(nova("available")), controlOf(nova("here")));
+            const { following, shown, refusals } = follower();
+
+            await following.sendAway("key-nova");
+            await following.sendAway("key-nova");
+
+            const sent = (fetcher.mock.calls as [string, { body: string }][]).map(([, init]) => init.body);
+            expect(sent).toEqual([
+                JSON.stringify({ command_id: "id-one-1234" }),
+                JSON.stringify({ command_id: "id-two-1234" }),
+            ]);
+            expect([shown, refusals]).toEqual([
+                [controlOf(nova("available")), controlOf(nova("here"))],
+                [null, null],
+            ]);
+        });
+
+        it("shows the refusal of a send-away and reads the control afresh", async () => {
+            const fetcher = vi.fn();
+            fetcher.mockResolvedValueOnce(Response.json({ reason: "not-allowed" }, { status: 409 }));
+            fetcher.mockResolvedValueOnce(Response.json(controlOf()));
+            vi.stubGlobal("fetch", fetcher);
+            const { following, shown, refusals } = follower();
+
+            await following.sendAway("key-nova");
+
+            expect(refusals).toEqual([null, "not-allowed"]);
+            expect(shown).toEqual([controlOf()]);
         });
 
         it("shows the refusal of a call and reads the control afresh", async () => {
