@@ -1440,9 +1440,13 @@ const GAMES_PLAYED=[[1,'felix','c','Kreuz','mit 2',36,true],[2,'anna','h','Herz'
 const gameRow=([n,k,suit,name,levels,value,won])=>{const p=P[k],gain=won?value+LIST_BONUS:-2*value-LIST_BONUS;
   return `<div class="grow"><span class="nr">${n}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
     +`<span class="txt"><b>${p.n}</b><small>${suit?`<span class="pip">${suitIcon(suit)}</span>`:''}${name}${levels?` ${levels}`:''}</small></span><span class="val">${value}</span><span class="gain ${won?'':'minus'}">${signed(gain)}</span></div>`;};
-const gameList=(d)=>`<div class="scrim over"></div>`+seriesCount(d,GAMES_PLAYED.length+3,{open:true})
+/* a Ramsch has no declarer: its row names the loser and what the game cost, and how often the skat was pushed */
+const ramschRow=({n,k,score,pushes})=>{const p=P[k];
+  return `<div class="grow"><span class="nr">${n}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
+    +`<span class="txt"><b>Ramsch, ${p.n}</b>${pushes?`<small>${pushes}× geschoben</small>`:''}</span><span class="val"></span><span class="gain minus">${withMinus(score)}</span></div>`;};
+const gameList=(d,rows=GAMES_PLAYED,count=GAMES_PLAYED.length+3)=>`<div class="scrim over"></div>`+seriesCount(d,count,{open:true})
   +`<div class="result gamelist" role="dialog" aria-label="Spiele der Serie" style="${at(d?{left:640,top:62,width:560,height:620,'z-index':'50'}:{left:195,top:50,width:354,height:660,'z-index':'50'})}">
-  <h3>Spiele</h3><div class="rows" tabindex="0">${[...GAMES_PLAYED].reverse().map(gameRow).join('')}</div></div>`;
+  <h3>Spiele</h3><div class="rows" tabindex="0">${[...rows].reverse().map(r=>Array.isArray(r)?gameRow(r):ramschRow(r)).join('')}</div></div>`;
 
 /* between two games a seated member proposes the end; the other two answer, and no standings show yet */
 const askEnd=(d)=>dealRoom(d,{watchers:1})+seriesCount(d,8)
@@ -1915,6 +1919,12 @@ RAMSCH_SCENES.push(
     ['Anna machte keinen Stich: in der Rechnung „Jungfrau ×2“, Ben −172.']],
   ['ramsch-durchmarsch','Durchmarsch',[390],(d)=>ramschEnd(d,RAMSCH_SWEEP),
     ['Anna machte alle Stiche: „Durchmarsch“, Anna +120, die anderen 0; wer durchmarschiert, liest „Gewonnen!“.']],
+);
+/* the list of games with a Ramsch between two declared games; the row of game 8 is a Ramsch, and the list ends at game 10 so it shows */
+const LIST_WITH_RAMSCH=GAMES_PLAYED.filter(r=>r[0]<=10).map(r=>r[0]===8?{n:8,k:'ben',score:-344,pushes:2}:r);
+RAMSCH_SCENES.push(
+  ['ramsch-list','Liste mit einem Ramsch',[390],(d)=>seriesPlay(d,'')+gameList(d,LIST_WITH_RAMSCH,11),
+    ['Die Liste der Spiele mit der Zeile „Ramsch, Ben −344“ und „2× geschoben“ klein darunter, zwischen zwei Spielen mit Alleinspieler.']],
 );
 agentScenes(RAMSCH_SCENES);
 
