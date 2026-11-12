@@ -1,8 +1,0 @@
-claim_id = "1e3d79068fb640b6bd74f886201ea4f3"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "90b6f041871aec66c57118a04a38491c8cbff05a"
-branch = "claude/issue-407-closed-sentences"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/closed.test.ts", "frontend/src/lib/closed.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/NewTableButton.svelte", "pyproject.toml", "src/skat/web/words.py", "tests/e2e/test_table_closed.py", "tests/e2e/test_table_home.py", "tests/e2e/test_tables.py"]
-opened_commit = "3646afacecf67c517b417c9a11e4a412abe556ee"
-whole_reason = "Two production files and the catalog with its two generated modules; the rest are the tests pinning the same texts, the coverage comment and one ARCHITECTURE clause."
