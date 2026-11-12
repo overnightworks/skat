@@ -84,6 +84,13 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]: ...
 
+    def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
+        """The live tables the account holds a chair at, each with its version, in id order; no row is locked, so the
+        list is a candidate list: a table may end or a chair move before the caller uses it, and a caller that shows
+        more than the table ids reads each table again under its lock.
+        """
+        ...
+
 
 class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     def begin(self) -> AbstractContextManager[TableTransaction]:
@@ -112,3 +119,9 @@ class PausedFacts:
 class OccupiedChair:
     table_id: TableId
     account_id: str
+
+
+@dataclass(frozen=True)
+class HeldTable:
+    table_id: TableId
+    version: int

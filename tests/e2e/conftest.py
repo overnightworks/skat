@@ -51,7 +51,8 @@ def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[s
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]:
-    return {**browser_context_args, "ignore_https_errors": True}
+    # A measured card is not in motion: a test that needs motion names "no-preference" itself.
+    return {**browser_context_args, "ignore_https_errors": True, "reduced_motion": "reduce"}
 
 
 @pytest.fixture

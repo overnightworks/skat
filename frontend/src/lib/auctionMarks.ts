@@ -65,12 +65,6 @@ export function decidingPlaque(table: Table, justWon: boolean): DecidingPlaque |
     return { kind: "discarding", name, value };
 }
 
-// The auction ended in the update that brings the declaring to a hand that had none; a page that opens later
-// or reconnects sees the choosing as it is.
-export function auctionJustEnded(previous: Table | undefined, next: Table): boolean {
-    return !!previous?.hand && !previous.hand.declaring && next.hand?.declaring?.stage === "choosing";
-}
-
 // The name the plaque waits for: the player on turn while they are away.
 export function awayOnTurn(auction: Auction, chairs: readonly Chair[]): string | null {
     const chair = chairs.find((one) => one.seat === auction.turn_seat && one.is_away);

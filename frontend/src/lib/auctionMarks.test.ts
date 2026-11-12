@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    auctionJustEnded,
     awayOnTurn,
     chairMarks,
     decidingMarks,
@@ -379,30 +378,5 @@ describe("what the others see while the declarer decides", () => {
             expect(decidingMarks(declaringAt("discarding"), MIDDLEHAND, true).declarer).toBe("decl");
             expect(decidingMarks(declaringAt("discarding"), FOREHAND, true).passed).toBe(false);
         });
-    });
-
-    describe("the moment the auction ended", () => {
-        const running = tableAt(null, FOREHAND);
-        const choosing = tableAt(declaringAt("choosing"), FOREHAND);
-
-        it("is the update that brings the declaring after a hand without one", () => {
-            expect(auctionJustEnded(running, choosing)).toBe(true);
-        });
-
-        it.each([
-            { name: "the first answer of the page", previous: undefined, next: choosing },
-            {
-                name: "an update inside the declaring",
-                previous: choosing,
-                next: tableAt(declaringAt("discarding"), FOREHAND),
-            },
-            { name: "an update while the auction runs", previous: running, next: running },
-            { name: "a table with no hand yet", previous: { ...running, hand: null }, next: choosing },
-        ] satisfies { name: string; previous: Table | undefined; next: Table }[])(
-            "is not $name",
-            ({ previous, next }) => {
-                expect(auctionJustEnded(previous, next)).toBe(false);
-            },
-        );
     });
 });

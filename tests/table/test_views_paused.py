@@ -18,7 +18,7 @@ from skat.table.records import (
     TableId,
 )
 from skat.table.service import TableService
-from skat.table.transactions import OccupiedChair
+from skat.table.transactions import HeldTable
 from skat.table.views import paused_entry_of
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import a_whole_game, after_the_first_game, declared_herz_hand, table_in
@@ -221,8 +221,8 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
 
     def test_a_table_that_ended_after_the_chair_scan_is_skipped_without_an_error(self, store):
         class EndsAfterTheScan(FakeTableStore):
-            def occupied_chairs(self):
-                held = super().occupied_chairs()
+            def tables_of(self, account_id):
+                held = super().tables_of(account_id)
                 self.tables = {key: EndedTable(TableId(key), 9, EndReason.EMPTY, 60) for key in self.tables}
                 return held
 
@@ -235,8 +235,9 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         table_id = table_in(AUCTION_RUNS).id
 
         class ChairChangesAfterTheScan(FakeTableStore):
-            def occupied_chairs(self):
-                return (*super().occupied_chairs(), OccupiedChair(table_id, STRANGER))
+            def tables_of(self, account_id):
+                held = super().tables_of(account_id)
+                return (*held, HeldTable(table_id, 1)) if account_id == STRANGER else held
 
         racing = ChairChangesAfterTheScan()
         keep(racing, table_in(AUCTION_RUNS))
