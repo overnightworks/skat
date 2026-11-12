@@ -494,7 +494,7 @@ class TestUnplayedTables:
 
             def unplayed_tables(self, days):
                 if next(self.reads) > 1:
-                    raise ConnectionError
+                    raise ConnectionError("account-anna")
                 return super().unplayed_tables(days)
 
         unplayed = UnplayedTables(sign_in_settings, UnreadableAfterTheStart)
@@ -505,6 +505,7 @@ class TestUnplayedTables:
             runs_asked_for = len(unplayed.scheduler.sweeps())
 
         assert [entry["error"] for entry in logs] == ["ConnectionError"]
+        assert "account-anna" not in str(logs)
         assert runs_asked_for == 2
 
     def test_a_run_after_the_server_stopped_ends_no_table(self, unplayed):
