@@ -237,7 +237,7 @@ class TestAnOpponentGivesUp:
         assert everyone_reads(herz_hand) == [asked_by(position)] * 4
         assert playing_as(herz_hand, herz_hand.at[on_turn])["legal_cards"] == []
 
-    def test_every_stream_carries_the_request_and_then_the_same_result_with_no_card(self, herz_hand):
+    def test_every_stream_carries_the_same_result_with_no_card_after_the_yes(self, herz_hand):
         with everyones_streams(herz_hand) as streams:
             gives_up(herz_hand, FOREHAND)
             for _, stream in streams:
