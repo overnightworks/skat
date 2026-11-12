@@ -15,20 +15,23 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
 
 OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
+RUNNING_POINTS_SWITCH = text(SOURCE_LANGUAGE, "start.rulePoints")
 SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}{TABLE_ID_PATTERN}$")
 
 
-def click_new_table(person: Page) -> str:
+def click_new_table(person: Page, *, running_points: bool = False) -> str:
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    if running_points:
+        person.get_by_role("switch", name=RUNNING_POINTS_SWITCH).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person).to_have_url(TABLE_URL)
     return urlsplit(person.url).path
 
 
-def open_new_table(person: Page, server: RunningServer) -> str:
+def open_new_table(person: Page, server: RunningServer, *, running_points: bool = False) -> str:
     person.goto(f"{server.base_url}/")
-    return click_new_table(person)
+    return click_new_table(person, running_points=running_points)
 
 
 def table_id_of(path: str) -> str:
