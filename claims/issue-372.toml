@@ -1,0 +1,8 @@
+claim_id = "8628049dcdb1420b86bbe89430c99cbc"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "6c062a2f881620f199b22fdcb11af3e8d5977a18"
+branch = "claude/issue-372-stand-up-anytime"
+scope = ["docs/ARCHITECTURE.md", "legal/datenschutz.html", "src/skat/store/migrations/versions/0031_chairs_held_in_hand.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/auction.py", "src/skat/table/member_place.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/web/member_place.py", "src/skat/web/seating.py", "tests/e2e/test_table_deal_marks.py", "tests/store/test_migrate_held_in_hand.py", "tests/store/test_tables.py", "tests/store/test_tables_send_away.py", "tests/table/test_rules.py", "tests/table/test_rules_open_chair.py", "tests/table/test_service.py", "tests/table/test_service_member_place.py", "tests/table/test_service_send_away.py", "tests/web/test_auction.py", "tests/web/test_mcp_seating.py", "tests/web/test_tables.py", "tests/web/test_tables_open_chair.py", "tests/web/test_tables_ramsch_pushing.py"]
+opened_commit = "48d6f45eeaa7f185879ec42f2558c7d7cfcaf92c"
+whole_reason = "The stand-up that opens a chair mid-hand and the stored seat mark that keeps its leaver to that chair are one ruled contract with its store, migration, descriptions and privacy sentence, the mark alone has no live caller, and each test that pinned the refusal, the e2e one included, must change in the same lane, or CI stays red."
