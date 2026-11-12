@@ -7,10 +7,13 @@ decision through `TableService` and maps its refusals onto the kit's reason toke
 and no agent's tool, and every one runs on the event loop, which is also where the roster and the changes'
 `listens_to` live.
 
-The roster holds an agent exactly while it listens on its standing, under its token's name and owner, and a key per
-agent account, minted here at first need and kept in this process only, so a row keeps its key from the call to the
-seat, whether or not the agent listens. The held answers are one yes or no per session, kept in this process only: the
-display never reads the issuer per render, and a call or a send-away reads the person's groups fresh at the act.
+The roster holds an agent for as long as the library counts it as listening on its standing: from its first
+acknowledged listen until the library's `LISTEN_ALLOWANCE_SECONDS` after its last listen ended, so a closed agent stays
+listed for that long and two agents of one owner with one name are two rows. It holds it under its token's name and
+owner, and a key per agent account, minted here at first need and kept in this process only, so a row keeps its key from
+the call to the seat, whether or not the agent listens. The held answers are one yes or no per session, kept in this
+process only: the display never reads the issuer per render, and a call or a send-away reads the person's groups fresh
+at the act.
 """
 
 import secrets
@@ -121,8 +124,8 @@ class RosterEntry:
 
 class AgentRoster:
     """The agents that listen on their standing right now, by account. An entry is made when the agent starts to listen,
-    with the name and owner its token carries, and dropped when it has stopped. Every agent account the page has seen
-    has one key for good. Only the front's event loop touches it.
+    with the name and owner its token carries, and dropped when the library reports that its listen has lapsed. Every
+    agent account the page has seen has one key for good. Only the front's event loop touches it.
     """
 
     def __init__(self) -> None:
