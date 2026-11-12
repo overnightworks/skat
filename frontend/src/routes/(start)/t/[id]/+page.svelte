@@ -31,6 +31,7 @@
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
+    import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
@@ -306,6 +307,9 @@
                 </a>
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
+                {#if !callMode}
+                    <SoundButton place="bar" />
+                {/if}
                 <div
                     class="watchers"
                     class:stale={!connected}
@@ -717,7 +721,7 @@
                         </span>
                     {/if}
                     {#if seated && outcome.table.hand === null}
-                        <button type="button" class="copy" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
+                        <button type="button" class="copy stand" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
                             <svg
                                 viewBox="0 0 24 24"
                                 fill="none"
@@ -731,11 +735,13 @@
                                 <path d="M18.5 15V4M15 7.5l3.5-3.5L22 7.5" />
                             </svg>
                             <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            {`${words["table.standUp"]}`}
+                            <span class="label">{`${words["table.standUp"]}`}</span>
                         </button>
                     {/if}
                     <AgentsPill tableId={id} {streamedVersion} />
-                    {#if !callMode}
+                    {#if callMode}
+                        <SoundButton place="strip" />
+                    {:else}
                         <button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={copy}>
                             <svg
                                 viewBox="0 0 24 24"
