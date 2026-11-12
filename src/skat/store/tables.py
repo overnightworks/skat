@@ -41,6 +41,7 @@ from skat.table.records import (
     OccupantKind,
     Receipt,
     Replay,
+    SeatHeld,
     Series,
     TableId,
     TableRecord,
@@ -142,7 +143,14 @@ def _table_record(
     if table.end_reason is not None:
         return EndedTable(TableId(table_id), table.version, EndReason(table.end_reason), table.empty_seconds)
     seats = connection.execute(
-        select(chairs.c.seat, chairs.c.account_id, chairs.c.display_name, chairs.c.occupant_kind, chairs.c.ready)
+        select(
+            chairs.c.seat,
+            chairs.c.account_id,
+            chairs.c.display_name,
+            chairs.c.occupant_kind,
+            chairs.c.ready,
+            chairs.c.held_in_hand,
+        )
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
     ).all()
@@ -169,6 +177,7 @@ def _table_record(
             words=read_words(connection, table_id),
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
+            seats_held=frozenset(SeatHeld(account_id, seat.seat) for seat in seats for account_id in seat.held_in_hand),
         ),
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
@@ -274,6 +283,9 @@ class _PostgresTableTransaction:
                     display_name=None if occupant is None else occupant.display_name,
                     occupant_kind=None if occupant is None else occupant.kind.value,
                     ready=chair.ready,
+                    held_in_hand=sorted(
+                        mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
+                    ),
                 )
             )
 

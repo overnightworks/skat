@@ -246,11 +246,27 @@ class TestASitterTakesOver:
         assert sat.json()["hand"]["waiting_seat"] is None
         assert waiting.person_passes().json().get("reason") != "seat-open"
 
-    def test_a_person_through_the_route_sits_in_the_open_seat_and_cannot_stand_up_again(self, skat, waiting):
+    def test_a_person_through_the_route_sits_in_the_open_seat_and_stands_up_again_and_the_hand_waits_again(
+        self, skat, waiting
+    ):
         headers, _ = skat.member()
 
         sat = skat.sit(headers, waiting.table_id, SENT_SEAT, command_id="command-sit-newcomer")
         stood = skat.stand(headers, waiting.table_id, command_id="command-stand-newcomer")
 
         assert (sat.status_code, sat.json()["hand"]["waiting_seat"]) == (200, None)
-        assert (stood.status_code, stood.json()["reason"]) == (409, "hand-running")
+        assert (stood.status_code, stood.json()["hand"]["waiting_seat"]) == (200, SENT_SEAT)
+
+    def test_a_person_who_stood_up_is_refused_the_other_open_chair_with_a_409_and_sits_again_in_his_own(
+        self, skat, waiting
+    ):
+        skat.stand(waiting.person_headers, waiting.table_id, command_id="command-stand-person")
+        before = waiting.record
+
+        other = skat.sit(waiting.person_headers, waiting.table_id, SENT_SEAT, command_id="command-sit-other")
+        unchanged = waiting.record
+        own = skat.sit(waiting.person_headers, waiting.table_id, 3, command_id="command-sit-own")
+
+        assert (other.status_code, other.json()["reason"]) == (409, "own-seat-only")
+        assert unchanged == before
+        assert (own.status_code, own.json()["hand"]["waiting_seat"]) == (200, SENT_SEAT)
