@@ -621,6 +621,24 @@ class TestTokens:
         assert len(set(tokens.values())) == len(members)
 
 
+class TestADealtTableWhoseChairsAllOpened:
+    def test_the_last_person_standing_up_during_a_hand_leaves_the_table_frozen_and_no_empty_end_follows(
+        self, server, time, hold
+    ):
+        table_id, people = seated_three(server)
+        for number, (headers, _) in enumerate(people[:3], start=1):
+            stood = server.stand(headers, table_id, command_id=f"command-leave-{number}")
+            assert stood.status_code == 200, stood.text
+        before = dict(server.store.tables)
+
+        server.client.portal.call(time.advance, hold.settings.empty_table_seconds)
+
+        record = server.store.tables[table_id]
+        assert server.store.tables == before
+        assert (record.hand is not None, [chair.occupant for chair in record.chairs]) == (True, [None, None, None])
+        assert read(server, people[0][0], table_id).json()["hand"]["waiting_seat"] == 1
+
+
 class TestAnEmptyTableEnds:
     @pytest.fixture
     def ended(self, server, time, hold):
