@@ -28,6 +28,11 @@ CALLING = text(SOURCE_LANGUAGE, "agents.calling")
 EMPTY = text(SOURCE_LANGUAGE, "agents.empty")
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
+# The page's fetches leave this long after the call, so they leave while the test already waits for the agent.
+DELAY_FETCHES = """
+    const send = window.fetch;
+    window.fetch = (...request) => new Promise((resolve) => setTimeout(resolve, 300)).then(() => send(...request));
+"""
 
 
 def pill(person: Page):
@@ -76,12 +81,30 @@ def test_a_member_calls_a_listening_agent_and_every_page_sees_it_sit(
         pill(felix).click()
         felix.get_by_role("button", name=call_label("Leonardo")).click()
         expect(felix.get_by_text(CALLING)).to_be_visible()
-        agent.accept(agent.invitation_within(INVITATION_WITHIN_SECONDS))
+        agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
         for person in (felix, anna):
             expect(plate_of(person, 2)).to_contain_text("Leonardo")
             expect(plate_of(person, 2)).to_contain_text(AI_MARK)
         expect(felix.get_by_text(sits_note("Leonardo"))).to_be_visible()
         expect(pill(anna)).to_have_count(0)
+    finally:
+        agent.close()
+
+
+def test_a_call_the_page_sends_while_the_test_waits_for_the_agent_still_reaches_the_server(
+    caller: Page,
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+) -> None:
+    open_new_table(caller, e2e_server)
+    agent = ListeningAgent(e2e_server, member_of(caller).account.id, "Raphael", "agent-subject-raphael")
+    try:
+        expect(pill(caller)).to_be_visible()
+        pill(caller).click()
+        caller.evaluate(DELAY_FETCHES)
+        caller.get_by_role("button", name=call_label("Raphael")).click()
+        agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
+        expect(caller.locator(".chair:has-text('Raphael')")).to_have_count(1)
     finally:
         agent.close()
 
@@ -100,7 +123,7 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
             expect(pill(caller)).to_be_visible()
             pill(caller).click()
             caller.get_by_role("button", name=call_label(name)).click()
-            agent.accept(agent.invitation_within(INVITATION_WITHIN_SECONDS))
+            agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
             expect(caller.locator(f".chair:has-text('{name}')")).to_have_count(1)
             pill(caller).click()
         expect(caller.locator(".chair .plate:has(.ai-mark)")).to_have_count(2)

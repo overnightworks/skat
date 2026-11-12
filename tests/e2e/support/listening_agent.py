@@ -17,9 +17,12 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.client.subscriptions import SubscriptionLost
 
 if TYPE_CHECKING:
+    from playwright.sync_api import Page
+
     from tests.e2e.support.server import RunningServer
 
 REQUEST_SECONDS = 30
+PAGE_TURN_MILLISECONDS = 50
 
 
 class ListeningAgent:
@@ -83,10 +86,16 @@ class ListeningAgent:
     def _run(self, coroutine: Any) -> Any:
         return asyncio.run_coroutine_threadsafe(coroutine, self._loop).result(REQUEST_SECONDS)
 
-    def invitation_within(self, seconds: float) -> dict[str, Any]:
-        """The standing that holds the invitation: the agent reads its standing at each wake until one does."""
+    def invitation_within(self, page: Page, seconds: float) -> dict[str, Any]:
+        """The standing that holds the invitation: the agent reads its standing at each wake until one does. Between
+        wakes the test's thread serves `page`, because the page's requests pass through that thread's route handler
+        while browser coverage collects, and a thread that blocks holds back the very call the agent waits for.
+        """
         deadline = time.monotonic() + seconds
-        while self._woken.wait(max(0.0, deadline - time.monotonic())):
+        while time.monotonic() < deadline:
+            if not self._woken.is_set():
+                page.wait_for_timeout(PAGE_TURN_MILLISECONDS)
+                continue
             self._woken.clear()
             standings = json.loads(self._run(self._client.read_resource(STANDING_URI)).contents[0].text)["standings"]
             if invited := [standing for standing in standings if standing["state"] == "invited"]:
