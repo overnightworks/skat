@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import expect
 
+from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
@@ -19,6 +21,7 @@ from tests.e2e.support.call_frame import (
     served_from,
     table_url,
 )
+from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
 
 if TYPE_CHECKING:
@@ -28,6 +31,7 @@ if TYPE_CHECKING:
 
     from tests.e2e.support.browser_coverage import BrowserCoverage
     from tests.e2e.support.server import RunningServer
+    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
@@ -44,11 +48,21 @@ SOUND_ON_NAME = text(SOURCE_LANGUAGE, "sound.panelName")
 SOUND_OFF_NAME = text(SOURCE_LANGUAGE, "sound.muted")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
 SPEAKER = ".actions .sound-button"
+AGENTS_PILL = text(SOURCE_LANGUAGE, "agents.pill")
+WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 
 
 @pytest.fixture(scope="module")
 def framing_server(e2e_server: RunningServer, tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     yield from serve_on_the_frame_site(e2e_server, tmp_path_factory.mktemp("call-mode"), call_origin=CALL_ORIGIN)
+
+
+@pytest.fixture
+def framing_issuer_reusing_refresh_tokens(framing_server: RunningServer) -> Iterator[None]:
+    # The realm lets a refresh token be used again, so overlapping reads of one session both succeed.
+    framing_server.issuer.reuses_refresh_tokens = True
+    yield
+    framing_server.issuer.reuses_refresh_tokens = False
 
 
 def page_filling_the_screen(address: str) -> str:
@@ -202,4 +216,44 @@ def test_a_choice_made_in_a_call_holds_after_a_reload(
         visitor.reload()
 
         expect(table.get_by_role("button", name=SOUND_OFF_NAME)).to_be_visible()
+    assert page_errors == []
+
+
+@pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_result_bar_in_a_call_holds_weiter_stand_up_the_agents_pill_and_the_speaker_in_one_row(
+    open_person: Callable[..., Page],
+    member_of: Callable[[Page], SeededMember],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(
+        open_person,
+        framing_server,
+        member_of,
+        page_errors,
+        {**form_factor, "server": framing_server, "groups": (AGENT_ADDERS_GROUP,)},
+        console=False,
+    )
+    table.play_out(CARDS_IN_A_GAME)
+    seated = table.pages[table.declarer_seat]
+    viewport = seated.viewport_size
+    assert viewport is not None
+    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
+
+    with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
+        bar = call.locator(".actions")
+        expect(bar.get_by_role("button", name=WEITER)).to_be_visible()
+        expect(bar.get_by_role("button", name=STAND_UP)).to_be_visible()
+        expect(bar.get_by_role("button", name=AGENTS_PILL)).to_be_visible()
+        expect(bar.locator(".sound-button")).to_be_visible()
+
+        assert (
+            bar.locator("> :not([popover])").evaluate_all("tags => new Set(tags.map(tag => tag.offsetTop)).size") == 1
+        )
+        last = bar.locator("> :not([popover])").last.bounding_box()
+        assert last is not None
+        assert last["x"] + last["width"] <= viewport["width"]
     assert page_errors == []

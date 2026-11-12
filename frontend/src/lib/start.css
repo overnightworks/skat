@@ -3417,9 +3417,27 @@ body {
         display: none;
     }
 
-    /* With the agents' pill a fourth button joins the row, which no phone is wide enough for: the bar wraps. */
-    .room .actions.on-result:has(.pill-anchor) {
+    /* With the agents' pill the link is a fourth button, which no phone is wide enough for: the bar wraps. */
+    .room .actions.on-result:has(.pill-anchor):not(:has(.sound-strip)) {
         flex-wrap: wrap;
+    }
+
+    /* In a call the speaker is the fourth button and the bar stays one row: the stand-up keeps its mark alone and its word for assistive technology. */
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand {
+        position: relative;
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 }
 
