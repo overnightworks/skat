@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "35b15201ff657c7b00b847c0832de0b2e0f4c0a2"
 branch = "claude/issue-433-s13-3c2-kontra-key-stamp-plaque"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/kontra.test.ts", "frontend/src/lib/kontra.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/CalloutStamp.svelte", "frontend/src/lib/ui/KontraKey.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_table_kontra.py"]
+scope = ["docs/mockups/table.html", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/kontra.test.ts", "frontend/src/lib/kontra.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/CalloutStamp.svelte", "frontend/src/lib/ui/KontraKey.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_table_kontra.py"]
 opened_commit = "b50e998d8ef1af86f8a8173f50eeaea9f8664cfb"
 whole_reason = "The key without the stamp says a word nobody else sees, and the stamp without the key shows only agents' words; the plaque line is the lasting trace of the same act."
