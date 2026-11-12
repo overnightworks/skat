@@ -138,6 +138,7 @@ export type Words = {
     readonly "card.letterQueen": string;
     readonly "card.letterKing": string;
     readonly "card.letterAce": string;
+    readonly "logout.button": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -309,5 +310,6 @@ export const words: Words = {
     "card.letterQueen": "D",
     "card.letterKing": "K",
     "card.letterAce": "A",
+    "logout.button": "Abmelden",
 };
 export type Key = keyof Words;
