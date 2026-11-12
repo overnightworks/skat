@@ -625,6 +625,27 @@ body.solo section.shot .rule{display:none}
 .bubble.word .dot{width:22px;height:22px;font-size:11px}
 .bubble.word .dot svg{width:13px;height:13px}
 .value.loss{color:#ff8a8f}
+/* ---------- the Grand Hand key: under the two keys on a phone, shorter keys in one row, the armed look, the draft mark ---------- */
+.grand-stack{flex-direction:column;gap:8px}
+.grand-stack .line{display:flex;gap:10px}
+.grand-stack .button{height:48px}
+.grand-stack .line:last-child .button{flex:1}
+.p360 .grand-row{gap:8px}
+.p360 .grand-row .button{padding:0 12px;gap:6px;font-size:15px}
+.button-leave.arm{position:relative}
+.button-leave.arm i{position:absolute;left:22px;right:22px;bottom:6px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform-origin:left}
+@media (prefers-reduced-motion:no-preference){.button-leave.arm i.mo{animation:runout 3s linear both}}
+section.shot h2 .draft{height:24px;padding:0 10px;border-radius:999px;display:inline-grid;place-items:center;border:1.5px solid var(--busy-stage);color:var(--busy-stage);font-size:12px;font-weight:700;letter-spacing:.02em}
+</style>
+<style>
+/* ---------- S13.3cp: the Kontra key, its dismiss mark, the mark of an unchosen variant ---------- */
+.cb.wide.kontra{position:relative}
+.cb.kontra .dismiss{position:absolute;top:-9px;right:-7px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--stage);color:var(--on-stage);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55),0 3px 8px -3px rgba(0,0,0,.8)}
+.cb.kontra .dismiss svg{width:12px;height:12px}
+.cb.kontra .dismiss::after{content:"";position:absolute;inset:-11px}
+.btns.kontra-felt .button{padding:0 18px 0 14px;gap:8px}
+.draft-tab{position:absolute;left:50%;bottom:0;translate:-50% 0;z-index:80;padding:2px 12px;border-radius:8px 8px 0 0;background:#f3cf7a;color:#2a1c00;font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+.p360 .cb.wide.kontra{padding:0 14px}
 </style>
 </head>
 <body>
@@ -828,7 +849,8 @@ const PB={
 };
 /* on the phone the near chair steps back to leave the card room for the reckoning */
 const BACK=72;
-const PB_BACK={...PB,you:{...PB.you,y:PB.you.y+BACK},coasters:[PB.coasters[0],PB.coasters[1],[PB.coasters[2][0],PB.coasters[2][1]+BACK,...PB.coasters[2].slice(2)]]};
+const backOf=(phone)=>({...phone,you:{...phone.you,y:phone.you.y+BACK},coasters:[phone.coasters[0],phone.coasters[1],[phone.coasters[2][0],phone.coasters[2][1]+BACK,...phone.coasters[2].slice(2)]]});
+const PB_BACK=backOf(PB);
 
 /* the way home: the lobby button at the top left of every solo table, the watchers at the top right; a call table has neither */
 I.home=sv('<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/>');
@@ -928,15 +950,20 @@ const withMinus=(n)=>n<0?`−${-n}`:n;
 const levelRow=(list)=>`<div class="ladder words">${list.map(([name,state])=>`<span class="${state==='mit'?'held mit':state}">${state==='mit'?'':I.check}${name}</span>`).join('')}</div>`;
 /* the reckoning is derived from the declared parts, so every number on a card agrees with the engine's value rules; a scene whose coasters disagree fails loud */
 const LIST_BONUS=50,LIST_SHARE=40;
+/* each word doubles the game's list score again: Kontra ×2, Re ×4, Supra ×8, Hirsch ×16; the 50 and the 40 stay */
+const KONTRA_STEPS=['Kontra','Re','Supra','Hirsch'];
+const kontraFactor=(word)=>2**(KONTRA_STEPS.indexOf(word)+1);
 const signed=(n)=>n>0?`+${n}`:withMinus(n);
 function reckonOf(o){
   const c=o.calc,value=c.fixed??(c.count+c.steps.length)*c.base;
   const settled=c.bid&&value<c.bid?Math.ceil(c.bid/c.base)*c.base:value;
-  const times=(c.times||[]).reduce((product,[,factor])=>product*factor,1);
-  const final=(c.won?settled:-2*settled)*times,total=final+(c.won?LIST_BONUS:-LIST_BONUS);
+  const words=c.words||[];
+  if(words.some((w,i)=>w!==KONTRA_STEPS[i]))throw new Error(`${o.game}: the words ${words} do not follow the order Kontra, Re, Supra, Hirsch`);
+  const factor=(words.length?kontraFactor(words.at(-1)):1)*(c.times||[]).reduce((product,[,times])=>product*times,1);
+  const final=(c.won?settled:-2*settled)*factor,total=final+(c.won?LIST_BONUS:-LIST_BONUS);
   const mine=o.declarer==='anna'?0:2;
   o.adds.forEach((n,i)=>{const want=i===mine?total:c.won?0:LIST_SHARE;if(n!==want)throw new Error(`${o.game}: coaster ${i} shows ${n}, the reckoning gives ${want}`);});
-  return {value,settled,final,total};
+  return {value,settled,final,total,factor};
 }
 const calcRows=(o,compact=false)=>{
   const c=o.calc,r=reckonOf(o),mark=(name)=>[name,'held'];
@@ -948,8 +975,9 @@ const calcRows=(o,compact=false)=>{
   const eq=c.fixed?(product?`<div class="eq"><span>${c.label}</span>${product}</div>`:'')
     :`<div class="eq"><span>${c.count+c.steps.length}</span><i>×</i>${c.suit?`<span class="suit">${suitIcon(c.suit)}</span>`:`<span>${c.label}</span>`}<span>${c.base}</span>${product}${raise?'':twice}</div>`;
   const value=`<div class="value-row">${c.won?'':'<span class="x2">×2</span>'}<div class="value ${r.final<0?'minus':''}">${signed(r.final)}</div></div>`;
-  const list=`<div class="list"><b>${o.names[0]}</b><span>Spiel ${signed(r.final)}</span><span>Liste ${c.won?'+':'−'}${LIST_BONUS}</span><span>= ${signed(r.total)}</span>${c.won?'':`<span>· ${o.names[1]} je +${LIST_SHARE}</span>`}</div>`;
-  return chips+eq+raise+(compact?'':value)+list;
+  const words=c.words||[],doubled=words.length?levelRow(words.map(w=>[`${w} ×${kontraFactor(w)}`,'held'])):'';
+  const list=`<div class="list"><b>${o.names[0]}</b><span>Spiel${words.length?` · ${words.at(-1)}`:''} ${signed(r.final)}</span><span>Liste ${c.won?'+':'−'}${LIST_BONUS}</span><span>= ${signed(r.total)}</span>${c.won?'':`<span>· ${o.names[1]} je +${LIST_SHARE}</span>`}</div>`;
+  return chips+eq+raise+doubled+(compact?'':value)+list;
 };
 const reck=(k,dl,win)=>{const p=P[k];return `<div class="reck ${p.agent?'agent':''} ${win?'win':''}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span><span class="nm">${p.n}${p.agent?aiMark():''}</span>${dl}</div>`;};
 const CALL_END={declarer:'anna',adds:[-122,40,40],game:'Kreuz',names:['Anna','Wir'],calc:{suit:'c',base:12,mit:true,count:1,steps:['Spiel','Schneider'],won:false}};
@@ -1073,7 +1101,9 @@ const IDEAS=[
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
+  ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-row, push-grand-arm, push-grand-done, push-grand-off'],
   ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. (S11.9p)','stand-play, stand-arm, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
+  ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt. Offen zur Wahl: der Ort der Taste, die Tafel nach dem Wort, ein „×“ zum Verzichten.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end; Entwürfe: kontra-offer-felt, kontra-offer-dismiss, kontra-said-bare'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -1228,7 +1258,7 @@ MARK.ready=`<span class="mark ready" title="Weiter getippt">${I.check}</span>`;
 MARK.notTapped=`<span class="mark waits" title="noch nicht getippt">${waitDots()}</span>`;
 const TOTALS_BEFORE=[148,62,55];
 const added=(n)=>n>0?`<span class="dl count" style="--to:${n}"></span>`:`<span class="dl minus">${withMinus(n)}</span>`;
-const endLayout=(d)=>d?DB:PB_BACK;
+const endLayout=(d)=>d?DB:backOf(PB);
 const chairsOf=(d,near)=>{const L=endLayout(d);return [['anna',L.anna],['ben',L.nova],[near,L.you]];};
 const endSeats=(d,o)=>chairsOf(d,o.near).map(([k,pos])=>seat(k,{...pos,marks:[...(k===o.declarer?['decl']:[]),o.ready.includes(k)?'ready':'notTapped'],win:o.winners.includes(k)})).join('')
   +chairCoasters(endLayout(d),o.adds.map((n,i)=>withMinus(TOTALS_BEFORE[i]+n)));
@@ -1236,7 +1266,7 @@ const reckoning=(o)=>`<div class="coasters">${[[o.near,o.adds[2]],['anna',o.adds
 const tapButton=`<span class="cb wide" role="button">${I.check}Weiter</span>`;
 const waitButton=(names)=>`<span class="cb wide glass" role="status">Warte auf ${names}${waitDots()}</span>`;
 const endBar=(d,tap)=>tap?tableBar(d,{seated:true}).replace('<div class="sbar">',`<div class="sbar">${tap}`):tableBar(d);
-const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'} ${o.calc.bid||o.calc.steps.length>2?'snug':''}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
+const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'} ${o.calc.bid||o.calc.steps.length>2||o.calc.words?'snug':''}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:PB.cx,top:160,width:2*PB.cx-36})}">
   <h3>${o.won?I.check:I.cross}${o.word}</h3>
   ${o.calc.missed?`<div class="miss">${o.calc.missed}, nicht erreicht</div>`:''}
   <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stampBy?`<span class="by" style="${dotStyle(P[o.stampBy])}">${dotInner(P[o.stampBy])}</span>`:''}${o.stamp}</span>`:''}</div>
@@ -1790,8 +1820,10 @@ const AGENT_SCENES=[
   ['nudge-mine','Anstupsen: du wirst angestupst',[390,1280],nudgedFelix,
     ['Felix wird angestupst: die Glocke an seinem eigenen Stuhl wackelt einmal, „Anna stupst dich an“ steht über seiner Hand, und er ist dran.']],
 ];
-const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.forEach(w=>{
-  const desk=w===1280,html=w===360?withPhone360(()=>draw(false)):draw(desk);
+/* a scene that is one variant of an open choice carries its mark inside the frame, so a single frame shows it too */
+const DRAFT='<span class="draft-tab">Entwurf zur Wahl</span>';
+const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes,draft])=>widths.forEach(w=>{
+  const desk=w===1280,html=(w===360?withPhone360(()=>draw(false)):draw(desk))+(draft?DRAFT:'');
   frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,notes);
   ORDER.push(`${id}-${w}`);}));
 agentScenes(AGENT_SCENES);
@@ -1814,7 +1846,8 @@ const stageSkat=(d,o)=>d?skat(584,stageSkatY(d,o),80):skat(PB.cx-41,stageSkatY(d
 /* the felt of a 360 frame is 64 px shorter than the 390 one: what stands in its middle moves up by half */
 const feltShift=(d)=>d?0:(PB.you.y-496)/2;
 const stageRow=(d,discard)=>d?(discard?420:412):380+feltShift(d);
-const pushButtons=(d)=>row(mid(d),stageRow(d),`<span class="button button-stage">${I.up}Skat nehmen</span><span class="button button-glass">${I.push}Schieben</span>`).replace('class="btns"','class="btns push-row"');
+const stageKeys=(take='Skat nehmen',push='Schieben')=>`<span class="button button-stage">${I.up}${take}</span><span class="button button-glass">${I.push}${push}</span>`;
+const pushButtons=(d)=>row(mid(d),stageRow(d),stageKeys()).replace('class="btns"','class="btns push-row"');
 const putBackButton=(d)=>row(mid(d),stageRow(d,true),`<span class="button button-stage unlock">${I.down}Drücken</span>`);
 const feltGhosts=(d)=>d?ghost(596,300,80,I.down)+ghost(684,300,80,I.down):ghost(PB.cx-32,300+feltShift(d),56,I.down)+ghost(PB.cx+32,300+feltShift(d),56,I.down);
 const felixGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,PB.you.y+64,240,120);
@@ -1978,16 +2011,16 @@ const bockPassedIn=(d,b)=>withChipRow(()=>bockRoom(d,{left:0})+watching(1,d)+boc
   +plaque(mid(d),plaqueY(d),`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
   +dealSeats(d,{near:'felix'})+tableBar(d));
 const THREE_BOCK_GAMES=bockOf([GAMES_IN_ROUND]),TWO_BOCK_GAMES=bockOf([GAMES_IN_ROUND-1]),OVERLAPPING_BOCK_GAMES=bockOf([GAMES_IN_ROUND-1,GAMES_IN_ROUND],true);
-const DRAFT='Entwurf zur Wahl';
+const BOCK_DRAFT='Entwurf zur Wahl';
 const BOCK_SCENES=[
   ['bock-coming','Bock: die Spiele, die kommen',[360,390,1280],(d)=>bockDeal(d,THREE_BOCK_GAMES,{count:true}),
     ['Wahl 1, empfohlen: Nach einem Spiel mit Re stehen drei Bockspiele an, das nächste Spiel wird gegeben. Die Marke „Bock“ oben trägt die Zahl der Bockspiele, die kommen: „Bock 3“, für jeden am Tisch dieselbe. Stehen keine an, steht dort nur „Bock“.']],
-  ['bock-coming-plaque',`Bock: die Spiele, die kommen, auf der Tafel (${DRAFT})`,[360,390,1280],(d)=>bockDeal(d,THREE_BOCK_GAMES,{line:BOCK_LINES.coming}),
-    [`${DRAFT} zu Wahl 1: Die Marke bleibt „Bock“ ohne Zahl; die Tafel trägt in jedem Bockspiel die Zeile „Bockspiel, noch 2“ (das laufende zählt nicht mit), außerhalb eines Bockspiels steht nichts.`]],
+  ['bock-coming-plaque',`Bock: die Spiele, die kommen, auf der Tafel (${BOCK_DRAFT})`,[360,390,1280],(d)=>bockDeal(d,THREE_BOCK_GAMES,{line:BOCK_LINES.coming}),
+    [`${BOCK_DRAFT} zu Wahl 1: Die Marke bleibt „Bock“ ohne Zahl; die Tafel trägt in jedem Bockspiel die Zeile „Bockspiel, noch 2“ (das laufende zählt nicht mit), außerhalb eines Bockspiels steht nichts.`]],
   ['bock-play','Bock: ein Bockspiel läuft',[360,390,1280],(d)=>bockPlay(d,THREE_BOCK_GAMES,{count:true,line:BOCK_LINES.factor}),
     ['Das erste der drei Bockspiele läuft: die Tafel „Kreuz“ mit „Bock ×2“ darunter, die Marke oben „Bock 3“ (das laufende Spiel zählt mit, zwei kommen noch).']],
-  ['bock-play-plaque',`Bock: ein Bockspiel läuft, Zeile auf der Tafel (${DRAFT})`,[390],(d)=>bockPlay(d,THREE_BOCK_GAMES,{line:BOCK_LINES.coming}),
-    [`${DRAFT} zu Wahl 1: dasselbe Bockspiel ohne Zahl an der Marke; die Tafel sagt statt des Faktors „Bockspiel, noch 2“. Der Faktor steht dann erst auf der Ergebniskarte.`]],
+  ['bock-play-plaque',`Bock: ein Bockspiel läuft, Zeile auf der Tafel (${BOCK_DRAFT})`,[390],(d)=>bockPlay(d,THREE_BOCK_GAMES,{line:BOCK_LINES.coming}),
+    [`${BOCK_DRAFT} zu Wahl 1: dasselbe Bockspiel ohne Zahl an der Marke; die Tafel sagt statt des Faktors „Bockspiel, noch 2“. Der Faktor steht dann erst auf der Ergebniskarte.`]],
 ];
 /* the result card: the factor is a held chip beside the steps, the value shows the list score times it, and the 50 and the 40 stay */
 const BOCK_STEPS=['Spiel','Schneider'];
@@ -2000,8 +2033,8 @@ const roundStarts=(html)=>html.replace('</h3>',`</h3><div class="round" role="st
 BOCK_SCENES.push(
   ['bock-end','Bock: ein Bockspiel gewonnen',[390,1280],(d)=>endScene(d,BOCK_WIN,tapButton,1,declarerWinsConfetti(d)),
     ['Wahl 2, empfohlen: Felix gewann ein Bockspiel mit Schneider: die Kreuz-Rechnung 4 × 12 = 48, die gehaltene Marke „Bock ×2“, der Wert +96, dazu die 50 der Liste: +146, die Deckel stimmen. Dass dieses Spiel neue Bockspiele auslöst, sagt die Karte nicht; die Zahl an der Marke wächst, wenn das nächste Spiel gegeben wird.']],
-  ['bock-end-trigger',`Bock: ein Bockspiel gewonnen, die Runde genannt (${DRAFT})`,[390,1280],(d)=>roundStarts(endScene(d,BOCK_WIN,tapButton,1,declarerWinsConfetti(d))),
-    [`${DRAFT} zu Wahl 2: dieselbe Karte mit „Bockrunde!“ unter dem Ergebnis, weil dieses Spiel eine neue Runde auslöst; dafür müsste die Antwort zum Ergebnis sagen, welches Spiel eine Runde auslöste.`]],
+  ['bock-end-trigger',`Bock: ein Bockspiel gewonnen, die Runde genannt (${BOCK_DRAFT})`,[390,1280],(d)=>roundStarts(endScene(d,BOCK_WIN,tapButton,1,declarerWinsConfetti(d))),
+    [`${BOCK_DRAFT} zu Wahl 2: dieselbe Karte mit „Bockrunde!“ unter dem Ergebnis, weil dieses Spiel eine neue Runde auslöst; dafür müsste die Antwort zum Ergebnis sagen, welches Spiel eine Runde auslöste.`]],
   ['bock-kontra-end','Bock: mit Kontra',[390],(d)=>endScene(d,BOCK_KONTRA_WIN,tapButton,1,declarerWinsConfetti(d)),
     ['Ein Bockspiel mit Kontra: „Kontra ×2“ und „Bock ×2“ gehalten, 3 × 12 = 36, der Wert +144 (viermal), dazu 50: +194.']],
   ['bock-ramsch-end','Bock: ein Ramsch',[390],(d)=>ramschEnd(d,BOCK_RAMSCH_LOST),
@@ -2014,6 +2047,37 @@ BOCK_SCENES.push(
     ['Lena schaut zu: dieselbe Marke „Bock 3“ und dieselbe Tafel „Kreuz“ mit „Bock ×2“.']],
 );
 agentScenes(BOCK_SCENES);
+
+/* ===== the Grand Hand instead of a Ramsch: at a table that allows it, the seat on turn declares it beside taking and pushing ===== */
+/* the key stands in glass like „Hand“ of skat-choose; armed, it takes the look of „Aufgeben“ */
+const grandKey=(word,armed)=>armed?`<span class="button button-leave arm">${word}?<i class="mo" style="--k:1s"></i></span>`:`<span class="button button-glass">${word}</span>`;
+/* stack: on a phone the Grand Hand key takes a second row under the two keys, the skat moves up to make room; row: three shorter keys in one; the desk has room for three keys in one row */
+const GRAND_STACK_Y=()=>narrow()?314:352;
+const grandSkat=(d,stack)=>d?stageSkat(d,{}):skat(PB.cx-41,stack&&narrow()?222:stageSkatY(d,{}),52);
+const grandKeys=(d,o={})=>{const stack=!d&&o.layout==='stack',short=!d&&o.layout==='row',key=grandKey(short?'Hand':'Grand Hand',o.armed);
+  return stack?row(mid(d),GRAND_STACK_Y(),`<div class="line">${stageKeys()}</div><div class="line">${key}</div>`).replace('class="btns"','class="btns push-row grand-stack"')
+    :row(mid(d),stageRow(d),stageKeys(short?'Nehmen':undefined)+key).replace('class="btns"',`class="btns push-row${short?' grand-row':''}"`);};
+const grandTable=(d,o)=>pushTable(d,{glow:felixGlow(d),skat:false,marks:{you:['turn']},extra:grandSkat(d,o.layout==='stack')})+grandKeys(d,o)+restingHand(d)+tableBar(d);
+/* Felix declared: he leads, the plaque names the game at the lowest bid and announces nothing, every chair sees the same plaque */
+const grandPlay=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:0,count:true,glow:felixGlow(d)})+sideFans(d,10,10)
+    +plaque(mid(d),plaqueY(d),`${gameLine('','Grand Hand')}<div class="game pushes">Reizwert 18</div>`)+yourCard(d)
+    +seat('anna',L.anna)+seat('nova',L.nova)+seat('felix',{...L.you,marks:['decl','turn']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownHand(d,BID_HAND.map(([r,s])=>[r,s,'ok']),{strip:d?{base:58,no:58,ok:58,touch:78}:{base:32,no:32,ok:32,touch:56}})+giveUpBar(d,GIVE_UP);};
+const DRAFT=' <span class="draft">Entwurf zur Wahl</span>';
+const GRAND_SCENES=[
+  ['push-grand','Ramsch: Grand Hand',[360,390,1280],(d)=>grandTable(d,{layout:'stack'}),
+    ['An einem Tisch, der es erlaubt: Felix ist dran und sieht „Skat nehmen“ und „Schieben“ wie sonst, dazu „Grand Hand“ in Glas, wie „Hand“ beim Skat. Ein Tipp sagt es an. Am Handy steht die dritte Taste in einer zweiten Reihe unter den zwei anderen, der Skat rückt dafür nach oben; am Rechner stehen alle drei in einer Reihe.']],
+  ['push-grand-row','Ramsch: Grand Hand, drei Tasten in einer Reihe'+DRAFT,[360,390],(d)=>grandTable(d,{layout:'row'}),
+    ['Die andere Wahl zur ersten Frage: drei kleinere Tasten in einer Reihe mit kürzeren Worten („Nehmen“, „Schieben“, „Hand“), der Skat bleibt, wo er liegt. Am Rechner sieht es aus wie bei „push-grand“.']],
+  ['push-grand-arm','Ramsch: Grand Hand, zweiter Tipp'+DRAFT,[360,390,1280],(d)=>grandTable(d,{layout:'stack',armed:true}),
+    ['Die andere Wahl zur zweiten Frage: der erste Tipp macht „Grand Hand?“ scharf, rot mit dem Strich, der in drei Sekunden abläuft wie bei „Aufgeben“; erst der zweite Tipp sagt es an, jeder andere Tipp und die Zeit entschärfen die Taste.']],
+  ['push-grand-done','Ramsch: Grand Hand angesagt',[390,1280],grandPlay,
+    ['Felix hat angesagt: die Tafel nennt „Grand Hand“ mit „Reizwert 18“, keine Ansage steht daneben, kein Ramsch mehr; er ist Alleinspieler und spielt aus. Anna, Nova und jeder Zuschauer sehen dieselbe Tafel.']],
+  ['push-grand-off','Ramsch: Grand Hand nicht erlaubt',[390],(d)=>pushTable(d,{glow:felixGlow(d),marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['An einem Tisch, der es nicht erlaubt: dieselben zwei Tasten wie in „push-mine“, nichts ist ausgegraut und nichts erklärt.']],
+];
+agentScenes(GRAND_SCENES);
 
 /* ===== S11.9p: standing up during a hand ===== */
 /* during a hand the strip has no room for two words on a phone: one of the two keys goes round; at 1280 both keep their word */
@@ -2081,6 +2145,66 @@ STAND_SCENES.push(
     ['Im Anruf steht Skats Leiste mit „Aufgeben“, dem runden „Aufstehen“ und der Pille über der Leiste des Anrufs; die Hand rückt um eine Leiste nach oben, wie bei agents-framed.']],
 );
 agentScenes(STAND_SCENES);
+
+/* ===== S13.3cp: Kontra and Re: the key that says a word, the word said, the plaque of a doubled game, the card that explains its score ===== */
+/* the words are KONTRA_STEPS; the key names the next one. Felix is an opponent who bid (Anna declares) or the declarer (he led); Lena watches */
+const ROUND_GIVE_UP=roundKey('',I.flag,'Aufgeben');
+/* the key takes the strip's first place and never waits; on a phone Aufgeben goes round for it, as Aufstehen did, and at 360 the word stands without its bolt */
+const kontraKey=(word,o={})=>`<span class="cb wide kontra ${o.dismiss?'dismissable':''}" role="button">${narrow()||o.felt?'':I.kontra}${word}${o.dismiss?`<span class="dismiss" role="button" aria-label="Kein Wort">${I.cross}</span>`:''}</span>`;
+const kontraStrip=(d,word,o={})=>stripOf(d,{lead:word?kontraKey(word,o)+(d?GIVE_UP+STAND_WORD:ROUND_GIVE_UP+STAND_ROUND):standLead(d),pill:agentPill(d)});
+const kontraLine=(word)=>`<div class="game pushes">${word} <b>×${kontraFactor(word)}</b></div>`;
+/* the stamp lands on the felt below the trick, where the next card goes; Felix's own card lies there when he led, so it lands higher then */
+const kontraStamp=(d,word,who,high)=>stamp(`${word}!`,who,{x:mid(d),y:high?(d?330:350):d?430:narrow()?396:440,sf:d?50:30,ss:d?380:230,k:.42});
+/* the key on the felt: the stage button of the Ramsch's choice, between the trick and Felix's chair */
+const feltKey=(d,word)=>row(mid(d),d?490:narrow()?376:392,`<span class="button button-stage">${narrow()?'':I.kontra}${word}</span>`).replace('class="btns"','class="btns kontra-felt"');
+/* o.word: the last word said, which the plaque carries (o.bare: only the stamp tells it); o.stamp: [word, sayer] */
+const kontraTable=(d,o={})=>{const L=seatsOf(d),declares=o.cast==='declarer',two=o.word&&!o.bare,drop=!d&&two?DROP_TRICK:0,right=TRICK_SLOT.right(d);
+  const trick=declares?trickAt(d,'felix','near'):lead(d,'anna','left',drop)+played('7','s','nova',slotAt(d,{...right,y:right.y+(d?0:drop)}));
+  return tableOf(d,{fans:8,count:true,glow:declares?annaTurn(d):turnGlow(d)})+kreuz(d,two?kontraLine(o.word):'')+trick+(o.stamp?kontraStamp(d,...o.stamp,declares):'')
+    +seat('anna',{...L.anna,marks:declares?['turn']:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:declares?['decl']:['turn']})+chairCoasters(L,TOTALS_BEFORE)
+    +(o.felt?feltKey(d,o.felt):'')+ownCards(d,declares?FELIX_HOLDS.slice(1):FELIX_FOLLOWS);};
+/* Lena watches Anna's table: the word and its plaque, no key */
+const kontraWatch=(d)=>{const L=seatsOf(d);
+  return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d)+sideFans(d,7,7)+nearFan(d,8)+kreuz(d,kontraLine('Kontra'))
+    +lead(d,'anna','left',d?0:DROP_TRICK)+played('7','s','ben',slotAt(d,{...TRICK_SLOT.right(d),y:TRICK_SLOT.right(d).y+(d?0:DROP_TRICK)}))+kontraStamp(d,'Kontra','ben')
+    +seat('anna',{...L.anna,marks:['decl']})+seat('ben',L.nova)+seat('lena',{...L.you,marks:['turn']})+tableBar(d);};
+const KONTRA_OFFER=(d,o={})=>kontraTable(d,o)+kontraStrip(d,o.felt||o.none?'':'Kontra',o);
+/* Anna declares and wins Kreuz after Kontra and Re; Felix lost against her. The list adds 50 once, doubled by nothing */
+const KONTRA_WON={near:'felix',declarer:'anna',winners:['anna'],adds:[146,0,0],word:'Verloren',suit:'c',game:'Anna, Kreuz',
+  calc:{suit:'c',base:12,mit:true,count:1,steps:['Spiel'],won:true,words:['Kontra','Re']},eyes:[74,46],names:['Anna','Wir'],ready:['anna']};
+/* Felix declared Kreuz and lost it after Kontra: the loss doubles once more, the opponents get their 40 */
+const KONTRA_LOST={...OWN_LOSS,adds:[40,40,-194],calc:{...KREUZ_MIT_2,won:false,words:['Kontra']}};
+/* on a 360 phone the felt is 64 px shorter: the card drops the bar of the eyes to keep clear of the chair */
+const kontraCard=(o)=>narrow()?{...o,eyes:null}:o;
+const KONTRA_SCENES=[
+  ['kontra-offer','Kontra: der Knopf in der Leiste',[360,390,1280],(d)=>KONTRA_OFFER(d),
+    ['Felix ist Gegner und hat gereizt; Anna spielt Kreuz, Nova hat bedient, Felix ist dran. Vor seiner ersten Karte steht „Kontra“ als Leistentaste an erster Stelle, hell wie „Weiter“; „Aufgeben“ wird dafür rund, wie vorher „Aufstehen“. Bei 360 steht das Wort ohne Blitz. Die Taste wartet auf niemanden und sperrt keine Karte.']],
+  ['kontra-offer-felt','Kontra: der Knopf auf dem Filz',[360,390,1280],(d)=>KONTRA_OFFER(d,{felt:'Kontra'}),
+    ['Dieselbe Lage, die Taste liegt auf dem Filz zwischen dem Stich und Felix’ Stuhl, die Leiste bleibt, wie sie ist (stand-play): kein Platzproblem bei 360, aber ein zweiter Ort für eine Taste.'],true],
+  ['kontra-offer-dismiss','Kontra: ein Knopf mit „×“',[360,390,1280],(d)=>KONTRA_OFFER(d,{dismiss:true}),
+    ['Die Taste trägt ein kleines „×“ an ihrer Ecke: es sagt „kein Wort“ (die Route no-word) und nimmt die Taste weg. Es hängt über der Kante und braucht keine Breite.'],true],
+  ['kontra-none','Kontra: keine Taste',[390],(d)=>KONTRA_OFFER(d,{none:true}),
+    ['Felix passte sofort: kein Reizwort, kein Knopf; die Leiste ist die von stand-play. „Hast du sofort gepasst, fehlt dir der Knopf „Kontra“.“']],
+  ['kontra-said','Kontra: gesagt',[360,390,1280],(d)=>kontraTable(d,{word:'Kontra',stamp:['Kontra','felix']})+kontraStrip(d,''),
+    ['Felix sagte Kontra: der Stempel mit seinem Gesicht auf allen Tischen, die Tafel trägt eine zweite Zeile „Kontra ×2“ bis zum Ergebnis, seine Taste ist weg. Seine Karten bleiben spielbar; der Tisch wartet auf niemanden.']],
+  ['kontra-said-bare','Kontra: gesagt, Tafel bleibt',[390,1280],(d)=>kontraTable(d,{word:'Kontra',bare:true,stamp:['Kontra','felix']})+kontraStrip(d,''),
+    ['Dasselbe, aber die Tafel bleibt „Kreuz“: nur der Stempel erzählt es, und er geht wieder. Wer später hinschaut, sieht nichts von der Verdoppelung bis zum Ergebnis.'],true],
+  ['kontra-re','Re: die Taste des Alleinspielers',[360,390,1280],(d)=>kontraTable(d,{cast:'declarer',word:'Kontra',stamp:['Kontra','anna']})+kontraStrip(d,'Re'),
+    ['Felix spielt Kreuz allein und spielte aus; Anna sagte Kontra. Nun steht „Re“ in seiner Leiste bis zu seiner nächsten Karte; der Tisch wartet nicht auf ihn, Anna ist dran.']],
+  ['kontra-supra','Supra: nach Re',[390],(d)=>kontraTable(d,{word:'Re',stamp:['Re','anna']})+kontraStrip(d,'Supra'),
+    ['Felix sagte Kontra, Anna Re: die Tafel „Re ×4“ und der Stempel „Re!“, bei Felix steht „Supra“ (×8).']],
+  ['kontra-hirsch','Hirsch: das letzte Wort',[390],(d)=>kontraTable(d,{cast:'declarer',word:'Supra',stamp:['Supra','anna']})+kontraStrip(d,'Hirsch'),
+    ['Anna sagte Supra: die Tafel „Supra ×8“, bei Felix, dem Alleinspieler, steht „Hirsch“ (×16); danach gibt es keine Taste mehr.']],
+  ['kontra-agent','Kontra: Nova sagt es',[390,1280],(d)=>kontraTable(d,{cast:'declarer',word:'Kontra',stamp:['Kontra','nova']})+kontraStrip(d,'Re'),
+    ['Nova, ein Agent, sagte Kontra (say_kontra): derselbe Stempel mit Novas blauer Kugel, die Tafel „Kontra ×2“; Felix, der Alleinspieler, sieht „Re“.']],
+  ['kontra-watch','Kontra: Zuschauen',[390,1280],kontraWatch,
+    ['Lena schaut zu: der Stempel mit Bens Gesicht und die Tafel „Kontra ×2“; keine Taste, nur die Leiste des Zuschauers.']],
+  ['kontra-end','Kontra: das Ergebnis',[360,390,1280],(d)=>endScene(d,kontraCard(KONTRA_WON),tapButton),
+    ['Anna gewann Kreuz nach Kontra und Re: die Rechnung wie immer (2 × Kreuz 12 = 24), danach „Kontra ×2“ und „Re ×4“ als gehaltene Marken, der Wert 4 × 24 = 96, die Zeile „Spiel · Re +96“ und die Liste +50: Annas Deckel 148 + 146 = 294, bei Felix und Nova nichts.']],
+  ['kontra-lost-end','Kontra: verloren',[390],(d)=>endScene(d,kontraCard(KONTRA_LOST),tapButton),
+    ['Felix verlor sein Kreuz nach Kontra: 3 × Kreuz 12 = 36, „Kontra ×2“, das Verlieren verdoppelt noch einmal, −144 im Grau der verlorenen Karten, Liste −50 = −194; Anna und Nova je +40.']],
+];
+agentScenes(KONTRA_SCENES);
 
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
 const HOME_SCENES=[
