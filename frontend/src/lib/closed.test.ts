@@ -14,6 +14,15 @@ describe("the heading of a table that closed itself", () => {
         [1800, "closed.emptyMinutes", 30],
         [2700, "closed.emptyMinutes", 45],
     ] as const)("names a stored wait of %i seconds by the family %s at the count %i", (seconds, family, count) => {
-        expect(closedWords({ reason: "empty", empty_seconds: seconds })).toBe(words[family](count));
+        const gaps = { minutes: String(count) };
+        expect(closedWords({ reason: "empty", empty_seconds: seconds })).toBe(
+            family === "closed.emptyMinutes" ? words[family](count, gaps) : words[family](count),
+        );
+    });
+
+    it("writes a day-long wait in plain digits without a thousands separator", () => {
+        expect(closedWords({ reason: "empty", empty_seconds: 86400 })).toBe(
+            "1440 Minuten niemand da: Tisch geschlossen",
+        );
     });
 });

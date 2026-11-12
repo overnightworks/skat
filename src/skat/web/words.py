@@ -253,8 +253,8 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
             'other': '{count} Sekunden niemand da: Tisch geschlossen',
         },
         'closed.emptyMinutes': {
-            'one': '{count} Minute niemand da: Tisch geschlossen',
-            'other': '{count} Minuten niemand da: Tisch geschlossen',
+            'one': '{minutes} Minute niemand da: Tisch geschlossen',
+            'other': '{minutes} Minuten niemand da: Tisch geschlossen',
         },
         'declare.commandFailed': 'Das hat nicht geklappt',
         'declare.takeSkat': 'Aufnehmen',

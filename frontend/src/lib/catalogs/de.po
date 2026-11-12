@@ -360,11 +360,11 @@ msgid "{count} Sekunden niemand da: Tisch geschlossen"
 msgstr ""
 
 msgctxt "closed.emptyMinutes.one"
-msgid "{count} Minute niemand da: Tisch geschlossen"
+msgid "{minutes} Minute niemand da: Tisch geschlossen"
 msgstr ""
 
 msgctxt "closed.emptyMinutes.other"
-msgid "{count} Minuten niemand da: Tisch geschlossen"
+msgid "{minutes} Minuten niemand da: Tisch geschlossen"
 msgstr ""
 
 msgctxt "declare.commandFailed"

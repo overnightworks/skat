@@ -90,7 +90,7 @@ export type Words = {
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
     readonly "closed.notFound": string;
     readonly "closed.emptySeconds": (count: number) => string;
-    readonly "closed.emptyMinutes": (count: number) => string;
+    readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "declare.putBack": string;
@@ -250,13 +250,13 @@ export const words: Words = {
         many: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
         other: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
     })[pluralRules.select(count)],
-    "closed.emptyMinutes": (count: number) => ({
-        zero: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
-        one: numberFormat.format(count) + " Minute niemand da: Tisch geschlossen",
-        two: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
-        few: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
-        many: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
-        other: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
+    "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => ({
+        zero: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        one: gaps.minutes + " Minute niemand da: Tisch geschlossen",
+        two: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        few: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        many: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+        other: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
     })[pluralRules.select(count)],
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
