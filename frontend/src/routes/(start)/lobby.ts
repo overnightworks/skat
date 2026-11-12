@@ -101,9 +101,10 @@ export function minutesLeft(secondsLeft: number, heldMilliseconds: number): numb
     return left <= 0 ? null : Math.ceil(left / (SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND));
 }
 
+// The stream counts the game as 0 before the first deal.
 function progressOf(table: LobbyTable): string | null {
-    if (table.game_count === null) return null;
-    if (table.game_number === null) return words["lobby.length"](table.game_count);
+    if (table.game_number === null || table.game_count === null) return null;
+    if (table.game_number === 0) return words["lobby.length"](table.game_count);
     return words["lobby.progress"]({ game: String(table.game_number), count: table.game_count });
 }
 

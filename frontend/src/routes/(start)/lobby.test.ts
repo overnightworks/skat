@@ -101,8 +101,8 @@ describe("cardOf", () => {
 
     it.each([
         [{ game_number: 9, game_count: 36 }, "Spiel 9 von 36"],
-        [{ game_number: null, game_count: 36 }, "36 Spiele"],
-        [{ game_number: null, game_count: 1 }, "1 Spiel"],
+        [{ game_number: 0, game_count: 36 }, "36 Spiele"],
+        [{ game_number: 0, game_count: 1 }, "1 Spiel"],
         [{ game_number: null, game_count: null }, null],
     ])("reads the series of %o as %s", (series, progress) => {
         expect(cardOf(tableOf(series), NOW, 0).progress).toBe(progress);
@@ -175,7 +175,7 @@ describe("cardOf", () => {
                 chairOf(1, { occupant_name: null, occupant_kind: null }),
                 chairOf(2, { is_mine: true, hold_seconds_left: 240 }),
             ];
-            return tableOf({ dealt: false, game_number: null, chairs });
+            return tableOf({ dealt: false, game_number: 0, chairs });
         }
 
         it("says them on every away chair, the own one and the others'", () => {

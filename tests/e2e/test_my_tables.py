@@ -183,7 +183,7 @@ def waiting_table(opener: str) -> LobbyTableAnswer:
     return LobbyTableAnswer(
         id="c" * 32,
         title_name=opener,
-        game_number=None,
+        game_number=0,
         game_count=SERIES_LENGTH_DEFAULT,
         dealt=False,
         awaits_you=False,
@@ -200,19 +200,22 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
     person = open_person(username="Dina", **DESKTOP)
-    line = {"is_up": True, "lists": 0}
+    line = {"state": "first"}
 
     def answer(route: Route) -> None:
-        if not line["is_up"]:
+        if line["state"] == "back":
+            route.continue_()
+            return
+        if line["state"] == "lost":
             route.abort()
             return
-        line["lists"] += 1
-        held = {0: 300, 1: 240} if line["lists"] == 1 else {}
         route.fulfill(
             status=200,
             headers={"content-type": EVENT_STREAM},
-            body=mine_event(waiting_table("Mara"), held),
+            body=mine_event(waiting_table("Mara"), {0: 300, 1: 240}),
         )
+        # The stream ends with its first list, so the line stays lost until the test brings it back.
+        line["state"] = "lost"
 
     person.route(f"**{LOBBY_EVENTS_PATH}", answer)
 
@@ -232,17 +235,15 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
     expect(card.locator(".lobby-plate small").first).to_have_attribute(
         "title", text(SOURCE_LANGUAGE, "lobby.otherSeatFreeIn", count=5, minutes="5", owner="Maras")
     )
-    line["is_up"] = False
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
     expect(person.locator(".my-tables")).to_have_class(re.compile(r"\bstale\b"))
     expect(card).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_enabled()
 
-    line["is_up"] = True
+    line["state"] = "back"
 
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_have_count(0)
-    expect(person.locator(".my-tables")).not_to_have_class(re.compile(r"\bstale\b"))
-    expect(card.locator(".lobby-plate small")).to_have_count(0)
+    expect(person.locator(".my-tables")).to_have_count(0)
 
 
 def test_going_back_from_a_table_returns_to_a_current_list(
