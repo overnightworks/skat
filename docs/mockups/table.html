@@ -1797,9 +1797,11 @@ STAND_SCENES.push(
 const trickAt=(d,k,slot)=>{const at_=TRICK_SLOT[slot](d);
   return played('K','s',k,slotAt(d,{...at_,y:d?at_.y:slot==='near'?PB.you.y-57:at_.y+DROP_TRICK}));};
 const STOOD_NOTICE='Felix ist aufgestanden';
+/* on the 360 phone no gap between the plaque and the trick holds the notice: it sits below the near chair, over no card */
+const stoodNoticeY=(d)=>d?330:PB.table.w===PHONE_360.PB.table.w?PB.you.y+120:PB.you.y-147;
 /* Anna's view turns the table: she sits at the bottom, Nova is on her left and Felix's chair on her right */
 const annaSeesStand=(d)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true})+kreuz(d,WAIT_LINE)+trickAt(d,'anna','near')+notice(STOOD_NOTICE,'felix',mid(d),d?330:Math.max(PB.you.y-147,322))
+  return tableOf(d,{fans:8,count:true})+kreuz(d,WAIT_LINE)+trickAt(d,'anna','near')+notice(STOOD_NOTICE,'felix',mid(d),stoodNoticeY(d))
     +seat('nova',L.anna)+freeSeat(L.nova,{idle:true})+seat('annaSelf',{...L.you,marks:['decl']})+chairCoasters(L,[TOTALS_BEFORE[1],TOTALS_BEFORE[2],TOTALS_BEFORE[0]])
     +ownCards(d,SPARE_HAND)+stripOf(d,{lead:ABORT+(d?STAND_WORD:STAND_ROUND)});};
 /* Felix's own view right after: a watcher's, the table as he left it, the plus on his chair */
