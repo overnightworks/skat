@@ -32,6 +32,7 @@ from skat.table.views import view_of
 from tests.support.open_chairs import PHASES, REARHAND_SEAT, newcomer, sent_away
 from tests.support.played_game import (
     a_whole_game,
+    asked_by_an_opponent,
     asked_by_the_declarer,
     between_games,
     declared_herz_hand,
@@ -112,6 +113,12 @@ class TestTheWaitingCase:
             pytest.param(table_in(HandProgress()), MIDDLEHAND, WaitingCase.TURN, id="the-seat-on-turn"),
             pytest.param(asked_by_the_declarer(None), REARHAND, WaitingCase.GIVE_UP, id="an-unanswered-give-up"),
             pytest.param(asked_by_the_declarer(None), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-give-up"),
+            pytest.param(
+                asked_by_an_opponent(), MIDDLEHAND, WaitingCase.GIVE_UP, id="the-declarer-on-an-opponents-give-up"
+            ),
+            pytest.param(
+                asked_by_an_opponent(), FOREHAND, None, id="nothing-for-the-seat-on-turn-while-the-declarer-is-asked"
+            ),
             pytest.param(kontra_hand(), REARHAND, WaitingCase.KONTRA, id="an-unanswered-kontra-word"),
             pytest.param(kontra_hand(), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-kontra-word"),
             pytest.param(
@@ -225,6 +232,23 @@ class TestAGiveUpQuestion:
         assert waiting_for(asked_by_the_declarer(declined_by)) == waiting
 
 
+class TestAnOpponentsGiveUp:
+    @pytest.mark.parametrize("opponent", [Position.FOREHAND, Position.REARHAND], ids=lambda opponent: opponent.name)
+    def test_the_declarer_alone_is_awaited_not_the_seat_on_turn_nor_the_asker_nor_the_other_opponent(self, opponent):
+        assert waiting_for(asked_by_an_opponent(opponent)) == {MIDDLEHAND}
+
+    def test_an_opponent_with_a_kontra_word_open_is_not_awaited(self):
+        assert waiting_for(kontra_hand()) == {FOREHAND, REARHAND}
+
+        assert waiting_for(asked_by_an_opponent(options=KONTRA_OPTIONS)) == {MIDDLEHAND}
+
+    def test_the_seat_on_turn_is_awaited_again_once_the_give_up_is_gone(self):
+        asked = asked_by_an_opponent()
+        playing_on = replace(asked, progress=replace(asked.progress, give_up=None))
+
+        assert waiting_for(playing_on) == {FOREHAND}
+
+
 class TestAResultAndTheEndOfTheSeries:
     @pytest.mark.parametrize(
         ("table", "waiting"),
@@ -324,9 +348,9 @@ class TestAnOpenChair:
         assert waiting_for(sent_away(running, SEAT_OF[on_turn])) == set()
 
     def test_no_seat_is_awaited_for_a_give_up_question_either(self):
-        asked = asked_by_the_declarer()
-
-        assert waiting_for(sent_away(asked, REARHAND_SEAT)) == set()
+        for asked in (asked_by_the_declarer(), asked_by_an_opponent()):
+            assert waiting_for(sent_away(asked, REARHAND_SEAT)) == set()
+            assert waiting_for(sent_away(asked, SEAT_OF[MIDDLEHAND])) == set()
 
     def test_the_seat_on_turn_is_awaited_again_under_a_higher_revision_once_a_sitter_joins(self):
         running = PHASES["auction"]()

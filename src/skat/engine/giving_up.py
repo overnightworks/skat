@@ -56,7 +56,8 @@ def throw_down(state: Playing, position: Position) -> PlayOutcome:
 
 
 def opponent_gives_up(state: Playing) -> PlayOutcome:
-    """An opponent gives up his side's defence: the game ends at once and no consent is asked.
+    """An opponent gives up his side's defence: the game ends at once and the engine asks no consent; the table has
+    asked the declarer first, whose yes it is (ISkO 4.4.3 with 4.1.3 to 4.1.5).
 
     A game already won for the declarer ends with his real result, one already lost for him with the opponents' points
     so far, and an undecided one is won by its declaration and bid.

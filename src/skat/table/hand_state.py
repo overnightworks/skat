@@ -5,13 +5,12 @@ from skat.engine.declaration import Declaring, declaring_after
 from skat.engine.kontra import Doubling, bidders_of, doubling_after
 from skat.engine.ramsch import ramsch_after, start_ramsch
 from skat.engine.schieberamsch import GrandHandRule, Pushing, PushOptions, RamschOn, pushing_after
-from skat.engine.tricks import playing_after, start_play
+from skat.engine.tricks import Playing, playing_after, start_play
 
 if TYPE_CHECKING:
     from skat.engine.bidding import Auction
     from skat.engine.ramsch import RamschPlaying
-    from skat.engine.tricks import Playing
-    from skat.table.records import TableRecord
+    from skat.table.records import GiveUpAsked, TableRecord
 
 
 def auction_of(table: TableRecord) -> Auction:
@@ -68,6 +67,13 @@ def game_of(table: TableRecord) -> Playing | RamschPlaying | None:
     if not isinstance(stage.result, RamschOn):
         return None
     return ramsch_after(start_ramsch(stage.deal), table.progress.plays)
+
+
+def game_waits_for_the_declarers_answer(state: Playing | RamschPlaying | None, asked: GiveUpAsked | None) -> bool:
+    """True when an opponent's give-up stands: the game is over by ISkO 4.4.3 unless the declarer demands play on, so
+    no card, throw-down, Kontra word or give-up is taken until he answers. A Ramsch and a game not played have none.
+    """
+    return isinstance(state, Playing) and asked is not None and asked.asker is not state.declared.declarer
 
 
 def doubling_of(table: TableRecord) -> Doubling | None:

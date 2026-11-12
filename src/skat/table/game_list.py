@@ -142,7 +142,7 @@ def list_entry_of(
         raise RuntimeError(message)
     seats = seats_from(table.dealer)
     first, second, third = _seated(table)
-    valuation = value_of(played)
+    valuation = value_of(played, played.declared.bid)
     settlement = settle(played, played.declared.bid)
     if table.options.bock is not None:
         settlement = bock_settlement(settlement, table.bock, table.options.bock.overlap)

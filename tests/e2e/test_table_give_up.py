@@ -215,3 +215,82 @@ def test_an_answer_to_a_request_a_card_took_back_shows_the_failure_and_ends_noth
     expect_the_game_again(table)
     for person in table.everyone:
         expect(person.locator(CARD)).to_have_count(0)
+
+
+HELD_CARDS = ".controls.held"
+OWN_CARDS = ".own-hand .card"
+
+
+def gives_up(opponent: str) -> str:
+    return text(SOURCE_LANGUAGE, "table.givesUp", name=opponent)
+
+
+@pytest.fixture
+def deal_an_opponents_give_up(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> Callable[..., PlayingTable]:
+    """A declared game after two tricks at which an opponent gave up through the API; the declarer's page, which
+    plays through the page only, shows the request.
+    """
+
+    def deal(form_factor: dict[str, Any]) -> PlayingTable:
+        table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
+        table.play_out(CARDS_AFTER_TWO_TRICKS)
+        table.declaring.step(opponents(table)[0], TABLE_GIVE_UP_SUFFIX)
+        expect(table.pages[table.declarer_seat].locator(REQUEST)).to_be_visible()
+        return table
+
+    return deal
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_an_opponents_give_up_shows_the_declarer_his_cards_held_and_the_two_answers(
+    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_an_opponents_give_up(form_factor)
+    asker = opponents(table)[0]
+    declarer = table.pages[table.declarer_seat]
+
+    expect(declarer.locator(REQUEST)).to_contain_text(gives_up(table.names[asker]))
+    expect(button_of(declarer, ACCEPT)).to_be_visible()
+    expect(button_of(declarer, PLAY_ON)).to_be_visible()
+    expect(declarer.locator(HELD_CARDS)).to_be_visible()
+    expect_nothing_to_overflow(declarer)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_declarers_yes_ends_the_game_on_every_page_with_the_result_and_no_request_and_no_card(
+    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_an_opponents_give_up(form_factor)
+    declarer = table.pages[table.declarer_seat]
+    expect(declarer.locator(OWN_CARDS).first).to_be_visible()
+
+    button_of(declarer, ACCEPT).click()
+
+    for person in table.everyone:
+        expect(person.locator(CARD)).to_be_visible()
+        expect(person.locator(REQUEST)).to_have_count(0)
+        expect(person.locator(OWN_CARDS)).to_have_count(0)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_declarers_no_lets_the_hand_go_on_with_his_cards_lit_again(
+    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_an_opponents_give_up(form_factor)
+    declarer = table.pages[table.declarer_seat]
+
+    button_of(declarer, PLAY_ON).click()
+
+    expect_the_game_again(table)
+    expect(declarer.locator(HELD_CARDS)).to_have_count(0)
+    expect(declarer.locator(OWN_CARDS).first).to_be_visible()
+    for person in table.everyone:
+        expect(person.locator(CARD)).to_have_count(0)
+    assert page_errors == []

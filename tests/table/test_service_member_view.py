@@ -12,7 +12,7 @@ import pytest
 from skat.engine.deal import Position
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.member_place import Acceptance
-from skat.table.playing import AgreeToGiveUpCommand
+from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
@@ -28,7 +28,13 @@ from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.calls import call_facts
 from tests.support.fake_tables import FakeTableStore
-from tests.support.played_game import asked_by_the_declarer, between_games, table_in, with_agents
+from tests.support.played_game import (
+    asked_by_the_declarer,
+    between_games,
+    declared_herz_hand,
+    table_in,
+    with_agents,
+)
 
 START = datetime(2026, 11, 1, 12, tzinfo=UTC)
 NOBODY = frozenset[str]()
@@ -139,6 +145,10 @@ def agree_to_give_up(service, actor, table_id, version):
     return service.agree_to_give_up(actor, AgreeToGiveUpCommand("act", table_id, version), NOBODY)
 
 
+def give_up(service, actor, table_id, version):
+    return service.give_up(actor, GiveUpCommand("act", table_id, version), NOBODY)
+
+
 def continue_after_result(service, actor, table_id, version):
     return service.mark_ready(actor, ReadyCommand("act", table_id, 1), NOBODY)
 
@@ -157,6 +167,9 @@ class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
                 asked_by_the_declarer(), Position.REARHAND, agree_to_give_up, True, id="4-agree-then-the-result"
             ),
             pytest.param(
+                table_in(declared_herz_hand()), Position.FOREHAND, give_up, False, id="8-an-opponents-give-up"
+            ),
+            pytest.param(
                 between_games(1, 2, 3, proposal=EndProposal(1)), Position.REARHAND, refuse_to_end, False, id="7-refuse"
             ),
         ],
@@ -172,6 +185,14 @@ class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
         assert (before.awaits_you, result.refusal) == (True, None)
         assert after.view.version > before.view.version
         assert after.awaits_you is awaits_after
+
+    def test_after_an_opponents_give_up_the_declarer_is_awaited_and_no_other_seat(self):
+        scene = Scene().put(table_in(declared_herz_hand()))
+        give_up(scene.service, an_actor(Position.FOREHAND), scene.table_id, scene.table.version)
+
+        awaiting = {position for position in Position if scene.view_of(an_actor(position).account_id).awaits_you}
+
+        assert awaiting == {Position.MIDDLEHAND}
 
     def test_the_same_act_again_raises_nothing(self):
         scene = Scene().put(between_games(2, 3))

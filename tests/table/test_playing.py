@@ -8,14 +8,19 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import TakeSkat
 from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
+from skat.table.awaiting import awaits_you
 from skat.table.game_list import GameEnding
 from skat.table.hand_state import playing_of
 from skat.table.playing import (
     AgreeToGiveUpCommand,
+    DeclineGiveUpCommand,
+    GiveUpCommand,
     PlayCardCommand,
     card_payload,
     decide_agree_to_give_up,
     decide_card,
+    decide_decline_give_up,
+    decide_give_up,
 )
 from skat.table.records import (
     Actor,
@@ -30,7 +35,24 @@ from skat.table.records import (
     TableRecord,
     parsed_refusal,
 )
-from tests.support.played_game import a_whole_game, before_the_last_card, declared_herz_hand
+from skat.table.rules import decide_sit, decide_stand, waiting_seat_of
+from skat.table.views import view_of
+from tests.support.open_chairs import (
+    HAND_COMMANDS,
+    MIDDLEHAND_SEAT,
+    REARHAND_SEAT,
+    actor_at,
+    hand_command,
+    newcomer,
+    sent_away,
+)
+from tests.support.played_game import (
+    a_whole_game,
+    asked_by_an_opponent,
+    before_the_last_card,
+    declared_herz_hand,
+    with_agents,
+)
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 TABLE_VERSION = 7
@@ -235,7 +257,7 @@ class TestTheEndingTheEntryRecords:
         table = after_two_tricks(GiveUpAsked(FOREHAND))
         command = AgreeToGiveUpCommand("command-1", table_id(), TABLE_VERSION)
 
-        entry = decide_agree_to_give_up(table, actor("account-rearhand"), command).table.game_list[0]
+        entry = decide_agree_to_give_up(table, actor("account-middlehand"), command).table.game_list[0]
 
         assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, FOREHAND_SEAT)
 
@@ -248,3 +270,85 @@ class TestParsedRefusal:
     @pytest.mark.parametrize("refusal", list(PlayRefusal), ids=str)
     def test_every_play_token_keeps_its_wire_string(self, refusal):
         assert parsed_refusal(refusal.value).value == refusal.value
+
+
+OPENINGS = pytest.mark.parametrize("opening", ["stand-up", "send-away"])
+NOBODY = frozenset[str]()
+
+
+def opened(table, seat, opening):
+    """The table once the occupant of `seat` stood up, or the agent in it was sent away."""
+    if opening == "send-away":
+        return sent_away(table, seat)
+    decision = decide_stand(table, actor_at(table, seat))
+    assert decision.refusal is None
+    return decision.table
+
+
+def sat(table, sitter, seat):
+    decision = decide_sit(table, sitter, seat, None)
+    assert decision.refusal is None
+    return decision.table
+
+
+def decline_as(table, who):
+    return decide_decline_give_up(table, who, DeclineGiveUpCommand("c", table.id.value, table.version)).table
+
+
+class TestAnOpponentsGiveUpAndAChairThatOpens:
+    @OPENINGS
+    def test_the_askers_chair_takes_the_request_with_it_in_one_version_and_the_hand_waits_for_a_sitter(self, opening):
+        table = asked_by_an_opponent(FOREHAND)
+
+        freed = opened(table, FOREHAND_SEAT, opening)
+
+        assert freed.progress.give_up is None
+        assert (freed.version, waiting_seat_of(freed)) == (table.version + 1, FOREHAND_SEAT)
+
+    @OPENINGS
+    def test_a_sitter_in_the_askers_chair_plays_on_and_may_give_up_afresh(self, opening):
+        sitter = newcomer()
+        taken = sat(opened(asked_by_an_opponent(FOREHAND), FOREHAND_SEAT, opening), sitter, FOREHAND_SEAT)
+
+        afresh = decide_give_up(taken, sitter, GiveUpCommand("c", taken.id.value, taken.version))
+
+        assert hand_command("card", taken, sitter).refusal is None
+        assert afresh.table.progress.give_up == GiveUpAsked(FOREHAND)
+
+    @OPENINGS
+    def test_the_declarers_chair_leaves_the_request_standing_and_every_command_seat_open(self, opening):
+        freed = opened(asked_by_an_opponent(FOREHAND), MIDDLEHAND_SEAT, opening)
+
+        assert freed.progress.give_up == GiveUpAsked(FOREHAND)
+        for command in HAND_COMMANDS:
+            decision = hand_command(command, freed, actor_at(freed, REARHAND_SEAT))
+            assert (decision.refusal, decision.table) == (Refusal.SEAT_OPEN, freed)
+
+    @OPENINGS
+    def test_the_sitter_in_the_declarers_chair_is_asked_and_answers_while_the_one_who_left_is_not_asked(self, opening):
+        table = asked_by_an_opponent(FOREHAND)
+        leaver, sitter = actor_at(table, MIDDLEHAND_SEAT), newcomer()
+        taken = sat(opened(table, MIDDLEHAND_SEAT, opening), sitter, MIDDLEHAND_SEAT)
+
+        assert awaits_you(view_of(taken, sitter.account_id, NOBODY))
+        assert not awaits_you(view_of(taken, leaver.account_id, NOBODY))
+        assert decline_as(taken, sitter).progress.give_up is None
+
+    @OPENINGS
+    def test_the_other_opponents_chair_leaves_the_request_standing_for_the_declarer(self, opening):
+        table = asked_by_an_opponent(FOREHAND)
+
+        taken = sat(opened(table, REARHAND_SEAT, opening), newcomer(), REARHAND_SEAT)
+
+        assert taken.progress.give_up == GiveUpAsked(FOREHAND)
+        assert awaits_you(view_of(taken, actor_at(taken, MIDDLEHAND_SEAT).account_id, NOBODY))
+        assert not awaits_you(view_of(taken, actor_at(taken, FOREHAND_SEAT).account_id, NOBODY))
+
+    def test_a_person_declarer_who_stood_up_answers_the_request_after_sitting_in_his_held_chair(self):
+        table = with_agents(asked_by_an_opponent(FOREHAND), FOREHAND_SEAT)
+        declarer = actor_at(table, MIDDLEHAND_SEAT)
+
+        back = sat(opened(table, MIDDLEHAND_SEAT, "stand-up"), declarer, MIDDLEHAND_SEAT)
+
+        assert back.progress.give_up == GiveUpAsked(FOREHAND)
+        assert decline_as(back, declarer).progress.give_up is None

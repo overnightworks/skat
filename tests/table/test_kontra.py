@@ -41,7 +41,14 @@ from skat.table.records import (
 )
 from skat.table.rules import create_payload
 from skat.table.views import view_of
-from tests.support.played_game import HERZ_HAND, a_whole_game, before_the_last_card, declared_herz_hand, table_in
+from tests.support.played_game import (
+    HERZ_HAND,
+    a_whole_game,
+    asked_by_an_opponent,
+    before_the_last_card,
+    declared_herz_hand,
+    table_in,
+)
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KONTRA, RE, SUPRA, HIRSCH = Word.KONTRA, Word.RE, Word.SUPRA, Word.HIRSCH
@@ -449,6 +456,33 @@ class TestTheEntryOfADoubledGame:
 
         assert entry(WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0)).score == entry().score * 4
         assert entry(WordSaid(FOREHAND, KONTRA, 0)).kontra_word is KONTRA
+
+
+class TestWhileAnOpponentsGiveUpWaits:
+    @pytest.mark.parametrize(
+        ("position", "word"),
+        [
+            pytest.param(FOREHAND, KONTRA, id="the-asker"),
+            pytest.param(REARHAND, KONTRA, id="the-other-opponent"),
+            pytest.param(MIDDLEHAND, RE, id="the-declarer"),
+        ],
+    )
+    @pytest.mark.parametrize("said", [pytest.param(True, id="a-word"), pytest.param(False, id="no-word")])
+    def test_a_word_and_the_answer_of_no_word_are_pending_and_change_nothing(self, position, word, said):
+        table = asked_by_an_opponent(FOREHAND, options_of())
+
+        decision = say_as(table, position, word if said else None)
+
+        assert (decision.refusal, decision.table) == (Refusal.REQUEST_PENDING, table)
+
+    def test_the_word_is_open_again_for_the_opponent_and_the_table_waits_for_it_after_the_declarers_no(self):
+        table = asked_by_an_opponent(FOREHAND, options_of())
+        assert waking_view(table, REARHAND) == (None, False, False)
+        playing_on = replace(table, progress=replace(table.progress, give_up=None))
+
+        assert waking_view(playing_on, REARHAND) == (KONTRA, False, True)
+        assert say_as(playing_on, REARHAND, KONTRA).refusal is None
+        assert answer_as(playing_on, REARHAND).refusal is None
 
 
 class TestTheRequestsAndTheirReceipts:
