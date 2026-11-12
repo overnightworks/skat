@@ -52,3 +52,20 @@ async def next_item(stream):
     """The next item of the stream, a view or a heartbeat marker, within the allowed time."""
     async with asyncio.timeout(ALLOWED_SECONDS):
         return await anext(stream)
+
+
+class Admission:
+    """An admission that answers from a script: True admits `actor`, False refuses, an exception is raised."""
+
+    def __init__(self, *answers, then=True, actor=OPENER):
+        self.answers = list(answers)
+        self.then = then
+        self.actor = actor
+        self.asked = 0
+
+    async def __call__(self):
+        self.asked += 1
+        answer = self.answers.pop(0) if self.answers else self.then
+        if isinstance(answer, Exception):
+            raise answer
+        return self.actor if answer else None
