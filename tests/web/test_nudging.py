@@ -6,6 +6,7 @@ import pytest
 
 from skat.table.asking import ASK_AGAIN_AFTER
 from skat.table.nudging import NUDGES_PER_VERSION
+from skat.table.records import EndedTable, EndReason, TableId
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX
 from skat.web.nudging import TABLE_NUDGE_SUFFIX
 from skat.web.tables import TABLES_PATH
@@ -199,6 +200,16 @@ class TestANudge:
 
         assert (answer.status_code, answer.json()["reason"]) == (409, "seat-open")
         assert {nudge_of(seated.read(who)) for who in ("anna", "ben", "watcher")} == {None}
+
+    def test_is_refused_for_a_table_that_ended(self, seated):
+        record = seated.table.record
+        seated.skat.store.tables[seated.table.table_id] = EndedTable(
+            TableId(seated.table.table_id), record.version + 1, EndReason.EMPTY, 3600
+        )
+
+        answer = seated.nudge("ben", version=record.version + 1)
+
+        assert (answer.status_code, answer.json()["reason"]) == (409, "stale-version")
 
     def test_is_refused_for_an_unknown_table_and_a_malformed_body(self, seated):
         unknown = seated.skat.client.post(

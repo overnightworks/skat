@@ -3,6 +3,7 @@ one, with the same table and the same `awaits_you`; an agent nudges as a person 
 """
 
 import pytest
+from structlog.testing import capture_logs
 
 from skat.engine.deal import Position
 from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, revision_of
@@ -127,6 +128,23 @@ class TestAnAgentOnTurnIsNudged:
         retry = nudge(skat, *asked, version=first["state"]["version"])
 
         assert (retry.status_code, pulses) == (200, [])
+
+
+class TestASignalThatFails:
+    def test_is_logged_by_its_type_and_the_nudge_stands(self, skat, time, agent, middlehand_auction, changes):
+        table = middlehand_auction
+        first = agent.view(table.table_id)
+        wait(skat, time, ASK_AGAIN_AFTER)
+        changes.failure = ConnectionResetError()
+
+        with capture_logs() as logs:
+            answer = nudge(
+                skat, table.table_id, table.at[REARHAND], own_chair(first)["seat"], version=first["state"]["version"]
+            )
+
+        assert answer.status_code == 200, answer.text
+        assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"]
+        assert own_chair(agent.view(table.table_id))["nudge"]["nudges"] == 1
 
 
 class TestTwoAgentsAtOneTable:
