@@ -1,9 +1,11 @@
-"""A person who calls agents, the agents that listen for it, and the control's routes as the page uses them."""
+"""A person who calls agents, the agents that listen for it, the control's routes and the table fixtures for them."""
 
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
 from types import SimpleNamespace
+
+import pytest
 
 from skat.web.calling import (
     AGENT_ADDERS_GROUP,
@@ -15,8 +17,9 @@ from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import new_account
 from tests.web.support.agent import Agent
+from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FETCH
+from tests.web.support.skat import FETCH, Skat, streams_of
 
 
 @dataclass(frozen=True)
@@ -92,3 +95,41 @@ def seat_of_nobody_but(skat, table_id, count):
     for seat in range(2, 2 + count):
         skat.sit(skat.member()[0], table_id, seat, command_id=f"command-sit-{seat}")
     skat.client.cookies.clear()
+
+
+class CallingTable:
+    """The fixtures of a member who calls agents at a table of their own; a test class inherits them."""
+
+    @pytest.fixture
+    def changes(self):
+        return RecordedChanges()
+
+    @pytest.fixture
+    def skat(self, hold, issuer, time, changes):
+        skat = Skat(
+            lambda: hold,
+            issuer_transports=issuer.transports,
+            chair_clock=time.clock,
+            chair_scheduler=time,
+            now=time.moment,
+            resource_changes=changes.wired,
+        )
+        with skat.client:
+            yield skat
+
+    @pytest.fixture
+    def felix(self, skat, issuer):
+        return person(skat, issuer)
+
+    @pytest.fixture
+    def table_id(self, skat, felix):
+        """A table Felix opened and sits at."""
+        created = skat.create(felix.headers)
+        skat.client.cookies.clear()
+        return created.json()["id"]
+
+    @pytest.fixture
+    def watching(self, skat, felix, table_id):
+        """Felix has an open stream on his table."""
+        with streams_of(skat, table_id, [(felix.headers, None)]):
+            yield

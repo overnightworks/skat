@@ -11,6 +11,7 @@ from skat.table.records import Actor, SendAway, TableId
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
+    CallingTable,
     call,
     invitations_of,
     listening,
@@ -22,52 +23,12 @@ from tests.web.support.calling import (
     seat_of_nobody_but,
     send_away,
 )
-from tests.web.support.changes import RecordedChanges
 from tests.web.support.presence import view_of_version
-from tests.web.support.skat import Skat, streams_of
+from tests.web.support.skat import streams_of
 
 NOVA = "agent-nova"
 BACH = "agent-bach"
 UNKNOWN_KEY = "a-key-no-roster-made"
-
-
-@pytest.fixture
-def changes():
-    return RecordedChanges()
-
-
-@pytest.fixture
-def skat(hold, issuer, time, changes):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        resource_changes=changes.wired,
-    )
-    with skat.client:
-        yield skat
-
-
-@pytest.fixture
-def felix(skat, issuer):
-    return person(skat, issuer)
-
-
-@pytest.fixture
-def table_id(skat, felix):
-    """A table Felix opened and sits at."""
-    created = skat.create(felix.headers)
-    skat.client.cookies.clear()
-    return created.json()["id"]
-
-
-@pytest.fixture
-def watching(skat, felix, table_id):
-    """Felix has an open stream on his table."""
-    with streams_of(skat, table_id, [(felix.headers, None)]):
-        yield
 
 
 def hand_with_nova_in_chair_two(skat, nova, table_id):
@@ -83,7 +44,7 @@ def chair_two(skat, table_id):
 
 
 @pytest.mark.usefixtures("watching")
-class TestAMemberSendsASeatedAgentAway:
+class TestAMemberSendsASeatedAgentAway(CallingTable):
     def test_between_hands_the_chair_is_free_at_once_and_the_answer_is_the_control_with_the_row_available(
         self, skat, issuer, felix, table_id
     ):
@@ -212,7 +173,7 @@ class TestAMemberSendsASeatedAgentAway:
 
 
 @pytest.mark.usefixtures("watching")
-class TestASendAwayThatChangesNothing:
+class TestASendAwayThatChangesNothing(CallingTable):
     def test_a_person_outside_the_group_is_refused_not_allowed_and_the_chair_is_kept(
         self, skat, issuer, felix, table_id
     ):

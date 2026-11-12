@@ -11,6 +11,7 @@ from skat.table.records import OccupantKind, TableId
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
+    CallingTable,
     call,
     invitations_of,
     listening,
@@ -22,51 +23,11 @@ from tests.web.support.calling import (
     seat_of_nobody_but,
     send_away,
 )
-from tests.web.support.changes import RecordedChanges
-from tests.web.support.skat import Skat, streams_of
+from tests.web.support.skat import streams_of
 
 NOVA = "agent-nova"
 BACH = "agent-bach"
 UNKNOWN_KEY = "a-key-no-roster-made"
-
-
-@pytest.fixture
-def changes():
-    return RecordedChanges()
-
-
-@pytest.fixture
-def skat(hold, issuer, time, changes):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        resource_changes=changes.wired,
-    )
-    with skat.client:
-        yield skat
-
-
-@pytest.fixture
-def felix(skat, issuer):
-    return person(skat, issuer)
-
-
-@pytest.fixture
-def table_id(skat, felix):
-    """A table Felix opened and sits at."""
-    created = skat.create(felix.headers)
-    skat.client.cookies.clear()
-    return created.json()["id"]
-
-
-@pytest.fixture
-def watching(skat, felix, table_id):
-    """Felix has an open stream on his table."""
-    with streams_of(skat, table_id, [(felix.headers, None)]):
-        yield
 
 
 def agent_standing(skat, issuer, owner, subject=NOVA, name="Nova"):
@@ -74,7 +35,7 @@ def agent_standing(skat, issuer, owner, subject=NOVA, name="Nova"):
 
 
 @pytest.mark.usefixtures("watching")
-class TestTheControlListsTheAgentsASessionsPersonMayCall:
+class TestTheControlListsTheAgentsASessionsPersonMayCall(CallingTable):
     def test_a_member_at_the_table_sees_a_row_for_a_listening_agent_whose_owner_is_there(
         self, skat, issuer, felix, table_id
     ):
@@ -181,7 +142,7 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall:
 
 
 @pytest.mark.usefixtures("watching")
-class TestACallInvitesTheAgent:
+class TestACallInvitesTheAgent(CallingTable):
     def test_the_agent_sees_an_invitation_that_runs_out_after_the_duration_on_the_services_clock(
         self, skat, issuer, time, felix, table_id
     ):
@@ -278,7 +239,7 @@ class TestACallInvitesTheAgent:
 
 
 @pytest.mark.usefixtures("watching")
-class TestACallThatChangesNothing:
+class TestACallThatChangesNothing(CallingTable):
     def test_a_person_outside_the_group_is_refused_not_allowed_when_every_cheap_check_passes(
         self, skat, issuer, felix, table_id
     ):
@@ -452,7 +413,7 @@ class TestACallThatChangesNothing:
 
 
 @pytest.mark.usefixtures("watching")
-class TestTwoOverlappingCallsOfOneSession:
+class TestTwoOverlappingCallsOfOneSession(CallingTable):
     def overlap(self, skat, issuer, felix, table_id, key):
         """Two calls of Felix's session that both stand at the issuer's grant before either is answered."""
         hold = issuer.hold("refresh_token")
@@ -497,7 +458,7 @@ class TestTwoOverlappingCallsOfOneSession:
             assert (next_call.status_code, len(invitations_of(bach))) == (200, 1)
 
 
-class TestAnAgentTokenReachesNoRoute:
+class TestAnAgentTokenReachesNoRoute(CallingTable):
     def test_every_route_refuses_it_and_the_front_lists_no_tool_for_them(self, skat, issuer, felix, table_id):
         agent = Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova")
         token = issuer.agent_token(NOVA, agent_owner=felix.id)
