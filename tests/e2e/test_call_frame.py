@@ -47,6 +47,7 @@ SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "ha
 LANDSCAPE_PHONE = {"viewport": {"width": 844, "height": 390}, "is_mobile": True, "has_touch": True}
 # The call page sizes its frame: the screen's width and the height its own page leaves (676 of 740 px, 326 of 390 px).
 SMALL_FRAME = "width:360px;height:676px"
+PHONE_FRAME = "width:390px;height:780px"
 LANDSCAPE_FRAME = "width:844px;height:326px"
 # The small phone, taller than any short call frame: its chairs and trick keep the sizes a standalone page draws.
 TALLER_PHONE_VIEWPORT = {"width": 360, "height": 1000}
@@ -339,7 +340,7 @@ def test_a_framed_call_strip_at_390_holds_stand_up_the_agents_pill_and_the_speak
     assert page_errors == []
 
 
-def chair_and_trick_sizes(person: Page) -> tuple[float, float]:
+def chair_and_trick_sizes(person: Page | FrameLocator) -> tuple[float, float]:
     chair = box_of(person.locator(CHAIR).first)
     trick = box_of(person.locator(TRICK).first)
     return chair["width"], trick["height"]
@@ -360,4 +361,25 @@ def test_a_standalone_phone_at_360_by_740_keeps_the_chair_and_trick_sizes_of_a_t
     person.set_viewport_size(TALLER_PHONE_VIEWPORT)
 
     assert chair_and_trick_sizes(person) == pytest.approx(short)
+    assert page_errors == []
+
+
+@pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
+def test_a_framed_call_at_390_by_780_keeps_the_chair_and_trick_sizes_of_a_taller_frame(
+    open_person: Callable[..., Page],
+    member_of: Callable[[Page], SeededMember],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    page_errors: list[str],
+) -> None:
+    table = deal_playing_table(open_person, framing_server, member_of, page_errors, {**PHONE, "server": framing_server})
+    person = table.pages[table.declarer_seat]
+    address = table_url(framing_server, f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}")
+
+    with framed_at(person, browser_coverage, address, PHONE_FRAME) as call:
+        expect(call.locator(CHAIR).first).to_be_visible()
+        short = chair_and_trick_sizes(call)
+        person.locator(FRAME).evaluate("frame => { frame.style.height = '844px'; }")
+
+        assert chair_and_trick_sizes(call) == pytest.approx(short)
     assert page_errors == []
