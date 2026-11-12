@@ -1,4 +1,5 @@
 import json
+import uuid
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -85,7 +86,7 @@ def looks_at(
 
     def look(form_factor: dict[str, Any], options: dict[str, object] | None) -> Page:
         opener = open_person(username="anna", **DESKTOP)
-        path = open_through_the_api(e2e_server, member_of(opener), options, "rules-table-command")
+        path = open_through_the_api(e2e_server, member_of(opener), options, str(uuid.uuid4()))
         person = record_page_errors(open_person(username="dora", **form_factor), page_errors)
         watch(person, e2e_server, path)
         return person
@@ -257,10 +258,10 @@ def expect_the_bar(table: PlayingTable, declarer_points: int, opponents_points: 
     for person in table.everyone:
         declarer_side, opponents_side = sides_as_seen_by(table, person)
         bar = person.locator(SHOWN_POINTS)
-        expect(bar.locator(".declarer")).to_have_text(
+        expect(bar.locator(".sides .declarer")).to_have_text(
             word("result.sidePoints", side=declarer_side, points=str(declarer_points))
         )
-        expect(bar.locator(".opponents")).to_have_text(
+        expect(bar.locator(".sides .opponents")).to_have_text(
             word("result.sidePoints", side=opponents_side, points=str(opponents_points))
         )
         expect(bar.locator(".win-line")).to_be_visible()
