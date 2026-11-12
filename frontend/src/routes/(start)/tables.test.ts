@@ -699,14 +699,14 @@ describe("the table's seats and link", () => {
 
     it.each([
         ["a plain game", "grand", false, false, "none", words["game.grand"], null],
-        ["a Hand game", "grand", true, false, "none", `${words["game.grand"]} ${words["game.hand"]}`, null],
+        ["a Hand game", "grand", true, false, "none", words["game.handName"]({ game: words["game.grand"] }), null],
         [
             "an ouvert game, which includes Hand",
             "grand",
             true,
             true,
             "schwarz",
-            `${words["game.grand"]} ${words["game.ouvert"]}`,
+            words["game.ouvertName"]({ game: words["game.grand"] }),
             null,
         ],
         [
@@ -715,7 +715,7 @@ describe("the table's seats and link", () => {
             false,
             true,
             "none",
-            `${words["game.null"]} ${words["game.ouvert"]}`,
+            words["game.ouvertName"]({ game: words["game.null"] }),
             null,
         ],
         [
@@ -724,7 +724,7 @@ describe("the table's seats and link", () => {
             true,
             true,
             "none",
-            `${words["game.null"]} ${words["game.ouvert"]} ${words["game.hand"]}`,
+            words["game.ouvertHandName"]({ game: words["game.null"] }),
             null,
         ],
         [
@@ -733,7 +733,7 @@ describe("the table's seats and link", () => {
             true,
             false,
             "schneider",
-            `${words["game.herz"]} ${words["game.hand"]}`,
+            words["game.handName"]({ game: words["game.herz"] }),
             words["game.announcedSchneider"],
         ],
         [
@@ -742,7 +742,7 @@ describe("the table's seats and link", () => {
             true,
             false,
             "schwarz",
-            `${words["game.grand"]} ${words["game.hand"]}`,
+            words["game.handName"]({ game: words["game.grand"] }),
             words["game.announcedSchwarz"],
         ],
     ] as const)("labels %s", (_name, game, hand, ouvert, announcement, name, announced) => {
@@ -769,7 +769,9 @@ describe("the table's seats and link", () => {
     });
 
     it("names a card by its suit's game word and its rank word", () => {
-        expect(cardName({ suit: "herz", rank: "ace" })).toBe(`${words["game.herz"]} ${words["game.rankAce"]}`);
+        expect(cardName({ suit: "herz", rank: "ace" })).toBe(
+            words["game.cardName"]({ suit: words["game.herz"], rank: words["game.rankAce"] }),
+        );
     });
 
     it("copies the table's link to the clipboard", async () => {

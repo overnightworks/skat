@@ -85,9 +85,9 @@
                 aria-valuemin={SERIES_LENGTH_MIN}
                 aria-valuemax={SERIES_LENGTH_MAX}
                 aria-valuenow={length}
-                aria-label={words["start.seriesGames"]}
+                aria-label={words["start.seriesGames"](length)}
             >
-                {length}<small>{words["start.seriesGames"]}</small>
+                {length}<small>{words["start.seriesGames"](length)}</small>
             </span>
             <button
                 type="button"

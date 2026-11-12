@@ -133,8 +133,7 @@ branch = true
 relative_files = true
 # The generated words module is written by design-catalogs, whose `--check`
 # runs in `make lint` and in CI and fails on a stale module. Its sentence and
-# plural paths are proven by design-catalogs' own tests; Skat's catalog reaches
-# only the plain-text path, so the rest of the module is not measured here.
+# plural paths are proven by design-catalogs' own tests.
 omit = ["src/skat/web/words.py"]
 
 [tool.coverage.report]
