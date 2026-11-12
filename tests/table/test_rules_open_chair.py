@@ -24,7 +24,16 @@ from skat.table.playing import (
     decide_decline_give_up,
 )
 from skat.table.pushing import PushingCommand, PushingKind, decide_pushing_step
-from skat.table.records import GiveUpAsked, HandProgress, NewHand, OccupantKind, Refusal, Series, TableOptions
+from skat.table.records import (
+    GiveUpAsked,
+    HandProgress,
+    NewHand,
+    NoWordSaid,
+    OccupantKind,
+    Refusal,
+    Series,
+    TableOptions,
+)
 from skat.table.rules import acting_position, decide_sit, decide_stand, waiting_seat_of
 from skat.table.views import turn_seat_of, view_of
 from tests.support.open_chairs import (
@@ -286,6 +295,38 @@ class TestTheKontraWordAfterATakeOver:
         after = view_of(taken, sitter.account_id, NOBODY).hand.playing.kontra
         assert before.said == (SeatedWord(REARHAND_SEAT, Word.KONTRA),)
         assert (after.said, after.factor) == (before.said, before.factor)
+
+
+class TestAStandingNoWord:
+    def answered(self, *positions):
+        table = table_in(declared_herz_hand(), KONTRA)
+        no_words = frozenset(NoWordSaid(position, Word.KONTRA) for position in positions)
+        return replace(table, progress=replace(table.progress, no_words=no_words))
+
+    def test_a_seat_sent_away_takes_its_no_word_and_the_sitter_is_offered_the_word_unanswered(self):
+        table, sitter = self.answered(REARHAND), newcomer()
+
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+
+        kontra = view_of(taken, sitter.account_id, NOBODY).hand.playing.kontra
+        assert taken.progress.no_words == frozenset()
+        assert (kontra.my_word, kontra.my_word_answered) == (Word.KONTRA, False)
+
+    def test_the_no_word_of_another_seat_stays(self):
+        table = self.answered(REARHAND, FOREHAND)
+
+        freed = sent_away(table, REARHAND_SEAT)
+
+        assert freed.progress.no_words == frozenset({NoWordSaid(FOREHAND, Word.KONTRA)})
+
+    def test_the_sitter_can_answer_no_word_again(self):
+        table, sitter = self.answered(REARHAND), newcomer()
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+
+        answered = decide_kontra(taken, sitter, KontraCommand("command-1", taken.id.value, taken.version, None))
+
+        assert answered.table.version == taken.version + 1
+        assert answered.table.progress.no_words == frozenset({NoWordSaid(REARHAND, Word.KONTRA)})
 
 
 class TestTheDeclarersSkat:

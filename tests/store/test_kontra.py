@@ -7,13 +7,13 @@ from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.kontra import KontraCommand
 from skat.table.playing import GiveUpCommand
-from skat.table.records import CreateTable, TableOptions
+from skat.table.records import Actor, CreateTable, NoWordSaid, OccupantKind, SendAway, SitDown, TableOptions
 from skat.table.service import TableService
-from tests.support.stored_game import count_rows, nobody_connected, person, seated_game
+from tests.support.stored_game import Game, count_rows, nobody_connected, person, seated_game
 
 pytestmark = pytest.mark.postgres
 
-FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
+FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KONTRA, RE, SUPRA, HIRSCH = Word.KONTRA, Word.RE, Word.SUPRA, Word.HIRSCH
 UP_TO_HIRSCH = KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD)
 
@@ -110,3 +110,77 @@ def test_the_words_go_with_the_hand_and_the_entry_keeps_the_last_word_and_the_do
     with engine.connect() as connection:
         stored_word = connection.execute(text("SELECT kontra_word FROM game_list")).scalar_one()
     assert stored_word == "hirsch"
+
+
+def answer_no_word(game, position, *, command_id, version=None, service=None):
+    return say(game, position, None, command_id=command_id, version=version, service=service)
+
+
+def test_an_answer_of_no_word_reads_back(game, engine):
+    assert answer_no_word(game, FOREHAND, command_id="no-word").refusal is None
+
+    assert game.record.progress.no_words == frozenset({NoWordSaid(FOREHAND, KONTRA)})
+    assert count_rows(engine, "kontra_no_words") == 1
+
+
+def test_a_restart_reads_the_answer_back_and_the_seat_is_not_awaited_again(game, database_url):
+    answer_no_word(game, FOREHAND, command_id="no-word")
+    before = game.service.view(game.actors[FOREHAND], game.table_id, nobody_connected())
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = TableService(PostgresTableTransactions(restarted_engine))
+        after = restarted.view(game.actors[FOREHAND], game.table_id, nobody_connected())
+    finally:
+        restarted_engine.dispose()
+
+    assert after == before
+    assert after.hand.playing.kontra.my_word_answered is True
+
+
+def test_a_retry_and_a_second_answer_store_one_row_and_raise_the_version_once(game, engine):
+    version = game.record.version
+    first = answer_no_word(game, FOREHAND, command_id="no-word", version=version)
+
+    retried = answer_no_word(game, FOREHAND, command_id="no-word", version=version)
+    repeated = answer_no_word(game, FOREHAND, command_id="no-word-again")
+
+    assert retried == first
+    assert repeated.refusal is None
+    assert game.record.version == version + 1
+    assert count_rows(engine, "kontra_no_words") == 1
+
+
+def test_a_refused_answer_stores_nothing(game, engine):
+    refused = answer_no_word(game, MIDDLEHAND, command_id="declarer-no-word")
+
+    assert refused.refusal is not None
+    assert count_rows(engine, "kontra_no_words") == 0
+
+
+def test_the_answers_go_with_the_hand(game, engine):
+    answer_no_word(game, FOREHAND, command_id="no-word")
+    command = GiveUpCommand(command_id="give-up", table_id=game.table_id, version=game.record.version)
+
+    game.service.give_up(game.actors[MIDDLEHAND], command, nobody_connected())
+
+    assert count_rows(engine, "kontra_no_words") == 0
+
+
+def test_a_chair_that_changes_hands_takes_its_answer_out_of_the_store(service, transactions, stored, engine):
+    agent = Actor(account_id=person("Ben").account_id, display_name="Ben", kind=OccupantKind.AGENT)
+    table_id = service.create(
+        person("Anna"), CreateTable(command_id="command-open", options=TableOptions(kontra=UP_TO_HIRSCH))
+    ).id
+    service.sit(agent, SitDown("command-ben", table_id, 2), nobody_connected())
+    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
+    game = Game(service, transactions, stored, table_id)
+    answer_no_word(game, FOREHAND, command_id="forehand-no-word")
+    answer_no_word(game, REARHAND, command_id="rearhand-no-word")
+
+    sent = service.send_away(
+        game.actors[REARHAND], SendAway("send-away", table_id, game.actors[FOREHAND].account_id), nobody_connected()
+    )
+
+    assert sent.refusal is None
+    assert game.record.progress.no_words == frozenset({NoWordSaid(REARHAND, KONTRA)})
+    assert count_rows(engine, "kontra_no_words") == 1
