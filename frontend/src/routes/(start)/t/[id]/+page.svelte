@@ -18,6 +18,7 @@
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
+    import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
@@ -457,17 +458,7 @@
                             <span class="tile" class:agent={chair.occupant_kind === "agent"}>
                                 {#if chair.occupant_kind === "agent"}
                                     <span class="orb" aria-hidden="true">
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        >
-                                            <path d="M10.5 4l1.9 5.6 5.6 1.9-5.6 1.9-1.9 5.6-1.9-5.6L3 11.5l5.6-1.9z" />
-                                            <path d="M18.5 3v4M16.5 5h4" />
-                                        </svg>
+                                        <AgentSparkle />
                                     </span>
                                 {:else}
                                     <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
@@ -763,17 +754,7 @@
             {#if agentSat !== null}
                 <p class="notice" role="status">
                     <span class="dot agent" aria-hidden="true">
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M10.5 4l1.9 5.6 5.6 1.9-5.6 1.9-1.9 5.6-1.9-5.6L3 11.5l5.6-1.9z" />
-                            <path d="M18.5 3v4M16.5 5h4" />
-                        </svg>
+                        <AgentSparkle />
                     </span>
                     <span class="label">{words["table.agentSits"]({ name: agentSat })}</span>
                 </p>
