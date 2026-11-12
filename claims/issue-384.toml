@@ -1,0 +1,8 @@
+claim_id = "ef7758413c4e419e8b2786e79b191c05"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "103b7da6b0b4ab2929216a616a5e392509268175"
+branch = "claude/issue-384-s11-10c-send-away"
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "frontend/src/lib/ui/AgentsPill.svelte", "frontend/src/lib/ui/AgentsPill.test.ts", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/tables.ts", "frontend/src/routes/(start)/tablesAgents.test.ts", "scripts/generate_wire.py", "src/skat/table/member_place.py", "src/skat/table/service.py", "src/skat/web/calling.py", "tests/e2e/test_calling_agents.py", "tests/table/test_member_place_offer.py", "tests/table/test_service_member_place.py", "tests/web/support/calling.py", "tests/web/test_calling.py", "tests/web/test_calling_roster.py"]
+opened_commit = "a15806cbf9be2d77fd2e597fa704b39381c1fdec"
+whole_reason = "The here row, the route and the page's button are one act: a route without the button is code ahead of its caller again, a button without the route is dead, and a here row only for listening agents would leave the agent that most needs sending away, a silent one mid-hand, without a row; the wire constant, the architecture overview and the ahead-of-caller entries change with the code they describe."
