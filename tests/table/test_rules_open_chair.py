@@ -586,21 +586,26 @@ class TestAStandUpDuringAHand:
             SeatHeld(second.account_id, FOREHAND_SEAT),
         }
 
-    def test_a_newcomer_plays_a_card_stands_up_and_the_next_sitter_resumes_the_hand_where_it_stood(self):
+    def test_a_newcomer_plays_a_trick_stands_up_and_the_next_sitter_resumes_the_advanced_hand(self):
         table = PHASES["in-a-trick"]()
         seat = seat_on_turn(table)
         first, second = newcomer(name="Dora"), newcomer(name="Erik")
         taken = sat(stood_up(table, seat), first, seat)
-        card = view_of(taken, first.account_id, NOBODY).hand.playing.legal_cards[0]
-        played = decide_card(taken, first, PlayCardCommand("command-1", taken.id.value, taken.version, card)).table
 
+        played = taken
+        while len(played.progress.plays) % 3:
+            on_turn = seat_on_turn(played)
+            actor = first if on_turn == seat else actor_at(played, on_turn)
+            card = view_of(played, actor.account_id, NOBODY).hand.playing.legal_cards[0]
+            command = PlayCardCommand("command-1", played.id.value, played.version, card)
+            played = decide_card(played, actor, command).table
         left = stood_up(played, seat)
         resumed = sat(left, second, seat)
 
+        assert len(played.progress.plays) == len(table.progress.plays) + 2
         assert waiting_seat_of(left) == seat
         assert waiting_seat_of(resumed) is None
         assert (resumed.progress.plays, seat_on_turn(resumed)) == (played.progress.plays, seat_on_turn(played))
-        assert resumed.progress.plays[-1].card == card
         assert resumed.progress.seats_held == {
             SeatHeld(actor_at(table, seat).account_id, seat),
             SeatHeld(first.account_id, seat),
