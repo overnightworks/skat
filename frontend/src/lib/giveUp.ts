@@ -47,11 +47,12 @@ export function giveUpView(table: Table): GiveUpView | null {
     const names = faces.map((face) => face.name).join(` ${words["result.and"]} `);
     const askedLine = declarerAsks ? "wants-to-give-up" : "gives-up";
     const askedWord = declarerAsks ? words["table.wantsToGiveUp"] : words["table.givesUp"];
+    const offeredAnswers: GiveUpAnswer[] = viewerSeat === declinedSeat ? ["agree"] : ["agree", "decline"];
     return {
         line: asking ? "waits" : askedLine,
         text: asking ? `${words["table.waitingFor"]} ${names}` : `${names} ${askedWord}`,
         faces,
-        answers: answering ? (viewerSeat === declinedSeat ? ["agree"] : ["agree", "decline"]) : [],
+        answers: answering ? offeredAnswers : [],
         marks,
         cardsHeld: !declarerAsks,
     };
