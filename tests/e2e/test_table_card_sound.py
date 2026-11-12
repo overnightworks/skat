@@ -3,10 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.support.audio import voices_started
-from tests.e2e.support.browser import record_page_errors
-from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.people import PHONE
+from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, playing_table, tap, voices_started
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -17,9 +14,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-FELT_FACE = ".trick .laid .face"
-# One card sounds as one noise burst and one tone, and its voices start at the cue's time plus the engine's lead.
-VOICES_OF_ONE_CARD = 2
 LANDING_SECONDS = 0.28
 
 
@@ -30,20 +24,7 @@ def table(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> PlayingTable:
-    return deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, game="kreuz")
-
-
-def open_watcher(
-    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **form_factor: object
-) -> Page:
-    watcher = record_page_errors(open_person(**PHONE, **form_factor), page_errors)
-    watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
-    return watcher
-
-
-def tap(page: Page) -> None:
-    page.keyboard.press("Shift")
+    return playing_table(open_person, e2e_server, member_of, page_errors)
 
 
 def hide_the_tab(page: Page, *, hidden: bool) -> None:

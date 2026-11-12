@@ -3466,57 +3466,57 @@ body {
 }
 
 /* Left of the watchers, 8 px between the glass of the two (each tap target is 4 px wider than its glass); where the Lobby button and the watchers leave no room for it, right after the Lobby button. */
-.room .sound-button.bar {
+.room .sound-button.sound-bar {
     margin-left: auto;
     margin-right: 4px;
 }
 
 @media (max-width: 389px) {
-    .room .sound-button.bar {
+    .room .sound-button.sound-bar {
         margin-left: 0;
         margin-right: auto;
     }
 }
 
 /* In the strip it stands where the link stands outside a call, as tall as its neighbours. */
-.room .sound-button.strip {
+.room .sound-button.sound-strip {
     width: 52px;
     height: 52px;
 }
 
-.room .sound-button.strip .sound-face {
+.room .sound-button.sound-strip .sound-face {
     width: 52px;
     height: 52px;
     background: rgba(255, 255, 255, 0.15);
     box-shadow: none;
 }
 
-.room .sound-button.strip .sound-face svg {
+.room .sound-button.sound-strip .sound-face svg {
     width: 24px;
     height: 24px;
 }
 
 @media (min-width: 900px) {
-    .room .sound-button.bar {
+    .room .sound-button.sound-bar {
         width: auto;
     }
 
-    .room .sound-button.bar .sound-face {
+    .room .sound-button.sound-bar .sound-face {
         width: auto;
         padding: 0 16px 0 12px;
         border-radius: 999px;
     }
 
-    .room .sound-button.bar .sound-face svg {
+    .room .sound-button.sound-bar .sound-face svg {
         width: 20px;
         height: 20px;
     }
 
-    .room .sound-button.strip {
+    .room .sound-button.sound-strip {
         width: auto;
     }
 
-    .room .sound-button.strip .sound-face {
+    .room .sound-button.sound-strip .sound-face {
         width: auto;
         padding: 0 18px 0 14px;
         border-radius: 26px;

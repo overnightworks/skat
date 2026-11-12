@@ -25,7 +25,7 @@
 <button
     bind:this={button}
     type="button"
-    class="sound-button {place}"
+    class="sound-button sound-{place}"
     class:muted
     aria-haspopup="dialog"
     aria-expanded={open}
