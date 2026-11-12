@@ -83,14 +83,17 @@ def create_nudging_router(
             refusal = nudge_refusal(view, asked, waited, nudged)
             if refusal is not None:
                 return _refused(refusal)
-            if not is_retry(view, asked, nudged):
+            made = not is_retry(view, asked, nudged)
+            if made:
                 nudger = next(chair.seat for chair in view.chairs if chair.is_mine)
                 waits.nudge(table_id, body.seat, nudger, waited)
                 presence.wake_table(table_id)
-                agent = waits.agent_at(table_id, view.version, body.seat)
-                if agent is not None:
-                    tell_agent(table_id, agent)
-            return answer_of(view, waits.nudges_of(view))
+            answer = answer_of(view, waits.nudges_of(view))
+        if made:
+            agent = await run_in_threadpool(tables.agent_in_chair, table_id, body.seat)
+            if agent is not None:
+                tell_agent(table_id, agent)
+        return answer
 
     return router
 

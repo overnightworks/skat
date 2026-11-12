@@ -99,6 +99,21 @@ class TestAnAgentOnTurnIsNudged:
         nudge_shown = own_chair(nudged)["nudge"]
         assert (nudge_shown["nudges"], nudge_shown["may_nudge"], nudge_shown["by_name"] is not None) == (1, False, True)
 
+    def test_an_agent_that_only_read_the_table_and_never_its_view_is_told_at_once(
+        self, skat, time, agent, middlehand_auction, pulses
+    ):
+        table = middlehand_auction
+        read = agent.read(table.table_id).json()
+        wait(skat, time, ASK_AGAIN_AFTER)
+        pulses.clear()
+
+        answer = nudge(
+            skat, table.table_id, table.at[REARHAND], own_chair({"state": read})["seat"], version=read["version"]
+        )
+
+        assert answer.status_code == 200, answer.text
+        assert pulses == [(account_of(skat, agent), view_uri_of(table.table_id))]
+
     def test_every_ask_and_every_nudge_gives_a_revision_not_seen_before(self, skat, time, agent, middlehand_auction):
         table = middlehand_auction
         first = agent.view(table.table_id)

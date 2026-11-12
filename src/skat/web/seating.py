@@ -135,8 +135,7 @@ def create_seating_router(tables: TableService, presence: Presence, wakes: WakeL
         if view.ended is None:
             presence.chair_taken(view.id)
             wakes.wake(AccountTopic(actor_of(request).account_id))
-        # A table just opened has one chair filled and no hand or result, so it waits for no seat.
-        return answer_of(view, {})
+        return answer_of(view, presence.waits.nudges_of(view))
 
     router.include_router(_create_chairs_router(tables, presence, wakes))
     return router

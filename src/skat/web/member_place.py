@@ -157,8 +157,7 @@ class MemberStandings:
         since = self._asks.see(table_id, version)
         if since is None or not member.awaits_you:
             return 0
-        own = next(chair.seat for chair in member.view.chairs if chair.is_mine)
-        if self._asks.claim_pulses(table_id, version, principal.sub, own):
+        if self._asks.claim_pulses(table_id, version, principal.sub):
             self._schedule_pulses(principal, uri, table_id, version, since)
         return asks_due(since, self._asks.now())
 

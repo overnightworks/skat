@@ -71,7 +71,7 @@ class TestWhoMayNudgeWhichSeatWhen:
             pytest.param(MIDDLEHAND, request(), NudgeRefusal.OWN_SEAT, id="the-awaited-seat-not-itself"),
         ],
     )
-    def test_the_viewer_of_the_table_is_refused_or_not(self, account, asked, refusal):
+    def test_only_a_seated_player_at_the_current_version_may_nudge_another_awaited_seat(self, account, asked, refusal):
         assert refusal_for(account, asked) is refusal
 
     def test_the_chair_that_is_away_is_not_nudged(self):
@@ -110,7 +110,7 @@ class TestTheMinute:
         assert refusal_for(REARHAND, request(), waited=ASK_AGAIN_AFTER - 0.1) is NudgeRefusal.TOO_EARLY
 
     def test_the_second_nudge_is_offered_a_minute_after_the_first(self):
-        first = {ON_TURN: Nudges(count=1, by_seat=SECOND, waited=ASK_AGAIN_AFTER + 5)}
+        first = {ON_TURN: Nudges(nudgers=(SECOND,), waited=ASK_AGAIN_AFTER + 5)}
         second = request(nudges=1)
 
         assert refusal_for(FOREHAND, second, waited=2 * ASK_AGAIN_AFTER + 4.9, nudged=first) is (
@@ -118,14 +118,31 @@ class TestTheMinute:
         )
         assert refusal_for(FOREHAND, second, waited=2 * ASK_AGAIN_AFTER + 5, nudged=first) is None
 
+    @pytest.mark.parametrize(
+        ("asked", "nudged", "waited"),
+        [
+            pytest.param(request(nudges=1), {}, ASK_AGAIN_AFTER, id="a-count-the-seat-never-had"),
+            pytest.param(
+                request(nudges=0),
+                {ON_TURN: Nudges(nudgers=(SECOND,), waited=ASK_AGAIN_AFTER)},
+                2 * ASK_AGAIN_AFTER,
+                id="a-count-from-before-the-latest-nudge",
+            ),
+        ],
+    )
+    def test_a_request_that_did_not_see_the_seats_count_is_refused_even_when_a_nudge_is_offered(
+        self, asked, nudged, waited
+    ):
+        assert refusal_for(FOREHAND, asked, waited=waited, nudged=nudged) is NudgeRefusal.ALREADY_NUDGED
+
     def test_no_nudge_follows_the_cap(self):
-        spent = {ON_TURN: Nudges(count=NUDGES_PER_VERSION, by_seat=SECOND, waited=ASK_AGAIN_AFTER)}
+        spent = {ON_TURN: Nudges(nudgers=(THIRD, SECOND), waited=ASK_AGAIN_AFTER)}
 
         assert refusal_for(FOREHAND, request(nudges=2), waited=1000, nudged=spent) is NudgeRefusal.ALREADY_NUDGED
 
 
 class TestARetry:
-    nudged: ClassVar = {ON_TURN: Nudges(count=1, by_seat=SECOND, waited=ASK_AGAIN_AFTER)}
+    nudged: ClassVar = {ON_TURN: Nudges(nudgers=(SECOND,), waited=ASK_AGAIN_AFTER)}
 
     @pytest.mark.parametrize(
         ("account", "asked", "retry"),
@@ -137,6 +154,20 @@ class TestARetry:
     )
     def test_is_the_nudge_the_nudger_already_made(self, account, asked, retry):
         assert is_retry(view_for(table_in(HandProgress()), account), asked, self.nudged) is retry
+
+    @pytest.mark.parametrize(
+        ("account", "asked", "retry"),
+        [
+            pytest.param(REARHAND, request(nudges=0), True, id="the-first-nudger-of-the-first-nudge"),
+            pytest.param(FOREHAND, request(nudges=1), True, id="the-second-nudger-of-the-second-nudge"),
+            pytest.param(REARHAND, request(nudges=1), False, id="the-first-nudger-of-the-second-nudge"),
+            pytest.param(FOREHAND, request(nudges=0), False, id="the-second-nudger-of-the-first-nudge"),
+        ],
+    )
+    def test_each_of_both_nudges_made_is_still_recognised_after_the_second(self, account, asked, retry):
+        both = {ON_TURN: Nudges(nudgers=(SECOND, THIRD), waited=2 * ASK_AGAIN_AFTER)}
+
+        assert is_retry(view_for(table_in(HandProgress()), account), asked, both) is retry
 
     def test_is_answered_as_no_refusal_even_while_the_next_nudge_is_not_offered(self):
         view = view_for(table_in(HandProgress()), REARHAND)
@@ -165,7 +196,7 @@ class TestWhatEachViewerIsShown:
         assert (states_for(MIDDLEHAND), states_for(WATCHER)) == ({}, {})
 
     def test_a_nudge_is_seen_by_all_and_the_nudger_is_named_to_the_nudged_seat_only(self):
-        nudged = {ON_TURN: Nudges(count=1, by_seat=SECOND, waited=ASK_AGAIN_AFTER)}
+        nudged = {ON_TURN: Nudges(nudgers=(SECOND,), waited=ASK_AGAIN_AFTER)}
 
         assert {account: states_for(account, nudged=nudged) for account in (MIDDLEHAND, FOREHAND, WATCHER)} == {
             MIDDLEHAND: {ON_TURN: NudgeState(nudges=1, may_nudge=False, by_seat=SECOND)},
@@ -174,7 +205,7 @@ class TestWhatEachViewerIsShown:
         }
 
     def test_nobody_may_nudge_once_the_cap_is_spent(self):
-        spent = {ON_TURN: Nudges(count=NUDGES_PER_VERSION, by_seat=THIRD, waited=2 * ASK_AGAIN_AFTER)}
+        spent = {ON_TURN: Nudges(nudgers=(SECOND, THIRD), waited=2 * ASK_AGAIN_AFTER)}
 
         assert states_for(REARHAND, nudged=spent) == {
             ON_TURN: NudgeState(nudges=NUDGES_PER_VERSION, may_nudge=False, by_seat=None)
@@ -207,7 +238,7 @@ class TestWhatEachViewerIsShown:
         ]
 
     def test_the_nudges_of_the_own_chair_are_those_the_revision_adds(self):
-        nudged = {ON_TURN: Nudges(count=2, by_seat=THIRD, waited=2 * ASK_AGAIN_AFTER)}
+        nudged = {ON_TURN: Nudges(nudgers=(SECOND, THIRD), waited=2 * ASK_AGAIN_AFTER)}
         own = view_for(table_in(HandProgress()), MIDDLEHAND)
         other = view_for(table_in(HandProgress()), REARHAND)
 

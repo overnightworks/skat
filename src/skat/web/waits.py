@@ -23,13 +23,13 @@ __all__ = ["AskClock"]
 class _Wait:
     version: int
     since: float
-    pulsed: dict[str, int] = field(default_factory=dict[str, int])
+    pulsed: set[str] = field(default_factory=set[str])
     nudged: dict[int, Nudges] = field(default_factory=dict[int, Nudges])
 
 
 class AskClock:
-    """When each table began to wait at its latest version, for whom its pulses are scheduled (and at which seat), and
-    the nudges made at that version.
+    """When each table began to wait at its latest version, for whom its pulses are scheduled, and the nudges made at
+    that version.
 
     Only a higher version replaces a table's entry; a version already seen keeps the earliest time, and a lower one,
     read by a transaction that began before a newer commit, changes nothing and has no wait. A table that ends while
@@ -68,22 +68,13 @@ class AskClock:
             wait = self._waits[table_id] = _Wait(version, self._clock())
         return wait.since if wait.version == version else None
 
-    def claim_pulses(self, table_id: str, version: int, account_id: str, seat: int) -> bool:
-        """True once for an account at the entry's version: the caller schedules its pulses. The account's seat is
-        kept so that a nudge of that seat can tell the account.
-        """
+    def claim_pulses(self, table_id: str, version: int, account_id: str) -> bool:
+        """True once for an account at the entry's version: the caller schedules its pulses."""
         wait = self._waits.get(table_id)
         if wait is None or wait.version != version or account_id in wait.pulsed:
             return False
-        wait.pulsed[account_id] = seat
+        wait.pulsed.add(account_id)
         return True
-
-    def agent_at(self, table_id: str, version: int, seat: int) -> str | None:
-        """The account of the agent at `seat` that has claimed its pulses at the entry's version."""
-        wait = self._waits.get(table_id)
-        if wait is None or wait.version != version:
-            return None
-        return next((account for account, held in wait.pulsed.items() if held == seat), None)
 
     def is_current(self, table_id: str, version: int) -> bool:
         wait = self._waits.get(table_id)
@@ -113,7 +104,8 @@ class AskClock:
         """
         nudged = self._waits[table_id].nudged
         previous = nudged.get(seat)
-        nudged[seat] = Nudges(count=1 if previous is None else previous.count + 1, by_seat=by_seat, waited=waited)
+        earlier = () if previous is None else previous.nudgers
+        nudged[seat] = Nudges(nudgers=(*earlier, by_seat), waited=waited)
 
     def drop(self, table_id: str) -> None:
         self._waits.pop(table_id, None)

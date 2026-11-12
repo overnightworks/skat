@@ -59,13 +59,21 @@ class NudgeRequest:
 
 @dataclass(frozen=True)
 class Nudges:
-    """The nudges a seat has had at the current version: how many, the seat of the latest nudger and how long the table
-    had waited at the version when it was made.
+    """The nudges a seat has had at the current version: the seat of each nudger in the order made and how long the
+    table had waited at the version when the latest was made.
     """
 
-    count: int
-    by_seat: int
+    nudgers: tuple[int, ...]
     waited: float
+
+    @property
+    def count(self) -> int:
+        return len(self.nudgers)
+
+    @property
+    def by_seat(self) -> int:
+        """The seat of the latest nudger."""
+        return self.nudgers[-1]
 
 
 @dataclass(frozen=True)
@@ -100,27 +108,34 @@ def _refusal_of_the_seat(view: TableView, request: NudgeRequest) -> NudgeRefusal
 
 
 def is_retry(view: TableView, request: NudgeRequest, nudged: Mapping[int, Nudges]) -> bool:
-    """True when the viewer's own latest nudge of the seat is the one that raised the count the request saw."""
+    """True when the nudge that raised the count the request saw to the next one was made by the viewer's own chair."""
     own = _own_chair(view)
     made = nudged.get(request.seat)
-    return own is not None and made is not None and made.by_seat == own.seat and made.count == request.nudges + 1
+    return (
+        own is not None
+        and made is not None
+        and request.nudges < made.count
+        and made.nudgers[request.nudges] == own.seat
+    )
 
 
 def nudge_refusal(
     view: TableView, request: NudgeRequest, waited: float, nudged: Mapping[int, Nudges]
 ) -> NudgeRefusal | None:
     """Why the viewer of `view` may not nudge as `request` says, None when it may; `waited` is the seconds the table
-    has waited at the view's version and `nudged` the nudges made at it. A retry of a nudge made is no refusal.
+    has waited at the view's version and `nudged` the nudges made at it. A retry of a nudge made is no refusal; a
+    request that did not see the seat's current count is refused and changes nothing.
     """
     refusal = _refusal_of_the_seat(view, request)
     if refusal is not None or is_retry(view, request, nudged):
         return refusal
     made = nudged.get(request.seat)
     if made is None:
-        return None if waited >= ASK_AGAIN_AFTER else NudgeRefusal.TOO_EARLY
-    if made.count >= NUDGES_PER_VERSION or waited < made.waited + ASK_AGAIN_AFTER:
+        if waited < ASK_AGAIN_AFTER:
+            return NudgeRefusal.TOO_EARLY
+    elif made.count >= NUDGES_PER_VERSION or waited < made.waited + ASK_AGAIN_AFTER:
         return NudgeRefusal.ALREADY_NUDGED
-    return None
+    return None if request.nudges == (0 if made is None else made.count) else NudgeRefusal.ALREADY_NUDGED
 
 
 def nudge_states(view: TableView, nudged: Mapping[int, Nudges]) -> dict[int, NudgeState]:

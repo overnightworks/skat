@@ -41,7 +41,6 @@ MIDDLEHAND = Position.MIDDLEHAND
 OTHER_AGENT_SUBJECT = "other-agent-subject"
 TABLE = "a-table"
 ACCOUNT = "an-account"
-SEAT = 1
 OTHER_ACCOUNT = "another-account"
 OWNER = "the-agents-owner"
 INVITATION_SECONDS = 600
@@ -92,32 +91,21 @@ class TestTheWaitIsKeptPerTableAndVersion:
     def test_the_pulses_of_a_version_are_claimed_once_for_each_account(self, clock):
         clock.see(TABLE, 5)
 
-        claims = [clock.claim_pulses(TABLE, 5, account, SEAT) for account in (ACCOUNT, ACCOUNT, OTHER_ACCOUNT)]
+        claims = [clock.claim_pulses(TABLE, 5, account) for account in (ACCOUNT, ACCOUNT, OTHER_ACCOUNT)]
 
         assert claims == [True, False, True]
 
     def test_a_new_version_can_be_claimed_again(self, clock):
         clock.see(TABLE, 5)
-        clock.claim_pulses(TABLE, 5, ACCOUNT, SEAT)
+        clock.claim_pulses(TABLE, 5, ACCOUNT)
         clock.see(TABLE, 6)
 
-        assert clock.claim_pulses(TABLE, 6, ACCOUNT, SEAT) is True
+        assert clock.claim_pulses(TABLE, 6, ACCOUNT) is True
 
     def test_a_version_that_is_not_the_entrys_cannot_be_claimed(self, clock):
         clock.see(TABLE, 6)
 
-        assert clock.claim_pulses(TABLE, 5, ACCOUNT, SEAT) is False
-
-    def test_the_agent_that_claimed_its_pulses_is_found_by_its_seat_at_the_entrys_version_only(self, clock):
-        clock.see(TABLE, 5)
-        clock.claim_pulses(TABLE, 5, ACCOUNT, SEAT)
-
-        found = [
-            clock.agent_at(table, version, seat)
-            for table, version, seat in ((TABLE, 5, SEAT), (TABLE, 5, SEAT + 1), (TABLE, 6, SEAT), ("another", 5, SEAT))
-        ]
-
-        assert found == [ACCOUNT, None, None, None]
+        assert clock.claim_pulses(TABLE, 5, ACCOUNT) is False
 
     def test_an_ended_tables_view_and_one_older_than_the_entry_have_no_standing_and_no_nudges(self, clock):
         clock.see(TABLE, 6)

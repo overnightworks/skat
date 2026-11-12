@@ -145,6 +145,27 @@ class TestANudge:
         assert seated.nudged("ben") == first
         assert nudge_of(seated.read("cleo")) == offered(nudges=1)
 
+    def test_a_count_the_seat_never_had_is_refused_each_time_and_spends_no_nudge(self, seated):
+        seated.wait(ASK_AGAIN_AFTER)
+        first = seated.nudge("ben", nudges=1)
+        seated.wait(ASK_AGAIN_AFTER)
+        again = seated.nudge("ben", nudges=1)
+
+        assert [(answer.status_code, answer.json()["reason"]) for answer in (first, again)] == [
+            (409, "already-nudged")
+        ] * 2
+        assert nudge_of(seated.read("cleo")) == offered()
+
+    def test_each_of_both_nudges_sent_again_after_the_second_was_made_is_accepted_and_spends_no_third(self, seated):
+        seated.wait(ASK_AGAIN_AFTER)
+        seated.nudged("ben")
+        seated.wait(ASK_AGAIN_AFTER)
+        seated.nudged("cleo", nudges=1)
+
+        again = [seated.nudged("ben"), seated.nudged("cleo", nudges=1)]
+
+        assert [nudge_of(answer) for answer in again] == [offered(nudges=NUDGES_PER_VERSION, may_nudge=False)] * 2
+
     def test_a_second_one_is_offered_a_minute_after_the_first_and_no_third_ever(self, seated):
         seated.wait(ASK_AGAIN_AFTER)
         seated.nudged("ben")
@@ -236,6 +257,16 @@ class TestTheTableMovesOn:
         assert seated.nudge("ben", THIRD).json()["reason"] == "too-early"
         seated.wait(1)
         assert seated.nudge("ben", THIRD).status_code == 200
+
+    def test_the_answer_to_a_table_opened_again_with_the_same_command_id_carries_the_chairs_nudge(self, seated):
+        seated.wait(ASK_AGAIN_AFTER)
+        seated.nudged("ben")
+
+        replay = seated.skat.create(seated.headers["anna"])
+
+        ben_name = seated.read("ben")["chairs"][SECOND - 1]["occupant_name"]
+        assert replay.status_code == 200, replay.text
+        assert nudge_of(replay.json()) == {"nudges": 1, "may_nudge": False, "by_name": ben_name}
 
     def test_a_commands_answer_carries_the_state_as_a_read_does(self, seated):
         seated.skat.client.cookies.clear()
