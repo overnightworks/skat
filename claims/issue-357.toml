@@ -1,8 +1,0 @@
-claim_id = "7216193df6a042ab9293036d22d694c1"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "fd3ea5c85c46cb24eac4ad7e494c6ff5dbfa7d00"
-branch = "claude/issue-357-stream-loop"
-scope = ["docs/ARCHITECTURE.md", "src/skat/web/presence.py", "src/skat/web/streams.py", "src/skat/web/wakes.py", "tests/web/support/streams.py", "tests/web/test_presence_next_deal.py", "tests/web/test_streams.py", "tests/web/test_streams_loop.py", "tests/web/test_wakes.py"]
-opened_commit = "6eceb756270cf098ad018067e0898e5eb3170d43"
-whole_reason = "The loop and the wake list are one seam: the table source registers through presence in the list, and presence wakes through it; either alone leaves two owners of the wake."
