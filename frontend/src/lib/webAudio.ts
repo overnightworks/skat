@@ -1,9 +1,16 @@
 import type { AudioPort, NoiseVoice, ToneVoice, Voice } from "./sound.ts";
 
+declare global {
+    // Safari and Chromium on the phone know the session; the DOM library of TypeScript does not.
+    interface Navigator {
+        audioSession?: { type: string };
+    }
+}
+
 /** The parts of the browser window the port reads; an old browser leaves `AudioContext` out. */
 export interface AudioEnvironment {
     readonly AudioContext?: new () => AudioContext;
-    readonly navigator: { audioSession?: { type: string } };
+    readonly navigator: Pick<Navigator, "audioSession">;
     readonly document: { readonly hidden: boolean };
 }
 
