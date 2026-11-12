@@ -128,14 +128,18 @@ def create_seating_router(tables: TableService, presence: Presence, wakes: WakeL
         try:
             options = table_options_of(body.options)
             command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
-            view = await run_in_threadpool(tables.create, actor_of(request), command)
+            created = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
         # Presence belongs to the event loop's thread, so the wait and the note start here and not on the worker.
-        if view.ended is None:
-            presence.chair_taken(view.id)
+        if created.ended is None:
+            presence.chair_taken(created.id)
             wakes.wake(AccountTopic(actor_of(request).account_id))
-        return answer_of(view, presence.waits.nudges_of(view))
+        # A retry finds a table that has moved on; the answer is read as read_table reads it, with who is present.
+        with presence.waits.reading(created.id):
+            view = await run_in_threadpool(tables.view, actor_of(request), created.id, presence.connected(created.id))
+            assert view is not None  # noqa: S101 - the table was just created or replayed, and a table is never deleted
+            return answer_of(view, presence.waits.nudges_of(view))
 
     router.include_router(_create_chairs_router(tables, presence, wakes))
     return router

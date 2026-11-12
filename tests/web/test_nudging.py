@@ -268,6 +268,13 @@ class TestTheTableMovesOn:
         assert replay.status_code == 200, replay.text
         assert nudge_of(replay.json()) == {"nudges": 1, "may_nudge": False, "by_name": ben_name}
 
+    def test_the_answer_to_a_table_opened_again_carries_the_nudge_of_a_chair_that_is_not_the_openers(self, seated):
+        seated.table.middlehand_bids()
+
+        replay = seated.skat.create(seated.headers["anna"])
+
+        assert nudge_of(replay.json(), THIRD) == nudge_of(seated.read("anna"), THIRD) == offered()
+
     def test_a_commands_answer_carries_the_state_as_a_read_does(self, seated):
         seated.skat.client.cookies.clear()
         bid = seated.skat.client.post(
