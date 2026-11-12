@@ -4,7 +4,6 @@ import secrets
 import time
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
-from html.parser import HTMLParser
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -44,6 +43,7 @@ from skat.web.sign_in import (
 )
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, text
+from tests.support.end_session_page import EndSessionPage
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build
@@ -380,37 +380,6 @@ class TestMemberSignIn:
             {"id": "first", "username": USERNAME},
             {"id": "second", "username": USERNAME},
         ]
-
-
-class EndSessionPage(HTMLParser):
-    """The form webauth's logout page posts: its action, hidden fields and button text."""
-
-    def __init__(self, markup: str) -> None:
-        super().__init__()
-        self.action = ""
-        self.fields: dict[str, str] = {}
-        self.button_label = ""
-        self.language = ""
-        self._in_button = False
-        self.feed(markup)
-
-    def handle_starttag(self, tag, attrs):
-        attributes = dict(attrs)
-        if tag == "html":
-            self.language = attributes["lang"]
-        elif tag == "form":
-            self.action = attributes["action"]
-        elif tag == "input":
-            self.fields[attributes["name"]] = attributes["value"]
-        elif tag == "button":
-            self._in_button = True
-
-    def handle_endtag(self, tag):
-        self._in_button = self._in_button and tag != "button"
-
-    def handle_data(self, data):
-        if self._in_button:
-            self.button_label += data
 
 
 class TestLogout:
