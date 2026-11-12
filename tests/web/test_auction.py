@@ -306,14 +306,16 @@ class TestRetry:
 
 
 class TestOtherCommandsDuringAnAuction:
-    def test_standing_up_while_an_auction_runs_is_refused(self, table):
+    def test_standing_up_while_an_auction_runs_opens_the_chair_and_the_auction_stands_where_it_was(self, table):
         table.accepted(MIDDLEHAND, BID, 18)
         before = table.record
+        seat = next(seat for seat, position in positions_from(DEALER_SEAT).items() if position is MIDDLEHAND)
 
         answer = table.skat.stand(table.at[MIDDLEHAND], table.table_id)
 
-        assert reason_of(answer) == "hand-running"
-        assert table.record == before
+        assert (answer.status_code, answer.json()["hand"]["waiting_seat"]) == (200, seat)
+        assert (table.record.hand, table.record.progress.auction) == (before.hand, before.progress.auction)
+        assert table.record.chairs[seat - 1].occupant is None
 
     def test_a_fourth_member_sitting_while_an_auction_runs_is_refused(self, table):
         table.accepted(MIDDLEHAND, BID, 18)

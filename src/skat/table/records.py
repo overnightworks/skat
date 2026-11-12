@@ -165,6 +165,7 @@ class Refusal(StrEnum):
     RULE_OFF = "rule-off"
     NOT_AN_AGENT = "not-an-agent"
     SEAT_OPEN = "seat-open"
+    OWN_SEAT_ONLY = "own-seat-only"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal | KontraRefusal | PushRefusal
@@ -221,13 +222,21 @@ class NoWordSaid:
 
 
 @dataclass(frozen=True)
+class SeatHeld:
+    """An account that held a chair of the running hand and left it, with that chair's number."""
+
+    account_id: str
+    seat: int
+
+
+@dataclass(frozen=True)
 class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
     cards, so each carries how many cards were played before it. `pushing` holds the steps of a Ramsch's stage before
     its first card.
 
     `give_up` and `no_words` are no step logs: the end of the hand or a deal clears them, a card clears `give_up`,
-    and a chair that changes hands takes its seat's part of them.
+    and a chair that changes hands takes its seat's part of them. `seats_held` ends with the hand likewise.
     """
 
     auction: tuple[AuctionStep, ...] = ()
@@ -237,6 +246,7 @@ class HandProgress:
     words: tuple[WordSaid, ...] = ()
     no_words: frozenset[NoWordSaid] = frozenset()
     pushing: tuple[PushingStep, ...] = ()
+    seats_held: frozenset[SeatHeld] = frozenset()
 
 
 @dataclass(frozen=True)

@@ -20,6 +20,7 @@ from skat.table.records import (
     CreateTable,
     HandProgress,
     Refusal,
+    SeatHeld,
     SitDown,
     StandUp,
     TableId,
@@ -376,14 +377,23 @@ class TestHand:
         assert self.stored(engine, table_id) == dealt
         assert count(engine, "hand_cards") == 32
 
-    def test_standing_up_while_a_hand_runs_is_refused_and_the_stored_table_stays(self, dealing, engine):
+    def test_standing_up_while_a_hand_runs_stores_the_open_chair_beside_the_hand_a_restart_reads_back(
+        self, dealing, engine
+    ):
         table_id, _ = self.seat_three(dealing)
         dealt = self.stored(engine, table_id)
 
         result = dealing.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
 
-        assert result.refusal is Refusal.HAND_RUNNING
-        assert self.stored(engine, table_id) == dealt
+        stored = self.stored(engine, table_id)
+        assert result.refusal is None
+        assert (stored.hand, stored.progress.auction, stored.version) == (
+            dealt.hand,
+            dealt.progress.auction,
+            dealt.version + 1,
+        )
+        assert [chair.occupant is None for chair in stored.chairs] == [False, True, False]
+        assert stored.progress.seats_held == {SeatHeld(VISITOR.account_id, 2)}
 
     def test_a_failure_during_the_third_sit_stores_no_chair_no_hand_no_dealer_and_no_receipt(self, engine, dealing):
         table_id = dealing.create(OPENER, CreateTable(command_id="command-open")).id

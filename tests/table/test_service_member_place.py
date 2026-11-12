@@ -18,7 +18,7 @@ from skat.table.member_place import (
     MembershipState,
     TableStanding,
 )
-from skat.table.records import Actor, CreateTable, OccupantKind, Series, SitDown, StandUp, TableId
+from skat.table.records import Actor, CreateTable, HandProgress, OccupantKind, Series, SitDown, StandUp, TableId
 from skat.table.rules import decide_free_chair
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
@@ -276,6 +276,59 @@ class TestTheAcceptThatFillsTheThirdChair:
         scene.accept(offer)
 
         assert (scene.table.hand, [chair.ready for chair in scene.table.chairs]) == (None, [False, False, False])
+
+
+class TestTheAcceptDuringARunningHand:
+    @pytest.fixture
+    def left_chair_two(self, scene):
+        """The agent held chair 2 of the hand Anna (1) and Ben (3) played with it, and stood up from it."""
+        scene.sit(VISITOR, 3)
+        scene.sit(MOZART, 2)
+        scene.stand(MOZART)
+        return scene
+
+    def test_the_agent_sits_in_the_chair_it_held_when_it_is_free_though_a_lower_chair_is_free_too(self, left_chair_two):
+        scene = left_chair_two
+        scene.stand(OPENER)
+        offer = scene.invite()
+
+        result = scene.accept(offer)
+
+        assert result.refusal is None
+        assert scene.occupants() == [None, "Mozart", "Ben"]
+
+    def test_the_agent_is_busy_when_the_chair_it_held_is_taken_though_another_is_free(self, left_chair_two):
+        scene = left_chair_two
+        scene.sit(CLEO, 2)
+        scene.stand(OPENER)
+        offer = scene.invite()
+        before = scene.table
+
+        result = scene.accept(offer)
+
+        assert result.refusal is MemberRefusal.BUSY
+        assert (scene.table, scene.standing(), scene.book().invitation) == (before, (), None)
+
+    def test_an_agent_that_held_no_chair_of_the_hand_takes_the_lowest_free_chair(self, scene):
+        scene.sit(VISITOR, 2)
+        scene.sit(CLEO, 3)
+        scene.stand(OPENER)
+        scene.stand(VISITOR)
+        offer = scene.invite()
+
+        scene.accept(offer)
+
+        assert scene.occupants() == ["Mozart", None, "Cleo"]
+
+    def test_the_agent_takes_any_free_chair_once_the_hand_is_over(self, left_chair_two):
+        scene = left_chair_two
+        scene.store.tables[scene.table_id] = replace(scene.table, hand=None, progress=HandProgress())
+        scene.stand(OPENER)
+        offer = scene.invite()
+
+        scene.accept(offer)
+
+        assert scene.occupants() == ["Mozart", None, "Ben"]
 
 
 class TestStaleInvitation:
