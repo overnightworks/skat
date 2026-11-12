@@ -12,6 +12,7 @@ from skat.web.presence import (
     Presence,
 )
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from skat.web.wakes import WakeList
 from tests.support.idle_presence import idle_agent_lease
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
@@ -249,6 +250,7 @@ def noting(time, releases, deals, ends, notes):
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
         idle_agent_lease(),
+        WakeList(),
     )
 
 

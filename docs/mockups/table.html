@@ -370,7 +370,7 @@ body.solo .frame{border-radius:0;border:0}
   .null0{animation:sag 3s ease-in-out infinite}
   @keyframes sag{0%,20%{scale:1;rotate:0deg;translate:0 0}40%{scale:1.08 .7;rotate:-8deg;translate:0 8px}55%{scale:.9 1.1;rotate:6deg;translate:0 -6px}70%,100%{scale:1 .82;rotate:14deg;translate:4px 14px;opacity:.75}}
 }
-/* key moment: ?f=<frame>&key freezes each moment at its peak and shows the end state of everything else */
+/* key moment: a single frame (?f=<frame>) and any page with &key freeze each moment at its peak and show the end state of everything else */
 body.key .frame *:not(.mo){animation:none!important}
 body.key .frame .mo{animation-play-state:paused!important;animation-delay:calc(var(--k) * -1)!important}
 body.key .frame .orb .think.mo{--k:.4s}
@@ -2084,7 +2084,8 @@ const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
 if(solo){document.body.classList.add('solo');document.getElementById(solo).closest('section').classList.add('on');}
-if(q.has('key'))document.body.classList.add('key');
+/* a single frame is one frozen moment: left live, its entrance and hopping dots would be captured at whatever phase the capture reaches */
+if(q.has('key')||solo)document.body.classList.add('key');
 /* the list hangs on its pill: centred over it, never closer than 16 px to the frame's edge, the caret over the pill's centre; only the shown frames are touched */
 const lists=[...(solo?document.getElementById(solo):document).querySelectorAll('.agents-pop')];
 const hangLists=()=>lists.forEach(pop=>{
