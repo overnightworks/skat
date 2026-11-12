@@ -46,6 +46,7 @@ function chairsWithCards(cards: [number, number, number]): Chair[] {
     return [FOREHAND, MIDDLEHAND, REARHAND].map((seat, index) => ({
         seat,
         occupant_name: `player ${String(seat)}`,
+        occupant_kind: "person",
         is_mine: false,
         is_away: false,
         ready: false,
