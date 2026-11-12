@@ -1,8 +1,10 @@
 """The roster holds an agent exactly while it listens on its standing, under what its own token says of it."""
 
+import asyncio
 from contextlib import contextmanager
 
 import pytest
+from agents.mcp_server.listen import ResourceChanges
 from agents.member import STANDING_URI, PlaceRef, place_view_uri
 from agents.tools import Principal
 from webauth.ports import AgentFacts
@@ -26,6 +28,22 @@ def token_of(facts):
 def starts_to_listen(roster, principal, facts, uri=STANDING_URI):
     with token_of(facts):
         roster.listening_changed(principal, uri, True)
+
+
+def listens_once_and_closes(roster, principal, facts, *, after_close):
+    """The agent's one listen on its standing through the library's own bookkeeping; `after_close` runs once the
+    stream has ended, before the loop has run anything the library scheduled for the end of the allowance.
+    """
+
+    async def listen_then_close():
+        changes = ResourceChanges(roster.listening_changed)
+        with changes.opened(principal) as stream, token_of(facts):
+            changes.acknowledged(principal, stream, [STANDING_URI])
+        after_close()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    asyncio.run(listen_then_close())
 
 
 @pytest.fixture
@@ -98,3 +116,26 @@ class TestACallOfAnAgentWithFacts:
         roster.heard(NOVA.sub, AgentFacts(owner="owner-felix", name="Nova"))
 
         assert roster.entries() == {}
+
+
+class TestAnEntryOutlivesTheEndOfItsListenByTheLibrarysAllowance:
+    def test_the_entry_stays_when_the_listen_ends_and_is_dropped_once_the_allowance_passed(self, roster, monkeypatch):
+        monkeypatch.setattr("agents.mcp_server.listen.LISTEN_ALLOWANCE_SECONDS", 0)
+        held_at_the_end = []
+
+        listens_once_and_closes(
+            roster,
+            NOVA,
+            AgentFacts(owner="owner-felix", name="Nova"),
+            after_close=lambda: held_at_the_end.append(set(roster.entries())),
+        )
+
+        assert (held_at_the_end, roster.entries()) == ([{NOVA.sub}], {})
+
+    def test_two_agents_of_one_owner_with_one_name_hold_one_entry_each(self, roster):
+        facts = AgentFacts(owner="owner-felix", name="Mozart")
+        starts_to_listen(roster, NOVA, facts)
+        starts_to_listen(roster, BACH, facts)
+
+        assert {(entry.name, entry.owner) for entry in roster.entries().values()} == {("Mozart", "owner-felix")}
+        assert set(roster.entries()) == {NOVA.sub, BACH.sub}

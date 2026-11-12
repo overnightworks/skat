@@ -3379,7 +3379,7 @@ body {
     border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-/* The result's bar is one row: on a phone the link is its icon alone and the buttons close up. */
+/* The result's bar is one row unless the agents' pill joins it: on a phone the link is its icon alone and the buttons close up. */
 @media (max-width: 899px) {
     .room .actions.on-result {
         flex-wrap: nowrap;
@@ -3417,7 +3417,7 @@ body {
         display: none;
     }
 
-    /* With the agents' pill the link is a fourth button, which no phone is wide enough for: the bar wraps. */
+    /* With the agents' pill a fourth button joins the row; where it does not fit, the bar wraps. */
     .room .actions.on-result:has(.pill-anchor):not(:has(.sound-strip)) {
         flex-wrap: wrap;
     }
