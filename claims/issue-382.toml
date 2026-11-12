@@ -1,7 +1,0 @@
-claim_id = "76ce01a6034547ae99cb7b3c416d5988"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "df4e066bb6efda583194cefbdfdbc619f6eeef68"
-branch = "claude/issue-382-stand-up-picture"
-scope = ["docs/mockups/table.html"]
-opened_commit = "175d2a1ca3660be8690caf242e1ae45208e225d7"
