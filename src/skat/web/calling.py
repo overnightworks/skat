@@ -52,6 +52,7 @@ AGENT_ADDERS_GROUP: Final = "/agent-adders"
 # How long a read of the groups the issuer refused counts as "not a member" before the next control read asks again.
 DISPLAY_REFUSAL_HOLD: Final = timedelta(minutes=5)
 ROSTER_KEY_BYTES: Final = 16
+NO_TABLE_DETAIL: Final = "table not found"
 
 type ListeningChanged = Callable[[Principal, str, bool], None]
 
@@ -209,10 +210,11 @@ class CallerMembership:
 
     def _drop_ended_sessions(self) -> None:
         now = datetime.fromtimestamp(self._web_auth.wall_clock(), UTC)
-        for session_id in list(self._held):
-            record = self._sessions.load(session_id)
-            if record is None or record.expires_at <= now:
-                del self._held[session_id]
+        self._held = {
+            session_id: held
+            for session_id, held in self._held.items()
+            if (record := self._sessions.load(session_id)) is not None and record.expires_at > now
+        }
 
 
 def _facts_of(
@@ -244,7 +246,7 @@ def _row_of(entry: RosterEntry, offer: CallOffer) -> AgentRowAnswer | None:
 def _table_of(table_id: str) -> TableId:
     parsed = TableId.parse(table_id)
     if parsed is None:
-        raise HTTPException(status_code=404, detail="table not found")
+        raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
     return parsed
 
 
@@ -293,7 +295,7 @@ class _Calling:
         calls = self._facts_for(request, table_id, viewer_is_member=viewer_is_member)
         offers = await run_in_threadpool(self._tables.offers_at, table_id, [facts for _, facts in calls])
         if offers is None:
-            raise HTTPException(status_code=404, detail="table not found")
+            raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
         rows = [row for (entry, _), offer in zip(calls, offers, strict=True) if (row := _row_of(entry, offer))]
         shown = control_shown(viewer_present=viewer_present, viewer_is_member=viewer_is_member)
         return AgentControlAnswer(shown=shown, rows=rows)
@@ -307,7 +309,7 @@ class _Calling:
         ]
         offers = await run_in_threadpool(self._tables.offers_at, table_id, chosen)
         if offers is None:
-            raise HTTPException(status_code=404, detail="table not found")
+            raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
         if not chosen:
             return CallRefusal.AGENT_UNAVAILABLE
         answer = offers[0].answer
@@ -325,7 +327,7 @@ class _Calling:
             timedelta(seconds=INVITATION_SECONDS),
         )
         if written is InviteRefusal.NO_TABLE:
-            raise HTTPException(status_code=404, detail="table not found")
+            raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
         return REFUSAL_TOKENS[written] if isinstance(written, InviteRefusal) else None
 
 
@@ -345,7 +347,6 @@ def create_calling_router(
 
     @router.get(
         TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX,
-        response_model=AgentControlAnswer,
         responses={404: {"description": "No table has this id."}},
         openapi_extra=excluded(Exclusion.PERSON_ACT),
     )
