@@ -414,11 +414,12 @@ export function gameLabel({
     ouvert: boolean;
     announcement: Announcement;
 }): { name: string; announcement: string | null } {
+    const gaps = { game: gameWord(game) };
     if (ouvert) {
-        const handSuffix = game === "null" && hand ? ` ${words["game.hand"]}` : "";
-        return { name: `${gameWord(game)} ${words["game.ouvert"]}${handSuffix}`, announcement: null };
+        const name = game === "null" && hand ? words["game.ouvertHandName"](gaps) : words["game.ouvertName"](gaps);
+        return { name, announcement: null };
     }
-    const name = hand ? `${gameWord(game)} ${words["game.hand"]}` : gameWord(game);
+    const name = hand ? words["game.handName"](gaps) : gaps.game;
     return { name, announcement: announcedWord(announcement) };
 }
 
@@ -435,7 +436,7 @@ const RANK_WORDS: Record<Rank, string> = {
 
 // A card's own name: a suit's word is the word of the game of that suit.
 export function cardName(card: Card): string {
-    return `${GAME_WORDS[card.suit]} ${RANK_WORDS[card.rank]}`;
+    return words["game.cardName"]({ suit: GAME_WORDS[card.suit], rank: RANK_WORDS[card.rank] });
 }
 
 export function positionWord(position: Position): string {
