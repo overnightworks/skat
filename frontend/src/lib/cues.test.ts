@@ -55,7 +55,7 @@ function chairsWithCards(cards: [number, number, number]): Chair[] {
 }
 
 function playing(changes: Partial<Playing>): Playing {
-    return { turn_seat: FOREHAND, current_trick: [], last_trick: null, legal_cards: [], ...changes };
+    return { turn_seat: FOREHAND, current_trick: [], last_trick: null, legal_cards: [], give_up: null, ...changes };
 }
 
 // A table of one hand: `current` and `last` are the playing state, `cards` the cards each chair still holds.
@@ -74,6 +74,7 @@ function table(
             dealer_seat: REARHAND,
             own_cards: [],
             skat_count: 2,
+            waiting_seat: null,
             auction: auction(),
             declaring: changes.declaring === undefined ? declaringAt("picked") : changes.declaring,
             playing: hasPlaying
