@@ -475,6 +475,21 @@ class TestUnplayedTables:
         ]
         assert "account-anna" not in str(logs)
 
+    def test_a_table_read_as_due_that_is_not_due_when_the_row_is_locked_is_left_alone(self, sign_in_settings):
+        listed = []
+
+        class ReadsListedTablesAsDue(TableService):
+            def unplayed_tables(self, days):
+                return tuple(listed)
+
+        unplayed = UnplayedTables(sign_in_settings, ReadsListedTablesAsDue)
+        table_id = unplayed.dealt("command-open")
+        listed.append(table_id)
+        with TestClient(unplayed.app()):
+            ended = unplayed.ended(table_id)
+
+        assert ended is None
+
     def test_a_failed_read_in_an_hourly_run_is_logged_and_the_next_run_still_comes(self, sign_in_settings):
         class UnreadableAfterTheStart(TableService):
             reads = itertools.count(1)
