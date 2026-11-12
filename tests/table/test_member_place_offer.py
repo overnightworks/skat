@@ -138,14 +138,9 @@ class TestWhatACallComesTo:
 
         assert offer_of(replace(outside_the_group, **changes), seated, None, NOW) is answer
 
-    def test_a_chair_that_stores_no_owner_gives_no_right_to_a_person_outside_the_group(self):
-        seated = with_agents(a_table_with_a_free_chair(), 1)
-        outside_the_group = replace(call_facts(seated_agent(seated), OWNER, OWNER), viewer_is_member=False)
-
-        assert offer_of(outside_the_group, seated, None, NOW) is InviteRefusal.NOT_A_MEMBER
-
-    def test_an_owner_has_no_right_to_the_agent_of_another_owner(self):
-        seated = with_agents(a_table_with_a_free_chair(), 1, owner_account=OTHER_PERSON)
+    @pytest.mark.parametrize("stored_owner", [None, OTHER_PERSON], ids=["no-owner-stored", "another-owner"])
+    def test_a_person_outside_the_group_has_no_right_to_an_agent_whose_chair_stores_another_owner(self, stored_owner):
+        seated = with_agents(a_table_with_a_free_chair(), 1, owner_account=stored_owner)
         outside_the_group = replace(call_facts(seated_agent(seated), OWNER, OWNER), viewer_is_member=False)
 
         assert offer_of(outside_the_group, seated, None, NOW) is InviteRefusal.NOT_A_MEMBER
