@@ -315,7 +315,7 @@ class TestAnsweringNoWord:
         }
         assert others["rearhand"]["my_word"] == "kontra"
 
-    def test_a_watcher_is_not_seated(self, herz_hand):
+    def test_a_watcher_cannot_answer_no_word(self, herz_hand):
         herz_hand.refused_act(TABLE_NO_WORD_SUFFIX, herz_hand.watcher, "not-seated")
 
 

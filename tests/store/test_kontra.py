@@ -7,9 +7,9 @@ from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.kontra import KontraCommand
 from skat.table.playing import GiveUpCommand
-from skat.table.records import CreateTable, NoWordSaid, SendAway, TableOptions
+from skat.table.records import Actor, CreateTable, NoWordSaid, OccupantKind, SendAway, SitDown, TableOptions
 from skat.table.service import TableService
-from tests.support.stored_game import count_rows, nobody_connected, person, seated_game
+from tests.support.stored_game import Game, count_rows, nobody_connected, person, seated_game
 
 pytestmark = pytest.mark.postgres
 
@@ -166,22 +166,21 @@ def test_the_answers_go_with_the_hand(game, engine):
     assert count_rows(engine, "kontra_no_words") == 0
 
 
-def test_a_chair_that_changes_hands_takes_its_answer_out_of_the_store(game, engine):
+def test_a_chair_that_changes_hands_takes_its_answer_out_of_the_store(service, transactions, stored, engine):
+    agent = Actor(account_id=person("Ben").account_id, display_name="Ben", kind=OccupantKind.AGENT)
+    table_id = service.create(
+        person("Anna"), CreateTable(command_id="command-open", options=TableOptions(kontra=UP_TO_HIRSCH))
+    ).id
+    service.sit(agent, SitDown("command-ben", table_id, 2), nobody_connected())
+    service.sit(person("Cleo"), SitDown("command-cleo", table_id, 3), nobody_connected())
+    game = Game(service, transactions, stored, table_id)
     answer_no_word(game, FOREHAND, command_id="forehand-no-word")
     answer_no_word(game, REARHAND, command_id="rearhand-no-word")
 
-    rearhand = game.actors[REARHAND]
-    with engine.begin() as connection:
-        connection.execute(
-            text("UPDATE chairs SET occupant_kind = 'agent' WHERE account_id = :account"),
-            {"account": rearhand.account_id},
-        )
-
-    sent = game.service.send_away(
-        game.actors[FOREHAND], SendAway("send-away", game.table_id, rearhand.account_id), nobody_connected()
+    sent = service.send_away(
+        game.actors[REARHAND], SendAway("send-away", table_id, game.actors[FOREHAND].account_id), nobody_connected()
     )
 
     assert sent.refusal is None
-
-    assert game.record.progress.no_words == frozenset({NoWordSaid(FOREHAND, KONTRA)})
+    assert game.record.progress.no_words == frozenset({NoWordSaid(REARHAND, KONTRA)})
     assert count_rows(engine, "kontra_no_words") == 1
