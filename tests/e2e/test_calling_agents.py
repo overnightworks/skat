@@ -14,7 +14,7 @@ from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.tables import open_new_table, plate_of, watch
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from playwright.sync_api import Page
 
@@ -43,12 +43,19 @@ def sits_note(name: str) -> str:
 
 
 @pytest.fixture
-def caller(open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]) -> Page:
+def realm_reusing_refresh_tokens(e2e_server: RunningServer) -> Iterator[None]:
     # The realm lets a refresh token be used again, so overlapping reads of one session both succeed.
     e2e_server.issuer.reuses_refresh_tokens = True
+    yield
+    e2e_server.issuer.reuses_refresh_tokens = False
+
+
+@pytest.fixture
+def caller(open_person: Callable[..., Page], realm_reusing_refresh_tokens: None, page_errors: list[str]) -> Page:
     return record_page_errors(open_person(username="felix", groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors)
 
 
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_member_calls_a_listening_agent_and_every_page_sees_it_sit(
     open_person: Callable[..., Page],
@@ -57,7 +64,6 @@ def test_a_member_calls_a_listening_agent_and_every_page_sees_it_sit(
     page_errors: list[str],
     form_factor: dict,
 ) -> None:
-    e2e_server.issuer.reuses_refresh_tokens = True
     felix = record_page_errors(
         open_person(username="felix-calls", groups=(AGENT_ADDERS_GROUP,), **form_factor), page_errors
     )
