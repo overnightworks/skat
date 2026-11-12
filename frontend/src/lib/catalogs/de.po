@@ -207,10 +207,6 @@ msgctxt "result.seatFree"
 msgid "Frei"
 msgstr ""
 
-msgctxt "result.bidValue"
-msgid "Reizwert"
-msgstr ""
-
 msgctxt "result.hand"
 msgid "Hand"
 msgstr ""
@@ -259,14 +255,6 @@ msgctxt "result.share"
 msgid "· {opponents} je {gain}"
 msgstr ""
 
-msgctxt "result.each"
-msgid "je"
-msgstr ""
-
-msgctxt "result.notReached"
-msgid "nicht erreicht"
-msgstr ""
-
 msgctxt "result.announcedSchneider"
 msgid "Schneider angesagt"
 msgstr ""
@@ -295,20 +283,8 @@ msgctxt "result.lost"
 msgid "Verloren"
 msgstr ""
 
-msgctxt "result.wins"
-msgid "gewinnt"
-msgstr ""
-
-msgctxt "result.loses"
-msgid "verliert"
-msgstr ""
-
 msgctxt "result.overbid"
 msgid "Überreizt"
-msgstr ""
-
-msgctxt "result.gameWorth"
-msgid "Wert"
 msgstr ""
 
 msgctxt "result.and"

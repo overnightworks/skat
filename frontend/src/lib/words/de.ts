@@ -56,7 +56,6 @@ export type Words = {
     readonly "table.readyMark": string;
     readonly "table.notReadyMark": string;
     readonly "result.seatFree": string;
-    readonly "result.bidValue": string;
     readonly "result.hand": string;
     readonly "result.levelSpiel": string;
     readonly "result.levelSchneider": string;
@@ -67,8 +66,6 @@ export type Words = {
     readonly "result.listGame": (gaps: { readonly score: string }) => string;
     readonly "result.listBonus": (gaps: { readonly bonus: string }) => string;
     readonly "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => string;
-    readonly "result.each": string;
-    readonly "result.notReached": string;
     readonly "result.announcedSchneider": string;
     readonly "result.announcedSchwarz": string;
     readonly "result.sideThem": string;
@@ -76,10 +73,7 @@ export type Words = {
     readonly "result.sideYou": string;
     readonly "result.won": string;
     readonly "result.lost": string;
-    readonly "result.wins": string;
-    readonly "result.loses": string;
     readonly "result.overbid": string;
-    readonly "result.gameWorth": string;
     readonly "result.and": string;
     readonly "result.declarerWins": (gaps: { readonly name: string }) => string;
     readonly "result.declarerLoses": (gaps: { readonly name: string }) => string;
@@ -191,7 +185,6 @@ export const words: Words = {
     "table.readyMark": "Weiter getippt",
     "table.notReadyMark": "noch nicht getippt",
     "result.seatFree": "Frei",
-    "result.bidValue": "Reizwert",
     "result.hand": "Hand",
     "result.levelSpiel": "Spiel",
     "result.levelSchneider": "Schneider",
@@ -216,8 +209,6 @@ export const words: Words = {
     "result.listGame": (gaps: { readonly score: string }) => "Spiel " + gaps.score,
     "result.listBonus": (gaps: { readonly bonus: string }) => "Liste " + gaps.bonus,
     "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => "· " + gaps.opponents + " je " + gaps.gain,
-    "result.each": "je",
-    "result.notReached": "nicht erreicht",
     "result.announcedSchneider": "Schneider angesagt",
     "result.announcedSchwarz": "Schwarz angesagt",
     "result.sideThem": "Gegner",
@@ -225,10 +216,7 @@ export const words: Words = {
     "result.sideYou": "Du",
     "result.won": "Gewonnen!",
     "result.lost": "Verloren",
-    "result.wins": "gewinnt",
-    "result.loses": "verliert",
     "result.overbid": "Überreizt",
-    "result.gameWorth": "Wert",
     "result.and": "und",
     "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " gewinnt",
     "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " verliert",
