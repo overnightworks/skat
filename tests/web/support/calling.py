@@ -5,7 +5,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-from skat.web.calling import AGENT_ADDERS_GROUP, TABLE_AGENT_CALL_SUFFIX, TABLE_AGENTS_SUFFIX
+from skat.web.calling import (
+    AGENT_ADDERS_GROUP,
+    TABLE_AGENT_CALL_SUFFIX,
+    TABLE_AGENT_SEND_AWAY_SUFFIX,
+    TABLE_AGENTS_SUFFIX,
+)
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import new_account
@@ -46,6 +51,14 @@ def read_control(skat, who, table_id, **headers):
 def call(skat, who, table_id, key):
     return skat.client.post(
         f"{control_path(table_id)}/{key}{TABLE_AGENT_CALL_SUFFIX}",
+        headers={"origin": TEST_PUBLIC_ORIGIN, **who.headers, **FETCH},
+    )
+
+
+def send_away(skat, who, table_id, key, command_id="command-send-away"):
+    return skat.client.post(
+        f"{control_path(table_id)}/{key}{TABLE_AGENT_SEND_AWAY_SUFFIX}",
+        json={"command_id": command_id},
         headers={"origin": TEST_PUBLIC_ORIGIN, **who.headers, **FETCH},
     )
 

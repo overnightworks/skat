@@ -85,16 +85,39 @@ class TestACallOfAnAgentWithFacts:
 
         assert roster.entries()[NOVA.sub].key == key
 
-    def test_replaces_the_name_owner_and_key_when_a_newer_token_says_otherwise(self, roster):
+    def test_replaces_the_name_and_owner_and_keeps_the_key_when_a_newer_token_says_otherwise(self, roster):
         starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
         key = roster.entries()[NOVA.sub].key
 
-        roster.heard(NOVA.sub, AgentFacts(owner="owner-anna", name="Nova"))
+        roster.heard(NOVA.sub, AgentFacts(owner="owner-anna", name="Nova2"))
 
         entry = roster.entries()[NOVA.sub]
-        assert (entry.owner, entry.key != key) == ("owner-anna", True)
+        assert (entry.owner, entry.name, entry.key) == ("owner-anna", "Nova2", key)
 
     def test_makes_no_entry_for_an_agent_that_does_not_listen(self, roster):
         roster.heard(NOVA.sub, AgentFacts(owner="owner-felix", name="Nova"))
 
         assert roster.entries() == {}
+
+
+class TestAnAgentKeepsOneKey:
+    def test_the_key_of_an_account_is_made_at_first_need_and_names_no_account(self, roster):
+        key = roster.key_of(NOVA.sub)
+
+        assert (roster.key_of(NOVA.sub) == key, NOVA.sub in key, roster.key_of(BACH.sub) != key) == (True, False, True)
+
+    def test_an_entry_uses_the_key_the_account_already_has(self, roster):
+        key = roster.key_of(NOVA.sub)
+
+        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        assert roster.entries()[NOVA.sub].key == key
+
+    def test_the_key_stays_when_the_agent_stops_listening_and_listens_again(self, roster):
+        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        key = roster.entries()[NOVA.sub].key
+
+        roster.listening_changed(NOVA, STANDING_URI, False)
+        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        assert roster.entries()[NOVA.sub].key == key
