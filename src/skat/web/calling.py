@@ -12,8 +12,8 @@ acknowledged listen until the library's `LISTEN_ALLOWANCE_SECONDS` after its las
 listed for that long and two agents of one owner with one name are two rows. It holds it under its token's name and
 owner, and a key per agent account, minted here at first need and kept in this process only, so a row keeps its key from
 the call to the seat, whether or not the agent listens. The held answers are one yes or no per session, kept in this
-process only: the display never reads the issuer per render, and a call or a send-away reads the person's groups fresh at
-the act.
+process only: the display never reads the issuer per render, and a call or a send-away reads the person's groups fresh
+at the act.
 """
 
 import secrets
