@@ -16,7 +16,7 @@
     import { giveUpView } from "#lib/giveUp.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
-    import { declaredResult, ramschResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
+    import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
@@ -345,11 +345,9 @@
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
-            {@const turnSeat = inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
-            {@const settledDeclarerSeat = declared?.declarer_seat ?? inPlay?.declarerSeat}
             {@const view = declared === null ? null : resultView(outcome.table)}
-            {@const ramschView = ramschResult(outcome.table) === null ? null : ramschResultView(outcome.table)}
+            {@const ramschView = ramschResultView(outcome.table)}
             {@const onResult = view !== null || ramschView !== null}
             {@const winners = new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
@@ -464,7 +462,7 @@
                         class:away={chair.is_away}
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
-                        class:turn={marks.turn || chair.seat === turnSeat}
+                        class:turn={marks.turn || chair.seat === inPlay?.playing.turn_seat}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -500,7 +498,7 @@
                                 {#if chair.hand !== null}
                                     <span class="mark pos">{positionWord(chair.hand.position)}</span>
                                 {/if}
-                                {#if marks.declarer || chair.seat === settledDeclarerSeat}
+                                {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
                                     <span class="mark declarer" class:won={marks.declarer === "won"}>
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path
@@ -530,7 +528,7 @@
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
-                                {#if marks.turn || chair.seat === turnSeat}
+                                {#if marks.turn || chair.seat === inPlay?.playing.turn_seat}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path d="M8 5l11 7-11 7z" />

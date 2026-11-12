@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { awaitedNames, declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
+import {
+    awaitedNames,
+    declaredResult,
+    ramschResultView,
+    resultView,
+    weiterBar,
+    withMinus,
+    type RamschView,
+} from "#lib/result.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, RamschResult, Table, Result } from "../routes/(start)/tables.ts";
 
@@ -451,6 +459,10 @@ function ramschTable(mine: number, result: RamschResult): Table {
     return { ...table(mine, null, RAMSCH_NAMES), result };
 }
 
+function drawnRamsch(table: Table): RamschView {
+    return ramschResultView(table) as RamschView;
+}
+
 // The four blessed scenes of the Ramsch's card, seen from Felix at seat 3.
 const LOST_WITH_PUSHES = ramschResult([20, 14, 86], [0, 0, -344], { pushes: 2, push_factor: 4 });
 const OTHER_LOSES = ramschResult([14, 86, 20], [0, -86, 0], {});
@@ -500,7 +512,7 @@ describe("a Ramsch result's card", () => {
             counts: ["Felix 0", "Anna 120", "Ben 0"],
         },
     ])("draws $scene with the answer's numbers", ({ result, word, mark, eyes, chips, score, counts }) => {
-        const view = ramschResultView(ramschTable(3, result));
+        const view = drawnRamsch(ramschTable(3, result));
 
         expect(view.word).toBe(word);
         expect(view.mark).toBe(mark);
@@ -522,8 +534,8 @@ describe("a Ramsch result's card", () => {
     });
 
     it("marks the loser's own head as lost and the sweeper's as won", () => {
-        expect(ramschResultView(ramschTable(3, LOST_WITH_PUSHES))).toMatchObject({ lost: true, mark: "cross" });
-        expect(ramschResultView(ramschTable(1, DURCHMARSCH))).toMatchObject({
+        expect(drawnRamsch(ramschTable(3, LOST_WITH_PUSHES))).toMatchObject({ lost: true, mark: "cross" });
+        expect(drawnRamsch(ramschTable(1, DURCHMARSCH))).toMatchObject({
             word: words["result.won"],
             mark: "tick",
             lost: false,
@@ -531,33 +543,33 @@ describe("a Ramsch result's card", () => {
     });
 
     it("shows a watcher the loser by name and a Durchmarsch by its word", () => {
-        expect(ramschResultView(ramschTable(NOBODY, OTHER_LOSES)).word).toBe("Ben verliert");
-        expect(ramschResultView(ramschTable(NOBODY, DURCHMARSCH)).word).toBe("Durchmarsch");
+        expect(drawnRamsch(ramschTable(NOBODY, OTHER_LOSES)).word).toBe("Ben verliert");
+        expect(drawnRamsch(ramschTable(NOBODY, DURCHMARSCH)).word).toBe("Durchmarsch");
     });
 
     it("names both losers of a tie, and tells a loser of the tie it is lost", () => {
         const tie = ramschResult([50, 50, 20], [-50, -50, 0], {});
 
-        expect(ramschResultView(ramschTable(3, tie)).word).toBe("Anna und Ben verlieren");
-        expect(ramschResultView(ramschTable(1, tie)).word).toBe("Verloren");
-        expect(ramschResultView(ramschTable(3, tie)).counts.filter((count) => count.strong)).toHaveLength(2);
+        expect(drawnRamsch(ramschTable(3, tie)).word).toBe("Anna und Ben verlieren");
+        expect(drawnRamsch(ramschTable(1, tie)).word).toBe("Verloren");
+        expect(drawnRamsch(ramschTable(3, tie)).counts.filter((count) => count.strong)).toHaveLength(2);
     });
 
     it("names the pushes without a factor when the table does not double them", () => {
         const flat = ramschResult([20, 14, 86], [0, 0, -86], { pushes: 2, push_factor: 1 });
 
-        expect(ramschResultView(ramschTable(3, flat)).chips).toEqual(["2× geschoben"]);
+        expect(drawnRamsch(ramschTable(3, flat)).chips).toEqual(["2× geschoben"]);
     });
 
     it("lists the coasters with the viewer first and what each seat adds", () => {
-        const view = ramschResultView(ramschTable(3, LOST_WITH_PUSHES));
+        const view = drawnRamsch(ramschTable(3, LOST_WITH_PUSHES));
 
         expect(view.rows.map((row) => `${row.name ?? ""} ${row.gainText}`)).toEqual([
             "Du \u2212344",
             "Anna 0",
             "Ben 0",
         ]);
-        expect(ramschResultView(ramschTable(1, DURCHMARSCH)).rows[0]).toMatchObject({ gainText: "+120", won: true });
+        expect(drawnRamsch(ramschTable(1, DURCHMARSCH)).rows[0]).toMatchObject({ gainText: "+120", won: true });
     });
 });
 
@@ -566,6 +578,7 @@ describe("a Ramsch result", () => {
 
     it("is no declared result, so the declared card is not drawn for it", () => {
         expect(declaredResult(ramsch())).toBeNull();
+        expect(ramschResultView(table(1, {}))).toBeNull();
         expect(declaredResult(table(1, {}))).toEqual(WON_GAME);
     });
 

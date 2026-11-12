@@ -216,10 +216,6 @@ function reckoningRows(chairs: readonly Chair[], gains: readonly SeatGain[]): Re
     });
 }
 
-export function ramschResult(table: Table): RamschResult | null {
-    return table.result?.kind === "ramsch" ? table.result : null;
-}
-
 function pushChip(result: RamschResult): string[] {
     if (result.pushes === 0) return [];
     return [
@@ -253,8 +249,9 @@ function ramschHead(
 }
 
 // The card reads the answer's counts and never reckons a score: the sweeper's or the losers' score is the value.
-export function ramschResultView(table: Table): RamschView {
-    const result = ramschResult(table) as RamschResult;
+export function ramschResultView(table: Table): RamschView | null {
+    const result = table.result;
+    if (result?.kind !== "ramsch") return null;
     const { chairs } = table;
     const sweeper = result.seats.find((one) => one.seat === result.durchmarsch_seat);
     const strong = sweeper === undefined ? result.seats.filter((one) => one.score < 0) : [sweeper];
