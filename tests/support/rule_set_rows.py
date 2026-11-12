@@ -27,6 +27,11 @@ def sets_of(engine, account_id):
         return transaction.sets_of(account_id)
 
 
+def save(engine, rule_set):
+    with PostgresRuleSets(engine).begin() as transaction:
+        transaction.add(rule_set)
+
+
 def save_before_pushing(engine, rule_set):
     """Write a set into a database before the pushing revision, with the columns and values that revision has."""
     options = rule_set.options
