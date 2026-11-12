@@ -35,11 +35,11 @@ def pill(person: Page):
 
 
 def call_label(name: str) -> str:
-    return text(SOURCE_LANGUAGE, "agents.callLabel").replace("{name}", name)
+    return text(SOURCE_LANGUAGE, "agents.callLabel", name=name)
 
 
 def sits_note(name: str) -> str:
-    return text(SOURCE_LANGUAGE, "table.agentSits").replace("{name}", name)
+    return text(SOURCE_LANGUAGE, "table.agentSits", name=name)
 
 
 @pytest.fixture
