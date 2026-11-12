@@ -17,7 +17,9 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
-    import { LegalLinks } from "overnightworks-design";
+    import { AiMark, LegalLinks } from "overnightworks-design";
+    import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
+    import AgentsPill from "#lib/ui/AgentsPill.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
@@ -34,6 +36,7 @@
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
     import {
+        agentSitsNote,
         answerGiveUp,
         bidValueWhileDeclaring,
         copyTableLink,
@@ -57,6 +60,7 @@
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
+    const AGENT_SITS_MILLISECONDS = 4000;
 
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
@@ -71,8 +75,20 @@
     // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
     let playedThisHand = $state<Card[]>([]);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
+    // The version of the latest streamed table, which the control that calls agents follows.
+    let streamedVersion = $state<number | null>(null);
+    // The sentence that names the agent who has just sat down.
+    let agentSat = $state<string | null>(null);
+    let agentSatTimer: ReturnType<typeof setTimeout> | undefined;
 
     function showTable(previous: Table | undefined, table: Table): void {
+        streamedVersion = table.version;
+        const sitsNote = previous === undefined ? null : agentSitsNote(previous, table);
+        if (sitsNote !== null) {
+            agentSat = sitsNote;
+            clearTimeout(agentSatTimer);
+            agentSatTimer = setTimeout(() => (agentSat = null), AGENT_SITS_MILLISECONDS);
+        }
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
         const cues = cuesBetween(previous, table);
         soundForCues(cues, table);
@@ -93,6 +109,8 @@
         outcome = null;
         connected = true;
         justWon = false;
+        streamedVersion = null;
+        agentSat = null;
         playedThisHand = [];
         let current = true;
         let stopWatching = (): void => {};
@@ -116,6 +134,7 @@
         return () => {
             current = false;
             clearTimeout(wonTimer);
+            clearTimeout(agentSatTimer);
             stopWatching();
         };
     });
@@ -440,8 +459,14 @@
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
-                            <span class="tile">
-                                <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
+                            <span class="tile" class:agent={chair.occupant_kind === "agent"}>
+                                {#if chair.occupant_kind === "agent"}
+                                    <span class="orb" aria-hidden="true">
+                                        <AgentSparkle />
+                                    </span>
+                                {:else}
+                                    <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
+                                {/if}
                             </span>
                             {#if chair.hand !== null || passedIn !== null || view !== null}
                                 {#if chair.seat === dealerSeat}
@@ -586,8 +611,9 @@
                         <span class="plate"
                             >{chair.is_mine
                                 ? words["table.sideYou"]
-                                : (chair.occupant_name ?? words["table.seatFree"])}{#if chair.is_away}<small
-                                    class="away-note">{words["table.seatAway"]}</small
+                                : (chair.occupant_name ??
+                                  words["table.seatFree"])}{#if chair.occupant_kind === "agent"}<AiMark
+                                />{/if}{#if chair.is_away}<small class="away-note">{words["table.seatAway"]}</small
                                 >{/if}</span
                         >
                         {#if chair.total !== null}
@@ -708,6 +734,7 @@
                             {`${words["table.standUp"]}`}
                         </button>
                     {/if}
+                    <AgentsPill tableId={id} {streamedVersion} />
                     {#if !callMode}
                         <button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={copy}>
                             <svg
@@ -728,6 +755,15 @@
                 </div>
                 <p class="note" role="status">{note}</p>
             </div>
+            {#if agentSat !== null}
+                <p class="notice" role="status">
+                    <span class="dot agent" aria-hidden="true">
+                        <AgentSparkle />
+                    </span>
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {agentSat} compiles to a `?? ""` branch no sentence can take -->
+                    <span class="label">{`${agentSat}`}</span>
+                </p>
+            {/if}
             {#if taken !== null}
                 <p class="notice" role="status">
                     <span class="dot" aria-hidden="true">{taken.slice(0, 1)}</span>

@@ -6,6 +6,7 @@ from playwright.sync_api import Locator, Page, Route, expect
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable
@@ -35,6 +36,7 @@ pytestmark = pytest.mark.e2e
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
+AGENTS_PILL = text(SOURCE_LANGUAGE, "agents.pill")
 WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
 AND = text(SOURCE_LANGUAGE, "result.and")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
@@ -262,6 +264,17 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     for person in table.pages.values():
         expect(person.locator(OWN_HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     assert page_errors == []
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_result_bar_stays_inside_the_page_with_the_agents_pill(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
+    for person in table.everyone:
+        expect(person.locator(".actions").get_by_role("button", name=AGENTS_PILL)).to_be_visible()
+    expect_the_bars_inside_the_pages(table)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

@@ -175,6 +175,7 @@ function chair(seat: number, changes: Partial<Chair> = {}): Chair {
     return {
         seat,
         occupant_name: `player-${String(seat)}`,
+        occupant_kind: "person",
         is_mine: false,
         is_away: false,
         ready: false,
@@ -206,6 +207,7 @@ describe("the scene of a passed-in hand", () => {
     const chairOf = (seat: number, changes: Partial<Chair> = {}): Chair => ({
         seat,
         occupant_name: `Name${String(seat)}`,
+        occupant_kind: "person",
         is_mine: false,
         is_away: false,
         ready: false,
@@ -244,6 +246,7 @@ describe("what the others see while the declarer decides", () => {
         [FOREHAND, MIDDLEHAND, REARHAND].map((seat) => ({
             seat,
             occupant_name: `Name${String(seat)}`,
+            occupant_kind: "person",
             is_mine: seat === mine,
             is_away: false,
             ready: false,

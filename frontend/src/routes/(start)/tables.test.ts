@@ -528,6 +528,7 @@ describe("what the declaring stage asks of this viewer", () => {
         [1, 2, 3].map((seat) => ({
             seat,
             occupant_name: `player ${String(seat)}`,
+            occupant_kind: "person",
             is_mine: seat === mine,
             is_away: false,
             ready: false,
@@ -657,6 +658,7 @@ describe("the table's seats and link", () => {
     const chair = (seat: number, isMine = false): Chair => ({
         seat,
         occupant_name: null,
+        occupant_kind: null,
         is_mine: isMine,
         is_away: false,
         ready: false,
