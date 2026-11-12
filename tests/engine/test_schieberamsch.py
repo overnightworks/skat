@@ -190,15 +190,8 @@ def test_a_grand_hand_instead_is_scored_as_any_grand_hand_at_the_lowest_bid() ->
     assert reckon(settlement) == Reckoning(declarer=122, each_opponent=0)
 
 
-@pytest.mark.parametrize(
-    "steps",
-    [
-        pytest.param(
-            (Take(FOREHAND), Put(FOREHAND, FOREHAND_PLAIN), Push(MIDDLEHAND), Push(REARHAND)), id="stored-log"
-        ),
-    ],
-)
-def test_a_stored_log_leads_to_the_state_step_by_step_play_leads_to(steps: tuple[PushStep, ...]) -> None:
+def test_a_stored_log_leads_to_the_state_step_by_step_play_leads_to() -> None:
+    steps = (Take(FOREHAND), Put(FOREHAND, FOREHAND_PLAIN), Push(MIDDLEHAND), Push(REARHAND))
     state = Pushing.start(DEAL)
     for step in steps:
         state = pushing_step(state, step, OPTIONS).state

@@ -164,7 +164,10 @@ def page_and_answer_agree(person: Page, server: RunningServer, table_id: str) ->
         settled = drawn == picture_of_answer(answer) and not any(chair["away"] for chair in drawn["chairs"])
         if settled or time.monotonic() >= deadline:
             assert drawn == picture_of_answer(answer)
-            assert not any(chair["away"] for chair in drawn["chairs"])
+            away_seats = [chair["seat"] for chair in drawn["chairs"] if chair["away"]]
+            assert not away_seats, (
+                f"seats {away_seats} still show away at the deadline; drawn chairs: {drawn['chairs']}"
+            )
             return answer, drawn
         person.wait_for_timeout(POLL_MILLISECONDS)
 
