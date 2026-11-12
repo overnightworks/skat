@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cue } from "./cues.ts";
 import type { AudioPort, Voice } from "./sound.ts";
 import { createTableSound, type TableSound } from "./tableSound.ts";
@@ -158,6 +158,10 @@ describe("arming", () => {
 });
 
 describe("the page's sound", () => {
+    beforeEach(() => {
+        vi.resetModules();
+    });
+
     afterEach(() => {
         vi.unstubAllGlobals();
     });
@@ -218,14 +222,21 @@ describe("the page's sound", () => {
         expect(listeners.size).toBe(0);
     });
 
-    it("lets a card land before it sounds while the device allows motion", async () => {
-        const { started, listeners } = stubBrowser({ reducedMotion: false });
-        const { armSound, soundForCues } = await import("./tableSound.ts");
-        armSound();
-        listeners.get("keydown")?.();
+    it.each([
+        { reducedMotion: false, soundsAfterLanding: true },
+        { reducedMotion: true, soundsAfterLanding: false },
+    ])(
+        "lets a card land before it sounds only while the device allows motion ($reducedMotion)",
+        async ({ reducedMotion, soundsAfterLanding }) => {
+            const { started, listeners } = stubBrowser({ reducedMotion });
+            const { armSound, soundForCues } = await import("./tableSound.ts");
+            armSound();
+            listeners.get("keydown")?.();
 
-        soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
+            soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
 
-        expect(Math.min(...started.filter((at) => at > 0))).toBeGreaterThan(0.2);
-    });
+            expect(started.length).toBeGreaterThan(0);
+            expect(Math.min(...started) > 0.2).toBe(soundsAfterLanding);
+        },
+    );
 });
