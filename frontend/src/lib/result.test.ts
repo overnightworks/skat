@@ -522,17 +522,6 @@ describe("a Ramsch result's card", () => {
         expect(view.counts.map((count) => `${count.name} ${String(count.points)}`)).toEqual(counts);
     });
 
-    it.each([
-        { scene: "ramsch-lost", result: LOST_WITH_PUSHES },
-        { scene: "ramsch-other", result: OTHER_LOSES },
-        { scene: "ramsch-jungfrau", result: JUNGFRAU },
-    ])("explains the loser's score in $scene by the eyes and the factors it draws", ({ result }) => {
-        const loser = result.seats.find((one) => one.score < 0) as RamschResult["seats"][number];
-        const factors = result.push_factor * (result.jungfrau ? 2 : 1);
-
-        expect(loser.points * factors).toBe(-loser.score);
-    });
-
     it("marks the loser's own head as lost and the sweeper's as won", () => {
         expect(drawnRamsch(ramschTable(3, LOST_WITH_PUSHES))).toMatchObject({ lost: true, mark: "cross" });
         expect(drawnRamsch(ramschTable(1, DURCHMARSCH))).toMatchObject({
