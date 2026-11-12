@@ -52,6 +52,7 @@ from tests.support.page_build import (
     SIGN_IN_STYLESHEET,
     VERSION_FILE,
     fixture_page_build,
+    served_page,
 )
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import SeededMember, cookie_header, seed_member
@@ -264,7 +265,7 @@ class TestSignInPages:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/html")
         assert "location" not in response.headers
-        assert response.content == (SIGN_IN_PAGES[path].read_bytes() if method == "GET" else b"")
+        assert response.content == (served_page(SIGN_IN_PAGES[path]) if method == "GET" else b"")
         assert member is None or application.stores.sessions.load(member.session.id) is not None
 
 
@@ -453,7 +454,7 @@ class TestRevalidation:
 
     def test_a_refused_callback_answer_is_not_stored(self, application):
         response = application.get(AUTH_CALLBACK_PATH, **BROWSER_ACCEPT)
-        assert (response.status_code, response.content) == (403, LOGIN_FAILED_PAGE.read_bytes())
+        assert (response.status_code, response.content) == (403, served_page(LOGIN_FAILED_PAGE))
         assert response.headers["cache-control"] == "no-store"
 
 

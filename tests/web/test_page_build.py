@@ -2,14 +2,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.web.page_build import BUILT_LANG, PageBuild, PageBuildMissingError
+from skat.web.page_build import PageBuild, PageBuildMissingError
 from skat.web.secret_files import StartRefusedError
-from skat.web.words import SOURCE_LANGUAGE
 from tests.support.page_build import (
     ANNOUNCER_STYLE_HASH,
     CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
+    served_page,
 )
 
 if TYPE_CHECKING:
@@ -165,9 +165,7 @@ class TestLoad:
     def test_a_sign_in_page_is_the_bytes_read_in_the_source_language_with_a_strong_etag(self, name, page_of):
         page = page_of(PageBuild.load(FIXTURE_DIRECTORY))
 
-        assert page.content == (FIXTURE_DIRECTORY / name).read_bytes().replace(
-            BUILT_LANG, f'<html lang="{SOURCE_LANGUAGE}">'.encode()
-        )
+        assert page.content == served_page(FIXTURE_DIRECTORY / name)
         assert page.etag.startswith('"')
         assert page.etag.endswith('"')
 
