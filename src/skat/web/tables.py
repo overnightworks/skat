@@ -43,8 +43,8 @@ if TYPE_CHECKING:
     from skat.table.nudging import NudgeState
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
-    from skat.table.service import CommandResult, TableService
-    from skat.table.views import ChairHand, HandView, PassedInView, SeriesView, TableView
+    from skat.table.service import TableService
+    from skat.table.views import ChairHand, CommandResult, HandView, PassedInView, SeriesView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 

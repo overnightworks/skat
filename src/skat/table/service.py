@@ -1,7 +1,6 @@
 import copy
 import secrets
 from contextlib import ExitStack, nullcontext
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -58,7 +57,6 @@ from skat.table.ready import (
 )
 from skat.table.records import (
     Actor,
-    CommandRefusal,
     CreateTable,
     Decision,
     EndedTable,
@@ -114,7 +112,7 @@ from skat.table.series_end import (
     series_end_payload,
 )
 from skat.table.transactions import DuplicateReceiptError
-from skat.table.views import PausedEntryView, TableView, view_of
+from skat.table.views import CommandResult, PausedEntryView, TableView, view_of
 
 if TYPE_CHECKING:
     import random
@@ -126,21 +124,7 @@ if TYPE_CHECKING:
     from skat.table.member_place import CallFacts
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
-__all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
-
-
-@dataclass(frozen=True)
-class CommandResult:
-    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
-
-    `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
-    retry restarts no pause.
-    """
-
-    view: TableView
-    refusal: CommandRefusal | None = None
-    holder: str | None = None
-    seated_when_hand_ended: frozenset[str] = frozenset()
+__all__ = ["CommandIdReusedError", "TableService"]
 
 
 def _utc_now() -> datetime:
