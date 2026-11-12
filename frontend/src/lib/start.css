@@ -2862,13 +2862,14 @@ body {
         transform: rotate(270deg);
     }
 
+    /* The tags stand beyond the widest plate, which a long name stretches to 140% of the chair. */
     .room .chair:nth-child(1) .count-tag {
-        left: 104%;
+        left: calc(120% + 4px);
         top: 90%;
     }
 
     .room .chair:nth-child(2) .count-tag {
-        left: -70px;
+        left: -96px;
         top: 90%;
     }
 
