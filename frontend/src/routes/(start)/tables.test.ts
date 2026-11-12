@@ -52,6 +52,8 @@ import {
 } from "./tables.ts";
 import { words } from "#lib/words.ts";
 
+const NO_PUSHES = { ramsch: false, pushing: null, pushes: 0, push_factor: 1 };
+
 class FakeEventSource {
     static last: FakeEventSource;
     onerror: (() => void) | null = null;
@@ -549,10 +551,7 @@ describe("what the declaring stage asks of this viewer", () => {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
-            ramsch: false,
-            pushing: null,
-            pushes: 0,
-            push_factor: 1,
+            ...NO_PUSHES,
             auction: auctionWith(bidWon),
             declaring,
             playing: null,
@@ -600,10 +599,7 @@ describe("the auction's value while declaring", () => {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
-            ramsch: false,
-            pushing: null,
-            pushes: 0,
-            push_factor: 1,
+            ...NO_PUSHES,
             auction: auctionWith(declared),
             declaring,
             playing: null,
