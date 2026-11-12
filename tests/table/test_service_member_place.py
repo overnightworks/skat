@@ -17,6 +17,7 @@ from skat.table.member_place import (
     MemberRefusal,
     MembershipState,
     OfferState,
+    SeatedOffer,
     TableStanding,
 )
 from skat.table.records import Actor, CreateTable, HandProgress, OccupantKind, Series, SitDown, StandUp, TableId
@@ -37,6 +38,10 @@ START = datetime(2026, 11, 1, 12, tzinfo=UTC)
 INVITATION_SECONDS = 600
 NOBODY = frozenset()
 UNKNOWN_TABLE = "0" * 32
+
+
+def seated_facts(account):
+    return replace(call_facts(account, OWNER), agent_listens=False, owner_account=None, owner_present=False)
 
 
 class Scene:
@@ -209,27 +214,27 @@ class TestInviteAnAgent:
 class TestOffersAtATable:
     def offers(self, scene, *agents, table_id=None, **facts):
         calls = [call_facts(agent.account_id, OWNER, **facts) for agent in agents]
-        return scene.service.offers_at(TableId(table_id or scene.table_id), calls)
+        return scene.service.offers_at(TableId(table_id or scene.table_id), calls, seated_facts)
 
     def test_each_agent_has_its_own_offer_from_one_read(self, scene):
         scene.invite(MOZART)
 
         offers = self.offers(scene, MOZART, BACH)
 
-        assert offers == (CallOffer(OfferState.INVITING, INVITATION_SECONDS), CallOffer(OfferState.AVAILABLE))
+        assert offers.listed == (CallOffer(OfferState.INVITING, INVITATION_SECONDS), CallOffer(OfferState.AVAILABLE))
 
     def test_an_inviting_row_counts_down_on_the_services_clock(self, scene):
         scene.invite(MOZART)
         scene.at(START + timedelta(seconds=INVITATION_SECONDS - 30))
 
-        assert self.offers(scene, MOZART) == (CallOffer(OfferState.INVITING, 30),)
+        assert self.offers(scene, MOZART).listed == (CallOffer(OfferState.INVITING, 30),)
 
     def test_an_invitation_that_ran_out_is_no_row_state_and_the_read_forgets_nothing(self, scene):
         scene.invite(MOZART)
         scene.at(START + timedelta(seconds=INVITATION_SECONDS))
         before = scene.snapshot()
 
-        assert self.offers(scene, MOZART) == (CallOffer(OfferState.AVAILABLE),)
+        assert self.offers(scene, MOZART).listed == (CallOffer(OfferState.AVAILABLE),)
         assert scene.snapshot() == before
 
     @pytest.mark.parametrize("table_id", [UNKNOWN_TABLE, "not-a-table"])
@@ -240,6 +245,25 @@ class TestOffersAtATable:
         scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
 
         assert self.offers(scene, MOZART) is None
+
+    def test_a_seated_agent_the_calls_do_not_name_is_answered_with_its_chairs_name_and_a_here_offer(self, scene):
+        scene.sit(MOZART, 2)
+
+        offers = self.offers(scene, BACH)
+
+        assert offers.seated == (SeatedOffer(MOZART.account_id, "Mozart", CallOffer(OfferState.HERE)),)
+
+    def test_a_seated_agent_the_calls_name_is_not_answered_twice(self, scene):
+        scene.sit(MOZART, 2)
+
+        offers = self.offers(scene, MOZART)
+
+        assert (offers.listed, offers.seated) == ((CallOffer(OfferState.HERE),), ())
+
+    def test_a_person_seated_at_the_table_is_no_seated_agent(self, scene):
+        scene.sit(VISITOR, 2)
+
+        assert self.offers(scene).seated == ()
 
 
 class TestAnAcceptSeatsTheAgent:
