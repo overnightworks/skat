@@ -1,17 +1,19 @@
+import json
 import re
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from playwright.sync_api import expect
 
-from skat.table.records import TABLE_ID_PATTERN
-from skat.web.tables import TABLE_PAGE_PREFIX
+from skat.table.records import SERIES_LENGTH_DEFAULT, TABLE_ID_PATTERN
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+    from tests.e2e.support.raw_http import RawSession
     from tests.e2e.support.server import RunningServer
 
 OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
@@ -29,6 +31,21 @@ def click_new_table(person: Page) -> str:
 def open_new_table(person: Page, server: RunningServer) -> str:
     person.goto(f"{server.base_url}/")
     return click_new_table(person)
+
+
+def open_table_with_options(
+    person: Page, server: RunningServer, session: RawSession, options: dict[str, object]
+) -> str:
+    """A table opened through the API with the rule options a test names; its opener's page watches it."""
+    opened = json.loads(
+        session.post(
+            TABLES_PATH,
+            {"command_id": "open-with-options", "series_length": SERIES_LENGTH_DEFAULT, "options": options},
+        )
+    )
+    path = f"{TABLE_PAGE_PREFIX}{opened['id']}"
+    watch(person, server, path)
+    return path
 
 
 def table_id_of(path: str) -> str:

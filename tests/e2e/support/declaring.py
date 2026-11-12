@@ -18,7 +18,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
+from tests.e2e.support.tables import open_new_table, open_table_with_options, sit_in, table_id_of, watch
 from tests.support.payload_cards import wire_cards
 from tests.support.played_game import after_a_game
 
@@ -62,10 +62,14 @@ class DeclaringTable:
         console: bool = True,
         hold_the_others_clock: bool = False,
         joiners: tuple[str, str] = ("ben", "cleo"),
+        options: dict[str, object] | None = None,
     ) -> None:
         self.server = server
         opener = self._person(open_person, "anna", page_errors, form_factor, console)
-        path = open_new_table(opener, server)
+        if options is None:
+            path = open_new_table(opener, server)
+        else:
+            path = open_table_with_options(opener, server, RawSession(server, member_of(opener)), options)
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
