@@ -1,9 +1,9 @@
 // The page's one reader of a server-sent stream. It owns every reconnect: each failed source is closed at once,
 // so the browser's own retry stays off, and the reader opens the next one itself.
 
+import { retryDelayMilliseconds } from "#lib/backoff.ts";
+
 const SIGNED_OUT_STATUS = 401;
-const FIRST_RETRY_MILLISECONDS = 1_000;
-const RETRY_LIMIT_MILLISECONDS = 30_000;
 
 export type StreamHandler = (data: string, end: () => void) => void;
 
@@ -15,13 +15,6 @@ export type StreamOptions = {
     onConnection: (connected: boolean) => void;
     onRefused: () => void;
 };
-
-// Doubles from the first retry to the limit, and each wait lies between half and all of that, so that
-// many pages after one restart do not all ask again at the same moment.
-function retryDelayMilliseconds(failedOpens: number): number {
-    const full = Math.min(RETRY_LIMIT_MILLISECONDS, FIRST_RETRY_MILLISECONDS * 2 ** failedOpens);
-    return full / 2 + (Math.random() * full) / 2;
-}
 
 async function sessionIsRefused(sessionPath: string): Promise<boolean> {
     try {

@@ -326,7 +326,7 @@ body {
     pointer-events: none;
 }
 
-.room .reconnect {
+.reconnect {
     position: fixed;
     top: 50%;
     left: 50%;
@@ -348,11 +348,11 @@ body {
     transform: translate(-50%, -50%);
 }
 
-.room .reconnect[hidden] {
+.reconnect[hidden] {
     display: none;
 }
 
-.room .spin {
+.spin {
     width: 20px;
     height: 20px;
     box-sizing: border-box;
@@ -362,7 +362,7 @@ body {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-    .room .spin {
+    .spin {
         animation: spin 0.9s linear infinite;
     }
 
@@ -371,6 +371,41 @@ body {
             rotate: 360deg;
         }
     }
+}
+
+/* The root page while a route's code cannot load: the wordmark at the top, the notice in the middle, and under it
+   the calm line that joins it after a minute. */
+.outage-bar {
+    justify-content: center;
+}
+
+.outage-line {
+    position: fixed;
+    top: calc(50% + 40px);
+    left: 50%;
+    width: 280px;
+    margin: 0;
+    color: var(--on-stage-soft);
+    font-size: 15px;
+    line-height: 1.4;
+    text-align: center;
+    transform: translateX(-50%);
+}
+
+.failure {
+    text-align: center;
+}
+
+.failure h1 {
+    margin: 0;
+    color: var(--brass);
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 48px;
+}
+
+.failure p {
+    margin: 8px 0 0;
+    color: var(--on-stage-soft);
 }
 
 .room .wordmark {

@@ -8,6 +8,8 @@ if TYPE_CHECKING:
 
 type Key = Literal[
     'app.name',
+    'app.reconnecting',
+    'app.unreachable',
     'account.title',
     'account.theme',
     'account.followSystem',
@@ -161,6 +163,8 @@ LANGUAGES: Final[tuple[Language, ...]] = (
 WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
     'de': {
         'app.name': 'Skat',
+        'app.reconnecting': 'verbinde neu',
+        'app.unreachable': 'Skat ist gerade nicht erreichbar.',
         'account.title': 'Konto',
         'account.theme': 'Darstellung',
         'account.followSystem': 'System',

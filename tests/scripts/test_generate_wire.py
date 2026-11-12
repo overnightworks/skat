@@ -33,6 +33,7 @@ from skat.web.constants import (
     LOGOUT_PATH,
     MODE_QUERY_NAME,
     NO_ACCESS_PATH,
+    VERSION_FILE_PATH,
 )
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
@@ -70,6 +71,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("AUTH_START_PATH", AUTH_START_PATH),
         ("LOGOUT_PATH", LOGOUT_PATH),
         ("ACCOUNT_PATH", ACCOUNT_PATH),
+        ("VERSION_FILE_PATH", VERSION_FILE_PATH),
         ("CALL_ORIGIN_PATH", CALL_ORIGIN_PATH),
         ("ACCOUNT_CONSOLE_PATH", ACCOUNT_CONSOLE_PATH),
         ("TABLES_PATH", TABLES_PATH),

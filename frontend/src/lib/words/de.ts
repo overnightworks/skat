@@ -4,6 +4,8 @@ export const language = "de";
 // prettier-ignore
 export type Words = {
     readonly "app.name": string;
+    readonly "app.reconnecting": string;
+    readonly "app.unreachable": string;
     readonly "account.title": string;
     readonly "account.theme": string;
     readonly "account.followSystem": string;
@@ -141,6 +143,8 @@ export type Words = {
 // prettier-ignore
 export const words: Words = {
     "app.name": "Skat",
+    "app.reconnecting": "verbinde neu",
+    "app.unreachable": "Skat ist gerade nicht erreichbar.",
     "account.title": "Konto",
     "account.theme": "Darstellung",
     "account.followSystem": "System",
