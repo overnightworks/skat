@@ -3417,9 +3417,27 @@ body {
         display: none;
     }
 
-    /* With the agents' pill a fourth button joins the row, which no phone is wide enough for: the bar wraps. */
-    .room .actions.on-result:has(.pill-anchor) {
+    /* With the agents' pill the link is a fourth button, which no phone is wide enough for: the bar wraps. */
+    .room .actions.on-result:has(.pill-anchor):not(:has(.sound-strip)) {
         flex-wrap: wrap;
+    }
+
+    /* In a call the speaker is the fourth button and the bar stays one row: the stand-up keeps its mark alone and its word for assistive technology. */
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand {
+        position: relative;
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 }
 
@@ -3530,5 +3548,280 @@ body {
 
     .room .closed h1 {
         font-size: 25px;
+    }
+}
+
+/* The sound: the round speaker (a twin of the Lobby button) in the table's top row or, in a call, in the strip, and the panel it opens. The table's tokens stand for the pictures' own: the picture's text is --on-stage, its muted text --on-stage-soft, its hairline --glass declared on the panel, the knob's mark --stage-ink. Nothing here moves. */
+.room .sound-button {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--on-stage);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.room .sound-face {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(244, 246, 248, 0.26);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+}
+
+.room .sound-face svg {
+    flex: none;
+    width: 22px;
+    height: 22px;
+}
+
+.room .sound-word {
+    display: none;
+}
+
+.room .sound-button:focus-visible,
+.room .sound-switch:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+/* 8 px between the glass of the speaker and the glass beside it. The speaker's and the Lobby button's tap targets are 4 px wider than their glass, the watchers' pill has no such margin: left of the watchers, 6 px; where the Lobby button and the watchers leave no room for it, right after the Lobby button, 4 px. */
+.room .sound-button.sound-bar {
+    margin-left: auto;
+    margin-right: 6px;
+}
+
+@media (max-width: 389px) {
+    .room .sound-button.sound-bar {
+        margin-left: 4px;
+        margin-right: auto;
+    }
+}
+
+/* In the strip it stands where the link stands outside a call, as tall as its neighbours. */
+.room .sound-button.sound-strip {
+    width: 52px;
+    height: 52px;
+}
+
+.room .sound-button.sound-strip .sound-face {
+    width: 52px;
+    height: 52px;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+}
+
+/* After the strip face, which is as specific: the open speaker is filled in the strip as in the top row. */
+.room .sound-button[aria-expanded="true"] .sound-face {
+    background: var(--on-stage);
+    color: var(--stage-ink, #0c0e11);
+}
+
+.room .sound-button.sound-strip .sound-face svg {
+    width: 24px;
+    height: 24px;
+}
+
+@media (min-width: 900px) {
+    .room .sound-button.sound-bar {
+        width: auto;
+        margin-right: 8px;
+    }
+
+    .room .sound-button.sound-bar .sound-face {
+        width: auto;
+        padding: 0 16px 0 12px;
+        border-radius: 999px;
+    }
+
+    .room .sound-button.sound-bar .sound-face svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .room .sound-button.sound-strip {
+        width: auto;
+    }
+
+    .room .sound-button.sound-strip .sound-face {
+        width: auto;
+        padding: 0 18px 0 14px;
+        border-radius: 26px;
+        font-size: 15px;
+    }
+
+    .room .sound-word {
+        display: inline;
+    }
+}
+
+/* The overlay is the panel's popover: it covers the viewport and is clear, so the tap that closes the panel lands on it and on nothing below. */
+.room .anchored-overlay {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    background: transparent;
+    color: inherit;
+}
+
+/* Placed by script through --panel-width, --panel-left, --panel-caret, --panel-edge and --panel-room; above its button the edge counts from the viewport's bottom. */
+.room .anchored-panel {
+    --glass: rgba(255, 255, 255, 0.15);
+    position: absolute;
+    left: var(--panel-left);
+    top: var(--panel-edge);
+    display: flex;
+    flex-direction: column;
+    width: var(--panel-width);
+    max-height: var(--panel-room);
+    border-radius: 12px;
+    background: rgba(17, 17, 17, 0.94);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        0 18px 36px -10px rgba(0, 0, 0, 0.9);
+    color: var(--on-stage);
+    text-align: left;
+}
+
+.room .anchored-panel.above {
+    top: auto;
+    bottom: var(--panel-edge);
+}
+
+.room .anchored-panel::after {
+    content: "";
+    position: absolute;
+    left: var(--panel-caret);
+    top: -6px;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    rotate: 45deg;
+    background: rgb(17, 17, 17);
+    border-left: 1px solid rgba(255, 255, 255, 0.14);
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.room .anchored-panel.above::after {
+    top: auto;
+    bottom: -6px;
+    border: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.room .sound-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 48px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--glass);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.room .sound-head svg {
+    width: 18px;
+    height: 18px;
+    color: var(--on-stage-soft);
+}
+
+.room .sound-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 6px 16px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.room .sound-row-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+}
+
+/* The checkbox draws the switch: the knob moves to the right and carries a check when the sound is on, so it reads without colour. */
+.room .sound-switch {
+    flex: none;
+    appearance: none;
+    position: relative;
+    width: 48px;
+    height: 28px;
+    margin: 0;
+    border-radius: 999px;
+    background: var(--glass);
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.22);
+    cursor: pointer;
+}
+
+.room .sound-switch::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #f4ecd9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.room .sound-switch::after {
+    content: "";
+    display: none;
+    position: absolute;
+    left: 31.5px;
+    top: 8px;
+    width: 5px;
+    height: 10px;
+    rotate: 45deg;
+    border-right: 2.5px solid var(--stage-ink, #0c0e11);
+    border-bottom: 2.5px solid var(--stage-ink, #0c0e11);
+}
+
+.room .sound-switch:checked {
+    background: var(--accent-stage, #7aa7f0);
+    box-shadow: none;
+}
+
+.room .sound-switch:checked::before {
+    left: 23px;
+}
+
+.room .sound-switch:checked::after {
+    display: block;
+}
+
+@media (min-width: 900px) {
+    .room .sound-row {
+        min-height: 48px;
     }
 }

@@ -177,7 +177,7 @@ def own_word(person: Page, table: Table) -> tuple[str, int | None]:
 
 def assert_no_controls(person: Page) -> None:
     expect(person.locator(LADDER)).to_have_count(0)
-    expect(person.get_by_role("button", name=PASS)).to_have_count(0)
+    expect(person.get_by_role("button", name=PASS, exact=True)).to_have_count(0)
 
 
 def assert_page_fits(person: Page) -> None:
@@ -188,7 +188,7 @@ def assert_the_opening_ladder(person: Page) -> None:
     expect(person.locator(HELD)).to_have_count(0)
     expect(person.locator(LIT)).to_have_text(str(LOWEST_BID))
     expect(person.locator(MAIN)).to_have_text(str(LOWEST_BID))
-    expect(person.get_by_role("button", name=PASS)).to_be_visible()
+    expect(person.get_by_role("button", name=PASS, exact=True)).to_be_visible()
     expect(person.locator(HIGHER).first).to_have_text(FIRST_HIGHER_BID)
     expect(person.locator(HIGHER).last).to_have_text(TOP_BID)
     assert_page_fits(person)
@@ -231,7 +231,7 @@ def test_the_forehand_answers_a_bid_and_the_bidder_climbs_on(
     assert forehand.locator(".ladder > span").all_inner_texts()[1:] == ["22", "23", "24"]
     expect(forehand.locator(HIGHER)).to_have_count(0)
     expect(forehand.locator(MAIN)).to_have_text(HOLD)
-    expect(forehand.get_by_role("button", name=PASS)).to_be_visible()
+    expect(forehand.get_by_role("button", name=PASS, exact=True)).to_be_visible()
     assert_page_fits(forehand)
 
     forehand.reload()
@@ -324,7 +324,7 @@ def test_a_tap_on_weg_counts_at_once_at_any_own_turn(
         step(table.rearhand, table, AuctionAction.PASS)
         tapper = table.forehand
 
-    tapper.get_by_role("button", name=PASS).click()
+    tapper.get_by_role("button", name=PASS, exact=True).click()
 
     assert_no_controls(tapper)
     if awaiting == "play":
@@ -364,7 +364,7 @@ def test_at_the_top_of_the_ladder_only_weg_shows(
     step(table.forehand, table, AuctionAction.HOLD)
     middlehand = table.middlehand
 
-    expect(middlehand.get_by_role("button", name=PASS)).to_be_visible()
+    expect(middlehand.get_by_role("button", name=PASS, exact=True)).to_be_visible()
     expect(middlehand.locator(LADDER)).to_have_count(0)
     expect(middlehand.locator(MAIN)).to_have_count(0)
     assert_page_fits(middlehand)

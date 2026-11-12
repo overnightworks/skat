@@ -134,6 +134,10 @@ export type Words = {
     readonly "legal.imprint": string;
     readonly "legal.privacy": string;
     readonly "legal.terms": string;
+    readonly "sound.panelName": string;
+    readonly "sound.muted": string;
+    readonly "sound.on": string;
+    readonly "sound.tone": string;
     readonly "card.letterJack": string;
     readonly "card.letterQueen": string;
     readonly "card.letterKing": string;
@@ -319,6 +323,10 @@ export const words: Words = {
     "legal.imprint": "Impressum",
     "legal.privacy": "Datenschutz",
     "legal.terms": "Nutzungsbedingungen",
+    "sound.panelName": "Ton und Bewegung",
+    "sound.muted": "Ton aus",
+    "sound.on": "Ton",
+    "sound.tone": "Ton",
     "card.letterJack": "B",
     "card.letterQueen": "D",
     "card.letterKing": "K",
