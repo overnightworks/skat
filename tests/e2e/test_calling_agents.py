@@ -168,6 +168,38 @@ def test_a_member_sends_a_seated_agent_away_mid_hand_and_the_row_offers_the_call
         agent.close()
 
 
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_an_owner_outside_the_calling_group_sends_his_own_agent_away_from_the_page(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict,
+) -> None:
+    felix = record_page_errors(
+        open_person(username="felix-calls-for-olga", groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors
+    )
+    path = open_new_table(felix, e2e_server)
+    olga = record_page_errors(open_person(username="olga-owns-nova", **form_factor), page_errors)
+    watch(olga, e2e_server, path)
+    agent = ListeningAgent(e2e_server, member_of(olga).account.id, "Nova", "agent-subject-nova-of-olga")
+    try:
+        pill(felix).click()
+        felix.get_by_role("button", name=call_label("Nova")).click()
+        agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
+        expect(plate_of(olga, 2)).to_contain_text("Nova")
+
+        pill(olga).click()
+        olga.get_by_role("button", name=ask_to_leave_label("Nova")).click()
+
+        for person in (felix, olga):
+            expect(plate_of(person, 2)).to_contain_text(SEAT_FREE)
+            expect(plate_of(person, 2)).not_to_contain_text("Nova")
+    finally:
+        agent.close()
+
+
 def test_a_call_the_page_sends_while_the_test_waits_for_the_agent_still_reaches_the_server(
     caller: Page,
     e2e_server: RunningServer,
