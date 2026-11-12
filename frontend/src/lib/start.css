@@ -1928,13 +1928,6 @@ body {
     --strip: calc(100vw * 25 / 390);
 }
 
-/* On a phone the near chair stands right above the hand, so the hand makes room for a picked card's lift under the chair. */
-@media (max-width: 899px) {
-    .room .own-hand.picking {
-        margin-top: calc(var(--card-width) * 0.6 + 6px);
-    }
-}
-
 .room .own-hand .pick,
 .room .own-hand .play {
     display: block;
@@ -1964,6 +1957,18 @@ body {
     box-shadow:
         0 0 0 3px var(--accent-stage, #7aa7f0),
         0 0 26px 2px rgba(122, 167, 240, 0.8);
+}
+
+/* On a phone the near chair stands right above the hand and the bar must stay on the screen, so a picked card lifts less
+   and the hand steps down by that lift, which keeps the card clear of the chair and its plate. */
+@media (max-width: 899px) {
+    .room .own-hand.picking {
+        margin-top: calc(var(--card-width) * 0.35 + 6px);
+    }
+
+    .room .own-hand .pick.picked {
+        translate: 0 calc(var(--card-width) * -0.35);
+    }
 }
 
 /* On turn the legal cards stand lifted with the blue ring, the tapped one higher and wider, the others dimmed. */
