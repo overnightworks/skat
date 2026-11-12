@@ -1,8 +1,0 @@
-claim_id = "0b573a7564694e3094760d8616fd164c"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "90b6f041871aec66c57118a04a38491c8cbff05a"
-branch = "claude/issue-411-error-page-words"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/+layout.svelte", "frontend/src/routes/+error.svelte", "src/skat/web/words.py", "tests/e2e/test_lobby_during_outage.py"]
-opened_commit = "68eb0ea70e5dd93388a9061a4e4de12a5f1468bd"
-whole_reason = "One error page and one deleted wrapper layout, the catalog with its two generated modules, the end-to-end module that pinned the English messages, and one ARCHITECTURE sentence."
