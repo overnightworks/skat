@@ -2064,13 +2064,13 @@ const grandPlay=(d)=>{const L=seatsOf(d);
     +plaque(mid(d),plaqueY(d),`${gameLine('','Grand Hand')}<div class="game pushes">Reizwert 18</div>`)+yourCard(d)
     +seat('anna',L.anna)+seat('nova',L.nova)+seat('felix',{...L.you,marks:['decl','turn']})+chairCoasters(L,TOTALS_BEFORE)
     +ownHand(d,BID_HAND.map(([r,s])=>[r,s,'ok']),{strip:d?{base:58,no:58,ok:58,touch:78}:{base:32,no:32,ok:32,touch:56}})+giveUpBar(d,GIVE_UP);};
-const DRAFT=' <span class="draft">Entwurf zur Wahl</span>';
+const GRAND_DRAFT=' <span class="draft">Entwurf zur Wahl</span>';
 const GRAND_SCENES=[
   ['push-grand','Ramsch: Grand Hand',[360,390,1280],(d)=>grandTable(d,{layout:'stack'}),
     ['An einem Tisch, der es erlaubt: Felix ist dran und sieht „Skat nehmen“ und „Schieben“ wie sonst, dazu „Grand Hand“ in Glas, wie „Hand“ beim Skat. Ein Tipp sagt es an. Am Handy steht die dritte Taste in einer zweiten Reihe unter den zwei anderen, der Skat rückt dafür nach oben; am Rechner stehen alle drei in einer Reihe.']],
-  ['push-grand-row','Ramsch: Grand Hand, drei Tasten in einer Reihe'+DRAFT,[360,390],(d)=>grandTable(d,{layout:'row'}),
+  ['push-grand-row','Ramsch: Grand Hand, drei Tasten in einer Reihe'+GRAND_DRAFT,[360,390],(d)=>grandTable(d,{layout:'row'}),
     ['Die andere Wahl zur ersten Frage: drei kleinere Tasten in einer Reihe mit kürzeren Worten („Nehmen“, „Schieben“, „Hand“), der Skat bleibt, wo er liegt. Am Rechner sieht es aus wie bei „push-grand“.']],
-  ['push-grand-arm','Ramsch: Grand Hand, zweiter Tipp'+DRAFT,[360,390,1280],(d)=>grandTable(d,{layout:'stack',armed:true}),
+  ['push-grand-arm','Ramsch: Grand Hand, zweiter Tipp'+GRAND_DRAFT,[360,390,1280],(d)=>grandTable(d,{layout:'stack',armed:true}),
     ['Die andere Wahl zur zweiten Frage: der erste Tipp macht „Grand Hand?“ scharf, rot mit dem Strich, der in drei Sekunden abläuft wie bei „Aufgeben“; erst der zweite Tipp sagt es an, jeder andere Tipp und die Zeit entschärfen die Taste.']],
   ['push-grand-done','Ramsch: Grand Hand angesagt',[390,1280],grandPlay,
     ['Felix hat angesagt: die Tafel nennt „Grand Hand“ mit „Reizwert 18“, keine Ansage steht daneben, kein Ramsch mehr; er ist Alleinspieler und spielt aus. Anna, Nova und jeder Zuschauer sehen dieselbe Tafel.']],
