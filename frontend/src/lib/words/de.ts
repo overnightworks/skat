@@ -16,7 +16,7 @@ export type Words = {
     readonly "account.logOut": string;
     readonly "start.newTable": string;
     readonly "start.seriesLength": string;
-    readonly "start.seriesGames": string;
+    readonly "start.seriesGames": (count: number) => string;
     readonly "start.seriesFewer": string;
     readonly "start.seriesMore": string;
     readonly "start.openTable": string;
@@ -89,11 +89,8 @@ export type Words = {
     readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
     readonly "closed.notFound": string;
-    readonly "closed.nobodyThereClosed": string;
-    readonly "closed.minute": string;
-    readonly "closed.minutes": string;
-    readonly "closed.second": string;
-    readonly "closed.seconds": string;
+    readonly "closed.emptySeconds": (count: number) => string;
+    readonly "closed.emptyMinutes": (count: number) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "declare.putBack": string;
@@ -151,7 +148,14 @@ export const words: Words = {
     "account.logOut": "Abmelden",
     "start.newTable": "Neuer Tisch",
     "start.seriesLength": "Länge der Serie",
-    "start.seriesGames": "Spiele",
+    "start.seriesGames": (count: number) => ({
+        zero: "Spiele",
+        one: "Spiel",
+        two: "Spiele",
+        few: "Spiele",
+        many: "Spiele",
+        other: "Spiele",
+    })[pluralRules.select(count)],
     "start.seriesFewer": "3 Spiele weniger",
     "start.seriesMore": "3 Spiele mehr",
     "start.openTable": "Aufmachen",
@@ -238,11 +242,22 @@ export const words: Words = {
     "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
     "closed.notFound": "Tisch nicht gefunden",
-    "closed.nobodyThereClosed": "niemand da: Tisch geschlossen",
-    "closed.minute": "Minute",
-    "closed.minutes": "Minuten",
-    "closed.second": "Sekunde",
-    "closed.seconds": "Sekunden",
+    "closed.emptySeconds": (count: number) => ({
+        zero: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        one: numberFormat.format(count) + " Sekunde niemand da: Tisch geschlossen",
+        two: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        few: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        many: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+        other: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
+    })[pluralRules.select(count)],
+    "closed.emptyMinutes": (count: number) => ({
+        zero: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
+        one: numberFormat.format(count) + " Minute niemand da: Tisch geschlossen",
+        two: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
+        few: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
+        many: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
+        other: numberFormat.format(count) + " Minuten niemand da: Tisch geschlossen",
+    })[pluralRules.select(count)],
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "declare.putBack": "Drücken",
