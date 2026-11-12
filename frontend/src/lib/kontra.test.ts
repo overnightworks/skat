@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { keyWord, plaqueLine, stampOf, wordSaidBetween } from "#lib/kontra.ts";
+import { keyWord, plaqueLine, stampBetween } from "#lib/kontra.ts";
 import { words } from "#lib/words.ts";
-import type { Chair, Kontra, Table, Word } from "../routes/(start)/tables.ts";
+import type { Chair, Hand, Kontra, Table, Word } from "../routes/(start)/tables.ts";
 
 const OPPONENT = 1;
 const DECLARER = 2;
@@ -31,28 +31,40 @@ function kontra(said: Kontra["said"], myWord: Word | null = null): Kontra {
 }
 
 function table(version: number, playingKontra: Kontra | null | "no hand"): Table {
+    const hand: Hand = {
+        dealer_seat: 3,
+        own_cards: [],
+        skat_count: 2,
+        waiting_seat: null,
+        auction: {
+            turn_seat: null,
+            facing_seat: null,
+            awaiting: null,
+            standing: null,
+            values: [],
+            words: [],
+            declared: null,
+        },
+        declaring: null,
+        playing: {
+            turn_seat: OPPONENT,
+            current_trick: [],
+            last_trick: null,
+            legal_cards: [],
+            give_up: null,
+            kontra: playingKontra === "no hand" ? null : playingKontra,
+        },
+    };
     return {
         id: "a".repeat(32),
         version,
         chairs: chairs(),
         watchers: 0,
-        hand:
-            playingKontra === "no hand"
-                ? null
-                : ({
-                      playing: {
-                          turn_seat: OPPONENT,
-                          current_trick: [],
-                          last_trick: null,
-                          legal_cards: [],
-                          give_up: null,
-                          kontra: playingKontra,
-                      },
-                  } as Table["hand"]),
+        hand: playingKontra === "no hand" ? null : hand,
         result: null,
         passed_in: null,
         ended: null,
-    } as Table;
+    };
 }
 
 const SAID_KONTRA = { seat: OPPONENT, word: "kontra" } as const;
@@ -69,16 +81,45 @@ describe("the key of a seat", () => {
     });
 });
 
-describe("the word a new table brings", () => {
-    it("is the word said between the two versions, with its sayer", () => {
+const STAMP_OF_FELIX = {
+    text: words["kontra.stamp"]({ word: words["kontra.kontra"] }),
+    label: words["kontra.saidBy"]({ name: "Felix", word: words["kontra.kontra"] }),
+    initial: "F",
+    agent: false,
+};
+
+describe("the stamp an update brings", () => {
+    it("carries the word said between the two versions with its mark and the sayer's face", () => {
         const before = table(5, kontra([]));
         const after = table(6, kontra([SAID_KONTRA]));
 
-        expect(wordSaidBetween(before, after)).toEqual(SAID_KONTRA);
+        expect(stampBetween(before, after)).toEqual(STAMP_OF_FELIX);
     });
 
-    it("is the last of two words said at once", () => {
-        expect(wordSaidBetween(table(5, kontra([])), table(7, kontra([SAID_KONTRA, SAID_RE])))).toEqual(SAID_RE);
+    it("is the stamp of the last of two words said at once", () => {
+        const stamp = stampBetween(table(5, kontra([])), table(7, kontra([SAID_KONTRA, SAID_RE])));
+
+        expect(stamp).toMatchObject({ text: words["kontra.stamp"]({ word: words["kontra.re"] }), initial: "A" });
+    });
+
+    it("is the stamp of a hand's first word, as the table before it had no hand", () => {
+        expect(stampBetween(table(5, "no hand"), table(6, kontra([SAID_KONTRA])))).toEqual(STAMP_OF_FELIX);
+    });
+
+    it("shows an agent's word with the agent's mark", () => {
+        const said = { seat: AGENT, word: "kontra" } as const;
+
+        expect(stampBetween(table(5, kontra([])), table(6, kontra([said])))).toMatchObject({
+            initial: "N",
+            agent: true,
+        });
+    });
+
+    it("has no initial for a chair that has since been left", () => {
+        const left = table(6, kontra([SAID_KONTRA]));
+        (left.chairs[0] as Chair).occupant_name = null;
+
+        expect(stampBetween(table(5, kontra([])), left)?.initial).toBe("");
     });
 
     it.each([
@@ -89,35 +130,7 @@ describe("the word a new table brings", () => {
         ["a table without Kontra", table(5, null), table(6, null)],
         ["a hand that has just ended", table(5, kontra([SAID_KONTRA])), table(6, "no hand")],
     ])("is none for %s", (_name, before, after) => {
-        expect(wordSaidBetween(before, after)).toBeNull();
-    });
-
-    it("is the word a hand's first table says, as the table before it had no hand", () => {
-        expect(wordSaidBetween(table(5, "no hand"), table(6, kontra([SAID_KONTRA])))).toEqual(SAID_KONTRA);
-    });
-});
-
-describe("the stamp of a word", () => {
-    it("carries the word with its mark and the sayer's face", () => {
-        expect(stampOf(table(6, kontra([SAID_KONTRA])), SAID_KONTRA)).toEqual({
-            text: words["kontra.stamp"]({ word: words["kontra.kontra"] }),
-            label: words["kontra.saidBy"]({ name: "Felix", word: words["kontra.kontra"] }),
-            initial: "F",
-            agent: false,
-        });
-    });
-
-    it("shows an agent's word with the agent's mark", () => {
-        const said = { seat: AGENT, word: "kontra" } as const;
-
-        expect(stampOf(table(6, kontra([said])), said)).toMatchObject({ initial: "N", agent: true });
-    });
-
-    it("has no initial for a chair that has since been left", () => {
-        const left = table(6, kontra([SAID_KONTRA]));
-        (left.chairs[0] as Chair).occupant_name = null;
-
-        expect(stampOf(left, SAID_KONTRA).initial).toBe("");
+        expect(stampBetween(before, after)).toBeNull();
     });
 });
 
