@@ -84,13 +84,16 @@ describe("loadSettings", () => {
 });
 
 describe("setMuted", () => {
-    it.each([true, false])("writes exactly the record for %s under the one key", async (muted) => {
+    it.each([
+        [true, '{"muted":true}'],
+        [false, '{"muted":false}'],
+    ])("writes exactly the record for %s under the one key", async (muted, record) => {
         const storage = storeHolding(null);
         const { setMuted, soundSettings } = await freshSettings();
 
         setMuted(muted);
 
-        expect(storage.writes).toEqual([[KEY, JSON.stringify({ muted })]]);
+        expect(storage.writes).toEqual([[KEY, record]]);
         expect(soundSettings().muted).toBe(muted);
     });
 
