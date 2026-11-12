@@ -6,7 +6,6 @@ entries are ordered by what the account has to do: the tables that wait for it f
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from skat.table.awaiting import WaitingCase, waiting_case
@@ -17,6 +16,7 @@ from skat.table.views import paused_entry_of, turn_seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
+    from datetime import datetime
 
     from skat.table.member_view import MemberView
     from skat.table.records import TableId
