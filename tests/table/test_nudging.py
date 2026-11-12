@@ -1,5 +1,7 @@
 """A nudge asks a seat the table waits for once more: who may nudge which seat when, and what each viewer is shown."""
 
+from typing import ClassVar
+
 import pytest
 
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
@@ -123,7 +125,7 @@ class TestTheMinute:
 
 
 class TestARetry:
-    nudged = {ON_TURN: Nudges(count=1, by_seat=SECOND, waited=ASK_AGAIN_AFTER)}
+    nudged: ClassVar = {ON_TURN: Nudges(count=1, by_seat=SECOND, waited=ASK_AGAIN_AFTER)}
 
     @pytest.mark.parametrize(
         ("account", "asked", "retry"),

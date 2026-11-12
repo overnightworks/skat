@@ -4,7 +4,6 @@ view's URI wakes the agent to read it, and the table's version never moves for a
 
 import asyncio
 import threading
-from contextlib import nullcontext
 from dataclasses import replace
 from datetime import timedelta
 from functools import partial
@@ -18,15 +17,21 @@ from structlog.testing import capture_logs
 from webauth.ports import AgentFacts
 
 from skat.engine.deal import Position
-from skat.host.app import _empty_table
 from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, revision_of
 from skat.table.records import EndedTable, EndReason, Series, TableId
 from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, token_carries_agent_facts
-from skat.web.member_place import AskClock, MemberStandings
+from skat.web.member_place import MemberStandings
+from skat.web.nudging import TABLE_NUDGE_SUFFIX
+from skat.web.presence import ChairHold, EmptyTable, Presence
 from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.tables import TABLES_PATH
+from skat.web.waits import AskClock
+from skat.web.wakes import WakeList
 from tests.support.calls import call_facts
+from tests.support.idle_presence import free_no_chair, idle_agent_lease, idle_next_deal
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_posts, view_uri_of
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
@@ -36,6 +41,7 @@ MIDDLEHAND = Position.MIDDLEHAND
 OTHER_AGENT_SUBJECT = "other-agent-subject"
 TABLE = "a-table"
 ACCOUNT = "an-account"
+SEAT = 1
 OTHER_ACCOUNT = "another-account"
 OWNER = "the-agents-owner"
 INVITATION_SECONDS = 600
@@ -86,21 +92,39 @@ class TestTheWaitIsKeptPerTableAndVersion:
     def test_the_pulses_of_a_version_are_claimed_once_for_each_account(self, clock):
         clock.see(TABLE, 5)
 
-        claims = [clock.claim_pulses(TABLE, 5, account) for account in (ACCOUNT, ACCOUNT, OTHER_ACCOUNT)]
+        claims = [clock.claim_pulses(TABLE, 5, account, SEAT) for account in (ACCOUNT, ACCOUNT, OTHER_ACCOUNT)]
 
         assert claims == [True, False, True]
 
     def test_a_new_version_can_be_claimed_again(self, clock):
         clock.see(TABLE, 5)
-        clock.claim_pulses(TABLE, 5, ACCOUNT)
+        clock.claim_pulses(TABLE, 5, ACCOUNT, SEAT)
         clock.see(TABLE, 6)
 
-        assert clock.claim_pulses(TABLE, 6, ACCOUNT) is True
+        assert clock.claim_pulses(TABLE, 6, ACCOUNT, SEAT) is True
 
     def test_a_version_that_is_not_the_entrys_cannot_be_claimed(self, clock):
         clock.see(TABLE, 6)
 
-        assert clock.claim_pulses(TABLE, 5, ACCOUNT) is False
+        assert clock.claim_pulses(TABLE, 5, ACCOUNT, SEAT) is False
+
+    def test_the_agent_that_claimed_its_pulses_is_found_by_its_seat_at_the_entrys_version_only(self, clock):
+        clock.see(TABLE, 5)
+        clock.claim_pulses(TABLE, 5, ACCOUNT, SEAT)
+
+        found = [
+            clock.agent_at(table, version, seat)
+            for table, version, seat in ((TABLE, 5, SEAT), (TABLE, 5, SEAT + 1), (TABLE, 6, SEAT), ("another", 5, SEAT))
+        ]
+
+        assert found == [ACCOUNT, None, None, None]
+
+    def test_an_ended_tables_view_and_one_older_than_the_entry_have_no_standing_and_no_nudges(self, clock):
+        clock.see(TABLE, 6)
+        ended = SimpleNamespace(ended=object(), id=TABLE, version=6)
+        older = SimpleNamespace(ended=None, id=TABLE, version=5)
+
+        assert [(clock.standing(view), clock.nudges_of(view)) for view in (ended, older)] == [(None, {})] * 2
 
     def test_a_dropped_table_starts_afresh(self, clock, moments):
         clock.see(TABLE, 6)
@@ -169,6 +193,16 @@ def wait(skat, time, seconds):
     skat.client.portal.call(time.advance, seconds)
 
 
+def nudge_of(table_id, headers, seat, version, skat):
+    """A person's tap of the bell at `seat`, read at `version`."""
+    skat.client.cookies.clear()
+    return skat.client.post(
+        f"{TABLES_PATH}/{table_id}{TABLE_NUDGE_SUFFIX}",
+        json={"version": version, "seat": seat, "nudges": 0},
+        headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+    )
+
+
 def a_result_stands(table):
     """The agent's table after a played game, the result waiting for each seat that has not continued."""
     table.declared_hand_game()
@@ -200,6 +234,22 @@ class TestASeatTheTableWaitsForIsAskedAgain:
         assert [(view["awaits_you"], view["state"]) for view in (*revisions, after_the_last)] == [
             (True, first["state"])
         ] * (ASKS_AGAIN + 1)
+
+    def test_the_wait_starts_at_the_committing_answer_and_not_at_the_agents_first_read(
+        self, skat, time, agent, forehand_auction, pulses
+    ):
+        table = forehand_auction
+        table.middlehand_bids()
+        wait(skat, time, ASK_AGAIN_AFTER + ASK_AGAIN_AFTER / 2)
+
+        late = agent.view(table.table_id)
+        pulses.clear()
+        wait(skat, time, ASK_AGAIN_AFTER / 2 - 1)
+        before_the_second_ask = list(pulses)
+        wait(skat, time, 1)
+
+        assert late["revision"] == revision_of(table.record.version, 1)
+        assert (before_the_second_ask, pulses) == ([], [(account_of(skat, agent), view_uri_of(table.table_id))])
 
     def test_a_seat_the_table_does_not_wait_for_keeps_its_revision_and_is_not_pulsed(
         self, skat, time, agent, forehand_auction, pulses
@@ -391,6 +441,39 @@ class TestARestartAndALapsedLease:
         assert (first["revision"], asked["revision"]) == (revision_of(version, 0), revision_of(version, 1))
         assert pulses == [(account_of(restarted, returned), view_uri_of(table_id))]
 
+    def test_a_restart_forgets_a_nudge_and_refuses_a_tap_that_a_page_timed_before_it(
+        self, skat, issuer, hold, time, agent, middlehand_auction, changes
+    ):
+        table = middlehand_auction
+        first = agent.view(table.table_id)
+        seat = next(chair["seat"] for chair in first["state"]["chairs"] if chair["is_mine"])
+        wait(skat, time, ASK_AGAIN_AFTER)
+        version = agent.view(table.table_id)["state"]["version"]
+        tap = partial(nudge_of, table.table_id, table.at[Position.REARHAND], seat, version)
+        assert tap(skat).status_code == 200
+        restarted_time = FakeTime()
+
+        restarted = Skat(
+            lambda: hold,
+            store=skat.store,
+            stores=skat.stores,
+            issuer_transports=issuer.transports,
+            chair_clock=restarted_time.clock,
+            chair_scheduler=restarted_time,
+            now=restarted_time.moment,
+            resource_changes=changes.wired,
+        )
+        with restarted.client:
+            returned = Agent(restarted, issuer, agent.subject)
+            view = returned.view(table.table_id)
+            refused = tap(restarted)
+
+        assert (view["revision"], next(c for c in view["state"]["chairs"] if c["is_mine"])["nudge"]) == (
+            revision_of(version, 0),
+            None,
+        )
+        assert (refused.status_code, refused.json()["reason"]) == (409, "too-early")
+
     def test_an_agent_that_returns_after_its_lease_lapsed_reads_the_asks_due_so_far_and_no_more_than_the_cap(
         self, skat, time, agent, middlehand_auction
     ):
@@ -424,29 +507,46 @@ class TestWhenTheTableEndsThePulseTellsNobody:
 
 class TestAnEndedTablesWaitIsDropped:
     class _Ending:
-        """The service whose commands answer whether they ended the table."""
+        """The empty table's commands, answering whether they ended the table."""
 
-        def __init__(self, ended):
-            self._ended = ended
+        ended = False
 
-        def end_empty_table(self, _table_id, _connected_accounts, _empty_seconds):
-            return self._ended
+        async def answer(self, _table_id, _connected_accounts):
+            return self.ended
 
-        def note_presence(self, _table_id, _connected_accounts, _empty_seconds):
-            return self._ended
-
-    @pytest.mark.parametrize("closing", ["end", "note"])
+    @pytest.mark.parametrize("closing", ["an arrival", "the last leave", "the empty wait"])
     @pytest.mark.parametrize("ended", [True, False])
-    def test_the_empty_table_drops_the_wait_when_its_command_ended_the_table_and_keeps_it_otherwise(
+    def test_the_presence_drops_the_wait_when_the_empty_tables_command_ended_the_table_and_keeps_it_otherwise(
         self, closing, ended
     ):
-        clock = AskClock(Moments())
-        clock.see(TABLE, 6)
-        empty = _empty_table(SimpleNamespace(empty_table_seconds=60), self._Ending(ended), clock)
+        time = FakeTime()
+        ending = self._Ending()
+        presence = Presence(
+            ChairHold(300, time.clock, time, free_no_chair),
+            idle_next_deal(),
+            EmptyTable(60, ending.answer, ending.answer),
+            idle_agent_lease(),
+            WakeList(),
+        )
+        presence.waits.see(TABLE, 6)
 
-        answer = asyncio.run(getattr(empty, closing)(TABLE, nullcontext(frozenset())))
+        async def close():
+            if closing == "an arrival":
+                ending.ended = ended
+                await presence.subscribe(TABLE, ACCOUNT, lambda: None)
+            elif closing == "the last leave":
+                subscription = await presence.subscribe(TABLE, ACCOUNT, lambda: None)
+                ending.ended = ended
+                presence.unsubscribe(subscription)
+                await time.advance(0)
+            else:
+                ending.ended = ended
+                presence.watch_empty_table(TABLE, 60)
+                await time.advance(60)
 
-        assert (answer, clock.is_current(TABLE, 6)) == (ended, not ended)
+        asyncio.run(close())
+
+        assert presence.waits.is_current(TABLE, 6) is not ended
 
 
 class _OvertakenDuringTheRead:

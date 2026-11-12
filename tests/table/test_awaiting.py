@@ -332,7 +332,9 @@ class TestTheAwaitedSeats:
         ("table", "seats"),
         [
             pytest.param(table_in(HandProgress()), {1}, id="the-turn"),
-            pytest.param(asked_by_the_declarer(Position.REARHAND), {3}, id="a-declarers-give-up-the-opponent-unanswered"),
+            pytest.param(
+                asked_by_the_declarer(Position.REARHAND), {3}, id="a-declarers-give-up-the-opponent-unanswered"
+            ),
             pytest.param(asked_by_the_declarer(None), {2, 3}, id="a-declarers-give-up-both-opponents"),
             pytest.param(asked_by_an_opponent(), {1}, id="an-opponents-give-up-the-declarer-alone"),
             pytest.param(between_games(SEAT_OF[REARHAND]), {1, 3}, id="a-result-the-seats-not-ready"),
