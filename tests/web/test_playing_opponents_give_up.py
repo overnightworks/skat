@@ -156,6 +156,11 @@ def series_list_of(table):
     return [(row["number"], row["settled_value"], row["score"]) for row in listing.json()["entries"]]
 
 
+def chair_totals_of(table):
+    """The running total each chair shows a watcher, in seat order."""
+    return [chair["total"] for chair in table.read_as(table.watcher).json()["chairs"]]
+
+
 def shown(result, expected):
     return {key: result[key] for key in expected}
 
@@ -393,6 +398,7 @@ class TestTheDeclarerAccepts:
         )
         assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, SEAT[FOREHAND])
         assert series_list_of(table) == [(1, expected["settled_value"], expected["score"])]
+        assert chair_totals_of(table) == [gain["gain"] for gain in expected["gains"]]
         assert table.result() == result
 
     def test_each_opponent_gives_up_the_same_state_for_the_same_result(self, skat):
