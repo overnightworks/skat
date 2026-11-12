@@ -39,9 +39,9 @@ SEATED = (
 )
 
 
-def seated_table(service, name, seats=3):
+def seated_table(service, name, seats=3, series_length=None):
     """A table with the opener and the next `seats - 1` people seated; the third sitting deals the first hand."""
-    table_id = service.create(OPENER, CreateTable(command_id=f"open-{name}")).id
+    table_id = service.create(OPENER, CreateTable(command_id=f"open-{name}", series_length=series_length)).id
     for seat, actor in enumerate(SEATED[1:seats], start=2):
         service.sit(actor, SitDown(f"sit-{name}-{seat}", table_id, seat), NOBODY_CONNECTED)
     return TableId(table_id)
@@ -67,6 +67,17 @@ def played_hand(service, transactions, stored, name):
 def listed_game(service, transactions, stored, name):
     table_id = seated_table(service, name)
     save(transactions, after_the_first_game(stored(transactions, table_id.value)))
+    return table_id
+
+
+def listed_games_in_two_series(service, transactions, stored, name):
+    """A seated table with a finished game in its first series and another in its second, the current one."""
+    table_id = seated_table(service, name, series_length=12)
+    first_game = after_the_first_game(stored(transactions, table_id.value))
+    second_series = replace(first_game.series, number=2)
+    save(transactions, first_game)
+    save(transactions, replace(first_game, series=second_series, game_list=()))
+    save(transactions, replace(first_game, series=second_series))
     return table_id
 
 
@@ -375,11 +386,11 @@ def played_at(transactions, table_id, when):
 def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_stores_the_days(
     service, transactions, stored, engine
 ):
-    table_id = listed_game(service, transactions, stored, "one")
+    table_id = listed_games_in_two_series(service, transactions, stored, "one")
     played_at(transactions, table_id, PLAYED_AT)
     games = rows_of(engine, table_id.value)["game_list"]
     version = stored(transactions, table_id.value).version
-    assert games
+    assert {row[1] for row in games} == {1, 2}
 
     assert (
         unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
