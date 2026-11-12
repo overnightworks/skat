@@ -219,6 +219,15 @@ class TestTheOwnersRight:
         assert scene.snapshot() == before
         assert scene.told == []
 
+    def test_a_refused_person_who_gains_the_right_may_use_the_same_command_id_again(self):
+        scene = Scene()
+
+        refused = scene.send_away(by=DORA, is_member=False, command_id="command-twice")
+        accepted = scene.send_away(by=DORA, is_member=True, command_id="command-twice")
+
+        assert (refused.refusal, accepted.refusal) == (Refusal.NOT_ALLOWED, None)
+        assert scene.table.chairs[MOZARTS_SEAT - 1].occupant is None
+
     def test_an_owner_seated_without_an_open_stream_sends_his_agent_away(self):
         scene = Scene(agent_owner=BEN.account_id)
         command = SendAway("command-away", scene.table_id, MOZART.account_id)

@@ -64,6 +64,7 @@ from skat.table.records import (
     Decision,
     EndedTable,
     NewHand,
+    Refusal,
     SendAway,
     SitDown,
     StandUp,
@@ -246,8 +247,8 @@ class TableService:
         transaction: the agent's book row at this table gets a higher epoch and no invitation.
 
         `actor` must be at the table (hold a chair or an open stream in `connected_accounts`) and, under its lock, a
-        member of the calling group (`is_member`) or the agent's owner, else `not-allowed`. The hand waits for a sitter.
-        A replay and a refusal write no book row.
+        member of the calling group (`is_member`) or the agent's owner, else `not-allowed`, which writes nothing, no
+        receipt either. The hand waits for a sitter. A replay and a refusal write no book row.
         """
         return self._run_command(
             actor,
@@ -742,7 +743,10 @@ class TableService:
                         after_accepted(transaction, decision.table)
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                     viewers = view_recipients(table, decision.table)
-                transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
+                if decision.refusal is not Refusal.NOT_ALLOWED:
+                    # A refused authority is no outcome of the command: the id stays free for the same person once
+                    # the right is there, and a refusal writes nothing.
+                    transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
             present = present_at(decision.table, connected_accounts, self._live_leases())
