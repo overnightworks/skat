@@ -29,7 +29,7 @@ class KontraCommand:
 
 @dataclass(frozen=True)
 class NoWordCommand:
-    """The answer that the actor says no word now; the actor's position comes from the session, never from the client."""
+    """The answer that the actor says no word now; the position comes from the session, never from the client."""
 
     command_id: str
     table_id: str

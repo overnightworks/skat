@@ -9,7 +9,16 @@ from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
-from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
+from skat.table.kontra import (
+    KONTRA_COMMAND,
+    NO_WORD_COMMAND,
+    KontraCommand,
+    NoWordCommand,
+    decide_kontra,
+    decide_no_word,
+    kontra_payload,
+    no_word_payload,
+)
 from skat.table.member_place import (
     Acceptance,
     AcceptResult,
@@ -326,6 +335,19 @@ class TableService:
             KONTRA_COMMAND,
             kontra_payload(command),
             lambda table: decide_kontra(table, actor, command),
+        )
+
+    def say_no_word(
+        self, actor: Actor, command: NoWordCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            NO_WORD_COMMAND,
+            no_word_payload(command),
+            lambda table: decide_no_word(table, actor, command),
         )
 
     def give_up(
