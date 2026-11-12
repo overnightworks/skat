@@ -80,7 +80,9 @@ def in_the_call_frame(
 ) -> Generator[FrameLocator]:
     page = page_filling_the_screen(address) if filling_the_screen else page_holding(address)
     with served_from(CALL_ORIGIN, visitor, browser_coverage, page):
-        visitor.goto(f"{CALL_ORIGIN}/")
+        # A page that already ran the app has its first navigation away cancelled and re-issued by the coverage
+        # collector, which aborts a `goto`; the assignment leaves the page to follow the re-issue.
+        visitor.evaluate("url => location.assign(url)", f"{CALL_ORIGIN}/")
         yield visitor.frame_locator(FRAME)
 
 
