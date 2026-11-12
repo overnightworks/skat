@@ -72,8 +72,10 @@ class TestFromATableWithPushingAtRevisionThirtyTwo:
         ],
     )
     def test_refuses_a_grand_hand_choice_that_is_none(self, migrated, statement):
+        refused = text(statement)
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, text(statement))
+            run_in_transaction(migrated, refused)
 
     def test_keeps_the_stored_steps_and_accepts_the_new_one_after_them(self, migrated):
         run_in_transaction(migrated, step(ordinal=2, position="'middlehand'"))
@@ -84,5 +86,7 @@ class TestFromATableWithPushingAtRevisionThirtyTwo:
         assert actions == ["push", "grand-hand"]
 
     def test_refuses_a_grand_hand_step_with_cards(self, migrated):
+        refused = step(ordinal=2, first_suit="'hearts'", first_rank="'ace'")
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, step(ordinal=2, first_suit="'hearts'", first_rank="'ace'"))
+            run_in_transaction(migrated, refused)
