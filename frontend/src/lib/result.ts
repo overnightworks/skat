@@ -91,10 +91,11 @@ function ownFirst(chairs: readonly Chair[]): Chair[] {
 }
 
 // The announcement's miss as its own sentence; no announcement has none.
-function missedWordOf(announcement: Announcement): string | null {
-    if (announcement === "schneider") return words["result.missedSchneider"];
-    return announcement === "schwarz" ? words["result.missedSchwarz"] : null;
-}
+const MISSED_WORDS: Record<Announcement, string | null> = {
+    none: null,
+    schneider: words["result.missedSchneider"],
+    schwarz: words["result.missedSchwarz"],
+};
 
 function chipsOf(result: Result): Chip[] {
     if (result.matadors === null) return [];
@@ -158,7 +159,7 @@ export function resultView(table: Table): ResultView {
             own !== undefined && !isDeclarer
                 ? words["result.opponentGameLine"]({ declarer: declarerName, game: name })
                 : name,
-        missed: result.announcement_missed ? missedWordOf(result.announcement) : null,
+        missed: result.announcement_missed ? MISSED_WORDS[result.announcement] : null,
         chips: chipsOf(result),
         equation: equationOf(result),
         raise: result.overbid
