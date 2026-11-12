@@ -6,10 +6,10 @@ from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import idle_presence
 from tests.web.support.skat import UNKNOWN_ID
 from tests.web.support.streams import (
+    NO_HEARTBEAT_SECONDS,
     OPENER,
     SHORT_HEARTBEAT_SECONDS,
     VISITOR,
-    NO_HEARTBEAT_SECONDS,
     Admission,
     admitting,
     next_item,

@@ -227,8 +227,15 @@ def session_admission(request: Request, sessions: SessionRecordStore) -> Callabl
 
 
 def create_streams_router(
-    tables: TableService, presence: Presence, sessions: SessionRecordStore, heartbeat_seconds: float
+    tables: TableService,
+    presence: Presence,
+    sessions: SessionRecordStore,
+    heartbeat_seconds: float,
+    attention_of: Callable[[str, str], StreamSource],
 ) -> APIRouter:
+    """The table stream: the table view, then `attention_of(table_id, account_id)`, the count of the account's other
+    tables that wait for it.
+    """
     router = APIRouter()
 
     @router.get(
@@ -255,9 +262,12 @@ def create_streams_router(
             if first_view.ended is not None:
                 yield message_of(_table_message(first_view))
                 return
-            source = TableSource(presence, read_view, table_id, opened_as.account_id)
+            sources = [
+                TableSource(presence, read_view, table_id, opened_as.account_id),
+                attention_of(table_id, opened_as.account_id),
+            ]
             async for item in stream_messages(
-                [source], admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
+                sources, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
             ):
                 yield message_of(item)
 

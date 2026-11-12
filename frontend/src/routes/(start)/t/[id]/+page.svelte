@@ -38,6 +38,7 @@
     import TableClosed from "./TableClosed.svelte";
     import {
         agentSitsNote,
+        attentionMark,
         answerGiveUp,
         bidValueWhileDeclaring,
         copyTableLink,
@@ -69,6 +70,8 @@
     let note = $state("");
     let taken: string | null = $state(null);
     let connected = $state(true);
+    // The number of the person's other tables that wait for him; a lost stream sets it back to none, so a count is never stale.
+    let attention = $state(0);
     let picking = $state<Picking | undefined>();
     let playing = $state<PlayingHand | undefined>();
     // The first moment of the declaring, which only a page that sees the auction end shows.
@@ -109,6 +112,7 @@
     $effect(() => {
         outcome = null;
         connected = true;
+        attention = 0;
         justWon = false;
         streamedVersion = null;
         agentSat = null;
@@ -125,10 +129,20 @@
                     shown = table;
                 };
                 // A dropped connection forgets the table shown: the first table after it stands still.
-                stopWatching = watchTable(id, show, (isConnected) => {
-                    connected = isConnected;
-                    if (!isConnected) shown = undefined;
-                });
+                stopWatching = watchTable(
+                    id,
+                    show,
+                    (count) => {
+                        attention = count;
+                    },
+                    (isConnected) => {
+                        connected = isConnected;
+                        if (!isConnected) {
+                            shown = undefined;
+                            attention = 0;
+                        }
+                    },
+                );
             }
         });
         // An answer for an address the person has left must not replace the current table.
@@ -287,7 +301,7 @@
                     class="lobby"
                     href={resolve("/(start)")}
                     title={words["table.lobby"]}
-                    aria-label={words["table.lobby"]}
+                    aria-label={attention === 0 ? words["table.lobby"] : words["table.lobbyWaiting"](attention)}
                 >
                     <span class="lobby-face button-glass">
                         <svg
@@ -303,6 +317,9 @@
                             <path d="M6.5 10v9h11v-9" />
                         </svg>
                         <span class="lobby-word">{words["table.lobby"]}</span>
+                        {#if attention > 0}
+                            <span class="lobby-badge" aria-hidden="true">{attentionMark(attention)}</span>
+                        {/if}
                     </span>
                 </a>
             {/if}

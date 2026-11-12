@@ -156,6 +156,18 @@ class Skat:
         )
 
 
+def unnamed_lines(lines):
+    """The lines of an event stream without its named events, so the table views and the heartbeats remain."""
+    named = False
+    for line in lines:
+        if line.startswith("event: "):
+            named = True
+        elif not named:
+            yield line
+        elif line == "":
+            named = False
+
+
 @contextmanager
 def streams_of(server, table_id, people):
     """One open stream per person; yields each stream's decoded messages, its first view already read."""
@@ -165,10 +177,16 @@ def streams_of(server, table_id, people):
             stream = open_streams.enter_context(
                 server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=headers)
             )
+            lines = stream.iter_lines()
+            next(line for line in lines if line.startswith("data: "))
+            # The first round ends with the event attention; once it is read the server idles at its wake, so a
+            # stream closed afterwards is gone at once.
+            assert next(lines, "") == ""
+            assert next(lines) == "event: attention"
+            next(lines)
             messages = (
-                json.loads(line.removeprefix("data: ")) for line in stream.iter_lines() if line.startswith("data: ")
+                json.loads(line.removeprefix("data: ")) for line in unnamed_lines(lines) if line.startswith("data: ")
             )
-            next(messages)
             server.client.cookies.clear()
             decoded.append(messages)
         yield decoded

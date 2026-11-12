@@ -8,15 +8,24 @@ import pytest
 from skat.table.records import Actor
 from skat.table.service import TableService
 from skat.web.streams import SourceMessage, StreamEvent
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.wakes import AccountTopic, TableTopic
 from tests.support.fake_tables import FakeTableStore
 from tests.web.support.lobby_scene import DAYS, Scene
+from tests.web.support.skat import Skat
 from tests.web.support.streams import run_on_a_loop_of_its_own
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 DORA = Actor(account_id="account-dora", display_name="Dora")
+
+
+@pytest.fixture
+def skat(hold, issuer):
+    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+    with skat.client:
+        yield skat
 
 
 def waits_for(scene, person):
@@ -182,3 +191,42 @@ class TestTheWakes:
             return len(woken)
 
         assert run_on_a_loop_of_its_own(scenario()) == 0
+
+
+class TestTheRoute:
+    def events(self, table_id):
+        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
+
+    def test_the_table_stream_sends_the_view_unnamed_and_then_the_count_as_attention(self, skat):
+        headers, _ = skat.member()
+        table_id = skat.create(headers).json()["id"]
+        skat.client.cookies.clear()
+
+        with skat.client.stream("GET", self.events(table_id), headers=headers) as answer:
+            lines = answer.iter_lines()
+            read = [next(lines) for _ in range(5)]
+            answer.close()
+
+        assert (read[0].startswith("data: {"), read[1:]) == (True, ["", "event: attention", "data: 0", ""])
+
+    def test_of_three_members_at_a_dealt_table_exactly_the_one_it_waits_for_gets_a_one_at_his_other_table(self, skat):
+        people = [skat.member() for _ in range(3)]
+        skat.client.cookies.clear()
+        dealt = skat.create(people[0][0]).json()["id"]
+        skat.sit(people[1][0], dealt, 2)
+        skat.sit(people[2][0], dealt, 3)
+        elsewhere = [
+            skat.create(headers, command_id=f"solo-table-{number}").json()["id"]
+            for number, (headers, _) in enumerate(people)
+        ]
+        counts = []
+
+        for (headers, _), table_id in zip(people, elsewhere, strict=True):
+            skat.client.cookies.clear()
+            with skat.client.stream("GET", self.events(table_id), headers=headers) as answer:
+                lines = answer.iter_lines()
+                read = [next(lines) for _ in range(4)]
+                answer.close()
+            counts.append(read[3].removeprefix("data: "))
+
+        assert sorted(counts) == ["0", "0", "1"]
