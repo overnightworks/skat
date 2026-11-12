@@ -1,8 +1,0 @@
-claim_id = "502feb3f07f2467a8233eb445cfe0e0d"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "90b6f041871aec66c57118a04a38491c8cbff05a"
-branch = "claude/issue-408-name-sentences"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/result.test.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/web/words.py", "tests/e2e/test_table_declaring.py", "tests/e2e/test_table_ouvert.py", "tests/e2e/test_table_reckoning.py"]
-opened_commit = "4a4ce0652ddb2fb481dccd4bf923c53a2e20b2a7"
-whole_reason = "One production file and the catalog with its generated modules; the rest are the unit and e2e tests that rebuild the same names."
