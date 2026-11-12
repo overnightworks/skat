@@ -1,0 +1,8 @@
+claim_id = "db295d45a9164eb3be616b69c5f20edb"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "a5d27a563990dd91237139a6d149a73faca2b2df"
+branch = "claude/issue-334-s3-13-a-dealt-table-nobody-plays-at-for"
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/closed.test.ts", "frontend/src/lib/closed.ts", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "legal/datenschutz.html", "src/skat/host/app.py", "src/skat/store/migrations/versions/0032_unplayed_end.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/tables.py", "tests/e2e/support/tables.py", "tests/e2e/test_table_closed.py", "tests/e2e/test_table_end.py", "tests/host/test_app.py", "tests/scripts/test_generate_wire.py", "tests/store/test_migrate.py", "tests/store/test_migrate_unplayed_end.py", "tests/store/test_tables_end.py", "tests/store/test_tables_paused.py", "tests/support/fake_tables.py", "tests/support/faulty_tables.py", "tests/table/test_rules_end.py", "tests/table/test_service_end.py", "tests/table/test_service_paused.py", "tests/table/test_views.py", "tests/web/test_streams_end.py", "tests/web/test_tables.py"]
+opened_commit = "0aa0b1e05d6484a679024491a5b1ca50d9c2bf7e"
+whole_reason = "The reason, the stored days, the sweep that ends a table, the answer that carries them and the words on the old link are one path: an end nobody words is a table that vanishes unexplained, and a new reason without its heading fails the page's type check; the notice and the migration belong to the same change."
