@@ -2572,6 +2572,11 @@ body {
         margin-top: 10px;
     }
 
+    /* The near chair's plate grows by the away note, so the bar under it steps down by as much. */
+    .room .stage:has(.chair:nth-child(3) .away-note) .controls {
+        margin-top: 18px;
+    }
+
     .room .own-hand {
         margin-bottom: 8px;
     }
@@ -2920,6 +2925,11 @@ body {
 
     .room .mark.dealer ~ .mark.away {
         top: 18px;
+    }
+
+    /* The dealer is the hindmost hand, whose label is the widest: the pass mark closes up beside it. */
+    .room .mark.dealer ~ .mark.pass {
+        padding: 0 6px 0 5px;
     }
 
     .room .mark.dealer {
