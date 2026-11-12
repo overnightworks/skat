@@ -31,7 +31,7 @@ from skat.web.tables import (
     TABLES_PATH,
     create_tables_router,
 )
-from skat.web.wakes import WakeList
+from skat.web.wakes import AccountTopic, WakeList
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.idle_presence import (
     idle_agent_lease,
@@ -68,6 +68,14 @@ class TestCreateTable:
             (2, None, False),
             (3, None, False),
         ]
+
+    def test_wakes_the_account_of_the_opener_after_the_commit(self, skat):
+        headers, opener = skat.member()
+        heard = counting_account_wakes(skat, opener)
+
+        skat.create(headers)
+
+        assert heard == {opener.id: [1]}
 
     def test_answers_a_retry_with_the_same_table(self, skat):
         headers, _ = skat.member()
@@ -241,16 +249,26 @@ class RecordingPresence(Presence):
         super().wake_table(table_id)
 
 
-def answering_first(skat, tables, presence):
-    """Route requests through tables and seating routers that have this service and presence, ahead of the composed
-    ones.
+def answering_first(skat, tables, presence, wakes=None):
+    """Route requests through tables and seating routers that have this service, presence and wake list, ahead of
+    the composed ones.
     """
     composed = list(skat.app.router.routes)
-    skat.app.include_router(create_seating_router(tables, presence))
+    skat.app.include_router(create_seating_router(tables, presence, wakes or WakeList()))
     skat.app.include_router(
         create_tables_router(tables, fixture_page_build(), presence, skat.stores.sessions, skat.config)
     )
     skat.app.router.routes[:] = skat.app.router.routes[len(composed) :] + composed
+
+
+def counting_account_wakes(skat, *accounts):
+    """Seating routers over a wake list in which one stream listens to each account; returns what each hears."""
+    wakes = WakeList()
+    heard = {account.id: [] for account in accounts}
+    for account in accounts:
+        wakes.register([AccountTopic(account.id)], lambda account=account: heard[account.id].append(1))
+    answering_first(skat, TableService(skat.store), idle_presence(wakes), wakes)
+    return heard
 
 
 @pytest.fixture
@@ -380,6 +398,24 @@ class TestSitDown:
         skat.sit(headers, table_id, 1)
 
         assert presence.woken == []
+
+    def test_wakes_the_account_of_the_sitter_and_no_other_after_the_commit(self, skat, table):
+        table_id, owner = table
+        headers, sitter = skat.member()
+        heard = counting_account_wakes(skat, sitter, owner)
+
+        skat.sit(headers, table_id, 2)
+
+        assert heard == {sitter.id: [1], owner.id: []}
+
+    def test_a_refusal_wakes_no_account(self, skat, table):
+        table_id, _ = table
+        headers, sitter = skat.member()
+        heard = counting_account_wakes(skat, sitter)
+
+        skat.sit(headers, table_id, 1)
+
+        assert heard == {sitter.id: []}
 
     def test_a_failing_transaction_writes_and_publishes_nothing(self, skat, table):
         table_id, _ = table

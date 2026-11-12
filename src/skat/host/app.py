@@ -37,6 +37,7 @@ from skat.web.declaring import create_declaring_router
 from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
+from skat.web.lobby import create_lobby_router
 from skat.web.mcp import McpAccess, mount_mcp
 from skat.web.member_place import AskClock, member_front, standing_signal, view_signal
 from skat.web.paused import create_paused_router
@@ -199,10 +200,11 @@ def _include_table_routers(
     tables: TableService,
     page_build: PageBuild,
     presence: Presence,
+    wakes: WakeList,
     sessions: SessionRecordStore,
     web_auth: WebAuthConfig,
 ) -> None:
-    app.include_router(create_seating_router(tables, presence))
+    app.include_router(create_seating_router(tables, presence, wakes))
     app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
 
 
@@ -287,10 +289,15 @@ def create_app(
     app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
-    _include_table_routers(app, tables, page_build, presence, sign_in_stores.sessions, sign_in_configs.web_auth)
+    _include_table_routers(app, tables, page_build, presence, wakes, sign_in_stores.sessions, sign_in_configs.web_auth)
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
+    app.include_router(
+        create_lobby_router(
+            tables, presence, wakes, sign_in_stores.sessions, heartbeat_seconds, settings.paused_table_days
+        )
+    )
     app.state.stop_streams = presence.stop
     _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(

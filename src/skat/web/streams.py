@@ -65,7 +65,7 @@ class StreamSource(Protocol):  # pragma: no cover - a port's method bodies are s
     def close(self) -> None: ...
 
 
-def _message_of(item: SourceMessage | IdleHeartbeat) -> str:
+def message_of(item: SourceMessage | IdleHeartbeat) -> str:
     if isinstance(item, IdleHeartbeat):
         return HEARTBEAT_COMMENT
     named = "" if item.event is None else f"event: {item.event}\n"
@@ -178,6 +178,12 @@ async def stream_messages(
         source.close()
 
 
+def event_stream_response(messages: AsyncIterator[str]) -> StreamingResponse:
+    return StreamingResponse(
+        messages, media_type=EVENT_STREAM, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+    )
+
+
 def session_admission(request: Request, sessions: SessionRecordStore) -> Callable[[], Awaitable[Actor | None]]:
     """The admission a stream repeats before every read: the actor of the request's session, None once it is refused."""
     # The gate admitted this request by its cookie, so a missing session id is a wiring fault.
@@ -224,16 +230,14 @@ def create_streams_router(
         async def messages() -> AsyncIterator[str]:
             # An ended table has nobody to watch: its one message is its answer, and nothing registers.
             if first_view.ended is not None:
-                yield _message_of(_table_message(first_view))
+                yield message_of(_table_message(first_view))
                 return
             source = TableSource(presence, read_view, table_id, opened_as.account_id)
             async for item in stream_messages(
                 source, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
             ):
-                yield _message_of(item)
+                yield message_of(item)
 
-        return StreamingResponse(
-            messages(), media_type=EVENT_STREAM, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
-        )
+        return event_stream_response(messages())
 
     return router

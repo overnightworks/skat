@@ -21,10 +21,12 @@ from skat.web.tables import (
     answer_of,
     command_answer,
 )
+from skat.web.wakes import AccountTopic
 
 if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.web.presence import Presence
+    from skat.web.wakes import WakeList
 
 
 class CreateTableRequest(CommandRequest):
@@ -42,7 +44,7 @@ class SitDownRequest(CommandRequest):
     seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
 
 
-def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter:
+def _create_chairs_router(tables: TableService, presence: Presence, wakes: WakeList) -> APIRouter:
     router = APIRouter()
 
     @router.post(
@@ -73,6 +75,7 @@ def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter
         # A sit while a result is pending marks the sitter ready, which may complete the marks.
         if isinstance(answer, TableAnswer):
             presence.chair_taken(table_id)
+            wakes.wake(AccountTopic(actor_of(request).account_id))
             if answer.result is not None:
                 await presence.deal_now(table_id)
         return answer
@@ -103,7 +106,7 @@ def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter
     return router
 
 
-def create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
+def create_seating_router(tables: TableService, presence: Presence, wakes: WakeList) -> APIRouter:
     """The routes that open a table and take or leave its chairs."""
     router = APIRouter()
 
@@ -132,7 +135,8 @@ def create_seating_router(tables: TableService, presence: Presence) -> APIRouter
         # Presence belongs to the event loop's thread, so the wait and the note start here and not on the worker.
         if view.ended is None:
             presence.chair_taken(view.id)
+            wakes.wake(AccountTopic(actor_of(request).account_id))
         return answer_of(view)
 
-    router.include_router(_create_chairs_router(tables, presence))
+    router.include_router(_create_chairs_router(tables, presence, wakes))
     return router
