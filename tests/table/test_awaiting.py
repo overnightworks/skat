@@ -11,7 +11,7 @@ from skat.engine.declaration import Announcement, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word, WordSaid
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
-from skat.table.awaiting import awaits_you
+from skat.table.awaiting import WaitingCase, awaits_you, waiting_case
 from skat.table.kontra import KontraCommand, decide_kontra
 from skat.table.records import (
     Actor,
@@ -99,6 +99,49 @@ def kontra_hand(words=(), no_words=(), plays=0, options=KONTRA_OPTIONS):
         no_words=frozenset(NoWordSaid(position, word) for position, word in no_words),
     )
     return replace(table, progress=progress)
+
+
+def case_for(table, account):
+    return waiting_case(view_of(table, account, frozenset()))
+
+
+class TestTheWaitingCase:
+    @pytest.mark.parametrize(
+        ("table", "account", "case"),
+        [
+            pytest.param(table_in(HandProgress()), MIDDLEHAND, WaitingCase.TURN, id="the-seat-on-turn"),
+            pytest.param(asked_by_the_declarer(None), REARHAND, WaitingCase.GIVE_UP, id="an-unanswered-give-up"),
+            pytest.param(asked_by_the_declarer(None), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-give-up"),
+            pytest.param(kontra_hand(), REARHAND, WaitingCase.KONTRA, id="an-unanswered-kontra-word"),
+            pytest.param(kontra_hand(), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-kontra-word"),
+            pytest.param(
+                between_games(SEAT_OF[REARHAND]), MIDDLEHAND, WaitingCase.RESULT, id="a-result-not-yet-continued"
+            ),
+            pytest.param(
+                between_games(proposal=EndProposal(1)),
+                REARHAND,
+                WaitingCase.END_PROPOSAL,
+                id="an-early-end-proposal-before-the-result-it-stands-beside",
+            ),
+            pytest.param(
+                between_games(SEAT_OF[MIDDLEHAND], series=Series(12, 12)),
+                REARHAND,
+                WaitingCase.SERIES_END,
+                id="a-series-end-before-the-result-it-stands-beside",
+            ),
+            pytest.param(between_games(1, 2, 3), REARHAND, None, id="nothing-once-all-continued"),
+            pytest.param(
+                sent_away(kontra_hand(), REARHAND_SEAT), REARHAND, None, id="nothing-while-a-chair-of-the-hand-is-open"
+            ),
+        ],
+    )
+    def test_the_first_case_that_holds_for_the_seat_is_named(self, table, account, case):
+        assert case_for(table, account) is case
+
+    def test_an_account_without_a_chair_waits_for_no_case(self):
+        view = view_of(between_games(), "account-watcher", frozenset({"account-watcher"}))
+
+        assert waiting_case(view) is None
 
 
 class TestAKontraWord:

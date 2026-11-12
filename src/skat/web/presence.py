@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
 
-from skat.web.wakes import Registration, Topic, WakeList
+from skat.web.wakes import Registration, TableTopic, WakeList
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping
@@ -161,11 +161,13 @@ class Presence:
     gives a table a fresh wait it had already begun.
     """
 
-    def __init__(self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease) -> None:
+    def __init__(
+        self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease, wakes: WakeList
+    ) -> None:
         self._lease = lease
         self._lease_ends: dict[str, float] = {}
         self._subscriptions: dict[str, list[Subscription]] = {}
-        self._wakes = WakeList()
+        self._wakes = wakes
         self._stopped = False
         self._hold = hold
         self._next_deal = next_deal
@@ -190,7 +192,7 @@ class Presence:
 
     def wake_table(self, table_id: str) -> None:
         """Tell every stream of a table that a committed write changed its view; call it after the commit."""
-        self._wakes.wake(Topic(table_id))
+        self._wakes.wake(TableTopic(table_id))
 
     def connected(self, table_id: str) -> frozenset[str]:
         return frozenset(subscription.account_id for subscription in self._subscriptions.get(table_id, ()))
@@ -274,7 +276,7 @@ class Presence:
             await committing.wait()
             with self._state:
                 self._left_at.pop(key, None)
-        registration = self._wakes.register([Topic(table_id)], wake)
+        registration = self._wakes.register([TableTopic(table_id)], wake)
         subscription = Subscription(table_id, account_id, registration)
         already_connected = account_id in self.connected(table_id)
         with self._state:
@@ -293,7 +295,7 @@ class Presence:
             if ended:
                 self.wake_table(table_id)
         if not already_connected:
-            self._wakes.wake(Topic(table_id), sparing=registration)
+            self._wakes.wake(TableTopic(table_id), sparing=registration)
         return subscription
 
     def unsubscribe(self, subscription: Subscription) -> None:
@@ -307,7 +309,7 @@ class Presence:
                 del self._subscriptions[subscription.table_id]
         if subscription.account_id not in self.connected(subscription.table_id):
             self._start_hold(subscription.table_id, subscription.account_id)
-            self._wakes.wake(Topic(subscription.table_id))
+            self._wakes.wake(TableTopic(subscription.table_id))
         if subscription.table_id not in self._subscriptions:
             self._start_empty_wait(subscription.table_id)
             self._note_soon(subscription.table_id)

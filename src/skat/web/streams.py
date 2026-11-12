@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Protocol
 
 from fastapi import APIRouter, HTTPException, Request
@@ -35,11 +36,20 @@ class IdleHeartbeat:
 IDLE_HEARTBEAT: Final = IdleHeartbeat()
 
 
+class StreamEvent(StrEnum):
+    """The names a stream gives its events; a client listens by name."""
+
+    MINE = "mine"
+
+
 @dataclass(frozen=True)
 class SourceMessage:
-    """The whole state of one source as the stream sends it; `last` ends the stream after it."""
+    """The whole state of one source as the stream sends it, under the event's name when it has one; `last` ends the
+    stream after it.
+    """
 
     data: str
+    event: StreamEvent | None = None
     last: bool = False
 
 
@@ -55,10 +65,11 @@ class StreamSource(Protocol):  # pragma: no cover - a port's method bodies are s
     def close(self) -> None: ...
 
 
-def _message_of(item: SourceMessage | IdleHeartbeat) -> str:
+def message_of(item: SourceMessage | IdleHeartbeat) -> str:
     if isinstance(item, IdleHeartbeat):
         return HEARTBEAT_COMMENT
-    return f"data: {item.data}\n\n"
+    named = "" if item.event is None else f"event: {item.event}\n"
+    return f"{named}data: {item.data}\n\n"
 
 
 def _table_message(view: TableView) -> SourceMessage:
@@ -167,6 +178,31 @@ async def stream_messages(
         source.close()
 
 
+def event_stream_response(messages: AsyncIterator[str]) -> StreamingResponse:
+    return StreamingResponse(
+        messages, media_type=EVENT_STREAM, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+    )
+
+
+def session_admission(request: Request, sessions: SessionRecordStore) -> Callable[[], Awaitable[Actor | None]]:
+    """The admission a stream repeats before every read: the actor of the request's session, None once it is refused."""
+    # The gate admitted this request by its cookie, so a missing session id is a wiring fault.
+    config = installed_web_auth_config(request.app)
+    session_id = session_id_from_request(request, config)
+    if session_id is None:  # pragma: no cover
+        message = "A stream route ran without a session cookie."
+        raise RuntimeError(message)
+
+    async def admit() -> Actor | None:
+        # Each admission is one call into the store, which takes its own guard; it renews the session.
+        admission = await run_in_threadpool(admit_session, session_id, sessions=sessions, config=config)
+        if isinstance(admission, ConnectionRefusal):
+            return None
+        return actor_for(admission)
+
+    return admit
+
+
 def create_streams_router(
     tables: TableService, presence: Presence, sessions: SessionRecordStore, heartbeat_seconds: float
 ) -> APIRouter:
@@ -189,33 +225,19 @@ def create_streams_router(
         if first_view is None:
             raise HTTPException(status_code=404, detail="table not found")
 
-        # The gate admitted this request by its cookie, so a missing session id is a wiring fault.
-        config = installed_web_auth_config(request.app)
-        session_id = session_id_from_request(request, config)
-        if session_id is None:  # pragma: no cover
-            message = "A stream route ran without a session cookie."
-            raise RuntimeError(message)
-
-        async def admit() -> Actor | None:
-            # Each admission is one call into the store, which takes its own guard; it renews the session.
-            admission = await run_in_threadpool(admit_session, session_id, sessions=sessions, config=config)
-            if isinstance(admission, ConnectionRefusal):
-                return None
-            return actor_for(admission)
+        admit = session_admission(request, sessions)
 
         async def messages() -> AsyncIterator[str]:
             # An ended table has nobody to watch: its one message is its answer, and nothing registers.
             if first_view.ended is not None:
-                yield _message_of(_table_message(first_view))
+                yield message_of(_table_message(first_view))
                 return
             source = TableSource(presence, read_view, table_id, opened_as.account_id)
             async for item in stream_messages(
                 source, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
             ):
-                yield _message_of(item)
+                yield message_of(item)
 
-        return StreamingResponse(
-            messages(), media_type=EVENT_STREAM, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
-        )
+        return event_stream_response(messages())
 
     return router

@@ -12,6 +12,7 @@ from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.presence import Presence
 from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.wakes import WakeList
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import (
     idle_agent_lease,
@@ -140,7 +141,7 @@ class TestTableViews:
 
         async def scenario():
             presence = ConnectsAnotherRightAfterRegistering(
-                idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease()
+                idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), WakeList()
             )
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)
