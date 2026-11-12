@@ -6,12 +6,12 @@ from datetime import datetime, timedelta
 
 import pytest
 from agents.member import INVITATION_SECONDS
-from starlette.concurrency import run_in_threadpool
 
-from skat.table.records import Actor, OccupantKind, SendAway, TableId
+from skat.table.records import OccupantKind, TableId
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
+    CallingTable,
     call,
     invitations_of,
     listening,
@@ -20,67 +20,22 @@ from tests.web.support.calling import (
     person,
     read_control,
     refresh_grants,
+    seat_of_nobody_but,
+    send_away,
 )
-from tests.web.support.changes import RecordedChanges
-from tests.web.support.skat import Skat, streams_of
+from tests.web.support.skat import streams_of
 
 NOVA = "agent-nova"
 BACH = "agent-bach"
 UNKNOWN_KEY = "a-key-no-roster-made"
 
 
-@pytest.fixture
-def changes():
-    return RecordedChanges()
-
-
-@pytest.fixture
-def skat(hold, issuer, time, changes):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        resource_changes=changes.wired,
-    )
-    with skat.client:
-        yield skat
-
-
-@pytest.fixture
-def felix(skat, issuer):
-    return person(skat, issuer)
-
-
-@pytest.fixture
-def table_id(skat, felix):
-    """A table Felix opened and sits at."""
-    created = skat.create(felix.headers)
-    skat.client.cookies.clear()
-    return created.json()["id"]
-
-
-@pytest.fixture
-def watching(skat, felix, table_id):
-    """Felix has an open stream on his table."""
-    with streams_of(skat, table_id, [(felix.headers, None)]):
-        yield
-
-
 def agent_standing(skat, issuer, owner, subject=NOVA, name="Nova"):
     return Agent(skat, issuer, subject, agent_owner=owner.id, agent_name=name)
 
 
-def seat_of_nobody_but(skat, table_id, count):
-    """`count` more people sit down at the table."""
-    for seat in range(2, 2 + count):
-        skat.sit(skat.member()[0], table_id, seat, command_id=f"command-sit-{seat}")
-    skat.client.cookies.clear()
-
-
 @pytest.mark.usefixtures("watching")
-class TestTheControlListsTheAgentsASessionsPersonMayCall:
+class TestTheControlListsTheAgentsASessionsPersonMayCall(CallingTable):
     def test_a_member_at_the_table_sees_a_row_for_a_listening_agent_whose_owner_is_there(
         self, skat, issuer, felix, table_id
     ):
@@ -143,21 +98,39 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall:
 
         assert [row["name"] for row in rows] == ["Nova"]
 
-    def test_an_agent_already_seated_at_the_table_is_not_listed(self, skat, issuer, felix, table_id):
+    def test_an_agent_seated_at_the_table_is_a_here_row_with_no_end(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
             nova.sit_down(table_id, 2)
-            rows = read_control(skat, felix, table_id).json()["rows"]
+            answer = read_control(skat, felix, table_id)
 
-        assert rows == []
+        (row,) = answer.json()["rows"]
+        assert (row["name"], row["state"], row["ends_in_seconds"]) == ("Nova", "here", None)
+
+    def test_a_person_outside_the_group_sees_no_row_for_a_seated_agent(self, skat, issuer, felix, table_id):
+        outsider = person(skat, issuer, groups=())
+        with (
+            streams_of(skat, table_id, [(outsider.headers, None)]),
+            listening(skat, issuer, felix, "Nova", NOVA) as nova,
+        ):
+            nova.sit_down(table_id, 2)
+
+            answer = read_control(skat, outsider, table_id)
+
+        assert answer.json() == {"shown": False, "rows": []}
 
     def test_the_rows_name_no_account_and_keep_their_key_from_state_to_state(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
             available = only_row(skat, felix, table_id)
             call(skat, felix, table_id, available["key"])
             inviting = only_row(skat, felix, table_id)
+            nova.accept(table_id, offer_of(nova))
+            here = only_row(skat, felix, table_id)
+            send_away(skat, felix, table_id, here["key"])
+            again = only_row(skat, felix, table_id)
 
         assert (available["key"], available["state"]) == (inviting["key"], "available")
-        assert inviting["state"] == "inviting"
+        assert [inviting["state"], here["state"], again["state"]] == ["inviting", "here", "available"]
+        assert here["key"] == again["key"] == available["key"]
         assert felix.id not in str(inviting)
         assert NOVA not in available["key"]
         assert set(inviting) == {"key", "name", "state", "ends_in_seconds"}
@@ -169,7 +142,7 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall:
 
 
 @pytest.mark.usefixtures("watching")
-class TestACallInvitesTheAgent:
+class TestACallInvitesTheAgent(CallingTable):
     def test_the_agent_sees_an_invitation_that_runs_out_after_the_duration_on_the_services_clock(
         self, skat, issuer, time, felix, table_id
     ):
@@ -197,7 +170,7 @@ class TestACallInvitesTheAgent:
         assert (row["state"], row["ends_in_seconds"]) == ("inviting", INVITATION_SECONDS)
         assert (later["state"], later["ends_in_seconds"]) == ("inviting", INVITATION_SECONDS - 20)
 
-    def test_the_agent_that_accepts_sits_at_the_lowest_free_chair_and_the_row_is_gone(
+    def test_the_agent_that_accepts_sits_at_the_lowest_free_chair_and_the_row_is_here(
         self, skat, issuer, felix, table_id
     ):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
@@ -209,7 +182,17 @@ class TestACallInvitesTheAgent:
         assert accepted.is_error is False
         chair = skat.store.tables[table_id].chairs[1].occupant
         assert (chair.display_name, chair.kind) == ("Nova", OccupantKind.AGENT)
-        assert rows == []
+        assert [row["state"] for row in rows] == ["here"]
+
+    def test_another_member_at_the_table_sees_the_row_of_the_agent_that_accepted_as_here(
+        self, skat, issuer, felix, table_id
+    ):
+        other = person(skat, issuer)
+        with streams_of(skat, table_id, [(other.headers, None)]), listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            call(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
+            nova.accept(table_id, offer_of(nova))
+
+            assert only_row(skat, other, table_id)["state"] == "here"
 
     def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova, listening(skat, issuer, felix, "Bach", BACH) as bach:
@@ -242,18 +225,6 @@ class TestACallInvitesTheAgent:
 
         assert others_control == {"shown": True, "rows": []}
 
-    def test_an_agent_that_was_sent_away_from_the_table_is_called_again_with_the_next_epoch(
-        self, skat, issuer, felix, table_id
-    ):
-        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
-            nova.sit_down(table_id, 2)
-            skat.client.portal.call(_sending_away, skat, table_id, felix, nova)
-            call(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
-
-            offer = offer_of(nova)
-
-        assert offer.epoch == 1
-
     def test_an_invitation_that_ran_out_shows_the_row_available_again_with_no_refusal(
         self, skat, issuer, time, felix, table_id
     ):
@@ -267,14 +238,8 @@ class TestACallInvitesTheAgent:
         assert (row["key"], row["state"], row["ends_in_seconds"]) == (key, "available", None)
 
 
-async def _sending_away(skat, table_id, owner, agent):
-    account = skat.stores.accounts.get(agent.subject).id
-    command = SendAway(command_id="send-nova-away", table_id=table_id, agent_account=account)
-    return await run_in_threadpool(skat.tables.send_away, Actor(owner.id, "Felix"), command, frozenset({owner.id}))
-
-
 @pytest.mark.usefixtures("watching")
-class TestACallThatChangesNothing:
+class TestACallThatChangesNothing(CallingTable):
     def test_a_person_outside_the_group_is_refused_not_allowed_when_every_cheap_check_passes(
         self, skat, issuer, felix, table_id
     ):
@@ -408,7 +373,7 @@ class TestACallThatChangesNothing:
         ("arrange", "reason"),
         [
             pytest.param("full", CallRefusal.PLACE_FULL, id="no-chair-is-free"),
-            pytest.param("seated", CallRefusal.AGENT_UNAVAILABLE, id="the-agent-sits-here"),
+            pytest.param("seated", CallRefusal.AGENT_UNAVAILABLE, id="the-agent-sits-here-as-a-here-row"),
             pytest.param("invited-by-someone", CallRefusal.AGENT_UNAVAILABLE, id="someone-else-invited-it"),
         ],
     )
@@ -448,7 +413,7 @@ class TestACallThatChangesNothing:
 
 
 @pytest.mark.usefixtures("watching")
-class TestTwoOverlappingCallsOfOneSession:
+class TestTwoOverlappingCallsOfOneSession(CallingTable):
     def overlap(self, skat, issuer, felix, table_id, key):
         """Two calls of Felix's session that both stand at the issuer's grant before either is answered."""
         hold = issuer.hold("refresh_token")
@@ -493,8 +458,8 @@ class TestTwoOverlappingCallsOfOneSession:
             assert (next_call.status_code, len(invitations_of(bach))) == (200, 1)
 
 
-class TestAnAgentTokenReachesNeitherRoute:
-    def test_both_routes_refuse_it_and_the_front_lists_no_tool_for_them(self, skat, issuer, felix, table_id):
+class TestAnAgentTokenReachesNoRoute(CallingTable):
+    def test_every_route_refuses_it_and_the_front_lists_no_tool_for_them(self, skat, issuer, felix, table_id):
         agent = Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova")
         token = issuer.agent_token(NOVA, agent_owner=felix.id)
         headers = {"authorization": f"Bearer {token}", "origin": "https://skat.test"}
@@ -502,8 +467,15 @@ class TestAnAgentTokenReachesNeitherRoute:
         refused = [
             skat.client.get(f"/api/tables/{table_id}/agents", headers=headers),
             skat.client.post(f"/api/tables/{table_id}/agents/{UNKNOWN_KEY}/call", headers=headers),
+            skat.client.post(
+                f"/api/tables/{table_id}/agents/{UNKNOWN_KEY}/send-away",
+                json={"command_id": "command-send-away"},
+                headers=headers,
+            ),
         ]
         listed = agent.request("tools/list").json()["result"]["tools"]
 
-        assert [answer.status_code in {401, 403} for answer in refused] == [True, True]
-        assert not [tool for tool in listed if "agents" in tool["name"] or "call" in tool["name"].split("_")]
+        assert [answer.status_code in {401, 403} for answer in refused] == [True, True, True]
+        assert not [
+            tool for tool in listed if "agents" in tool["name"] or {"call", "away"} & set(tool["name"].split("_"))
+        ]
