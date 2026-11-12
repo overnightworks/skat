@@ -10,6 +10,7 @@ from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_pay
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
+from skat.table.lobby import my_tables
 from skat.table.member_place import (
     Acceptance,
     AcceptResult,
@@ -116,10 +117,11 @@ from skat.table.views import PausedEntryView, TableView, paused_entry_of, view_o
 
 if TYPE_CHECKING:
     import random
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable, Mapping
     from contextlib import AbstractContextManager
 
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
+    from skat.table.lobby import LobbyEntryView
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
 __all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
@@ -569,6 +571,12 @@ class TableService:
         """The tables the account holds a chair at, each once, in id order; an unlocked read, so a candidate list."""
         with self._transactions.begin() as transaction:
             return tuple(held.table_id for held in transaction.tables_of(account_id))
+
+    def my_tables(
+        self, account_id: str, held_ids: Iterable[TableId], connected_by_table: Mapping[str, frozenset[str]], days: int
+    ) -> tuple[LobbyEntryView, ...]:
+        """The live tables the account holds a chair at among `held_ids`, in the lobby's order."""
+        return my_tables(self._transactions, self._live_leases(), account_id, held_ids, connected_by_table, days)
 
     def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
         """The live tables on which a hand was dealt and whose chair the actor holds, the soonest end first, ties in
