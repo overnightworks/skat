@@ -30,7 +30,7 @@ UNKNOWN_ID = "0" * 32
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-CLOSED_HEADING = f"{EMPTY_TABLE_SECONDS} Sekunden niemand da: Tisch geschlossen"
+CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44

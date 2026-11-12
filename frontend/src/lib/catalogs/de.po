@@ -55,7 +55,11 @@ msgctxt "start.seriesLength"
 msgid "Länge der Serie"
 msgstr ""
 
-msgctxt "start.seriesGames"
+msgctxt "start.seriesGames.one"
+msgid "Spiel"
+msgstr ""
+
+msgctxt "start.seriesGames.other"
 msgid "Spiele"
 msgstr ""
 
@@ -355,24 +359,20 @@ msgctxt "closed.notFound"
 msgid "Tisch nicht gefunden"
 msgstr ""
 
-msgctxt "closed.nobodyThereClosed"
-msgid "niemand da: Tisch geschlossen"
+msgctxt "closed.emptySeconds.one"
+msgid "{count} Sekunde niemand da: Tisch geschlossen"
 msgstr ""
 
-msgctxt "closed.minute"
-msgid "Minute"
+msgctxt "closed.emptySeconds.other"
+msgid "{count} Sekunden niemand da: Tisch geschlossen"
 msgstr ""
 
-msgctxt "closed.minutes"
-msgid "Minuten"
+msgctxt "closed.emptyMinutes.one"
+msgid "{minutes} Minute niemand da: Tisch geschlossen"
 msgstr ""
 
-msgctxt "closed.second"
-msgid "Sekunde"
-msgstr ""
-
-msgctxt "closed.seconds"
-msgid "Sekunden"
+msgctxt "closed.emptyMinutes.other"
+msgid "{minutes} Minuten niemand da: Tisch geschlossen"
 msgstr ""
 
 msgctxt "declare.commandFailed"

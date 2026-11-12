@@ -76,7 +76,7 @@ def a_sheet(person: Page, server: RunningServer) -> None:
 
 
 def series_length_reading(length: int) -> str:
-    return f"{length} {word_text(SOURCE_LANGUAGE, 'start.seriesGames')}"
+    return f"{length} {word_text(SOURCE_LANGUAGE, 'start.seriesGames', count=length)}"
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -86,7 +86,9 @@ def test_the_sheet_offers_the_default_series_length_in_steps_and_stops_at_both_e
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
     fewer = person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer"))
     more = person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesMore"))
-    reading = person.get_by_role("spinbutton", name=word_text(SOURCE_LANGUAGE, "start.seriesGames"))
+    reading = person.get_by_role(
+        "spinbutton", name=word_text(SOURCE_LANGUAGE, "start.seriesGames", count=SERIES_LENGTH_DEFAULT)
+    )
 
     a_sheet(person, e2e_server)
 
@@ -130,9 +132,11 @@ def test_a_sheet_reopened_after_cancelling_reads_the_default_length_again(
     person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.cancelNewTable")).click()
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
 
-    expect(person.get_by_role("spinbutton", name=word_text(SOURCE_LANGUAGE, "start.seriesGames"))).to_have_text(
-        series_length_reading(SERIES_LENGTH_DEFAULT), use_inner_text=True
-    )
+    expect(
+        person.get_by_role(
+            "spinbutton", name=word_text(SOURCE_LANGUAGE, "start.seriesGames", count=SERIES_LENGTH_DEFAULT)
+        )
+    ).to_have_text(series_length_reading(SERIES_LENGTH_DEFAULT), use_inner_text=True)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
