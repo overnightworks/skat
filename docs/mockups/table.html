@@ -1056,7 +1056,7 @@ const IDEAS=[
   ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-sent, nudge-mine'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
-  ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund oder „Aufgeben“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. Zwei Zeilen sind offen: wohin das Wort und ob ein Tipp erst fragt. (S11.9p)','stand-play, stand-play-word, stand-arm, stand-ask, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
+  ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund oder „Aufgeben“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. (S11.9p)','stand-play, stand-arm, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -1776,9 +1776,7 @@ agentScenes(AGENT_SCENES);
 const roundKey=(cls,icon,label)=>`<span class="cb ${cls}" role="button" title="${label}" aria-label="${label}">${icon}</span>`;
 const STAND_WORD=barKey('glass',I.stand,'Aufstehen');
 const STAND_ROUND=roundKey('',I.stand,'Aufstehen');
-const GIVE_UP_ROUND=roundKey('',I.flag,'Aufgeben');
 const standLead=(d)=>GIVE_UP+(d?STAND_WORD:STAND_ROUND);
-const standLeadWord=(d)=>d?GIVE_UP+STAND_WORD:STAND_WORD+GIVE_UP_ROUND;
 /* Felix has the turn in the trick: Anna led, Nova answered */
 const felixOnTurn=(d,strip)=>{const L=seatsOf(d);
   return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
@@ -1786,19 +1784,13 @@ const felixOnTurn=(d,strip)=>{const L=seatsOf(d);
     +ownCards(d,FELIX_FOLLOWS)+strip;};
 const STAND_SCENES=[
   ['stand-play','Aufstehen im Spiel: die Leiste',[360,390,1280],(d)=>felixOnTurn(d,stripOf(d,{lead:standLead(d),pill:agentPill(d)})),
-    ['Entwurf zur Wahl (Linie 1 A): Felix ist im Stich dran. Die Leiste trägt „Aufgeben“ mit Wort, den runden „Aufstehen“ mit dem Zeichen der Seite, die Pille und den Link; gezählt bei 360: 320 von 332 Pixeln. Am Rechner ist Platz, dort behält „Aufstehen“ sein Wort.']],
-  ['stand-play-word','Aufstehen im Spiel: das Wort bleibt',[360],(d)=>felixOnTurn(d,stripOf(d,{lead:standLeadWord(d),pill:agentPill(d)})),
-    ['Entwurf zur Wahl (Linie 1 B): „Aufstehen“ behält sein Wort, „Aufgeben“ wird rund mit der Flagge; gezählt bei 360: 326 von 332 Pixeln. Die folgenreichere Taste verliert dabei ihr Wort.']],
+    ['Felix ist im Stich dran. Die Leiste trägt „Aufgeben“ mit Wort, den runden „Aufstehen“ mit dem Zeichen der Seite, die Pille und den Link; gezählt bei 360: 320 von 332 Pixeln. Am Rechner ist Platz, dort behält „Aufstehen“ sein Wort.']],
 ];
 const STAND_WORD_ARMED=barKey('leave arm',I.stand,'Wirklich aufstehen?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
 const STAND_ROUND_ARMED=roundKey('leave arm',I.stand,'Wirklich aufstehen?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
-const standQuestion=(d)=>felixOnTurn(d,stripOf(d,{lead:standLead(d),pill:agentPill(d)}))+'<div class="scrim"></div>'+panel({x:mid(d),y:d?220:270,w:d?460:340,role:'dialog',icon:I.stand,text:'Mitten im Spiel aufstehen?',
-  line:'Das Spiel wartet auf einen Mitspieler.',buttons:`<span class="button button-stage">${I.stand}Aufstehen</span><span class="button button-glass">Bleiben</span>`});
 STAND_SCENES.push(
   ['stand-arm','Aufstehen im Spiel: erster Tipp',[360,1280],(d)=>felixOnTurn(d,stripOf(d,{lead:GIVE_UP+(d?STAND_WORD_ARMED:STAND_ROUND_ARMED),pill:agentPill(d)})),
-    ['Entwurf zur Wahl (Linie 2 A): wie bei „Aufgeben“ scharft der erste Tipp die Taste, sie wird rot, ein Strich läuft in drei Sekunden aus, erst der zweite Tipp steht auf. Auf dem Handy bleibt die runde Taste rund, am Rechner sagt sie „Wirklich aufstehen?“. Zwischen den Spielen genügt ein Tipp.']],
-  ['stand-ask','Aufstehen im Spiel: die Frage',[390],standQuestion,
-    ['Entwurf zur Wahl (Linie 2 B): ein Tipp auf „Aufstehen“ fragt in einem Satz, was er kostet; „Aufstehen“ und „Bleiben“ sind die Zwillinge von „Hinsetzen“ und „Abbrechen“. Eine dritte Möglichkeit (Linie 2 C) ist der einzelne Tipp ohne Frage: dann sieht das Bild aus wie stand-play, und das Spiel hält sofort an.']],
+    ['Wie bei „Aufgeben“ scharft der erste Tipp die Taste, sie wird rot, ein Strich läuft in drei Sekunden aus, erst der zweite Tipp steht auf. Auf dem Handy bleibt die runde Taste rund, am Rechner sagt sie „Wirklich aufstehen?“. Zwischen den Spielen genügt ein Tipp.']],
 );
 /* Felix stood up while Anna's lead lay and Nova was to answer: his chair is free, nobody has the turn, the notice names him once */
 /* on the phone the near card rests on the nameplate's edge, whatever the frame's height, and the left one steps down below the plaque */
@@ -1818,7 +1810,7 @@ STAND_SCENES.push(
   ['stand-open','Aufgestanden: die anderen sehen den freien Stuhl',[360,390,1280],annaSeesStand,
     ['Anna sieht Felix’ Stuhl leer, seine Karten als Rücken daneben, „Kreuz · Warte auf Mitspieler“ und einmal den Hinweis „Felix ist aufgestanden“; niemand ist dran, „Aufgeben“ fehlt. Die Leiste trägt „Abbrechen“ (#332) und „Aufstehen“; Annas Sicht: ihr Stuhl unten, Nova links, Felix rechts. Felix schaut jetzt zu: die Zahl oben rechts.']],
   ['stand-open-self','Aufgestanden: Felix sieht zu',[360,390,1280],felixStoodUp,
-    ['Entwurf zur Wahl (#372): Felix’ Sicht danach ist die eines Zuschauers: derselbe Tisch wie vorher, das Plus auf seinem alten Stuhl, seine Karten als Rücken daneben, keine Hand und kein „Aufgeben“; die Leiste trägt nur den Link.']],
+    ['Felix’ Sicht danach ist die eines Zuschauers: derselbe Tisch wie vorher, das Plus auf seinem alten Stuhl, seine Karten als Rücken daneben, keine Hand und kein „Aufgeben“; die Leiste trägt nur den Link.']],
 );
 /* the last one stood up: three free chairs, the fans stay, the table is found by its link */
 const nobodySits=(d)=>{const L=seatsOf(d);
@@ -1832,15 +1824,15 @@ const lockedForFelix=(d)=>{const L=seatsOf(d);
     +seat('anna',{...L.anna,marks:['decl']})+lockedSeat(L.nova)+freeSeat(L.you)+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
 STAND_SCENES.push(
   ['stand-last','Aufgestanden: der Letzte',[360,1280],nobodySits,
-    ['Entwurf zur Wahl (#372): wer als Letzter aufsteht, sieht alle drei Stühle frei mit dem Plus, die Rücken der Karten neben jedem Stuhl und „Kreuz · Warte auf Mitspieler“; sonst ändert sich nichts, der Tisch ist über seinen Link zu finden. Gilt #372 Zeile 1 A, sind für den, der aufstand, die Stühle der anderen gesperrt (stand-locked).']],
+    ['Wer als Letzter aufsteht, sieht alle drei Stühle frei mit dem Plus, die Rücken der Karten neben jedem Stuhl und „Kreuz · Warte auf Mitspieler“; sonst ändert sich nichts, der Tisch ist über seinen Link zu finden. Für den, der aufstand, sind die Stühle der anderen gesperrt (stand-locked).']],
   ['stand-locked','Aufgestanden: ein gesperrter Stuhl',[360],lockedForFelix,
-    ['Entwurf zur Wahl (#372, Zeile 1 A): wer einen Platz des laufenden Spiels hielt, darf nur auf ihn zurück. Novas freier Stuhl trägt für Felix ein Schloss statt des Plus; nur sein eigener Stuhl bietet das Plus. Mit dem Ende des Spiels fällt die Sperre. Gilt Zeile 1 B, entfällt dieses Bild.']],
+    ['Wer einen Platz des laufenden Spiels hielt, darf nur auf ihn zurück. Novas freier Stuhl trägt für Felix ein Schloss statt des Plus; nur sein eigener Stuhl bietet das Plus. Mit dem Ende des Spiels fällt die Sperre.']],
 );
 STAND_SCENES.push(
   ['stand-framed','Aufstehen im Anruf',[390,1280],(d)=>room(d,{left:8,glow:novaGlow(d)})+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
     +seats(d,{video:true,anna:['decl'],nova:['turn','think'],score:TOTALS_BEFORE})+ownHand(d,FELIX_HAND,{bottom:d?170:164})+callBar(d)
     +stripOf(d,{lead:standLead(d),pill:agentPill(d),above:true}),
-    ['Entwurf zur Wahl (Linie 1 A): im Anruf steht Skats Leiste mit „Aufgeben“, dem runden „Aufstehen“ und der Pille über der Leiste des Anrufs; die Hand rückt um eine Leiste nach oben, wie bei agents-framed.']],
+    ['Im Anruf steht Skats Leiste mit „Aufgeben“, dem runden „Aufstehen“ und der Pille über der Leiste des Anrufs; die Hand rückt um eine Leiste nach oben, wie bei agents-framed.']],
 );
 agentScenes(STAND_SCENES);
 
