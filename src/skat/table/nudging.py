@@ -91,6 +91,10 @@ def _own_chair(view: TableView) -> ChairView | None:
     return next((chair for chair in view.chairs if chair.is_mine), None)
 
 
+def _count_of(made: Nudges | None) -> int:
+    return 0 if made is None else made.count
+
+
 def _refusal_of_the_seat(view: TableView, request: NudgeRequest) -> NudgeRefusal | None:
     own = _own_chair(view)
     if own is None:
@@ -135,7 +139,7 @@ def nudge_refusal(
             return NudgeRefusal.TOO_EARLY
     elif made.count >= NUDGES_PER_VERSION or waited < made.waited + ASK_AGAIN_AFTER:
         return NudgeRefusal.ALREADY_NUDGED
-    return None if request.nudges == (0 if made is None else made.count) else NudgeRefusal.ALREADY_NUDGED
+    return None if request.nudges == _count_of(made) else NudgeRefusal.ALREADY_NUDGED
 
 
 def nudge_states(view: TableView, nudged: Mapping[int, Nudges]) -> dict[int, NudgeState]:
@@ -145,23 +149,23 @@ def nudge_states(view: TableView, nudged: Mapping[int, Nudges]) -> dict[int, Nud
     """
     if view.hand is not None and view.hand.waiting_seat is not None:
         return {}
-    own = _own_chair(view)
+    seated = _own_chair(view) is not None
     awaited = awaited_seats(view)
-    states: dict[int, NudgeState] = {}
-    for chair in view.chairs:
-        if chair.seat not in awaited or chair.is_away:
-            continue
-        made = nudged.get(chair.seat)
-        count = 0 if made is None else made.count
-        if chair.is_mine:
-            if made is not None:
-                states[chair.seat] = NudgeState(count, may_nudge=False, by_seat=made.by_seat)
-        elif own is None:
-            if made is not None:
-                states[chair.seat] = NudgeState(count, may_nudge=False, by_seat=None)
-        else:
-            states[chair.seat] = NudgeState(count, may_nudge=count < NUDGES_PER_VERSION, by_seat=None)
-    return states
+    states = {
+        chair.seat: _state_of_chair(chair, nudged.get(chair.seat), seated=seated)
+        for chair in view.chairs
+        if chair.seat in awaited and not chair.is_away
+    }
+    return {seat: state for seat, state in states.items() if state is not None}
+
+
+def _state_of_chair(chair: ChairView, made: Nudges | None, *, seated: bool) -> NudgeState | None:
+    count = _count_of(made)
+    if chair.is_mine:
+        return None if made is None else NudgeState(count, may_nudge=False, by_seat=made.by_seat)
+    if not seated:
+        return None if made is None else NudgeState(count, may_nudge=False, by_seat=None)
+    return NudgeState(count, may_nudge=count < NUDGES_PER_VERSION, by_seat=None)
 
 
 def own_nudges(view: TableView, states: Mapping[int, NudgeState]) -> int:
