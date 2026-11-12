@@ -30,6 +30,8 @@ TAP_TARGET_PIXELS = 44
 DESKTOP_FROM_PIXELS = 900
 # From this width the speaker stands left of the watchers; below it, right after the Lobby button.
 LEFT_OF_WATCHERS_FROM_PIXELS = 390
+# The pixels between the glass of the speaker and the glass of the button or pill beside it.
+SPEAKER_GAP_PIXELS = 8
 BROKEN_STORAGE = {
     "a record that is no JSON": f"localStorage.setItem({SETTINGS_KEY!r}, '{{muted')",
     "a read that throws": "Storage.prototype.getItem = () => { throw new Error('storage is blocked') }",
@@ -53,6 +55,15 @@ PANEL_ON_ITS_BUTTON = """() => {
 }"""
 
 
+# The tap targets are wider than the round glass inside them, so the gap is measured between the glass.
+GLASS_GAP = """neighbour => {
+    const speaker = document.querySelector('.sound-face').getBoundingClientRect();
+    const watchers = document.querySelector('.watchers').getBoundingClientRect();
+    const lobby = document.querySelector('.lobby-face').getBoundingClientRect();
+    return neighbour === 'watchers' ? watchers.left - speaker.right : speaker.left - lobby.right;
+}"""
+
+
 @pytest.fixture
 def table(
     open_person: Callable[..., Page],
@@ -65,6 +76,11 @@ def table(
 
 def speaker_of(page: Page) -> Any:
     return page.locator(".sound-button")
+
+
+def glass_gap(page: Page, neighbour: str) -> float:
+    """The pixels between the speaker's glass and the glass of its neighbour in the top row."""
+    return page.evaluate(GLASS_GAP, neighbour)
 
 
 def panel_of(page: Page) -> Any:
@@ -115,13 +131,12 @@ def test_the_speaker_stands_clear_of_the_lobby_button_and_the_watchers(
     assert lobby is not None
     assert watchers is not None
     width = form_factor["viewport"]["width"]
-    after_lobby = speaker["x"] - (lobby["x"] + lobby["width"])
-    before_watchers = watchers["x"] - (speaker["x"] + speaker["width"])
     assert min(speaker["width"], speaker["height"]) >= TAP_TARGET_PIXELS
-    assert after_lobby >= 0
-    assert before_watchers >= 0
-    assert (before_watchers < after_lobby) == (width >= LEFT_OF_WATCHERS_FROM_PIXELS)
+    assert lobby["x"] + lobby["width"] <= speaker["x"]
+    assert speaker["x"] + speaker["width"] <= watchers["x"]
     assert (TONE in speaker_of(person).inner_text()) == (width >= DESKTOP_FROM_PIXELS)
+    neighbour = "watchers" if width >= LEFT_OF_WATCHERS_FROM_PIXELS else "lobby"
+    assert glass_gap(person, neighbour) == SPEAKER_GAP_PIXELS
     assert not horizontal_scroll(person)
 
 

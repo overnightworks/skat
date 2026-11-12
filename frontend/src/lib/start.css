@@ -3465,15 +3465,15 @@ body {
     outline-offset: 2px;
 }
 
-/* Left of the watchers, 8 px between the glass of the two (each tap target is 4 px wider than its glass); where the Lobby button and the watchers leave no room for it, right after the Lobby button. */
+/* 8 px between the glass of the speaker and the glass beside it. The speaker's and the Lobby button's tap targets are 4 px wider than their glass, the watchers' pill has no such margin: left of the watchers, 6 px; where the Lobby button and the watchers leave no room for it, right after the Lobby button, 4 px. */
 .room .sound-button.sound-bar {
     margin-left: auto;
-    margin-right: 4px;
+    margin-right: 6px;
 }
 
 @media (max-width: 389px) {
     .room .sound-button.sound-bar {
-        margin-left: 0;
+        margin-left: 4px;
         margin-right: auto;
     }
 }
@@ -3499,6 +3499,7 @@ body {
 @media (min-width: 900px) {
     .room .sound-button.sound-bar {
         width: auto;
+        margin-right: 8px;
     }
 
     .room .sound-button.sound-bar .sound-face {
