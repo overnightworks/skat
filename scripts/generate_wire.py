@@ -51,6 +51,7 @@ from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
+from skat.web.kontra import TABLE_NO_WORD_SUFFIX  # noqa: E402
 from skat.web.playing import (  # noqa: E402
     TABLE_CARD_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -131,6 +132,7 @@ def render() -> str:
         "TABLE_GIVE_UP_AGREE_SUFFIX": TABLE_GIVE_UP_AGREE_SUFFIX,
         "TABLE_GIVE_UP_DECLINE_SUFFIX": TABLE_GIVE_UP_DECLINE_SUFFIX,
         "TABLE_LIST_SUFFIX": TABLE_LIST_SUFFIX,
+        "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
