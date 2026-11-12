@@ -11,7 +11,7 @@ from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.declaring import DEFAULT_JOINERS, DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets
 from tests.e2e.support.raw_http import RawSession
 
@@ -150,7 +150,7 @@ def deal_playing_table(
     console: bool = True,
     game: str = "kreuz",
     declaring: type[DeclaringTable] = DeclaringTable,
-    joiners: tuple[str, str] = ("ben", "cleo"),
+    joiners: tuple[str, str] = DEFAULT_JOINERS,
 ) -> PlayingTable:
     table = declaring(open_person, server, member_of, page_errors, form_factor, console=console, joiners=joiners)
     return PlayingTable(table, game)

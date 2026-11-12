@@ -9,7 +9,7 @@ from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.declaring import DEFAULT_JOINERS, DeclaringTable
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
@@ -77,7 +77,7 @@ def deal_a_finished_hand(
         *,
         declaring: type[DeclaringTable] = DeclaringTable,
         console: bool = True,
-        joiners: tuple[str, str] = ("ben", "cleo"),
+        joiners: tuple[str, str] = DEFAULT_JOINERS,
     ) -> PlayingTable:
         table = deal_playing_table(
             open_person,
