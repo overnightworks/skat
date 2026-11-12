@@ -64,6 +64,7 @@ export type ResultView = {
 export type WeiterBar = { kind: "tap"; again: boolean } | { kind: "wait"; names: string };
 
 const MINUS = "−";
+const TIMES = "×";
 const SNUG_LEVELS = 2;
 
 const LEVEL_WORDS: Record<Level, string> = {
@@ -115,7 +116,7 @@ function doublingsOf({ kontra }: Result): string[] {
     return WORD_TOKENS.slice(0, last + 1).map((word, index) =>
         words["result.wordFactor"]({
             word: WORD_TEXTS[word],
-            factor: String(index === last ? kontra.factor : 2 ** (index + 1)),
+            factor: `${TIMES}${String(index === last ? kontra.factor : 2 ** (index + 1))}`,
         }),
     );
 }

@@ -264,7 +264,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'result.wordRe': 'Re',
         'result.wordSupra': 'Supra',
         'result.wordHirsch': 'Hirsch',
-        'result.wordFactor': '{word} ×{factor}',
+        'result.wordFactor': '{word} {factor}',
         'result.listBonus': 'Liste {bonus}',
         'result.share': '· {opponents} je {gain}',
         'result.announcedSchneider': 'Schneider angesagt',

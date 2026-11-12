@@ -258,7 +258,7 @@ export const words: Words = {
     "result.wordRe": "Re",
     "result.wordSupra": "Supra",
     "result.wordHirsch": "Hirsch",
-    "result.wordFactor": (gaps: { readonly factor: string; readonly word: string }) => gaps.word + " ×" + gaps.factor,
+    "result.wordFactor": (gaps: { readonly factor: string; readonly word: string }) => gaps.word + " " + gaps.factor,
     "result.listBonus": (gaps: { readonly bonus: string }) => "Liste " + gaps.bonus,
     "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => "· " + gaps.opponents + " je " + gaps.gain,
     "result.announcedSchneider": "Schneider angesagt",
