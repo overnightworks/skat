@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import pytest
 
 from skat.engine.deal import Deal, Position, next_dealer
@@ -20,7 +22,7 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text
+from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, KNOWN_DEAL, cards_in, cards_in_text, wire_cards
 from tests.web.support.playing import Table, card, card_body, cards, ending_of, gains, game_of, three_pass
 from tests.web.support.series import tap_weiter
 from tests.web.support.skat import AgentTable, Skat, stored, streams_of
@@ -133,6 +135,19 @@ def everyone_reads(table):
     return [playing_as(table, headers)["give_up"] for headers in (table.watcher, *table.at.values())]
 
 
+@contextmanager
+def everyones_streams(table):
+    """One open stream per viewer, the watcher first: each as (position or None for the watcher, decoded messages)."""
+    viewers = [(None, table.watcher), *table.at.items()]
+    with streams_of(table.skat, table.table_id, [(headers, None) for _, headers in viewers]) as streams:
+        yield [(position, stream) for (position, _), stream in zip(viewers, streams, strict=True)]
+
+
+def own_cards_of(position):
+    """The cards a viewer's frame may carry before any card is played: his own hand, none for the watcher."""
+    return set() if position is None else wire_cards(CARDS_BY_SEAT[SEAT[position]])
+
+
 def shown(result, expected):
     return {key: result[key] for key in expected}
 
@@ -214,13 +229,18 @@ class TestAnOpponentGivesUp:
         assert everyone_reads(herz_hand) == [asked_by(position)] * 4
         assert playing_as(herz_hand, herz_hand.at[on_turn])["legal_cards"] == []
 
-    def test_the_stream_of_a_watcher_carries_the_request_and_then_the_end(self, herz_hand):
-        with streams_of(herz_hand.skat, herz_hand.table_id, [(herz_hand.watcher, None)]) as (watcher,):
+    def test_every_stream_carries_the_request_and_then_the_same_result_with_no_card(self, herz_hand):
+        with everyones_streams(herz_hand) as streams:
             gives_up(herz_hand, FOREHAND)
-            assert next(watcher)["hand"]["playing"]["give_up"] == asked_by(FOREHAND)
+            for _, stream in streams:
+                next(stream)
 
             accepted_end(herz_hand)
-            assert ending_of(next(watcher)["result"]) == ("given-up", SEAT[FOREHAND])
+
+            frames = [next(stream) for _, stream in streams]
+        assert [cards_in(frame) for frame in frames] == [set()] * 4
+        assert {str(frame["result"]) for frame in frames} == {str(frames[0]["result"])}
+        assert ending_of(frames[0]["result"]) == ("given-up", SEAT[FOREHAND])
 
     @pytest.mark.parametrize("position", OPPONENTS)
     def test_the_partners_give_up_and_his_own_again_change_nothing(self, herz_hand, position):
@@ -581,13 +601,24 @@ class TestWhatTheViewsOfferWhileItWaits:
         assert playing_as(kontra_table, kontra_table.at[FOREHAND])["kontra"]["my_word"] == "kontra"
         assert everyone_reads(kontra_table) == [None] * 4
 
-    def test_the_stream_of_a_watcher_carries_the_request_and_then_the_no(self, herz_hand):
-        with streams_of(herz_hand.skat, herz_hand.table_id, [(herz_hand.watcher, None)]) as (watcher,):
-            gives_up(herz_hand, REARHAND)
-            assert next(watcher)["hand"]["playing"]["give_up"] == asked_by(REARHAND)
+    def test_every_stream_carries_the_request_with_no_card_or_word_to_play_and_then_the_no(self, kontra_table):
+        with everyones_streams(kontra_table) as streams:
+            gives_up(kontra_table, FOREHAND)
+            waiting = [(position, next(stream)) for position, stream in streams]
 
-            assert decline(herz_hand).status_code == 200
-            assert next(watcher)["hand"]["playing"]["give_up"] is None
+            assert decline(kontra_table).status_code == 200
+            playing_on = [(position, next(stream)) for position, stream in streams]
+
+        for position, frame in waiting:
+            playing = frame["hand"]["playing"]
+            assert playing["give_up"] == asked_by(FOREHAND)
+            assert (playing["legal_cards"], playing["kontra"]["my_word"]) == ([], None)
+            assert cards_in(frame) == own_cards_of(position)
+        for position, frame in playing_on:
+            assert frame["hand"]["playing"]["give_up"] is None
+            assert cards_in(frame) == own_cards_of(position)
+        (forehand,) = (frame["hand"]["playing"] for position, frame in playing_on if position is FOREHAND)
+        assert (forehand["legal_cards"] != [], forehand["kontra"]["my_word"]) == (True, "kontra")
 
 
 class TestKontraWhileItWaits:
