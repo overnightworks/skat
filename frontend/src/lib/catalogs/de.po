@@ -779,12 +779,16 @@ msgctxt "rules.grandHandAllowed"
 msgid "Grand Hand statt Ramsch"
 msgstr ""
 
+msgctxt "rules.bockTriggers"
+msgid "Bei {triggers}"
+msgstr ""
+
 msgctxt "rules.bockTriggerSixtySixty"
-msgid "Bei 60 zu 60"
+msgid "60 zu 60"
 msgstr ""
 
 msgctxt "rules.bockTriggerWonGrandHand"
-msgid "Gewonnener Grand Hand"
+msgid "gewonnenem Grand Hand"
 msgstr ""
 
 msgctxt "rules.bockTriggerLostAfterKontra"

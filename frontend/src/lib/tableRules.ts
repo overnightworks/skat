@@ -131,7 +131,9 @@ function rulesOf(options: Options): RuleRow[] {
                   id: "bock",
                   name: words["rules.nameBock"],
                   settings: [
-                      triggerList.format(bock.triggers.map((trigger) => BOCK_TRIGGER_WORDS[trigger])),
+                      words["rules.bockTriggers"]({
+                          triggers: triggerList.format(bock.triggers.map((trigger) => BOCK_TRIGGER_WORDS[trigger])),
+                      }),
                       BOCK_OVERLAP_WORDS[bock.overlap],
                   ],
               },

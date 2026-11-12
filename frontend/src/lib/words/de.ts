@@ -194,6 +194,7 @@ export type Words = {
     readonly "rules.pushingJacksMayGo": string;
     readonly "rules.pushingNoDoubling": string;
     readonly "rules.grandHandAllowed": string;
+    readonly "rules.bockTriggers": (gaps: { readonly triggers: string }) => string;
     readonly "rules.bockTriggerSixtySixty": string;
     readonly "rules.bockTriggerWonGrandHand": string;
     readonly "rules.bockTriggerLostAfterKontra": string;
@@ -432,8 +433,9 @@ export const words: Words = {
     "rules.pushingJacksMayGo": "Mit Buben, je doppelt",
     "rules.pushingNoDoubling": "Ohne Verdopplung",
     "rules.grandHandAllowed": "Grand Hand statt Ramsch",
-    "rules.bockTriggerSixtySixty": "Bei 60 zu 60",
-    "rules.bockTriggerWonGrandHand": "Gewonnener Grand Hand",
+    "rules.bockTriggers": (gaps: { readonly triggers: string }) => "Bei " + gaps.triggers,
+    "rules.bockTriggerSixtySixty": "60 zu 60",
+    "rules.bockTriggerWonGrandHand": "gewonnenem Grand Hand",
     "rules.bockTriggerLostAfterKontra": "Verlust nach Kontra",
     "rules.bockTriggerRe": "Re",
     "rules.bockTriggerPassedIn": "Einpassen",

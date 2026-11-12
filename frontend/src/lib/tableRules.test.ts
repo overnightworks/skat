@@ -96,7 +96,7 @@ describe("the rows", () => {
         const triggers = ["schwarz", "sixty-sixty"] as const;
 
         expect(settingsOf({ ...NOTHING, bock: { triggers: [...triggers], overlap: "append" } }, "bock")[0]).toBe(
-            "Schwarz und Bei 60 zu 60",
+            "Bei Schwarz und 60 zu 60",
         );
     });
 });
