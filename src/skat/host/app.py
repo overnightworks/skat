@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING, cast
 
 import structlog
 from agents.mcp_server import ResourceChanges
-from agents.member import LEASE_SECONDS, STANDING_URI
-from agents.tools import Principal
-from fastapi import APIRouter, FastAPI, Request
+from agents.member import LEASE_SECONDS
+from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -152,24 +151,21 @@ def _agent_lease(tables: TableService) -> AgentLease:
     return AgentLease(LEASE_SECONDS, seated_tables)
 
 
-def _calling_router(
-    tables: TableService,
-    presence: Presence,
-    roster: AgentRoster,
-    changes: ResourceChanges,
+def _caller_membership(
     relying_party: OidcRelyingParty,
     sign_in_configs: SignInConfigs,
     sessions: SessionRecordStore,
     clock: Callable[[], float],
-) -> APIRouter:
-    issuer = relying_party.issuer
+) -> CallerMembership:
     groups = SessionGroups(relying_party, lambda: nullcontext(sessions), sign_in_configs.web_auth)
-    membership = CallerMembership(groups, sessions, sign_in_configs.web_auth, issuer, clock)
+    return CallerMembership(groups, sessions, sign_in_configs.web_auth, relying_party.issuer, clock)
 
-    def listens(account_id: str) -> bool:
-        return changes.listens_to(Principal(iss=issuer, sub=account_id), STANDING_URI)
 
-    return create_calling_router(tables, presence, roster, listens, membership)
+def _roster_and_changes(
+    resource_changes: Callable[[ListeningChanged], ResourceChanges],
+) -> tuple[AgentRoster, ResourceChanges]:
+    roster = AgentRoster()
+    return roster, resource_changes(roster.listening_changed)
 
 
 def _agent_heard(presence: Presence, roster: AgentRoster) -> Callable[[str, AgentFacts], None]:
@@ -295,8 +291,7 @@ def create_app(
     sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    roster = AgentRoster()
-    changes = resource_changes(roster.listening_changed)
+    roster, changes = _roster_and_changes(resource_changes)
     # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing and
     # their tables' views.
     tables = (
@@ -316,11 +311,8 @@ def create_app(
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
     _include_table_routers(app, tables, page_build, presence, sign_in_stores.sessions, sign_in_configs.web_auth)
-    app.include_router(
-        _calling_router(
-            tables, presence, roster, changes, relying_party, sign_in_configs, sign_in_stores.sessions, chair_clock
-        )
-    )
+    membership = _caller_membership(relying_party, sign_in_configs, sign_in_stores.sessions, chair_clock)
+    app.include_router(create_calling_router(tables, presence, roster, changes, relying_party.issuer, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))

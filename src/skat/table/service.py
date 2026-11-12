@@ -594,11 +594,7 @@ class TableService:
         return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
     def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
-        """Write an invitation to the agent for the table, which stands `lasting` from this service's now, when the
-        person's call is offered: the decision runs again here under the table's and the agent's row locks, so room and
-        an open invitation are read exactly. A person who has invited the agent already gets that invitation, and
-        nothing is written.
-        """
+        """Write the call as an invitation standing `lasting` from now, if the decision under the locks offers it."""
         with self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
             entry = transaction.locked_book_entry(table_id, facts.agent_account)
@@ -606,23 +602,19 @@ class TableService:
             if isinstance(written, InviteRefusal):
                 return written
             book_row, offer = written
-            if book_row != entry:
+            if is_new := book_row != entry:
                 transaction.save_book_entry(book_row)
-        if book_row != entry:
+        if is_new:
             self._tell(frozenset({facts.agent_account}))
         return offer
 
     def offers_at(self, table_id: TableId, calls: Sequence[CallFacts]) -> tuple[CallOffer, ...] | None:
-        """What each call comes to now, from one read of the table and the agents' rows; None when no live table has
-        the id. It forgets no invitation that ran out: the agent's own read of its standing does.
-        """
-        now = self._now()
+        """Each call's offer from one read of the table and the agents' rows; None when no live table has the id."""
         with self._transactions.begin() as transaction:
-            table = transaction.table(table_id)
-            if not isinstance(table, TableRecord):
+            if not isinstance(table := transaction.table(table_id), TableRecord):
                 return None
             entries = [transaction.locked_book_entry(table_id, call.agent_account) for call in calls]
-        return tuple(call_offer_of(call, table, entry, now) for call, entry in zip(calls, entries, strict=True))
+        return tuple(call_offer_of(call, table, entry, self._now()) for call, entry in zip(calls, entries, strict=True))
 
     def accept_invitation(
         self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]

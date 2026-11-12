@@ -18,6 +18,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
 from agents.member import INVITATION_SECONDS, STANDING_URI
+from agents.tools import Principal
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -34,7 +35,7 @@ from skat.web.tables import TABLES_PATH, actor_of
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection
 
-    from agents.tools import Principal
+    from agents.mcp_server import ResourceChanges
     from webauth.config import WebAuthConfig
     from webauth.ports import AgentFacts, SessionRecordStore
     from webauth.session_groups import SessionGroups
@@ -250,20 +251,30 @@ def _table_of(table_id: str) -> TableId:
     return parsed
 
 
-def create_calling_router(
-    tables: TableService,
-    presence: Presence,
-    roster: AgentRoster,
-    listens: Callable[[str], bool],
-    membership: CallerMembership,
-) -> APIRouter:
-    router = APIRouter()
+class _Calling:
+    """The facts, the control and the call of the person routes, over one app's service, presence, roster and
+    membership.
+    """
 
-    def facts_for(
-        request: Request, table_id: TableId, *, viewer_is_member: bool
+    def __init__(
+        self,
+        tables: TableService,
+        presence: Presence,
+        roster: AgentRoster,
+        listens: Callable[[str], bool],
+        membership: CallerMembership,
+    ) -> None:
+        self._tables = tables
+        self._presence = presence
+        self._roster = roster
+        self._listens = listens
+        self._membership = membership
+
+    def _facts_for(
+        self, request: Request, table_id: TableId, *, viewer_is_member: bool
     ) -> list[tuple[RosterEntry, CallFacts]]:
         viewer = actor_of(request).account_id
-        present = presence.connected(table_id.value)
+        present = self._presence.connected(table_id.value)
         return [
             (
                 entry,
@@ -272,30 +283,32 @@ def create_calling_router(
                     entry,
                     viewer=viewer,
                     present=present,
-                    listens=listens(account),
+                    listens=self._listens(account),
                     viewer_is_member=viewer_is_member,
                 ),
             )
-            for account, entry in roster.entries().items()
+            for account, entry in self._roster.entries().items()
         ]
 
-    async def control_of(request: Request, table_id: TableId) -> AgentControlAnswer:
-        viewer_present = actor_of(request).account_id in presence.connected(table_id.value)
-        viewer_is_member = viewer_present and await membership.displayed(request)
-        calls = facts_for(request, table_id, viewer_is_member=viewer_is_member)
-        offers = await run_in_threadpool(tables.offers_at, table_id, [facts for _, facts in calls])
+    async def control_of(self, request: Request, table_id: TableId) -> AgentControlAnswer:
+        viewer_present = actor_of(request).account_id in self._presence.connected(table_id.value)
+        viewer_is_member = viewer_present and await self._membership.displayed(request)
+        calls = self._facts_for(request, table_id, viewer_is_member=viewer_is_member)
+        offers = await run_in_threadpool(self._tables.offers_at, table_id, [facts for _, facts in calls])
         if offers is None:
             raise HTTPException(status_code=404, detail="table not found")
         rows = [row for (entry, _), offer in zip(calls, offers, strict=True) if (row := _row_of(entry, offer))]
         shown = control_shown(viewer_present=viewer_present, viewer_is_member=viewer_is_member)
         return AgentControlAnswer(shown=shown, rows=rows)
 
-    async def call_of(request: Request, table_id: TableId, key: str) -> CallRefusal | None:
+    async def call_of(self, request: Request, table_id: TableId, key: str) -> CallRefusal | None:
         """What the call comes to. The cheap checks run first with the person counted a member, so a double tap, a full
         table or an absent owner cost no read of the issuer; the membership that grants the write is the fresh one.
         """
-        chosen = [facts for entry, facts in facts_for(request, table_id, viewer_is_member=True) if entry.key == key]
-        offers = await run_in_threadpool(tables.offers_at, table_id, chosen)
+        chosen = [
+            facts for entry, facts in self._facts_for(request, table_id, viewer_is_member=True) if entry.key == key
+        ]
+        offers = await run_in_threadpool(self._tables.offers_at, table_id, chosen)
         if offers is None:
             raise HTTPException(status_code=404, detail="table not found")
         if not chosen:
@@ -305,11 +318,11 @@ def create_calling_router(
             return None
         if isinstance(answer, InviteRefusal):
             return REFUSAL_TOKENS[answer]
-        fresh = await membership.fresh(request)
+        fresh = await self._membership.fresh(request)
         if isinstance(fresh, AccessTokenRefusal):
             return CallRefusal.TRY_AGAIN
         written = await run_in_threadpool(
-            tables.invite_agent,
+            self._tables.invite_agent,
             table_id,
             replace(chosen[0], viewer_is_member=fresh),
             timedelta(seconds=INVITATION_SECONDS),
@@ -317,6 +330,21 @@ def create_calling_router(
         if written is InviteRefusal.NO_TABLE:
             raise HTTPException(status_code=404, detail="table not found")
         return REFUSAL_TOKENS[written] if isinstance(written, InviteRefusal) else None
+
+
+def create_calling_router(
+    tables: TableService,
+    presence: Presence,
+    roster: AgentRoster,
+    changes: ResourceChanges,
+    issuer: str,
+    membership: CallerMembership,
+) -> APIRouter:
+    def listens(account_id: str) -> bool:
+        return changes.listens_to(Principal(iss=issuer, sub=account_id), STANDING_URI)
+
+    calling = _Calling(tables, presence, roster, listens, membership)
+    router = APIRouter()
 
     @router.get(
         TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX,
@@ -329,7 +357,7 @@ def create_calling_router(
         has called and is waiting for.
         """
         response.headers["Cache-Control"] = "no-store"
-        return await control_of(request, _table_of(table_id))
+        return await calling.control_of(request, _table_of(table_id))
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_AGENTS_SUFFIX + "/{key}" + TABLE_AGENT_CALL_SUFFIX,
@@ -346,10 +374,10 @@ def create_calling_router(
         """Call the agent of the row `key` to the table; the same call again changes nothing twice."""
         response.headers["Cache-Control"] = "no-store"
         parsed = _table_of(table_id)
-        refusal = await call_of(request, parsed, key)
+        refusal = await calling.call_of(request, parsed, key)
         if refusal is not None:
             answer = CallRefusalAnswer(reason=refusal)
             return JSONResponse(answer.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
-        return await control_of(request, parsed)
+        return await calling.control_of(request, parsed)
 
     return router
