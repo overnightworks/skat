@@ -39,6 +39,7 @@ from skat.web.declaring import create_declaring_router
 from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
+from skat.web.lobby import create_lobby_router
 from skat.web.mcp import McpAccess, mount_mcp
 from skat.web.member_place import AskClock, member_front, standing_signal, view_signal
 from skat.web.paused import create_paused_router
@@ -70,6 +71,7 @@ from skat.web.sign_in import (
 )
 from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
+from skat.web.wakes import WakeList
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
@@ -209,12 +211,14 @@ def _presence(
     clock: Callable[[], float],
     scheduler: Scheduler,
     asks: AskClock,
+    wakes: WakeList,
 ) -> Presence:
     return Presence(
         _chair_hold(settings, tables, clock, scheduler),
         _next_deal(tables),
         _empty_table(settings, tables, asks),
         _agent_lease(tables),
+        wakes,
     )
 
 
@@ -223,11 +227,28 @@ def _include_table_routers(
     tables: TableService,
     page_build: PageBuild,
     presence: Presence,
+    wakes: WakeList,
     sessions: SessionRecordStore,
     web_auth: WebAuthConfig,
 ) -> None:
-    app.include_router(create_seating_router(tables, presence))
+    app.include_router(create_seating_router(tables, presence, wakes))
     app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
+
+
+def _include_stream_routers(
+    app: FastAPI,
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    wakes: WakeList,
+    sessions: SessionRecordStore,
+    heartbeat_seconds: float,
+) -> None:
+    app.include_router(create_streams_router(tables, presence, sessions, heartbeat_seconds))
+    app.include_router(
+        create_lobby_router(tables, presence, wakes, sessions, heartbeat_seconds, settings.paused_table_days)
+    )
+    app.state.stop_streams = presence.stop
 
 
 def _include_table_sub_routers(
@@ -303,20 +324,20 @@ def create_app(
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
     asks = AskClock(chair_clock)
-    presence = _presence(settings, tables, chair_clock, scheduler, asks)
+    wakes = WakeList()
+    presence = _presence(settings, tables, chair_clock, scheduler, asks, wakes)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
     app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
-    _include_table_routers(app, tables, page_build, presence, sign_in_stores.sessions, sign_in_configs.web_auth)
+    _include_table_routers(app, tables, page_build, presence, wakes, sign_in_stores.sessions, sign_in_configs.web_auth)
     membership = _caller_membership(relying_party, sign_in_configs, sign_in_stores.sessions, chair_clock)
     app.include_router(create_calling_router(tables, presence, roster, changes, relying_party.issuer, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
-    app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
-    app.state.stop_streams = presence.stop
+    _include_stream_routers(app, settings, tables, presence, wakes, sign_in_stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(
         app,

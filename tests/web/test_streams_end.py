@@ -7,6 +7,7 @@ from skat.table.records import CreateTable, EndReason, TableId
 from skat.web.presence import EmptyTable, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.wakes import WakeList
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import (
     end_no_table,
@@ -92,7 +93,7 @@ class TestAStreamWhoseArrivalWriteFails:
             return False
 
         empty_table = EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note)
-        presence = Presence(idle_hold(), idle_next_deal(), empty_table, idle_agent_lease())
+        presence = Presence(idle_hold(), idle_next_deal(), empty_table, idle_agent_lease(), WakeList())
 
         async def scenario():
             failed = stream_of(presence, service, VISITOR, table_id)

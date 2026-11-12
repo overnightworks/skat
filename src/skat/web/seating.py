@@ -21,10 +21,12 @@ from skat.web.tables import (
     answer_of,
     command_answer,
 )
+from skat.web.wakes import AccountTopic
 
 if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.web.presence import Presence
+    from skat.web.wakes import WakeList
 
 
 class CreateTableRequest(CommandRequest):
@@ -42,7 +44,7 @@ class SitDownRequest(CommandRequest):
     seat: Annotated[int, Field(strict=True, ge=1, le=CHAIRS_PER_TABLE)]
 
 
-def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter:
+def _create_chairs_router(tables: TableService, presence: Presence, wakes: WakeList) -> APIRouter:
     router = APIRouter()
 
     @router.post(
@@ -56,23 +58,23 @@ def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter
     ) -> Response | TableAnswer:
         """Take a free chair at a Skat table.
 
-        The table id is the last part of the table's link /t/{id}, which a person gives the caller, or the id of a
-        table the caller opened. `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the
-        answer of read_table. Whoever sits first has the chair. The sit that fills the third chair deals the first
-        hand; while a game's result stands, sitting down counts as continuing. At a table whose running hand waits
-        for a sitter (`hand.waiting_seat` is set in the answer), the sit takes that seat over as it stands: its cards,
-        its role and its turn, and the hand moves again once no chair is open; a caller that held another chair of
-        this hand cannot take it. The command id names this step: the
-        same id with the same seat is a retry that changes nothing twice. A refusal (the chair is taken, and the
-        answer names who holds it; the caller already sits at this table; `own-seat-only`: the caller left another
-        chair of the running hand and may sit only in that one until the hand ends) comes back as a failed result with
-        its reason, leaves the table as it was and spends the command id.
+        The table id is the last part of the table's link /t/{id}, which a person gives the caller, or the id of a table
+        the caller opened. `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the answer of
+        read_table. Whoever sits first has the chair. The sit that fills the third chair deals the first hand; while a
+        game's result stands, sitting down counts as continuing. At a table whose running hand waits for a sitter
+        (`hand.waiting_seat` is set in the answer), the sit takes that seat over as it stands: its cards, its role and
+        its turn, and the hand moves again once no chair is open; a caller that held another chair of this hand cannot
+        take it. The command id names this step: the same id with the same seat is a retry that changes nothing twice. A
+        refusal (the chair is taken, and the answer names who holds it; the caller already sits at this table;
+        `own-seat-only`: the caller left another chair of the running hand and may sit only in that one until the hand
+        ends) comes back as a failed result with its reason, leaves the table as it was and spends the command id.
         """
         command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
         answer = await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
         # A sit while a result is pending marks the sitter ready, which may complete the marks.
         if isinstance(answer, TableAnswer):
             presence.chair_taken(table_id)
+            wakes.wake(AccountTopic(actor_of(request).account_id))
             if answer.result is not None:
                 await presence.deal_now(table_id)
         return answer
@@ -103,7 +105,7 @@ def _create_chairs_router(tables: TableService, presence: Presence) -> APIRouter
     return router
 
 
-def create_seating_router(tables: TableService, presence: Presence) -> APIRouter:
+def create_seating_router(tables: TableService, presence: Presence, wakes: WakeList) -> APIRouter:
     """The routes that open a table and take or leave its chairs."""
     router = APIRouter()
 
@@ -132,7 +134,8 @@ def create_seating_router(tables: TableService, presence: Presence) -> APIRouter
         # Presence belongs to the event loop's thread, so the wait and the note start here and not on the worker.
         if view.ended is None:
             presence.chair_taken(view.id)
+            wakes.wake(AccountTopic(actor_of(request).account_id))
         return answer_of(view)
 
-    router.include_router(_create_chairs_router(tables, presence))
+    router.include_router(_create_chairs_router(tables, presence, wakes))
     return router
