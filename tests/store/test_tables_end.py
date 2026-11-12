@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from skat.store.schema import tables
 from skat.engine.deal import Position
+from skat.store.schema import tables
 from skat.table.records import (
     Actor,
     CreateTable,
@@ -23,9 +23,9 @@ from skat.table.records import (
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from tests.support.faulty_tables import FaultyTableTransactions
+from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
 from tests.support.played_game import after_the_first_game, before_the_last_card
-from tests.support.table_rows import rows_of, wait_until_a_session_waits_for_a_lock
+from tests.support.table_rows import WorkInAThread, rows_of, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
 
@@ -472,3 +472,88 @@ def test_the_unplayed_read_lists_only_live_dealt_tables_played_at_or_before_the_
     end_at_the_store(transactions, ended)
 
     assert unplayed_service(transactions).unplayed_tables(UNPLAYED_DAYS) == (old,)
+
+
+class HeldWrite:
+    """A write guard that waits in its worker until released, so the transaction that entered it keeps the row lock."""
+
+    def __init__(self, connected=NOBODY_CONNECTED):
+        self._connected = connected
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def __enter__(self):
+        self.entered.set()
+        assert self.release.wait(HANG_DEADLINE_SECONDS)
+        return self._connected
+
+    def __exit__(self, *_):
+        return None
+
+
+class Rivals:
+    """A table between games, past its days, that two writes reach at once: the first holds the row lock, the second
+    waits for it, and `settle` lets the first commit and returns both outcomes in that order.
+    """
+
+    def __init__(self, service, transactions, engine, stored):
+        self.engine = engine
+        self.service = unplayed_service(transactions)
+        self.table_id = seated_table(service, "one")
+        save(transactions, after_the_first_game(stored(transactions, self.table_id.value), 1, 2, 3))
+        played_at(transactions, self.table_id, PLAYED_AT)
+        self.everyone = frozenset(chair.account_id for chair in SEATED)
+        self.first_hold = HeldWrite(self.everyone)
+        self.stored = lambda: stored(transactions, self.table_id.value)
+
+    def expire(self, writing=None):
+        return WorkInAThread(
+            lambda: self.service.end_unplayed_table(self.table_id, UNPLAYED_DAYS, writing or nullcontext(frozenset()))
+        )
+
+    def play(self, writing=None):
+        return WorkInAThread(lambda: self.service.deal_next(self.table_id, writing or nullcontext(self.everyone)))
+
+    def settle(self, first, second):
+        first.start()
+        assert self.first_hold.entered.wait(HANG_DEADLINE_SECONDS)
+        second.start()
+        wait_until_a_session_waits_for_a_lock(self.engine, second)
+        self.first_hold.release.set()
+        first.join()
+        second.join()
+        return first.outcome, second.outcome
+
+
+@pytest.fixture
+def rivals(service, transactions, engine, stored):
+    return Rivals(service, transactions, engine, stored)
+
+
+def test_a_table_played_while_its_expiry_waits_for_the_row_is_not_ended_by_it(rivals):
+    first_hold = rivals.first_hold
+    played, expired = rivals.settle(rivals.play(first_hold), rivals.expire())
+
+    assert (played, expired) == ([True], [False])
+    assert isinstance(rivals.stored(), TableRecord)
+
+
+def test_a_play_that_meets_the_expiry_holding_the_row_finds_the_table_ended_and_deals_nothing(rivals):
+    version = rivals.stored().version
+    expired, played = rivals.settle(rivals.expire(rivals.first_hold), rivals.play())
+
+    assert (expired, played) == ([True], [False])
+    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert {name for name, rows in rows_of(rivals.engine, rivals.table_id.value).items() if rows} == {
+        "tables",
+        "receipts",
+        "game_list",
+    }
+
+
+def test_two_expiries_that_meet_end_the_table_once(rivals):
+    version = rivals.stored().version
+    first, second = rivals.settle(rivals.expire(rivals.first_hold), rivals.expire())
+
+    assert (first, second) == ([True], [False])
+    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
