@@ -61,14 +61,6 @@ def sits_note(name: str) -> str:
 
 
 @pytest.fixture
-def realm_reusing_refresh_tokens(e2e_server: RunningServer) -> Iterator[None]:
-    # The realm lets a refresh token be used again, so overlapping reads of one session both succeed.
-    e2e_server.issuer.reuses_refresh_tokens = True
-    yield
-    e2e_server.issuer.reuses_refresh_tokens = False
-
-
-@pytest.fixture
 def caller(open_person: Callable[..., Page], realm_reusing_refresh_tokens: None, page_errors: list[str]) -> Page:
     return record_page_errors(open_person(username="felix", groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors)
 

@@ -3416,6 +3416,11 @@ body {
     .room .actions.on-result:has(> .copy:not(.link)) .copy.link .label {
         display: none;
     }
+
+    /* With the agents' pill a fourth button joins the row, which no phone is wide enough for: the bar wraps. */
+    .room .actions.on-result:has(.pill-anchor) {
+        flex-wrap: wrap;
+    }
 }
 
 /* An ended table, or a link whose table is gone: one panel on the felt, or over a turned card back. */
