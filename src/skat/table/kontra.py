@@ -14,26 +14,19 @@ if TYPE_CHECKING:
     from skat.table.records import Actor, TableRecord
 
 KONTRA_COMMAND: Final = "kontra"
-NO_WORD_COMMAND: Final = "no-word"
+NO_WORD_PAYLOAD: Final = "no-word"
 
 
 @dataclass(frozen=True)
 class KontraCommand:
-    """A word said; the actor's position comes from the session, never from the client."""
+    """A word said, or `None` for the answer that the actor says no word now; the actor's position comes from the
+    session, never from the client.
+    """
 
     command_id: str
     table_id: str
     version: int
-    word: Word
-
-
-@dataclass(frozen=True)
-class NoWordCommand:
-    """The answer that the actor says no word now; the position comes from the session, never from the client."""
-
-    command_id: str
-    table_id: str
-    version: int
+    word: Word | None
 
 
 @dataclass(frozen=True)
@@ -58,12 +51,8 @@ class KontraView:
 
 def kontra_payload(command: KontraCommand) -> str:
     """The receipt's payload: a retry repeats its original version, so another version is another request."""
-    return f"{command.table_id}:{command.version}:{command.word.value}"
-
-
-def no_word_payload(command: NoWordCommand) -> str:
-    """The receipt's payload: a retry repeats its original version, so another version is another request."""
-    return f"{command.table_id}:{command.version}"
+    word = NO_WORD_PAYLOAD if command.word is None else command.word.value
+    return f"{command.table_id}:{command.version}:{word}"
 
 
 def _word_open_to(
@@ -80,29 +69,8 @@ def _word_open_to(
 
 
 def decide_kontra(table: TableRecord, actor: Actor, command: KontraCommand) -> Decision:
-    """One word: no hand, no chair, a stale version, a table without Kontra, the wrong phase, then the engine."""
-    position = acting_position(table, actor, command.version)
-    if isinstance(position, Refusal):
-        return Decision(table, position)
-    options = table.options.kontra
-    if options is None:
-        return Decision(table, Refusal.RULE_OFF)
-    state, doubling = playing_of(table), doubling_of(table)
-    if state is None or doubling is None:
-        return Decision(table, Refusal.WRONG_PHASE)
-    outcome = say(doubling, options, state, bidders_of(table.progress.auction), position, command.word)
-    if outcome.refusal is not None:
-        return Decision(table, outcome.refusal)
-    said = WordSaid(position, command.word, len(table.progress.plays))
-    words = (*table.progress.words, said)
-    return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, words=words)))
-
-
-def decide_no_word(table: TableRecord, actor: Actor, command: NoWordCommand) -> Decision:
-    """The actor's seat answers the word it may say now with no word: refused as a word it cannot say now is.
-
-    The answer is stored and the word stays open, so the seat may still say it until its deadline; the engine never
-    sees the answer. A second answer of the same seat for the same word changes nothing.
+    """One word, or the answer of no word: no hand, no chair, a stale version, a table without Kontra, the wrong
+    phase, then the engine.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
@@ -113,7 +81,23 @@ def decide_no_word(table: TableRecord, actor: Actor, command: NoWordCommand) -> 
     state, doubling = playing_of(table), doubling_of(table)
     if state is None or doubling is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    word = _word_open_to(doubling, options, state, bidders_of(table.progress.auction), position)
+    bidders = bidders_of(table.progress.auction)
+    if command.word is None:
+        return _answered_no_word(table, position, _word_open_to(doubling, options, state, bidders, position))
+    outcome = say(doubling, options, state, bidders, position, command.word)
+    if outcome.refusal is not None:
+        return Decision(table, outcome.refusal)
+    said = WordSaid(position, command.word, len(table.progress.plays))
+    words = (*table.progress.words, said)
+    return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, words=words)))
+
+
+def _answered_no_word(table: TableRecord, position: Position, word: Word | KontraRefusal) -> Decision:
+    """The seat's answer of no word to the word it may say now, refused as that word would be.
+
+    The answer is kept beside the words and the word stays open, so the seat may still say it until its deadline and
+    the engine never sees the answer. A second answer of the same seat for the same word changes nothing.
+    """
     if isinstance(word, KontraRefusal):
         return Decision(table, word)
     answered = NoWordSaid(position, word)

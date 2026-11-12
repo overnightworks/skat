@@ -12,7 +12,7 @@ from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word, WordSaid
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.table.awaiting import awaits_you
-from skat.table.kontra import NoWordCommand, decide_no_word
+from skat.table.kontra import KontraCommand, decide_kontra
 from skat.table.records import (
     Actor,
     Chair,
@@ -159,7 +159,9 @@ class TestAKontraWord:
         before = view_of(table, REARHAND, frozenset())
 
         after = view_of(
-            decide_no_word(table, Actor(REARHAND, "Rhea"), NoWordCommand("c", table.id.value, table.version)).table,
+            decide_kontra(
+                table, Actor(REARHAND, "Rhea"), KontraCommand("c", table.id.value, table.version, None)
+            ).table,
             REARHAND,
             frozenset(),
         )

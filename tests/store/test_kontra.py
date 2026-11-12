@@ -5,7 +5,7 @@ from skat.engine.deal import Position
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word, WordSaid
 from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
-from skat.table.kontra import KontraCommand, NoWordCommand
+from skat.table.kontra import KontraCommand
 from skat.table.playing import GiveUpCommand
 from skat.table.records import CreateTable, NoWordSaid, SendAway, TableOptions
 from skat.table.service import TableService
@@ -113,8 +113,7 @@ def test_the_words_go_with_the_hand_and_the_entry_keeps_the_last_word_and_the_do
 
 
 def answer_no_word(game, position, *, command_id, version=None, service=None):
-    command = NoWordCommand(command_id, game.table_id, game.record.version if version is None else version)
-    return (service or game.service).say_no_word(game.actors[position], command, nobody_connected())
+    return say(game, position, None, command_id=command_id, version=version, service=service)
 
 
 def test_an_answer_of_no_word_reads_back_and_the_word_stays_open(game, engine):

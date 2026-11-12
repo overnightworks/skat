@@ -14,7 +14,7 @@ from skat.engine.kontra import Word, WordSaid
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
 from skat.table.declaring import DeclaringCommand, decide_declaring_step
 from skat.table.game_list import ListEntry
-from skat.table.kontra import KontraCommand, NoWordCommand, SeatedWord, decide_kontra, decide_no_word
+from skat.table.kontra import KontraCommand, SeatedWord, decide_kontra
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -323,7 +323,7 @@ class TestAStandingNoWord:
         table, sitter = self.answered(REARHAND), newcomer()
         taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
 
-        answered = decide_no_word(taken, sitter, NoWordCommand("command-1", taken.id.value, taken.version))
+        answered = decide_kontra(taken, sitter, KontraCommand("command-1", taken.id.value, taken.version, None))
 
         assert answered.table.version == taken.version + 1
         assert answered.table.progress.no_words == frozenset({NoWordSaid(REARHAND, Word.KONTRA)})

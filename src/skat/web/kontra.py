@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
 from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.kontra import KontraCommand, NoWordCommand
+from skat.table.kontra import KontraCommand
 from skat.web.mcp import SAY_KONTRA_MARK, SAY_NO_WORD_MARK
 from skat.web.tables import COMMAND_RESPONSES, TABLES_PATH, CommandRequest, TableAnswer, actor_of, command_answer
 
@@ -81,9 +81,9 @@ def create_kontra_router(tables: TableService, presence: Presence) -> APIRouter:
         result with its reason, leaves the table as it was and spends the command id: the next attempt takes a new
         command id.
         """
-        command = NoWordCommand(command_id=body.command_id, table_id=table_id, version=body.version)
+        command = KontraCommand(command_id=body.command_id, table_id=table_id, version=body.version, word=None)
         return await command_answer(
-            partial(tables.say_no_word, actor_of(request), command), presence, table_id, response
+            partial(tables.say_kontra, actor_of(request), command), presence, table_id, response
         )
 
     return router

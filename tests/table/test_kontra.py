@@ -17,12 +17,9 @@ from skat.engine.kontra import (
 from skat.table.hand_state import doubling_of, playing_of
 from skat.table.kontra import (
     KontraCommand,
-    NoWordCommand,
     decide_kontra,
-    decide_no_word,
     kontra_payload,
     kontra_view_of,
-    no_word_payload,
 )
 from skat.table.playing import (
     GiveUpCommand,
@@ -196,7 +193,7 @@ class TestSaying:
 
 
 def answer_as(table, position, version=VERSION):
-    return decide_no_word(table, actor(position), NoWordCommand("command-1", table.id.value, version))
+    return decide_kontra(table, actor(position), KontraCommand("command-1", table.id.value, version, None))
 
 
 class TestAnsweringNoWord:
@@ -290,11 +287,11 @@ class TestAnsweringNoWord:
         assert decision.refusal is expected
         assert decision.table == table
 
-    def test_the_version_and_the_seat_make_the_payload(self):
-        command = NoWordCommand("command-1", "table", 5)
+    def test_the_answer_makes_a_payload_of_its_own_beside_the_word(self):
+        command = KontraCommand("command-1", "table", 5, None)
 
-        assert no_word_payload(command) == "table:5"
-        assert no_word_payload(replace(command, version=6)) != no_word_payload(command)
+        assert kontra_payload(command) == "table:5:no-word"
+        assert kontra_payload(replace(command, word=KONTRA)) != kontra_payload(command)
 
 
 class TestAnAnswerInTheViewer:
