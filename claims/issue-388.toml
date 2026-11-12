@@ -1,7 +1,0 @@
-claim_id = "e392069c09ba435398b737c3275e3d26"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "a15e82f1dd231e1d36ca8b756bc4f7ef2d71736c"
-branch = "claude/issue-388-ramsch-picture"
-scope = ["docs/mockups/table.html"]
-opened_commit = "aee38661577d702a0646ae42faef50b5c93cdb0d"
