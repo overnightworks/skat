@@ -7,6 +7,14 @@ msgctxt "app.name"
 msgid "Skat"
 msgstr ""
 
+msgctxt "app.reconnecting"
+msgid "verbinde neu"
+msgstr ""
+
+msgctxt "app.unreachable"
+msgid "Skat ist gerade nicht erreichbar."
+msgstr ""
+
 msgctxt "account.title"
 msgid "Konto"
 msgstr ""

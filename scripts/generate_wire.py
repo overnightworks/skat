@@ -44,6 +44,7 @@ from skat.web.constants import (  # noqa: E402
     NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    VERSION_FILE_PATH,
 )
 from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_DECLARE_SUFFIX,
@@ -113,6 +114,7 @@ def render() -> str:
         "CALL_MODE": CALL_MODE,
         "LOGOUT_PATH": LOGOUT_PATH,
         "ACCOUNT_PATH": ACCOUNT_PATH,
+        "VERSION_FILE_PATH": VERSION_FILE_PATH,
         "CALL_ORIGIN_PATH": CALL_ORIGIN_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
         "TABLES_PATH": TABLES_PATH,
