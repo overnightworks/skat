@@ -1,8 +1,0 @@
-claim_id = "7d232019a6fa49cbbba871ef8552bbd9"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "a5d27a563990dd91237139a6d149a73faca2b2df"
-branch = "claude/issue-327-grand-hand-instead"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/store/migrations/versions", "src/skat/store/pushing.py", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table/hand_state.py", "src/skat/table/pushing.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/views.py", "src/skat/web/mcp.py", "src/skat/web/pushing.py", "src/skat/web/table_options.py", "tests/store/test_migrate_felix_pushing.py", "tests/store/test_migrate_grand_hand.py", "tests/store/test_migrate_held_in_hand.py", "tests/store/test_pushing.py", "tests/support/rule_set_rows.py", "tests/table/test_pushing.py", "tests/web/support/ramsch_stage.py", "tests/web/test_mcp.py", "tests/web/test_mcp_ramsch_pushing.py", "tests/web/test_tables_ramsch_grand_hand.py", "tests/web/test_tables_ramsch_pushing.py"]
-opened_commit = "d8b8524c0699c3a3217fff4ce6738718811481d9"
-whole_reason = "The setting, its step, the table's fixing a Grand Hand and its reckoning are one behaviour: a step that leaves the Ramsch without a played Grand Hand strands the table."
