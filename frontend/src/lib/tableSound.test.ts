@@ -40,6 +40,7 @@ function tableSeenFrom(ownSeat: number): Table {
     const chairs = [OWN_SEAT, OTHER_SEAT, THIRD_SEAT].map((seat): Chair => ({
         seat,
         occupant_name: `player ${String(seat)}`,
+        occupant_kind: "person",
         is_mine: seat === ownSeat,
         is_away: false,
         ready: false,
