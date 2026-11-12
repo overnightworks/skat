@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from skat.table.records import EndedTable, EndReason, Receipt, Replay, TableRecord
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
-from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts
+from skat.table.transactions import DuplicateReceiptError, HeldTable, LiveWait, OccupiedChair, PausedFacts
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -128,6 +128,14 @@ class FakeTableStore:
             if isinstance(table, TableRecord)
             for chair in table.chairs
             if chair.occupant is not None
+        )
+
+    def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
+        return tuple(
+            HeldTable(table.id, table.version)
+            for table in sorted(self.tables.values(), key=lambda each: each.id.value)
+            if isinstance(table, TableRecord)
+            if any(chair.occupant is not None and chair.occupant.account_id == account_id for chair in table.chairs)
         )
 
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:

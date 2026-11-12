@@ -1892,6 +1892,58 @@ body {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
 }
 
+/* A card this page saw laid lands from its player's side: the approved "verspielt" motion, 340 ms, which fades in,
+   settles once and ends at rest. Only the card moves; its name tag stands still from the first frame. */
+@media (prefers-reduced-motion: no-preference) {
+    .room .laid.left {
+        --from-x: -150%;
+        --from-y: -90%;
+    }
+
+    .room .laid.right {
+        --from-x: 150%;
+        --from-y: -90%;
+    }
+
+    .room .laid.near {
+        --from-x: 0;
+        --from-y: 180%;
+    }
+
+    .room .laid.fresh .face {
+        animation: land 340ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+    }
+
+    @keyframes land {
+        from {
+            translate: var(--from-x) var(--from-y);
+            rotate: -24deg;
+            scale: 0.55;
+            opacity: 0;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        78% {
+            translate: 0 2px;
+            rotate: 0deg;
+            scale: 1.07;
+        }
+
+        90% {
+            scale: 0.98;
+        }
+
+        to {
+            translate: 0 0;
+            rotate: 0deg;
+            scale: 1;
+        }
+    }
+}
+
 .room .laid .tag {
     position: absolute;
     left: 50%;
