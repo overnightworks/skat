@@ -1,8 +1,0 @@
-claim_id = "b56f6e6598054d81822a588b246c59f0"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "77281e1399de90505d7a450c4a72419ff2a3899d"
-branch = "claude/issue-195-review-followups-schieberamsch"
-scope = ["docs/mockups/table.html", "src/skat/engine/schieberamsch.py", "tests/e2e/test_table_deal_marks.py", "tests/engine/test_schieberamsch.py"]
-opened_commit = "7a0e00aeca05a385dd0cbb7beefd92d4c0cef5e6"
-whole_reason = "Four small follow-ups of four reviews, each a few lines, collected so they cost one lane."
