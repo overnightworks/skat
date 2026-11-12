@@ -1819,6 +1819,22 @@ STAND_SCENES.push(
   ['stand-open-self','Aufgestanden: Felix sieht zu',[360,390,1280],felixStoodUp,
     ['Entwurf zur Wahl (#372): Felix’ Sicht danach ist die eines Zuschauers: derselbe Tisch wie vorher, das Plus auf seinem alten Stuhl, seine Karten als Rücken daneben, keine Hand und kein „Aufgeben“; die Leiste trägt nur den Link.']],
 );
+/* the last one stood up: three free chairs, the fans stay, the table is found by its link */
+const nobodySits=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true})+nearFan(d,8)+kreuz(d,WAIT_LINE)+trickAt(d,'anna','left')
+    +freeSeat(L.anna)+freeSeat(L.nova)+freeSeat(L.you)+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
+/* a chair he may not take: the dashed tile keeps its shape, the plus is a lock */
+const lockedSeat=(pos)=>freeSeat(pos,{idle:true}).replace('class="seat free','class="seat free locked').replace('<div class="tile"></div>',`<div class="tile"><span class="sit" aria-label="Gesperrt">${I.lock}</span></div>`);
+/* Nova left earlier, then Felix stood up: his own chair offers the plus, Nova's is locked for him */
+const lockedForFelix=(d)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true})+nearFan(d,8)+kreuz(d,WAIT_LINE)+trickAt(d,'anna','left')
+    +seat('anna',{...L.anna,marks:['decl']})+lockedSeat(L.nova)+freeSeat(L.you)+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
+STAND_SCENES.push(
+  ['stand-last','Aufgestanden: der Letzte',[360,1280],nobodySits,
+    ['Entwurf zur Wahl (#372): wer als Letzter aufsteht, sieht alle drei Stühle frei mit dem Plus, die Rücken der Karten neben jedem Stuhl und „Kreuz · Warte auf Mitspieler“; sonst ändert sich nichts, der Tisch ist über seinen Link zu finden. Gilt #372 Zeile 1 A, sind für den, der aufstand, die Stühle der anderen gesperrt (stand-locked).']],
+  ['stand-locked','Aufgestanden: ein gesperrter Stuhl',[360],lockedForFelix,
+    ['Entwurf zur Wahl (#372, Zeile 1 A): wer einen Platz des laufenden Spiels hielt, darf nur auf ihn zurück. Novas freier Stuhl trägt für Felix ein Schloss statt des Plus; nur sein eigener Stuhl bietet das Plus. Mit dem Ende des Spiels fällt die Sperre. Gilt Zeile 1 B, entfällt dieses Bild.']],
+);
 agentScenes(STAND_SCENES);
 
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
