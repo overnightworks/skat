@@ -4,11 +4,9 @@ The account id comes from the config attributes `migrate` sets; a deployment tha
 A table can play Ramsch and Bock together, so the set holds both.
 """
 
-import secrets
-
-import sqlalchemy as sa
 from alembic import context, op
-from sqlalchemy.dialects import postgresql
+
+from skat.store.migrations.operator_set import install_operator_set
 
 revision = "0023"
 down_revision = "0022"
@@ -26,20 +24,10 @@ OPTIONS = {
     "ramsch_jungfrau": "doubles-loser",
     "ramsch_durchmarsch": "wins-120",
 }
-RULE_SETS = sa.table(
-    "rule_sets",
-    sa.column("id"),
-    sa.column("owner_account"),
-    sa.column("name"),
-    *(sa.column(option, sa.ARRAY(sa.Text()) if option == "bock_triggers" else None) for option in OPTIONS),
-)
 
 
 def _install(operator_account_id: str) -> None:
-    values = {"id": secrets.token_hex(16), "owner_account": operator_account_id, "name": SET_NAME, **OPTIONS}
-    insertion = postgresql.insert(RULE_SETS).values(values)
-    replacement = {column: insertion.excluded[column] for column in OPTIONS}
-    op.get_bind().execute(insertion.on_conflict_do_update(index_elements=["owner_account", "name"], set_=replacement))
+    install_operator_set(op.get_bind(), operator_account_id, SET_NAME, OPTIONS)
 
 
 def upgrade() -> None:
