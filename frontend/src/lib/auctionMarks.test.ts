@@ -268,6 +268,7 @@ describe("what the others see while the declarer decides", () => {
             dealer_seat: FOREHAND,
             own_cards: [],
             skat_count: 2,
+            waiting_seat: null,
             auction: auction({ awaiting: null, turn_seat: null, facing_seat: null, declared }),
             declaring,
             playing: null,
