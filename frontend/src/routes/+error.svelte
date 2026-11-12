@@ -5,6 +5,7 @@
     import { startOutage, type OutageState } from "#lib/outage.ts";
     import { words } from "#lib/words.ts";
 
+    const NOT_FOUND_STATUS = 404;
     const FIRST_SERVER_ERROR_STATUS = 500;
 
     let outage = $state<OutageState>("reconnecting");
@@ -24,7 +25,7 @@
     });
 </script>
 
-<div class="start" data-theme="dark" lang="de">
+<div class="start" data-theme="dark">
     <header class="start-bar outage-bar">
         <span class="wordmark">{words["app.name"]}</span>
     </header>
@@ -37,7 +38,7 @@
         <main class="start-main">
             <div class="failure">
                 <h1>{page.status}</h1>
-                <p>{page.error?.message}</p>
+                <p>{page.status === NOT_FOUND_STATUS ? words["app.pageNotFound"] : words["app.pageFailed"]}</p>
             </div>
         </main>
     {/if}

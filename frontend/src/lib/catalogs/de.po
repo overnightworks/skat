@@ -15,6 +15,14 @@ msgctxt "app.unreachable"
 msgid "Skat ist gerade nicht erreichbar."
 msgstr ""
 
+msgctxt "app.pageNotFound"
+msgid "Diese Seite gibt es nicht."
+msgstr ""
+
+msgctxt "app.pageFailed"
+msgid "Diese Seite lässt sich nicht laden."
+msgstr ""
+
 msgctxt "account.title"
 msgid "Konto"
 msgstr ""
