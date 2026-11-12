@@ -77,11 +77,11 @@ describe("the control that calls agents", () => {
             expect(await readAgents(TABLE_ID)).toEqual({ kind: "failed" });
         });
 
-        it("goes through the sign-in again when the session has ended", async () => {
+        it("leaves the sign-in again to the stream when the session has ended", async () => {
             answerWith(new Response(null, { status: 401 }));
 
             expect(await readAgents(TABLE_ID)).toEqual({ kind: "failed" });
-            expect(reload).toHaveBeenCalledOnce();
+            expect(reload).not.toHaveBeenCalled();
         });
     });
 
@@ -121,6 +121,13 @@ describe("the control that calls agents", () => {
             answerWith(new Response(null, { status: 404 }));
 
             expect(await callAgent(TABLE_ID, "key-nova")).toEqual({ kind: "missing" });
+        });
+
+        it("goes through the sign-in again when the session has ended", async () => {
+            answerWith(new Response(null, { status: 401 }));
+
+            expect(await callAgent(TABLE_ID, "key-nova")).toEqual({ kind: "failed" });
+            expect(reload).toHaveBeenCalledOnce();
         });
     });
 

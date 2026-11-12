@@ -153,16 +153,20 @@ function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_nam
     return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
 }
 
-// A session that ended while the page was open goes through the sign-in again; the answer is null then and when the
-// server cannot be reached.
-async function fetchSigningInAgain(path: string, init?: RequestInit): Promise<Response | null> {
-    let answer: Response;
+// The answer is null when the server cannot be reached.
+async function fetchOrNull(path: string, init?: RequestInit): Promise<Response | null> {
     try {
-        answer = await fetch(path, init);
+        return await fetch(path, init);
     } catch {
         return null;
     }
-    if (answer.status === SIGNED_OUT_STATUS) {
+}
+
+// A session that ended while the page was open goes through the sign-in again; the answer is null then and when the
+// server cannot be reached.
+async function fetchSigningInAgain(path: string, init?: RequestInit): Promise<Response | null> {
+    const answer = await fetchOrNull(path, init);
+    if (answer?.status === SIGNED_OUT_STATUS) {
         location.reload();
         return null;
     }
@@ -487,8 +491,10 @@ async function answerOfAgents(answer: Response | null): Promise<AgentsAnswer> {
     }
 }
 
+// A read never signs in again, a refused one is a failed answer: the page's stream owns that sign-in, and a read that
+// races it would reload into the sign-in page instead of going through the issuer.
 export async function readAgents(id: string): Promise<AgentsAnswer> {
-    return answerOfAgents(await fetchSigningInAgain(agentsPath(id)));
+    return answerOfAgents(await fetchOrNull(agentsPath(id)));
 }
 
 // The tap is the call: no command id, because the same call again changes nothing twice.
