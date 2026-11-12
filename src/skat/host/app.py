@@ -1,5 +1,5 @@
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from typing import TYPE_CHECKING, cast
 
 import structlog
@@ -21,12 +21,14 @@ from webauth.policies import (
     SecurityHeadersPolicy,
     default_content_security_policy,
 )
+from webauth.session_groups import SessionGroups
 from webauth.single_process_stores import SingleProcessStores
 
 from skat.table.records import TableId
 from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
+from skat.web.calling import AgentRoster, CallerMembership, ListeningChanged, create_calling_router
 from skat.web.constants import (
     HEALTH_PATH,
     NO_CACHE_PATH_RULES,
@@ -75,7 +77,7 @@ if TYPE_CHECKING:
 
     from webauth.config import WebAuthConfig
     from webauth.oidc import OidcRelyingParty
-    from webauth.ports import SessionRecordStore
+    from webauth.ports import AgentFacts, SessionRecordStore
 
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
@@ -147,6 +149,31 @@ def _agent_lease(tables: TableService) -> AgentLease:
         return [table_id.value for table_id in held]
 
     return AgentLease(LEASE_SECONDS, seated_tables)
+
+
+def _caller_membership(
+    relying_party: OidcRelyingParty,
+    sign_in_configs: SignInConfigs,
+    sessions: SessionRecordStore,
+    clock: Callable[[], float],
+) -> CallerMembership:
+    groups = SessionGroups(relying_party, lambda: nullcontext(sessions), sign_in_configs.web_auth)
+    return CallerMembership(groups, sessions, sign_in_configs.web_auth, relying_party.issuer, clock)
+
+
+def _roster_and_changes(
+    resource_changes: Callable[[ListeningChanged], ResourceChanges],
+) -> tuple[AgentRoster, ResourceChanges]:
+    roster = AgentRoster()
+    return roster, resource_changes(roster.listening_changed)
+
+
+def _agent_heard(presence: Presence, roster: AgentRoster) -> Callable[[str, AgentFacts], None]:
+    def heard(account_id: str, facts: AgentFacts) -> None:
+        presence.renew_lease(account_id)
+        roster.heard(account_id, facts)
+
+    return heard
 
 
 def _next_deal(tables: TableService) -> NextDeal:
@@ -255,7 +282,7 @@ def create_app(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
-    resource_changes: ResourceChanges | None = None,
+    resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
 
@@ -264,7 +291,7 @@ def create_app(
     sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    changes = resource_changes if resource_changes is not None else ResourceChanges()
+    roster, changes = _roster_and_changes(resource_changes)
     # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing and
     # their tables' views.
     tables = (
@@ -284,6 +311,8 @@ def create_app(
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
     _include_table_routers(app, tables, page_build, presence, sign_in_stores.sessions, sign_in_configs.web_auth)
+    membership = _caller_membership(relying_party, sign_in_configs, sign_in_stores.sessions, chair_clock)
+    app.include_router(create_calling_router(tables, presence, roster, changes, relying_party.issuer, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_streams_router(tables, presence, sign_in_stores.sessions, heartbeat_seconds))
@@ -294,7 +323,7 @@ def create_app(
         relying_party,
         sign_in_stores.transaction,
         settings.public_origin,
-        presence.renew_lease,
+        _agent_heard(presence, roster),
         member_front(tables, presence, changes, scheduler, asks),
     )
     app.state.mcp_front = mcp.front

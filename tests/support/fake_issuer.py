@@ -7,6 +7,7 @@ so no test contacts a real issuer. It serves one process only.
 import base64
 import hashlib
 import json
+import queue
 import secrets
 import threading
 import time
@@ -48,10 +49,11 @@ class _IssuedCode:
 
 @dataclass(frozen=True)
 class GrantHold:
-    """Parks every grant of one type: `parked` is set when one waits, `release` lets them all go on,
-    and `answered` is set once a parked grant has its answer."""
+    """Parks every grant of one type: `parked` is set when one waits, `arrivals` holds one entry for each grant that
+    arrived, `release` lets them all go on, and `answered` is set once a parked grant has its answer."""
 
     parked: threading.Event = field(default_factory=threading.Event)
+    arrivals: queue.SimpleQueue[None] = field(default_factory=queue.SimpleQueue)
     release: threading.Event = field(default_factory=threading.Event)
     answered: threading.Event = field(default_factory=threading.Event)
 
@@ -72,6 +74,7 @@ class FakeIssuer:
         self.key_set_is_down = False
         self.refuses_refresh_grants = False
         self.refresh_refusal_error = "invalid_grant"
+        self.reuses_refresh_tokens = False
         self.refuses_client_credentials_grants = False
         self.omits_the_id_token_of_a_refresh_grant = False
         self._guard = threading.Lock()
@@ -127,7 +130,7 @@ class FakeIssuer:
         return jwt.encode(present, self._key, algorithm="RS256", headers={"kid": KEY_ID, "typ": "at+jwt"})
 
     def refresh_token_for(self, subject: str) -> str:
-        """A refresh token the issuer honours once, for the subject's next grant."""
+        """A refresh token the issuer honours for the subject's next grant: once, unless `reuses_refresh_tokens`."""
         refresh_token = secrets.token_urlsafe(REFRESH_TOKEN_BYTES)
         with self._guard:
             self._subjects_of_refresh_tokens[refresh_token] = subject
@@ -182,6 +185,7 @@ class FakeIssuer:
         if hold is None:
             return self._grant(grant_type, request)
         hold.parked.set()
+        hold.arrivals.put(None)
         assert hold.release.wait(GRANT_HOLD_CAP_SECONDS), f"a held {grant_type} grant was never released"
         answer = self._grant(grant_type, request)
         hold.answered.set()
@@ -206,7 +210,8 @@ class FakeIssuer:
 
     def _renewal(self, refresh_token: str) -> TokenEndpointAnswer:
         with self._guard:
-            subject = self._subjects_of_refresh_tokens.pop(refresh_token, None)
+            subjects = self._subjects_of_refresh_tokens
+            subject = subjects.get(refresh_token) if self.reuses_refresh_tokens else subjects.pop(refresh_token, None)
             if subject is None or self.refuses_refresh_grants:
                 return self._refusal(HTTPStatus.BAD_REQUEST, self.refresh_refusal_error)
             rotated = secrets.token_urlsafe(REFRESH_TOKEN_BYTES)

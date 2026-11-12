@@ -8,10 +8,11 @@ import pytest
 from agents.member import LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
 from starlette.concurrency import run_in_threadpool
 
-from skat.table.member_place import InvitationRequest, MemberRefusal
+from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
 from skat.web.mcp import MCP_GROUP
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from tests.support.calls import call_facts
 from tests.support.played_game import after_the_first_game
 from tests.web.support.agent import UPDATED, Agent
 from tests.web.support.presence import HOLD_SECONDS
@@ -67,12 +68,12 @@ def invite(skat, time):
     """Writes an invitation through the service the app wired, on its event loop's worker."""
 
     def write_invitation(agent, table_id, owner, *, inviter=None, lasting=INVITATION_SECONDS):
-        request = InvitationRequest(
-            agent.subject, owner[1].id, (inviter or owner)[1].id, time.moment() + timedelta(seconds=lasting)
-        )
+        facts = call_facts(agent.subject, owner[1].id, (inviter or owner)[1].id)
 
         async def write():
-            return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), request)
+            return await run_in_threadpool(
+                skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=lasting)
+            )
 
         return skat.client.portal.call(write)
 
@@ -336,10 +337,10 @@ class TestAnAcceptRefusedAndTheInvitationEnds:
         assert standing_of(agent) == []
 
     def test_busy_when_no_chair_is_free(self, invite, skat, agent, owner, table_id):
+        offer = invite(agent, table_id, owner)
         for seat in (2, 3):
             skat.sit(skat.member()[0], table_id, seat)
         skat.client.cookies.clear()
-        offer = invite(agent, table_id, owner)
         before = skat.store.tables[table_id]
 
         with at_the_table(skat, table_id, owner):

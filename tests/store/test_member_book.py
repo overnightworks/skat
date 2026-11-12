@@ -9,9 +9,10 @@ import pytest
 from sqlalchemy import text
 
 from skat.store.tables import PostgresTableTransactions
-from skat.table.member_place import Acceptance, InvitationRequest, MemberRefusal, MembershipState
+from skat.table.member_place import Acceptance, MemberRefusal, MembershipState
 from skat.table.records import Actor, CreateTable, OccupantKind, SitDown, TableId
 from skat.table.service import TableService
+from tests.support.calls import call_facts
 from tests.support.faulty_tables import BothReadBeforeEitherWrites
 
 pytestmark = pytest.mark.postgres
@@ -21,7 +22,8 @@ VISITOR = Actor(account_id="account-visitor", display_name="Ben")
 MOZART = Actor(account_id="account-mozart", display_name="Mozart", kind=OccupantKind.AGENT)
 BACH = Actor(account_id="account-bach", display_name="Bach", kind=OccupantKind.AGENT)
 START = datetime(2026, 11, 1, 12, tzinfo=UTC)
-LATER = START + timedelta(hours=1)
+LASTING = timedelta(hours=1)
+LATER = START + LASTING
 OWNER_AT_THE_TABLE = frozenset({OPENER.account_id})
 
 
@@ -38,8 +40,8 @@ def table_id(service):
 
 
 def invite(service, table_id, agent):
-    request = InvitationRequest(agent.account_id, OPENER.account_id, OPENER.account_id, LATER)
-    return service.invite_agent(TableId(table_id), request)
+    facts = call_facts(agent.account_id, OPENER.account_id)
+    return service.invite_agent(TableId(table_id), facts, LASTING)
 
 
 def book_row(engine, agent):
@@ -132,11 +134,9 @@ class TestRetention:
     def test_a_new_invitation_replaces_the_people_of_an_expired_one(self, service, engine, transactions, table_id):
         invite(service, table_id, MOZART)
         later = TableService(transactions, now=lambda: LATER + timedelta(seconds=1))
-        request = InvitationRequest(
-            "account-mozart", "account-new-owner", "account-new-inviter", LATER + timedelta(hours=1)
-        )
+        facts = call_facts("account-mozart", "account-new-owner", "account-new-inviter")
 
-        later.invite_agent(TableId(table_id), request)
+        later.invite_agent(TableId(table_id), facts, LASTING)
 
         assert book_row(engine, MOZART).owner_account == "account-new-owner"
 

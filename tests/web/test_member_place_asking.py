@@ -11,23 +11,24 @@ from functools import partial
 from types import SimpleNamespace
 
 import pytest
-from agents.mcp_server import ResourceChanges
 from agents.member import LEASE_SECONDS, STANDING_URI
 from agents.tools import Principal
 from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
+from webauth.ports import AgentFacts
 
 from skat.engine.deal import Position
 from skat.host.app import _empty_table
 from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, revision_of
-from skat.table.member_place import InvitationRequest
 from skat.table.records import EndedTable, EndReason, Series, TableId
 from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, token_carries_agent_facts
 from skat.web.member_place import AskClock, MemberStandings
 from skat.web.ready import TABLE_READY_SUFFIX
+from tests.support.calls import call_facts
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.web.support.agent import SUBJECT, Agent, person_posts, view_uri_of
+from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
 from tests.web.support.skat import FakeTime, Skat, stored
 
@@ -129,21 +130,6 @@ class TestTheWaitIsKeptPerTableAndVersion:
             assert clock.see(TABLE, 6) is None
 
 
-class RecordedChanges(ResourceChanges):
-    """The changes the app tells, as (account, uri) in the order told; set `failure` and each one raises it."""
-
-    def __init__(self):
-        super().__init__()
-        self.told = []
-        self.failure = None
-
-    def changed(self, recipient, uri):
-        self.told.append((recipient.sub, uri))
-        if self.failure is not None:
-            raise self.failure
-        super().changed(recipient, uri)
-
-
 @pytest.fixture
 def changes():
     return RecordedChanges()
@@ -157,7 +143,7 @@ def skat(hold, issuer, time, changes):
         chair_clock=time.clock,
         chair_scheduler=time,
         now=time.moment,
-        resource_changes=changes,
+        resource_changes=changes.wired,
     )
     with skat.client:
         yield skat
@@ -393,7 +379,7 @@ class TestARestartAndALapsedLease:
             chair_clock=restarted_time.clock,
             chair_scheduler=restarted_time,
             now=restarted_time.moment,
-            resource_changes=changes,
+            resource_changes=changes.wired,
         )
         with restarted.client:
             returned = Agent(restarted, issuer, agent.subject)
@@ -497,7 +483,7 @@ class TestAViewReadWhileTheTableEnds:
         async def read():
             tables = _OvertakenDuringTheRead(skat.tables, asyncio.get_running_loop(), partial(asks.drop, table_id))
             standings = MemberStandings(tables, presence, asks, scheduler, RecordedChanges())
-            token_carries_agent_facts.set(True)
+            token_carries_agent_facts.set(AgentFacts(owner=OWNER, name="Mozart"))
             return await standings.read(Principal(iss="an-issuer", sub=account_of(skat, agent)), view_uri_of(table_id))
 
         view = asyncio.run(read())
@@ -526,7 +512,7 @@ class TestAPulseOvertakenDuringItsRead:
                 skat.tables, asyncio.get_running_loop(), lambda: armed and overtakes[overtaking]()
             )
             standings = MemberStandings(tables, presence, asks, scheduler, changes)
-            token_carries_agent_facts.set(True)
+            token_carries_agent_facts.set(AgentFacts(owner=OWNER, name="Mozart"))
             await standings.read(Principal(iss="an-issuer", sub=account_of(skat, agent)), view_uri_of(table_id))
             armed.append(True)
             await scheduler.advance(ASK_AGAIN_AFTER)
@@ -560,16 +546,17 @@ class TestAScriptedClientIsAskedAgain:
         assert (answer.is_error, moved["awaits_you"]) == (False, False)
 
 
-async def _inviting(skat, table_id, request):
-    return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), request)
+async def _inviting(skat, table_id, facts):
+    return await run_in_threadpool(
+        skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
+    )
 
 
 def a_standing_change(skat, time):
     """A change of the agent's standing that nobody's removal explains: an invitation to a table of a member."""
     person = skat.member()
     table_id = skat.create(person[0]).json()["id"]
-    request = InvitationRequest(SUBJECT, OWNER, OWNER, time.moment() + timedelta(seconds=INVITATION_SECONDS))
-    skat.client.portal.call(_inviting, skat, table_id, request)
+    skat.client.portal.call(_inviting, skat, table_id, call_facts(SUBJECT, OWNER))
     skat.client.cookies.clear()
 
 

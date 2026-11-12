@@ -2,6 +2,7 @@
 is open, so the book stores only the open invitations and each pair's epoch, never the membership itself.
 """
 
+import math
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
@@ -11,7 +12,7 @@ from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     from skat.table.records import Actor, NewHand
 
@@ -20,19 +21,24 @@ __all__ = [
     "AcceptResult",
     "Acceptance",
     "BookEntry",
+    "CallFacts",
+    "CallOffer",
     "InvitationId",
     "InvitationOffer",
-    "InvitationRequest",
     "InviteRefusal",
     "MemberBook",
     "MemberRefusal",
     "MembershipState",
+    "OfferState",
     "OpenInvitation",
     "TableStanding",
     "agents_seated_at",
+    "call_offer_of",
+    "control_shown",
     "decide_accept",
     "decide_invite",
     "forgotten_if_expired",
+    "offer_of",
     "open_invitation",
     "standings_among",
 ]
@@ -54,11 +60,21 @@ class MemberRefusal(StrEnum):
 
 
 class InviteRefusal(StrEnum):
-    """Why an invitation was not written."""
+    """Why a person's call offers an agent nothing: the one vocabulary of a row's absence and a call's refusal."""
 
     NO_TABLE = "no-table"
-    INVITATION_OPEN = "invitation-open"
-    ALREADY_SEATED = "already-seated"
+    NOT_PRESENT = "not-present"
+    NOT_A_MEMBER = "not-a-member"
+    NOT_OFFERED = "not-offered"
+    OWNER_ABSENT = "owner-absent"
+    NO_FREE_CHAIR = "no-free-chair"
+
+
+class OfferState(StrEnum):
+    """What an agent is to the person who may call it: free to call, or called by that person and not yet answered."""
+
+    AVAILABLE = "available"
+    INVITING = "inviting"
 
 
 class InvitationId(OpaqueId):
@@ -107,13 +123,26 @@ class TableStanding:
 
 
 @dataclass(frozen=True)
-class InvitationRequest:
-    """The invitation a caller asks for: the agent, the people it is bound to, and the instant it expires."""
+class CallFacts:
+    """What the host gathered for one person's call to one agent: the person, whether it is at the table and counts as
+    a member of the group that may call agents, and the agent with whether it listens and who it works for.
+    """
 
+    viewer_account: str
+    viewer_present: bool
+    viewer_is_member: bool
     agent_account: str
+    agent_listens: bool
     owner_account: str
-    inviter_account: str
-    expires_at: datetime
+    owner_present: bool
+
+
+@dataclass(frozen=True)
+class CallOffer:
+    """What a call to one agent comes to now; `ends_in_seconds` is the whole seconds an open invitation still stands."""
+
+    answer: OfferState | InviteRefusal
+    ends_in_seconds: int | None = None
 
 
 @dataclass(frozen=True)
@@ -185,26 +214,65 @@ def agents_seated_at(table: TableRecord) -> frozenset[str]:
     )
 
 
-def decide_invite(
-    table: TableRecord | None,
-    entry: BookEntry | None,
-    request: InvitationRequest,
-    invitation_id: InvitationId,
-    now: datetime,
-) -> tuple[BookEntry, InvitationOffer] | InviteRefusal:
-    """The agent's row with the new invitation and what the agent is shown of it, or why none is written: the table is
-    not live, an invitation to the agent is open, or the agent holds a chair there. Room at the table and the owner's
-    presence are the caller's.
+def control_shown(*, viewer_present: bool, viewer_is_member: bool) -> bool:
+    """Whether the person sees the control that calls agents: at the table and a member of the calling group."""
+    return viewer_present and viewer_is_member
+
+
+def offer_of(
+    facts: CallFacts, table: TableRecord | None, entry: BookEntry | None, now: datetime
+) -> OfferState | InviteRefusal:
+    """What the person's call to the agent comes to, decided in this order: the table is not live; the person is not
+    at it; not a member; the agent does not listen, holds a chair there or is invited there by someone else; the agent
+    is invited by this person already; the owner is not at the table; no chair is free for the agent. A chair left open
+    by a hand that waits for a sitter is free, but an agent that left a chair of that hand is offered that chair only.
     """
     if table is None:
         return InviteRefusal.NO_TABLE
-    if open_invitation(entry, now) is not None:
-        return InviteRefusal.INVITATION_OPEN
-    if seat_of(table, request.agent_account) is not None:
-        return InviteRefusal.ALREADY_SEATED
-    invitation = OpenInvitation(invitation_id.value, request.expires_at, request.owner_account, request.inviter_account)
+    if not control_shown(viewer_present=facts.viewer_present, viewer_is_member=facts.viewer_is_member):
+        return InviteRefusal.NOT_PRESENT if not facts.viewer_present else InviteRefusal.NOT_A_MEMBER
+    invitation = open_invitation(entry, now)
+    invited_by_someone_else = invitation is not None and invitation.inviter_account != facts.viewer_account
+    if not facts.agent_listens or seat_of(table, facts.agent_account) is not None or invited_by_someone_else:
+        return InviteRefusal.NOT_OFFERED
+    if invitation is not None:
+        return OfferState.INVITING
+    if not facts.owner_present:
+        return InviteRefusal.OWNER_ABSENT
+    if free_seat_for(table, facts.agent_account) is None:
+        return InviteRefusal.NO_FREE_CHAIR
+    return OfferState.AVAILABLE
+
+
+def call_offer_of(facts: CallFacts, table: TableRecord | None, entry: BookEntry | None, now: datetime) -> CallOffer:
+    """`offer_of`, with how long the invitation of an inviting row stands, in whole seconds on the same clock."""
+    answer = offer_of(facts, table, entry, now)
+    invitation = open_invitation(entry, now) if answer is OfferState.INVITING else None
+    return CallOffer(answer, None if invitation is None else math.ceil((invitation.expires_at - now).total_seconds()))
+
+
+def decide_invite(
+    table: TableRecord | None,
+    entry: BookEntry | None,
+    facts: CallFacts,
+    invitation_id: InvitationId,
+    now: datetime,
+    lasting: timedelta,
+) -> tuple[BookEntry, InvitationOffer] | InviteRefusal:
+    """The agent's row with the new invitation, which expires `lasting` after `now`, and what the agent is shown of it;
+    or, for a person who already invited the agent, the row as it is; or why the person's call offers nothing.
+    """
+    if table is None:
+        return InviteRefusal.NO_TABLE
+    state = offer_of(facts, table, entry, now)
+    if isinstance(state, InviteRefusal):
+        return state
+    standing = open_invitation(entry, now)
+    if entry is not None and standing is not None:
+        return entry, standing.offered(entry.epoch)
+    invitation = OpenInvitation(invitation_id.value, now + lasting, facts.owner_account, facts.viewer_account)
     epoch = 0 if entry is None else entry.epoch
-    return BookEntry(table.id, request.agent_account, epoch, invitation), invitation.offered(epoch)
+    return BookEntry(table.id, facts.agent_account, epoch, invitation), invitation.offered(epoch)
 
 
 def decide_accept(
