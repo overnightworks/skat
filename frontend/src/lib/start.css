@@ -757,7 +757,7 @@ body {
 }
 
 /* A passed-in hand: the verdict above the line that names the next dealer. */
-.room .plaque:is(.hand-over, .deciding) {
+.room .plaque:is(.hand-over, .deciding, .ramsch) {
     flex-direction: column;
     gap: 4px;
 }
@@ -766,6 +766,20 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* A Ramsch's plaque names the game, then what the table adds: the pushes and their factor, who acts, who is awaited. */
+.room .plaque.ramsch .game:not(:first-child) {
+    font-size: 13px;
+}
+
+.room .plaque.ramsch .game.pushes {
+    color: var(--on-stage-soft);
+}
+
+.room .plaque.ramsch .game.pushes b {
+    color: var(--cream);
+    font-weight: 700;
 }
 
 /* A standing give-up request: the plaque names its asker, and the answers sit under its line. */
@@ -1276,6 +1290,21 @@ body {
     backdrop-filter: blur(12px);
 }
 
+/* The agent on turn in the stage before a Ramsch: the mark stands beside the turn mark and shows its sparkle alone. */
+.room .mark.think {
+    right: 38px;
+    width: 26px;
+    color: var(--accent-stage, #7aa7f0);
+    background: rgba(29, 42, 66, 0.85);
+    box-shadow: inset 0 0 0 1px rgba(122, 167, 240, 0.5);
+    font-size: 0;
+}
+
+.room .mark.think svg {
+    width: 15px;
+    height: 15px;
+}
+
 .room .mark.waits .dot,
 .room .bubble .dot {
     display: grid;
@@ -1410,6 +1439,19 @@ body {
     color: var(--ok-stage);
 }
 
+/* The word of a push stands in a bubble like a bid does, smaller than a number. */
+.room .bubble.word {
+    gap: 5px;
+    padding: 3px 12px 3px 5px;
+    font-size: 17px;
+}
+
+.room .bubble.word .dot {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+}
+
 /* A phone's far bubbles hang below their fans, beside the skat, and below a watcher's card counts. */
 .room .chair:nth-child(1) .bubble {
     right: 15%;
@@ -1467,6 +1509,14 @@ body {
         top: 6px;
         right: auto;
         left: 6px;
+        height: 28px;
+    }
+
+    .room .mark.think {
+        top: 6px;
+        right: auto;
+        left: 40px;
+        width: 28px;
         height: 28px;
     }
 

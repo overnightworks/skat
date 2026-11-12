@@ -283,6 +283,7 @@ class HandAnswer(BaseModel):
     waiting_seat: int | None
     pushing: PushingAnswer | None
     pushes: int
+    push_factor: int
 
 
 class ChairAnswer(BaseModel):
@@ -529,6 +530,7 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         waiting_seat=hand.waiting_seat,
         pushing=pushing_answer_of(hand.pushing),
         pushes=hand.pushes,
+        push_factor=hand.push_factor,
     )
 
 
@@ -728,7 +730,9 @@ def create_tables_router(
         it is its turn. The ids and the version that the caller's moves need come from this answer. A table the
         caller sits at is also a resource of its standing, whose state is this same answer. A result of a declared
         game says how it ended (played-out, given-up or thrown-down) and, for a give-up or a throw-down, the seat that
-        did it. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
+        did it. `hand.pushes` counts the pushes of a Ramsch's skat and `hand.push_factor` is what they multiply the
+        Ramsch's score by, 1 without a push and where the table's pushes do not double; both stay through the Ramsch's
+        play. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
         it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
         moves again once someone sits in the chair. A 404 means no table has this id.
         """

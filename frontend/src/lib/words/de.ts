@@ -55,6 +55,11 @@ export type Words = {
     readonly "table.plays": string;
     readonly "table.chooses": string;
     readonly "table.discards": string;
+    readonly "table.ramsch": string;
+    readonly "table.pushCount": (gaps: { readonly count: number }) => string;
+    readonly "table.pushFactor": (gaps: { readonly factor: string }) => string;
+    readonly "table.push": string;
+    readonly "table.thinks": string;
     readonly "table.dealer": string;
     readonly "table.cardCount": string;
     readonly "table.open": string;
@@ -216,6 +221,11 @@ export const words: Words = {
     "table.plays": "spielt",
     "table.chooses": "wählt",
     "table.discards": "drückt",
+    "table.ramsch": "Ramsch",
+    "table.pushCount": (gaps: { readonly count: number }) => numberFormat.format(gaps.count) + "× geschoben",
+    "table.pushFactor": (gaps: { readonly factor: string }) => "×" + gaps.factor,
+    "table.push": "Schieben",
+    "table.thinks": "denkt",
     "table.dealer": "Geber",
     "table.cardCount": "Karten",
     "table.open": "Offen",

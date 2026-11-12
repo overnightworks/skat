@@ -16,6 +16,7 @@
     import { giveUpView } from "#lib/giveUp.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
+    import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
@@ -30,6 +31,8 @@
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
+    import RamschMarks from "#lib/ui/RamschMarks.svelte";
+    import RamschPlaque from "#lib/ui/RamschPlaque.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
@@ -220,6 +223,32 @@
     }
 </script>
 
+{#snippet cross()}
+    <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.8"
+        stroke-linecap="round"
+        aria-hidden="true"
+    >
+        <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+{/snippet}
+{#snippet check()}
+    <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+    >
+        <path d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+{/snippet}
+
 <svelte:head>
     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
     <title>{`${words["app.name"]}`}</title>
@@ -344,6 +373,9 @@
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
+            {@const ramschTable = outcome.table}
+            {@const ramsch = ramschPlaque(outcome.table)}
+            {@const trick = inPlay?.playing ?? ramschTrick(outcome.table)}
             {@const turnSeat = inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
             {@const settledDeclarerSeat = declared?.declarer_seat ?? inPlay?.declarerSeat}
@@ -371,6 +403,8 @@
                 <div class="plaque">
                     <span>{`${words["table.bidValue"]} ${String(bidValue)}`}</span>
                 </div>
+            {:else if ramsch !== null}
+                <RamschPlaque plaque={ramsch} />
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
                 {#if giveUp !== null}
@@ -423,13 +457,13 @@
             {#if view !== null}
                 <ResultCard {view} />
             {/if}
-            {#if inPlay !== null}
-                <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} {playedThisHand} />
+            {#if trick !== null}
+                <PlayedTrick chairs={outcome.table.chairs} playing={trick} {playedThisHand} />
             {/if}
             {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
             {@const auction = outcome.table.hand?.auction}
             {@const declaring = outcome.table.hand?.declaring}
-            {#if outcome.table.hand !== null && inPlay === null}
+            {#if outcome.table.hand !== null && trick === null}
                 <div class="skat-spot">
                     <FaceDownSkat count={outcome.table.hand.skat_count} />
                 </div>
@@ -452,6 +486,8 @@
                             : declaring
                               ? decidingMarks(declaring, chair.seat, justWon)
                               : chairMarks(auction, chair.seat, ownChair?.seat)}
+                    {@const ramschMark = ramschMarks(ramschTable, chair.seat)}
+                    {@const onTurn = marks.turn || chair.seat === turnSeat || ramschMark.turn}
                     {@const openCards = chair.seat === declaring?.declarer_seat ? declaring.open_cards : []}
                     <li
                         class="chair"
@@ -459,7 +495,7 @@
                         class:away={chair.is_away}
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
-                        class:turn={marks.turn || chair.seat === turnSeat}
+                        class:turn={onTurn}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -508,16 +544,7 @@
                                 {/if}
                                 {#if giveUp?.marks.get(chair.seat) === "declined"}
                                     <span class="mark declined" title={words["table.saidNo"]}>
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2.8"
-                                            stroke-linecap="round"
-                                            aria-hidden="true"
-                                        >
-                                            <path d="M6 6l12 12M18 6L6 18" />
-                                        </svg>
+                                        {@render cross()}
                                     </span>
                                 {/if}
                                 {#if giveUp?.marks.get(chair.seat) === "unanswered"}
@@ -525,7 +552,7 @@
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
-                                {#if marks.turn || chair.seat === turnSeat}
+                                {#if onTurn}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path d="M8 5l11 7-11 7z" />
@@ -533,16 +560,7 @@
                                     </span>
                                 {:else if marks.passed}
                                     <span class="mark pass">
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2.8"
-                                            stroke-linecap="round"
-                                            aria-hidden="true"
-                                        >
-                                            <path d="M6 6l12 12M18 6L6 18" />
-                                        </svg>
+                                        {@render cross()}
                                         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                                         {`${words["table.pass"]}`}
                                     </span>
@@ -555,21 +573,12 @@
                                 {#if marks.bubble}
                                     <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
                                 {/if}
+                                <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
                             {/if}
                             {#if view !== null}
                                 {#if chair.ready}
                                     <span class="mark ready" title={words["table.readyMark"]}>
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="3"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            aria-hidden="true"
-                                        >
-                                            <path d="M5 12.5l4.5 4.5L19 7" />
-                                        </svg>
+                                        {@render check()}
                                     </span>
                                 {:else}
                                     <span class="mark waits" title={words["table.notReadyMark"]}>
@@ -700,17 +709,7 @@
                             disabled={sentFromVersion === table.version && !bar.again}
                             onclick={() => tapWeiter(table)}
                         >
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="3"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                aria-hidden="true"
-                            >
-                                <path d="M5 12.5l4.5 4.5L19 7" />
-                            </svg>
+                            {@render check()}
                             <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                             {`${words["table.weiter"]}`}
                         </button>
