@@ -84,6 +84,7 @@ function table(
         hand: null,
         result: changes === null ? null : result(changes),
         passed_in: null,
+        options: null,
         ended: null,
     };
 }

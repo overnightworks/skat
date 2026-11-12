@@ -8,8 +8,18 @@ import {
     type LEVEL_TOKENS,
     type GAME_TOKENS,
     type AWAITING_TOKENS,
+    type BOCK_OVERLAP_TOKENS,
+    type BOCK_TRIGGER_TOKENS,
+    type DURCHMARSCH_TOKENS,
     type END_REASON_TOKENS,
+    type GRAND_HAND_TOKENS,
+    type JUNGFRAU_TOKENS,
+    type KONTRA_DEADLINE_TOKENS,
+    type KONTRA_REACH_TOKENS,
+    type KONTRA_SAYER_TOKENS,
     type POSITION_TOKENS,
+    type PUSHING_RULE_TOKENS,
+    type RAMSCH_SCORING_TOKENS,
     type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
@@ -83,6 +93,8 @@ export type Playing = {
     last_trick: LastTrick | null;
     // Only the seated player on turn receives the cards they may play.
     legal_cards: Card[];
+    // Both sides' points from completed tricks; null unless the table shows them, and in a Null game and a Ramsch.
+    running_points: Sides | null;
     give_up: GiveUp | null;
 };
 export type Hand = {
@@ -142,6 +154,22 @@ export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended and the whole seconds nobody was there, as stored when it ended.
 export type Ended = { reason: EndReason; empty_seconds: number };
+// The rules a table was opened with, answered to every viewer; a rule that is off is null.
+export type Options = {
+    show_running_points: boolean;
+    kontra: {
+        sayer: (typeof KONTRA_SAYER_TOKENS)[number];
+        reach: (typeof KONTRA_REACH_TOKENS)[number];
+        deadline: (typeof KONTRA_DEADLINE_TOKENS)[number];
+    } | null;
+    bock: { triggers: (typeof BOCK_TRIGGER_TOKENS)[number][]; overlap: (typeof BOCK_OVERLAP_TOKENS)[number] } | null;
+    ramsch: {
+        scoring: (typeof RAMSCH_SCORING_TOKENS)[number];
+        jungfrau: (typeof JUNGFRAU_TOKENS)[number];
+        durchmarsch: (typeof DURCHMARSCH_TOKENS)[number];
+        pushing: { rule: (typeof PUSHING_RULE_TOKENS)[number]; grand_hand: (typeof GRAND_HAND_TOKENS)[number] } | null;
+    } | null;
+};
 export type Table = {
     id: string;
     version: number;
@@ -150,6 +178,8 @@ export type Table = {
     hand: Hand | null;
     result: Result | RamschResult | null;
     passed_in: PassedIn | null;
+    // Null once the table has ended.
+    options: Options | null;
     ended: Ended | null;
 };
 // A chair that was taken: `holder` is who sits there now.
@@ -196,12 +226,17 @@ async function ask(path: string, init?: RequestInit): Promise<Outcome> {
     }
 }
 
-// The command id is the retry key: asking again with the same one and the same length returns the table the first ask opened.
-export function createTable(commandId: string, seriesLength: number): Promise<Outcome> {
+// The command id is the retry key: asking again with the same one, the same length and the same options returns the
+// table the first ask opened. A table opened without options plays the official rules.
+export function createTable(
+    commandId: string,
+    seriesLength: number,
+    options?: { show_running_points: boolean },
+): Promise<Outcome> {
     return ask(TABLES_PATH, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command_id: commandId, series_length: seriesLength }),
+        body: JSON.stringify({ command_id: commandId, series_length: seriesLength, options }),
     });
 }
 

@@ -50,6 +50,25 @@ export const LEVEL_TOKENS = [
     "ouvert",
 ] as const;
 export const END_REASON_TOKENS = ["empty"] as const;
+export const KONTRA_SAYER_TOKENS = ["any-opponent", "bidders-only"] as const;
+export const KONTRA_REACH_TOKENS = ["kontra-re", "kontra-re-standings", "up-to-hirsch"] as const;
+export const KONTRA_DEADLINE_TOKENS = ["own-card", "first-card"] as const;
+export const BOCK_TRIGGER_TOKENS = [
+    "sixty-sixty",
+    "won-grand-hand",
+    "lost-after-kontra",
+    "re",
+    "passed-in",
+    "schneider",
+    "schwarz",
+    "total-ending-in-00",
+] as const;
+export const BOCK_OVERLAP_TOKENS = ["append", "multiply", "ignore"] as const;
+export const RAMSCH_SCORING_TOKENS = ["points", "points-by-ten", "skat-to-loser"] as const;
+export const JUNGFRAU_TOKENS = ["doubles-loser", "off"] as const;
+export const DURCHMARSCH_TOKENS = ["wins-120", "wins-120-flat", "off"] as const;
+export const PUSHING_RULE_TOKENS = ["jacks-stay", "jacks-may-go", "no-doubling"] as const;
+export const GRAND_HAND_TOKENS = ["allowed", "off"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,

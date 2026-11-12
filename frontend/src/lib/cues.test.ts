@@ -56,7 +56,15 @@ function chairsWithCards(cards: [number, number, number]): Chair[] {
 }
 
 function playing(changes: Partial<Playing>): Playing {
-    return { turn_seat: FOREHAND, current_trick: [], last_trick: null, legal_cards: [], give_up: null, ...changes };
+    return {
+        turn_seat: FOREHAND,
+        current_trick: [],
+        last_trick: null,
+        legal_cards: [],
+        running_points: null,
+        give_up: null,
+        ...changes,
+    };
 }
 
 // A table of one hand: `current` and `last` are the playing state, `cards` the cards each chair still holds.
@@ -84,6 +92,7 @@ function table(
         },
         result: null,
         passed_in: null,
+        options: null,
         ended: null,
     };
 }

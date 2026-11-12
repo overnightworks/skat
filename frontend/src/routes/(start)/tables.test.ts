@@ -312,7 +312,16 @@ describe("watchTable after a stream error", () => {
 
 describe("asking for a table", () => {
     const reload = vi.fn();
-    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null, passed_in: null, ended: null };
+    const table = {
+        id: TABLE_ID,
+        version: 1,
+        chairs: [],
+        watchers: 0,
+        hand: null,
+        passed_in: null,
+        options: null,
+        ended: null,
+    };
 
     beforeEach(() => {
         reload.mockClear();
@@ -343,6 +352,18 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(TABLES_PATH);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1", series_length: 30 });
+    });
+
+    it("sends the options only when they are given", async () => {
+        answerWith(Response.json(table));
+        await createTable("command-1", 30, { show_running_points: true });
+
+        const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(JSON.parse((init as { body: string }).body)).toEqual({
+            command_id: "command-1",
+            series_length: 30,
+            options: { show_running_points: true },
+        });
     });
 
     it("sends the command id and the chair when sitting down", async () => {
@@ -543,6 +564,7 @@ describe("what the declaring stage asks of this viewer", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        options: null,
         ended: null,
         hand: {
             dealer_seat: 1,
@@ -590,6 +612,7 @@ describe("the auction's value while declaring", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        options: null,
         ended: null,
         hand: {
             dealer_seat: 1,

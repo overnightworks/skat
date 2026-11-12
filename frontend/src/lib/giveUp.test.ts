@@ -31,6 +31,7 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
         watchers: 0,
         result: null,
         passed_in: null,
+        options: null,
         ended: null,
         hand: {
             dealer_seat: 3,
@@ -59,6 +60,7 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
                 current_trick: [],
                 last_trick: null,
                 legal_cards: [],
+                running_points: null,
                 give_up: request,
             },
         },
