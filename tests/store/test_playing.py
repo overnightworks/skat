@@ -224,6 +224,7 @@ def test_an_opponents_give_up_is_read_back_by_a_new_service_and_the_declarers_ye
     assert game.record.hand is None
     (entry,) = game.record.game_list
     assert (entry.won, entry.ending) == (True, GameEnding.GIVEN_UP)
+    assert (entry.game_value, entry.settled_value, entry.score, entry.declarer_points) == (30, 30, 30, 120)
     assert entry.seat_accounts[entry.ended_by_seat - 1] == game.actors[Position.FOREHAND].account_id
     assert stored_request(engine) == (None, None)
 

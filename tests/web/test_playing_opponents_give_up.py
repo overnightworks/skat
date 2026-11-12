@@ -47,6 +47,7 @@ NULL_DEAL = Deal(
     rearhand=cards("CJ CK SJ SK HJ HK HA D9 DJ DQ"),
     skat=cards("DA DK"),
 )
+# The opponents took 10 + 2 and 4 + 3 points, so the declarer holds 120 - 19 = 101.
 NULL_TWO_TRICKS = game_of("CT C7 CJ / CK CQ C8")
 # Forehand leads an ace, and the partner adds a ten each time: three tricks of 11 + 10 + 0 = 21 points. The declarer
 # holds the Spade Jack and not the Kreuz Jack, so Herz is played "ohne 1".
@@ -146,6 +147,13 @@ def everyones_streams(table):
 def own_cards_of(position):
     """The cards a viewer's frame may carry before any card is played: his own hand, none for the watcher."""
     return set() if position is None else wire_cards(CARDS_BY_SEAT[SEAT[position]])
+
+
+def series_list_of(table):
+    """The numbered entries the series list shows a watcher, as (number, settled value, score)."""
+    table.skat.client.cookies.clear()
+    listing = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
+    return [(row["number"], row["settled_value"], row["score"]) for row in listing.json()["entries"]]
 
 
 def shown(result, expected):
@@ -282,12 +290,14 @@ class TestTheDeclarerAccepts:
                 undecided_herz_at_22,
                 {
                     "won": True,
+                    "bid": 22,
                     "game_value": 30,
                     "settled_value": 30,
                     "score": 30,
                     "multiplier": 3,
                     "declarer_points": 120,
                     "opponents_points": 0,
+                    "gains": gains(80, 0),
                 },
                 id="undecided-the-bid-forces-schneider",
             ),
@@ -295,12 +305,14 @@ class TestTheDeclarerAccepts:
                 herz_at_22_with_42_points_against,
                 {
                     "won": False,
+                    "bid": 22,
                     "overbid": True,
                     "game_value": 20,
                     "settled_value": 30,
                     "score": -60,
                     "declarer_points": 78,
                     "opponents_points": 42,
+                    "gains": gains(-110, 40),
                 },
                 id="decided-lost-the-schneider-is-out-of-reach",
             ),
@@ -314,6 +326,7 @@ class TestTheDeclarerAccepts:
                     "list_bonus": 50,
                     "declarer_points": 70,
                     "opponents_points": 50,
+                    "gains": gains(80, 0),
                 },
                 id="decided-won-with-the-skat-counted",
             ),
@@ -328,17 +341,36 @@ class TestTheDeclarerAccepts:
                     "list_bonus": -50,
                     "declarer_points": 57,
                     "opponents_points": 63,
+                    "gains": gains(-110, 40),
                 },
                 id="decided-lost-the-opponents-hold-more-than-sixty",
             ),
             pytest.param(
                 null_hand_before_a_trick,
-                {"won": True, "matadors": None, "game_value": 35, "score": 35, "list_bonus": 50},
+                {
+                    "won": True,
+                    "matadors": None,
+                    "game_value": 35,
+                    "settled_value": 35,
+                    "score": 35,
+                    "list_bonus": 50,
+                    "declarer_points": 101,
+                    "gains": gains(85, 0),
+                },
                 id="null-hand",
             ),
             pytest.param(
                 null_before_a_trick,
-                {"won": True, "matadors": None, "game_value": 23, "score": 23, "list_bonus": 50},
+                {
+                    "won": True,
+                    "matadors": None,
+                    "game_value": 23,
+                    "settled_value": 23,
+                    "score": 23,
+                    "list_bonus": 50,
+                    "declarer_points": 101,
+                    "gains": gains(73, 0),
+                },
                 id="null",
             ),
         ],
@@ -347,7 +379,21 @@ class TestTheDeclarerAccepts:
         scene(table)
         gives_up(table, FOREHAND)
 
-        assert shown(accepted_end(table), expected) == expected
+        result = accepted_end(table)
+
+        assert shown(result, expected) == expected
+        assert ending_of(result) == ("given-up", SEAT[FOREHAND])
+        (entry,) = table.record.game_list
+        assert (entry.won, entry.game_value, entry.settled_value, entry.score, entry.declarer_points) == (
+            expected["won"],
+            expected["game_value"],
+            expected["settled_value"],
+            expected["score"],
+            expected["declarer_points"],
+        )
+        assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, SEAT[FOREHAND])
+        assert series_list_of(table) == [(1, expected["settled_value"], expected["score"])]
+        assert table.result() == result
 
     def test_each_opponent_gives_up_the_same_state_for_the_same_result(self, skat):
         results = []
@@ -381,22 +427,6 @@ class TestTheDeclarerAccepts:
 
         assert reads[0] == reads[1] == [asked_by(FOREHAND)] * 4
         assert results[0] == results[1] == HERZ_HAND_RESULT
-
-    def test_the_stored_entry_is_valued_against_its_bid_and_the_list_and_gains_follow(self, table):
-        undecided_herz_at_22(table)
-        gives_up(table, REARHAND)
-
-        result = accepted_end(table)
-
-        (entry,) = table.record.game_list
-        assert (entry.won, entry.bid, entry.game_value, entry.settled_value, entry.score) == (True, 22, 30, 30, 30)
-        assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, SEAT[REARHAND])
-        assert result["gains"] == gains(80, 0)
-        table.skat.client.cookies.clear()
-        listing = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
-        listed = listing.json()["entries"]
-        assert [(row["number"], row["settled_value"], row["score"]) for row in listed] == [(1, 30, 30)]
-        assert table.result() == result
 
     def test_every_viewer_reads_the_same_result_and_no_card_after_the_end(self, table):
         table.declared_grand_ouvert()
