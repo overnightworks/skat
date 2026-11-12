@@ -1076,6 +1076,7 @@ const IDEAS=[
   ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-sent, nudge-mine'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
+  ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-discard-open, push-wait, push-taken, push-pushed, push-pushed-chairs, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -1565,17 +1566,19 @@ Object.assign(I,{
 const TABLE_RULES=[
   {id:'points',ic:I.points,chip:'Augen',name:'Laufende Augen zeigen',settings:'Aus fertigen Stichen, nie in einer Null'},
   {id:'kontra',ic:I.kontra,chip:'Kontra',name:'Kontra und Re',settings:'Nur wer gereizt hat; bis Hirsch; bis zur eigenen Karte'},
+  {id:'ramsch',ic:I.ramsch,chip:'Ramsch',name:'Ramsch beim Einpassen',settings:'Meiste Augen minus; Jungfrau ×2; Durchmarsch +120'},
+  {id:'schieben',ic:I.schieben,name:'Schieberamsch',settings:'Ohne Buben, je doppelt'},
   {id:'bock',ic:I.bock,chip:'Bock',name:'Bockrunden',settings:'Bei 60 zu 60, Schneider und Schwarz; neue Runden hängen sich an'},
 ];
 const ANNAS_RULES=['points','kontra','bock'];
-const ruleChips=(on)=>`<span class="chips">${on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
+const ruleChips=(on)=>`<span class="chips">${on.length?TABLE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
 /* the chips are one tap target; centred above the felt, or starting at x */
 const rulePill=(x,y,on,o={})=>`<div class="rulepill ${o.mid?'mid':''} ${o.open?'on':''}" role="button" aria-label="Regeln" style="${at({left:x,top:y})}">${ruleChips(on)}</div>`;
 const ruleRows=(on)=>on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<div class="rrow"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.settings}</small></span></div>`).join(''):'';
-const rulesSheet=(d)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:8,ANNAS_RULES,{mid:true,open:true})
+const rulesSheet=(d,on=ANNAS_RULES)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:8,on,{mid:true,open:true})
   +`<div class="result rules" role="dialog" aria-label="Regeln" style="${at({left:d?640:195,top:d?84:76,width:d?460:354,'z-index':'50'})}"><h3>Regeln</h3>
   <span class="lockbadge" role="status">${I.lock}Fest für diesen Tisch<span class="info" role="button" tabindex="0" aria-label="Info" title="Andere Regeln heißen neuer Tisch.">i</span></span>
-  <div class="rrows">${ruleRows(ANNAS_RULES)}</div>
+  <div class="rrows">${ruleRows(on)}</div>
   <div class="btns"><span class="button button-glass">Schließen</span></div></div>`;
 /* during play the series count and the chips share the top; on a phone the chips take a row of their own and the two top chairs step down */
 const DROP=14;
@@ -1925,6 +1928,12 @@ const LIST_WITH_RAMSCH=GAMES_PLAYED.filter(r=>r[0]<=10).map(r=>r[0]===8?{n:8,k:'
 RAMSCH_SCENES.push(
   ['ramsch-list','Liste mit einem Ramsch',[390],(d)=>seriesPlay(d,'')+gameList(d,LIST_WITH_RAMSCH,11),
     ['Die Liste der Spiele mit der Zeile „Ramsch, Ben −344“ und „2× geschoben“ klein darunter, zwischen zwei Spielen mit Alleinspieler.']],
+);
+/* a table with Ramsch and the pushing rule: its chip in the pill, its rows in the sheet */
+const RAMSCH_RULES=['kontra','ramsch','schieben','bock'];
+RAMSCH_SCENES.push(
+  ['rules-ramsch','Die Regeln mit Ramsch',[390],(d)=>S3.watch(d)+rulesSheet(d,RAMSCH_RULES),
+    ['Ein Tisch mit Ramsch trägt die Marke „Ramsch“ im Regel-Knopf; die Regeln zeigen „Ramsch beim Einpassen“ und, wenn es gilt, „Schieberamsch“ mit dem Namen der Regel, „Ohne Buben, je doppelt“.']],
 );
 agentScenes(RAMSCH_SCENES);
 
