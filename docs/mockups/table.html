@@ -613,6 +613,19 @@ body.solo section.shot .rule{display:none}
 .mark.shaken::after{right:-10px;border-left:0}
 .result.closed .line{font-size:15px;line-height:1.4;font-weight:400;color:var(--on-stage-soft);text-align:center}
 </style>
+<style>
+/* ---------- Schieberamsch: the count line on the plaque, the word at a chair that pushed ---------- */
+.p390 .push-row .button{padding:0 16px;gap:8px}
+.p360 .plaque.ramsch{padding:8px 8px 10px}
+.p360 .plaque.ramsch .game:not(:first-child){font-size:13px}
+.p360 .plaque.ramsch .game.pushes{font-size:12px}
+.game.pushes{font-size:13px;color:var(--on-stage-soft)}
+.game.pushes b{color:var(--cream);font-weight:700}
+.bubble.word{font-size:17px;padding:3px 12px 3px 5px;gap:5px}
+.bubble.word .dot{width:22px;height:22px;font-size:11px}
+.bubble.word .dot svg{width:13px;height:13px}
+.value.loss{color:#ff8a8f}
+</style>
 </head>
 <body>
 <header class="page-head">
@@ -1057,6 +1070,7 @@ const IDEAS=[
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
+  ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. (S11.9p)','stand-play, stand-arm, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
@@ -1422,9 +1436,13 @@ const GAMES_PLAYED=[[1,'felix','c','Kreuz','mit 2',36,true],[2,'anna','h','Herz'
 const gameRow=([n,k,suit,name,levels,value,won])=>{const p=P[k],gain=won?value+LIST_BONUS:-2*value-LIST_BONUS;
   return `<div class="grow"><span class="nr">${n}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
     +`<span class="txt"><b>${p.n}</b><small>${suit?`<span class="pip">${suitIcon(suit)}</span>`:''}${name}${levels?` ${levels}`:''}</small></span><span class="val">${value}</span><span class="gain ${won?'':'minus'}">${signed(gain)}</span></div>`;};
-const gameList=(d)=>`<div class="scrim over"></div>`+seriesCount(d,GAMES_PLAYED.length+3,{open:true})
+/* a Ramsch has no declarer: its row names the loser and what the game cost, and how often the skat was pushed */
+const ramschRow=({n,k,score,pushes})=>{const p=P[k];
+  return `<div class="grow"><span class="nr">${n}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
+    +`<span class="txt"><b>Ramsch, ${p.n}</b>${pushes?`<small>${pushes}× geschoben</small>`:''}</span><span class="val"></span><span class="gain minus">${withMinus(score)}</span></div>`;};
+const gameList=(d,rows=GAMES_PLAYED,count=GAMES_PLAYED.length+3)=>`<div class="scrim over"></div>`+seriesCount(d,count,{open:true})
   +`<div class="result gamelist" role="dialog" aria-label="Spiele der Serie" style="${at(d?{left:640,top:62,width:560,height:620,'z-index':'50'}:{left:195,top:50,width:354,height:660,'z-index':'50'})}">
-  <h3>Spiele</h3><div class="rows" tabindex="0">${[...GAMES_PLAYED].reverse().map(gameRow).join('')}</div></div>`;
+  <h3>Spiele</h3><div class="rows" tabindex="0">${[...rows].reverse().map(r=>Array.isArray(r)?gameRow(r):ramschRow(r)).join('')}</div></div>`;
 
 /* between two games a seated member proposes the end; the other two answer, and no standings show yet */
 const askEnd=(d)=>dealRoom(d,{watchers:1})+seriesCount(d,8)
@@ -1536,22 +1554,26 @@ Object.assign(I,{
   kontra:sv('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',2),
   bock:sv('<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/>',1.8),
   lock:sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>'),
+  ramsch:sv('<path d="M12 4v10M7 10l5 5 5-5M5 20h14"/>',2.2),
+  schieben:sv('<path d="M4 12h14M13 6l6 6-6 6"/>',2.2),
 });
 /* the rules a table can have today; each carries its chip, its name and its settings as short words */
 const TABLE_RULES=[
   {id:'points',ic:I.points,chip:'Augen',name:'Laufende Augen zeigen',settings:'Aus fertigen Stichen, nie in einer Null'},
   {id:'kontra',ic:I.kontra,chip:'Kontra',name:'Kontra und Re',settings:'Nur wer gereizt hat; bis Hirsch; bis zur eigenen Karte'},
+  {id:'ramsch',ic:I.ramsch,chip:'Ramsch',name:'Ramsch beim Einpassen',settings:'Meiste Augen minus; Jungfrau ×2; Durchmarsch +120'},
+  {id:'schieben',ic:I.schieben,name:'Schieberamsch',settings:'Ohne Buben, je doppelt'},
   {id:'bock',ic:I.bock,chip:'Bock',name:'Bockrunden',settings:'Bei 60 zu 60, Schneider und Schwarz; neue Runden hängen sich an'},
 ];
 const ANNAS_RULES=['points','kontra','bock'];
-const ruleChips=(on)=>`<span class="chips">${on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
+const ruleChips=(on)=>`<span class="chips">${on.length?TABLE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
 /* the chips are one tap target; centred above the felt, or starting at x */
 const rulePill=(x,y,on,o={})=>`<div class="rulepill ${o.mid?'mid':''} ${o.open?'on':''}" role="button" aria-label="Regeln" style="${at({left:x,top:y})}">${ruleChips(on)}</div>`;
 const ruleRows=(on)=>on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<div class="rrow"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.settings}</small></span></div>`).join(''):'';
-const rulesSheet=(d)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:8,ANNAS_RULES,{mid:true,open:true})
+const rulesSheet=(d,on=ANNAS_RULES)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:8,on,{mid:true,open:true})
   +`<div class="result rules" role="dialog" aria-label="Regeln" style="${at({left:d?640:195,top:d?84:76,width:d?460:354,'z-index':'50'})}"><h3>Regeln</h3>
   <span class="lockbadge" role="status">${I.lock}Fest für diesen Tisch<span class="info" role="button" tabindex="0" aria-label="Info" title="Andere Regeln heißen neuer Tisch.">i</span></span>
-  <div class="rrows">${ruleRows(ANNAS_RULES)}</div>
+  <div class="rrows">${ruleRows(on)}</div>
   <div class="btns"><span class="button button-glass">Schließen</span></div></div>`;
 /* during play the series count and the chips share the top; on a phone the chips take a row of their own and the two top chairs step down */
 const DROP=14;
@@ -1771,6 +1793,136 @@ const agentScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.fo
   frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,notes);
   ORDER.push(`${id}-${w}`);}));
 agentScenes(AGENT_SCENES);
+
+/* ===== Schieberamsch: after three passes the table plays Ramsch; each seat takes the skat or pushes it on unseen ===== */
+I.push=I.schieben;
+/* the plaque: „Ramsch“, then what the table adds; o.count is 'line' (n× geschoben ×factor under the name), 'flat' (the same without the factor) */
+const pushLine=(n,factor)=>`<div class="game pushes">${n}× geschoben${factor?` <b>×${2**n}</b>`:''}</div>`;
+const ramschLines=(o)=>1+(o.count==='line'||o.count==='flat'?1:0)+(o.who?1:0)+(o.wait?1:0);
+/* on a phone only the wait line is wide enough to reach the fans, so only it steps down */
+const ramschTop=(d,o)=>d||!o.wait?plaqueY(d):FANS_CLEAR;
+const PLAQUE_LINE=27,PLAQUE_ONE=38;
+const ramschBottom=(d,o)=>ramschTop(d,o)+PLAQUE_ONE+PLAQUE_LINE*(ramschLines(o)-1);
+const ramschPlaque=(d,o={})=>plaque(mid(d),ramschTop(d,o),'<div class="game">Ramsch</div>'
+  +(o.count==='line'||o.count==='flat'?pushLine(o.pushes,o.count==='line'):'')
+  +(o.who?`<div class="game">${o.who}${waitDots()}</div>`:'')+(o.wait?WAIT_LINE:'')).replace('class="plaque"','class="plaque ramsch"');
+/* the skat lies under the plaque; its line count decides how low */
+const stageSkatY=(d,o)=>d?Math.max(190,ramschBottom(d,o)+16):Math.max(240,ramschBottom(d,o)+14);
+const stageSkat=(d,o)=>d?skat(584,stageSkatY(d,o),80):skat(PB.cx-41,stageSkatY(d,o),52);
+/* the felt of a 360 frame is 64 px shorter than the 390 one: what stands in its middle moves up by half */
+const feltShift=(d)=>d?0:(PB.you.y-496)/2;
+const stageRow=(d,discard)=>d?(discard?420:412):380+feltShift(d);
+const pushButtons=(d)=>row(mid(d),stageRow(d),`<span class="button button-stage">${I.up}Skat nehmen</span><span class="button button-glass">${I.push}Schieben</span>`).replace('class="btns"','class="btns push-row"');
+const putBackButton=(d)=>row(mid(d),stageRow(d,true),`<span class="button button-stage unlock">${I.down}Drücken</span>`);
+const feltGhosts=(d)=>d?ghost(596,300,80,I.down)+ghost(684,300,80,I.down):ghost(PB.cx-32,300+feltShift(d),56,I.down)+ghost(PB.cx+32,300+feltShift(d),56,I.down);
+const felixGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,PB.you.y+64,240,120);
+/* the word at the chair that pushed, where a bid word stands */
+const PUSH_BUBBLE_W=120;
+const pushBubble=(d,who,o={})=>{const L=seatsOf(d),seat_=who==='anna'?L.anna:L.nova,centre=seat_.x+seat_.w/2;
+  const x=d?(who==='anna'?44:1065):(who==='anna'?seat_.x+4:seat_.x+seat_.w-PUSH_BUBBLE_W),y=d?392:Math.max(228,ramschBottom(d,o)+8);
+  return bubble(who,'Schieben',{x,y,tail:`${Math.round((centre-x)/PUSH_BUBBLE_W*100)}%`}).replace('class="bubble','class="bubble word');};
+/* Felix's own hand while the skat is open: ten cards that rest, at a width that keeps the 16 px gutters on a 360 frame */
+const narrow=()=>PB.cx===180;
+const restingHand=(d)=>ownHand(d,BID_HAND,d||!narrow()?{}:{w:56,strip:{base:28}});
+/* the twelve cards of a put-back: a strip that scales with the viewport as the page's picking strip does */
+const twelveStrip=(d)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,rot:.6,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
+const JACKS_DARK=TAKEN_HAND.map(([r,s,c])=>r==='B'?[r,s,'no']:[r,s,c]);
+const sideCount=(d,n)=>d?cardsAt(n,952,340):cardsAt(n,PB.cx+(narrow()?94:115),200);
+const underCount=(d,n)=>d?cardsAt(n,420,600):cardsAt(n,PB.cx+55,PB.you.y-40);
+/* the table of every stage scene: chairs, fans, plaque and the skat, the viewer's hand and strip are the scene's */
+const pushTable=(d,o)=>{const L=seatsOf(d),m=o.marks||{};
+  return tableOf(d,{fans:0,count:true,glow:o.glow,watchers:o.watchers})+sideFans(d,o.left??10,o.right??10)
+    +ramschPlaque(d,o.plaque||{})+(o.skat===false?'':stageSkat(d,o.plaque||{}))+(o.extra||'')
+    +seat('anna',{...L.anna,marks:m.anna||[]})+(o.free?freeSeat(L.nova,{idle:true}):seat(o.east||'nova',{...L.nova,marks:m.east||[]}))+seat(o.near||'felix',{...L.you,marks:m.you||[]})
+    +chairCoasters(L,TOTALS_BEFORE);};
+const RAMSCH_SCENES=[
+  ['push-mine','Ramsch: Skat nehmen oder schieben',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['Alle drei haben gepasst, es wird Ramsch: die Tafel sagt „Ramsch“, Felix ist Vorhand und dran; der Skat liegt verdeckt, darunter „Skat nehmen“ und „Schieben“; seine zehn Karten ruhen.','Gezählt bei 360: die zwei Tasten sind 299 von 328 Pixeln breit (Skat nehmen mit Zeichen 160, Schieben 129, dazwischen 10), die zehn Karten stehen in einem Streifen von 308, die zwölf des Zurücklegens in einem von 319.']],
+  ['push-discard','Ramsch: zwei Karten zurücklegen',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),skat:false,marks:{you:['turn']},extra:feltGhosts(d)})+putBackButton(d)
+    +ownHand(d,JACKS_DARK,twelveStrip(d))+tableBar(d),
+    ['Felix nahm den Skat: zwölf Karten, zwei gewählt und gehoben, zwei Lücken im Skat, „Drücken“; seine Buben sind dunkel und lassen sich nicht wählen.']],
+  ['push-wait','Ramsch: Anna wählt',[390,1280],(d)=>pushTable(d,{glow:annaTurn(d),plaque:{who:'Anna wählt'},marks:{anna:['turn']}})+restingHand(d)+tableBar(d),
+    ['Felix ist Mittelhand: „Ramsch · Anna wählt…“, Annas Stuhl ist dran, der Skat liegt, Felix hat keine Taste.']],
+  ['push-taken','Ramsch: Anna drückt',[390,1280],(d)=>pushTable(d,{glow:annaTurn(d),left:12,skat:false,plaque:{who:'Anna drückt'},marks:{anna:['turn']},extra:leftCount(d,12)})+restingHand(d)+tableBar(d),
+    ['Anna nahm: ihr Fächer und ihre Zahl zeigen 12, der Skat-Platz ist leer, „Ramsch · Anna drückt…“.']],
+  ['push-pushed','Ramsch: einmal geschoben',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'line',pushes:1},marks:{you:['turn']},extra:pushBubble(d,'anna',{count:'line',pushes:1})})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['Anna schob: die Blase „Schieben“ an ihrem Stuhl, die Tafel „Ramsch · 1× geschoben ×2“, Felix ist dran und hat seine zwei Tasten.']],
+  ['push-agent','Ramsch: Nova ist dran',[390,1280],(d)=>pushTable(d,{glow:novaGlow(d),plaque:{count:'line',pushes:2,who:'Nova wählt'},marks:{east:['turn','think']}})+restingHand(d)+tableBar(d),
+    ['Anna und Felix schoben, Nova ist Hinterhand und dran: „denkt“ an ihrer Kugel, „Ramsch · 2× geschoben ×4 · Nova wählt…“.']],
+  ['push-flat','Ramsch: geschoben ohne Verdoppeln',[390],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'flat',pushes:2},marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['An einem Tisch „ohne Verdoppeln“: „Ramsch · 2× geschoben“ ohne Faktor.']],
+  ['push-watch','Ramsch: Zuschauen',[360,390,1280],(d)=>pushTable(d,{glow:annaTurn(d),near:'lena',east:'ben',left:12,skat:false,watchers:3,plaque:{who:'Anna drückt'},marks:{anna:['turn']},
+      extra:nearFan(d,10)+leftCount(d,12)+sideCount(d,10)+underCount(d,10)})+tableBar(d),
+    ['Lena schaut zu: dieselbe Tafel, von allen nur Rückseiten und Zahlen, 12 bei Anna nach ihrem Nehmen, keine Taste.']],
+  ['push-open','Ramsch: Platz frei',[390,1280],(d)=>pushTable(d,{free:true,plaque:{wait:true}})+openNotice(d)+restingHand(d)+stripOf(d,{lead:'',pill:agentPill(d)}),
+    ['Novas Stuhl ist frei geworden: „Ramsch · Warte auf Mitspieler“, niemand ist dran, keine Taste für irgendwen, der Skat liegt, der Hinweis „Nova ist gegangen“.']],
+];
+/* the Ramsch's play: no declarer, no running points; the plaque keeps the count of pushes to the last trick */
+const ramschPlay=(d,plaque)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,glow:felixGlow(d)})+ramschPlaque(d,plaque)+announcedTrick(d)
+    +seat('anna',L.anna)+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownHand(d,PLAY_HAND,{swipe:true})+tableBar(d);};
+RAMSCH_SCENES.push(
+  ['ramsch-play','Ramsch: der Stich',[390,1280],(d)=>ramschPlay(d,{count:'line',pushes:2}),
+    ['Nach Hinterhand spielt Vorhand aus: „Ramsch · 2× geschoben ×4“, der Stich in der Mitte, Felix\' spielbare Karten leuchten; kein Alleinspieler.']],
+);
+/* ===== the Ramsch's result: nobody plays against anybody, the most eyes lose them as minus points; the card shows how the number comes about ===== */
+/* eyes and tricks are listed in the order of the coasters' adds: Anna, Ben, the viewer's own chair */
+const RAMSCH_SEATS=(o)=>['Anna','Ben',P[o.near].n];
+const SWEEP_SCORE=120;
+/* the reckoning is derived from the table's parts as the rules say (the most eyes lose them; each push doubles unless the table does not double; a seat without a trick doubles the loser's score; ten tricks score 120 and the others nothing); a scene whose coasters disagree fails loud */
+function ramschReckon(o){
+  const r=o.ramsch,factor=r.doubling===false?1:2**r.pushes,sweeper=r.tricks.indexOf(10),most=Math.max(...r.eyes);
+  if(r.eyes.reduce((a,b)=>a+b,0)!==120)throw new Error(`${o.id}: the eyes add up to ${r.eyes.reduce((a,b)=>a+b,0)}, not 120`);
+  if(sweeper<0&&r.eyes.filter(e=>e===most).length>1)throw new Error(`${o.id}: a tie of losers is not drawn`);
+  const jungfrau=sweeper<0&&r.tricks.includes(0),value=sweeper>=0?SWEEP_SCORE*factor:most*factor*(jungfrau?2:1);
+  const want=r.eyes.map((e,i)=>sweeper>=0?(i===sweeper?value:0):(e===most?-value:0));
+  o.adds.forEach((n,i)=>{if(n!==want[i])throw new Error(`${o.id}: coaster ${i} shows ${n}, the reckoning gives ${want[i]}`);});
+  return {value,factor,jungfrau,sweeper,loser:sweeper>=0?-1:r.eyes.indexOf(most),most};
+}
+const ramschHead=(o,r)=>r.sweeper===2?['Gewonnen!',I.check,false]:r.sweeper>=0?['Durchmarsch','',false]
+  :r.loser===2?['Verloren',I.cross,true]:[`${RAMSCH_SEATS(o)[r.loser]} verliert`,'',false];
+const ramschCard=(d,o)=>{const r=ramschReckon(o),[word,icon,lost]=ramschHead(o,r),names=RAMSCH_SEATS(o),pushes=o.ramsch.pushes;
+  const chips=[...(pushes?[`${pushes}× geschoben${o.ramsch.doubling===false?'':` ×${r.factor}`}`]:[]),...(r.jungfrau?['Jungfrau ×2']:[])];
+  const strong=r.sweeper>=0?r.sweeper:r.loser;
+  const eyes=[2,0,1].map(i=>`<span>${i===strong?`<b>${names[i]} ${o.ramsch.eyes[i]}</b>`:`${names[i]} ${o.ramsch.eyes[i]}`}</span>`).join('');
+  return `<div class="result end ${lost?'lost':''} snug" role="status" style="${at(d?{left:640,top:112,width:470}:{left:195,top:160,width:354})}">
+  <h3>${icon}${word}</h3>
+  <div class="sub"><div class="game"><span class="suit" style="color:var(--ink)">${I.ramsch}</span>Ramsch</div></div>
+  <div class="eq"><span>${r.sweeper>=0?SWEEP_SCORE:r.most} Augen</span></div>
+  ${chips.length?levelRow(chips.map(c=>[c,'held'])):''}
+  <div class="value-row"><div class="value ${r.sweeper>=0?'':'loss'}">${r.sweeper>=0?signed(r.value):withMinus(-r.value)}</div></div>
+  <div class="list">${eyes}</div>
+  ${reckoning(o)}</div>`;};
+const ramschEnd=(d,o)=>dealRoom(d,{watchers:1})+ramschCard(d,o)+endSeats(d,o)+endBar(d,tapButton);
+const RAMSCH_BASE={near:'felix',ready:[],winners:[]};
+const RAMSCH_LOST={...RAMSCH_BASE,id:'ramsch-lost',adds:[0,0,-344],ramsch:{eyes:[20,14,86],tricks:[3,2,5],pushes:2}};
+const RAMSCH_OTHER={...RAMSCH_BASE,id:'ramsch-other',adds:[0,-86,0],ramsch:{eyes:[14,86,20],tricks:[3,5,2],pushes:0}};
+const RAMSCH_JUNGFRAU={...RAMSCH_BASE,id:'ramsch-jungfrau',adds:[0,-172,0],ramsch:{eyes:[0,86,34],tricks:[0,6,4],pushes:0}};
+const RAMSCH_SWEEP={...RAMSCH_BASE,id:'ramsch-durchmarsch',adds:[120,0,0],winners:['anna'],ramsch:{eyes:[120,0,0],tricks:[10,0,0],pushes:0}};
+RAMSCH_SCENES.push(
+  ['ramsch-lost','Ramsch verloren',[390,1280],(d)=>ramschEnd(d,RAMSCH_LOST),
+    ['Felix hat die meisten Augen: „Verloren“, „Ramsch“, „86 Augen“, „2× geschoben ×4“, −344; darunter Felix 86, Anna 20, Ben 14 und die Deckel −344, 0, 0; „Weiter“.']],
+  ['ramsch-other','Ramsch, Ben verliert',[390,1280],(d)=>ramschEnd(d,RAMSCH_OTHER),
+    ['Ein Ramsch ohne Schieben, Ben verliert: „Ben verliert“, „86 Augen“, −86; bei Felix 0.']],
+  ['ramsch-jungfrau','Ramsch mit Jungfrau',[390],(d)=>ramschEnd(d,RAMSCH_JUNGFRAU),
+    ['Anna machte keinen Stich: in der Rechnung „Jungfrau ×2“, Ben −172.']],
+  ['ramsch-durchmarsch','Durchmarsch',[390],(d)=>ramschEnd(d,RAMSCH_SWEEP),
+    ['Anna machte alle Stiche: „Durchmarsch“, Anna +120, die anderen 0.']],
+);
+/* the list of games with a Ramsch between two declared games; the row of game 8 is a Ramsch, and the list ends at game 10 so it shows */
+const LIST_WITH_RAMSCH=GAMES_PLAYED.filter(r=>r[0]<=10).map(r=>r[0]===8?{n:8,k:'ben',score:-344,pushes:2}:r);
+RAMSCH_SCENES.push(
+  ['ramsch-list','Liste mit einem Ramsch',[390],(d)=>seriesPlay(d,'')+gameList(d,LIST_WITH_RAMSCH,11),
+    ['Die Liste der Spiele mit der Zeile „Ramsch, Ben −344 · 2× geschoben“ zwischen zwei Spielen mit Alleinspieler.']],
+);
+/* a table with Ramsch and the pushing rule: its chip in the pill, its rows in the sheet */
+const RAMSCH_RULES=['kontra','ramsch','schieben','bock'];
+RAMSCH_SCENES.push(
+  ['rules-ramsch','Die Regeln mit Ramsch',[390],(d)=>S3.watch(d)+rulesSheet(d,RAMSCH_RULES),
+    ['Die Regeln eines Tischs mit Ramsch: die Marke „Ramsch“ im Regel-Knopf, die Zeilen „Ramsch beim Einpassen“ und „Schieberamsch, ohne Buben, je doppelt“.']],
+);
+agentScenes(RAMSCH_SCENES);
 
 /* ===== S11.9p: standing up during a hand ===== */
 /* during a hand the strip has no room for two words on a phone: one of the two keys goes round; at 1280 both keep their word */
