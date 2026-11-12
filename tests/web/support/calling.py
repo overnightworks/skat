@@ -85,3 +85,10 @@ def offer_of(agent):
     """The agent's only open invitation as `accept` takes it."""
     (standing,) = invitations_of(agent)
     return SimpleNamespace(id=standing["invitation"]["id"], epoch=standing["invitation"]["epoch"])
+
+
+def seat_of_nobody_but(skat, table_id, count):
+    """`count` more people sit down at the table."""
+    for seat in range(2, 2 + count):
+        skat.sit(skat.member()[0], table_id, seat, command_id=f"command-sit-{seat}")
+    skat.client.cookies.clear()
