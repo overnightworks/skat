@@ -151,6 +151,7 @@ export type Words = {
     readonly "agents.refusalAgentUnavailable": string;
     readonly "agents.refusalTryAgain": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
+    readonly "logout.button": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -335,5 +336,6 @@ export const words: Words = {
     "agents.refusalAgentUnavailable": "Der Agent ist gerade nicht erreichbar.",
     "agents.refusalTryAgain": "Das hat nicht geklappt. Versuch es noch einmal.",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
+    "logout.button": "Abmelden",
 };
 export type Key = keyof Words;

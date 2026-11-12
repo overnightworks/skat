@@ -606,3 +606,7 @@ msgstr ""
 msgctxt "table.agentSits"
 msgid "{name} setzt sich"
 msgstr ""
+
+msgctxt "logout.button"
+msgid "Abmelden"
+msgstr ""

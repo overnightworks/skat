@@ -153,6 +153,7 @@ type Key = Literal[
     'agents.refusalAgentUnavailable',
     'agents.refusalTryAgain',
     'table.agentSits',
+    'logout.button',
 ]
 type Language = Literal[
     'de',
@@ -333,6 +334,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'agents.refusalAgentUnavailable': 'Der Agent ist gerade nicht erreichbar.',
         'agents.refusalTryAgain': 'Das hat nicht geklappt. Versuch es noch einmal.',
         'table.agentSits': '{name} setzt sich',
+        'logout.button': 'Abmelden',
     },
 }
 
