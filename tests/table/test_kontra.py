@@ -14,6 +14,7 @@ from skat.engine.kontra import (
     Word,
     WordSaid,
 )
+from skat.table.awaiting import awaits_you
 from skat.table.hand_state import doubling_of, playing_of
 from skat.table.kontra import (
     KontraCommand,
@@ -39,6 +40,7 @@ from skat.table.records import (
     parsed_refusal,
 )
 from skat.table.rules import create_payload
+from skat.table.views import view_of
 from tests.support.played_game import HERZ_HAND, a_whole_game, before_the_last_card, declared_herz_hand, table_in
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -196,6 +198,15 @@ def answer_as(table, position, version=VERSION):
     return decide_kontra(table, actor(position), KontraCommand("command-1", table.id.value, version, None))
 
 
+def waking_view(table, position):
+    """The word the seat's own view names, whether it has answered it and whether the table waits for it; the seats
+    that speak are off turn while nobody has played a card, forehand leading.
+    """
+    view = view_of(table, actor(position).account_id, frozenset())
+    kontra = view.hand.playing.kontra
+    return kontra.my_word, kontra.my_word_answered, awaits_you(view)
+
+
 class TestAnsweringNoWord:
     def test_an_opponent_answers_no_word_and_the_answer_is_kept_with_a_risen_version(self):
         decision = answer_as(kontra_table(), FOREHAND)
@@ -231,15 +242,20 @@ class TestAnsweringNoWord:
         assert doubling_of(said.table).factor == 2
         assert doubling_of(answered) == Doubling.start()
 
-    def test_the_declarer_answers_the_stage_after_a_kontra_and_the_kontra_opponent_the_one_after_re(self):
-        table = with_words(kontra_table(options_of(reach=KontraReach.UP_TO_HIRSCH)), WordSaid(FOREHAND, KONTRA, 0))
-        no_re = answer_as(table, MIDDLEHAND).table
-        with_re = with_words(no_re, WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0))
+    def test_each_stage_is_answered_on_its_own_and_the_wake_ends_with_the_answer_through_hirsch(self):
+        table = kontra_table(options_of(reach=KontraReach.UP_TO_HIRSCH))
+        stages = ((REARHAND, KONTRA), (MIDDLEHAND, RE), (REARHAND, SUPRA), (MIDDLEHAND, HIRSCH))
+        said = []
 
-        no_supra = answer_as(with_re, FOREHAND, with_re.version).table
+        for position, word in stages:
+            before = waking_view(table, position)
+            table = answer_as(table, position, table.version).table
+            after = waking_view(table, position)
+            said.append(WordSaid(position, word, 0))
+            table = with_words(table, *said)
 
-        assert no_re.progress.no_words == frozenset({NoWordSaid(MIDDLEHAND, RE)})
-        assert no_supra.progress.no_words == frozenset({NoWordSaid(MIDDLEHAND, RE), NoWordSaid(FOREHAND, SUPRA)})
+            assert (before, after) == ((word, False, True), (word, True, False))
+        assert table.progress.no_words == {NoWordSaid(position, word) for position, word in stages}
 
     @pytest.mark.parametrize(
         ("table", "position", "version", "expected"),
