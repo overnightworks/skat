@@ -91,6 +91,7 @@ type Key = Literal[
     'result.missedSchneider',
     'result.missedSchwarz',
     'result.raise',
+    'result.bockFactor',
     'result.sidePoints',
     'closed.notFound',
     'closed.emptySeconds',
@@ -270,6 +271,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'result.missedSchneider': 'Schneider angesagt, nicht erreicht',
         'result.missedSchwarz': 'Schwarz angesagt, nicht erreicht',
         'result.raise': 'Wert {value} < Reizwert {bid} → {settled}',
+        'result.bockFactor': 'Bock ×{factor}',
         'result.sidePoints': '{side} {points}',
         'closed.notFound': 'Tisch nicht gefunden',
         'closed.emptySeconds': {

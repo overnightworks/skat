@@ -97,18 +97,26 @@ const MISSED_WORDS: Record<Announcement, string | null> = {
     schwarz: words["result.missedSchwarz"],
 };
 
+// A Bock game's factor is held beside the counted levels; a game outside Bock has no such step.
+function bockChipOf(factor: number): Chip[] {
+    return factor > 1 ? [{ word: words["result.bockFactor"]({ factor: String(factor) }), ticked: true }] : [];
+}
+
 function chipsOf(result: Result): Chip[] {
-    if (result.matadors === null) return [];
+    const factor = bockChipOf(result.bock_factor);
+    if (result.matadors === null) return factor;
     const { count, mit } = result.matadors;
     const matadors = mit ? words["result.matadorsWith"](count) : words["result.matadorsWithout"](count);
     return [
         { word: matadors, ticked: false },
         ...result.levels.map((level) => ({ word: LEVEL_WORDS[level], ticked: true })),
+        ...factor,
     ];
 }
 
+// The value stands as a product when a step after it changes the score: the lost game's doubling or the Bock factor.
 function equationOf(result: Result): Equation | null {
-    const product = result.doubled ? result.game_value : null;
+    const product = result.doubled || result.bock_factor > 1 ? result.game_value : null;
     if (result.multiplier === null && product === null) return null;
     return { multiplier: result.multiplier, base: result.base_value, product };
 }

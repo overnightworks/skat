@@ -49,6 +49,7 @@ const WON_GAME: Result = {
         { seat: 2, gain: 86, won: true },
         { seat: 3, gain: 0, won: false },
     ],
+    bock_factor: 1,
 };
 
 // The same game lost: the value doubles to −72, the list takes 50 and each opponent gets 40.
@@ -84,6 +85,7 @@ function table(
         hand: null,
         result: changes === null ? null : result(changes),
         passed_in: null,
+        bock: null,
         ended: null,
     };
 }
@@ -272,6 +274,50 @@ describe("the chips", () => {
     });
 });
 
+// A Bock game multiplies the list score by the factor; the game's value and the list's 50 stay.
+const BOCK_GAME: Partial<Result> = { bock_factor: 2, score: 72, gains: [...WON_GAME.gains] };
+
+describe("a Bock game's card", () => {
+    it.each([2, 4])("holds the factor ×%i as a ticked chip after the counted levels", (factor) => {
+        const view = resultView(table(2, { ...BOCK_GAME, bock_factor: factor, score: 36 * factor }));
+
+        expect(view.chips).toEqual([
+            { word: words["result.matadorsWith"](2), ticked: false },
+            { word: words["result.levelSpiel"], ticked: true },
+            { word: words["result.bockFactor"]({ factor: String(factor) }), ticked: true },
+        ]);
+    });
+
+    it("shows the game's value under the multiplier line, so the factor takes it to the score", () => {
+        const view = resultView(table(2, BOCK_GAME));
+
+        expect(view.equation).toEqual({ multiplier: 3, base: 12, product: 36 });
+        expect(view.score).toBe("+72");
+    });
+
+    it("holds the factor of a lost game beside its doubling", () => {
+        const view = resultView(table(2, { ...LOST_GAME, bock_factor: 2, score: -144 }));
+
+        expect(view.chips.map(({ word }) => word)).toContain(words["result.bockFactor"]({ factor: "2" }));
+        expect(view.equation).toEqual({ multiplier: 3, base: 12, product: 36 });
+        expect(view.score).toBe("\u2212144");
+    });
+
+    it("gives a Null game the chip and its fixed value as the line", () => {
+        const view = resultView(table(2, { ...NULL_GAME, bock_factor: 2, game_value: 35, score: 70 }));
+
+        expect(view.chips).toEqual([{ word: words["result.bockFactor"]({ factor: "2" }), ticked: true }]);
+        expect(view.equation).toEqual({ multiplier: null, base: null, product: 35 });
+    });
+
+    it("leaves a game without Bock its counted steps and no line under them", () => {
+        const view = resultView(table(2, {}));
+
+        expect(view.chips).toHaveLength(2);
+        expect(view.equation?.product).toBeNull();
+    });
+});
+
 describe("the multiplier line", () => {
     it("shows the multiplier times the base without the value for a won game", () => {
         expect(resultView(table(2, {})).equation).toEqual({ multiplier: 3, base: 12, product: null });
@@ -423,7 +469,7 @@ describe("who is awaited", () => {
 });
 
 describe("a Ramsch result", () => {
-    const ramsch = (): Table => ({ ...table(1, null), result: { kind: "ramsch", ordinal: 4 } });
+    const ramsch = (): Table => ({ ...table(1, null), result: { kind: "ramsch", ordinal: 4, bock_factor: 1 } });
 
     it("is no declared result, so the page draws no card for it", () => {
         expect(declaredResult(ramsch())).toBeNull();

@@ -109,7 +109,7 @@ export type Chair = {
     hand: ChairHand | null;
 };
 // A Ramsch result is a result with an ordinal; the page draws no card for it.
-export type RamschResult = { kind: "ramsch"; ordinal: number };
+export type RamschResult = { kind: "ramsch"; ordinal: number; bock_factor: number };
 export type SeatGain = { seat: number; gain: number; won: boolean };
 // The finished game as the server counted it; the page draws these numbers and decides no rule.
 export type Result = {
@@ -137,12 +137,17 @@ export type Result = {
     declarer_points: number;
     opponents_points: number;
     gains: SeatGain[];
+    // What the Bock rounds multiplied the list score by; 1 outside a Bock game.
+    bock_factor: number;
 };
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended and the whole seconds nobody was there, as stored when it ended.
 export type Ended = { reason: EndReason; empty_seconds: number };
+// The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
+// by; the same for every viewer. A table without Bock has none.
+export type Bock = { games_left: number; factor: number };
 export type Table = {
     id: string;
     version: number;
@@ -151,6 +156,7 @@ export type Table = {
     hand: Hand | null;
     result: Result | RamschResult | null;
     passed_in: PassedIn | null;
+    bock: Bock | null;
     ended: Ended | null;
 };
 // A chair that was taken: `holder` is who sits there now.
