@@ -26,3 +26,9 @@ describe("the heading of a table that closed itself", () => {
         );
     });
 });
+
+describe("the count word of the series stepper", () => {
+    it("names one game apart from several", () => {
+        expect(words["start.seriesGames"](1)).not.toBe(words["start.seriesGames"](3));
+    });
+});
