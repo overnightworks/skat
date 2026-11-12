@@ -15,7 +15,15 @@ from skat.engine.kontra import (
     WordSaid,
 )
 from skat.table.hand_state import doubling_of, playing_of
-from skat.table.kontra import KontraCommand, decide_kontra, kontra_payload, kontra_view_of
+from skat.table.kontra import (
+    KontraCommand,
+    NoWordCommand,
+    decide_kontra,
+    decide_no_word,
+    kontra_payload,
+    kontra_view_of,
+    no_word_payload,
+)
 from skat.table.playing import (
     GiveUpCommand,
     PlayCardCommand,
@@ -28,6 +36,7 @@ from skat.table.records import (
     Actor,
     CreateTable,
     HandProgress,
+    NoWordSaid,
     Refusal,
     TableOptions,
     parsed_refusal,
@@ -184,6 +193,134 @@ class TestSaying:
 
         assert say_as(table, FOREHAND, KONTRA).refusal is None
         assert say_as(table, REARHAND, KONTRA).refusal is KontraRefusal.DID_NOT_BID
+
+
+def answer_as(table, position, version=VERSION):
+    return decide_no_word(table, actor(position), NoWordCommand("command-1", table.id.value, version))
+
+
+class TestAnsweringNoWord:
+    def test_an_opponent_answers_no_word_and_the_answer_is_kept_with_a_risen_version(self):
+        decision = answer_as(kontra_table(), FOREHAND)
+
+        assert decision.refusal is None
+        assert decision.table.version == VERSION + 1
+        assert decision.table.progress.no_words == frozenset({NoWordSaid(FOREHAND, KONTRA)})
+        assert decision.table.progress.words == ()
+
+    def test_a_second_answer_of_the_same_seat_for_the_same_word_changes_nothing(self):
+        answered = answer_as(kontra_table(), FOREHAND).table
+
+        again = answer_as(answered, FOREHAND, answered.version)
+
+        assert again.refusal is None
+        assert again.table == answered
+
+    def test_the_other_opponent_answers_for_its_own_seat(self):
+        answered = answer_as(kontra_table(), FOREHAND).table
+
+        decision = answer_as(answered, REARHAND, answered.version)
+
+        assert decision.table.progress.no_words == frozenset(
+            {NoWordSaid(FOREHAND, KONTRA), NoWordSaid(REARHAND, KONTRA)}
+        )
+
+    def test_the_word_stays_open_and_the_answer_is_no_word_of_the_log(self):
+        answered = answer_as(kontra_table(), FOREHAND).table
+
+        said = say_as(answered, FOREHAND, KONTRA, answered.version)
+
+        assert said.refusal is None
+        assert doubling_of(said.table).factor == 2
+        assert doubling_of(answered) == Doubling.start()
+
+    def test_the_declarer_answers_the_stage_after_a_kontra_and_the_kontra_opponent_the_one_after_re(self):
+        table = with_words(kontra_table(options_of(reach=KontraReach.UP_TO_HIRSCH)), WordSaid(FOREHAND, KONTRA, 0))
+        no_re = answer_as(table, MIDDLEHAND).table
+        with_re = with_words(no_re, WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0))
+
+        no_supra = answer_as(with_re, FOREHAND, with_re.version).table
+
+        assert no_re.progress.no_words == frozenset({NoWordSaid(MIDDLEHAND, RE)})
+        assert no_supra.progress.no_words == frozenset({NoWordSaid(MIDDLEHAND, RE), NoWordSaid(FOREHAND, SUPRA)})
+
+    @pytest.mark.parametrize(
+        ("table", "position", "version", "expected"),
+        [
+            pytest.param(
+                replace(kontra_table(), hand=None, dealer=None), FOREHAND, VERSION, Refusal.NO_HAND, id="no-hand"
+            ),
+            pytest.param(kontra_table(), FOREHAND, VERSION - 1, Refusal.STALE_VERSION, id="stale"),
+            pytest.param(kontra_table(options=TableOptions()), FOREHAND, VERSION, Refusal.RULE_OFF, id="rule-off"),
+            pytest.param(
+                kontra_table(progress=HandProgress()), FOREHAND, VERSION, Refusal.WRONG_PHASE, id="no-game-yet"
+            ),
+            pytest.param(
+                kontra_table(), MIDDLEHAND, VERSION, KontraRefusal.NOT_YOUR_WORD, id="declarer-before-a-kontra"
+            ),
+            pytest.param(
+                with_words(kontra_table(), WordSaid(FOREHAND, KONTRA, 0)),
+                REARHAND,
+                VERSION,
+                KontraRefusal.NOT_YOUR_WORD,
+                id="the-other-opponent-after-a-kontra",
+            ),
+            pytest.param(
+                with_words(kontra_table(), plays=1), FOREHAND, VERSION, KontraRefusal.TOO_LATE, id="after-his-card"
+            ),
+            pytest.param(
+                kontra_table(options=options_of(KontraSayer.BIDDERS_ONLY)),
+                REARHAND,
+                VERSION,
+                KontraRefusal.DID_NOT_BID,
+                id="did-not-bid",
+            ),
+            pytest.param(
+                with_words(kontra_table(), WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0)),
+                FOREHAND,
+                VERSION,
+                KontraRefusal.BEYOND_REACH,
+                id="no-word-left-within-the-reach",
+            ),
+        ],
+    )
+    def test_a_no_word_is_refused_as_a_word_the_seat_cannot_say_now_is(self, table, position, version, expected):
+        decision = answer_as(table, position, version)
+
+        assert decision.refusal is expected
+        assert decision.table == table
+
+    def test_the_version_and_the_seat_make_the_payload(self):
+        command = NoWordCommand("command-1", "table", 5)
+
+        assert no_word_payload(command) == "table:5"
+        assert no_word_payload(replace(command, version=6)) != no_word_payload(command)
+
+
+class TestAnAnswerInTheViewer:
+    @pytest.mark.parametrize(
+        ("viewer", "expected"),
+        [
+            pytest.param(frozenset({FOREHAND}), True, id="the-seat-that-answered"),
+            pytest.param(frozenset({REARHAND}), False, id="the-other-opponent"),
+            pytest.param(frozenset({MIDDLEHAND}), False, id="the-declarer-with-no-word-to-say"),
+            pytest.param(frozenset(), False, id="a-watcher"),
+        ],
+    )
+    def test_only_the_seat_that_answered_sees_its_answer(self, viewer, expected):
+        table = answer_as(kontra_table(), FOREHAND).table
+
+        view = kontra_view_of(table, playing_of(table), table.dealer, viewer)
+
+        assert view.my_word_answered is expected
+
+    def test_an_answer_to_an_earlier_word_does_not_answer_the_word_now_open(self):
+        answered = answer_as(kontra_table(), FOREHAND).table
+        table = with_words(answered, WordSaid(REARHAND, KONTRA, 0))
+
+        view = kontra_view_of(table, playing_of(table), table.dealer, frozenset({FOREHAND}))
+
+        assert (view.my_word, view.my_word_answered) == (None, False)
 
 
 class TestTheDoublingOfAHand:

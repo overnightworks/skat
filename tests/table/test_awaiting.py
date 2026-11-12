@@ -1,4 +1,4 @@
-"""Whether the table waits for a seat is decided from the seat's own view, in seven cases."""
+"""Whether the table waits for a seat is decided from the seat's own view, in eight cases."""
 
 from dataclasses import replace
 
@@ -9,14 +9,18 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word, WordSaid
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.table.awaiting import awaits_you
+from skat.table.kontra import NoWordCommand, decide_no_word
 from skat.table.records import (
+    Actor,
     Chair,
     EndedTable,
     EndProposal,
     EndReason,
     HandProgress,
+    NoWordSaid,
     RamschOccasion,
     RamschSetting,
     Series,
@@ -26,7 +30,13 @@ from skat.table.records import (
 from skat.table.rules import decide_sit
 from skat.table.views import view_of
 from tests.support.open_chairs import PHASES, REARHAND_SEAT, newcomer, sent_away
-from tests.support.played_game import asked_by_the_declarer, between_games, declared_herz_hand, table_in
+from tests.support.played_game import (
+    a_whole_game,
+    asked_by_the_declarer,
+    between_games,
+    declared_herz_hand,
+    table_in,
+)
 
 MIDDLEHAND, REARHAND, FOREHAND = "account-middlehand", "account-rearhand", "account-forehand"
 EVERYONE = (MIDDLEHAND, REARHAND, FOREHAND)
@@ -37,6 +47,12 @@ RAMSCH = TableOptions(
         RamschOccasion.PASSED_IN,
         RamschOptions(RamschScoring.SKAT_TO_LOSER, JungfrauRule.OFF, DurchmarschRule.WINS_120_FLAT),
     )
+)
+KONTRA_OPTIONS = TableOptions(
+    kontra=KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD)
+)
+BIDDERS_ONLY_OPTIONS = TableOptions(
+    kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD)
 )
 ALL_PASS = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
 HERZ_HAND = Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
@@ -71,6 +87,85 @@ class TestTheTurnOfTheHand:
         table = table_in(HandProgress(DECLARER_BID, declaring=(TakeSkat(), PutBack(DECK[30:32]))))
 
         assert MIDDLEHAND in waiting_for(table)
+
+
+def kontra_hand(words=(), no_words=(), plays=0, options=KONTRA_OPTIONS):
+    """The declared Herz Hand game at a table with Kontra, the words said and the answers of no word given."""
+    table = table_in(declared_herz_hand(), options)
+    progress = replace(
+        table.progress,
+        plays=a_whole_game(table)[:plays],
+        words=tuple(words),
+        no_words=frozenset(NoWordSaid(position, word) for position, word in no_words),
+    )
+    return replace(table, progress=progress)
+
+
+class TestAKontraWord:
+    @pytest.mark.parametrize(
+        ("table", "waiting"),
+        [
+            pytest.param(kontra_hand(), {FOREHAND, REARHAND}, id="both-opponents-for-kontra-and-forehand-for-the-lead"),
+            pytest.param(
+                kontra_hand(no_words=[(Position.REARHAND, Word.KONTRA)]),
+                {FOREHAND},
+                id="not-the-opponent-who-answered",
+            ),
+            pytest.param(
+                kontra_hand(no_words=[(Position.FOREHAND, Word.KONTRA), (Position.REARHAND, Word.KONTRA)]),
+                {FOREHAND},
+                id="only-the-turn-once-both-answered",
+            ),
+            pytest.param(
+                kontra_hand(words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0)]),
+                {MIDDLEHAND, FOREHAND},
+                id="the-declarer-for-re-and-no-other-opponent-for-kontra",
+            ),
+            pytest.param(
+                kontra_hand(
+                    words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0)],
+                    no_words=[(Position.FOREHAND, Word.KONTRA), (Position.MIDDLEHAND, Word.RE)],
+                ),
+                {FOREHAND},
+                id="the-answer-of-an-earlier-word-and-the-declarers-answer-end-the-wait",
+            ),
+            pytest.param(
+                kontra_hand(plays=1),
+                {MIDDLEHAND, REARHAND},
+                id="an-opponent-who-played-his-card-is-no-longer-awaited-for-the-word",
+            ),
+            pytest.param(
+                kontra_hand(options=BIDDERS_ONLY_OPTIONS),
+                {FOREHAND},
+                id="an-opponent-who-did-not-bid-at-a-bidders-only-table-is-not-awaited",
+            ),
+            pytest.param(
+                kontra_hand(
+                    words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0), WordSaid(Position.MIDDLEHAND, Word.RE, 0)]
+                ),
+                {FOREHAND},
+                id="no-word-is-left-within-the-reach",
+            ),
+        ],
+    )
+    def test_a_seat_with_a_word_open_that_it_has_not_answered_is_awaited(self, table, waiting):
+        assert waiting_for(table) == waiting
+
+    def test_the_seat_is_not_awaited_for_a_word_while_a_chair_of_the_hand_is_open(self):
+        assert waiting_for(sent_away(kontra_hand(), REARHAND_SEAT)) == set()
+
+    def test_the_answer_raises_the_revision_and_ends_the_wait(self):
+        table = kontra_hand()
+        before = view_of(table, REARHAND, frozenset())
+
+        after = view_of(
+            decide_no_word(table, Actor(REARHAND, "Rhea"), NoWordCommand("c", table.id.value, table.version)).table,
+            REARHAND,
+            frozenset(),
+        )
+
+        assert (awaits_you(before), awaits_you(after)) == (True, False)
+        assert after.version > before.version
 
 
 class TestAGiveUpQuestion:

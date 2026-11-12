@@ -16,7 +16,7 @@ from skat.engine.tricks import CardPlayed
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
 from skat.table.declaring import DeclaringCommand, decide_declaring_step
 from skat.table.hand_state import game_of
-from skat.table.kontra import KontraCommand, decide_kontra
+from skat.table.kontra import KontraCommand, NoWordCommand, decide_kontra, decide_no_word
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -182,6 +182,7 @@ def _hand_commands(table: TableRecord) -> dict[str, object]:
             for kind in PushingKind
         },
         "kontra": lambda actor: decide_kontra(table, actor, KontraCommand("command-1", *ids, Word.KONTRA)),
+        "no-word": lambda actor: decide_no_word(table, actor, NoWordCommand("command-1", *ids)),
         "card": lambda actor: decide_card(table, actor, PlayCardCommand("command-1", *ids, DECK[0])),
         "give-up": lambda actor: decide_give_up(table, actor, GiveUpCommand("command-1", *ids)),
         "agree-to-give-up": lambda actor: decide_agree_to_give_up(
