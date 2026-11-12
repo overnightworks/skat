@@ -132,19 +132,25 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
         leonardo.close()
 
 
-def test_the_list_says_so_when_no_agent_is_reachable(
-    open_person: Callable[..., Page], tmp_path_factory: pytest.TempPathFactory, page_errors: list[str]
-) -> None:
+@pytest.fixture
+def server_without_agents(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     # A server of its own: the agents of the other tests keep their roster entries for a few seconds after they stop.
     with skat_on_new_database(tmp_path_factory) as server:
-        person = record_page_errors(
-            open_person(username="felix-alone", server=server, groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors
-        )
-        open_new_table(person, server)
+        yield server
 
-        expect(pill(person)).to_be_visible()
-        pill(person).click()
 
-        expect(person.get_by_text(EMPTY)).to_be_visible()
-        # The page leaves before its server stops, so its stream's reconnect is no failed request.
-        person.goto("about:blank")
+def test_the_list_says_so_when_no_agent_is_reachable(
+    open_person: Callable[..., Page], server_without_agents: RunningServer, page_errors: list[str]
+) -> None:
+    server = server_without_agents
+    person = record_page_errors(
+        open_person(username="felix-alone", server=server, groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors
+    )
+    open_new_table(person, server)
+
+    expect(pill(person)).to_be_visible()
+    pill(person).click()
+
+    expect(person.get_by_text(EMPTY)).to_be_visible()
+    # The page leaves before its server stops, so its stream's reconnect is no failed request.
+    person.goto("about:blank")
