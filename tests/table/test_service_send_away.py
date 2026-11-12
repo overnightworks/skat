@@ -244,6 +244,28 @@ class TestTheStandingSignal:
         assert scene.told == []
 
 
+class TestTheStandingSignalOfAnAgentsOwnStandUp:
+    def stand(self, scene, command_id="command-stand"):
+        return scene.service.stand(MOZART, StandUp(command_id, scene.table_id), NOBODY)
+
+    def test_the_agent_is_told_once_after_the_commit_and_no_book_row_is_written(self):
+        scene = Scene()
+
+        result = self.stand(scene)
+
+        assert (result.refusal, scene.told, scene.store.book) == (None, [frozenset({MOZART.account_id})], {})
+
+    def test_a_replay_and_a_refusal_tell_nobody(self):
+        scene = Scene()
+        self.stand(scene, "command-stand")
+        scene.told.clear()
+
+        replayed = self.stand(scene, "command-stand")
+        refused = self.stand(scene, "command-again")
+
+        assert (replayed.refusal, refused.refusal, scene.told) == (None, Refusal.NOT_SEATED, [])
+
+
 class TestARetry:
     def test_the_same_command_id_sends_away_once_and_raises_the_epoch_once(self):
         scene = Scene()

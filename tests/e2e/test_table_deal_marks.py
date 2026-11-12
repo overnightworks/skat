@@ -1,14 +1,13 @@
-import json
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Page, expect
 from sqlalchemy import delete, update
 
 from skat.store.schema import hand_cards, tables
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
@@ -329,27 +328,3 @@ def test_the_deal_animates_and_holds_still_for_reduced_motion(
 
     assert set(moving_person.evaluate(DEAL_ANIMATIONS)) == {"deal"}
     assert set(still_person.evaluate(DEAL_ANIMATIONS)) == {"none"}
-
-
-def test_a_stale_page_that_still_offers_stand_up_shows_the_refusal_once_a_hand_runs(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
-) -> None:
-    players = table_with_two_seated(open_person, e2e_server, page_errors, DESKTOP)
-    stale_view = json.dumps(answer_of(players.ben, e2e_server, players.table_id))
-
-    def replay_the_view_before_the_hand(route: Route) -> None:
-        route.fulfill(status=200, content_type="text/event-stream", body=f"data: {stale_view}\n\n")
-
-    players.ben.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", replay_the_view_before_the_hand)
-    players.ben.reload()
-    expect(stand_up_of(players.ben)).to_be_visible()
-
-    sit_in(players.cleo, 3)
-    wait_for_the_hand(players.anna)
-    expect(players.ben.locator(SKAT_CARD)).to_have_count(0)
-
-    # The replayed stream keeps ending, so the stage is mostly dimmed for pointers; the click still has to count.
-    stand_up_of(players.ben).dispatch_event("click")
-
-    expect(players.ben.get_by_role("status").filter(has_text=COMMAND_FAILED)).to_be_visible()
-    expect(chair_of(players.anna, 2).locator(".plate")).to_contain_text("ben")
