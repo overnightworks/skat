@@ -1,11 +1,12 @@
 """Whether the table waits for the viewer's seat to act, decided from the viewer's own view so that the view and the
-decision cannot disagree. A running hand waits for the seat on turn and, while a give-up is asked, for the opponent who
-has not answered, and for each seat with a Kontra word open that it has not answered with no word, play never
-waiting for it, unless a chair of the hand is open: then it waits for a sitter and for no seat. Between hands it
-waits for each seat that has not continued, and for each that has not answered a proposal to end the series early.
+decision cannot disagree. A running hand waits for the seat on turn and, while the declarer's give-up is asked, for the
+opponent who has not answered, and for each seat with a Kontra word open that it has not answered with no word, play
+never waiting for it, unless a chair of the hand is open: then it waits for a sitter and for no seat. While an
+opponent's give-up is asked it waits for the declarer alone. Between hands it waits for each seat that has not
+continued, and for each that has not answered a proposal to end the series early.
 """
 
-from skat.table.views import TableView, turn_seat_of
+from skat.table.views import HandView, TableView, turn_seat_of
 
 __all__ = ["awaits_you"]
 
@@ -18,8 +19,20 @@ def awaits_you(view: TableView) -> bool:
     if view.hand is not None:
         if view.hand.waiting_seat is not None:
             return False
+        if _opponents_give_up_stands(view.hand):
+            return view.hand.declaring is not None and own.seat == view.hand.declaring.declarer_seat
         return turn_seat_of(view.hand) == own.seat or _give_up_waits_for(view, own.seat) or _kontra_word_waits(view)
     return (_a_result_or_series_end_stands(view) and not own.ready) or _proposal_waits_for(view, own.seat)
+
+
+def _opponents_give_up_stands(hand: HandView) -> bool:
+    playing, declaring = hand.playing, hand.declaring
+    return (
+        playing is not None
+        and playing.give_up is not None
+        and declaring is not None
+        and playing.give_up.asking_seat != declaring.declarer_seat
+    )
 
 
 def _give_up_waits_for(view: TableView, seat: int) -> bool:

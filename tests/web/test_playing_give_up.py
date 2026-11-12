@@ -1,8 +1,6 @@
 import pytest
 
-from skat.engine.deal import Position
 from skat.engine.tricks import ALL_POINTS
-from skat.table.records import Refusal
 from skat.web.declaring import GameToken
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import AnnouncementToken
@@ -10,7 +8,6 @@ from tests.support.payload_cards import cards_in_text
 from tests.web.support.playing import DECLARER_SEAT, Table, card, cards, ending_of, points_of_cards
 from tests.web.support.skat import streams_of
 
-FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # Middlehand declares; the known deal's first trick is S7 S9 D7, which he takes with S9 and leads the next.
 FIRST_TRICK = cards("S7 S9 D7")
 HERZ_HAND_LOST_AT_30 = {
@@ -175,9 +172,3 @@ class TestTheEnding:
             give_up(herz_hand)
 
             assert ending_of(next(watcher)["result"]) == ("given-up", DECLARER_SEAT)
-
-
-class TestRefusals:
-    @pytest.mark.parametrize("position", [FOREHAND, REARHAND], ids=lambda position: position.name)
-    def test_an_opponent_is_not_the_declarer(self, herz_hand, position):
-        herz_hand.refused_act(TABLE_GIVE_UP_SUFFIX, herz_hand.at[position], Refusal.NOT_DECLARER)

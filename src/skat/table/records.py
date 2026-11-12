@@ -155,6 +155,7 @@ class Refusal(StrEnum):
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
     NO_REQUEST = "no-request"
+    REQUEST_PENDING = "request-pending"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
     SERIES_OVER = "series-over"
@@ -204,7 +205,9 @@ class Chair:
 
 @dataclass(frozen=True)
 class GiveUpAsked:
-    """A give-up waiting for the other side's yes: who asked, and the opponent who said no."""
+    """A give-up waiting for the other side's answer: who asked, the declarer or an opponent, and the opponent who said
+    no to the declarer's.
+    """
 
     asker: Position
     declined_by: Position | None = None

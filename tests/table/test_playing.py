@@ -235,7 +235,7 @@ class TestTheEndingTheEntryRecords:
         table = after_two_tricks(GiveUpAsked(FOREHAND))
         command = AgreeToGiveUpCommand("command-1", table_id(), TABLE_VERSION)
 
-        entry = decide_agree_to_give_up(table, actor("account-rearhand"), command).table.game_list[0]
+        entry = decide_agree_to_give_up(table, actor("account-middlehand"), command).table.game_list[0]
 
         assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, FOREHAND_SEAT)
 

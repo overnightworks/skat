@@ -18,7 +18,7 @@ from skat.table.game_list import (
     standings_of,
     total_of,
 )
-from skat.table.hand_state import auction_of, declaring_of, game_of, pushing_of
+from skat.table.hand_state import auction_of, declaring_of, game_of, game_waits_for_the_declarers_answer, pushing_of
 from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.pushing import PushingView, pushing_view_of
@@ -174,7 +174,8 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     )
     own_cards = {card for position in viewer_positions for card in hands[position]}
     waiting_seat = waiting_seat_of(table)
-    acting_positions: frozenset[Position] = frozenset() if waiting_seat is not None else viewer_positions
+    nobody_acts = waiting_seat is not None or game_waits_for_the_declarers_answer(playing, table.progress.give_up)
+    acting_positions: frozenset[Position] = frozenset() if nobody_acts else viewer_positions
     hand_view = HandView(
         table.dealer,
         tuple(card for card in DECK if card in own_cards),
