@@ -146,6 +146,12 @@ def asked_by_the_declarer(declined_by: Position | None = None) -> TableRecord:
     return replace(table, progress=replace(table.progress, give_up=asked))
 
 
+def asked_by_an_opponent(opponent: Position = Position.FOREHAND, options: TableOptions | None = None) -> TableRecord:
+    """The declared Herz Hand game where `opponent` gave up and the declarer has not answered."""
+    table = table_in(declared_herz_hand(), options)
+    return replace(table, progress=replace(table.progress, give_up=GiveUpAsked(opponent)))
+
+
 def with_agents(record: TableRecord, *seats: int) -> TableRecord:
     """The table where the occupants of `seats` are agents."""
     chairs = tuple(

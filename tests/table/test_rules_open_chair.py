@@ -12,17 +12,20 @@ from skat.engine.declaration import Announcement, Declare, Stage
 from skat.engine.games import GameKind
 from skat.engine.kontra import Word, WordSaid
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
+from skat.table.awaiting import awaits_you
 from skat.table.declaring import DeclaringCommand, decide_declaring_step
 from skat.table.game_list import ListEntry
 from skat.table.kontra import KontraCommand, SeatedWord, decide_kontra
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
+    GiveUpCommand,
     PlayCardCommand,
     ThrowDownCommand,
     decide_agree_to_give_up,
     decide_card,
     decide_decline_give_up,
+    decide_give_up,
     decide_throw_down,
 )
 from skat.table.pushing import PushingCommand, PushingKind, decide_pushing_step
@@ -67,6 +70,7 @@ from tests.support.open_chairs import (
 )
 from tests.support.played_game import (
     an_entry,
+    asked_by_an_opponent,
     asked_by_the_declarer,
     before_the_last_card,
     declared_herz_hand,
@@ -467,6 +471,70 @@ def sat(table, actor, seat):
 
 
 OPENINGS = pytest.mark.parametrize("opening", [sent_away, stood_up], ids=["send-away", "stand-up"])
+
+
+class TestAnOpponentsGiveUpAndAChairThatOpens:
+    @OPENINGS
+    def test_the_askers_chair_takes_the_request_with_it_in_one_version_and_the_hand_waits_for_a_sitter(self, opening):
+        table = asked_by_an_opponent(FOREHAND)
+
+        freed = opening(table, FOREHAND_SEAT)
+
+        assert freed.progress.give_up is None
+        assert (freed.version, waiting_seat_of(freed)) == (table.version + 1, FOREHAND_SEAT)
+
+    @OPENINGS
+    def test_a_sitter_in_the_askers_chair_plays_on_and_may_give_up_afresh(self, opening):
+        sitter = newcomer()
+        taken = sat(opening(asked_by_an_opponent(FOREHAND), FOREHAND_SEAT), sitter, FOREHAND_SEAT)
+
+        card = hand_command("card", taken, sitter)
+        afresh = decide_give_up(taken, sitter, GiveUpCommand("command-1", taken.id.value, taken.version))
+
+        assert card.refusal is None
+        assert afresh.table.progress.give_up == GiveUpAsked(FOREHAND)
+
+    @OPENINGS
+    def test_the_declarers_chair_leaves_the_request_standing_and_every_command_seat_open(self, opening):
+        freed = opening(asked_by_an_opponent(FOREHAND), MIDDLEHAND_SEAT)
+
+        assert freed.progress.give_up == GiveUpAsked(FOREHAND)
+        for command in HAND_COMMANDS:
+            decision = hand_command(command, freed, actor_at(freed, REARHAND_SEAT))
+            assert (decision.refusal, decision.table) == (Refusal.SEAT_OPEN, freed)
+
+    @OPENINGS
+    def test_the_sitter_in_the_declarers_chair_is_asked_and_the_one_who_left_is_not(self, opening):
+        table = asked_by_an_opponent(FOREHAND)
+        leaver, sitter = actor_at(table, MIDDLEHAND_SEAT), newcomer()
+        taken = sat(opening(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT)
+
+        answer = decide_decline_give_up(taken, sitter, DeclineGiveUpCommand("c", taken.id.value, taken.version))
+
+        assert answer.table.progress.give_up is None
+        assert awaits_you(view_of(taken, sitter.account_id, NOBODY))
+        assert not awaits_you(view_of(taken, leaver.account_id, NOBODY))
+
+    @OPENINGS
+    def test_the_other_opponents_chair_leaves_the_request_standing_for_the_declarer(self, opening):
+        table = asked_by_an_opponent(FOREHAND)
+
+        freed = opening(table, REARHAND_SEAT)
+
+        assert freed.progress.give_up == GiveUpAsked(FOREHAND)
+        taken = sat(freed, newcomer(), REARHAND_SEAT)
+        assert awaits_you(view_of(taken, account_of(MIDDLEHAND), NOBODY))
+        assert not awaits_you(view_of(taken, account_of(FOREHAND), NOBODY))
+
+    def test_a_person_declarer_who_stood_up_answers_the_request_after_sitting_in_his_held_chair(self):
+        table = with_agents(asked_by_an_opponent(FOREHAND), FOREHAND_SEAT)
+        declarer = actor_at(table, MIDDLEHAND_SEAT)
+
+        back = sat(stood_up(table, MIDDLEHAND_SEAT), declarer, MIDDLEHAND_SEAT)
+        answer = decide_decline_give_up(back, declarer, DeclineGiveUpCommand("c", back.id.value, back.version))
+
+        assert back.progress.give_up == GiveUpAsked(FOREHAND)
+        assert answer.table.progress.give_up is None
 
 
 class TestAGameEndedAfterATakeOver:
