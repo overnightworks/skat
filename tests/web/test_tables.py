@@ -31,6 +31,7 @@ from skat.web.tables import (
     TABLES_PATH,
     create_tables_router,
 )
+from skat.web.wakes import WakeList
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.idle_presence import (
     idle_agent_lease,
@@ -150,7 +151,7 @@ class TestReadTable:
             create_tables_router(
                 TableService(skat.store),
                 fixture_page_build(),
-                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease()),
+                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), WakeList()),
                 skat.stores.sessions,
                 skat.config,
             )
@@ -232,7 +233,7 @@ def stand_after_sitting(skat, headers, table_id):
 
 class RecordingPresence(Presence):
     def __init__(self):
-        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease())
+        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), WakeList())
         self.woken = []
 
     def wake_table(self, table_id):

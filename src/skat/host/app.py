@@ -68,6 +68,7 @@ from skat.web.sign_in import (
 )
 from skat.web.streams import create_streams_router
 from skat.web.tables import create_tables_router
+from skat.web.wakes import WakeList
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Sequence
@@ -182,12 +183,14 @@ def _presence(
     clock: Callable[[], float],
     scheduler: Scheduler,
     asks: AskClock,
+    wakes: WakeList,
 ) -> Presence:
     return Presence(
         _chair_hold(settings, tables, clock, scheduler),
         _next_deal(tables),
         _empty_table(settings, tables, asks),
         _agent_lease(tables),
+        wakes,
     )
 
 
@@ -276,7 +279,8 @@ def create_app(
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
     asks = AskClock(chair_clock)
-    presence = _presence(settings, tables, chair_clock, scheduler, asks)
+    wakes = WakeList()
+    presence = _presence(settings, tables, chair_clock, scheduler, asks, wakes)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
