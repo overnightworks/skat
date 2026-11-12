@@ -1,10 +1,12 @@
 """An agent that listens on Skat's standing as a runner does: the SDK's client over streamable HTTP against the
-running server, on an event loop of its own thread, so the browser keeps its owning thread.
+running server, on an event loop of its own thread, so the browser keeps its owning thread. A wake carries no data
+and a listen has no replay, so the agent reads its standing after every wake and after every listen it opens again.
 """
 
 import asyncio
 import json
 import threading
+import time
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any
 
@@ -12,6 +14,7 @@ import httpx2
 from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
+from mcp.client.subscriptions import SubscriptionLost
 
 if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
@@ -61,10 +64,18 @@ class ListeningAgent:
             await self._stopping.wait()
 
     async def _listen_for_wakes(self) -> None:
-        async with self._client.listen(resource_subscriptions=[STANDING_URI]) as stream:
-            self._acknowledged.set()
-            async for _event in stream:
-                self._woken.set()
+        """Listens again whenever the stream ended, because the server bounds a stream and may end it; the standing
+        is read after each listen, since a change before it left no wake behind.
+        """
+        while True:
+            try:
+                async with self._client.listen(resource_subscriptions=[STANDING_URI]) as stream:
+                    self._acknowledged.set()
+                    self._woken.set()
+                    async for _event in stream:
+                        self._woken.set()
+            except SubscriptionLost:
+                continue
 
     async def _start_listening(self) -> asyncio.Task[None]:
         return asyncio.create_task(self._listen_for_wakes())
@@ -73,12 +84,15 @@ class ListeningAgent:
         return asyncio.run_coroutine_threadsafe(coroutine, self._loop).result(REQUEST_SECONDS)
 
     def invitation_within(self, seconds: float) -> dict[str, Any]:
-        """The standing that holds the invitation, once the stream has woken the agent."""
-        assert self._woken.wait(seconds), "the stream never woke the agent"
-        self._woken.clear()
-        standings = json.loads(self._run(self._client.read_resource(STANDING_URI)).contents[0].text)["standings"]
-        [invited] = [standing for standing in standings if standing["state"] == "invited"]
-        return invited
+        """The standing that holds the invitation: the agent reads its standing at each wake until one does."""
+        deadline = time.monotonic() + seconds
+        while self._woken.wait(max(0.0, deadline - time.monotonic())):
+            self._woken.clear()
+            standings = json.loads(self._run(self._client.read_resource(STANDING_URI)).contents[0].text)["standings"]
+            if invited := [standing for standing in standings if standing["state"] == "invited"]:
+                return invited[0]
+        message = "no wake of the stream brought an invitation"
+        raise AssertionError(message)
 
     def accept(self, standing: dict[str, Any]) -> dict[str, Any]:
         invitation = standing["invitation"]
