@@ -128,15 +128,15 @@ export type Words = {
     readonly "agents.call": string;
     readonly "agents.calling": string;
     readonly "agents.askToLeave": string;
-    readonly "agents.callLabel": string;
-    readonly "agents.askToLeaveLabel": string;
+    readonly "agents.callLabel": (gaps: { readonly name: string }) => string;
+    readonly "agents.askToLeaveLabel": (gaps: { readonly name: string }) => string;
     readonly "agents.empty": string;
     readonly "agents.refusalNotAllowed": string;
     readonly "agents.refusalOwnerAbsent": string;
     readonly "agents.refusalPlaceFull": string;
     readonly "agents.refusalAgentUnavailable": string;
     readonly "agents.refusalTryAgain": string;
-    readonly "table.agentSits": string;
+    readonly "table.agentSits": (gaps: { readonly name: string }) => string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -265,14 +265,14 @@ export const words: Words = {
     "agents.call": "Rufen",
     "agents.calling": "Wird gerufen…",
     "agents.askToLeave": "Bitten zu gehen",
-    "agents.callLabel": "{name} rufen",
-    "agents.askToLeaveLabel": "{name} bitten zu gehen",
+    "agents.callLabel": (gaps: { readonly name: string }) => gaps.name + " rufen",
+    "agents.askToLeaveLabel": (gaps: { readonly name: string }) => gaps.name + " bitten zu gehen",
     "agents.empty": "Gerade ist kein Agent erreichbar.",
     "agents.refusalNotAllowed": "Du darfst diesen Agenten nicht rufen.",
     "agents.refusalOwnerAbsent": "Sein Besitzer ist nicht hier.",
     "agents.refusalPlaceFull": "Hier ist kein Platz für einen weiteren Agenten.",
     "agents.refusalAgentUnavailable": "Der Agent ist gerade nicht erreichbar.",
     "agents.refusalTryAgain": "Das hat nicht geklappt. Versuch es noch einmal.",
-    "table.agentSits": "{name} setzt sich",
+    "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
 };
 export type Key = keyof Words;

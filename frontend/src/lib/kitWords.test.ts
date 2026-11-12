@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountMenuWords, agentControlWords, fillName } from "#lib/kitWords.ts";
+import { accountMenuWords, agentControlWords } from "#lib/kitWords.ts";
 import { words } from "#lib/words.ts";
 
 describe("accountMenuWords", () => {
@@ -35,13 +35,8 @@ describe("agentControlWords", () => {
     });
 
     it("names the agent in the accessible names of its two buttons", () => {
-        expect(agentControlWords.callLabel("Nova")).toBe(fillName(words["agents.callLabel"], "Nova"));
-        expect(agentControlWords.askToLeaveLabel("Nova")).toBe(fillName(words["agents.askToLeaveLabel"], "Nova"));
-    });
-});
-
-describe("fillName", () => {
-    it("puts the name into the gap of a catalog sentence", () => {
-        expect(fillName("{name} setzt sich", "Nova")).toBe("Nova setzt sich");
+        expect(agentControlWords.callLabel("Nova")).toBe(words["agents.callLabel"]({ name: "Nova" }));
+        expect(agentControlWords.askToLeaveLabel("Nova")).toBe(words["agents.askToLeaveLabel"]({ name: "Nova" }));
+        expect(agentControlWords.callLabel("Nova")).toContain("Nova");
     });
 });

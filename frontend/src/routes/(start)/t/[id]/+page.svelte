@@ -16,7 +16,6 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
-    import { fillName } from "#lib/kitWords.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
@@ -732,7 +731,7 @@
                             <path d="M18.5 3v4M16.5 5h4" />
                         </svg>
                     </span>
-                    <span class="label">{fillName(words["table.agentSits"], agentSat)}</span>
+                    <span class="label">{words["table.agentSits"]({ name: agentSat })}</span>
                 </p>
             {/if}
             {#if taken !== null}
