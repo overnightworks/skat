@@ -120,6 +120,8 @@ export type RamschResult = {
     bock_factor: number;
     pushes: number;
     push_factor: number;
+    // The eyes were divided by ten before the factors.
+    divided_by_ten: boolean;
 };
 export type SeatGain = { seat: number; gain: number; won: boolean };
 // The finished game as the server counted it; the page draws these numbers and decides no rule.

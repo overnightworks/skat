@@ -451,6 +451,7 @@ function ramschResult(
         bock_factor: 1,
         pushes: 0,
         push_factor: 1,
+        divided_by_ten: false,
         ...changes,
     } satisfies RamschResult;
 }
@@ -555,6 +556,27 @@ describe("a Ramsch result's card", () => {
         const flat = ramschResult([20, 14, 86], [0, 0, -86], { pushes: 2, push_factor: 1 });
 
         expect(drawnRamsch(ramschTable(3, flat)).chips).toEqual(["2× geschoben"]);
+    });
+
+    it("names the division by ten before the pushes and the doubling it comes ahead of", () => {
+        const byTen = ramschResult([20, 14, 86], [0, 0, -64], {
+            divided_by_ten: true,
+            jungfrau: true,
+            pushes: 2,
+            push_factor: 4,
+        });
+
+        expect(drawnRamsch(ramschTable(3, byTen))).toMatchObject({
+            eyes: "86 Augen",
+            chips: ["÷ 10", "2× geschoben ×4", "Jungfrau ×2"],
+            score: "\u221264",
+        });
+    });
+
+    it("shows a flat Durchmarsch with its pushes and no factor beside the plain 120", () => {
+        const flat = ramschResult([120, 0, 0], [120, 0, 0], { durchmarsch_seat: 1, pushes: 1, push_factor: 1 });
+
+        expect(drawnRamsch(ramschTable(NOBODY, flat))).toMatchObject({ chips: ["1× geschoben"], score: "+120" });
     });
 
     it("lists the coasters with the viewer first and what each seat adds", () => {

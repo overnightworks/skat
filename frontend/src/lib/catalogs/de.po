@@ -367,6 +367,10 @@ msgctxt "result.losesTogether"
 msgid "{names} verlieren"
 msgstr ""
 
+msgctxt "result.byTen"
+msgid "÷ 10"
+msgstr ""
+
 msgctxt "result.jungfrau"
 msgid "Jungfrau ×2"
 msgstr ""

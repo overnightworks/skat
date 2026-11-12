@@ -264,7 +264,11 @@ export function ramschResultView(table: Table): RamschView | null {
     return {
         ...ramschHead(result, chairs, strong),
         eyes: words["result.eyes"]({ points: String(lead.points) }),
-        chips: [...pushChip(result), ...(result.jungfrau ? [words["result.jungfrau"]] : [])],
+        chips: [
+            ...(result.divided_by_ten ? [words["result.byTen"]] : []),
+            ...pushChip(result),
+            ...(result.jungfrau ? [words["result.jungfrau"]] : []),
+        ],
         score: signed(lead.score),
         loss: sweeper === undefined,
         counts: ownFirst(chairs).map(({ seat }) => ({

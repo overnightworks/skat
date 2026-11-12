@@ -93,6 +93,7 @@ export type Words = {
     readonly "result.eyes": (gaps: { readonly points: string }) => string;
     readonly "result.loses": (gaps: { readonly name: string }) => string;
     readonly "result.losesTogether": (gaps: { readonly names: string }) => string;
+    readonly "result.byTen": string;
     readonly "result.jungfrau": string;
     readonly "result.durchmarsch": string;
     readonly "push.times": (gaps: { readonly count: number; readonly factor: string }) => string;
@@ -276,6 +277,7 @@ export const words: Words = {
     "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
     "result.loses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.losesTogether": (gaps: { readonly names: string }) => gaps.names + " verlieren",
+    "result.byTen": "÷ 10",
     "result.jungfrau": "Jungfrau ×2",
     "result.durchmarsch": "Durchmarsch",
     "push.times": (gaps: { readonly count: number; readonly factor: string }) => numberFormat.format(gaps.count) + "× geschoben ×" + gaps.factor,

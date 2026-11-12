@@ -363,6 +363,7 @@ class RamschResultAnswer(BaseModel):
     bock_factor: int
     pushes: int
     push_factor: int
+    divided_by_ten: bool
 
 
 class EndedAnswer(BaseModel):
@@ -577,6 +578,7 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
             bock_factor=result.bock_factor,
             pushes=result.pushes,
             push_factor=result.push_factor,
+            divided_by_ten=result.divided_by_ten,
         )
     declaration, matadors = result.declaration, result.matadors
     return ResultAnswer(
