@@ -354,6 +354,8 @@ class _PostgresTableTransaction:
                 dealer=None,
                 last_played_at=None,
                 opener_name=None,
+                give_up_asked_by=None,
+                give_up_declined_by=None,
                 ended_at=at,
                 end_reason=ending.reason.value,
                 empty_seconds=ending.empty_seconds,

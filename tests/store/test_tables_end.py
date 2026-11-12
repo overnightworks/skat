@@ -1,5 +1,6 @@
 import threading
 from contextlib import contextmanager, nullcontext
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -7,7 +8,18 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from skat.store.schema import tables
-from skat.table.records import Actor, CreateTable, EndedTable, Ending, EndReason, SitDown, TableId, TableRecord
+from skat.engine.deal import Position
+from skat.table.records import (
+    Actor,
+    CreateTable,
+    EndedTable,
+    Ending,
+    EndReason,
+    GiveUpAsked,
+    SitDown,
+    TableId,
+    TableRecord,
+)
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
@@ -369,7 +381,10 @@ def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_store
     version = stored(transactions, table_id.value).version
     assert games
 
-    assert unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS) is True
+    assert (
+        unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
+        is True
+    )
 
     after = rows_of(engine, table_id.value)
     assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
@@ -395,10 +410,30 @@ def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactio
     table_id = played_hand(service, transactions, stored, "one")
     played_at(transactions, table_id, PLAYED_AT)
 
-    unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS)
+    unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
 
     after = rows_of(engine, table_id.value)
     assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+
+
+def test_the_unplayed_end_clears_an_outstanding_give_up_request(service, transactions, stored, engine):
+    table_id = played_hand(service, transactions, stored, "one")
+    running = stored(transactions, table_id.value)
+    save(
+        transactions,
+        replace(
+            running, progress=replace(running.progress, give_up=GiveUpAsked(Position.MIDDLEHAND, Position.FOREHAND))
+        ),
+    )
+    played_at(transactions, table_id, PLAYED_AT)
+
+    unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
+
+    with engine.connect() as connection:
+        row = connection.execute(
+            select(tables.c.give_up_asked_by, tables.c.give_up_declined_by).where(tables.c.id == table_id.value)
+        ).one()
+    assert tuple(row) == (None, None)
 
 
 def test_a_table_played_at_after_the_unplayed_read_is_not_ended_by_it(service, transactions, stored):
@@ -408,7 +443,10 @@ def test_a_table_played_at_after_the_unplayed_read_is_not_ended_by_it(service, t
     played_at(transactions, table_id, UNPLAYED_AT)
 
     assert candidates == (table_id,)
-    assert unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS) is False
+    assert (
+        unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
+        is False
+    )
     assert isinstance(stored(transactions, table_id.value), TableRecord)
 
 
