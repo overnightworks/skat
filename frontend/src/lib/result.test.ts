@@ -129,14 +129,14 @@ describe("the card's words and sides for each viewer", () => {
 
     it.each([
         { hand: false, label: words["game.kreuz"] },
-        { hand: true, label: `${words["game.kreuz"]} ${words["game.hand"]}` },
+        { hand: true, label: words["game.handName"]({ game: words["game.kreuz"] }) },
     ])("names the game with its levels when hand is $hand", ({ hand, label }) => {
         expect(resultView(table(2, { hand })).gameLine).toBe(label);
     });
 
     it("names an announced Hand game without its announcement, which stands as a chip", () => {
         expect(resultView(table(2, { hand: true, announcement: "schneider" })).gameLine).toBe(
-            `${words["game.kreuz"]} ${words["game.hand"]}`,
+            words["game.handName"]({ game: words["game.kreuz"] }),
         );
     });
 
@@ -151,7 +151,7 @@ describe("the card's words and sides for each viewer", () => {
     it("names a Null game with its levels in the equation", () => {
         const nullOuvertHand = { game: "null", hand: true, ouvert: true } as const;
         expect(resultView(table(2, nullOuvertHand)).gameWord).toBe(
-            `${words["game.null"]} ${words["game.ouvert"]} ${words["game.hand"]}`,
+            words["game.ouvertHandName"]({ game: words["game.null"] }),
         );
     });
 
@@ -343,7 +343,7 @@ describe("the missed announcement", () => {
         );
 
         expect(view.missed).toBe(words["result.missedSchwarz"]);
-        expect(view.gameLine).toBe(`${words["game.grand"]} ${words["game.ouvert"]}`);
+        expect(view.gameLine).toBe(words["game.ouvertName"]({ game: words["game.grand"] }));
     });
 
     it("says nothing when the announcement was reached or none was made", () => {
