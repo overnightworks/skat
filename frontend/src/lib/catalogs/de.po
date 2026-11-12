@@ -531,6 +531,22 @@ msgctxt "legal.terms"
 msgid "Nutzungsbedingungen"
 msgstr ""
 
+msgctxt "sound.panelName"
+msgid "Ton und Bewegung"
+msgstr ""
+
+msgctxt "sound.muted"
+msgid "Ton aus"
+msgstr ""
+
+msgctxt "sound.on"
+msgid "Ton"
+msgstr ""
+
+msgctxt "sound.tone"
+msgid "Ton"
+msgstr ""
+
 msgctxt "card.letterJack"
 msgid "B"
 msgstr ""
