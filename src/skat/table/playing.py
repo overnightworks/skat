@@ -332,7 +332,7 @@ def playing_view_of(
     game for the declarer's answer to an opponent's give-up, which the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
     the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
-    A give-up waiting for an opponent's yes is the same for every viewer.
+    A give-up waiting for the other side's answer is the same for every viewer.
     """
     if state is None:
         return None

@@ -448,18 +448,6 @@ class TestTheDeclarerAccepts:
 
         assert (result["kontra"]["word"], result["score"]) == ("kontra", 60)
 
-    def test_a_yes_retried_with_the_same_id_and_version_answers_the_same_and_writes_one_entry(self, herz_hand):
-        gives_up(herz_hand, FOREHAND)
-        body = {"command_id": "command-yes", "version": herz_hand.record.version}
-        first = agree(herz_hand, body=body)
-        stored = herz_hand.record
-
-        again = agree(herz_hand, body=body)
-
-        assert (again.status_code, again.json()) == (200, first.json())
-        assert herz_hand.record == stored
-        assert len(herz_hand.record.game_list) == 1
-
     def test_all_three_tapping_weiter_deal_the_next_hand(self, server):
         table = Table(server)
         table.declared_hand_game()
@@ -514,6 +502,23 @@ class TestRefusalsAroundTheGiveUp:
         assert herz_hand.record == stored
         assert herz_hand.record.version == body["version"] + 1
 
+    @pytest.mark.parametrize(
+        ("answer", "entries"), [pytest.param(agree, 1, id="yes"), pytest.param(decline, 0, id="no")]
+    )
+    def test_an_answer_retried_with_the_same_id_and_version_answers_the_same_and_changes_the_table_once(
+        self, herz_hand, answer, entries
+    ):
+        gives_up(herz_hand, FOREHAND)
+        body = {"command_id": "command-answer", "version": herz_hand.record.version}
+        first = answer(herz_hand, body=body)
+        stored = herz_hand.record
+
+        again = answer(herz_hand, body=body)
+
+        assert (again.status_code, again.json()) == (200, first.json())
+        assert herz_hand.record == stored
+        assert len(herz_hand.record.game_list) == entries
+
 
 class TestTheDeclarerDemandsPlayOn:
     def test_the_request_ends_with_one_version_and_the_player_on_turn_has_his_cards_back(self, eight_cards):
@@ -551,17 +556,6 @@ class TestTheDeclarerDemandsPlayOn:
 
         assert herz_hand.record.version == before + 1
         assert everyone_reads(herz_hand) == [asked_by(position)] * 4
-
-    def test_a_no_retried_with_the_same_id_and_version_answers_the_same_and_changes_the_table_once(self, herz_hand):
-        gives_up(herz_hand, FOREHAND)
-        body = {"command_id": "command-no", "version": herz_hand.record.version}
-        first = decline(herz_hand, body=body)
-        stored = herz_hand.record
-
-        again = decline(herz_hand, body=body)
-
-        assert (again.status_code, again.json()) == (200, first.json())
-        assert herz_hand.record == stored
 
     def test_the_same_id_with_another_version_is_reused(self, herz_hand):
         gives_up(herz_hand, FOREHAND)
