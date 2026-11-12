@@ -43,6 +43,14 @@ def facts(**changes):
     return call_facts(AGENT, OWNER, VIEWER, **changes)
 
 
+def seated_agent(table):
+    return table.chairs[0].occupant.account_id
+
+
+def seated_facts(table):
+    return call_facts(seated_agent(table), OWNER, VIEWER)
+
+
 class TestWhatACallComesTo:
     def test_a_member_present_calls_a_listening_agent_whose_owner_is_present_to_a_table_with_a_free_chair(self):
         assert offer_of(facts(), a_table_with_a_free_chair(), None, NOW) is OfferState.AVAILABLE
@@ -90,11 +98,39 @@ class TestWhatACallComesTo:
 
         assert offer_of(facts(), table, None, NOW) is OfferState.AVAILABLE
 
-    def test_an_agent_that_holds_a_chair_at_the_table_is_not_offered(self):
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            pytest.param({}, id="listening-with-its-owner-present"),
+            pytest.param({"agent_listens": False}, id="not-listening"),
+            pytest.param({"owner_present": False}, id="owner-away"),
+            pytest.param({"agent_listens": False, "owner_account": None, "owner_present": False}, id="no-owner-known"),
+        ],
+    )
+    def test_an_agent_that_holds_a_chair_at_the_table_is_here_whether_it_listens_or_its_owner_is_present(self, changes):
         seated = with_agents(a_table_with_a_free_chair(), 1)
-        agent_account = seated.chairs[0].occupant.account_id
 
-        assert offer_of(call_facts(agent_account, OWNER, VIEWER), seated, None, NOW) is InviteRefusal.NOT_OFFERED
+        assert offer_of(replace(seated_facts(seated), **changes), seated, None, NOW) is OfferState.HERE
+
+    @pytest.mark.parametrize(
+        ("changes", "refusal"),
+        [
+            pytest.param({"viewer_present": False}, InviteRefusal.NOT_PRESENT, id="the-viewer-is-not-at-the-table"),
+            pytest.param({"viewer_is_member": False}, InviteRefusal.NOT_A_MEMBER, id="the-viewer-is-no-member"),
+        ],
+    )
+    def test_a_seated_agent_is_not_here_for_a_person_who_is_absent_or_no_member(self, changes, refusal):
+        seated = with_agents(a_table_with_a_free_chair(), 1)
+
+        assert offer_of(replace(seated_facts(seated), **changes), seated, None, NOW) is refusal
+
+    def test_a_seated_agent_is_here_even_when_an_invitation_to_it_stands(self):
+        seated = with_agents(a_table_with_a_free_chair(), 1)
+        entry = BookEntry(
+            seated.id, seated_agent(seated), 0, OpenInvitation("invitation-1", NOW + LASTING, OWNER, VIEWER)
+        )
+
+        assert offer_of(seated_facts(seated), seated, entry, NOW) is OfferState.HERE
 
     def test_an_invitation_of_someone_else_makes_the_agent_not_offered(self):
         entry = entry_inviting(OTHER_PERSON)
@@ -158,6 +194,11 @@ class TestAnInvitingRowTellsWhenItsInvitationEnds:
             OfferState.INVITING, seconds
         )
 
+    def test_a_here_row_tells_no_end(self):
+        seated = with_agents(a_table_with_a_free_chair(), 1)
+
+        assert call_offer_of(seated_facts(seated), seated, None, NOW) == CallOffer(OfferState.HERE)
+
     def test_a_row_that_is_not_inviting_tells_no_end(self):
         assert call_offer_of(facts(), a_table_with_a_free_chair(), None, NOW) == CallOffer(OfferState.AVAILABLE)
 
@@ -197,6 +238,13 @@ class TestDecidingAnInvite:
         table = a_table_with_a_free_chair()
 
         assert isinstance(decide_invite(table, None, facts(**changes), InvitationId("i"), NOW, LASTING), InviteRefusal)
+
+    def test_a_seated_agent_is_not_invited(self):
+        seated = with_agents(a_table_with_a_free_chair(), 1)
+
+        written = decide_invite(seated, None, seated_facts(seated), InvitationId("i"), NOW, LASTING)
+
+        assert written is InviteRefusal.NOT_OFFERED
 
     def test_a_table_that_is_not_live_gets_no_invitation(self):
         assert decide_invite(None, None, facts(), InvitationId("i"), NOW, LASTING) is InviteRefusal.NO_TABLE
