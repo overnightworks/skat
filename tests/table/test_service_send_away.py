@@ -6,6 +6,7 @@ import copy
 import itertools
 import random
 from contextlib import nullcontext
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -84,7 +85,7 @@ class TestTheChairOpensAtOnce:
         assert result.refusal is None
         assert [chair.occupant_name for chair in result.view.chairs] == ["Anna", "Ben", None]
         assert result.view.hand.waiting_seat == MOZARTS_SEAT
-        assert (scene.table.hand, scene.table.progress, scene.table.game_list) == (
+        assert (scene.table.hand, replace(scene.table.progress, seats_held=frozenset()), scene.table.game_list) == (
             before.hand,
             before.progress,
             before.game_list,
@@ -112,6 +113,16 @@ class TestTheChairOpensAtOnce:
 
         assert again.refusal is None
         assert again.view.hand.waiting_seat is None
+
+    def test_the_agent_sits_only_in_its_old_chair_while_the_hand_runs_and_in_any_after_it(self):
+        scene = Scene()
+        scene.send_away()
+        scene.service.stand(BEN, StandUp(f"command-{next(scene.commands)}", scene.table_id), NOBODY)
+
+        into_another = scene.sit(MOZART, 2)
+        into_its_own = scene.sit(MOZART, MOZARTS_SEAT)
+
+        assert (into_another.refusal, into_its_own.refusal) == (Refusal.OWN_SEAT_ONLY, None)
 
     def test_neither_it_nor_a_sit_into_the_chair_counts_as_a_step_of_play(self):
         scene = Scene()

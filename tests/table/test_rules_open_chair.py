@@ -19,9 +19,11 @@ from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
     PlayCardCommand,
+    ThrowDownCommand,
     decide_agree_to_give_up,
     decide_card,
     decide_decline_give_up,
+    decide_throw_down,
 )
 from skat.table.pushing import PushingCommand, PushingKind, decide_pushing_step
 from skat.table.records import (
@@ -31,10 +33,19 @@ from skat.table.records import (
     NoWordSaid,
     OccupantKind,
     Refusal,
+    SeatHeld,
     Series,
     TableOptions,
 )
-from skat.table.rules import acting_position, decide_sit, decide_stand, waiting_seat_of
+from skat.table.rules import (
+    acting_position,
+    dealt_next,
+    decide_sit,
+    decide_stand,
+    free_seat_for,
+    seat_held_in_hand,
+    waiting_seat_of,
+)
 from skat.table.views import turn_seat_of, view_of
 from tests.support.open_chairs import (
     FOREHAND,
@@ -45,6 +56,7 @@ from tests.support.open_chairs import (
     MIDDLEHAND_SEAT,
     OWN_PUT_BACK,
     PHASES,
+    RAMSCH,
     REARHAND,
     REARHAND_SEAT,
     account_of,
@@ -127,13 +139,6 @@ class TestEveryHandCommandIsRefused:
 
         assert acting_position(table, actor_at(table, MIDDLEHAND_SEAT), table.version) is Refusal.NO_HAND
 
-    @pytest.mark.parametrize("phase", PHASES)
-    def test_a_newcomers_stand_up_is_refused_as_a_hand_running(self, phase):
-        table = waiting_in(phase)
-        taken = decide_sit(table, newcomer(), REARHAND_SEAT, None).table
-
-        assert decide_stand(taken, newcomer()).refusal is Refusal.HAND_RUNNING
-
     def test_a_second_chair_is_refused_to_a_seated_person(self):
         table = waiting_in("auction")
 
@@ -191,7 +196,7 @@ class TestTheTakeOver:
         taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
 
         assert waiting_seat_of(taken) is None
-        assert (taken.hand, taken.progress) == (table.hand, table.progress)
+        assert (taken.hand, replace(taken.progress, seats_held=frozenset())) == (table.hand, table.progress)
         assert seat_on_turn(taken) == seat
 
     def test_the_sitter_in_the_auction_bids_for_the_seat(self):
@@ -233,7 +238,11 @@ class TestTheTakeOver:
 
         taken = decide_sit(sent_away(table, FOREHAND_SEAT), newcomer(), FOREHAND_SEAT, new_hand).table
 
-        assert (taken.hand, taken.dealer, taken.progress) == (table.hand, table.dealer, table.progress)
+        assert (taken.hand, taken.dealer, replace(taken.progress, seats_held=frozenset())) == (
+            table.hand,
+            table.dealer,
+            table.progress,
+        )
         assert not any(chair.ready for chair in taken.chairs)
 
 
@@ -502,3 +511,243 @@ class TestAGameEndedAfterATakeOver:
 
         assert ended.hand is None
         assert ended.bock != BockRounds.start()
+
+
+def stood_up(table, seat):
+    """The table once the occupant of `seat` stood up."""
+    decision = decide_stand(table, actor_at(table, seat))
+    assert decision.refusal is None
+    return decision.table
+
+
+def sat(table, actor, seat):
+    decision = decide_sit(table, actor, seat, None)
+    assert decision.refusal is None
+    return decision.table
+
+
+def replaced(table, leaver_seat):
+    """The leaver of `leaver_seat`, and the table once he stood up and a newcomer took his chair."""
+    leaver = actor_at(table, leaver_seat)
+    return leaver, sat(stood_up(table, leaver_seat), newcomer(), leaver_seat)
+
+
+class TestAStandUpDuringAHand:
+    @pytest.mark.parametrize("phase", PHASES)
+    def test_frees_the_chair_in_one_version_leaves_the_hand_as_it_was_and_marks_the_leaver(self, phase):
+        table = PHASES[phase]()
+        leaver = actor_at(table, MIDDLEHAND_SEAT)
+
+        decision = decide_stand(table, leaver)
+        freed = decision.table
+
+        assert decision.refusal is None
+        assert freed.chairs[MIDDLEHAND_SEAT - 1].occupant is None
+        assert (freed.version, waiting_seat_of(freed)) == (table.version + 1, MIDDLEHAND_SEAT)
+        assert (freed.hand, freed.dealer, freed.game_list, freed.series, freed.bock) == (
+            table.hand,
+            table.dealer,
+            table.game_list,
+            table.series,
+            table.bock,
+        )
+        assert replace(freed.progress, seats_held=frozenset()) == table.progress
+        assert freed.progress.seats_held == frozenset({SeatHeld(leaver.account_id, MIDDLEHAND_SEAT)})
+
+    @pytest.mark.parametrize("phase", PHASES)
+    def test_a_newcomer_who_took_over_stands_up_again_and_the_hand_waits_again(self, phase):
+        table = waiting_in(phase)
+        sitter = newcomer()
+
+        left = stood_up(sat(table, sitter, REARHAND_SEAT), REARHAND_SEAT)
+
+        assert waiting_seat_of(left) == REARHAND_SEAT
+        assert SeatHeld(sitter.account_id, REARHAND_SEAT) in left.progress.seats_held
+
+    def test_each_sitter_who_leaves_a_chair_in_turn_is_marked_for_that_chair(self):
+        table = PHASES["in-a-trick"]()
+        first, second = newcomer(name="Dora"), newcomer(name="Erik")
+
+        taken = sat(stood_up(table, FOREHAND_SEAT), first, FOREHAND_SEAT)
+        again = sat(stood_up(taken, FOREHAND_SEAT), second, FOREHAND_SEAT)
+        left = stood_up(again, FOREHAND_SEAT)
+
+        assert left.progress.seats_held == {
+            SeatHeld(actor_at(table, FOREHAND_SEAT).account_id, FOREHAND_SEAT),
+            SeatHeld(first.account_id, FOREHAND_SEAT),
+            SeatHeld(second.account_id, FOREHAND_SEAT),
+        }
+
+    def test_a_second_leave_of_the_same_chair_is_the_same_mark(self):
+        table = PHASES["auction"]()
+        leaver = actor_at(table, MIDDLEHAND_SEAT)
+
+        again = stood_up(sat(stood_up(table, MIDDLEHAND_SEAT), leaver, MIDDLEHAND_SEAT), MIDDLEHAND_SEAT)
+
+        assert again.progress.seats_held == {SeatHeld(leaver.account_id, MIDDLEHAND_SEAT)}
+
+    def test_a_stand_up_between_hands_writes_no_mark(self):
+        between = replace(PHASES["auction"](), hand=None, progress=HandProgress())
+
+        assert stood_up(between, MIDDLEHAND_SEAT).progress.seats_held == frozenset()
+
+    def test_the_asker_of_a_standing_give_up_request_takes_it_with_him(self):
+        assert stood_up(asked_by_the_declarer(), MIDDLEHAND_SEAT).progress.give_up is None
+
+    def test_a_decliner_takes_his_no_and_the_other_opponent_can_still_answer(self):
+        table = asked_by_the_declarer(declined_by=FOREHAND)
+
+        taken = sat(stood_up(table, FOREHAND_SEAT), newcomer(), FOREHAND_SEAT)
+        agreed = decide_agree_to_give_up(
+            taken, actor_at(taken, REARHAND_SEAT), AgreeToGiveUpCommand("c", taken.id.value, taken.version)
+        )
+
+        assert taken.progress.give_up == GiveUpAsked(MIDDLEHAND, None)
+        assert agreed.refusal is None
+
+
+class TestOnlyTheOwnSeatUntilTheHandEnds:
+    def setup_method(self):
+        self.table = PHASES["auction"]()
+        self.anna = actor_at(self.table, MIDDLEHAND_SEAT)
+        self.ben = actor_at(self.table, REARHAND_SEAT)
+        self.two_open = stood_up(stood_up(self.table, MIDDLEHAND_SEAT), REARHAND_SEAT)
+
+    def test_a_leaver_is_refused_another_free_chair_and_nothing_changes(self):
+        refused = decide_sit(self.two_open, self.anna, REARHAND_SEAT, None)
+
+        assert (refused.refusal, refused.table, refused.holder) == (Refusal.OWN_SEAT_ONLY, self.two_open, None)
+
+    def test_the_bar_is_refused_for_a_taken_chair_too_and_the_own_chair_when_taken_names_its_holder(self):
+        one_open = stood_up(self.table, MIDDLEHAND_SEAT)
+        own_taken = sat(self.two_open, newcomer(name="Dora"), MIDDLEHAND_SEAT)
+
+        into_a_taken_chair = decide_sit(one_open, self.anna, FOREHAND_SEAT, None)
+        into_the_own_taken_chair = decide_sit(own_taken, self.anna, MIDDLEHAND_SEAT, None)
+
+        assert into_a_taken_chair.refusal is Refusal.OWN_SEAT_ONLY
+        assert (into_the_own_taken_chair.refusal, into_the_own_taken_chair.holder) == (Refusal.SEAT_TAKEN, "Dora")
+
+    def test_a_leaver_may_sit_again_in_the_chair_he_left_and_the_hand_moves_again(self):
+        back = sat(stood_up(self.table, MIDDLEHAND_SEAT), self.anna, MIDDLEHAND_SEAT)
+
+        assert waiting_seat_of(back) is None
+        assert back.progress.auction == self.table.progress.auction
+
+    def test_a_seated_account_is_still_refused_as_already_seated(self):
+        one_open = stood_up(self.table, MIDDLEHAND_SEAT)
+
+        assert decide_sit(one_open, self.ben, MIDDLEHAND_SEAT, None).refusal is Refusal.ALREADY_SEATED
+
+    def test_an_account_that_held_no_chair_of_the_hand_takes_every_open_chair_a_leavers_included(self):
+        into_the_first = decide_sit(self.two_open, newcomer(), MIDDLEHAND_SEAT, None)
+        into_the_second = decide_sit(self.two_open, newcomer(), REARHAND_SEAT, None)
+
+        assert (into_the_first.refusal, into_the_second.refusal) == (None, None)
+
+    def test_two_leavers_may_each_take_only_their_own_chair(self):
+        crossed = [
+            decide_sit(self.two_open, self.anna, REARHAND_SEAT, None).refusal,
+            decide_sit(self.two_open, self.ben, MIDDLEHAND_SEAT, None).refusal,
+        ]
+        own = [
+            decide_sit(self.two_open, self.anna, MIDDLEHAND_SEAT, None).refusal,
+            decide_sit(self.two_open, self.ben, REARHAND_SEAT, None).refusal,
+        ]
+
+        assert (crossed, own) == ([Refusal.OWN_SEAT_ONLY] * 2, [None, None])
+
+    def test_all_three_who_left_come_back_each_only_to_their_own_chair_and_the_hand_moves_once_all_sit(self):
+        holders = {seat: actor_at(self.table, seat) for seat in (MIDDLEHAND_SEAT, REARHAND_SEAT, FOREHAND_SEAT)}
+        empty = stood_up(self.two_open, FOREHAND_SEAT)
+
+        crossed = {seat: decide_sit(empty, holder, 1 + seat % 3, None).refusal for seat, holder in holders.items()}
+        back = empty
+        for seat, holder in holders.items():
+            back = sat(back, holder, seat)
+
+        assert set(crossed.values()) == {Refusal.OWN_SEAT_ONLY}
+        assert decide_sit(empty, newcomer(), FOREHAND_SEAT, None).refusal is None
+        assert waiting_seat_of(back) is None
+
+    def test_the_account_is_offered_its_held_chair_only_and_none_while_it_is_taken(self):
+        own_taken = sat(self.two_open, newcomer(), REARHAND_SEAT)
+
+        assert free_seat_for(self.two_open, self.ben.account_id) == REARHAND_SEAT
+        assert free_seat_for(own_taken, self.ben.account_id) is None
+        assert free_seat_for(self.two_open, newcomer().account_id) == MIDDLEHAND_SEAT
+
+    def test_a_record_between_hands_that_still_carries_a_mark_bars_nobody(self):
+        mark = SeatHeld(self.anna.account_id, MIDDLEHAND_SEAT)
+        between = replace(self.two_open, hand=None, progress=HandProgress(seats_held=frozenset({mark})))
+
+        assert seat_held_in_hand(between, self.anna.account_id) is None
+        assert decide_sit(between, self.anna, REARHAND_SEAT, None).refusal is None
+
+
+def may_sit_in_another_chair(ended, leaver):
+    """The hand is over: the leaver, no longer seated, takes a chair that another account freed."""
+    freed = stood_up(ended, FOREHAND_SEAT)
+    return decide_sit(freed, leaver, FOREHAND_SEAT, None).refusal is None
+
+
+class TestTheMarkEndsWithTheHand:
+    def test_a_game_played_out_clears_the_marks(self):
+        declared, last = before_the_last_card(table_in(HandProgress()))
+        finisher = seats_from(declared.dealer)[last.position]
+        leaver, marked = replaced(declared, MIDDLEHAND_SEAT if finisher != MIDDLEHAND_SEAT else REARHAND_SEAT)
+
+        ended = last_card(marked, actor_at(marked, finisher), last)
+
+        assert marked.progress.seats_held
+        assert (ended.hand, ended.progress.seats_held) == (None, frozenset())
+        assert may_sit_in_another_chair(ended, leaver)
+
+    def test_a_game_given_up_clears_the_marks(self):
+        leaver, marked = replaced(asked_by_the_declarer(), FOREHAND_SEAT)
+
+        ended = decide_agree_to_give_up(
+            marked, actor_at(marked, REARHAND_SEAT), AgreeToGiveUpCommand("c", marked.id.value, marked.version)
+        ).table
+
+        assert marked.progress.seats_held
+        assert (ended.hand, ended.progress.seats_held) == (None, frozenset())
+        assert may_sit_in_another_chair(ended, leaver)
+
+    def test_a_game_thrown_down_clears_the_marks(self):
+        leaver, marked = replaced(table_in(declared_herz_hand()), REARHAND_SEAT)
+
+        ended = decide_throw_down(
+            marked, actor_at(marked, MIDDLEHAND_SEAT), ThrowDownCommand("c", marked.id.value, marked.version)
+        ).table
+
+        assert marked.progress.seats_held
+        assert (ended.hand, ended.progress.seats_held) == (None, frozenset())
+        assert may_sit_in_another_chair(ended, leaver)
+
+    def test_a_hand_passed_in_without_ramsch_clears_the_marks_though_it_keeps_the_auction_steps(self):
+        leaver, marked = replaced(table_in(THIRD_PASS_BY_FOREHAND), MIDDLEHAND_SEAT)
+        command = AuctionCommand("command-1", marked.id.value, marked.version, AuctionAction.PASS, None)
+
+        ended = decide_step(marked, actor_at(marked, FOREHAND_SEAT), command).table
+
+        assert marked.progress.seats_held
+        assert (ended.hand, bool(ended.progress.auction), ended.progress.seats_held) == (None, True, frozenset())
+        assert may_sit_in_another_chair(ended, leaver)
+
+    def test_a_hand_passed_in_with_ramsch_keeps_the_marks_for_the_ramsch(self):
+        _leaver, marked = replaced(table_in(THIRD_PASS_BY_FOREHAND, RAMSCH), MIDDLEHAND_SEAT)
+        command = AuctionCommand("command-1", marked.id.value, marked.version, AuctionAction.PASS, None)
+
+        ramsch = decide_step(marked, actor_at(marked, FOREHAND_SEAT), command).table
+
+        assert ramsch.hand is not None
+        assert ramsch.progress.seats_held == marked.progress.seats_held
+
+    def test_the_next_deal_starts_without_marks(self):
+        table = PHASES["auction"]()
+        _, marked = replaced(table, MIDDLEHAND_SEAT)
+
+        dealt = dealt_next(replace(marked, hand=None), NewHand(1, table.hand))
+
+        assert dealt.progress.seats_held == frozenset()

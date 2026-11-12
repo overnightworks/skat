@@ -401,15 +401,17 @@ class TestDeal:
         assert late.refusal is Refusal.SEAT_TAKEN
         assert store.tables[table_id] == dealt
 
-    def test_standing_up_while_a_hand_runs_is_refused_and_changes_nothing(self, store):
+    def test_standing_up_while_a_hand_runs_opens_the_chair_beside_the_hand_in_one_version(self, store):
         service = seeded_service(store, 1)
         table_id, _ = seated_three(service)
         dealt = store.tables[table_id]
 
         result = service.stand(VISITOR, StandUp("command-stand", table_id), frozenset())
 
-        assert result.refusal is Refusal.HAND_RUNNING
-        assert store.tables[table_id] == dealt
+        stored = store.tables[table_id]
+        assert result.refusal is None
+        assert (stored.hand, stored.version) == (dealt.hand, dealt.version + 1)
+        assert [chair.occupant is None for chair in stored.chairs] == [False, True, False]
 
     def test_a_third_sit_rolled_back_after_a_duplicate_receipt_leaves_no_hand(self, store):
         service = seeded_service(store, 1)
