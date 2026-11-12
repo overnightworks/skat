@@ -1,6 +1,8 @@
 // Generated from the de catalog by design-catalogs. Do not edit.
 
 export const language = "de";
+const numberFormat = new Intl.NumberFormat("de");
+const pluralRules = new Intl.PluralRules("de");
 // prettier-ignore
 export type Words = {
     readonly "app.name": string;
@@ -38,6 +40,12 @@ export type Words = {
     readonly "table.bidding": string;
     readonly "table.pass": string;
     readonly "table.waitingFor": string;
+    readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
+    readonly "table.givesUp": (gaps: { readonly name: string }) => string;
+    readonly "table.accept": string;
+    readonly "table.playOn": string;
+    readonly "table.saidNo": string;
+    readonly "table.noAnswerYet": string;
     readonly "table.passedIn": string;
     readonly "table.gives": string;
     readonly "table.waitsForYou": string;
@@ -54,17 +62,16 @@ export type Words = {
     readonly "table.readyMark": string;
     readonly "table.notReadyMark": string;
     readonly "result.seatFree": string;
-    readonly "result.bidValue": string;
     readonly "result.hand": string;
     readonly "result.levelSpiel": string;
     readonly "result.levelSchneider": string;
     readonly "result.levelSchwarz": string;
     readonly "result.levelOuvert": string;
-    readonly "result.matadorsWith": string;
-    readonly "result.matadorsWithout": string;
-    readonly "result.listBonus": string;
-    readonly "result.each": string;
-    readonly "result.notReached": string;
+    readonly "result.matadorsWith": (count: number) => string;
+    readonly "result.matadorsWithout": (count: number) => string;
+    readonly "result.listGame": (gaps: { readonly score: string }) => string;
+    readonly "result.listBonus": (gaps: { readonly bonus: string }) => string;
+    readonly "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => string;
     readonly "result.announcedSchneider": string;
     readonly "result.announcedSchwarz": string;
     readonly "result.sideThem": string;
@@ -72,11 +79,15 @@ export type Words = {
     readonly "result.sideYou": string;
     readonly "result.won": string;
     readonly "result.lost": string;
-    readonly "result.wins": string;
-    readonly "result.loses": string;
     readonly "result.overbid": string;
-    readonly "result.gameWorth": string;
     readonly "result.and": string;
+    readonly "result.declarerWins": (gaps: { readonly name: string }) => string;
+    readonly "result.declarerLoses": (gaps: { readonly name: string }) => string;
+    readonly "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => string;
+    readonly "result.missedSchneider": string;
+    readonly "result.missedSchwarz": string;
+    readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
+    readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
     readonly "closed.notFound": string;
     readonly "closed.nobodyThereClosed": string;
     readonly "closed.minute": string;
@@ -164,6 +175,12 @@ export const words: Words = {
     "table.bidding": "Reizen",
     "table.pass": "Weg",
     "table.waitingFor": "Warte auf",
+    "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",
+    "table.givesUp": (gaps: { readonly name: string }) => gaps.name + " gibt auf",
+    "table.accept": "Annehmen",
+    "table.playOn": "Weiterspielen",
+    "table.saidNo": "sagte Nein",
+    "table.noAnswerYet": "noch keine Antwort",
     "table.passedIn": "Eingepasst",
     "table.gives": "gibt",
     "table.waitsForYou": "wartet auf dich",
@@ -180,17 +197,30 @@ export const words: Words = {
     "table.readyMark": "Weiter getippt",
     "table.notReadyMark": "noch nicht getippt",
     "result.seatFree": "Frei",
-    "result.bidValue": "Reizwert",
     "result.hand": "Hand",
     "result.levelSpiel": "Spiel",
     "result.levelSchneider": "Schneider",
     "result.levelSchwarz": "Schwarz",
     "result.levelOuvert": "Ouvert",
-    "result.matadorsWith": "mit",
-    "result.matadorsWithout": "ohne",
-    "result.listBonus": "Liste",
-    "result.each": "je",
-    "result.notReached": "nicht erreicht",
+    "result.matadorsWith": (count: number) => ({
+        zero: "mit " + numberFormat.format(count),
+        one: "mit " + numberFormat.format(count),
+        two: "mit " + numberFormat.format(count),
+        few: "mit " + numberFormat.format(count),
+        many: "mit " + numberFormat.format(count),
+        other: "mit " + numberFormat.format(count),
+    })[pluralRules.select(count)],
+    "result.matadorsWithout": (count: number) => ({
+        zero: "ohne " + numberFormat.format(count),
+        one: "ohne " + numberFormat.format(count),
+        two: "ohne " + numberFormat.format(count),
+        few: "ohne " + numberFormat.format(count),
+        many: "ohne " + numberFormat.format(count),
+        other: "ohne " + numberFormat.format(count),
+    })[pluralRules.select(count)],
+    "result.listGame": (gaps: { readonly score: string }) => "Spiel " + gaps.score,
+    "result.listBonus": (gaps: { readonly bonus: string }) => "Liste " + gaps.bonus,
+    "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => "· " + gaps.opponents + " je " + gaps.gain,
     "result.announcedSchneider": "Schneider angesagt",
     "result.announcedSchwarz": "Schwarz angesagt",
     "result.sideThem": "Gegner",
@@ -198,11 +228,15 @@ export const words: Words = {
     "result.sideYou": "Du",
     "result.won": "Gewonnen!",
     "result.lost": "Verloren",
-    "result.wins": "gewinnt",
-    "result.loses": "verliert",
     "result.overbid": "Überreizt",
-    "result.gameWorth": "Wert",
     "result.and": "und",
+    "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " gewinnt",
+    "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " verliert",
+    "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => gaps.declarer + ", " + gaps.game,
+    "result.missedSchneider": "Schneider angesagt, nicht erreicht",
+    "result.missedSchwarz": "Schwarz angesagt, nicht erreicht",
+    "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
+    "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
     "closed.notFound": "Tisch nicht gefunden",
     "closed.nobodyThereClosed": "niemand da: Tisch geschlossen",
     "closed.minute": "Minute",

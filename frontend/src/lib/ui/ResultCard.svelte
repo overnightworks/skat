@@ -100,8 +100,18 @@
     {#if view.points !== null}
         <div class="points" role="group" aria-label={words["result.trickPoints"]}>
             <span class="sides">
-                <span class="declarer">{`${view.sides.declarer} ${String(view.points.declarer)}`}</span>
-                <span class="opponents">{`${view.sides.opponents} ${String(view.points.opponents)}`}</span>
+                <span class="declarer"
+                    >{words["result.sidePoints"]({
+                        side: view.sides.declarer,
+                        points: String(view.points.declarer),
+                    })}</span
+                >
+                <span class="opponents"
+                    >{words["result.sidePoints"]({
+                        side: view.sides.opponents,
+                        points: String(view.points.opponents),
+                    })}</span
+                >
             </span>
             <span class="track">
                 <svg viewBox={`0 0 ${String(ALL_POINTS)} 1`} preserveAspectRatio="none" aria-hidden="true">

@@ -23,6 +23,8 @@ import {
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_EVENTS_SUFFIX,
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_READY_SUFFIX,
     TABLE_SIT_SUFFIX,
@@ -70,12 +72,15 @@ export type SeatedCard = { seat: number; card: Card };
 export type Sides = { declarer: number; opponents: number };
 // The last trick's cards lie in playing order from the seat that led it.
 export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number };
+// A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
+export type GiveUp = { asking_seat: number; declined_seat: number | null };
 export type Playing = {
     turn_seat: number | null;
     current_trick: SeatedCard[];
     last_trick: LastTrick | null;
     // Only the seated player on turn receives the cards they may play.
     legal_cards: Card[];
+    give_up: GiveUp | null;
 };
 export type Hand = {
     dealer_seat: number;
@@ -84,6 +89,8 @@ export type Hand = {
     auction: Auction;
     declaring: Declaring | null;
     playing: Playing | null;
+    // The open seat a running hand waits for, the same for every viewer.
+    waiting_seat: number | null;
 };
 export type Chair = {
     seat: number;
@@ -225,6 +232,18 @@ export function takeDeclaringStep(
 // The client names only the card: the seat that plays it comes from the session.
 export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
     return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
+}
+
+export type GiveUpAnswer = "agree" | "decline";
+
+const GIVE_UP_ANSWER_SUFFIXES: Record<GiveUpAnswer, string> = {
+    agree: TABLE_GIVE_UP_AGREE_SUFFIX,
+    decline: TABLE_GIVE_UP_DECLINE_SUFFIX,
+};
+
+// The version is the one the page shows, so an answer to a request that has since gone is refused; there is no retry.
+export function answerGiveUp(id: string, version: number, commandId: string, answer: GiveUpAnswer): Promise<Outcome> {
+    return post(id, GIVE_UP_ANSWER_SUFFIXES[answer], { command_id: commandId, version });
 }
 
 // „Weiter“ names the result it saw, so a tap on a result that has since been replaced is refused.
