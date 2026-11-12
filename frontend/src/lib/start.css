@@ -287,6 +287,8 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
+    /* Nothing inside the room widens the page: a phone that widened its layout for one stray element would hand the open agents' list a width to place itself against that the list then holds up by itself. */
+    overflow-x: clip;
     color: var(--on-stage);
     font-family: "Open Sans", Arial, sans-serif;
     background:
