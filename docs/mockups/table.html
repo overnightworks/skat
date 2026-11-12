@@ -1862,6 +1862,15 @@ const RAMSCH_SCENES=[
   ['push-open','Ramsch: Platz frei',[390,1280],(d)=>pushTable(d,{free:true,plaque:{wait:true}})+openNotice(d)+restingHand(d)+stripOf(d,{lead:'',pill:agentPill(d)}),
     ['Novas Stuhl ist frei geworden: „Ramsch · Warte auf Mitspieler“, niemand ist dran, keine Taste für irgendwen, der Skat liegt, der Hinweis „Nova ist gegangen“.']],
 ];
+/* the Ramsch's play: no declarer, no running points; the plaque keeps the count of pushes to the last trick */
+const ramschPlay=(d,plaque)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,glow:felixGlow(d)})+ramschPlaque(d,plaque)+announcedTrick(d)
+    +seat('anna',L.anna)+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownHand(d,PLAY_HAND,{swipe:true})+tableBar(d);};
+RAMSCH_SCENES.push(
+  ['ramsch-play','Ramsch: der Stich',[390,1280],(d)=>ramschPlay(d,{count:'line',pushes:2}),
+    ['Mitten im Ramsch: „Ramsch · 2× geschoben ×4“ steht bis zum letzten Stich, der Stich liegt in der Mitte, Felix’ spielbare Karten leuchten; es gibt keinen Alleinspieler und keine laufenden Augen.']],
+);
 agentScenes(RAMSCH_SCENES);
 
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
