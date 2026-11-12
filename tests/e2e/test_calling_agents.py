@@ -9,7 +9,8 @@ from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.listening_agent import ListeningAgent
-from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.people import DESKTOP, WIDTHS
+from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.tables import open_new_table, plate_of, watch
 
 if TYPE_CHECKING:
@@ -48,7 +49,7 @@ def caller(open_person: Callable[..., Page], e2e_server: RunningServer, page_err
     return record_page_errors(open_person(username="felix", groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors)
 
 
-@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_member_calls_a_listening_agent_and_every_page_sees_it_sit(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
@@ -102,10 +103,19 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
         leonardo.close()
 
 
-def test_the_list_says_so_when_no_agent_is_reachable(caller: Page, e2e_server: RunningServer) -> None:
-    open_new_table(caller, e2e_server)
+def test_the_list_says_so_when_no_agent_is_reachable(
+    open_person: Callable[..., Page], tmp_path_factory: pytest.TempPathFactory, page_errors: list[str]
+) -> None:
+    # A server of its own: the agents of the other tests keep their roster entries for a few seconds after they stop.
+    with skat_on_new_database(tmp_path_factory) as server:
+        person = record_page_errors(
+            open_person(username="felix-alone", server=server, groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors
+        )
+        open_new_table(person, server)
 
-    expect(pill(caller)).to_be_visible()
-    pill(caller).click()
+        expect(pill(person)).to_be_visible()
+        pill(person).click()
 
-    expect(caller.get_by_text(EMPTY)).to_be_visible()
+        expect(person.get_by_text(EMPTY)).to_be_visible()
+        # The page leaves before its server stops, so its stream's reconnect is no failed request.
+        person.goto("about:blank")
