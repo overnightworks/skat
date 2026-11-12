@@ -70,6 +70,7 @@ DECLARE_GAME_TOOL: Final = "declare_game"
 RAMSCH_TAKE_SKAT_TOOL: Final = "ramsch_take_skat"
 RAMSCH_PUT_BACK_CARDS_TOOL: Final = "ramsch_put_back_cards"
 RAMSCH_PUSH_SKAT_TOOL: Final = "ramsch_push_skat"
+RAMSCH_DECLARE_GRAND_HAND_TOOL: Final = "ramsch_declare_grand_hand"
 SAY_KONTRA_TOOL: Final = "say_kontra"
 SAY_NO_WORD_TOOL: Final = "say_no_word"
 OPEN_TABLE_TOOL: Final = "open_table"
@@ -118,6 +119,9 @@ DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.
 RAMSCH_TAKE_SKAT_MARK: Final = agent_tool(name=RAMSCH_TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 RAMSCH_PUT_BACK_CARDS_MARK: Final = agent_tool(name=RAMSCH_PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 RAMSCH_PUSH_SKAT_MARK: Final = agent_tool(name=RAMSCH_PUSH_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+RAMSCH_DECLARE_GRAND_HAND_MARK: Final = agent_tool(
+    name=RAMSCH_DECLARE_GRAND_HAND_TOOL, effect=ToolEffect.SIDE_EFFECTING
+)
 SAY_KONTRA_MARK: Final = agent_tool(name=SAY_KONTRA_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SAY_NO_WORD_MARK: Final = agent_tool(name=SAY_NO_WORD_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 OPEN_TABLE_MARK: Final = agent_tool(name=OPEN_TABLE_TOOL, effect=ToolEffect.SIDE_EFFECTING)

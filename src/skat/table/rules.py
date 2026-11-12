@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.bock import BockRounds
 from skat.engine.deal import positions_from
+from skat.engine.schieberamsch import GrandHandRule
 from skat.table.records import (
     Actor,
     Chair,
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.table.records import EndedTable, TableOptions
+    from skat.table.records import EndedTable, RamschSetting, TableOptions
 
 CHAIRS_PER_TABLE: Final = 3
 FIRST_VERSION: Final = 1
@@ -72,9 +73,16 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
     )
 
 
+def _pushing_member(ramsch: RamschSetting) -> str:
+    if ramsch.pushing is None:
+        return ""
+    grand_hand = '"grand_hand":"allowed",' if ramsch.grand_hand is GrandHandRule.ALLOWED else ""
+    return f'"pushing":{{{grand_hand}"rule":"{ramsch.pushing.value}"}},'
+
+
 def create_payload(command: CreateTable) -> str:
     """The receipt's payload: a table with no length and every option off keeps the text it always had, so older
-    receipts replay; an option that is on adds its own member.
+    receipts replay; an option that is on adds its own member, the Grand Hand a stage allows among them.
     """
     members = [] if command.series_length is None else [f'"series_length":{command.series_length}']
     if command.options.show_running_points:
@@ -91,11 +99,10 @@ def create_payload(command: CreateTable) -> str:
         members.append(f'"bock":{{"overlap":"{bock.overlap.value}","triggers":[{triggers}]}}')
     ramsch = command.options.ramsch
     if ramsch is not None:
-        pushing = "" if ramsch.pushing is None else f'"pushing":{{"rule":"{ramsch.pushing.value}"}},'
         members.append(
             f'"ramsch":{{"durchmarsch":"{ramsch.reckoning.durchmarsch.value}",'
             f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
-            f'{pushing}"scoring":"{ramsch.reckoning.scoring.value}"}}'
+            f'{_pushing_member(ramsch)}"scoring":"{ramsch.reckoning.scoring.value}"}}'
         )
     return "{" + ",".join(members) + "}"
 

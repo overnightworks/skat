@@ -26,7 +26,7 @@ from skat.engine.declaration import Announcement
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
-from skat.engine.schieberamsch import PushingRule
+from skat.engine.schieberamsch import GrandHandRule, PushingRule
 from skat.table.records import (
     SERIES_LENGTH_MAX,
     SERIES_LENGTH_MIN,
@@ -61,6 +61,7 @@ def _ramsch_columns() -> tuple[Column[Any], ...]:
         Column("ramsch_jungfrau", Text),
         Column("ramsch_durchmarsch", Text),
         Column("ramsch_pushing", Text),
+        Column("ramsch_grand_hand", Text),
     )
 
 
@@ -95,6 +96,15 @@ def _ramsch_checks(table_name: str) -> tuple[CheckConstraint, ...]:
         ),
         CheckConstraint(
             "ramsch_pushing IS NULL OR ramsch_occasion IS NOT NULL", name=f"{table_name}_ramsch_pushing_needs_a_ramsch"
+        ),
+        one_of(
+            "ramsch_grand_hand",
+            (rule.value for rule in GrandHandRule),
+            f"{table_name}_ramsch_grand_hand_is_a_grand_hand_rule",
+        ),
+        CheckConstraint(
+            "ramsch_grand_hand IS NULL OR ramsch_pushing IS NOT NULL",
+            name=f"{table_name}_ramsch_grand_hand_needs_pushing",
         ),
     )
 
@@ -156,6 +166,7 @@ def options_of(row: Row[Any]) -> TableOptions:
                 DurchmarschRule(row.ramsch_durchmarsch),
             ),
             None if row.ramsch_pushing is None else PushingRule(row.ramsch_pushing),
+            GrandHandRule.OFF if row.ramsch_grand_hand is None else GrandHandRule(row.ramsch_grand_hand),
         )
     return TableOptions(show_running_points=row.show_running_points, kontra=kontra, bock=bock, ramsch=ramsch)
 
@@ -178,6 +189,7 @@ def option_values(options: TableOptions) -> dict[str, object]:
         "ramsch_jungfrau": None if ramsch is None else ramsch.reckoning.jungfrau.value,
         "ramsch_durchmarsch": None if ramsch is None else ramsch.reckoning.durchmarsch.value,
         "ramsch_pushing": None if ramsch is None or ramsch.pushing is None else ramsch.pushing.value,
+        "ramsch_grand_hand": None if ramsch is None or ramsch.pushing is None else ramsch.grand_hand.value,
     }
 
 
