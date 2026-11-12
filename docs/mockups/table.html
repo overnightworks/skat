@@ -1832,7 +1832,7 @@ const pushBubble=(d,who,o={})=>{const L=seatsOf(d),seat_=who==='anna'?L.anna:L.n
 const narrow=()=>PB.cx===180;
 const restingHand=(d)=>ownHand(d,BID_HAND,d||!narrow()?{}:{w:56,strip:{base:28}});
 /* the twelve cards of a put-back: a strip that scales with the viewport as the page's picking strip does */
-const twelveStrip=(d,keys)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,rot:.6,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
+const twelveStrip=(d)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,rot:.6,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
 const JACKS_DARK=TAKEN_HAND.map(([r,s,c])=>r==='B'?[r,s,'no']:[r,s,c]);
 const JACK_PICKED=TAKEN_HAND.map(([r,s,c])=>r==='B'&&s==='h'?[r,s,'touch']:r==='K'?[r,s]:[r,s,c]);
 const sideCount=(d,n)=>d?cardsAt(n,952,340):cardsAt(n,PB.cx+(narrow()?94:115),200);
@@ -1853,20 +1853,20 @@ const RAMSCH_SCENES=[
     +ownHand(d,JACK_PICKED,twelveStrip(d))+tableBar(d),
     ['Entwurf zur Wahl: dasselbe mit allen zwölf Karten hell; nach einem Buben steht unter „Drücken“ der Satz „Buben bleiben in der Hand“, die beiden Karten bleiben gewählt.']],
   ['push-wait','Ramsch: Anna wählt',[390,1280],(d)=>pushTable(d,{glow:annaTurn(d),plaque:{who:'Anna wählt'},marks:{anna:['turn']}})+restingHand(d)+tableBar(d),
-    ['Anna ist Vorhand und dran: „Ramsch · Anna wählt…“, ihr Stuhl trägt die Marke, der Skat liegt, Felix hat keine Taste.']],
+    ['Felix ist Mittelhand: „Ramsch · Anna wählt…“, Annas Stuhl ist dran, der Skat liegt, Felix hat keine Taste.']],
   ['push-taken','Ramsch: Anna drückt',[390,1280],(d)=>pushTable(d,{glow:annaTurn(d),left:12,skat:false,plaque:{who:'Anna drückt'},marks:{anna:['turn']},extra:leftCount(d,12)})+restingHand(d)+tableBar(d),
     ['Anna nahm: ihr Fächer und ihre Zahl zeigen 12, der Skat-Platz ist leer, „Ramsch · Anna drückt…“.']],
-  ['push-pushed','Ramsch: einmal geschoben',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'line',pushes:1},marks:{you:['turn']},extra:pushBubble(d,'nova',{count:'line',pushes:1})})+pushButtons(d)+restingHand(d)+tableBar(d),
-    ['Nova schob als Vorhand: die Blase „Schieben“ an ihrem Stuhl, die Tafel „Ramsch · 1× geschoben ×2“, Felix ist dran und hat seine zwei Tasten.']],
-  ['push-pushed-chairs','Ramsch: einmal geschoben, Pfeil am Stuhl',[390],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'factor',pushes:1},marks:{you:['turn'],east:['pushed']},extra:pushBubble(d,'nova',{count:'factor',pushes:1})})+pushButtons(d)+restingHand(d)+tableBar(d),
-    ['Entwurf zur Wahl: dasselbe mit einem Pfeil an Novas Stuhl und „Ramsch ×2“ auf der Tafel.']],
+  ['push-pushed','Ramsch: einmal geschoben',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'line',pushes:1},marks:{you:['turn']},extra:pushBubble(d,'anna',{count:'line',pushes:1})})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['Anna schob: die Blase „Schieben“ an ihrem Stuhl, die Tafel „Ramsch · 1× geschoben ×2“, Felix ist dran und hat seine zwei Tasten.']],
+  ['push-pushed-chairs','Ramsch: einmal geschoben, Pfeil am Stuhl',[390],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'factor',pushes:1},marks:{you:['turn'],anna:['pushed']},extra:pushBubble(d,'anna',{count:'factor',pushes:1})})+pushButtons(d)+restingHand(d)+tableBar(d),
+    ['Dasselbe mit einem Pfeil an Annas Stuhl und „Ramsch ×2“ auf der Tafel. Entwurf zur Wahl.']],
   ['push-agent','Ramsch: Nova ist dran',[390,1280],(d)=>pushTable(d,{glow:novaGlow(d),plaque:{count:'line',pushes:2,who:'Nova wählt'},marks:{east:['turn','think']}})+restingHand(d)+tableBar(d),
-    ['Felix und Anna schoben, Nova ist Hinterhand und dran: „denkt“ an ihrer Kugel, „Ramsch · 2× geschoben ×4 · Nova wählt…“.']],
+    ['Anna und Felix schoben, Nova ist Hinterhand und dran: „denkt“ an ihrer Kugel, „Ramsch · 2× geschoben ×4 · Nova wählt…“.']],
   ['push-flat','Ramsch: geschoben ohne Verdoppeln',[390],(d)=>pushTable(d,{glow:felixGlow(d),plaque:{count:'flat',pushes:2},marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
     ['An einem Tisch „ohne Verdoppeln“: „Ramsch · 2× geschoben“ ohne Faktor.']],
   ['push-watch','Ramsch: Zuschauen',[360,390,1280],(d)=>pushTable(d,{glow:annaTurn(d),near:'lena',east:'ben',left:12,skat:false,watchers:3,plaque:{who:'Anna drückt'},marks:{anna:['turn']},
       extra:nearFan(d,10)+leftCount(d,12)+sideCount(d,10)+underCount(d,10)})+tableBar(d),
-    ['Ein Zuschauer sieht dieselbe Tafel; von allen nur Rückseiten und Zahlen, 12 bei Anna nach ihrem Nehmen, keine Taste.']],
+    ['Lena schaut zu: dieselbe Tafel, von allen nur Rückseiten und Zahlen, 12 bei Anna nach ihrem Nehmen, keine Taste.']],
   ['push-open','Ramsch: Platz frei',[390,1280],(d)=>pushTable(d,{free:true,plaque:{wait:true}})+openNotice(d)+restingHand(d)+stripOf(d,{lead:'',pill:agentPill(d)}),
     ['Novas Stuhl ist frei geworden: „Ramsch · Warte auf Mitspieler“, niemand ist dran, keine Taste für irgendwen, der Skat liegt, der Hinweis „Nova ist gegangen“.']],
 ];
@@ -1877,7 +1877,7 @@ const ramschPlay=(d,plaque)=>{const L=seatsOf(d);
     +ownHand(d,PLAY_HAND,{swipe:true})+tableBar(d);};
 RAMSCH_SCENES.push(
   ['ramsch-play','Ramsch: der Stich',[390,1280],(d)=>ramschPlay(d,{count:'line',pushes:2}),
-    ['Mitten im Ramsch: „Ramsch · 2× geschoben ×4“ steht bis zum letzten Stich, der Stich liegt in der Mitte, Felix’ spielbare Karten leuchten; es gibt keinen Alleinspieler und keine laufenden Augen.']],
+    ['Nach Hinterhand spielt Vorhand aus: „Ramsch · 2× geschoben ×4“, der Stich in der Mitte, Felix\' spielbare Karten leuchten; kein Alleinspieler.']],
 );
 /* ===== the Ramsch's result: nobody plays against anybody, the most eyes lose them as minus points; the card shows how the number comes about ===== */
 /* eyes and tricks are listed in the order of the coasters' adds: Anna, Ben, the viewer's own chair */
@@ -1921,19 +1921,19 @@ RAMSCH_SCENES.push(
   ['ramsch-jungfrau','Ramsch mit Jungfrau',[390],(d)=>ramschEnd(d,RAMSCH_JUNGFRAU),
     ['Anna machte keinen Stich: in der Rechnung „Jungfrau ×2“, Ben −172.']],
   ['ramsch-durchmarsch','Durchmarsch',[390],(d)=>ramschEnd(d,RAMSCH_SWEEP),
-    ['Anna machte alle Stiche: „Durchmarsch“, Anna +120, die anderen 0; wer durchmarschiert, liest „Gewonnen!“.']],
+    ['Anna machte alle Stiche: „Durchmarsch“, Anna +120, die anderen 0.']],
 );
 /* the list of games with a Ramsch between two declared games; the row of game 8 is a Ramsch, and the list ends at game 10 so it shows */
 const LIST_WITH_RAMSCH=GAMES_PLAYED.filter(r=>r[0]<=10).map(r=>r[0]===8?{n:8,k:'ben',score:-344,pushes:2}:r);
 RAMSCH_SCENES.push(
   ['ramsch-list','Liste mit einem Ramsch',[390],(d)=>seriesPlay(d,'')+gameList(d,LIST_WITH_RAMSCH,11),
-    ['Die Liste der Spiele mit der Zeile „Ramsch, Ben −344“ und „2× geschoben“ klein darunter, zwischen zwei Spielen mit Alleinspieler.']],
+    ['Die Liste der Spiele mit der Zeile „Ramsch, Ben −344 · 2× geschoben“ zwischen zwei Spielen mit Alleinspieler.']],
 );
 /* a table with Ramsch and the pushing rule: its chip in the pill, its rows in the sheet */
 const RAMSCH_RULES=['kontra','ramsch','schieben','bock'];
 RAMSCH_SCENES.push(
   ['rules-ramsch','Die Regeln mit Ramsch',[390],(d)=>S3.watch(d)+rulesSheet(d,RAMSCH_RULES),
-    ['Ein Tisch mit Ramsch trägt die Marke „Ramsch“ im Regel-Knopf; die Regeln zeigen „Ramsch beim Einpassen“ und, wenn es gilt, „Schieberamsch“ mit dem Namen der Regel, „Ohne Buben, je doppelt“.']],
+    ['Die Regeln eines Tischs mit Ramsch: die Marke „Ramsch“ im Regel-Knopf, die Zeilen „Ramsch beim Einpassen“ und „Schieberamsch, ohne Buben, je doppelt“.']],
 );
 agentScenes(RAMSCH_SCENES);
 
