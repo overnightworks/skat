@@ -58,6 +58,9 @@ class TestTheOpenersName:
 
 
 class TestTheLastPlayedTime:
+    def test_a_table_before_its_first_deal_has_the_openers_name_and_no_time(self, transactions, opened):
+        assert facts_of(transactions, opened) == PausedFacts(None, "Anna")
+
     def test_the_deal_stores_its_time_together_with_the_opener(self, transactions, dealt):
         assert facts_of(transactions, dealt) == PausedFacts(DEALT_AT, "Anna")
 

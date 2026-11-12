@@ -1,10 +1,11 @@
 import pytest
 
-from skat.web.wakes import Topic, WakeList
+from skat.web.wakes import AccountTopic, TableTopic, WakeList
 from tests.web.support.presence import Wakes
 
-FIRST_TABLE = Topic("a" * 32)
-SECOND_TABLE = Topic("b" * 32)
+FIRST_TABLE = TableTopic("a" * 32)
+SECOND_TABLE = TableTopic("b" * 32)
+ANNA = AccountTopic("account-anna")
 
 
 @pytest.fixture
@@ -22,6 +23,16 @@ class TestWakeList:
         wake_list.wake(FIRST_TABLE)
 
         assert wakes.counts == {"first": 1, "also first": 1, "second": 0}
+
+    def test_an_account_topic_and_a_table_topic_wake_only_their_own_registrations(self, wakes):
+        wake_list = WakeList()
+        wake_list.register([ANNA, FIRST_TABLE], wakes.callback("anna and first"))
+        wake_list.register([FIRST_TABLE], wakes.callback("first"))
+        wake_list.register([AccountTopic(FIRST_TABLE.table_id)], wakes.callback("an account named like the table"))
+
+        wake_list.wake(ANNA)
+
+        assert wakes.counts == {"anna and first": 1, "first": 0, "an account named like the table": 0}
 
     def test_a_wake_spares_the_registration_it_names(self, wakes):
         wake_list = WakeList()
