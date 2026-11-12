@@ -23,24 +23,23 @@
     let overlay: HTMLDivElement | undefined = $state();
     let panel: HTMLDivElement | undefined = $state();
 
-    function place(): void {
-        if (anchor === undefined || overlay === undefined || panel === undefined) return;
-        const view = { width: overlay.clientWidth, height: overlay.clientHeight };
-        applyPanelPlace(panel, placePanel(anchor.getBoundingClientRect(), view, width, side));
+    function place(hung: HTMLElement, covering: HTMLElement, placed: HTMLElement): void {
+        const view = { width: covering.clientWidth, height: covering.clientHeight };
+        applyPanelPlace(placed, placePanel(hung.getBoundingClientRect(), view, width, side));
     }
 
     // The popover is shown from script, so any button can drive it; its toggle event is what `open` follows.
     $effect(() => {
-        if (overlay === undefined) return;
+        if (anchor === undefined || overlay === undefined || panel === undefined) return;
         const shown = overlay.matches(":popover-open");
         if (open && !shown) {
             overlay.showPopover();
-            place();
-            panel?.querySelector<HTMLElement>("input, button, a[href]")?.focus();
+            place(anchor, overlay, panel);
+            panel.querySelector<HTMLElement>("input, button, a[href]")?.focus();
         } else if (!open && shown) {
             overlay.hidePopover();
         } else if (open) {
-            place();
+            place(anchor, overlay, panel);
         }
     });
 
@@ -57,7 +56,7 @@
 
 <svelte:window
     onresize={() => {
-        if (open) place();
+        if (open && anchor !== undefined && overlay !== undefined && panel !== undefined) place(anchor, overlay, panel);
     }}
 />
 
