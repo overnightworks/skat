@@ -74,7 +74,7 @@ describe("a give-up request on the table", () => {
 
         expect(view).toEqual({
             line: "wants-to-give-up",
-            text: `player 2 ${words["table.wantsToGiveUp"]}`,
+            text: words["table.wantsToGiveUp"]({ name: "player 2" }),
             faces: [{ seat: DECLARER, name: "player 2", initial: "p" }],
             answers: ["agree", "decline"],
             marks: new Map(),
@@ -137,7 +137,7 @@ describe("a give-up request on the table", () => {
     it("lets the declarer answer an opponent's request and holds every card meanwhile", () => {
         expect(giveUpView(tableWith(DECLARER, OPPONENT_ASKS))).toMatchObject({
             line: "gives-up",
-            text: `player 1 ${words["table.givesUp"]}`,
+            text: words["table.givesUp"]({ name: "player 1" }),
             answers: ["agree", "decline"],
             cardsHeld: true,
         });

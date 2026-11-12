@@ -20,7 +20,6 @@ pytestmark = pytest.mark.e2e
 
 ACCEPT = text(SOURCE_LANGUAGE, "table.accept")
 PLAY_ON = text(SOURCE_LANGUAGE, "table.playOn")
-WANTS_TO_GIVE_UP = text(SOURCE_LANGUAGE, "table.wantsToGiveUp")
 WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
 AND = text(SOURCE_LANGUAGE, "result.and")
 SAID_NO = text(SOURCE_LANGUAGE, "table.saidNo")
@@ -30,6 +29,10 @@ KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
 REQUEST = ".plaque.ask"
 CROSS = ".mark.declined"
 CARDS_AFTER_TWO_TRICKS = 6
+
+
+def wants_to_give_up(asker: str) -> str:
+    return text(SOURCE_LANGUAGE, "table.wantsToGiveUp", name=asker)
 
 
 @pytest.fixture
@@ -71,10 +74,10 @@ def expect_the_request_without_a_no(table: PlayingTable) -> None:
     first, second = opponents(table)
     for seat in (first, second):
         person = table.pages[seat]
-        expect(person.locator(REQUEST)).to_contain_text(f"{asker} {WANTS_TO_GIVE_UP}")
+        expect(person.locator(REQUEST)).to_contain_text(wants_to_give_up(asker))
         expect(button_of(person, ACCEPT)).to_be_visible()
         expect(button_of(person, PLAY_ON)).to_be_visible()
-    expect(table.watcher.locator(REQUEST)).to_contain_text(f"{asker} {WANTS_TO_GIVE_UP}")
+    expect(table.watcher.locator(REQUEST)).to_contain_text(wants_to_give_up(asker))
     expect(table.watcher.locator(f"{REQUEST} button")).to_have_count(0)
     waiting = f"{WAITING_FOR} {table.names[first]} {AND} {table.names[second]}"
     expect(table.pages[table.declarer_seat].locator(REQUEST)).to_contain_text(waiting)
@@ -188,7 +191,7 @@ def test_a_reload_in_every_role_shows_the_request_as_it_stands(
     expect(button_of(table.pages[said_no], ACCEPT)).to_be_visible()
     expect(button_of(table.pages[said_no], PLAY_ON)).to_have_count(0)
     expect(button_of(table.pages[other], PLAY_ON)).to_be_visible()
-    expect(table.watcher.locator(REQUEST)).to_contain_text(f"{asker} {WANTS_TO_GIVE_UP}")
+    expect(table.watcher.locator(REQUEST)).to_contain_text(wants_to_give_up(asker))
     expect(table.watcher.locator(f"{REQUEST} button")).to_have_count(0)
     expect(table.pages[table.declarer_seat].locator(REQUEST)).to_contain_text(f"{WAITING_FOR} {table.names[other]}")
     assert page_errors == []

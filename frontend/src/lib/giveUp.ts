@@ -46,11 +46,12 @@ export function giveUpView(table: Table): GiveUpView | null {
     const faces = (asking ? pendingSeats : [askerSeat]).map((seat) => faceOf(table.chairs, seat));
     const names = faces.map((face) => face.name).join(` ${words["result.and"]} `);
     const askedLine = declarerAsks ? "wants-to-give-up" : "gives-up";
-    const askedWord = declarerAsks ? words["table.wantsToGiveUp"] : words["table.givesUp"];
+    const askedSentence = declarerAsks ? words["table.wantsToGiveUp"] : words["table.givesUp"];
     const offeredAnswers: GiveUpAnswer[] = viewerSeat === declinedSeat ? ["agree"] : ["agree", "decline"];
     return {
         line: asking ? "waits" : askedLine,
-        text: asking ? `${words["table.waitingFor"]} ${names}` : `${names} ${askedWord}`,
+        // Not asking, `faces` holds the one asker, so the asked sentence names exactly one asker.
+        text: asking ? `${words["table.waitingFor"]} ${names}` : askedSentence({ name: names }),
         faces,
         answers: answering ? offeredAnswers : [],
         marks,

@@ -144,11 +144,11 @@ msgid "Warte auf"
 msgstr ""
 
 msgctxt "table.wantsToGiveUp"
-msgid "will aufgeben"
+msgid "{name} will aufgeben"
 msgstr ""
 
 msgctxt "table.givesUp"
-msgid "gibt auf"
+msgid "{name} gibt auf"
 msgstr ""
 
 msgctxt "table.accept"
