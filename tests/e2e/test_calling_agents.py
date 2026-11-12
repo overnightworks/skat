@@ -11,7 +11,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.tables import open_new_table, plate_of, watch
+from tests.e2e.support.tables import open_new_table, plate_of, sit_in, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -28,6 +28,8 @@ CALLING = text(SOURCE_LANGUAGE, "agents.calling")
 EMPTY = text(SOURCE_LANGUAGE, "agents.empty")
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
+# The list keeps this far from either edge of the viewport, in pixels.
+EDGE_MARGIN = 16
 # The page's fetches leave this long after the call, so they leave while the test already waits for the agent.
 DELAY_FETCHES = """
     const send = window.fetch;
@@ -37,6 +39,17 @@ DELAY_FETCHES = """
 
 def pill(person: Page):
     return person.get_by_role("button", name=PILL)
+
+
+def wait_until_inside_the_margin(person: Page, selector: str) -> None:
+    # The list follows its pill by animation frame, so the page is polled instead of read once.
+    person.wait_for_function(
+        """([selector, margin]) => {
+            const { left, right } = document.querySelector(selector).getBoundingClientRect();
+            return left >= margin - 0.5 && right <= innerWidth - margin + 0.5;
+        }""",
+        arg=[selector, EDGE_MARGIN],
+    )
 
 
 def call_label(name: str) -> str:
@@ -87,6 +100,37 @@ def test_a_member_calls_a_listening_agent_and_every_page_sees_it_sit(
             expect(plate_of(person, 2)).to_contain_text(AI_MARK)
         expect(felix.get_by_text(sits_note("Leonardo"))).to_be_visible()
         expect(pill(anna)).to_have_count(0)
+    finally:
+        agent.close()
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_list_left_open_stays_inside_the_margin_when_the_hand_deals(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict,
+) -> None:
+    felix = record_page_errors(
+        open_person(username="felix-open-list", groups=(AGENT_ADDERS_GROUP,), **form_factor), page_errors
+    )
+    path = open_new_table(felix, e2e_server)
+    ben = record_page_errors(open_person(username="ben-sits", **DESKTOP), page_errors)
+    watch(ben, e2e_server, path)
+    sit_in(ben, 2)
+    agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Leonardo", "agent-subject-leonardo-deal")
+    try:
+        pill(felix).click()
+        felix.get_by_role("button", name=call_label("Leonardo")).click()
+        agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
+        expect(plate_of(felix, 3)).to_contain_text("Leonardo")
+        expect(felix.locator(".chair .mark.pos")).to_have_count(3)
+        popover = felix.locator(".agents-pop")
+        expect(popover).to_be_visible()
+
+        wait_until_inside_the_margin(felix, ".agents-pop")
     finally:
         agent.close()
 

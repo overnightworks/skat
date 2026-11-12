@@ -52,8 +52,24 @@
         const width = Math.min(wanted, innerWidth - 2 * EDGE_MARGIN);
         const middle = pill.left + pill.width / 2;
         const left = Math.max(EDGE_MARGIN, Math.min(middle - width / 2, innerWidth - EDGE_MARGIN - width));
-        placement = { width, left: left - pill.left, caret: middle - left };
+        const next = { width, left: left - pill.left, caret: middle - left };
+        if (next.width !== placement.width || next.left !== placement.left || next.caret !== placement.caret) {
+            placement = next;
+        }
     }
+
+    // The pill moves when the table around it changes (a hand deals, a plaque stands) while the list stays open, so an
+    // open list follows its pill frame by frame.
+    $effect(() => {
+        if (!open) return;
+        let frame = requestAnimationFrame(function follow() {
+            place();
+            frame = requestAnimationFrame(follow);
+        });
+        return () => {
+            cancelAnimationFrame(frame);
+        };
+    });
 
     // The popover's place is set on the element, so the stylesheet owns every other property of it.
     $effect(() => {
