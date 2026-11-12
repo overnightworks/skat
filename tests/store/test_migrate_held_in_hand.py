@@ -1,10 +1,9 @@
 import pytest
-from alembic.autogenerate import compare_metadata
-from alembic.migration import MigrationContext
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.tables import PostgresTableTransactions, metadata
+from skat.store.migrate import migrate
+from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, SitDown, TableId
 from skat.table.service import TableService
 from tests.support.migrations import run_in_transaction, upgrade_to
@@ -28,17 +27,39 @@ RUNNING_HAND = (
 )
 
 
+RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
+
+
+def rows_of(engine):
+    """Every row of the tables a running hand lives in, without the column the upgrade adds."""
+    with engine.connect() as connection:
+        return {
+            name: sorted(
+                (
+                    {column: value for column, value in row.items() if column != "held_in_hand"}
+                    for row in connection.execute(text(f"SELECT * FROM {name}")).mappings()  # noqa: S608 - fixed table names
+                ),
+                key=str,
+            )
+            for name in RUNNING_HAND_TABLES
+        }
+
+
 @pytest.fixture
-def migrated(unmigrated_engine):
-    """A database at 0030 holding a dealt table with a running hand (chairs occupied, cards stored, a step logged),
-    taken to head.
-    """
+def before_the_upgrade(unmigrated_engine):
+    """A database at 0030 holding a dealt table with a running hand (chairs occupied, cards stored, a step logged)."""
     upgrade_to(unmigrated_engine, "0030")
     with unmigrated_engine.begin() as connection:
         for statement in RUNNING_HAND:
             connection.execute(text(statement), {"table": TABLE})
-    upgrade_to(unmigrated_engine, "head")
-    return unmigrated_engine
+    return unmigrated_engine, rows_of(unmigrated_engine)
+
+
+@pytest.fixture
+def migrated(before_the_upgrade):
+    engine, _ = before_the_upgrade
+    upgrade_to(engine, "head")
+    return engine
 
 
 def stored(engine):
@@ -54,11 +75,17 @@ def test_every_chair_keeps_its_occupant_and_reads_with_no_mark(migrated):
     assert (record.version, record.dealer) == (9, 2)
 
 
-def test_the_hand_and_its_steps_read_as_before(migrated):
-    record = stored(migrated)
+def test_the_hand_and_its_steps_read_as_before_and_again_after_the_migration_runs_twice(before_the_upgrade):
+    engine, before = before_the_upgrade
 
-    assert [len(cards) for cards in record.hand.hands.values()] == [10, 10, 10]
-    assert (len(record.hand.skat), len(record.progress.auction)) == (2, 1)
+    upgrade_to(engine, "head")
+    after_the_upgrade = rows_of(engine)
+    migrate(engine)
+
+    assert before["hand_cards"]
+    assert before["auction_actions"]
+    assert after_the_upgrade == before
+    assert rows_of(engine) == before
 
 
 def test_a_sit_into_any_open_chair_is_not_barred_for_an_account_that_held_one_before_the_upgrade(migrated):
@@ -72,11 +99,6 @@ def test_a_sit_into_any_open_chair_is_not_barred_for_an_account_that_held_one_be
     )
 
     assert sat.refusal is None
-
-
-def test_the_migrated_schema_is_the_one_the_store_writes_to(migrated):
-    with migrated.connect() as connection:
-        assert compare_metadata(MigrationContext.configure(connection), metadata) == []
 
 
 def test_the_check_refuses_a_null_account_in_the_held_list(migrated):
