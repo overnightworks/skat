@@ -65,7 +65,8 @@ class TestFromATableWithARunningKontraHandAtRevisionTwentyNine:
             run_in_transaction(migrated, answer)
 
     def test_refuses_a_second_answer_of_a_seat_for_the_same_word(self, migrated):
-        run_in_transaction(migrated, no_word())
+        answer = no_word()
+        run_in_transaction(migrated, answer)
 
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, no_word())
+            run_in_transaction(migrated, answer)
