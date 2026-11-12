@@ -1,0 +1,8 @@
+claim_id = "3379f9b9fd144bad9af78194dab493f8"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "b6850e65f0ec853df18231618cb4681ccb73480b"
+branch = "claude/issue-260-opponent-gives-up"
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/engine/giving_up.py", "src/skat/table/awaiting.py", "src/skat/table/game_list.py", "src/skat/table/hand_state.py", "src/skat/table/kontra.py", "src/skat/table/playing.py", "src/skat/table/records.py", "src/skat/table/views.py", "src/skat/web/kontra.py", "src/skat/web/playing.py", "tests/e2e/test_table_give_up.py", "tests/store/test_playing.py", "tests/support/played_game.py", "tests/table/test_awaiting.py", "tests/table/test_kontra.py", "tests/table/test_playing.py", "tests/table/test_rules_open_chair.py", "tests/table/test_service_member_view.py", "tests/web/test_mcp.py", "tests/web/test_playing_give_up.py", "tests/web/test_playing_opponents_give_up.py"]
+opened_commit = "0b9a56753005a45547237548ba644f5254c7478a"
+whole_reason = "The opponents' give-up, the declarer's acceptance or demand to play on, the cards and words held back while he decides, the views and the awaiting rule that must agree with those refusals, and the entry's valuation against its bid are one path: a give-up nobody is asked to answer never ends, moves taken while it waits would undo 4.4.3's end, a view that still offers them makes every agent move fail, and a conceded entry without its bid fails its valuation."
