@@ -1,0 +1,8 @@
+claim_id = "c8920b05f2bd42cfa87d783a9ee7c0de"
+agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
+role = "builder"
+base = "5df45d4827aba62ee038533779822a4c62ec954c"
+branch = "claude/issue-398-result-sentences"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/ui/ResultCard.svelte", "frontend/src/lib/words/de.ts", "src/skat/web/words.py", "tests/e2e/support/result_card.py", "tests/e2e/test_table_reckoning.py", "tests/e2e/test_table_result.py"]
+opened_commit = "db40d6d138fb752e40bd97ccb2fdcf5d2f376b69"
+whole_reason = "One card's texts move from fragments to sentences together with the tests that rebuild them; production is two files and the catalog with its generated modules."
