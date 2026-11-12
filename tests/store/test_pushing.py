@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from sqlalchemy import text
 
@@ -11,7 +13,8 @@ from skat.engine.ramsch import (
     RamschScoring,
     play_ramsch_card,
 )
-from skat.engine.schieberamsch import PushingRule, PushRefusal
+from skat.engine.schieberamsch import GrandHandRule, PushingRule, PushRefusal
+from skat.engine.tricks import play_card
 from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
@@ -31,17 +34,18 @@ OPTIONS = TableOptions(
         PushingRule.JACKS_STAY,
     )
 )
+GRAND_HAND_OPTIONS = replace(OPTIONS, ramsch=replace(OPTIONS.ramsch, grand_hand=GrandHandRule.ALLOWED))
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
 
 class StageTable:
     """A table whose Ramsch has pushing and where all three passed, so its stage runs."""
 
-    def __init__(self, service, transactions, stored):
+    def __init__(self, service, transactions, stored, options=OPTIONS):
         self.service = service
         self.transactions = transactions
         self.stored = stored
-        self.table_id = seated_table_id(service, OPTIONS)
+        self.table_id = seated_table_id(service, options)
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
         for position in (MIDDLEHAND, REARHAND, FOREHAND):
@@ -207,3 +211,60 @@ def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(service, tra
 
     with pytest.raises(ValueError, match="impossible pushing log"):
         table.step(FOREHAND, PushingKind.TAKE)
+
+
+def declares_first(table):
+    return FOREHAND
+
+
+def declares_after_a_take_and_a_put_back(table):
+    table.take_and_put_back(FOREHAND)
+    return MIDDLEHAND
+
+
+def declares_after_two_pushes(table):
+    table.step(FOREHAND, PushingKind.PUSH)
+    table.step(MIDDLEHAND, PushingKind.PUSH)
+    return REARHAND
+
+
+@pytest.mark.parametrize(
+    "reach_the_declarer",
+    [
+        pytest.param(declares_first, id="before-any-step"),
+        pytest.param(declares_after_a_take_and_a_put_back, id="after-a-put-back"),
+        pytest.param(declares_after_two_pushes, id="after-two-pushes"),
+    ],
+)
+def test_a_grand_hand_declared_in_the_stage_survives_a_restart_is_played_and_lists_as_a_declared_game(
+    service, transactions, stored, database_url, reach_the_declarer
+):
+    table = StageTable(service, transactions, stored, GRAND_HAND_OPTIONS)
+    declarer = reach_the_declarer(table)
+    declared = table.step(declarer, PushingKind.GRAND_HAND)
+    before = table.views()
+    engine, again = restarted(database_url)
+    try:
+        after = table.views(again)
+        for _ in range(30):
+            state = game_of(table.record)
+            if state is None:
+                break
+            card = next(
+                each
+                for each in DECK
+                if each in state.hands[state.turn] and play_card(state, state.turn, each).refusal is None
+            )
+            command = PlayCardCommand(
+                f"card-{len(table.record.progress.plays)}", table.table_id, table.record.version, card
+            )
+            assert again.play_card(table.actors[state.turn], command, nobody_connected()).refusal is None
+        with engine.connect() as connection:
+            row = connection.execute(text("SELECT kind, game, hand, announcement, pushes FROM game_list")).one()
+        steps = count_rows(engine, "pushing_steps")
+    finally:
+        engine.dispose()
+
+    assert declared.refusal is None
+    assert after == before
+    assert (tuple(row), steps) == (("declared", "grand", True, "none", 0), 0)

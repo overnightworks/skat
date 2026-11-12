@@ -1,14 +1,16 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import Declared, PassedIn, auction_after
-from skat.engine.declaration import Declaring, declaring_after
+from skat.engine.declaration import Announcement, Declare, Declaring, declaring_after
+from skat.engine.games import GameKind
 from skat.engine.kontra import Doubling, bidders_of, doubling_after
 from skat.engine.ramsch import ramsch_after, start_ramsch
-from skat.engine.schieberamsch import GrandHandRule, Pushing, PushOptions, RamschOn, pushing_after
+from skat.engine.schieberamsch import Pushing, RamschOn, pushing_after
 from skat.engine.tricks import Playing, playing_after, start_play
 
 if TYPE_CHECKING:
     from skat.engine.bidding import Auction
+    from skat.engine.deal import Deal
     from skat.engine.ramsch import RamschPlaying
     from skat.table.records import GiveUpAsked, TableRecord
 
@@ -18,19 +20,40 @@ def auction_of(table: TableRecord) -> Auction:
     return auction_after(table.progress.auction)
 
 
-def declaring_of(table: TableRecord) -> Declaring | None:
-    """The declarer's stored steps replayed through the engine; None while the auction has no declarer."""
-    result = auction_of(table).result
-    if table.hand is None or not isinstance(result, Declared):
+# What a seat that declares a Grand Hand in a Ramsch's stage has declared: the table names the game for him.
+_GRAND_HAND_INSTEAD: Final = Declare(GameKind.GRAND, hand=True, ouvert=False, announcement=Announcement.NONE)
+
+
+def _declared_in_the_stage(table: TableRecord) -> tuple[Declared, Deal] | None:
+    """The seat that declared a Grand Hand instead of a Ramsch and the cards as the stage left them; None otherwise."""
+    stage = pushing_of(table)
+    if stage is None or not isinstance(stage.result, Declared):
         return None
-    return declaring_after(Declaring.start(result, table.hand), table.progress.declaring)
+    return stage.result, stage.deal
+
+
+def declaring_of(table: TableRecord) -> Declaring | None:
+    """The declarer's stored steps replayed through the engine; None while no seat is declarer, which is the auction's
+    winner or, in a Ramsch's stage, the seat that declared a Grand Hand instead.
+    """
+    result = auction_of(table).result
+    if table.hand is None:
+        return None
+    if isinstance(result, Declared):
+        return declaring_after(Declaring.start(result, table.hand), table.progress.declaring)
+    in_the_stage = _declared_in_the_stage(table)
+    if in_the_stage is None:
+        return None
+    declared, deal = in_the_stage
+    return declaring_after(Declaring.start(declared, deal), (_GRAND_HAND_INSTEAD, *table.progress.declaring))
 
 
 def _play_start(table: TableRecord) -> Playing | None:
     declared = declaring_of(table)
     if table.hand is None or declared is None or declared.declaration is None:
         return None
-    return start_play(declared, table.hand)
+    in_the_stage = _declared_in_the_stage(table)
+    return start_play(declared, table.hand if in_the_stage is None else in_the_stage[1])
 
 
 def playing_of(table: TableRecord) -> Playing | None:
@@ -41,14 +64,13 @@ def playing_of(table: TableRecord) -> Playing | None:
 
 def pushing_of(table: TableRecord) -> Pushing | None:
     """The stage of takes and pushes a Ramsch with pushing plays before its first card, its stored steps replayed
-    through the engine; None at a table without pushing, before the third pass and at a declared game.
+    through the engine; None at a table without pushing, before the third pass and at a game the auction declared.
+    Its result is the Ramsch on, or the seat that declared a Grand Hand instead.
     """
     ramsch = table.options.ramsch
-    if table.hand is None or ramsch is None or ramsch.pushing is None:
+    options = None if ramsch is None else ramsch.push_options
+    if table.hand is None or options is None or not isinstance(auction_of(table).result, PassedIn):
         return None
-    if not isinstance(auction_of(table).result, PassedIn):
-        return None
-    options = PushOptions(ramsch.pushing, GrandHandRule.OFF)
     return pushing_after(Pushing.start(table.hand), table.progress.pushing, options)
 
 

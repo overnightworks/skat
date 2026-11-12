@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Final, Self
 from skat.engine.bidding import BidRefusal
 from skat.engine.declaration import DeclarationRefusal
 from skat.engine.kontra import KontraOptions, KontraRefusal
-from skat.engine.schieberamsch import PushRefusal
+from skat.engine.schieberamsch import GrandHandRule, PushOptions, PushRefusal
 from skat.engine.tricks import PlayRefusal
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from skat.engine.declaration import DeclaringStep
     from skat.engine.kontra import Word, WordSaid
     from skat.engine.ramsch import RamschOptions
-    from skat.engine.schieberamsch import Push, PushingRule, Put, Take
+    from skat.engine.schieberamsch import DeclareGrandHand, Push, PushingRule, Put, Take
     from skat.engine.tricks import CardPlayed
     from skat.table.game_list import GameEntry
 
@@ -81,12 +81,19 @@ class RamschOccasion(StrEnum):
 @dataclass(frozen=True)
 class RamschSetting:
     """A table's Ramsch: when it is played, how the engine reckons it, and what a take, a push and the cards put back
-    do before its first card; None for `pushing` plays a Ramsch without that stage.
+    do before its first card; None for `pushing` plays a Ramsch without that stage. `grand_hand` is a stage's step and
+    is `OFF` where there is none.
     """
 
     occasion: RamschOccasion
     reckoning: RamschOptions
     pushing: PushingRule | None = None
+    grand_hand: GrandHandRule = GrandHandRule.OFF
+
+    @property
+    def push_options(self) -> PushOptions | None:
+        """What the engine's stage reads; None at a Ramsch without the stage."""
+        return None if self.pushing is None else PushOptions(self.pushing, self.grand_hand)
 
 
 @dataclass(frozen=True)
@@ -213,7 +220,7 @@ class GiveUpAsked:
     declined_by: Position | None = None
 
 
-type PushingStep = Take | Put | Push
+type PushingStep = Take | Put | Push | DeclareGrandHand
 
 
 @dataclass(frozen=True)

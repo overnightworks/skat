@@ -4,14 +4,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.engine.bock import BockRounds
-from skat.engine.deal import positions_from
 from skat.table.records import Series
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.paused import PAUSED_TABLES_PATH
-from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX, TABLE_PUSHING_PUT_BACK_SUFFIX, TABLE_PUSHING_TAKE_SUFFIX
 from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, cards_in, cards_in_text, wire_cards
+from tests.support.payload_cards import cards_in, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import (
     FOREHAND,
@@ -26,7 +24,6 @@ from tests.web.support.playing import (
     Table,
     bock_of,
     card,
-    card_body,
     cards,
     game_of,
     reason_of,
@@ -34,23 +31,30 @@ from tests.web.support.playing import (
     with_pending,
     with_totals,
 )
+from tests.web.support.ramsch_stage import (
+    FOREHAND_SEAT,
+    MIDDLEHAND_SEAT,
+    POINTS,
+    REARHAND_SEAT,
+    SUFFIXES,
+    VIEWERS,
+    accepted,
+    list_rows,
+    play_stage,
+    read,
+    refused,
+    stage_table,
+    step,
+    step_body,
+)
 from tests.web.support.series import deal_the_next_game, headers_of, tap_new_series, tap_weiter
 from tests.web.support.skat import Skat, stored, streams_of
 
-SEATS = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
-FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT = SEATS[FOREHAND], SEATS[MIDDLEHAND], SEATS[REARHAND]
-VIEWERS = (FOREHAND, MIDDLEHAND, REARHAND, None)
 DEALT_AT = datetime(2026, 11, 1, 12, tzinfo=UTC)
-SUFFIXES = {
-    "take": TABLE_PUSHING_TAKE_SUFFIX,
-    "put-back": TABLE_PUSHING_PUT_BACK_SUFFIX,
-    "push": TABLE_PUSHING_PUSH_SUFFIX,
-}
-POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
 
 
-def pushing_options(rule="jacks-stay"):
-    return {"ramsch": {**POINTS, "pushing": {"rule": rule}}}
+def pushing_options(rule="jacks-stay", **grand_hand):
+    return {"ramsch": {**POINTS, "pushing": {"rule": rule, **grand_hand}}}
 
 
 class TestOpeningAPushingTable:
@@ -60,7 +64,38 @@ class TestOpeningAPushingTable:
 
         opened = skat.create(headers, options=pushing_options(rule))
 
-        assert opened.json()["options"]["ramsch"] == {**POINTS, "pushing": {"rule": rule}}
+        assert opened.json()["options"]["ramsch"] == {**POINTS, "pushing": {"rule": rule, "grand_hand": "off"}}
+
+    @pytest.mark.parametrize(
+        ("sent", "answered"),
+        [
+            pytest.param({"grand_hand": "allowed"}, "allowed", id="allowed"),
+            pytest.param({"grand_hand": "off"}, "off", id="off"),
+            pytest.param({}, "off", id="left-out-reads-off"),
+        ],
+    )
+    def test_answers_the_grand_hand_as_sent_and_off_where_it_is_left_out(self, skat, sent, answered):
+        headers, _ = skat.member()
+
+        opened = skat.create(headers, options=pushing_options(**sent))
+
+        assert opened.json()["options"]["ramsch"]["pushing"] == {"rule": "jacks-stay", "grand_hand": answered}
+
+    def test_a_saved_set_keeps_the_grand_hand_and_a_retry_with_another_one_is_refused(self, skat):
+        headers, _ = skat.member()
+        saved = skat.client.post(
+            RULE_SETS_PATH,
+            json={"name": "Alleine", "options": pushing_options(grand_hand="allowed")},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+        )
+        first = skat.create(headers, options=pushing_options(grand_hand="allowed"))
+
+        same = skat.create(headers, options=pushing_options(grand_hand="allowed"))
+        other = skat.create(headers, options=pushing_options(grand_hand="off"))
+
+        assert saved.json()["options"]["ramsch"]["pushing"]["grand_hand"] == "allowed"
+        assert same.json()["id"] == first.json()["id"]
+        assert other.status_code == 409
 
     def test_a_table_without_the_rule_answers_null_for_it(self, skat):
         headers, _ = skat.member()
@@ -78,7 +113,7 @@ class TestOpeningAPushingTable:
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
 
-        expected = {**POINTS, "pushing": {"rule": "jacks-may-go"}}
+        expected = {**POINTS, "pushing": {"rule": "jacks-may-go", "grand_hand": "off"}}
         assert saved.json()["options"]["ramsch"] == expected
         assert skat.create(headers, options=pushing_options("jacks-may-go")).json()["options"]["ramsch"] == expected
 
@@ -97,8 +132,16 @@ class TestOpeningAPushingTable:
         [
             pytest.param({"ramsch": {**POINTS, "pushing": {"rule": "always"}}}, id="a-rule-outside-the-three"),
             pytest.param(
-                {"ramsch": {**POINTS, "pushing": {"rule": "jacks-stay", "grand_hand": "off"}}}, id="an-extra-key"
+                {"ramsch": {**POINTS, "pushing": {"rule": "jacks-stay", "announce": "schwarz"}}}, id="an-extra-key"
             ),
+            pytest.param(
+                {"ramsch": {**POINTS, "pushing": {"rule": "jacks-stay", "grand_hand": "always"}}},
+                id="a-grand-hand-outside-the-two",
+            ),
+            pytest.param(
+                {"ramsch": {**POINTS, "pushing": {"grand_hand": "allowed"}}}, id="a-grand-hand-without-a-rule"
+            ),
+            pytest.param({"ramsch": {**POINTS, "grand_hand": "allowed"}}, id="a-grand-hand-without-pushing"),
             pytest.param({"ramsch": {**POINTS, "pushing": {}}}, id="an-empty-rule"),
             pytest.param({"ramsch": {**POINTS, "pushing": "jacks-stay"}}, id="a-bare-token"),
             pytest.param({"pushing": {"rule": "jacks-stay"}}, id="pushing-without-ramsch"),
@@ -113,60 +156,8 @@ class TestOpeningAPushingTable:
         assert skat.store.tables == {}
 
 
-def stage_table(skat, rule="jacks-stay", deal=PLAIN_DEAL, extra=None, **changed):
-    """A Ramsch table whose hand all three passed, so its stage runs; `rule` None leaves pushing off."""
-    pushing = {} if rule is None else {"pushing": {"rule": rule}}
-    table = Table(skat, {"ramsch": {**POINTS, **changed, **pushing}, **(extra or {})})
-    table.with_deal(deal)
-    three_pass(table)
-    return table
-
-
-def read(table, position=None):
-    headers = table.watcher if position is None else table.at[position]
-    return table.read_as(headers).json()
-
-
-def step_body(put):
-    return {"cards": [card_body(each) for each in put]} if put else None
-
-
-def step(table, position, kind, put=()):
-    return table.act(SUFFIXES[kind], table.at[position], body=step_body(put))
-
-
-def accepted(table, position, kind, put=()):
-    before = table.record.version
-    answer = step(table, position, kind, put)
-    assert answer.status_code == 200, answer.text
-    assert table.record.version == before + 1
-    return answer.json()
-
-
-def refused(table, position, kind, reason, put=()):
-    table.refused_act(SUFFIXES[kind], table.at[position], reason, body=step_body(put))
-
-
-def play_stage(table, *plan):
-    """Each seat in turn pushes the skat on ("push") or takes it and puts the very cards back ("back")."""
-    skat_cards = table.record.hand.skat
-    for position, choice in zip((FOREHAND, MIDDLEHAND, REARHAND), plan, strict=True):
-        if choice == "push":
-            accepted(table, position, "push")
-        else:
-            accepted(table, position, "take")
-            accepted(table, position, "put-back", skat_cards)
-
-
 def scores_of(result):
     return [seat["score"] for seat in sorted(result["seats"], key=lambda seat: seat["seat"])]
-
-
-def list_rows(table):
-    table.skat.client.cookies.clear()
-    answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
-    assert answer.status_code == 200, answer.text
-    return answer.json()["entries"]
 
 
 class TestTheThirdPass:
