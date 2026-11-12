@@ -334,6 +334,12 @@ def _serving(
     return hold_chairs_while_serving
 
 
+def _new_app(lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]]) -> FastAPI:
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
+    return app
+
+
 def create_app(
     settings: ServerSettings,
     *,
@@ -369,10 +375,7 @@ def create_app(
     wakes = WakeList()
     presence = _presence(settings, tables, chair_clock, scheduler, asks, wakes)
 
-    app = FastAPI(
-        docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence, asks, scheduler)
-    )
-    app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
+    app = _new_app(_serving(settings, tables, presence, asks, scheduler))
     app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))

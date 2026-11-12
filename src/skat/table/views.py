@@ -22,7 +22,7 @@ from skat.table.hand_state import auction_of, declaring_of, game_of, game_waits_
 from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.pushing import PushingView, pushing_view_of
-from skat.table.records import EndedTable, EndReason, OccupantKind
+from skat.table.records import CommandRefusal, EndedTable, EndReason, OccupantKind
 from skat.table.rules import hand_runs, series_over, waiting_seat_of
 
 if TYPE_CHECKING:
@@ -242,6 +242,20 @@ def _series_view(table: TableRecord) -> SeriesView | None:
         standings_of(table.game_list, reach_of(table.options)) if over else None,
         None if over else table.series.end_proposal,
     )
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
+
+    `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
+    retry restarts no pause.
+    """
+
+    view: TableView
+    refusal: CommandRefusal | None = None
+    holder: str | None = None
+    seated_when_hand_ended: frozenset[str] = frozenset()
 
 
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
