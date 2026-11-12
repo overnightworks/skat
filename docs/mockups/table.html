@@ -1832,7 +1832,7 @@ const pushBubble=(d,who,o={})=>{const L=seatsOf(d),seat_=who==='anna'?L.anna:L.n
 const narrow=()=>PB.cx===180;
 const restingHand=(d)=>ownHand(d,BID_HAND,d||!narrow()?{}:{w:56,strip:{base:28}});
 /* the twelve cards of a put-back: a strip that scales with the viewport as the page's picking strip does */
-const twelveStrip=(d,keys)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
+const twelveStrip=(d,keys)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,rot:.6,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
 const JACKS_DARK=TAKEN_HAND.map(([r,s,c])=>r==='B'?[r,s,'no']:[r,s,c]);
 const JACK_PICKED=TAKEN_HAND.map(([r,s,c])=>r==='B'&&s==='h'?[r,s,'touch']:r==='K'?[r,s]:[r,s,c]);
 const sideCount=(d,n)=>d?cardsAt(n,952,340):cardsAt(n,PB.cx+(narrow()?94:115),200);
@@ -1845,7 +1845,7 @@ const pushTable=(d,o)=>{const L=seatsOf(d),m=o.marks||{};
     +chairCoasters(L,TOTALS_BEFORE);};
 const RAMSCH_SCENES=[
   ['push-mine','Ramsch: Skat nehmen oder schieben',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),marks:{you:['turn']}})+pushButtons(d)+restingHand(d)+tableBar(d),
-    ['Alle drei haben gepasst, es wird Ramsch: die Tafel sagt „Ramsch“, Felix ist Vorhand und dran; der Skat liegt verdeckt, darunter „Skat nehmen“ und „Schieben“; seine zehn Karten ruhen.']],
+    ['Alle drei haben gepasst, es wird Ramsch: die Tafel sagt „Ramsch“, Felix ist Vorhand und dran; der Skat liegt verdeckt, darunter „Skat nehmen“ und „Schieben“; seine zehn Karten ruhen.','Gezählt bei 360: die zwei Tasten sind 299 von 328 Pixeln breit (Skat nehmen mit Zeichen 160, Schieben 129, dazwischen 10), die zehn Karten stehen in einem Streifen von 308, die zwölf des Zurücklegens in einem von 319.']],
   ['push-discard','Ramsch: zwei Karten zurücklegen',[360,390,1280],(d)=>pushTable(d,{glow:felixGlow(d),skat:false,marks:{you:['turn']},extra:feltGhosts(d)})+putBackButton(d)
     +ownHand(d,JACKS_DARK,twelveStrip(d))+tableBar(d),
     ['Felix nahm den Skat: zwölf Karten, zwei gewählt und gehoben, zwei Lücken im Skat, „Drücken“; seine Buben sind dunkel und lassen sich nicht wählen.']],
