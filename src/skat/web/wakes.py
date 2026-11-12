@@ -44,7 +44,7 @@ class WakeList:
 
     def wake(self, topic: Topic, sparing: Registration | None = None) -> None:
         """Wake every registration of the topic except `sparing`."""
-        for registration in list(self._registrations.get(topic, ())):
+        for registration in tuple(self._registrations.get(topic, ())):
             if registration is not sparing:
                 registration.wake()
 
