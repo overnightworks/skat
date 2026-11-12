@@ -232,6 +232,16 @@ class TestACallInvitesTheAgent:
         assert (chair.display_name, chair.kind) == ("Nova", OccupantKind.AGENT)
         assert [row["state"] for row in rows] == ["here"]
 
+    def test_another_member_at_the_table_sees_the_row_of_the_agent_that_accepted_as_here(
+        self, skat, issuer, felix, table_id
+    ):
+        other = person(skat, issuer)
+        with streams_of(skat, table_id, [(other.headers, None)]), listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            call(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
+            nova.accept(table_id, offer_of(nova))
+
+            assert only_row(skat, other, table_id)["state"] == "here"
+
     def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova, listening(skat, issuer, felix, "Bach", BACH) as bach:
             for agent, name in ((nova, "Nova"), (bach, "Bach")):
