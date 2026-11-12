@@ -329,12 +329,12 @@ class TestGiveUpGame:
     def test_a_refused_give_up_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, forehand_table):
         before = stored(forehand_table.skat)
 
-        answer = self.give_up(agent, forehand_table)
+        answer = self.give_up(agent, forehand_table, version=0)
 
         assert answer.is_error
-        assert answer.json()["reason"] == Refusal.NOT_DECLARER
+        assert answer.json()["reason"] == Refusal.STALE_VERSION
         assert stored(forehand_table.skat)[0] == before[0]
-        assert "reused" in self.give_up(agent, forehand_table, version=0).text
+        assert "reused" in self.give_up(agent, forehand_table).text
 
 
 class TestAnsweringAGiveUp:

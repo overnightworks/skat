@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import seats_from
 from skat.engine.kontra import KontraRefusal, WordSaid, bidders_of, say
-from skat.table.hand_state import doubling_of, playing_of
+from skat.table.hand_state import doubling_of, game_waits_for_the_declarers_answer, playing_of
 from skat.table.records import Decision, NoWordSaid, Refusal
 from skat.table.rules import acting_position
 
@@ -70,7 +70,7 @@ def _word_open_to(
 
 def decide_kontra(table: TableRecord, actor: Actor, command: KontraCommand) -> Decision:
     """One word, or the answer of no word: no hand, no chair, a stale version, a table without Kontra, the wrong
-    phase, then the engine.
+    phase, an opponent's give-up waiting for the declarer, then the engine.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
@@ -81,6 +81,8 @@ def decide_kontra(table: TableRecord, actor: Actor, command: KontraCommand) -> D
     state, doubling = playing_of(table), doubling_of(table)
     if state is None or doubling is None:
         return Decision(table, Refusal.WRONG_PHASE)
+    if game_waits_for_the_declarers_answer(state, table.progress.give_up):
+        return Decision(table, Refusal.REQUEST_PENDING)
     bidders = bidders_of(table.progress.auction)
     if command.word is None:
         return _answered_no_word(table, position, _word_open_to(doubling, options, state, bidders, position))
@@ -113,7 +115,8 @@ def kontra_view_of(
     """The words for one viewer; None at a table without Kontra.
 
     The viewer's own chair gets the word it may say now: the next word, if the engine accepts it from that position.
-    A watcher has no chair, so no word; the caller passes no viewer position while the hand waits for a sitter.
+    A watcher has no chair, so no word; the caller passes no viewer position while the hand waits for a sitter or the
+    game for the declarer's answer to an opponent's give-up.
     """
     options, doubling = table.options.kontra, doubling_of(table)
     if options is None or doubling is None:

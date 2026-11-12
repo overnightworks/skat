@@ -18,7 +18,7 @@ from skat.table.game_list import (
     standings_of,
     total_of,
 )
-from skat.table.hand_state import auction_of, declaring_of, game_of, pushing_of
+from skat.table.hand_state import auction_of, declaring_of, game_of, game_waits_for_the_declarers_answer, pushing_of
 from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.pushing import PushingView, pushing_view_of
@@ -156,6 +156,15 @@ def _skat_count(deal: Deal, state: Declaring | None, stage: Pushing | None) -> i
     return len(deal.skat if stage is None else stage.deal.skat)
 
 
+def _acting_positions(
+    viewer_positions: frozenset[Position], waiting_seat: int | None, waits_for_the_declarer: bool
+) -> frozenset[Position]:
+    """The positions from which the viewer may act: none while a chair of the hand is open or the game waits for the
+    declarer's answer to an opponent's give-up, so no card and no word is offered then.
+    """
+    return frozenset() if waiting_seat is not None or waits_for_the_declarer else viewer_positions
+
+
 def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | None, dict[int, ChairHand]]:
     """The hand view and each seat's part of it; both are empty while no hand runs."""
     if table.hand is None:
@@ -174,7 +183,9 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     )
     own_cards = {card for position in viewer_positions for card in hands[position]}
     waiting_seat = waiting_seat_of(table)
-    acting_positions: frozenset[Position] = frozenset() if waiting_seat is not None else viewer_positions
+    acting_positions = _acting_positions(
+        viewer_positions, waiting_seat, game_waits_for_the_declarers_answer(playing, table.progress.give_up)
+    )
     hand_view = HandView(
         table.dealer,
         tuple(card for card in DECK if card in own_cards),

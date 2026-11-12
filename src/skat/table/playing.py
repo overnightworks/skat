@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
-from skat.engine.giving_up import give_up, throw_down
+from skat.engine.giving_up import give_up, opponent_gives_up, throw_down
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
 from skat.engine.tricks import CardPlayed, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
 from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
-from skat.table.hand_state import doubling_of, game_of, playing_of
+from skat.table.hand_state import doubling_of, game_of, game_waits_for_the_declarers_answer, playing_of
 from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
 
@@ -34,7 +34,9 @@ class PlayCardCommand:
 
 @dataclass(frozen=True)
 class GiveUpCommand:
-    """The declarer gives up the game; the actor's seat and position come from the session, never from the client."""
+    """The caller gives up the game for his side; the actor's seat and position come from the session, never from the
+    client.
+    """
 
     command_id: str
     table_id: str
@@ -52,7 +54,7 @@ class ThrowDownCommand:
 
 @dataclass(frozen=True)
 class AgreeToGiveUpCommand:
-    """An opponent says yes to the declarer's give-up; the actor's seat and position come from the session."""
+    """The other side says yes to a give-up; the actor's seat and position come from the session."""
 
     command_id: str
     table_id: str
@@ -61,7 +63,7 @@ class AgreeToGiveUpCommand:
 
 @dataclass(frozen=True)
 class DeclineGiveUpCommand:
-    """An opponent says no to the declarer's give-up; the actor's seat and position come from the session."""
+    """The other side says no to a give-up; the actor's seat and position come from the session."""
 
     command_id: str
     table_id: str
@@ -87,7 +89,9 @@ class LastTrick:
 
 @dataclass(frozen=True)
 class GiveUpView:
-    """A give-up waiting for an opponent's yes, by seat: who asked, and the opponent who said no."""
+    """A give-up waiting for the other side's answer, by seat: who asked, and the opponent who said no to the
+    declarer's.
+    """
 
     asking_seat: int
     declined_seat: int | None
@@ -112,7 +116,8 @@ def card_payload(command: PlayCardCommand) -> str:
 
 
 def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> Decision:
-    """One card: no hand, no chair, a stale version, the wrong phase, then the engine's reason.
+    """One card: no hand, no chair, a stale version, the wrong phase, an opponent's give-up waiting for the declarer,
+    then the engine's reason.
 
     The card that ends the game, a Ramsch's too, ends the hand; the Bock rounds are asked once its entry exists.
     """
@@ -122,6 +127,8 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
     state = game_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
+    if game_waits_for_the_declarers_answer(state, table.progress.give_up):
+        return Decision(table, Refusal.REQUEST_PENDING)
     outcome = _card_played(state, position, command.card)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
@@ -152,10 +159,11 @@ def give_up_payload(command: GiveUpCommand) -> str:
 
 
 def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> Decision:
-    """The declarer gives up: no hand, no chair, a stale version, the wrong phase, not the declarer.
+    """The caller gives up for his side: no hand, no chair, a stale version, the wrong phase, another request waiting.
 
-    The engine decides last whether the game ends at once. Where it asks for consent, the request is stored and the
-    opponents are asked; a request already standing changes nothing.
+    The declarer's give-up is decided last by the engine, which says whether the game ends at once. Where it asks for
+    consent, the request is stored and the opponents are asked; a request already standing changes nothing. An
+    opponent's give-up is stored at any moment and the declarer is asked; the other opponent's changes nothing.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
@@ -163,14 +171,22 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
     state = playing_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    if position is not state.declared.declarer:
-        return Decision(table, Refusal.NOT_DECLARER)
+    asked = table.progress.give_up
+    waits = game_waits_for_the_declarers_answer(state, asked)
+    if position is state.declared.declarer:
+        return Decision(table, Refusal.REQUEST_PENDING) if waits else _declarer_gives_up(table, state, asked)
+    if asked is None:
+        return _with_request(table, GiveUpAsked(position))
+    return Decision(table) if waits else Decision(table, Refusal.REQUEST_PENDING)
+
+
+def _declarer_gives_up(table: TableRecord, state: Playing, asked: GiveUpAsked | None) -> Decision:
     outcome = give_up(state)
     if outcome.refusal is not PlayRefusal.NEEDS_CONSENT:
-        return _end_of(table, outcome, GameEnding.GIVEN_UP, position)
-    if table.progress.give_up is not None:
+        return _end_of(table, outcome, GameEnding.GIVEN_UP, state.declared.declarer)
+    if asked is not None:
         return Decision(table)
-    return _with_request(table, GiveUpAsked(position))
+    return _with_request(table, GiveUpAsked(state.declared.declarer))
 
 
 def _with_request(table: TableRecord, asked: GiveUpAsked | None) -> Decision:
@@ -187,10 +203,12 @@ def decline_give_up_payload(command: DeclineGiveUpCommand) -> str:
     return f"{command.table_id}:{command.version}"
 
 
-def _answering_opponent(
+def _answerer(
     table: TableRecord, actor: Actor, version: int
 ) -> tuple[Playing, GiveUpAsked, Position] | Refusal | PlayRefusal:
-    """Who may answer a request: no hand, no chair, a stale version, the wrong phase, nothing asked, the declarer."""
+    """Who may answer a request: no hand, no chair, a stale version, the wrong phase, nothing asked, then the other
+    side than the one that asked: an opponent for the declarer's request, the declarer for an opponent's.
+    """
     position = acting_position(table, actor, version)
     if isinstance(position, Refusal):
         return position
@@ -200,26 +218,35 @@ def _answering_opponent(
     asked = table.progress.give_up
     if asked is None:
         return Refusal.NO_REQUEST
+    if game_waits_for_the_declarers_answer(state, asked):
+        return (state, asked, position) if position is state.declared.declarer else Refusal.NOT_DECLARER
     if position is state.declared.declarer:
         return PlayRefusal.NOT_AN_OPPONENT
     return state, asked, position
 
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
-    """An opponent says yes: the game ends as the engine settles a consented give-up, by the seat that asked."""
-    answering = _answering_opponent(table, actor, command.version)
+    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked."""
+    answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
     state, asked, _ = answering
+    if game_waits_for_the_declarers_answer(state, asked):
+        return _end_of(table, opponent_gives_up(state), GameEnding.GIVEN_UP, asked.asker)
     return _end_of(table, give_up(state, consented=True), GameEnding.GIVEN_UP, asked.asker)
 
 
 def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiveUpCommand) -> Decision:
-    """An opponent says no: the request stays for the other opponent, whose no ends it. A second no changes nothing."""
-    answering = _answering_opponent(table, actor, command.version)
+    """The other side says no. The declarer's no to an opponent's give-up demands play on: the request ends. An
+    opponent's no to the declarer's keeps the request for the other opponent, whose no ends it; a second no of the same
+    opponent changes nothing.
+    """
+    answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
-    _, asked, position = answering
+    state, asked, position = answering
+    if game_waits_for_the_declarers_answer(state, asked):
+        return _with_request(table, None)
     if asked.declined_by is position:
         return Decision(table)
     if asked.declined_by is not None:
@@ -233,13 +260,17 @@ def throw_down_payload(command: ThrowDownCommand) -> str:
 
 
 def decide_throw_down(table: TableRecord, actor: Actor, command: ThrowDownCommand) -> Decision:
-    """A side throws its cards down: no hand, no chair, a stale version, the wrong phase, then the engine."""
+    """A side throws its cards down: no hand, no chair, a stale version, the wrong phase, an opponent's give-up
+    waiting for the declarer, then the engine.
+    """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
         return Decision(table, position)
     state = playing_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
+    if game_waits_for_the_declarers_answer(state, table.progress.give_up):
+        return Decision(table, Refusal.REQUEST_PENDING)
     return _end_of(table, throw_down(state, position), GameEnding.THROWN_DOWN, position)
 
 
@@ -297,11 +328,11 @@ def playing_view_of(
     """The game in play for one viewer; None until a game is played.
 
     Everyone sees the turn, the trick in progress and the last completed trick.
-    Only the seated player on turn gets the cards they may play, and nobody while the hand waits for a sitter, which
-    the caller says by passing no viewer position.
+    Only the seated player on turn gets the cards they may play, and nobody while the hand waits for a sitter or the
+    game for the declarer's answer to an opponent's give-up, which the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
     the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
-    A give-up waiting for an opponent's yes is the same for every viewer.
+    A give-up waiting for the other side's answer is the same for every viewer.
     """
     if state is None:
         return None
