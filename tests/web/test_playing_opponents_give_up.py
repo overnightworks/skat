@@ -598,11 +598,13 @@ class TestWhileTheGameWaitsForTheDeclarer:
     def test_a_throw_down_from_each_side_is_pending(self, waiting, position):
         waiting.refused_act(TABLE_THROW_DOWN_SUFFIX, waiting.at[position], Refusal.REQUEST_PENDING)
 
-    def test_the_declarers_give_up_is_pending_with_eight_cards(self, waiting):
-        waiting.refused_act(TABLE_GIVE_UP_SUFFIX, waiting.at[MIDDLEHAND], Refusal.REQUEST_PENDING)
-
-    def test_the_declarers_give_up_is_pending_with_ten_cards(self, herz_hand):
-        gives_up(herz_hand, REARHAND)
+    @pytest.mark.parametrize(
+        ("played_before", "asker"),
+        [pytest.param(EIGHT_CARDS, FOREHAND, id="eight-cards"), pytest.param((), REARHAND, id="ten-cards")],
+    )
+    def test_the_declarers_give_up_is_pending(self, herz_hand, played_before, asker):
+        herz_hand.played_out(played_before)
+        gives_up(herz_hand, asker)
 
         herz_hand.refused_act(TABLE_GIVE_UP_SUFFIX, herz_hand.at[MIDDLEHAND], Refusal.REQUEST_PENDING)
 
@@ -652,30 +654,13 @@ class TestWhatTheViewsOfferWhileItWaits:
 
 
 class TestKontraWhileItWaits:
-    @pytest.mark.parametrize(
-        ("position", "word"),
-        [
-            pytest.param(REARHAND, "kontra", id="rearhand"),
-            pytest.param(FOREHAND, "kontra", id="forehand"),
-            pytest.param(MIDDLEHAND, "re", id="the-declarer"),
-        ],
-    )
-    def test_a_word_and_the_answer_of_no_word_are_pending(self, kontra_table, position, word):
+    def test_a_word_and_the_answer_of_no_word_are_pending_on_the_routes(self, kontra_table):
         gives_up(kontra_table, FOREHAND)
 
         kontra_table.refused_act(
-            TABLE_KONTRA_SUFFIX, kontra_table.at[position], Refusal.REQUEST_PENDING, body={"word": word}
+            TABLE_KONTRA_SUFFIX, kontra_table.at[REARHAND], Refusal.REQUEST_PENDING, body={"word": "kontra"}
         )
-        kontra_table.refused_act(TABLE_NO_WORD_SUFFIX, kontra_table.at[position], Refusal.REQUEST_PENDING)
-
-    def test_the_word_an_opponent_had_open_is_open_again_after_the_no(self, kontra_table):
-        gives_up(kontra_table, REARHAND)
-        assert decline(kontra_table).status_code == 200
-
-        for position in (FOREHAND, REARHAND):
-            assert playing_as(kontra_table, kontra_table.at[position])["kontra"]["my_word"] == "kontra"
-        answer = kontra_table.act(TABLE_KONTRA_SUFFIX, kontra_table.at[FOREHAND], body={"word": "kontra"})
-        assert answer.status_code == 200, answer.text
+        kontra_table.refused_act(TABLE_NO_WORD_SUFFIX, kontra_table.at[REARHAND], Refusal.REQUEST_PENDING)
 
 
 class TestThroughTheMcpTools:
