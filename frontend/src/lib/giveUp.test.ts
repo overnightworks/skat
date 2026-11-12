@@ -75,7 +75,7 @@ describe("a give-up request on the table", () => {
         expect(view).toEqual({
             line: "wants-to-give-up",
             text: `player 2 ${words["table.wantsToGiveUp"]}`,
-            faces: [{ name: "player 2", initial: "p" }],
+            faces: [{ seat: DECLARER, name: "player 2", initial: "p" }],
             answers: ["agree", "decline"],
             marks: new Map(),
             cardsHeld: false,

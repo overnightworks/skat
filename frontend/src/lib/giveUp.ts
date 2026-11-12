@@ -4,7 +4,7 @@ import type { Chair, GiveUpAnswer, Table } from "../routes/(start)/tables.ts";
 
 export type GiveUpLine = "wants-to-give-up" | "gives-up" | "waits";
 export type GiveUpMark = "declined" | "unanswered";
-export type GiveUpFace = { name: string; initial: string };
+export type GiveUpFace = { seat: number; name: string; initial: string };
 
 // What the plaque says about a standing request and what the viewer may answer, read from the request's own fields.
 export type GiveUpView = {
@@ -21,7 +21,7 @@ export type GiveUpView = {
 function faceOf(chairs: readonly Chair[], seat: number): GiveUpFace {
     // A chair of a running hand is occupied.
     const name = (chairs.find((chair) => chair.seat === seat) as Chair).occupant_name as string;
-    return { name, initial: name.slice(0, 1) };
+    return { seat, name, initial: name.slice(0, 1) };
 }
 
 // The answerers are the side that did not ask; while a chair is open the request is not the plaque's to show.

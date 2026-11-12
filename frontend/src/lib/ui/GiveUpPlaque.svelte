@@ -12,7 +12,7 @@
 
 <div class="plaque ask">
     <span class="game">
-        {#each view.faces as face (face.name)}
+        {#each view.faces as face (face.seat)}
             <span class="face" aria-hidden="true">{face.initial}</span>
         {/each}
         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {view.text} compiles to a `?? ""` branch no text can take -->
