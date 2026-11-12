@@ -163,6 +163,24 @@ class TestDeclaringAGrandHandInstead:
         table.refused_act(TABLE_DECLARING_DECLARE_SUFFIX, table.at[FOREHAND], "already-declared", body=body)
 
     @pytest.mark.parametrize(
+        "extra_fields",
+        [
+            pytest.param({"announcement": "schneider"}, id="an-announcement-schneider"),
+            pytest.param({"announcement": "schwarz"}, id="an-announcement-schwarz"),
+            pytest.param({"announcement": "none"}, id="no-announcement"),
+            pytest.param({"ouvert": True}, id="ouvert"),
+        ],
+    )
+    def test_the_step_itself_takes_no_announcement_or_ouvert_and_the_table_stays_as_it_was(self, skat, extra_fields):
+        table = grand_hand_table(skat)
+        before = table.record
+
+        answer = table.act(SUFFIXES["grand-hand"], table.at[FOREHAND], body=extra_fields)
+
+        assert answer.status_code == 422, answer.text
+        assert table.record == before
+
+    @pytest.mark.parametrize(
         ("deal", "game"),
         [
             pytest.param(PLAIN_DEAL, PLAIN_HAND, id="lost-with-schneider-reached-by-the-opponents"),
