@@ -33,6 +33,7 @@ export const TABLE_NO_WORD_SUFFIX = "/kontra/no-word";
 export const TABLE_READY_SUFFIX = "/ready";
 export const TABLE_AGENTS_SUFFIX = "/agents";
 export const TABLE_AGENT_CALL_SUFFIX = "/call";
+export const TABLE_AGENT_SEND_AWAY_SUFFIX = "/send-away";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;

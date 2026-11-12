@@ -35,7 +35,7 @@ from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_PLAY_SUFFIX,
 )
 from skat.web.call import CALL_ORIGIN_PATH  # noqa: E402
-from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
+from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -143,6 +143,7 @@ def render() -> str:
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
         "TABLE_AGENTS_SUFFIX": TABLE_AGENTS_SUFFIX,
         "TABLE_AGENT_CALL_SUFFIX": TABLE_AGENT_CALL_SUFFIX,
+        "TABLE_AGENT_SEND_AWAY_SUFFIX": TABLE_AGENT_SEND_AWAY_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
     tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())
