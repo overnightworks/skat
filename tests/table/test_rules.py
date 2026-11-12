@@ -35,6 +35,7 @@ from skat.table.rules import (
     present_at,
     result_pending,
     resume_step,
+    seat_of,
     series_over,
     sit_deals,
 )
@@ -188,13 +189,14 @@ class TestDeal:
         assert hand_runs(table_with((1, ANNA), (2, BEN))) is False
 
     @pytest.mark.parametrize("member", [ANNA, BEN, CLEO])
-    def test_no_seated_member_stands_up_while_a_hand_runs(self, member):
+    def test_every_seated_member_stands_up_while_a_hand_runs_and_the_chair_opens_for_the_hand(self, member):
         table = running_hand()
 
         decision = decide_stand(table, member)
 
-        assert decision.refusal is Refusal.HAND_RUNNING
-        assert decision.table == table
+        assert decision.refusal is None
+        assert seat_of(decision.table, member.account_id) is None
+        assert (decision.table.version, decision.table.hand) == (table.version + 1, table.hand)
 
     def test_a_member_without_a_chair_is_not_seated_even_while_a_hand_runs(self):
         assert decide_stand(running_hand(), DORA).refusal is Refusal.NOT_SEATED
@@ -215,15 +217,6 @@ class TestFreeChair:
         decision = decide_free_chair(table, BEN.account_id)
 
         assert decision.refusal is Refusal.NOT_SEATED
-        assert decision.table == table
-
-    @pytest.mark.parametrize("member", [ANNA, BEN, CLEO])
-    def test_changes_nothing_while_a_hand_runs(self, member):
-        table = running_hand()
-
-        decision = decide_free_chair(table, member.account_id)
-
-        assert decision.refusal is Refusal.HAND_RUNNING
         assert decision.table == table
 
 

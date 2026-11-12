@@ -10,7 +10,7 @@ from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.presence import Presence
-from skat.web.streams import IDLE_HEARTBEAT, table_views
+from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import (
@@ -28,15 +28,15 @@ from tests.web.support.streams import (
     ALLOWED_SECONDS,
     NO_HEARTBEAT_SECONDS,
     OPENER,
+    SHORT_HEARTBEAT_SECONDS,
     VISITOR,
-    admitting,
+    Admission,
     next_view,
     reader,
     run_on_a_loop_of_its_own,
     stream_of,
 )
 
-SHORT_HEARTBEAT_SECONDS = 0.01
 IDLE_HEARTBEATS = 3
 BID_VALUE = 18
 
@@ -49,23 +49,6 @@ def service():
 @pytest.fixture
 def table_id(service):
     return service.create(OPENER, CreateTable(command_id="command-1")).id
-
-
-class Admission:
-    """An admission that answers from a script: True admits `actor`, False refuses, an exception is raised."""
-
-    def __init__(self, *answers, then=True, actor=OPENER):
-        self.answers = list(answers)
-        self.then = then
-        self.actor = actor
-        self.asked = 0
-
-    async def __call__(self):
-        self.asked += 1
-        answer = self.answers.pop(0) if self.answers else self.then
-        if isinstance(answer, Exception):
-            raise answer
-        return self.actor if answer else None
 
 
 async def idle_heartbeats_through(stream):
@@ -106,14 +89,7 @@ class TestTableViews:
                     await presence.subscribe(table_id, "late", lambda: None)
                 return await read_view(actor, connected)
 
-            stream = table_views(
-                presence,
-                read_while_another_connects,
-                admitting(VISITOR),
-                table_id,
-                VISITOR.account_id,
-                heartbeat_seconds=NO_HEARTBEAT_SECONDS,
-            )
+            stream = stream_of(presence, service, VISITOR, table_id, read_view=read_while_another_connects)
             first = await next_view(stream)
             second = await next_view(stream)
             await stream.aclose()
@@ -211,20 +187,13 @@ class TestTableViews:
         assert seen_by_quick == [2] * 5
         assert caught_up.watchers == 1
 
-    def test_a_table_that_vanishes_under_a_stream_is_an_error_that_still_unregisters_it(self, table_id):
+    def test_a_table_that_vanishes_under_a_stream_is_an_error_that_still_unregisters_it(self, service, table_id):
         async def vanished(_actor, _connected):
             return None
 
         async def scenario():
             presence = idle_presence()
-            stream = table_views(
-                presence,
-                vanished,
-                admitting(OPENER),
-                table_id,
-                OPENER.account_id,
-                heartbeat_seconds=NO_HEARTBEAT_SECONDS,
-            )
+            stream = stream_of(presence, service, OPENER, table_id, read_view=vanished)
             with pytest.raises(RuntimeError, match="vanished"):
                 await anext(stream)
             return presence
@@ -356,9 +325,7 @@ class TestReadmission:
             async def admit():
                 return next(admissions)
 
-            stream = table_views(
-                presence, read_view, admit, table_id, OPENER.account_id, heartbeat_seconds=NO_HEARTBEAT_SECONDS
-            )
+            stream = stream_of(presence, service, OPENER, table_id, admit=admit, read_view=read_view)
             await next_view(stream)
             guest = await presence.subscribe(table_id, "guest", lambda: None)
             await next_view(stream)
@@ -561,7 +528,8 @@ class TestWatchTableAdmission:
             # A second member joining is the change whose view the stream admits again for.
             other_headers, _ = skat.member()
             with skat.client.stream("GET", self.events(table["id"]), headers=other_headers) as other:
-                next(other.iter_lines())
+                other_lines = other.iter_lines()
+                next(other_lines)
                 next(lines)
                 next(lines)
             renewed_to = expiry()
@@ -598,8 +566,10 @@ class TestHandOnTheStream:
             next(lines)
             arriving_headers, _ = skat.member()
             skat.client.cookies.clear()
-            self.first_message(skat, arriving_headers, table_id)
-            woken = next(lines)
+            with skat.client.stream("GET", self.events(table_id), headers=arriving_headers) as arriving:
+                arriving_lines = arriving.iter_lines()
+                next(arriving_lines)
+                woken = next(lines)
 
         assert cards_in_text(first) == wire_cards(own)
         assert cards_in_text(woken) == wire_cards(own)

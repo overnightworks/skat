@@ -1,5 +1,7 @@
 """An agent opens a table, sits and stands like a person, and its chair says agent with the name its token carries."""
 
+import copy
+
 import pytest
 
 from skat.engine.deal import Position, seats_from
@@ -236,14 +238,41 @@ class TestStandUp:
             (3, None),
         ]
 
-    def test_an_agent_cannot_stand_up_while_a_hand_runs(self, skat, agent):
+    def test_an_agent_stands_up_during_a_hand_and_the_chair_opens_with_the_hand_waiting_and_no_book_row(
+        self, skat, agent
+    ):
         table = AgentTable(skat, agent, Position.MIDDLEHAND)
+        seat = seats_from(DEALER_SEAT)[Position.MIDDLEHAND]
+        before = skat.store.tables[table.table_id]
+        book = copy.deepcopy(skat.store.book)
+
+        answer = agent.stand_up(table.table_id)
+
+        after = skat.store.tables[table.table_id]
+        assert not answer.is_error, answer.text
+        assert answer.json()["hand"]["waiting_seat"] == seat
+        assert (after.hand, after.progress.auction, after.chairs[seat - 1].occupant) == (
+            before.hand,
+            before.progress.auction,
+            None,
+        )
+        assert skat.store.book == book
+
+    def test_an_agent_that_stood_up_during_a_hand_may_sit_only_in_its_own_chair_again(self, skat, agent):
+        table = AgentTable(skat, agent, Position.MIDDLEHAND)
+        seat = seats_from(DEALER_SEAT)[Position.MIDDLEHAND]
+        other = seats_from(DEALER_SEAT)[Position.FOREHAND]
+        agent.stand_up(table.table_id)
+        skat.stand(table.at[Position.FOREHAND], table.table_id)
         before = stored(skat)
 
-        refused = agent.stand_up(table.table_id)
+        refused = agent.sit_down(table.table_id, other, command_id="agent-sit-other")
+        unchanged = stored(skat)
+        own = agent.sit_down(table.table_id, seat, command_id="agent-sit-own")
 
-        assert refused.json()["reason"] == Refusal.HAND_RUNNING
-        assert stored(skat)[0] == before[0]
+        assert (refused.is_error, refused.json()["reason"]) == (True, Refusal.OWN_SEAT_ONLY)
+        assert unchanged[0] == before[0]
+        assert not own.is_error, own.text
 
     def test_an_agent_that_holds_no_chair_here_is_refused(self, skat, agent):
         agent.admitted()

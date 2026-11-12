@@ -579,15 +579,19 @@ class TestHandInPayloads:
         assert answer.json()["hand"]["own_cards"] == []
         assert cards_in_text(answer.text) == set()
 
-    def test_standing_up_during_a_hand_is_refused_with_only_the_reason_and_the_holder(self, skat):
+    def test_standing_up_during_a_hand_answers_with_the_keys_of_a_stand_up_between_hands_and_no_card_or_account(
+        self, skat
+    ):
         table_id, people = seated_three(skat)
+        between = skat.create(people[3][0], command_id="command-between").json()["id"]
+        between_hands = skat.stand(people[3][0], between, command_id="command-between-stand")
 
         answer = skat.stand(people[0][0], table_id, command_id="command-leave")
 
-        assert answer.status_code == 409
-        assert set(answer.json()) == {"reason", "holder_name"}
-        assert answer.json()["reason"] == "hand-running"
+        assert (answer.status_code, set(answer.json())) == (200, set(between_hands.json()))
+        assert answer.json()["hand"]["waiting_seat"] == 1
         assert cards_in_text(answer.text) == set()
+        assert all(account.id not in answer.text for _, account in people)
 
     def test_a_table_without_a_hand_has_no_hand_on_the_table_or_on_any_chair(self, skat, table):
         table_id, _ = table
@@ -615,6 +619,24 @@ class TestTokens:
     def test_every_member_has_exactly_one_token_and_no_two_share_one(self, tokens, members):
         assert set(tokens) == set(members)
         assert len(set(tokens.values())) == len(members)
+
+
+class TestADealtTableWhoseChairsAllOpened:
+    def test_the_last_person_standing_up_during_a_hand_leaves_the_table_frozen_and_no_empty_end_follows(
+        self, server, time, hold
+    ):
+        table_id, people = seated_three(server)
+        for number, (headers, _) in enumerate(people[:3], start=1):
+            stood = server.stand(headers, table_id, command_id=f"command-leave-{number}")
+            assert stood.status_code == 200, stood.text
+        before = dict(server.store.tables)
+
+        server.client.portal.call(time.advance, hold.settings.empty_table_seconds)
+
+        record = server.store.tables[table_id]
+        assert server.store.tables == before
+        assert (record.hand is not None, [chair.occupant for chair in record.chairs]) == (True, [None, None, None])
+        assert read(server, people[0][0], table_id).json()["hand"]["waiting_seat"] == 1
 
 
 class TestAnEmptyTableEnds:

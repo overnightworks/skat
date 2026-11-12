@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
 
+from skat.web.wakes import Registration, Topic, WakeList
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping
     from contextlib import AbstractContextManager
@@ -20,11 +22,11 @@ log = structlog.get_logger()
 
 @dataclass(frozen=True, eq=False)
 class Subscription:
-    """One open stream. `wake` only signals that its view changed; the stream rebuilds the view itself."""
+    """One open stream: its account is connected at the table, and its wake-list registration wakes it."""
 
     table_id: str
     account_id: str
-    wake: Callable[[], None]
+    registration: Registration
 
 
 class Scheduler(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
@@ -163,6 +165,7 @@ class Presence:
         self._lease = lease
         self._lease_ends: dict[str, float] = {}
         self._subscriptions: dict[str, list[Subscription]] = {}
+        self._wakes = WakeList()
         self._stopped = False
         self._hold = hold
         self._next_deal = next_deal
@@ -183,11 +186,11 @@ class Presence:
         with self._state:
             self._stopped = True
         self._hold.scheduler.cancel_all()
-        self._wake_all([subscription for open_ones in self._subscriptions.values() for subscription in open_ones])
+        self._wakes.wake_all()
 
     def wake_table(self, table_id: str) -> None:
         """Tell every stream of a table that a committed write changed its view; call it after the commit."""
-        self._wake_all(list(self._subscriptions.get(table_id, ())))
+        self._wakes.wake(Topic(table_id))
 
     def connected(self, table_id: str) -> frozenset[str]:
         return frozenset(subscription.account_id for subscription in self._subscriptions.get(table_id, ()))
@@ -271,13 +274,13 @@ class Presence:
             await committing.wait()
             with self._state:
                 self._left_at.pop(key, None)
-        subscription = Subscription(table_id, account_id, wake)
+        registration = self._wakes.register([Topic(table_id)], wake)
+        subscription = Subscription(table_id, account_id, registration)
         already_connected = account_id in self.connected(table_id)
-        others = list(self._subscriptions.get(table_id, ()))
         with self._state:
             self._empty_waits.pop(table_id, None)
             self._subscriptions.setdefault(table_id, []).append(subscription)
-        if not others:
+        if len(self._subscriptions[table_id]) == 1:
             try:
                 ended = await self._empty_table.note(
                     table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
@@ -290,20 +293,21 @@ class Presence:
             if ended:
                 self.wake_table(table_id)
         if not already_connected:
-            self._wake_all(others)
+            self._wakes.wake(Topic(table_id), sparing=registration)
         return subscription
 
     def unsubscribe(self, subscription: Subscription) -> None:
         remaining = self._subscriptions.get(subscription.table_id, [])
         if subscription not in remaining:
             return
+        self._wakes.unregister(subscription.registration)
         with self._state:
             remaining.remove(subscription)
             if not remaining:
                 del self._subscriptions[subscription.table_id]
         if subscription.account_id not in self.connected(subscription.table_id):
             self._start_hold(subscription.table_id, subscription.account_id)
-            self._wake_all(remaining)
+            self._wakes.wake(Topic(subscription.table_id))
         if subscription.table_id not in self._subscriptions:
             self._start_empty_wait(subscription.table_id)
             self._note_soon(subscription.table_id)
@@ -521,8 +525,3 @@ class Presence:
             and account_id not in self._lease_ends
             and self._left_at.get((table_id, account_id)) == left_at
         )
-
-    @staticmethod
-    def _wake_all(subscriptions: list[Subscription]) -> None:
-        for subscription in subscriptions:
-            subscription.wake()
