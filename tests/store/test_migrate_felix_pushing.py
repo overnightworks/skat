@@ -28,7 +28,7 @@ from skat.table.records import RamschOccasion, RamschSetting, RuleSetId, TableId
 from skat.table.rule_sets import RuleSet
 from skat.table.service import TableService
 from tests.support.migrations import upgrade_to
-from tests.support.rule_set_rows import a_set, row_count, save, sets_of
+from tests.support.rule_set_rows import a_set, row_count, save_before_grand_hand, sets_of
 from tests.support.stored_game import nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
@@ -74,7 +74,7 @@ def test_a_migration_without_the_operator_account_leaves_an_existing_felix_and_d
     before_the_pushing_value, operator_account_id, set_name, felix_without_pushing
 ):
     earlier = a_set(operator_account_id, set_name, felix_without_pushing)
-    save(before_the_pushing_value, earlier)
+    save_before_grand_hand(before_the_pushing_value, earlier)
 
     migrate(before_the_pushing_value, operator_account_id=None)
 
@@ -105,7 +105,7 @@ def test_the_felix_without_pushing_is_replaced_keeping_its_id(
     before_the_pushing_value, operator_account_id, set_name, felix_without_pushing, felix_options
 ):
     earlier = a_set(operator_account_id, set_name, felix_without_pushing)
-    save(before_the_pushing_value, earlier)
+    save_before_grand_hand(before_the_pushing_value, earlier)
 
     migrate(before_the_pushing_value, operator_account_id=operator_account_id)
 
@@ -118,8 +118,8 @@ def test_another_name_of_the_account_and_another_accounts_felix_stay_untouched(
 ):
     other_name = a_set(operator_account_id, "Abend")
     others_felix = a_set(f"account-{secrets.token_hex(8)}", set_name)
-    save(before_the_pushing_value, other_name)
-    save(before_the_pushing_value, others_felix)
+    save_before_grand_hand(before_the_pushing_value, other_name)
+    save_before_grand_hand(before_the_pushing_value, others_felix)
 
     migrate(before_the_pushing_value, operator_account_id=operator_account_id)
 
