@@ -1,4 +1,5 @@
-"""The lobby's list of the tables an account holds a chair at, projected from each table's member view.
+"""The lobby's list of the tables an account holds a chair at, projected from each table's member view, and the list of
+the paused ones among them.
 
 Every entry is built for one account from its own chairs, so no table reaches an account that holds none there. The
 entries are ordered by what the account has to do: the tables that wait for it first.
@@ -11,8 +12,8 @@ from typing import TYPE_CHECKING
 from skat.table.awaiting import WaitingCase, waiting_case
 from skat.table.member_view import member_view_of
 from skat.table.records import OccupantKind, TableRecord
-from skat.table.rules import hand_was_dealt, present_at
-from skat.table.views import turn_seat_of
+from skat.table.rules import hand_was_dealt, present_at, seat_of
+from skat.table.views import paused_entry_of, turn_seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -20,8 +21,9 @@ if TYPE_CHECKING:
     from skat.table.member_view import MemberView
     from skat.table.records import TableId
     from skat.table.transactions import PausedFacts, TableTransactions
+    from skat.table.views import PausedEntryView
 
-__all__ = ["LobbyChairView", "LobbyEntryView", "my_tables"]
+__all__ = ["LobbyChairView", "LobbyEntryView", "my_tables", "paused_tables"]
 
 # A Kontra word is a question in a running hand as the give-up is, so both share a rank.
 _WAITING_RANK = {
@@ -95,6 +97,28 @@ def my_tables(
             if member is not None:
                 entries.append(_entry_of(table, member, present, transaction.paused_facts(table_id), days))
     return tuple(sorted(entries, key=_order_of))
+
+
+def paused_tables(
+    transactions: TableTransactions, held_ids: Iterable[TableId], account_id: str, days: int
+) -> tuple[PausedEntryView, ...]:
+    """The live tables on which a hand was dealt and whose chair the account holds, the soonest end first, ties in
+    id order; a table ends `days` days after the time of its last deal or step of play.
+
+    `held_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
+    shared row lock: an ended table, a table without a dealt hand and one whose chair the account left meanwhile are
+    skipped.
+    """
+    with transactions.begin() as transaction:
+        tables = (transaction.table(table_id) for table_id in held_ids)
+        entries: list[PausedEntryView] = []
+        for table in tables:
+            if isinstance(table, TableRecord) and hand_was_dealt(table) and seat_of(table, account_id) is not None:
+                facts = transaction.paused_facts(table.id)
+                assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
+                ends_at = facts.last_played_at.astimezone(UTC) + timedelta(days=days)
+                entries.append(paused_entry_of(table, account_id, ends_at, facts.opener_name))
+    return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
 
 def _entry_of(

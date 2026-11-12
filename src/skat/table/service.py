@@ -10,7 +10,7 @@ from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_pay
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
-from skat.table.lobby import my_tables
+from skat.table.lobby import my_tables, paused_tables
 from skat.table.member_place import (
     Acceptance,
     AcceptResult,
@@ -97,7 +97,6 @@ from skat.table.rules import (
     replayed_table,
     result_pending,
     resume_step,
-    seat_of,
     seated_if_hand_ended,
     sit_deals,
     sit_payload,
@@ -113,7 +112,7 @@ from skat.table.series_end import (
     series_end_payload,
 )
 from skat.table.transactions import DuplicateReceiptError
-from skat.table.views import PausedEntryView, TableView, paused_entry_of, view_of
+from skat.table.views import PausedEntryView, TableView, view_of
 
 if TYPE_CHECKING:
     import random
@@ -579,27 +578,7 @@ class TableService:
         return my_tables(self._transactions, self._live_leases(), account_id, held_ids, connected_by_table, days)
 
     def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
-        """The live tables on which a hand was dealt and whose chair the actor holds, the soonest end first, ties in
-        id order; a table ends `days` days after the time of its last deal or step of play.
-
-        The chair read is unlocked, so each candidate is read again in one transaction under its shared row lock: an
-        ended table, a table without a dealt hand and one whose chair the actor left meanwhile are skipped.
-        """
-        candidates = self.tables_held_by(actor.account_id)
-        with self._transactions.begin() as transaction:
-            tables = (transaction.table(table_id) for table_id in candidates)
-            entries: list[PausedEntryView] = []
-            for table in tables:
-                if (
-                    isinstance(table, TableRecord)
-                    and hand_was_dealt(table)
-                    and seat_of(table, actor.account_id) is not None
-                ):
-                    facts = transaction.paused_facts(table.id)
-                    assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
-                    ends_at = facts.last_played_at.astimezone(UTC) + timedelta(days=days)
-                    entries.append(paused_entry_of(table, actor.account_id, ends_at, facts.opener_name))
-        return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
+        return paused_tables(self._transactions, self.tables_held_by(actor.account_id), actor.account_id, days)
 
     def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
         """Write the call as an invitation standing `lasting` from now, if the decision under the locks offers it."""
