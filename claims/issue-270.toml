@@ -1,8 +1,0 @@
-claim_id = "396f1a3507644b79b91de1bba8976745"
-agent = "Claude 2934956f-5b19-4393-94f4-1693193c9c8d"
-role = "builder"
-base = "41188aa6d6b722b45aa52252e10a953086c80d9c"
-branch = "claude/issue-270-result-card-followups"
-scope = ["frontend/src/lib/start.css", "frontend/src/lib/ui/ResultCard.svelte", "tests/e2e/support/result_card.py", "tests/e2e/test_table_reckoning.py", "tests/e2e/test_table_result.py"]
-opened_commit = "1b9a642137a76c14146248cdbed9f7467e1064e9"
-whole_reason = "Three small follow-ups of one lane's tests on one card, collected so they cost one lane."
