@@ -1,0 +1,7 @@
+claim_id = "232441921fa34f87abb20a12f5fae5e9"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "ff12de46c7b7fe96bf527ee567a2f77a0e2cf21d"
+branch = "fix/call-frame-kit-words"
+scope = ["tests/e2e/test_call_frame.py"]
+opened_commit = "b1bb4fa27796090541a7bc126615182857a7977f"
