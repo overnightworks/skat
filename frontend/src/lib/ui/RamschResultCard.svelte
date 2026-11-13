@@ -47,7 +47,10 @@
     {#if view.chips.length > 0}
         <div class="ladder" role="list">
             {#each view.chips as chip (chip)}
-                <span role="listitem" class="held">{chip}</span>
+                <span role="listitem" class="held">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                    <span>{chip}</span>
+                </span>
             {/each}
         </div>
     {/if}
