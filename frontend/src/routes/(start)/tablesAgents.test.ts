@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { words } from "#lib/words.ts";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import {
-    agentSitsNote,
-    seatedAgentsKey,
     callAgent,
     followAgents,
     readAgents,
@@ -11,9 +9,8 @@ import {
     sendAgentAway,
     type AgentRow,
     type AgentsControl,
-    type Chair,
-    type Table,
-} from "./tables.ts";
+} from "./agents.ts";
+import { agentSitsNote, seatedAgentsKey, type Chair, type Table } from "./tables.ts";
 
 const TABLE_ID = "a".repeat(32);
 
