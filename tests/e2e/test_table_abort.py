@@ -29,7 +29,6 @@ WAIT = text(SOURCE_LANGUAGE, "table.abortWait")
 ABORTED = text(SOURCE_LANGUAGE, "table.aborted")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 REFUSED = 409
-WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 KEY = ".copy.abort"
@@ -99,7 +98,7 @@ def test_a_person_taps_the_key_twice_the_other_agrees_and_the_hand_ends_aborted(
     expect(answerer.locator(ASK)).to_contain_text(wants_to_abort(proposer_name))
     expect(button_of(answerer, ABORT)).to_be_visible()
     expect(button_of(answerer, WAIT)).to_be_visible()
-    expect(proposer.locator(ASK)).to_contain_text(f"{WAITING_FOR} {answerer_name}")
+    expect(proposer.locator(ASK)).to_contain_text(text(SOURCE_LANGUAGE, "table.waitingFor", names=answerer_name))
     expect(proposer.locator(f"{ASK} button")).to_have_count(0)
     expect(proposer.locator(KEY)).to_have_count(0)
     expect(

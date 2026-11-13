@@ -31,7 +31,6 @@ ROUND_KEY_PIXELS = 52
 STAMP = ".callout"
 NEAR_CARD = ".laid.near .face"
 SECOND_LINE = ".plaque .pushes"
-TIMES = "\N{MULTIPLICATION SIGN}"
 # Only an opponent who bid says Kontra, and the declarer answers with Re.
 KONTRA_OPTIONS = {"kontra": {"sayer": "bidders-only", "reach": "kontra-re", "deadline": "own-card"}}
 
@@ -107,7 +106,9 @@ def passed_at_once(table: PlayingTable) -> Page:
 def expect_every_page_to_show(table: PlayingTable, word: str, factor: int) -> None:
     for person in table.everyone:
         expect(person.locator(STAMP)).to_contain_text(word)
-        expect(person.locator(SECOND_LINE)).to_have_text(f"{word} {TIMES}{factor}")
+        expect(person.locator(SECOND_LINE)).to_have_text(
+            text(SOURCE_LANGUAGE, "kontra.plaque", word=word, factor=str(factor))
+        )
 
 
 def expect_nothing_to_overflow(person: Page) -> None:
@@ -199,7 +200,9 @@ def test_a_reload_after_a_word_shows_the_plaque_and_no_second_stamp(
 
     reload_and_wait(table.watcher)
 
-    expect(table.watcher.locator(SECOND_LINE)).to_have_text(f"{KONTRA} {TIMES}2")
+    expect(table.watcher.locator(SECOND_LINE)).to_have_text(
+        text(SOURCE_LANGUAGE, "kontra.plaque", word=KONTRA, factor="2")
+    )
     expect(table.watcher.locator(STAMP)).to_have_count(0)
     assert page_errors == []
 
@@ -213,7 +216,9 @@ def test_the_stamp_leaves_the_felt_once_its_moment_has_passed(
 
     expect(table.watcher.locator(STAMP)).to_have_count(0)
 
-    expect(table.watcher.locator(SECOND_LINE)).to_have_text(f"{KONTRA} {TIMES}2")
+    expect(table.watcher.locator(SECOND_LINE)).to_have_text(
+        text(SOURCE_LANGUAGE, "kontra.plaque", word=KONTRA, factor="2")
+    )
     assert page_errors == []
 
 
