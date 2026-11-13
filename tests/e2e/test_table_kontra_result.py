@@ -6,14 +6,14 @@ from playwright.sync_api import Page, expect
 
 from skat.engine.kontra import Word
 from skat.engine.tricks import CARDS_IN_A_GAME
-from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, command_numbers
-from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.kontra import KONTRA_OPTIONS, say_kontra_as_an_opponent
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.result_card import CARD, MINUS, expect_the_page_around_the_card
+from tests.e2e.support.result_card import CARD, expect_the_page_around_the_card, signed
 from tests.e2e.support.tables import TABLE_URL
 
 if TYPE_CHECKING:
@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-KONTRA_OPTIONS = {"sayer": "any-opponent", "reach": "kontra-re", "deadline": "own-card"}
 SERIES_LENGTH = 36
 
 
@@ -43,23 +42,6 @@ class KontraTable(DeclaringTable):
         opener.goto(f"{server.base_url}{path}")
         expect(opener).to_have_url(TABLE_URL)
         return path
-
-
-def signed(number: int) -> str:
-    return f"{MINUS}{-number}" if number < 0 else f"+{number}"
-
-
-def say_kontra_as_an_opponent(table: PlayingTable) -> None:
-    seat = table.seat_at["forehand"]
-    view = table.view(seat)
-    assert view["hand"]["playing"]["kontra"]["my_word"] == Word.KONTRA
-    body = {
-        "command_id": f"kontra-result-word-{next(command_numbers):04d}",
-        "version": view["version"],
-        "word": "kontra",
-    }
-    table.declaring.sessions[seat].post(f"{table.declaring.api_path}{TABLE_KONTRA_SUFFIX}", body)
-    assert table.playing()["kontra"]["factor"] == Word.KONTRA.factor
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

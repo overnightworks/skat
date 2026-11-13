@@ -14,10 +14,10 @@ from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.kontra import KONTRA_OPTIONS, say_kontra_as_an_opponent
 from tests.e2e.support.people import PHONE, WIDTHS
-from tests.e2e.support.result_card import CARD, MINUS, TIMES, loosely
-from tests.e2e.test_table_kontra_result import KONTRA_OPTIONS, say_kontra_as_an_opponent
-from tests.e2e.test_table_ramsch_result import RAMSCH_OPTIONS, RamschTable, signed
+from tests.e2e.support.ramsch import RAMSCH_OPTIONS, RamschTable
+from tests.e2e.support.result_card import CARD, MINUS, TIMES, loosely, signed
 
 if TYPE_CHECKING:
     from collections.abc import Callable
