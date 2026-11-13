@@ -293,10 +293,7 @@ class _PostgresTableTransaction:
                     held_in_hand=sorted(
                         mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
                     ),
-                    former_holder_name=next(
-                        (holder.display_name for holder in table.progress.former_holders if holder.seat == chair.seat),
-                        None,
-                    ),
+                    former_holder_name=table.progress.former_holder_name(chair.seat),
                 )
             )
 

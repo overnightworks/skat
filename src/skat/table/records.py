@@ -268,6 +268,10 @@ class HandProgress:
     seats_held: frozenset[SeatHeld] = frozenset()
     former_holders: frozenset[FormerHolder] = frozenset()
 
+    def former_holder_name(self, seat: int) -> str | None:
+        """The name of whoever left the chair `seat` in this hand, or None when no one is on record for it."""
+        return next((holder.display_name for holder in self.former_holders if holder.seat == seat), None)
+
 
 @dataclass(frozen=True)
 class EndProposal:

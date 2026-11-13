@@ -303,10 +303,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
                 ready=chair.ready,
                 hand=chair_hands.get(chair.seat),
                 total=_total_shown(table, chair),
-                former_holder_name=next(
-                    (holder.display_name for holder in table.progress.former_holders if holder.seat == chair.seat),
-                    None,
-                ),
+                former_holder_name=table.progress.former_holder_name(chair.seat),
             )
             for chair in table.chairs
         ),
