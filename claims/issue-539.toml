@@ -1,0 +1,8 @@
+claim_id = "1ad02298652a466a9595683027943663"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "0b8c73ad9537737cd67f31f3f1bffd62d0173d1d"
+branch = "claude/issue-539-the-declarer-shortens-with-or-without-a"
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/table/playing.py", "src/skat/table/records.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/mcp.py", "src/skat/web/playing.py", "tests/store/test_playing.py", "tests/table/test_playing.py", "tests/web/test_mcp.py", "tests/web/test_playing_give_up.py", "tests/web/test_tables.py"]
+opened_commit = "a18df8524277435d818132e622cd60232967ce19"
+whole_reason = "The shortening request, both opponents' answers and the open-cards view are one path: a request with no way to answer never ends, and an open-cards view with no request to trigger it discloses nothing."
