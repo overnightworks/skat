@@ -86,7 +86,8 @@ class TestTheChairOpensAtOnce:
         assert result.refusal is None
         assert [chair.occupant_name for chair in result.view.chairs] == ["Anna", "Ben", None]
         assert result.view.hand.waiting_seat == MOZARTS_SEAT
-        assert (scene.table.hand, replace(scene.table.progress, seats_held=frozenset()), scene.table.game_list) == (
+        marks_cleared = replace(scene.table.progress, seats_held=frozenset(), former_holders=frozenset())
+        assert (scene.table.hand, marks_cleared, scene.table.game_list) == (
             before.hand,
             before.progress,
             before.game_list,

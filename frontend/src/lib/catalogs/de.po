@@ -787,6 +787,34 @@ msgctxt "table.agentSits"
 msgid "{name} setzt sich"
 msgstr ""
 
+msgctxt "table.agentLeft"
+msgid "{name} ist gegangen"
+msgstr ""
+
+msgctxt "table.playsOn"
+msgid "{name} spielt weiter"
+msgstr ""
+
+msgctxt "table.sitQuestion"
+msgid "Mitten ins Spiel setzen?"
+msgstr ""
+
+msgctxt "table.sitQuestionCancel"
+msgid "Abbrechen"
+msgstr ""
+
+msgctxt "table.takeOverNamed"
+msgid "Du übernimmst {name}s Karten."
+msgstr ""
+
+msgctxt "table.takeOverApostrophe"
+msgid "Du übernimmst {name}’ Karten."
+msgstr ""
+
+msgctxt "table.takeOverUnnamed"
+msgid "Du übernimmst die Karten dieses Platzes."
+msgstr ""
+
 msgctxt "logout.button"
 msgid "Abmelden"
 msgstr ""

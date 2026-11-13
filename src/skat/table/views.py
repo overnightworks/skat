@@ -58,6 +58,7 @@ class ChairView:
     ready: bool
     hand: ChairHand | None
     total: int | None
+    former_holder_name: str | None
 
 
 @dataclass(frozen=True)
@@ -310,6 +311,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
                 ready=chair.ready,
                 hand=chair_hands.get(chair.seat),
                 total=_total_shown(table, chair),
+                former_holder_name=table.progress.former_holder_name(chair.seat),
             )
             for chair in table.chairs
         ),

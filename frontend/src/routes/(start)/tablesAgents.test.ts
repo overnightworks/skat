@@ -476,6 +476,7 @@ describe("the agent that sat down", () => {
         ready: false,
         total: null,
         hand: null,
+        former_holder_name: null,
     });
     const tableOf = (...chairs: Chair[]): Table => ({
         id: TABLE_ID,
@@ -493,7 +494,40 @@ describe("the agent that sat down", () => {
         const before = tableOf(chairOf(1, "Felix", "person"), chairOf(2, null, null));
         const after = tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent"));
 
-        expect(agentSitsNote(before, after)).toBe(words["table.agentSits"]({ name: "Nova" }));
+        expect(agentSitsNote(before, after)).toEqual({
+            text: words["table.agentSits"]({ name: "Nova" }),
+            initial: null,
+        });
+    });
+
+    it("is nobody when the agent takes a chair that was open in the running hand", () => {
+        const waiting: Table = {
+            ...tableOf(chairOf(1, "Felix", "person"), chairOf(2, null, null)),
+            hand: {
+                dealer_seat: 1,
+                own_cards: [],
+                skat_count: 2,
+                waiting_seat: 2,
+                ramsch: false,
+                pushing: null,
+                pushes: 0,
+                push_factor: 1,
+                auction: {
+                    turn_seat: 1,
+                    facing_seat: null,
+                    awaiting: "bid",
+                    standing: null,
+                    values: [],
+                    words: [],
+                    declared: null,
+                },
+                declaring: null,
+                playing: null,
+            },
+        };
+        const after = tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent"));
+
+        expect(agentSitsNote(waiting, after)).toBeNull();
     });
 
     it.each([

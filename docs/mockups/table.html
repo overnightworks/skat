@@ -705,7 +705,7 @@ const aiMark=()=>'<span class="ai-mark">AI</span>';
 const P={
   felix:{n:'Du',i:'F',c:['#6fd3bd','#2f8f7d'],v:['#2c4646','#172326'],l:['#2a5a52','#13302b'],hair:'short',glasses:true},
   anna:{n:'Anna',i:'A',c:['#c2a8f5','#7c5cd6'],v:['#3a3350','#1d1a29'],l:['#553a6e','#2a1b38'],hair:'long'},
-  nova:{n:'Nova',agent:true,sub:'Agent von Felix',l:['#2a3b5e','#141d31']},
+  nova:{n:'Nova',agent:true,l:['#2a3b5e','#141d31']},
   ben:{n:'Ben',i:'B',c:['#e8c895','#b08a55'],v:['#3c3832','#1f1c18'],l:['#5e4a30','#2e2416'],hair:'cap'},
 };
 /* camera stand-in: a person drawn as a silhouette in their own colour */
@@ -758,7 +758,7 @@ function seat(k,o){
   if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
   else if(o.video) inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}">${silhouette(p)}</div>`;
   else inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}"></div><div class="av" style="${dotStyle(p)}">${p.i}</div>`;
-  const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b>${p.sub&&!o.short?`<small>${p.sub}</small>`:''}</span>`;
+  const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b></span>`;
   return `<div class="${cls}" style="${at({left:o.x,top:o.y,width:o.w,height:o.h,position:o.inline?'relative':undefined,'--l1':p.l[0],'--l2':p.l[1]})}">
     <div class="chair ${o.got?'mo':''}" style="${o.got?`--k:${o.got}`:''}"><div class="tile ${p.agent?'agent':''}">${inner}</div></div>${marks.map(m=>MARK[m]).join('')}${o.plate===false?'':plate}</div>`;
 }
@@ -1090,7 +1090,7 @@ const IDEAS=[
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
   ['🤖','Agenten rufen','Die Pille „AI“ in Skats Leiste öffnet die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht weder Pille noch Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
-  ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','seat-open, seat-open-bid, seat-open-watch, seat-open-ask, seat-open-took, seat-open-back, lobby-seat-open (start.html)'],
+  ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
   ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-sent, nudge-mine'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
@@ -1520,7 +1520,7 @@ const GIVE_UP_ARMED=barKey('leave arm',I.flag,'Wirklich aufgeben?').replace('</s
 const giveUpTable=(d,o={})=>room(d,{left:0,call:false,glow:o.glow})+watching(o.watchers||1,d)
   +sideFans(d,o.left??8,o.left??8,{dim:o.dim,dimRight:o.dim});
 const giveUpSeats=(d,o)=>{const L=d?DB:PB;
-  return seat('anna',{...L.anna,short:true,marks:o.anna||[]})+seat('ben',{...L.nova,marks:o.ben||[]})+seat(o.near||'felix',{...L.you,marks:o.you||[]});};
+  return seat('anna',{...L.anna,marks:o.anna||[]})+seat('ben',{...L.nova,marks:o.ben||[]})+seat(o.near||'felix',{...L.you,marks:o.you||[]});};
 const FELIX_LEADS=PLAY_HAND.map(([r,s])=>[r,s,'ok']);
 const FELIX_FOLLOWS=PLAY_HAND.map(([r,s,c])=>[r,s,c==='no'?'no':'ok']);
 const FELIX_HOLDS=PLAY_HAND.map(([r,s])=>[r,s,'no']);
@@ -1644,7 +1644,6 @@ Object.assign(I,{
   bell:sv('<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 1.5h-15z"/><path d="M10 21.2a2.2 2.2 0 0 0 4 0"/>',1.9),
   stop:sv('<rect x="6" y="6" width="12" height="12" rx="3" fill="currentColor"/>',2),
 });
-P.lenaSelf={...P.lena,n:'Du'};
 P.annaSelf={...P.anna,n:'Du'};
 /* the bell: a button while it may be tapped, a mark with a tick once nudged, and the one that shakes on the nudged person's own chair */
 MARK.bell=`<span class="mark bell" role="button" tabindex="0" title="Nova anstupsen" aria-label="Nova anstupsen">${I.bell}</span>`;
@@ -1708,7 +1707,6 @@ const AT_TABLE='Felix sitzt an seinem Tisch zwischen den Spielen';
 /* a hand of Kreuz in play, Felix's view: Anna declared and led the ♠ king, Nova has the next card; coasters are the series totals */
 const FELIX_HAND=PLAY_HAND.map(([r,s])=>[r,s]);
 const SPARE_HAND=[['B','d'],['A','c'],['K','c'],['10','s'],['D','s'],['8','s'],['D','h'],['A','d']];
-const SPARE_FOLLOWING=SPARE_HAND.map(([r,s])=>[r,s,s==='s'?'ok':'no']);
 const lead=(d,k,slot,drop=0,aside=0)=>{const at_=TRICK_SLOT[slot](d);return played('K','s',k,slotAt(d,{...at_,x:at_.x-(d?0:aside),y:at_.y+(d?0:drop)}));};
 const answered=(d)=>played('7','s','nova',slotAt(d,TRICK_SLOT.right(d)));
 const kreuz=(d,extra='')=>plaque(mid(d),extra?belowFansY(d):plaqueY(d),gameLine('c','Kreuz')+extra);
@@ -1727,14 +1725,6 @@ const ownCards=(d,cards=FELIX_HAND)=>ownHand(d,cards);
 
 /* a watcher's view of the open chair: Anna and Felix seated, the chair with its plus, the backs of the cards beside every chair */
 const watchOpen=(d)=>openChair(d,{viewer:'lena',watchers:2})+nearFan(d,8)+tableBar(d);
-/* Lena sat down: her view turns, so Nova's old seat is the near one; Felix is on her left, Anna on her right */
-const lenaSits=(d)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true,watchers:2,glow:turnGlow(d)})+kreuz(d)+played('K','s','anna',slotAt(d,TRICK_SLOT.right(d)))
-    +seat('felixSeen',L.anna)+seat('anna',{...L.nova,marks:['decl']})+seat('lenaSelf',{...L.you,marks:['turn']})+chairCoasters(L,[TOTALS_BEFORE[2],TOTALS_BEFORE[0],TOTALS_BEFORE[1]])
-    +ownCards(d,SPARE_FOLLOWING)+stripOf(d,{lead:GIVE_UP});};
-const sitQuestion=(d)=>watchOpen(d)+'<div class="scrim"></div>'+panel({x:mid(d),y:d?220:270,w:d?460:340,role:'dialog',icon:I.plus,text:'Mitten ins Spiel setzen?',
-  line:'Du übernimmst Novas Karten.',buttons:`<span class="button button-stage">${I.plus}Hinsetzen</span><span class="button button-glass">Abbrechen</span>`});
-
 /* the vote to end the hand while a chair is free */
 const ANSWER_ABORT=`<div class="answers"><span class="button button-stage" role="button">${I.check}Abbrechen</span><span class="button button-glass" role="button">${I.cross}Warten</span></div>`;
 const askingAnna=(d)=>{const L=seatsOf(d);
@@ -1764,7 +1754,7 @@ const AGENT_SCENES=[
   ['agents-here','Agenten: Nova setzt sich',[390,1280],(d)=>{const L=seatsOf(d);
     return tableOf(d)+plaque(mid(d),plaqueY(d),`<div class="game">Karten kommen${waitDots()}</div>`)+deck(d)+seat('anna',L.anna)+seat('nova',{...L.nova,got:'.6s;--d:.25s'})+seat('felix',L.you)
       +notice('Nova setzt sich','nova',mid(d),d?522:462)+callerBar(d,agentPill(d));},
-    ['Nova setzt sich: die Kugel, „Nova AI · Agent von Felix“ und der Hinweis „Nova setzt sich“; danach kommen die Karten.']],
+    ['Nova setzt sich: die Kugel, „Nova AI“ und der Hinweis „Nova setzt sich“; danach kommen die Karten.']],
   ['agents-refused','Agenten: abgelehnt',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel(NOVA_CALLABLE,{refusal:'try-again'})}))),
     ['Der Ruf ging fehl: das Banner des Kits „Das hat nicht geklappt. Versuch es noch einmal.“ über der Zeile, die wieder „Rufen“ sagt; die anderen vier Gründe sehen genauso aus, mit ihrem eigenen Satz.']],
   ['agents-empty','Agenten: keiner erreichbar',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel([])}))),
@@ -1778,22 +1768,6 @@ const AGENT_SCENES=[
       +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
       +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d,{open:true,panel:agentPanel(NOVA_HERE)})});},
     ['Mitten im Spiel öffnet Felix die Pille: Novas Zeile sagt „Bitten zu gehen“. Anna hat kein Recht an Nova, keine Zeile und darum keine Pille: ihre Leiste ist die von giveup-button.']],
-  ['seat-open','Freier Platz im Spiel',[390,1280],(d)=>openChair(d)+openNotice(d)+ownCards(d)+stripOf(d,{lead:'',pill:agentPill(d)}),
-    ['Nova ist gegangen: ihr Stuhl ist frei, ihre Karten warten daneben, „Kreuz · Warte auf Mitspieler“, niemand ist dran, „Aufgeben“ fehlt; der Hinweis „Nova ist gegangen“.']],
-  ['seat-open-bid','Freier Platz beim Reizen',[390],(d)=>openChair(d,{fans:10,plaque:plaque(mid(d),belowFansY(d),`<div class="game">Reizen</div>${WAIT_LINE}`),trick:d?skat(584,190,80):skat(PB.cx-41,340,52)})
-    +ownCards(d,BID_HAND)+stripOf(d,{lead:'',pill:agentPill(d)}),
-    ['Dasselbe beim Reizen: „Reizen · Warte auf Mitspieler“, keine Reiztasten.']],
-  ['seat-open-watch','Freier Platz, Zuschauen',[360,390,1280],watchOpen,
-    ['Lena schaut zu: dieselbe Tafel, das Plus auf dem freien Stuhl neben seinen Karten, keine Karte von irgendwem zu sehen.']],
-  ['seat-open-ask','Freier Platz: Frage',[390,1280],sitQuestion,
-    ['Lena tippt auf das Plus: „Mitten ins Spiel setzen?“ mit „Du übernimmst Novas Karten.“ und „Hinsetzen“, „Abbrechen“. Wer sich so setzt, übernimmt Novas Karten.']],
-  ['seat-open-took','Freier Platz: gesetzt',[390,1280],lenaSits,
-    ['Lena sitzt: Novas Karten sind ihre Hand, ihr Stuhl sagt „Du“, sie ist dran, die spielbaren Karten leuchten. Ihre Sicht dreht sich: ihr Stuhl ist jetzt der untere, Felix links, Anna rechts.']],
-  ['seat-open-back','Freier Platz: besetzt',[390],(d)=>{const L=seatsOf(d);
-    return tableOf(d,{fans:8,count:true})+kreuz(d)+lead(d,'anna','left',16)+notice('Lena spielt weiter','lena',mid(d),d?170:250)
-      +seat('anna',{...L.anna,marks:['decl']})+seat('lena',{...L.nova,marks:['turn'],got:'.6s;--d:.25s'})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
-      +ownCards(d)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)});},
-    ['Felix sieht Lenas Stuhl sich füllen und den Hinweis „Lena spielt weiter“; das Spiel bewegt sich wieder.']],
   ['abort-offer','Abbrechen: das Angebot',[390,1280],(d)=>openChair(d)+ownCards(d)+stripOf(d,{lead:ABORT,pill:agentPill(d)}),
     ['Solange der Stuhl frei ist, bietet Felix’ Leiste „Abbrechen“ mit einem Stopp-Quadrat neben der Pille und dem Link; ein zweiter Tipp binnen drei Sekunden schickt es, wie „Aufgeben“.']],
   ['abort-asked','Abbrechen: die Frage',[390,1280],askingAnna,

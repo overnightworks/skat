@@ -308,6 +308,7 @@ class ChairAnswer(BaseModel):
     ready: bool
     hand: ChairHandAnswer | None
     total: int | None
+    former_holder_name: str | None
     nudge: NudgeAnswer | None
 
 
@@ -654,6 +655,7 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
                 ready=c.ready,
                 hand=chair_hand_answer_of(c.hand),
                 total=c.total,
+                former_holder_name=c.former_holder_name,
                 nudge=nudge_answer_of(view, nudges.get(c.seat)),
             )
             for c in view.chairs
@@ -766,12 +768,14 @@ def create_tables_router(
         Ramsch's score by, 1 without a push and where the table's pushes do not double; both stay through the Ramsch's
         play. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
         it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
-        moves again once someone sits in the chair. `nudge` on a chair is set for a chair the table waits for: `nudges`
-        is how often it was nudged at this version and `may_nudge` whether the caller may nudge it at all, the cap not
-        reached; whether the minute has passed is judged by nudge_seat. For the chair's own occupant it also names the
-        latest nudger. `ended` is null while the table lives; once it ended it says why: `reason` is `empty` (nobody
-        was there while no hand was dealt; `empty_seconds` is the wait) or `unplayed` (no hand was dealt or played at
-        for `unplayed_days` days). A 404 means no table has this id.
+        moves again once someone sits in the chair. A chair's `former_holder_name` is the name of whoever held it in
+        the running hand and left it, the same for every viewer, or null; it is set only while the chair is open.
+        `nudge` on a chair is set for a chair the table waits for: `nudges` is how often it was nudged at this
+        version and `may_nudge` whether the caller may nudge it at all, the cap not reached; whether the minute has
+        passed is judged by nudge_seat. For the chair's own occupant it also names the latest nudger. `ended` is null
+        while the table lives; once it ended it says why: `reason` is `empty` (nobody was there while no hand was
+        dealt; `empty_seconds` is the wait) or `unplayed` (no hand was dealt or played at for `unplayed_days` days).
+        A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.

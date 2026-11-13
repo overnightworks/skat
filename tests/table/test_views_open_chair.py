@@ -81,6 +81,32 @@ class TestTheWaitingSeat:
         assert view_of(table, "account-watcher", NOBODY).hand.own_cards == ()
 
 
+class TestTheFormerHolder:
+    @pytest.mark.parametrize("phase", PHASES)
+    def test_every_viewer_reads_the_leavers_name_on_the_open_chair_and_none_elsewhere(self, phase):
+        running = PHASES[phase]()
+        waiting = sent_away(running, REARHAND_SEAT)
+        leaver = running.chairs[REARHAND_SEAT - 1].occupant.display_name
+
+        for viewer in VIEWERS:
+            names = [chair.former_holder_name for chair in view_of(waiting, viewer, NOBODY).chairs]
+            assert names == [None, leaver, None]
+
+    def test_a_sit_leaves_no_name_for_any_viewer(self):
+        table = sent_away(PHASES["auction"](), REARHAND_SEAT)
+        taken = decide_sit(table, newcomer(), REARHAND_SEAT, None).table
+
+        assert {chair.former_holder_name for viewer in VIEWERS for chair in view_of(taken, viewer, NOBODY).chairs} == {
+            None
+        }
+
+    def test_a_chair_stored_with_no_name_reads_none_though_it_is_open(self):
+        table = sent_away(PHASES["auction"](), REARHAND_SEAT)
+        stored = replace(table, progress=replace(table.progress, former_holders=frozenset()))
+
+        assert view_of(stored, "account-watcher", NOBODY).chairs[REARHAND_SEAT - 1].former_holder_name is None
+
+
 def account_of_a_seated_person(table):
     return next(chair.occupant.account_id for chair in table.chairs if chair.occupant is not None)
 

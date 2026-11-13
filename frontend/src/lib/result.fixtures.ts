@@ -13,6 +13,7 @@ export function chairs(mine: number, changes: Record<number, Partial<Chair>> = {
         ready: false,
         total: null,
         hand: null,
+        former_holder_name: null,
         ...changes[seat],
     }));
 }

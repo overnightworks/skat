@@ -27,7 +27,7 @@ RUNNING_HAND = (
 )
 
 
-LATER_COLUMNS = ("held_in_hand", "ramsch_grand_hand", "owner_account", "unplayed_days")
+LATER_COLUMNS = ("held_in_hand", "former_holder_name", "ramsch_grand_hand", "owner_account", "unplayed_days")
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
 
 

@@ -24,6 +24,7 @@ function chairs(mine: number): Table["chairs"] {
         ready: false,
         total: null,
         hand: { position: "forehand", card_count: 10 },
+        former_holder_name: null,
     }));
 }
 

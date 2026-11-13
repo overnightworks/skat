@@ -18,6 +18,7 @@ function chairs(): Chair[] {
         seat,
         occupant_name: name,
         occupant_kind: kind,
+        former_holder_name: null,
         is_mine: seat === OPPONENT,
         is_away: false,
         ready: false,
