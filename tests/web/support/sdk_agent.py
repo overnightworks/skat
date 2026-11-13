@@ -5,6 +5,7 @@ on, reached through the test client's portal; the test body stays synchronous. A
 app through the test client as everywhere else in the web tests.
 """
 
+import contextlib
 import json
 from contextlib import asynccontextmanager, contextmanager
 
@@ -83,7 +84,8 @@ class InProcessApp(httpx2.AsyncBaseTransport):
                 answered.set()
             elif message["type"] == "http.response.body":
                 if message.get("body"):
-                    await chunks_in.send(message["body"])
+                    with contextlib.suppress(anyio.BrokenResourceError):  # a closed client drops the app's late writes
+                        await chunks_in.send(message["body"])
                 if not message.get("more_body", False):
                     chunks_in.close()
 
