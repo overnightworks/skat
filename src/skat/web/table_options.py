@@ -126,7 +126,11 @@ def options_answer_of(options: TableOptions) -> OptionsAnswer:
         kontra=None
         if kontra is None
         else KontraOptionsAnswer(sayer=kontra.sayer, reach=kontra.reach, deadline=kontra.deadline),
-        bock=None if bock is None else BockOptionsAnswer(triggers=sorted(bock.triggers), overlap=bock.overlap),
+        bock=None
+        if bock is None
+        else BockOptionsAnswer(
+            triggers=[trigger for trigger in BockTrigger if trigger in bock.triggers], overlap=bock.overlap
+        ),
         ramsch=None if ramsch is None else ramsch_answer_of(ramsch),
     )
 
