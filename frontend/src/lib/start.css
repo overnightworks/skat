@@ -1284,7 +1284,7 @@ body {
 }
 
 /* A phone chair carries its position at the top right, so the turn, pass and waits marks sit below it, clear of
-   the dealer badge; a chair carries only one of them. */
+   the dealer badge; a chair carries one of them, except that the think mark lies over the turn mark. */
 .room .mark:is(.turn, .pass, .waits, .ready, .think) {
     position: absolute;
     z-index: 2;
@@ -3170,6 +3170,14 @@ body {
 
 .room .result .value.minus {
     color: var(--on-stage-soft);
+}
+
+.room .result .value.loss {
+    color: #ff8a8f;
+}
+
+.room .result.ramsch .suit {
+    color: #17191c;
 }
 
 .room .result .miss {
