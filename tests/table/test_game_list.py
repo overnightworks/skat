@@ -16,6 +16,7 @@ from skat.engine.value import Level, Matadors
 from skat.table.game_list import (
     GameEnding,
     KontraResult,
+    KontraStep,
     Standing,
     list_entry_of,
     result_view_of,
@@ -476,22 +477,38 @@ class TestTheDoubledGame:
     LOST = replace(entry_of(played(KREUZ, MIT_TWO, (30, 24))), score=-288)  # Re quadruples the lost game's -72
 
     @pytest.mark.parametrize(
-        ("entry", "word", "reach", "gains", "list_bonus", "factor"),
+        ("entry", "word", "reach", "gains", "list_bonus", "steps"),
         [
-            pytest.param(WON, KONTRA, REACH, (122, 0, 0), 50, 2, id="won-kontra"),
-            pytest.param(WON, KONTRA, KontraReach.KONTRA_RE_STANDINGS, (172, 0, 0), 100, 2, id="won-kontra-standings"),
-            pytest.param(LOST, RE, REACH, (-338, 40, 40), -50, 4, id="lost-re"),
-            pytest.param(LOST, RE, KontraReach.KONTRA_RE_STANDINGS, (-488, 160, 160), -200, 4, id="lost-re-standings"),
+            pytest.param(WON, KONTRA, REACH, (122, 0, 0), 50, ((KONTRA, 2),), id="won-kontra"),
+            pytest.param(
+                WON,
+                KONTRA,
+                KontraReach.KONTRA_RE_STANDINGS,
+                (172, 0, 0),
+                100,
+                ((KONTRA, 2),),
+                id="won-kontra-standings",
+            ),
+            pytest.param(LOST, RE, REACH, (-338, 40, 40), -50, ((KONTRA, 2), (RE, 4)), id="lost-re"),
+            pytest.param(
+                LOST,
+                RE,
+                KontraReach.KONTRA_RE_STANDINGS,
+                (-488, 160, 160),
+                -200,
+                ((KONTRA, 2), (RE, 4)),
+                id="lost-re-standings",
+            ),
         ],
     )
     def test_the_gains_the_bonus_and_the_result_follow_the_doubled_list_score(
-        self, entry, word, reach, gains, list_bonus, factor
+        self, entry, word, reach, gains, list_bonus, steps
     ):
         result = result_view_of(doubled_table(entry, word, reach))
 
         assert tuple(gain.gain for gain in result.gains) == gains
         assert result.list_bonus == list_bonus
-        assert result.kontra == KontraResult(word, factor)
+        assert result.kontra == KontraResult(tuple(KontraStep(word, factor) for word, factor in steps))
         assert (result.score, result.settled_value, result.game_value) == (
             entry.score,
             entry.settled_value,

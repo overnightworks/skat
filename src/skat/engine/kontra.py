@@ -57,6 +57,11 @@ class Word(StrEnum):
     def factor(self) -> int:
         return 2 ** (_SAYING_ORDER.index(self) + 1)
 
+    @property
+    def said_through(self) -> tuple[Word, ...]:
+        """Every word said up to and including this one: a word is only said after the ones before it."""
+        return _SAYING_ORDER[: _SAYING_ORDER.index(self) + 1]
+
 
 _SAYING_ORDER: Final = tuple(Word)
 

@@ -82,13 +82,14 @@ class CallRefusal(StrEnum):
     TRY_AGAIN = "try-again"
 
 
-# Many reasons are one token, so the page tells no more than the call's person may know.
+# Many reasons are one token, so the page tells no more than the call's person may know. Only what `offer_of` decides
+# maps here; `try-again` is this module's own answer to a read of the issuer or a command id it cannot use.
 REFUSAL_TOKENS: Final = {
+    InviteRefusal.NOT_PRESENT: CallRefusal.NOT_ALLOWED,
     InviteRefusal.NOT_A_MEMBER: CallRefusal.NOT_ALLOWED,
     InviteRefusal.OWNER_ABSENT: CallRefusal.OWNER_ABSENT,
     InviteRefusal.NO_FREE_CHAIR: CallRefusal.PLACE_FULL,
     InviteRefusal.NOT_OFFERED: CallRefusal.AGENT_UNAVAILABLE,
-    InviteRefusal.NOT_PRESENT: CallRefusal.TRY_AGAIN,
 }
 
 

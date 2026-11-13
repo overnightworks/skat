@@ -1,6 +1,5 @@
 import { listFormat, words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
-import { WORD_TOKENS } from "#lib/wire.ts";
 import {
     gameLabel,
     gameWord,
@@ -144,16 +143,13 @@ const WORD_TEXTS: Record<Word, string> = {
     hirsch: words["result.wordHirsch"],
 };
 
-// Every word up to the last one said was said, each doubling the score once more; the Bock factor is held beside them.
+// Every word said doubled the score once more, each held with the factor the answer gives it; the Bock factor is held
+// beside them.
 function doublingsOf({ kontra, bock_factor }: Result): string[] {
     if (kontra === null) return [];
-    const last = WORD_TOKENS.indexOf(kontra.word);
     return [
-        ...WORD_TOKENS.slice(0, last + 1).map((word, index) =>
-            words["result.wordFactor"]({
-                word: WORD_TEXTS[word],
-                factor: String(index === last ? kontra.factor : 2 ** (index + 1)),
-            }),
+        ...kontra.steps.map(({ word, factor }) =>
+            words["result.wordFactor"]({ word: WORD_TEXTS[word], factor: String(factor) }),
         ),
         ...bockWordOf(bock_factor),
     ];
@@ -182,12 +178,13 @@ function listLineOf(result: Result, sides: SideNames): ListLine {
     const declarerGain = (result.gains.find((one) => one.seat === result.declarer_seat) as SeatGain).gain;
     const opponentGain = result.gains.find((one) => one.seat !== result.declarer_seat) as SeatGain;
     const score = signed(result.score);
+    const lastWord = result.kontra?.steps.at(-1)?.word;
     return {
         side: sides.declarer,
         steps: [
-            result.kontra === null
+            lastWord === undefined
                 ? words["result.listGame"]({ score })
-                : words["result.listGameWord"]({ word: WORD_TEXTS[result.kontra.word], score }),
+                : words["result.listGameWord"]({ word: WORD_TEXTS[lastWord], score }),
             words["result.listBonus"]({ bonus: signed(result.list_bonus) }),
             `= ${signed(declarerGain)}`,
         ],
