@@ -28,6 +28,7 @@ from skat.table.service import CommandIdReusedError
 from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.routes import READ_METHODS, built_page_response
+from skat.web.series_answer import SeriesAnswer, series_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
 
 if TYPE_CHECKING:
@@ -38,13 +39,13 @@ if TYPE_CHECKING:
 
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
-    from skat.table.game_list import ResultView, Standing
+    from skat.table.game_list import ResultView
     from skat.table.kontra import KontraView
     from skat.table.nudging import NudgeState
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
     from skat.table.service import TableService
-    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, SeriesView, TableView
+    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -394,27 +395,6 @@ class EndedAnswer(BaseModel):
     unplayed_days: int | None
 
 
-class StandingAnswer(BaseModel):
-    display_name: str | None
-    total: int
-    won: int
-    lost: int
-    place: int
-
-
-class SeriesEndProposalAnswer(BaseModel):
-    proposer_seat: int
-    accepter_seat: int | None
-
-
-class SeriesAnswer(BaseModel):
-    game_number: int
-    game_count: int
-    over: bool
-    standings: list[StandingAnswer] | None
-    end_proposal: SeriesEndProposalAnswer | None
-
-
 class BockAnswer(BaseModel):
     games_left: int
     factor: int
@@ -564,32 +544,6 @@ def next_dealer_answer_of(ended: PassedInView | AbortedView | None) -> NextDeale
     if ended is None:
         return None
     return NextDealerAnswer(next_dealer_seat=ended.next_dealer_seat)
-
-
-def standing_answer_of(standing: Standing) -> StandingAnswer:
-    return StandingAnswer(
-        display_name=standing.display_name,
-        total=standing.total,
-        won=standing.won,
-        lost=standing.lost,
-        place=standing.place,
-    )
-
-
-def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
-    if series is None:
-        return None
-    return SeriesAnswer(
-        game_number=series.game_number,
-        game_count=series.game_count,
-        over=series.over,
-        standings=None if series.standings is None else [standing_answer_of(each) for each in series.standings],
-        end_proposal=None
-        if series.end_proposal is None
-        else SeriesEndProposalAnswer(
-            proposer_seat=series.end_proposal.proposer, accepter_seat=series.end_proposal.accepter
-        ),
-    )
 
 
 def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnswer | RamschResultAnswer | None:
