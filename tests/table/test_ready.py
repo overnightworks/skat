@@ -61,8 +61,8 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
     )
 
 
-def weiter(ordinal: int = 2, command_id: str = "command-weiter") -> ReadyCommand:
-    return ReadyCommand(command_id=command_id, table_id="0" * 32, ordinal=ordinal)
+def weiter(ordinal: int = 2, command_id: str = "command-weiter", series: int = 1) -> ReadyCommand:
+    return ReadyCommand(command_id=command_id, table_id="0" * 32, ordinal=ordinal, series=series)
 
 
 def ready_seats(table: TableRecord) -> list[int]:
@@ -125,19 +125,42 @@ class TestDecideReady:
     def test_no_pending_result_is_named_before_a_stale_ordinal(self):
         assert decide_ready(replace(pending(), game_list=()), ANNA, weiter(5)).refusal is Refusal.NO_RESULT
 
+    @pytest.mark.parametrize("series", [1, 4], ids=["an-earlier-series", "a-series-not-yet-started"])
+    def test_another_series_than_the_tables_is_stale_and_changes_nothing(self, series):
+        table = replace(pending(), series=Series(6, 2, number=3))
 
-def new_series() -> NewSeriesCommand:
-    return NewSeriesCommand(command_id="command-new-series", table_id="0" * 32)
+        decision = decide_ready(table, ANNA, weiter(series=series))
+
+        assert decision.refusal is Refusal.STALE_SERIES
+        assert decision.table == table
+
+    def test_the_tables_series_marks_the_chair(self):
+        decision = decide_ready(replace(pending(), series=Series(6, 2, number=3)), ANNA, weiter(series=3))
+
+        assert (decision.refusal, ready_seats(decision.table)) == (None, [1])
+
+    def test_a_table_with_no_series_is_the_first_series(self):
+        assert decide_ready(pending(), ANNA, weiter(series=1)).refusal is None
+        assert decide_ready(pending(), ANNA, weiter(series=2)).refusal is Refusal.STALE_SERIES
+
+    def test_another_series_is_named_before_a_stale_ordinal(self):
+        table = replace(pending(), series=Series(6, 2, number=3))
+
+        assert decide_ready(table, ANNA, weiter(5, series=2)).refusal is Refusal.STALE_SERIES
 
 
-def at_the_end(*ready_seats: int, games: int = 3) -> TableRecord:
-    """Three seated after the last game of a series of three; `ready_seats` tapped."""
-    return replace(pending(*ready_seats, games=games), series=Series(3, 3))
+def new_series(series: int = 1) -> NewSeriesCommand:
+    return NewSeriesCommand(command_id="command-new-series", table_id="0" * 32, series=series)
+
+
+def at_the_end(*ready_seats: int, games: int = 3, number: int = 1) -> TableRecord:
+    """Three seated after the last game of series `number`, a series of three; `ready_seats` tapped."""
+    return replace(pending(*ready_seats, games=games), series=Series(3, 3, number=number))
 
 
 class TestDecideNewSeries:
     def test_marks_only_the_actors_chair_and_bumps_the_version_once(self):
-        decision = decide_new_series(at_the_end(1), BEN)
+        decision = decide_new_series(at_the_end(1), BEN, new_series())
 
         assert decision.refusal is None
         assert ready_seats(decision.table) == [1, 2]
@@ -146,14 +169,14 @@ class TestDecideNewSeries:
     def test_marks_the_chair_after_a_passed_in_last_game(self):
         passed_in_last = replace(at_the_end(games=0), progress=HandProgress((Pass(Position.MIDDLEHAND),) * 3))
 
-        decision = decide_new_series(passed_in_last, CLEO)
+        decision = decide_new_series(passed_in_last, CLEO, new_series())
 
         assert (decision.refusal, ready_seats(decision.table)) == (None, [3])
 
     def test_a_chair_already_marked_is_accepted_and_changes_nothing(self):
         table = at_the_end(2)
 
-        decision = decide_new_series(table, BEN)
+        decision = decide_new_series(table, BEN, new_series())
 
         assert decision.refusal is None
         assert decision.table == table
@@ -166,7 +189,7 @@ class TestDecideNewSeries:
     def test_a_table_without_a_series_names_the_first_refusal_that_applies_and_changes_nothing(self, actor, refusal):
         table = replace(pending(), series=None)
 
-        decision = decide_new_series(table, actor)
+        decision = decide_new_series(table, actor, new_series())
 
         assert decision.refusal is refusal
         assert decision.table == table
@@ -187,25 +210,53 @@ class TestDecideNewSeries:
         ],
     )
     def test_a_series_not_over_is_named_and_changes_nothing(self, table):
-        decision = decide_new_series(table, ANNA)
+        decision = decide_new_series(table, ANNA, new_series())
 
         assert decision.refusal is Refusal.SERIES_NOT_OVER
         assert decision.table == table
 
 
+    @pytest.mark.parametrize("series", [1, 3], ids=["an-earlier-series", "a-series-not-yet-started"])
+    def test_another_series_than_the_tables_is_stale_and_changes_nothing(self, series):
+        table = at_the_end(1, number=2)
+
+        decision = decide_new_series(table, BEN, new_series(series))
+
+        assert decision.refusal is Refusal.STALE_SERIES
+        assert decision.table == table
+
+    def test_the_tables_series_marks_the_chair(self):
+        decision = decide_new_series(at_the_end(number=2), BEN, new_series(2))
+
+        assert (decision.refusal, ready_seats(decision.table)) == (None, [2])
+
+    def test_another_series_is_named_before_a_series_not_over(self):
+        table = replace(pending(), series=Series(6, 2, number=2))
+
+        assert decide_new_series(table, ANNA, new_series(1)).refusal is Refusal.STALE_SERIES
+
+    def test_a_table_without_a_series_has_no_series_whatever_is_named(self):
+        table = replace(pending(), series=None)
+
+        assert decide_new_series(table, ANNA, new_series(7)).refusal is Refusal.NO_SERIES
+
+
 class TestNewSeriesPayload:
-    def test_a_series_end_has_no_number_so_the_table_alone_is_the_payload(self):
-        assert new_series_payload(new_series()) == "0" * 32
+    def test_another_series_is_another_request(self):
+        assert new_series_payload(new_series(1)) != new_series_payload(new_series(2))
 
 
 class TestReadyPayload:
     def test_another_ordinal_is_another_request(self):
         assert ready_payload(weiter(1)) != ready_payload(weiter(2))
 
+    def test_another_series_is_another_request(self):
+        assert ready_payload(weiter(series=1)) != ready_payload(weiter(series=2))
+
 
 class TestReadyRefusalTokens:
     @pytest.mark.parametrize(
-        "refusal", [Refusal.NO_RESULT, Refusal.STALE_RESULT, Refusal.NO_SERIES, Refusal.SERIES_NOT_OVER]
+        "refusal", [Refusal.NO_RESULT, Refusal.STALE_RESULT, Refusal.STALE_SERIES, Refusal.NO_SERIES, Refusal.SERIES_NOT_OVER]
     )
     def test_a_stored_token_reads_back_to_its_refusal(self, refusal):
         assert parsed_refusal(refusal.value) is refusal
@@ -231,8 +282,8 @@ class TestMarkReady:
     def service(self, store):
         return TableService(store)
 
-    def mark(self, service, table_id, actor=ANNA, ordinal=1, command_id="command-weiter"):
-        return service.mark_ready(actor, ReadyCommand(command_id, table_id, ordinal), frozenset())
+    def mark(self, service, table_id, actor=ANNA, ordinal=1, command_id="command-weiter", series=1):
+        return service.mark_ready(actor, ReadyCommand(command_id, table_id, ordinal, series), frozenset())
 
     def test_the_mark_shows_on_the_actors_chair_for_every_viewer(self, service, store, table_id):
         self.mark(service, table_id)
@@ -256,6 +307,22 @@ class TestMarkReady:
         again = self.mark(service, table_id, ordinal=7)
 
         assert (first.refusal, again.refusal) == (Refusal.STALE_RESULT, Refusal.STALE_RESULT)
+
+    def test_a_retry_of_a_tap_for_another_series_replays_the_refusal(self, service, store, table_id):
+        first = self.mark(service, table_id, series=2)
+        written = dict(store.tables)
+
+        again = self.mark(service, table_id, series=2)
+
+        assert (first.refusal, again.refusal) == (Refusal.STALE_SERIES, Refusal.STALE_SERIES)
+        assert ready_seats(store.tables[table_id]) == []
+        assert store.tables == written
+
+    def test_a_command_id_reused_for_another_series_is_refused(self, service, table_id):
+        self.mark(service, table_id)
+
+        with pytest.raises(CommandIdReusedError):
+            self.mark(service, table_id, series=2)
 
     def test_a_command_id_reused_for_another_result_is_refused(self, service, table_id):
         self.mark(service, table_id)
