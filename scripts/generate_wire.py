@@ -129,8 +129,8 @@ def token_tuple(name: str, tokens: type[StrEnum]) -> str:
     return f"export const {name} = [\n{stacked}] as const;\n"
 
 
-def render() -> str:
-    constants = {
+def path_constants() -> dict[str, str]:
+    return {
         "AUTH_START_PATH": AUTH_START_PATH,
         "RETURN_PATH_QUERY_NAME": RETURN_PATH_QUERY_NAME,
         "SIGNED_IN_AGAIN_QUERY_NAME": SIGNED_IN_AGAIN_QUERY_NAME,
@@ -172,7 +172,10 @@ def render() -> str:
         "TABLE_ABORT_AGREE_SUFFIX": TABLE_ABORT_AGREE_SUFFIX,
         "TABLE_ABORT_REFUSE_SUFFIX": TABLE_ABORT_REFUSE_SUFFIX,
     }
-    paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
+
+
+def render() -> str:
+    paths = "".join(f'export const {name} = "{path}";\n' for name, path in path_constants().items())
     tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())
     wrapped_bids = textwrap.fill(
         ", ".join(map(str, VALID_BIDS)) + ",", width=PRETTIER_WIDTH, initial_indent="    ", subsequent_indent="    "
