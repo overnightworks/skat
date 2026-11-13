@@ -13,11 +13,6 @@ reason = "the SvelteKit project is a toolchain of its own: its manifest, lockfil
 entry = "legal/"
 reason = "hal reads the app's part of the legal pages from its release at exactly legal/datenschutz.html and legal/nutzungsbedingungen.html"
 
-[[layout.allow]]
-path = "tests/web/test_in_process_app.py"
-rule = "test-layout"
-reason = "it tests the SDK agent's in-process transport, a test support module with no counterpart in src/skat/web"
-
 [[gate.loosened]]
 what = 'import contract "The table core imports no framework, driver or adapter" changes forbidden_modules'
 item = "overnightworks/skat#275"
