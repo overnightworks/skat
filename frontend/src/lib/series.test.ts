@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Chair } from "../routes/(start)/tables.ts";
 import { weiterBar } from "#lib/result.ts";
 import { gameRows, seriesCountText, seriesEndAsk, seriesEndOffered, seriesOver, standingsView } from "#lib/series.ts";
 import {
@@ -139,6 +140,16 @@ describe("standingsView", () => {
         expect(view?.rows.map((row) => row.gone)).toEqual([false, false, false, true, true]);
         expect(view?.rows.map((row) => row.winner)).toEqual([true, false, false, false, false]);
         expect([...(view?.winnerSeats ?? [])]).toEqual([1]);
+    });
+
+    it("marks no chair for a winner who has left, and ignores a free chair", () => {
+        const table = ended({ standings: [{ ...standings[3], display_name: "player 9", place: 1 }] });
+        table.chairs[2] = { ...table.chairs[2], occupant_name: null } as Chair;
+
+        const view = standingsView(table);
+
+        expect(view?.rows.map((row) => row.gone)).toEqual([true]);
+        expect(view?.winnerSeats.size).toBe(0);
     });
 
     it("lets a place shared at the top share the win", () => {
