@@ -272,6 +272,7 @@ class PushingAnswer(BaseModel):
     stage: StageToken
     moves: list[PushingMoveAnswer]
     factor: int
+    put_back_cards: list[CardAnswer]
 
 
 class HandAnswer(BaseModel):
@@ -493,6 +494,7 @@ def pushing_answer_of(pushing: PushingView | None) -> PushingAnswer | None:
         stage=STAGE_TOKENS[pushing.stage],
         moves=[PushingMoveAnswer(seat=move.seat, action=move.action) for move in pushing.moves],
         factor=pushing.factor,
+        put_back_cards=[card_answer_of(card) for card in pushing.put_back_cards],
     )
 
 

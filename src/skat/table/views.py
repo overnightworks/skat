@@ -74,7 +74,8 @@ class HandView:
 
     `pushing` is the Ramsch's stage before its first card while it runs, and `pushes` how often the skat was pushed on
     unseen so far, through the Ramsch's play, and `push_factor` what they multiply the Ramsch's score by (1 without a
-    push and at a table whose pushes do not double); no card is named by any of them.
+    push and at a table whose pushes do not double); only the seat on turn that holds twelve cards is told cards, the
+    ones it may put back.
     """
 
     dealer_seat: int
@@ -216,7 +217,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         ),
         isinstance(playing, RamschPlaying) or (stage is not None and state is None),
         waiting_seat,
-        pushing_view_of(stage, table.options, table.progress.pushing, table.dealer),
+        pushing_view_of(stage, table.options, table.progress.pushing, table.dealer, acting_positions),
         pushes,
         pushes_factor(pushes, table.options),
     )

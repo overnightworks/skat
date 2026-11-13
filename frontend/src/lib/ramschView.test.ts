@@ -39,7 +39,7 @@ const PLAYING: Playing = {
 };
 
 function stage(changes: Partial<Pushing>): Pushing {
-    return { turn_seat: ANNA, stage: "choosing", moves: [], factor: 1, ...changes };
+    return { turn_seat: ANNA, stage: "choosing", moves: [], factor: 1, put_back_cards: [], ...changes };
 }
 
 function ramsch(mine: number, changes: Partial<Hand>): Table {
