@@ -24,10 +24,11 @@ from tests.e2e.support.result_card import (
     expect_the_page_around_the_card,
     loosely,
 )
+from tests.e2e.support.server import skat_on_new_database
 from tests.support.played_game import an_entry
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from skat.table.game_list import ListEntry
     from tests.e2e.support.server import RunningServer
@@ -110,6 +111,7 @@ GRAND_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_GRAND)
 SCHNEIDER_MISSED = text(SOURCE_LANGUAGE, "result.missedSchneider")
 SCHWARZ_MISSED = text(SOURCE_LANGUAGE, "result.missedSchwarz")
 LOST_GAME_SHARE = "+40"
+STORE_READ_SECONDS = 0.1
 
 RECKONINGS = [
     Reckoning(
@@ -491,6 +493,17 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     entry = reckoning.entry
     card = person.locator(CARD)
     expect(card).to_have_count(1)
+    declarer_side, opponents_side = {
+        "declarer": (YOU, THEY),
+        "opponent": (declarer_name, WE),
+        "watcher": (declarer_name, THEY),
+    }[role]
+    steps = [declarer_side, *reckoning.steps]
+    if not entry.won:
+        steps.append(text(SOURCE_LANGUAGE, "result.share", opponents=opponents_side, gain=reckoning.opponent_gain))
+    # The steps differ between two listed games in a row, so once they stand the page shows this game's card and no
+    # earlier one, and every other part is read from it.
+    expect(card.locator(".list")).to_have_text(loosely(*steps))
     if role == "watcher":
         heading = text(
             SOURCE_LANGUAGE,
@@ -500,11 +513,6 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     else:
         heading = WON if entry.won == (role == "declarer") else LOST
     expect(card.locator("h3")).to_have_text(heading)
-    declarer_side, opponents_side = {
-        "declarer": (YOU, THEY),
-        "opponent": (declarer_name, WE),
-        "watcher": (declarer_name, THEY),
-    }[role]
     game = (
         text(SOURCE_LANGUAGE, "result.opponentGameLine", declarer=declarer_name, game=reckoning.game)
         if role == "opponent"
@@ -516,10 +524,6 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     expect_the_overbid_and_miss(card, reckoning)
     expect(card.locator(".x2")).to_have_count(0 if entry.won else 1)
     expect(card.locator(".value")).to_have_text(reckoning.value)
-    steps = [declarer_side, *reckoning.steps]
-    if not entry.won:
-        steps.append(text(SOURCE_LANGUAGE, "result.share", opponents=opponents_side, gain=reckoning.opponent_gain))
-    expect(card.locator(".list")).to_have_text(loosely(*steps))
     expect(card.locator(".points")).to_have_count(1 if reckoning.points else 0)
     for seat in (1, 2, 3):
         row = card.locator(f".reck[data-seat='{seat}']")
@@ -528,6 +532,15 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
             reckoning.steps[2].removeprefix("= ") if declares else reckoning.opponent_gain
         )
         expect(row).to_have_class(re.compile(r"\bwin\b" if entry.won == declares else r"^(?!.*\bwin\b)"))
+
+
+@pytest.fixture
+def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """A Skat whose streams read the table again every tenth of a second, so a game listed through the store reaches the
+    open pages without a reload.
+    """
+    with skat_on_new_database(tmp_path_factory, heartbeat_seconds=STORE_READ_SECONDS) as server:
+        yield server
 
 
 @pytest.fixture
