@@ -44,6 +44,7 @@
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
+    import CopyLinkKey from "#lib/ui/CopyLinkKey.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
@@ -72,6 +73,7 @@
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
+    import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
@@ -325,19 +327,6 @@
         <path d="M6 6l12 12M18 6L6 18" />
     </svg>
 {/snippet}
-{#snippet check()}
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="3"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-    >
-        <path d="M5 12.5l4.5 4.5L19 7" />
-    </svg>
-{/snippet}
 
 <svelte:head>
     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
@@ -397,6 +386,7 @@
             {@const winners =
                 standing?.winnerSeats ??
                 new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
+            {@const current = outcome.table}
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = standing === null ? passedInScene(outcome.table.passed_in, outcome.table.chairs) : null}
             {@const seriesAsk = seriesEndAsk(outcome.table)}
@@ -718,40 +708,13 @@
                     <KontraKey {id} table={outcome.table} bind:note />
                     <AbortKey {id} table={outcome.table} bind:note />
                     <SeriesEndKey {id} table={outcome.table} bind:note />
-                    {#if bar?.kind === "tap"}
-                        {@const table = outcome.table}
-                        <button
-                            type="button"
-                            class="copy weiter"
-                            disabled={sentFromVersion === table.version && !bar.again}
-                            onclick={() => tapWeiter(table)}
-                        >
-                            {@render check()}
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            {`${seriesOver(table) ? words["table.newSeries"] : words["table.weiter"]}`}
-                        </button>
-                    {:else if bar !== null}
-                        <span class="copy wait" role="status">
-                            {bar.text}
-                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                        </span>
-                    {:else if standing !== null}
-                        <span class="copy watching" role="status">
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                aria-hidden="true"
-                            >
-                                <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
-                                <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            {words["table.watchingOnly"]}
-                        </span>
-                    {/if}
+                    <WeiterKey
+                        {bar}
+                        watching={standing !== null}
+                        newSeries={seriesOver(current)}
+                        sent={sentFromVersion === current.version}
+                        ontap={() => tapWeiter(current)}
+                    />
                     <GiveUpKey {id} table={outcome.table} bind:note />
                     {#if seated}
                         <StandKey
@@ -765,21 +728,7 @@
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}
-                        <button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={copy}>
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                aria-hidden="true"
-                            >
-                                <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
-                                <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
-                            </svg>
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            <span class="label">{`${words["table.copyLink"]}`}</span>
-                        </button>
+                        <CopyLinkKey oncopy={copy} />
                     {/if}
                 </div>
                 <p class="note" role="status">{note}</p>
