@@ -37,6 +37,7 @@
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
+    import FreeChairTile from "#lib/ui/FreeChairTile.svelte";
     import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import LobbyButton from "#lib/ui/LobbyButton.svelte";
@@ -594,25 +595,11 @@
                         {:else if seated}
                             <span class="tile empty"></span>
                         {:else}
-                            <button
-                                type="button"
-                                class="tile empty free"
-                                aria-label={words["table.sitDown"]}
-                                onclick={() => {
+                            <FreeChairTile
+                                ontap={() => {
                                     tapFreeChair(chair.seat, waits);
                                 }}
-                            >
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.2"
-                                    stroke-linecap="round"
-                                    aria-hidden="true"
-                                >
-                                    <path d="M12 5v14M5 12h14" />
-                                </svg>
-                            </button>
+                            />
                         {/if}
                         <span class="plate"
                             >{chair.is_mine
