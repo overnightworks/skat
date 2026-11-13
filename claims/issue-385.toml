@@ -1,8 +1,0 @@
-claim_id = "1b7e219eaf324c108760663f47866a20"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "7cade9522b673f555a899d3bfbe790b0fd296c27"
-branch = "claude/issue-385-s11-10d-an-agent-s-owner-sends-his-own-a"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/ui/AgentsPill.svelte", "frontend/src/lib/ui/AgentsPill.svelte.test.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.ts", "frontend/src/routes/(start)/tablesAgents.test.ts", "legal/datenschutz.html", "src/skat/store", "src/skat/table/member_place.py", "src/skat/table/records.py", "src/skat/table/rules.py", "src/skat/table/send_away.py", "src/skat/table/service.py", "src/skat/web/calling.py", "src/skat/web/tables.py", "tests/e2e/test_calling_agents.py", "tests/store/test_kontra.py", "tests/store/test_migrate_chair_owner.py", "tests/store/test_migrate_held_in_hand.py", "tests/store/test_tables_chair_kind.py", "tests/store/test_tables_send_away.py", "tests/support/played_game.py", "tests/table/test_member_place_offer.py", "tests/table/test_send_away.py", "tests/table/test_service_send_away.py", "tests/web/test_calling_owner.py", "tests/web/test_calling_send_away.py", "tests/web/test_tables_open_chair.py"]
-opened_commit = "d544c6aadbc441537bc47d3ef6a70ab55ee65a10"
-whole_reason = "One send-away decision for the owner across its route, page and tests"
