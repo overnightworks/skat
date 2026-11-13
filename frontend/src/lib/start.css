@@ -1558,7 +1558,7 @@ body {
         top: 60%;
     }
 
-    .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open) .laid.near {
+    .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open) :is(.laid.near, .lead-slot) {
         top: 80%;
     }
 
@@ -2680,7 +2680,8 @@ body {
     }
 }
 
-.room .laid {
+.room .laid,
+.room .lead-slot {
     position: absolute;
     width: var(--card-width);
     aspect-ratio: 100 / 140;
@@ -2699,10 +2700,27 @@ body {
     --lie: 8deg;
 }
 
-.room .laid.near {
+.room .laid.near,
+.room .lead-slot {
     left: 50%;
     top: 56%;
     --lie: 0deg;
+}
+
+/* Where the viewer's card will lie once it is their turn: the dashed slot of the scene push-grand-done. */
+.room .lead-slot {
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    border: 2px dashed var(--accent-stage, #7aa7f0);
+    border-radius: calc(var(--card-width) * 0.075);
+    background: rgba(122, 167, 240, 0.08);
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .lead-slot svg {
+    width: 34%;
+    height: 34%;
 }
 
 .room .laid .face {

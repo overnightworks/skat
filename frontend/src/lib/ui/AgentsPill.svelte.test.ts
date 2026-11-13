@@ -310,6 +310,36 @@ describe("the Agenten pill", () => {
         expect(popover()?.querySelector("[role=alert]")).toBeNull();
     });
 
+    it("keeps the pill and the refusal while the read after it no longer shows the control, and takes both when the list closes", async () => {
+        const here = { ...row, state: "here" };
+        const fetcher = server({ control: { shown: true, rows: [here] } });
+        await show(1);
+        pill()?.click();
+        await settle();
+        flushSync();
+        fetcher.mockImplementation((_path: string, init?: RequestInit) =>
+            Promise.resolve(
+                init?.method === "POST"
+                    ? Response.json({ reason: "not-allowed" }, { status: 409 })
+                    : Response.json({ shown: false, rows: [] }),
+            ),
+        );
+
+        popover()?.querySelector<HTMLButtonElement>(".act")?.click();
+        await settle();
+        flushSync();
+        const shown = [
+            popover()?.querySelector("[role=alert]")?.textContent,
+            popover()?.querySelectorAll(".act").length,
+        ];
+        pill()?.click();
+        flushSync();
+
+        expect(shown[0]).toContain(kitWords["agent.notAllowed"]);
+        expect(shown[1]).toBe(1);
+        expect([pill(), popover()]).toEqual([null, null]);
+    });
+
     it("closes on a tap outside the pill and its list, and not on a tap inside", async () => {
         server({ control: { shown: true, rows: [row] } });
         await show(1);

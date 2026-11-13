@@ -31,6 +31,9 @@
 
     let control = $state<AgentsControl>({ shown: false, rows: [] });
     let refusal = $state<AgentControlRefusal | undefined>();
+    // A read that no longer shows the control came while a refusal stands: the pill and its rows stay until the person
+    // has read the refusal.
+    let hiddenUnderRefusal = false;
     let open = $state(false);
     let anchor = $state<HTMLElement | undefined>();
     let popover = $state<HTMLElement | undefined>();
@@ -42,6 +45,8 @@
         const following = followAgents(
             tableId,
             (answer) => {
+                hiddenUnderRefusal = !answer.shown && refusal !== undefined;
+                if (hiddenUnderRefusal) return;
                 control = answer;
                 if (!answer.shown) open = false;
             },
@@ -98,9 +103,18 @@
         popover?.style.setProperty("--caret", `${String(placement.caret)}px`);
     });
 
+    // The refusal is read; a control the server stopped showing while it stood goes with it.
+    function dismissRefusal(): void {
+        refusal = undefined;
+        if (!hiddenUnderRefusal) return;
+        hiddenUnderRefusal = false;
+        control = { shown: false, rows: [] };
+        open = false;
+    }
+
     function toggle(): void {
         open = !open;
-        refusal = undefined;
+        dismissRefusal();
         if (open) {
             place();
             void follower?.read();
@@ -110,7 +124,7 @@
     function closeOutside(event: PointerEvent): void {
         if (open && event.target instanceof Node && anchor?.contains(event.target) !== true) {
             open = false;
-            refusal = undefined;
+            dismissRefusal();
         }
     }
 </script>

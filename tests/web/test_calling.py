@@ -315,7 +315,7 @@ class TestACallThatChangesNothing(CallingTable):
             assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
             assert invitations_of(nova) == []
 
-    def test_a_person_without_a_stream_hears_try_again_and_costs_no_grant(self, skat, issuer, felix, table_id):
+    def test_a_person_without_a_stream_is_not_allowed_and_costs_no_grant(self, skat, issuer, felix, table_id):
         absent = person(skat, issuer)
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
             key = only_row(skat, felix, table_id)["key"]
@@ -323,7 +323,7 @@ class TestACallThatChangesNothing(CallingTable):
 
             answer = call(skat, absent, table_id, key)
 
-            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.TRY_AGAIN})
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
             assert (invitations_of(nova), refresh_grants(issuer)) == ([], before)
 
     @pytest.mark.parametrize(

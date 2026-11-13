@@ -57,6 +57,16 @@ export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
     });
 }
 
+// The viewer's dashed slot on the felt, where their card will lie: it is their turn and the near place holds no card.
+export function ownCardSlotOpen(
+    chairs: readonly Chair[],
+    laid: readonly LaidCard[],
+    turnSeat: number | null | undefined,
+): boolean {
+    const own = chairs.find((chair) => chair.is_mine);
+    return own !== undefined && own.seat === turnSeat && !laid.some(({ slot }) => slot === "near");
+}
+
 // The declarer reads „Du“ against the opponents, an opponent counts their own side as „Wir“, and a watcher sees the declarer by name.
 export function sideNames(chairs: readonly Chair[], declarerSeat: number): SideNames {
     const declarer = (chairs.find((chair) => chair.seat === declarerSeat) as Chair).occupant_name ?? "";

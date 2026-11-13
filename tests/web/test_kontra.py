@@ -95,11 +95,11 @@ class TestTheDoubledScoreOfAPlayedGame:
     @pytest.mark.parametrize(
         ("reach", "steps", "kontra", "score", "list_bonus", "gains"),
         [
-            pytest.param(KONTRA_RE, [(FOREHAND, "kontra"), 30], ("kontra", 2), 60, 50, [110, 0, 0], id="1-kontra"),
+            pytest.param(KONTRA_RE, [(FOREHAND, "kontra"), 30], [("kontra", 2)], 60, 50, [110, 0, 0], id="1-kontra"),
             pytest.param(
                 KONTRA_RE,
                 [(FOREHAND, "kontra"), 1, (MIDDLEHAND, "re"), 29],
-                ("re", 4),
+                [("kontra", 2), ("re", 4)],
                 120,
                 50,
                 [170, 0, 0],
@@ -108,18 +108,18 @@ class TestTheDoubledScoreOfAPlayedGame:
             pytest.param(
                 UP_TO_HIRSCH,
                 [(FOREHAND, "kontra"), 1, (MIDDLEHAND, "re"), 2, (FOREHAND, "supra"), (MIDDLEHAND, "hirsch"), 27],
-                ("hirsch", 16),
+                [("kontra", 2), ("re", 4), ("supra", 8), ("hirsch", 16)],
                 480,
                 50,
                 [530, 0, 0],
                 id="3-hirsch",
             ),
             pytest.param(
-                WITH_STANDINGS, [(FOREHAND, "kontra"), 30], ("kontra", 2), 60, 100, [160, 0, 0], id="5-standings"
+                WITH_STANDINGS, [(FOREHAND, "kontra"), 30], [("kontra", 2)], 60, 100, [160, 0, 0], id="5-standings"
             ),
         ],
     )
-    def test_the_result_names_the_last_word_and_scores_the_game_doubled(
+    def test_the_result_names_each_word_said_with_its_factor_and_scores_the_game_doubled(
         self, open_table, reach, steps, kontra, score, list_bonus, gains
     ):
         table = open_table(reach=reach)
@@ -128,7 +128,7 @@ class TestTheDoubledScoreOfAPlayedGame:
         play(table, *steps)
 
         result = table.result()
-        assert result["kontra"] == dict(zip(("word", "factor"), kontra, strict=True))
+        assert result["kontra"] == {"steps": [{"word": word, "factor": factor} for word, factor in kontra]}
         assert shown(result, *SCORE_KEYS) == {
             "settled_value": 30,
             "game_value": 30,

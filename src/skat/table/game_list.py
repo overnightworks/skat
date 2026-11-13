@@ -227,11 +227,18 @@ class Standing:
 
 
 @dataclass(frozen=True)
-class KontraResult:
-    """The last word said in the game and the factor it made."""
+class KontraStep:
+    """One word said in the game and the factor the score had after it."""
 
     word: Word
     factor: int
+
+
+@dataclass(frozen=True)
+class KontraResult:
+    """The words said in the game in the order they were said, each with its factor; the last one made the score."""
+
+    steps: tuple[KontraStep, ...]
 
 
 @dataclass(frozen=True)
@@ -295,6 +302,10 @@ class RamschResultView:
 def _reckoning_of(entry: ListEntry, reach: KontraReach) -> Reckoning:
     settlement = Settlement(won=entry.won, value=entry.settled_value, score=entry.score)
     return doubled_reckoning(settlement, entry.kontra_word, reach)
+
+
+def _kontra_result_of(last_word: Word) -> KontraResult:
+    return KontraResult(tuple(KontraStep(word, word.factor) for word in last_word.said_through))
 
 
 def _gains(entry: GameEntry, reach: KontraReach) -> tuple[SeatGain, ...]:
@@ -398,7 +409,7 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
         declarer_points=entry.declarer_points,
         opponents_points=entry.opponents_points,
         gains=_gains(entry, reach),
-        kontra=None if entry.kontra_word is None else KontraResult(entry.kontra_word, entry.kontra_word.factor),
+        kontra=None if entry.kontra_word is None else _kontra_result_of(entry.kontra_word),
         bock_factor=entry.bock_factor,
         ending=entry.ending,
         ended_by_seat=entry.ended_by_seat,
