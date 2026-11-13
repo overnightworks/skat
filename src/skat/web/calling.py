@@ -446,7 +446,7 @@ class _Calling:
         answer = chosen.offer.answer
         if answer is OfferState.HERE:
             return None
-        if answer in {InviteRefusal.NOT_PRESENT, InviteRefusal.NOT_A_MEMBER}:
+        if answer is InviteRefusal.NOT_PRESENT or answer is InviteRefusal.NOT_A_MEMBER:
             return REFUSAL_TOKENS[answer]
         return CallRefusal.AGENT_UNAVAILABLE
 
