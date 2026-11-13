@@ -88,6 +88,25 @@ export type Words = {
     readonly "table.openForAll": string;
     readonly "table.sideYou": string;
     readonly "table.weiter": string;
+    readonly "table.seriesCount": (gaps: { readonly count: number; readonly game: string }) => string;
+    readonly "table.seriesList": string;
+    readonly "table.seriesListTitle": string;
+    readonly "table.seriesListEmpty": string;
+    readonly "table.seriesListFailed": string;
+    readonly "table.seriesEnded": string;
+    readonly "table.seriesGames": (count: number) => string;
+    readonly "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => string;
+    readonly "table.seriesGone": string;
+    readonly "table.seriesNameless": string;
+    readonly "table.seriesRamschOf": (gaps: { readonly name: string }) => string;
+    readonly "table.seriesPushed": (gaps: { readonly count: number }) => string;
+    readonly "table.newSeries": string;
+    readonly "table.wantsToEndSeries": (gaps: { readonly name: string }) => string;
+    readonly "table.endSeries": string;
+    readonly "table.endSeriesSure": string;
+    readonly "table.yes": string;
+    readonly "table.no": string;
+    readonly "table.watchingOnly": string;
     readonly "table.readyMark": string;
     readonly "table.notReadyMark": string;
     readonly "result.seatFree": string;
@@ -449,6 +468,32 @@ export const words: Words = {
     "table.openForAll": "Offen für alle",
     "table.sideYou": "Du",
     "table.weiter": "Weiter",
+    "table.seriesCount": (gaps: { readonly count: number; readonly game: string }) => "Spiel " + gaps.game + " von " + numberFormat.format(gaps.count),
+    "table.seriesList": "Liste der Spiele",
+    "table.seriesListTitle": "Spiele",
+    "table.seriesListEmpty": "Noch kein Spiel gespielt",
+    "table.seriesListFailed": "Die Liste lässt sich nicht laden.",
+    "table.seriesEnded": "Serie zu Ende",
+    "table.seriesGames": (count: number) => ({
+        zero: numberFormat.format(count) + " Spiele",
+        one: numberFormat.format(count) + " Spiel",
+        two: numberFormat.format(count) + " Spiele",
+        few: numberFormat.format(count) + " Spiele",
+        many: numberFormat.format(count) + " Spiele",
+        other: numberFormat.format(count) + " Spiele",
+    })[pluralRules.select(count)],
+    "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => gaps.won + " gewonnen · " + gaps.lost + " verloren",
+    "table.seriesGone": "gegangen",
+    "table.seriesNameless": "Jemand",
+    "table.seriesRamschOf": (gaps: { readonly name: string }) => "Ramsch, " + gaps.name,
+    "table.seriesPushed": (gaps: { readonly count: number }) => numberFormat.format(gaps.count) + "× geschoben",
+    "table.newSeries": "Neue Serie",
+    "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " will die Serie beenden",
+    "table.endSeries": "Serie beenden",
+    "table.endSeriesSure": "Wirklich beenden?",
+    "table.yes": "Ja",
+    "table.no": "Nein",
+    "table.watchingOnly": "Du schaust zu",
     "table.readyMark": "Weiter getippt",
     "table.notReadyMark": "noch nicht getippt",
     "result.seatFree": "Frei",

@@ -8,6 +8,7 @@ from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschScoring
 from skat.table.records import SERIES_LENGTH_MIN, RamschOccasion
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX
+from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
@@ -80,12 +81,25 @@ class RamschTable:
         return json.loads(self.sessions[seat].get(self.api_path))
 
     def pass_all(self) -> None:
+        """The three seats pass in the order of the hand dealt now, whose positions turn with each dealer."""
+        positions = {chair["hand"]["position"]: chair["seat"] for chair in self.view(1)["chairs"]}
         for position in PASSING_ORDER:
-            seat = self.seat_at[position]
+            seat = positions[position]
             self.sessions[seat].post(
                 f"{self.api_path}{TABLE_AUCTION_PASS_SUFFIX}",
                 {"command_id": self._command_id(), "version": self.view(seat)["version"]},
             )
+
+    def ready_all(self) -> None:
+        """„Weiter“ of every seat for the result its own view shows."""
+        for seat, session in self.sessions.items():
+            view = self.view(seat)
+            body = {
+                "command_id": self._command_id(),
+                "ordinal": view["result"]["ordinal"],
+                "series": view["series"]["number"],
+            }
+            session.post(f"{self.api_path}{TABLE_READY_SUFFIX}", body)
 
     def play_out(self) -> None:
         """Each seat on turn plays its first legal card until the last card of the tenth trick ends the Ramsch."""

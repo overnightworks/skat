@@ -363,6 +363,86 @@ msgctxt "table.weiter"
 msgid "Weiter"
 msgstr ""
 
+msgctxt "table.seriesCount"
+msgid "Spiel {game} von {count}"
+msgstr ""
+
+msgctxt "table.seriesList"
+msgid "Liste der Spiele"
+msgstr ""
+
+msgctxt "table.seriesListTitle"
+msgid "Spiele"
+msgstr ""
+
+msgctxt "table.seriesListEmpty"
+msgid "Noch kein Spiel gespielt"
+msgstr ""
+
+msgctxt "table.seriesListFailed"
+msgid "Die Liste lässt sich nicht laden."
+msgstr ""
+
+msgctxt "table.seriesEnded"
+msgid "Serie zu Ende"
+msgstr ""
+
+msgctxt "table.seriesGames.one"
+msgid "{count} Spiel"
+msgstr ""
+
+msgctxt "table.seriesGames.other"
+msgid "{count} Spiele"
+msgstr ""
+
+msgctxt "table.seriesRecord"
+msgid "{won} gewonnen · {lost} verloren"
+msgstr ""
+
+msgctxt "table.seriesGone"
+msgid "gegangen"
+msgstr ""
+
+msgctxt "table.seriesNameless"
+msgid "Jemand"
+msgstr ""
+
+msgctxt "table.seriesRamschOf"
+msgid "Ramsch, {name}"
+msgstr ""
+
+msgctxt "table.seriesPushed"
+msgid "{count}× geschoben"
+msgstr ""
+
+msgctxt "table.newSeries"
+msgid "Neue Serie"
+msgstr ""
+
+msgctxt "table.wantsToEndSeries"
+msgid "{name} will die Serie beenden"
+msgstr ""
+
+msgctxt "table.endSeries"
+msgid "Serie beenden"
+msgstr ""
+
+msgctxt "table.endSeriesSure"
+msgid "Wirklich beenden?"
+msgstr ""
+
+msgctxt "table.yes"
+msgid "Ja"
+msgstr ""
+
+msgctxt "table.no"
+msgid "Nein"
+msgstr ""
+
+msgctxt "table.watchingOnly"
+msgid "Du schaust zu"
+msgstr ""
+
 msgctxt "table.readyMark"
 msgid "Weiter getippt"
 msgstr ""

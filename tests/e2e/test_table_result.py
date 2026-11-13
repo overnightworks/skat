@@ -43,6 +43,8 @@ COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 READY_MARK = ".mark.ready"
+ROUND_KEY_PIXELS = 52
+PHONE_BREAKPOINT = 900
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
@@ -395,8 +397,15 @@ def test_the_stand_up_button_keeps_its_word_while_the_bar_waits(
     )
     bar.get_by_role("button", name=WEITER).click()
     expect(bar.get_by_role("status")).to_be_visible()
-    label = bar.get_by_role("button", name=STAND_UP).locator(".label")
-    assert label.evaluate("label => Math.ceil(label.getBoundingClientRect().width) >= label.scrollWidth")
+    key = bar.get_by_role("button", name=STAND_UP)
+    box = key.bounding_box()
+    assert box is not None
+    if form_factor["viewport"]["width"] < PHONE_BREAKPOINT:
+        # Beside the key that proposes the end the phone's stand-up keeps its mark alone.
+        assert box["width"] <= ROUND_KEY_PIXELS
+    else:
+        label = key.locator(".label")
+        assert label.evaluate("label => Math.ceil(label.getBoundingClientRect().width) >= label.scrollWidth")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

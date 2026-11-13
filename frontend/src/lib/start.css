@@ -4237,7 +4237,9 @@ body {
 }
 
 .room .copy.wait {
-    display: block;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
     height: auto;
     min-height: 52px;
     box-sizing: border-box;
@@ -4248,11 +4250,6 @@ body {
     text-align: center;
     text-wrap: balance;
     overflow-wrap: anywhere;
-}
-
-.room .copy.wait .dots {
-    margin-left: 6px;
-    vertical-align: middle;
 }
 
 .room .copy:disabled {
@@ -4340,22 +4337,23 @@ body {
         gap: 8px;
     }
 
-    /* The pill stays as tall as its neighbours: three lines of its small type fill the 52px, and longer names end in an ellipsis.
-       The clip edge is the content box, so no fourth line peeks into the padding. The hopping dots are left out on a phone,
-       as the frozen scene leaves them out. */
+    /* The pill stays as tall as its neighbours and holds its words centred: up to three lines of its small type fit the 52px,
+       and longer names end in an ellipsis. The hopping dots are left out on a phone, as the frozen scene leaves them out. */
     .room .actions.on-result .copy.wait {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-box-pack: center;
-        -webkit-line-clamp: 3;
         flex: 0 1 auto;
         min-width: 0;
-        padding-block: calc((52px - 3.3em) / 2);
+        padding-block: 0;
         padding-inline: 12px;
         font-size: 12px;
         line-height: 1.1;
+    }
+
+    .room .actions.on-result .copy.wait .words {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        min-width: 0;
         overflow: clip;
-        overflow-clip-margin: content-box;
     }
 
     .room .actions.on-result .copy.wait .dots {
@@ -4380,9 +4378,10 @@ body {
         flex-wrap: wrap;
     }
 
-    /* In a call the speaker is the fourth button and the bar stays one row, during a hand the strip has no room for two words,
+    /* In a call the speaker is the fourth button and the bar stays one row, as it does with the key that proposes the end, during a hand the strip has no room for two words,
        and the opener's close key is one more button beside the link: the stand-up keeps its mark alone and its word for assistive technology. */
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up),
+    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up),
     .room .actions.on-result:has(.copy.close) .copy.stand,
     .room .copy.round {
         position: relative;
@@ -4393,6 +4392,7 @@ body {
     }
 
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up) .label,
+    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up) .label,
     .room .actions.on-result:has(.copy.close) .copy.stand .label,
     .room .copy.round .label {
         position: absolute;
@@ -5759,4 +5759,324 @@ body {
     .room .callout-spot.above-near-card {
         --callout-top: 16%;
     }
+}
+
+/* A series: the count on the felt, the standings at its end, the list of its games. */
+.room .series-count {
+    position: absolute;
+    top: 19px;
+    left: 50%;
+    z-index: 30;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 8px 0 12px;
+    border: 0;
+    border-radius: 999px;
+    color: var(--on-stage-soft);
+    background: var(--glass-dark);
+    backdrop-filter: blur(14px);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.room .series-count svg {
+    width: 16px;
+    height: 16px;
+}
+
+.room .series-count.unfolded {
+    color: var(--on-stage);
+    box-shadow: inset 0 0 0 1.5px rgba(122, 167, 240, 0.7);
+}
+
+.room .series-count:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+@media (max-width: 389px) {
+    .room .series-count {
+        top: 9px;
+    }
+}
+
+/* From 900 px the count stands in the middle of the top row and the rules' chips right of it instead of under it. */
+@media (min-width: 900px) {
+    .room .series-count {
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .room .bar:has(.series-count) .rules-slot {
+        left: calc(50% + 84px);
+        transform: translateY(-50%);
+    }
+}
+
+/* The list of every game scrolls inside its panel, never the page. */
+.room .game-list {
+    --glass: rgba(255, 255, 255, 0.15);
+    box-sizing: border-box;
+    width: min(354px, calc(100vw - 24px));
+    height: min(660px, calc(100dvh - 24px));
+    max-height: calc(100dvh - 24px);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 24px;
+    color: var(--on-stage);
+    background: rgba(12, 14, 17, 0.92);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
+        0 24px 50px -16px rgba(0, 0, 0, 0.9);
+    font-family: "Open Sans", Arial, sans-serif;
+}
+
+.room .game-list[open] {
+    display: flex;
+}
+
+.room .game-list::backdrop {
+    background: rgba(8, 9, 11, 0.62);
+}
+
+@media (min-width: 900px) {
+    .room .game-list {
+        width: 560px;
+        height: min(620px, calc(100dvh - 24px));
+    }
+}
+
+.room .game-list .panel-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    padding: 16px 8px 12px 14px;
+}
+
+.room .game-list h3 {
+    margin: 0;
+    color: #f3cf7a;
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+}
+
+.room .game-list .rows {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    margin: 0;
+    padding: 0 6px 0 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(240, 214, 150, 0.45) transparent;
+}
+
+.room .game-list .empty {
+    margin: 0;
+    color: var(--on-stage-soft);
+    text-align: center;
+}
+
+.room .grow {
+    display: grid;
+    flex: none;
+    grid-template-columns: 24px 30px 1fr auto 56px;
+    gap: 8px;
+    align-items: center;
+    min-height: 50px;
+    padding: 6px 10px 6px 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.room .grow .nr {
+    color: var(--on-stage-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.room .grow .txt {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.room .grow b {
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .grow small {
+    overflow: hidden;
+    color: var(--on-stage-soft);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .grow .val {
+    color: var(--cream, #f4ecd9);
+    font-family: var(--font-mark, "Oswald", Arial, sans-serif);
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .grow .gain {
+    color: var(--ok-stage, #6fcf97);
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.room .grow .gain.minus {
+    color: var(--on-stage-soft);
+}
+
+.room .grow .dot,
+.room .rank .dot {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: #111;
+    background: linear-gradient(150deg, #9fd0f2, #4b8fc4);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* The standings: place, name, games won and lost as declarer and the final total, the winner on top. */
+.room .result.standing .ranks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.room .rank {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 8px 16px 8px 10px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.14);
+}
+
+.room .rank.win {
+    background: rgba(243, 207, 122, 0.12);
+    box-shadow:
+        inset 0 0 0 2px #f3cf7a,
+        0 0 18px -4px rgba(243, 207, 122, 0.45);
+}
+
+.room .rank.gone {
+    opacity: 0.7;
+}
+
+.room .rank .place {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--ink, #2b1d05);
+    background: #f4ecd9;
+    box-shadow: 0 2px 0 #d8ccb0;
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .rank .txt {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.room .rank b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.room .rank b em {
+    color: var(--on-stage-soft);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 600;
+}
+
+.room .rank small {
+    color: var(--on-stage-soft);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .rank .sum {
+    color: var(--cream, #f4ecd9);
+    font-family: var(--font-mark, "Oswald", Arial, sans-serif);
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 899px) {
+    .room .rank {
+        gap: 10px;
+        min-height: 52px;
+        padding: 6px 14px 6px 8px;
+    }
+
+    .room .rank .place {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+.room .copy.watching {
+    color: var(--on-stage-soft);
+    cursor: default;
+}
+
+.room .copy.watching svg {
+    width: 20px;
+    height: 20px;
 }
