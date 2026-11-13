@@ -80,6 +80,14 @@
         show(set?.options ?? OFFICIAL);
     }
 
+    function byNameThenId(left: RuleSet, right: RuleSet): number {
+        const [leftKey, rightKey] = [
+            `${left.name.toLowerCase()}\0${left.id}`,
+            `${right.name.toLowerCase()}\0${right.id}`,
+        ];
+        return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    }
+
     // The saved set is picked, so the sheet shows exactly what the set holds.
     async function save(): Promise<void> {
         saving = true;
@@ -92,7 +100,8 @@
             saveProblem = outcome.kind;
             return;
         }
-        if (!sets.some((each) => each.id === outcome.set.id)) sets = [...sets, outcome.set];
+        // The server lists sets by name without regard to case, then by id.
+        if (!sets.some((each) => each.id === outcome.set.id)) sets = [...sets, outcome.set].sort(byNameThenId);
         pick(outcome.set);
     }
 
@@ -207,7 +216,7 @@
                     type="radio"
                     name="rule-set"
                     checked={picked === null}
-                    disabled={opening}
+                    disabled={opening || saving}
                     onchange={() => {
                         pick(null);
                     }}
@@ -221,7 +230,7 @@
                         type="radio"
                         name="rule-set"
                         checked={picked?.id === set.id}
-                        disabled={opening}
+                        disabled={opening || saving}
                         onchange={() => {
                             pick(set);
                         }}
@@ -237,7 +246,7 @@
         <div class="sheet-body" class:up={scrolledUp} class:down={scrolledDown} use:fades>
             <div class="rules">
                 {#each rows as row (row)}
-                    <RuleUnit {row} {sheet} picked={pickedOptions} disabled={opening} onchange={show} />
+                    <RuleUnit {row} {sheet} picked={pickedOptions} disabled={opening || saving} onchange={show} />
                 {/each}
             </div>
         </div>
