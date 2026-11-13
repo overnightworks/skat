@@ -8,6 +8,8 @@ import {
     type Announcement,
     type Chair,
     type Level,
+    type RamschResult,
+    type RamschSeat,
     type Result,
     type Sides,
     type SeatGain,
@@ -60,6 +62,25 @@ export type ResultView = {
     snug: boolean;
     rows: ReckoningRow[];
 };
+// The head's mark: a tick for the sweeper of a Durchmarsch, a cross for the viewer who lost; another's loss has none.
+export type RamschMark = "tick" | "cross";
+export type EyeCount = { seat: number; name: string; points: number; strong: boolean };
+// The Ramsch's card: its head, the loser's eyes, the factors that multiply them, the value and each seat's eyes.
+export type RamschView = {
+    word: string;
+    mark: RamschMark | null;
+    // Only the viewer's own loss turns the card to the lost look.
+    lost: boolean;
+    // The eyes of the loser, or of the sweeper of a Durchmarsch.
+    eyes: string;
+    chips: string[];
+    score: string;
+    // The value stands in red when it is a loss.
+    loss: boolean;
+    // The viewer's own chair comes first; the loser's or the sweeper's count stands out.
+    counts: EyeCount[];
+    rows: ReckoningRow[];
+};
 // `again` marks a tap that asks for a deal that failed: it stays tappable however often it is tapped.
 export type WeiterBar = { kind: "tap"; again: boolean } | { kind: "wait"; names: string };
 
@@ -86,6 +107,11 @@ function signed(score: number): string {
 
 function nameOf(chairs: readonly Chair[], seat: number): string | null {
     return (chairs.find((chair) => chair.seat === seat) as Chair).occupant_name;
+}
+
+// A chair that has been left while the result stands reads as free, as its coaster does.
+function shownName(chairs: readonly Chair[], seat: number): string {
+    return nameOf(chairs, seat) ?? words["result.seatFree"];
 }
 
 // The viewer's own chair comes first, then the others in seat order; a watcher has no own chair.
@@ -211,17 +237,85 @@ export function resultView(table: Table): ResultView {
         points:
             result.game === "null" ? null : { declarer: result.declarer_points, opponents: result.opponents_points },
         snug: result.overbid || result.levels.length > SNUG_LEVELS || result.kontra !== null,
-        rows: ownFirst(chairs).map(({ seat }) => {
-            const { gain, won } = result.gains.find((one) => one.seat === seat) as SeatGain;
-            return {
-                seat,
-                initial: (nameOf(chairs, seat) ?? "").slice(0, 1),
-                name: seat === own?.seat ? words["result.sideYou"] : nameOf(chairs, seat),
-                gain,
-                gainText: gain > 0 ? signed(gain) : withMinus(gain),
-                won,
-            };
-        }),
+        rows: reckoningRows(chairs, result.gains),
+    };
+}
+
+// The coasters: each seat's gain with the viewer's own chair first.
+function reckoningRows(chairs: readonly Chair[], gains: readonly SeatGain[]): ReckoningRow[] {
+    return ownFirst(chairs).map(({ seat, is_mine }) => {
+        const { gain, won } = gains.find((one) => one.seat === seat) as SeatGain;
+        return {
+            seat,
+            initial: (nameOf(chairs, seat) ?? "").slice(0, 1),
+            name: is_mine ? words["result.sideYou"] : nameOf(chairs, seat),
+            gain,
+            gainText: gain > 0 ? signed(gain) : withMinus(gain),
+            won,
+        };
+    });
+}
+
+function pushChip(result: RamschResult): string[] {
+    if (result.pushes === 0) return [];
+    return [
+        result.push_factor === 1
+            ? words["push.timesFlat"]({ count: result.pushes })
+            : words["push.times"]({ count: result.pushes, factor: String(result.push_factor) }),
+    ];
+}
+
+function ramschHead(
+    result: RamschResult,
+    chairs: readonly Chair[],
+    strong: readonly RamschSeat[],
+): Pick<RamschView, "word" | "mark" | "lost"> {
+    const own = chairs.find((chair) => chair.is_mine);
+    if (result.durchmarsch_seat !== null) {
+        return own?.seat === result.durchmarsch_seat
+            ? { word: words["result.won"], mark: "tick", lost: false }
+            : { word: words["result.durchmarsch"], mark: null, lost: false };
+    }
+    if (strong.some((one) => one.seat === own?.seat)) return { word: words["result.lost"], mark: "cross", lost: true };
+    const names = strong.map((one) => shownName(chairs, one.seat));
+    return {
+        word:
+            names.length === 1
+                ? words["result.loses"]({ name: names[0] as string })
+                : words["result.losesTogether"]({ names: names.join(` ${words["result.and"]} `) }),
+        mark: null,
+        lost: false,
+    };
+}
+
+// The card reads the answer's counts and never reckons a score: the sweeper's or the losers' score is the value.
+export function ramschResultView(table: Table): RamschView | null {
+    const result = table.result;
+    if (result?.kind !== "ramsch") return null;
+    const { chairs } = table;
+    const sweeper = result.seats.find((one) => one.seat === result.durchmarsch_seat);
+    const strong = sweeper === undefined ? result.seats.filter((one) => one.score < 0) : [sweeper];
+    const lead = strong[0] as RamschSeat;
+    return {
+        ...ramschHead(result, chairs, strong),
+        eyes: words["result.eyes"]({ points: String(lead.points) }),
+        chips: [
+            ...(result.divided_by_ten ? [words["result.byTen"]] : []),
+            ...pushChip(result),
+            ...(result.jungfrau ? [words["result.jungfrau"]] : []),
+        ],
+        score: signed(lead.score),
+        loss: sweeper === undefined,
+        counts: ownFirst(chairs).map(({ seat, is_mine }) => ({
+            seat,
+            name: is_mine ? words["result.sideYou"] : shownName(chairs, seat),
+            points: (result.seats.find((one) => one.seat === seat) as RamschSeat).points,
+            strong: strong.some((one) => one.seat === seat),
+        })),
+        rows: reckoningRows(
+            chairs,
+            result.seats.map(({ seat, score }) => ({ seat, gain: score, won: score > 0 })),
+        ),
     };
 }
 

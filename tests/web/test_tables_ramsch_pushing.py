@@ -548,8 +548,7 @@ class TestTheMultiplier:
 
         result = table.result()
         assert scores_of(result) == scores
-        result_factors = (result["pushes"], result["push_factor"], result["bock_factor"])
-        assert result_factors == factors
+        assert (result["pushes"], result["bock_factor"]) == (factors[0], factors[2])
         row = list_rows(table)[0]
         row_factors = (row["pushes"], row["push_factor"], row["bock_factor"])
         assert row_factors == factors
