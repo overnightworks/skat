@@ -44,8 +44,28 @@ describe("the Agenten pill", () => {
         vi.unstubAllGlobals();
     });
 
+    // The page's two facts the pill follows, which a test moves like the stream does.
+    const table = $state<{ streamedVersion: number | null; seatedAgents: string }>({
+        streamedVersion: null,
+        seatedAgents: "",
+    });
+
     async function show(streamedVersion: number | null) {
-        mounted = mount(AgentsPill, { target: document.body, props: { tableId: TABLE_ID, streamedVersion, kitWords } });
+        table.streamedVersion = streamedVersion;
+        table.seatedAgents = "";
+        mounted = mount(AgentsPill, {
+            target: document.body,
+            props: {
+                tableId: TABLE_ID,
+                kitWords,
+                get streamedVersion() {
+                    return table.streamedVersion;
+                },
+                get seatedAgents() {
+                    return table.seatedAgents;
+                },
+            },
+        });
         await settle();
         flushSync();
     }
@@ -76,6 +96,69 @@ describe("the Agenten pill", () => {
         expect(pill()?.textContent).toContain("AI");
         expect(pill()?.textContent).toContain(words["agents.pill"]);
         expect(popover()).toBeNull();
+    });
+
+    it("reads again when an agent sits, which shows the pill to an owner who had none", async () => {
+        const fetcher = server({ control: { shown: false, rows: [] } });
+        await show(1);
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.streamedVersion = 2;
+        table.seatedAgents = "2:Nova";
+        await settle();
+        flushSync();
+
+        expect([fetcher.mock.calls.length, pill() === null]).toEqual([2, false]);
+    });
+
+    it("reads again when one agent leaves and another sits in a single wake, so the count stays the same", async () => {
+        const fetcher = server({ control: { shown: false, rows: [] } });
+        await show(1);
+        table.seatedAgents = "2:Luna";
+        table.streamedVersion = 2;
+        await settle();
+        flushSync();
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.streamedVersion = 3;
+        table.seatedAgents = "3:Nova";
+        await settle();
+        flushSync();
+
+        expect([fetcher.mock.calls.length, pill() === null]).toEqual([3, false]);
+    });
+
+    it("closes the list when the control stops being shown, so it is not open when the pill comes back", async () => {
+        const fetcher = server({ control: { shown: true, rows: [row] } });
+        await show(1);
+        pill()?.click();
+        await settle();
+        flushSync();
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: false, rows: [] })));
+        table.streamedVersion = 2;
+        table.seatedAgents = "2:Nova";
+        await settle();
+        flushSync();
+        const whileHidden = [pill(), popover()];
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.streamedVersion = 3;
+        table.seatedAgents = "";
+        await settle();
+        flushSync();
+
+        expect([whileHidden, pill() === null, popover()]).toEqual([[null, null], false, null]);
+    });
+
+    it("reads nothing for a later table that seats no other agent while the list is closed", async () => {
+        const fetcher = server({ control: { shown: true, rows: [row] } });
+        await show(1);
+
+        table.streamedVersion = 2;
+        await settle();
+        flushSync();
+
+        expect(fetcher.mock.calls).toHaveLength(1);
     });
 
     it("opens the kit's list on a tap, with a row per agent, and closes it with the next tap", async () => {
