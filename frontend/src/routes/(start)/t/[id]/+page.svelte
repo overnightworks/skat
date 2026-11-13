@@ -46,6 +46,7 @@
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
+    import CloseKey from "#lib/ui/CloseKey.svelte";
     import CardCountTag from "#lib/ui/CardCountTag.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
@@ -746,6 +747,9 @@
                             <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                             <span class="label">{`${words["table.copyLink"]}`}</span>
                         </button>
+                    {/if}
+                    {#if outcome.table.opened_by_me && !callMode}
+                        <CloseKey {id} bind:note />
                     {/if}
                 </div>
                 <p class="note" role="status">{note}</p>

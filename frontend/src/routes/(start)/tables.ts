@@ -29,6 +29,7 @@ import {
     type STAGE_TOKENS,
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
+    TABLE_CLOSE_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
@@ -216,10 +217,12 @@ export type Result = {
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
-// Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, or the days nobody played.
+// Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
+// or the name its opener had when closing it.
 export type Ended =
-    | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null }
-    | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number };
+    | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
+    | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
+    | { reason: Extract<EndReason, "closed">; empty_seconds: null; unplayed_days: null; closed_by_name: string };
 // The rules a table was opened with, answered to every viewer; a rule that is off is null.
 export type Options = {
     show_running_points: boolean;
@@ -265,6 +268,8 @@ export type Table = {
     options: Options | null;
     bock: Bock | null;
     ended: Ended | null;
+    // True only for the account that opened the table, who may close it.
+    opened_by_me: boolean;
 };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
@@ -345,6 +350,10 @@ export function sitDown(id: string, seat: number, commandId: string): Promise<Ou
 
 export function standUp(id: string, commandId: string): Promise<Outcome> {
     return post(id, TABLE_STAND_SUFFIX, { command_id: commandId });
+}
+
+export function closeTable(id: string, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_CLOSE_SUFFIX, { command_id: commandId });
 }
 
 export type DeclaringStep =

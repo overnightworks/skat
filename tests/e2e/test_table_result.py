@@ -374,11 +374,25 @@ def test_the_wait_pill_stays_as_tall_as_the_link_button_with_two_25_character_na
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_bar_of_the_opener_with_weiter_and_its_close_key_stays_inside_the_page(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES, opener_name=FULL_LENGTH_OPENER)
+    opener = next(person for person in table.pages.values() if person.locator(".copy.close").count() == 1)
+
+    expect(opener.locator(".actions").get_by_role("button", name=WEITER)).to_be_visible()
+
+    expect_the_bars_inside_the_pages(table)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_stand_up_button_keeps_its_word_while_the_bar_waits(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand(form_factor)
-    bar = table.pages[table.declarer_seat].locator(".actions")
+    bar = next(person for person in table.pages.values() if person.locator(".copy.close").count() == 0).locator(
+        ".actions"
+    )
     bar.get_by_role("button", name=WEITER).click()
     expect(bar.get_by_role("status")).to_be_visible()
     label = bar.get_by_role("button", name=STAND_UP).locator(".label")

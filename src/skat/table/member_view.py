@@ -27,11 +27,15 @@ class MemberView:
     awaits_you: bool
 
 
-def member_view_of(table: TableRecord, account_id: str, present: frozenset[str]) -> MemberView | None:
-    """The view of the account that holds a chair at the table; None for an account that holds none."""
+def member_view_of(
+    table: TableRecord, account_id: str, present: frozenset[str], opener_account: str | None
+) -> MemberView | None:
+    """The view of the account that holds a chair at the table, `opener_account` being the account that opened it;
+    None for an account that holds no chair.
+    """
     if account_id not in {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}:
         return None
-    view = view_of(table, account_id, present)
+    view = view_of(table, account_id, present, opener_account)
     return MemberView(view, awaits_you(view))
 
 

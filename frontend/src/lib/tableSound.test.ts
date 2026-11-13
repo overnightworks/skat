@@ -54,6 +54,7 @@ function tableSeenFrom(ownSeat: number): Table {
         version: 2,
         chairs,
         watchers: 0,
+        opened_by_me: false,
         hand: null,
         result: null,
         passed_in: null,

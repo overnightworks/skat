@@ -632,6 +632,7 @@ class TestHandOnTheStream:
             "options",
             "bock",
             "ended",
+            "opened_by_me",
         }
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1
         assert cards_in_text(first_fresh) == wire_cards(CARDS_BY_SEAT[1])
