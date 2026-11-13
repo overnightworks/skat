@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "9ef40f18d18722cfc65b06be16047a4618d8a5a7"
 branch = "claude/issue-497-main-s-end-to-end-job-goes-red-at-random"
-scope = [".github/workflows/ci.yml", "frontend/src/lib/ui", "frontend/src/routes/(start)", "tests/e2e/support/tables.py", "tests/e2e/test_calling_agents.py"]
+scope = [".github/workflows/ci.yml", "frontend/src/lib/ui", "frontend/src/routes/(start)", "tests/e2e/conftest.py", "tests/e2e/support/tables.py", "tests/e2e/test_calling_agents.py"]
 opened_commit = "d4698120722cea319723feb639bdf9dcf25c380c"
 whole_reason = "One red trunk: the two click races and the missing trace upload are proven in the same CI job."
