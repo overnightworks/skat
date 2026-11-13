@@ -149,7 +149,7 @@ The model is Skat's own.
 
 ### Proof strategy
 
-Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live, sign-out, framing (the configured call origin shows a table, every other origin is refused), greeting the call from a frame, signing in from a frame through the separate window and signing in again there after a session ended. Branch coverage is judged at 100 % over both together, merged with the frontend's.
+Unit tests cover the logic and webauth's wiring through a test client with a fake issuer; the store's tests and the end-to-end tests run against a throwaway Postgres of the same major version as CI's service, migrated by Alembic, never SQLite. End-to-end tests drive real Chromium against a real server for sign-in, refusal, the start page, opening a table, watching it live, sign-out, framing (the configured call origin shows a table, every other origin is refused), greeting the call from a frame, signing in from a frame through the separate window and signing in again there after a session ended. A failed end-to-end test prints each page's timeline (requests with their status and end, the size of each stream message, navigations, console lines and closes, in the browser's own time order), with no header, cookie, body or stream data. Branch coverage is judged at 100 % over both together, merged with the frontend's.
 
 ## 6. Constraints and reasons
 
