@@ -4069,6 +4069,40 @@ body {
     backdrop-filter: none;
 }
 
+/* The key that offers the vote to abort: red once armed, with a line that runs out in the three seconds the second tap has. */
+.room .copy.abort {
+    position: relative;
+}
+
+.room .copy.abort.arm {
+    color: #fff;
+    background: #cf3238;
+    backdrop-filter: none;
+}
+
+.room .copy.abort i {
+    position: absolute;
+    right: 18px;
+    bottom: 6px;
+    left: 18px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.85);
+    transform-origin: left;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .copy.abort.arm i {
+        animation: abort-run-out 3s linear both;
+    }
+
+    @keyframes abort-run-out {
+        to {
+            transform: scaleX(0);
+        }
+    }
+}
+
 .room .copy.wait {
     display: block;
     height: auto;

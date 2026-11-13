@@ -259,6 +259,26 @@ msgctxt "table.noAnswerYet"
 msgid "noch keine Antwort"
 msgstr ""
 
+msgctxt "table.abort"
+msgid "Abbrechen"
+msgstr ""
+
+msgctxt "table.abortSure"
+msgid "Wirklich abbrechen?"
+msgstr ""
+
+msgctxt "table.abortWait"
+msgid "Warten"
+msgstr ""
+
+msgctxt "table.wantsToAbort"
+msgid "{name} will abbrechen"
+msgstr ""
+
+msgctxt "table.aborted"
+msgid "Spiel abgebrochen"
+msgstr ""
+
 msgctxt "table.passedIn"
 msgid "Eingepasst"
 msgstr ""

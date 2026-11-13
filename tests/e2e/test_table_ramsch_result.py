@@ -1,10 +1,12 @@
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
+from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import CARD, LOST, MINUS, WON, expect_the_page_around_the_card, signed
 
@@ -17,6 +19,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
+SEAT_FREE = text(SOURCE_LANGUAGE, "result.seatFree")
 
 
 def with_minus(number: int) -> str:
@@ -84,4 +87,24 @@ def test_everyone_reads_the_ramsch_result_card_and_weiter_works(
     table.pages[1].locator(".actions").get_by_role("button", name=WEITER).click()
     for person in table.everyone:
         expect(person.locator(".chair[data-seat='1'] .mark.ready")).to_have_count(1)
+    assert page_errors == []
+
+
+def test_a_seat_that_stood_up_after_the_hand_reads_as_free_on_the_card(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    leaver_seat = 2
+
+    table.sessions[leaver_seat].post(
+        f"{table.api_path}{TABLE_STAND_SUFFIX}", {"command_id": f"ramsch-stand-{uuid4().hex}"}
+    )
+
+    for person in table.everyone:
+        expect(person.locator(CARD).locator(f".reck[data-seat='{leaver_seat}'] .nm")).to_have_text(SEAT_FREE)
     assert page_errors == []

@@ -185,6 +185,8 @@ def _table_record(
             words=read_words(connection, table_id),
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
+            abort_yes=frozenset(table.abort_yes_seats),
+            aborted=table.hand_aborted,
             seats_held=frozenset(SeatHeld(account_id, seat.seat) for seat in seats for account_id in seat.held_in_hand),
             former_holders=frozenset(
                 FormerHolder(seat.seat, seat.former_holder_name)
@@ -210,7 +212,9 @@ def _series_number_of(table: TableRecord) -> int:
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
-    """A played-out hand keeps nothing but its list entry: its cards and every step it took go."""
+    """A played-out or aborted hand keeps nothing but its list entry, if it has one: its cards and every step it took
+    go.
+    """
     for rows in (
         hand_cards,
         auction_actions,
@@ -278,6 +282,8 @@ class _PostgresTableTransaction:
                 series_number=_series_number_of(table),
                 **_series_end_columns(table.series),
                 bock_rounds=list(table.bock.remaining),
+                abort_yes_seats=sorted(table.progress.abort_yes),
+                hand_aborted=table.progress.aborted,
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
                 give_up_declined_by=None
                 if asked is None or asked.declined_by is None
@@ -307,15 +313,21 @@ class _PostgresTableTransaction:
     def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         dealt = _read_hand(self._connection, table.id.value)
         ended = dealt is not None and table.hand is None
+        aborted = ended and table.progress.aborted
         passed_in = ended and isinstance(auction_of(table).result, PassedIn)
         played_out = ended and len(table.game_list) > len(read_game_list(self._connection, table.id.value))
-        if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not passed_in:
+        if (
+            dealt is not None
+            and table.hand != dealt
+            and table.progress != HandProgress()
+            and not (passed_in or aborted)
+        ):
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._write_table_row(table, played_at)
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
-        if played_out:
+        if played_out or aborted:
             _forget_played_hand(self._connection, table.id.value)
         append_game_list(self._connection, table.id.value, _series_number_of(table), table.game_list, played_at)
         if table.hand is not None and dealt is None:

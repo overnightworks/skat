@@ -4,6 +4,8 @@ import {
     CALL_MODE,
     MODE_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    TABLE_ABORT_AGREE_SUFFIX,
+    TABLE_ABORT_REFUSE_SUFFIX,
     TABLE_CARD_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -24,6 +26,7 @@ import {
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
+    answerAbort,
     answerGiveUp,
     createTable,
     markReady,
@@ -293,6 +296,7 @@ describe("asking for a table", () => {
         watchers: 0,
         hand: null,
         passed_in: null,
+        aborted: null,
         options: null,
         ended: null,
     };
@@ -508,6 +512,19 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
+    });
+
+    it.each([
+        { answer: "agree" as const, suffix: TABLE_ABORT_AGREE_SUFFIX },
+        { answer: "refuse" as const, suffix: TABLE_ABORT_REFUSE_SUFFIX },
+    ])("sends a command id and no version to $answer aborting the hand", async ({ answer, suffix }) => {
+        answerWith(Response.json(table));
+
+        expect(await answerAbort(TABLE_ID, "command-6", answer)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-6" });
     });
 
     it("reports a taken chair with who holds it", async () => {

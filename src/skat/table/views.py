@@ -76,6 +76,9 @@ class HandView:
     unseen so far, through the Ramsch's play, and `push_factor` what they multiply the Ramsch's score by (1 without a
     push and at a table whose pushes do not double); only the seat on turn that holds twelve cards is told cards, the
     ones it may put back.
+
+    `abort` is the seats that voted to abort the hand, None while no proposal stands, the same for every viewer;
+    `abortable` says a vote is possible now: a chair of the hand is open.
     """
 
     dealer_seat: int
@@ -89,11 +92,22 @@ class HandView:
     pushing: PushingView | None
     pushes: int
     push_factor: int
+    abort: tuple[int, ...] | None
+    abortable: bool
 
 
 @dataclass(frozen=True)
 class PassedInView:
     """The hand was passed in: who deals next, named only while three chairs are occupied and the series goes on."""
+
+    next_dealer_seat: int | None
+
+
+@dataclass(frozen=True)
+class AbortedView:
+    """The hand was aborted by a vote: who deals next, named only while three chairs are occupied and the series goes
+    on.
+    """
 
     next_dealer_seat: int | None
 
@@ -137,6 +151,7 @@ class TableView:
     watchers: int
     hand: HandView | None
     passed_in: PassedInView | None
+    aborted: AbortedView | None
     result: ResultView | RamschResultView | None
     series: SeriesView | None
     options: TableOptions | None
@@ -175,6 +190,11 @@ def _acting_positions(
     declarer's answer to an opponent's give-up, so no card and no word is offered then.
     """
     return frozenset() if waiting_seat is not None or waits_for_the_declarer else viewer_positions
+
+
+def _abort_votes(table: TableRecord) -> tuple[int, ...] | None:
+    """The seats that voted to abort the hand, in seat order; None while no proposal stands."""
+    return tuple(sorted(table.progress.abort_yes)) or None
 
 
 def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | None, dict[int, ChairHand]]:
@@ -220,6 +240,8 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         pushing_view_of(stage, table.options, table.progress.pushing, table.dealer, acting_positions),
         pushes,
         pushes_factor(pushes, table.options),
+        _abort_votes(table),
+        waiting_seat is not None,
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
@@ -238,8 +260,20 @@ def _passed_in_view(table: TableRecord) -> PassedInView | None:
     """What the stored steps say between hands: set only while no hand runs and the steps ended in three passes."""
     if hand_runs(table) or table.dealer is None or not isinstance(auction_of(table).result, PassedIn):
         return None
+    return PassedInView(_next_dealer_seat(table))
+
+
+def _aborted_view(table: TableRecord) -> AbortedView | None:
+    """Set only while no hand runs and the vote ended the last one."""
+    if hand_runs(table) or not table.progress.aborted:
+        return None
+    return AbortedView(_next_dealer_seat(table))
+
+
+def _next_dealer_seat(table: TableRecord) -> int | None:
+    """Who deals next, named only while three chairs are occupied and the series goes on."""
     three_seated = all(chair.occupant is not None for chair in table.chairs)
-    return PassedInView(next_dealer(table.dealer) if three_seated and not series_over(table) else None)
+    return next_dealer(table.dealer) if table.dealer is not None and three_seated and not series_over(table) else None
 
 
 def _series_view(table: TableRecord) -> SeriesView | None:
@@ -277,6 +311,7 @@ def _ended_view_of(table: EndedTable) -> TableView:
         watchers=0,
         hand=None,
         passed_in=None,
+        aborted=None,
         result=None,
         series=None,
         options=None,
@@ -293,11 +328,11 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     its position and card count, and only the viewer's own cards are named: the declarer's hold the skat from the
     take to the put-back, and an ouvert game's cards are open to all. The skat is otherwise a count. While a game
     is played, the cards and counts are those still held, and played cards are shown only in the trick in progress
-    and the last completed one. Between hands the view says whether the last hand was passed in and, while three
-    chairs are occupied and the series goes on, who deals next; after a played game it carries the result, the same
-    for every viewer. A table with a series says which game of how many runs and whether the series is over, and
-    carries the standings once it is. A table with Bock says how many Bock games are still to come and by what the
-    running or next game's list score is multiplied.
+    and the last completed one. Between hands the view says whether the last hand was passed in or aborted by a
+    vote and, while three chairs are occupied and the series goes on, who deals next; after a played game it carries
+    the result, the same for every viewer. A table with a series says which game of how many runs and whether the
+    series is over, and carries the standings once it is. A table with Bock says how many Bock games are still to come
+    and by what the running or next game's list score is multiplied.
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
@@ -328,6 +363,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
         ),
         hand=hand_view,
         passed_in=_passed_in_view(table),
+        aborted=_aborted_view(table),
         result=result_view_of(table),
         series=_series_view(table),
         options=table.options,

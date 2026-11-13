@@ -3,7 +3,7 @@ from datetime import UTC, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
-from skat.engine.bock import BockRounds
+from skat.engine.bock import BockRounds, advance
 from skat.engine.deal import deal, draw_dealer, next_dealer, positions_from
 from skat.engine.schieberamsch import GrandHandRule
 from skat.table.records import (
@@ -31,8 +31,10 @@ from skat.table.records import (
 
 if TYPE_CHECKING:
     import random
+    from collections.abc import Callable
     from datetime import datetime
 
+    from skat.engine.bock import BockOptions
     from skat.engine.cards import Card
     from skat.engine.deal import Position
     from skat.table.records import EndedTable, RamschSetting, TableOptions
@@ -133,15 +135,17 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
 
     A freed chair is never ready, and whoever sits while a result is pending counts as ready, unless the series is
     over: a mark at the end is consent to „Neue Serie“, which only a tap gives. The chair's holder leaves his part of
-    a standing end proposal, of a standing give-up request and his no-word answers behind. While a hand runs, he is
-    also marked as having held this chair, which bars him from any other chair of the hand.
+    a standing end proposal, of a standing give-up request, of a standing proposal to abort the hand and his no-word
+    answers behind. While a hand runs, he is also marked as having held this chair, which bars him from any other
+    chair of the hand. A change that leaves no chair of the hand open clears the proposal to abort it, and a change
+    that makes the standing yeses more than half of the seated chairs ends the hand at once, in the same version.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
     series = table.series
     if series is not None:
         series = replace(series, end_proposal=_proposal_without(series.end_proposal, seat))
-    return TableRecord(
+    changed = TableRecord(
         id=table.id,
         version=table.version + 1,
         chairs=chairs,
@@ -153,12 +157,14 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
             no_words=_no_words_without(table, seat),
             seats_held=_seats_held_after(table, seat, occupant),
             former_holders=_former_holders_after(table, seat, occupant),
+            abort_yes=table.progress.abort_yes - {seat},
         ),
         game_list=table.game_list,
         series=series,
         options=table.options,
         bock=table.bock,
     )
+    return _abort_if_agreed(_abort_while_open(changed))
 
 
 def _seats_held_after(table: TableRecord, seat: int, occupant: Occupant | None) -> frozenset[SeatHeld]:
@@ -212,6 +218,74 @@ def _no_words_without(table: TableRecord, seat: int) -> frozenset[NoWordSaid]:
         return table.progress.no_words
     position = positions_from(table.dealer)[seat]
     return frozenset(answered for answered in table.progress.no_words if answered.position is not position)
+
+
+def abort_agreed(table: TableRecord) -> bool:
+    """The seats that voted to abort the running hand are more than half of the seated chairs: one of one, two of two,
+    two of three.
+    """
+    seated = sum(chair.occupant is not None for chair in table.chairs)
+    return 2 * len(table.progress.abort_yes) > seated
+
+
+def _abort_while_open(table: TableRecord) -> TableRecord:
+    """The table with no proposal to abort once no chair of its hand is open, since the hand moves again."""
+    if waiting_seat_of(table) is not None or not table.progress.abort_yes:
+        return table
+    return TableRecord(
+        id=table.id,
+        version=table.version,
+        chairs=table.chairs,
+        dealer=table.dealer,
+        hand=table.hand,
+        progress=replace(table.progress, abort_yes=frozenset()),
+        game_list=table.game_list,
+        series=table.series,
+        options=table.options,
+        bock=table.bock,
+    )
+
+
+def _abort_if_agreed(table: TableRecord) -> TableRecord:
+    return aborted_hand(table) if abort_agreed(table) else table
+
+
+def aborted_hand(table: TableRecord) -> TableRecord:
+    """The table once the vote ended its running hand, in the table's version: no hand, no entry, no result and no
+    step is kept, and the deal counted when it was dealt stays. The hand uses up a Bock game and meets no trigger,
+    since it was no pass.
+    """
+    bock = bock_rounds_after(table, lambda _options: False)
+    return TableRecord(
+        id=table.id,
+        version=table.version,
+        chairs=table.chairs,
+        dealer=table.dealer,
+        hand=None,
+        progress=HandProgress(aborted=True),
+        game_list=table.game_list,
+        series=table.series,
+        options=table.options,
+        bock=bock,
+    )
+
+
+def bock_at_series_end() -> BockRounds:
+    """The pending Bock rounds once a series ends, with its last game or early by consent: every round lapses."""
+    return BockRounds.start()
+
+
+def bock_rounds_after(table: TableRecord, triggered_by: Callable[[BockOptions], bool]) -> BockRounds:
+    """The pending Bock rounds once the table's running hand has ended: it uses up a Bock game, then a trigger acts by
+    the option; no Bock options mean no rounds, and the series' last game lets every round lapse (an early end by
+    consent goes through `skat.table.series_end`). `triggered_by` is asked only when the rounds go on.
+    """
+    options = table.options.bock
+    if options is None:
+        return BockRounds.start()
+    if series_games_left(table) == 1:  # the running hand counts as a game left
+        return bock_at_series_end()
+    return advance(table.bock, options.overlap, triggered=triggered_by(options))
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -299,9 +373,16 @@ def hand_was_dealt(table: TableRecord) -> bool:
 def result_pending(table: TableRecord) -> bool:
     """A played game's result stands: no hand runs, a dealer and a list entry exist, and no auction steps are kept.
 
-    A passed-in hand keeps its steps until the next deal, which tells it apart from a played one.
+    A passed-in hand keeps its steps until the next deal, which tells it apart from a played one; an aborted hand
+    leaves no result.
     """
-    return not hand_runs(table) and hand_was_dealt(table) and bool(table.game_list) and not table.progress.auction
+    return (
+        not hand_runs(table)
+        and hand_was_dealt(table)
+        and bool(table.game_list)
+        and not table.progress.auction
+        and not table.progress.aborted
+    )
 
 
 @overload

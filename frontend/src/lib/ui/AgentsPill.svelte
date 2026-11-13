@@ -2,7 +2,7 @@
     import { untrack } from "svelte";
     import { AgentControl, AiMark, type AgentControlRefusal, type KitWords } from "overnightworks-design";
     import { words } from "#lib/words.ts";
-    import { followAgents, type AgentsControl, type AgentsFollower } from "../../routes/(start)/tables.ts";
+    import { followAgents, type AgentsControl, type AgentsFollower } from "../../routes/(start)/agents.ts";
 
     // The popover keeps this far from either edge of the viewport; it is as wide as the kit's list is drawn for.
     const EDGE_MARGIN = 16;

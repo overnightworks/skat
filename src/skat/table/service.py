@@ -1,12 +1,20 @@
 import copy
 import secrets
-from contextlib import ExitStack, nullcontext
+from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
+from skat.table.hand_abort import (
+    AGREE_TO_ABORT_COMMAND,
+    REFUSE_TO_ABORT_COMMAND,
+    AbortVoteCommand,
+    abort_vote_payload,
+    decide_agree_to_abort,
+    decide_refuse_to_abort,
+)
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
 from skat.table.lobby import my_tables, paused_tables
 from skat.table.member_place import (
@@ -77,28 +85,19 @@ from skat.table.rules import (
     STAND_UP_COMMAND,
     THROW_DOWN_COMMAND,
     CommandIdReusedError,
-    PresenceStep,
-    ResumeStep,
     command_receipt,
     create_receipt,
-    dealt_next,
     decide_create,
-    decide_free_chair,
     decide_sit,
     decide_stand,
     drawn_hand,
-    ends_empty,
     ends_unplayed,
     hand_was_dealt,
-    hold_frees_chair,
     is_deal_or_step_of_play,
-    next_deal_due,
-    presence_step,
     present_at,
     replayed_decision,
     replayed_table,
     result_pending,
-    resume_step,
     seated_if_hand_ended,
     sit_deals,
     sit_payload,
@@ -113,6 +112,7 @@ from skat.table.series_end import (
     decide_refuse_to_end,
     series_end_payload,
 )
+from skat.table.server_steps import ServerSteps, members_of
 from skat.table.transactions import DuplicateReceiptError
 from skat.table.views import CommandResult, PausedEntryView, TableView, view_of
 
@@ -431,46 +431,39 @@ class TableService:
             lambda table: decide_refuse_to_end(table, actor),
         )
 
-    def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
-        """Free the account's chair on the server's own account, with no actor, command id or receipt.
+    def agree_to_abort_hand(
+        self, actor: Actor, command: AbortVoteCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            AGREE_TO_ABORT_COMMAND,
+            abort_vote_payload(command),
+            lambda table: decide_agree_to_abort(table, actor),
+        )
 
-        `due` is entered once the row is locked, so a command that committed meanwhile has had its say, and left
-        after the commit; it yields whether the caller still wants the chair freed, and False changes nothing.
-        A table on which a hand was dealt frees no chair this way, and the refusal writes nothing. The decision
-        re-reads the chair under the row lock, so a repeat, or a chair the account left in the meantime, changes
-        nothing either. True when it freed the chair.
-        """
-        with ExitStack() as after_commit, self._transactions.begin() as transaction:
-            table = transaction.locked_table(table_id)
-            if table is None or not after_commit.enter_context(due) or not hold_frees_chair(table):
-                return False
-            decision = decide_free_chair(table, account_id)
-            if decision.refusal is not None:
-                return False
-            transaction.save_table(decision.table, played_at=None)
-        self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
-        self._tell_view(table_id, view_recipients(table, decision.table))
-        return True
+    def refuse_to_abort_hand(
+        self, actor: Actor, command: AbortVoteCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            REFUSE_TO_ABORT_COMMAND,
+            abort_vote_payload(command),
+            lambda table: decide_refuse_to_abort(table, actor),
+        )
+
+    def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
+        """The server's step of freeing the account's chair; see `ServerSteps.free_chair`."""
+        return self._server_steps().free_chair(table_id, account_id, due)
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        """Deal the next hand on the server's own account, with no actor, command id or receipt.
-
-        `connected_accounts` is entered once the row is locked and left after the commit; it yields who holds an open
-        stream then, or None once the presence cannot tell, which deals nothing; a live lease counts for its occupant.
-        The decision re-reads the table under the row lock, so a repeat, or a table that changed meanwhile, changes
-        nothing. True when it dealt.
-        """
-        with ExitStack() as after_commit, self._transactions.begin() as transaction:
-            table = transaction.locked_table(table_id)
-            if table is None:
-                return False
-            connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
-            if connected is None or not next_deal_due(table, connected):
-                return False
-            dealt = dealt_next(table, drawn_hand(table, self._random_source))
-            transaction.save_table(dealt, played_at=self._now())
-        self._tell_view(table_id, view_recipients(table, dealt))
-        return True
+        """The server's step of dealing the next hand; see `ServerSteps.deal_next`."""
+        return self._server_steps().deal_next(table_id, connected_accounts)
 
     def end_empty_table(
         self,
@@ -478,25 +471,8 @@ class TableService:
         connected_accounts: AbstractContextManager[frozenset[str] | None],
         empty_seconds: int,
     ) -> bool:
-        """End a table nobody is connected to and on which no hand was dealt, on the server's own account, with no
-        actor, command id or receipt.
-
-        `connected_accounts` is entered once the row is locked and left after the commit; it yields who holds an open
-        stream then, or None once the presence cannot tell. The decision reads who is present under the row lock, so a
-        repeat, a table that ended meanwhile, or a stream that opened since changes nothing. `empty_seconds` is the
-        wait the answer will name. True when it ended the table.
-        """
-        with ExitStack() as after_commit, self._transactions.begin() as transaction:
-            table = transaction.locked_table(table_id)
-            if table is None:
-                return False
-            present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
-            if not ends_empty(table, present):
-                return False
-            members = self._members_of(transaction, table)
-            transaction.end_table(table_id, self._now(), Ending.empty(empty_seconds))
-        self._tell(members)
-        return True
+        """The server's step of ending an empty table; see `ServerSteps.end_empty_table`."""
+        return self._server_steps().end_empty_table(table_id, connected_accounts, empty_seconds)
 
     def note_presence(
         self,
@@ -504,27 +480,17 @@ class TableService:
         connected_accounts: AbstractContextManager[frozenset[str] | None],
         empty_seconds: int,
     ) -> bool:
-        """Bring the time since when nobody has been at the table in line with who is present, on the server's own
-        account, with no actor, command id, receipt or version change.
+        """The server's step of noting who is present; see `ServerSteps.note_presence`."""
+        return self._server_steps().note_presence(table_id, connected_accounts, empty_seconds)
 
-        `connected_accounts` is entered once the row is locked and left after the commit, as for `end_empty_table`,
-        so the last write after any change reflects the latest truth. A table someone arrives at after its time was
-        up ends instead of reviving. True when it ended the table.
-        """
-        with ExitStack() as after_commit, self._transactions.begin() as transaction:
-            table = transaction.locked_table(table_id)
-            if table is None:
-                return False
-            present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
-            now = self._now()
-            step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
-            members: frozenset[str] = self._members_of(transaction, table) if step is PresenceStep.END else frozenset()
-            if step is PresenceStep.END:
-                transaction.end_table(table_id, now, Ending.empty(empty_seconds))
-            elif step is not PresenceStep.KEEP:
-                transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
-        self._tell(members)
-        return step is PresenceStep.END
+    def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
+        """The server's step at its start; see `ServerSteps.resume_empty_waits`."""
+        return self._server_steps().resume_empty_waits(empty_seconds)
+
+    def _server_steps(self) -> ServerSteps:
+        return ServerSteps(
+            self._transactions, self._live_leases, self._now, self._random_source, self._tell, self._tell_view
+        )
 
     def unplayed_tables(self, days: int) -> tuple[TableId, ...]:
         """The live tables that look due for `end_unplayed_table`, in id order: an unlocked read."""
@@ -542,35 +508,10 @@ class TableService:
                 return False
             if not ends_unplayed(table, transaction.paused_facts(table_id).last_played_at, now, days):
                 return False
-            members = self._members_of(transaction, table)
+            members = members_of(transaction, table)
             transaction.end_table(table_id, now, Ending.unplayed(days))
         self._tell(members)
         return True
-
-    def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
-        """At the server's start: give every live table on which no hand was dealt and that has no time one, end
-        every such table whose wait is already up, and answer each remaining table's id with the seconds left of its
-        wait; a table with a dealt hand pauses and is left out.
-        """
-        now = self._now()
-        with self._transactions.begin() as transaction:
-            resumed = tuple(
-                (wait.table_id, resume_step(wait.dealer, wait.empty_since, now, empty_seconds))
-                for wait in transaction.live_empty_since()
-            )
-            for table_id, resume in resumed:
-                if resume.step is ResumeStep.STAMP:
-                    transaction.set_empty_since(table_id, now)
-        left: dict[str, float] = {}
-        for table_id, resume in resumed:
-            if resume.step is ResumeStep.SKIP:
-                continue
-            if resume.step is ResumeStep.END and self.end_empty_table(
-                table_id, nullcontext(frozenset()), empty_seconds
-            ):
-                continue
-            left[table_id.value] = resume.seconds_left
-        return left
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
@@ -664,11 +605,6 @@ class TableService:
     def _tell_view(self, table_id: TableId, accounts: frozenset[str]) -> None:
         if accounts:
             self._view_changed(table_id, accounts)
-
-    @staticmethod
-    def _members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
-        """The agents whose standing the table's end changes: those that hold a chair and those invited."""
-        return agents_seated_at(table) | transaction.book_accounts_at(table.id)
 
     def _run_command(
         self,

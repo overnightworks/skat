@@ -180,6 +180,19 @@ def test_a_reload_after_a_word_shows_the_plaque_and_no_second_stamp(
     assert page_errors == []
 
 
+def test_the_stamp_leaves_the_felt_once_its_moment_has_passed(
+    deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_kontra_table(PHONE)
+    button_of(says_kontra(table), KONTRA).click()
+    expect(table.watcher.locator(STAMP)).to_be_visible()
+
+    expect(table.watcher.locator(STAMP)).to_have_count(0)
+
+    expect(table.watcher.locator(SECOND_LINE)).to_have_text(f"{KONTRA} {TIMES}2")
+    assert page_errors == []
+
+
 def test_a_double_tap_sends_one_request(
     deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
