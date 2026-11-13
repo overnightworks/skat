@@ -3516,6 +3516,14 @@ body {
     color: var(--on-stage-soft);
 }
 
+.room .result .value.loss {
+    color: #ff8a8f;
+}
+
+.room .result.ramsch .suit {
+    color: #17191c;
+}
+
 .room .result .miss {
     font-size: 14px;
     font-weight: 600;
