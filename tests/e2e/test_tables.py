@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from skat.table.records import SERIES_LENGTH_DEFAULT, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP
 from skat.web.constants import ACCOUNT_PATH, LOGIN_PATH
+from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE
 from skat.web.words import text as word_text
@@ -487,10 +488,12 @@ def test_a_session_that_ended_sends_the_start_page_to_the_sign_in_page_when_a_ta
     with person.expect_response(f"**{ACCOUNT_PATH}"):
         person.goto(f"{e2e_server.base_url}/")
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    e2e_server.stores.sessions.delete(member_of(person).session.id)
     before = table_count(e2e_server)
+    # The sheet reads the person's rule sets when it opens; the session ends after that answer.
+    with person.expect_response(f"**{RULE_SETS_PATH}"):
+        person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    e2e_server.stores.sessions.delete(member_of(person).session.id)
 
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
 
     expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))

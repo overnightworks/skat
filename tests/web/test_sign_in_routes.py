@@ -337,12 +337,20 @@ class TestMemberSignIn:
         [
             f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}",
             f"{TABLE_PAGE_PREFIX}abc?x=1&{MODE_QUERY_NAME}=other&{MODE_QUERY_NAME}={CALL_MODE}&y=2",
+            f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}&back=//evil.example/x",
+            f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}&back=https://evil.example{TABLE_PAGE_PREFIX}x",
+            f"{TABLE_PAGE_PREFIX}abc?{MODE_QUERY_NAME}={CALL_MODE}&back=\\\\evil.example",
         ],
     )
     def test_a_call_mode_table_return_path_leads_to_the_call_sign_in_page_with_it(self, harness, requested):
         response = harness.browser().get(LOGIN_PATH, params={"next": requested})
         location = urlsplit(response.headers["location"])
-        assert (response.status_code, location.path) == (303, CALL_SIGN_IN_PATH)
+        assert (response.status_code, location.scheme, location.netloc, location.path) == (
+            303,
+            "",
+            "",
+            CALL_SIGN_IN_PATH,
+        )
         assert parse_qs(location.query) == {"next": [requested]}
 
     @pytest.mark.parametrize(

@@ -220,6 +220,53 @@ export type Words = {
     readonly "logout.button": string;
     readonly "start.rulePoints": string;
     readonly "start.rulePointsLine": string;
+    readonly "start.ruleSets": string;
+    readonly "start.setOfficial": string;
+    readonly "start.setsUnreadable": string;
+    readonly "start.ruleKontra": string;
+    readonly "start.ruleKontraLine": string;
+    readonly "start.ruleRamsch": string;
+    readonly "start.ruleRamschLine": string;
+    readonly "start.rulePushing": string;
+    readonly "start.rulePushingLine": string;
+    readonly "start.ruleBock": string;
+    readonly "start.ruleBockLine": string;
+    readonly "start.askKontraSayer": string;
+    readonly "start.pillAnyOpponent": string;
+    readonly "start.pillBiddersOnly": string;
+    readonly "start.askKontraReach": string;
+    readonly "start.pillKontraRe": string;
+    readonly "start.pillKontraReStandings": string;
+    readonly "start.pillUpToHirsch": string;
+    readonly "start.askRamschScoring": string;
+    readonly "start.pillScoringPoints": string;
+    readonly "start.pillScoringPointsByTen": string;
+    readonly "start.pillScoringSkatToLoser": string;
+    readonly "start.askJungfrau": string;
+    readonly "start.pillJungfrauDoublesLoser": string;
+    readonly "start.pillJungfrauOff": string;
+    readonly "start.askDurchmarsch": string;
+    readonly "start.pillDurchmarschWins120": string;
+    readonly "start.pillDurchmarschWins120Flat": string;
+    readonly "start.pillDurchmarschOff": string;
+    readonly "start.askPushingRule": string;
+    readonly "start.pillPushingJacksStay": string;
+    readonly "start.pillPushingJacksMayGo": string;
+    readonly "start.pillPushingNoDoubling": string;
+    readonly "start.askGrandHand": string;
+    readonly "start.pillGrandHandOff": string;
+    readonly "start.pillGrandHandAllowed": string;
+    readonly "start.askBockTriggers": string;
+    readonly "start.flagSixtySixty": string;
+    readonly "start.flagWonGrandHand": string;
+    readonly "start.flagLostAfterKontra": string;
+    readonly "start.flagRe": string;
+    readonly "start.flagPassedIn": string;
+    readonly "start.flagSchneider": string;
+    readonly "start.askBockOverlap": string;
+    readonly "start.pillOverlapAppend": string;
+    readonly "start.pillOverlapMultiply": string;
+    readonly "start.pillOverlapIgnore": string;
     readonly "rules.button": string;
     readonly "rules.title": string;
     readonly "rules.lockBadge": string;
@@ -569,6 +616,53 @@ export const words: Words = {
     "logout.button": "Abmelden",
     "start.rulePoints": "Laufende Augen zeigen",
     "start.rulePointsLine": "Alle sehen die Augen im Spiel",
+    "start.ruleSets": "Regeln",
+    "start.setOfficial": "Offiziell",
+    "start.setsUnreadable": "Deine eigenen Regeln ließen sich nicht lesen.",
+    "start.ruleKontra": "Kontra und Re",
+    "start.ruleKontraLine": "Verdoppeln und zurückdoppeln",
+    "start.ruleRamsch": "Ramsch beim Einpassen",
+    "start.ruleRamschLine": "Alle passen: jeder gegen jeden",
+    "start.rulePushing": "Schieberamsch",
+    "start.rulePushingLine": "Den Skat weiterschieben",
+    "start.ruleBock": "Bockrunden",
+    "start.ruleBockLine": "Manche Spiele zählen doppelt",
+    "start.askKontraSayer": "Wer darf Kontra sagen?",
+    "start.pillAnyOpponent": "Jeder Gegner",
+    "start.pillBiddersOnly": "Nur wer gereizt hat",
+    "start.askKontraReach": "Wie weit geht es?",
+    "start.pillKontraRe": "Kontra, Re",
+    "start.pillKontraReStandings": "mit Ständen",
+    "start.pillUpToHirsch": "bis Hirsch",
+    "start.askRamschScoring": "Wie zählt der Ramsch?",
+    "start.pillScoringPoints": "Augen",
+    "start.pillScoringPointsByTen": "Augen durch 10",
+    "start.pillScoringSkatToLoser": "Skat zum Verlierer",
+    "start.askJungfrau": "Jungfrau (kein Stich)",
+    "start.pillJungfrauDoublesLoser": "Verlierer doppelt",
+    "start.pillJungfrauOff": "Aus",
+    "start.askDurchmarsch": "Durchmarsch (alle Stiche)",
+    "start.pillDurchmarschWins120": "Gewinnt 120",
+    "start.pillDurchmarschWins120Flat": "120, nicht doppelt",
+    "start.pillDurchmarschOff": "Aus",
+    "start.askPushingRule": "Was beim Schieben gilt",
+    "start.pillPushingJacksStay": "Buben bleiben",
+    "start.pillPushingJacksMayGo": "Buben dürfen weg",
+    "start.pillPushingNoDoubling": "Nicht doppelt",
+    "start.askGrandHand": "Grand Hand statt Ramsch",
+    "start.pillGrandHandOff": "Aus",
+    "start.pillGrandHandAllowed": "Erlaubt",
+    "start.askBockTriggers": "Bock gibt es nach",
+    "start.flagSixtySixty": "60 zu 60",
+    "start.flagWonGrandHand": "Grand Hand gewonnen",
+    "start.flagLostAfterKontra": "Verloren nach Kontra",
+    "start.flagRe": "Re",
+    "start.flagPassedIn": "Alle gepasst",
+    "start.flagSchneider": "Schneider",
+    "start.askBockOverlap": "Neuer Auslöser im Bock",
+    "start.pillOverlapAppend": "Runden dazu",
+    "start.pillOverlapMultiply": "Nochmal doppelt",
+    "start.pillOverlapIgnore": "Zählt nicht",
     "rules.button": "Regeln",
     "rules.title": "Regeln",
     "rules.lockBadge": "Fest für diesen Tisch",

@@ -9,6 +9,7 @@ from playwright.sync_api import expect
 
 from skat.table.records import SERIES_LENGTH_DEFAULT, TABLE_ID_PATTERN
 from skat.web.calling import TABLE_AGENTS_SUFFIX
+from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
@@ -63,6 +64,11 @@ def until_the_agents_are_read(person: Page) -> Iterator[None]:
     """
     with person.expect_response(lambda response: urlsplit(response.url).path.endswith(TABLE_AGENTS_SUFFIX)):
         yield
+
+
+def save_rule_set(session: RawSession, name: str, options: dict[str, object]) -> None:
+    """A rule set saved through the API in the person's own session, as an agent or another page would save it."""
+    session.post(RULE_SETS_PATH, {"name": name, "options": options})
 
 
 def table_id_of(path: str) -> str:
