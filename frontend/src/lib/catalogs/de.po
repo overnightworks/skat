@@ -72,7 +72,11 @@ msgid "{title} öffnen"
 msgstr ""
 
 msgctxt "lobby.title"
-msgid "{owner} Tisch"
+msgid "{name}s Tisch"
+msgstr ""
+
+msgctxt "lobby.titleSibilant"
+msgid "{name}' Tisch"
 msgstr ""
 
 msgctxt "lobby.titleNameless"
@@ -120,11 +124,19 @@ msgid "Dein Platz wird in {minutes} Minuten frei"
 msgstr ""
 
 msgctxt "lobby.otherSeatFreeIn.one"
-msgid "{owner} Platz wird in {minutes} Minute frei"
+msgid "{name}s Platz wird in {minutes} Minute frei"
 msgstr ""
 
 msgctxt "lobby.otherSeatFreeIn.other"
-msgid "{owner} Platz wird in {minutes} Minuten frei"
+msgid "{name}s Platz wird in {minutes} Minuten frei"
+msgstr ""
+
+msgctxt "lobby.otherSeatFreeInSibilant.one"
+msgid "{name}' Platz wird in {minutes} Minute frei"
+msgstr ""
+
+msgctxt "lobby.otherSeatFreeInSibilant.other"
+msgid "{name}' Platz wird in {minutes} Minuten frei"
 msgstr ""
 
 msgctxt "lobby.chipYourTurn"
