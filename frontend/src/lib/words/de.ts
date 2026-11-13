@@ -72,6 +72,12 @@ export type Words = {
     readonly "result.matadorsWith": (count: number) => string;
     readonly "result.matadorsWithout": (count: number) => string;
     readonly "result.listGame": (gaps: { readonly score: string }) => string;
+    readonly "result.listGameWord": (gaps: { readonly score: string; readonly word: string }) => string;
+    readonly "result.wordKontra": string;
+    readonly "result.wordRe": string;
+    readonly "result.wordSupra": string;
+    readonly "result.wordHirsch": string;
+    readonly "result.wordFactor": (gaps: { readonly factor: string; readonly word: string }) => string;
     readonly "result.listBonus": (gaps: { readonly bonus: string }) => string;
     readonly "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => string;
     readonly "result.announcedSchneider": string;
@@ -256,6 +262,12 @@ export const words: Words = {
         other: "ohne " + numberFormat.format(count),
     })[pluralRules.select(count)],
     "result.listGame": (gaps: { readonly score: string }) => "Spiel " + gaps.score,
+    "result.listGameWord": (gaps: { readonly score: string; readonly word: string }) => "Spiel · " + gaps.word + " " + gaps.score,
+    "result.wordKontra": "Kontra",
+    "result.wordRe": "Re",
+    "result.wordSupra": "Supra",
+    "result.wordHirsch": "Hirsch",
+    "result.wordFactor": (gaps: { readonly factor: string; readonly word: string }) => gaps.word + " ×" + gaps.factor,
     "result.listBonus": (gaps: { readonly bonus: string }) => "Liste " + gaps.bonus,
     "result.share": (gaps: { readonly gain: string; readonly opponents: string }) => "· " + gaps.opponents + " je " + gaps.gain,
     "result.announcedSchneider": "Schneider angesagt",
