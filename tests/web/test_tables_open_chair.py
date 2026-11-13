@@ -61,7 +61,7 @@ class WaitingTable:
     def send_the_second_agent_away(self):
         sender = Actor(self.person.id, self.person.username)
         command = SendAway("command-away", self.table_id, self.skat.stores.accounts.get(self.sent.subject).id)
-        result = self.skat.tables.send_away(sender, command, frozenset())
+        result = self.skat.tables.send_away(sender, command, frozenset({sender.account_id}), is_member=True)
         assert result.refusal is None
         return result
 
