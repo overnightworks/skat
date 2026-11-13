@@ -49,8 +49,8 @@ class ChairView:
     """A chair as one viewer sees it; `ready` says its occupant is ready for the next hand,
     by a tap of „Weiter“ or by sitting down while a result is pending, the same for every viewer.
 
-    `is_mine_to_return` is true only for the viewer who stood up from this chair of the running hand while it is open:
-    the one open chair that viewer may sit in again."""
+    `is_mine_to_return` is true only for the viewer who stood up from this chair of the running hand, whether it is
+    open or taken since: the one chair that viewer may sit in again, so every other open chair is closed to them."""
 
     seat: int
     occupant_name: str | None
@@ -312,7 +312,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
                 hand=chair_hands.get(chair.seat),
                 total=_total_shown(table, chair),
                 former_holder_name=table.progress.former_holder_name(chair.seat),
-                is_mine_to_return=chair.occupant is None and chair.seat == seat_to_return_to,
+                is_mine_to_return=chair.seat == seat_to_return_to,
             )
             for chair in table.chairs
         ),

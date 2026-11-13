@@ -131,13 +131,19 @@ class TestTheChairToReturnTo:
 
         assert [chair.is_mine_to_return for chair in view_of(both, leaver, NOBODY).chairs] == [False, True, False]
 
-    def test_the_chair_is_taken_back_by_a_sit_and_nobody_may_return_to_it(self):
+    def test_the_chair_taken_by_a_sit_stays_the_leavers_chair_and_another_open_chair_is_not(self):
         running = PHASES["auction"]()
         stood = decide_stand(running, actor_at(running, REARHAND_SEAT)).table
         leaver = running.chairs[REARHAND_SEAT - 1].occupant
         sat = decide_sit(stood, newcomer(), REARHAND_SEAT, None).table
+        both = sent_away(sat, FOREHAND_SEAT)
 
-        assert not any(chair.is_mine_to_return for chair in view_of(sat, leaver.account_id, NOBODY).chairs)
+        assert [chair.is_mine_to_return for chair in view_of(both, leaver.account_id, NOBODY).chairs] == [
+            False,
+            True,
+            False,
+        ]
+        assert not any(chair.is_mine_to_return for chair in view_of(both, "account-watcher", NOBODY).chairs)
 
     def test_no_chair_is_to_return_to_between_hands(self):
         between = replace(table_in(HandProgress()), hand=None, dealer=None)

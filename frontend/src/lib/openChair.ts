@@ -68,8 +68,9 @@ export function standTap(handRuns: boolean, armed: boolean): "arm" | "stand" {
     return handRuns && !armed ? "arm" : "stand";
 }
 
-// The open chairs a person who stood up from this hand may not sit in: she may return only to the chair she left, so
-// every other open chair is locked for her; a viewer who held no chair of the hand has none.
+// The open chairs a person who stood up from this hand may not sit in: she may return only to the chair she left, even
+// when someone else has taken it since, so every other open chair is locked for her; a viewer who held no chair of
+// the hand has none.
 export function lockedChairs(table: Table): ReadonlySet<number> {
     if (!table.chairs.some((chair) => chair.is_mine_to_return)) return new Set();
     return new Set(

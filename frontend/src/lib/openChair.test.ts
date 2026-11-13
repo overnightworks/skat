@@ -208,7 +208,9 @@ describe("the open chairs a stood-up person may not take", () => {
         expect(lockedChairs(tableOf(handOf(2), felix, other, chairOf(OPEN_SEAT, null, null)))).toEqual(new Set());
     });
 
-    it("are none once the chair to return to is taken", () => {
-        expect(lockedChairs(tableOf(handOf(2), felix, other, chairOf(OPEN_SEAT, "Lena", "person")))).toEqual(new Set());
+    it("are every open chair once the chair to return to is taken", () => {
+        const taken = { ...chairOf(OPEN_SEAT, "Lena", "person"), is_mine_to_return: true };
+
+        expect(lockedChairs(tableOf(handOf(2), felix, other, taken))).toEqual(new Set([2]));
     });
 });
