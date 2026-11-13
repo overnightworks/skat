@@ -187,6 +187,11 @@ def _acting_positions(
     return frozenset() if waiting_seat is not None or waits_for_the_declarer else viewer_positions
 
 
+def _abort_votes(table: TableRecord) -> tuple[int, ...] | None:
+    """The seats that voted to abort the hand, in seat order; None while no proposal stands."""
+    return tuple(sorted(table.progress.abort_yes)) or None
+
+
 def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | None, dict[int, ChairHand]]:
     """The hand view and each seat's part of it; both are empty while no hand runs."""
     if table.hand is None:
@@ -230,7 +235,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         pushing_view_of(stage, table.options, table.progress.pushing, table.dealer),
         pushes,
         pushes_factor(pushes, table.options),
-        tuple(sorted(table.progress.abort_yes)) or None,
+        _abort_votes(table),
         waiting_seat is not None,
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
@@ -293,6 +298,23 @@ class CommandResult:
     seated_when_hand_ended: frozenset[str] = frozenset()
 
 
+def _ended_view_of(table: EndedTable) -> TableView:
+    return TableView(
+        id=table.id.value,
+        version=table.version,
+        chairs=(),
+        watchers=0,
+        hand=None,
+        passed_in=None,
+        aborted=None,
+        result=None,
+        series=None,
+        options=None,
+        bock=None,
+        ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
+    )
+
+
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine.
 
@@ -309,20 +331,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
-        return TableView(
-            id=table.id.value,
-            version=table.version,
-            chairs=(),
-            watchers=0,
-            hand=None,
-            passed_in=None,
-            aborted=None,
-            result=None,
-            series=None,
-            options=None,
-            bock=None,
-            ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
-        )
+        return _ended_view_of(table)
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
     return TableView(
