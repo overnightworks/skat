@@ -2907,9 +2907,11 @@ body {
     background: var(--on-stage);
 }
 
-/* On a phone the far tags stand no further from the near tag than a full-length name is wide: where the tags touch, the near tag steps below them. */
-.room .trick.stepped .laid.near .tag {
-    bottom: calc(var(--card-width) * -0.12 - 6px);
+/* On a phone the far tags stand no further from the near tag than a full-length name is wide: where a name is cut, the near tag steps below them. */
+@media (max-width: 899px) {
+    .room .trick.stepped .laid.near .tag {
+        bottom: calc(var(--card-width) * -0.12 - 6px);
+    }
 }
 
 @media (min-width: 900px) {

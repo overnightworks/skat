@@ -9,18 +9,14 @@
 
     const laid = $derived(trickOnTheFelt(chairs, playing));
 
-    // The near tag stands as low under its card as the far tags do, and steps below them only where its width reaches
-    // one of theirs. Its width never depends on the step, so the measure cannot flip back and forth.
+    // A name that fits its tag whole leaves the tags of the trick apart, as the scenes draw them. A name cut to the tag's
+    // cap makes tags that reach each other, so the near tag then steps below the far ones. Whether a name is cut never
+    // depends on the step, so the measure cannot flip back and forth.
     let trick: HTMLUListElement | undefined = $state();
     let stepped = $state(false);
 
-    function nearTagReachesAFarTag(list: HTMLElement): boolean {
-        const near = list.querySelector(".laid.near .tag")?.getBoundingClientRect();
-        if (near === undefined) return false;
-        return [...list.querySelectorAll(".laid:not(.near) .tag")].some((tag) => {
-            const far = tag.getBoundingClientRect();
-            return near.left < far.right && far.left < near.right;
-        });
+    function aNameIsCut(list: HTMLElement): boolean {
+        return [...list.querySelectorAll(".tag .name")].some((name) => name.scrollWidth > name.clientWidth);
     }
 
     $effect(() => {
@@ -31,7 +27,7 @@
             return;
         }
         const measure = (): void => {
-            stepped = nearTagReachesAFarTag(list);
+            stepped = aNameIsCut(list);
         };
         const observer = new ResizeObserver(measure);
         observer.observe(list);
