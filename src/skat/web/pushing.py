@@ -115,10 +115,11 @@ def _add_put_back(router: APIRouter, take_step: StepTaker) -> None:
         "jacks-stay" or "no-doubling" leaves out the jacks and refuses one among the two (jack-put-back); "jacks-may-go"
         lists all twelve. It is empty for every other viewer and while the stage is "choosing". The table id and the
         version come from that answer. The two cards leave your hand and the next seat meets them as the skat; a seat
-        that follows takes or pushes it, and after the last seat's turn the Ramsch starts. The command id names this step:
-        the same id with the same cards and the same version is a retry that changes nothing twice. A refusal (for example stale-version, wrong-phase,
-        not-your-turn, out-of-order, not-two-of-the-twelve, jack-put-back) comes back as a failed result with its
-        reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
+        that follows takes or pushes it, and after the last seat's turn the Ramsch starts. The command id names
+        this step: the same id with the same cards and the same version is a retry that changes nothing twice. A
+        refusal (for example stale-version, wrong-phase, not-your-turn, out-of-order, not-two-of-the-twelve,
+        jack-put-back) comes back as a failed result with its reason, leaves the table as it was and spends the
+        command id: the next attempt takes a new command id.
         """
         cards = tuple(card_of(card) for card in body.cards)
         return await take_step(table_id, body, request, response, PushingKind.PUT_BACK, cards)
