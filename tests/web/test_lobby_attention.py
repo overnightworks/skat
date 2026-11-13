@@ -30,7 +30,7 @@ def skat(hold, issuer):
 
 def waits_for(scene, person):
     held = scene.service.tables_held_by(person.account_id)
-    return [entry.awaits_you for entry in scene.service.my_tables(person.account_id, held, {}, DAYS)]
+    return [entry.awaits_you for entry in scene.service.my_tables(person.account_id, held, {}, {}, DAYS)]
 
 
 def a_seed_where_the_deal_gives_anna_the_turn():

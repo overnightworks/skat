@@ -5,7 +5,15 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import Field
 from starlette.concurrency import run_in_threadpool
 
-from skat.table.records import SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP, CreateTable, SitDown, StandUp
+from skat.table.records import (
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    CreateTable,
+    SitDown,
+    StandUp,
+    Visibility,
+)
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import OPEN_TABLE_MARK, SIT_DOWN_MARK, STAND_UP_MARK
@@ -21,7 +29,7 @@ from skat.web.tables import (
     answer_of,
     command_answer,
 )
-from skat.web.wakes import AccountTopic
+from skat.web.wakes import AccountTopic, OpenTablesTopic
 
 if TYPE_CHECKING:
     from skat.table.service import TableService
@@ -31,13 +39,15 @@ if TYPE_CHECKING:
 
 class CreateTableRequest(CommandRequest):
     """The opener names the series length and may set the rule options; without them the table plays the official
-    rules.
+    rules. The table is listed to every member of the app unless `visibility` is private, which lists it to its chair
+    holders only.
     """
 
     series_length: Annotated[
         int, Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP)
     ]
     options: OptionsRequest | None = None
+    visibility: Visibility = Visibility.OPEN
 
 
 class SitDownRequest(CommandRequest):
@@ -118,16 +128,23 @@ def create_seating_router(tables: TableService, presence: Presence, wakes: WakeL
         """Open a new Skat table, with the caller in chair 1 as its opener.
 
         `series_length` is the number of games its series runs, within the bounds of the input schema. `options` may
-        switch on the table's rule options, which stay fixed for its life; without them it plays the official rules. The
-        answer is the table as read_table gives it. Its `id` makes the table's link /t/{id}, which the caller gives
-        the people it wants to play with. The command id names this opening: the same id with the same request is a
-        retry that opens no second table, and the same id with another request is refused.
+        switch on the table's rule options, which stay fixed for its life; without them it plays the official rules.
+        `visibility` is open by default, which lists the table to every member of the app with its free chairs, or
+        private, which lists it to its chair holders only; it stays fixed for the table's life and the link reaches
+        either. The answer is the table as read_table gives it. Its `id` makes the table's link /t/{id}, which the
+        caller gives the people it wants to play with. The command id names this opening: the same id with the same
+        request is a retry that opens no second table, and the same id with another request is refused.
         """
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
         try:
             options = table_options_of(body.options)
-            command = CreateTable(command_id=body.command_id, series_length=body.series_length, options=options)
+            command = CreateTable(
+                command_id=body.command_id,
+                series_length=body.series_length,
+                options=options,
+                visibility=body.visibility,
+            )
             created = await run_in_threadpool(tables.create, actor_of(request), command)
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
@@ -135,6 +152,8 @@ def create_seating_router(tables: TableService, presence: Presence, wakes: WakeL
         if created.ended is None:
             presence.chair_taken(created.id)
             wakes.wake(AccountTopic(actor_of(request).account_id))
+            if command.visibility is Visibility.OPEN:
+                wakes.wake(OpenTablesTopic())
         # A retry finds a table that has moved on; the answer is read as read_table reads it, with who is present.
         with presence.waits.reading(created.id):
             view = await run_in_threadpool(tables.view, actor_of(request), created.id, presence.connected(created.id))

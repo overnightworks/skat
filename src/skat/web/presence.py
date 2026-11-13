@@ -1,4 +1,5 @@
 import asyncio
+import math
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -213,6 +214,19 @@ class Presence:
         """The agents whose lease runs: a read with no side effect, which a worker may call under a table's lock."""
         with self._state:
             return frozenset(self._lease_ends)
+
+    def hold_seconds_left(self, table_ids: Iterable[str]) -> dict[str, dict[str, int]]:
+        """The seconds each running hold has left at the given tables, by table and then account, rounded up; a hold
+        whose time is up and not yet freed counts as none left, and a table with no hold running is absent.
+        """
+        wanted = frozenset(table_ids)
+        now = self._hold.clock()
+        left: dict[str, dict[str, int]] = {}
+        with self._state:
+            for (table_id, account_id), left_at in self._left_at.items():
+                if table_id in wanted:
+                    left.setdefault(table_id, {})[account_id] = max(0, math.ceil(left_at + self._hold.seconds - now))
+        return left
 
     def hold_chairs(self, occupied: Iterable[tuple[str, str]]) -> None:
         """Start a fresh hold of each (table id, account id) at the server's start."""

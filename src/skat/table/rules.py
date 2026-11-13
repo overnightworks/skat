@@ -27,6 +27,7 @@ from skat.table.records import (
     StandUp,
     TableId,
     TableRecord,
+    Visibility,
 )
 
 if TYPE_CHECKING:
@@ -58,9 +59,11 @@ class CommandIdReusedError(Exception):
     """A command id came back with a request other than the one it first carried."""
 
 
-def decide_create(actor: Actor, table_id: TableId, series_length: int | None, options: TableOptions) -> TableRecord:
-    """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length and
-    the options it is opened with.
+def decide_create(
+    actor: Actor, table_id: TableId, series_length: int | None, options: TableOptions, visibility: Visibility
+) -> TableRecord:
+    """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length, the
+    options it is opened with and the visibility it is listed by.
     """
     opener = Chair(1, Occupant(actor.account_id, actor.display_name, actor.kind, actor.owner_account))
     return TableRecord(
@@ -74,6 +77,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
         series=None if series_length is None else Series(series_length, 0),
         options=options,
         bock=BockRounds.start(),
+        visibility=visibility,
     )
 
 
@@ -86,7 +90,8 @@ def _pushing_member(ramsch: RamschSetting) -> str:
 
 def create_payload(command: CreateTable) -> str:
     """The receipt's payload: a table with no length and every option off keeps the text it always had, so older
-    receipts replay; an option that is on adds its own member, the Grand Hand a stage allows among them.
+    receipts replay; an option that is on adds its own member, the Grand Hand a stage allows among them, and so does a
+    private table, while an open one adds none.
     """
     members = [] if command.series_length is None else [f'"series_length":{command.series_length}']
     if command.options.show_running_points:
@@ -108,6 +113,8 @@ def create_payload(command: CreateTable) -> str:
             f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
             f'{_pushing_member(ramsch)}"scoring":"{ramsch.reckoning.scoring.value}"}}'
         )
+    if command.visibility is Visibility.PRIVATE:
+        members.append(f'"visibility":"{Visibility.PRIVATE.value}"')
     return "{" + ",".join(members) + "}"
 
 

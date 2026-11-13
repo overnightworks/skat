@@ -1,8 +1,10 @@
-"""The lobby's list of the tables an account holds a chair at, projected from each table's member view, and the list of
-the paused ones among them.
+"""The lobby's lists: the tables an account holds a chair at, projected from each table's member view, the paused ones
+among them, and the open tables every member may sit down at.
 
-Every entry is built for one account from its own chairs, so no table reaches an account that holds none there. The
-entries are ordered by what the account has to do: the tables that wait for it first.
+An entry of the account's own list is built for one account from its own chairs, so no table reaches an account that
+holds none there; its entries are ordered by what the account has to do, the tables that wait for it first. The list of
+open tables names no card and no account and leaves out every private table and every table the account holds a chair
+at, which its own list carries.
 """
 
 from dataclasses import dataclass
@@ -10,8 +12,15 @@ from typing import TYPE_CHECKING
 
 from skat.table.awaiting import WaitingCase, waiting_case
 from skat.table.member_view import member_view_of
-from skat.table.records import OccupantKind, TableRecord
-from skat.table.rules import hand_was_dealt, present_at, seat_of, unplayed_end
+from skat.table.records import OccupantKind, TableRecord, Visibility
+from skat.table.rules import (
+    hand_was_dealt,
+    hold_frees_chair,
+    present_at,
+    seat_of,
+    unplayed_end,
+    waiting_seat_of,
+)
 from skat.table.views import paused_entry_of, turn_seat_of
 
 if TYPE_CHECKING:
@@ -19,11 +28,19 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.member_view import MemberView
-    from skat.table.records import TableId
+    from skat.table.records import Chair, TableId, TableOptions
     from skat.table.transactions import PausedFacts, TableTransactions
     from skat.table.views import PausedEntryView
 
-__all__ = ["LobbyChairView", "LobbyEntryView", "my_tables", "paused_tables"]
+__all__ = [
+    "LobbyChairView",
+    "LobbyEntryView",
+    "OpenChairView",
+    "OpenEntryView",
+    "my_tables",
+    "open_tables",
+    "paused_tables",
+]
 
 # A Kontra word is a question in a running hand as the give-up is, so both share a rank.
 _WAITING_RANK = {
@@ -48,18 +65,56 @@ class LobbyChairView:
     total: int | None
     is_away: bool
     is_turn: bool
+    hold_seconds_left: int | None
+
+
+@dataclass(frozen=True)
+class OpenChairView:
+    """A chair of an open table: who sits there, whether they are away and how long their hold has left."""
+
+    seat: int
+    occupant_name: str | None
+    occupant_kind: OccupantKind | None
+    is_away: bool
+    hold_seconds_left: int | None
+
+
+@dataclass(frozen=True)
+class OpenEntryView:
+    """An open table as every member sees it in the lobby: the seated names in chair order, its free chairs (none for
+    a full table), the series length and the rule options it is opened with, and how many accounts without a chair are
+    connected.
+
+    `title_name` is the name its opener had when he opened it; `game_number` and `game_count` are None for a table
+    without a series. `dealt` says a hand was dealt and `waiting_seat` the chair the running hand waits for a sitter
+    at; `ends_at` is set only when a hand was dealt and nobody is present. The entry names no card and no account.
+    """
+
+    id: str
+    title_name: str | None
+    game_number: int | None
+    game_count: int | None
+    options: TableOptions
+    watchers: int
+    free_chairs: int
+    dealt: bool
+    waiting_seat: int | None
+    ends_at: datetime | None
+    chairs: tuple[OpenChairView, ...]
 
 
 @dataclass(frozen=True)
 class LobbyEntryView:
     """A live table the account holds a chair at, with whether and why it waits for the account.
 
-    `title_name` is the name its opener had when he opened it, None before the name was kept; `game_number` and
-    `game_count` are None for a table without a series. `ends_at` is the instant the table ends, in UTC, and is set
-    only when a hand was dealt and nobody is present. The entry names no card, no card count and no account.
+    `private` says the table is listed to its chair holders alone. `title_name` is the name its opener had when he
+    opened it, None before the name was kept; `game_number` and `game_count` are None for a table without a series.
+    `ends_at` is the instant the table ends, in UTC, and is set only when a hand was dealt and nobody is present.
+    The entry names no card, no card count and no account.
     """
 
     id: str
+    private: bool
     title_name: str | None
     game_number: int | None
     game_count: int | None
@@ -78,6 +133,7 @@ def my_tables(
     account_id: str,
     held_ids: Iterable[TableId],
     connected_by_table: Mapping[str, frozenset[str]],
+    hold_left_by_table: Mapping[str, Mapping[str, int]],
     days: int,
 ) -> tuple[LobbyEntryView, ...]:
     """The entries of the tables the account holds a chair at, in the lobby's order.
@@ -85,6 +141,7 @@ def my_tables(
     `held_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
     shared row lock: an ended table and a table whose chair the account left meanwhile are skipped. A table with
     nobody in `connected_by_table` has nobody connected; `live_leases` are the agents whose lease runs.
+    `hold_left_by_table` gives the seconds each away member's hold has left, by table and account.
     """
     entries: list[LobbyEntryView] = []
     with transactions.begin() as transaction:
@@ -95,8 +152,41 @@ def my_tables(
             present = present_at(table, connected_by_table.get(table_id.value, frozenset()), live_leases)
             member = member_view_of(table, account_id, present, transaction.opener_account(table_id))
             if member is not None:
-                entries.append(_entry_of(table, member, present, transaction.paused_facts(table_id), days))
+                holds = hold_left_by_table.get(table_id.value, {})
+                entries.append(_entry_of(table, member, present, holds, transaction.paused_facts(table_id), days))
     return tuple(sorted(entries, key=_order_of))
+
+
+def open_tables(
+    transactions: TableTransactions,
+    live_leases: frozenset[str],
+    account_id: str,
+    listed_ids: Iterable[TableId],
+    connected_by_table: Mapping[str, frozenset[str]],
+    hold_left_by_table: Mapping[str, Mapping[str, int]],
+    days: int,
+) -> tuple[OpenEntryView, ...]:
+    """The entries of the open tables the account holds no chair at, the fewest free chairs first, the full tables
+    last and ties in id order.
+
+    `listed_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
+    shared row lock: an ended table, a private one and a table whose chair the account took meanwhile are skipped.
+    The other parameters are those of `my_tables`.
+    """
+    entries: list[OpenEntryView] = []
+    with transactions.begin() as transaction:
+        for table_id in listed_ids:
+            table = transaction.table(table_id)
+            if not isinstance(table, TableRecord) or table.visibility is not Visibility.OPEN:
+                continue
+            if seat_of(table, account_id) is not None:
+                continue
+            connected = connected_by_table.get(table_id.value, frozenset())
+            present = present_at(table, connected, live_leases)
+            holds = hold_left_by_table.get(table_id.value, {})
+            facts = transaction.paused_facts(table_id)
+            entries.append(_open_entry_of(table, connected, present, holds, facts, days))
+    return tuple(sorted(entries, key=_open_order_of))
 
 
 def paused_tables(
@@ -122,12 +212,18 @@ def paused_tables(
 
 
 def _entry_of(
-    table: TableRecord, member: MemberView, present: frozenset[str], facts: PausedFacts, days: int
+    table: TableRecord,
+    member: MemberView,
+    present: frozenset[str],
+    holds: Mapping[str, int],
+    facts: PausedFacts,
+    days: int,
 ) -> LobbyEntryView:
     view = member.view
     turn_seat = turn_seat_of(view.hand)
     return LobbyEntryView(
         id=view.id,
+        private=table.visibility is Visibility.PRIVATE,
         title_name=facts.opener_name,
         game_number=None if view.series is None else view.series.game_number,
         game_count=None if view.series is None else view.series.game_count,
@@ -147,10 +243,51 @@ def _entry_of(
                 total=chair.total,
                 is_away=chair.is_away,
                 is_turn=chair.seat == turn_seat,
+                hold_seconds_left=_hold_left_of(table.chairs[chair.seat - 1], table, present, holds),
             )
             for chair in view.chairs
         ),
     )
+
+
+def _open_entry_of(
+    table: TableRecord,
+    connected: frozenset[str],
+    present: frozenset[str],
+    holds: Mapping[str, int],
+    facts: PausedFacts,
+    days: int,
+) -> OpenEntryView:
+    seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
+    return OpenEntryView(
+        id=table.id.value,
+        title_name=facts.opener_name,
+        game_number=None if table.series is None else table.series.deals,
+        game_count=None if table.series is None else table.series.length,
+        options=table.options,
+        watchers=len(connected - seated),
+        free_chairs=sum(chair.occupant is None for chair in table.chairs),
+        dealt=hand_was_dealt(table),
+        waiting_seat=waiting_seat_of(table),
+        ends_at=_end_of(table, present, facts, days),
+        chairs=tuple(
+            OpenChairView(
+                seat=chair.seat,
+                occupant_name=None if chair.occupant is None else chair.occupant.display_name,
+                occupant_kind=None if chair.occupant is None else chair.occupant.kind,
+                is_away=chair.occupant is not None and chair.occupant.account_id not in present,
+                hold_seconds_left=_hold_left_of(chair, table, present, holds),
+            )
+            for chair in table.chairs
+        ),
+    )
+
+
+def _hold_left_of(chair: Chair, table: TableRecord, present: frozenset[str], holds: Mapping[str, int]) -> int | None:
+    """The seconds the chair's hold has left: only an absent occupant's at a table whose hold may free its chairs."""
+    if chair.occupant is None or chair.occupant.account_id in present or not hold_frees_chair(table):
+        return None
+    return holds.get(chair.occupant.account_id)
 
 
 def _end_of(table: TableRecord, present: frozenset[str], facts: PausedFacts, days: int) -> datetime | None:
@@ -158,6 +295,11 @@ def _end_of(table: TableRecord, present: frozenset[str], facts: PausedFacts, day
         return None
     assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
     return unplayed_end(facts.last_played_at, days)
+
+
+def _open_order_of(entry: OpenEntryView) -> tuple[bool, int, str]:
+    """Sort key: the tables with a free chair, the fewest free chairs first, then the full ones, each group by id."""
+    return entry.free_chairs == 0, entry.free_chairs, entry.id
 
 
 def _order_of(entry: LobbyEntryView) -> tuple[int, int, datetime | None, str]:

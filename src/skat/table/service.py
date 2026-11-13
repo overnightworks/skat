@@ -16,7 +16,7 @@ from skat.table.hand_abort import (
     decide_refuse_to_abort,
 )
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
-from skat.table.lobby import my_tables, paused_tables
+from skat.table.lobby import my_tables, open_tables, paused_tables
 from skat.table.member_place import (
     Acceptance,
     AcceptResult,
@@ -121,7 +121,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
-    from skat.table.lobby import LobbyEntryView
+    from skat.table.lobby import LobbyEntryView, OpenEntryView
     from skat.table.member_place import CallFacts
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
@@ -187,7 +187,9 @@ class TableService:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset(), actor.account_id)
-            table = decide_create(actor, self._new_table_id(), command.series_length, command.options)
+            table = decide_create(
+                actor, self._new_table_id(), command.series_length, command.options, command.visibility
+            )
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
@@ -523,10 +525,46 @@ class TableService:
         with self._transactions.begin() as transaction:
             return tuple(held.table_id for held in transaction.tables_of(account_id))
 
+    def open_table_ids(self) -> tuple[TableId, ...]:
+        """The live open tables, in id order; an unlocked read, so a candidate list."""
+        with self._transactions.begin() as transaction:
+            return transaction.open_table_ids()
+
     def my_tables(
-        self, account_id: str, held_ids: Iterable[TableId], connected_by_table: Mapping[str, frozenset[str]], days: int
+        self,
+        account_id: str,
+        held_ids: Iterable[TableId],
+        connected_by_table: Mapping[str, frozenset[str]],
+        hold_left_by_table: Mapping[str, Mapping[str, int]],
+        days: int,
     ) -> tuple[LobbyEntryView, ...]:
-        return my_tables(self._transactions, self._live_leases(), account_id, held_ids, connected_by_table, days)
+        return my_tables(
+            self._transactions,
+            self._live_leases(),
+            account_id,
+            held_ids,
+            connected_by_table,
+            hold_left_by_table,
+            days,
+        )
+
+    def open_tables(
+        self,
+        account_id: str,
+        listed_ids: Iterable[TableId],
+        connected_by_table: Mapping[str, frozenset[str]],
+        hold_left_by_table: Mapping[str, Mapping[str, int]],
+        days: int,
+    ) -> tuple[OpenEntryView, ...]:
+        return open_tables(
+            self._transactions,
+            self._live_leases(),
+            account_id,
+            listed_ids,
+            connected_by_table,
+            hold_left_by_table,
+            days,
+        )
 
     def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
         return paused_tables(self._transactions, self.tables_held_by(actor.account_id), actor.account_id, days)

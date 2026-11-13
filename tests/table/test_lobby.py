@@ -16,6 +16,7 @@ from skat.table.records import (
     Series,
     TableId,
     TableOptions,
+    Visibility,
 )
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
@@ -25,6 +26,8 @@ MIDDLEHAND, REARHAND, FOREHAND = "account-middlehand", "account-rearhand", "acco
 LAST_PLAYED = datetime(2026, 11, 1, 12, tzinfo=UTC)
 DAYS = 10
 NOBODY_CONNECTED: dict[str, frozenset[str]] = {}
+NO_HOLDS: dict[str, dict[str, int]] = {}
+STRANGER = "account-stranger"
 KONTRA_OPTIONS = TableOptions(
     kontra=KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.OWN_CARD)
 )
@@ -50,9 +53,16 @@ class Lobby:
             self.store.opener_names[identifier.value] = opener
         return identifier
 
-    def entries(self, account, held=None, connected=NOBODY_CONNECTED):
+    def entries(self, account, held=None, connected=NOBODY_CONNECTED, holds=NO_HOLDS):
         ids = held if held is not None else sorted((TableId(key) for key in self.store.tables), key=lambda i: i.value)
-        return self.service.my_tables(account, tuple(ids), connected, DAYS)
+        return self.service.my_tables(account, tuple(ids), connected, holds, DAYS)
+
+    def open_entries(self, account=STRANGER, listed=None, connected=NOBODY_CONNECTED, holds=NO_HOLDS):
+        ids = self.service.open_table_ids() if listed is None else listed
+        return self.service.open_tables(account, tuple(ids), connected, holds, DAYS)
+
+    def open_ids(self, account=STRANGER, **read):
+        return [entry.id for entry in self.open_entries(account, **read)]
 
     def ids(self, account, **read):
         return [entry.id for entry in self.entries(account, **read)]
@@ -60,6 +70,16 @@ class Lobby:
 
 def undealt():
     return replace(table_in(HandProgress()), dealer=None, hand=None)
+
+
+def private(record):
+    return replace(record, visibility=Visibility.PRIVATE)
+
+
+def with_free_chairs(record, *seats):
+    return replace(
+        record, chairs=tuple(replace(chair, occupant=None) if chair.seat in seats else chair for chair in record.chairs)
+    )
 
 
 @pytest.fixture
@@ -284,3 +304,121 @@ class TestTheOrder:
         lobby.put(3, between_games(1, 2, 3), played_at=LAST_PLAYED + timedelta(days=2))
 
         assert lobby.ids(MIDDLEHAND) == ids_of(2, 1, 3)
+
+
+class TestTheOpenList:
+    def test_an_open_table_is_listed_to_a_member_with_no_chair_there_with_its_names_in_chair_order(self, lobby):
+        lobby.put(1, with_free_chairs(undealt(), 3))
+
+        (entry,) = lobby.open_entries()
+
+        assert (entry.id, entry.title_name, entry.free_chairs) == (table_id_of(1).value, "Anna", 1)
+        assert [(chair.seat, chair.occupant_name, chair.occupant_kind) for chair in entry.chairs] == [
+            (1, "MIDDLEHAND", OccupantKind.PERSON),
+            (2, "REARHAND", OccupantKind.PERSON),
+            (3, None, None),
+        ]
+
+    def test_a_private_table_is_listed_to_nobody_whose_chair_it_is_not(self, lobby):
+        lobby.put(1, private(with_free_chairs(undealt(), 3)))
+        lobby.put(2, with_free_chairs(undealt(), 3))
+
+        assert lobby.open_ids(STRANGER) == ids_of(2)
+
+    def test_a_table_the_caller_holds_a_chair_at_is_left_to_the_callers_own_list(self, lobby):
+        lobby.put(1, undealt())
+        lobby.put(2, undealt())
+        lobby.put(3, with_free_chairs(undealt(), 1))
+
+        assert lobby.open_ids(MIDDLEHAND) == ids_of(3)
+        assert lobby.ids(MIDDLEHAND) == ids_of(1, 2)
+
+    def test_a_table_that_ended_or_is_not_there_is_skipped(self, lobby):
+        kept = lobby.put(1, undealt())
+        ended = table_id_of(2)
+        lobby.store.tables[ended.value] = EndedTable(ended, 9, Ending.empty(3600))
+
+        assert lobby.open_ids(listed=[kept, ended, table_id_of(3)]) == [kept.value]
+
+    def test_a_private_table_in_the_candidates_is_skipped(self, lobby):
+        hidden = lobby.put(1, private(undealt()))
+
+        assert lobby.open_entries(listed=[hidden]) == ()
+
+    def test_a_full_table_has_no_free_chair_and_goes_last_after_the_fewest_free_chairs_first_each_group_by_id(
+        self, lobby
+    ):
+        lobby.put(1, undealt())
+        lobby.put(2, with_free_chairs(undealt(), 2, 3))
+        lobby.put(3, with_free_chairs(undealt(), 3))
+        lobby.put(4, with_free_chairs(undealt(), 1))
+        lobby.put(5, undealt())
+
+        entries = lobby.open_entries()
+
+        assert [(entry.id, entry.free_chairs) for entry in entries] == [
+            (table_id_of(3).value, 1),
+            (table_id_of(4).value, 1),
+            (table_id_of(2).value, 2),
+            (table_id_of(1).value, 0),
+            (table_id_of(5).value, 0),
+        ]
+
+    def test_an_open_paused_table_with_a_free_chair_is_listed_and_says_its_hand_waits_for_a_sitter(self, lobby):
+        lobby.put(1, with_free_chairs(table_in(HandProgress()), 1))
+
+        (entry,) = lobby.open_entries()
+
+        assert (entry.dealt, entry.waiting_seat, entry.free_chairs) == (True, 1, 1)
+
+    def test_the_series_length_the_rule_options_and_the_watchers_are_the_tables(self, lobby):
+        lobby.put(1, replace(between_games(series=Series(12, 3)), options=KONTRA_OPTIONS))
+
+        (entry,) = lobby.open_entries(connected={table_id_of(1).value: frozenset({FOREHAND, STRANGER, "account-x"})})
+
+        assert (entry.game_count, entry.game_number, entry.options, entry.watchers) == (12, 3, KONTRA_OPTIONS, 2)
+
+    def test_a_table_without_a_series_has_neither(self, lobby):
+        lobby.put(1, replace(undealt(), series=None))
+
+        (entry,) = lobby.open_entries()
+
+        assert (entry.game_count, entry.game_number) == (None, None)
+
+    def test_a_chair_is_away_when_its_occupant_is_not_present(self, lobby):
+        lobby.put(1, undealt())
+
+        (entry,) = lobby.open_entries(connected={table_id_of(1).value: frozenset({FOREHAND})})
+
+        assert [chair.is_away for chair in entry.chairs] == [True, True, False]
+
+    def test_a_dealt_table_nobody_is_present_at_names_its_end(self, lobby):
+        lobby.put(1, between_games(1, 2, 3))
+
+        (entry,) = lobby.open_entries()
+
+        assert entry.ends_at == LAST_PLAYED + timedelta(days=DAYS)
+
+    def test_an_away_chair_at_an_undealt_table_says_the_seconds_its_hold_has_left_from_presence(self, lobby):
+        lobby.put(1, undealt())
+
+        (entry,) = lobby.open_entries(
+            connected={table_id_of(1).value: frozenset({FOREHAND})},
+            holds={table_id_of(1).value: {MIDDLEHAND: 240, FOREHAND: 100}},
+        )
+
+        assert [chair.hold_seconds_left for chair in entry.chairs] == [240, None, None]
+
+    def test_a_chair_at_a_dealt_table_has_no_hold_to_count(self, lobby):
+        lobby.put(1, table_in(HandProgress()))
+
+        (entry,) = lobby.open_entries(holds={table_id_of(1).value: {MIDDLEHAND: 240}})
+
+        assert [chair.hold_seconds_left for chair in entry.chairs] == [None, None, None]
+
+    def test_an_own_chair_in_the_account_s_list_says_its_hold_too(self, lobby):
+        lobby.put(1, undealt())
+
+        (entry,) = lobby.entries(MIDDLEHAND, holds={table_id_of(1).value: {MIDDLEHAND: 240, REARHAND: 120}})
+
+        assert [chair.hold_seconds_left for chair in entry.chairs] == [240, 120, None]
