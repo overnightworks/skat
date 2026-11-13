@@ -5107,14 +5107,18 @@ body {
     width: 100%;
 }
 
+/* A pill is at least as wide as its check and whole name, so a row that cannot hold them wraps; only a name wider than the sheet ends in an ellipsis. */
 .sheet .set {
-    flex: 1 1 96px;
-    min-width: 0;
+    flex: 1;
+    max-width: 100%;
     height: 44px;
     padding: 0 10px;
     border-radius: 999px;
     font-size: 15px;
     white-space: nowrap;
+}
+
+.sheet .set .name {
     overflow: hidden;
     text-overflow: ellipsis;
 }

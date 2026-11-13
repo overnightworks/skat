@@ -223,7 +223,7 @@
                     }}
                 />
                 {#if picked === null}<RuleMark id="official" />{/if}
-                {words["start.setOfficial"]}
+                <span class="name">{words["start.setOfficial"]}</span>
             </label>
             {#each sets as set (set.id)}
                 <label class="set" class:on={picked?.id === set.id}>
@@ -237,7 +237,7 @@
                         }}
                     />
                     {#if picked?.id === set.id}<RuleMark id="official" />{/if}
-                    {set.name}
+                    <span class="name">{set.name}</span>
                 </label>
             {/each}
         </div>
