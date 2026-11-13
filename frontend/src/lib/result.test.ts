@@ -131,11 +131,11 @@ describe("the card's words and sides for each viewer", () => {
         expect(resultView(table(mine, {})).sides).toEqual(sides);
     });
 
-    it("reads a side's trick points as one sentence with the points as its gap", () => {
-        const sentence = words["result.sidePoints"]({ side: words["result.sideYou"], points: "61" });
+    it("reads a side's trick points as one sentence that marks the side's name and the points", () => {
+        const parts = words["result.sidePoints"]({ side: words["result.sideYou"], points: "61" });
 
-        expect(sentence).toContain(words["result.sideYou"]);
-        expect(sentence).toContain("61");
+        expect(parts).toContainEqual({ marker: "side", text: words["result.sideYou"] });
+        expect(parts).toContainEqual({ marker: "tally", text: "61" });
     });
 
     it.each([

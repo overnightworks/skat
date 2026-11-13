@@ -364,7 +364,7 @@ msgid "Wert {value} < Reizwert {bid} → {settled}"
 msgstr ""
 
 msgctxt "result.sidePoints"
-msgid "{side} {points}"
+msgid "{#side}{side}{/side} {#tally}{points}{/tally}"
 msgstr ""
 
 msgctxt "result.eyes"

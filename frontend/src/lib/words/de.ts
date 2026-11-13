@@ -91,7 +91,7 @@ export type Words = {
     readonly "result.missedSchneider": string;
     readonly "result.missedSchwarz": string;
     readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
-    readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
+    readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[];
     readonly "result.eyes": (gaps: { readonly points: string }) => string;
     readonly "result.loses": (gaps: { readonly name: string }) => string;
     readonly "result.losesTogether": (gaps: { readonly names: string }) => string;
@@ -323,7 +323,7 @@ export const words: Words = {
     "result.missedSchneider": "Schneider angesagt, nicht erreicht",
     "result.missedSchwarz": "Schwarz angesagt, nicht erreicht",
     "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
-    "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
+    "result.sidePoints": (gaps: { readonly points: string; readonly side: string }): readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[] => [{ marker: "side", text: gaps.side }, " ", { marker: "tally", text: gaps.points }],
     "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
     "result.loses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.losesTogether": (gaps: { readonly names: string }) => gaps.names + " verlieren",
