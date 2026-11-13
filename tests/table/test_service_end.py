@@ -32,6 +32,7 @@ from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
 from tests.support.fake_tables import FakeTableStore
+from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
@@ -517,6 +518,18 @@ class TestClose:
 
         assert result.refusal is Refusal.NOT_ALLOWED
         assert (store.tables, store.receipts) == written
+
+    def test_the_command_id_is_refused_for_another_table_when_a_rival_close_commits_between_lookup_and_receipt(
+        self, store, service, table_id
+    ):
+        other = TableId(service.create(OPENER, CreateTable(command_id="command-other")).id)
+        close(service, OPENER, table_id)
+        blind = TableService(FaultyTableTransactions(store, blind_first_replay=True), now=lambda: ENDED_AT)
+
+        with pytest.raises(CommandIdReusedError):
+            close(blind, OPENER, other)
+
+        assert isinstance(store.tables[other.value], TableRecord)
 
     def test_refuses_a_watcher_who_sits_nowhere(self, service, store, table_id):
         stranger = Actor(account_id="account-stranger", display_name="Dora")

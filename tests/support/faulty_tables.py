@@ -91,6 +91,9 @@ class _FaultyTransaction:
         if self._faults.end_failure is not None:
             raise self._faults.end_failure
 
+    def opener_account(self, table_id: TableId) -> str | None:
+        return self._inner.opener_account(table_id)
+
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         return self._inner.played_before(cutoff)
 

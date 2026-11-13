@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Final
 from skat.table.member_place import agents_seated_at
 from skat.table.records import Actor, CloseTable, Ending, Receipt, Refusal, TableId, TableRecord
 from skat.table.rules import CommandIdReusedError, ends_unplayed
+from skat.table.transactions import DuplicateReceiptError
 from skat.table.views import CommandResult, view_of
 
 if TYPE_CHECKING:
@@ -67,6 +68,17 @@ def close_table(
     A retry under the command id finds the receipt of the close, which outlives the table, and answers the ended
     table. A refusal writes no receipt, so the id stays free for the person who may close.
     """
+    try:
+        return _close_once(transactions, actor, command, now)
+    except DuplicateReceiptError:
+        # The same command id committed on another table between this one's lookup and its receipt; the retry finds
+        # that receipt and refuses the reuse.
+        return _close_once(transactions, actor, command, now)
+
+
+def _close_once(
+    transactions: TableTransactions, actor: Actor, command: CloseTable, now: Callable[[], datetime]
+) -> Closed | None:
     identifier = TableId.parse(command.table_id)
     if identifier is None:
         return None
