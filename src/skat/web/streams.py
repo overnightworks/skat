@@ -14,10 +14,11 @@ from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, actor_for, actor_of, answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+    from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 
     from webauth.ports import SessionRecordStore
 
+    from skat.table.nudging import NudgeState
     from skat.table.records import Actor
     from skat.table.service import TableService
     from skat.table.views import TableView
@@ -73,8 +74,8 @@ def message_of(item: SourceMessage | IdleHeartbeat) -> str:
     return f"{named}data: {item.data}\n\n"
 
 
-def _table_message(view: TableView) -> SourceMessage:
-    return SourceMessage(answer_of(view).model_dump_json(), last=view.ended is not None)
+def _table_message(view: TableView, nudges: Mapping[int, NudgeState]) -> SourceMessage:
+    return SourceMessage(answer_of(view, nudges).model_dump_json(), last=view.ended is not None)
 
 
 class TableSource:
@@ -98,14 +99,16 @@ class TableSource:
         self._subscription = await self._presence.subscribe(self._table_id, self._account_id, wake)
 
     async def read(self, actor: Actor) -> SourceMessage:
-        view = await self._read_view(actor, self._presence.connected(self._table_id))
-        if view is None:
-            message = f"table {self._table_id} vanished while a stream watched it"
-            raise RuntimeError(message)
+        with self._presence.waits.reading(self._table_id):
+            view = await self._read_view(actor, self._presence.connected(self._table_id))
+            if view is None:
+                message = f"table {self._table_id} vanished while a stream watched it"
+                raise RuntimeError(message)
+            nudges = self._presence.waits.nudges_of(view)
         if self._first_read and view.ended is None:
             await self._ask_for_next_deal(view)
         self._first_read = False
-        return _table_message(view)
+        return _table_message(view, nudges)
 
     def close(self) -> None:
         assert self._subscription is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
@@ -277,7 +280,7 @@ def create_streams_router(
         async def messages() -> AsyncIterator[str]:
             # An ended table has nobody to watch: its one message is its answer, and nothing registers.
             if first_view.ended is not None:
-                yield message_of(_table_message(first_view))
+                yield message_of(_table_message(first_view, {}))
                 return
             sources = [
                 TableSource(presence, read_view, table_id, opened_as.account_id),

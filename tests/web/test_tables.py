@@ -696,6 +696,32 @@ class TestAnEmptyTableEnds:
         assert time.pending == 1
         assert first.json()["ended"] is None
 
+    def test_a_create_retry_read_while_the_table_ends_leaves_no_wait_behind(self, server):
+        class EndingDuringTheView:
+            """The service whose view read is overtaken by the table's end, which the presence answers on the loop."""
+
+            def __init__(self, tables, ending):
+                self._tables = tables
+                self._ending = ending
+
+            def __getattr__(self, name):
+                return getattr(self._tables, name)
+
+            def view(self, actor, table_id, connected_accounts):
+                view = self._tables.view(actor, table_id, connected_accounts)
+                server.client.portal.call(self._ending, table_id)
+                return view
+
+        presence = idle_presence()
+        answering_first(server, EndingDuringTheView(TableService(server.store), presence.waits.drop), presence)
+        headers, _ = server.member()
+
+        answer = server.create(headers)
+
+        table_id = answer.json()["id"]
+        assert answer.status_code == 200, answer.text
+        assert presence.waits.is_current(table_id, server.store.tables[table_id].version) is False
+
     def test_the_ended_table_answers_with_the_reason_and_the_wait_and_names_nobody(self, server, ended):
         headers, table_id, seconds = ended
 
