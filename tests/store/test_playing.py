@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.engine.cards import DECK
 from skat.engine.deal import Position
+from skat.engine.declaration import Announcement
 from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
@@ -17,6 +18,7 @@ from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
     GiveUpCommand,
+    ShortenCommand,
     ThrowDownCommand,
 )
 from skat.table.records import GiveUpAsked, Refusal
@@ -227,6 +229,69 @@ def test_an_opponents_give_up_is_read_back_by_a_new_service_and_the_declarers_ye
     assert (entry.game_value, entry.settled_value, entry.score, entry.declarer_points) == (30, 30, 30, 120)
     assert entry.seat_accounts[entry.ended_by_seat - 1] == game.actors[Position.FOREHAND].account_id
     assert stored_request(engine) == (None, None)
+
+
+def stored_shortening(engine):
+    with engine.connect() as connection:
+        return tuple(
+            connection.execute(
+                text("SELECT give_up_asked_by, give_up_claim, give_up_agreed_by, shortening_refused_by FROM tables")
+            ).one()
+        )
+
+
+def shorten_with(game, claim=Announcement.SCHNEIDER):
+    command = ShortenCommand(command_id="shorten", table_id=game.table_id, version=game.record.version, claim=claim)
+    result = game.service.shorten(game.actors[Position.MIDDLEHAND], command, nobody_connected())
+    assert result.refusal is None
+
+
+def test_an_unanswered_shortening_and_a_yes_are_read_back_by_a_new_service_and_the_second_yes_ends_the_game(
+    game, engine, database_url, stored
+):
+    shorten_with(game)
+    first = AgreeToGiveUpCommand(command_id="first-yes", table_id=game.table_id, version=game.record.version)
+    game.service.agree_to_give_up(game.actors[Position.FOREHAND], first, nobody_connected())
+    assert stored_shortening(engine) == ("middlehand", "schneider", "forehand", None)
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        assert stored(restarted, game.table_id).progress.give_up == GiveUpAsked(
+            Position.MIDDLEHAND, claim=Announcement.SCHNEIDER, agreed_by=Position.FOREHAND
+        )
+        second = AgreeToGiveUpCommand(command_id="second-yes", table_id=game.table_id, version=game.record.version)
+        result = TableService(restarted).agree_to_give_up(game.actors[Position.REARHAND], second, nobody_connected())
+    finally:
+        restarted_engine.dispose()
+
+    assert result.refusal is None
+    assert game.record.hand is None
+    (entry,) = game.record.game_list
+    assert (entry.won, entry.ending, entry.ended_by_seat) == (True, GameEnding.SHORTENED, entry.declarer_seat)
+    assert stored_shortening(engine) == (None, None, None, None)
+
+
+def test_a_no_keeps_the_cards_open_across_a_restart_until_the_hand_ends(game, engine, database_url, stored):
+    shorten_with(game, Announcement.NONE)
+    no = DeclineGiveUpCommand(command_id="no", table_id=game.table_id, version=game.record.version)
+    game.service.decline_give_up(game.actors[Position.REARHAND], no, nobody_connected())
+    assert stored_shortening(engine) == (None, None, None, "rearhand")
+
+    game.play_legally(1)
+
+    assert stored_shortening(engine) == (None, None, None, "rearhand")
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        assert stored(restarted, game.table_id).progress.shortening_refused_by is Position.REARHAND
+        command = ThrowDownCommand(command_id="throw", table_id=game.table_id, version=game.record.version)
+        result = TableService(restarted).throw_down(game.actors[Position.MIDDLEHAND], command, nobody_connected())
+    finally:
+        restarted_engine.dispose()
+
+    assert result.refusal is None
+    assert stored_shortening(engine) == (None, None, None, None)
 
 
 def test_a_card_clears_the_stored_request(game, engine):

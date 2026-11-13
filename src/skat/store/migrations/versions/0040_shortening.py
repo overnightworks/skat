@@ -29,7 +29,7 @@ def upgrade() -> None:
         "tables_give_up_claim_comes_with_an_ask", "tables", "give_up_claim IS NULL OR give_up_asked_by IS NOT NULL"
     )
     op.create_check_constraint(
-        "tables_give_up_yes_comes_with_a_shortening_from_another_position",
+        "tables_give_up_yes_is_to_a_shortening_by_another",
         "tables",
         "give_up_agreed_by IS NULL OR (give_up_claim IS NOT NULL AND give_up_agreed_by <> give_up_asked_by)",
     )

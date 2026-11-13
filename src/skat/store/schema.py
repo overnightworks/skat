@@ -295,7 +295,7 @@ tables = Table(
     ),
     CheckConstraint(
         "give_up_agreed_by IS NULL OR (give_up_claim IS NOT NULL AND give_up_agreed_by <> give_up_asked_by)",
-        name="tables_give_up_yes_comes_with_a_shortening_from_another_position",
+        name="tables_give_up_yes_is_to_a_shortening_by_another",
     ),
     CheckConstraint(
         "give_up_claim IS NULL OR give_up_declined_by IS NULL", name="tables_a_shortening_ends_with_its_first_no"
