@@ -16,7 +16,7 @@
     import { giveUpView } from "#lib/giveUp.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
-    import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
+    import { declaredResult, resultJustAppeared, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
@@ -73,6 +73,8 @@
     let playing = $state<PlayingHand | undefined>();
     // The first moment of the declaring, which only a page that sees the auction end shows.
     let justWon = $state(false);
+    // The ordinal of the result that appeared while this page watched; only its card counts the gains up.
+    let countedOrdinal = $state<number | null>(null);
     // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
     let playedThisHand = $state<Card[]>([]);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
@@ -102,6 +104,7 @@
                 wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
             }
         }
+        countedOrdinal = resultJustAppeared(previous, table) ?? (table.result === null ? null : countedOrdinal);
         outcome = { kind: "table", table };
     }
 
@@ -110,6 +113,7 @@
         outcome = null;
         connected = true;
         justWon = false;
+        countedOrdinal = null;
         streamedVersion = null;
         agentSat = null;
         playedThisHand = [];
@@ -421,7 +425,7 @@
             {/if}
             <div class="felt" aria-hidden="true"></div>
             {#if view !== null}
-                <ResultCard {view} />
+                <ResultCard {view} counts={declared?.ordinal === countedOrdinal} />
             {/if}
             {#if inPlay !== null}
                 <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} {playedThisHand} />

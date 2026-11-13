@@ -5,7 +5,8 @@
 
     import type { Suit } from "../../routes/(start)/tables.ts";
 
-    let { view }: { view: ResultView } = $props();
+    // A card that counts is one that appeared while the page watched; each won gain on it counts up to its value.
+    let { view, counts = false }: { view: ResultView; counts?: boolean } = $props();
 </script>
 
 {#snippet suitMark(suit: Suit)}
@@ -139,10 +140,16 @@
     {/if}
     <div class="coasters">
         {#each view.rows as row (row.seat)}
+            {@const counting = counts && row.gain > 0}
             <div class="reck" class:win={row.won} data-seat={row.seat}>
                 <span class="dot" aria-hidden="true">{row.initial}</span>
                 <span class="nm">{row.name ?? words["result.seatFree"]}</span>
-                <span class="dl" class:minus={row.gain <= 0}>{row.gainText}</span>
+                <span
+                    class="dl"
+                    class:minus={row.gain <= 0}
+                    class:count={counting}
+                    style:--to={counting ? row.gain : undefined}>{row.gainText}</span
+                >
             </div>
         {/each}
     </div>

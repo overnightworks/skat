@@ -159,6 +159,14 @@ export function declaredResult(table: Table): Result | null {
     return table.result?.kind === "declared" ? table.result : null;
 }
 
+// The ordinal of the declared result that the update brings to a page that watches; a page that opens later or
+// reconnects sees the result as it stands, so it has none.
+export function resultJustAppeared(previous: Table | undefined, next: Table): number | null {
+    const result = declaredResult(next);
+    if (previous === undefined || next.version <= previous.version || result === null) return null;
+    return previous.result?.ordinal === result.ordinal ? null : result.ordinal;
+}
+
 // The card reads only what the server counted: the sides, the ticks and the glow follow its answer.
 export function resultView(table: Table): ResultView {
     const result = declaredResult(table) as Result;
