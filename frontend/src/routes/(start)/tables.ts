@@ -153,6 +153,8 @@ export type Result = {
     declarer_points: number;
     opponents_points: number;
     gains: SeatGain[];
+    // What the Bock rounds multiplied the list score by; 1 outside a Bock game.
+    bock_factor: number;
     // The last word said and the factor it doubled the score by; null when no word was said.
     kontra: { word: Word; factor: number } | null;
 };
@@ -163,6 +165,9 @@ export type EndReason = (typeof END_REASON_TOKENS)[number];
 export type Ended =
     | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null }
     | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number };
+// The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
+// by; the same for every viewer. A table without Bock has none.
+export type Bock = { games_left: number; factor: number };
 export type Table = {
     id: string;
     version: number;
@@ -171,6 +176,7 @@ export type Table = {
     hand: Hand | null;
     result: Result | RamschResult | null;
     passed_in: PassedIn | null;
+    bock: Bock | null;
     ended: Ended | null;
 };
 // A chair that was taken: `holder` is who sits there now.

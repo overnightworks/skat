@@ -225,6 +225,13 @@ def test_an_ended_table_reads_as_a_tombstone_and_is_no_live_table_and_no_chair_i
     assert isinstance(stored(transactions, ended.value), EndedTable)
 
 
+def test_the_start_locks_the_live_tables_in_id_order_as_every_other_step_that_locks_several_does(service, transactions):
+    opened = [undealt_table(service, str(number)) for number in range(8)]
+
+    with transactions.begin() as transaction:
+        assert [wait.table_id for wait in transaction.live_empty_since()] == sorted(opened, key=lambda each: each.value)
+
+
 def test_a_create_retry_under_an_ended_tables_command_id_returns_it_and_makes_no_table(service, transactions, engine):
     ended = undealt_table(service, "one")
     end(service, ended)

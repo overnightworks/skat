@@ -19,6 +19,10 @@ def loosely(*parts: str) -> re.Pattern[str]:
     return re.compile(r"^\s*" + r"\s*".join(re.escape(part) for part in parts) + r"\s*$")
 
 
+def signed(number: int) -> str:
+    return f"{MINUS}{-number}" if number < 0 else f"+{number}"
+
+
 def expect_the_page_around_the_card(people: list[Page]) -> None:
     for person in people:
         expect(person.locator(".card-face")).to_have_count(0)
