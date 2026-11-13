@@ -137,6 +137,7 @@ export type Words = {
     readonly "closed.unplayedDays": (count: number) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
+    readonly "push.takeSkat": string;
     readonly "declare.putBack": string;
     readonly "declare.announceGame": string;
     readonly "declare.hand": string;
@@ -421,6 +422,7 @@ export const words: Words = {
     })[pluralRules.select(count)],
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
+    "push.takeSkat": "Skat nehmen",
     "declare.putBack": "Drücken",
     "declare.announceGame": "Ansagen",
     "declare.hand": "Hand",

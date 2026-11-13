@@ -12,6 +12,9 @@ import {
     TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_PUSHING_PUSH_SUFFIX,
+    TABLE_PUSHING_PUT_BACK_SUFFIX,
+    TABLE_PUSHING_TAKE_SUFFIX,
     TABLE_READY_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -40,6 +43,7 @@ import {
     standUp,
     tablePath,
     takeDeclaringStep,
+    takePushingStep,
     takeAuctionStep,
     type Chair,
     type Game,
@@ -408,6 +412,42 @@ describe("asking for a table", () => {
             answerWith(Response.json(table));
 
             expect(await takeDeclaringStep(TABLE_ID, 7, "command-3", step)).toEqual({ kind: "table", table });
+
+            const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+            expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+            expect(JSON.parse((init as { body: string }).body)).toEqual({
+                command_id: "command-3",
+                version: 7,
+                ...body,
+            });
+        },
+    );
+
+    it.each([
+        { step: { action: "take" } as const, suffix: TABLE_PUSHING_TAKE_SUFFIX, body: {} },
+        {
+            step: {
+                action: "put_back",
+                cards: [
+                    { suit: "karo", rank: "seven" },
+                    { suit: "herz", rank: "ace" },
+                ],
+            } as const,
+            suffix: TABLE_PUSHING_PUT_BACK_SUFFIX,
+            body: {
+                cards: [
+                    { suit: "karo", rank: "seven" },
+                    { suit: "herz", rank: "ace" },
+                ],
+            },
+        },
+        { step: { action: "push" } as const, suffix: TABLE_PUSHING_PUSH_SUFFIX, body: {} },
+    ])(
+        "sends the shown version and a command id with the pushing step $step.action to its own path",
+        async ({ step, suffix, body }) => {
+            answerWith(Response.json(table));
+
+            expect(await takePushingStep(TABLE_ID, 7, "command-3", step)).toEqual({ kind: "table", table });
 
             const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
             expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
