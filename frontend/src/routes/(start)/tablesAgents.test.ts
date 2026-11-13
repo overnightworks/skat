@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import {
@@ -11,8 +12,6 @@ import {
     type AgentsControl,
 } from "./agents.ts";
 import { agentSitsNote, seatedAgentsKey, type Chair, type Table } from "./tables.ts";
-
-const TABLE_ID = "a".repeat(32);
 
 const nova = (state: "available" | "inviting" | "here" | "ended", ends = 120): AgentRow =>
     state === "ended"

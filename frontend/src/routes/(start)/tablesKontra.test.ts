@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { TABLE_KONTRA_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import { sayKontra } from "./tables.ts";
-
-const TABLE_ID = "a".repeat(32);
 
 describe("saying a word at the table", () => {
     const table = {
