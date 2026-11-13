@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Protocol
 
-from skat.table.records import RuleSetId, TableOptions
+from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
+from skat.engine.schieberamsch import GrandHandRule, PushingRule
+from skat.table.records import RamschOccasion, RamschSetting, RuleSetId, TableOptions
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -13,6 +17,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "RULE_SET_NAME_MAX",
+    "SWITCH_ON_OPTIONS",
     "DuplicateRuleSetError",
     "RuleSet",
     "RuleSetRefusal",
@@ -25,6 +30,23 @@ __all__ = [
 ]
 
 RULE_SET_NAME_MAX: Final = 40
+
+# The values a rule starts with when it is switched on where the picked set does not hold it: the operator's own
+# play, the values of his set „Felix“, with every rule on and the running points off.
+SWITCH_ON_OPTIONS: Final = TableOptions(
+    show_running_points=False,
+    kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD),
+    bock=BockOptions(
+        frozenset({BockTrigger.SIXTY_SIXTY, BockTrigger.WON_GRAND_HAND, BockTrigger.LOST_AFTER_KONTRA, BockTrigger.RE}),
+        BockOverlap.APPEND,
+    ),
+    ramsch=RamschSetting(
+        RamschOccasion.PASSED_IN,
+        RamschOptions(RamschScoring.POINTS, JungfrauRule.DOUBLES_LOSER, DurchmarschRule.WINS_120),
+        PushingRule.JACKS_STAY,
+        GrandHandRule.OFF,
+    ),
+)
 
 
 class RuleSetRefusal(StrEnum):

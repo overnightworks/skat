@@ -96,12 +96,13 @@ body {
     margin-top: auto;
 }
 
+/* The legal links stand at z-index 1 after this block in the page's order, so the block's stacking level, which holds the opening sheet, is 2: a tall sheet covers them. */
 .with-tables .start-main {
     --fade: rgba(14, 9, 7, 0.97);
 
     position: sticky;
     bottom: 0;
-    z-index: 1;
+    z-index: 2;
     order: 2;
     display: flex;
     flex: none;
@@ -532,6 +533,7 @@ body {
     gap: 16px;
     box-sizing: border-box;
     width: min(354px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
     padding: 20px 16px 16px;
     border-radius: 24px;
     color: var(--on-stage);
@@ -4848,7 +4850,40 @@ body {
     }
 }
 
-/* The rules part of the opening sheet: one row with a switch, off until switched on. */
+/* The rules part of the opening sheet: one unit per rule, a row with a switch that unfolds into its variants once switched on. */
+.sheet .rules {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.sheet .unit {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.14);
+}
+
+/* Schieberamsch hangs beneath its Ramsch. */
+.sheet .unit.sub {
+    margin-left: 26px;
+}
+
+.sheet .unit.sub::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: -9px;
+    width: 10px;
+    height: 35px;
+    border-left: 1.5px solid rgba(240, 214, 150, 0.32);
+    border-bottom: 1.5px solid rgba(240, 214, 150, 0.32);
+    border-radius: 0 0 0 8px;
+}
+
 .sheet .rule {
     display: flex;
     align-items: center;
@@ -4860,11 +4895,24 @@ body {
     border: 0;
     border-radius: 16px;
     color: inherit;
-    background: rgba(255, 255, 255, 0.07);
-    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.14);
+    background: none;
     font: inherit;
     text-align: left;
     cursor: pointer;
+}
+
+.sheet .unit.sub .rule {
+    min-height: 46px;
+}
+
+.sheet .unit.sub .rule .ic {
+    width: 30px;
+    height: 30px;
+}
+
+.sheet .unit.sub .rule .ic svg {
+    width: 17px;
+    height: 17px;
 }
 
 .sheet .rule:disabled {
@@ -4945,19 +4993,226 @@ body {
     display: none;
     width: 13px;
     height: 13px;
+    stroke-width: 2.8;
 }
 
-.sheet .rule.on .sw {
+.sheet .on .sw {
     background: #7aa7f0;
     box-shadow: none;
 }
 
-.sheet .rule.on .sw i {
+.sheet .on .sw i {
     left: 23px;
 }
 
-.sheet .rule.on .sw i svg {
+.sheet .on .sw i svg {
     display: block;
+}
+
+/* The questions a rule switched on asks: one short question per line, its answers pills, the picked one filled. */
+.sheet .vars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 2px 12px 12px;
+}
+
+.sheet .ask {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.sheet .ask .q {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--on-stage-soft);
+}
+
+.sheet .pick {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 6px;
+}
+
+/* A pill is a label around a radio button that covers it, so a tap, the arrow keys and Space all reach the native control. */
+.sheet .pk,
+.sheet .set {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-sizing: border-box;
+    color: var(--on-stage);
+    background: var(--glass);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.22);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.sheet .pk input,
+.sheet .set input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+}
+
+.sheet .pk:has(input:focus-visible),
+.sheet .set:has(input:focus-visible),
+.sheet .flag:focus-visible {
+    outline: 2px solid #7aa7f0;
+    outline-offset: 2px;
+}
+
+.sheet .pk {
+    min-height: 40px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 13px;
+    line-height: 1.15;
+    text-align: center;
+}
+
+.sheet .pk svg,
+.sheet .set svg {
+    flex: none;
+    stroke-width: 2.8;
+}
+
+.sheet .pk svg {
+    width: 14px;
+    height: 14px;
+}
+
+.sheet .set svg {
+    width: 16px;
+    height: 16px;
+}
+
+.sheet .pk.on,
+.sheet .set.on {
+    color: #0c0e11;
+    background: #7aa7f0;
+    box-shadow: none;
+}
+
+.sheet .flags {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sheet .flag {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: 0 10px 0 12px;
+    border: 0;
+    border-radius: 12px;
+    color: inherit;
+    background: rgba(0, 0, 0, 0.22);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sheet .flag > span:first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.sheet .sw.sm {
+    width: 40px;
+    height: 24px;
+}
+
+.sheet .sw.sm i {
+    width: 18px;
+    height: 18px;
+}
+
+.sheet .on .sw.sm i {
+    left: 19px;
+}
+
+.sheet .sw.sm i svg {
+    width: 11px;
+    height: 11px;
+}
+
+/* The rule sets above the rules: the official rules first, then the person's own sets. */
+.sheet .sets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.sheet .set {
+    flex: 1 1 96px;
+    min-width: 0;
+    height: 44px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sheet > p {
+    font-size: 13px;
+}
+
+/* Only the rules scroll, under the title, the length and the sets; a fade shows more above or below, and the buttons stay in reach. */
+.sheet .sheet-body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 1 auto;
+    box-sizing: border-box;
+    min-height: 0;
+    width: calc(100% + 48px);
+    margin: -24px;
+    padding: 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+}
+
+.sheet .sheet-body.up,
+.sheet .sheet-body.down {
+    clip-path: inset(16px -24px);
+}
+
+.sheet .sheet-body.down {
+    mask-image: linear-gradient(#000 calc(100% - 40px), transparent);
+}
+
+.sheet .sheet-body.up {
+    mask-image: linear-gradient(transparent, #000 40px);
+}
+
+.sheet .sheet-body.up.down {
+    mask-image: linear-gradient(transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
+.sheet > .stepper,
+.sheet > .sets,
+.sheet > .btns {
+    flex: none;
 }
 
 /* The table's rules: the chips on the felt and the read-only sheet behind them. On a phone the chips take a row of their own under the top row (the bar wraps); from 900 px they stand centred in it. */
