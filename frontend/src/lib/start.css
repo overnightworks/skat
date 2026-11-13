@@ -3325,7 +3325,7 @@ body {
     cursor: pointer;
 }
 
-.room .tile.free::before {
+.room .tile:is(.free, .locked)::before {
     content: "";
     position: absolute;
     inset: 4px;
@@ -4219,11 +4219,7 @@ body {
 }
 
 .room .tile.locked::before {
-    content: "";
-    position: absolute;
-    inset: 4px;
-    border-radius: inherit;
-    border: 2px dashed rgba(244, 246, 248, 0.2);
+    border-color: rgba(244, 246, 248, 0.2);
 }
 
 .room .tile.locked svg {
