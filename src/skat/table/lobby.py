@@ -93,7 +93,7 @@ def my_tables(
             if not isinstance(table, TableRecord):
                 continue
             present = present_at(table, connected_by_table.get(table_id.value, frozenset()), live_leases)
-            member = member_view_of(table, account_id, present)
+            member = member_view_of(table, account_id, present, transaction.opener_account(table_id))
             if member is not None:
                 entries.append(_entry_of(table, member, present, transaction.paused_facts(table_id), days))
     return tuple(sorted(entries, key=_order_of))

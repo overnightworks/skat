@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
+from skat.table.ending import decide_close
+from skat.table.records import Actor, Refusal
 from skat.table.rules import ends_unplayed, unplayed_end
 from tests.support.played_game import declared_herz_hand, table_in
 
@@ -50,3 +52,21 @@ class TestTheEndInstant:
 
         assert unplayed_end(in_vienna, DAYS).utcoffset() == timedelta(0)
         assert unplayed_end(in_vienna, DAYS) == LINE
+
+
+class TestOnlyTheOpenerCloses:
+    OPENER = Actor(account_id="account-opener", display_name="Anna")
+
+    @pytest.mark.parametrize(
+        ("actor", "refusal"),
+        [
+            pytest.param(OPENER, None, id="the-opener"),
+            pytest.param(Actor("account-seated", "Ben"), Refusal.NOT_ALLOWED, id="a-seated-person"),
+            pytest.param(Actor("account-watcher", "Cleo"), Refusal.NOT_ALLOWED, id="a-watcher"),
+        ],
+    )
+    def test_refuses_everyone_but_the_account_that_opened_the_table(self, actor, refusal):
+        assert decide_close(self.OPENER.account_id, actor) is refusal
+
+    def test_refuses_everyone_for_a_table_with_no_known_opener(self):
+        assert decide_close(None, self.OPENER) is Refusal.NOT_ALLOWED

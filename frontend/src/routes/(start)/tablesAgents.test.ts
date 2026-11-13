@@ -485,6 +485,7 @@ describe("the agent that sat down", () => {
         version: 1,
         chairs,
         watchers: 0,
+        opened_by_me: false,
         hand: null,
         result: null,
         passed_in: null,

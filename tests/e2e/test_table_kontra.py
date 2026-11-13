@@ -115,11 +115,11 @@ def expect_nothing_to_overflow(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size
     assert viewport is not None
-    for part in person.locator(f"{KEY}, {STAMP}").all():
+    for part in person.locator(f"{KEY}, {STAMP}, .actions > *").all():
         box = part.bounding_box()
         assert box is not None
-        assert box["x"] >= 0
-        assert box["x"] + box["width"] <= viewport["width"]
+        assert box["x"] >= 0, box
+        assert box["x"] + box["width"] <= viewport["width"], box
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -168,7 +168,8 @@ def test_aufgeben_goes_round_on_a_phone_while_kontra_is_offered_and_the_strip_st
     for person in (offered, none):
         keys = person.locator(".actions > .copy, .actions .pill-anchor")
         assert keys.evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
-    expect_nothing_to_overflow(offered)
+    for person in table.everyone:
+        expect_nothing_to_overflow(person)
     assert page_errors == []
 
 
