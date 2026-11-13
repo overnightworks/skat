@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
-from skat.table.ending import close_table, end_unplayed_table, members_of, unplayed_tables
+from skat.table.ending import close_table, end_unplayed_table, members_of, table_with_opener, unplayed_tables
 from skat.table.game_list import series_list_view_of
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
 from skat.table.lobby import my_tables, paused_tables
@@ -753,12 +753,7 @@ class TableService:
             return transaction.table(identifier)
 
     def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
-        identifier = TableId.parse(table_id)
-        if identifier is None:
-            return None
-        with self._transactions.begin() as transaction:
-            table = transaction.table(identifier)
-            opener = transaction.opener_account(identifier)
+        table, opener = table_with_opener(self._transactions, table_id)
         if table is None:
             return None
         present = (
@@ -777,10 +772,11 @@ class TableService:
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None
         for any other account, an ended table and a table that is not there.
         """
-        table = self._table_read(table_id)
+        table, opener = table_with_opener(self._transactions, table_id)
         if not isinstance(table, TableRecord):
             return None
-        return member_view_of(table, account_id, present_at(table, connected_accounts, self._live_leases()))
+        present = present_at(table, connected_accounts, self._live_leases())
+        return member_view_of(table, account_id, present, opener)
 
     def agent_in_chair(self, table_id: str, seat: int) -> str | None:
         """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,

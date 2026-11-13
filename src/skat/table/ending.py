@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
 
-    from skat.table.records import Replay
+    from skat.table.records import EndedTable, Replay
     from skat.table.transactions import TableTransaction, TableTransactions
 
 __all__ = [
@@ -23,6 +23,7 @@ __all__ = [
     "decide_close",
     "end_unplayed_table",
     "members_of",
+    "table_with_opener",
     "unplayed_tables",
 ]
 
@@ -88,6 +89,19 @@ def close_table(
         ended = transaction.table(identifier)
     assert ended is not None  # noqa: S101 - narrows the type; the table this transaction ended is there as a tombstone
     return Closed(CommandResult(view_of(ended, actor.account_id, frozenset())), members)
+
+
+def table_with_opener(
+    transactions: TableTransactions, table_id: str
+) -> tuple[TableRecord | EndedTable | None, str | None]:
+    """The table with the id and the account that opened it, an unlocked read; (None, None) for an id that names no
+    table.
+    """
+    identifier = TableId.parse(table_id)
+    if identifier is None:
+        return None, None
+    with transactions.begin() as transaction:
+        return transaction.table(identifier), transaction.opener_account(identifier)
 
 
 def unplayed_tables(transactions: TableTransactions, days: int, now: datetime) -> tuple[TableId, ...]:
