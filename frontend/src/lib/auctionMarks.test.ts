@@ -414,6 +414,7 @@ describe("the marks while a chair of the running hand is open", () => {
         })),
         watchers: 0,
         passed_in: null,
+        options: null,
         bock: null,
         ended: null,
         result: null,
