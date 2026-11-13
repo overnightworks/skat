@@ -47,6 +47,27 @@ OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
 
+# The agents' list keeps this far from either edge of the screen, in pixels.
+EDGE_MARGIN = 16
+FRAMES_AFTER_THE_CARD = 90
+# Every frame from now on, the open list's distance to each edge of the screen the person's device has (not of the
+# layout width a widened page reports); after the card stands, `framesAfterTheCard` counts the frames.
+WATCH_THE_OPEN_LIST = """
+    ([screenWidth, margin]) => {
+        window.listOutside = [];
+        window.framesAfterTheCard = 0;
+        const watch = () => {
+            const list = document.querySelector(".agents-pop")?.getBoundingClientRect();
+            if (list !== undefined && (list.left < margin - 0.5 || list.right > screenWidth - margin + 0.5)) {
+                window.listOutside.push([list.left, list.right, innerWidth]);
+            }
+            if (document.querySelector(".result") !== null) window.framesAfterTheCard += 1;
+            requestAnimationFrame(watch);
+        };
+        requestAnimationFrame(watch);
+    }
+"""
+
 PILL_HEIGHTS = (
     "bar => [...bar.children].filter(child => !child.matches('.link'))"
     ".map(child => child.getBoundingClientRect().height)"
@@ -275,6 +296,39 @@ def test_the_result_bar_stays_inside_the_page_with_the_agents_pill(
     for person in table.everyone:
         expect(person.locator(".actions").get_by_role("button", name=AGENTS_PILL)).to_be_visible()
     expect_the_bars_inside_the_pages(table)
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_list_left_open_stays_inside_the_margin_as_the_result_slides_in_and_the_bar_keeps_clear(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(
+        open_person, e2e_server, member_of, page_errors, {**form_factor, "groups": (AGENT_ADDERS_GROUP,)}
+    )
+    person = table.pages[table.declarer_seat]
+    person.get_by_role("button", name=AGENTS_PILL).click()
+    expect(person.locator(".agents-pop")).to_be_visible()
+    person.evaluate(WATCH_THE_OPEN_LIST, [form_factor["viewport"]["width"], EDGE_MARGIN])
+
+    table.play_out(CARDS_IN_A_GAME)
+    expect(person.locator(CARD)).to_have_count(1)
+    person.wait_for_function("frames => window.framesAfterTheCard >= frames", arg=FRAMES_AFTER_THE_CARD)
+
+    assert person.evaluate("window.listOutside") == []
+    expect(person.locator(".agents-pop")).to_be_visible()
+    bar = person.locator(".actions").bounding_box()
+    card = person.locator(CARD).bounding_box()
+    assert bar is not None
+    assert card is not None
+    assert bar["y"] >= card["y"] + card["height"]
+    assert person.locator(OWN_HAND_CARD).count() == 0 or bar["y"] >= max(
+        box["y"] + box["height"] for box in map(Locator.bounding_box, person.locator(OWN_HAND_CARD).all()) if box
+    )
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
