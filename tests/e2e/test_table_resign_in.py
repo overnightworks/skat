@@ -1,20 +1,26 @@
+import json
 import re
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from playwright.sync_api import Page, Route, expect
+from webauth.admission import AppRole
+from webauth.ports import AccountKind
 
 from skat.web.constants import AUTH_START_PATH, LOGIN_PATH, SIGNED_IN_AGAIN_QUERY_NAME
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.people import DESKTOP, PHONE
+from tests.e2e.support.raw_http import RawSession
+from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.sessions import end_sessions_of
 from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.support.signed_in import seed_member
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from tests.e2e.support.server import RunningServer
 
@@ -24,6 +30,17 @@ WIDTHS = [pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
+# No heartbeat of this module's server comes within a test, so a refusal that arrives came from a wake.
+ONE_HOUR_SECONDS = 3600
+# A stream that a wake ends does so within moments.
+WOKEN_STREAM_ENDS_SECONDS = 5
+
+
+@pytest.fixture(scope="module")
+def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """Skat whose streams beat once an hour, so that only a wake can end a stream of an ended session."""
+    with skat_on_new_database(tmp_path_factory, heartbeat_seconds=ONE_HOUR_SECONDS) as server:
+        yield server
 
 
 def watching_signed_in_at_the_issuer(
@@ -80,6 +97,8 @@ def test_a_second_refusal_soon_after_the_sign_in_shows_the_sign_in_page_instead_
     expect(ben.locator(".chair[data-seat='1'] .plate")).to_have_text("anna")
     assert len(sign_in_starts) == 1
     ben.evaluate("window.sameDocument = true")
+    # The count is the stream's own view, so ben's second stream has delivered before his session ends.
+    expect(ben.locator(".watchers span")).to_have_text("2")
 
     end_sessions_of(e2e_server, "ben")
     cleo.close()
@@ -87,6 +106,33 @@ def test_a_second_refusal_soon_after_the_sign_in_shows_the_sign_in_page_instead_
     expect(ben).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
     expect(ben.get_by_role("link", name="Log in", exact=True)).to_be_visible()
     assert len(sign_in_starts) == 1
+
+
+def test_a_stream_of_an_ended_session_ends_when_another_viewer_leaves(e2e_server: RunningServer) -> None:
+    accounts = {
+        name: e2e_server.stores.accounts.create_for_subject(
+            f"subject-{name}", name, role=AppRole.USER, kind=AccountKind.PERSON
+        )
+        for name in ("raw-ben", "raw-cleo")
+    }
+    ben, cleo = (
+        RawSession(e2e_server, seed_member(e2e_server.stores, e2e_server.config, account=account))
+        for account in accounts.values()
+    )
+    created = json.loads(ben.post(TABLES_PATH, {"command_id": "resign-in-raw-create-0001", "series_length": 36}))
+    events = f"{TABLES_PATH}/{created['id']}{TABLE_EVENTS_SUFFIX}"
+    bens_stream, cleos_stream = ben.open_stream(events), cleo.open_stream(events)
+    try:
+        assert bens_stream.first_message()
+        assert cleos_stream.first_message()
+
+        end_sessions_of(e2e_server, "raw-ben")
+        cleos_stream.close()
+
+        assert bens_stream.ends_within(WOKEN_STREAM_ENDS_SECONDS)
+    finally:
+        bens_stream.close()
+        cleos_stream.close()
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

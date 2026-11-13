@@ -205,12 +205,16 @@ def running_skat(
 
 @contextmanager
 def skat_on_new_database(
-    directories: pytest.TempPathFactory, random_source: random.Random | None = None, **settings_changes: float
+    directories: pytest.TempPathFactory,
+    random_source: random.Random | None = None,
+    heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
+    **settings_changes: float,
 ) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake.
 
     `settings_changes` replace server settings, as a test that needs a short chair hold does; `random_source`
-    replaces the source Skat deals from.
+    replaces the source Skat deals from; `heartbeat_seconds` is the streams' idle tick, which a test that proves a
+    wake sets so long that no heartbeat can stand in for it.
     """
     loopback = loopback_sign_in(directories.mktemp("sign-in"))
     settings = loopback.sign_in.settings.model_copy(update=settings_changes)
@@ -218,7 +222,13 @@ def skat_on_new_database(
     with migrated_template() as template, created_database(template) as database_url:
         engine = create_store_engine(database_url)
         try:
-            with running_skat(loopback, directories.mktemp("tls"), engine, random_source=random_source) as server:
+            with running_skat(
+                loopback,
+                directories.mktemp("tls"),
+                engine,
+                random_source=random_source,
+                heartbeat_seconds=heartbeat_seconds,
+            ) as server:
                 yield server
         finally:
             engine.dispose()
