@@ -581,6 +581,7 @@ body {
 /* The question over a page: the circled icon above a centred cream title, as the closed-table card draws it; the glyph shares that card's rule. */
 .sheet.question {
     gap: 16px;
+    width: min(340px, calc(100vw - 24px));
     padding: 22px 20px 18px;
 }
 
