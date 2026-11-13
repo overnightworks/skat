@@ -1,7 +1,7 @@
 <script lang="ts">
     import { deviceReducesMotion } from "#lib/deviceMotion.svelte.ts";
     import { MOTION_SETS } from "#lib/motionSets.ts";
-    import { changeSetting, currentSettings } from "#lib/settings.svelte.ts";
+    import { changeSetting, currentSettings, motionInForce } from "#lib/settings.svelte.ts";
     import { SOUND_SETS } from "#lib/soundSets.ts";
     import { previewSound } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
@@ -73,7 +73,7 @@
                 },
             })),
             picked: settings.motionSet,
-            greyed: reduced && !settings.replayMotion,
+            greyed: motionInForce() === undefined,
             note: reduced ? words["sound.reducedMotionNote"] : undefined,
         },
         ...(reduced
