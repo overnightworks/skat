@@ -1,8 +1,0 @@
-claim_id = "dbc9f9c137ef48a5b3abc66ec12ddf6b"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "a5d27a563990dd91237139a6d149a73faca2b2df"
-branch = "claude/issue-333-s3-11c-on-the-start-page-meine-tische-ev"
-scope = ["README.md", "docs/ARCHITECTURE.md", "docs/mockups/start.html", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/lib/words.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/+page.svelte", "frontend/src/routes/(start)/MyTables.svelte", "frontend/src/routes/(start)/lobby.test.ts", "frontend/src/routes/(start)/lobby.ts", "frontend/vite.config.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/support/people.py", "tests/e2e/support/tables.py", "tests/e2e/support/words.py", "tests/e2e/test_my_tables.py", "tests/e2e/test_start_page.py", "tests/scripts/test_generate_wire.py"]
-opened_commit = "02aaf5bd99af369d8d7b0dd9bf4029df0fb9fc64"
-whole_reason = "The reader, the card's words and the section that draws them are one surface: the helpers and the component prove each other, the generated wire and words files only follow their sources, and the frozen scenes it replaces go in the same change."
