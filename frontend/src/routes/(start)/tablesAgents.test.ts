@@ -508,6 +508,10 @@ describe("the agent that sat down", () => {
                 own_cards: [],
                 skat_count: 2,
                 waiting_seat: 2,
+                ramsch: false,
+                pushing: null,
+                pushes: 0,
+                push_factor: 1,
                 auction: {
                     turn_seat: 1,
                     facing_seat: null,

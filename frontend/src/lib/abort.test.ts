@@ -39,6 +39,10 @@ function tableWith(mine: number, open: number | null, yes: number[] | null): Tab
             waiting_seat: open,
             abort: yes,
             abortable: open !== null,
+            ramsch: false,
+            pushing: null,
+            pushes: 0,
+            push_factor: 1,
             auction: {
                 turn_seat: null,
                 facing_seat: null,

@@ -512,6 +512,7 @@ HAND_KEYS = {
     "waiting_seat",
     "pushing",
     "pushes",
+    "push_factor",
     "abort",
     "abortable",
 }

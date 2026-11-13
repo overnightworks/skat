@@ -42,6 +42,10 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
             waiting_seat: changes.waiting ?? null,
             abort: null,
             abortable: changes.waiting !== undefined,
+            ramsch: changes.ramsch === true,
+            pushing: null,
+            pushes: 0,
+            push_factor: 1,
             auction: {
                 turn_seat: null,
                 facing_seat: null,
