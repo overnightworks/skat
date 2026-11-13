@@ -4727,6 +4727,18 @@ body {
     flex: 0 1 auto;
 }
 
+/* A 360 px phone has no height to spare, so the chips' own row costs it none: the top row gives up the air above and below it, and the plaque sits close under the chips. */
+@media (max-width: 389px) {
+    .room .bar {
+        row-gap: 2px;
+        padding: 4px 14px 0;
+    }
+
+    .room .stage {
+        padding-top: 4px;
+    }
+}
+
 @media (min-width: 900px) {
     .room .rules-slot {
         position: absolute;
