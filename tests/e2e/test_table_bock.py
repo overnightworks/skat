@@ -47,8 +47,15 @@ class BockTable(DeclaringTable):
     overlap = "append"
     other_options: ClassVar[dict[str, Any]] = {}
 
-    def _open_table(self, opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
-        del member_of
+    def _open_table(
+        self,
+        opener: Page,
+        server: RunningServer,
+        member_of: Callable[[Page], SeededMember],
+        *,
+        running_points: bool,
+    ) -> str:
+        del member_of, running_points
         options = {"bock": {"triggers": ["passed-in"], "overlap": self.overlap}, **self.other_options}
         answer = opener.request.post(
             f"{server.base_url}{TABLES_PATH}",
