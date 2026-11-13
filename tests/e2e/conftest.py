@@ -109,6 +109,24 @@ def realm_reusing_refresh_tokens(e2e_server: RunningServer) -> Iterator[None]:
     e2e_server.issuer.reuses_refresh_tokens = False
 
 
+def sign_in(
+    context: BrowserContext, server: RunningServer, username: str | None, groups: tuple[str, ...] | None
+) -> SeededMember:
+    if username is None:
+        account = new_account(server.stores, server.config)
+    else:
+        account = server.stores.accounts.create_for_subject(
+            f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
+        )
+    # With `groups` the session holds a refresh token and the issuer reports them as the person's groups.
+    refresh_token = None if groups is None else server.issuer.refresh_token_for(account.id)
+    if groups is not None:
+        server.issuer.grant_groups(account.id, groups)
+    member = seed_member(server.stores, server.config, account=account, refresh_token=refresh_token)
+    context.add_cookies([playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers])
+    return member
+
+
 @pytest.fixture
 def open_person(
     new_context: Callable[..., BrowserContext],
@@ -151,21 +169,7 @@ def open_person(
         page = context.new_page()
         failure_record.watch(page, username or f"person-{person_number}")
         if signed_in:
-            if username is None:
-                account = new_account(server.stores, server.config)
-            else:
-                account = server.stores.accounts.create_for_subject(
-                    f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
-                )
-            # With `groups` the session holds a refresh token and the issuer reports them as the person's groups.
-            refresh_token = None if groups is None else server.issuer.refresh_token_for(account.id)
-            if groups is not None:
-                server.issuer.grant_groups(account.id, groups)
-            member = seed_member(server.stores, server.config, account=account, refresh_token=refresh_token)
-            context.add_cookies(
-                [playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers]
-            )
-            seeded_members[page] = member
+            seeded_members[page] = sign_in(context, server, username, groups)
         return page
 
     yield open_page
