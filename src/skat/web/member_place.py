@@ -263,19 +263,18 @@ def _pulse_uri(changes: ResourceChanges, issuer: str, accounts: frozenset[str], 
 
 
 def standing_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[str]], None]:
-    """The signal `TableService` tells after a commit that changed whether an agent is a member of a table: the agent
-    is told its standing changed and, as sitting down or leaving changes its tools, that its tool list did.
-    """
+    """The signal `TableService` tells after a commit that changed whether an agent is a member of a table."""
 
     def tell(accounts: frozenset[str]) -> None:
         _pulse_uri(changes, issuer, accounts, STANDING_URI)
-        _pulse(issuer, accounts, changes.tools_changed)
 
     return tell
 
 
 def tools_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[str]], None]:
-    """The signal `TableService` tells after a commit that moved an agent's seat on to another moment."""
+    """The signal `TableService` tells after a commit that changed the tools an agent is offered: it sat down, left or
+    moved its seat on to another moment.
+    """
 
     def tell(accounts: frozenset[str]) -> None:
         _pulse(issuer, accounts, changes.tools_changed)
