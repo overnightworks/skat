@@ -90,7 +90,7 @@
         streamedVersion = table.version;
         seatedAgents = table.chairs
             .filter((chair) => chair.occupant_kind === "agent")
-            .map((chair) => `${chair.seat}:${chair.occupant_name}`)
+            .map((chair) => `${String(chair.seat)}:${chair.occupant_name ?? ""}`)
             .join(",");
         const sitsNote = previous === undefined ? null : agentSitsNote(previous, table);
         if (sitsNote !== null) {
