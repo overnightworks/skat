@@ -230,7 +230,7 @@ class TestDeclaringAGrandHandInstead:
         table.played_out(JUNGFRAU_HAND)
 
         assert said.status_code == 200, said.text
-        assert table.result()["kontra"]["word"] == "kontra"
+        assert table.result()["kontra"]["steps"][-1]["word"] == "kontra"
         assert bock_of(table) == {"games_left": 3, "factor": 2}
 
     def test_nobody_bid_so_a_table_that_lets_only_bidders_say_kontra_has_no_kontra_here(self, skat):

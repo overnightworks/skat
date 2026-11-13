@@ -261,7 +261,9 @@ describe("a Bock game's card", () => {
     });
 
     it("holds the factor in the Kontra row, after the word, when a word was said", () => {
-        const view = resultView(table(2, { ...BOCK_GAME, kontra: { word: "kontra", factor: 2 }, score: 144 }));
+        const view = resultView(
+            table(2, { ...BOCK_GAME, kontra: { steps: [{ word: "kontra", factor: 2 }] }, score: 144 }),
+        );
 
         expect(view.doublings).toEqual(["Kontra ×2", words["bock.factor"]({ factor: "2" })]);
         expect(view.chips.map(({ word }) => word)).not.toContain(words["bock.factor"]({ factor: "2" }));
@@ -342,15 +344,42 @@ describe("the doubling and the list line", () => {
 // Each word said doubles the game's score once more; the list's 50 stays.
 describe("the Kontra words on the card", () => {
     const KONTRA_SCORES = [
-        { word: "kontra", text: "Kontra", factor: 2, steps: ["Kontra ×2"] },
-        { word: "re", text: "Re", factor: 4, steps: ["Kontra ×2", "Re ×4"] },
-        { word: "supra", text: "Supra", factor: 8, steps: ["Kontra ×2", "Re ×4", "Supra ×8"] },
-        { word: "hirsch", text: "Hirsch", factor: 16, steps: ["Kontra ×2", "Re ×4", "Supra ×8", "Hirsch ×16"] },
+        { text: "Kontra", factor: 2, said: [{ word: "kontra", factor: 2 }], steps: ["Kontra ×2"] },
+        {
+            text: "Re",
+            factor: 4,
+            said: [
+                { word: "kontra", factor: 2 },
+                { word: "re", factor: 4 },
+            ],
+            steps: ["Kontra ×2", "Re ×4"],
+        },
+        {
+            text: "Supra",
+            factor: 8,
+            said: [
+                { word: "kontra", factor: 2 },
+                { word: "re", factor: 4 },
+                { word: "supra", factor: 8 },
+            ],
+            steps: ["Kontra ×2", "Re ×4", "Supra ×8"],
+        },
+        {
+            text: "Hirsch",
+            factor: 16,
+            said: [
+                { word: "kontra", factor: 2 },
+                { word: "re", factor: 4 },
+                { word: "supra", factor: 8 },
+                { word: "hirsch", factor: 16 },
+            ],
+            steps: ["Kontra ×2", "Re ×4", "Supra ×8", "Hirsch ×16"],
+        },
     ] as const;
 
     it.each(KONTRA_SCORES)("draws a won game after $text as steps that multiply to its score", (said) => {
         const view = resultView(
-            table(2, { kontra: { word: said.word, factor: said.factor }, score: 36 * said.factor, list_bonus: 50 }),
+            table(2, { kontra: { steps: [...said.said] }, score: 36 * said.factor, list_bonus: 50 }),
         );
         const drawn = view.doublings.map((chip) => Number(chip.split("×")[1]));
 
@@ -364,7 +393,7 @@ describe("the Kontra words on the card", () => {
         const view = resultView(
             table(2, {
                 ...LOST_GAME,
-                kontra: { word: said.word, factor: said.factor },
+                kontra: { steps: [...said.said] },
                 score: -72 * said.factor,
             }),
         );
@@ -376,14 +405,27 @@ describe("the Kontra words on the card", () => {
     });
 
     it.each(KONTRA_SCORES)("names $text in the list line's game step", (said) => {
-        const view = resultView(
-            table(2, { kontra: { word: said.word, factor: said.factor }, score: 36 * said.factor }),
-        );
+        const view = resultView(table(2, { kontra: { steps: [...said.said] }, score: 36 * said.factor }));
 
         expect(view.list.steps[0]).toBe(
             words["result.listGameWord"]({ word: said.text, score: `+${String(36 * said.factor)}` }),
         );
         expect(view.snug).toBe(true);
+    });
+
+    it("holds each word with the factor the answer gives it", () => {
+        const view = resultView(
+            table(2, {
+                kontra: {
+                    steps: [
+                        { word: "kontra", factor: 3 },
+                        { word: "re", factor: 5 },
+                    ],
+                },
+            }),
+        );
+
+        expect(view.doublings).toEqual(["Kontra ×3", "Re ×5"]);
     });
 
     it("leaves a game nobody doubled as it was", () => {

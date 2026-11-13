@@ -452,7 +452,7 @@ class TestTheDeclarerAccepts:
 
         result = accepted_end(kontra_table)
 
-        assert (result["kontra"]["word"], result["score"]) == ("kontra", 60)
+        assert (result["kontra"]["steps"][-1]["word"], result["score"]) == ("kontra", 60)
 
     def test_all_three_tapping_weiter_deal_the_next_hand(self, server):
         table = Table(server)

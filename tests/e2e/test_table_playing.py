@@ -26,6 +26,7 @@ LIFTED_CARD = f"{HAND_CARD}.touch"
 DIMMED_CARD = f"{HAND_CARD}.no"
 PLAYABLE_CARD = f"{HAND_CARD} button"
 FELT_CARD = ".trick .laid"
+CARD_SLOT = ".trick .lead-slot"
 CARDS_IN_A_HAND = 10
 CARDS_IN_A_TRICK = 3
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
@@ -128,8 +129,10 @@ def lead_after_moving_the_lift(table: PlayingTable, posts: dict[int, list[str]])
     forehand = table.pages[forehand_seat]
     expect(forehand.locator(LEGAL_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(forehand.locator(DIMMED_CARD)).to_have_count(0)
+    expect(forehand.locator(CARD_SLOT)).to_have_count(1)
     for seat, person in table.pages.items():
         if seat != forehand_seat:
+            expect(person.locator(CARD_SLOT)).to_have_count(0)
             expect(person.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
             expect(person.locator(PLAYABLE_CARD)).to_have_count(0)
             tap(person.locator(HAND_CARD).first)
@@ -147,6 +150,7 @@ def lead_after_moving_the_lift(table: PlayingTable, posts: dict[int, list[str]])
 
     tap(card_in_hand(forehand, lead))
     expect_on_the_felt(table, [(forehand_seat, lead)])
+    expect(forehand.locator(CARD_SLOT)).to_have_count(0)
     assert len(posts[forehand_seat]) == 1
     return lead
 
@@ -158,6 +162,7 @@ def follow_by_a_double_tap(table: PlayingTable, posts: dict[int, list[str]]) -> 
     legal = table.legal_cards(middlehand_seat)
     held = set(table.own_cards(middlehand_seat))
     assert set() < legal < held
+    expect(middlehand.locator(CARD_SLOT)).to_have_count(1)
     expect(middlehand.locator(LEGAL_CARD)).to_have_count(len(legal))
     assert faces_of(middlehand.locator(LEGAL_CARD)) == legal
     assert faces_of(middlehand.locator(DIMMED_CARD)) == held - legal

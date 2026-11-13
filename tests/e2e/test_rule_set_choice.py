@@ -323,7 +323,8 @@ def test_escape_closes_the_sheet_unless_the_table_is_being_opened(
     expect(sheet).to_be_hidden()
 
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-    person.get_by_role("button", name=OPEN_TABLE).click()
+    with person.expect_request(lambda request: request.method == "POST" and request.url.endswith(TABLES_PATH)):
+        person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_disabled()
     person.keyboard.press("Escape")
     expect(sheet).to_be_visible()

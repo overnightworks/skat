@@ -136,7 +136,7 @@ class TestKontraAndTheRequestAreIndependent:
         assert kontra_of(kontra_table)["factor"] == 2
         assert request_of(kontra_table, kontra_table.watcher) == ASKED_BY_THE_DECLARER
         result = agree(kontra_table, REARHAND).json()["result"]
-        assert (result["kontra"]["word"], result["score"], result["list_bonus"]) == ("kontra", -120, -50)
+        assert (result["kontra"]["steps"][-1]["word"], result["score"], result["list_bonus"]) == ("kontra", -120, -50)
         assert [entry.kontra_word for entry in kontra_table.record.game_list] == ["kontra"]
 
     def test_a_word_said_while_the_request_stands_keeps_it_and_the_yes_doubles_by_every_word(self, kontra_table):
@@ -151,7 +151,7 @@ class TestKontraAndTheRequestAreIndependent:
         assert kontra_of(kontra_table)["factor"] == 8
         assert request_of(kontra_table, kontra_table.watcher) == ASKED_BY_THE_DECLARER
         result = agree(kontra_table, REARHAND).json()["result"]
-        assert (result["kontra"]["word"], result["score"]) == ("supra", -480)
+        assert (result["kontra"]["steps"][-1]["word"], result["score"]) == ("supra", -480)
 
 
 class TestTheDeclarerAsks:

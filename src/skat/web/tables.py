@@ -331,9 +331,13 @@ class SeatGainAnswer(BaseModel):
     won: bool
 
 
-class KontraResultAnswer(BaseModel):
+class KontraStepAnswer(BaseModel):
     word: Word
     factor: int
+
+
+class KontraResultAnswer(BaseModel):
+    steps: list[KontraStepAnswer]
 
 
 class ResultAnswer(BaseModel):
@@ -590,7 +594,9 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
         gains=[SeatGainAnswer(seat=gain.seat, gain=gain.gain, won=gain.won) for gain in result.gains],
         kontra=None
         if result.kontra is None
-        else KontraResultAnswer(word=result.kontra.word, factor=result.kontra.factor),
+        else KontraResultAnswer(
+            steps=[KontraStepAnswer(word=step.word, factor=step.factor) for step in result.kontra.steps]
+        ),
         bock_factor=result.bock_factor,
         ending=result.ending,
         ended_by_seat=result.ended_by_seat,
