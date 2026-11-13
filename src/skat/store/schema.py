@@ -221,6 +221,8 @@ tables = Table(
     Column("series_end_accepter", SmallInteger),
     Column("give_up_asked_by", Text),
     Column("give_up_declined_by", Text),
+    Column("abort_yes_seats", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
+    Column("hand_aborted", Boolean, nullable=False, server_default=false()),
     *option_columns("tables"),
     Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
@@ -272,6 +274,13 @@ tables = Table(
         "give_up_declined_by IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_no_comes_with_an_ask"
     ),
     CheckConstraint("give_up_declined_by <> give_up_asked_by", name="tables_give_up_no_comes_from_another_position"),
+    CheckConstraint(
+        "abort_yes_seats <@ ARRAY[1, 2, 3]::smallint[] AND array_position(abort_yes_seats, NULL) IS NULL",
+        name="tables_abort_yes_are_seats",
+    ),
+    CheckConstraint(
+        "NOT hand_aborted OR cardinality(abort_yes_seats) = 0", name="tables_an_aborted_hand_holds_no_proposal"
+    ),
     CheckConstraint(
         f"bock_rounds <@ ARRAY[{BOCK_ROUND_LIST}]::smallint[] AND array_position(bock_rounds, NULL) IS NULL",
         name="tables_bock_rounds_are_rounds_with_games_left",
