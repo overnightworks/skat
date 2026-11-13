@@ -9,7 +9,7 @@ from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.declaring import DEFAULT_JOINERS, DeclaringTable
+from tests.e2e.support.declaring import DEFAULT_JOINERS, TAKE_SKAT, DeclaringTable, button_of
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
@@ -46,6 +46,11 @@ READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
+# Two 25-character account names.
+FULL_LENGTH_NAMES = ("Maximiliane-Bartholomaea1", "Maximiliane-Bartholomaea2")
+# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
+INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
+PICKED_INDEX = 7
 
 PILL_HEIGHTS = (
     "bar => [...bar.children].filter(child => !child.matches('.link'))"
@@ -295,10 +300,10 @@ def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_wait_pill_holds_its_whole_text_with_a_25_character_name(
+def test_the_wait_pill_holds_its_whole_text_with_two_25_character_names_in_the_height_of_the_bar(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
-    table = deal_a_finished_hand(form_factor, joiners=("Maximiliane-Bartholomaea1", "cleo"))
+    table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES)
     bar = table.pages[table.declarer_seat].locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
     pill = bar.get_by_role("status")
@@ -308,6 +313,9 @@ def test_the_wait_pill_holds_its_whole_text_with_a_25_character_name(
     )
     heights = bar.evaluate(PILL_HEIGHTS)
     assert len(set(heights)) == 1
+    link = bar.locator(".copy.link").bounding_box()
+    assert link is not None
+    assert heights[0] <= link["height"]
     expect_the_bars_inside_the_pages(table)
 
 
@@ -376,3 +384,107 @@ def test_the_next_hand_waits_for_an_away_member_who_tapped_until_they_are_back(
     for person in (declarer, other, table.watcher, back):
         expect(person.locator(CARD)).to_have_count(0)
     assert page_errors == []
+
+
+# The pairs of elements whose boxes lie more than a pixel across each other, each named by its selector and chair.
+CROSSINGS = """([firsts, seconds]) => {
+    const name = (element) => {
+        const chair = element.closest('.chair');
+        return `${chair ? `chair ${chair.dataset.seat} ` : ''}${element.className}`;
+    };
+    const crossing = (a, b) =>
+        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+    const found = [];
+    for (const first of document.querySelectorAll(firsts)) {
+        for (const second of document.querySelectorAll(seconds)) {
+            if (first.contains(second) || second.contains(first)) continue;
+            if (crossing(first.getBoundingClientRect(), second.getBoundingClientRect())) {
+                found.push(`${name(first)} over ${name(second)}`);
+            }
+        }
+    }
+    return found;
+}"""
+
+
+def expect_no_crossing(person: Page, firsts: str, seconds: str) -> None:
+    assert person.evaluate(CROSSINGS, [firsts, seconds]) == []
+
+
+@pytest.fixture
+def deal_a_table_of_full_length_names(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> Callable[..., DeclaringTable]:
+    def deal(form_factor: dict[str, Any]) -> DeclaringTable:
+        return DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, joiners=FULL_LENGTH_NAMES)
+
+    return deal
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_laid_name_tags_of_full_length_names_stay_clear_of_each_other_and_of_the_other_cards(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, joiners=FULL_LENGTH_NAMES)
+    for plays, laid in ((2, 2), (1, 3)):
+        table.play_out(plays)
+        for person in table.everyone:
+            expect(person.locator(".trick .laid")).to_have_count(laid)
+            expect_no_crossing(person, ".trick .laid .tag", ".trick .laid .tag")
+            expect_no_crossing(person, ".trick .laid .tag", ".trick .laid")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_card_counts_of_full_length_names_stand_clear_of_the_plates(
+    deal_a_table_of_full_length_names: Callable[..., DeclaringTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_table_of_full_length_names(form_factor)
+    for person in (table.declarer, *table.others, table.watcher):
+        expect(person.locator(".plate")).to_have_count(3)
+        expect_no_crossing(person, ".count-tag", ".plate")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_dealers_pass_mark_stands_clear_of_the_position_label(
+    deal_a_table_of_full_length_names: Callable[..., DeclaringTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_table_of_full_length_names(form_factor)
+    for person in (table.declarer, *table.others, table.watcher):
+        expect(person.locator(".mark.pass").first).to_be_visible()
+        expect_no_crossing(person, ".mark.pass", ".mark.pos")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_away_note_of_the_near_chair_stands_clear_of_the_bar(
+    deal_a_table_of_full_length_names: Callable[..., DeclaringTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_table_of_full_length_names(form_factor)
+    near_seat = max(chair["seat"] for chair in table.chairs())
+    next(person for person in (table.declarer, *table.others) if PlayingTable.seat_of(person) == near_seat).close()
+    expect(table.watcher.locator(f".chair[data-seat='{near_seat}'] .mark.away")).to_have_count(1)
+    expect_no_crossing(table.watcher, ".chair .plate small", ".actions")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_picked_card_lifts_clear_of_the_near_chair_and_the_bar_stays_on_the_screen(
+    deal_a_table_of_full_length_names: Callable[..., DeclaringTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_table_of_full_length_names(form_factor)
+    declarer = table.declarer
+    button_of(declarer, TAKE_SKAT).click()
+    expect(declarer.locator(".own-hand .pick")).to_have_count(CARDS_IN_A_HAND + 2)
+    declarer.locator(".own-hand .pick").nth(PICKED_INDEX).click(position=INSIDE_THE_VISIBLE_STRIP)
+    expect(declarer.locator(".own-hand .pick.picked")).to_have_count(1)
+    expect_no_crossing(declarer, ".own-hand .pick.picked", ".chair.mine .tile")
+    expect_no_crossing(declarer, ".own-hand .pick.picked", ".chair.mine .plate")
+    bar = declarer.locator(".actions").bounding_box()
+    assert bar is not None
+    assert bar["y"] + bar["height"] <= declarer.evaluate("window.innerHeight")

@@ -79,8 +79,7 @@ class DeclaringTable:
         self.watcher = self._person(open_person, "dora", page_errors, form_factor, console)
         watch(self.watcher, server, path)
         self.sessions = {seat: RawSession(server, member_of(person)) for seat, person in people.items()}
-        chairs = json.loads(self.sessions[1].get(self.api_path))["chairs"]
-        seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
+        seat_at = {chair["hand"]["position"]: chair["seat"] for chair in self.chairs()}
         self.declarer_seat = seat_at["middlehand"]
         self.declarer = people[self.declarer_seat]
         self.others = [person for seat, person in people.items() if seat != self.declarer_seat]
@@ -127,6 +126,9 @@ class DeclaringTable:
 
     def declare_through_the_api(self, *, action: str, **fields: object) -> None:
         self.step(self.declarer_seat, DECLARING_STEP_SUFFIXES[action], **fields)
+
+    def chairs(self) -> list[dict[str, Any]]:
+        return json.loads(self.sessions[1].get(self.api_path))["chairs"]
 
     def stored(self) -> TableRecord:
         with PostgresTableTransactions(self.server.engine).begin() as transaction:
