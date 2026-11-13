@@ -132,6 +132,15 @@ def _series_of(table: Row[Any]) -> Series | None:
     )
 
 
+def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
+    occupant = (
+        None
+        if seat.account_id is None
+        else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account)
+    )
+    return Chair(seat.seat, occupant, ready=seat.ready)
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -160,16 +169,7 @@ def _table_record(
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
-        chairs=tuple(
-            Chair(
-                seat.seat,
-                None
-                if seat.account_id is None
-                else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account),
-                ready=seat.ready,
-            )
-            for seat in seats
-        ),
+        chairs=tuple(_chair_of(seat) for seat in seats),
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
         progress=HandProgress(
