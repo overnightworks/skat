@@ -1,12 +1,18 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { AiMark } from "overnightworks-design";
-    import { onMount } from "svelte";
+    import { onMount, type Snippet } from "svelte";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import { words } from "#lib/words.ts";
-    import { cardOf, watchLobby, type Card, type LobbyTable } from "./lobby.ts";
+    import { cardOf, watchLobby, type Card, type ChipKind, type LobbyTable } from "./lobby.ts";
 
     const COUNTDOWN_MILLISECONDS = 1_000;
+    const chipIcons: Record<ChipKind, Snippet> = {
+        turn: turnIcon,
+        ends: endsIcon,
+        seriesOver: trophyIcon,
+        result: trophyIcon,
+    };
 
     // How many tables the list shows, for the page that makes room for it.
     let { listed = $bindable(0) }: { listed: number } = $props();
@@ -47,6 +53,38 @@
         };
     });
 </script>
+
+{#snippet turnIcon()}
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z" /></svg>
+{/snippet}
+
+{#snippet endsIcon()}
+    <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+    >
+        <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+    </svg>
+{/snippet}
+
+{#snippet trophyIcon()}
+    <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+    >
+        <path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 20h8" />
+    </svg>
+{/snippet}
 
 {#if cards.length > 0}
     <section class="my-tables" class:stale={!connected} aria-labelledby="my-tables-heading">
@@ -118,37 +156,7 @@
                             <div class="lobby-chips">
                                 {#each card.chips as chip (chip.kind)}
                                     <span class="chip" class:now={chip.kind === "turn"} class:official={!chip.accent}>
-                                        {#if chip.kind === "turn"}
-                                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
-                                                ><path d="M8 5l11 7-11 7z" /></svg
-                                            >
-                                        {:else if chip.kind === "ends"}
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                aria-hidden="true"
-                                            >
-                                                <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
-                                            </svg>
-                                        {:else}
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2.2"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                aria-hidden="true"
-                                            >
-                                                <path
-                                                    d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 20h8"
-                                                />
-                                            </svg>
-                                        {/if}
+                                        {@render chipIcons[chip.kind]()}
                                         {chip.text}
                                     </span>
                                 {/each}
