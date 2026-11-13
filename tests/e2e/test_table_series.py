@@ -92,7 +92,9 @@ TEXT_BOX_OF = """pill => {
 
 def the_scene_draws_the_wait_pill_in(person: Page) -> str:
     """The type size of the pill in the frozen scene series-next at the person's width, read from the scene itself."""
-    frame = "series-next-1280" if person.viewport_size["width"] >= PHONE_BREAKPOINT else "series-next-390"
+    viewport = person.viewport_size
+    assert viewport is not None
+    frame = "series-next-1280" if viewport["width"] >= PHONE_BREAKPOINT else "series-next-390"
     scene = person.context.new_page()
     try:
         scene.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
