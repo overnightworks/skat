@@ -45,6 +45,7 @@ from skat.web.auction import (  # noqa: E402
 )
 from skat.web.call import CALL_ORIGIN_PATH  # noqa: E402
 from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
+from skat.web.closing import TABLE_CLOSE_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -182,6 +183,7 @@ def path_constants() -> dict[str, str]:
         "TABLE_EVENTS_SUFFIX": TABLE_EVENTS_SUFFIX,
         "TABLE_SIT_SUFFIX": TABLE_SIT_SUFFIX,
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
+        "TABLE_CLOSE_SUFFIX": TABLE_CLOSE_SUFFIX,
         "TABLE_DECLARING_TAKE_SUFFIX": TABLE_DECLARING_TAKE_SUFFIX,
         "TABLE_DECLARING_PUT_BACK_SUFFIX": TABLE_DECLARING_PUT_BACK_SUFFIX,
         "TABLE_DECLARING_DECLARE_SUFFIX": TABLE_DECLARING_DECLARE_SUFFIX,

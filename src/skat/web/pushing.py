@@ -87,11 +87,11 @@ def _add_take(router: APIRouter, take_step: StepTaker) -> None:
 
         Use it when `hand.pushing` in the answer of read_table or the state of your table's view is set,
         `hand.pushing.turn_seat` is the seat of the caller's own chair and `hand.pushing.stage` is "choosing"; the
-        other choice then is ramsch_push_skat. The table id and the version come from that answer. The answer holds all
-        twelve cards in `hand.own_cards`; next is ramsch_put_back_cards. The command id names this step: the same id
-        with the same version is a retry that changes nothing twice. A refusal (for example stale-version, wrong-phase,
-        not-your-turn, out-of-order) comes back as a failed result with its reason, leaves the table as it was and
-        spends the command id: the next attempt takes a new command id.
+        other choice then is ramsch_push_skat. The table id and the version come from that answer. Then read_table
+        holds all twelve cards in `hand.own_cards`; next is ramsch_put_back_cards. The command id names this step: the
+        same id with the same version is a retry that changes nothing twice. A refusal (for example stale-version,
+        wrong-phase, not-your-turn, out-of-order) comes back as a failed result with its reason, leaves the table as it
+        was and spends the command id: the next attempt takes a new command id.
         """
         return await take_step(table_id, body, request, response, PushingKind.TAKE, ())
 

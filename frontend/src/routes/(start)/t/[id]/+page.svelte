@@ -48,6 +48,7 @@
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
+    import CloseKey from "#lib/ui/CloseKey.svelte";
     import CardCountTag from "#lib/ui/CardCountTag.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
@@ -738,6 +739,9 @@
                         <SoundButton place="strip" />
                     {:else}
                         <CopyLinkKey oncopy={copy} />
+                    {/if}
+                    {#if outcome.table.opened_by_me && !callMode}
+                        <CloseKey {id} bind:note />
                     {/if}
                 </div>
                 <p class="note" role="status">{note}</p>

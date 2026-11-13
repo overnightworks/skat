@@ -15,11 +15,14 @@ from skat.table.playing import PlayCardCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
+    CloseTable,
     CreateTable,
     EndedTable,
     Ending,
     EndReason,
     HandProgress,
+    OccupantKind,
+    Refusal,
     SitDown,
     StandUp,
     TableId,
@@ -29,6 +32,7 @@ from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
 from tests.support.fake_tables import FakeTableStore
+from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
@@ -149,7 +153,7 @@ class TestEndEmptyTable:
         assert view.chairs == ()
         assert [view.hand, view.result, view.passed_in] == [None, None, None]
         assert view.watchers == 0
-        assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None)
+        assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None, None)
 
     def test_the_wait_is_stored_with_the_end(self, service, table_id):
         service.end_empty_table(table_id, nullcontext(NOBODY), 7)
@@ -193,7 +197,7 @@ class TestAtAnEndedTable:
         again = service.create(OPENER, CreateTable(command_id="command-open"))
 
         assert again.id == ended_id.value
-        assert again.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None)
+        assert again.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None, None)
         assert list(store.tables) == [ended_id.value]
 
     @pytest.mark.parametrize(
@@ -416,7 +420,7 @@ class TestEndUnplayedTable:
 
         service.end_unplayed_table(dealt_id, 90, nullcontext(NOBODY))
 
-        assert service.view(OPENER, dealt_id.value, NOBODY).ended == EndedView(EndReason.UNPLAYED, None, 90)
+        assert service.view(OPENER, dealt_id.value, NOBODY).ended == EndedView(EndReason.UNPLAYED, None, 90, None)
 
     def test_a_second_run_changes_nothing(self, service, store, dealt_id):
         last_played(store, dealt_id)
@@ -457,3 +461,111 @@ class TestUnplayedTables:
         last_played(store, recent, days_ago=UNPLAYED_DAYS - 1)
 
         assert service.unplayed_tables(UNPLAYED_DAYS) == (dealt_id,)
+
+
+def close(service, actor, table_id, command_id="command-close"):
+    return service.close(actor, CloseTable(command_id, table_id.value))
+
+
+class TestClose:
+    def test_ends_the_table_with_one_version_bump_and_the_closers_name(self, service, store, table_id):
+        before = store.tables[table_id.value]
+
+        result = close(service, OPENER, table_id)
+
+        assert store.tables[table_id.value] == EndedTable(
+            table_id, before.version + 1, Ending.closed(OPENER.display_name)
+        )
+        assert store.ended_at[table_id.value] == ENDED_AT
+        assert result.refusal is None
+        assert result.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name)
+
+    def test_ends_a_dealt_table_with_its_running_hand(self, service, store, dealt_id):
+        assert store.tables[dealt_id.value].hand is not None
+
+        close(service, OPENER, dealt_id)
+
+        assert store.tables[dealt_id.value].ending == Ending.closed(OPENER.display_name)
+        assert dealt_id.value not in store.last_played_at
+
+    def test_keeps_the_create_receipt_and_the_close_receipt_and_deletes_the_others(self, service, store, dealt_id):
+        close(service, OPENER, dealt_id)
+
+        assert sorted(receipt.command for receipt in store.receipts.values()) == ["close-table", CREATE_TABLE_COMMAND]
+
+    def test_a_retry_with_the_same_command_id_answers_the_ended_view_and_changes_nothing(
+        self, service, store, table_id
+    ):
+        close(service, OPENER, table_id)
+        written = (dict(store.tables), dict(store.receipts))
+
+        again = close(service, OPENER, table_id)
+
+        assert again.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name)
+        assert written == (store.tables, store.receipts)
+
+    def test_the_command_id_is_refused_for_another_table(self, service, table_id):
+        other = TableId(service.create(OPENER, CreateTable(command_id="command-other")).id)
+        close(service, OPENER, table_id)
+
+        with pytest.raises(CommandIdReusedError):
+            close(service, OPENER, other)
+
+    def test_refuses_a_seated_person_who_did_not_open_the_table_and_writes_no_receipt(self, service, store, dealt_id):
+        written = (dict(store.tables), dict(store.receipts))
+
+        result = close(service, VISITOR, dealt_id)
+
+        assert result.refusal is Refusal.NOT_ALLOWED
+        assert written == (store.tables, store.receipts)
+
+    def test_the_command_id_is_refused_for_another_table_when_a_rival_close_commits_between_lookup_and_receipt(
+        self, store, service, table_id
+    ):
+        other = TableId(service.create(OPENER, CreateTable(command_id="command-other")).id)
+        close(service, OPENER, table_id)
+        blind = TableService(FaultyTableTransactions(store, blind_first_replay=True), now=lambda: ENDED_AT)
+
+        with pytest.raises(CommandIdReusedError):
+            close(blind, OPENER, other)
+
+        assert isinstance(store.tables[other.value], TableRecord)
+
+    def test_refuses_a_watcher_who_sits_nowhere(self, service, store, table_id):
+        stranger = Actor(account_id="account-stranger", display_name="Dora")
+
+        assert close(service, stranger, table_id).refusal is Refusal.NOT_ALLOWED
+        assert isinstance(store.tables[table_id.value], TableRecord)
+
+    def test_finds_no_table_for_an_unknown_or_an_ended_one(self, service, store, table_id):
+        end_empty(service, table_id)
+        written = (dict(store.tables), dict(store.receipts))
+
+        assert close(service, OPENER, table_id) is None
+        assert close(service, OPENER, TableId("0" * 32)) is None
+        assert service.close(OPENER, CloseTable("command-close", "not-an-id")) is None
+        assert written == (store.tables, store.receipts)
+
+    def test_the_closed_table_leaves_every_holders_paused_list(self, service, dealt_id):
+        holders = (OPENER, VISITOR, THIRD)
+        assert all(service.paused_tables(holder, UNPLAYED_DAYS) for holder in holders)
+
+        close(service, OPENER, dealt_id)
+
+        assert [service.paused_tables(holder, UNPLAYED_DAYS) for holder in holders] == [(), (), ()]
+
+    def test_tells_the_agents_of_the_table_once_after_the_commit(self, store, table_id):
+        told = []
+        service = TableService(store, now=lambda: ENDED_AT).with_standing_signal(told.append)
+        agent = Actor("account-agent", "Nova", OccupantKind.AGENT, OPENER.account_id)
+        service.sit(agent, SitDown("command-agent-sit", table_id.value, 2), NOBODY)
+        told.clear()
+
+        close(service, OPENER, table_id)
+        close(service, OPENER, table_id)
+
+        assert told == [frozenset({agent.account_id})]
+
+    def test_the_opener_is_the_open_tables_view_owner_and_nobody_else(self, service, table_id):
+        assert service.view(OPENER, table_id.value, NOBODY).opened_by_me is True
+        assert service.view(VISITOR, table_id.value, NOBODY).opened_by_me is False

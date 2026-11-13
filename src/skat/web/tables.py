@@ -18,12 +18,7 @@ from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the
 from skat.table.game_list import GameEnding, RamschResultView
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.records import (
-    Actor,
-    CommandRefusal,
-    EndReason,
-    OccupantKind,
-)
+from skat.table.records import Actor, CommandRefusal, EndReason, OccupantKind
 from skat.table.service import CommandIdReusedError
 from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
@@ -395,6 +390,7 @@ class EndedAnswer(BaseModel):
     reason: EndReason
     empty_seconds: int | None
     unplayed_days: int | None
+    closed_by_name: str | None
 
 
 class BockAnswer(BaseModel):
@@ -415,6 +411,7 @@ class TableAnswer(BaseModel):
     options: OptionsAnswer | None
     bock: BockAnswer | None
     ended: EndedAnswer | None
+    opened_by_me: bool
 
 
 class CardChoice(CardAnswer):
@@ -641,7 +638,9 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
             reason=view.ended.reason,
             empty_seconds=view.ended.empty_seconds,
             unplayed_days=view.ended.unplayed_days,
+            closed_by_name=view.ended.closed_by_name,
         ),
+        opened_by_me=view.opened_by_me,
     )
 
 
@@ -740,9 +739,11 @@ def create_tables_router(
         the running hand and left it, the same for every viewer, or null; it is set only while the chair is open.
         `nudge` on a chair is set for a chair the table waits for: `nudges` is how often it was nudged at this
         version and `may_nudge` whether the caller may nudge it at all, the cap not reached; whether the minute has
-        passed is judged by nudge_seat. For the chair's own occupant it also names the latest nudger. `ended` is null
-        while the table lives; once it ended it says why: `reason` is `empty` (nobody was there while no hand was
-        dealt; `empty_seconds` is the wait) or `unplayed` (no hand was dealt or played at for `unplayed_days` days).
+        passed is judged by nudge_seat. For the chair's own occupant it also names the latest nudger. `opened_by_me`
+        is true only for the caller that opened the table. `ended` is null while the table lives; once it ended it
+        says why: `reason` is `empty` (nobody was there while no hand was dealt; `empty_seconds` is the wait),
+        `unplayed` (no hand was dealt or played at for `unplayed_days` days) or `closed` (its opener closed it, and
+        `closed_by_name` is the opener's name).
         A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"

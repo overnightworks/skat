@@ -115,12 +115,14 @@ class AbortedView:
 @dataclass(frozen=True)
 class EndedView:
     """Why the table ended: for an empty one the whole seconds nobody was there, for an unplayed one the days that
-    passed without a deal or step of play; the other is None.
+    passed without a deal or step of play, for a closed one the display name of the account that closed it; the others
+    are None.
     """
 
     reason: EndReason
     empty_seconds: int | None
     unplayed_days: int | None
+    closed_by_name: str | None
 
 
 @dataclass(frozen=True)
@@ -144,7 +146,8 @@ class SeriesView:
 @dataclass(frozen=True)
 class TableView:
     """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series,
-    options or Bock games. A live table without Bock has no `bock`.
+    options or Bock games. A live table without Bock has no `bock`. `opened_by_me` is true only for the account that
+    opened the live table.
     """
 
     id: str
@@ -159,6 +162,7 @@ class TableView:
     options: TableOptions | None
     bock: BockView | None
     ended: EndedView | None = None
+    opened_by_me: bool = False
 
 
 def _is_occupied_by(chair: Chair, account_id: str) -> bool:
@@ -319,12 +323,23 @@ def _ended_view_of(table: EndedTable) -> TableView:
         series=None,
         options=None,
         bock=None,
-        ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
+        ended=EndedView(
+            table.ending.reason,
+            table.ending.empty_seconds,
+            table.ending.unplayed_days,
+            table.ending.closed_by_name,
+        ),
     )
 
 
-def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
-    """The table as one account sees it: only the viewer's own chair is marked mine.
+def view_of(
+    table: TableRecord | EndedTable,
+    viewer_account_id: str,
+    connected_accounts: frozenset[str],
+    opener_account: str | None = None,
+) -> TableView:
+    """The table as one account sees it: only the viewer's own chair is marked mine, and the table only if the viewer
+    is `opener_account`, the account that opened it.
 
     The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant
     is not the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows
@@ -371,6 +386,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
         series=_series_view(table),
         options=table.options,
         bock=bock_view_of(table),
+        opened_by_me=opener_account == viewer_account_id,
     )
 
 

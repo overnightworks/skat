@@ -151,7 +151,12 @@ class TestCreateApp:
         with TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers) as client:
             answer = client.get(f"{TABLES_PATH}/{opened.id}")
 
-        assert answer.json()["ended"] == {"reason": EndReason.EMPTY, "empty_seconds": 1800, "unplayed_days": None}
+        assert answer.json()["ended"] == {
+            "reason": EndReason.EMPTY,
+            "empty_seconds": 1800,
+            "unplayed_days": None,
+            "closed_by_name": None,
+        }
 
     def test_the_paused_table_days_setting_decides_the_end_a_paused_entry_names(self, sign_in_settings):
         dealt_at = datetime(2026, 11, 1, 12, tzinfo=UTC)

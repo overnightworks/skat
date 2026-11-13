@@ -19,6 +19,7 @@ export const TABLE_ID_PATTERN = "[0-9a-f]{32}";
 export const TABLE_EVENTS_SUFFIX = "/events";
 export const TABLE_SIT_SUFFIX = "/sit";
 export const TABLE_STAND_SUFFIX = "/stand";
+export const TABLE_CLOSE_SUFFIX = "/close";
 export const TABLE_DECLARING_TAKE_SUFFIX = "/declaring/take";
 export const TABLE_DECLARING_PUT_BACK_SUFFIX = "/declaring/put-back";
 export const TABLE_DECLARING_DECLARE_SUFFIX = "/declaring/declare";
@@ -63,7 +64,7 @@ export const LEVEL_TOKENS = [
     "schwarz_announced",
     "ouvert",
 ] as const;
-export const END_REASON_TOKENS = ["empty", "unplayed"] as const;
+export const END_REASON_TOKENS = ["empty", "unplayed", "closed"] as const;
 export const KONTRA_SAYER_TOKENS = ["any-opponent", "bidders-only"] as const;
 export const KONTRA_REACH_TOKENS = ["kontra-re", "kontra-re-standings", "up-to-hirsch"] as const;
 export const KONTRA_DEADLINE_TOKENS = ["own-card", "first-card"] as const;

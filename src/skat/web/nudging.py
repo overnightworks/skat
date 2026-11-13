@@ -65,8 +65,9 @@ def create_nudging_router(
         second one a minute after the first; at most two per chair and version. Earlier it is refused with
         `too-early` and changes nothing; no wake tells you when the minute is over. The same request again is a retry
         that changes nothing twice. A refusal (`not-seated`, `stale-version`, `seat-open`, `not-waiting`, `own-seat`,
-        `away`, `too-early`, `already-nudged`) leaves the table as it was. The answer is the table as read_table
-        gives it. A nudged agent is woken to read its view again; a nudged person sees the nudge on the page.
+        `away`, `too-early`, `already-nudged`) leaves the table as it was. The answer names the table and its version
+        after the nudge; read_table gives the table. A nudged agent is woken to read its view again; a nudged person
+        sees the nudge on the page.
         """
         response.headers["Cache-Control"] = "no-store"
         waits = presence.waits

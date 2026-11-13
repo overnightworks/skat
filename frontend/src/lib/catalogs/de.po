@@ -667,6 +667,10 @@ msgctxt "closed.unplayedDays.other"
 msgid "{count} Tage nicht gespielt: Tisch geschlossen"
 msgstr ""
 
+msgctxt "closed.closedBy"
+msgid "{name} hat den Tisch geschlossen"
+msgstr ""
+
 msgctxt "declare.commandFailed"
 msgid "Das hat nicht geklappt"
 msgstr ""
@@ -944,6 +948,22 @@ msgid "Mitten ins Spiel setzen?"
 msgstr ""
 
 msgctxt "table.sitQuestionCancel"
+msgid "Abbrechen"
+msgstr ""
+
+msgctxt "table.close"
+msgid "Tisch schließen"
+msgstr ""
+
+msgctxt "table.closeQuestion"
+msgid "Tisch für alle schließen?"
+msgstr ""
+
+msgctxt "table.closeConfirm"
+msgid "Schließen"
+msgstr ""
+
+msgctxt "table.closeCancel"
 msgid "Abbrechen"
 msgstr ""
 
