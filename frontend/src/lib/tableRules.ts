@@ -14,7 +14,10 @@ export function bockChip(bock: Bock | null): BockChip | null {
     };
 }
 
+export type BockLine = { word: string; factor: string };
+
 // What the plaque of a running game says of Bock: the factor that multiplies its list score.
-export function bockLine(bock: Bock | null): string | null {
-    return bock !== null && bock.factor > 1 ? words["bock.factor"]({ factor: String(bock.factor) }) : null;
+export function bockLine(bock: Bock | null): BockLine | null {
+    if (bock === null || bock.factor <= 1) return null;
+    return { word: words["rules.chipBock"], factor: words["bock.times"]({ factor: String(bock.factor) }) };
 }

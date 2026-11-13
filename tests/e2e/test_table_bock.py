@@ -32,6 +32,7 @@ PASSED_IN = text(SOURCE_LANGUAGE, "table.passedIn")
 RULE_CHIP = ".rulepill .chip"
 BOCK_COUNT = f"{RULE_CHIP} .n"
 BOCK_LINE = ".plaque .bock-line"
+BOCK_FACTOR = f"{BOCK_LINE} b"
 
 
 class BockTable(DeclaringTable):
@@ -106,6 +107,8 @@ def expect_the_plaque_line(table: PlayingTable) -> None:
     for person in table.everyone:
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         expect(person.locator(BOCK_LINE)).to_have_text(text(SOURCE_LANGUAGE, "bock.factor", factor=str(factor)))
+        expect(person.locator(BOCK_FACTOR)).to_have_text(text(SOURCE_LANGUAGE, "bock.times", factor=str(factor)))
+        expect(person.locator(BOCK_FACTOR)).to_have_css("font-weight", "700")
 
 
 def expect_the_chip_to_explain_the_score(table: PlayingTable) -> None:

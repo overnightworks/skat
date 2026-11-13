@@ -12,7 +12,7 @@
 </script>
 
 {#if line !== null}
-    <span class="bock-line">{line}</span>
+    <div class="bock-line">{line.word} <b>{line.factor}</b></div>
 {:else if chip !== null}
     <div class="rulepill">
         <span class="chip">

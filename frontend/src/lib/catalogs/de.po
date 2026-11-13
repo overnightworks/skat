@@ -367,6 +367,10 @@ msgctxt "bock.factor"
 msgid "Bock ×{factor}"
 msgstr ""
 
+msgctxt "bock.times"
+msgid "×{factor}"
+msgstr ""
+
 msgctxt "rules.chipBock"
 msgid "Bock"
 msgstr ""

@@ -847,6 +847,11 @@ body {
     color: var(--on-stage-soft);
 }
 
+.room .plaque .bock-line b {
+    color: var(--cream);
+    font-weight: 700;
+}
+
 /* A standing give-up request: the plaque names its asker, and the answers sit under its line. */
 .room .plaque.ask {
     flex-direction: column;
