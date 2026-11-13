@@ -1,0 +1,7 @@
+claim_id = "8e8029eb85e44be3894e18f88042ecbe"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "bb94794f7dcebbfda634a2b79185d9cbfe7a95f9"
+branch = "claude/issue-514-an-agent-s-table-command-answers-with-wh"
+scope = ["src/skat/web/mcp.py", "tests/e2e/test_calling_agents.py", "tests/web/test_mcp.py"]
+opened_commit = "412aa0e0fda59faee79e673e11fe18dc8632010c"
