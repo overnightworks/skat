@@ -121,6 +121,23 @@ def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_list_of_the_first_game_says_nothing_is_finished(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    first = table.pages[1]
+    first.locator(COUNT).click()
+    expect(first.locator(f"{GAME_LIST} .empty")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListEmpty"))
+    first.keyboard.press("Escape")
+    expect(first.locator(GAME_LIST)).not_to_be_visible()
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_mark_counts_the_game_and_the_list_scrolls_inside_its_panel(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
@@ -131,12 +148,6 @@ def test_the_mark_counts_the_game_and_the_list_scrolls_inside_its_panel(
     table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
     for person in table.everyone:
         expect(person.locator(COUNT)).to_have_text(game_count(1))
-    # Nothing is finished in the first game, so the list says so.
-    first = table.pages[1]
-    first.locator(COUNT).click()
-    expect(first.locator(f"{GAME_LIST} .empty")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListEmpty"))
-    first.keyboard.press("Escape")
-    expect(first.locator(GAME_LIST)).not_to_be_visible()
 
     table.pass_all()
     table.play_out()
