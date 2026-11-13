@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, describe, expect, it } from "vitest";
+import { attentionMark } from "../../routes/(start)/tables.ts";
 import LobbyButton from "#lib/ui/LobbyButton.svelte";
+import { words } from "#lib/words.ts";
 
 describe("the Lobby button", () => {
     let mounted: ReturnType<typeof mount> | undefined;
@@ -19,9 +21,9 @@ describe("the Lobby button", () => {
     }
 
     it.each([
-        [0, "Lobby", null],
-        [1, "Lobby, 1 Tisch wartet auf dich", "1"],
-        [12, "Lobby, 12 Tische warten auf dich", "9+"],
+        [0, words["table.lobby"], null],
+        [1, words["table.lobbyWaiting"](1), attentionMark(1)],
+        [12, words["table.lobbyWaiting"](12), attentionMark(12)],
     ])("names itself and marks the badge for %i waiting tables", (attention, name, badge) => {
         const link = show(attention);
 
