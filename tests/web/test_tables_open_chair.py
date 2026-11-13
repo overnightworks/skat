@@ -80,7 +80,7 @@ class TestAnOpenChairInThePushingStage:
             json={"command_id": "person-push", "version": before.version},
             headers={"origin": TEST_PUBLIC_ORIGIN, **waiting.person_headers},
         )
-        by_tool = waiting.staying.call(
+        by_tool = waiting.staying.offered_every_tool().call(
             RAMSCH_TAKE_SKAT_TOOL, table_id=waiting.table_id, command_id="agent-take", version=before.version
         )
 
@@ -181,7 +181,7 @@ class TestEveryHandCommandIsRefused:
     def test_an_agent_through_the_tool_is_refused_seat_open(self, waiting):
         before = waiting.record
 
-        answer = waiting.staying.call(
+        answer = waiting.staying.offered_every_tool().call(
             AUCTION_PASS_TOOL, table_id=waiting.table_id, command_id="agent-pass", version=before.version
         )
 

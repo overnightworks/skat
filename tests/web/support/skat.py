@@ -88,6 +88,11 @@ class WiredTableService(TableService):
         self._wired.append(clone)
         return clone
 
+    def with_tools_signal(self, signal):
+        clone = super().with_tools_signal(signal)
+        self._wired.append(clone)
+        return clone
+
     def with_view_signal(self, signal):
         clone = super().with_view_signal(
             signal if self._view_signal_through is None else self._view_signal_through(signal)

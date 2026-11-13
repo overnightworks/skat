@@ -126,7 +126,8 @@ class TestDescriptions:
         ],
     )
     def test_a_description_names_the_stage_it_fits_and_the_tool_that_comes_next(self, agent, tool, stage, next_tool):
-        tools = {listed["name"]: listed for listed in agent.request("tools/list").json()["result"]["tools"]}
+        listed = agent.offered_every_tool().request("tools/list")
+        tools = {each["name"]: each for each in listed.json()["result"]["tools"]}
 
         assert f'"{stage}"' in tools[tool]["description"]
         assert next_tool in tools[tool]["description"]
@@ -416,7 +417,7 @@ class TestRefusals:
     def test_every_step_is_already_declared_once_the_game_is_declared(self, agent, declarer, tool, fields):
         agent.take_step(DECLARE_GAME_TOOL, declarer, command_id="agent-declare", **declare_fields(hand=True))
 
-        answer = agent.take_step(tool, declarer, command_id="agent-again", **fields)
+        answer = agent.offered_every_tool().take_step(tool, declarer, command_id="agent-again", **fields)
 
         assert answer.json()["reason"] == DeclarationRefusal.ALREADY_DECLARED
 
@@ -425,7 +426,7 @@ class TestRefusals:
         table.middlehand_wins()
         before = stored(skat)
 
-        answer = agent.take_step(TAKE_SKAT_TOOL, table, command_id="agent-refused")
+        answer = agent.offered_every_tool().take_step(TAKE_SKAT_TOOL, table, command_id="agent-refused")
 
         assert answer.json()["reason"] == Refusal.NOT_DECLARER
         assert stored(skat)[0] == before[0]
@@ -434,7 +435,7 @@ class TestRefusals:
         guest = Agent(skat, agent.issuer, "a-guest-agent")
         before = stored(skat)
 
-        answer = guest.take_step(TAKE_SKAT_TOOL, declarer, command_id="agent-refused")
+        answer = guest.offered_every_tool().take_step(TAKE_SKAT_TOOL, declarer, command_id="agent-refused")
 
         assert answer.json()["reason"] == Refusal.NOT_SEATED
         assert stored(skat)[0] == before[0]
@@ -442,7 +443,7 @@ class TestRefusals:
     def test_a_declaring_step_during_the_auction_is_the_wrong_phase(self, skat, agent, middlehand_auction):
         before = stored(skat)
 
-        answer = agent.take_step(TAKE_SKAT_TOOL, middlehand_auction, command_id="agent-refused")
+        answer = agent.offered_every_tool().take_step(TAKE_SKAT_TOOL, middlehand_auction, command_id="agent-refused")
 
         assert answer.json()["reason"] == Refusal.WRONG_PHASE
         assert stored(skat)[0] == before[0]
@@ -451,7 +452,9 @@ class TestRefusals:
         table_id = agent.open_table().json()["id"]
         before = stored(skat)
 
-        answer = agent.call(TAKE_SKAT_TOOL, table_id=table_id, command_id="agent-step-0001", version=1)
+        answer = agent.offered_every_tool().call(
+            TAKE_SKAT_TOOL, table_id=table_id, command_id="agent-step-0001", version=1
+        )
 
         assert answer.json()["reason"] == Refusal.NO_HAND
         assert stored(skat)[0] == before[0]
@@ -515,7 +518,9 @@ class TestRetries:
         first = agent.take_step(tool, table, command_id="agent-retry", **fields)
         after_first = stored(table.skat)
 
-        again = agent.take_step(tool, table, command_id="agent-retry", version=table.record.version - 1, **fields)
+        again = agent.offered_every_tool().take_step(
+            tool, table, command_id="agent-retry", version=table.record.version - 1, **fields
+        )
 
         assert (again.is_error, again.text) == (first.is_error, first.text)
         assert stored(table.skat) == after_first
@@ -536,7 +541,9 @@ class TestRetries:
         agent.take_step(DECLARE_GAME_TOOL, picked, command_id="agent-reused", version=version, **declare_fields())
         after_first = stored(skat)
 
-        answer = agent.take_step(tool, picked, command_id="agent-reused", version=version, **fields)
+        answer = agent.offered_every_tool().take_step(
+            tool, picked, command_id="agent-reused", version=version, **fields
+        )
 
         assert answer.is_error
         assert "reused" in answer.text

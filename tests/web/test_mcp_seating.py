@@ -83,8 +83,9 @@ class TestOpenTable:
         first = agent.open_table(series_length=12)
         tables_before = len(skat.store.tables)
 
-        again = agent.open_table(series_length=12)
-        other = agent.open_table(series_length=15)
+        every_tool = agent.offered_every_tool()
+        again = every_tool.open_table(series_length=12)
+        other = every_tool.open_table(series_length=15)
 
         assert again.json() == first.json()
         assert len(skat.store.tables) == tables_before
@@ -144,7 +145,7 @@ class TestSitDown:
         _, _, table_id = person_opens(skat)
         agent.sit_down(table_id, 2)
 
-        refused = agent.sit_down(table_id, 3, command_id="agent-sit-0002")
+        refused = agent.offered_every_tool().sit_down(table_id, 3, command_id="agent-sit-0002")
 
         assert refused.is_error
         assert refused.json()["reason"] == Refusal.ALREADY_SEATED
@@ -200,8 +201,9 @@ class TestSitDown:
         first = agent.sit_down(table_id, 2)
         before = stored(skat)
 
-        again = agent.sit_down(table_id, 2)
-        other = agent.sit_down(table_id, 3)
+        every_tool = agent.offered_every_tool()
+        again = every_tool.sit_down(table_id, 2)
+        other = every_tool.sit_down(table_id, 3)
 
         assert again.json() == first.json()
         assert other.is_error
@@ -306,7 +308,7 @@ class TestStandUp:
         _, _, table_id = person_opens(skat)
         before = stored(skat)
 
-        refused = agent.stand_up(table_id)
+        refused = agent.offered_every_tool().stand_up(table_id)
 
         assert refused.json()["reason"] == Refusal.NOT_SEATED
         assert stored(skat)[0] == before[0]
@@ -329,7 +331,7 @@ class TestStandUp:
         first = agent.stand_up(table_id)
         before = stored(skat)
 
-        again = agent.stand_up(table_id)
+        again = agent.offered_every_tool().stand_up(table_id)
 
         assert again.json() == first.json()
         assert stored(skat)[0] == before[0]

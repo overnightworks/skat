@@ -48,10 +48,11 @@ class TestStartNewSeries:
         skat.stand(table.at[FOREHAND], table.table_id, command_id="agent-stands")
         before = stored(skat)
 
-        refused = self.start(agent, table)
+        every_tool = agent.offered_every_tool()
+        refused = self.start(every_tool, table)
         unchanged = stored(skat)
         sat = skat.sit(table.at[FOREHAND], table.table_id, 3, command_id="agent-sits")
-        again = self.start(agent, table)
+        again = self.start(every_tool, table)
 
         assert refused.is_error
         assert refused.json()["reason"] == Refusal.NOT_SEATED
@@ -141,7 +142,8 @@ class TestStartNewSeries:
 
     @pytest.mark.parametrize("tool", [CONTINUE_AFTER_RESULT_TOOL, START_NEW_SERIES_TOOL])
     def test_the_input_schema_requires_the_series_the_tap_answers(self, agent, tool):
-        tools = {each["name"]: each for each in agent.request("tools/list").json()["result"]["tools"]}
+        listed = agent.offered_every_tool().request("tools/list")
+        tools = {each["name"]: each for each in listed.json()["result"]["tools"]}
 
         schema = tools[tool]["inputSchema"]
 
@@ -149,7 +151,8 @@ class TestStartNewSeries:
         assert "series" in schema["required"]
 
     def test_the_description_says_the_finished_games_stay_stored(self, agent):
-        tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
+        listed = agent.offered_every_tool().request("tools/list")
+        tools = {tool["name"]: tool for tool in listed.json()["result"]["tools"]}
 
         assert "stay stored" in tools[START_NEW_SERIES_TOOL]["description"]
         assert START_NEW_SERIES_TOOL in tools[CONTINUE_AFTER_RESULT_TOOL]["description"]

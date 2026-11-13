@@ -15,8 +15,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
-from agents.mcp_server import McpPersonFront, PersonTool, route_tools
+from agents.mcp_server import McpPersonFront, OfferedTools, PersonTool, route_tools
 from agents.mcp_wire import MCP_ENDPOINT_PATH
+from agents.member import ACCEPT_INVITATION_TOOL
 from agents.tools import Principal, ToolEffect, ToolOutcome, agent_tool, not_an_agent_tool
 from pydantic import BaseModel
 from starlette.requests import HTTPConnection
@@ -30,10 +31,11 @@ from webauth.middleware.bearer_gate import (
 )
 from webauth.policies import AuthorizedParties
 
+from skat.table.moment import TableMoment
 from skat.web.gate import admission_for
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable, Collection, Mapping
 
     from agents.mcp_server import PersonRequest
     from agents.tools import JsonObject
@@ -176,6 +178,48 @@ TABLE_COMMAND_TOOLS: Final = frozenset(
 )
 
 
+# Every moment offers the reads, so an agent finds out what it needs whatever its table is doing; a seated moment adds
+# leaving the chair, nudging a seat that holds up the table and taking an invitation to another table.
+_READ_TOOLS: Final = frozenset({READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL})
+_SEATED_TOOLS: Final = _READ_TOOLS | {STAND_UP_TOOL, NUDGE_SEAT_TOOL, ACCEPT_INVITATION_TOOL}
+_ABORT_TOOLS: Final = frozenset({AGREE_TO_ABORT_HAND_TOOL, REFUSE_TO_ABORT_HAND_TOOL})
+_PLAY_TOOLS: Final = frozenset(
+    {
+        PLAY_CARD_TOOL,
+        SAY_KONTRA_TOOL,
+        SAY_NO_WORD_TOOL,
+        GIVE_UP_GAME_TOOL,
+        AGREE_TO_GIVE_UP_TOOL,
+        DECLINE_GIVE_UP_TOOL,
+        THROW_DOWN_CARDS_TOOL,
+    }
+)
+
+# The tools an agent is offered in each moment of its table: what it can use there, whoever's turn it is. The offer is a
+# display filter and no right; the routes refuse an act the table does not allow. An agent at several tables is
+# offered the union; a token without agent facts is offered every tool.
+TOOLS_OF_MOMENT: Final[Mapping[TableMoment, frozenset[str]]] = {
+    TableMoment.LOBBY: _READ_TOOLS | {ACCEPT_INVITATION_TOOL, OPEN_TABLE_TOOL, SIT_DOWN_TOOL, SAVE_RULE_SET_TOOL},
+    TableMoment.WAITING: _SEATED_TOOLS,
+    TableMoment.AUCTION: _SEATED_TOOLS | {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL},
+    TableMoment.DECLARING: _SEATED_TOOLS | {TAKE_SKAT_TOOL, PUT_BACK_CARDS_TOOL, DECLARE_GAME_TOOL},
+    TableMoment.PUSHING: _SEATED_TOOLS
+    | {
+        RAMSCH_TAKE_SKAT_TOOL,
+        RAMSCH_PUT_BACK_CARDS_TOOL,
+        RAMSCH_PUSH_SKAT_TOOL,
+        RAMSCH_DECLARE_GRAND_HAND_TOOL,
+    },
+    TableMoment.PLAYING: _SEATED_TOOLS | _PLAY_TOOLS,
+    TableMoment.OPEN_CHAIR: _SEATED_TOOLS | _ABORT_TOOLS,
+    TableMoment.RESULT: _SEATED_TOOLS
+    | {CONTINUE_AFTER_RESULT_TOOL, AGREE_TO_END_SERIES_TOOL, REFUSE_TO_END_SERIES_TOOL},
+    TableMoment.SERIES_END: _SEATED_TOOLS | {START_NEW_SERIES_TOOL},
+}
+
+type MomentsOf = Callable[[Principal], Awaitable[Collection[TableMoment]]]
+
+
 class CommandDoneAnswer(BaseModel):
     """What a table command did for an agent: the tool, and the table's id and version after it.
 
@@ -232,6 +276,19 @@ class _AgentHearingFront:
             token_carries_agent_facts.reset(marker)
 
 
+def offered_tools_by(moments_of: MomentsOf, every_tool: frozenset[str]) -> OfferedTools:
+    """What `tools/list` and `tools/call` offer the admitted call's token: every tool for a token without agent facts,
+    else the union of the tools of the moments its account is in.
+    """
+
+    async def offered(principal: Principal) -> Collection[str]:
+        if token_carries_agent_facts.get() is None:
+            return every_tool
+        return frozenset[str]().union(*(TOOLS_OF_MOMENT[moment] for moment in await moments_of(principal)))
+
+    return offered
+
+
 @dataclass(frozen=True)
 class McpAccess:
     """What the host installs for /mcp: the front its lifespan runs, and the gate and public rule that admit it."""
@@ -253,7 +310,8 @@ def mount_mcp(
 
     The front serves only inside `running()`, which the host's lifespan enters. `agent_heard(account_id, facts)` hears
     every admitted call of an agent with the facts of its token. Beside the routes' tools the front serves the member's
-    accept tool, its standing as a resource and the changes that signal it.
+    accept tool, its standing as a resource and the changes that signal it; an agent is offered the tools of its
+    tables' moments.
     """
     with warnings.catch_warnings():
         # A route for GET and HEAD gives both operations one id, which the tool generator never reads.
@@ -274,11 +332,13 @@ def mount_mcp(
     def resolve_person(scope: Scope) -> Principal:
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
 
+    served_tools = (*map(_done_answering, tools.tools), member.tool)
     front = McpPersonFront(
-        (*map(_done_answering, tools.tools), member.tool),
+        served_tools,
         resolve_person=resolve_person,
         resources=member.resources,
         changes=member.changes,
+        offered_tools=offered_tools_by(member.moments_of, frozenset(each.declaration.name for each in served_tools)),
     )
     # No methods named, so every method reaches the front, which refuses all but POST itself.
     app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=_AgentHearingFront(front, agent_heard)))

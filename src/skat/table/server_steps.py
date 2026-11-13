@@ -7,7 +7,7 @@ from contextlib import ExitStack, nullcontext
 from typing import TYPE_CHECKING
 
 from skat.table.member_place import agents_seated_at
-from skat.table.member_view import view_recipients
+from skat.table.member_view import moment_recipients, view_recipients
 from skat.table.records import Ending
 from skat.table.rules import (
     PresenceStep,
@@ -41,8 +41,9 @@ def members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[s
 
 class ServerSteps:
     """The server's own steps over the table's transactions; `live_leases` is read under a table's row lock and has no
-    side effect, `tell` names the agents whose standing a commit changed and `tell_view` the table and the agents
-    whose view it changed, each after the commit and on the thread the step ran on.
+    side effect, `tell` names the agents that sat down or left in a commit, `tell_view` the table and the agents whose
+    view it changed and `tell_moments` the agents whose moment it changed, each after the commit and on the thread the
+    step ran on.
     """
 
     def __init__(
@@ -53,6 +54,7 @@ class ServerSteps:
         random_source: random.Random,
         tell: Callable[[frozenset[str]], None],
         tell_view: ViewSignal,
+        tell_moments: Callable[[frozenset[str]], None],
     ) -> None:
         self._transactions = transactions
         self._live_leases = live_leases
@@ -60,6 +62,7 @@ class ServerSteps:
         self._random_source = random_source
         self._tell = tell
         self._tell_view = tell_view
+        self._tell_moments = tell_moments
 
     def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
         """Free the account's chair on the server's own account, with no actor, command id or receipt.
@@ -80,6 +83,7 @@ class ServerSteps:
             transaction.save_table(decision.table, played_at=None)
         self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
         self._tell_view(table_id, view_recipients(table, decision.table))
+        self._tell_moments(moment_recipients(table, decision.table))
         return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
@@ -100,6 +104,7 @@ class ServerSteps:
             dealt = dealt_next(table, drawn_hand(table, self._random_source))
             transaction.save_table(dealt, played_at=self._now())
         self._tell_view(table_id, view_recipients(table, dealt))
+        self._tell_moments(moment_recipients(table, dealt))
         return True
 
     def end_empty_table(
