@@ -27,7 +27,14 @@ function chairs(mine: number): Table["chairs"] {
     }));
 }
 
-const PLAYING: Playing = { turn_seat: ANNA, current_trick: [], last_trick: null, legal_cards: [], give_up: null };
+const PLAYING: Playing = {
+    turn_seat: ANNA,
+    current_trick: [],
+    last_trick: null,
+    legal_cards: [],
+    give_up: null,
+    kontra: null,
+};
 
 function stage(changes: Partial<Pushing>): Pushing {
     return { turn_seat: ANNA, stage: "choosing", moves: [], factor: 1, ...changes };
