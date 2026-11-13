@@ -11,11 +11,15 @@ const bundlePath = (entry) => path.join(buildDirectory, new URL(entry.url).pathn
 // Vite's own preload helper is a bundle with no map and no source of ours.
 const hasMap = (entry) => entry.url.includes("/_app/") && existsSync(`${bundlePath(entry)}.map`);
 
+// The generated word modules are measured by neither coverage path (vite.config.ts excludes the same files).
+const GENERATED_WORDS = "frontend/src/lib/words/*.ts";
+const isGenerated = (name) => path.matchesGlob(name, GENERATED_WORDS);
+
 const report = new CoverageReport({
     name: "Browser coverage",
     outputDir: reportDirectory,
     reports: ["lcovonly", "console-summary"],
-    outputFilter: { "frontend/src/**": true, "**/*": false },
+    outputFilter: { [GENERATED_WORDS]: false, "frontend/src/**": true, "**/*": false },
 });
 
 // Chromium reports a script's coverage without its text, and the bundles carry no pointer to their hidden maps.
@@ -62,7 +66,7 @@ async function sourcesWithCode() {
             segmentCounts.set(name, (segmentCounts.get(name) ?? 0) + 1);
         }
     }
-    return new Set([...segmentCounts.keys()].filter((name) => name.startsWith("frontend/src/")));
+    return new Set([...segmentCounts.keys()].filter((name) => name.startsWith("frontend/src/") && !isGenerated(name)));
 }
 
 const reported = new Set(
