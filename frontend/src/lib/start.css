@@ -96,12 +96,13 @@ body {
     margin-top: auto;
 }
 
+/* The legal links stand at z-index 1 after this block in the page's order, so the block's stacking level, which holds the opening sheet, is 2: a tall sheet covers them. */
 .with-tables .start-main {
     --fade: rgba(14, 9, 7, 0.97);
 
     position: sticky;
     bottom: 0;
-    z-index: 1;
+    z-index: 2;
     order: 2;
     display: flex;
     flex: none;
