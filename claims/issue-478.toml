@@ -1,0 +1,8 @@
+claim_id = "d5e09529fb0742fa9bb86107b8255e9f"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "3977e135855a320398ea846db4b4b2ab7cd45a83"
+branch = "claude/issue-478-s11-10e-a-call-that-runs-out-tells-the-c"
+scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/ui/AgentsPill.svelte", "frontend/src/lib/words", "frontend/src/routes/(start)/agents.ts", "pyproject.toml", "src/skat/table/member_place.py", "src/skat/web/calling.py", "src/skat/web/words.py", "tests/e2e", "uv.lock"]
+opened_commit = "b9d2fd7b9e8d5cac6140b8935993215ca47d0816"
+whole_reason = "One outcome end to end: the kit that draws the ended row, the server's reason, the answer field, the row's words and the drive change together."
