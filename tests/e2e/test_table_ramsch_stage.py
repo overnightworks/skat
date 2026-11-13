@@ -370,7 +370,8 @@ def test_an_agent_on_turn_wears_denkt_over_the_turn_mark_for_everyone(
         assert turn_box["y"] + turn_box["height"] <= think_box["y"] + think_box["height"]
         assert thinks.evaluate(
             "think => { const box = think.closest('.chair').querySelector('.mark.turn').getBoundingClientRect(); "
-            "return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.closest('.mark') === think }"
+            "const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2); "
+            "return top?.closest('.mark') === think }"
         )
         if form_factor is DESKTOP:
             expect(thinks).to_contain_text(THINKS)
