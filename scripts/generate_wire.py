@@ -78,8 +78,9 @@ from skat.web.pushing import (  # noqa: E402
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
 )
-from skat.web.ready import TABLE_READY_SUFFIX  # noqa: E402
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.rule_sets import RULE_SETS_PATH  # noqa: E402
+from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX  # noqa: E402
 from skat.web.table_options import options_answer_of  # noqa: E402
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
@@ -202,6 +203,9 @@ def path_constants() -> dict[str, str]:
         "TABLE_KONTRA_SUFFIX": TABLE_KONTRA_SUFFIX,
         "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
+        "TABLE_NEW_SERIES_SUFFIX": TABLE_NEW_SERIES_SUFFIX,
+        "TABLE_SERIES_END_AGREE_SUFFIX": TABLE_SERIES_END_AGREE_SUFFIX,
+        "TABLE_SERIES_END_REFUSE_SUFFIX": TABLE_SERIES_END_REFUSE_SUFFIX,
         "TABLE_AGENTS_SUFFIX": TABLE_AGENTS_SUFFIX,
         "TABLE_AGENT_CALL_SUFFIX": TABLE_AGENT_CALL_SUFFIX,
         "TABLE_AGENT_SEND_AWAY_SUFFIX": TABLE_AGENT_SEND_AWAY_SUFFIX,

@@ -44,12 +44,16 @@ import {
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_GIVE_UP_SUFFIX,
     TABLE_KONTRA_SUFFIX,
+    TABLE_LIST_SUFFIX,
+    TABLE_NEW_SERIES_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
     TABLE_READY_SUFFIX,
+    TABLE_SERIES_END_AGREE_SUFFIX,
+    TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
@@ -251,8 +255,20 @@ export type RuleSetsOutcome = { kind: "sets"; sets: RuleSet[] } | { kind: "faile
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
-// Which series of the table this is, 1 for the first.
-export type Series = { number: number };
+// One account's place at the end of a series; a name stored with no name is null.
+export type Standing = { display_name: string | null; total: number; won: number; lost: number; place: number };
+// The seat that proposed ending the series early and the one that has said yes so far.
+export type EndProposal = { proposer_seat: number; accepter_seat: number | null };
+// Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
+// is over; the standings come once it is, the same for every viewer.
+export type Series = {
+    number: number;
+    game_number: number;
+    game_count: number;
+    over: boolean;
+    standings: Standing[] | null;
+    end_proposal: EndProposal | null;
+};
 export type Table = {
     id: string;
     version: number;
@@ -443,6 +459,62 @@ export function seriesNumberOf(table: Pick<Table, "series">): number {
 // „Weiter“ names the result and the series it saw, so a tap on a result or series that has since been replaced is refused.
 export function markReady(id: string, commandId: string, ordinal: number, series: number): Promise<Outcome> {
     return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal, series });
+}
+
+// „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused.
+export function startNewSeries(id: string, commandId: string, series: number): Promise<Outcome> {
+    return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series });
+}
+
+export type SeriesEndAnswer = "agree" | "refuse";
+
+const SERIES_END_ANSWER_SUFFIXES: Record<SeriesEndAnswer, string> = {
+    agree: TABLE_SERIES_END_AGREE_SUFFIX,
+    refuse: TABLE_SERIES_END_REFUSE_SUFFIX,
+};
+
+// A yes proposes the end when none stands and accepts it when one does; neither names a version, so the answer is judged
+// on the table as it is.
+export function answerSeriesEnd(id: string, commandId: string, answer: SeriesEndAnswer): Promise<Outcome> {
+    return post(id, SERIES_END_ANSWER_SUFFIXES[answer], { command_id: commandId });
+}
+
+// A finished game of the series' list as the server projects it, the same for every viewer.
+export type SeriesEntry =
+    | {
+          kind: "declared";
+          number: number;
+          declarer_name: string | null;
+          game: Game;
+          hand: boolean;
+          ouvert: boolean;
+          announcement: Announcement;
+          levels: Level[];
+          settled_value: number;
+          score: number;
+          kontra_word: Word | null;
+          bock_factor: number;
+      }
+    | {
+          kind: "ramsch";
+          number: number;
+          seats: { name: string | null; score: number }[];
+          durchmarsch: boolean;
+          jungfrau: boolean;
+          bock_factor: number;
+          pushes: number;
+          push_factor: number;
+      };
+
+// The games in the order played; null when the list cannot be read.
+export async function readSeriesList(id: string): Promise<SeriesEntry[] | null> {
+    const answer = await fetchSigningInAgain(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_LIST_SUFFIX}`);
+    if (answer?.ok !== true) return null;
+    try {
+        return ((await answer.json()) as { entries: SeriesEntry[] }).entries;
+    } catch {
+        return null;
+    }
 }
 
 const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {
