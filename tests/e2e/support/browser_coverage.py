@@ -11,7 +11,6 @@ import json
 import os
 import re
 from collections import Counter
-from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -20,8 +19,6 @@ from uuid import uuid4
 from playwright.sync_api import Error as PlaywrightError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from playwright.sync_api import BrowserContext, CDPSession, Frame, Page, Request, Route
 
 BROWSER_COVERAGE_DIRECTORY_VARIABLE = "SKAT_BROWSER_COVERAGE_DIR"
@@ -48,7 +45,6 @@ class BrowserCoverage:
         self._reissue_pending: set[tuple[Page, str]] = set()
         self._cancelled: set[Request] = set()
         self._reissue_counts: Counter[Page] = Counter()
-        self._passing_through: set[Page] = set()
 
     @classmethod
     def from_environment(cls) -> BrowserCoverage:
@@ -71,15 +67,6 @@ class BrowserCoverage:
         """How many navigations of this page the collector re-issued."""
         return self._reissue_counts[page]
 
-    @contextmanager
-    def passing_through(self, page: Page) -> Iterator[None]:
-        """Let the page's navigations go through untouched, for one a test drives itself."""
-        self._passing_through.add(page)
-        try:
-            yield
-        finally:
-            self._passing_through.discard(page)
-
     def cancel_take_reissue(self, route: Route) -> bool:
         """True when this pass was cancelled, taken and re-issued; False when it goes through.
 
@@ -96,12 +83,7 @@ class BrowserCoverage:
             self._reissue_pending.discard(reissue)
             self._with_app_code.discard(page)
             return False
-        if (
-            page not in self._with_app_code
-            or page in self._passing_through
-            or request.method != "GET"
-            or page not in self._sessions
-        ):
+        if page not in self._with_app_code or request.method != "GET" or page not in self._sessions:
             self._with_app_code.discard(page)
             return False
         route.fulfill(status=NO_CONTENT)

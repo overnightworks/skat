@@ -2,7 +2,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Page, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.words import SOURCE_LANGUAGE, text
@@ -23,6 +23,69 @@ COASTER = ".chair .coaster"
 AWAY = ".chair .mark.away"
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 NEVER_UNDER_A_COASTER = (".plate", COASTER, ".mark", ".fan", ".plaque", ".result", ".actions")
+PLAQUE_COVERS = (".fan", ".laid .face", ".chair .tile")
+# The boxes are read in the browser in one pass, so a mark that leaves meanwhile is no stale handle that blocks a call.
+OVERLAPS = """
+    const overlaps = (first, second) =>
+        first.x < second.x + second.width && second.x < first.x + first.width
+        && first.y < second.y + second.height && second.y < first.y + first.height
+    const boxOf = element => element.getClientRects().length ? element.getBoundingClientRect() : null
+"""
+# A coaster's tilt only widens the box the browser reports, so its own square is the centre and the unrotated side.
+OFFENDERS_UNDER_A_COASTER = (
+    "({coaster, others}) => {"
+    + OVERLAPS
+    + """
+    const untilted = element => {
+        const tilted = boxOf(element)
+        if (tilted === null) return null
+        const side = element.offsetWidth
+        return {
+            x: tilted.x + tilted.width / 2 - side / 2, y: tilted.y + tilted.height / 2 - side / 2,
+            width: side, height: side,
+        }
+    }
+    const offenders = []
+    for (const own of document.querySelectorAll(coaster)) {
+        const box = untilted(own)
+        if (box === null) { offenders.push(coaster); continue }
+        for (const selector of others) {
+            for (const other of document.querySelectorAll(selector)) {
+                if (other === own) continue
+                const covered = selector === coaster ? untilted(other) : boxOf(other)
+                if (covered !== null && overlaps(box, covered)) offenders.push(selector)
+            }
+        }
+    }
+    return offenders
+}"""
+)
+OFFENDERS_OF_THE_TABLE_PAGE = (
+    "({phone, covers}) => {"
+    + OVERLAPS
+    + """
+    const offenders = []
+    if (phone) {
+        for (const selector of [".actions", "p.note"]) {
+            for (const shown of document.querySelectorAll(selector)) {
+                const box = boxOf(shown)
+                if (box === null || box.y + box.height > window.innerHeight) offenders.push(selector)
+            }
+        }
+    }
+    for (const plaque of document.querySelectorAll(".plaque")) {
+        const plaqueBox = boxOf(plaque)
+        if (plaqueBox === null) { offenders.push(".plaque"); continue }
+        for (const selector of covers) {
+            for (const other of document.querySelectorAll(selector)) {
+                const covered = boxOf(other)
+                if (covered !== null && overlaps(plaqueBox, covered)) offenders.push(selector)
+            }
+        }
+    }
+    return offenders
+}"""
+)
 
 
 @pytest.fixture
@@ -64,49 +127,13 @@ def expect_the_table_page_clear(person: Page) -> None:
     """On a phone the bar and a note under it end inside the screen; the plaque lies over no fan, chair or laid card."""
     viewport = person.viewport_size
     assert viewport is not None
-    if viewport["width"] < PHONE_WIDTH_LIMIT:
-        for selector in (".actions", "p.note"):
-            for shown in person.locator(selector).all():
-                box = shown.bounding_box()
-                assert box is not None
-                assert box["y"] + box["height"] <= viewport["height"], selector
-    for plaque in person.locator(".plaque").all():
-        plaque_box = plaque.bounding_box()
-        assert plaque_box is not None
-        for selector in (".fan", ".laid .face", ".chair .tile"):
-            for other in person.locator(selector).all():
-                covered = other.bounding_box()
-                assert covered is None or not overlaps(plaque_box, covered), selector
+    phone = viewport["width"] < PHONE_WIDTH_LIMIT
+    assert person.evaluate(OFFENDERS_OF_THE_TABLE_PAGE, {"phone": phone, "covers": PLAQUE_COVERS}) == []
 
 
 def expect_nothing_under_a_coaster(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    for coaster in person.locator(COASTER).all():
-        box = untilted_box(coaster)
-        for selector in NEVER_UNDER_A_COASTER:
-            for other in person.locator(selector).all():
-                covered = untilted_box(other) if selector == COASTER else other.bounding_box()
-                if covered is not None and covered != box:
-                    assert not overlaps(box, covered), selector
-
-
-def untilted_box(coaster: Locator) -> dict[str, float]:
-    """The coaster's own square: its tilt only widens the box the browser reports."""
-    tilted = coaster.bounding_box()
-    assert tilted is not None
-    side = coaster.evaluate("coaster => coaster.offsetWidth")
-    centre_x = tilted["x"] + tilted["width"] / 2
-    centre_y = tilted["y"] + tilted["height"] / 2
-    return {"x": centre_x - side / 2, "y": centre_y - side / 2, "width": side, "height": side}
-
-
-def overlaps(first: dict[str, float], second: dict[str, float]) -> bool:
-    return (
-        first["x"] < second["x"] + second["width"]
-        and second["x"] < first["x"] + first["width"]
-        and first["y"] < second["y"] + second["height"]
-        and second["y"] < first["y"] + first["height"]
-    )
+    assert person.evaluate(OFFENDERS_UNDER_A_COASTER, {"coaster": COASTER, "others": NEVER_UNDER_A_COASTER}) == []
 
 
 def totals_of(table: PlayingTable) -> dict[int, int]:
