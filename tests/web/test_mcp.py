@@ -25,6 +25,7 @@ from skat.web.mcp import (
     DECLINE_GIVE_UP_TOOL,
     GIVE_UP_GAME_TOOL,
     MCP_GROUP,
+    NUDGE_SEAT_TOOL,
     OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
     PUT_BACK_CARDS_TOOL,
@@ -121,6 +122,7 @@ class TestTools:
                 READ_RULE_SETS_TOOL,
                 SAVE_RULE_SET_TOOL,
                 START_NEW_SERIES_TOOL,
+                NUDGE_SEAT_TOOL,
             }
             | STEP_TOOLS
         )

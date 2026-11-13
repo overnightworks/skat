@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
 
+from skat.web.waits import AskClock
 from skat.web.wakes import Registration, TableTopic, WakeList
 
 if TYPE_CHECKING:
@@ -159,12 +160,16 @@ class Presence:
     decides whether to stamp the time; an arrival or a lease start has the service clear it, or end an undealt table
     whose wait is up), and the server's start seeds each table's wait with what is left of it, so a restart never
     gives a table a fresh wait it had already begun.
+
+    `waits` is the one `AskClock` of the process, on the chair hold's clock; the presence drops a table's entry where
+    its end or note answers that the table ended.
     """
 
     def __init__(
         self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable, lease: AgentLease, wakes: WakeList
     ) -> None:
         self._lease = lease
+        self.waits = AskClock(hold.clock)
         self._lease_ends: dict[str, float] = {}
         self._subscriptions: dict[str, list[Subscription]] = {}
         self._wakes = wakes
@@ -293,7 +298,7 @@ class Presence:
                     self._note_soon(table_id)
                 raise
             if ended:
-                self.wake_table(table_id)
+                self._table_ended(table_id)
         if not already_connected:
             self._wakes.wake(TableTopic(table_id), sparing=registration)
         return subscription
@@ -415,7 +420,7 @@ class Presence:
             self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
             return
         if ended:
-            self.wake_table(table_id)
+            self._table_ended(table_id)
 
     async def _end_if_empty(self, table_id: str, wait: object) -> None:
         if not self._is_latest_wait(table_id, wait):
@@ -434,7 +439,11 @@ class Presence:
             if self._empty_waits.get(table_id) is wait:
                 del self._empty_waits[table_id]
         if ended:
-            self.wake_table(table_id)
+            self._table_ended(table_id)
+
+    def _table_ended(self, table_id: str) -> None:
+        self.waits.drop(table_id)
+        self.wake_table(table_id)
 
     def _is_latest_wait(self, table_id: str, wait: object) -> bool:
         return not self._stopped and self._empty_waits.get(table_id) is wait

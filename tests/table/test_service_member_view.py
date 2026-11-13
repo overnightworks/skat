@@ -132,6 +132,37 @@ class TestTheViewOfAMember:
         assert scene.view_of(MOZART.account_id) is None
 
 
+class TestTheAgentInAChair:
+    @pytest.mark.parametrize(
+        ("seat", "account"),
+        [
+            pytest.param(1, None, id="a-person"),
+            pytest.param(2, MOZART.account_id, id="an-agent"),
+            pytest.param(3, BACH.account_id, id="another-agent"),
+            pytest.param(4, None, id="no-chair"),
+        ],
+    )
+    def test_is_the_account_of_the_agent_seated_there_and_nobody_else(self, scene, seat, account):
+        assert scene.service.agent_in_chair(scene.table_id, seat) == account
+
+    def test_is_nobody_at_a_free_chair(self, scene):
+        scene.service.stand(MOZART, StandUp("command-stand", scene.table_id), NOBODY)
+
+        assert scene.service.agent_in_chair(scene.table_id, 2) is None
+
+    @pytest.mark.parametrize("table_id", [UNKNOWN_TABLE, "not-an-id"])
+    def test_is_nobody_at_a_table_that_is_not_there(self, scene, table_id):
+        assert scene.service.agent_in_chair(table_id, 2) is None
+
+    def test_is_nobody_at_a_table_that_ended(self):
+        scene = Scene()
+        scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+        scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+
+        assert scene.service.agent_in_chair(scene.table_id, 2) is None
+
+
 def an_actor(position):
     return Actor(account_id=f"account-{position.name.lower()}", display_name=position.name)
 
