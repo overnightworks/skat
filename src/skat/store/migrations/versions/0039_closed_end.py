@@ -5,8 +5,8 @@ closed table's link names. Only the reason check widens.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0038"
-down_revision = "0037"
+revision = "0039"
+down_revision = "0038"
 
 REASON_CHECK = "tables_end_reason_is_a_reason"
 
