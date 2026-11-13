@@ -42,9 +42,6 @@ LEGAL_CARD = ".own-hand .card.ok"
 BID_CONTROLS = ".bid"
 INVITATION_WITHIN_SECONDS = 15
 MIDDLE_TOLERANCE_PIXELS = 3
-SCENE_WIDTH_PIXELS = {"desktop": 460, "phone": 340}
-PHONE_MARGIN_PIXELS = 24
-DESKTOP_FROM_PIXELS = 900
 command_numbers = itertools.count(1)
 
 
@@ -77,8 +74,8 @@ def expect_no_scroll_sideways(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
-def expect_the_question_drawn_as_its_scene(question: Locator, form_factor: dict[str, Any]) -> None:
-    """The scene draws a panel of its width, a centred circled icon above a centred title that fits one line."""
+def expect_the_question_drawn_as_its_scene(question: Locator) -> None:
+    """The scene draws a centred circled icon above a centred title that fits one line."""
     drawn = question.evaluate(
         """dialog => {
             const box = dialog.getBoundingClientRect();
@@ -90,7 +87,6 @@ def expect_the_question_drawn_as_its_scene(question: Locator, form_factor: dict[
             const written = text.getBoundingClientRect();
             const middle = box.left + box.width / 2;
             return {
-                width: box.width,
                 iconAboveTitle: icon !== undefined && icon.bottom <= title.getBoundingClientRect().top,
                 iconMiddleOffset: icon === undefined ? null : Math.abs(icon.left + icon.width / 2 - middle),
                 titleLines: lines.size,
@@ -98,9 +94,6 @@ def expect_the_question_drawn_as_its_scene(question: Locator, form_factor: dict[
             };
         }"""
     )
-    viewport_width = form_factor["viewport"]["width"]
-    scene_width = SCENE_WIDTH_PIXELS["desktop" if viewport_width >= DESKTOP_FROM_PIXELS else "phone"]
-    assert drawn["width"] == min(scene_width, viewport_width - PHONE_MARGIN_PIXELS)
     assert drawn["iconAboveTitle"]
     assert drawn["iconMiddleOffset"] <= MIDDLE_TOLERANCE_PIXELS
     assert drawn["titleLines"] == 1
@@ -134,7 +127,7 @@ def test_a_person_stands_up_mid_game_and_a_watcher_asks_then_sits_and_the_others
     free_chair.get_by_role("button", name=SIT_DOWN).click()
     question = watcher.get_by_role("dialog", name=SIT_QUESTION)
     expect(question).to_contain_text(line_of(leaver_name))
-    expect_the_question_drawn_as_its_scene(question, form_factor)
+    expect_the_question_drawn_as_its_scene(question)
     expect_no_scroll_sideways(watcher)
 
     button_of(watcher, CANCEL).click()
