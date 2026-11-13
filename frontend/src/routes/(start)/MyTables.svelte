@@ -156,8 +156,7 @@
                             <div class="lobby-chips">
                                 {#each card.chips as chip (chip.kind)}
                                     <span class="chip" class:now={chip.kind === "turn"} class:official={!chip.accent}>
-                                        {@render chipIcons[chip.kind]()}
-                                        {chip.text}
+                                        {@render chipIcons[chip.kind]()}{chip.text}
                                     </span>
                                 {/each}
                             </div>
