@@ -75,6 +75,7 @@ def test_everyone_sees_who_acts_and_the_pushes_with_their_factor_and_a_reload_ch
         expect(person.locator(BUBBLE)).to_have_count(1)
         expect(person.locator(SKAT_CARDS)).to_have_count(2)
     table.expect_the_turn_at("rearhand")
+    table.expect_the_push_bubble_to_overlap_no_other_bubble_or_key()
     for person in table.everyone:
         if person is not table.pages[table.seat_of("rearhand")]:
             expect(person.locator(PLAQUE)).to_contain_text(

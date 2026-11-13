@@ -638,8 +638,9 @@ export function agentSitsNote(previous: Table, table: Table): SeatNotice | null 
     if (handWaits(previous.hand)) return null;
     const freed = new Set(previous.chairs.filter((chair) => chair.occupant_name === null).map((chair) => chair.seat));
     const sat = table.chairs.find((chair) => chair.occupant_kind === "agent" && freed.has(chair.seat));
-    const name = sat?.occupant_name ?? null;
-    return name === null ? null : { text: words["table.agentSits"]({ name }), initials: [null] };
+    if (sat === undefined) return null;
+    const name = sat.occupant_name as string;
+    return { text: words["table.agentSits"]({ name }), initials: [null], seat: sat.seat, occupied: true };
 }
 
 // What the agents' control re-reads on: the agents by seat and name, and the version when the wake skipped versions,
