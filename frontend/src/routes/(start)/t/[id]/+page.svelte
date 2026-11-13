@@ -36,10 +36,13 @@
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
+    import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
+    import OpenTag from "#lib/ui/OpenTag.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
+    import CardCountTag from "#lib/ui/CardCountTag.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
@@ -601,18 +604,7 @@
                                 {/if}
                             {/if}
                             {#if chair.is_away}
-                                <span class="mark away" aria-hidden="true">
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path d="M19.5 14.6A7.8 7.8 0 1 1 9.4 4.5a6.3 6.3 0 0 0 10.1 10.1z" />
-                                    </svg>
-                                </span>
+                                <AwayMark />
                             {/if}
                         {:else if seated}
                             <span class="tile empty"></span>
@@ -639,21 +631,7 @@
                         {#if chair.hand !== null}
                             {#if openCards.length > 0}
                                 {#if chair.is_mine}
-                                    <span class="open-tag" title={words["table.openForAll"]}>
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            aria-hidden="true"
-                                        >
-                                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-                                            <circle cx="12" cy="12" r="3" />
-                                        </svg>
-                                        <span>{words["table.open"]}</span>
-                                    </span>
+                                    <OpenTag />
                                 {:else}
                                     <OpenHand cards={openCards} />
                                 {/if}
@@ -666,23 +644,7 @@
                                 </div>
                             {/if}
                             {#if !chair.is_mine && openCards.length === 0}
-                                <span class="count-tag" title={words["table.cardCount"]}>
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        aria-hidden="true"
-                                    >
-                                        <rect x="3" y="7" width="11" height="14.5" rx="2" />
-                                        <path
-                                            d="M8 7V4.5A1.5 1.5 0 0 1 9.5 3h10A1.5 1.5 0 0 1 21 4.5v12a1.5 1.5 0 0 1-1.5 1.5H14"
-                                        />
-                                    </svg>
-                                    <span>{chair.hand.card_count}</span>
-                                </span>
+                                <CardCountTag count={chair.hand.card_count} />
                             {/if}
                         {/if}
                     </li>
