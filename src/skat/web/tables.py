@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
     from skat.table.service import TableService
-    from skat.table.views import ChairHand, CommandResult, HandView, PassedInView, SeriesView, TableView
+    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, SeriesView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -285,6 +285,8 @@ class HandAnswer(BaseModel):
     waiting_seat: int | None
     pushing: PushingAnswer | None
     pushes: int
+    abort: list[int] | None
+    abortable: bool
 
 
 class NudgeAnswer(BaseModel):
@@ -311,7 +313,11 @@ class ChairAnswer(BaseModel):
     nudge: NudgeAnswer | None
 
 
-class PassedInAnswer(BaseModel):
+class NextDealerAnswer(BaseModel):
+    """Who deals next after a hand that ended with no result, passed in or aborted by a vote; named only while three
+    chairs are occupied and the series goes on.
+    """
+
     next_dealer_seat: int | None
 
 
@@ -419,7 +425,8 @@ class TableAnswer(BaseModel):
     chairs: list[ChairAnswer]
     watchers: int
     hand: HandAnswer | None
-    passed_in: PassedInAnswer | None
+    passed_in: NextDealerAnswer | None
+    aborted: NextDealerAnswer | None
     result: Annotated[ResultAnswer | RamschResultAnswer, Field(discriminator="kind")] | None
     series: SeriesAnswer | None
     options: OptionsAnswer | None
@@ -546,13 +553,15 @@ def hand_answer_of(hand: HandView | None) -> HandAnswer | None:
         waiting_seat=hand.waiting_seat,
         pushing=pushing_answer_of(hand.pushing),
         pushes=hand.pushes,
+        abort=None if hand.abort is None else list(hand.abort),
+        abortable=hand.abortable,
     )
 
 
-def passed_in_answer_of(passed_in: PassedInView | None) -> PassedInAnswer | None:
-    if passed_in is None:
+def next_dealer_answer_of(ended: PassedInView | AbortedView | None) -> NextDealerAnswer | None:
+    if ended is None:
         return None
-    return PassedInAnswer(next_dealer_seat=passed_in.next_dealer_seat)
+    return NextDealerAnswer(next_dealer_seat=ended.next_dealer_seat)
 
 
 def standing_answer_of(standing: Standing) -> StandingAnswer:
@@ -660,7 +669,8 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
         ],
         watchers=view.watchers,
         hand=hand_answer_of(view.hand),
-        passed_in=passed_in_answer_of(view.passed_in),
+        passed_in=next_dealer_answer_of(view.passed_in),
+        aborted=next_dealer_answer_of(view.aborted),
         result=result_answer_of(view.result),
         series=series_answer_of(view.series),
         options=None if view.options is None else options_answer_of(view.options),

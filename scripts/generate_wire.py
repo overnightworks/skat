@@ -29,6 +29,7 @@ from skat.table.records import (  # noqa: E402
     EndReason,
 )
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
+from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX  # noqa: E402
 from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -147,6 +148,8 @@ def render() -> str:
         "TABLE_AGENTS_SUFFIX": TABLE_AGENTS_SUFFIX,
         "TABLE_AGENT_CALL_SUFFIX": TABLE_AGENT_CALL_SUFFIX,
         "TABLE_AGENT_SEND_AWAY_SUFFIX": TABLE_AGENT_SEND_AWAY_SUFFIX,
+        "TABLE_ABORT_AGREE_SUFFIX": TABLE_ABORT_AGREE_SUFFIX,
+        "TABLE_ABORT_REFUSE_SUFFIX": TABLE_ABORT_REFUSE_SUFFIX,
     }
     paths = "".join(f'export const {name} = "{path}";\n' for name, path in constants.items())
     tuples = "".join(token_tuple(name, tokens) for name, tokens in TOKEN_TUPLES.items())

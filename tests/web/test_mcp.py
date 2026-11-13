@@ -14,6 +14,7 @@ from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
     AGENT_GROUP,
+    AGREE_TO_ABORT_HAND_TOOL,
     AGREE_TO_END_SERIES_TOOL,
     AGREE_TO_GIVE_UP_TOOL,
     AUCTION_BID_TOOL,
@@ -37,6 +38,7 @@ from skat.web.mcp import (
     READ_RULE_SETS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    REFUSE_TO_ABORT_HAND_TOOL,
     REFUSE_TO_END_SERIES_TOOL,
     SAVE_RULE_SET_TOOL,
     SAY_KONTRA_TOOL,
@@ -114,6 +116,8 @@ class TestTools:
                 CONTINUE_AFTER_RESULT_TOOL,
                 AGREE_TO_END_SERIES_TOOL,
                 REFUSE_TO_END_SERIES_TOOL,
+                AGREE_TO_ABORT_HAND_TOOL,
+                REFUSE_TO_ABORT_HAND_TOOL,
                 SAY_KONTRA_TOOL,
                 SAY_NO_WORD_TOOL,
                 OPEN_TABLE_TOOL,
