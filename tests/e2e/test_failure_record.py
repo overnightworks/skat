@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
-pytest_plugins = ["pytester"]
 
 REFUSED = 401
 MISSING = 404
