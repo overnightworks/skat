@@ -42,6 +42,7 @@
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
+    import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
@@ -754,17 +755,7 @@
                 <p class="note" role="status">{note}</p>
             </div>
             {#if seatNote !== null}
-                <p class="notice" role="status">
-                    {#if seatNote.initial === null}
-                        <span class="dot agent" aria-hidden="true">
-                            <AgentSparkle />
-                        </span>
-                    {:else}
-                        <span class="dot" aria-hidden="true">{seatNote.initial}</span>
-                    {/if}
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {seatNote.text} compiles to a `?? ""` branch no sentence can take -->
-                    <span class="label">{`${seatNote.text}`}</span>
-                </p>
+                <SeatNoticeLine notice={seatNote} />
             {/if}
             {@const asked = waits
                 ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)
