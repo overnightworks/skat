@@ -14,6 +14,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.declaring import DeclaringTable, button_of
 from tests.e2e.support.hands import TURN_CHAIR, deal_playing_table
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.tables import open_new_table, plate_of, sit_in, watch
@@ -150,11 +151,11 @@ def test_an_agent_sent_away_during_the_auction_leaves_the_plaque_over_the_wait_a
     agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Nova", "agent-subject-nova-open-chair")
     try:
         felix.get_by_role("button", name=CALL_PILL).click()
-        felix.get_by_role("button", name=text(SOURCE_LANGUAGE, "agents.callLabel", name="Nova")).click()
+        felix.get_by_role("button", name=kit_text("agent.callLabel", name="Nova")).click()
         agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
         expect(felix.locator(".chair .mark.pos")).to_have_count(3)
 
-        felix.get_by_role("button", name=text(SOURCE_LANGUAGE, "agents.askToLeaveLabel", name="Nova")).click()
+        felix.get_by_role("button", name=kit_text("agent.askToLeaveLabel", name="Nova")).click()
 
         for person in (felix, ben):
             expect_the_wait(person, BIDDING)
