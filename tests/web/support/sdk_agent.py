@@ -14,13 +14,14 @@ from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import STANDING_URI
 from mcp.client import Client
 from mcp.client.streamable_http import streamable_http_client
-from mcp.shared.subscriptions import ResourceUpdated
+from mcp.shared.subscriptions import ResourceUpdated, ToolsListChanged
 from mcp_types import TextContent, TextResourceContents
 
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, ToolAnswer, view_uri_of
 
 EVENT_WITHIN_SECONDS = 10
+TOOLS_CHANGED = "tools-changed"
 
 
 class _Streamed(httpx2.AsyncByteStream):
@@ -145,11 +146,17 @@ class SdkSession:
         assert isinstance(content, TextResourceContents)
         return json.loads(content.text)
 
+    def tools(self):
+        """The names of the tools the front lists for this client now, in the order it lists them."""
+        return [tool.name for tool in self._portal.call(self._client.list_tools).tools]
+
     @contextmanager
-    def listening(self):
-        """A `subscriptions/listen` stream on the agent's standing, which delivers the views it lists too."""
+    def listening(self, *, tools_list_changed=False):
+        """A `subscriptions/listen` stream on the agent's standing, which delivers the views it lists too, and the
+        change of the tool list when asked.
+        """
         with self._portal.wrap_async_context_manager(
-            self._client.listen(resource_subscriptions=[STANDING_URI])
+            self._client.listen(resource_subscriptions=[STANDING_URI], tools_list_changed=tools_list_changed)
         ) as events:
             yield SdkEvents(self, self._portal, events)
 
@@ -168,6 +175,18 @@ class SdkEvents:
                 event = await self._events.__anext__()
             assert isinstance(event, ResourceUpdated)
             return event.uri
+
+        return self._portal.call(next_event)
+
+    def next_kind(self):
+        """What the next event of the stream is: `TOOLS_CHANGED` for the notice that the tool list changed, else the
+        URI that changed.
+        """
+
+        async def next_event():
+            with anyio.fail_after(EVENT_WITHIN_SECONDS):
+                event = await self._events.__anext__()
+            return TOOLS_CHANGED if isinstance(event, ToolsListChanged) else event.uri
 
         return self._portal.call(next_event)
 

@@ -58,9 +58,8 @@ class AgentPushingTable(Table):
 
 class TestAnAgentAtATableWithPushing:
     def test_the_four_tools_are_offered_as_side_effecting_with_a_description_of_their_own(self, agent):
-        agent.admitted()
-
-        tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
+        listed = agent.offered_every_tool().request("tools/list")
+        tools = {tool["name"]: tool for tool in listed.json()["result"]["tools"]}
 
         assert all(name in tools for name in PUSHING_TOOLS)
         assert all("readOnlyHint" not in tools[name].get("annotations", {}) for name in PUSHING_TOOLS)

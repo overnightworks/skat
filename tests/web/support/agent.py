@@ -6,7 +6,7 @@ from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_view_uri, place_window_uri
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.mcp import OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
+from skat.web.mcp import MCP_GROUP, OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import card_body
@@ -61,6 +61,13 @@ class Agent:
             headers={"authorization": f"Bearer {token}", **headers, **(extra_headers or {})},
         )
 
+    def offered_every_tool(self):
+        """The same account under a token without agent facts, which is offered every tool whatever its table does.
+        The account exists from the agent's first call on.
+        """
+        self.admitted()
+        return Agent(self.skat, self.issuer, self.subject, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
+
     @contextmanager
     def listening(self):
         """A `subscriptions/listen` stream on the agent's standing; yields its frames, the acknowledgement read."""
@@ -107,6 +114,12 @@ class Agent:
         answer = self.request("resources/list")
         assert answer.status_code == 200, answer.text
         return [resource["uri"] for resource in answer.json()["result"]["resources"]]
+
+    def listed_tools(self):
+        """The names of the tools `tools/list` answers this client with now, in the order it lists them."""
+        answer = self.request("tools/list")
+        assert answer.status_code == 200, answer.text
+        return [tool["name"] for tool in answer.json()["result"]["tools"]]
 
     def accept(self, table_id, offer, **changes):
         """`accept_invitation` for the offer's id and epoch; a change replaces one argument."""

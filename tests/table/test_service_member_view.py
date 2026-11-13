@@ -12,11 +12,14 @@ import pytest
 from skat.engine.deal import Position
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.member_place import Acceptance
+from skat.table.moment import TableMoment
 from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
     CreateTable,
+    EndedTable,
+    Ending,
     EndProposal,
     HandProgress,
     OccupantKind,
@@ -26,6 +29,7 @@ from skat.table.records import (
 )
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
+from skat.table.transactions import HeldTable
 from tests.support.calls import call_facts
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import (
@@ -169,6 +173,11 @@ def an_actor(position):
 
 def auction_bid(service, actor, table_id, version):
     command = AuctionCommand("act", table_id, version, AuctionAction.BID, 18)
+    return service.take_auction_step(actor, command, NOBODY)
+
+
+def auction_pass(service, actor, table_id, version):
+    command = AuctionCommand("act", table_id, version, AuctionAction.PASS, None)
     return service.take_auction_step(actor, command, NOBODY)
 
 
@@ -360,3 +369,34 @@ class TestTheSignalOfACommit:
         auction_bid(scene.service, mover, scene.table_id, scene.table.version)
 
         assert scene.signals == []
+
+
+class TestTheMomentsOfAnAccount:
+    def test_an_account_that_holds_no_chair_is_in_the_lobby(self, scene):
+        assert scene.service.moments_of(WATCHER.account_id) == {TableMoment.LOBBY}
+
+    def test_a_seated_account_is_in_the_moment_of_its_seat(self, scene):
+        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.AUCTION}
+
+    def test_a_table_that_ended_after_the_candidates_were_listed_counts_for_no_moment(self, scene, monkeypatch):
+        scene.store.tables[scene.table_id] = EndedTable(TableId(scene.table_id), 9, Ending.empty(3600))
+        monkeypatch.setattr(scene.store, "tables_of", lambda _account: (HeldTable(TableId(scene.table_id), 8),))
+
+        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.LOBBY}
+
+
+class TestTheToolsSignal:
+    def test_the_agents_whose_moment_a_commit_changed_are_told_and_a_commit_that_keeps_it_tells_nobody(self):
+        told = []
+        scene = Scene().seat_three()
+        scene.service = scene.service.with_tools_signal(told.append)
+
+        def on_turn():
+            return next(actor for actor in (ANNA, MOZART, BACH) if scene.view_of(actor.account_id).awaits_you)
+
+        auction_bid(scene.service, on_turn(), scene.table_id, scene.table.version)
+        auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
+        kept = list(told)
+        auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
+
+        assert (kept, told) == ([], [{MOZART.account_id, BACH.account_id}])

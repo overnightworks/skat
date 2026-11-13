@@ -43,7 +43,7 @@ from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
 from skat.web.lobby import AttentionSource, create_lobby_router
 from skat.web.mcp import McpAccess, mount_mcp
-from skat.web.member_place import member_front, nudge_signal, standing_signal, view_signal
+from skat.web.member_place import member_front, nudge_signal, standing_signal, tools_signal, view_signal
 from skat.web.nudging import create_nudging_router
 from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
@@ -371,12 +371,13 @@ def create_app(
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     roster, changes = _roster_and_changes(resource_changes)
-    # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing and
-    # their tables' views.
+    # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing,
+    # their tables' views and their tools.
     tables = (
         tables.with_leases(lambda: presence.live_leases())
         .with_standing_signal(standing_signal(changes, relying_party.issuer))
         .with_view_signal(view_signal(changes, relying_party.issuer))
+        .with_tools_signal(tools_signal(changes, relying_party.issuer))
     )
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
     # the pulses that ask a seat again with the chair holds' timers.

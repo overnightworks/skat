@@ -453,7 +453,7 @@ class TestASignalThatFailsAfterTheCommit:
 
 class TestTheToolDescriptionsNameTheView:
     def test_every_description_that_sends_a_seated_agent_to_read_table_also_names_the_table_view(self, agent):
-        tools = agent.request("tools/list").json()["result"]["tools"]
+        tools = agent.offered_every_tool().request("tools/list").json()["result"]["tools"]
         before_a_chair = {"sit_down", "open_table", "read_paused_tables"}
 
         naming_read_table = {tool["name"] for tool in tools if "read_table" in tool["description"]} - before_a_chair

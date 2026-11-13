@@ -56,13 +56,14 @@ from skat.web.mcp import token_carries_agent_facts
 from skat.web.tables import actor_for, answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Iterable
+    from collections.abc import Awaitable, Callable, Collection, Iterable
 
     from agents.mcp_server import MemberResources
     from agents.tools import JsonObject
 
     from skat.table.member_place import TableStanding
     from skat.table.member_view import MemberView, ViewSignal
+    from skat.table.moment import TableMoment
     from skat.table.records import TableId
     from skat.table.service import TableService
     from skat.web.presence import Presence, Scheduler
@@ -244,23 +245,40 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
     return PersonTool(ACCEPT_INVITATION_DECLARATION, handler)
 
 
-def _pulse(changes: ResourceChanges, issuer: str, accounts: frozenset[str], uri: str) -> None:
-    """Tells each account that `uri` changed. It runs on a worker thread, so it hands each change to the front's event
-    loop, where `ResourceChanges` lives. The change has committed, so a failure is logged by its type and never turns
-    the command into an error; the listener's next listen reads today's truth.
+def _pulse(issuer: str, accounts: frozenset[str], change: Callable[[Principal], None]) -> None:
+    """Hands each account's `change` to the front's event loop, where `ResourceChanges` lives, from a worker thread.
+    The change has committed, so a failure is logged by its type and never turns the command into an error; the
+    listener's next listen reads today's truth.
     """
     for account in accounts:
         try:
-            anyio.from_thread.run_sync(changes.changed, Principal(iss=issuer, sub=account), uri)
+            anyio.from_thread.run_sync(change, Principal(iss=issuer, sub=account))
         except Exception as failure:
             logger.error("member_signal_failed", error=type(failure).__name__)
 
 
+def _pulse_uri(changes: ResourceChanges, issuer: str, accounts: frozenset[str], uri: str) -> None:
+    """Tells each account that `uri` changed."""
+    _pulse(issuer, accounts, lambda principal: changes.changed(principal, uri))
+
+
 def standing_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[str]], None]:
-    """The signal `TableService` tells after a commit that changed whether an agent is a member of a table."""
+    """The signal `TableService` tells after a commit that changed whether an agent is a member of a table: the agent
+    is told its standing changed and, as sitting down or leaving changes its tools, that its tool list did.
+    """
 
     def tell(accounts: frozenset[str]) -> None:
-        _pulse(changes, issuer, accounts, STANDING_URI)
+        _pulse_uri(changes, issuer, accounts, STANDING_URI)
+        _pulse(issuer, accounts, changes.tools_changed)
+
+    return tell
+
+
+def tools_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[str]], None]:
+    """The signal `TableService` tells after a commit that moved an agent's seat on to another moment."""
+
+    def tell(accounts: frozenset[str]) -> None:
+        _pulse(issuer, accounts, changes.tools_changed)
 
     return tell
 
@@ -288,7 +306,7 @@ def view_signal(changes: ResourceChanges, issuer: str) -> ViewSignal:
 
     def tell(table_id: TableId, accounts: frozenset[str]) -> None:
         place = PlaceRef(kind=TABLE_PLACE_KIND, id=table_id.value)
-        _pulse(changes, issuer, accounts, place_view_uri(place))
+        _pulse_uri(changes, issuer, accounts, place_view_uri(place))
 
     return tell
 
@@ -300,13 +318,18 @@ class MemberFront:
     tool: PersonTool
     resources: MemberResources
     changes: ResourceChanges
+    moments_of: Callable[[Principal], Awaitable[frozenset[TableMoment]]]
 
 
 def member_front(
     tables: TableService, presence: Presence, changes: ResourceChanges, scheduler: Scheduler, asks: AskClock
 ) -> MemberFront:
+    async def moments_of(principal: Principal) -> frozenset[TableMoment]:
+        return await run_in_threadpool(tables.moments_of, principal.sub)
+
     return MemberFront(
         accept_invitation_tool(tables, presence),
         MemberStandings(tables, presence, asks, scheduler, changes),
         changes,
+        moments_of,
     )

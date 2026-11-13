@@ -34,7 +34,15 @@ from skat.table.member_place import (
     standings_of,
     table_offers_of,
 )
-from skat.table.member_view import MemberView, ViewSignal, member_view_of, view_recipients
+from skat.table.member_view import (
+    MemberView,
+    ViewSignal,
+    member_view_of,
+    moment_at,
+    moment_recipients,
+    view_recipients,
+)
+from skat.table.moment import TableMoment
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -146,6 +154,7 @@ class TableService:
         self._live_leases: Callable[[], frozenset[str]] = frozenset
         self._standings_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
         self._view_changed: ViewSignal = lambda _table_id, _accounts: None
+        self._tools_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -173,6 +182,14 @@ class TableService:
         """
         clone = copy.copy(self)
         clone._view_changed = signal  # noqa: SLF001 - the clone is this class's own instance
+        return clone
+
+    def with_tools_signal(self, signal: Callable[[frozenset[str]], None]) -> TableService:
+        """The same service where each commit that moves the seat of an agent on to another moment tells `signal` the
+        agents it concerns, after the commit and on the thread the command ran on; no change tells it nothing.
+        """
+        clone = copy.copy(self)
+        clone._tools_changed = signal  # noqa: SLF001 - the clone is this class's own instance
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
@@ -488,7 +505,13 @@ class TableService:
 
     def _server_steps(self) -> ServerSteps:
         return ServerSteps(
-            self._transactions, self._live_leases, self._now, self._random_source, self._tell, self._tell_view
+            self._transactions,
+            self._live_leases,
+            self._now,
+            self._random_source,
+            self._tell,
+            self._tell_view,
+            self._tell_moments,
         )
 
     def unplayed_tables(self, days: int) -> tuple[TableId, ...]:
@@ -594,6 +617,7 @@ class TableService:
         if decision.entry != entry:
             self._tell(frozenset({agent.account_id}))
         self._tell_view(table_id, view_recipients(table, decision.table))
+        self._tell_moments(moment_recipients(table, decision.table))
         return AcceptResult(decision.refusal, result_pending(decision.table))
 
     def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
@@ -606,6 +630,10 @@ class TableService:
     def _tell_view(self, table_id: TableId, accounts: frozenset[str]) -> None:
         if accounts:
             self._view_changed(table_id, accounts)
+
+    def _tell_moments(self, accounts: frozenset[str]) -> None:
+        if accounts:
+            self._tools_changed(accounts)
 
     def _run_command(
         self,
@@ -650,6 +678,7 @@ class TableService:
             seated_when_hand_ended: frozenset[str] = frozenset()
             told: frozenset[str] = frozenset()
             viewers: frozenset[str] = frozenset()
+            moved_on: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
@@ -658,6 +687,7 @@ class TableService:
                         after_accepted(transaction, decision.table)
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                     viewers = view_recipients(table, decision.table)
+                    moved_on = moment_recipients(table, decision.table)
                 if decision.refusal is not Refusal.NOT_ALLOWED:
                     # A refused authority is no outcome: the id stays free once the person has the right.
                     transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
@@ -674,6 +704,7 @@ class TableService:
             )
         self._tell(told)
         self._tell_view(identifier, viewers)
+        self._tell_moments(moved_on)
         return result
 
     def _save_decided(
@@ -716,6 +747,15 @@ class TableService:
             return None
         present = present_at(table, connected_accounts, self._live_leases())
         return member_view_of(table, account_id, present, opener)
+
+    def moments_of(self, account_id: str) -> frozenset[TableMoment]:
+        """The moments of the account's seats at the live tables it holds a chair at, from one read; the lobby moment
+        when it holds none.
+        """
+        with self._transactions.begin() as transaction:
+            tables = [transaction.table(held.table_id) for held in transaction.tables_of(account_id)]
+        moments = frozenset(moment_at(table, account_id) for table in tables if isinstance(table, TableRecord))
+        return moments or frozenset({TableMoment.LOBBY})
 
     def agent_in_chair(self, table_id: str, seat: int) -> str | None:
         """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,
