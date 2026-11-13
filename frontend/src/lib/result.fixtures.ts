@@ -1,6 +1,6 @@
 import type { Chair, RamschResult, Result, Table } from "../routes/(start)/tables.ts";
 
-export const DECLARER_SEAT = 2;
+const DECLARER_SEAT = 2;
 export const NOBODY = 0;
 
 export function chairs(mine: number, changes: Record<number, Partial<Chair>> = {}): Chair[] {

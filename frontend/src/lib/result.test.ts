@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { awaitedNames, resultJustAppeared, resultView, weiterBar, withMinus } from "#lib/result.ts";
-import { NOBODY, chairs, WON_GAME, LOST_GAME, NULL_GAME, OTHER_LOSES, table } from "#lib/result.fixtures.ts";
+import { chairs, LOST_GAME, NOBODY, NULL_GAME, OTHER_LOSES, table, WON_GAME } from "#lib/result.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type { Table, Result } from "../routes/(start)/tables.ts";
 
