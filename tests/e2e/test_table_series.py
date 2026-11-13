@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
@@ -72,6 +73,8 @@ def expect_the_keys_in_one_row(person: Page) -> None:
     assert max(tops) - min(tops) <= 1
 
 
+TABLE_SCENES = Path(__file__).parents[2] / "docs" / "mockups" / "table.html"
+FONT_SIZE_OF = "element => getComputedStyle(element).fontSize"
 CENTRED_WITHIN = 2
 TEXT_BOX_OF = """pill => {
     const range = document.createRange();
@@ -87,6 +90,17 @@ TEXT_BOX_OF = """pill => {
 }"""
 
 
+def the_scene_draws_the_wait_pill_in(person: Page) -> str:
+    """The type size of the pill in the frozen scene series-next at the person's width, read from the scene itself."""
+    frame = "series-next-1280" if person.viewport_size["width"] >= PHONE_BREAKPOINT else "series-next-390"
+    scene = person.context.new_page()
+    try:
+        scene.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
+        return scene.locator(f"[id='{frame}'] .cb.wide.glass", has_text=waiting_for(["Ben"])).evaluate(FONT_SIZE_OF)
+    finally:
+        scene.close()
+
+
 def expect_the_wait_pill_to_hold_its_text_centred(person: Page) -> None:
     """The pill is a status of the bar: its words sit wholly inside its box, as the frozen scene draws them."""
     pill = person.locator(".actions .copy.wait")
@@ -94,6 +108,7 @@ def expect_the_wait_pill_to_hold_its_text_centred(person: Page) -> None:
     gaps = pill.evaluate(TEXT_BOX_OF)
     assert min(gaps.values()) >= 0
     assert abs(gaps["above"] - gaps["below"]) <= CENTRED_WITHIN
+    assert pill.evaluate(FONT_SIZE_OF) == the_scene_draws_the_wait_pill_in(person)
 
 
 def expect_the_proposal_asked(table: RamschTable) -> None:

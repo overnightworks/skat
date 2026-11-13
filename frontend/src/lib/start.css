@@ -4088,6 +4088,7 @@ body {
     padding-block: 14px;
     border-radius: 26px;
     cursor: default;
+    font-size: 15px;
     line-height: 1.2;
     text-align: center;
     text-wrap: balance;
@@ -4179,14 +4180,13 @@ body {
         gap: 8px;
     }
 
-    /* The pill stays as tall as its neighbours and holds its words centred: up to three lines of its small type fit the 52px,
+    /* The pill stays as tall as its neighbours and holds its words centred: up to three lines of its type fit the 52px,
        and longer names end in an ellipsis. The hopping dots are left out on a phone, as the frozen scene leaves them out. */
     .room .actions.on-result .copy.wait {
         flex: 0 1 auto;
         min-width: 0;
         padding-block: 0;
         padding-inline: 12px;
-        font-size: 12px;
         line-height: 1.1;
     }
 
@@ -4283,11 +4283,10 @@ body {
     }
 }
 
-/* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller type and padding. */
+/* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller padding. */
 @media (max-width: 379px) {
     .room .actions.on-result .copy.wait {
         padding-inline: 8px;
-        font-size: 11px;
     }
 }
 
