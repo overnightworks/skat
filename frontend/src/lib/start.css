@@ -3309,14 +3309,50 @@ body {
 }
 
 .room .result .reck .dl {
-    color: #1f7a4d;
+    --ink: #1f7a4d;
+    color: var(--ink);
     font-size: 22px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
 
 .room .result .reck .dl.minus {
-    color: #6b6f78;
+    --ink: #6b6f78;
+}
+
+@property --n {
+    syntax: "<integer>";
+    inherits: false;
+    initial-value: 0;
+}
+
+/* The final gain stays the text, so the coaster keeps its width and every reader sees it; while the count runs the
+   text is transparent and the counter draws the running number over it, right-aligned. */
+@media (prefers-reduced-motion: no-preference) {
+    .room .result .reck .dl.count {
+        --n: var(--to);
+        position: relative;
+        color: transparent;
+        counter-reset: n var(--n);
+        animation: count 1.1s ease-out 0.3s both;
+    }
+
+    .room .result .reck .dl.count::after {
+        position: absolute;
+        right: 0;
+        color: var(--ink);
+        content: "+" counter(n);
+    }
+
+    @keyframes count {
+        from {
+            --n: 0;
+        }
+
+        to {
+            --n: var(--to);
+        }
+    }
 }
 
 .room .mark.ready {
