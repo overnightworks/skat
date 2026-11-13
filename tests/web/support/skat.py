@@ -168,6 +168,15 @@ def unnamed_lines(lines):
             named = False
 
 
+def read_the_first_round(lines):
+    """Reads the first view and the event attention that follows it; the server then idles at its wake, so a
+    stream closed afterwards is gone at once."""
+    next(line for line in lines if line.startswith("data: "))
+    assert next(lines, "") == ""
+    assert next(lines) == "event: attention"
+    next(lines)
+
+
 @contextmanager
 def streams_of(server, table_id, people):
     """One open stream per person; yields each stream's decoded messages, its first view already read."""
@@ -178,12 +187,7 @@ def streams_of(server, table_id, people):
                 server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=headers)
             )
             lines = stream.iter_lines()
-            next(line for line in lines if line.startswith("data: "))
-            # The first round ends with the event attention; once it is read the server idles at its wake, so a
-            # stream closed afterwards is gone at once.
-            assert next(lines, "") == ""
-            assert next(lines) == "event: attention"
-            next(lines)
+            read_the_first_round(lines)
             messages = (
                 json.loads(line.removeprefix("data: ")) for line in unnamed_lines(lines) if line.startswith("data: ")
             )
