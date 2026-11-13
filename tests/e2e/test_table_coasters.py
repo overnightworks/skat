@@ -56,6 +56,22 @@ def expect_the_totals(table: PlayingTable, totals: dict[int, int]) -> None:
                 re.compile(rf"^{sign}{abs(total)}$")
             )
         expect_nothing_under_a_coaster(person)
+        expect_the_table_page_clear(person)
+
+
+def expect_the_table_page_clear(person: Page) -> None:
+    """The bar and the note under it end inside the screen, and the plaque lies over no fan, chair or laid card."""
+    screen_height = person.evaluate("window.innerHeight")
+    for selector in (".actions", "p.note"):
+        box = person.locator(selector).bounding_box()
+        assert box is not None
+        assert box["y"] + box["height"] <= screen_height, selector
+    plaque = person.locator(".plaque").bounding_box()
+    if plaque is not None:
+        for selector in (".fan", ".laid .face", ".chair .tile"):
+            for other in person.locator(selector).all():
+                covered = other.bounding_box()
+                assert covered is None or not overlaps(plaque, covered), selector
 
 
 def expect_nothing_under_a_coaster(person: Page) -> None:
@@ -158,3 +174,4 @@ def test_the_plate_of_an_away_chair_stays_clear_of_its_coaster(
     expect(onlooker.locator(f".chair[data-seat='{away_seat}'] .mark.away")).to_have_count(1)
     expect(onlooker.locator(COASTER)).to_have_count(len(table.names))
     expect_nothing_under_a_coaster(onlooker)
+    expect_the_table_page_clear(onlooker)
