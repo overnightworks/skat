@@ -1622,6 +1622,24 @@ body {
         width: 300px;
         height: 200px;
     }
+
+    /* The near chair stands too close to the screen's edge for the word of a push at its left: it hangs above the
+       chair, as the near chair's call does in bid-watch. */
+    .room .chair:nth-child(3) .bubble.word {
+        right: auto;
+        left: 20px;
+        top: auto;
+        bottom: calc(100% + 34px);
+        transform: none;
+        --tail: 30%;
+    }
+
+    .room .chair:nth-child(3) .bubble.word::after {
+        left: var(--tail);
+        right: auto;
+        top: calc(100% - 6px);
+        transform: translateX(-50%) rotate(45deg);
+    }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -2666,6 +2684,12 @@ body {
 
     .room .plaque.ramsch .game.pushes {
         font-size: 12px;
+    }
+
+    /* The word of a push is wider than a number: it keeps whole beside the chair on the narrowest felt. */
+    .room .chair:nth-child(3) .bubble.word {
+        right: calc(100% + 6px);
+        font-size: 16px;
     }
 
     .room .declare:is(.picked, .hand) {

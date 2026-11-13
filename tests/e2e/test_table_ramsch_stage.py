@@ -194,6 +194,11 @@ class RamschStageTable:
             assert viewport is not None
             assert plaque["x"] >= 0
             assert plaque["x"] + plaque["width"] <= viewport["width"]
+            for bubble in person.locator(BUBBLE).all():
+                box = bubble.bounding_box()
+                assert box is not None
+                assert box["x"] >= 0
+                assert box["x"] + box["width"] <= viewport["width"]
 
     def expect_the_plaque_lines_to_read_alike(self, people: list[Page]) -> None:
         for person in people:
