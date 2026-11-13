@@ -314,6 +314,18 @@ def test_an_answer_to_a_request_a_card_took_back_shows_the_failure_and_ends_noth
 
 HELD_CARDS = ".controls.held"
 OWN_CARDS = ".own-hand .card"
+FELT_CARDS = ".trick .laid"
+
+
+def play_out_until_every_page_shows_it(table: PlayingTable, cards: int) -> None:
+    """Plays whole tricks through the API and waits until every page shows the last of them on its felt.
+
+    A page that gets a newer table brings its give-up key back disarmed, so a tap pair begins only once the last card
+    has arrived; the page shows the finished trick until the next lead.
+    """
+    table.play_out(cards)
+    for person in table.everyone:
+        expect(person.locator(FELT_CARDS)).to_have_count(CARDS_AFTER_ONE_TRICK if cards else 0)
 
 
 def gives_up(opponent: str) -> str:
@@ -536,7 +548,7 @@ def test_the_declarers_second_tap_with_nine_or_ten_cards_ends_the_game_at_once_o
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str], played: int
 ) -> None:
     table = deal_a_game(PHONE)
-    table.play_out(played)
+    play_out_until_every_page_shows_it(table, played)
     declarer = table.pages[table.declarer_seat]
     expect(declarer.locator(OWN_CARDS)).to_have_count(10 - played // 3)
 
@@ -554,7 +566,7 @@ def test_the_declarers_second_tap_with_fewer_cards_asks_the_opponents_with_the_r
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
-    table.play_out(CARDS_AFTER_TWO_TRICKS)
+    play_out_until_every_page_shows_it(table, CARDS_AFTER_TWO_TRICKS)
     declarer = table.pages[table.declarer_seat]
     expect(declarer.locator(OWN_CARDS)).to_have_count(10 - CARDS_AFTER_TWO_TRICKS // 3)
 
@@ -571,7 +583,7 @@ def test_an_opponents_second_tap_gives_up_for_the_side_and_the_declarer_answers_
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
-    table.play_out(CARDS_AFTER_TWO_TRICKS)
+    play_out_until_every_page_shows_it(table, CARDS_AFTER_TWO_TRICKS)
     asker = opponents(table)[0]
     expect(table.pages[asker].locator(OWN_CARDS)).to_have_count(10 - CARDS_AFTER_TWO_TRICKS // 3)
 
