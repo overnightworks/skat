@@ -54,8 +54,7 @@ def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[s
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]:
-    # Every context asks for the source language, so the suite stays in it when a further catalog lands.
-    return {**browser_context_args, "ignore_https_errors": True, "locale": SOURCE_LANGUAGE}
+    return {**browser_context_args, "ignore_https_errors": True}
 
 
 PAGE_TIMELINE_SECTION = "page timeline"
@@ -162,8 +161,11 @@ def open_person(
         person_address = PERSON_ADDRESS_BASE + person_number
         # The plugin's factory traces the context, so a failing test leaves its trace in the output directory.
         # A measured card is not in motion: a test that needs motion names "no-preference" itself.
+        # Every context asks for the source language unless a test names another, so the suite stays in it when a
+        # further catalog lands; the factory merges the session's context arguments, so the locale lives here.
         context = new_context(
             **{
+                "locale": SOURCE_LANGUAGE,
                 "reduced_motion": "reduce",
                 "extra_http_headers": {"X-Forwarded-For": str(person_address)},
                 **device_options,

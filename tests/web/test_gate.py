@@ -37,6 +37,7 @@ from skat.web.constants import (
 )
 from skat.web.gate import session_gate
 from skat.web.sign_in import build_sign_in_configs
+from skat.web.words import SOURCE_LANGUAGE
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
@@ -44,8 +45,7 @@ from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import (
     ANNOUNCER_STYLE_HASH,
     CALL_PAGE_MODULE,
-    CALL_PAGE_SCRIPT_HASH,
-    FIXTURE_DIRECTORY,
+    CALL_PAGE_SCRIPT_HASHES,
     FIXTURE_SCRIPT_HASH,
     IMMUTABLE_FILE,
     SIGN_IN_FONT,
@@ -90,11 +90,11 @@ LOOKALIKE_PATHS = [
     BACKCHANNEL_LOGOUT_PATH.upper(),
 ]
 SIGN_IN_PAGES = {
-    LOGIN_PATH: FIXTURE_DIRECTORY / "login.html",
-    NO_ACCESS_PATH: FIXTURE_DIRECTORY / "no-access.html",
-    CALL_SIGN_IN_PATH: FIXTURE_DIRECTORY / "login" / "call.html",
+    LOGIN_PATH: "login.html",
+    NO_ACCESS_PATH: "no-access.html",
+    CALL_SIGN_IN_PATH: "login/call.html",
 }
-LOGIN_FAILED_PAGE = FIXTURE_DIRECTORY / "login-failed.html"
+LOGIN_FAILED_PAGE = "login-failed.html"
 FORM_POST = {"content-type": "application/x-www-form-urlencoded"}
 SAME_ORIGIN_FORM_POST = {**FORM_POST, "origin": TEST_PUBLIC_ORIGIN}
 JSON_POST = {"content-type": "application/json"}
@@ -102,7 +102,7 @@ CROSS_SITE_FORM_POST = {**FORM_POST, "origin": "https://evil.example"}
 END_SESSION_URL = f"{TEST_ISSUER}/protocol/openid-connect/logout"
 EXPECTED_CONTENT_SECURITY_POLICY = (
     "default-src 'none'; base-uri 'self'; "
-    f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASH}'; "
+    f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASHES['de']}' '{CALL_PAGE_SCRIPT_HASHES['en']}'; "
     f"style-src 'self' 'unsafe-hashes' '{ANNOUNCER_STYLE_HASH}'; "
     "connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; "
     "manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'"
@@ -265,7 +265,7 @@ class TestSignInPages:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/html")
         assert "location" not in response.headers
-        assert response.content == (served_page(SIGN_IN_PAGES[path]) if method == "GET" else b"")
+        assert response.content == (served_page(SIGN_IN_PAGES[path], SOURCE_LANGUAGE) if method == "GET" else b"")
         assert member is None or application.stores.sessions.load(member.session.id) is not None
 
 
@@ -454,7 +454,7 @@ class TestRevalidation:
 
     def test_a_refused_callback_answer_is_not_stored(self, application):
         response = application.get(AUTH_CALLBACK_PATH, **BROWSER_ACCEPT)
-        assert (response.status_code, response.content) == (403, served_page(LOGIN_FAILED_PAGE))
+        assert (response.status_code, response.content) == (403, served_page(LOGIN_FAILED_PAGE, SOURCE_LANGUAGE))
         assert response.headers["cache-control"] == "no-store"
 
 

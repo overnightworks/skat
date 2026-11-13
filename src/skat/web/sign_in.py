@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Annotated
 from urllib.parse import parse_qs, quote, urlsplit
 
 import structlog
-from fastapi import APIRouter, FastAPI, Query, Response
+from fastapi import APIRouter, FastAPI, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from webauth.admission import AdmissionRefusal
 from webauth.config import SessionLifetime, WebAuthConfig
@@ -36,7 +36,7 @@ from skat.web.constants import (
     SIGN_IN_PATHS,
 )
 from skat.web.gate import admission_for
-from skat.web.languages import language_of_request
+from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import Exclusion, excluded
 from skat.web.page_build import BuiltPage
 from skat.web.routes import READ_METHODS, built_page_response
@@ -45,12 +45,14 @@ from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import text
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pydantic import SecretStr
     from starlette.requests import HTTPConnection
     from webauth.jwt_verification import KeySetFetch
     from webauth.ports import AccountEvent, SessionRecordStore, SignInTransaction
 
-    from skat.web.page_build import PageBuild
+    from skat.web.page_build import PageBuild, SignInPages
     from skat.web.settings import ServerSettings
 
 OPENID_CONNECT_PATH = "/protocol/openid-connect"
@@ -163,19 +165,23 @@ def install_sign_in(
     web_auth: WebAuthConfig,
 ) -> None:
     """The library serves the start, callback, logout and back-channel routes; the pages stay Skat's."""
+
+    def sign_in_pages_of(request: HTTPConnection) -> SignInPages:
+        return page_build.sign_in_pages[language_of_request(request, sessions=sessions, config=web_auth)]
+
     install_sign_in_routes(
         app,
         paths=SIGN_IN_PATHS,
         relying_party=lambda _request: relying_party,
         admission=admission_for(relying_party.issuer),
         transaction=transaction,
-        refused=lambda _request, refusal: _refusal_response(refusal, page_build),
+        refused=lambda request, refusal: _refusal_response(refusal, sign_in_pages_of(request)),
         keeps_id_token=True,
         max_sessions=None,
         logout_page_text=lambda request: logout_page_text(request, sessions=sessions, config=web_auth),
         ui_language=lambda request: language_of_request(request, sessions=sessions, config=web_auth),
     )
-    app.include_router(_create_pages_router(page_build))
+    app.include_router(_create_pages_router(page_build, sign_in_pages_of))
 
 
 def logout_page_text(request: HTTPConnection, *, sessions: SessionRecordStore, config: WebAuthConfig) -> LogoutPageText:
@@ -183,19 +189,29 @@ def logout_page_text(request: HTTPConnection, *, sessions: SessionRecordStore, c
     return LogoutPageText(language=language, button_label=text(language, "logout.button"))
 
 
-def _create_pages_router(page_build: PageBuild) -> APIRouter:
+def _page_response(page: BuiltPage, status_code: int = HTTPStatus.OK) -> Response:
+    """A sign-in page chosen by the request's language, which the caches are told."""
+    response = built_page_response(page, status_code=status_code)
+    response.headers["Vary"] = LANGUAGE_VARY
+    return response
+
+
+def _create_pages_router(page_build: PageBuild, sign_in_pages_of: Callable[[HTTPConnection], SignInPages]) -> APIRouter:
     router = APIRouter()
-    signed_out_page = page_build.signed_out
-    if signed_out_page.content.count(SIGN_IN_ADDRESS) != 1:
-        raise SignInConfigurationError(
-            f"The signed-out page lacks its one {AUTH_START_PATH} address; run make frontend"
-        )
+    for language, pages in page_build.sign_in_pages.items():
+        if pages.signed_out.content.count(SIGN_IN_ADDRESS) != 1:
+            raise SignInConfigurationError(
+                f"The {language} signed-out page lacks its one {AUTH_START_PATH} address; run make frontend"
+            )
 
     @router.api_route(LOGIN_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
-    def signed_out(next_path: Annotated[str | None, Query(alias=RETURN_PATH_QUERY_NAME)] = None) -> Response:
+    def signed_out(
+        request: Request, next_path: Annotated[str | None, Query(alias=RETURN_PATH_QUERY_NAME)] = None
+    ) -> Response:
         """Carries the raw `next` onto the sign-in address; webauth is the only validator of it."""
+        signed_out_page = sign_in_pages_of(request).signed_out
         if next_path is None:
-            return built_page_response(signed_out_page)
+            return _page_response(signed_out_page)
         if _is_call_mode_table(next_path):
             # `+` with the encoded value on its right is the concatenation CodeQL's py/url-redirection accepts
             # as a fixed local target; an f-string is not.
@@ -203,17 +219,16 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
                 CALL_SIGN_IN_PATH + "?" + RETURN_PATH_QUERY_NAME + "=" + quote(next_path, safe=""), HTTPStatus.SEE_OTHER
             )
         address = f"{AUTH_START_PATH}?{RETURN_PATH_QUERY_NAME}={quote(next_path, safe='')}".encode()
-        return built_page_response(
-            BuiltPage.of(signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"'))
-        )
+        carrying_next = signed_out_page.content.replace(SIGN_IN_ADDRESS, b'href="' + address + b'"')
+        return _page_response(BuiltPage.of(carrying_next))
 
     @router.api_route(CALL_SIGN_IN_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
-    def call_sign_in() -> Response:
-        return built_page_response(page_build.call_sign_in)
+    def call_sign_in(request: Request) -> Response:
+        return _page_response(sign_in_pages_of(request).call_sign_in)
 
     @router.api_route(NO_ACCESS_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.BROWSER_PAGE))
-    def no_access() -> Response:
-        return built_page_response(page_build.no_access)
+    def no_access(request: Request) -> Response:
+        return _page_response(sign_in_pages_of(request).no_access)
 
     return router
 
@@ -232,11 +247,11 @@ def _is_call_mode_table(next_path: str) -> bool:
     )
 
 
-def _refusal_response(refusal: SignInRefusal, page_build: PageBuild) -> Response:
+def _refusal_response(refusal: SignInRefusal, sign_in_pages: SignInPages) -> Response:
     _log_refusal(refusal.cause)
     if refusal.page is RefusalPage.NO_ACCESS:
         return Response(status_code=HTTPStatus.SEE_OTHER, headers={"location": NO_ACCESS_PATH})
-    return built_page_response(page_build.login_failed, status_code=HTTPStatus.FORBIDDEN)
+    return _page_response(sign_in_pages.login_failed, HTTPStatus.FORBIDDEN)
 
 
 def _log_refusal(refusal: OidcRefusal | AdmissionRefusal) -> None:

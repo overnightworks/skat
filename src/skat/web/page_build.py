@@ -5,9 +5,15 @@ import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from skat.web.secret_files import StartRefusedError
-from skat.web.words import SOURCE_LANGUAGE
+from skat.web.words import LANGUAGES
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from skat.web.words import Language
 
 BUILD_DIRECTORY = Path(__file__).parent / "build"
 SHELL_FILE = "index.html"
@@ -106,20 +112,53 @@ class BuiltPage:
 
 
 @dataclass(frozen=True)
+class SignInPages:
+    """The four sign-in pages in one language, as the server serves them."""
+
+    signed_out: BuiltPage
+    login_failed: BuiltPage
+    no_access: BuiltPage
+    call_sign_in: BuiltPage
+
+
+def _read_sign_in_pages(directory: Path, language: Language) -> SignInPages:
+    """The pages `make frontend` wrote for a language, each with its one built `lang` set to that language.
+
+    A plain page that carries a script refuses the start: only the call sign-in page may run one.
+    """
+    pages: dict[str, BuiltPage] = {}
+    for name in (SIGNED_OUT_FILE, LOGIN_FAILED_FILE, NO_ACCESS_FILE, CALL_SIGN_IN_FILE):
+        path = directory / language / name
+        if not path.is_file():
+            raise PageBuildMissingError(
+                f"The sign-in page {language}/{name} is missing at {directory}; run make frontend"
+            )
+        page = path.read_bytes()
+        if name != CALL_SIGN_IN_FILE and _scripts_of(page).element_count:
+            raise SignInPageScriptError(
+                f"The sign-in page {language}/{name} carries a script; only {language}/{CALL_SIGN_IN_FILE} may"
+            )
+        pages[name] = BuiltPage.of(_in_language(f"{language}/{name}", page, language))
+    return SignInPages(
+        signed_out=pages[SIGNED_OUT_FILE],
+        login_failed=pages[LOGIN_FAILED_FILE],
+        no_access=pages[NO_ACCESS_FILE],
+        call_sign_in=pages[CALL_SIGN_IN_FILE],
+    )
+
+
+@dataclass(frozen=True)
 class PageBuild:
     """What `make frontend` wrote: the pages the server answers with, and the script and route announcer style hashes
     their policy admits.
 
     The pages are held as read, so the served shell is the hashed shell even when a build rewrites the file
-    while the server runs.
+    while the server runs. The sign-in pages are built once per language the app offers.
     """
 
     directory: Path
     shell: BuiltPage
-    signed_out: BuiltPage
-    login_failed: BuiltPage
-    no_access: BuiltPage
-    call_sign_in: BuiltPage
+    sign_in_pages: Mapping[Language, SignInPages]
     script_hashes: tuple[str, ...]
     announcer_style_hash: str
 
@@ -133,32 +172,23 @@ class PageBuild:
 
     @classmethod
     def load(cls, directory: Path) -> PageBuild:
-        plain_files = (SIGNED_OUT_FILE, LOGIN_FAILED_FILE, NO_ACCESS_FILE)
-        page_paths = [directory / name for name in (SHELL_FILE, *plain_files, CALL_SIGN_IN_FILE)]
-        if not all(path.is_file() for path in page_paths) or not (directory / APP_DIRECTORY).is_dir():
+        shell_path = directory / SHELL_FILE
+        if not shell_path.is_file() or not (directory / APP_DIRECTORY).is_dir():
             raise PageBuildMissingError(f"The page build is missing at {directory}; run make frontend")
-        shell_bytes, signed_out_bytes, login_failed_bytes, no_access_bytes, call_bytes = (
-            path.read_bytes() for path in page_paths
-        )
-        plain_pages = (signed_out_bytes, login_failed_bytes, no_access_bytes)
-        for name, page in zip(plain_files, plain_pages, strict=True):
-            if _scripts_of(page).element_count:
-                raise SignInPageScriptError(f"The sign-in page {name} carries a script; only {CALL_SIGN_IN_FILE} may")
+        shell_bytes = shell_path.read_bytes()
         _require_built_lang(SHELL_FILE, shell_bytes)
-        # The sign-in pages are built from the source language's words, whatever the shell's `lang` says.
-        signed_out_bytes, login_failed_bytes, no_access_bytes, call_bytes = (
-            _in_language(name, page, SOURCE_LANGUAGE)
-            for name, page in zip((*plain_files, CALL_SIGN_IN_FILE), (*plain_pages, call_bytes), strict=True)
+        sign_in_pages: dict[Language, SignInPages] = {
+            language: _read_sign_in_pages(directory, language) for language in LANGUAGES
+        }
+        # One call page script per language, since the page carries the language's words; a shared one is admitted once.
+        scripts = (
+            *_scripts_of(shell_bytes).texts,
+            *(text for pages in sign_in_pages.values() for text in _scripts_of(pages.call_sign_in.content).texts),
         )
-        shell_scripts = _scripts_of(shell_bytes)
-        call_scripts = _scripts_of(call_bytes)
         return cls(
             directory=directory,
             shell=BuiltPage.of(shell_bytes),
-            signed_out=BuiltPage.of(signed_out_bytes),
-            login_failed=BuiltPage.of(login_failed_bytes),
-            no_access=BuiltPage.of(no_access_bytes),
-            call_sign_in=BuiltPage.of(call_bytes),
-            script_hashes=tuple(_script_hash(text) for text in (*shell_scripts.texts, *call_scripts.texts)),
+            sign_in_pages=sign_in_pages,
+            script_hashes=tuple(dict.fromkeys(_script_hash(text) for text in scripts)),
             announcer_style_hash=_announcer_style_hash(directory / APP_DIRECTORY),
         )
