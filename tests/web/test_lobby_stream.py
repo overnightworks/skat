@@ -412,6 +412,19 @@ class TestTheWakes:
 
         assert run_on_a_loop_of_its_own(scenario()) == (0, 1)
 
+    def test_a_table_opened_before_the_first_read_of_the_open_list_wakes_it(self):
+        scene = Scene()
+        woken = []
+
+        async def scenario():
+            source = scene.open_source(BEN)
+            await source.open(lambda: woken.append(1))
+            scene.open_table(ANNA)
+            source.close()
+            return len(woken)
+
+        assert run_on_a_loop_of_its_own(scenario()) == 1
+
     def test_a_table_that_ended_holds_no_registration_after_the_next_read(self):
         scene = Scene()
         table_id = scene.open_table(ANNA)

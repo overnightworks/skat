@@ -153,18 +153,20 @@ class _TopicHoldingSource:
 
     Every read swaps the registration for one that holds the topics it names, on the event loop's thread and with no
     await between registering the new and dropping the old, so no topic is ever unheld. The tables' records are read
-    after the swap, so a commit before it is in the read and a commit after it wakes the stream.
+    after the swap, so a commit before it is in the read and a commit after it wakes the stream. The `standing`
+    topics are held from `open` on, before the first read.
     """
 
-    def __init__(self, wakes: WakeList, account_id: str) -> None:
+    def __init__(self, wakes: WakeList, account_id: str, standing: tuple[Topic, ...] = ()) -> None:
         self._wakes = wakes
         self._account_id = account_id
+        self._standing = standing
         self._wake: Callable[[], None] | None = None
         self._registration: Registration | None = None
 
     async def open(self, wake: Callable[[], None]) -> None:  # NOSONAR(S7503) StreamSource.open is async
         self._wake = wake
-        self._registration = self._wakes.register([AccountTopic(self._account_id)], wake)
+        self._registration = self._wakes.register([AccountTopic(self._account_id), *self._standing], wake)
 
     def close(self) -> None:
         assert self._registration is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
@@ -175,7 +177,7 @@ class _TopicHoldingSource:
         assert self._registration is not None  # noqa: S101 - narrows the type; the loop reads only an opened source
         previous, self._registration = (
             self._registration,
-            self._wakes.register([AccountTopic(self._account_id), *topics], self._wake),
+            self._wakes.register([AccountTopic(self._account_id), *self._standing, *topics], self._wake),
         )
         self._wakes.unregister(previous)
 
@@ -225,14 +227,14 @@ class OpenTablesSource(_TopicHoldingSource):
     """
 
     def __init__(self, tables: TableService, presence: Presence, wakes: WakeList, account_id: str, days: int) -> None:
-        super().__init__(wakes, account_id)
+        super().__init__(wakes, account_id, (OpenTablesTopic(),))
         self._tables = tables
         self._presence = presence
         self._days = days
 
     async def read(self, actor: Actor) -> SourceMessage:
         listed = await run_in_threadpool(self._tables.open_table_ids)
-        self._hold_topics([OpenTablesTopic(), *(TableTopic(table_id.value) for table_id in listed)])
+        self._hold_topics(TableTopic(table_id.value) for table_id in listed)
         connected = {table_id.value: self._presence.connected(table_id.value) for table_id in listed}
         holds = self._presence.hold_seconds_left(connected)
         entries = await run_in_threadpool(
