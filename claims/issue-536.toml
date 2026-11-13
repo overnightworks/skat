@@ -1,0 +1,7 @@
+claim_id = "91f3a9872fef4784af10f3f4209cb919"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "f99d119d751ea6be422f23b5bde9e54b4c875bcc"
+branch = "claude/issue-536-the-coaster-totals-wait-for-their-boxes"
+scope = ["tests/e2e/support/browser_coverage.py", "tests/e2e/test_table_coasters.py"]
+opened_commit = "ab7e2de4af550af29718be0d39926cc3439c2853"
