@@ -322,7 +322,7 @@ def tap(table, position, ordinal):
     table.skat.client.cookies.clear()
     return table.skat.client.post(
         f"{TABLES_PATH}/{table.table_id}{TABLE_READY_SUFFIX}",
-        json={"command_id": table.fresh_id(), "ordinal": ordinal},
+        json={"command_id": table.fresh_id(), "ordinal": ordinal, "series": 1},
         headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
     )
 

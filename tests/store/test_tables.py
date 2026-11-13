@@ -625,7 +625,7 @@ class TestReadyMarks:
         return table_id
 
     def tap(self, service, actor, table_id, command_id):
-        return service.mark_ready(actor, ReadyCommand(command_id, table_id, 1), frozenset())
+        return service.mark_ready(actor, ReadyCommand(command_id, table_id, 1, 1), frozenset())
 
     def test_the_marks_read_back_and_standing_up_clears_only_the_own(self, service, transactions, stored, table_id):
         self.tap(service, OPENER, table_id, "weiter-anna")

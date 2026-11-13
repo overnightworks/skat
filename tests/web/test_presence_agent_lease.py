@@ -118,15 +118,17 @@ def pass_the_hand_in(table, agent):
 def person_taps_weiter(table, position, *, ordinal=FIRST_RESULT):
     answer = table.skat.client.post(
         f"{TABLES_PATH}/{table.table_id}{TABLE_READY_SUFFIX}",
-        json={"command_id": table.fresh_id(), "ordinal": ordinal},
+        json={"command_id": table.fresh_id(), "ordinal": ordinal, "series": 1},
         headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
     )
     assert answer.status_code == 200, answer.text
     table.skat.client.cookies.clear()
 
 
-def continues(agent, table, *, command_id="agent-weiter", ordinal=FIRST_RESULT):
-    return agent.call(CONTINUE_AFTER_RESULT_TOOL, table_id=table.table_id, command_id=command_id, ordinal=ordinal)
+def continues(agent, table, *, command_id="agent-weiter", ordinal=FIRST_RESULT, series=1):
+    return agent.call(
+        CONTINUE_AFTER_RESULT_TOOL, table_id=table.table_id, command_id=command_id, ordinal=ordinal, series=series
+    )
 
 
 @pytest.fixture
@@ -177,7 +179,7 @@ class TestWhileTheLeaseRuns:
         advance(skat, time, LEASE_SECONDS - 10)
         direct = skat.client.post(
             f"{TABLES_PATH}/{UNKNOWN_ID}{TABLE_READY_SUFFIX}",
-            json={"command_id": "agent-direct", "ordinal": FIRST_RESULT},
+            json={"command_id": "agent-direct", "ordinal": FIRST_RESULT, "series": 1},
             headers={"authorization": f"Bearer {issuer.agent_token(SUBJECT)}", **FETCH},
         )
         advance(skat, time, 20)
@@ -225,7 +227,7 @@ class TestWhileTheLeaseRuns:
     def test_an_agent_token_is_admitted_at_the_ready_route_as_a_marked_route(self, skat, issuer):
         answer = skat.client.post(
             f"{TABLES_PATH}/{UNKNOWN_ID}{TABLE_READY_SUFFIX}",
-            json={"command_id": "agent-direct", "ordinal": FIRST_RESULT},
+            json={"command_id": "agent-direct", "ordinal": FIRST_RESULT, "series": 1},
             headers={"authorization": f"Bearer {issuer.agent_token(SUBJECT)}", **FETCH},
         )
 
@@ -362,6 +364,15 @@ class TestTheNextDeal:
         assert (refused.is_error, refused.json()["reason"]) == (True, reason)
         assert again.is_error
         assert skat.store.tables[hand_table.table_id] == before
+
+    def test_a_weiter_naming_another_series_is_a_failed_result_and_changes_nothing(self, skat, agent, result_table):
+        before = skat.store.tables[result_table.table_id]
+
+        refused = continues(agent, result_table, series=2)
+
+        assert (refused.is_error, refused.json()["reason"]) == (True, Refusal.STALE_SERIES)
+        assert skat.store.tables[result_table.table_id] == before
+        assert not continues(agent, result_table, command_id="agent-weiter-current").is_error
 
     def test_a_weiter_of_an_agent_without_a_chair_is_refused_as_not_seated(self, skat, issuer, result_table):
         stranger = Agent(skat, issuer, subject="another-agent")

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { giveUpAsk, giveUpKey, giveUpView } from "#lib/giveUp.ts";
+import { giveUpAsk, giveUpKey, giveUpView, refusalNotice } from "#lib/giveUp.ts";
 import { words } from "#lib/words.ts";
 import type { GiveUp } from "../routes/(start)/tables.ts";
 import { DECLARER, FIRST_OPPONENT, SECOND_OPPONENT, WATCHER, tableWith } from "#lib/giveUp.fixtures.ts";
@@ -154,5 +154,16 @@ describe("the give-up key on the table bar", () => {
         { name: "no hand is dealt", table: { ...tableWith(FIRST_OPPONENT, null), hand: null } },
     ])("is missing when $name", ({ table }) => {
         expect(giveUpKey(table)).toBeNull();
+    });
+});
+
+describe("the notice that the opponents play on", () => {
+    it("names both opponents once, in one sentence, and draws both faces", () => {
+        expect(refusalNotice(tableWith(DECLARER, null).chairs, [FIRST_OPPONENT, SECOND_OPPONENT])).toEqual({
+            text: words["table.playingOn"]({ names: "player 1 und player 3" }),
+            initials: ["p", "p"],
+            seat: null,
+            occupied: false,
+        });
     });
 });

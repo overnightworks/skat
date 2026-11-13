@@ -7,7 +7,7 @@ from skat.engine.bidding import Pass
 from skat.engine.deal import Position, next_dealer
 from skat.table.records import HandProgress, Refusal
 from skat.web.paused import PAUSED_TABLES_PATH
-from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -27,10 +27,10 @@ FIRST_RESULT = 1
 WEITER_COMMAND_ID = "weiter-0001"
 
 
-def weiter(server, headers, table_id, *, command_id=WEITER_COMMAND_ID, ordinal=FIRST_RESULT, **extra):
+def weiter(server, headers, table_id, *, command_id=WEITER_COMMAND_ID, ordinal=FIRST_RESULT, series=1, **extra):
     answer = server.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_READY_SUFFIX}",
-        json={"command_id": command_id, "ordinal": ordinal, **extra},
+        json={"command_id": command_id, "ordinal": ordinal, "series": series, **extra},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
     server.client.cookies.clear()
@@ -142,12 +142,29 @@ class TestWeiter:
         assert (answer.status_code, answer.json()["reason"]) == (409, reason)
         assert server.store.tables[table_id] == before
 
+    @pytest.mark.parametrize("series", [1, 3], ids=["an-earlier-series", "a-series-not-yet-started"])
+    def test_a_tap_naming_another_series_is_refused_and_changes_nothing(self, server, table, series):
+        table_id, people = table
+        end_the_first_game(server.store, table_id)
+        record = server.store.tables[table_id]
+        server.store.tables[table_id] = replace(record, series=replace(record.series, number=2))
+        before = server.store.tables[table_id]
+
+        answer = weiter(server, people[0][0], table_id, series=series)
+
+        assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.STALE_SERIES)
+        assert server.store.tables[table_id] == before
+        assert weiter(server, people[0][0], table_id, command_id="weiter-current", series=2).status_code == 200
+        assert stored_marks(server, table_id) == [True, False, False]
+
     @pytest.mark.parametrize(
         "body",
         [
             pytest.param({"ordinal": "1"}, id="ordinal-as-text"),
             pytest.param({"ordinal": FIRST_RESULT - 1}, id="ordinal-below-the-first"),
             pytest.param({"seat": 1}, id="names-a-chair"),
+            pytest.param({"series": "1"}, id="series-as-text"),
+            pytest.param({"series": 0}, id="series-below-the-first"),
         ],
     )
     def test_refuses_a_malformed_request_and_writes_nothing(self, server, table, body):
@@ -155,6 +172,26 @@ class TestWeiter:
         before = end_the_first_game(server.store, table_id)
 
         answer = weiter(server, people[0][0], table_id, **body)
+
+        assert answer.status_code == 422
+        assert server.store.tables[table_id] == before
+
+    @pytest.mark.parametrize(
+        ("suffix", "body"),
+        [
+            pytest.param(TABLE_READY_SUFFIX, {"ordinal": FIRST_RESULT}, id="weiter"),
+            pytest.param(TABLE_NEW_SERIES_SUFFIX, {}, id="neue-serie"),
+        ],
+    )
+    def test_a_tap_that_names_no_series_is_refused_and_writes_nothing(self, server, table, suffix, body):
+        table_id, people = table
+        before = end_the_first_game(server.store, table_id)
+
+        answer = server.client.post(
+            f"{TABLES_PATH}/{table_id}{suffix}",
+            json={"command_id": WEITER_COMMAND_ID, **body},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **people[0][0]},
+        )
 
         assert answer.status_code == 422
         assert server.store.tables[table_id] == before

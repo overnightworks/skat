@@ -14,7 +14,7 @@
     import { bidLadder } from "#lib/bidLadder.ts";
     import { cuesBetween } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
-    import { giveUpAsk, giveUpView } from "#lib/giveUp.ts";
+    import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
@@ -87,6 +87,7 @@
         positionWord,
         readTable,
         seatedAgentsKey,
+        seriesNumberOf,
         sitDown,
         standUp,
         takeAuctionStep,
@@ -138,15 +139,17 @@
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
 
+    function showSeatNote(note: SeatNotice): void {
+        seatNote = note;
+        clearTimeout(seatNoteTimer);
+        seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
+    }
+
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
         seatedAgents = seatedAgentsKey(previous, table);
         const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
-        if (note !== null) {
-            seatNote = note;
-            clearTimeout(seatNoteTimer);
-            seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
-        }
+        if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
@@ -156,6 +159,8 @@
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
+            } else if (cue.kind === "give-up-refused") {
+                showSeatNote(refusalNotice(table.chairs, cue.seats));
             } else {
                 justWon = true;
                 clearTimeout(wonTimer);
@@ -287,7 +292,15 @@
     }
 
     const tapWeiter = (table: Table): Promise<void> =>
-        send(table, markReady(id, crypto.randomUUID(), (table.result as NonNullable<Table["result"]>).ordinal));
+        send(
+            table,
+            markReady(
+                id,
+                crypto.randomUUID(),
+                (table.result as NonNullable<Table["result"]>).ordinal,
+                seriesNumberOf(table),
+            ),
+        );
     const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
         send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
 </script>
