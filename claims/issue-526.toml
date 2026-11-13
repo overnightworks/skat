@@ -1,8 +1,0 @@
-claim_id = "e97d81e204b445c5834e6baeea953560"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "56a7f1fe3926682fb91af9595ba23e5207813f75"
-branch = "claude/issue-526-code-follow-ups-457-s-lane-left-open"
-scope = ["frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/lib/ui/AgentsPill.svelte", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.ts", "pyproject.toml", "src/skat/engine/kontra.py", "src/skat/table/game_list.py", "src/skat/web/calling.py", "src/skat/web/tables.py", "src/skat/web/words.py", "tests/e2e/test_rule_set_choice.py"]
-opened_commit = "bc870f88fbdf5bd847bc1f9613b24dba5c920227"
-whole_reason = "Small follow-ups of one distributor, each re-checked at the tip; they share no owner but none earns its own lane."
