@@ -1,4 +1,4 @@
-import { words } from "#lib/words.ts";
+import { listFormat, words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
 import { WORD_TOKENS } from "#lib/wire.ts";
 import {
@@ -82,7 +82,7 @@ export type RamschView = {
     rows: ReckoningRow[];
 };
 // `again` marks a tap that asks for a deal that failed: it stays tappable however often it is tapped.
-export type WeiterBar = { kind: "tap"; again: boolean } | { kind: "wait"; names: string };
+export type WeiterBar = { kind: "tap"; again: boolean } | { kind: "wait"; text: string };
 
 const MINUS = "−";
 const SNUG_LEVELS = 2;
@@ -292,7 +292,7 @@ function ramschHead(
         word:
             names.length === 1
                 ? words["result.loses"]({ name: names[0] as string })
-                : words["result.losesTogether"]({ names: names.join(` ${words["result.and"]} `) }),
+                : words["result.losesTogether"]({ names: listFormat.format(names) }),
         mark: null,
         lost: false,
     };
@@ -345,5 +345,5 @@ export function weiterBar(table: Table): WeiterBar | null {
     const awaited = awaitedNames(table.chairs);
     if (!own.ready) return { kind: "tap", again: false };
     if (awaited.length === 0) return { kind: "tap", again: true };
-    return { kind: "wait", names: awaited.join(` ${words["result.and"]} `) };
+    return { kind: "wait", text: words["table.waitingFor"]({ names: listFormat.format(awaited) }) };
 }

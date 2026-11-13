@@ -55,7 +55,7 @@ export type Words = {
     readonly "table.commandFailed": string;
     readonly "table.bidding": string;
     readonly "table.pass": string;
-    readonly "table.waitingFor": string;
+    readonly "table.waitingFor": (gaps: { readonly names: string }) => string;
     readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
     readonly "table.givesUp": (gaps: { readonly name: string }) => string;
     readonly "table.accept": string;
@@ -68,12 +68,13 @@ export type Words = {
     readonly "table.wantsToAbort": (gaps: { readonly name: string }) => string;
     readonly "table.aborted": string;
     readonly "table.passedIn": string;
-    readonly "table.gives": string;
+    readonly "table.gives": (gaps: { readonly name: string }) => string;
     readonly "table.waitsForYou": string;
-    readonly "table.bidValue": string;
+    readonly "table.bidValue": (gaps: { readonly value: string }) => string;
     readonly "table.plays": string;
-    readonly "table.chooses": string;
-    readonly "table.discards": string;
+    readonly "table.playsValue": (gaps: { readonly name: string; readonly value: string }) => string;
+    readonly "table.chooses": (gaps: { readonly name: string }) => string;
+    readonly "table.discards": (gaps: { readonly name: string }) => string;
     readonly "table.ramsch": string;
     readonly "table.pushCount": (gaps: { readonly count: number }) => string;
     readonly "table.pushFactor": (gaps: { readonly factor: string }) => string;
@@ -112,7 +113,6 @@ export type Words = {
     readonly "result.won": string;
     readonly "result.lost": string;
     readonly "result.overbid": string;
-    readonly "result.and": string;
     readonly "result.declarerWins": (gaps: { readonly name: string }) => string;
     readonly "result.declarerLoses": (gaps: { readonly name: string }) => string;
     readonly "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => string;
@@ -120,7 +120,7 @@ export type Words = {
     readonly "result.missedSchwarz": string;
     readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
     readonly "bock.factor": (gaps: { readonly factor: string }) => string;
-    readonly "bock.times": (gaps: { readonly factor: string }) => string;
+    readonly "bock.plaque": (gaps: { readonly factor: string }) => readonly (string | { readonly marker: "factor"; readonly text: string })[];
     readonly "rules.chipBock": string;
     readonly "rules.bockLeft": (gaps: { readonly count: number }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[];
@@ -156,6 +156,7 @@ export type Words = {
     readonly "kontra.re": string;
     readonly "kontra.supra": string;
     readonly "kontra.hirsch": string;
+    readonly "kontra.plaque": (gaps: { readonly factor: string; readonly word: string }) => readonly (string | { readonly marker: "factor"; readonly text: string })[];
     readonly "kontra.stamp": (gaps: { readonly word: string }) => string;
     readonly "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => string;
     readonly "kontra.commandFailed": string;
@@ -359,7 +360,7 @@ export const words: Words = {
     "table.commandFailed": "Das hat nicht geklappt",
     "table.bidding": "Reizen",
     "table.pass": "Weg",
-    "table.waitingFor": "Warte auf",
+    "table.waitingFor": (gaps: { readonly names: string }) => "Warte auf " + gaps.names,
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",
     "table.givesUp": (gaps: { readonly name: string }) => gaps.name + " gibt auf",
     "table.accept": "Annehmen",
@@ -372,12 +373,13 @@ export const words: Words = {
     "table.wantsToAbort": (gaps: { readonly name: string }) => gaps.name + " will abbrechen",
     "table.aborted": "Spiel abgebrochen",
     "table.passedIn": "Eingepasst",
-    "table.gives": "gibt",
+    "table.gives": (gaps: { readonly name: string }) => gaps.name + " gibt",
     "table.waitsForYou": "wartet auf dich",
-    "table.bidValue": "Reizwert",
+    "table.bidValue": (gaps: { readonly value: string }) => "Reizwert " + gaps.value,
     "table.plays": "spielt",
-    "table.chooses": "wählt",
-    "table.discards": "drückt",
+    "table.playsValue": (gaps: { readonly name: string; readonly value: string }) => gaps.name + " spielt, " + gaps.value,
+    "table.chooses": (gaps: { readonly name: string }) => gaps.name + " wählt",
+    "table.discards": (gaps: { readonly name: string }) => gaps.name + " drückt",
     "table.ramsch": "Ramsch",
     "table.pushCount": (gaps: { readonly count: number }) => numberFormat.format(gaps.count) + "× geschoben",
     "table.pushFactor": (gaps: { readonly factor: string }) => "×" + gaps.factor,
@@ -430,7 +432,6 @@ export const words: Words = {
     "result.won": "Gewonnen!",
     "result.lost": "Verloren",
     "result.overbid": "Überreizt",
-    "result.and": "und",
     "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " gewinnt",
     "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => gaps.declarer + ", " + gaps.game,
@@ -438,7 +439,7 @@ export const words: Words = {
     "result.missedSchwarz": "Schwarz angesagt, nicht erreicht",
     "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
     "bock.factor": (gaps: { readonly factor: string }) => "Bock ×" + gaps.factor,
-    "bock.times": (gaps: { readonly factor: string }) => "×" + gaps.factor,
+    "bock.plaque": (gaps: { readonly factor: string }): readonly (string | { readonly marker: "factor"; readonly text: string })[] => ["Bock ", { marker: "factor", text: "×" + gaps.factor }],
     "rules.chipBock": "Bock",
     "rules.bockLeft": (gaps: { readonly count: number }) => "noch " + numberFormat.format(gaps.count),
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }): readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[] => [{ marker: "side", text: gaps.side }, " ", { marker: "tally", text: gaps.points }],
@@ -495,6 +496,7 @@ export const words: Words = {
     "kontra.re": "Re",
     "kontra.supra": "Supra",
     "kontra.hirsch": "Hirsch",
+    "kontra.plaque": (gaps: { readonly factor: string; readonly word: string }): readonly (string | { readonly marker: "factor"; readonly text: string })[] => [gaps.word + " ", { marker: "factor", text: "×" + gaps.factor }],
     "kontra.stamp": (gaps: { readonly word: string }) => gaps.word + "!",
     "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => gaps.name + " sagt " + gaps.word,
     "kontra.commandFailed": "Das hat nicht geklappt",

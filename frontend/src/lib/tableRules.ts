@@ -1,3 +1,4 @@
+import type { MarkedPart } from "overnightworks-design";
 import type { Bock, Options } from "../routes/(start)/tables.ts";
 import {
     BOCK_OVERLAP_TOKENS,
@@ -11,7 +12,7 @@ import {
     PUSHING_RULE_TOKENS,
     RAMSCH_SCORING_TOKENS,
 } from "#lib/wire.ts";
-import { language, words } from "#lib/words.ts";
+import { listFormat, words } from "#lib/words.ts";
 
 type Token<Tokens extends readonly string[]> = Tokens[number];
 
@@ -85,8 +86,6 @@ const CHIP_WORDS: Record<ChipId, string> = {
     official: words["rules.chipOfficial"],
 };
 
-const triggerList = new Intl.ListFormat(language, { style: "long", type: "conjunction" });
-
 // The rules that are on, in the order the picture draws them.
 function rulesOf(options: Options): RuleRow[] {
     const { kontra, ramsch, bock } = options;
@@ -133,7 +132,7 @@ function rulesOf(options: Options): RuleRow[] {
                   name: words["rules.nameBock"],
                   settings: [
                       words["rules.bockTriggers"]({
-                          triggers: triggerList.format(bock.triggers.map((trigger) => BOCK_TRIGGER_WORDS[trigger])),
+                          triggers: listFormat.format(bock.triggers.map((trigger) => BOCK_TRIGGER_WORDS[trigger])),
                       }),
                       BOCK_OVERLAP_WORDS[bock.overlap],
                   ],
@@ -161,10 +160,8 @@ export function tableRules(options: Options, bock: Bock | null): TableRules {
     };
 }
 
-export type BockLine = { word: string; factor: string };
-
 // What the plaque of a running game says of Bock: the factor that multiplies its list score.
-export function bockLine(bock: Bock | null): BockLine | null {
+export function bockLine(bock: Bock | null): readonly MarkedPart<"factor">[] | null {
     if (bock === null || bock.factor <= 1) return null;
-    return { word: words["rules.chipBock"], factor: words["bock.times"]({ factor: String(bock.factor) }) };
+    return words["bock.plaque"]({ factor: String(bock.factor) });
 }

@@ -34,7 +34,7 @@
         weiterBar,
         withMinus,
     } from "#lib/result.ts";
-    import { AiMark, LegalLinks } from "overnightworks-design";
+    import { AiMark, LegalLinks, Marked } from "overnightworks-design";
     import AbortKey from "#lib/ui/AbortKey.svelte";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
@@ -321,6 +321,8 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
+{#snippet factor({ text }: { text: string })}<b>{text}</b>{/snippet}
+
 {#snippet waitingLine()}
     <span class="gives">
         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
@@ -385,19 +387,24 @@
             {:else if deciding !== null}
                 <div class="plaque deciding">
                     {#if deciding.kind === "won"}
-                        <span>{`${deciding.name} ${words["table.plays"]}, ${String(deciding.value)}`}</span>
+                        <span>{words["table.playsValue"]({ name: deciding.name, value: String(deciding.value) })}</span>
                     {:else}
-                        <span>{`${words["table.bidValue"]} ${String(deciding.value)}`}</span>
+                        <span>{words["table.bidValue"]({ value: String(deciding.value) })}</span>
                         <span class="gives">
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            {`${deciding.kind === "waiting" ? words["table.waitingForPlayers"] : `${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}`}
+                            {#if deciding.kind === "waiting"}
+                                {words["table.waitingForPlayers"]}
+                            {:else}
+                                {words[deciding.kind === "choosing" ? "table.chooses" : "table.discards"]({
+                                    name: deciding.name,
+                                })}
+                            {/if}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
                 </div>
             {:else if bidValue !== null}
                 <div class="plaque">
-                    <span>{`${words["table.bidValue"]} ${String(bidValue)}`}</span>
+                    <span>{words["table.bidValue"]({ value: String(bidValue) })}</span>
                 </div>
             {:else if ramsch !== null}
                 <RamschPlaque plaque={ramsch} />
@@ -439,16 +446,16 @@
                             {/if}
                         </span>
                         {#if stageBid !== null}
-                            <span class="game pushes">{`${words["table.bidValue"]} ${String(stageBid)}`}</span>
+                            <span class="game pushes">{words["table.bidValue"]({ value: String(stageBid) })}</span>
                         {/if}
                         {#if said !== null}
-                            <span class="game pushes">{`${said.word} `}<b>{said.factor}</b></span>
+                            <span class="game pushes"><Marked parts={said} marked={{ factor }} /></span>
                         {/if}
                         {#if waits}
                             {@render waitingLine()}
                         {/if}
                         {#if bock !== null}
-                            <div class="bock-line">{`${bock.word} `}<b>{bock.factor}</b></div>
+                            <div class="bock-line"><Marked parts={bock} marked={{ factor }} /></div>
                         {/if}
                         {#if running !== null}
                             <PointsBar sides={sideNames(outcome.table.chairs, inPlay.declarerSeat)} points={running} />
@@ -466,7 +473,7 @@
                         <span class="verdict">{words["table.passedIn"]}</span>
                         {#if passedIn.dealerName !== null}
                             <span class="gives">
-                                {`${passedIn.dealerName} ${words["table.gives"]}`}
+                                {words["table.gives"]({ name: passedIn.dealerName })}
                                 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                             </span>
                         {/if}
@@ -477,7 +484,7 @@
                         <span>{words["table.waitingForPlayers"]}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else if awayName && !waits}
-                        <span>{`${words["table.waitingFor"]} ${awayName}`}</span>
+                        <span>{words["table.waitingFor"]({ names: awayName })}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else}
                         <span>{words["table.bidding"]}</span>
@@ -689,7 +696,7 @@
                         </button>
                     {:else if bar !== null}
                         <span class="copy wait" role="status">
-                            {`${words["table.waitingFor"]} ${bar.names}`}
+                            {bar.text}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}

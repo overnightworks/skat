@@ -232,7 +232,7 @@ msgid "Weg"
 msgstr ""
 
 msgctxt "table.waitingFor"
-msgid "Warte auf"
+msgid "Warte auf {names}"
 msgstr ""
 
 msgctxt "table.wantsToGiveUp"
@@ -284,7 +284,7 @@ msgid "Eingepasst"
 msgstr ""
 
 msgctxt "table.gives"
-msgid "gibt"
+msgid "{name} gibt"
 msgstr ""
 
 msgctxt "table.waitsForYou"
@@ -292,19 +292,23 @@ msgid "wartet auf dich"
 msgstr ""
 
 msgctxt "table.bidValue"
-msgid "Reizwert"
+msgid "Reizwert {value}"
 msgstr ""
 
 msgctxt "table.plays"
 msgid "spielt"
 msgstr ""
 
+msgctxt "table.playsValue"
+msgid "{name} spielt, {value}"
+msgstr ""
+
 msgctxt "table.chooses"
-msgid "wählt"
+msgid "{name} wählt"
 msgstr ""
 
 msgctxt "table.discards"
-msgid "drückt"
+msgid "{name} drückt"
 msgstr ""
 
 msgctxt "table.ramsch"
@@ -467,10 +471,6 @@ msgctxt "result.overbid"
 msgid "Überreizt"
 msgstr ""
 
-msgctxt "result.and"
-msgid "und"
-msgstr ""
-
 msgctxt "result.declarerWins"
 msgid "{name} gewinnt"
 msgstr ""
@@ -499,8 +499,8 @@ msgctxt "bock.factor"
 msgid "Bock ×{factor}"
 msgstr ""
 
-msgctxt "bock.times"
-msgid "×{factor}"
+msgctxt "bock.plaque"
+msgid "Bock {#factor}×{factor}{/factor}"
 msgstr ""
 
 msgctxt "rules.chipBock"
@@ -653,6 +653,10 @@ msgstr ""
 
 msgctxt "kontra.hirsch"
 msgid "Hirsch"
+msgstr ""
+
+msgctxt "kontra.plaque"
+msgid "{word} {#factor}×{factor}{/factor}"
 msgstr ""
 
 msgctxt "kontra.stamp"

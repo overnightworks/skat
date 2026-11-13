@@ -1,5 +1,5 @@
 import { gameInPlay } from "#lib/playView.ts";
-import { words } from "#lib/words.ts";
+import { listFormat, words } from "#lib/words.ts";
 import type { Chair, GiveUpAnswer, Table } from "../routes/(start)/tables.ts";
 
 // What a chair carries about a question to the table: it said no, has not answered yet, or has tapped „Weiter“ or not.
@@ -60,14 +60,14 @@ export function giveUpView(table: Table): GiveUpView | null {
     if (declinedSeat !== null) marks.set(declinedSeat, "declined");
 
     const faces = (asking ? pendingSeats : [askerSeat]).map((seat) => faceOf(table.chairs, seat));
-    const names = faces.map((face) => face.name).join(` ${words["result.and"]} `);
+    const names = listFormat.format(faces.map((face) => face.name));
     const askedLine = declarerAsks ? "wants-to-give-up" : "gives-up";
     const askedSentence = declarerAsks ? words["table.wantsToGiveUp"] : words["table.givesUp"];
     const offeredAnswers: GiveUpAnswer[] = viewerSeat === declinedSeat ? ["agree"] : ["agree", "decline"];
     return {
         line: asking ? "waits" : askedLine,
         // Not asking, `faces` holds the one asker, so the asked sentence names exactly one asker.
-        text: asking ? `${words["table.waitingFor"]} ${names}` : askedSentence({ name: names }),
+        text: asking ? words["table.waitingFor"]({ names }) : askedSentence({ name: names }),
         faces,
         answers: answering ? offeredAnswers : [],
         marks,

@@ -7,7 +7,6 @@ const DECLARER = 2;
 const FIRST_OPPONENT = 1;
 const SECOND_OPPONENT = 3;
 const WATCHER = 0;
-const AND = ` ${words["result.and"]} `;
 
 function chairs(mine: number): Chair[] {
     return [1, 2, 3].map((seat) => ({
@@ -114,6 +113,7 @@ describe("a give-up request on the table", () => {
         {
             request: DECLARER_ASKS,
             names: ["player 1", "player 3"],
+            listed: "player 1 und player 3",
             marks: [
                 [1, "unanswered"],
                 [3, "unanswered"],
@@ -122,17 +122,18 @@ describe("a give-up request on the table", () => {
         {
             request: ONE_NO,
             names: ["player 1"],
+            listed: "player 1",
             marks: [
                 [1, "unanswered"],
                 [3, "declined"],
             ],
         },
-    ] as const)("makes the asker wait for those who have not said no", ({ request, names, marks }) => {
+    ] as const)("makes the asker wait for those who have not said no", ({ request, names, listed, marks }) => {
         const view = giveUpView(tableWith(DECLARER, request));
 
         expect(view).toMatchObject({
             line: "waits",
-            text: `${words["table.waitingFor"]} ${names.join(AND)}`,
+            text: words["table.waitingFor"]({ names: listed }),
             answers: [],
             cardsHeld: false,
         });
@@ -160,7 +161,7 @@ describe("a give-up request on the table", () => {
     it("makes the opponent who asked wait for the declarer", () => {
         expect(giveUpView(tableWith(FIRST_OPPONENT, OPPONENT_ASKS))).toMatchObject({
             line: "waits",
-            text: `${words["table.waitingFor"]} player 2`,
+            text: words["table.waitingFor"]({ names: "player 2" }),
             answers: [],
             marks: new Map([[DECLARER, "unanswered"]]),
             cardsHeld: true,

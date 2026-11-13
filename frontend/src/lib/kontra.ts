@@ -1,10 +1,10 @@
+import type { MarkedPart } from "overnightworks-design";
 import { words } from "#lib/words.ts";
 import type { Chair, Kontra, Table, Word } from "../routes/(start)/tables.ts";
 
 export type SaidWord = Kontra["said"][number];
 // The callout the table shows when a word is said: the word with its mark, the sayer's face and what a screen reader says.
 export type Stamp = { text: string; label: string; initial: string; agent: boolean };
-export type PlaqueLine = { word: string; factor: string };
 
 export function wordLabel(word: Word): string {
     return words[`kontra.${word}`];
@@ -37,10 +37,10 @@ function stampOf(table: Table, said: SaidWord): Stamp {
 }
 
 // The plaque carries the last word with the factor the words make, until the hand ends.
-export function plaqueLine(kontra: Kontra | null): PlaqueLine | null {
+export function plaqueLine(kontra: Kontra | null): readonly MarkedPart<"factor">[] | null {
     if (kontra === null || kontra.said.length === 0) return null;
     const last = kontra.said.at(-1) as SaidWord;
-    return { word: wordLabel(last.word), factor: `×${String(kontra.factor)}` };
+    return words["kontra.plaque"]({ word: wordLabel(last.word), factor: String(kontra.factor) });
 }
 
 // The stamp of the word an update brought, or null. A page that has no table before it, as after a reload or a dropped
