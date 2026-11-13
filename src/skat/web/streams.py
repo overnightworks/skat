@@ -14,7 +14,7 @@ from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, actor_for, actor_of, answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable
+    from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 
     from webauth.ports import SessionRecordStore
 
@@ -40,6 +40,7 @@ class StreamEvent(StrEnum):
     """The names a stream gives its events; a client listens by name."""
 
     MINE = "mine"
+    ATTENTION = "attention"
 
 
 @dataclass(frozen=True)
@@ -131,29 +132,68 @@ async def _wait_for_wake_or_deadline(changed: asyncio.Event, deadline: float) ->
     return loop.time() >= deadline
 
 
+def _wake_of(index: int, unread: list[bool], changed: asyncio.Event) -> Callable[[], None]:
+    def wake() -> None:
+        unread[index] = True
+        changed.set()
+
+    return wake
+
+
+async def _changed_messages(
+    sources: Sequence[StreamSource],
+    actor: Actor,
+    unread: list[bool],
+    sent_digests: list[bytes | None],
+    *,
+    read_all: bool,
+) -> list[SourceMessage]:
+    """The reads, in the sources' order, that differ from the last one sent; a `last` message is the final one."""
+    changed: list[SourceMessage] = []
+    for index, source in enumerate(sources):
+        if not (unread[index] or read_all):
+            continue
+        unread[index] = False
+        message = await source.read(actor)
+        digest = _digest_of(message)
+        if digest == sent_digests[index]:
+            continue
+        sent_digests[index] = digest
+        changed.append(message)
+        if message.last:
+            break
+    return changed
+
+
 async def stream_messages(
-    source: StreamSource,
+    sources: Sequence[StreamSource],
     admit: Callable[[], Awaitable[Actor | None]],
     stopped: Callable[[], bool],
     *,
     heartbeat_seconds: float,
 ) -> AsyncIterator[SourceMessage | IdleHeartbeat]:
-    """The items one stream sends: the source's whole state first, then a fresh one after each change.
+    """The items one stream sends: each source's whole state first, then a fresh one after each change of it.
 
-    The stream opens the source before it reads, so a change after opening is never lost. Wakes that pile up
-    while the consumer is slow fold into one wake and one fresh read, so a slow consumer holds no queue and
-    delays no other stream. The session is admitted again before every read; the stream ends, sending nothing
-    more, when `admit` refuses or `stopped` holds, and `stopped` is read after the admission because a stop
-    during it has already set the wake. A read is sent only when it differs from the last one sent, so a wake
-    that changes nothing sends nothing. A heartbeat deadline counts from the last item yielded; when it
-    passes, the stream reads again, which recovers a lost wake, and yields the idle heartbeat unless that read
-    differs. A `last` message ends the stream after it.
+    The stream opens a source before it reads it, so a change after opening is never lost. A wake marks its own
+    source for a read, so a source is read only for a wake of its own or a heartbeat. Wakes that pile up while the
+    consumer is slow fold into one fresh read per source, so a slow consumer holds no queue and delays no other
+    stream. The session is admitted again before every round of reads; the stream ends, sending nothing more,
+    when `admit` refuses or `stopped` holds, and `stopped` is read after the admission because a stop during it
+    has already set the wake. A read is sent only when it differs from the last one sent of its source, so a wake
+    that changes nothing sends nothing. A heartbeat deadline counts from the last item yielded; when it passes,
+    every source is read again, which recovers a lost wake, and the idle heartbeat is yielded unless a read
+    differs. A `last` message ends the stream after it, before the sources listed after its source are read.
     """
     changed = asyncio.Event()
-    await source.open(changed.set)
+    unread = [True] * len(sources)
+
+    opened: list[StreamSource] = []
     loop = asyncio.get_running_loop()
     try:
-        sent_digest: bytes | None = None
+        for index, source in enumerate(sources):
+            await source.open(_wake_of(index, unread, changed))
+            opened.append(source)
+        sent_digests: list[bytes | None] = [None] * len(sources)
         deadline = loop.time() + heartbeat_seconds
         deadline_passed = False
         while True:
@@ -162,20 +202,20 @@ async def stream_messages(
             actor = await admit()
             if actor is None or stopped():
                 return
-            message = await source.read(actor)
-            digest = _digest_of(message)
-            if digest != sent_digest:
-                sent_digest = digest
+            changed_messages = await _changed_messages(sources, actor, unread, sent_digests, read_all=deadline_passed)
+            for message in changed_messages:
                 yield message
                 if message.last:
                     return
+            if changed_messages:
                 deadline = loop.time() + heartbeat_seconds
             elif deadline_passed:
                 yield IDLE_HEARTBEAT
                 deadline = loop.time() + heartbeat_seconds
             deadline_passed = await _wait_for_wake_or_deadline(changed, deadline)
     finally:
-        source.close()
+        for source in opened:
+            source.close()
 
 
 def event_stream_response(messages: AsyncIterator[str]) -> StreamingResponse:
@@ -204,8 +244,15 @@ def session_admission(request: Request, sessions: SessionRecordStore) -> Callabl
 
 
 def create_streams_router(
-    tables: TableService, presence: Presence, sessions: SessionRecordStore, heartbeat_seconds: float
+    tables: TableService,
+    presence: Presence,
+    sessions: SessionRecordStore,
+    heartbeat_seconds: float,
+    attention_of: Callable[[str, str], StreamSource],
 ) -> APIRouter:
+    """The table stream: the table view, then `attention_of(table_id, account_id)`, the count of the account's other
+    tables that wait for it.
+    """
     router = APIRouter()
 
     @router.get(
@@ -232,9 +279,12 @@ def create_streams_router(
             if first_view.ended is not None:
                 yield message_of(_table_message(first_view))
                 return
-            source = TableSource(presence, read_view, table_id, opened_as.account_id)
+            sources = [
+                TableSource(presence, read_view, table_id, opened_as.account_id),
+                attention_of(table_id, opened_as.account_id),
+            ]
             async for item in stream_messages(
-                source, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
+                sources, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
             ):
                 yield message_of(item)
 

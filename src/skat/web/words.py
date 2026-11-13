@@ -36,6 +36,7 @@ type Key = Literal[
     'table.loadFailedHint',
     'table.watchers',
     'table.lobby',
+    'table.lobbyWaiting',
     'table.reconnecting',
     'table.sitDown',
     'table.standUp',
@@ -216,6 +217,10 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.loadFailedHint': 'Lade die Seite neu, um es noch einmal zu versuchen.',
         'table.watchers': 'Zuschauer',
         'table.lobby': 'Lobby',
+        'table.lobbyWaiting': {
+            'one': 'Lobby, {count} Tisch wartet auf dich',
+            'other': 'Lobby, {count} Tische warten auf dich',
+        },
         'table.reconnecting': 'verbinde neu',
         'table.sitDown': 'Hinsetzen',
         'table.standUp': 'Aufstehen',

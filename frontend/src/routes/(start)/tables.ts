@@ -322,12 +322,22 @@ function takeSignedInAgainMarker(): void {
     reachedBySigningIn = true;
 }
 
-// The server sends the full view first and a fresh one after every change. The stream reader reconnects by
-// itself after a lost or ended stream, and each new stream starts from a full view, so a view replaces the last.
-// The returned function closes the stream.
+const ATTENTION_CAP = 9;
+
+// The digit on the Lobby button: none when no other table waits, "9+" above nine.
+export function attentionMark(count: number): string {
+    if (count === 0) return "";
+    return count > ATTENTION_CAP ? `${String(ATTENTION_CAP)}+` : String(count);
+}
+
+// The server sends the full view first and a fresh one after every change; the event `attention` carries the
+// number of the person's other tables that wait for him, and is sent at the start and whenever the number changes.
+// The stream reader reconnects by itself after a lost or ended stream, and each new stream starts from a full view
+// and a full count, so a view replaces the last. The returned function closes the stream.
 export function watchTable(
     id: string,
     onTable: (table: Table) => void,
+    onAttention: (count: number) => void,
     onConnection: (connected: boolean) => void,
 ): () => void {
     const reachedNow = reachedBySigningIn;
@@ -339,6 +349,9 @@ export function watchTable(
                 // An ended table sends nothing more: the stream closes here, so it never reconnects to a table that has ended.
                 if (table.ended !== null) end();
                 onTable(table);
+            },
+            attention: (data) => {
+                onAttention(JSON.parse(data) as number);
             },
         },
         sessionPath: path,
