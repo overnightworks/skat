@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -40,7 +41,7 @@ def open_table_with_options(
     opened = json.loads(
         session.post(
             TABLES_PATH,
-            {"command_id": "open-with-options", "series_length": SERIES_LENGTH_DEFAULT, "options": options},
+            {"command_id": uuid.uuid4().hex, "series_length": SERIES_LENGTH_DEFAULT, "options": options},
         )
     )
     path = f"{TABLE_PAGE_PREFIX}{opened['id']}"

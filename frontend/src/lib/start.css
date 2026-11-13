@@ -3855,12 +3855,13 @@ body {
     --card-width: min(64px, calc(100vw * 64 / 390));
     --callout-size: 30px;
     --callout-ring: 230px;
+    --callout-top: 86%;
 }
 
 .room .callout {
     position: absolute;
     left: 50%;
-    top: 90%;
+    top: var(--callout-top);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -3912,7 +3913,7 @@ body {
     display: none;
     position: absolute;
     left: 50%;
-    top: 90%;
+    top: var(--callout-top);
     width: var(--callout-ring);
     aspect-ratio: 1;
     border: 2px solid rgba(251, 248, 240, 0.45);
@@ -3959,5 +3960,6 @@ body {
         --card-width: 80px;
         --callout-size: 50px;
         --callout-ring: 380px;
+        --callout-top: 76%;
     }
 }
