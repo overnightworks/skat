@@ -564,6 +564,23 @@ def test_the_away_note_of_the_near_chair_stands_clear_of_the_bar(
     expect_no_crossing(table.watcher, ".chair .plate small", ".actions")
 
 
+@pytest.mark.parametrize("position", ["forehand", "middlehand", "rearhand"])
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_away_mark_stands_clear_of_the_position_label_in_play(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    position: str,
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, joiners=FULL_LENGTH_NAMES)
+    seat = table.seat_at[position]
+    table.pages[seat].close()
+    expect(table.watcher.locator(f".chair[data-seat='{seat}'] .mark.away")).to_have_count(1)
+    expect_no_crossing(table.watcher, ".mark.away", ".mark.pos")
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_picked_card_lifts_clear_of_the_near_chair_and_the_bar_stays_on_the_screen(
     deal_a_table_of_full_length_names: Callable[..., DeclaringTable], form_factor: dict[str, Any]

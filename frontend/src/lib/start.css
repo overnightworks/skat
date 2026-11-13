@@ -771,6 +771,13 @@ body {
     height: 15px;
 }
 
+/* On a phone the position label reaches 11px into the tile's corner, so the away mark steps below it. */
+@media (max-width: 899px) {
+    .room .mark.pos ~ .mark.away {
+        top: 14px;
+    }
+}
+
 .room .plate .away-note {
     display: block;
     font-size: 10.5px;
@@ -2962,7 +2969,7 @@ body {
         font-size: 12.5px;
     }
 
-    .room .mark.pos + .mark.away {
+    .room .mark.pos ~ .mark.away {
         right: auto;
         left: 6px;
     }
