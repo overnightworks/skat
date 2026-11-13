@@ -372,6 +372,7 @@ class HeldStore(FakeTableStore):
         self.row_free = threading.Event()
         self.awaiting_the_commit = threading.Event()
         self.commit_free = threading.Event()
+        self.committed = threading.Event()
         self._ended = False
 
     def locked_table(self, table_id):
@@ -391,6 +392,8 @@ class HeldStore(FakeTableStore):
             if self.holds_the_commit and self._ended:
                 self.awaiting_the_commit.set()
                 assert self.commit_free.wait(timeout=10)
+        if self._ended:
+            self.committed.set()
 
 
 class UnplayedTables:
@@ -421,12 +424,11 @@ class UnplayedTables:
             chair_scheduler=self.scheduler,
         )
 
-    async def stop_while_held(self, reached, free):
-        """Serve until the hourly run, started past the days, reaches the hold of `reached`; stop the server then,
-        free the hold after the stop had time to finish and answer whether the lifespan returned before that.
+    async def stop_while_held(self, reached, free, *, free_during_the_stop):
+        """Serve until the hourly run, started past the days, reaches the hold `reached`, then stop the server.
+        The hold `free` is freed once the stop has started when `free_during_the_stop`, else once the lifespan has
+        returned. Answers whether the unplayed end had committed when the lifespan returned.
         """
-        left_the_lifespan = asyncio.Event()
-        leaving = asyncio.Event()
         app = self.app()
 
         async def serve():
@@ -434,18 +436,24 @@ class UnplayedTables:
                 ((_, tick),) = self.scheduler.sweeps()
                 self.play_on(UNPLAYED_DAYS)
                 running = asyncio.create_task(tick())
-                await leaving.wait()
-            left_the_lifespan.set()
+                assert await asyncio.to_thread(reached.wait, 10)
+                if free_during_the_stop:
+                    freeing = asyncio.create_task(self.free_after_a_turn(free))
+            committed = self.store.committed.is_set()
+            if not free_during_the_stop:
+                free.set()
             await running
+            if free_during_the_stop:
+                await freeing
+            return committed
 
-        serving = asyncio.create_task(serve())
-        await asyncio.to_thread(reached.wait, 10)
-        leaving.set()
-        await asyncio.wait({serving}, timeout=0.3)
-        returned = left_the_lifespan.is_set()
+        return await asyncio.wait_for(serve(), timeout=30)
+
+    @staticmethod
+    async def free_after_a_turn(free):
+        """Frees the hold on the turn after the lifespan began to stop, which the stop's first wait yields."""
+        await asyncio.sleep(0)
         free.set()
-        await serving
-        return returned
 
     def ended(self, table_id):
         return self.tables.view(OPENER, table_id.value, frozenset()).ended
@@ -582,7 +590,7 @@ class TestUnplayedTables:
         table_id = unplayed.dealt("command-open")
         store.holds_the_row = True
 
-        asyncio.run(unplayed.stop_while_held(store.awaiting_the_row, store.row_free))
+        asyncio.run(unplayed.stop_while_held(store.awaiting_the_row, store.row_free, free_during_the_stop=False))
 
         assert unplayed.ended(table_id) is None
 
@@ -592,9 +600,11 @@ class TestUnplayedTables:
         table_id = unplayed.dealt("command-open")
         store.holds_the_commit = True
 
-        returned_before_the_commit = asyncio.run(unplayed.stop_while_held(store.awaiting_the_commit, store.commit_free))
+        committed_at_return = asyncio.run(
+            unplayed.stop_while_held(store.awaiting_the_commit, store.commit_free, free_during_the_stop=True)
+        )
 
-        assert not returned_before_the_commit
+        assert committed_at_return
         assert unplayed.ended(table_id).reason is EndReason.UNPLAYED
 
     def test_a_run_after_the_server_stopped_asks_for_no_further_run(self, unplayed):
