@@ -15,6 +15,7 @@ from tests.e2e.support.tables import (
     open_new_table,
     sit_in,
     table_id_of,
+    until_the_agents_are_read,
     watch,
     watchers_of,
 )
@@ -66,7 +67,8 @@ def seat_the_table(
         name: record_page_errors(open_person(username=name, **form_factor), errors)
         for name in ("anna", "ben", "cleo", "dora")
     }
-    path = open_new_table(people["anna"], server)
+    with until_the_agents_are_read(people["anna"]):
+        path = open_new_table(people["anna"], server)
     for seat, name in zip(range(2, seats + 1), ("ben", "cleo"), strict=False):
         watch(people[name], server, path)
         sit_in(people[name], seat)
@@ -123,7 +125,8 @@ def test_the_old_link_of_a_closed_table_names_the_closer_and_a_new_table_gets_a_
 ) -> None:
     anna = record_page_errors(open_person(username="anna", **form_factor), page_errors)
     erik = record_page_errors(open_person(username="erik", **form_factor), page_errors)
-    path = open_new_table(anna, e2e_server)
+    with until_the_agents_are_read(anna):
+        path = open_new_table(anna, e2e_server)
     close_key(anna).click()
     dialog_of(anna).get_by_role("button", name=CONFIRM, exact=True).click()
     name = closer_name(e2e_server, anna, table_id_of(path))
