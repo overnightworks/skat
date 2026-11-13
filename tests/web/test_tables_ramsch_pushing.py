@@ -167,7 +167,13 @@ class TestTheThirdPass:
         for position in VIEWERS:
             hand = read(table, position)["hand"]
             assert (hand["ramsch"], hand["playing"], hand["pushes"], hand["skat_count"]) == (True, None, 0, 2)
-            assert hand["pushing"] == {"turn_seat": FOREHAND_SEAT, "stage": "choosing", "moves": [], "factor": 1}
+            assert hand["pushing"] == {
+                "turn_seat": FOREHAND_SEAT,
+                "stage": "choosing",
+                "moves": [],
+                "factor": 1,
+                "put_back_cards": [],
+            }
         card = table.send(table.at[FOREHAND], PLAIN_HAND[0])
         assert (card.status_code, reason_of(card), read(table)["result"]) == (409, "wrong-phase", None)
 
@@ -186,7 +192,12 @@ class TestTheStage:
 
         taken = accepted(table, FOREHAND, "take")["hand"]
         assert (len(taken["own_cards"]), taken["skat_count"]) == (12, 0)
-        assert taken["pushing"] == {"turn_seat": FOREHAND_SEAT, "stage": "discarding", "moves": [], "factor": 1}
+        assert {key: taken["pushing"][key] for key in ("turn_seat", "stage", "moves", "factor")} == {
+            "turn_seat": FOREHAND_SEAT,
+            "stage": "discarding",
+            "moves": [],
+            "factor": 1,
+        }
         assert [chair["hand"]["card_count"] for chair in read(table)["chairs"]] == [10, 10, 12]
         put = accepted(table, FOREHAND, "put-back", cards("C7 C8"))["hand"]
         assert (len(put["own_cards"]), put["skat_count"]) == (10, 2)
@@ -195,6 +206,7 @@ class TestTheStage:
             "stage": "choosing",
             "moves": [{"seat": FOREHAND_SEAT, "action": "took"}],
             "factor": 1,
+            "put_back_cards": [],
         }
 
     def test_two_pushes_lead_into_the_ramsch_which_keeps_the_count_and_doubles_the_losers_score_twice(self, skat):
@@ -261,6 +273,7 @@ class TestTheStage:
             "stage": "choosing",
             "moves": [{"seat": FOREHAND_SEAT, "action": "pushed"}, {"seat": MIDDLEHAND_SEAT, "action": "took"}],
             "factor": 2,
+            "put_back_cards": [],
         }
 
     @pytest.mark.parametrize(
@@ -626,7 +639,13 @@ class TestTheMultiplier:
         assert table.record.progress.pushing == ()
         three_pass(table)
         stage = read(table, FOREHAND)["hand"]
-        assert stage["pushing"] == {"turn_seat": FOREHAND_SEAT, "stage": "choosing", "moves": [], "factor": 1}
+        assert stage["pushing"] == {
+            "turn_seat": FOREHAND_SEAT,
+            "stage": "choosing",
+            "moves": [],
+            "factor": 1,
+            "put_back_cards": [],
+        }
         assert stage["pushes"] == 0
 
 

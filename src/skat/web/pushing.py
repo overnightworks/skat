@@ -106,14 +106,16 @@ def _add_put_back(router: APIRouter, take_step: StepTaker) -> None:
     async def put_back(
         table_id: str, body: PutBackRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
-        """Put two cards back as the skat after taking it in the stage before a Ramsch, any two of the twelve.
+        """Put two cards back as the skat after taking it in the stage before a Ramsch, any two of the twelve that
+        `hand.pushing.put_back_cards` names.
 
         Use it when `hand.pushing` in the answer of read_table or the state of your table's view is set,
-        `hand.pushing.turn_seat` is the seat of the caller's own chair and `hand.pushing.stage` is "discarding". A
-        table whose pushing rule is "jacks-stay" or "no-doubling" refuses a jack among the two (jack-put-back);
-        "jacks-may-go" takes any two. The table id and the version come from that answer. The two cards leave your
-        hand and the next seat meets them as the skat; a seat that follows takes or pushes it, and after the last
-        seat's turn the Ramsch starts. The command id names this step: the same id with the same cards and the same
+        `hand.pushing.turn_seat` is the seat of the caller's own chair and `hand.pushing.stage` is "discarding".
+        `hand.pushing.put_back_cards` lists the cards the table's pushing rule lets go back: a table whose rule is
+        "jacks-stay" or "no-doubling" leaves out the jacks and refuses one among the two (jack-put-back); "jacks-may-go"
+        lists all twelve. It is empty for every other viewer and while the stage is "choosing". The table id and the
+        version come from that answer. The two cards leave your hand and the next seat meets them as the skat; a seat
+        that follows takes or pushes it, and after the last seat's turn the Ramsch starts. The command id names this step: the same id with the same cards and the same
         version is a retry that changes nothing twice. A refusal (for example stale-version, wrong-phase,
         not-your-turn, out-of-order, not-two-of-the-twelve, jack-put-back) comes back as a failed result with its
         reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
