@@ -4365,7 +4365,13 @@ body {
     }
 }
 
-/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on the narrowest phones the gaps and the words' padding give way so the row stays inside the screen. */
+/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and on the narrowest the gaps and the words' padding give way too, so the row stays inside the screen. */
+@media (max-width: 899px) {
+    .room .actions:has(.copy.close) .copy.kontra svg {
+        display: none;
+    }
+}
+
 @media (max-width: 383px) {
     .room .actions:has(.give-up):has(.copy.close) {
         gap: 4px;
