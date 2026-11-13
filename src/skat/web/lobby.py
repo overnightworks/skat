@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from datetime import datetime  # noqa: TC003 - pydantic reads the field type at runtime
 from typing import TYPE_CHECKING, Final
 
@@ -182,7 +182,7 @@ class _TopicHoldingSource:
         self._wakes.unregister(previous)
 
 
-class AccountTablesSource(_TopicHoldingSource):
+class AccountTablesSource(_TopicHoldingSource, ABC):
     """The tables one account holds a chair at as a stream source, woken by its account and by those tables.
 
     It is no presence: nothing here connects the account to a table. A table named as `apart_from` is neither read
