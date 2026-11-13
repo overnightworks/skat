@@ -400,3 +400,56 @@ def test_a_name_taken_by_other_rules_shows_one_line_and_saves_nothing(
     held = json.loads(RawSession(e2e_server, member_of(person)).get(RULE_SETS_PATH))["sets"]
     assert sorted(each["name"] for each in held) == sorted([HOUSE_SET, EVENING_SET])
     assert saved_options(e2e_server, member_of(person), EVENING_SET)["kontra"] is None
+
+
+def test_a_save_the_server_refuses_shows_one_line_and_keeps_the_sheet_as_it_was(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP, console=False)
+
+    def refuse_the_save(route: Any) -> None:
+        if route.request.method == "POST":
+            route.fulfill(status=422, content_type="application/json", body="{}")
+        else:
+            route.continue_()
+
+    person.route(f"**{RULE_SETS_PATH}", refuse_the_save)
+    sheet_of(person, e2e_server)
+    switch(person, KONTRA).click()
+    save_name(person).fill("Sonntag")
+
+    save_row(person).get_by_role("button", name=SAVE).click()
+
+    expect(person.get_by_role("alert")).to_have_text(word("start.saveFailed"))
+    expect(save_name(person)).to_have_value("Sonntag")
+    expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(3)
+
+
+def test_a_save_answered_after_the_sheet_was_closed_and_opened_again_changes_nothing_on_the_new_sheet(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP)
+    held: list[Any] = []
+
+    def hold_the_save(route: Any) -> None:
+        if route.request.method == "POST":
+            held.append(route)
+        else:
+            route.continue_()
+
+    person.route(f"**{RULE_SETS_PATH}", hold_the_save)
+    sheet_of(person, e2e_server)
+    switch(person, KONTRA).click()
+    save_name(person).fill("Sonntag")
+    save_row(person).get_by_role("button", name=SAVE).click()
+    expect(save_name(person)).to_be_disabled()
+    person.get_by_role("button", name=CANCEL).click()
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    expect(set_pill(person, OFFICIAL)).to_be_checked()
+
+    with person.expect_response(lambda answer: answer.request.method == "POST" and answer.url.endswith(RULE_SETS_PATH)):
+        held[0].continue_()
+
+    expect(set_pill(person, OFFICIAL)).to_be_checked()
+    expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(3)
+    expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "false")
