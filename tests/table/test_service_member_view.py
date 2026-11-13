@@ -181,7 +181,7 @@ def give_up(service, actor, table_id, version):
 
 
 def continue_after_result(service, actor, table_id, version):
-    return service.mark_ready(actor, ReadyCommand("act", table_id, 1), NOBODY)
+    return service.mark_ready(actor, ReadyCommand("act", table_id, 1, 1), NOBODY)
 
 
 def refuse_to_end(service, actor, table_id, version):
@@ -272,7 +272,7 @@ class TestTheSignalOfACommit:
             seat, AuctionCommand("stale", scene.table_id, 99, AuctionAction.BID, 18), NOBODY
         )
         replay = continue_after_result(scene.service, seat, scene.table_id, 0)
-        second_tap = scene.service.mark_ready(seat, ReadyCommand("another", scene.table_id, 1), NOBODY)
+        second_tap = scene.service.mark_ready(seat, ReadyCommand("another", scene.table_id, 1, 1), NOBODY)
 
         assert (stale.refusal is not None, replay.refusal, second_tap.refusal) == (True, None, None)
         assert scene.signals == []

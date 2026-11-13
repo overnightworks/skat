@@ -8,7 +8,11 @@ import {
     type Table,
 } from "../routes/(start)/tables.ts";
 
-export type Cue = { kind: "card-played"; seat: number; card: Card } | { kind: "auction-ended" };
+export type Cue =
+    | { kind: "card-played"; seat: number; card: Card }
+    | { kind: "auction-ended" }
+    // The seats of the opponents who both said no to the declarer's give-up.
+    | { kind: "give-up-refused"; seats: number[] };
 
 // The one owner of what just happened between two versions of a table. A table that is not newer than the one
 // before it yields nothing, and so does a change the two versions do not fully explain.
@@ -17,7 +21,26 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     const cues: Cue[] = [];
     if (auctionJustEnded(previous, next)) cues.push({ kind: "auction-ended" });
     for (const { seat, card } of cardsLaidBetween(previous, next)) cues.push({ kind: "card-played", seat, card });
+    const refusers = giveUpRefusedBetween(previous, next);
+    if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
     return cues;
+}
+
+// The second no clears the declarer's request that already carried the first no, while the game goes on with the same
+// cards on the felt and the same people in the chairs; a card, a yes and a chair that changed hands clear it otherwise.
+function giveUpRefusedBetween(previous: Table, next: Table): number[] | null {
+    const before = previous.hand?.playing;
+    const after = next.hand?.playing;
+    const asked = before?.give_up;
+    if (!before || typeof asked?.declined_seat !== "number" || after?.give_up !== null) return null;
+    const unchanged =
+        sameJson(before.current_trick, after.current_trick) &&
+        sameJson(before.last_trick, after.last_trick) &&
+        sameJson(
+            previous.chairs.map((chair) => chair.occupant_name),
+            next.chairs.map((chair) => chair.occupant_name),
+        );
+    return unchanged ? next.chairs.map((chair) => chair.seat).filter((seat) => seat !== asked.asking_seat) : null;
 }
 
 // The auction ended in the update that brings the declaring to a hand that had none; a page that opens later

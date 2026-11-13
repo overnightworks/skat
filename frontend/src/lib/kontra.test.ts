@@ -72,6 +72,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         hand: playingKontra === "no hand" ? null : hand,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         ended: null,
         options: null,

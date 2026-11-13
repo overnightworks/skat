@@ -23,6 +23,7 @@ from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
+from skat.table.game_list import GameEnding  # noqa: E402
 from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
@@ -119,6 +120,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "PUSHING_RULE_TOKENS": PushingRule,
     "GRAND_HAND_TOKENS": GrandHandRule,
     "WAITING_CASE_TOKENS": WaitingCase,
+    "GAME_ENDING_TOKENS": GameEnding,
     "WORD_TOKENS": Word,
 }
 

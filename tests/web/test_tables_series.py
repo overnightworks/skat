@@ -53,6 +53,7 @@ class TestOpening:
 
         assert answer.status_code == 200
         assert series_of(answer) == {
+            "number": 1,
             "game_number": 0,
             "game_count": SERIES_LENGTH,
             "over": False,
@@ -99,7 +100,7 @@ class TestOpening:
         assert skat.stand(people[0][0], table_id, series_length=SERIES_LENGTH).status_code == 422
         refused = skat.client.post(
             f"{TABLES_PATH}/{table_id}{TABLE_READY_SUFFIX}",
-            json={"command_id": "weiter-extra", "ordinal": 1, "series_length": SERIES_LENGTH},
+            json={"command_id": "weiter-extra", "ordinal": 1, "series": 1, "series_length": SERIES_LENGTH},
             headers={"origin": TEST_PUBLIC_ORIGIN, **people[0][0]},
         )
         assert refused.status_code == 422
@@ -226,6 +227,7 @@ class TestCounting:
         table_id, people = open_series(skat, 36)
 
         assert series_of(read(skat, people[0][0], table_id)) == {
+            "number": 1,
             "game_number": 1,
             "game_count": 36,
             "over": False,
@@ -250,6 +252,7 @@ class TestCounting:
 
         answer = read(skat, people[0][0], table_id).json()
         assert answer["series"] == {
+            "number": 1,
             "game_number": 12,
             "game_count": 12,
             "over": True,
@@ -269,6 +272,7 @@ class TestCounting:
 
         answer = read(skat, people[0][0], table_id).json()
         assert answer["series"] == {
+            "number": 1,
             "game_number": 12,
             "game_count": 12,
             "over": False,
@@ -294,6 +298,7 @@ class TestCounting:
         skat.sit(stranger, table_id, 2, command_id="sit-dora")
 
         assert series_of(read(skat, people[0][0], table_id)) == {
+            "number": 1,
             "game_number": 2,
             "game_count": 36,
             "over": False,
@@ -372,7 +377,14 @@ class TestTheAnswer:
         answer = skat.client.get(f"{TABLES_PATH}/{table_id}", headers={**FETCH, **watcher})
 
         assert cards_in(answer.json()) == set()
-        assert set(answer.json()["series"]) == {"game_number", "game_count", "over", "standings", "end_proposal"}
+        assert set(answer.json()["series"]) == {
+            "number",
+            "game_number",
+            "game_count",
+            "over",
+            "standings",
+            "end_proposal",
+        }
 
 
 class TestTheStandings:
