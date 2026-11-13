@@ -22,6 +22,7 @@ const KONTRA: NonNullable<Options["kontra"]> = {
     deadline: "own-card",
 };
 const RAMSCH: NonNullable<Options["ramsch"]> = {
+    occasion: "passed-in",
     scoring: "points",
     jungfrau: "doubles-loser",
     durchmarsch: "wins-120",
