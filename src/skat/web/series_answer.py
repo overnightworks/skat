@@ -21,6 +21,7 @@ class SeriesEndProposalAnswer(BaseModel):
 
 
 class SeriesAnswer(BaseModel):
+    number: int
     game_number: int
     game_count: int
     over: bool
@@ -42,6 +43,7 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
     if series is None:
         return None
     return SeriesAnswer(
+        number=series.number,
         game_number=series.game_number,
         game_count=series.game_count,
         over=series.over,

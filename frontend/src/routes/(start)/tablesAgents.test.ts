@@ -484,6 +484,7 @@ describe("the agent that sat down", () => {
         hand: null,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,

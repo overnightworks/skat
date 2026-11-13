@@ -38,6 +38,7 @@ import {
     playCard,
     readRuleSets,
     readTable,
+    seriesNumberOf,
     sitDown,
     standUp,
     takeDeclaringStep,
@@ -302,6 +303,7 @@ describe("asking for a table", () => {
         watchers: 0,
         hand: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         ended: null,
@@ -406,14 +408,21 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-2" });
     });
 
-    it("sends the command id and the result's ordinal when ready", async () => {
+    it.each([
+        { series: { number: 3 }, expected: 3 },
+        { series: null, expected: 1 },
+    ])("names series $expected for a table whose series is $series", ({ series, expected }) => {
+        expect(seriesNumberOf({ series })).toBe(expected);
+    });
+
+    it("sends the command id, the result's ordinal and the series' number when ready", async () => {
         answerWith(Response.json(table));
 
-        expect(await markReady(TABLE_ID, "command-3", 4)).toEqual({ kind: "table", table });
+        expect(await markReady(TABLE_ID, "command-3", 4, 2)).toEqual({ kind: "table", table });
 
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_READY_SUFFIX}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", ordinal: 4 });
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", ordinal: 4, series: 2 });
     });
 
     it.each([

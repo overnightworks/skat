@@ -65,8 +65,8 @@ def messages_of_the_frame(visitor: Page) -> list[Any]:
     return visitor.evaluate("window.messages")
 
 
-def wait_for_ready(visitor: Page) -> None:
-    visitor.wait_for_function(f"{RECORDED_MESSAGES} >= 1")
+def wait_for_ready(visitor: Page, messages: int = 1) -> None:
+    visitor.wait_for_function(f"{RECORDED_MESSAGES} >= {messages}")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -234,12 +234,13 @@ def test_a_reloaded_frame_greets_again(
         visitor, browser_coverage, framing_server, table_url(framing_server, path), greets=True
     ) as skat:
         table = visitor.frame_locator(FRAME)
+        # A reload that cuts the first load short leaves no first ready, so only the second is ever recorded.
         wait_for_ready(visitor)
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
         expect(table.locator(BAR)).to_have_count(0)
 
         skat.evaluate("location.reload()")
-        visitor.wait_for_function(f"{RECORDED_MESSAGES} >= 2")
+        wait_for_ready(visitor, messages=2)
 
         expect(table.locator(BAR)).to_have_count(0)
         assert len(messages_of_the_frame(visitor)) == 2

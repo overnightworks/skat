@@ -30,8 +30,8 @@ class TestStartNewSeries:
         skat.client.cookies.clear()
         return table
 
-    def start(self, agent, table, *, command_id="agent-new-series-0001"):
-        return agent.call(START_NEW_SERIES_TOOL, table_id=table.table_id, command_id=command_id)
+    def start(self, agent, table, *, command_id="agent-new-series-0001", series=1):
+        return agent.call(START_NEW_SERIES_TOOL, table_id=table.table_id, command_id=command_id, series=series)
 
     def test_an_accepted_tap_marks_the_agents_chair_as_a_persons_tap_does(self, agent, ended_series):
         table = ended_series
@@ -59,6 +59,27 @@ class TestStartNewSeries:
         assert unchanged[0] == before[0]
         assert sat.status_code == 200
         assert [chair.ready for chair in table.record.chairs] == [False, False, False]
+
+    @pytest.mark.parametrize("series", [2, 3], ids=["a-series-not-yet-started", "a-series-further-on"])
+    def test_a_call_naming_another_series_is_a_failed_result_and_changes_nothing(self, agent, ended_series, series):
+        table = ended_series
+        before = table.record
+
+        refused = self.start(agent, table, series=series)
+
+        assert refused.is_error
+        assert refused.json()["reason"] == Refusal.STALE_SERIES
+        assert table.record == before
+        assert not self.start(agent, table, command_id="agent-new-series-0002").is_error
+
+    def test_a_call_naming_no_series_is_refused_before_it_acts(self, agent, ended_series):
+        table = ended_series
+        before = table.record
+
+        refused = agent.call(START_NEW_SERIES_TOOL, table_id=table.table_id, command_id="agent-no-series")
+
+        assert refused.is_error
+        assert table.record == before
 
     def test_the_same_call_again_answers_the_same_and_changes_nothing(self, agent, ended_series):
         table = ended_series
@@ -108,6 +129,7 @@ class TestStartNewSeries:
     def assert_next_series_dealt(self, agent, table):
         view = agent.read(table.table_id).json()
         assert view["series"] == {
+            "number": 2,
             "game_number": 1,
             "game_count": 3,
             "over": False,
@@ -116,6 +138,15 @@ class TestStartNewSeries:
         }
         assert view["hand"] is not None
         assert table.record.game_list == ()
+
+    @pytest.mark.parametrize("tool", [CONTINUE_AFTER_RESULT_TOOL, START_NEW_SERIES_TOOL])
+    def test_the_input_schema_requires_the_series_the_tap_answers(self, agent, tool):
+        tools = {each["name"]: each for each in agent.request("tools/list").json()["result"]["tools"]}
+
+        schema = tools[tool]["inputSchema"]
+
+        assert "series" in schema["properties"]
+        assert "series" in schema["required"]
 
     def test_the_description_says_the_finished_games_stay_stored(self, agent):
         tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
