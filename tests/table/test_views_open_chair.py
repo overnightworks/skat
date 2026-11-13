@@ -45,7 +45,9 @@ class TestTheWaitingSeat:
         after = view_of(waiting, viewer, NOBODY).hand
 
         assert before.pushing is not None
-        assert (after.waiting_seat, after.pushing, after.pushes) == (REARHAND_SEAT, before.pushing, before.pushes)
+        # The hand offers no step while a chair is open, so no card may go back.
+        stays = replace(before.pushing, put_back_cards=())
+        assert (after.waiting_seat, after.pushing, after.pushes) == (REARHAND_SEAT, stays, before.pushes)
 
     def test_names_the_lowest_of_two_open_seats(self):
         table = sent_away(sent_away(PHASES["auction"](), FOREHAND_SEAT), REARHAND_SEAT)
