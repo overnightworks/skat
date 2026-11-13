@@ -1,12 +1,15 @@
+import base64
+import hashlib
 from typing import TYPE_CHECKING
 
 import pytest
 
-from skat.web.page_build import PageBuild, PageBuildMissingError
+from skat.web.page_build import PageBuild, PageBuildMissingError, SignInPageScriptError
 from skat.web.secret_files import StartRefusedError
+from skat.web.words import LANGUAGES
 from tests.support.page_build import (
     ANNOUNCER_STYLE_HASH,
-    CALL_PAGE_SCRIPT_HASH,
+    CALL_PAGE_SCRIPT_HASHES,
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
     served_page,
@@ -35,11 +38,12 @@ def write_chunk(root: Path, name: str, text: str) -> None:
 
 def build_with_shell(root: Path, shell: str, sign_in_page: str = EMPTY_PAGE, call_page: str = EMPTY_PAGE) -> Path:
     (root / "_app").mkdir(parents=True)
-    (root / "login").mkdir()
     (root / "index.html").write_text(shell, encoding="utf-8")
-    for name in SIGN_IN_PAGES:
-        (root / name).write_text(sign_in_page, encoding="utf-8")
-    (root / CALL_PAGE).write_text(call_page, encoding="utf-8")
+    for language in LANGUAGES:
+        (root / language / "login").mkdir(parents=True)
+        for name in SIGN_IN_PAGES:
+            (root / language / name).write_text(sign_in_page, encoding="utf-8")
+        (root / language / CALL_PAGE).write_text(call_page, encoding="utf-8")
     write_chunk(root, "announcer.js", announcer_chunk())
     return root
 
@@ -49,7 +53,22 @@ class TestLoad:
         page_build = PageBuild.load(FIXTURE_DIRECTORY)
 
         assert page_build.directory == FIXTURE_DIRECTORY
-        assert page_build.script_hashes == (FIXTURE_SCRIPT_HASH, CALL_PAGE_SCRIPT_HASH)
+        assert page_build.script_hashes == (
+            FIXTURE_SCRIPT_HASH,
+            CALL_PAGE_SCRIPT_HASHES["de"],
+            CALL_PAGE_SCRIPT_HASHES["en"],
+        )
+
+    def test_a_call_page_script_that_two_languages_share_is_admitted_once(self, tmp_path):
+        shell = '<html lang="en"><script>shell();</script></html>'
+        root = build_with_shell(tmp_path, shell, call_page='<html lang="en"><script>shared();</script></html>')
+
+        hashes = PageBuild.load(root).script_hashes
+
+        assert hashes == (
+            "sha256-" + base64.b64encode(hashlib.sha256(b"shell();").digest()).decode(),
+            "sha256-" + base64.b64encode(hashlib.sha256(b"shared();").digest()).decode(),
+        )
 
     def test_the_announcer_style_hash_is_the_known_one_of_the_fixture_chunk(self):
         assert PageBuild.load(FIXTURE_DIRECTORY).announcer_style_hash == ANNOUNCER_STYLE_HASH
@@ -152,45 +171,60 @@ class TestLoad:
         with pytest.raises(StartRefusedError, match="make frontend"):
             PageBuild.load(tmp_path)
 
+    @pytest.mark.parametrize("language", LANGUAGES)
     @pytest.mark.parametrize(
         ("name", "page_of"),
         [
-            ("login.html", lambda build: build.signed_out),
-            ("login-failed.html", lambda build: build.login_failed),
-            ("no-access.html", lambda build: build.no_access),
-            (CALL_PAGE, lambda build: build.call_sign_in),
+            ("login.html", lambda pages: pages.signed_out),
+            ("login-failed.html", lambda pages: pages.login_failed),
+            ("no-access.html", lambda pages: pages.no_access),
+            (CALL_PAGE, lambda pages: pages.call_sign_in),
         ],
         ids=["signed-out", "login-failed", "no-access", "call"],
     )
-    def test_a_sign_in_page_is_the_bytes_read_in_the_source_language_with_a_strong_etag(self, name, page_of):
-        page = page_of(PageBuild.load(FIXTURE_DIRECTORY))
+    def test_a_sign_in_page_is_the_bytes_read_for_its_language_with_a_strong_etag(self, language, name, page_of):
+        page = page_of(PageBuild.load(FIXTURE_DIRECTORY).sign_in_pages[language])
 
-        assert page.content == served_page(FIXTURE_DIRECTORY / name)
+        assert page.content == served_page(name, language)
         assert page.etag.startswith('"')
         assert page.etag.endswith('"')
 
+    @pytest.mark.parametrize("name", ["signed_out", "login_failed", "no_access", "call_sign_in"])
+    def test_the_pages_of_two_languages_differ_in_bytes_and_etag(self, name):
+        pages = [getattr(each, name) for each in PageBuild.load(FIXTURE_DIRECTORY).sign_in_pages.values()]
+
+        assert len({page.content for page in pages}) == len(LANGUAGES)
+        assert len({page.etag for page in pages}) == len(LANGUAGES)
+
+    @pytest.mark.parametrize("language", LANGUAGES)
     @pytest.mark.parametrize("page", SIGN_IN_PAGES)
     @pytest.mark.parametrize("script", ["<script>go();</script>", '<script src="/_app/a.js"></script>'])
-    def test_a_plain_sign_in_page_with_a_script_refuses_the_start(self, tmp_path, page, script):
+    def test_a_plain_sign_in_page_with_a_script_refuses_the_start(self, tmp_path, language, page, script):
         root = build_with_shell(tmp_path, SHELL)
-        (root / page).write_text(script, encoding="utf-8")
+        (root / language / page).write_text(script, encoding="utf-8")
 
-        with pytest.raises(StartRefusedError, match=page):
+        with pytest.raises(SignInPageScriptError, match=f"{language}/{page}"):
             PageBuild.load(root)
 
+    @pytest.mark.parametrize("language", LANGUAGES)
     @pytest.mark.parametrize("page", [*SIGN_IN_PAGES, CALL_PAGE])
     @pytest.mark.parametrize("content", ["<html></html>", '<html lang="en"><html lang="en"></html>'])
-    def test_a_sign_in_page_without_its_one_built_lang_attribute_refuses_the_start(self, tmp_path, page, content):
+    def test_a_sign_in_page_without_its_one_built_lang_attribute_refuses_the_start(
+        self, tmp_path, language, page, content
+    ):
         root = build_with_shell(tmp_path, SHELL)
-        (root / page).write_text(content, encoding="utf-8")
+        (root / language / page).write_text(content, encoding="utf-8")
 
-        with pytest.raises(PageBuildMissingError, match=f"{page}.*lang"):
+        with pytest.raises(PageBuildMissingError, match=f"{language}/{page}.*lang"):
             PageBuild.load(root)
 
+    @pytest.mark.parametrize("language", LANGUAGES)
     @pytest.mark.parametrize("missing", [*SIGN_IN_PAGES, CALL_PAGE])
-    def test_a_directory_without_a_sign_in_page_refuses_the_start_and_names_the_build_command(self, tmp_path, missing):
+    def test_a_directory_without_a_sign_in_page_of_a_language_refuses_the_start_and_names_the_build_command(
+        self, tmp_path, language, missing
+    ):
         root = build_with_shell(tmp_path, SHELL)
-        (root / missing).unlink()
+        (root / language / missing).unlink()
 
         with pytest.raises(StartRefusedError, match="make frontend"):
             PageBuild.load(root)

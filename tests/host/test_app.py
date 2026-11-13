@@ -26,7 +26,12 @@ from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.idle_presence import IdleScheduler
 from tests.support.in_memory_stores import in_memory_stores
-from tests.support.page_build import CALL_PAGE_SCRIPT_HASH, FIXTURE_SCRIPT_HASH, SIGN_IN_STYLESHEET, fixture_page_build
+from tests.support.page_build import (
+    CALL_PAGE_SCRIPT_HASHES,
+    FIXTURE_SCRIPT_HASH,
+    SIGN_IN_STYLESHEET,
+    fixture_page_build,
+)
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 
@@ -309,14 +314,14 @@ class TestCreateApp:
         assert response.status_code == 400
         assert response.json() == {"detail": "Malformed request path"}
 
-    def test_the_policy_admits_the_scripts_of_the_shell_and_of_the_call_sign_in_page_by_their_hash(
+    def test_the_policy_admits_the_scripts_of_the_shell_and_of_every_languages_call_sign_in_page_by_their_hash(
         self, sign_in_settings
     ):
         response = signed_in_client(sign_in_settings().settings).get("/health")
 
         assert (
-            f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASH}';"
-            in response.headers["content-security-policy"]
+            f"script-src 'self' '{FIXTURE_SCRIPT_HASH}' '{CALL_PAGE_SCRIPT_HASHES['de']}' "
+            f"'{CALL_PAGE_SCRIPT_HASHES['en']}';" in response.headers["content-security-policy"]
         )
 
     def test_the_policy_refuses_all_framing_while_no_call_origin_is_set(self, sign_in_settings):
