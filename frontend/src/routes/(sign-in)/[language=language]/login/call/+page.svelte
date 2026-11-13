@@ -5,4 +5,4 @@
     const { data }: PageProps = $props();
 </script>
 
-<CallSignIn kitWords={data.kitWords} />
+<CallSignIn kitWords={data.kitWords} words={data.words} />

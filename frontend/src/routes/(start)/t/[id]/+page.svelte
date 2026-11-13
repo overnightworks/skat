@@ -16,7 +16,7 @@
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
-    import { LEGAL_LINKS } from "#lib/legal.ts";
+    import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
         bidLineOfGameDeclaredInTheStage,
@@ -786,6 +786,6 @@
         <span class="spin"></span>{words["table.reconnecting"]}
     </div>
     <footer class="legal">
-        <LegalLinks links={LEGAL_LINKS} newTab words={data.kitWords} />
+        <LegalLinks links={legalLinks(words)} newTab words={data.kitWords} />
     </footer>
 </div>
