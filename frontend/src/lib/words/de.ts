@@ -216,6 +216,18 @@ export type Words = {
     readonly "sound.muted": string;
     readonly "sound.on": string;
     readonly "sound.tone": string;
+    readonly "sound.volume": string;
+    readonly "sound.sets": string;
+    readonly "sound.motion": string;
+    readonly "sound.replayMotion": string;
+    readonly "sound.reducedMotionNote": string;
+    readonly "sound.playsOnce": string;
+    readonly "sound.more": string;
+    readonly "sound.setLeise": string;
+    readonly "sound.setStammtisch": string;
+    readonly "sound.setFunkeln": string;
+    readonly "sound.motionDezent": string;
+    readonly "sound.motionVerspielt": string;
     readonly "card.letterJack": string;
     readonly "card.letterQueen": string;
     readonly "card.letterKing": string;
@@ -644,6 +656,18 @@ export const words: Words = {
     "sound.muted": "Ton aus",
     "sound.on": "Ton",
     "sound.tone": "Ton",
+    "sound.volume": "Lautstärke",
+    "sound.sets": "Klänge",
+    "sound.motion": "Bewegung",
+    "sound.replayMotion": "Bewegung trotzdem abspielen",
+    "sound.reducedMotionNote": "Dein Gerät sagt „Bewegung reduzieren“. Darum zeigt Skat jeden Zustand sofort.",
+    "sound.playsOnce": "spielt einmal",
+    "sound.more": "mehr",
+    "sound.setLeise": "Leise",
+    "sound.setStammtisch": "Stammtisch",
+    "sound.setFunkeln": "Funkeln",
+    "sound.motionDezent": "dezent",
+    "sound.motionVerspielt": "verspielt",
     "card.letterJack": "B",
     "card.letterQueen": "D",
     "card.letterKing": "K",
