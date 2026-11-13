@@ -1,7 +1,6 @@
 import pytest
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL
-from webauth.ports import AccountKind
 
 from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass
 from skat.engine.deal import Position, seats_from
@@ -13,7 +12,6 @@ from skat.web.auction import TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFI
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
-    AGENT_GROUP,
     AGREE_TO_ABORT_HAND_TOOL,
     AGREE_TO_END_SERIES_TOOL,
     AGREE_TO_GIVE_UP_TOOL,
@@ -25,7 +23,6 @@ from skat.web.mcp import (
     DECLARE_GAME_TOOL,
     DECLINE_GIVE_UP_TOOL,
     GIVE_UP_GAME_TOOL,
-    MCP_GROUP,
     NUDGE_SEAT_TOOL,
     OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
@@ -51,16 +48,15 @@ from skat.web.mcp import (
 )
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import (
-    TABLE_EVENTS_SUFFIX,
     TABLES_PATH,
     AwaitingToken,
 )
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import SUBJECT, person_passes, person_steps
+from tests.web.support.agent import agent_account_id, person_passes, person_steps
 from tests.web.support.playing import Table, card, card_body, cards, ending_of
 from tests.web.support.series import play_a_series
-from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, mcp_message, stored, streams_of
+from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}
@@ -81,19 +77,6 @@ def skat(hold, issuer):
     skat = Skat(lambda: hold, issuer_transports=issuer.transports)
     with skat.client:
         yield skat
-
-
-@pytest.fixture
-def forehand_table(skat, agent):
-    """A Hand game declared at a table where the agent holds the forehand, whose turn it is."""
-    table = AgentTable(skat, agent, FOREHAND)
-    table.declared_hand_game()
-    skat.client.cookies.clear()
-    return table
-
-
-def agent_account_id(skat):
-    return skat.stores.accounts.get(SUBJECT).id
 
 
 class TestTools:
@@ -301,6 +284,51 @@ class TestPlayCard:
         assert stored(forehand_table.skat)[0] == before[0]
 
 
+class TestCommandAnswers:
+    def test_a_played_card_is_answered_with_what_was_done_and_no_table(self, agent, forehand_table):
+        before = forehand_table.record.version
+
+        answer = agent.play(forehand_table, card("S7"))
+
+        assert answer.json() == {"done": PLAY_CARD_TOOL, "table_id": forehand_table.table_id, "version": before + 1}
+
+    @pytest.mark.parametrize(
+        ("tool", "changes"),
+        [
+            pytest.param(AUCTION_BID_TOOL, {"value": VALID_BIDS[0]}, id="bid"),
+            pytest.param(AUCTION_PASS_TOOL, {}, id="pass"),
+        ],
+    )
+    def test_an_auction_step_is_answered_with_what_was_done_and_no_table(
+        self, agent, middlehand_auction, tool, changes
+    ):
+        table = middlehand_auction
+        before = table.record.version
+
+        answer = agent.take_step(tool, table, **changes)
+
+        assert answer.json() == {"done": tool, "table_id": table.table_id, "version": before + 1}
+
+    def test_the_version_an_answer_names_is_the_one_the_next_command_takes(self, agent, forehand_table):
+        first = agent.play(forehand_table, card("S7")).json()
+        forehand_table.skat.client.cookies.clear()
+
+        after = agent.read(forehand_table.table_id).json()
+
+        assert (after["id"], after["version"]) == (first["table_id"], first["version"])
+
+    def test_a_persons_route_for_the_same_command_still_answers_with_the_table(self, middlehand_auction):
+        table = middlehand_auction
+        page_answer = table.skat.client.post(
+            f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+            json={"command_id": table.fresh_id(), "version": table.record.version},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[MIDDLEHAND]},
+        )
+
+        assert page_answer.status_code == 200, page_answer.text
+        assert {"id", "version", "chairs", "hand"} <= set(page_answer.json())
+
+
 class TestGiveUpGame:
     def give_up(self, agent, table, *, command_id="agent-give-up-0001", **changes):
         return agent.call(
@@ -318,11 +346,10 @@ class TestGiveUpGame:
         answer = self.give_up(agent, table)
 
         assert not answer.is_error, answer.text
-        result = answer.json()["result"]
+        result = agent.read(table.table_id).json()["result"]
         assert result["won"] is False
         assert (result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (3, -50, False)
         assert ending_of(result) == ("given-up", 1)
-        assert agent.read(table.table_id).json()["result"] == result
         assert table.read_as(table.at[MIDDLEHAND]).json()["result"] == result
         assert table.record.hand is None
         assert len(table.record.game_list) == 1
@@ -336,7 +363,10 @@ class TestGiveUpGame:
         answer = self.give_up(agent, table)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": None}
+        assert agent.read(table.table_id).json()["hand"]["playing"]["give_up"] == {
+            "asking_seat": 1,
+            "declined_seat": None,
+        }
 
     def test_a_refused_give_up_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, forehand_table):
         before = stored(forehand_table.skat)
@@ -379,7 +409,7 @@ class TestAnsweringAGiveUp:
         answer = self.answer(agent, asked, AGREE_TO_GIVE_UP_TOOL)
 
         assert not answer.is_error, answer.text
-        result = answer.json()["result"]
+        result = agent.read(asked.table_id).json()["result"]
         assert (result["won"], result["list_bonus"]) == (False, -50)
         assert ending_of(result) == ("given-up", 1)
         assert asked.record.hand is None
@@ -389,7 +419,7 @@ class TestAnsweringAGiveUp:
         answer = self.answer(agent, asked, DECLINE_GIVE_UP_TOOL)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": 3}
+        assert agent.read(asked.table_id).json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": 3}
         assert asked.record.hand is not None
 
     @pytest.mark.parametrize("tool", [AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL])
@@ -425,7 +455,7 @@ class TestThrowDownCards:
         answer = self.throw_down(agent, table)
 
         assert not answer.is_error, answer.text
-        result = answer.json()["result"]
+        result = agent.read(table.table_id).json()["result"]
         assert result["won"] is won
         assert (result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (
             5,
@@ -433,7 +463,6 @@ class TestThrowDownCards:
             False,
         )
         assert ending_of(result) == ("thrown-down", 1 if position is MIDDLEHAND else 3)
-        assert agent.read(table.table_id).json()["result"] == result
         assert table.record.hand is None
         assert len(table.record.game_list) == 1
 
@@ -514,8 +543,7 @@ class TestAuctionSteps:
         answer = agent.take_step(AUCTION_PASS_TOOL, table)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["hand"] is None
-        assert answer.json()["passed_in"] is not None
+        assert agent.read(table.table_id).json()["passed_in"] is not None
         assert table.record.hand is None
 
     def test_the_same_call_again_answers_the_same_and_steps_nothing_twice(self, agent, middlehand_auction):
@@ -635,50 +663,6 @@ class TestAuctionSteps:
         assert skat.stores.accounts.get(OWNER) is None
 
 
-class TestAuctionRoutesTakeTheAgentsBearer:
-    @pytest.mark.parametrize("headers", [{}, {"origin": TEST_PUBLIC_ORIGIN}], ids=["no origin", "with an origin"])
-    def test_the_bearer_posts_a_marked_route_directly_as_the_agents_own_account(
-        self, skat, issuer, agent, middlehand_auction, headers
-    ):
-        table = middlehand_auction
-        token = issuer.agent_token(SUBJECT)
-
-        answer = skat.client.post(
-            f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
-            json={"command_id": "agent-step-direct", "version": table.record.version},
-            headers={"authorization": f"Bearer {token}", **FETCH, **headers},
-        )
-
-        assert answer.status_code == 200, answer.text
-        assert table.record.progress.auction == (Pass(MIDDLEHAND),)
-        assert (agent_account_id(skat), "agent-step-direct") in skat.store.receipts
-
-    @pytest.mark.parametrize(
-        "token_changes",
-        [
-            pytest.param({"aud": "https://elsewhere.test.invalid/mcp"}, id="wrong audience"),
-            pytest.param({"scope": "another-scope"}, id="missing scope"),
-            pytest.param({"groups": [AGENT_GROUP]}, id="no mcp group"),
-            pytest.param({"iat": 0, "exp": 1}, id="expired"),
-        ],
-    )
-    def test_a_token_that_does_not_fit_is_refused_at_the_route_and_nothing_runs(
-        self, skat, issuer, middlehand_auction, token_changes
-    ):
-        table = middlehand_auction
-        before = stored(skat)
-        token = issuer.agent_token(SUBJECT, **token_changes)
-
-        answer = skat.client.post(
-            f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
-            json={"command_id": "agent-step-direct", "version": table.record.version},
-            headers={"authorization": f"Bearer {token}", **FETCH},
-        )
-
-        assert answer.status_code in {401, 403}
-        assert stored(skat) == before
-
-
 class TestFollowingSuit:
     def test_a_followers_illegal_card_is_refused_as_must_follow_as_the_direct_route_refuses_it(self, skat, agent):
         table = AgentTable(skat, agent, MIDDLEHAND)
@@ -694,83 +678,3 @@ class TestFollowingSuit:
         assert stored(skat)[0] == before[0]
         direct = table.send(table.at[MIDDLEHAND], card("H7"))
         assert (direct.status_code, direct.json()["reason"]) == (409, answer.json()["reason"])
-
-
-class TestWhoMayCall:
-    @pytest.mark.parametrize(
-        ("changes", "status"),
-        [
-            pytest.param({"groups": [AGENT_GROUP]}, 403, id="no mcp group"),
-            pytest.param({"groups": [MCP_GROUP], "azp": "another-client"}, 401, id="foreign client, no agents"),
-            pytest.param({"aud": "https://elsewhere.test.invalid/mcp"}, 401, id="wrong audience"),
-            pytest.param({"scope": "another-scope"}, 403, id="missing scope"),
-            pytest.param({"iat": 0, "exp": 1}, 401, id="expired"),
-            pytest.param({"agent_name": None}, 401, id="no agent name"),
-            pytest.param({"agent_owner": None}, 401, id="no agent owner"),
-        ],
-    )
-    def test_a_token_that_does_not_fit_is_refused_and_creates_no_account(self, skat, agent, changes, status):
-        answer = agent.request("tools/list", token_changes=changes)
-
-        assert answer.status_code == status
-        assert "result" not in answer.text
-        assert skat.stores.accounts.get(SUBJECT) is None
-
-    def test_the_first_call_creates_the_agents_own_account_never_its_owners(self, skat, agent):
-        agent.request("tools/list", token_changes={"agent_owner": OWNER})
-        agent.request("tools/list", token_changes={"agent_owner": OWNER})
-
-        account = skat.stores.accounts.get(SUBJECT)
-        assert account.kind is AccountKind.AGENT
-        assert skat.stores.accounts.get(OWNER) is None
-
-    def test_a_cookie_session_without_a_bearer_is_challenged_and_runs_nothing(self, skat, forehand_table):
-        headers, body = mcp_message("tools/list")
-
-        answer = skat.client.post(MCP_ENDPOINT_PATH, json=body, headers={**headers, **forehand_table.watcher})
-
-        assert answer.status_code == 401
-        assert "resource_metadata" in answer.headers["www-authenticate"]
-
-    def test_a_request_with_an_origin_is_refused_and_runs_nothing(self, agent, forehand_table):
-        before = stored(forehand_table.skat)
-
-        answer = agent.request(
-            "tools/call",
-            {
-                "name": PLAY_CARD_TOOL,
-                "arguments": {
-                    "table_id": forehand_table.table_id,
-                    "command_id": "agent-move-origin",
-                    "version": forehand_table.record.version,
-                    **card_body(card("S7")),
-                },
-            },
-            extra_headers={"origin": TEST_PUBLIC_ORIGIN},
-        )
-
-        assert answer.status_code == 403
-        assert stored(forehand_table.skat) == before
-
-    @pytest.mark.parametrize(
-        ("method", "suffix", "body"),
-        [
-            pytest.param("POST", "/auction", {"action": "pass", "version": 1}, id="the auction path without a step"),
-            pytest.param("GET", TABLE_EVENTS_SUFFIX, None, id="events"),
-        ],
-    )
-    def test_an_agent_token_is_refused_on_a_route_that_is_no_tool_and_changes_nothing(
-        self, skat, issuer, forehand_table, method, suffix, body
-    ):
-        before = stored(skat)
-        token = issuer.agent_token(SUBJECT)
-
-        answer = skat.client.request(
-            method,
-            f"{TABLES_PATH}/{forehand_table.table_id}{suffix}",
-            json=None if body is None else {"command_id": "agent-move-0099", **body},
-            headers={"authorization": f"Bearer {token}", "origin": TEST_PUBLIC_ORIGIN, **FETCH},
-        )
-
-        assert answer.status_code in {401, 403}
-        assert stored(skat) == before

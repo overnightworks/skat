@@ -37,6 +37,15 @@ def middlehand_auction(skat, agent):
 
 
 @pytest.fixture
+def forehand_table(skat, agent):
+    """A Hand game declared at a table where the agent holds the forehand, whose turn it is."""
+    table = AgentTable(skat, agent, FOREHAND)
+    table.declared_hand_game()
+    skat.client.cookies.clear()
+    return table
+
+
+@pytest.fixture
 def forehand_auction(skat, agent):
     """A dealt table, no step taken yet, where the agent holds the forehand chair."""
     table = AgentTable(skat, agent, FOREHAND)
