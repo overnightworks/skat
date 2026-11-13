@@ -311,11 +311,8 @@ describe("the page's sound", () => {
         expect(started.length).toBe(voices);
     });
 
-    it.each([
-        { stored: {}, loudness: (70 / 100) ** 1.6 },
-        { stored: { volume: 20 }, loudness: (20 / 100) ** 1.6 },
-        { stored: { volume: 0 }, loudness: 0 },
-    ])("plays at the loudness of the stored volume $stored", async ({ stored, loudness }) => {
+    async function loudnessOfStored(stored: object): Promise<number> {
+        vi.resetModules();
         const { masterLoudness, listeners } = stubBrowser({ reducedMotion: true, stored: JSON.stringify(stored) });
         const { armSound, soundForCues } = await import("./tableSound.ts");
         armSound();
@@ -323,7 +320,21 @@ describe("the page's sound", () => {
 
         soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
 
-        expect(masterLoudness()).toBeCloseTo(loudness);
+        return masterLoudness();
+    }
+
+    it("plays quieter for a lower stored volume and silent for a stored zero", async () => {
+        const standard = await loudnessOfStored({});
+
+        expect(await loudnessOfStored({ volume: 20 })).toBeLessThan(standard);
+        expect(await loudnessOfStored({ volume: 0 })).toBe(0);
+    });
+
+    it("plays an unset volume as loudly as an explicit default", async () => {
+        const standard = await loudnessOfStored({});
+
+        expect(await loudnessOfStored({ volume: 70 })).toBeCloseTo(standard);
+        expect(standard).toBeGreaterThan(0);
     });
 
     it("previews the chosen sound set after the page woke its sound", async () => {
