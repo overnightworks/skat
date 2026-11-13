@@ -41,14 +41,12 @@ class TestSayKontra:
         answer = self.say(agent, kontra_table)
 
         assert not answer.is_error, answer.text
-        kontra = answer.json()["hand"]["playing"]["kontra"]
-        assert kontra == {
+        assert agent.read(kontra_table.table_id).json()["hand"]["playing"]["kontra"] == {
             "said": [{"seat": 3, "word": "kontra"}],
             "factor": 2,
             "my_word": None,
             "my_word_answered": False,
         }
-        assert agent.read(kontra_table.table_id).json() == answer.json()
         assert kontra_table.record.progress.words[0].position is FOREHAND
 
     def test_a_refused_word_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, kontra_table):
@@ -75,7 +73,6 @@ class TestSayNoWord:
         answer = self.say_no_word(agent, kontra_table)
 
         assert not answer.is_error, answer.text
-        kontra = answer.json()["hand"]["playing"]["kontra"]
+        kontra = agent.read(kontra_table.table_id).json()["hand"]["playing"]["kontra"]
         assert (kontra["my_word"], kontra["my_word_answered"], kontra["said"]) == ("kontra", True, [])
-        assert agent.read(kontra_table.table_id).json() == answer.json()
         assert [each.position for each in kontra_table.record.progress.no_words] == [FOREHAND]
