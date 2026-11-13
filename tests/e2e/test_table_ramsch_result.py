@@ -137,6 +137,14 @@ def expected_head(table: RamschTable, result: dict[str, Any], seat: int | None) 
     return text(SOURCE_LANGUAGE, key, **{"name" if len(losers) == 1 else "names": names})
 
 
+def expected_eye_counts(table: RamschTable, result: dict[str, Any], seat: int | None) -> list[str]:
+    """The eyes row names the viewer's own seat first as "Du" and every other seat by its name."""
+    eyes = {each["seat"]: each["points"] for each in result["seats"]}
+    order = sorted(eyes, key=lambda each: (each != seat, each))
+    you = text(SOURCE_LANGUAGE, "result.sideYou")
+    return [f"{you if each == seat else table.names[each]} {eyes[each]}" for each in order]
+
+
 def expect_the_card(table: RamschTable) -> None:
     """Every viewer, a watcher included, reads the head, the eyes and the value of the answer, from their own side."""
     result = table.result()
@@ -153,7 +161,7 @@ def expect_the_card(table: RamschTable) -> None:
         expect(card.locator(".sub")).to_have_text(text(SOURCE_LANGUAGE, "game.ramsch"))
         expect(card.locator(".eq")).to_have_text(text(SOURCE_LANGUAGE, "result.eyes", points=str(leader["points"])))
         expect(card.locator(".value")).to_have_text(signed(leader["score"]))
-        expect(card.locator(".list span")).to_have_count(3)
+        expect(card.locator(".list span")).to_have_text(expected_eye_counts(table, result, seats.get(person)))
         expect(card.locator(".reck")).to_have_count(3)
         for each in result["seats"]:
             expect(card.locator(f".reck[data-seat='{each['seat']}'] .dl")).to_have_text(

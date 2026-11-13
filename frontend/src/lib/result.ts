@@ -300,7 +300,7 @@ export function ramschResultView(table: Table): RamschView | null {
         loss: sweeper === undefined,
         counts: ownFirst(chairs).map(({ seat, is_mine }) => ({
             seat,
-            name: shownName(chairs, seat),
+            name: is_mine ? words["result.sideYou"] : shownName(chairs, seat),
             points: (result.seats.find((one) => one.seat === seat) as RamschSeat).points,
             strong: strong.some((one) => one.seat === seat),
         })),
