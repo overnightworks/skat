@@ -63,6 +63,12 @@ def pill(person: Page, question: str, answer: str) -> Locator:
     return person.get_by_role("radiogroup", name=question).get_by_role("radio", name=answer, exact=True)
 
 
+def box_top(target: Locator) -> float:
+    box = target.bounding_box()
+    assert box is not None
+    return box["y"]
+
+
 def word(key: str) -> str:
     return text(SOURCE_LANGUAGE, key)
 
@@ -190,6 +196,9 @@ def test_bock_switched_on_shows_the_house_triggers_and_a_trigger_turned_on_opens
 
     for key, on in (("flagSixtySixty", True), ("flagRe", True), ("flagPassedIn", False), ("flagSchneider", False)):
         expect(switch(person, word(f"start.{key}"))).to_have_attribute("aria-checked", str(on).lower())
+    triggers_top = box_top(switch(person, word("start.flagRe")))
+    overlap_top = box_top(person.get_by_role("radiogroup", name=word("start.askBockOverlap")))
+    assert triggers_top < overlap_top
     switch(person, word("start.flagSchneider")).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
     assert "schneider" in opened_options(person, e2e_server)["bock"]["triggers"]

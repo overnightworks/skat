@@ -66,31 +66,6 @@
     </button>
     {#if on}
         <div class="vars">
-            {#each questions as asked (asked.id)}
-                <div class="ask" role="radiogroup" aria-label={asked.text}>
-                    <span class="q">{asked.text}</span>
-                    <div class="pick">
-                        {#each asked.pills as pill (pill.token)}
-                            {@const chosen = asked.picked(sheet) === pill.token}
-                            <label class="pk" class:on={chosen}>
-                                <input
-                                    type="radio"
-                                    name={asked.id}
-                                    checked={chosen}
-                                    {disabled}
-                                    onchange={() => {
-                                        onchange(pill.apply(sheet));
-                                    }}
-                                />
-                                {#if chosen}
-                                    <RuleMark id="official" />
-                                {/if}
-                                {pill.word}
-                            </label>
-                        {/each}
-                    </div>
-                </div>
-            {/each}
             {#if row === "bock"}
                 <div class="ask" role="group" aria-label={words["start.askBockTriggers"]}>
                     <span class="q">{words["start.askBockTriggers"]}</span>
@@ -119,6 +94,31 @@
                     </div>
                 </div>
             {/if}
+            {#each questions as asked (asked.id)}
+                <div class="ask" role="radiogroup" aria-label={asked.text}>
+                    <span class="q">{asked.text}</span>
+                    <div class="pick">
+                        {#each asked.pills as pill (pill.token)}
+                            {@const chosen = asked.picked(sheet) === pill.token}
+                            <label class="pk" class:on={chosen}>
+                                <input
+                                    type="radio"
+                                    name={asked.id}
+                                    checked={chosen}
+                                    {disabled}
+                                    onchange={() => {
+                                        onchange(pill.apply(sheet));
+                                    }}
+                                />
+                                {#if chosen}
+                                    <RuleMark id="official" />
+                                {/if}
+                                {pill.word}
+                            </label>
+                        {/each}
+                    </div>
+                </div>
+            {/each}
         </div>
     {/if}
 </div>
