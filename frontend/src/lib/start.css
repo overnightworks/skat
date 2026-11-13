@@ -2316,8 +2316,8 @@ body {
     background: var(--on-stage);
 }
 
-/* On the smallest phones the far tags stand no further from the near tag than a full-length name is wide: the near tag steps below them. */
-@media (max-width: 379px) {
+/* On a phone the far tags stand no further from the near tag than a full-length name is wide: the near tag steps below them. */
+@media (max-width: 899px) {
     .room .laid.near .tag {
         bottom: calc(var(--card-width) * -0.12 - 6px);
     }

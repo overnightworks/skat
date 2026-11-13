@@ -46,7 +46,8 @@ READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
-# Two 25-character account names.
+# Three 25-character account names: the seat that opens a table and the two that join it.
+FULL_LENGTH_OPENER = "Maximiliane-Bartholomaea0"
 FULL_LENGTH_NAMES = ("Maximiliane-Bartholomaea1", "Maximiliane-Bartholomaea2")
 ORDINARY_NAMES = ("Felix", "Nova")
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
@@ -497,7 +498,15 @@ def test_the_laid_name_tags_of_full_length_names_stay_clear_of_each_other_and_of
     page_errors: list[str],
     form_factor: dict[str, Any],
 ) -> None:
-    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, joiners=FULL_LENGTH_NAMES)
+    table = deal_playing_table(
+        open_person,
+        e2e_server,
+        member_of,
+        page_errors,
+        form_factor,
+        joiners=FULL_LENGTH_NAMES,
+        opener_name=FULL_LENGTH_OPENER,
+    )
     for plays, laid in ((2, 2), (1, 3)):
         table.play_out(plays)
         for person in table.everyone:

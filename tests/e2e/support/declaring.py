@@ -32,7 +32,8 @@ if TYPE_CHECKING:
 
 TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 command_numbers = itertools.count(1)
-# The two seats that join a dealt table unless a test names them: every helper shares this default.
+# The seat that opens a dealt table and the two seats that join it unless a test names them: every helper shares them.
+DEFAULT_OPENER = "anna"
 DEFAULT_JOINERS = ("ben", "cleo")
 DECLARING_STEP_SUFFIXES = {
     "take": TABLE_DECLARING_TAKE_SUFFIX,
@@ -64,9 +65,10 @@ class DeclaringTable:
         console: bool = True,
         hold_the_others_clock: bool = False,
         joiners: tuple[str, str] = DEFAULT_JOINERS,
+        opener_name: str = DEFAULT_OPENER,
     ) -> None:
         self.server = server
-        opener = self._person(open_person, "anna", page_errors, form_factor, console)
+        opener = self._person(open_person, opener_name, page_errors, form_factor, console)
         path = self._open_table(opener, server, member_of)
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
