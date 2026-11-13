@@ -440,30 +440,45 @@ RECKONINGS = [
 ]
 
 
-def expect_the_ticks_drawn(card: Locator, ticked: int) -> None:
-    """Every counted level carries a tick drawn as an outline, not the browser's default black fill."""
-    ticks = card.locator(".ladder .held svg path")
-    expect(ticks).to_have_count(ticked)
-    for index in range(ticked):
-        expect(ticks.nth(index)).to_have_css("fill", "none")
-        expect(ticks.nth(index)).to_have_css("stroke", re.compile(r"^rgb"))
+# How the ladder is drawn, read in one round trip: each chip's word and each tick with the styles the page computes.
+_LADDER_DRAWING = """card => ({
+    words: [...card.querySelectorAll('.ladder > *')].map(chip => {
+        const style = element => getComputedStyle(element);
+        return [...chip.querySelectorAll('span')].map(word => ({
+            background: style(word).backgroundColor,
+            padding: style(word).padding,
+            color: style(word).color,
+            chipColor: style(chip).color,
+        }));
+    }),
+    ticks: [...card.querySelectorAll('.ladder .held svg path')].map(tick => ({
+        fill: getComputedStyle(tick).fill,
+        stroke: getComputedStyle(tick).stroke,
+    })),
+})"""
 
 
-def expect_one_pill_per_chip(card: Locator) -> None:
-    """A chip is a single pill: its word draws no box of its own and keeps the chip's colour."""
-    chips = card.locator(".ladder > *")
-    for index in range(chips.count()):
-        word = chips.nth(index).locator("span")
-        expect(word).to_have_css("background-color", "rgba(0, 0, 0, 0)")
-        expect(word).to_have_css("padding", "0px")
-        expect(word).to_have_css("color", chips.nth(index).evaluate("chip => getComputedStyle(chip).color"))
+def expect_the_ladder_drawn(card: Locator, ticked: int) -> None:
+    """A chip is a single pill: its word draws no box of its own and keeps the chip's colour. Every counted level
+    carries a tick drawn as an outline, not the browser's default black fill.
+    """
+    drawing = card.evaluate(_LADDER_DRAWING)
+    for words in drawing["words"]:
+        assert len(words) == 1
+        (word,) = words
+        assert word["background"] == "rgba(0, 0, 0, 0)"
+        assert word["padding"] == "0px"
+        assert word["color"] == word["chipColor"]
+    assert len(drawing["ticks"]) == ticked
+    for tick in drawing["ticks"]:
+        assert tick["fill"] == "none"
+        assert re.match(r"^rgb", tick["stroke"])
 
 
 def expect_the_ladder(card: Locator, reckoning: Reckoning) -> None:
     if reckoning.chips:
         expect(card.locator(".ladder > *")).to_have_text(list(reckoning.chips))
-        expect_one_pill_per_chip(card)
-        expect_the_ticks_drawn(card, sum(chip not in MATADORS_CHIPS for chip in reckoning.chips))
+        expect_the_ladder_drawn(card, sum(chip not in MATADORS_CHIPS for chip in reckoning.chips))
     else:
         expect(card.locator(".ladder")).to_have_count(0)
 
@@ -486,6 +501,13 @@ def expect_the_overbid_and_miss(card: Locator, reckoning: Reckoning) -> None:
         expect(card.locator(".miss.missed")).to_have_count(0)
     else:
         expect(card.locator(".miss.missed")).to_have_text(reckoning.missed)
+
+
+# Each seat's row of the card in one round trip: the share it shows and whether it is marked as the winning side.
+_SEAT_ROWS = """card => Object.fromEntries([...card.querySelectorAll('.reck')].map(row => [
+    row.dataset.seat,
+    {share: row.querySelector('.dl').textContent.trim().replace(/\\s+/g, ' '), won: row.classList.contains('win')},
+]))"""
 
 
 def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_seat: int, reckoning: Reckoning) -> None:
@@ -525,19 +547,19 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     expect(card.locator(".x2")).to_have_count(0 if entry.won else 1)
     expect(card.locator(".value")).to_have_text(reckoning.value)
     expect(card.locator(".points")).to_have_count(1 if reckoning.points else 0)
+    rows = card.evaluate(_SEAT_ROWS)
     for seat in (1, 2, 3):
-        row = card.locator(f".reck[data-seat='{seat}']")
         declares = seat == declarer_seat
-        expect(row.locator(".dl")).to_have_text(
+        assert rows[str(seat)]["share"] == (
             reckoning.steps[2].removeprefix("= ") if declares else reckoning.opponent_gain
         )
-        expect(row).to_have_class(re.compile(r"\bwin\b" if entry.won == declares else r"^(?!.*\bwin\b)"))
+        assert rows[str(seat)]["won"] == (entry.won == declares)
 
 
 @pytest.fixture
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
-    """A Skat whose streams read the table again every tenth of a second, so a game listed through the store reaches the
-    open pages without a reload.
+    """A Skat whose streams read the table again every tenth of a second, so a game listed through the
+    store reaches the open pages without a reload.
     """
     with skat_on_new_database(tmp_path_factory, heartbeat_seconds=STORE_READ_SECONDS) as server:
         yield server
