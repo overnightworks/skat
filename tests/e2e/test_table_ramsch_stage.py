@@ -331,7 +331,7 @@ def test_an_open_chair_makes_the_plaque_wait_and_leaves_nobody_on_turn(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_an_agent_on_turn_wears_denkt_beside_the_turn_mark_for_everyone(
+def test_an_agent_on_turn_wears_denkt_over_the_turn_mark_for_everyone(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -357,7 +357,6 @@ def test_an_agent_on_turn_wears_denkt_beside_the_turn_mark_for_everyone(
         thinks = chair.locator(".mark.think")
         expect(person.locator(".mark.think")).to_have_count(1)
         expect(thinks).to_be_visible()
-        expect(thinks).to_have_css("position", "absolute")
         think_box = thinks.bounding_box()
         turn_box = chair.locator(".mark.turn").bounding_box()
         chair_box = chair.bounding_box()
@@ -366,8 +365,13 @@ def test_an_agent_on_turn_wears_denkt_beside_the_turn_mark_for_everyone(
         assert chair_box is not None
         assert chair_box["x"] <= think_box["x"]
         assert think_box["x"] + think_box["width"] <= chair_box["x"] + chair_box["width"]
-        assert (
-            think_box["x"] + think_box["width"] <= turn_box["x"] or turn_box["x"] + turn_box["width"] <= think_box["x"]
+        assert think_box["x"] <= turn_box["x"]
+        assert think_box["y"] <= turn_box["y"]
+        assert turn_box["x"] + turn_box["width"] <= think_box["x"] + think_box["width"]
+        assert turn_box["y"] + turn_box["height"] <= think_box["y"] + think_box["height"]
+        assert thinks.evaluate(
+            "think => { const box = think.closest('.chair').querySelector('.mark.turn').getBoundingClientRect(); "
+            "return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.closest('.mark') === think }"
         )
         if form_factor["viewport"]["width"] >= DESKTOP_FROM:
             expect(thinks).to_contain_text(THINKS)

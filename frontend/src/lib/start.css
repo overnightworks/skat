@@ -1292,10 +1292,9 @@ body {
     backdrop-filter: blur(12px);
 }
 
-/* The agent on turn in the stage before a Ramsch: the mark stands beside the turn mark and shows its sparkle alone on a
+/* The agent on turn in the stage before a Ramsch: the mark lies over the turn mark and shows its sparkle alone on a
    phone chair, too small for the word. */
 .room .mark.think {
-    right: 38px;
     width: 26px;
     gap: 4px;
     font-weight: 600;
@@ -1510,7 +1509,7 @@ body {
         height: 170px;
     }
 
-    .room .mark:is(.turn, .pass, .waits, .ready) {
+    .room .mark:is(.turn, .pass, .waits, .ready, .think) {
         top: 6px;
         right: auto;
         left: 6px;
@@ -1518,9 +1517,6 @@ body {
     }
 
     .room .mark.think {
-        top: 6px;
-        right: auto;
-        left: 40px;
         width: auto;
         height: 28px;
         padding: 0 9px 0 7px;
