@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "35b15201ff657c7b00b847c0832de0b2e0f4c0a2"
 branch = "claude/issue-432-s13-3c1-kontra-on-the-result-card"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/ResultCard.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_table_kontra_result.py"]
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/ResultCard.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/tables.ts", "pyproject.toml", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_table_kontra_result.py"]
 opened_commit = "bc8591ae8dbc58826161d88f8816f88d38ce8966"
 whole_reason = "The type, the reckoning and the card's chip keep one promise, that the drawn value equals the score; the other paths are generated files and the test."
