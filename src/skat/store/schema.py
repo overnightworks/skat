@@ -338,9 +338,13 @@ member_book = Table(
     Column("invitation_expires_at", DateTime(timezone=True)),
     Column("owner_account", Text),
     Column("inviter_account", Text),
+    Column("ended_outcome", Text),
     CheckConstraint(
         "num_nonnulls(invitation_id, invitation_expires_at, owner_account, inviter_account) IN (0, 4)",
         name="member_book_invitation_is_all_or_nothing",
+    ),
+    CheckConstraint(
+        "ended_outcome IS NULL OR invitation_id IS NOT NULL", name="member_book_an_outcome_ends_an_invitation"
     ),
     CheckConstraint("epoch >= 0", name="member_book_epoch_is_not_negative"),
 )

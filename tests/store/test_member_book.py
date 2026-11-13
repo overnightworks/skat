@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import text
 
 from skat.store.tables import PostgresTableTransactions
-from skat.table.member_place import Acceptance, MemberRefusal, MembershipState
+from skat.table.member_place import ENDED_CALL_KEPT, Acceptance, CallOutcome, MemberRefusal, MembershipState
 from skat.table.records import Actor, CreateTable, OccupantKind, SitDown, TableId
 from skat.table.service import TableService
 from tests.support.calls import call_facts
@@ -48,7 +48,8 @@ def book_row(engine, agent):
     with engine.connect() as connection:
         return connection.execute(
             text(
-                "SELECT epoch, invitation_id, owner_account, inviter_account FROM member_book WHERE agent_account = :a"
+                "SELECT epoch, invitation_id, owner_account, inviter_account, ended_outcome FROM member_book"
+                " WHERE agent_account = :a"
             ),
             {"a": agent.account_id},
         ).one()
@@ -109,9 +110,11 @@ class TestRetention:
 
         assert accept(service, table_id, MOZART, offer).refusal is None
 
-        assert tuple(book_row(engine, MOZART)) == (0, None, None, None)
+        assert tuple(book_row(engine, MOZART)) == (0, None, None, None, None)
 
-    def test_a_refusal_that_ends_the_invitation_keeps_no_person(self, service, engine, table_id):
+    def test_a_refusal_that_ends_the_invitation_keeps_the_caller_and_the_outcome_while_it_is_told(
+        self, service, engine, table_id
+    ):
         offer = invite(service, table_id, MOZART)
 
         result = service.accept_invitation(
@@ -119,21 +122,30 @@ class TestRetention:
         )
 
         assert result.refusal is MemberRefusal.SPONSOR_AWAY
-        assert tuple(book_row(engine, MOZART)) == (0, None, None, None)
+        row = book_row(engine, MOZART)
+        assert (row.inviter_account, row.ended_outcome) == (OPENER.account_id, CallOutcome.OWNER_ABSENT.value)
 
-    def test_a_read_after_the_expiry_forgets_the_invitation_and_its_two_people(
+    def test_a_read_after_the_outcome_was_kept_forgets_the_invitation_and_its_two_people(
         self, service, engine, transactions, table_id
     ):
+        invite(service, table_id, MOZART)
+        later = TableService(transactions, now=lambda: LATER + ENDED_CALL_KEPT)
+
+        assert later.standings_of(MOZART.account_id) == ()
+
+        assert tuple(book_row(engine, MOZART)) == (0, None, None, None, None)
+
+    def test_a_read_while_the_outcome_is_kept_forgets_nothing(self, service, engine, transactions, table_id):
         invite(service, table_id, MOZART)
         later = TableService(transactions, now=lambda: LATER + timedelta(seconds=1))
 
         assert later.standings_of(MOZART.account_id) == ()
 
-        assert tuple(book_row(engine, MOZART)) == (0, None, None, None)
+        assert book_row(engine, MOZART).inviter_account == OPENER.account_id
 
     def test_a_new_invitation_replaces_the_people_of_an_expired_one(self, service, engine, transactions, table_id):
         invite(service, table_id, MOZART)
-        later = TableService(transactions, now=lambda: LATER + timedelta(seconds=1))
+        later = TableService(transactions, now=lambda: LATER + ENDED_CALL_KEPT)
         facts = call_facts("account-mozart", "account-new-owner", "account-new-inviter")
 
         later.invite_agent(TableId(table_id), facts, LASTING)
