@@ -4042,7 +4042,7 @@ body {
         position: absolute;
         right: 0;
         color: var(--ink);
-        content: "+" counter(n);
+        content: "+" counter(n) / "";
     }
 
     @keyframes count {
