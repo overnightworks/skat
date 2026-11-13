@@ -753,8 +753,8 @@
                 <SitQuestion
                     formerHolder={asked.former_holder_name}
                     onsit={() => {
-                        asking = null;
                         void seat(sitDown(id, asked.seat, crypto.randomUUID()));
+                        asking = null;
                     }}
                     oncancel={() => {
                         asking = null;
