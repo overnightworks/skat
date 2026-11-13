@@ -1,12 +1,7 @@
 [[code]]
-path = "frontend/src/lib/words/index.ts"
-item = "overnightworks/skat#350"
-reason = "The generated loader (`languages`, `sourceLanguage`, `loadWords`) that the language epic's prerendering load for a second language calls."
-
-[[code]]
 path = "src/skat/engine/giving_up.py"
 item = "overnightworks/skat#27"
-reason = "S5.4b lets the declarer shorten and lets an opponent play open."
+reason = "S5.4b lets an opponent play open."
 
 [[code]]
 path = "src/skat/engine/kontra.py"

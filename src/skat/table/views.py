@@ -348,16 +348,16 @@ def view_of(
     """The table as one account sees it: only the viewer's own chair is marked mine, and the table only if the viewer
     is `opener_account`, the account that opened it.
 
-    The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant
-    is not the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows
-    its position and card count, and only the viewer's own cards are named: the declarer's hold the skat from the
-    take to the put-back, and an ouvert game's cards are open to all. The skat is otherwise a count. While a game
-    is played, the cards and counts are those still held, and played cards are shown only in the trick in progress
-    and the last completed one. Between hands the view says whether the last hand was passed in or aborted by a
-    vote and, while three chairs are occupied and the series goes on, who deals next; after a played game it carries
-    the result, the same for every viewer. A table with a series says which game of how many runs and whether the
-    series is over, and carries the standings once it is. A table with Bock says how many Bock games are still to come
-    and by what the running or next game's list score is multiplied.
+    The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant is not
+    the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows its position
+    and card count, and only the viewer's own cards are named: the declarer's hold the skat from the take to the
+    put-back, and an ouvert game's cards, or a declarer's after an opponent refused his shortening, are open to all. The
+    skat is otherwise a count. While a game is played, the cards and counts are those still held, and played cards are
+    shown only in the trick in progress and the last completed one. Between hands the view says whether the last hand
+    was passed in or aborted by a vote and, while three chairs are occupied and the series goes on, who deals next;
+    after a played game it carries the result, the same for every viewer. A table with a series says which game of how
+    many runs and whether the series is over, and carries the standings once it is. A table with Bock says how many Bock
+    games are still to come and by what the running or next game's list score is multiplied.
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
