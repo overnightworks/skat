@@ -4,13 +4,16 @@ opponent who has not answered, and for each seat with a Kontra word open that it
 never waiting for it, unless a chair of the hand is open: then it waits for a sitter and for no seat. While an
 opponent's give-up is asked it waits for the declarer alone. Between hands it waits for each seat that has not
 continued, and for each that has not answered a proposal to end the series early.
+
+`awaited_seats` names those seats for any viewer; `awaits_you` adds the viewer's own open Kontra word, which no other
+viewer's view holds.
 """
 
 from enum import StrEnum
 
 from skat.table.views import HandView, TableView, turn_seat_of
 
-__all__ = ["WaitingCase", "awaits_you", "waiting_case"]
+__all__ = ["WaitingCase", "awaited_seats", "awaits_you", "waiting_case"]
 
 
 class WaitingCase(StrEnum):
@@ -29,14 +32,32 @@ def awaits_you(view: TableView) -> bool:
     return waiting_case(view) is not None
 
 
+def awaited_seats(view: TableView) -> frozenset[int]:
+    """The seats with a sitter that the table waits for, the same for every viewer: a Kontra word is held only by
+    its own seat's view, and play never waits for it, so it names no seat here.
+    """
+    return frozenset(
+        chair.seat
+        for chair in view.chairs
+        if chair.occupant_name is not None and _case_of_a_seat(view, chair.seat, chair.ready) is not None
+    )
+
+
 def waiting_case(view: TableView) -> WaitingCase | None:
     """The first case that holds for the viewer's chair, in the order the cases are tested; None when none holds."""
     own = next((chair for chair in view.chairs if chair.is_mine), None)
     if own is None:
         return None
+    case = _case_of_a_seat(view, own.seat, own.ready)
+    if case is None and _own_kontra_word_waits(view):
+        return WaitingCase.KONTRA
+    return case
+
+
+def _case_of_a_seat(view: TableView, seat: int, ready: bool) -> WaitingCase | None:
     if view.hand is not None:
-        return None if view.hand.waiting_seat is not None else _case_in_the_hand(view, view.hand, own.seat)
-    return _case_between_hands(view, own.seat, own.ready)
+        return None if view.hand.waiting_seat is not None else _case_in_the_hand(view, view.hand, seat)
+    return _case_between_hands(view, seat, ready)
 
 
 def _case_in_the_hand(view: TableView, hand: HandView, seat: int) -> WaitingCase | None:
@@ -45,9 +66,15 @@ def _case_in_the_hand(view: TableView, hand: HandView, seat: int) -> WaitingCase
         return WaitingCase.GIVE_UP if seat == declarer_seat else None
     if turn_seat_of(hand) == seat:
         return WaitingCase.TURN
-    if _give_up_waits_for(view, seat):
-        return WaitingCase.GIVE_UP
-    return WaitingCase.KONTRA if _kontra_word_waits(view) else None
+    return WaitingCase.GIVE_UP if _give_up_waits_for(view, seat) else None
+
+
+def _own_kontra_word_waits(view: TableView) -> bool:
+    hand = view.hand
+    if hand is None or hand.waiting_seat is not None or _declarer_awaited_for_an_opponents_give_up(hand) is not None:
+        return False
+    kontra = None if hand.playing is None else hand.playing.kontra
+    return kontra is not None and kontra.my_word is not None and not kontra.my_word_answered
 
 
 def _case_between_hands(view: TableView, seat: int, ready: bool) -> WaitingCase | None:
@@ -71,11 +98,6 @@ def _declarer_awaited_for_an_opponents_give_up(hand: HandView) -> int | None:
 def _give_up_waits_for(view: TableView, seat: int) -> bool:
     asked = None if view.hand is None or view.hand.playing is None else view.hand.playing.give_up
     return asked is not None and seat not in (asked.asking_seat, asked.declined_seat)
-
-
-def _kontra_word_waits(view: TableView) -> bool:
-    kontra = None if view.hand is None or view.hand.playing is None else view.hand.playing.kontra
-    return kontra is not None and kontra.my_word is not None and not kontra.my_word_answered
 
 
 def _proposal_waits_for(view: TableView, seat: int) -> bool:
