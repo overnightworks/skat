@@ -116,9 +116,10 @@ body {
     text-align: center;
 }
 
-/* The sheet that opens over the list to name the length of a new table's series. */
+/* The sheet that opens over a page: the scrim and the sheet lie above every layer of the page's own content. */
 .scrim {
     position: fixed;
+    z-index: 100;
     inset: 0;
     background: rgba(8, 9, 11, 0.62);
 }
@@ -126,6 +127,7 @@ body {
 .sheet {
     --glass: rgba(255, 255, 255, 0.15);
     position: fixed;
+    z-index: 101;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
