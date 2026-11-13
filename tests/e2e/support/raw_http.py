@@ -17,6 +17,7 @@ READ_BYTES = 65536
 
 def self_signed_tolerant_context() -> ssl.SSLContext:
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     return context

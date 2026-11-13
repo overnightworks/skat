@@ -15,14 +15,16 @@ from skat.store.migrate import create_store_engine
 from tests.e2e.support.server import (
     LOOPBACK_HOST,
     RunningServer,
+    listener_port,
+    listening_loopback_socket,
     loopback_sign_in,
-    reserve_free_port,
     running_skat,
     write_self_signed_certificate,
 )
 from tests.support.postgres import created_database, migrated_template
 
 if TYPE_CHECKING:
+    import socket
     from collections.abc import Iterator
     from pathlib import Path
 
@@ -60,10 +62,13 @@ async def _answer_bad_gateway(reader: asyncio.StreamReader, writer: asyncio.Stre
 
 
 class Edge:
-    """Listens on `port` with Skat's certificate, relays to Skat on `backend_port`, and counts what it did."""
+    """Listens on `listener` with Skat's certificate, relays to Skat on `backend_port`, and counts what it did."""
 
-    def __init__(self, port: int, backend_port: int, idle_cut_seconds: float, certificate_directory: Path) -> None:
-        self.port = port
+    def __init__(
+        self, listener: socket.socket, backend_port: int, idle_cut_seconds: float, certificate_directory: Path
+    ) -> None:
+        self.port = listener_port(listener)
+        self._listener = listener
         self.idle_cuts = 0
         self.bad_gateways = 0
         self._backend_port = backend_port
@@ -93,7 +98,7 @@ class Edge:
         key_file, certificate_file = write_self_signed_certificate(self._certificate_directory)
         server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         server_context.load_cert_chain(certificate_file, key_file)
-        server = await asyncio.start_server(self._handle, LOOPBACK_HOST, self.port, ssl=server_context)
+        server = await asyncio.start_server(self._handle, sock=self._listener, ssl=server_context)
         self._started.set()
         await self._stop.wait()
         server.close()
@@ -140,11 +145,12 @@ def skat_behind_an_edge(
 
     `heartbeat_seconds` is Skat's stream tick and `idle_cut_seconds` the silence the edge cuts a response after.
     """
-    edge_port = reserve_free_port()
+    edge_listener = listening_loopback_socket()
+    edge_port = listener_port(edge_listener)
     loopback = loopback_sign_in(directories.mktemp("sign-in"), public_origin=f"https://{LOOPBACK_HOST}:{edge_port}")
     # Skat listens on its own port; the pages reach it through the edge, so their address is the edge's port.
     public = replace(loopback, port=edge_port)
-    edge = Edge(edge_port, loopback.port, idle_cut_seconds, directories.mktemp("edge-tls"))
+    edge = Edge(edge_listener, loopback.port, idle_cut_seconds, directories.mktemp("edge-tls"))
     with migrated_template() as template, created_database(template) as database_url:
         engine = create_store_engine(database_url)
         try:

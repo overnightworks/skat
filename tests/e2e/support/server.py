@@ -46,10 +46,24 @@ READINESS_DEADLINE_SECONDS = 20
 SERVER_STOP_TIMEOUT_SECONDS = 10
 
 
-def reserve_free_port() -> int:
-    with socket.socket() as probe:
-        probe.bind((LOOPBACK_HOST, 0))
-        return int(probe.getsockname()[1])
+def listening_loopback_socket(port: int = 0) -> socket.socket:
+    """A socket listening on loopback, on a free port unless `port` is given.
+
+    The one who serves takes the socket as it is, so the port is never free between choosing it and serving on it.
+    """
+    listener = socket.socket()
+    try:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind((LOOPBACK_HOST, port))
+        listener.listen()
+    except OSError:
+        listener.close()
+        raise
+    return listener
+
+
+def listener_port(listener: socket.socket) -> int:
+    return int(listener.getsockname()[1])
 
 
 def write_self_signed_certificate(directory: Path) -> tuple[Path, Path]:
@@ -78,10 +92,14 @@ def write_self_signed_certificate(directory: Path) -> tuple[Path, Path]:
 
 @dataclass(frozen=True)
 class LoopbackSignIn:
-    """The sign-in of a Skat on a free loopback port, its issuer a fake."""
+    """The sign-in of a Skat on a free loopback port, its issuer a fake.
+
+    `listener` is the port's socket, which the first start of Skat serves on.
+    """
 
     host: str
     port: int
+    listener: socket.socket
     sign_in: SignInSettings
     stores: SingleProcessStores
     issuer: FakeIssuer
@@ -91,7 +109,8 @@ def loopback_sign_in(
     directory: Path, host: str = LOOPBACK_HOST, **overrides: str | int | Path | None
 ) -> LoopbackSignIn:
     """Skat's sign-in on a free port; `host` is the name its public origin carries and it listens on loopback."""
-    port = reserve_free_port()
+    listener = listening_loopback_socket()
+    port = listener_port(listener)
     sign_in = build_sign_in_settings(
         directory,
         **{
@@ -102,7 +121,7 @@ def loopback_sign_in(
             **overrides,
         },
     )
-    return LoopbackSignIn(host, port, sign_in, in_memory_stores(), FakeIssuer(sign_in))
+    return LoopbackSignIn(host, port, listener, sign_in, in_memory_stores(), FakeIssuer(sign_in))
 
 
 class AlwaysTheSameDeal(random.Random):
@@ -143,6 +162,7 @@ class RunningServer:
         self.engine = engine
         self.stores = loopback.stores
         self._loopback = loopback
+        self._listener: socket.socket | None = loopback.listener
         self._page_build_directory = page_build_directory
         self._random_source = random_source
         self._heartbeat_seconds = heartbeat_seconds
@@ -168,7 +188,10 @@ class RunningServer:
             ssl_keyfile=str(key_file),
             ssl_certfile=str(certificate_file),
         )
-        self._thread = threading.Thread(target=self._server.run, daemon=True)
+        # A restart serves on the port again, and only the first start has the listener of the sign-in.
+        listener = self._listener or listening_loopback_socket(self._loopback.sign_in.settings.port)
+        self._listener = None
+        self._thread = threading.Thread(target=self._server.run, args=([listener],), daemon=True)
         self._thread.start()
         deadline = time.monotonic() + READINESS_DEADLINE_SECONDS
         while not self._server.started:
