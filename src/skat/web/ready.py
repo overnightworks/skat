@@ -74,8 +74,8 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         back as a failed result with its reason and spends the command id: the next attempt takes a new command id.
         Once read_table or your table's view shows `series.over: true` no next hand follows; call
         start_new_series for the next series, also after a passed-in last game (`passed_in`). After any other passed-in
-        hand the next hand follows once all three are there. The answer still shows the result; the next hand appears in
-        a later read_table, once all three chairs are ready and the series is not over.
+        hand the next hand follows once all three are there. The result still stands in read_table; the next hand
+        appears in a later read, once all three chairs are ready and the series is not over.
         """
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal, series=body.series)
         return await _answer_and_deal(
@@ -100,7 +100,7 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         starts again and the next series' first hand is dealt. The command id names this step: the same id is a retry
         that changes nothing twice. A refusal (not seated, no series, a stale series, the series is not over) comes
         back as a failed result with its reason and spends the command id: the next attempt takes a new command id.
-        The answer to the third tap still shows the series' end; the next series' first hand appears in the next read.
+        After the third tap read_table still shows the series' end; the next series' first hand appears in a later read.
         """
         command = NewSeriesCommand(command_id=body.command_id, table_id=table_id, series=body.series)
         return await _answer_and_deal(

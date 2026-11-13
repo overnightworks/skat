@@ -301,6 +301,51 @@ class TestPlayCard:
         assert stored(forehand_table.skat)[0] == before[0]
 
 
+class TestCommandAnswers:
+    def test_a_played_card_is_answered_with_what_was_done_and_no_table(self, agent, forehand_table):
+        before = forehand_table.record.version
+
+        answer = agent.play(forehand_table, card("S7"))
+
+        assert answer.json() == {"done": PLAY_CARD_TOOL, "table_id": forehand_table.table_id, "version": before + 1}
+
+    @pytest.mark.parametrize(
+        ("tool", "changes"),
+        [
+            pytest.param(AUCTION_BID_TOOL, {"value": VALID_BIDS[0]}, id="bid"),
+            pytest.param(AUCTION_PASS_TOOL, {}, id="pass"),
+        ],
+    )
+    def test_an_auction_step_is_answered_with_what_was_done_and_no_table(
+        self, agent, middlehand_auction, tool, changes
+    ):
+        table = middlehand_auction
+        before = table.record.version
+
+        answer = agent.take_step(tool, table, **changes)
+
+        assert answer.json() == {"done": tool, "table_id": table.table_id, "version": before + 1}
+
+    def test_the_version_an_answer_names_is_the_one_the_next_command_takes(self, agent, forehand_table):
+        first = agent.play(forehand_table, card("S7")).json()
+        forehand_table.skat.client.cookies.clear()
+
+        after = agent.read(forehand_table.table_id).json()
+
+        assert (after["id"], after["version"]) == (first["table_id"], first["version"])
+
+    def test_a_persons_route_for_the_same_command_still_answers_with_the_table(self, middlehand_auction):
+        table = middlehand_auction
+        page_answer = table.skat.client.post(
+            f"{TABLES_PATH}/{table.table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+            json={"command_id": table.fresh_id(), "version": table.record.version},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[MIDDLEHAND]},
+        )
+
+        assert page_answer.status_code == 200, page_answer.text
+        assert {"id", "version", "chairs", "hand"} <= set(page_answer.json())
+
+
 class TestGiveUpGame:
     def give_up(self, agent, table, *, command_id="agent-give-up-0001", **changes):
         return agent.call(
@@ -318,11 +363,10 @@ class TestGiveUpGame:
         answer = self.give_up(agent, table)
 
         assert not answer.is_error, answer.text
-        result = answer.json()["result"]
+        result = agent.read(table.table_id).json()["result"]
         assert result["won"] is False
         assert (result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (3, -50, False)
         assert ending_of(result) == ("given-up", 1)
-        assert agent.read(table.table_id).json()["result"] == result
         assert table.read_as(table.at[MIDDLEHAND]).json()["result"] == result
         assert table.record.hand is None
         assert len(table.record.game_list) == 1
@@ -336,7 +380,10 @@ class TestGiveUpGame:
         answer = self.give_up(agent, table)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": None}
+        assert agent.read(table.table_id).json()["hand"]["playing"]["give_up"] == {
+            "asking_seat": 1,
+            "declined_seat": None,
+        }
 
     def test_a_refused_give_up_is_a_failed_result_with_the_reason_and_spends_the_id(self, agent, forehand_table):
         before = stored(forehand_table.skat)
@@ -379,7 +426,7 @@ class TestAnsweringAGiveUp:
         answer = self.answer(agent, asked, AGREE_TO_GIVE_UP_TOOL)
 
         assert not answer.is_error, answer.text
-        result = answer.json()["result"]
+        result = agent.read(asked.table_id).json()["result"]
         assert (result["won"], result["list_bonus"]) == (False, -50)
         assert ending_of(result) == ("given-up", 1)
         assert asked.record.hand is None
@@ -389,7 +436,7 @@ class TestAnsweringAGiveUp:
         answer = self.answer(agent, asked, DECLINE_GIVE_UP_TOOL)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": 3}
+        assert agent.read(asked.table_id).json()["hand"]["playing"]["give_up"] == {"asking_seat": 1, "declined_seat": 3}
         assert asked.record.hand is not None
 
     @pytest.mark.parametrize("tool", [AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL])
@@ -425,7 +472,7 @@ class TestThrowDownCards:
         answer = self.throw_down(agent, table)
 
         assert not answer.is_error, answer.text
-        result = answer.json()["result"]
+        result = agent.read(table.table_id).json()["result"]
         assert result["won"] is won
         assert (result["multiplier"], result["list_bonus"], result["announcement_missed"]) == (
             5,
@@ -433,7 +480,6 @@ class TestThrowDownCards:
             False,
         )
         assert ending_of(result) == ("thrown-down", 1 if position is MIDDLEHAND else 3)
-        assert agent.read(table.table_id).json()["result"] == result
         assert table.record.hand is None
         assert len(table.record.game_list) == 1
 
@@ -514,8 +560,7 @@ class TestAuctionSteps:
         answer = agent.take_step(AUCTION_PASS_TOOL, table)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["hand"] is None
-        assert answer.json()["passed_in"] is not None
+        assert agent.read(table.table_id).json()["passed_in"] is not None
         assert table.record.hand is None
 
     def test_the_same_call_again_answers_the_same_and_steps_nothing_twice(self, agent, middlehand_auction):

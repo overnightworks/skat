@@ -86,10 +86,10 @@ def _add_take(router: APIRouter, take_step: StepTaker) -> None:
         Use it as the declarer, the winner of the auction, when `hand.declaring.stage` in the answer of read_table or
         the state of your table's view is "choosing" and `hand.declaring.declarer_seat` is the seat of the caller's own
         chair. Not taking the skat is how a Hand game is said, through declare_game. The table id and the version come
-        from that answer. The answer holds all twelve cards in `hand.own_cards`; next is put_back_cards. The command id
-        names this step: the same id with the same version is a retry that changes nothing twice. A refusal (for example
-        stale-version, already-declared, not-declarer, out-of-order) comes back as a failed result with its reason,
-        leaves the table as it was and spends the command id: the next attempt takes a new command id.
+        from that answer. Then read_table holds all twelve cards in `hand.own_cards`; next is put_back_cards. The
+        command id names this step: the same id with the same version is a retry that changes nothing twice. A refusal
+        (for example stale-version, already-declared, not-declarer, out-of-order) comes back as a failed result with
+        its reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
         """
         return await take_step(table_id, body, request, response, TakeSkat())
 
