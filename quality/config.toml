@@ -36,6 +36,6 @@ reason = "written by scripts/generate_wire.py from the Python path constants, pr
 [[size.generated]]
 path = "src/skat/web/words.py"
 job = "Lint and test"
-item = "overnightworks/skat#500"
+item = "overnightworks/skat#484"
 date = 2026-11-13
-reason = "written by design-catalogs from catalogs/de.po, proven byte for byte by make words-check, which make lint in Lint and test runs"
+reason = "written by design-catalogs from the language catalogs and proven byte for byte by make words-check, which make lint in Lint and test runs"

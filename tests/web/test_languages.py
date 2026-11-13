@@ -7,13 +7,13 @@ from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.web import languages
-from skat.web.constants import CALL_SIGN_IN_PATH, HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH
+from skat.web.constants import AUTH_CALLBACK_PATH, CALL_SIGN_IN_PATH, HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores
-from tests.support.page_build import fixture_page_build
+from tests.support.page_build import fixture_page_build, served_page
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 
@@ -92,9 +92,64 @@ class TestShellLanguage:
         assert {"accept-language", "cookie"} <= varied
 
 
-class TestPlainSignInPages:
-    @pytest.mark.parametrize("path", [LOGIN_PATH, NO_ACCESS_PATH, CALL_SIGN_IN_PATH])
-    def test_a_plain_sign_in_page_says_the_source_language_its_words_are_in(self, sign_in_settings, path):
-        client = TestClient(skat_app(sign_in_settings), base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
+SIGN_IN_PAGES = pytest.mark.parametrize(
+    ("path", "name", "status"),
+    [
+        (LOGIN_PATH, "login.html", 200),
+        (NO_ACCESS_PATH, "no-access.html", 200),
+        (CALL_SIGN_IN_PATH, "login/call.html", 200),
+        (f"{AUTH_CALLBACK_PATH}?state=forged&code=x", "login-failed.html", 403),
+    ],
+    ids=["signed-out", "no-access", "call", "login-failed"],
+)
 
-        assert html_lang_of(client.get(path).content) == SOURCE_LANGUAGE
+
+def anonymous_client(sign_in_settings, *, accept_language: str | None) -> TestClient:
+    headers = {} if accept_language is None else {"accept-language": accept_language}
+    return TestClient(skat_app(sign_in_settings), base_url=TEST_PUBLIC_ORIGIN, headers=headers, follow_redirects=False)
+
+
+class TestSignInPageLanguage:
+    @SIGN_IN_PAGES
+    @pytest.mark.parametrize("language", LANGUAGES)
+    def test_an_account_language_decides_the_page_whatever_the_browser_asks_for(
+        self, sign_in_settings, path, name, status, language
+    ):
+        client = member_client(sign_in_settings, account_language=language, accept_language=UNOFFERED_TAG)
+
+        response = client.get(path)
+
+        assert (response.status_code, response.content) == (status, served_page(name, language))
+
+    @SIGN_IN_PAGES
+    @pytest.mark.parametrize("language", LANGUAGES)
+    def test_a_browser_with_no_account_language_gets_the_page_in_the_language_it_asks_for(
+        self, sign_in_settings, path, name, status, language
+    ):
+        client = anonymous_client(sign_in_settings, accept_language=language)
+
+        response = client.get(path)
+
+        assert (response.status_code, response.content) == (status, served_page(name, language))
+
+    @SIGN_IN_PAGES
+    @pytest.mark.parametrize("accept_language", [None, UNOFFERED_TAG])
+    def test_a_person_asking_for_no_language_a_catalog_has_gets_the_source_language(
+        self, sign_in_settings, path, name, status, accept_language
+    ):
+        client = anonymous_client(sign_in_settings, accept_language=accept_language)
+
+        response = client.get(path)
+
+        assert (response.status_code, response.content) == (status, served_page(name, SOURCE_LANGUAGE))
+
+    @SIGN_IN_PAGES
+    def test_a_page_chosen_by_language_says_so_to_caches_and_has_an_etag_of_its_own_per_language(
+        self, sign_in_settings, path, name, status
+    ):
+        responses = [anonymous_client(sign_in_settings, accept_language=language).get(path) for language in LANGUAGES]
+
+        for response in responses:
+            varied = {token.strip().lower() for token in response.headers["vary"].split(",")}
+            assert {"accept-language", "cookie"} <= varied
+        assert len({response.headers["etag"] for response in responses}) == len(LANGUAGES)

@@ -222,7 +222,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
         assert (answer.status_code, answer.json(), shown) == (409, {"reason": CallRefusal.TRY_AGAIN}, True)
         assert chair_two(skat, table_id).display_name == "Nova"
 
-    def test_a_person_without_a_stream_hears_try_again_and_costs_no_grant(self, skat, issuer, felix, table_id):
+    def test_a_person_without_a_stream_is_not_allowed_and_costs_no_grant(self, skat, issuer, felix, table_id):
         absent = person(skat, issuer)
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
             nova.sit_down(table_id, 2)
@@ -231,7 +231,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
 
             answer = send_away(skat, absent, table_id, key)
 
-            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.TRY_AGAIN})
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
             assert (refresh_grants(issuer), chair_two(skat, table_id).display_name) == (before, "Nova")
 
     def test_a_key_the_roster_does_not_know_is_agent_unavailable(self, skat, issuer, felix, table_id):

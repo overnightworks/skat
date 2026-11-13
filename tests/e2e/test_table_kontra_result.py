@@ -60,7 +60,7 @@ def test_every_viewers_card_draws_the_kontra_word_and_the_score_the_answer_count
     table.play_out(CARDS_IN_A_GAME)
 
     result = table.result()
-    assert result["kontra"] == {"word": Word.KONTRA, "factor": Word.KONTRA.factor}
+    assert result["kontra"] == {"steps": [{"word": Word.KONTRA, "factor": Word.KONTRA.factor}]}
     doubled_by_loss = 1 if result["won"] else 2
     assert abs(result["score"]) == result["settled_value"] * doubled_by_loss * Word.KONTRA.factor
     chip = text(
