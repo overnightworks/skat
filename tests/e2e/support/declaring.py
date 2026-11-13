@@ -158,11 +158,11 @@ class DeclaringTable:
         return stored
 
     def list_the_game(self, entry: ListEntry) -> None:
-        """Ends the running hand with `entry` as its game, through the store, and reloads every page on its result."""
+        """Ends the running hand with `entry` as its game, through the store; the open pages come to its result when
+        their streams read the table again, as they do after a lost wake.
+        """
         with PostgresTableTransactions(self.server.engine).begin() as transaction:
             transaction.save_table(after_a_game(self.stored(), entry), played_at=None)
-        for person in (self.declarer, *self.others, self.watcher):
-            reload_and_wait(person)
 
     def result_as_sent(self, seat: int) -> dict[str, Any]:
         return json.loads(self.sessions[seat].get(self.api_path))["result"]
