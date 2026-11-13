@@ -12,6 +12,7 @@ import {
     type BOCK_TRIGGER_TOKENS,
     type DURCHMARSCH_TOKENS,
     type END_REASON_TOKENS,
+    type GAME_ENDING_TOKENS,
     type GRAND_HAND_TOKENS,
     type JUNGFRAU_TOKENS,
     type KONTRA_DEADLINE_TOKENS,
@@ -19,9 +20,11 @@ import {
     type KONTRA_SAYER_TOKENS,
     type POSITION_TOKENS,
     type PUSHING_RULE_TOKENS,
+    type RAMSCH_OCCASION_TOKENS,
     type RAMSCH_SCORING_TOKENS,
     type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
+    RULE_SETS_PATH,
     SIGNED_IN_AGAIN_QUERY_NAME,
     type STAGE_TOKENS,
     SUIT_TOKENS,
@@ -69,6 +72,7 @@ export type Suit = (typeof SUIT_TOKENS)[number];
 export type Rank = (typeof RANK_TOKENS)[number];
 export type Position = (typeof POSITION_TOKENS)[number];
 export type Game = (typeof GAME_TOKENS)[number];
+export type GameEnding = (typeof GAME_ENDING_TOKENS)[number];
 export type Announcement = (typeof ANNOUNCEMENT_TOKENS)[number];
 export type Level = (typeof LEVEL_TOKENS)[number];
 // The Kontra words in the order they are said.
@@ -209,6 +213,9 @@ export type Result = {
     bock_factor: number;
     // The last word said and the factor it doubled the score by; null when no word was said.
     kontra: { word: Word; factor: number } | null;
+    // How the game ended, and the seat whose give-up or throw-down ended it; null exactly when it was played out.
+    ending: GameEnding;
+    ended_by_seat: number | null;
 };
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
@@ -227,12 +234,21 @@ export type Options = {
     } | null;
     bock: { triggers: (typeof BOCK_TRIGGER_TOKENS)[number][]; overlap: (typeof BOCK_OVERLAP_TOKENS)[number] } | null;
     ramsch: {
+        occasion: (typeof RAMSCH_OCCASION_TOKENS)[number];
         scoring: (typeof RAMSCH_SCORING_TOKENS)[number];
         jungfrau: (typeof JUNGFRAU_TOKENS)[number];
         durchmarsch: (typeof DURCHMARSCH_TOKENS)[number];
         pushing: { rule: (typeof PUSHING_RULE_TOKENS)[number]; grand_hand: (typeof GRAND_HAND_TOKENS)[number] } | null;
     } | null;
 };
+// What an opener sends: a rule that is off is left out, and the running points only when they are on.
+export type OptionsRequest = { show_running_points?: true } & {
+    [Rule in "kontra" | "bock" | "ramsch"]?: NonNullable<Options[Rule]>;
+};
+// A rule set the person saved: the options a table opens with when it is picked.
+export type RuleSet = { id: string; name: string; options: Options };
+// The person's own sets in the order the server answers them; a set that cannot be read is its own outcome.
+export type RuleSetsOutcome = { kind: "sets"; sets: RuleSet[] } | { kind: "failed" };
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
@@ -312,16 +328,23 @@ async function ask(path: string, init?: RequestInit): Promise<Outcome> {
 
 // The command id is the retry key: asking again with the same one, the same length and the same options returns the
 // table the first ask opened. A table opened without options plays the official rules.
-export function createTable(
-    commandId: string,
-    seriesLength: number,
-    options?: { show_running_points: boolean },
-): Promise<Outcome> {
+export function createTable(commandId: string, seriesLength: number, options?: OptionsRequest): Promise<Outcome> {
     return ask(TABLES_PATH, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command_id: commandId, series_length: seriesLength, options }),
     });
+}
+
+export async function readRuleSets(): Promise<RuleSetsOutcome> {
+    const answer = await fetchSigningInAgain(RULE_SETS_PATH);
+    if (!answer?.ok) return { kind: "failed" };
+    try {
+        const body = (await answer.json()) as { sets?: RuleSet[] };
+        return Array.isArray(body.sets) ? { kind: "sets", sets: body.sets } : { kind: "failed" };
+    } catch {
+        return { kind: "failed" };
+    }
 }
 
 function post(id: string, suffix: string, body: object): Promise<Outcome> {
@@ -584,7 +607,7 @@ export function agentSitsNote(previous: Table, table: Table): SeatNotice | null 
     const freed = new Set(previous.chairs.filter((chair) => chair.occupant_name === null).map((chair) => chair.seat));
     const sat = table.chairs.find((chair) => chair.occupant_kind === "agent" && freed.has(chair.seat));
     const name = sat?.occupant_name ?? null;
-    return name === null ? null : { text: words["table.agentSits"]({ name }), initial: null };
+    return name === null ? null : { text: words["table.agentSits"]({ name }), initials: [null] };
 }
 
 // What the agents' control re-reads on: the agents by seat and name, and the version when the wake skipped versions,

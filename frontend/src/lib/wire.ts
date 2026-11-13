@@ -12,6 +12,7 @@ export const VERSION_FILE_PATH = "/_app/version.json";
 export const CALL_ORIGIN_PATH = "/api/call-origin";
 export const ACCOUNT_CONSOLE_PATH = "/account";
 export const TABLES_PATH = "/api/tables";
+export const RULE_SETS_PATH = "/api/rule-sets";
 export const LOBBY_EVENTS_PATH = "/api/lobby/events";
 export const TABLE_PAGE_PREFIX = "/t/";
 export const TABLE_ID_PATTERN = "[0-9a-f]{32}";
@@ -77,12 +78,14 @@ export const BOCK_TRIGGER_TOKENS = [
     "total-ending-in-00",
 ] as const;
 export const BOCK_OVERLAP_TOKENS = ["append", "multiply", "ignore"] as const;
+export const RAMSCH_OCCASION_TOKENS = ["passed-in"] as const;
 export const RAMSCH_SCORING_TOKENS = ["points", "points-by-ten", "skat-to-loser"] as const;
 export const JUNGFRAU_TOKENS = ["doubles-loser", "off"] as const;
 export const DURCHMARSCH_TOKENS = ["wins-120", "wins-120-flat", "off"] as const;
 export const PUSHING_RULE_TOKENS = ["jacks-stay", "jacks-may-go", "no-doubling"] as const;
 export const GRAND_HAND_TOKENS = ["allowed", "off"] as const;
 export const WAITING_CASE_TOKENS = ["turn", "give_up", "kontra", "end_proposal", "result", "series_end"] as const;
+export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down"] as const;
 export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
@@ -95,3 +98,25 @@ export const SERIES_LENGTH_MAX = 99;
 export const SERIES_LENGTH_STEP = 3;
 export const SERIES_LENGTH_DEFAULT = 36;
 export const CHAIRS_PER_TABLE = 3;
+export const SWITCH_ON_OPTIONS = {
+    show_running_points: false,
+    kontra: {
+        sayer: "bidders-only",
+        reach: "up-to-hirsch",
+        deadline: "own-card",
+    },
+    bock: {
+        triggers: ["sixty-sixty", "won-grand-hand", "lost-after-kontra", "re"],
+        overlap: "append",
+    },
+    ramsch: {
+        occasion: "passed-in",
+        scoring: "points",
+        jungfrau: "doubles-loser",
+        durchmarsch: "wins-120",
+        pushing: {
+            rule: "jacks-stay",
+            grand_hand: "off",
+        },
+    },
+} as const;

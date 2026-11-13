@@ -5,6 +5,7 @@ import type {
     Card,
     Chair,
     Declaring,
+    GiveUp,
     Playing,
     Position,
     SeatedCard,
@@ -74,7 +75,12 @@ function playing(changes: Partial<Playing>): Playing {
 function table(
     version: number,
     cards: [number, number, number],
-    changes: { declaring?: Declaring | null; current?: SeatedCard[]; last?: Playing["last_trick"] } = {},
+    changes: {
+        declaring?: Declaring | null;
+        current?: SeatedCard[];
+        last?: Playing["last_trick"];
+        giveUp?: GiveUp | null;
+    } = {},
 ): Table {
     const hasPlaying = changes.current !== undefined || changes.last !== undefined;
     return {
@@ -96,7 +102,11 @@ function table(
             auction: auction(),
             declaring: changes.declaring === undefined ? declaringAt("picked") : changes.declaring,
             playing: hasPlaying
-                ? playing({ current_trick: changes.current ?? [], last_trick: changes.last ?? null })
+                ? playing({
+                      current_trick: changes.current ?? [],
+                      last_trick: changes.last ?? null,
+                      give_up: changes.giveUp ?? null,
+                  })
                 : null,
         },
         result: null,
@@ -287,5 +297,61 @@ describe("the moment the auction ended", () => {
         { name: "a table with no hand yet", previous: { ...running, hand: null }, next: choosing },
     ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
         expect(cuesBetween(previous, next).some((cue) => cue.kind === "auction-ended")).toBe(false);
+    });
+});
+
+describe("the moment both opponents refused a give-up", () => {
+    // The declarer at MIDDLEHAND asked and FOREHAND said no; REARHAND's no clears the request.
+    const firstNo: GiveUp = { asking_seat: MIDDLEHAND, declined_seat: FOREHAND };
+    const standing = table(5, [8, 8, 8], { current: [], giveUp: firstNo });
+    const refused: Cue = { kind: "give-up-refused", seats: [FOREHAND, REARHAND] };
+
+    it("is the update that clears the declarer's request after the first no and changes nothing else", () => {
+        expect(cuesBetween(standing, table(6, [8, 8, 8], { current: [] }))).toEqual([refused]);
+    });
+
+    it.each([
+        {
+            name: "the first no, which keeps the request",
+            previous: table(4, [8, 8, 8], { current: [], giveUp: { asking_seat: MIDDLEHAND, declined_seat: null } }),
+            next: standing,
+        },
+        {
+            name: "a card of the declarer, which takes the request back",
+            previous: standing,
+            next: table(6, [8, 7, 8], { current: [{ seat: MIDDLEHAND, card: KARO_JACK }] }),
+        },
+        {
+            name: "a yes, which ends the hand",
+            previous: standing,
+            next: { ...table(6, [8, 8, 8]), hand: null },
+        },
+        {
+            name: "a chair that changed hands",
+            previous: standing,
+            next: {
+                ...table(6, [8, 8, 8], { current: [] }),
+                chairs: chairsWithCards([8, 8, 8]).map((chair) =>
+                    chair.seat === REARHAND ? { ...chair, occupant_name: "newcomer" } : chair,
+                ),
+            },
+        },
+        {
+            name: "the declarer's no to an opponent's request",
+            previous: table(4, [8, 8, 8], { current: [], giveUp: { asking_seat: FOREHAND, declined_seat: null } }),
+            next: table(5, [8, 8, 8], { current: [] }),
+        },
+        {
+            name: "a reload or a reconnect, which knows no table before",
+            previous: undefined,
+            next: table(6, [8, 8, 8], { current: [] }),
+        },
+        {
+            name: "an update that keeps the request",
+            previous: standing,
+            next: table(6, [8, 8, 8], { current: [], giveUp: firstNo }),
+        },
+    ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
+        expect(cuesBetween(previous, next).some((cue) => cue.kind === "give-up-refused")).toBe(false);
     });
 });

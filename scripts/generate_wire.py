@@ -5,6 +5,7 @@ The Python constants own the paths and the enums own the tokens; this generator 
 missing, so CI catches drift.
 """
 
+import json
 import sys
 import textwrap
 from pathlib import Path
@@ -23,6 +24,7 @@ from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
+from skat.table.game_list import GameEnding  # noqa: E402
 from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
@@ -30,7 +32,9 @@ from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_STEP,
     TABLE_ID_PATTERN,
     EndReason,
+    RamschOccasion,
 )
+from skat.table.rule_sets import SWITCH_ON_OPTIONS  # noqa: E402
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
 from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX  # noqa: E402
 from skat.web.auction import (  # noqa: E402
@@ -74,7 +78,9 @@ from skat.web.pushing import (  # noqa: E402
     TABLE_PUSHING_TAKE_SUFFIX,
 )
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
+from skat.web.rule_sets import RULE_SETS_PATH  # noqa: E402
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX  # noqa: E402
+from skat.web.table_options import options_answer_of  # noqa: E402
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
@@ -93,6 +99,8 @@ from skat.web.tables import (  # noqa: E402
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from enum import StrEnum
+
+    from pydantic import JsonValue
 
 OUTPUT = Path("frontend/src/lib/wire.ts")
 CHECK_FLAG = "--check"
@@ -113,12 +121,14 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "KONTRA_DEADLINE_TOKENS": KontraDeadline,
     "BOCK_TRIGGER_TOKENS": BockTrigger,
     "BOCK_OVERLAP_TOKENS": BockOverlap,
+    "RAMSCH_OCCASION_TOKENS": RamschOccasion,
     "RAMSCH_SCORING_TOKENS": RamschScoring,
     "JUNGFRAU_TOKENS": JungfrauRule,
     "DURCHMARSCH_TOKENS": DurchmarschRule,
     "PUSHING_RULE_TOKENS": PushingRule,
     "GRAND_HAND_TOKENS": GrandHandRule,
     "WAITING_CASE_TOKENS": WaitingCase,
+    "GAME_ENDING_TOKENS": GameEnding,
     "WORD_TOKENS": Word,
 }
 
@@ -130,6 +140,25 @@ def token_tuple(name: str, tokens: type[StrEnum]) -> str:
         return line
     stacked = "".join(f"    {value},\n" for value in values)
     return f"export const {name} = [\n{stacked}] as const;\n"
+
+
+def literal(value: JsonValue, indent: int = 0) -> str:
+    """A JSON value as the object literal prettier keeps: unquoted keys, objects over lines, arrays on one line."""
+    inner = " " * (indent + 4)
+    match value:
+        case dict():
+            members = "".join(f"{inner}{key}: {literal(each, indent + 4)},\n" for key, each in value.items())
+            return "{\n" + members + " " * indent + "}"
+        case list():
+            return "[" + ", ".join(literal(each) for each in value) + "]"
+        case _:
+            return json.dumps(value)
+
+
+def switch_on_options() -> str:
+    """The start values of a rule switched on, in the answer's shape."""
+    answer = options_answer_of(SWITCH_ON_OPTIONS).model_dump(mode="json")
+    return f"export const SWITCH_ON_OPTIONS = {literal(answer)} as const;\n"
 
 
 def path_constants() -> dict[str, str]:
@@ -146,6 +175,7 @@ def path_constants() -> dict[str, str]:
         "CALL_ORIGIN_PATH": CALL_ORIGIN_PATH,
         "ACCOUNT_CONSOLE_PATH": ACCOUNT_CONSOLE_PATH,
         "TABLES_PATH": TABLES_PATH,
+        "RULE_SETS_PATH": RULE_SETS_PATH,
         "LOBBY_EVENTS_PATH": LOBBY_EVENTS_PATH,
         "TABLE_PAGE_PREFIX": TABLE_PAGE_PREFIX,
         "TABLE_ID_PATTERN": TABLE_ID_PATTERN,
@@ -200,7 +230,7 @@ def render() -> str:
         )
     )
     chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
-    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length + chairs
+    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length + chairs + switch_on_options()
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:
