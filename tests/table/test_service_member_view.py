@@ -406,3 +406,15 @@ class TestTheToolsSignal:
         auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
 
         assert (kept, told) == ([], [{MOZART.account_id, BACH.account_id}])
+
+    def test_inviting_an_agent_sends_no_tools_notice(self):
+        told = []
+        scene = Scene()
+        scene.service = scene.service.with_tools_signal(told.append)
+        scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+
+        scene.service.invite_agent(
+            TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
+        )
+
+        assert told == []

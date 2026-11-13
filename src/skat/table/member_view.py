@@ -52,7 +52,7 @@ def moment_at(table: TableRecord, account_id: str) -> TableMoment:
 
 def moment_recipients(before: TableRecord, after: TableRecord) -> frozenset[str]:
     """The agents seated at both tables whose moment differs between them; an agent that sat down or stood up is told
-    by its standing.
+    by the service, which tells its seat's change on its own.
     """
     return frozenset(
         account
