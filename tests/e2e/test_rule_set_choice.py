@@ -281,6 +281,28 @@ def test_a_sheet_reopened_after_cancelling_has_the_official_rules_picked_again(
     expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "false")
 
 
+def test_escape_closes_the_sheet_unless_the_table_is_being_opened(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP)
+    held: list[Any] = []
+    person.route(f"**{TABLES_PATH}", lambda route: held.append(route))
+    sheet_of(person, e2e_server)
+    sheet = person.get_by_role("dialog", name=word("start.newTable"))
+
+    person.keyboard.press("Escape")
+    expect(sheet).to_be_hidden()
+
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_disabled()
+    person.keyboard.press("Escape")
+    expect(sheet).to_be_visible()
+
+    held[0].continue_()
+    expect(person).to_have_url(TABLE_URL)
+
+
 def test_the_official_rules_stay_offered_with_a_notice_when_the_own_sets_cannot_be_read(
     person_with_sets: Callable[..., Page],
     e2e_server: RunningServer,
