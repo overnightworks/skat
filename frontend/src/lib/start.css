@@ -5181,6 +5181,10 @@ body {
     font-size: 14px;
     line-height: 1.25;
     color: var(--on-stage);
+    /* The name wraps onto a second line instead of being cut at the field's edge. */
+    field-sizing: content;
+    resize: none;
+    overflow: hidden;
     background: rgba(0, 0, 0, 0.35);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
 }

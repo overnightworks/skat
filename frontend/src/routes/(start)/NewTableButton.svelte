@@ -267,18 +267,20 @@
                     <button type="button" class="go" disabled={opening || saving} onclick={save}>
                         {words["start.saveRules"]}
                     </button>
-                    <input
+                    <textarea
                         class="name"
-                        type="text"
+                        rows="1"
                         aria-label={words["start.saveName"]}
                         maxlength={RULE_SET_NAME_MAX}
                         value={name}
                         disabled={opening || saving}
-                        oninput={(event) => {
-                            typedName = event.currentTarget.value;
-                            saveProblem = null;
+                        onkeydown={(event) => {
+                            if (event.key === "Enter") event.preventDefault();
                         }}
-                    />
+                        oninput={(event) => {
+                            typedName = event.currentTarget.value.replace(/\s*\n\s*/g, " ");
+                            saveProblem = null;
+                        }}></textarea>
                     {#if saveProblem !== null}
                         <small role="alert">
                             {saveProblem === "taken" ? words["start.saveNameTaken"] : words["start.saveFailed"]}

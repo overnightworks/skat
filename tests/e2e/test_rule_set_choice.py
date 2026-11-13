@@ -332,6 +332,10 @@ def test_the_save_row_is_offered_with_a_suggested_name_once_the_sheet_differs_fr
 
     expect(save_row(person)).to_be_visible()
     expect(save_name(person)).to_have_value(f"{OFFICIAL}, mit Kontra und Ramsch")
+    # The whole name shows: the field grows to its text instead of cutting it off.
+    assert save_name(person).evaluate(
+        "field => field.scrollWidth <= field.clientWidth && field.scrollHeight <= field.clientHeight"
+    )
     expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_in_viewport()
     expect(save_row(person)).to_be_in_viewport()
     switch(person, KONTRA).click()
