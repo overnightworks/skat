@@ -13,7 +13,7 @@ from skat.web.tables import TABLE_PAGE_PREFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
-from tests.e2e.support.people import PHONE, WIDTHS, McpAgent
+from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS, McpAgent
 from tests.e2e.support.tables import sit_in, watch
 from tests.support.signed_in import seed_member
 
@@ -41,7 +41,6 @@ THINKS = text(SOURCE_LANGUAGE, "table.thinks")
 CARDS_AFTER_A_TAKE = 12
 POSITIONS = ("forehand", "middlehand", "rearhand")
 AGENT_SEAT = 3
-DESKTOP_FROM = 900
 
 
 def pushes(count: int) -> str:
@@ -345,7 +344,7 @@ def test_an_agent_on_turn_wears_denkt_over_the_turn_mark_for_everyone(
         page_errors,
         form_factor,
         rule="jacks-stay",
-        agent=McpAgent(e2e_server, "agent-subject-mozart"),
+        agent=McpAgent(e2e_server, "agent-subject-ramsch-thinker"),
     )
     agent_position = next(position for position in POSITIONS if table.seat_of(position) == AGENT_SEAT)
     for position in POSITIONS[: POSITIONS.index(agent_position)]:
@@ -373,7 +372,7 @@ def test_an_agent_on_turn_wears_denkt_over_the_turn_mark_for_everyone(
             "think => { const box = think.closest('.chair').querySelector('.mark.turn').getBoundingClientRect(); "
             "return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.closest('.mark') === think }"
         )
-        if form_factor["viewport"]["width"] >= DESKTOP_FROM:
+        if form_factor is DESKTOP:
             expect(thinks).to_contain_text(THINKS)
             assert thinks.evaluate("mark => getComputedStyle(mark).fontSize") != "0px"
     table.expect_nothing_to_overflow()
