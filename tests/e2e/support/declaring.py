@@ -67,7 +67,7 @@ class DeclaringTable:
     ) -> None:
         self.server = server
         opener = self._person(open_person, opener_name, page_errors, form_factor, console)
-        path = open_new_table(opener, server, running_points=running_points)
+        path = self._open_table(opener, server, member_of, running_points=running_points)
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
@@ -88,6 +88,14 @@ class DeclaringTable:
             self._hold_the_clock_of(*self.others, self.watcher)
         self._win_the_auction(seat_at)
         expect(self.declarer.get_by_role("button", name=TAKE_SKAT)).to_be_visible()
+
+    @staticmethod
+    def _open_table(
+        opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember], *, running_points: bool
+    ) -> str:
+        """Opens the table through the page, which plays the official rules and the one switch it carries."""
+        del member_of
+        return open_new_table(opener, server, running_points=running_points)
 
     @staticmethod
     def _person(
