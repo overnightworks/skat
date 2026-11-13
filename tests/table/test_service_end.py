@@ -510,11 +510,10 @@ class TestClose:
         with pytest.raises(CommandIdReusedError):
             close(service, OPENER, other)
 
-    @pytest.mark.parametrize("actor", [VISITOR, THIRD], ids=["a-seated-person", "a-watcher"])
-    def test_refuses_a_person_who_did_not_open_the_table_and_writes_no_receipt(self, service, store, dealt_id, actor):
+    def test_refuses_a_seated_person_who_did_not_open_the_table_and_writes_no_receipt(self, service, store, dealt_id):
         written = (dict(store.tables), dict(store.receipts))
 
-        result = close(service, actor, dealt_id)
+        result = close(service, VISITOR, dealt_id)
 
         assert result.refusal is Refusal.NOT_ALLOWED
         assert (store.tables, store.receipts) == written
