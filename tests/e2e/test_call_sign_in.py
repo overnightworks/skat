@@ -1,6 +1,7 @@
 import re
 from contextlib import ExitStack
 from dataclasses import dataclass
+from threading import Event
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -10,6 +11,7 @@ from playwright.sync_api import FrameLocator, Locator, Page, Route, expect
 from skat.web.constants import (
     ACCOUNT_PATH,
     APP_ASSET_PATH,
+    AUTH_CALLBACK_PATH,
     AUTH_START_PATH,
     CALL_MODE,
     CALL_SIGN_IN_PATH,
@@ -193,11 +195,20 @@ def test_a_signed_out_frame_signs_in_in_a_separate_window_that_closes_and_the_fr
     sign_in_at_issuer(framed.visitor, signing_server, username="anna")
     expect(framed.log_in).to_be_visible()
     expect(framed.frame.locator(CHAIR)).to_have_count(0)
+    held_callbacks: list[Route] = []
+    callback_released = Event()
+    framed.visitor.context.route(
+        f"**{AUTH_CALLBACK_PATH}**",
+        lambda route: route.continue_() if callback_released.is_set() else held_callbacks.append(route),
+    )
 
     window = start_sign_in(framed)
 
     expect(framed.frame.get_by_role("heading", name=SIGNING_IN)).to_be_visible()
     expect(framed.frame.get_by_role("link", name=OPEN_IN_TAB)).to_have_attribute("href", framed.path)
+    callback_released.set()
+    for held in held_callbacks:
+        held.continue_()
     expect(framed.frame.locator(CHAIR)).to_have_count(THREE_CHAIRS, timeout=WAIT_MILLISECONDS)
     assert window.is_closed()
     assert framed.frame_address == table_url(signing_server, framed.path)
