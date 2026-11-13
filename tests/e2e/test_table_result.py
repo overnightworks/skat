@@ -403,6 +403,21 @@ def test_a_member_who_stands_up_leaves_a_free_chair_and_the_card_stays(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_weiter_names_the_series_the_page_shows(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor)
+    tapper_seat = next(seat for seat in table.names if seat != table.declarer_seat)
+    tapper = table.pages[tapper_seat]
+
+    with tapper.expect_request(lambda request: request.url.endswith(TABLE_READY_SUFFIX)) as tap:
+        tapper.locator(".actions").get_by_role("button", name=WEITER).click()
+
+    assert tap.value.post_data_json["series"] == table.view(tapper_seat)["series"]["number"]
+    expect_the_marks(table, {tapper_seat})
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_tap_on_a_result_the_table_has_left_shows_the_failure_note(
     deal_a_finished_hand: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:

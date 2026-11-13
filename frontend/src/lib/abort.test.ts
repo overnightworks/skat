@@ -30,6 +30,7 @@ function tableWith(mine: number, open: number | null, yes: number[] | null): Tab
         watchers: 0,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
