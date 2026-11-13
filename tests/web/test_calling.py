@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import pytest
 from agents.member import INVITATION_SECONDS
 
+from skat.table.member_place import ENDED_CALL_KEPT
 from skat.table.records import OccupantKind, TableId
 from skat.web.calling import CallRefusal
 from tests.web.support.agent import Agent
@@ -133,7 +134,7 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall(CallingTable):
         assert here["key"] == again["key"] == available["key"]
         assert felix.id not in str(inviting)
         assert NOVA not in available["key"]
-        assert set(inviting) == {"key", "name", "state", "ends_in_seconds"}
+        assert set(inviting) == {"key", "name", "state", "outcome", "ends_in_seconds"}
         assert nova.subject not in str(inviting)
 
     def test_a_table_that_is_not_a_table_answers_404(self, skat, felix):
@@ -225,7 +226,7 @@ class TestACallInvitesTheAgent(CallingTable):
 
         assert others_control == {"shown": True, "rows": []}
 
-    def test_an_invitation_that_ran_out_shows_the_row_available_again_with_no_refusal(
+    def test_an_invitation_that_ran_out_shows_the_caller_the_row_ended_with_no_answer_and_no_refusal(
         self, skat, issuer, time, felix, table_id
     ):
         with listening(skat, issuer, felix, "Nova", NOVA):
@@ -235,7 +236,69 @@ class TestACallInvitesTheAgent(CallingTable):
 
             row = only_row(skat, felix, table_id)
 
-        assert (row["key"], row["state"], row["ends_in_seconds"]) == (key, "available", None)
+        assert row == {"key": key, "name": "Nova", "state": "ended", "outcome": "no-answer", "ends_in_seconds": None}
+
+    def test_the_outcome_is_gone_once_it_was_kept_long_enough_and_the_row_is_available_again(
+        self, skat, issuer, time, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA):
+            key = only_row(skat, felix, table_id)["key"]
+            call(skat, felix, table_id, key)
+            time.now += INVITATION_SECONDS + ENDED_CALL_KEPT.total_seconds()
+
+            row = only_row(skat, felix, table_id)
+
+        assert (row["key"], row["state"], row["outcome"]) == (key, "available", None)
+
+    def test_only_the_caller_sees_that_the_invitation_ran_out(self, skat, issuer, time, felix, table_id):
+        other = person(skat, issuer)
+        with streams_of(skat, table_id, [(other.headers, None)]), listening(skat, issuer, felix, "Nova", NOVA):
+            call(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
+            time.now += INVITATION_SECONDS
+
+            row = only_row(skat, other, table_id)
+
+        assert (row["state"], row["outcome"]) == ("available", None)
+
+    def test_an_accept_that_finds_no_free_chair_shows_the_caller_the_row_ended_busy(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            key = only_row(skat, felix, table_id)["key"]
+            call(skat, felix, table_id, key)
+            offer = offer_of(nova)
+            seat_of_nobody_but(skat, table_id, 2)
+
+            nova.accept(table_id, offer)
+            row = only_row(skat, felix, table_id)
+
+        assert (row["key"], row["state"], row["outcome"]) == (key, "ended", "busy")
+
+    def test_an_accept_that_finds_the_owner_away_shows_the_caller_the_row_ended_owner_absent(
+        self, skat, issuer, felix, table_id
+    ):
+        owner = person(skat, issuer)
+        with listening(skat, issuer, owner, "Nova", NOVA) as nova:
+            with streams_of(skat, table_id, [(owner.headers, None)]):
+                key = only_row(skat, felix, table_id)["key"]
+                call(skat, felix, table_id, key)
+                offer = offer_of(nova)
+            nova.accept(table_id, offer)
+
+            row = only_row(skat, felix, table_id)
+
+        assert (row["key"], row["state"], row["outcome"]) == (key, "ended", "owner-absent")
+
+    def test_a_new_call_after_the_outcome_makes_the_row_inviting_again(self, skat, issuer, time, felix, table_id):
+        with listening(skat, issuer, felix, "Nova", NOVA):
+            key = only_row(skat, felix, table_id)["key"]
+            call(skat, felix, table_id, key)
+            time.now += INVITATION_SECONDS
+
+            answer = call(skat, felix, table_id, key)
+
+        (row,) = answer.json()["rows"]
+        assert (row["state"], row["outcome"]) == ("inviting", None)
 
 
 @pytest.mark.usefixtures("watching")

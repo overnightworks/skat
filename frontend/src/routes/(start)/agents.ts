@@ -1,13 +1,15 @@
-import type { AgentControlRefusal } from "overnightworks-design";
+import type { AgentControlOutcome, AgentControlRefusal } from "overnightworks-design";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import { CONFLICT_STATUS, fetchOrNull, fetchSigningInAgain, NOT_FOUND_STATUS } from "./tables.ts";
 
-// One row of the control that calls agents. `key` is Skat's opaque key; an `inviting` row says in whole seconds on the
-// server's clock how long its invitation stays open, and a `here` row is an agent seated at the table.
+// One row of the control that calls agents, in the shape the kit's rows take. `key` is Skat's opaque key; an `inviting`
+// row says in whole seconds on the server's clock how long its invitation stays open, a `here` row is an agent seated at
+// the table, and an `ended` row is the caller's call that ended without a seat, with how it ended.
 export type AgentRow =
     | { key: string; name: string; state: "available"; ends_in_seconds: null }
     | { key: string; name: string; state: "inviting"; ends_in_seconds: number }
-    | { key: string; name: string; state: "here"; ends_in_seconds: null };
+    | { key: string; name: string; state: "here"; ends_in_seconds: null }
+    | { key: string; name: string; state: "ended"; outcome: AgentControlOutcome; ends_in_seconds: null };
 export type AgentsControl = { shown: boolean; rows: AgentRow[] };
 type AgentsAnswer = { kind: "control"; control: AgentsControl } | { kind: "missing" } | { kind: "failed" };
 type CallAnswer = AgentsAnswer | { kind: "refused"; reason: AgentControlRefusal };
@@ -22,6 +24,9 @@ const REFUSAL_REASONS: ReadonlySet<unknown> = new Set<AgentControlRefusal>([
 // The next read of an `inviting` row is at least this long after the last, so a clock that runs ahead asks once more
 // and never in a tight loop; a read that failed is asked again after the retry wait while a row is `inviting`.
 const MINIMUM_REREAD_SECONDS = 1;
+// The agent's accept ends a call at once when no chair is free or the owner is away, and nothing wakes the page for
+// that, so an `inviting` row is read again at least this often.
+const INVITING_REREAD_SECONDS = 3;
 const FAILED_REREAD_MILLISECONDS = 5000;
 
 function agentsPath(id: string): string {
@@ -74,10 +79,11 @@ export function sendAgentAway(id: string, key: string, commandId: string): Promi
     });
 }
 
-// Seconds until the nearest `inviting` row's invitation ends on the server, never less than one; null with none.
+// Seconds until the next read while a row is `inviting`: the nearest invitation's end on the server, never less than
+// one and never more than the wait for an accept; null with no such row.
 export function rereadAfterSeconds(control: AgentsControl): number | null {
     const waits = control.rows.flatMap((row) => (row.state === "inviting" ? [row.ends_in_seconds] : []));
-    return waits.length === 0 ? null : Math.max(MINIMUM_REREAD_SECONDS, Math.min(...waits));
+    return waits.length === 0 ? null : Math.max(MINIMUM_REREAD_SECONDS, Math.min(INVITING_REREAD_SECONDS, ...waits));
 }
 
 export type AgentsFollower = {
@@ -87,8 +93,8 @@ export type AgentsFollower = {
     stop: () => void;
 };
 
-// Reads the control and follows it: while a row is `inviting`, it reads again after that row's own seconds, until no
-// row is. The server's clock decides when an invitation ends; the page's clock only times the next read.
+// Reads the control and follows it: while a row is `inviting`, it reads again soon, until no row is. The server's clock
+// decides when an invitation ends and how; the page's clock only times the next read.
 export function followAgents(
     id: string,
     onControl: (control: AgentsControl) => void,
