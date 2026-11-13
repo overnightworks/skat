@@ -115,7 +115,7 @@ function rulesOf(options: Options): RuleRow[] {
                       DURCHMARSCH_WORDS[ramsch.durchmarsch],
                   ],
               },
-        ramsch === null || ramsch.pushing === null
+        ramsch?.pushing == null
             ? null
             : {
                   id: "pushing",
