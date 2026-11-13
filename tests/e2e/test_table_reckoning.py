@@ -22,6 +22,7 @@ from tests.e2e.support.result_card import (
     WON,
     YOU,
     expect_the_page_around_the_card,
+    expect_the_seat_tiles_inside_the_card,
     loosely,
 )
 from tests.e2e.support.server import skat_on_new_database
@@ -619,4 +620,29 @@ def test_a_watcher_who_opens_the_table_while_the_result_stands_reads_the_same_ca
     expect_the_reckoning(arriving, "watcher", table.name_of_the_declarer(), table.declarer_seat, reckoning)
     for seat in table.sessions:
         assert "skat" not in json.dumps(table.result_as_sent(seat))
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_card_of_an_overbid_schwarz_game_keeps_its_seat_tiles_inside_it(
+    deal_a_declared_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_declared_table(form_factor)
+    overbid_schwarz = listed(
+        GameKind.KREUZ,
+        matadors=Matadors(mit=False, count=7),
+        schneider=True,
+        schwarz=True,
+        won=False,
+        bid=264,
+        game_value=120,
+        settled_value=264,
+        score=-528,
+        declarer_points=0,
+    )
+    table.list_the_game(replace(overbid_schwarz, declarer_seat=table.declarer_seat))
+
+    people = [person for _, person in viewers_of(table)]
+    expect_the_seat_tiles_inside_the_card(people)
+    expect_the_page_around_the_card(people)
     assert page_errors == []

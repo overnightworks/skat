@@ -20,6 +20,7 @@ from tests.e2e.support.result_card import (
     WON,
     YOU,
     expect_the_page_around_the_card,
+    expect_the_seat_tiles_inside_the_card,
     loosely,
     signed,
     waiting_for,
@@ -267,6 +268,7 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     table = deal_a_finished_hand(form_factor, declaring=declaring)
     first, second = (seat for seat in table.names if seat != table.declarer_seat)
     expect_the_card(table)
+    expect_the_seat_tiles_inside_the_card(table.everyone)
     expect_the_page_around_the_card(table.everyone)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
@@ -560,6 +562,12 @@ def test_the_laid_name_tags_of_ordinary_names_show_each_name_whole(
             "names => names.filter(name => name.scrollWidth > name.clientWidth).map(name => name.textContent)"
         )
         assert clipped == []
+        # Each tag hangs below its own card by the same distance, so no tag steps below the others.
+        drops = person.locator(".trick .laid").evaluate_all(
+            "cards => cards.map(card => { const tag = card.querySelector('.tag');"
+            " return tag.offsetTop + tag.offsetHeight - card.offsetHeight; })"
+        )
+        assert len(set(drops)) == 1
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

@@ -987,6 +987,8 @@ body {
     padding: 8px 24px 24px;
     box-sizing: border-box;
     --chair-width: clamp(88px, 28vw, 120px);
+    /* The phone frame is drawn for 390 px; below that the cards of the hand and the trick shrink with the viewport so all ten fit. */
+    --table-card-width: min(64px, calc(100vw * 64 / 390));
     /* The declarer's ten cards lie face up in two staggered rows in front of the chair; the second row sits half a step in. */
     --open-width: 54px;
     --open-step: calc(var(--open-width) / 2);
@@ -1008,6 +1010,29 @@ body {
     font-size: 15px;
     font-weight: 600;
     white-space: nowrap;
+}
+
+/* On a phone the plaque lies on the felt under the far chairs, as the scenes draw it, and hangs into the free top of the trick's row: the cards of the trick lie below it however many lines it has, and the bar keeps its place on the screen. A plaque wider than the gap between the far chairs, one over a declarer's open cards and one over a result card keep their row above the chairs. */
+@media (max-width: 899px) {
+    /* The far chairs stand at the felt's rim, as the scenes draw them, so the plaque between them keeps clear of their fans. */
+    .room .chair:nth-child(1) {
+        justify-self: start;
+        margin-left: -14px;
+    }
+
+    .room .chair:nth-child(2) {
+        justify-self: end;
+        margin-right: -14px;
+    }
+
+    .room .stage:not(:has(.open-row, > .result)) .plaque:not(.wide) {
+        position: relative;
+        z-index: 2;
+        grid-row: 2;
+        align-self: start;
+        margin-top: calc(var(--chair-width) * 0.75 + 18px);
+        margin-bottom: calc(var(--table-card-width) * -1.07);
+    }
 }
 
 .room .dots {
@@ -1052,7 +1077,10 @@ body {
     margin: 36px 0;
     border-radius: 50%;
     background: radial-gradient(ellipse at 50% 40%, #24855f, #166443 60%, #0b3b2a);
+    /* The rim is wood with a brass inlay line in it. */
     box-shadow:
+        0 0 0 5.1px #57331b,
+        0 0 0 6.5px rgba(201, 164, 100, 0.8),
         0 0 0 10px #57331b,
         0 24px 40px -12px rgba(0, 0, 0, 0.9);
 }
@@ -1239,6 +1267,10 @@ body {
     .room .mark.pos ~ .mark.away {
         top: 14px;
     }
+}
+
+.room .plate:has(.away-note) {
+    padding-inline: 8px;
 }
 
 .room .plate .away-note {
@@ -1838,10 +1870,11 @@ body {
     text-transform: uppercase;
 }
 
+/* The away mark beside another mark stands a pixel above it, so the coaster at the chair's inner corner does not touch it. */
 .room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
     right: auto;
     left: 6px;
-    top: 16px;
+    top: 15px;
 }
 
 /* The declarer's star: a chair is too small for its word, so the star shows alone and the word stays for assistive reading. */
@@ -1986,6 +2019,26 @@ body {
 
 .room .chair:is(:nth-child(1), :nth-child(2)):has(.count-tag) .bubble {
     top: calc(100% + 94px);
+}
+
+/* On a phone the far chairs stand at the felt's rim, so their bubbles open toward the middle from the chair's own edge and stay on the screen. */
+@media (max-width: 899px) {
+    .room .chair:nth-child(1) .bubble {
+        right: auto;
+        left: 0;
+        --tail: calc(var(--chair-width) * 0.5);
+    }
+
+    .room .chair:nth-child(2) .bubble {
+        right: 0;
+        left: auto;
+    }
+
+    .room .chair:nth-child(2) .bubble::after {
+        right: calc(var(--chair-width) * 0.5);
+        left: auto;
+        transform: translateX(50%) rotate(45deg);
+    }
 }
 
 /* The near chair speaks to its left, clear of its fan above and of the own controls. */
@@ -2323,9 +2376,8 @@ body {
     position: absolute;
 }
 
-/* The phone frame is drawn for 390 px; below that the fan shrinks with the viewport so all ten cards fit. */
 .room .own-hand {
-    --card-width: min(64px, calc(100vw * 64 / 390));
+    --card-width: var(--table-card-width);
     --strip: calc(var(--card-width) / 2);
     --strip-lifted: min(56px, calc(100vw * 56 / 390));
     --fan-turn: 1.5deg;
@@ -2618,7 +2670,7 @@ body {
     margin: 0;
     padding: 0;
     list-style: none;
-    --card-width: min(64px, calc(100vw * 64 / 390));
+    --card-width: var(--table-card-width);
 }
 
 /* In a call frame below 780 px the trick takes three card widths, room for its laid cards, so the call strip stays in the frame. */
@@ -2883,9 +2935,9 @@ body {
     background: var(--on-stage);
 }
 
-/* On a phone the far tags stand no further from the near tag than a full-length name is wide: the near tag steps below them. */
+/* On a phone the far tags stand no further from the near tag than a full-length name is wide: where a name is cut, the near tag steps below them. */
 @media (max-width: 899px) {
-    .room .laid.near .tag {
+    .room .trick.stepped .laid.near .tag {
         bottom: calc(var(--card-width) * -0.12 - 6px);
     }
 }
@@ -3414,6 +3466,37 @@ body {
 .room .notice .label {
     flex-shrink: 0;
     white-space: nowrap;
+}
+
+/* The notice about a chair stands on the top of the felt between the far chairs, where no card of a trick, no bubble of a call and no plaque lies; on a phone its sentence wraps inside the gap. */
+.room .notice.seat {
+    grid-row: 2;
+    align-self: start;
+    margin-top: 28px;
+}
+
+@media (max-width: 899px) {
+    /* The gap between the far chairs is 138 px at 360, so the pill packs tight and its longest word breaks inside it rather than past its edge. */
+    .room .notice.seat {
+        box-sizing: border-box;
+        max-width: calc(100% - 2 * (var(--chair-width) - 14px) - 8px);
+        gap: 6px;
+        padding: 5px 10px 5px 5px;
+        font-size: 13px;
+    }
+
+    .room .notice.seat .dot {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+
+    .room .notice.seat .label {
+        flex-shrink: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
 }
 
 .room .notice b {
@@ -4021,6 +4104,81 @@ body {
     --ink: #6b6f78;
 }
 
+/* The card packs as tight as the 390 px scene draws it, so its seat tiles stay whole on a short phone. */
+@media (max-width: 899px) {
+    .room .result {
+        gap: 8px;
+        margin: 16px 0 8px;
+        padding: 14px;
+    }
+
+    .room .result h3 {
+        font-size: 30px;
+    }
+
+    .room .result .reck {
+        gap: 2px;
+        padding: 8px 4px;
+    }
+
+    .room .result .reck .dot {
+        width: 26px;
+        height: 26px;
+    }
+
+    .room .result .reck .dl {
+        font-size: 20px;
+    }
+}
+
+/* On a 360 px phone the room between the chairs is 26 px shorter than the 390 px scene's, so the card packs once more and its seat tiles stay inside it, whole, without a scroll. */
+@media (max-width: 899px) and (max-height: 779px) {
+    .room .result {
+        margin: 8px 0 6px;
+    }
+
+    .room .result h3 {
+        font-size: 28px;
+    }
+
+    .room .result .value {
+        font-size: 34px;
+    }
+
+    .room .result.snug {
+        padding: 10px 14px;
+    }
+
+    .room .result .reck {
+        padding: 6px 4px;
+    }
+
+    .room .result .reck .dot {
+        width: 22px;
+        height: 22px;
+    }
+}
+
+/* On a 360 px phone the card is 296 px wide inside, so its chips of a game that reached Schwarz pack tight and keep one row. */
+@media (max-width: 389px) {
+    .room .stage:has(> .result) {
+        padding-inline: 12px;
+    }
+
+    .room .result .ladder {
+        gap: 4px;
+    }
+
+    .room .result .ladder > span {
+        padding: 0 5px;
+        font-size: 13px;
+    }
+
+    .room .result .ladder > span.held {
+        gap: 2px;
+    }
+}
+
 @property --n {
     syntax: "<integer>";
     inherits: false;
@@ -4203,7 +4361,7 @@ body {
     }
 
     /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
-    .room .actions.on-result:has(> .copy:not(.link)) .copy.link {
+    .room .actions:has(> .copy:not(.link)) .copy.link {
         justify-content: center;
         align-self: center;
         width: 52px;
@@ -4211,7 +4369,7 @@ body {
         padding: 0;
     }
 
-    .room .actions.on-result:has(> .copy:not(.link)) .copy.link .label {
+    .room .actions:has(> .copy:not(.link)) .copy.link .label {
         display: none;
     }
 
@@ -4501,15 +4659,32 @@ body {
     opacity: 0.85;
 }
 
+/* Each chair keeps its seat's colour, with the dark seat showing inside, as the closed-table scenes draw them. */
+.room .chairs.emptied .tile.empty {
+    background:
+        radial-gradient(80% 70% at 50% 30%, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.45)) 50% 50% / calc(100% - 16px)
+            calc(100% - 16px) no-repeat,
+        linear-gradient(180deg, var(--chair-top), var(--chair-bottom));
+    box-shadow:
+        inset 0 -6px 12px rgba(0, 0, 0, 0.35),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
 .room .chairs.emptied .chair:nth-child(1) {
+    --chair-top: #553a6e;
+    --chair-bottom: #2a1b38;
     rotate: -7deg;
 }
 
 .room .chairs.emptied .chair:nth-child(2) {
+    --chair-top: #5e4a30;
+    --chair-bottom: #2e2416;
     rotate: 7deg;
 }
 
 .room .chairs.emptied .chair:nth-child(3) {
+    --chair-top: #2a5a52;
+    --chair-bottom: #13302b;
     rotate: 4deg;
 }
 
@@ -5333,15 +5508,15 @@ body {
     flex: 0 1 auto;
 }
 
-/* A 360 px phone has no height to spare, so the chips' own row costs it none: the top row gives up the air above and below it, and the plaque sits close under the chips. */
-@media (max-width: 389px) {
+/* A phone has no height to spare, so the chips' own row costs it little: the top row gives up the air above and below it, and the far chairs sit close under the chips, as the Bock scenes draw them. */
+@media (max-width: 899px) {
     .room .bar {
         row-gap: 2px;
         padding: 4px 14px 0;
     }
 
     .room .stage {
-        padding-top: 4px;
+        padding-top: 16px;
     }
 }
 
@@ -5550,7 +5725,7 @@ body {
     grid-row: 3;
     justify-self: stretch;
     height: calc(var(--card-width) * 3.9);
-    --card-width: min(64px, calc(100vw * 64 / 390));
+    --card-width: var(--table-card-width);
     --callout-size: 30px;
     --callout-ring: 230px;
     --callout-top: 86%;
@@ -5646,9 +5821,32 @@ body {
     .room .copy.kontra {
         padding: 0 14px;
     }
+}
 
+/* A phone's strip keeps one row while a hand runs, as the scenes draw it: the Kontra key shows its word, the abort key its flag alone (its word stays for assistive technology) until a first tap arms it. */
+@media (max-width: 899px) {
     .room .copy.kontra svg {
         display: none;
+    }
+
+    .room .actions:not(.on-result) {
+        width: calc(100% + 20px);
+    }
+
+    .room .copy.abort:not(.arm) {
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .copy.abort:not(.arm) .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 }
 

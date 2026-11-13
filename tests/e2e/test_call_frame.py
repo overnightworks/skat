@@ -285,7 +285,7 @@ def test_an_open_agents_list_in_a_landscape_frame_shows_both_rows_above_the_call
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
 @pytest.mark.parametrize("framed", [True, False], ids=["framed", "standalone"])
 @pytest.mark.parametrize("form_factor", [PHONE, DESKTOP], ids=["390", "1280"])
-def test_an_agent_sitting_notice_stands_under_the_status_line(
+def test_an_agent_sitting_notice_lies_clear_of_the_status_line(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
     browser_coverage: BrowserCoverage,
@@ -315,7 +315,7 @@ def test_an_agent_sitting_notice_stands_under_the_status_line(
 
             notice = box_of(scope.locator(NOTICE, has_text=sits_note("Leonardo")))
             status = box_of(scope.locator(STATUS).first)
-            assert notice["y"] >= bottom_of(status)
+            assert bottom_of(notice) <= status["y"] or notice["y"] >= bottom_of(status)
     finally:
         agent.close()
     assert page_errors == []
