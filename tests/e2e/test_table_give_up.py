@@ -32,6 +32,7 @@ COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 GIVEN_UP_STAMP = text(SOURCE_LANGUAGE, "result.givenUp")
 NOTICE = ".notice"
+NOTICE_SENTENCE = f"{NOTICE} .label"
 NOTICE_MILLISECONDS = 4000
 KEY = ".copy.give-up"
 STRIP = ".actions"
@@ -191,7 +192,7 @@ def test_two_nos_show_every_page_one_notice_with_both_faces_for_the_notice_time(
 
     for person in table.everyone:
         notice = person.locator(NOTICE)
-        expect(notice).to_have_text(playing_on(names))
+        expect(notice.locator(".label")).to_have_text(playing_on(names))
         expect(notice.locator(".dot")).to_have_text([name[0] for name in names])
         box = notice.bounding_box()
         viewport = person.viewport_size
@@ -234,7 +235,7 @@ def test_a_chair_that_changes_hands_after_the_first_no_shows_no_refusal(
 
     stood_up = text(SOURCE_LANGUAGE, "table.standUpNotice", name=table.names[table.declarer_seat])
     for seat in (said_no, other):
-        expect(table.pages[seat].locator(NOTICE)).to_have_text(stood_up)
+        expect(table.pages[seat].locator(NOTICE_SENTENCE)).to_have_text(stood_up)
     expect_no_refusal_notice(table)
     assert page_errors == []
 
