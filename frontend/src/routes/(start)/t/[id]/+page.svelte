@@ -19,7 +19,7 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, lockedChairs, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
-        bidOfGameDeclaredInTheStage,
+        bidLineOfGameDeclaredInTheStage,
         gameInPlay,
         sideNames,
         trickOnTheFelt,
@@ -77,7 +77,7 @@
         agentSitsNote,
         answerAbort,
         answerGiveUp,
-        bidValueWhileDeclaring,
+        bidLineWhileDeclaring,
         copyTableLink,
         drawingOrder,
         gameLabel,
@@ -355,7 +355,7 @@
             <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
             {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
-            {@const bidValue = bidValueWhileDeclaring(outcome.table)}
+            {@const bidLine = bidLineWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
             {@const ramschTable = outcome.table}
             {@const ramsch = ramschPlaque(outcome.table)}
@@ -387,24 +387,18 @@
             {:else if deciding !== null}
                 <div class="plaque deciding">
                     {#if deciding.kind === "won"}
-                        <span>{words["table.playsValue"]({ name: deciding.name, value: String(deciding.value) })}</span>
+                        <span>{deciding.text}</span>
                     {:else}
-                        <span>{words["table.bidValue"]({ value: String(deciding.value) })}</span>
+                        <span>{deciding.bid}</span>
                         <span class="gives">
-                            {#if deciding.kind === "waiting"}
-                                {words["table.waitingForPlayers"]}
-                            {:else}
-                                {words[deciding.kind === "choosing" ? "table.chooses" : "table.discards"]({
-                                    name: deciding.name,
-                                })}
-                            {/if}
+                            {deciding.line}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
                 </div>
-            {:else if bidValue !== null}
+            {:else if bidLine !== null}
                 <div class="plaque">
-                    <span>{words["table.bidValue"]({ value: String(bidValue) })}</span>
+                    <span>{bidLine}</span>
                 </div>
             {:else if ramsch !== null}
                 <RamschPlaque plaque={ramsch} />
@@ -412,7 +406,7 @@
                 {@const label = gameLabel(inPlay.declaration)}
                 {@const running = inPlay.playing.running_points}
                 {@const said = plaqueLine(inPlay.playing.kontra)}
-                {@const stageBid = bidOfGameDeclaredInTheStage(outcome.table)}
+                {@const stageBid = bidLineOfGameDeclaredInTheStage(outcome.table)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
                     <AskPlaque
@@ -446,7 +440,7 @@
                             {/if}
                         </span>
                         {#if stageBid !== null}
-                            <span class="game pushes">{words["table.bidValue"]({ value: String(stageBid) })}</span>
+                            <span class="game pushes">{stageBid}</span>
                         {/if}
                         {#if said !== null}
                             <span class="game pushes"><Marked parts={said} marked={{ factor }} /></span>
@@ -471,9 +465,9 @@
                 >
                     {#if passedIn !== null}
                         <span class="verdict">{words["table.passedIn"]}</span>
-                        {#if passedIn.dealerName !== null}
+                        {#if passedIn.dealerLine !== null}
                             <span class="gives">
-                                {words["table.gives"]({ name: passedIn.dealerName })}
+                                {passedIn.dealerLine}
                                 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                             </span>
                         {/if}

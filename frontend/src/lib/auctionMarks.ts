@@ -1,4 +1,5 @@
 import { handWaits } from "#lib/openChair.ts";
+import { words } from "#lib/words.ts";
 import {
     declarerStage,
     type Auction,
@@ -62,7 +63,7 @@ export function decidingMarks(declaring: Declaring, seat: number, justWon: boole
 // The wait that the others see: the picked stage reads as the discarding, because to them it is the same wait.
 // While the hand waits for a sitter every viewer, the declarer too, reads the value over the wait.
 export type DecidingPlaque =
-    { kind: "won" | "choosing" | "discarding"; name: string; value: number } | { kind: "waiting"; value: number };
+    { kind: "won"; text: string } | { kind: "choosing" | "discarding" | "waiting"; bid: string; line: string };
 
 // What the plaque says to an opponent or a watcher; the declarer's own view keeps the value alone.
 export function decidingPlaque(table: Table, justWon: boolean): DecidingPlaque | null {
@@ -70,10 +71,14 @@ export function decidingPlaque(table: Table, justWon: boolean): DecidingPlaque |
     const value = table.hand?.auction.declared?.value;
     const name = table.chairs.find((chair) => chair.seat === declaring?.declarer_seat)?.occupant_name;
     if (!declaring || declaring.stage === "declared" || value === undefined) return null;
-    if (handWaits(table.hand)) return { kind: "waiting", value };
+    const bid = words["table.bidValue"]({ value: String(value) });
+    if (handWaits(table.hand)) return { kind: "waiting", bid, line: words["table.waitingForPlayers"] };
     if (declarerStage(table) !== null || !name) return null;
-    if (declaring.stage === "choosing") return { kind: justWon ? "won" : "choosing", name, value };
-    return { kind: "discarding", name, value };
+    if (declaring.stage === "choosing" && justWon) {
+        return { kind: "won", text: words["table.playsValue"]({ name, value: String(value) }) };
+    }
+    const kind = declaring.stage === "choosing" ? "choosing" : "discarding";
+    return { kind, bid, line: words[kind === "choosing" ? "table.chooses" : "table.discards"]({ name }) };
 }
 
 // The name the plaque waits for: the player on turn while they are away.
@@ -82,12 +87,13 @@ export function awayOnTurn(auction: Auction, chairs: readonly Chair[]): string |
     return chair?.occupant_name ?? null;
 }
 
-export type PassedInScene = { dealerSeat: number | null; dealerName: string | null };
+export type PassedInScene = { dealerSeat: number | null; dealerLine: string | null };
 
 // The next dealer shows only once the answer names one and nobody at the table is away.
 export function passedInScene(passedIn: PassedIn | null, chairs: readonly Chair[]): PassedInScene | null {
     if (passedIn === null) return null;
     const dealer = chairs.find((chair) => chair.seat === passedIn.next_dealer_seat);
-    if (dealer === undefined || chairs.some((chair) => chair.is_away)) return { dealerSeat: null, dealerName: null };
-    return { dealerSeat: dealer.seat, dealerName: dealer.occupant_name };
+    if (dealer === undefined || chairs.some((chair) => chair.is_away)) return { dealerSeat: null, dealerLine: null };
+    const name = dealer.occupant_name;
+    return { dealerSeat: dealer.seat, dealerLine: name === null ? null : words["table.gives"]({ name }) };
 }
