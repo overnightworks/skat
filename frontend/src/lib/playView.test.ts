@@ -34,6 +34,7 @@ function playing(changes: Partial<Playing>): Playing {
         legal_cards: [],
         running_points: null,
         give_up: null,
+        kontra: null,
         ...changes,
     };
 }

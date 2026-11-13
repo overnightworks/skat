@@ -1,6 +1,6 @@
 import time
 from contextlib import asynccontextmanager, nullcontext
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Final, cast
 
 import structlog
 from agents.mcp_server import ResourceChanges
@@ -86,6 +86,11 @@ if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
+
+
+UNPLAYED_SWEEP_SECONDS: Final = 3600
+
+log = structlog.get_logger()
 
 
 def _configure_logging() -> None:
@@ -270,8 +275,50 @@ def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONRespon
     return JSONResponse({"detail": jsonable_encoder(kept)}, status_code=422)
 
 
+async def _end_unplayed_tables(
+    settings: ServerSettings, tables: TableService, presence: Presence, *, at_start: bool
+) -> None:
+    """End every table whose days without a deal or step of play are up and wake its streams. A table that fails is
+    skipped and retried by the next run, except at the start, where the failure stops the server.
+    """
+    days = settings.paused_table_days
+    for table_id in await run_in_threadpool(tables.unplayed_tables, days):
+        try:
+            ended = await run_in_threadpool(tables.end_unplayed_table, table_id, days, presence.writing(table_id.value))
+        except Exception as failure:
+            if at_start:
+                raise
+            # The failure's message may carry an account id, so only its type is logged.
+            log.error("unplayed table end failed", table_id=table_id.value, error=type(failure).__name__)
+            continue
+        if ended:
+            presence.table_ended(table_id.value)
+
+
+def _sweep_unplayed_tables(
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    scheduler: Scheduler,
+    period_seconds: float,
+) -> None:
+    async def sweep() -> None:
+        try:
+            await _end_unplayed_tables(settings, tables, presence, at_start=False)
+        except Exception as failure:
+            log.error("unplayed tables read failed", error=type(failure).__name__)
+        if not presence.stopped:
+            scheduler.schedule(period_seconds, sweep)
+
+    scheduler.schedule(period_seconds, sweep)
+
+
 def _serving(
-    settings: ServerSettings, tables: TableService, presence: Presence
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    scheduler: Scheduler,
+    unplayed_sweep_seconds: float,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
     async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
@@ -280,6 +327,8 @@ def _serving(
         occupied = await run_in_threadpool(tables.occupied_chairs)
         presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
         presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
+        await _end_unplayed_tables(settings, tables, presence, at_start=True)
+        _sweep_unplayed_tables(settings, tables, presence, scheduler, unplayed_sweep_seconds)
         try:
             async with serving.state.mcp_front.running():
                 yield
@@ -288,6 +337,12 @@ def _serving(
             await presence.finish_writes()
 
     return hold_chairs_while_serving
+
+
+def _new_app(lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]]) -> FastAPI:
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
+    return app
 
 
 def create_app(
@@ -301,6 +356,7 @@ def create_app(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
+    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
@@ -324,8 +380,7 @@ def create_app(
     wakes = WakeList()
     presence = _presence(settings, tables, chair_clock, scheduler, wakes)
 
-    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
-    app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
+    app = _new_app(_serving(settings, tables, presence, scheduler, unplayed_sweep_seconds))
     app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))

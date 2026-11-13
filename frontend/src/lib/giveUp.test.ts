@@ -63,6 +63,7 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
                 legal_cards: [],
                 running_points: null,
                 give_up: request,
+                kontra: null,
             },
         },
     };

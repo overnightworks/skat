@@ -6,6 +6,7 @@ import pytest
 
 from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
+from skat.engine.kontra import Word
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import Level
 from skat.table.auction import AuctionAction
@@ -42,6 +43,7 @@ from skat.web.declaring import (
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX
+from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.playing import TABLE_CARD_SUFFIX, TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_DECLINE_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
@@ -88,6 +90,8 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_CARD_SUFFIX", TABLE_CARD_SUFFIX),
         ("TABLE_GIVE_UP_AGREE_SUFFIX", TABLE_GIVE_UP_AGREE_SUFFIX),
         ("TABLE_GIVE_UP_DECLINE_SUFFIX", TABLE_GIVE_UP_DECLINE_SUFFIX),
+        ("TABLE_KONTRA_SUFFIX", TABLE_KONTRA_SUFFIX),
+        ("TABLE_NO_WORD_SUFFIX", TABLE_NO_WORD_SUFFIX),
         ("TABLE_LIST_SUFFIX", TABLE_LIST_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
         ("LOBBY_EVENTS_PATH", LOBBY_EVENTS_PATH),
@@ -112,6 +116,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("AUCTION_ACTION_TOKENS", AuctionAction),
         ("LEVEL_TOKENS", Level),
         ("END_REASON_TOKENS", EndReason),
+        ("WORD_TOKENS", Word),
         ("WAITING_CASE_TOKENS", WaitingCase),
     ],
 )

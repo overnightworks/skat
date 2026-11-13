@@ -29,6 +29,7 @@ export const TABLE_CARD_SUFFIX = "/card";
 export const TABLE_GIVE_UP_AGREE_SUFFIX = "/give-up/agree";
 export const TABLE_GIVE_UP_DECLINE_SUFFIX = "/give-up/decline";
 export const TABLE_LIST_SUFFIX = "/list";
+export const TABLE_KONTRA_SUFFIX = "/kontra";
 export const TABLE_NO_WORD_SUFFIX = "/kontra/no-word";
 export const TABLE_READY_SUFFIX = "/ready";
 export const TABLE_AGENTS_SUFFIX = "/agents";
@@ -51,7 +52,7 @@ export const LEVEL_TOKENS = [
     "schwarz_announced",
     "ouvert",
 ] as const;
-export const END_REASON_TOKENS = ["empty"] as const;
+export const END_REASON_TOKENS = ["empty", "unplayed"] as const;
 export const KONTRA_SAYER_TOKENS = ["any-opponent", "bidders-only"] as const;
 export const KONTRA_REACH_TOKENS = ["kontra-re", "kontra-re-standings", "up-to-hirsch"] as const;
 export const KONTRA_DEADLINE_TOKENS = ["own-card", "first-card"] as const;
