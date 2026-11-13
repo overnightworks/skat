@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -17,8 +18,11 @@ if TYPE_CHECKING:
     from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
+pytest_plugins = ["pytester"]
 
 REFUSED = 401
+MISSING = 404
+REPOSITORY_ROOT = Path(__file__).parents[2]
 ANSWERED = 200
 FORBIDDEN_HEADER_NAMES = ("cookie", "x-forwarded-for", "user-agent", "authorization", "origin")
 
@@ -90,3 +94,79 @@ def test_the_record_holds_no_cookie_header_or_name_of_the_table(
     assert not [value for value in cookie_values if value in record]
     assert not [name for name in FORBIDDEN_HEADER_NAMES if name in record.lower()]
     assert member_of(viewer).account.username not in record
+
+
+def test_the_console_error_of_a_failed_request_names_the_path_it_asked(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    failure_record: FailureRecord,
+) -> None:
+    anna, _, path = watching_with_a_second_viewer(open_person, e2e_server, member_of)
+    unknown = f"{TABLES_PATH}/{table_id_of(path)}-unknown"
+
+    anna.evaluate("path => fetch(path)", unknown)
+
+    assert answer_line(MISSING, "GET", unknown).search(failure_record.render())
+    assert re.search(
+        rf"^\+\d+\.\d{{3}}s log\.error: Failed to load resource: .*\(Not Found\) {re.escape(unknown)}$",
+        failure_record.render(),
+        re.MULTILINE,
+    )
+
+
+TIMELINE = "the timeline of the pages"
+INNER_CONFTEST = f"""
+import pytest
+from tests.e2e.conftest import pytest_runtest_makereport
+from tests.e2e.support.failure_record import FailureRecord
+
+
+class WatchedPages(FailureRecord):
+    def render(self):
+        return {TIMELINE!r}
+
+
+@pytest.fixture
+def failure_record():
+    return WatchedPages()
+"""
+FAILS_IN_CALL = """
+def test_it(failure_record):
+    assert False
+"""
+FAILS_IN_TEARDOWN = """
+import pytest
+
+
+@pytest.fixture
+def page_errors(failure_record):
+    errors = []
+    yield errors
+    assert errors == []
+
+
+def test_it(page_errors):
+    page_errors.append("Failed to load resource")
+"""
+PASSES = """
+def test_it(failure_record):
+    pass
+"""
+
+
+@pytest.mark.parametrize(
+    ("test_source", "prints"),
+    [(FAILS_IN_CALL, True), (FAILS_IN_TEARDOWN, True), (PASSES, False)],
+    ids=["fails in the call", "fails in the teardown", "passes"],
+)
+def test_a_failed_test_prints_its_timeline_in_the_call_and_the_teardown(
+    pytester: pytest.Pytester, test_source: str, prints: bool
+) -> None:
+    pytester.makeini(f"[pytest]\npythonpath = {REPOSITORY_ROOT} {REPOSITORY_ROOT / 'src'}\n")
+    pytester.makeconftest(INNER_CONFTEST)
+    pytester.makepyfile(test_source)
+
+    result = pytester.runpytest_subprocess("-p", "no:cacheprovider")
+
+    assert (TIMELINE in result.stdout.str()) is prints
