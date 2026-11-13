@@ -1,8 +1,0 @@
-claim_id = "99679d94b3674917a4264433f2066ce0"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "3977e135855a320398ea846db4b4b2ab7cd45a83"
-branch = "claude/issue-501-a-reloaded-call-frame-greets-again"
-scope = ["frontend/src/lib/callFrame.test.ts", "frontend/src/lib/callFrame.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/support/call_frame.py", "tests/e2e/test_call_greeting.py"]
-opened_commit = "a5a34144afc471d5e7b488bf3644391ead54a41c"
-whole_reason = "the frame's greeting, its page caller and the e2e test and support that drive it are one fix"
