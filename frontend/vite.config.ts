@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
         include: ["src/**/*.test.ts"],
         coverage: {
             provider: "v8",
-            include: ["src/lib/**/*.ts", "src/routes/(start)/tables.ts"],
+            include: ["src/lib/**/*.ts", "src/routes/(start)/tables.ts", "src/routes/(start)/lobby.ts"],
             // wire.ts is generated.
             // The words loader is generated and has no caller until the prerendering load of a second language lands.
             exclude: ["src/lib/**/wire.ts", "src/lib/**/words/index.ts", "**/*.test.ts"],
