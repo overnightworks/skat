@@ -50,6 +50,7 @@ export type Words = {
     readonly "table.reconnecting": string;
     readonly "table.sitDown": string;
     readonly "table.standUp": string;
+    readonly "table.standUpArmed": string;
     readonly "table.seatTaken": string;
     readonly "table.commandFailed": string;
     readonly "table.bidding": string;
@@ -191,6 +192,8 @@ export type Words = {
     readonly "agents.pill": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
     readonly "table.agentLeft": (gaps: { readonly name: string }) => string;
+    readonly "table.standUpNotice": (gaps: { readonly name: string }) => string;
+    readonly "table.chairLocked": string;
     readonly "table.playsOn": (gaps: { readonly name: string }) => string;
     readonly "table.sitQuestion": string;
     readonly "table.sitQuestionCancel": string;
@@ -344,6 +347,7 @@ export const words: Words = {
     "table.reconnecting": "verbinde neu",
     "table.sitDown": "Hinsetzen",
     "table.standUp": "Aufstehen",
+    "table.standUpArmed": "Wirklich aufstehen?",
     "table.seatTaken": "Platz vergeben",
     "table.commandFailed": "Das hat nicht geklappt",
     "table.bidding": "Reizen",
@@ -520,6 +524,8 @@ export const words: Words = {
     "agents.pill": "Agenten",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
     "table.agentLeft": (gaps: { readonly name: string }) => gaps.name + " ist gegangen",
+    "table.standUpNotice": (gaps: { readonly name: string }) => gaps.name + " ist aufgestanden",
+    "table.chairLocked": "Gesperrt",
     "table.playsOn": (gaps: { readonly name: string }) => gaps.name + " spielt weiter",
     "table.sitQuestion": "Mitten ins Spiel setzen?",
     "table.sitQuestionCancel": "Abbrechen",

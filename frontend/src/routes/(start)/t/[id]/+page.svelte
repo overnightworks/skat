@@ -16,7 +16,7 @@
     import { giveUpView } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
-    import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
+    import { handWaits, lockedChairs, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import { gameInPlay, sideNames, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
@@ -39,6 +39,7 @@
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import FreeChairTile from "#lib/ui/FreeChairTile.svelte";
+    import LockedChairTile from "#lib/ui/LockedChairTile.svelte";
     import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
@@ -53,6 +54,7 @@
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
+    import StandKey from "#lib/ui/StandKey.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
@@ -233,9 +235,10 @@
         );
     });
 
-    // While a hand runs the sit asks first, because the sitter takes over the open chair's cards.
-    function tapFreeChair(chairSeat: number, handRuns: boolean): void {
-        if (handRuns) asking = chairSeat;
+    // While a hand runs the sit asks first, because the sitter takes over the open chair's cards; a person returns to
+    // her own chair without the question.
+    function tapFreeChair(chairSeat: number, handRuns: boolean, returning: boolean): void {
+        if (handRuns && !returning) asking = chairSeat;
         else void seat(sitDown(id, chairSeat, crypto.randomUUID()));
     }
 
@@ -341,6 +344,7 @@
             {@const ramsch = ramschPlaque(outcome.table)}
             {@const trick = inPlay?.playing ?? ramschTrick(outcome.table)}
             {@const waits = handWaits(outcome.table.hand)}
+            {@const locked = lockedChairs(outcome.table)}
             {@const turnSeat = waits ? undefined : inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
             {@const view = declared === null ? null : resultView(outcome.table)}
@@ -602,10 +606,12 @@
                             {/if}
                         {:else if seated}
                             <span class="tile empty"></span>
+                        {:else if locked.has(chair.seat)}
+                            <LockedChairTile />
                         {:else}
                             <FreeChairTile
                                 ontap={() => {
-                                    tapFreeChair(chair.seat, waits);
+                                    tapFreeChair(chair.seat, waits, chair.is_mine_to_return);
                                 }}
                             />
                         {/if}
@@ -709,23 +715,13 @@
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
-                    {#if seated && outcome.table.hand === null}
-                        <button type="button" class="copy stand" onclick={() => seat(standUp(id, crypto.randomUUID()))}>
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                aria-hidden="true"
-                            >
-                                <path d="M4.5 4v16M4.5 13.5h8.5v6.5" />
-                                <path d="M18.5 15V4M15 7.5l3.5-3.5L22 7.5" />
-                            </svg>
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            <span class="label">{`${words["table.standUp"]}`}</span>
-                        </button>
+                    {#if seated}
+                        <StandKey
+                            handRuns={outcome.table.hand !== null}
+                            onstand={() => {
+                                void seat(standUp(id, crypto.randomUUID()));
+                            }}
+                        />
                     {/if}
                     <AgentsPill tableId={id} {streamedVersion} {seatedAgents} kitWords={data.kitWords} />
                     {#if callMode}
