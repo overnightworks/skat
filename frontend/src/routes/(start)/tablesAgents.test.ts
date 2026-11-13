@@ -516,7 +516,7 @@ describe("the agent that sat down", () => {
         expect(seatedAgentsKey(before, after)).not.toBe(seatedAgentsKey(undefined, before));
     });
 
-    it("differs when an agent's name that ends in a version replaces the chair after a skipped wake", () => {
+    it("differs when a plain-named agent replaces an agent whose name ends in the skipped version", () => {
         const before = { ...tableOf(chairOf(2, "Nova@6", "agent")), version: 4 };
         const after = { ...tableOf(chairOf(2, "Nova", "agent")), version: 6 };
 
