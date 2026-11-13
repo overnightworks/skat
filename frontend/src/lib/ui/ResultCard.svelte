@@ -82,6 +82,16 @@
     {#if view.raise !== null}
         <div class="miss">{view.raise}</div>
     {/if}
+    {#if view.doublings.length > 0}
+        <div class="ladder" role="list">
+            {#each view.doublings as doubling (doubling)}
+                <span role="listitem" class="held">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                    <span>{doubling}</span>
+                </span>
+            {/each}
+        </div>
+    {/if}
     <div class="value-row">
         {#if view.doubled}
             <span class="x2">×2</span>
