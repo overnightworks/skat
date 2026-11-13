@@ -1,8 +1,9 @@
 import { words } from "#lib/words.ts";
 import type { Chair, Hand, Table } from "../routes/(start)/tables.ts";
 
-// The sentence the others read once about a chair of the running hand; a null initial draws the agent's mark.
-export type SeatNotice = { text: string; initial: string | null };
+// The sentence the others read once about a chair; a null initial draws the agent's mark. It tells that the chair at
+// `seat` is occupied or not, and stands only while the chair stays so.
+export type SeatNotice = { text: string; initial: string | null; seat: number; occupied: boolean };
 
 // Names ending in these letters take the apostrophe of the genitive instead of an s.
 const APOSTROPHE_ENDINGS = /(?:[sßxz]|ce)$/i;
@@ -27,17 +28,18 @@ function chairAt(chairs: readonly Chair[], seat: number): Chair | undefined {
 }
 
 // A chair of the running hand that is open now and was held a moment before by an agent or by another person; the one
-// who stood up reads no notice about herself.
+// who stood up reads no notice about herself, and a viewer without a chair of the hand reads none.
 function chairLeft(previous: Table, table: Table): SeatNotice | null {
-    if (!handWaits(table.hand)) return null;
+    if (!handWaits(table.hand) || !table.chairs.some((chair) => chair.is_mine)) return null;
     const left = previous.chairs.find(
         (was) => !was.is_mine && was.occupant_name !== null && chairAt(table.chairs, was.seat)?.occupant_name === null,
     );
     if (left === undefined) return null;
     const name = left.occupant_name as string;
+    const { seat } = left;
     return left.occupant_kind === "agent"
-        ? { text: words["table.agentLeft"]({ name }), initial: null }
-        : { text: words["table.standUpNotice"]({ name }), initial: name.slice(0, 1) };
+        ? { text: words["table.agentLeft"]({ name }), initial: null, seat, occupied: false }
+        : { text: words["table.standUpNotice"]({ name }), initial: name.slice(0, 1), seat, occupied: false };
 }
 
 // A chair that was open in the running hand and is taken now, by a person or an agent; the one who sat reads no notice
@@ -52,6 +54,8 @@ function openChairTaken(previous: Table, table: Table): SeatNotice | null {
     return {
         text: words["table.playsOn"]({ name }),
         initial: taker.occupant_kind === "agent" ? null : name.slice(0, 1),
+        seat: taker.seat,
+        occupied: true,
     };
 }
 
@@ -60,6 +64,13 @@ function openChairTaken(previous: Table, table: Table): SeatNotice | null {
 // taken between hands is the agent notice's.
 export function seatNotice(previous: Table, table: Table): SeatNotice | null {
     return chairLeft(previous, table) ?? openChairTaken(previous, table);
+}
+
+// The notice a viewer still reads on a streamed table: it goes as soon as its chair changes hands again.
+export function noticeStanding(shown: SeatNotice | null, table: Table): SeatNotice | null {
+    if (shown === null) return null;
+    const occupied = chairAt(table.chairs, shown.seat)?.occupant_name !== null;
+    return occupied === shown.occupied ? shown : null;
 }
 
 // The first tap on the stand-up key arms it while a hand runs, so a stray tap does not open the chair; the second tap,

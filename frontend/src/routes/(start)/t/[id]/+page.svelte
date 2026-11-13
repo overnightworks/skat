@@ -17,7 +17,7 @@
     import { giveUpAsk, giveUpView } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
-    import { handWaits, lockedChairs, seatNotice, type SeatNotice } from "#lib/openChair.ts";
+    import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
         bidOfGameDeclaredInTheStage,
         gameInPlay,
@@ -146,6 +146,7 @@
             clearTimeout(seatNoteTimer);
             seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
         }
+        seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
