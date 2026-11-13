@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handWaits, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
-import type { Chair, Hand, Table } from "../routes/(start)/tables.ts";
+import { declarerStage, type Chair, type Hand, type Table } from "../routes/(start)/tables.ts";
 
 const OPEN_SEAT = 3;
 
@@ -138,5 +138,23 @@ describe("the notice to the others about a chair of the running hand", () => {
         const after = tableOf(null, felix, anna, novaThere);
 
         expect(seatNotice(before, after)).toBeNull();
+    });
+});
+
+describe("the declarer's step", () => {
+    const declaring = (waitingSeat: number | null): Table => ({
+        ...tableOf({
+            ...handOf(waitingSeat),
+            declaring: { declarer_seat: 1, stage: "choosing", declaration: null, open_cards: [] },
+        }),
+        chairs: [{ ...felix, is_mine: true }, anna],
+    });
+
+    it("is the stage the declarer must act on while every chair is taken", () => {
+        expect(declarerStage(declaring(null))).toBe("choosing");
+    });
+
+    it("is none while the hand waits for a sitter", () => {
+        expect(declarerStage(declaring(OPEN_SEAT))).toBeNull();
     });
 });

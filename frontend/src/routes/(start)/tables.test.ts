@@ -534,6 +534,7 @@ describe("what the declaring stage asks of this viewer", () => {
             ready: false,
             total: null,
             hand: null,
+            former_holder_name: null,
         }));
     const bidWon = { seat: 2, value: 20 };
     const tableWith = (declaring: Declaring | null, mine: number): Table => ({
@@ -664,6 +665,7 @@ describe("the table's seats and link", () => {
         ready: false,
         total: null,
         hand: null,
+        former_holder_name: null,
     });
 
     afterEach(() => {

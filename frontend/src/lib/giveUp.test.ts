@@ -19,6 +19,7 @@ function chairs(mine: number): Chair[] {
         ready: false,
         total: null,
         hand: { position: "forehand", card_count: 9 },
+        former_holder_name: null,
     }));
 }
 

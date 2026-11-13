@@ -14,6 +14,7 @@
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpView } from "#lib/giveUp.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
+    import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
@@ -22,6 +23,7 @@
     import BackFan from "#lib/ui/BackFan.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
+    import CardSprite from "#lib/ui/CardSprite.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
@@ -31,6 +33,7 @@
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
+    import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
@@ -61,7 +64,7 @@
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
-    const AGENT_SITS_MILLISECONDS = 4000;
+    const SEAT_NOTICE_MILLISECONDS = 4000;
 
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
@@ -80,18 +83,21 @@
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
-    // The sentence that names the agent who has just sat down.
-    let agentSat = $state<string | null>(null);
-    let agentSatTimer: ReturnType<typeof setTimeout> | undefined;
+    // The sentence that names who has just left or taken a chair of the table.
+    let seatNote = $state<SeatNotice | null>(null);
+    let seatNoteTimer: ReturnType<typeof setTimeout> | undefined;
+    // The free chair whose tap asks the question before a sit, while a hand runs.
+    let asking = $state<number | null>(null);
 
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
-        const sitsNote = previous === undefined ? null : agentSitsNote(previous, table);
-        if (sitsNote !== null) {
-            agentSat = sitsNote;
-            clearTimeout(agentSatTimer);
-            agentSatTimer = setTimeout(() => (agentSat = null), AGENT_SITS_MILLISECONDS);
+        const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
+        if (note !== null) {
+            seatNote = note;
+            clearTimeout(seatNoteTimer);
+            seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
         }
+        if (!handWaits(table.hand)) asking = null;
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
         const cues = cuesBetween(previous, table);
         soundForCues(cues, table);
@@ -114,7 +120,8 @@
         attention = 0;
         justWon = false;
         streamedVersion = null;
-        agentSat = null;
+        seatNote = null;
+        asking = null;
         playedThisHand = [];
         let current = true;
         let stopWatching = (): void => {};
@@ -148,7 +155,7 @@
         return () => {
             current = false;
             clearTimeout(wonTimer);
-            clearTimeout(agentSatTimer);
+            clearTimeout(seatNoteTimer);
             stopWatching();
         };
     });
@@ -157,7 +164,7 @@
     const ownTurnLadder = $derived.by(() => {
         if (outcome?.kind !== "table" || outcome.table.hand === null) return null;
         const viewerSeat = outcome.table.chairs.find((chair) => chair.is_mine)?.seat;
-        return bidLadder(outcome.table.hand.auction, viewerSeat);
+        return bidLadder(outcome.table.hand.auction, viewerSeat, handWaits(outcome.table.hand));
     });
     // The version a step was sent from: the controls stay off until a newer version arrives or the step fails.
     let sentFromVersion: number | null = $state(null);
@@ -188,6 +195,12 @@
             },
         );
     });
+
+    // While a hand runs the sit asks first, because the sitter takes over the open chair's cards.
+    function tapFreeChair(chairSeat: number, handRuns: boolean): void {
+        if (handRuns) asking = chairSeat;
+        else void seat(sitDown(id, chairSeat, crypto.randomUUID()));
+    }
 
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words["table.linkCopied"] : words["table.linkCopyFailed"];
@@ -238,59 +251,15 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
+{#snippet waitingLine()}
+    <span class="gives">
+        {words["table.waitingForPlayers"]}
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </span>
+{/snippet}
+
 <div class="room" class:framed={callMode} data-theme="dark">
-    <!-- Kept out of layout with zero size: display:none would break the gradient references in Chrome. -->
-    <svg class="sprite" width="0" height="0" aria-hidden="true">
-        <defs>
-            <symbol id="suit-kreuz" viewBox="0 0 100 100">
-                <circle cx="50" cy="28" r="19" />
-                <circle cx="27" cy="58" r="19" />
-                <circle cx="73" cy="58" r="19" />
-                <circle cx="50" cy="52" r="12" />
-                <path d="M45 58C45 77 40 88 30 96H70C60 88 55 77 55 58Z" />
-            </symbol>
-            <symbol id="suit-pik" viewBox="0 0 100 100">
-                <path
-                    d="M50 4C62 26 93 40 93 63C93 77 82 85 70 85C62 85 56 81 53 75C54 85 58 92 67 96H33C42 92 46 85 47 75C44 81 38 85 30 85C18 85 7 77 7 63C7 40 38 26 50 4Z"
-                />
-            </symbol>
-            <symbol id="suit-herz" viewBox="0 0 100 100">
-                <path
-                    d="M50 92C22 69 5 52 5 32C5 17 16 7 30 7C39 7 46 12 50 21C54 12 61 7 70 7C84 7 95 17 95 32C95 52 78 69 50 92Z"
-                />
-            </symbol>
-            <symbol id="suit-karo" viewBox="0 0 100 100">
-                <path d="M50 3Q68 29 90 50Q68 71 50 97Q32 71 10 50Q32 29 50 3Z" />
-            </symbol>
-            <symbol id="court-king" viewBox="0 0 100 70">
-                <path d="M14 52L8 14L32 34L50 6L68 34L92 14L86 52Z" />
-                <rect x="14" y="56" width="72" height="9" rx="3" />
-                <circle cx="8" cy="12" r="5" />
-                <circle cx="50" cy="5" r="5" />
-                <circle cx="92" cy="12" r="5" />
-            </symbol>
-            <symbol id="court-queen" viewBox="0 0 100 70">
-                <path d="M10 60Q50 8 90 60Q50 42 10 60Z" />
-                <circle cx="50" cy="20" r="7" />
-                <circle cx="27" cy="38" r="5" />
-                <circle cx="73" cy="38" r="5" />
-                <rect x="10" y="60" width="80" height="6" rx="3" />
-            </symbol>
-            <symbol id="court-jack" viewBox="0 0 100 70">
-                <path d="M12 62Q22 30 52 28Q80 28 88 62Z" />
-                <path d="M58 30Q70 6 96 2Q86 18 66 36Z" />
-                <rect x="10" y="60" width="80" height="7" rx="3" />
-            </symbol>
-            <linearGradient id="card-fill" x1="0" y1="0" x2=".4" y2="1">
-                <stop offset="0" stop-color="#fffdf7" />
-                <stop offset="1" stop-color="#efe9da" />
-            </linearGradient>
-            <linearGradient id="court-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#fbf3df" />
-                <stop offset="1" stop-color="#f1e4c4" />
-            </linearGradient>
-        </defs>
-    </svg>
+    <CardSprite />
     {#if !greeted}
         <header class="bar">
             {#if callMode}
@@ -336,7 +305,8 @@
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
-            {@const turnSeat = inPlay?.playing.turn_seat}
+            {@const waits = handWaits(outcome.table.hand)}
+            {@const turnSeat = waits ? undefined : inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
             {@const settledDeclarerSeat = declared?.declarer_seat ?? inPlay?.declarerSeat}
             {@const view = declared === null ? null : resultView(outcome.table)}
@@ -354,7 +324,9 @@
                     {:else}
                         <span>{`${words["table.bidValue"]} ${String(deciding.value)}`}</span>
                         <span class="gives">
-                            {`${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}
+                            {deciding.kind === "waiting"
+                                ? words["table.waitingForPlayers"]
+                                : `${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
@@ -375,7 +347,7 @@
                         }}
                     />
                 {:else}
-                    <div class="plaque" class:wide={label.announcement !== null}>
+                    <div class="plaque" class:wide={label.announcement !== null} class:deciding={waits}>
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}
                                 <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -387,11 +359,14 @@
                                 <span class="announced">{label.announcement}</span>
                             {/if}
                         </span>
+                        {#if waits}
+                            {@render waitingLine()}
+                        {/if}
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
                 {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
-                <div class="plaque" class:hand-over={passedIn !== null}>
+                <div class="plaque" class:hand-over={passedIn !== null} class:deciding={waits}>
                     {#if passedIn !== null}
                         <span class="verdict">{words["table.passedIn"]}</span>
                         {#if passedIn.dealerName !== null}
@@ -403,11 +378,14 @@
                     {:else if outcome.table.hand === null}
                         <span>{words["table.waitingForPlayers"]}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                    {:else if awayName}
+                    {:else if awayName && !waits}
                         <span>{`${words["table.waitingFor"]} ${awayName}`}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else}
                         <span>{words["table.bidding"]}</span>
+                        {#if waits}
+                            {@render waitingLine()}
+                        {/if}
                     {/if}
                 </div>
             {/if}
@@ -442,8 +420,8 @@
                         passedIn !== null
                             ? PASSED_IN_MARKS
                             : declaring
-                              ? decidingMarks(declaring, chair.seat, justWon)
-                              : chairMarks(auction, chair.seat, ownChair?.seat)}
+                              ? decidingMarks(declaring, chair.seat, justWon, waits)
+                              : chairMarks(auction, chair.seat, ownChair?.seat, waits)}
                     {@const openCards = chair.seat === declaring?.declarer_seat ? declaring.open_cards : []}
                     <li
                         class="chair"
@@ -590,7 +568,9 @@
                                 type="button"
                                 class="tile empty free"
                                 aria-label={words["table.sitDown"]}
-                                onclick={() => seat(sitDown(id, chair.seat, crypto.randomUUID()))}
+                                onclick={() => {
+                                    tapFreeChair(chair.seat, waits);
+                                }}
                             >
                                 <svg
                                     viewBox="0 0 24 24"
@@ -753,14 +733,33 @@
                 </div>
                 <p class="note" role="status">{note}</p>
             </div>
-            {#if agentSat !== null}
+            {#if seatNote !== null}
                 <p class="notice" role="status">
-                    <span class="dot agent" aria-hidden="true">
-                        <AgentSparkle />
-                    </span>
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {agentSat} compiles to a `?? ""` branch no sentence can take -->
-                    <span class="label">{`${agentSat}`}</span>
+                    {#if seatNote.initial === null}
+                        <span class="dot agent" aria-hidden="true">
+                            <AgentSparkle />
+                        </span>
+                    {:else}
+                        <span class="dot" aria-hidden="true">{seatNote.initial}</span>
+                    {/if}
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {seatNote.text} compiles to a `?? ""` branch no sentence can take -->
+                    <span class="label">{`${seatNote.text}`}</span>
                 </p>
+            {/if}
+            {@const asked = waits
+                ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)
+                : undefined}
+            {#if asked !== undefined}
+                <SitQuestion
+                    formerHolder={asked.former_holder_name}
+                    onsit={() => {
+                        asking = null;
+                        void seat(sitDown(id, asked.seat, crypto.randomUUID()));
+                    }}
+                    oncancel={() => {
+                        asking = null;
+                    }}
+                />
             {/if}
             {#if taken !== null}
                 <p class="notice" role="status">

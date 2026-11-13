@@ -1,3 +1,4 @@
+import { handWaits } from "#lib/openChair.ts";
 import {
     declarerStage,
     type Auction,
@@ -30,37 +31,47 @@ function bubbleOf(auction: Auction, seat: number): Bubble | null {
     return { kind: word.action, value: word.value as number };
 }
 
-// What a chair carries while the auction runs, as one viewer sees it; nothing before a deal or once it is over.
-export function chairMarks(auction: Auction | undefined, seat: number, viewerSeat: number | undefined): ChairMarks {
+// What a chair carries while the auction runs, as one viewer sees it; nothing before a deal or once it is over. While
+// the hand waits for a sitter nobody is on turn, so no chair carries the turn or the wait for the viewer.
+export function chairMarks(
+    auction: Auction | undefined,
+    seat: number,
+    viewerSeat: number | undefined,
+    waiting: boolean,
+): ChairMarks {
     if (auction === undefined || auction.awaiting === null) return NO_MARKS;
     return {
         bubble: bubbleOf(auction, seat),
         passed: auction.words.some((word) => word.seat === seat && word.action === "pass"),
-        turn: auction.turn_seat === seat,
-        waits: auction.turn_seat === viewerSeat && auction.facing_seat === seat,
+        turn: !waiting && auction.turn_seat === seat,
+        waits: !waiting && auction.turn_seat === viewerSeat && auction.facing_seat === seat,
         declarer: null,
     };
 }
 
-// While the declarer decides, the declarer carries the mark and the turn for every viewer; at the moment the
-// auction ended the other two carry the pass mark. Nothing once the game is declared.
-export function decidingMarks(declaring: Declaring, seat: number, justWon: boolean): ChairMarks {
+// While the declarer decides, the declarer carries the mark and the turn for every viewer, the turn only while the
+// hand does not wait for a sitter; at the moment the auction ended the other two carry the pass mark. Nothing once the
+// game is declared.
+export function decidingMarks(declaring: Declaring, seat: number, justWon: boolean, waiting: boolean): ChairMarks {
     if (declaring.stage === "declared") return NO_MARKS;
     const won = justWon && declaring.stage === "choosing";
     if (seat !== declaring.declarer_seat) return { ...NO_MARKS, passed: won };
-    return { ...NO_MARKS, turn: true, declarer: won ? "won" : "decl" };
+    return { ...NO_MARKS, turn: !waiting, declarer: won ? "won" : "decl" };
 }
 
 // The wait that the others see: the picked stage reads as the discarding, because to them it is the same wait.
-export type DecidingPlaque = { kind: "won" | "choosing" | "discarding"; name: string; value: number };
+// While the hand waits for a sitter every viewer, the declarer too, reads the value over the wait.
+export type DecidingPlaque =
+    { kind: "won" | "choosing" | "discarding"; name: string; value: number } | { kind: "waiting"; value: number };
 
 // What the plaque says to an opponent or a watcher; the declarer's own view keeps the value alone.
 export function decidingPlaque(table: Table, justWon: boolean): DecidingPlaque | null {
     const declaring = table.hand?.declaring;
     const value = table.hand?.auction.declared?.value;
     const name = table.chairs.find((chair) => chair.seat === declaring?.declarer_seat)?.occupant_name;
-    if (!declaring || declaring.stage === "declared" || declarerStage(table) !== null) return null;
-    if (value === undefined || !name) return null;
+    if (!declaring || declaring.stage === "declared" || value === undefined) return null;
+    if (handWaits(table.hand)) return { kind: "waiting", value };
+    if (declarerStage(table) !== null || !name) return null;
     if (declaring.stage === "choosing") return { kind: justWon ? "won" : "choosing", name, value };
     return { kind: "discarding", name, value };
 }

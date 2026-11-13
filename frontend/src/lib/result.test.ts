@@ -16,6 +16,7 @@ function chairs(mine: number, changes: Record<number, Partial<Chair>> = {}): Cha
         ready: false,
         total: null,
         hand: null,
+        former_holder_name: null,
         ...changes[seat],
     }));
 }

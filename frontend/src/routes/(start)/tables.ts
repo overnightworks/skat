@@ -1,6 +1,7 @@
 import type { AgentControlRefusal } from "overnightworks-design";
 import { isFramedInCallMode } from "#lib/callFrame.ts";
 import { openStream } from "#lib/stream.ts";
+import { handWaits, type SeatNotice } from "#lib/openChair.ts";
 import {
     type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
@@ -110,6 +111,8 @@ export type Chair = {
     // a later series reads 0 from its first deal.
     total: number | null;
     hand: ChairHand | null;
+    // Whoever held the chair in the running hand and left it, while it stays open; the same for every viewer.
+    former_holder_name: string | null;
 };
 // A Ramsch result is a result with an ordinal; the page draws no card for it.
 export type RamschResult = { kind: "ramsch"; ordinal: number };
@@ -365,11 +368,13 @@ export function tablePath(id: string): string {
 }
 
 // The sentence that names an agent who sat down between two streamed views: a chair that was free and now holds an agent.
-export function agentSitsNote(previous: Table, table: Table): string | null {
+// A chair that was open in the running hand is not this note's: the sitter there is told as one who plays on.
+export function agentSitsNote(previous: Table, table: Table): SeatNotice | null {
+    if (handWaits(previous.hand)) return null;
     const freed = new Set(previous.chairs.filter((chair) => chair.occupant_name === null).map((chair) => chair.seat));
     const sat = table.chairs.find((chair) => chair.occupant_kind === "agent" && freed.has(chair.seat));
     const name = sat?.occupant_name ?? null;
-    return name === null ? null : words["table.agentSits"]({ name });
+    return name === null ? null : { text: words["table.agentSits"]({ name }), initial: null };
 }
 
 // The seats in drawing order: the viewer's own chair comes last, which is the one at the bottom.
@@ -391,10 +396,11 @@ export function bidValueWhileDeclaring(table: Table): number | null {
     return hand.auction.declared?.value ?? null;
 }
 
-// The stage this viewer must act on: only the declarer acts, and only until the game is declared.
+// The stage this viewer must act on: only the declarer acts, and only until the game is declared and while the hand
+// does not wait for a sitter.
 export function declarerStage(table: Table): Exclude<Stage, "declared"> | null {
     const declaring = table.hand?.declaring;
-    if (!declaring || declaring.stage === "declared") return null;
+    if (!declaring || declaring.stage === "declared" || handWaits(table.hand)) return null;
     const mine = table.chairs.some((chair) => chair.is_mine && chair.seat === declaring.declarer_seat);
     return mine ? declaring.stage : null;
 }
