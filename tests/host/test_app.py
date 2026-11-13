@@ -451,8 +451,7 @@ class UnplayedTables:
 
     @staticmethod
     async def free_after_a_turn(free):
-        """Frees the hold on the turn after the lifespan began to stop, which the stop's first wait yields."""
-        await asyncio.sleep(0)
+        """Frees the hold once the stop is under way: the task first runs when the lifespan exit yields."""
         free.set()
 
     def ended(self, table_id):
