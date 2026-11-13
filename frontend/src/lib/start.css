@@ -277,8 +277,6 @@ body {
 }
 
 .room {
-    /* The turn chair's ring is wider than a 900 to 1000 px screen: it is clipped at the edge, the page never scrolls sideways. */
-    overflow-x: clip;
     --on-stage: #f4f6f8;
     --on-stage-soft: rgba(244, 246, 248, 0.72);
     --glass-dark: rgba(12, 14, 17, 0.55);
@@ -289,7 +287,7 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
-    /* Nothing inside the room widens the page: a phone that widened its layout for one stray element would hand the open agents' list a width to place itself against that the list then holds up by itself. */
+    /* The turn chair's ring is wider than a 900 to 1000 px screen: it is clipped at the edge, the page never scrolls sideways. Nothing inside the room widens the page: a phone that widened its layout for one stray element would hand the open agents' list a width to place itself against that the list then holds up by itself. */
     overflow-x: clip;
     color: var(--on-stage);
     font-family: "Open Sans", Arial, sans-serif;
