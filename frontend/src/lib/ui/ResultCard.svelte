@@ -1,4 +1,6 @@
 <script lang="ts">
+    import type { Attachment } from "svelte/attachments";
+
     import type { ResultView } from "#lib/result.ts";
     import { ALL_POINTS } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
@@ -7,6 +9,13 @@
 
     // A card that counts is one that appeared while the page watched; each won gain on it counts up to its value.
     let { view, counts = false }: { view: ResultView; counts?: boolean } = $props();
+
+    // The stylesheet's count reads its target from the element, set as a property so no style attribute carries it.
+    function countTo(gain: number): Attachment<HTMLElement> {
+        return (element) => {
+            element.style.setProperty("--to", String(gain));
+        };
+    }
 </script>
 
 {#snippet suitMark(suit: Suit)}
@@ -148,7 +157,7 @@
                     class="dl"
                     class:minus={row.gain <= 0}
                     class:count={counting}
-                    style:--to={counting ? row.gain : undefined}>{row.gainText}</span
+                    {@attach counting ? countTo(row.gain) : undefined}>{row.gainText}</span
                 >
             </div>
         {/each}
