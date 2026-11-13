@@ -308,7 +308,7 @@ describe("the page's sound", () => {
 
         soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
 
-        expect(started.length).toBe(voices);
+        expect(started).toHaveLength(voices);
     });
 
     async function loudnessOfStored(stored: object): Promise<number> {
@@ -343,7 +343,7 @@ describe("the page's sound", () => {
 
         await previewSound();
 
-        expect(started.length).toBe(FUNKELN_VOICES + WAKING_SAMPLE_STARTS);
+        expect(started).toHaveLength(FUNKELN_VOICES + WAKING_SAMPLE_STARTS);
     });
 
     it.each([
