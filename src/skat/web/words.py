@@ -164,6 +164,13 @@ type Key = Literal[
     'agents.refusalAgentUnavailable',
     'agents.refusalTryAgain',
     'table.agentSits',
+    'table.agentLeft',
+    'table.playsOn',
+    'table.sitQuestion',
+    'table.sitQuestionCancel',
+    'table.takeOverNamed',
+    'table.takeOverApostrophe',
+    'table.takeOverUnnamed',
     'logout.button',
 ]
 type Language = Literal[
@@ -359,6 +366,13 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'agents.refusalAgentUnavailable': 'Der Agent ist gerade nicht erreichbar.',
         'agents.refusalTryAgain': 'Das hat nicht geklappt. Versuch es noch einmal.',
         'table.agentSits': '{name} setzt sich',
+        'table.agentLeft': '{name} ist gegangen',
+        'table.playsOn': '{name} spielt weiter',
+        'table.sitQuestion': 'Mitten ins Spiel setzen?',
+        'table.sitQuestionCancel': 'Abbrechen',
+        'table.takeOverNamed': 'Du übernimmst {name}s Karten.',
+        'table.takeOverApostrophe': 'Du übernimmst {name}’ Karten.',
+        'table.takeOverUnnamed': 'Du übernimmst die Karten dieses Platzes.',
         'logout.button': 'Abmelden',
     },
 }

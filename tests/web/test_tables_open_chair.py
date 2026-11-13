@@ -173,6 +173,29 @@ class TestTheAnswersSayTheHandWaits:
         assert [answer["hand"]["waiting_seat"] for answer in seen] == [SENT_SEAT] * 3
         assert [answer["chairs"][SENT_SEAT - 1]["occupant_name"] for answer in seen] == [None] * 3
 
+    def test_every_viewer_reads_the_name_the_chair_showed_before_as_its_former_holder(self, skat, issuer):
+        table = WaitingTable(skat, issuer)
+        name = table.person_reads()["chairs"][SENT_SEAT - 1]["occupant_name"]
+        table.send_the_second_agent_away()
+
+        seen = [
+            table.person_reads(),
+            table.staying.read(table.table_id).json(),
+            table.sent.read(table.table_id).json(),
+        ]
+
+        assert name
+        assert [[chair["former_holder_name"] for chair in answer["chairs"]] for answer in seen] == [
+            [None, name, None]
+        ] * 3
+
+    def test_a_sitter_leaves_no_former_holder(self, waiting):
+        waiting.newcomer.admitted()
+
+        sat = waiting.newcomer.sit_down(waiting.table_id, SENT_SEAT, command_id="agent-sit-newcomer")
+
+        assert [chair["former_holder_name"] for chair in sat.json()["chairs"]] == [None] * 3
+
     def test_no_value_card_or_account_is_offered_in_the_answer(self, waiting):
         answer = waiting.staying.read(waiting.table_id).json()
 

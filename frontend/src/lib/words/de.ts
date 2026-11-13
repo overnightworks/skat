@@ -162,6 +162,13 @@ export type Words = {
     readonly "agents.refusalAgentUnavailable": string;
     readonly "agents.refusalTryAgain": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
+    readonly "table.agentLeft": (gaps: { readonly name: string }) => string;
+    readonly "table.playsOn": (gaps: { readonly name: string }) => string;
+    readonly "table.sitQuestion": string;
+    readonly "table.sitQuestionCancel": string;
+    readonly "table.takeOverNamed": (gaps: { readonly name: string }) => string;
+    readonly "table.takeOverApostrophe": (gaps: { readonly name: string }) => string;
+    readonly "table.takeOverUnnamed": string;
     readonly "logout.button": string;
 };
 // prettier-ignore
@@ -365,6 +372,13 @@ export const words: Words = {
     "agents.refusalAgentUnavailable": "Der Agent ist gerade nicht erreichbar.",
     "agents.refusalTryAgain": "Das hat nicht geklappt. Versuch es noch einmal.",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
+    "table.agentLeft": (gaps: { readonly name: string }) => gaps.name + " ist gegangen",
+    "table.playsOn": (gaps: { readonly name: string }) => gaps.name + " spielt weiter",
+    "table.sitQuestion": "Mitten ins Spiel setzen?",
+    "table.sitQuestionCancel": "Abbrechen",
+    "table.takeOverNamed": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "s Karten.",
+    "table.takeOverApostrophe": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "’ Karten.",
+    "table.takeOverUnnamed": "Du übernimmst die Karten dieses Platzes.",
     "logout.button": "Abmelden",
 };
 export type Key = keyof Words;

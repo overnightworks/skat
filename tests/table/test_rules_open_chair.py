@@ -559,7 +559,7 @@ class TestAStandUpDuringAHand:
             table.series,
             table.bock,
         )
-        assert replace(freed.progress, seats_held=frozenset()) == table.progress
+        assert replace(freed.progress, seats_held=frozenset(), former_holders=frozenset()) == table.progress
         assert freed.progress.seats_held == frozenset({SeatHeld(leaver.account_id, MIDDLEHAND_SEAT)})
 
     @pytest.mark.parametrize("phase", PHASES)

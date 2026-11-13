@@ -144,6 +144,19 @@ class TestTheSeatMarkAcrossTheStore:
 
         assert (first.refusal, again.refusal) == (Refusal.OWN_SEAT_ONLY, Refusal.OWN_SEAT_ONLY)
 
+    def test_the_leavers_name_is_stored_with_the_open_chair_a_restart_reads_and_a_sit_clears_it(
+        self, service, engine, table_id
+    ):
+        send_mozart_away(service, table_id)
+        restarted = TableService(PostgresTableTransactions(engine))
+
+        named = restarted.view(OPENER, table_id, NOBODY)
+        restarted.sit(BACH, SitDown("command-bach", table_id, MOZARTS_SEAT), NOBODY)
+        cleared = restarted.view(OPENER, table_id, NOBODY)
+
+        assert [chair.former_holder_name for chair in named.chairs] == [None, None, MOZART.display_name]
+        assert [chair.former_holder_name for chair in cleared.chairs] == [None, None, None]
+
     def test_a_hand_passed_in_leaves_no_mark_in_any_chair(self, service, engine, table_id):
         send_mozart_away(service, table_id)
         stand_up(service, VISITOR, table_id)
@@ -157,7 +170,8 @@ class TestTheSeatMarkAcrossTheStore:
 
         with engine.connect() as connection:
             held = connection.execute(text("SELECT held_in_hand FROM chairs ORDER BY seat")).scalars().all()
-        assert (stored_table(engine, table_id).hand, held) == (None, [[], [], []])
+            names = connection.execute(text("SELECT former_holder_name FROM chairs ORDER BY seat")).scalars().all()
+        assert (stored_table(engine, table_id).hand, held, names) == (None, [[], [], []], [None] * 3)
 
 
 class TestTwoSitsForTheOpenChair:

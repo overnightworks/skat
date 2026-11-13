@@ -35,6 +35,7 @@ from skat.table.records import (
     EndedTable,
     EndProposal,
     EndReason,
+    FormerHolder,
     GiveUpAsked,
     HandProgress,
     Occupant,
@@ -150,6 +151,7 @@ def _table_record(
             chairs.c.occupant_kind,
             chairs.c.ready,
             chairs.c.held_in_hand,
+            chairs.c.former_holder_name,
         )
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
@@ -178,6 +180,11 @@ def _table_record(
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
             seats_held=frozenset(SeatHeld(account_id, seat.seat) for seat in seats for account_id in seat.held_in_hand),
+            former_holders=frozenset(
+                FormerHolder(seat.seat, seat.former_holder_name)
+                for seat in seats
+                if seat.former_holder_name is not None
+            ),
         ),
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
@@ -285,6 +292,10 @@ class _PostgresTableTransaction:
                     ready=chair.ready,
                     held_in_hand=sorted(
                         mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
+                    ),
+                    former_holder_name=next(
+                        (holder.display_name for holder in table.progress.former_holders if holder.seat == chair.seat),
+                        None,
                     ),
                 )
             )

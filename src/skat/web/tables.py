@@ -294,6 +294,7 @@ class ChairAnswer(BaseModel):
     ready: bool
     hand: ChairHandAnswer | None
     total: int | None
+    former_holder_name: str | None
 
 
 class PassedInAnswer(BaseModel):
@@ -628,6 +629,7 @@ def answer_of(view: TableView) -> TableAnswer:
                 ready=c.ready,
                 hand=chair_hand_answer_of(c.hand),
                 total=c.total,
+                former_holder_name=c.former_holder_name,
             )
             for c in view.chairs
         ],
@@ -730,7 +732,9 @@ def create_tables_router(
         game says how it ended (played-out, given-up or thrown-down) and, for a give-up or a throw-down, the seat that
         did it. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
         it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
-        moves again once someone sits in the chair. A 404 means no table has this id.
+        moves again once someone sits in the chair. A chair's `former_holder_name` is the name of whoever held it in
+        the running hand and left it, the same for every viewer, or null; it is set only while the chair is open.
+        A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.

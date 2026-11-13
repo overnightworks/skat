@@ -12,6 +12,7 @@ from skat.table.records import (
     CreateTable,
     Decision,
     EndProposal,
+    FormerHolder,
     GiveUpAsked,
     HandProgress,
     NewHand,
@@ -150,6 +151,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
             give_up=_give_up_without(table, seat),
             no_words=_no_words_without(table, seat),
             seats_held=_seats_held_after(table, seat, occupant),
+            former_holders=_former_holders_after(table, seat, occupant),
         ),
         game_list=table.game_list,
         series=series,
@@ -164,6 +166,17 @@ def _seats_held_after(table: TableRecord, seat: int, occupant: Occupant | None) 
     if occupant is not None or leaver is None or not hand_runs(table):
         return table.progress.seats_held
     return table.progress.seats_held | {SeatHeld(leaver.account_id, seat)}
+
+
+def _former_holders_after(table: TableRecord, seat: int, occupant: Occupant | None) -> frozenset[FormerHolder]:
+    """The former holders once a chair changes hands: a chair freed in a running hand names its leaver, and one taken
+    names nobody.
+    """
+    leaver = table.chairs[seat - 1].occupant
+    others = frozenset(holder for holder in table.progress.former_holders if holder.seat != seat)
+    if occupant is not None or leaver is None or not hand_runs(table):
+        return others
+    return others | {FormerHolder(seat, leaver.display_name)}
 
 
 def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | None:
