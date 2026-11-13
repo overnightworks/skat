@@ -16,6 +16,7 @@ from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field ty
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.game_list import GameEnding, RamschResultView
+from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import (
     Actor,
@@ -30,7 +31,7 @@ from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.table_options import OptionsAnswer, options_answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from webauth.config import WebAuthConfig
     from webauth.ports import AuthenticatedUser, SessionRecordStore
@@ -39,10 +40,11 @@ if TYPE_CHECKING:
     from skat.table.declaring import DeclaringView
     from skat.table.game_list import ResultView, Standing
     from skat.table.kontra import KontraView
+    from skat.table.nudging import NudgeState
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
-    from skat.table.service import CommandResult, TableService
-    from skat.table.views import ChairHand, HandView, PassedInView, SeriesView, TableView
+    from skat.table.service import TableService
+    from skat.table.views import ChairHand, CommandResult, HandView, PassedInView, SeriesView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -66,9 +68,9 @@ class CommandRequest(BaseModel):
 
 
 class RefusalAnswer(BaseModel):
-    """A command that changed nothing; `holder_name` names who sits in a chair that was taken."""
+    """A command or a nudge that changed nothing; `holder_name` names who sits in a chair that was taken."""
 
-    reason: CommandRefusal
+    reason: CommandRefusal | NudgeRefusal
     holder_name: str | None
 
 
@@ -285,6 +287,17 @@ class HandAnswer(BaseModel):
     pushes: int
 
 
+class NudgeAnswer(BaseModel):
+    """What the viewer is shown of the nudges a chair the table waits for has had at this version: how many, whether
+    the viewer's seat may nudge it (the cap is not reached; the minute is the server's to judge) and, for the nudged
+    seat's own viewer only, the latest nudger's name.
+    """
+
+    nudges: int
+    may_nudge: bool
+    by_name: str | None
+
+
 class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
@@ -294,6 +307,7 @@ class ChairAnswer(BaseModel):
     ready: bool
     hand: ChairHandAnswer | None
     total: int | None
+    nudge: NudgeAnswer | None
 
 
 class PassedInAnswer(BaseModel):
@@ -616,7 +630,14 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
     )
 
 
-def answer_of(view: TableView) -> TableAnswer:
+def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | None:
+    if state is None:
+        return None
+    by_name = None if state.by_seat is None else view.chairs[state.by_seat - 1].occupant_name
+    return NudgeAnswer(nudges=state.nudges, may_nudge=state.may_nudge, by_name=by_name)
+
+
+def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
     return TableAnswer(
         id=view.id,
         version=view.version,
@@ -630,6 +651,7 @@ def answer_of(view: TableView) -> TableAnswer:
                 ready=c.ready,
                 hand=chair_hand_answer_of(c.hand),
                 total=c.total,
+                nudge=nudge_answer_of(view, nudges.get(c.seat)),
             )
             for c in view.chairs
         ],
@@ -676,19 +698,20 @@ async def command_answer(
 ) -> Response | TableAnswer:
     """Run a table command off the event loop; once it committed, wake the table's streams and restart the pause."""
     response.headers["Cache-Control"] = "no-store"
-    try:
-        result = await run_in_threadpool(command, presence.connected(table_id))
-    except CommandIdReusedError:
-        raise HTTPException(status_code=409, detail="command id reused with another request") from None
-    if result is None:
-        raise HTTPException(status_code=404, detail="table not found")
-    if result.refusal is not None:
-        refusal = RefusalAnswer(reason=result.refusal, holder_name=result.holder)
-        return JSONResponse(refusal.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
-    presence.wake_table(table_id)
-    if result.seated_when_hand_ended:
-        presence.restart_deal_pause(table_id)
-    return answer_of(result.view)
+    with presence.waits.reading(table_id):
+        try:
+            result = await run_in_threadpool(command, presence.connected(table_id))
+        except CommandIdReusedError:
+            raise HTTPException(status_code=409, detail="command id reused with another request") from None
+        if result is None:
+            raise HTTPException(status_code=404, detail="table not found")
+        if result.refusal is not None:
+            refusal = RefusalAnswer(reason=result.refusal, holder_name=result.holder)
+            return JSONResponse(refusal.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
+        presence.wake_table(table_id)
+        if result.seated_when_hand_ended:
+            presence.restart_deal_pause(table_id)
+        return answer_of(result.view, presence.waits.nudges_of(result.view))
 
 
 def _create_page_router(page_build: PageBuild, sessions: SessionRecordStore, web_auth: WebAuthConfig) -> APIRouter:
@@ -732,14 +755,18 @@ def create_tables_router(
         game says how it ended (played-out, given-up or thrown-down) and, for a give-up or a throw-down, the seat that
         did it. `hand.waiting_seat` is the open seat a running hand waits for, the same for every viewer, or null: while
         it is set every hand command is refused with seat-open, and no card, bid value or word is offered; the hand
-        moves again once someone sits in the chair. A 404 means no table has this id.
+        moves again once someone sits in the chair. `nudge` on a chair is set for a chair the table waits for: `nudges`
+        is how often it was nudged at this version and `may_nudge` whether the caller may nudge it at all, the cap not
+        reached; whether the minute has passed is judged by nudge_seat. For the chair's own occupant it also names the
+        latest nudger. A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.
-        view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
-        if view is None:
-            raise HTTPException(status_code=404, detail="table not found")
-        return answer_of(view)
+        with presence.waits.reading(table_id):
+            view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
+            if view is None:
+                raise HTTPException(status_code=404, detail="table not found")
+            return answer_of(view, presence.waits.nudges_of(view))
 
     router.include_router(_create_page_router(page_build, sessions, web_auth))
 
