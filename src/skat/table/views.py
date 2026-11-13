@@ -51,7 +51,8 @@ class ChairView:
     by a tap of „Weiter“ or by sitting down while a result is pending, the same for every viewer.
 
     `is_mine_to_return` is true only for the viewer who stood up from this chair of the running hand, whether it is
-    open or taken since: the one chair that viewer may sit in again, so every other open chair is closed to them."""
+    open or taken since: the one chair that viewer may sit in again, so every other open chair is closed to them. It
+    stays true on that chair after the viewer sits there again, until the hand ends."""
 
     seat: int
     occupant_name: str | None
