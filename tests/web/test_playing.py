@@ -15,7 +15,7 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import KNOWN_DEAL, SKAT_CARDS, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import HERZ_GAME, Table, card, card_body, cards, game_of, reason_of, takers
-from tests.web.support.skat import UNKNOWN_ID
+from tests.web.support.skat import UNKNOWN_ID, unnamed_lines
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -278,7 +278,7 @@ def message_body(raw):
 
 def message_at_version(lines, version):
     """The stream's message at a version; someone joining wakes the stream with the old one first."""
-    for line in lines:
+    for line in unnamed_lines(lines):
         if line.startswith("data: ") and message_body(line)["version"] == version:
             return line
     return pytest.fail(f"the stream ended before version {version}")

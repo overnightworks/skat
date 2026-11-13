@@ -7,7 +7,8 @@ chunk carrying the route announcer markup and the version file.
 
 from pathlib import Path
 
-from skat.web.page_build import PageBuild
+from skat.web.page_build import BUILT_LANG, PageBuild
+from skat.web.words import SOURCE_LANGUAGE
 
 FIXTURE_DIRECTORY = Path(__file__).parent / "page_build_fixture"
 # The SHA-256 of the fixture shell's one inline script, written out so no test derives it through production code.
@@ -21,6 +22,11 @@ CALL_PAGE_SCRIPT_HASH = "sha256-dml1HkUAI45VcVj2XqygWD0+6NIfezilpWE6AHzQkdE="
 CALL_PAGE_MODULE = "/_app/immutable/entry/call.js"
 IMMUTABLE_FILE = "/_app/immutable/x.js"
 VERSION_FILE = "/_app/version.json"
+
+
+def served_page(path: Path) -> bytes:
+    """A fixture page as the server serves it, its built `lang` replaced by the source language."""
+    return path.read_bytes().replace(BUILT_LANG, f'<html lang="{SOURCE_LANGUAGE}">'.encode())
 
 
 def fixture_page_build() -> PageBuild:

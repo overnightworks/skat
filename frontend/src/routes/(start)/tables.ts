@@ -111,8 +111,21 @@ export type Chair = {
     total: number | null;
     hand: ChairHand | null;
 };
-// A Ramsch result is a result with an ordinal; the page draws no card for it.
-export type RamschResult = { kind: "ramsch"; ordinal: number };
+export type RamschSeat = { seat: number; points: number; score: number };
+// The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
+// Durchmarsch, and the factors the losers' score carries.
+export type RamschResult = {
+    kind: "ramsch";
+    ordinal: number;
+    seats: RamschSeat[];
+    durchmarsch_seat: number | null;
+    jungfrau: boolean;
+    bock_factor: number;
+    pushes: number;
+    push_factor: number;
+    // The eyes were divided by ten before the factors.
+    divided_by_ten: boolean;
+};
 export type SeatGain = { seat: number; gain: number; won: boolean };
 // The finished game as the server counted it; the page draws these numbers and decides no rule.
 export type Result = {
@@ -320,12 +333,22 @@ function takeSignedInAgainMarker(): void {
     reachedBySigningIn = true;
 }
 
-// The server sends the full view first and a fresh one after every change. The stream reader reconnects by
-// itself after a lost or ended stream, and each new stream starts from a full view, so a view replaces the last.
-// The returned function closes the stream.
+const ATTENTION_CAP = 9;
+
+// The digit on the Lobby button: none when no other table waits, "9+" above nine.
+export function attentionMark(count: number): string {
+    if (count === 0) return "";
+    return count > ATTENTION_CAP ? `${String(ATTENTION_CAP)}+` : String(count);
+}
+
+// The server sends the full view first and a fresh one after every change; the event `attention` carries the
+// number of the person's other tables that wait for him, and is sent at the start and whenever the number changes.
+// The stream reader reconnects by itself after a lost or ended stream, and each new stream starts from a full view
+// and a full count, so a view replaces the last. The returned function closes the stream.
 export function watchTable(
     id: string,
     onTable: (table: Table) => void,
+    onAttention: (count: number) => void,
     onConnection: (connected: boolean) => void,
 ): () => void {
     const reachedNow = reachedBySigningIn;
@@ -337,6 +360,9 @@ export function watchTable(
                 // An ended table sends nothing more: the stream closes here, so it never reconnects to a table that has ended.
                 if (table.ended !== null) end();
                 onTable(table);
+            },
+            attention: (data) => {
+                onAttention(JSON.parse(data) as number);
             },
         },
         sessionPath: path,

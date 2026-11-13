@@ -27,6 +27,7 @@ from tests.e2e.support.call_frame import (
     table_url,
 )
 from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.tables import open_new_table, table_id_of
@@ -186,7 +187,7 @@ def framed_at(
 
 
 def call_label(name: str) -> str:
-    return text(SOURCE_LANGUAGE, "agents.callLabel", name=name)
+    return kit_text("agent.callLabel", name=name)
 
 
 def sits_note(name: str) -> str:
