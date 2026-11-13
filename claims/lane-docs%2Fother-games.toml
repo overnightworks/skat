@@ -1,0 +1,7 @@
+claim_id = "9305ee8590f54862999854b6f03ce43b"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "ca9eb37d80bb8362a2c02913d5484bceaecc3def"
+branch = "docs/other-games"
+scope = ["docs/ARCHITECTURE.md", "docs/VISION.md"]
+opened_commit = "dd0adde282c842c05d096b9f5183fe02d246205b"
