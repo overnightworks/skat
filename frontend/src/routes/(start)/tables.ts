@@ -34,6 +34,7 @@ import {
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
+    type WORD_TOKENS,
 } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
 
@@ -51,6 +52,8 @@ export type Position = (typeof POSITION_TOKENS)[number];
 export type Game = (typeof GAME_TOKENS)[number];
 export type Announcement = (typeof ANNOUNCEMENT_TOKENS)[number];
 export type Level = (typeof LEVEL_TOKENS)[number];
+// The Kontra words in the order they are said.
+export type Word = (typeof WORD_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
@@ -137,6 +140,8 @@ export type Result = {
     declarer_points: number;
     opponents_points: number;
     gains: SeatGain[];
+    // The last word said and the factor it doubled the score by; null when no word was said.
+    kontra: { word: Word; factor: number } | null;
 };
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
