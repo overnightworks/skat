@@ -1,8 +1,8 @@
 import { words } from "#lib/words.ts";
 import type { Chair, Hand, Table } from "../routes/(start)/tables.ts";
 
-// The sentence the others read once about a chair of the running hand; a null initial draws the agent's mark.
-export type SeatNotice = { text: string; initial: string | null };
+// The sentence the others read once about the faces it names, each an initial; a null initial draws the agent's mark.
+export type SeatNotice = { text: string; initials: (string | null)[] };
 
 // Names ending in these letters take the apostrophe of the genitive instead of an s.
 const APOSTROPHE_ENDINGS = /(?:[sßxz]|ce)$/i;
@@ -36,8 +36,8 @@ function chairLeft(previous: Table, table: Table): SeatNotice | null {
     if (left === undefined) return null;
     const name = left.occupant_name as string;
     return left.occupant_kind === "agent"
-        ? { text: words["table.agentLeft"]({ name }), initial: null }
-        : { text: words["table.standUpNotice"]({ name }), initial: name.slice(0, 1) };
+        ? { text: words["table.agentLeft"]({ name }), initials: [null] }
+        : { text: words["table.standUpNotice"]({ name }), initials: [name.slice(0, 1)] };
 }
 
 // A chair that was open in the running hand and is taken now, by a person or an agent; the one who sat reads no notice
@@ -51,7 +51,7 @@ function openChairTaken(previous: Table, table: Table): SeatNotice | null {
     const name = taker.occupant_name as string;
     return {
         text: words["table.playsOn"]({ name }),
-        initial: taker.occupant_kind === "agent" ? null : name.slice(0, 1),
+        initials: [taker.occupant_kind === "agent" ? null : name.slice(0, 1)],
     };
 }
 

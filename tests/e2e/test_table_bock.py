@@ -245,7 +245,11 @@ class BockRamschTable(RamschTable):
         for seat in self.names:
             self.sessions[seat].post(
                 f"{self.api_path}{TABLE_READY_SUFFIX}",
-                {"command_id": self._command_id(), "ordinal": self.view(seat)["result"]["ordinal"]},
+                {
+                    "command_id": self._command_id(),
+                    "ordinal": self.view(seat)["result"]["ordinal"],
+                    "series": self.view(seat)["series"]["number"],
+                },
             )
         for person in self.everyone:
             expect(person.locator(CARD)).to_have_count(0)

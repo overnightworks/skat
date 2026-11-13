@@ -96,10 +96,49 @@ class TestTheTaps:
         assert deal_the_next_series(skat, table)
         before = table.record
 
-        answer = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-late")
+        answer = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-late", series=2)
 
         assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.SERIES_NOT_OVER)
         assert table.record == before
+
+    @pytest.mark.parametrize("series", [2, 3], ids=["a-series-not-yet-started", "a-series-further-on"])
+    def test_a_tap_naming_another_series_is_refused_and_changes_nothing(self, skat, ended, series):
+        table, _ = ended
+        before = table.record
+
+        answer = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-stale", series=series)
+
+        assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.STALE_SERIES)
+        assert table.record == before
+
+    def test_taps_naming_the_next_series_delete_nothing_and_deal_nothing(self, skat, ended):
+        table, _ = ended
+        for number, headers in enumerate(headers_of(table), start=1):
+            assert tap_new_series(skat, headers, table.table_id, f"tap-stale-{number}", series=2).status_code == 409
+
+        assert not deal_the_next_series(skat, table)
+
+        assert len(entries_of(skat, table)) == 3
+        assert [chair.ready for chair in table.record.chairs] == [False, False, False]
+
+    def test_a_tap_naming_the_series_that_was_deleted_changes_nothing_in_the_next_one(self, skat, ended):
+        table, _ = ended
+        all_tap(skat, table)
+        assert deal_the_next_series(skat, table)
+        before = table.record
+
+        answer = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-older-series", series=1)
+
+        assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.STALE_SERIES)
+        assert table.record == before
+
+    def test_a_retry_of_a_stale_tap_replays_the_refusal(self, skat, ended):
+        table, _ = ended
+        first = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-stale", series=2)
+
+        again = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-stale", series=2)
+
+        assert (again.status_code, again.json()["reason"]) == (first.status_code, Refusal.STALE_SERIES)
 
     def test_a_tap_at_a_table_without_a_series_says_so_and_changes_nothing(self, skat, ended):
         table, _ = ended
@@ -147,6 +186,7 @@ class TestTheNextSeries:
         assert deal_the_next_series(skat, table)
         seen = table.read_as(table.watcher).json()
         assert seen["series"] == {
+            "number": 2,
             "game_number": 1,
             "game_count": 3,
             "over": False,

@@ -5,7 +5,16 @@ import { sayKontra } from "./tables.ts";
 const TABLE_ID = "a".repeat(32);
 
 describe("saying a word at the table", () => {
-    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null, passed_in: null, ended: null };
+    const table = {
+        id: TABLE_ID,
+        version: 1,
+        chairs: [],
+        watchers: 0,
+        hand: null,
+        passed_in: null,
+        series: null,
+        ended: null,
+    };
 
     beforeEach(() => {
         vi.stubGlobal("location", { reload: vi.fn(), href: `https://skat.test/t/${TABLE_ID}` });

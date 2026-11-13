@@ -12,6 +12,7 @@ import {
     type BOCK_TRIGGER_TOKENS,
     type DURCHMARSCH_TOKENS,
     type END_REASON_TOKENS,
+    type GAME_ENDING_TOKENS,
     type GRAND_HAND_TOKENS,
     type JUNGFRAU_TOKENS,
     type KONTRA_DEADLINE_TOKENS,
@@ -65,6 +66,7 @@ export type Suit = (typeof SUIT_TOKENS)[number];
 export type Rank = (typeof RANK_TOKENS)[number];
 export type Position = (typeof POSITION_TOKENS)[number];
 export type Game = (typeof GAME_TOKENS)[number];
+export type GameEnding = (typeof GAME_ENDING_TOKENS)[number];
 export type Announcement = (typeof ANNOUNCEMENT_TOKENS)[number];
 export type Level = (typeof LEVEL_TOKENS)[number];
 // The Kontra words in the order they are said.
@@ -205,6 +207,9 @@ export type Result = {
     bock_factor: number;
     // The last word said and the factor it doubled the score by; null when no word was said.
     kontra: { word: Word; factor: number } | null;
+    // How the game ended, and the seat whose give-up or throw-down ended it; null exactly when it was played out.
+    ending: GameEnding;
+    ended_by_seat: number | null;
 };
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
@@ -232,6 +237,8 @@ export type Options = {
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
+// Which series of the table this is, 1 for the first.
+export type Series = { number: number };
 export type Table = {
     id: string;
     version: number;
@@ -240,6 +247,7 @@ export type Table = {
     hand: Hand | null;
     result: Result | RamschResult | null;
     passed_in: PassedIn | null;
+    series: Series | null;
     // Set between hands after a vote aborted the hand, with the next dealer as a passed-in hand names it.
     aborted: PassedIn | null;
     // Null once the table has ended.
@@ -400,9 +408,14 @@ export function sayKontra(id: string, version: number, commandId: string, word: 
     return post(id, TABLE_KONTRA_SUFFIX, { command_id: commandId, version, word });
 }
 
-// „Weiter“ names the result it saw, so a tap on a result that has since been replaced is refused.
-export function markReady(id: string, commandId: string, ordinal: number): Promise<Outcome> {
-    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal });
+// A table opened without a series has none and counts as the first series, as the server counts it.
+export function seriesNumberOf(table: Pick<Table, "series">): number {
+    return table.series?.number ?? 1;
+}
+
+// „Weiter“ names the result and the series it saw, so a tap on a result or series that has since been replaced is refused.
+export function markReady(id: string, commandId: string, ordinal: number, series: number): Promise<Outcome> {
+    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal, series });
 }
 
 const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {
@@ -504,7 +517,7 @@ export function agentSitsNote(previous: Table, table: Table): SeatNotice | null 
     const freed = new Set(previous.chairs.filter((chair) => chair.occupant_name === null).map((chair) => chair.seat));
     const sat = table.chairs.find((chair) => chair.occupant_kind === "agent" && freed.has(chair.seat));
     const name = sat?.occupant_name ?? null;
-    return name === null ? null : { text: words["table.agentSits"]({ name }), initial: null };
+    return name === null ? null : { text: words["table.agentSits"]({ name }), initials: [null] };
 }
 
 // What the agents' control re-reads on: the agents by seat and name, and the version when the wake skipped versions,

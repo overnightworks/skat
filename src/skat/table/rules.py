@@ -316,6 +316,11 @@ def series_games_left(table: TableRecord) -> int | None:
     return table.series.length - table.series.deals + hand_runs(table)
 
 
+def series_number_of(table: TableRecord) -> int:
+    """The number of the table's series, 1 for the first and for a table with no series."""
+    return 1 if table.series is None else table.series.number
+
+
 def series_over(table: TableRecord) -> bool:
     """The series ran its last game or ended early by consent, and no hand runs any more; a table with no series
     never ends.

@@ -1,4 +1,5 @@
 import { keyWord } from "#lib/kontra.ts";
+import type { SeatNotice } from "#lib/openChair.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { Chair, GiveUpAnswer, Table } from "../routes/(start)/tables.ts";
@@ -81,6 +82,15 @@ export function giveUpView(table: Table): GiveUpView | null {
         answers: answering ? offeredAnswers : [],
         marks,
         cardsHeld: !declarerAsks,
+    };
+}
+
+// The notice after the second no: the refusing seats play on, named in the page's list format.
+export function refusalNotice(chairs: readonly Chair[], seats: readonly number[]): SeatNotice {
+    const faces = seats.map((seat) => faceOf(chairs, seat));
+    return {
+        text: words["table.playingOn"]({ names: listFormat.format(faces.map((face) => face.name)) }),
+        initials: faces.map((face) => face.initial),
     };
 }
 

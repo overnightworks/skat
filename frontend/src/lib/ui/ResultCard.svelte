@@ -53,8 +53,13 @@
             {/if}
             <span>{view.gameLine}</span>
         </span>
-        {#if view.raise !== null}
-            <span class="stamp">{words["result.overbid"]}</span>
+        {#if view.stamp !== null}
+            <span class="stamp">
+                {#if view.stamp.face !== null}
+                    <span class="by" aria-hidden="true">{view.stamp.face}</span>
+                {/if}
+                {view.stamp.word}
+            </span>
         {/if}
     </div>
     {#if view.chips.length > 0}
