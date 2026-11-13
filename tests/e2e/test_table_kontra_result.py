@@ -9,7 +9,6 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import NEW_TABLE_BUTTON
 from tests.e2e.support.declaring import DeclaringTable, command_numbers
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
@@ -34,8 +33,6 @@ class KontraTable(DeclaringTable):
 
     @staticmethod
     def _open_table(opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
-        opener.goto(f"{server.base_url}/")
-        expect(opener.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
         body = {
             "command_id": f"kontra-result-create-{next(command_numbers):04d}",
             "series_length": SERIES_LENGTH,
