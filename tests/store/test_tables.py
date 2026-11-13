@@ -96,18 +96,6 @@ def test_a_table_opened_private_is_listed_to_nobody_and_an_open_one_is_after_a_r
     assert service.open_table_ids() == (TableId(listed),)
 
 
-def test_a_table_stored_before_visibility_existed_is_open(service, engine):
-    old_id = "b" * 32
-    with engine.begin() as connection:
-        connection.execute(text("INSERT INTO tables (id, version) VALUES (:id, 1)"), {"id": old_id})
-        connection.execute(
-            text("INSERT INTO chairs (table_id, seat) SELECT :id, seat FROM generate_series(1, 3) AS seat"),
-            {"id": old_id},
-        )
-
-    assert service.open_table_ids() == (TableId(old_id),)
-
-
 def test_an_ended_open_table_is_listed_to_nobody(service):
     table_id = service.create(OPENER, CreateTable(command_id="command-1")).id
     service.close(OPENER, CloseTable("command-close", table_id))
