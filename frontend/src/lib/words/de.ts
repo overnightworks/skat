@@ -11,11 +11,6 @@ export type Words = {
     readonly "app.pageNotFound": string;
     readonly "app.pageFailed": string;
     readonly "account.title": string;
-    readonly "account.theme": string;
-    readonly "account.followSystem": string;
-    readonly "account.light": string;
-    readonly "account.dark": string;
-    readonly "account.logOut": string;
     readonly "start.newTable": string;
     readonly "start.seriesLength": string;
     readonly "start.seriesGames": (count: number) => string;
@@ -34,6 +29,7 @@ export type Words = {
     readonly "table.loadFailedHint": string;
     readonly "table.watchers": string;
     readonly "table.lobby": string;
+    readonly "table.lobbyWaiting": (count: number) => string;
     readonly "table.reconnecting": string;
     readonly "table.sitDown": string;
     readonly "table.standUp": string;
@@ -149,17 +145,6 @@ export type Words = {
     readonly "card.letterKing": string;
     readonly "card.letterAce": string;
     readonly "agents.pill": string;
-    readonly "agents.call": string;
-    readonly "agents.calling": string;
-    readonly "agents.askToLeave": string;
-    readonly "agents.callLabel": (gaps: { readonly name: string }) => string;
-    readonly "agents.askToLeaveLabel": (gaps: { readonly name: string }) => string;
-    readonly "agents.empty": string;
-    readonly "agents.refusalNotAllowed": string;
-    readonly "agents.refusalOwnerAbsent": string;
-    readonly "agents.refusalPlaceFull": string;
-    readonly "agents.refusalAgentUnavailable": string;
-    readonly "agents.refusalTryAgain": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
     readonly "logout.button": string;
 };
@@ -171,11 +156,6 @@ export const words: Words = {
     "app.pageNotFound": "Diese Seite gibt es nicht.",
     "app.pageFailed": "Diese Seite lässt sich nicht laden.",
     "account.title": "Konto",
-    "account.theme": "Darstellung",
-    "account.followSystem": "System",
-    "account.light": "Hell",
-    "account.dark": "Dunkel",
-    "account.logOut": "Abmelden",
     "start.newTable": "Neuer Tisch",
     "start.seriesLength": "Länge der Serie",
     "start.seriesGames": (count: number) => ({
@@ -201,6 +181,14 @@ export const words: Words = {
     "table.loadFailedHint": "Lade die Seite neu, um es noch einmal zu versuchen.",
     "table.watchers": "Zuschauer",
     "table.lobby": "Lobby",
+    "table.lobbyWaiting": (count: number) => ({
+        zero: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        one: "Lobby, " + numberFormat.format(count) + " Tisch wartet auf dich",
+        two: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        few: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        many: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        other: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+    })[pluralRules.select(count)],
     "table.reconnecting": "verbinde neu",
     "table.sitDown": "Hinsetzen",
     "table.standUp": "Aufstehen",
@@ -344,17 +332,6 @@ export const words: Words = {
     "card.letterKing": "K",
     "card.letterAce": "A",
     "agents.pill": "Agenten",
-    "agents.call": "Rufen",
-    "agents.calling": "Wird gerufen…",
-    "agents.askToLeave": "Bitten zu gehen",
-    "agents.callLabel": (gaps: { readonly name: string }) => gaps.name + " rufen",
-    "agents.askToLeaveLabel": (gaps: { readonly name: string }) => gaps.name + " bitten zu gehen",
-    "agents.empty": "Gerade ist kein Agent erreichbar.",
-    "agents.refusalNotAllowed": "Du darfst diesen Agenten nicht rufen.",
-    "agents.refusalOwnerAbsent": "Sein Besitzer ist nicht hier.",
-    "agents.refusalPlaceFull": "Hier ist kein Platz für einen weiteren Agenten.",
-    "agents.refusalAgentUnavailable": "Der Agent ist gerade nicht erreichbar.",
-    "agents.refusalTryAgain": "Das hat nicht geklappt. Versuch es noch einmal.",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
     "logout.button": "Abmelden",
 };

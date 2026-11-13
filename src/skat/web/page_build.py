@@ -7,6 +7,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from skat.web.secret_files import StartRefusedError
+from skat.web.words import SOURCE_LANGUAGE
 
 BUILD_DIRECTORY = Path(__file__).parent / "build"
 SHELL_FILE = "index.html"
@@ -15,8 +16,8 @@ CALL_SIGN_IN_FILE = "login/call.html"
 LOGIN_FAILED_FILE = "login-failed.html"
 NO_ACCESS_FILE = "no-access.html"
 APP_DIRECTORY = "_app"
-# The shell's language as the build writes it; the server replaces it with the language it answers in.
-SHELL_ENGLISH_LANG = b'<html lang="en">'
+# The language every built page carries; the server replaces it with the language the page speaks.
+BUILT_LANG = b'<html lang="en">'
 CHUNK_PATTERN = "immutable/**/*.js"
 # SvelteKit's route announcer is a template literal in a built chunk; its style is set by this attribute.
 _ANNOUNCER_STYLE = re.compile(r'id="svelte-announcer"[^>]*?\sstyle="([^"]*)"')
@@ -53,6 +54,19 @@ class _Scripts(HTMLParser):
         if tag == "script" and self._chunks is not None:
             self.texts.append("".join(self._chunks))
             self._chunks = None
+
+
+def _require_built_lang(name: str, page: bytes) -> None:
+    if page.count(BUILT_LANG) != 1:
+        raise PageBuildMissingError(
+            f"The page {name} holds no single {BUILT_LANG.decode()} to write the language into; run make frontend"
+        )
+
+
+def _in_language(name: str, page: bytes, language: str) -> bytes:
+    """The page with its one built `lang` set to `language`; the rest of its bytes stay."""
+    _require_built_lang(name, page)
+    return page.replace(BUILT_LANG, f'<html lang="{language}">'.encode())
 
 
 def _scripts_of(page: bytes) -> _Scripts:
@@ -115,7 +129,7 @@ class PageBuild:
 
     def shell_in(self, language: str) -> BuiltPage:
         """The shell with its `lang` set to the language the server answers in; the rest of its bytes stay."""
-        return BuiltPage.of(self.shell.content.replace(SHELL_ENGLISH_LANG, f'<html lang="{language}">'.encode()))
+        return BuiltPage.of(_in_language(SHELL_FILE, self.shell.content, language))
 
     @classmethod
     def load(cls, directory: Path) -> PageBuild:
@@ -130,11 +144,12 @@ class PageBuild:
         for name, page in zip(plain_files, plain_pages, strict=True):
             if _scripts_of(page).element_count:
                 raise SignInPageScriptError(f"The sign-in page {name} carries a script; only {CALL_SIGN_IN_FILE} may")
-        if shell_bytes.count(SHELL_ENGLISH_LANG) != 1:
-            raise PageBuildMissingError(
-                f"The shell {SHELL_FILE} holds no single {SHELL_ENGLISH_LANG.decode()} to write the language into; "
-                "run make frontend"
-            )
+        _require_built_lang(SHELL_FILE, shell_bytes)
+        # The sign-in pages are built from the source language's words, whatever the shell's `lang` says.
+        signed_out_bytes, login_failed_bytes, no_access_bytes, call_bytes = (
+            _in_language(name, page, SOURCE_LANGUAGE)
+            for name, page in zip((*plain_files, CALL_SIGN_IN_FILE), (*plain_pages, call_bytes), strict=True)
+        )
         shell_scripts = _scripts_of(shell_bytes)
         call_scripts = _scripts_of(call_bytes)
         return cls(

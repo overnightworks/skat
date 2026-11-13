@@ -24,7 +24,7 @@ from tests.support.idle_presence import (
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
-from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat
+from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat, unnamed_lines
 from tests.web.support.streams import (
     ALLOWED_SECONDS,
     NO_HEARTBEAT_SECONDS,
@@ -410,7 +410,7 @@ class TestWatchTableAdmission:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table["id"]), headers=watcher_headers) as answer:
-            lines = iter(answer.iter_lines())
+            lines = iter(unnamed_lines(answer.iter_lines()))
             first = next(lines)
             second = next(lines)
             answer.close()
@@ -436,7 +436,7 @@ class TestWatchTableAdmission:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table["id"]), headers=watcher_headers) as answer:
-            first = next(iter(answer.iter_lines()))
+            first = next(iter(unnamed_lines(answer.iter_lines())))
             answer.close()
 
         event = json.loads(first.removeprefix("data: "))
@@ -451,7 +451,7 @@ class TestWatchTableAdmission:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table["id"]), headers=headers) as answer:
-            lines = answer.iter_lines()
+            lines = unnamed_lines(answer.iter_lines())
             first = next(lines)
             after_first = [next(lines) for _ in range(4)]
             answer.close()
@@ -466,7 +466,7 @@ class TestWatchTableAdmission:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table["id"]), headers=headers) as answer:
-            lines = answer.iter_lines()
+            lines = unnamed_lines(answer.iter_lines())
             first = next(lines)
             skat.stores.sessions.delete_for_user(member.id)
             rest = list(lines)
@@ -483,7 +483,7 @@ class TestWatchTableAdmission:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table["id"]), headers=headers) as answer:
-            lines = answer.iter_lines()
+            lines = unnamed_lines(answer.iter_lines())
             first = next(lines)
             now[0] += skat.config.session_lifetime.absolute_max_age_seconds + 1
             rest = list(lines)
@@ -501,7 +501,7 @@ class TestWatchTableAdmission:
             skat.client.stream("GET", self.events(table["id"]), headers=headers) as one_tab,
             skat.client.stream("GET", self.events(table["id"]), headers=headers) as another_tab,
         ):
-            tabs = [one_tab.iter_lines(), another_tab.iter_lines()]
+            tabs = [unnamed_lines(one_tab.iter_lines()), unnamed_lines(another_tab.iter_lines())]
             first_lines = [next(lines) for lines in tabs]
             skat.stores.sessions.delete_for_user(member.id)
             rests = [list(lines) for lines in tabs]
@@ -521,7 +521,7 @@ class TestWatchTableAdmission:
             return sessions.records_of(seeded.account.id).sessions[0].expires_at
 
         with skat.client.stream("GET", self.events(table["id"]), headers=headers) as watching:
-            lines = watching.iter_lines()
+            lines = unnamed_lines(watching.iter_lines())
             next(lines)
             next(lines)
             opened_with = expiry()
@@ -529,7 +529,7 @@ class TestWatchTableAdmission:
             # A second member joining is the change whose view the stream admits again for.
             other_headers, _ = skat.member()
             with skat.client.stream("GET", self.events(table["id"]), headers=other_headers) as other:
-                other_lines = other.iter_lines()
+                other_lines = unnamed_lines(other.iter_lines())
                 next(other_lines)
                 next(lines)
                 next(lines)
@@ -544,7 +544,7 @@ class TestHandOnTheStream:
 
     def first_message(self, skat, headers, table_id):
         with skat.client.stream("GET", self.events(table_id), headers=headers) as answer:
-            first = next(answer.iter_lines())
+            first = next(unnamed_lines(answer.iter_lines()))
             answer.close()
         return first
 
@@ -562,13 +562,13 @@ class TestHandOnTheStream:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table_id), headers=people[who][0]) as answer:
-            lines = answer.iter_lines()
+            lines = unnamed_lines(answer.iter_lines())
             first = next(lines)
             next(lines)
             arriving_headers, _ = skat.member()
             skat.client.cookies.clear()
             with skat.client.stream("GET", self.events(table_id), headers=arriving_headers) as arriving:
-                arriving_lines = arriving.iter_lines()
+                arriving_lines = unnamed_lines(arriving.iter_lines())
                 next(arriving_lines)
                 woken = next(lines)
 
@@ -586,7 +586,7 @@ class TestHandOnTheStream:
             skat.client.stream("GET", self.events(table_id), headers=anna_headers) as phone,
             skat.client.stream("GET", self.events(table_id), headers=laptop_headers) as laptop,
         ):
-            firsts = [next(phone.iter_lines()), next(laptop.iter_lines())]
+            firsts = [next(unnamed_lines(phone.iter_lines())), next(unnamed_lines(laptop.iter_lines()))]
 
         assert [cards_in_text(first) for first in firsts] == [wire_cards(CARDS_BY_SEAT[1])] * 2
 
@@ -598,11 +598,11 @@ class TestHandOnTheStream:
         middlehand_headers, rearhand_headers = people[0][0], people[1][0]
 
         with skat.client.stream("GET", self.events(table_id), headers=middlehand_headers) as first_stream:
-            first_lines = first_stream.iter_lines()
+            first_lines = unnamed_lines(first_stream.iter_lines())
             opened = json.loads(next(first_lines).removeprefix("data: "))
             next(first_lines)
             with skat.client.stream("GET", self.events(table_id), headers=rearhand_headers) as second_stream:
-                second_lines = second_stream.iter_lines()
+                second_lines = unnamed_lines(second_stream.iter_lines())
                 next(second_lines)
                 next(second_lines)
                 # The second stream joining is a change the first stream hears about before the step.
@@ -665,7 +665,7 @@ class TestHandOnTheStream:
         middlehand, rearhand, forehand, watcher = (person[0] for person in people)
 
         with skat.client.stream("GET", self.events(table_id), headers=watcher) as stream:
-            lines = stream.iter_lines()
+            lines = unnamed_lines(stream.iter_lines())
             messages = (line for line in lines if line.startswith("data: "))
             opened = json.loads(next(messages).removeprefix("data: "))
             skat.client.cookies.clear()
@@ -720,7 +720,7 @@ class TestHandOnTheStream:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table_id), headers=declarer_headers) as stream:
-            lines = stream.iter_lines()
+            lines = unnamed_lines(stream.iter_lines())
             opened = json.loads(next(lines).removeprefix("data: "))
             next(lines)
             skat.client.cookies.clear()
@@ -755,7 +755,7 @@ class TestHandOnTheStream:
         skat.client.cookies.clear()
 
         with skat.client.stream("GET", self.events(table_id), headers=anna_headers) as answer:
-            lines = answer.iter_lines()
+            lines = unnamed_lines(answer.iter_lines())
             first = next(lines)
             skat.stores.sessions.delete_for_user(anna.id)
             rest = list(lines)

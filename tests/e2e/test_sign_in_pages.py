@@ -7,6 +7,7 @@ from playwright.sync_api import Page, expect
 from skat.web.constants import AUTH_CALLBACK_PATH, LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import LEGAL_LINKS, record_page_errors
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import FORM_FACTORS
 
 if TYPE_CHECKING:
@@ -18,9 +19,9 @@ pytestmark = pytest.mark.e2e
 
 FORGED_CALLBACK = f"{AUTH_CALLBACK_PATH}?state=forged&code=x"
 SIGN_IN_PAGES = [
-    pytest.param(LOGIN_PATH, 200, "Log in", id="signed-out"),
-    pytest.param(FORGED_CALLBACK, 403, "Try again", id="login-failed"),
-    pytest.param(NO_ACCESS_PATH, 200, "Log out", id="no-access"),
+    pytest.param(LOGIN_PATH, 200, kit_text("signIn.logIn"), id="signed-out"),
+    pytest.param(FORGED_CALLBACK, 403, kit_text("signIn.tryAgain"), id="login-failed"),
+    pytest.param(NO_ACCESS_PATH, 200, kit_text("signIn.logOut"), id="no-access"),
 ]
 
 

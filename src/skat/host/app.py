@@ -39,7 +39,7 @@ from skat.web.declaring import create_declaring_router
 from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
-from skat.web.lobby import create_lobby_router
+from skat.web.lobby import AttentionSource, create_lobby_router
 from skat.web.mcp import McpAccess, mount_mcp
 from skat.web.member_place import AskClock, member_front, standing_signal, view_signal
 from skat.web.paused import create_paused_router
@@ -69,7 +69,7 @@ from skat.web.sign_in import (
     build_sign_in_configs,
     install_sign_in,
 )
-from skat.web.streams import create_streams_router
+from skat.web.streams import StreamSource, create_streams_router
 from skat.web.tables import create_tables_router
 from skat.web.wakes import WakeList
 
@@ -244,7 +244,11 @@ def _include_stream_routers(
     sessions: SessionRecordStore,
     heartbeat_seconds: float,
 ) -> None:
-    app.include_router(create_streams_router(tables, presence, sessions, heartbeat_seconds))
+
+    def attention_of(table_id: str, account_id: str) -> StreamSource:
+        return AttentionSource(tables, presence, wakes, account_id, settings.paused_table_days, table_id)
+
+    app.include_router(create_streams_router(tables, presence, sessions, heartbeat_seconds, attention_of))
     app.include_router(
         create_lobby_router(tables, presence, wakes, sessions, heartbeat_seconds, settings.paused_table_days)
     )
