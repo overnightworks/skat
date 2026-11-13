@@ -31,7 +31,7 @@
     </button>
 {:else if bar !== null}
     <span class="copy wait" role="status">
-        {bar.text}
+        <span class="words">{bar.text}</span>
         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </span>
 {:else if watching}

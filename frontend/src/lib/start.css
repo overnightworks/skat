@@ -4079,7 +4079,9 @@ body {
 }
 
 .room .copy.wait {
-    display: block;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
     height: auto;
     min-height: 52px;
     box-sizing: border-box;
@@ -4090,11 +4092,6 @@ body {
     text-align: center;
     text-wrap: balance;
     overflow-wrap: anywhere;
-}
-
-.room .copy.wait .dots {
-    margin-left: 6px;
-    vertical-align: middle;
 }
 
 .room .copy:disabled {
@@ -4182,22 +4179,23 @@ body {
         gap: 8px;
     }
 
-    /* The pill stays as tall as its neighbours: three lines of its small type fill the 52px, and longer names end in an ellipsis.
-       The clip edge is the content box, so no fourth line peeks into the padding. The hopping dots are left out on a phone,
-       as the frozen scene leaves them out. */
+    /* The pill stays as tall as its neighbours and holds its words centred: up to three lines of its small type fit the 52px,
+       and longer names end in an ellipsis. The hopping dots are left out on a phone, as the frozen scene leaves them out. */
     .room .actions.on-result .copy.wait {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-box-pack: center;
-        -webkit-line-clamp: 3;
         flex: 0 1 auto;
         min-width: 0;
-        padding-block: calc((52px - 3.3em) / 2);
+        padding-block: 0;
         padding-inline: 12px;
         font-size: 12px;
         line-height: 1.1;
+    }
+
+    .room .actions.on-result .copy.wait .words {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        min-width: 0;
         overflow: clip;
-        overflow-clip-margin: content-box;
     }
 
     .room .actions.on-result .copy.wait .dots {

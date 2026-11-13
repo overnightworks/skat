@@ -72,6 +72,30 @@ def expect_the_keys_in_one_row(person: Page) -> None:
     assert max(tops) - min(tops) <= 1
 
 
+CENTRED_WITHIN = 2
+TEXT_BOX_OF = """pill => {
+    const range = document.createRange();
+    range.selectNodeContents(pill.querySelector(".words"));
+    const text = range.getBoundingClientRect();
+    const box = pill.getBoundingClientRect();
+    return {
+        above: text.top - box.top,
+        below: box.bottom - text.bottom,
+        left: text.left - box.left,
+        right: box.right - text.right,
+    };
+}"""
+
+
+def expect_the_wait_pill_to_hold_its_text_centred(person: Page) -> None:
+    """The pill is a status of the bar: its words sit wholly inside its box, as the frozen scene draws them."""
+    pill = person.locator(".actions .copy.wait")
+    expect(pill).to_be_visible()
+    gaps = pill.evaluate(TEXT_BOX_OF)
+    assert min(gaps.values()) >= 0
+    assert abs(gaps["above"] - gaps["below"]) <= CENTRED_WITHIN
+
+
 def expect_the_proposal_asked(table: RamschTable) -> None:
     """The first seat proposed: the other two are asked, the proposer waits for them and the watcher only reads."""
     proposed = text(SOURCE_LANGUAGE, "table.wantsToEndSeries", name=table.names[1])
@@ -212,6 +236,7 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(".chair[data-seat='2'] .mark.ready")).to_have_count(1)
         expect(person.locator(STANDING)).to_have_count(1)
     expect(first.locator(".copy.wait")).to_contain_text(waiting_for([table.names[3]]))
+    expect_the_wait_pill_to_hold_its_text_centred(first)
 
     third.get_by_role("button", name=NEW_SERIES, exact=True).click()
     for person in table.everyone:
