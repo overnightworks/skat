@@ -45,11 +45,12 @@ docker run --quiet --detach --name "${container}" \
     --tmpfs /var/lib/postgresql \
     "${IMAGE}" >/dev/null
 
+# The image's init server listens on its socket only and restarts; the server that stays up is the one on TCP.
 for _ in $(seq "${READY_WAIT_SECONDS}"); do
-    docker exec "${container}" pg_isready --username postgres >/dev/null 2>&1 && break
+    docker exec "${container}" pg_isready --host 127.0.0.1 --username postgres >/dev/null 2>&1 && break
     sleep 1
 done
-docker exec "${container}" pg_isready --username postgres >/dev/null
+docker exec "${container}" pg_isready --host 127.0.0.1 --username postgres >/dev/null
 
 port=$(docker port "${container}" 5432/tcp | head -n 1 | sed 's/.*://')
 # Run as a child, not exec'd, so that the trap above survives the command.
