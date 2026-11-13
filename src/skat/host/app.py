@@ -41,7 +41,8 @@ from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
 from skat.web.lobby import AttentionSource, create_lobby_router
 from skat.web.mcp import McpAccess, mount_mcp
-from skat.web.member_place import AskClock, member_front, standing_signal, view_signal
+from skat.web.member_place import member_front, nudge_signal, standing_signal, view_signal
+from skat.web.nudging import create_nudging_router
 from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
@@ -185,22 +186,16 @@ def _next_deal(tables: TableService) -> NextDeal:
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
 
 
-def _empty_table(settings: ServerSettings, tables: TableService, asks: AskClock) -> EmptyTable:
+def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
     async def end(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        ended = await run_in_threadpool(
+        return await run_in_threadpool(
             tables.end_empty_table, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
-        if ended:
-            asks.drop(table_id)
-        return ended
 
     async def note(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        ended = await run_in_threadpool(
+        return await run_in_threadpool(
             tables.note_presence, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
-        if ended:
-            asks.drop(table_id)
-        return ended
 
     return EmptyTable(settings.empty_table_seconds, end, note)
 
@@ -210,13 +205,12 @@ def _presence(
     tables: TableService,
     clock: Callable[[], float],
     scheduler: Scheduler,
-    asks: AskClock,
     wakes: WakeList,
 ) -> Presence:
     return Presence(
         _chair_hold(settings, tables, clock, scheduler),
         _next_deal(tables),
-        _empty_table(settings, tables, asks),
+        _empty_table(settings, tables),
         _agent_lease(tables),
         wakes,
     )
@@ -327,9 +321,8 @@ def create_app(
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
-    asks = AskClock(chair_clock)
     wakes = WakeList()
-    presence = _presence(settings, tables, chair_clock, scheduler, asks, wakes)
+    presence = _presence(settings, tables, chair_clock, scheduler, wakes)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_serving(settings, tables, presence))
     app.add_exception_handler(RequestValidationError, _refuse_invalid_request)
@@ -341,6 +334,7 @@ def create_app(
     app.include_router(create_calling_router(tables, presence, roster, changes, relying_party.issuer, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
+    app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
     _include_stream_routers(app, settings, tables, presence, wakes, sign_in_stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(
@@ -349,7 +343,7 @@ def create_app(
         sign_in_stores.transaction,
         settings.public_origin,
         _agent_heard(presence, roster),
-        member_front(tables, presence, changes, scheduler, asks),
+        member_front(tables, presence, changes, scheduler, presence.waits),
     )
     app.state.mcp_front = mcp.front
     _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)
