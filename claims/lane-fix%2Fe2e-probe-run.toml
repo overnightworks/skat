@@ -1,0 +1,7 @@
+claim_id = "f8e210afacff4fd59b08fbc3d51a765b"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "ee3a61f53946ae38cf08539ce391be422a247b84"
+branch = "fix/e2e-probe-run"
+scope = ["AGENTS.md", "Makefile"]
+opened_commit = "047f92cfb9fe3bc86720eb07c79455e4fe3882c8"
