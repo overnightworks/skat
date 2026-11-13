@@ -27,26 +27,6 @@ msgctxt "account.title"
 msgid "Konto"
 msgstr ""
 
-msgctxt "account.theme"
-msgid "Darstellung"
-msgstr ""
-
-msgctxt "account.followSystem"
-msgid "System"
-msgstr ""
-
-msgctxt "account.light"
-msgid "Hell"
-msgstr ""
-
-msgctxt "account.dark"
-msgid "Dunkel"
-msgstr ""
-
-msgctxt "account.logOut"
-msgid "Abmelden"
-msgstr ""
-
 msgctxt "start.newTable"
 msgid "Neuer Tisch"
 msgstr ""
@@ -605,50 +585,6 @@ msgstr ""
 
 msgctxt "agents.pill"
 msgid "Agenten"
-msgstr ""
-
-msgctxt "agents.call"
-msgid "Rufen"
-msgstr ""
-
-msgctxt "agents.calling"
-msgid "Wird gerufen…"
-msgstr ""
-
-msgctxt "agents.askToLeave"
-msgid "Bitten zu gehen"
-msgstr ""
-
-msgctxt "agents.callLabel"
-msgid "{name} rufen"
-msgstr ""
-
-msgctxt "agents.askToLeaveLabel"
-msgid "{name} bitten zu gehen"
-msgstr ""
-
-msgctxt "agents.empty"
-msgid "Gerade ist kein Agent erreichbar."
-msgstr ""
-
-msgctxt "agents.refusalNotAllowed"
-msgid "Du darfst diesen Agenten nicht rufen."
-msgstr ""
-
-msgctxt "agents.refusalOwnerAbsent"
-msgid "Sein Besitzer ist nicht hier."
-msgstr ""
-
-msgctxt "agents.refusalPlaceFull"
-msgid "Hier ist kein Platz für einen weiteren Agenten."
-msgstr ""
-
-msgctxt "agents.refusalAgentUnavailable"
-msgid "Der Agent ist gerade nicht erreichbar."
-msgstr ""
-
-msgctxt "agents.refusalTryAgain"
-msgid "Das hat nicht geklappt. Versuch es noch einmal."
 msgstr ""
 
 msgctxt "table.agentSits"

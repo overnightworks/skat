@@ -1,7 +1,6 @@
 <script lang="ts">
     import { untrack } from "svelte";
-    import { AgentControl, AiMark, type AgentControlRefusal } from "overnightworks-design";
-    import { agentControlWords } from "#lib/kitWords.ts";
+    import { AgentControl, AiMark, type AgentControlRefusal, type KitWords } from "overnightworks-design";
     import { words } from "#lib/words.ts";
     import { followAgents, type AgentsControl, type AgentsFollower } from "../../routes/(start)/tables.ts";
 
@@ -18,7 +17,8 @@
         tableId,
         streamedVersion,
         seatedAgents,
-    }: { tableId: string; streamedVersion: number | null; seatedAgents: string } = $props();
+        kitWords,
+    }: { tableId: string; streamedVersion: number | null; seatedAgents: string; kitWords: KitWords } = $props();
 
     let control = $state<AgentsControl>({ shown: false, rows: [] });
     let refusal = $state<AgentControlRefusal | undefined>();
@@ -125,7 +125,7 @@
                     onCall={(key) => void follower?.call(key)}
                     onSendAway={(key) => void follower?.sendAway(key)}
                     {refusal}
-                    words={agentControlWords}
+                    words={kitWords}
                 />
             </div>
         {/if}
