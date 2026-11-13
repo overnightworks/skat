@@ -292,8 +292,7 @@ async def _end_unplayed_tables(
             log.error("unplayed table end failed", table_id=table_id.value, error=type(failure).__name__)
             continue
         if ended:
-            presence.waits.drop(table_id.value)
-            presence.wake_table(table_id.value)
+            presence.table_ended(table_id.value)
 
 
 def _sweep_unplayed_tables(
