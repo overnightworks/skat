@@ -674,7 +674,9 @@ def actor_for(user: AuthenticatedUser) -> Actor:
     """The account behind a request: an agent goes by the name its token carries, a person by the account's."""
     if user.agent is None:
         return Actor(account_id=user.id, display_name=user.username)
-    return Actor(account_id=user.id, display_name=user.agent.name, kind=OccupantKind.AGENT)
+    return Actor(
+        account_id=user.id, display_name=user.agent.name, kind=OccupantKind.AGENT, owner_account=user.agent.owner
+    )
 
 
 def actor_of(request: Request) -> Actor:

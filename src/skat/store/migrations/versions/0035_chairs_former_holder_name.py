@@ -5,8 +5,8 @@ cards a sitter takes over. Every stored chair reads with no such name, an open c
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0034"
-down_revision = "0033"
+revision = "0035"
+down_revision = "0034"
 
 
 def upgrade() -> None:

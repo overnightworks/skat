@@ -45,7 +45,12 @@ def table_id(service):
 
 
 def send_mozart_away(service, table_id):
-    return service.send_away(OPENER, SendAway("command-away", table_id, MOZART.account_id), NOBODY)
+    return service.send_away(
+        OPENER,
+        SendAway("command-away", table_id, MOZART.account_id),
+        frozenset({OPENER.account_id}),
+        is_member=True,
+    )
 
 
 def book_row(engine):

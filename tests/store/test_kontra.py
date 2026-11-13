@@ -177,8 +177,12 @@ def test_a_chair_that_changes_hands_takes_its_answer_out_of_the_store(service, t
     answer_no_word(game, FOREHAND, command_id="forehand-no-word")
     answer_no_word(game, REARHAND, command_id="rearhand-no-word")
 
+    sender = game.actors[REARHAND]
     sent = service.send_away(
-        game.actors[REARHAND], SendAway("send-away", table_id, game.actors[FOREHAND].account_id), nobody_connected()
+        sender,
+        SendAway("send-away", table_id, game.actors[FOREHAND].account_id),
+        frozenset({sender.account_id}),
+        is_member=True,
     )
 
     assert sent.refusal is None

@@ -152,10 +152,12 @@ def asked_by_an_opponent(opponent: Position = Position.FOREHAND, options: TableO
     return replace(table, progress=replace(table.progress, give_up=GiveUpAsked(opponent)))
 
 
-def with_agents(record: TableRecord, *seats: int) -> TableRecord:
-    """The table where the occupants of `seats` are agents."""
+def with_agents(record: TableRecord, *seats: int, owner_account: str | None = None) -> TableRecord:
+    """The table where the occupants of `seats` are agents, each working for `owner_account` when it is given."""
     chairs = tuple(
-        replace(chair, occupant=replace(chair.occupant, kind=OccupantKind.AGENT)) if chair.seat in seats else chair
+        replace(chair, occupant=replace(chair.occupant, kind=OccupantKind.AGENT, owner_account=owner_account))
+        if chair.seat in seats
+        else chair
         for chair in record.chairs
     )
     return replace(record, chairs=chairs)

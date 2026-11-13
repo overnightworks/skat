@@ -12,12 +12,13 @@
 
     // `streamedVersion` is the version of the latest table the page's stream brought, null before the first: the first
     // one means the viewer has a stream on the table, which the control needs, and each later one is read only while
-    // the list is open.
+    // the list is open or when the agents seated changed, which can show the pill to an owner or take it away.
     const {
         tableId,
         streamedVersion,
+        seatedAgents,
         kitWords,
-    }: { tableId: string; streamedVersion: number | null; kitWords: KitWords } = $props();
+    }: { tableId: string; streamedVersion: number | null; seatedAgents: string; kitWords: KitWords } = $props();
 
     let control = $state<AgentsControl>({ shown: false, rows: [] });
     let refusal = $state<AgentControlRefusal | undefined>();
@@ -26,12 +27,15 @@
     let popover = $state<HTMLElement | undefined>();
     let placement = $state({ width: 0, left: 0, caret: 0 });
     let follower: AgentsFollower | undefined;
-    let sawFirstTable = false;
+    let seatedAgentsAtLastTable: string | undefined;
 
     $effect(() => {
         const following = followAgents(
             tableId,
-            (answer) => (control = answer),
+            (answer) => {
+                control = answer;
+                if (!answer.shown) open = false;
+            },
             (reason) => (refusal = reason ?? undefined),
         );
         follower = following;
@@ -42,9 +46,10 @@
 
     $effect(() => {
         if (streamedVersion === null) return;
-        const firstTable = !sawFirstTable;
-        sawFirstTable = true;
-        if (firstTable || untrack(() => open)) void follower?.read();
+        const firstTable = seatedAgentsAtLastTable === undefined;
+        const agentsChanged = seatedAgents !== seatedAgentsAtLastTable;
+        seatedAgentsAtLastTable = seatedAgents;
+        if (firstTable || agentsChanged || untrack(() => open)) void follower?.read();
     });
 
     // Anchored over the pill's middle, and inside the margin of both edges.

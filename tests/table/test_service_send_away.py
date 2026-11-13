@@ -32,7 +32,7 @@ class Scene:
     """Anna opened a table; Ben sat in chair 2 and Mozart, an agent, in chair 3, which dealt the first hand; without
     `agent_seated` Mozart stays away."""
 
-    def __init__(self, *, agent_seated=True):
+    def __init__(self, *, agent_seated=True, agent_owner=None):
         self.store = FakeTableStore()
         self.now = START
         self.commands = itertools.count(1)
@@ -46,7 +46,7 @@ class Scene:
         self.table_id = self.service.create(ANNA, CreateTable(command_id="command-open")).id
         self.sit(BEN, 2)
         if agent_seated:
-            self.sit(MOZART, MOZARTS_SEAT)
+            self.sit(replace(MOZART, owner_account=agent_owner), MOZARTS_SEAT)
         self.told.clear()
 
     @property
@@ -56,9 +56,9 @@ class Scene:
     def sit(self, person, seat):
         return self.service.sit(person, SitDown(f"command-{next(self.commands)}", self.table_id, seat), NOBODY)
 
-    def send_away(self, agent=MOZART, *, by=ANNA, command_id=None):
+    def send_away(self, agent=MOZART, *, by=ANNA, is_member=True, command_id=None):
         command = SendAway(command_id or f"command-{next(self.commands)}", self.table_id, agent.account_id)
-        return self.service.send_away(by, command, NOBODY)
+        return self.service.send_away(by, command, frozenset({by.account_id}), is_member=is_member)
 
     def step(self, person):
         command = AuctionCommand(
@@ -196,6 +196,55 @@ class TestRefusals:
         assert result.refusal is refusal
         assert scene.snapshot() == before
         assert scene.told == []
+
+
+class TestTheOwnersRight:
+    def test_the_owner_outside_the_group_sends_his_agent_away_and_the_owner_goes_with_the_chair(self):
+        scene = Scene(agent_owner=BEN.account_id)
+
+        result = scene.send_away(by=BEN, is_member=False)
+
+        assert result.refusal is None
+        assert scene.table.chairs[MOZARTS_SEAT - 1].occupant is None
+        scene.sit(BACH, MOZARTS_SEAT)
+        assert scene.table.chairs[MOZARTS_SEAT - 1].occupant.owner_account is None
+
+    @pytest.mark.parametrize("agent_owner", [None, BEN.account_id], ids=["no-owner-stored", "another-owner"])
+    def test_a_person_outside_the_group_who_is_not_the_owner_is_refused_and_nothing_changes(self, agent_owner):
+        scene = Scene(agent_owner=agent_owner)
+        before = scene.snapshot()
+
+        result = scene.send_away(by=DORA, is_member=False)
+
+        assert result.refusal is Refusal.NOT_ALLOWED
+        assert scene.snapshot() == before
+        assert scene.told == []
+
+    def test_a_refused_person_who_gains_the_right_may_use_the_same_command_id_again(self):
+        scene = Scene()
+
+        refused = scene.send_away(by=DORA, is_member=False, command_id="command-twice")
+        accepted = scene.send_away(by=DORA, is_member=True, command_id="command-twice")
+
+        assert (refused.refusal, accepted.refusal) == (Refusal.NOT_ALLOWED, None)
+        assert scene.table.chairs[MOZARTS_SEAT - 1].occupant is None
+
+    def test_an_owner_seated_without_an_open_stream_sends_his_agent_away(self):
+        scene = Scene(agent_owner=BEN.account_id)
+        command = SendAway("command-away", scene.table_id, MOZART.account_id)
+
+        result = scene.service.send_away(BEN, command, NOBODY, is_member=False)
+
+        assert result.refusal is None
+        assert scene.table.chairs[MOZARTS_SEAT - 1].occupant is None
+
+    def test_a_person_who_is_not_at_the_table_is_refused_even_as_a_member(self):
+        scene = Scene()
+        command = SendAway("command-away", scene.table_id, MOZART.account_id)
+
+        result = scene.service.send_away(DORA, command, NOBODY, is_member=True)
+
+        assert result.refusal is Refusal.NOT_ALLOWED
 
 
 class TestTheBook:

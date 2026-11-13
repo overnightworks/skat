@@ -3,6 +3,7 @@ import { words } from "#lib/words.ts";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import {
     agentSitsNote,
+    seatedAgentsKey,
     callAgent,
     followAgents,
     readAgents,
@@ -537,5 +538,25 @@ describe("the agent that sat down", () => {
         );
 
         expect(agentSitsNote(before, tableOf(chairOf(1, "Felix", "person"), now))).toBeNull();
+    });
+
+    it("differs when two agents of one name swap one chair in a wake that skipped versions", () => {
+        const before = { ...tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent")), version: 4 };
+        const after = { ...before, version: 6 };
+
+        expect(seatedAgentsKey(before, after)).not.toBe(seatedAgentsKey(undefined, before));
+    });
+
+    it("differs when a plain-named agent replaces an agent whose name ends in the skipped version", () => {
+        const before = { ...tableOf(chairOf(2, "Nova@6", "agent")), version: 4 };
+        const after = { ...tableOf(chairOf(2, "Nova", "agent")), version: 6 };
+
+        expect(seatedAgentsKey(before, after)).not.toBe(seatedAgentsKey(undefined, before));
+    });
+
+    it("stays the same for the next version while the same agents sit", () => {
+        const before = { ...tableOf(chairOf(2, "Nova", "agent")), version: 4 };
+
+        expect(seatedAgentsKey(before, { ...before, version: 5 })).toBe(seatedAgentsKey(undefined, before));
     });
 });

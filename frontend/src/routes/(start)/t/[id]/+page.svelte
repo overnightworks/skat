@@ -61,6 +61,7 @@
         markReady,
         positionWord,
         readTable,
+        seatedAgentsKey,
         sitDown,
         standUp,
         takeAuctionStep,
@@ -100,11 +101,14 @@
     // The sentence that names who has just left or taken a chair of the table.
     let seatNote = $state<SeatNotice | null>(null);
     let seatNoteTimer: ReturnType<typeof setTimeout> | undefined;
+    // Which agents sit where, so a wake that folds one leaving and another sitting still changes it.
+    let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
 
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
+        seatedAgents = seatedAgentsKey(previous, table);
         const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
         if (note !== null) {
             seatNote = note;
@@ -731,7 +735,7 @@
                             <span class="label">{`${words["table.standUp"]}`}</span>
                         </button>
                     {/if}
-                    <AgentsPill tableId={id} {streamedVersion} kitWords={data.kitWords} />
+                    <AgentsPill tableId={id} {streamedVersion} {seatedAgents} kitWords={data.kitWords} />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}
