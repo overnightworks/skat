@@ -1,4 +1,6 @@
 <script lang="ts">
+    import type { Snippet } from "svelte";
+
     import type { GiveUpView } from "#lib/giveUp.ts";
     import { words } from "#lib/words.ts";
     import type { GiveUpAnswer } from "../../routes/(start)/tables.ts";
@@ -7,7 +9,13 @@
         view,
         disabled,
         onanswer,
-    }: { view: GiveUpView; disabled: boolean; onanswer: (answer: GiveUpAnswer) => void } = $props();
+        children,
+    }: {
+        view: GiveUpView;
+        disabled: boolean;
+        onanswer: (answer: GiveUpAnswer) => void;
+        children?: Snippet;
+    } = $props();
 </script>
 
 <div class="plaque ask">
@@ -21,6 +29,7 @@
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         {/if}
     </span>
+    {@render children?.()}
     {#if view.answers.length > 0}
         <div class="answers">
             {#if view.answers.includes("agree")}
