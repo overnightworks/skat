@@ -4028,7 +4028,7 @@ body {
 
 .room .copy.abort.arm {
     color: #fff;
-    background: var(--leave, #e5484d);
+    background: #cf3238;
     backdrop-filter: none;
 }
 

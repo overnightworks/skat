@@ -43,7 +43,7 @@ def decide_agree_to_abort(table: TableRecord, actor: Actor) -> Decision:
         return Decision(table, Refusal.HAND_NOT_OPEN)
     if chair.seat in table.progress.abort_yes:
         return Decision(table)
-    agreed = replace(
+    agreed: TableRecord = replace(
         table,
         version=table.version + 1,
         progress=replace(table.progress, abort_yes=table.progress.abort_yes | {chair.seat}),
