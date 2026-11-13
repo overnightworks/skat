@@ -19,6 +19,23 @@ export type Words = {
     readonly "start.openTable": string;
     readonly "start.cancelNewTable": string;
     readonly "start.newTableFailed": string;
+    readonly "lobby.myTables": string;
+    readonly "lobby.openTable": (gaps: { readonly title: string }) => string;
+    readonly "lobby.title": (gaps: { readonly owner: string }) => string;
+    readonly "lobby.titleNameless": string;
+    readonly "lobby.progress": (gaps: { readonly count: number; readonly game: string }) => string;
+    readonly "lobby.length": (count: number) => string;
+    readonly "lobby.sideYou": string;
+    readonly "lobby.seatFree": string;
+    readonly "lobby.seatAway": string;
+    readonly "lobby.minutesLeft": (count: number, gaps: { readonly minutes: string }) => string;
+    readonly "lobby.ownSeatFreeIn": (count: number, gaps: { readonly minutes: string }) => string;
+    readonly "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly owner: string }) => string;
+    readonly "lobby.chipYourTurn": string;
+    readonly "lobby.chipResultWaits": string;
+    readonly "lobby.chipSeriesOver": string;
+    readonly "lobby.endsInDays": (count: number, gaps: { readonly days: string }) => string;
+    readonly "lobby.endsToday": string;
     readonly "table.waitingForPlayers": string;
     readonly "table.seatFree": string;
     readonly "table.seatAway": string;
@@ -189,6 +206,58 @@ export const words: Words = {
     "start.openTable": "Aufmachen",
     "start.cancelNewTable": "Abbrechen",
     "start.newTableFailed": "Der Tisch konnte nicht eröffnet werden.",
+    "lobby.myTables": "Meine Tische",
+    "lobby.openTable": (gaps: { readonly title: string }) => gaps.title + " öffnen",
+    "lobby.title": (gaps: { readonly owner: string }) => gaps.owner + " Tisch",
+    "lobby.titleNameless": "Tisch",
+    "lobby.progress": (gaps: { readonly count: number; readonly game: string }) => "Spiel " + gaps.game + " von " + numberFormat.format(gaps.count),
+    "lobby.length": (count: number) => ({
+        zero: numberFormat.format(count) + " Spiele",
+        one: numberFormat.format(count) + " Spiel",
+        two: numberFormat.format(count) + " Spiele",
+        few: numberFormat.format(count) + " Spiele",
+        many: numberFormat.format(count) + " Spiele",
+        other: numberFormat.format(count) + " Spiele",
+    })[pluralRules.select(count)],
+    "lobby.sideYou": "Du",
+    "lobby.seatFree": "Frei",
+    "lobby.seatAway": "nicht da",
+    "lobby.minutesLeft": (count: number, gaps: { readonly minutes: string }) => ({
+        zero: "noch " + gaps.minutes + " Min",
+        one: "noch " + gaps.minutes + " Min",
+        two: "noch " + gaps.minutes + " Min",
+        few: "noch " + gaps.minutes + " Min",
+        many: "noch " + gaps.minutes + " Min",
+        other: "noch " + gaps.minutes + " Min",
+    })[pluralRules.select(count)],
+    "lobby.ownSeatFreeIn": (count: number, gaps: { readonly minutes: string }) => ({
+        zero: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
+        one: "Dein Platz wird in " + gaps.minutes + " Minute frei",
+        two: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
+        few: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
+        many: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
+        other: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
+    })[pluralRules.select(count)],
+    "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly owner: string }) => ({
+        zero: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
+        one: gaps.owner + " Platz wird in " + gaps.minutes + " Minute frei",
+        two: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
+        few: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
+        many: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
+        other: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
+    })[pluralRules.select(count)],
+    "lobby.chipYourTurn": "Du bist dran",
+    "lobby.chipResultWaits": "Ergebnis wartet",
+    "lobby.chipSeriesOver": "Serie vorbei",
+    "lobby.endsInDays": (count: number, gaps: { readonly days: string }) => ({
+        zero: "endet in " + gaps.days + " Tagen",
+        one: "endet in " + gaps.days + " Tag",
+        two: "endet in " + gaps.days + " Tagen",
+        few: "endet in " + gaps.days + " Tagen",
+        many: "endet in " + gaps.days + " Tagen",
+        other: "endet in " + gaps.days + " Tagen",
+    })[pluralRules.select(count)],
+    "lobby.endsToday": "endet heute",
     "table.waitingForPlayers": "Warte auf Mitspieler",
     "table.seatFree": "Frei",
     "table.seatAway": "nicht da",
