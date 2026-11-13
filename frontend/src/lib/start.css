@@ -4069,6 +4069,12 @@ body {
     box-shadow: none;
 }
 
+/* In a call frame the chips share the top row with the wordmark and the watchers, so the call strip stays in the frame; chips that do not fit wrap to a row of their own. */
+.room.framed .rules-slot {
+    order: 0;
+    flex: 0 1 auto;
+}
+
 @media (min-width: 900px) {
     .room .rules-slot {
         position: absolute;
