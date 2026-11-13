@@ -13,8 +13,8 @@ function chairOf(chairs: readonly Chair[], seat: number): Chair {
 }
 
 function actingWords(chairs: readonly Chair[], stage: Pushing): string {
-    const word = stage.stage === "choosing" ? words["table.chooses"] : words["table.discards"];
-    return `${chairOf(chairs, stage.turn_seat).occupant_name as string} ${word}`;
+    const sentence = stage.stage === "choosing" ? words["table.chooses"] : words["table.discards"];
+    return sentence({ name: chairOf(chairs, stage.turn_seat).occupant_name as string });
 }
 
 // The plaque of the Ramsch a hand plays, from its third pass to its result; the factor is read from the answer.

@@ -459,10 +459,10 @@ describe("the bar's Weiter", () => {
         expect(weiterBar(table(1, {}))).toEqual({ kind: "tap", again: false });
     });
 
-    it("names the others the viewer waits for, joined with und", () => {
+    it("names the others the viewer waits for, joined by the list format", () => {
         expect(weiterBar(table(1, {}, { 1: { ready: true } }))).toEqual({
             kind: "wait",
-            names: "player 2 und player 3",
+            text: words["table.waitingFor"]({ names: "player 2 und player 3" }),
         });
     });
 
@@ -471,7 +471,7 @@ describe("the bar's Weiter", () => {
             table(1, {}, { 1: { ready: true }, 2: { ready: true }, 3: { ready: true, is_away: true } }),
         );
 
-        expect(bar).toEqual({ kind: "wait", names: "player 3" });
+        expect(bar).toEqual({ kind: "wait", text: words["table.waitingFor"]({ names: "player 3" }) });
     });
 
     it("keeps the button when the viewer tapped and nobody is awaited, so a tap asks for the deal again", () => {

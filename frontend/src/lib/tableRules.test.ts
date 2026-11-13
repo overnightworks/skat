@@ -160,10 +160,7 @@ describe("the words of the options", () => {
 
 describe("the plaque's Bock line", () => {
     it.each([2, 4, 8])("names the factor ×%i of a Bock game", (factor) => {
-        expect(bockLine({ games_left: 3, factor })).toEqual({
-            word: words["rules.chipBock"],
-            factor: words["bock.times"]({ factor: String(factor) }),
-        });
+        expect(bockLine({ games_left: 3, factor })).toEqual(words["bock.plaque"]({ factor: String(factor) }));
     });
 
     it.each([

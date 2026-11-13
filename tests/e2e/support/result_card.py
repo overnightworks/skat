@@ -19,6 +19,15 @@ def loosely(*parts: str) -> re.Pattern[str]:
     return re.compile(r"^\s*" + r"\s*".join(re.escape(part) for part in parts) + r"\s*$")
 
 
+def listed(names: list[str]) -> str:
+    """The names as the page's list format writes them: "Anna und Ben"."""
+    return " und ".join(names)
+
+
+def waiting_for(names: list[str]) -> str:
+    return text(SOURCE_LANGUAGE, "table.waitingFor", names=listed(names))
+
+
 def signed(number: int) -> str:
     return f"{MINUS}{-number}" if number < 0 else f"+{number}"
 

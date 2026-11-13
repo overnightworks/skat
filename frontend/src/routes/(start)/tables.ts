@@ -549,11 +549,12 @@ const POSITION_WORDS: Record<Position, string> = {
     rearhand: words["game.rearhand"],
 };
 
-// The auction's value, shown to everyone until the game is declared.
-export function bidValueWhileDeclaring(table: Table): number | null {
+// The auction's value as the plaque says it, shown to everyone until the game is declared.
+export function bidLineWhileDeclaring(table: Table): string | null {
     const hand = table.hand;
     if (!hand?.declaring || hand.declaring.stage === "declared") return null;
-    return hand.auction.declared?.value ?? null;
+    const value = hand.auction.declared?.value;
+    return value === undefined ? null : words["table.bidValue"]({ value: String(value) });
 }
 
 // The stage this viewer must act on: only the declarer acts, and only until the game is declared and while the hand

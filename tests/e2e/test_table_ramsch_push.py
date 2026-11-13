@@ -36,7 +36,7 @@ GRAND_HAND_ASKED = text(SOURCE_LANGUAGE, "push.grandHandAsk")
 GRAND_HAND_GAME = text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, "game.grand"))
 ANY_PLAQUE = ".plaque"
 GIVE_UP_KEY = ".copy.give-up"
-GRAND_HAND_BID = f"{text(SOURCE_LANGUAGE, 'table.bidValue')} {LOWEST_BID}"
+GRAND_HAND_BID = text(SOURCE_LANGUAGE, "table.bidValue", value=str(LOWEST_BID))
 KEYS = (TAKE_SKAT, PUSH, PUT_BACK, GRAND_HAND, GRAND_HAND_ASKED)
 STRIP_CARD = ".own-hand .card button.pick"
 DIMMED_CARD = ".own-hand .card.no"

@@ -97,7 +97,7 @@ describe("the vote to abort a hand with an open chair", () => {
         expect(view).toEqual({
             offered: false,
             ask: {
-                text: `${words["table.waitingFor"]} player 3`,
+                text: words["table.waitingFor"]({ names: "player 3" }),
                 faces: [{ seat: 3, name: "player 3", initial: "p" }],
                 waits: true,
                 buttons: [],

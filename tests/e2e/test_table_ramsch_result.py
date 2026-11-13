@@ -8,7 +8,7 @@ from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
-from tests.e2e.support.result_card import CARD, LOST, MINUS, WON, expect_the_page_around_the_card, signed
+from tests.e2e.support.result_card import CARD, LOST, MINUS, WON, expect_the_page_around_the_card, listed, signed
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,9 +33,10 @@ def expected_head(table: RamschTable, result: dict[str, Any], seat: int | None) 
     losers = [each["seat"] for each in result["seats"] if each["score"] < 0]
     if seat in losers:
         return LOST
-    names = f" {text(SOURCE_LANGUAGE, 'result.and')} ".join(table.names[loser] for loser in losers)
-    key = "result.loses" if len(losers) == 1 else "result.losesTogether"
-    return text(SOURCE_LANGUAGE, key, **{"name" if len(losers) == 1 else "names": names})
+    names = listed([table.names[loser] for loser in losers])
+    if len(losers) == 1:
+        return text(SOURCE_LANGUAGE, "result.loses", name=names)
+    return text(SOURCE_LANGUAGE, "result.losesTogether", names=names)
 
 
 def expected_eye_counts(table: RamschTable, result: dict[str, Any], seat: int | None) -> list[str]:

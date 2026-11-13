@@ -115,7 +115,9 @@ def expect_the_plaque_line(table: PlayingTable) -> None:
     for person in table.everyone:
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         expect(person.locator(BOCK_LINE)).to_have_text(text(SOURCE_LANGUAGE, "bock.factor", factor=str(factor)))
-        expect(person.locator(BOCK_FACTOR)).to_have_text(text(SOURCE_LANGUAGE, "bock.times", factor=str(factor)))
+        expect(person.locator(BOCK_FACTOR)).to_have_text(
+            text(SOURCE_LANGUAGE, "bock.plaque", factor=str(factor)).removeprefix(f"{BOCK_WORD} ")
+        )
         expect(person.locator(BOCK_FACTOR)).to_have_css("font-weight", "700")
 
 
