@@ -915,6 +915,58 @@ msgctxt "sound.tone"
 msgid "Ton"
 msgstr "Sound"
 
+msgctxt "sound.volume"
+msgid "Lautstärke"
+msgstr "Volume"
+
+msgctxt "sound.sets"
+msgid "Klänge"
+msgstr "Sounds"
+
+msgctxt "sound.motion"
+msgid "Bewegung"
+msgstr "Motion"
+
+msgctxt "sound.replayMotion"
+msgid "Bewegung trotzdem abspielen"
+msgstr "Play motion anyway"
+
+msgctxt "sound.reducedMotionNote"
+msgid ""
+"Dein Gerät sagt „Bewegung reduzieren“. Darum zeigt Skat jeden Zustand "
+"sofort."
+msgstr ""
+"Your device says “reduce motion”. So Skat shows every state "
+"at once."
+
+msgctxt "sound.playsOnce"
+msgid "spielt einmal"
+msgstr "plays once"
+
+msgctxt "sound.more"
+msgid "mehr"
+msgstr "more"
+
+msgctxt "sound.setLeise"
+msgid "Leise"
+msgstr "Quiet"
+
+msgctxt "sound.setStammtisch"
+msgid "Stammtisch"
+msgstr "Regulars’ table"
+
+msgctxt "sound.setFunkeln"
+msgid "Funkeln"
+msgstr "Sparkle"
+
+msgctxt "sound.motionDezent"
+msgid "dezent"
+msgstr "subtle"
+
+msgctxt "sound.motionVerspielt"
+msgid "verspielt"
+msgstr "playful"
+
 msgctxt "card.letterJack"
 msgid "B"
 msgstr "J"
