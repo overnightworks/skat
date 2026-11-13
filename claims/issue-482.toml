@@ -1,8 +1,0 @@
-claim_id = "afedae68a19f428daa43b2157863b237"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "56f06c657c48cfc2676b4cad7696dcdb3eb8ecac"
-branch = "claude/issue-482-s13-2d-a-person-saves-the-sheet-s-rules"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/wire.ts", "frontend/src/lib/words", "frontend/src/routes/(start)/NewTableButton.svelte", "frontend/src/routes/(start)/openingRules.test.ts", "frontend/src/routes/(start)/openingRules.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_rule_set_choice.py"]
-opened_commit = "932d417a31582ab4fa04d2a008d4db82c09b7e7e"
-whole_reason = "One surface, the opening sheet's save row: its state, request, words and drive change together."
