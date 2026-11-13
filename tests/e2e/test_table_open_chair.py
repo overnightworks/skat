@@ -36,6 +36,7 @@ SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 CANCEL = text(SOURCE_LANGUAGE, "table.sitQuestionCancel")
 TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 CALL_PILL = text(SOURCE_LANGUAGE, "agents.pill")
 LEGAL_CARD = ".own-hand .card.ok"
 BID_CONTROLS = ".bid"
@@ -114,6 +115,32 @@ def test_a_person_stands_up_mid_game_and_a_watcher_asks_then_sits_and_the_others
     for person in others:
         expect(person.get_by_text(plays_on_notice(sitter_name))).to_be_visible()
         expect(person.locator(".plaque")).not_to_contain_text(WAITING)
+    expect(watcher.get_by_text(plays_on_notice(sitter_name))).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_person_who_stood_up_is_refused_another_open_chair_by_the_dialog_and_stays_unseated(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    # The browser logs the 409 of the refused sit as a console error; the refusal is the point of this test.
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=False)
+    former_holder_seat = table.seat_at["rearhand"]
+    other_seat = table.seat_at["middlehand"]
+    former_holder = table.pages[former_holder_seat]
+
+    stand_up_through_the_api(table.declaring, former_holder_seat)
+    stand_up_through_the_api(table.declaring, other_seat)
+
+    former_holder.locator(f".chair[data-seat='{other_seat}']").get_by_role("button", name=SIT_DOWN).click()
+    former_holder.get_by_role("dialog", name=SIT_QUESTION).get_by_role("button", name=SIT_DOWN).click()
+
+    expect(former_holder.get_by_role("status").filter(has_text=COMMAND_FAILED)).to_be_visible()
+    expect(former_holder.locator(".chair.mine")).to_have_count(0)
+    expect(plate_of(former_holder, other_seat)).to_have_text(SEAT_FREE)
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
