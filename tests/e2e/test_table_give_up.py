@@ -314,6 +314,13 @@ def test_an_answer_to_a_request_a_card_took_back_shows_the_failure_and_ends_noth
 
 HELD_CARDS = ".controls.held"
 OWN_CARDS = ".own-hand .card"
+TRICK_CARDS = ".trick .face"
+
+
+def expect_the_cards_played_to_have_reached(declarer: Page, played: int) -> None:
+    """The declarer's page shows the last card played, so no newer version is left to put the armed key back."""
+    expect(declarer.locator(OWN_CARDS)).to_have_count(10 - played // CARDS_AFTER_ONE_TRICK)
+    expect(declarer.locator(TRICK_CARDS)).to_have_count(CARDS_AFTER_ONE_TRICK if played else 0)
 
 
 def gives_up(opponent: str) -> str:
@@ -538,7 +545,7 @@ def test_the_declarers_second_tap_with_nine_or_ten_cards_ends_the_game_at_once_o
     table = deal_a_game(PHONE)
     table.play_out(played)
     declarer = table.pages[table.declarer_seat]
-    expect(declarer.locator(OWN_CARDS)).to_have_count(10 - played // 3)
+    expect_the_cards_played_to_have_reached(declarer, played)
 
     give_up_key(declarer).click()
     give_up_key(declarer).click()
@@ -556,7 +563,7 @@ def test_the_declarers_second_tap_with_fewer_cards_asks_the_opponents_with_the_r
     table = deal_a_game(PHONE)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     declarer = table.pages[table.declarer_seat]
-    expect(declarer.locator(OWN_CARDS)).to_have_count(10 - CARDS_AFTER_TWO_TRICKS // 3)
+    expect_the_cards_played_to_have_reached(declarer, CARDS_AFTER_TWO_TRICKS)
 
     give_up_key(declarer).click()
     give_up_key(declarer).click()
