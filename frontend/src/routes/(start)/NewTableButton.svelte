@@ -4,9 +4,9 @@
     import { SERIES_LENGTH_DEFAULT, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP } from "#lib/wire.ts";
     import RuleMark from "#lib/ui/RuleMark.svelte";
     import { words } from "#lib/words.ts";
-    import { isOn, OFFICIAL, requestOf } from "./openingRules.ts";
+    import { differs, isOn, OFFICIAL, requestOf, suggestedName } from "./openingRules.ts";
     import RuleUnit from "./RuleUnit.svelte";
-    import { createTable, readRuleSets, type Options, type RuleSet } from "./tables.ts";
+    import { createTable, readRuleSets, saveRuleSet, type Options, type RuleSet } from "./tables.ts";
 
     let choosing = $state(false);
     let length = $state(SERIES_LENGTH_DEFAULT);
@@ -17,12 +17,18 @@
     let sheet = $state(OFFICIAL);
     let opening = $state(false);
     let failed = $state(false);
+    // The name the person typed over the suggested one; null while the suggestion stands.
+    let typedName = $state<string | null>(null);
+    let saving = $state(false);
+    let saveProblem = $state<"taken" | "failed" | null>(null);
     let commandId = crypto.randomUUID();
     let openings = 0;
     let scrolledDown = $state(false);
     let scrolledUp = $state(false);
 
     const pickedOptions = $derived(picked?.options ?? OFFICIAL);
+    const offered = $derived(differs(sheet, pickedOptions));
+    const name = $derived(typedName ?? suggestedName(picked?.name ?? words["start.setOfficial"], sheet, pickedOptions));
     const rows = $derived(
         (["points", "kontra", "ramsch", "pushing", "bock"] as const).filter(
             (row) => row !== "pushing" || isOn(sheet, "ramsch"),
@@ -36,8 +42,9 @@
     }
 
     function show(next: Options): void {
-        if (JSON.stringify(requestOf(next)) !== JSON.stringify(requestOf(sheet))) changed();
+        if (differs(next, sheet)) changed();
         sheet = next;
+        saveProblem = null;
     }
 
     async function choose(): Promise<void> {
@@ -63,7 +70,24 @@
     // A pick replaces whatever was changed on the sheet.
     function pick(set: RuleSet | null): void {
         picked = set;
+        typedName = null;
         show(set?.options ?? OFFICIAL);
+    }
+
+    // The saved set is picked, so the sheet shows exactly what the set holds.
+    async function save(): Promise<void> {
+        saving = true;
+        saveProblem = null;
+        const opened = openings;
+        const outcome = await saveRuleSet(name, requestOf(sheet));
+        saving = false;
+        if (opened !== openings) return;
+        if (outcome.kind !== "saved") {
+            saveProblem = outcome.kind;
+            return;
+        }
+        if (!sets.some((each) => each.id === outcome.set.id)) sets = [...sets, outcome.set];
+        pick(outcome.set);
     }
 
     function step(by: number): void {
@@ -211,6 +235,42 @@
                 {/each}
             </div>
         </div>
+        {#if offered}
+            <div class="save" role="group" aria-label={words["start.saveRules"]}>
+                <span class="ic" aria-hidden="true">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.6"
+                        stroke-linecap="round"
+                    >
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+                </span>
+                <span class="txt">
+                    <button type="button" class="go" disabled={opening || saving} onclick={save}>
+                        {words["start.saveRules"]}
+                    </button>
+                    <input
+                        class="name"
+                        type="text"
+                        aria-label={words["start.saveName"]}
+                        value={name}
+                        disabled={opening || saving}
+                        oninput={(event) => {
+                            typedName = event.currentTarget.value;
+                            saveProblem = null;
+                        }}
+                    />
+                    {#if saveProblem !== null}
+                        <small role="alert">
+                            {saveProblem === "taken" ? words["start.saveNameTaken"] : words["start.saveFailed"]}
+                        </small>
+                    {/if}
+                </span>
+            </div>
+        {/if}
         {#if failed}
             <p role="alert">{words["start.newTableFailed"]}</p>
         {/if}
