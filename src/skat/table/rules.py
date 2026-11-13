@@ -46,11 +46,12 @@ SIT_DOWN_COMMAND: Final = "sit-down"
 STAND_UP_COMMAND: Final = "stand-up"
 PLAY_CARD_COMMAND: Final = "play-card"
 GIVE_UP_COMMAND: Final = "give-up"
+SHORTEN_COMMAND: Final = "shorten"
 THROW_DOWN_COMMAND: Final = "throw-down"
 AGREE_TO_GIVE_UP_COMMAND: Final = "give-up-agree"
 DECLINE_GIVE_UP_COMMAND: Final = "give-up-decline"
 STEP_OF_PLAY_COMMANDS: Final = frozenset(
-    {PLAY_CARD_COMMAND, GIVE_UP_COMMAND, AGREE_TO_GIVE_UP_COMMAND, THROW_DOWN_COMMAND}
+    {PLAY_CARD_COMMAND, GIVE_UP_COMMAND, SHORTEN_COMMAND, AGREE_TO_GIVE_UP_COMMAND, THROW_DOWN_COMMAND}
 )
 
 
@@ -198,8 +199,8 @@ def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | 
 
 
 def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
-    """A chair's change takes its holder's part of the standing give-up request: the asker's goes with the request,
-    an opponent's no alone, anyone else's changes nothing.
+    """A chair's change takes its holder's part of the standing request: the asker's goes with the request, an
+    opponent's no to a give-up or yes to a shortening alone, anyone else's changes nothing.
     """
     asked = table.progress.give_up
     if asked is None or table.dealer is None:
@@ -208,7 +209,9 @@ def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
     if asked.asker is position:
         return None
     if asked.declined_by is position:
-        return GiveUpAsked(asked.asker)
+        return replace(asked, declined_by=None)
+    if asked.agreed_by is position:
+        return replace(asked, agreed_by=None)
     return asked
 
 
@@ -301,8 +304,8 @@ def hand_runs(table: TableRecord) -> bool:
 def is_deal_or_step_of_play(command: str, before: TableRecord, after: TableRecord) -> bool:
     """An accepted decision dealt a hand, or was a step of play that changed the table.
 
-    A step is a played card, a give-up request, its agreement or a throw-down whose table version rose: a second
-    give-up request while one stands changes nothing. A take, a put-back and a push are none of these. The third pass
+    A step is a played card, a give-up or shortening request, its agreement or a throw-down whose table version rose: a
+    second request while one stands changes nothing. A take, a put-back and a push are none of these. The third pass
     that starts a Ramsch deals nothing, since the hand runs before and after it.
     """
     dealt = not hand_runs(before) and hand_runs(after)

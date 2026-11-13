@@ -231,13 +231,19 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         tuple(card for card in DECK if card in own_cards),
         _skat_count(table.hand, state, stage),
         auction_view_of(table, viewer_account_id, table.dealer, waiting=waiting_seat is not None),
-        declaring_view_of(state, table.dealer, () if state is None else hands[state.declarer]),
+        declaring_view_of(
+            state,
+            table.dealer,
+            () if state is None else hands[state.declarer],
+            shown=table.progress.shortening_refused_by is not None,
+        ),
         playing_view_of(
             playing,
             table.dealer,
             acting_positions,
             show_running_points=table.options.show_running_points,
             asked=table.progress.give_up,
+            shortening_refused_by=table.progress.shortening_refused_by,
             kontra=kontra_view_of(table, playing, table.dealer, acting_positions)
             if isinstance(playing, Playing)
             else None,

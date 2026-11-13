@@ -68,14 +68,18 @@ def decide_declaring_step(table: TableRecord, actor: Actor, command: DeclaringCo
     return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, declaring=steps)))
 
 
-def declaring_view_of(state: Declaring | None, dealer: int, held: Collection[Card]) -> DeclaringView | None:
+def declaring_view_of(
+    state: Declaring | None, dealer: int, held: Collection[Card], *, shown: bool
+) -> DeclaringView | None:
     """The declaring state for every viewer alike; None while the auction has no declarer.
 
-    `held` is what the declarer holds now, which an ouvert game shows open."""
+    `held` is what the declarer holds now, which an ouvert game shows open, and so does a declarer whose shortening an
+    opponent refused (`shown`)."""
     if state is None:
         return None
     seats = seats_from(dealer)
-    open_cards = held if state.declaration is not None and state.declaration.ouvert else ()
+    ouvert = state.declaration is not None and state.declaration.ouvert
+    open_cards = held if ouvert or shown else ()
     return DeclaringView(
         declarer_seat=seats[state.declarer],
         stage=state.stage,

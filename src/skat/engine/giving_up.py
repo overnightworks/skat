@@ -95,8 +95,8 @@ def shorten(state: Playing, *, all_agreed: bool = False, claim: Announcement = A
     """The declarer shortens the game by showing his cards; it ends only when every opponent agreed.
 
     A level he demands that the opponents already put out of reach is refused before anyone is asked; in Null no level
-    can be reached, so any demand there is. A game already lost for him stays lost, one already won keeps its real result unless he demands a level, and an undecided one is
-    won by its declaration and the demanded level.
+    can be reached, so any demand there is. A game already lost for him stays lost, one already won keeps its real
+    result unless he demands a level, and an undecided one is won by its declaration and the demanded level.
     """
     if state.result is not None:
         return PlayOutcome(state, PlayRefusal.OVER)

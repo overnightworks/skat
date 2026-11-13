@@ -31,6 +31,7 @@ class GameEnding(StrEnum):
     PLAYED_OUT = "played-out"
     GIVEN_UP = "given-up"
     THROWN_DOWN = "thrown-down"
+    SHORTENED = "shortened"
 
 
 @dataclass(frozen=True)

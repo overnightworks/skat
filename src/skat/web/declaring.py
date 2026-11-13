@@ -9,7 +9,7 @@ from skat.engine.declaration import SKAT_SIZE, Declare, PutBack, TakeSkat
 from skat.table.declaring import DeclaringCommand
 from skat.web.mcp import DECLARE_GAME_MARK, PUT_BACK_CARDS_MARK, TAKE_SKAT_MARK
 from skat.web.tables import (
-    ANNOUNCEMENT_TOKENS,
+    ANNOUNCEMENTS_OF_TOKEN,
     COMMAND_RESPONSES,
     GAME_TOKENS,
     TABLES_PATH,
@@ -34,7 +34,6 @@ TABLE_DECLARING_PUT_BACK_SUFFIX: Final = "/declaring/put-back"
 TABLE_DECLARING_DECLARE_SUFFIX: Final = "/declaring/declare"
 
 _GAME_KINDS: Final = {token: kind for kind, token in GAME_TOKENS.items()}
-_ANNOUNCEMENTS: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
 
 class _DeclaringRequest(CommandRequest):
@@ -141,7 +140,10 @@ def _add_declare(router: APIRouter, take_step: StepTaker) -> None:
         command id: the next attempt takes a new command id.
         """
         step = Declare(
-            _GAME_KINDS[body.game], hand=body.hand, ouvert=body.ouvert, announcement=_ANNOUNCEMENTS[body.announcement]
+            _GAME_KINDS[body.game],
+            hand=body.hand,
+            ouvert=body.ouvert,
+            announcement=ANNOUNCEMENTS_OF_TOKEN[body.announcement],
         )
         return await take_step(table_id, body, request, response, step)
 
