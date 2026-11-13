@@ -270,6 +270,21 @@ class TestStandUp:
         assert [chair["former_holder_name"] for chair in answer.json()["chairs"]] == names
         assert names == [name if number == seat else None for number in (1, 2, 3)]
 
+    def test_the_answer_and_the_read_of_an_agent_that_stood_up_during_a_hand_name_its_own_open_chair_to_return_to(
+        self, skat, agent
+    ):
+        table = AgentTable(skat, agent, Position.MIDDLEHAND)
+        seat = seats_from(DEALER_SEAT)[Position.MIDDLEHAND]
+        expected = [number == seat for number in (1, 2, 3)]
+
+        answer = agent.stand_up(table.table_id)
+        read = agent.read(table.table_id).json()
+        other = read_as(skat, table.at[Position.FOREHAND], table.table_id)
+
+        assert [chair["is_mine_to_return"] for chair in answer.json()["chairs"]] == expected
+        assert [chair["is_mine_to_return"] for chair in read["chairs"]] == expected
+        assert not any(chair["is_mine_to_return"] for chair in other["chairs"])
+
     def test_an_agent_that_stood_up_during_a_hand_may_sit_only_in_its_own_chair_again(self, skat, agent):
         table = AgentTable(skat, agent, Position.MIDDLEHAND)
         seat = seats_from(DEALER_SEAT)[Position.MIDDLEHAND]
