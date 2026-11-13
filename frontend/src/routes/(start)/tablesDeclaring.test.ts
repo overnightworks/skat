@@ -46,6 +46,7 @@ describe("what the declaring stage asks of this viewer", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
         hand: {
@@ -53,6 +54,8 @@ describe("what the declaring stage asks of this viewer", () => {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             ...NO_PUSHES,
             auction: auctionWith(bidWon),
             declaring,
@@ -95,6 +98,7 @@ describe("the auction's value while declaring", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
         hand: {
@@ -102,6 +106,8 @@ describe("the auction's value while declaring", () => {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             ...NO_PUSHES,
             auction: auctionWith(declared),
             declaring,

@@ -51,6 +51,8 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             ramsch: false,
             pushing: null,
             pushes: 0,
@@ -73,6 +75,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             playing: changes === null ? null : playing(changes),
         },
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
     };

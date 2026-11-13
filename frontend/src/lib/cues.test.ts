@@ -85,6 +85,8 @@ function table(
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             ramsch: false,
             pushing: null,
             pushes: 0,
@@ -97,6 +99,7 @@ function table(
         },
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
     };

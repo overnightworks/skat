@@ -486,6 +486,7 @@ describe("the agent that sat down", () => {
         hand: null,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
     });
@@ -508,6 +509,8 @@ describe("the agent that sat down", () => {
                 own_cards: [],
                 skat_count: 2,
                 waiting_seat: 2,
+                abort: null,
+                abortable: true,
                 ramsch: false,
                 pushing: null,
                 pushes: 0,

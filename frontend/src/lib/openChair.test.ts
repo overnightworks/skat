@@ -25,6 +25,8 @@ function handOf(waitingSeat: number | null): Hand {
         own_cards: [],
         skat_count: 2,
         waiting_seat: waitingSeat,
+        abort: null,
+        abortable: waitingSeat !== null,
         ramsch: false,
         pushing: null,
         pushes: 0,
@@ -52,6 +54,7 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         hand,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
     };

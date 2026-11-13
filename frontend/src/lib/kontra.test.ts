@@ -37,6 +37,8 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         own_cards: [],
         skat_count: 2,
         waiting_seat: null,
+        abort: null,
+        abortable: false,
         ramsch: false,
         pushing: null,
         pushes: 0,
@@ -68,6 +70,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         hand: playingKontra === "no hand" ? null : hand,
         result: null,
         passed_in: null,
+        aborted: null,
         ended: null,
         bock: null,
     };

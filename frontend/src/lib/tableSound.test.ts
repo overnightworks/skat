@@ -56,6 +56,7 @@ function tableSeenFrom(ownSeat: number): Table {
         hand: null,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
     };
