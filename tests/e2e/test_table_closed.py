@@ -9,6 +9,7 @@ from playwright.sync_api import Page, Request, Route, expect
 from sqlalchemy import select, update
 
 from skat.store.schema import tables
+from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
@@ -240,6 +241,14 @@ def played_longer_ago_than_the_days(server: RunningServer, table_id: str) -> Non
         connection.execute(update(tables).where(tables.c.id == table_id).values(last_played_at=last_play))
 
 
+def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:
+    """Opens the table's page and waits for its first read of the agents, which the page makes once its stream brings
+    the first table; a read still on its way when the table ends is answered 404 and the browser logs that.
+    """
+    with person.expect_response(lambda response: urlsplit(response.url).path.endswith(TABLE_AGENTS_SUFFIX)):
+        watch(person, server, path)
+
+
 def expect_the_unplayed_face(person: Page) -> None:
     expect(person.get_by_role("heading", name=UNPLAYED_HEADING)).to_be_visible(timeout=ENDS_WITHIN_SECONDS * 1000)
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
@@ -258,9 +267,9 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
     )
     path = open_new_table(anna, e2e_server)
     for seat, person in ((2, ben), (3, cleo)):
-        watch(person, e2e_server, path)
+        watch_until_the_agents_are_read(person, e2e_server, path)
         sit_in(person, seat)
-    watch(dora, e2e_server, path)
+    watch_until_the_agents_are_read(dora, e2e_server, path)
     expect(anna.locator(".card-face").first).to_be_visible()
     open_pages = (anna, ben, cleo, dora)
     # A page asks for the table's agents when its stream brings its first table; the table ends only after all have.

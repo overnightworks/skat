@@ -43,6 +43,7 @@
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
+    import PushControls from "#lib/ui/PushControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import RamschMarks from "#lib/ui/RamschMarks.svelte";
@@ -96,7 +97,10 @@
     let connected = $state(true);
     // The number of the person's other tables that wait for him; a lost stream sets it back to none, so a count is never stale.
     let attention = $state(0);
-    let picking = $state<Picking | undefined>();
+    // The declarer's put-back and the Ramsch's stage each pick two cards; a table has only one of them at a time.
+    let declarePicking = $state<Picking | undefined>();
+    let pushPicking = $state<Picking | undefined>();
+    const picking = $derived(declarePicking ?? pushPicking);
     let playing = $state<PlayingHand | undefined>();
     // The first moment of the declaring, which only a page that sees the auction end shows.
     let justWon = $state(false);
@@ -668,7 +672,8 @@
                     </li>
                 {/each}
             </ul>
-            <DeclareControls {id} table={outcome.table} bind:picking bind:note />
+            <DeclareControls {id} table={outcome.table} bind:picking={declarePicking} bind:note />
+            <PushControls {id} table={outcome.table} bind:picking={pushPicking} bind:note />
             <PlayControls {id} table={outcome.table} bind:playing bind:note />
             {#if ownTurnLadder !== null}
                 {@const table = outcome.table}

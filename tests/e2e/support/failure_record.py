@@ -176,7 +176,9 @@ class FailureRecord:
 
     def _log_entry(self, timeline: PageTimeline, parameters: CdpParameters) -> None:
         entry = parameters["entry"]
-        self._console_line(timeline, entry["timestamp"], f"log.{entry['level']}", entry["text"])
+        # The browser's own report of a failed request carries the request's address, which its text leaves out.
+        address = f" {printable(entry['url'])}" if "url" in entry else ""
+        self._console_line(timeline, entry["timestamp"], f"log.{entry['level']}", entry["text"] + address)
 
     def _exception(self, timeline: PageTimeline, parameters: CdpParameters) -> None:
         details = parameters["exceptionDetails"]

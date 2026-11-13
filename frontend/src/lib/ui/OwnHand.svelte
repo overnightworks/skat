@@ -1,6 +1,7 @@
 <script lang="ts">
     import { inDisplayOrder } from "#lib/handOrder.ts";
     import { cardLook, type PlayingHand } from "#lib/playView.ts";
+    import { mayPick } from "#lib/pushView.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
     import { cardName, includesCard, type Card, type Picking } from "../../routes/(start)/tables.ts";
 
@@ -16,7 +17,13 @@
 <div class="own-hand" class:picking={picking !== undefined}>
     {#each ordered as card (`${card.suit}-${card.rank}`)}
         {@const look = cardLook(playing, card)}
-        <div class="card" class:ok={look === "legal"} class:touch={look === "lifted"} class:no={look === "dimmed"}>
+        {@const pickable = picking === undefined || mayPick(picking, card)}
+        <div
+            class="card"
+            class:ok={look === "legal"}
+            class:touch={look === "lifted"}
+            class:no={look === "dimmed" || !pickable}
+        >
             {#if picking !== undefined}
                 <button
                     type="button"
@@ -24,7 +31,7 @@
                     class:picked={includesCard(picking.picked, card)}
                     aria-pressed={includesCard(picking.picked, card)}
                     aria-label={cardName(card)}
-                    disabled={picking.disabled}
+                    disabled={picking.disabled || !pickable}
                     onclick={() => {
                         picking.toggle(card);
                     }}

@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+# Registers the pytester fixture for the tests that run an inner pytest.
+pytest_plugins = ["pytester"]
+
 # Assertion rewriting must be registered before the first import of a support module.
 # The `tests` namespace itself is already imported when this conftest loads.
 pytest.register_assert_rewrite("tests.support", "tests.e2e.support")
