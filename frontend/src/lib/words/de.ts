@@ -51,6 +51,7 @@ export type Words = {
     readonly "table.loadFailedHint": string;
     readonly "table.watchers": string;
     readonly "table.lobby": string;
+    readonly "table.lobbyWaiting": (count: number) => string;
     readonly "table.reconnecting": string;
     readonly "table.sitDown": string;
     readonly "table.standUp": string;
@@ -270,6 +271,14 @@ export const words: Words = {
     "table.loadFailedHint": "Lade die Seite neu, um es noch einmal zu versuchen.",
     "table.watchers": "Zuschauer",
     "table.lobby": "Lobby",
+    "table.lobbyWaiting": (count: number) => ({
+        zero: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        one: "Lobby, " + numberFormat.format(count) + " Tisch wartet auf dich",
+        two: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        few: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        many: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+        other: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
+    })[pluralRules.select(count)],
     "table.reconnecting": "verbinde neu",
     "table.sitDown": "Hinsetzen",
     "table.standUp": "Aufstehen",

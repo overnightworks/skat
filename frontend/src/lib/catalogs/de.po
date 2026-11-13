@@ -211,6 +211,14 @@ msgctxt "table.lobby"
 msgid "Lobby"
 msgstr ""
 
+msgctxt "table.lobbyWaiting.one"
+msgid "Lobby, {count} Tisch wartet auf dich"
+msgstr ""
+
+msgctxt "table.lobbyWaiting.other"
+msgid "Lobby, {count} Tische warten auf dich"
+msgstr ""
+
 msgctxt "table.reconnecting"
 msgid "verbinde neu"
 msgstr ""
