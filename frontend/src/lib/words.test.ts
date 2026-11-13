@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
-import { listFormat, pageLanguage, words } from "#lib/words.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { listFormat, pageLanguage } from "#lib/words.ts";
 import { sourceLanguage } from "#lib/words/index.ts";
 
 describe("the language of the page", () => {
@@ -12,14 +12,28 @@ describe("the language of the page", () => {
         expect(pageLanguage(tag, ["de", "fr"])).toBe(sourceLanguage);
     });
 
-    it.each(["de", ""])("is read from the document of the browser when its lang says '%s'", async (tag) => {
-        document.documentElement.lang = tag;
-        vi.resetModules();
+    describe("read from the document of the browser", () => {
+        const originalLang = document.documentElement.lang;
+        afterEach(() => {
+            document.documentElement.lang = originalLang;
+            vi.doUnmock("#lib/words/index.ts");
+            vi.resetModules();
+        });
 
-        const loaded = await import("#lib/words.ts");
+        it("is the <html lang> tag when the app offers it", async () => {
+            const german = await vi.importActual<typeof import("#lib/words/index.ts")>("#lib/words/index.ts");
+            vi.doMock("#lib/words/index.ts", () => ({
+                ...german,
+                languages: ["de", "fr"],
+                loadWords: async () => german.loadWords(german.sourceLanguage),
+            }));
+            document.documentElement.lang = "fr";
+            vi.resetModules();
 
-        expect(loaded.language).toBe(sourceLanguage);
-        expect(loaded.words["app.name"]).toBe(words["app.name"]);
+            const loaded = await import("#lib/words.ts");
+
+            expect(loaded.language).toBe("fr");
+        });
     });
 });
 
