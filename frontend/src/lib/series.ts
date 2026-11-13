@@ -26,9 +26,9 @@ export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
     const proposal = table.series?.end_proposal;
     if (!proposal) return null;
     const viewerSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
-    const answeredSeats = [proposal.proposer_seat, proposal.accepter_seat];
-    const waitingFor = table.chairs.filter((chair) => !answeredSeats.includes(chair.seat));
-    if (viewerSeat !== undefined && answeredSeats.includes(viewerSeat)) {
+    const answeredSeats = new Set([proposal.proposer_seat, proposal.accepter_seat]);
+    const waitingFor = table.chairs.filter((chair) => !answeredSeats.has(chair.seat));
+    if (viewerSeat !== undefined && answeredSeats.has(viewerSeat)) {
         const faces = waitingFor.map((chair) => faceOf(table.chairs, chair.seat));
         const names = listFormat.format(faces.map((face) => face.name));
         return { text: words["table.waitingFor"]({ names }), faces, waits: true, buttons: [] };
