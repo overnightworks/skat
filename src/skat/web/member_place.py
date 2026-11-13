@@ -35,10 +35,13 @@ from agents.member import (
     MemberStanding,
     PlaceRef,
     PlaceView,
+    PlaceWindow,
     Standing,
     StandingState,
     place_ref_from_view_uri,
+    place_ref_from_window_uri,
     place_view_uri,
+    place_window_uri,
 )
 from agents.tools import Principal, ToolDeclaration, ToolEffect, ToolOutcome
 from pydantic import ValidationError
@@ -56,7 +59,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable
 
     from agents.mcp_server import MemberResources
-    from agents.member import PlaceWindow
     from agents.tools import JsonObject
 
     from skat.table.member_place import TableStanding
@@ -98,8 +100,9 @@ def _standing_of(standing: TableStanding, lease_runs: bool) -> Standing:
 
 
 def _listed(standings: Iterable[Standing]) -> tuple[str, ...]:
-    """The resources of a standing: the standing, and the view of each place it says it serves one of."""
-    return (STANDING_URI, *(place_view_uri(each.place) for each in standings if each.serves_view))
+    """The resources of a standing: the standing, and the window and the view of each place it says it serves one of."""
+    served = [each.place for each in standings if each.serves_view]
+    return (STANDING_URI, *(place_window_uri(place) for place in served), *(place_view_uri(place) for place in served))
 
 
 class MemberStandings:
@@ -131,6 +134,9 @@ class MemberStandings:
             return None
         if uri == STANDING_URI:
             return MemberStanding(standings=await self._standings(principal))
+        window_place = place_ref_from_window_uri(uri)
+        if window_place is not None and window_place.kind == TABLE_PLACE_KIND:
+            return await self._empty_window(principal, window_place)
         place = place_ref_from_view_uri(uri)
         if place is None or place.kind != TABLE_PLACE_KIND:
             return None
@@ -148,6 +154,15 @@ class MemberStandings:
             awaits_you=member.awaits_you,
             state=answer_of(member.view, nudges).model_dump(mode="json"),
         )
+
+    async def _empty_window(self, principal: Principal, place: PlaceRef) -> PlaceWindow | None:
+        """The window of a table the principal holds a chair at: the table says what happened in its view, so the
+        window holds no line.
+        """
+        member = await run_in_threadpool(
+            self._tables.member_view, principal.sub, place.id, self._presence.connected(place.id)
+        )
+        return None if member is None else PlaceWindow(generation=place.id, starts_at=1, entries=())
 
     def _asks_due(self, principal: Principal, uri: str, table_id: str, member: MemberView) -> int:
         """The asks due for the reader at the version it read, and, on the first read of a version the table waits

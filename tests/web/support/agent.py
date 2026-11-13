@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_view_uri
+from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_view_uri, place_window_uri
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.mcp import OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
@@ -24,6 +24,11 @@ def agent_account_id(skat):
 def view_uri_of(table_id):
     """The resource a seated agent reads its table through."""
     return place_view_uri(PlaceRef(kind="table", id=table_id))
+
+
+def window_uri_of(table_id):
+    """The resource a seated agent reads what happened at its table through."""
+    return place_window_uri(PlaceRef(kind="table", id=table_id))
 
 
 @dataclass(frozen=True)
