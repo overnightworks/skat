@@ -15,6 +15,7 @@ REPOSITORY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY / "src"))
 
 from skat.engine.bidding import VALID_BIDS  # noqa: E402
+from skat.engine.kontra import Word  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
@@ -96,6 +97,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "LEVEL_TOKENS": Level,
     "END_REASON_TOKENS": EndReason,
     "WAITING_CASE_TOKENS": WaitingCase,
+    "WORD_TOKENS": Word,
 }
 
 

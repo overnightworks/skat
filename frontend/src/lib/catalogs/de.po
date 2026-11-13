@@ -371,6 +371,30 @@ msgctxt "result.listGame"
 msgid "Spiel {score}"
 msgstr ""
 
+msgctxt "result.listGameWord"
+msgid "Spiel · {word} {score}"
+msgstr ""
+
+msgctxt "result.wordKontra"
+msgid "Kontra"
+msgstr ""
+
+msgctxt "result.wordRe"
+msgid "Re"
+msgstr ""
+
+msgctxt "result.wordSupra"
+msgid "Supra"
+msgstr ""
+
+msgctxt "result.wordHirsch"
+msgid "Hirsch"
+msgstr ""
+
+msgctxt "result.wordFactor"
+msgid "{word} ×{factor}"
+msgstr ""
+
 msgctxt "result.listBonus"
 msgid "Liste {bonus}"
 msgstr ""
