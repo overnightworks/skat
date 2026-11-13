@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "4fbb0cac2a1f4dd2d54af992c09e00250750b085"
 branch = "claude/issue-458-s11-9c-the-page-lets-a-seated-person-sta"
-scope = ["docs/mockups/table.html", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/openChair.test.ts", "frontend/src/lib/openChair.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/web/words.py", "tests/e2e/test_table_stand_mid_hand.py"]
+scope = ["docs/mockups/table.html", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/openChair.test.ts", "frontend/src/lib/openChair.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/table/views.py", "src/skat/web/tables.py", "src/skat/web/words.py", "tests/e2e/test_table_stand_mid_hand.py"]
 opened_commit = "b79dcb8d3992e376a6caa998a2aa7d2afa1a3353"
 whole_reason = "The key, its arming, the notice and the stood-up view are one user-visible step, standing up during a hand; a key without the others' notice and the watcher's view would leave a chair empty without telling anyone why."
