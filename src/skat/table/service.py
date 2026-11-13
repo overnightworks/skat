@@ -22,8 +22,7 @@ from skat.table.member_place import (
     agents_seated_at,
     decide_accept,
     decide_invite,
-    forgotten_if_expired,
-    standings_among,
+    standings_of,
     table_offers_of,
 )
 from skat.table.member_view import MemberView, ViewSignal, member_view_of, view_recipients
@@ -664,18 +663,7 @@ class TableService:
         return AcceptResult(decision.refusal, result_pending(decision.table))
 
     def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
-        """Every table the agent holds a chair at or has an open invitation to, from one read; the read forgets an
-        invitation of the agent that ran out on the service's clock.
-        """
-        now = self._now()
-        with self._transactions.begin() as transaction:
-            entries = transaction.locked_book_entries_of(agent_account)
-            kept = tuple(forgotten_if_expired(entry, now) for entry in entries)
-            for before, after in zip(entries, kept, strict=True):
-                if after != before:
-                    transaction.save_book_entry(after)
-            held = [each.table_id for each in transaction.tables_of(agent_account)]
-        return standings_among(kept, held, now)
+        return standings_of(self._transactions, agent_account, self._now())
 
     def _tell(self, accounts: frozenset[str]) -> None:
         if accounts:
