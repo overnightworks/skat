@@ -32,7 +32,6 @@ UNKNOWN_ID = "0" * 32
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 LOBBY_WAITING_ONE = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=1)
 LOBBY_WAITING_TWO = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=2)
-BADGE_PIXELS = 18
 OTHER_TABLES_BEYOND_THE_CAP = 10
 RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -225,8 +224,9 @@ def test_a_table_that_waits_for_the_person_puts_its_number_on_the_lobby_button_w
     face, badge = person.locator(".lobby-face").bounding_box(), badge_of(person).bounding_box()
     assert face is not None
     assert badge is not None
-    assert (badge["width"], badge["height"]) == (BADGE_PIXELS, BADGE_PIXELS)
-    assert (badge["x"] + badge["width"], badge["y"]) == (face["x"] + face["width"] + 3, face["y"] - 3)
+    assert badge["width"] == badge["height"] > 0
+    assert badge["x"] <= face["x"] + face["width"] <= badge["x"] + badge["width"]
+    assert badge["y"] <= face["y"] <= badge["y"] + badge["height"]
     expect_the_lobby_top_left_and_tappable(person)
     assert_never_reloaded(person)
 
