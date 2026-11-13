@@ -3428,6 +3428,11 @@ body {
     text-transform: uppercase;
 }
 
+.room .notice .dot + .dot {
+    margin-left: -16px;
+    box-shadow: 0 0 0 2px #f6efe2;
+}
+
 .room .notice .dot.agent {
     background: radial-gradient(circle at 34% 30%, #d9e6ff, #4467b8 60%, #1d2c55);
 }
@@ -3773,6 +3778,28 @@ body {
     letter-spacing: 0.02em;
     text-transform: uppercase;
     rotate: -5deg;
+}
+
+.room .result .stamp:has(.by) {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-left: 5px;
+}
+
+.room .result .stamp .by {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 24px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    box-shadow: 0 0 0 2px #fbf8f0;
+    font-family: "Open Sans", Arial, sans-serif;
+    font-size: 12px;
+    text-transform: uppercase;
 }
 
 .room .result .value {
