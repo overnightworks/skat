@@ -29,7 +29,6 @@ pytestmark = pytest.mark.e2e
 
 KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
 BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
-BID_VALUE = text(SOURCE_LANGUAGE, "table.bidValue")
 WAITING = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
 SIT_QUESTION = text(SOURCE_LANGUAGE, "table.sitQuestion")
 SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
@@ -155,7 +154,9 @@ def test_a_person_stands_up_after_the_auction_and_the_declarer_reads_the_value_o
     stand_up_through_the_api(table, leaver_seat)
 
     for person in (table.declarer, table.watcher):
-        expect(person.locator(".plaque")).to_contain_text(BID_VALUE)
+        expect(person.locator(".plaque")).to_contain_text(
+            text(SOURCE_LANGUAGE, "table.bidValue", value=str(table.bid_value()))
+        )
         expect(person.locator(".plaque")).to_contain_text(WAITING)
         expect(person.locator(TURN_CHAIR)).to_have_count(0)
     expect(button_of(table.declarer, TAKE_SKAT)).to_have_count(0)

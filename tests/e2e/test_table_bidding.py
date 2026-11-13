@@ -34,10 +34,8 @@ HOLD = text(SOURCE_LANGUAGE, "bid.hold")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
 PASS = text(SOURCE_LANGUAGE, "bid.pass")
-WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
 WAITS_FOR_YOU = text(SOURCE_LANGUAGE, "table.waitsForYou")
 PASSED_IN = text(SOURCE_LANGUAGE, "table.passedIn")
-GIVES = text(SOURCE_LANGUAGE, "table.gives")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 LOWEST_BID = 18
 SKAT_CARD = ".skat-card"
@@ -555,7 +553,7 @@ def test_the_plaque_waits_for_the_player_on_turn_while_they_are_away(
     middlehand.close()
 
     for person in others:
-        expect(person.locator(PLAQUE)).to_have_text(f"{WAITING_FOR} {name}")
+        expect(person.locator(PLAQUE)).to_have_text(text(SOURCE_LANGUAGE, "table.waitingFor", names=name))
         assert_page_fits(person)
 
     watch(returning, table.server, f"{TABLE_PAGE_PREFIX}{table.id}")
@@ -590,7 +588,7 @@ def assert_the_hand_is_passed_in(person: Page, dealer: tuple[int, str] | None) -
         expect(person.locator(DEALER_MARK)).to_have_count(0)
     else:
         seat, name = dealer
-        expect(person.locator(GIVES_LINE)).to_have_text(f"{name} {GIVES}")
+        expect(person.locator(GIVES_LINE)).to_have_text(text(SOURCE_LANGUAGE, "table.gives", name=name))
         expect(person.locator(DEALER_MARK)).to_have_count(1)
         expect(person.locator(f".chair[data-seat='{seat}'] {DEALER_MARK}")).to_have_count(1)
     assert_page_fits(person)
@@ -638,6 +636,6 @@ def test_while_a_member_is_away_eingepasst_stays_without_a_dealer_until_they_ret
 
     dealer = next_dealer(table)
     for person in (*present, returning):
-        expect(person.locator(GIVES_LINE)).to_have_text(f"{dealer[1]} {GIVES}")
+        expect(person.locator(GIVES_LINE)).to_have_text(text(SOURCE_LANGUAGE, "table.gives", name=dealer[1]))
     for person in (*present, returning):
         expect(person.locator(PLAQUE)).to_have_text(BIDDING)
