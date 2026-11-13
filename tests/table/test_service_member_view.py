@@ -11,7 +11,7 @@ import pytest
 
 from skat.engine.deal import Position
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.member_place import Acceptance
+from skat.table.member_place import Acceptance, InvitationOffer
 from skat.table.moment import TableMoment
 from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
@@ -413,8 +413,9 @@ class TestTheToolsSignal:
         scene.service = scene.service.with_tools_signal(told.append)
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
 
-        scene.service.invite_agent(
+        offer = scene.service.invite_agent(
             TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
         )
 
+        assert isinstance(offer, InvitationOffer)
         assert told == []
