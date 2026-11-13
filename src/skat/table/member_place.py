@@ -461,7 +461,8 @@ def decide_accept(
         return AcceptDecision(table, entry, MemberRefusal.STALE_INVITATION)
 
     def ended_as(outcome: CallOutcome) -> BookEntry:
-        return replace(entry, invitation=replace(invitation, expires_at=now, ended=outcome))
+        ended = OpenInvitation(invitation.id, now, invitation.owner_account, invitation.inviter_account, outcome)
+        return BookEntry(entry.table_id, entry.agent_account, entry.epoch, ended)
 
     if not owner_present:
         return AcceptDecision(table, ended_as(CallOutcome.OWNER_ABSENT), MemberRefusal.SPONSOR_AWAY)
