@@ -8,6 +8,7 @@ body {
     --on-stage-soft: rgba(244, 246, 248, 0.72);
     --glass-dark: rgba(12, 14, 17, 0.55);
     --brass: #c9a464;
+    --ink: #14181d;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -370,7 +371,7 @@ body {
     box-shadow:
         0 3px 0 #d8ccb0,
         0 8px 14px -4px rgba(0, 0, 0, 0.8);
-    color: #14181d;
+    color: var(--ink);
     font-size: 13.6px;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
