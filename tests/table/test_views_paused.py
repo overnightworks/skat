@@ -9,7 +9,7 @@ from skat.table.records import (
     Actor,
     Chair,
     EndedTable,
-    EndReason,
+    Ending,
     GiveUpAsked,
     HandProgress,
     Occupant,
@@ -223,7 +223,7 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         class EndsAfterTheScan(FakeTableStore):
             def tables_of(self, account_id):
                 held = super().tables_of(account_id)
-                self.tables = {key: EndedTable(TableId(key), 9, EndReason.EMPTY, 60) for key in self.tables}
+                self.tables = {key: EndedTable(TableId(key), 9, Ending.empty(60)) for key in self.tables}
                 return held
 
         racing = EndsAfterTheScan()

@@ -54,6 +54,8 @@ def reload_and_wait(person: Page) -> None:
 class DeclaringTable:
     """A dealt table: three browsers at their chairs, one watching, and the declarer known by API, not by the page."""
 
+    declarer_position = "middlehand"
+
     def __init__(
         self,
         open_person: Callable[..., Page],
@@ -93,8 +95,8 @@ class DeclaringTable:
         return {chair["hand"]["position"]: chair["seat"] for chair in self.chairs()}
 
     def _name_the_declarer(self, seat_at: dict[str, int]) -> None:
-        """The middlehand of the running hand declares."""
-        self.declarer_seat = seat_at["middlehand"]
+        """The seat at the table's declarer position declares."""
+        self.declarer_seat = seat_at[self.declarer_position]
         self.declarer = self.people[self.declarer_seat]
         self.others = [person for seat, person in self.people.items() if seat != self.declarer_seat]
 

@@ -17,8 +17,8 @@ from skat.table.records import (
     Actor,
     Chair,
     EndedTable,
+    Ending,
     EndProposal,
-    EndReason,
     HandProgress,
     NoWordSaid,
     RamschOccasion,
@@ -320,7 +320,7 @@ class TestNothingIsAwaited:
         assert awaits_you(view) is False
 
     def test_an_ended_table_awaits_nobody(self):
-        ended = EndedTable(TableId("0" * 32), 9, EndReason.EMPTY, 3600)
+        ended = EndedTable(TableId("0" * 32), 9, Ending.empty(3600))
 
         assert awaits_you(view_of(ended, MIDDLEHAND, frozenset())) is False
 
@@ -360,7 +360,7 @@ class TestTheAwaitedSeats:
         assert (awaits_you(view), SEAT_OF[REARHAND] in awaited_seats(view)) == (True, False)
 
     def test_an_ended_table_has_none(self):
-        ended = EndedTable(TableId("0" * 32), 9, EndReason.EMPTY, 3600)
+        ended = EndedTable(TableId("0" * 32), 9, Ending.empty(3600))
 
         assert awaited_seats(view_of(ended, MIDDLEHAND, frozenset())) == frozenset()
 

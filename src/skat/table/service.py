@@ -4,7 +4,6 @@ from contextlib import ExitStack, nullcontext
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from skat.engine.deal import deal, draw_dealer, next_dealer
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.game_list import series_list_view_of
@@ -24,8 +23,7 @@ from skat.table.member_place import (
     at_the_table,
     decide_accept,
     decide_invite,
-    forgotten_if_expired,
-    standings_among,
+    standings_of,
     table_offers_of,
 )
 from skat.table.member_view import MemberView, ViewSignal, member_view_of, view_recipients
@@ -62,7 +60,7 @@ from skat.table.records import (
     CreateTable,
     Decision,
     EndedTable,
-    NewHand,
+    Ending,
     Refusal,
     SendAway,
     SitDown,
@@ -88,7 +86,9 @@ from skat.table.rules import (
     decide_free_chair,
     decide_sit,
     decide_stand,
+    drawn_hand,
     ends_empty,
+    ends_unplayed,
     hand_was_dealt,
     hold_frees_chair,
     is_deal_or_step_of_play,
@@ -126,7 +126,7 @@ if TYPE_CHECKING:
     from skat.table.member_place import CallFacts
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
-__all__ = ["CommandIdReusedError", "TableService"]
+__all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
 
 
 def _utc_now() -> datetime:
@@ -203,7 +203,9 @@ class TableService:
             command.command_id,
             SIT_DOWN_COMMAND,
             sit_payload(command),
-            lambda table: decide_sit(table, actor, command.seat, self._new_hand(table) if sit_deals(table) else None),
+            lambda table: decide_sit(
+                table, actor, command.seat, drawn_hand(table, self._random_source) if sit_deals(table) else None
+            ),
         )
 
     def stand(self, actor: Actor, command: StandUp, connected_accounts: frozenset[str]) -> CommandResult | None:
@@ -465,7 +467,7 @@ class TableService:
             connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
             if connected is None or not next_deal_due(table, connected):
                 return False
-            dealt = dealt_next(table, self._new_hand(table))
+            dealt = dealt_next(table, drawn_hand(table, self._random_source))
             transaction.save_table(dealt, played_at=self._now())
         self._tell_view(table_id, view_recipients(table, dealt))
         return True
@@ -492,7 +494,7 @@ class TableService:
             if not ends_empty(table, present):
                 return False
             members = self._members_of(transaction, table)
-            transaction.end_table(table_id, self._now(), empty_seconds)
+            transaction.end_table(table_id, self._now(), Ending.empty(empty_seconds))
         self._tell(members)
         return True
 
@@ -518,11 +520,32 @@ class TableService:
             step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
             members: frozenset[str] = self._members_of(transaction, table) if step is PresenceStep.END else frozenset()
             if step is PresenceStep.END:
-                transaction.end_table(table_id, now, empty_seconds)
+                transaction.end_table(table_id, now, Ending.empty(empty_seconds))
             elif step is not PresenceStep.KEEP:
                 transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
         self._tell(members)
         return step is PresenceStep.END
+
+    def unplayed_tables(self, days: int) -> tuple[TableId, ...]:
+        """The live tables that look due for `end_unplayed_table`, in id order: an unlocked read."""
+        with self._transactions.begin() as transaction:
+            return transaction.played_before(self._now() - timedelta(days=days))
+
+    def end_unplayed_table(
+        self, table_id: TableId, days: int, writing: AbstractContextManager[frozenset[str] | None]
+    ) -> bool:
+        """End a dealt table `days` days past its last deal or step of play, on the server's own account. `writing` is
+        entered once the row is locked and yields None once the presence has stopped. True when it ended it."""
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
+            table, now = transaction.locked_table(table_id), self._now()
+            if table is None or after_commit.enter_context(writing) is None:
+                return False
+            if not ends_unplayed(table, transaction.paused_facts(table_id).last_played_at, now, days):
+                return False
+            members = self._members_of(transaction, table)
+            transaction.end_table(table_id, now, Ending.unplayed(days))
+        self._tell(members)
+        return True
 
     def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
         """At the server's start: give every live table on which no hand was dealt and that has no time one, end
@@ -620,7 +643,7 @@ class TableService:
                 acceptance,
                 owner_present=owner_account in connected_accounts,
                 now=self._now(),
-                new_hand=self._new_hand(table) if sit_deals(table) else None,
+                new_hand=drawn_hand(table, self._random_source) if sit_deals(table) else None,
             )
             if decision.entry != entry:
                 transaction.save_book_entry(decision.entry)
@@ -632,18 +655,7 @@ class TableService:
         return AcceptResult(decision.refusal, result_pending(decision.table))
 
     def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
-        """Every table the agent holds a chair at or has an open invitation to, from one read; the read forgets an
-        invitation of the agent that ran out on the service's clock.
-        """
-        now = self._now()
-        with self._transactions.begin() as transaction:
-            entries = transaction.locked_book_entries_of(agent_account)
-            kept = tuple(forgotten_if_expired(entry, now) for entry in entries)
-            for before, after in zip(entries, kept, strict=True):
-                if after != before:
-                    transaction.save_book_entry(after)
-            held = [each.table_id for each in transaction.tables_of(agent_account)]
-        return standings_among(kept, held, now)
+        return standings_of(self._transactions, agent_account, self._now())
 
     def _tell(self, accounts: frozenset[str]) -> None:
         if accounts:
@@ -657,14 +669,6 @@ class TableService:
     def _members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
         """The agents whose standing the table's end changes: those that hold a chair and those invited."""
         return agents_seated_at(table) | transaction.book_accounts_at(table.id)
-
-    def _new_hand(self, table: TableRecord) -> NewHand:
-        """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
-
-        Randomness enters only here, both from the one source.
-        """
-        dealer = draw_dealer(self._random_source) if table.dealer is None else next_dealer(table.dealer)
-        return NewHand(dealer, deal(self._random_source))
 
     def _run_command(
         self,

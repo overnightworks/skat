@@ -1,11 +1,12 @@
 import json
 import time
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Request, Route, expect
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from skat.store.schema import tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
@@ -14,7 +15,15 @@ from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.tables import click_new_table, open_new_table, table_id_of
+from tests.e2e.support.tables import (
+    assert_never_reloaded,
+    click_new_table,
+    mark_page,
+    open_new_table,
+    sit_in,
+    table_id_of,
+    watch,
+)
 from tests.support.signed_in import new_account, seed_member
 
 if TYPE_CHECKING:
@@ -26,19 +35,28 @@ pytestmark = pytest.mark.e2e
 
 EMPTY_TABLE_SECONDS = 2
 ENDS_WITHIN_SECONDS = EMPTY_TABLE_SECONDS + 20
+UNPLAYED_DAYS = 2
+# How often the server looks for dealt tables nobody has played at for the days; the hour of a real run is no wait.
+UNPLAYED_SWEEP_SECONDS = 1
 POLL_SECONDS = 0.2
 # The wait of a browser's stream before it asks again, with room to spare.
 RECONNECT_WINDOW_MILLISECONDS = 6_000
 # The scenes `s3-idle` and `s3-missing` name the wait and the table in these words.
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
+UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
 NOT_FOUND_HEADING = "Tisch nicht gefunden"
 UNKNOWN_ID = "0" * 32
 
 
 @pytest.fixture(scope="module")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
-    """This module's Skat, with an empty-table wait short enough to wait out."""
-    with skat_on_new_database(tmp_path_factory, empty_table_seconds=EMPTY_TABLE_SECONDS) as server:
+    """This module's Skat, with an empty-table wait and a sweep for unplayed tables short enough to wait out."""
+    with skat_on_new_database(
+        tmp_path_factory,
+        unplayed_sweep_seconds=UNPLAYED_SWEEP_SECONDS,
+        empty_table_seconds=EMPTY_TABLE_SECONDS,
+        paused_table_days=UNPLAYED_DAYS,
+    ) as server:
         yield server
 
 
@@ -213,3 +231,53 @@ def test_a_link_whose_table_is_gone_shows_the_card_back_and_offers_a_new_table(
     expect(person.locator(".card-back")).to_be_visible()
     expect(person.locator(".chair")).to_have_count(0)
     expect_the_panel_inside_the_viewport(person)
+
+
+def played_longer_ago_than_the_days(server: RunningServer, table_id: str) -> None:
+    last_play = datetime.now(UTC) - timedelta(days=UNPLAYED_DAYS + 1)
+    with server.engine.begin() as connection:
+        connection.execute(update(tables).where(tables.c.id == table_id).values(last_played_at=last_play))
+
+
+def expect_the_unplayed_face(person: Page) -> None:
+    expect(person.get_by_role("heading", name=UNPLAYED_HEADING)).to_be_visible(timeout=ENDS_WITHIN_SECONDS * 1000)
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    for absent in (text(SOURCE_LANGUAGE, "table.sitDown"), text(SOURCE_LANGUAGE, "table.reconnecting")):
+        expect(person.get_by_text(absent)).to_be_hidden()
+    expect_the_panel_inside_the_viewport(person)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open_page_and_on_its_old_link(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    anna, ben, cleo, dora, erik = (
+        record_page_errors(open_person(username=name, **form_factor), page_errors)
+        for name in ("anna", "ben", "cleo", "dora", "erik")
+    )
+    path = open_new_table(anna, e2e_server)
+    for seat, person in ((2, ben), (3, cleo)):
+        watch(person, e2e_server, path)
+        sit_in(person, seat)
+    watch(dora, e2e_server, path)
+    expect(anna.locator(".card-face").first).to_be_visible()
+    open_pages = (anna, ben, cleo, dora)
+    for person in open_pages:
+        mark_page(person)
+
+    played_longer_ago_than_the_days(e2e_server, table_id_of(path))
+
+    for person in open_pages:
+        expect_the_unplayed_face(person)
+    assert_never_reloaded(*open_pages)
+    old_link = f"{e2e_server.base_url}{path}"
+    # The coverage collector answers a goto of a page that runs the app with a 204, so a page at the link reloads it.
+    for person, open_old_link in (
+        (anna, anna.reload),
+        (dora, dora.reload),
+        (erik, lambda: erik.goto(old_link)),
+    ):
+        requests = events_requests_of(person)
+        open_old_link()
+        expect_the_unplayed_face(person)
+        assert requests == []
