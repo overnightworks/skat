@@ -10,7 +10,14 @@
 <div class="scrim"></div>
 <div class="sheet question" role="dialog" aria-modal="true" aria-label={words["table.sitQuestion"]}>
     <span class="glyph">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.6"
+            stroke-linecap="round"
+            aria-hidden="true"
+        >
             <path d="M12 5v14M5 12h14" />
         </svg>
     </span>
