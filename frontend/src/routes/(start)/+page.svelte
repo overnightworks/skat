@@ -1,13 +1,15 @@
 <script lang="ts">
     import { AccountMenu, LegalLinks } from "overnightworks-design";
     import { onMount } from "svelte";
+    import type { PageProps } from "./$types";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import MyTables from "./MyTables.svelte";
     import NewTableButton from "./NewTableButton.svelte";
-    import { accountMenuWords } from "#lib/kitWords.ts";
     import { menuName, readAccount } from "#lib/ui/account.svelte.ts";
     import { words } from "#lib/words.ts";
     import { ACCOUNT_CONSOLE_PATH, LOGOUT_PATH } from "#lib/wire.ts";
+
+    const { data }: PageProps = $props();
 
     let accountMenu: HTMLElement;
     let listed = $state(0);
@@ -49,7 +51,7 @@
             appRows={[]}
             legalLinks={LEGAL_LINKS}
             logOutAction={LOGOUT_PATH}
-            words={accountMenuWords}
+            words={data.kitWords}
         />
     </div>
     <div class="start-body">
@@ -58,7 +60,7 @@
             <NewTableButton />
         </main>
         <footer class="start-legal">
-            <LegalLinks links={LEGAL_LINKS} />
+            <LegalLinks links={LEGAL_LINKS} words={data.kitWords} />
         </footer>
     </div>
 </div>

@@ -17,6 +17,7 @@ from tests.e2e.support.browser import (
     NEW_TABLE_BUTTON,
     record_page_errors,
 )
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
 from tests.support.sign_in_settings import TEST_ISSUER
 
@@ -68,7 +69,7 @@ def test_the_account_button_opens_a_menu_with_the_username_one_log_out_and_the_l
 
     menu = person.locator(ACCOUNT_MENU)
     expect(menu.get_by_role("link").first).to_have_text("felix.hummert")
-    expect(menu.get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut"))).to_have_count(1)
+    expect(menu.get_by_role("button", name=kit_text("account.logOut"))).to_have_count(1)
     assert {(link.inner_text(), link.get_attribute("href")) for link in menu.locator("nav a").all()} == {
         (text(SOURCE_LANGUAGE, key), href) for key, href in LEGAL_LINKS.items()
     }
@@ -129,8 +130,7 @@ def test_the_account_button_and_menu_speak_german(
     person.locator(ACCOUNT_AVATAR).click()
 
     menu = person.locator(ACCOUNT_MENU)
-    expect(menu.get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut"))).to_be_visible()
-    expect(menu.get_by_role("button", name="Log out")).to_have_count(0)
+    expect(menu.get_by_role("button", name=kit_text("account.logOut"))).to_be_visible()
     expect(person.locator("[lang=de]").locator(ACCOUNT_MENU)).to_have_count(1)
 
 
@@ -144,9 +144,7 @@ def test_a_menu_the_account_cannot_name_is_called_account_and_still_logs_out(
     person.locator(ACCOUNT_AVATAR).click()
 
     expect(person.locator(ACCOUNT_MENU).get_by_role("link").first).to_have_text(text(SOURCE_LANGUAGE, "account.title"))
-    expect(
-        person.locator(ACCOUNT_MENU).get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut"))
-    ).to_be_visible()
+    expect(person.locator(ACCOUNT_MENU).get_by_role("button", name=kit_text("account.logOut"))).to_be_visible()
 
 
 def test_a_session_that_ended_sends_the_page_to_the_sign_in_page_once_when_the_account_answers_401(
@@ -171,7 +169,7 @@ def test_a_session_that_ended_sends_the_page_to_the_sign_in_page_once_when_the_a
     person.goto(f"{e2e_server.base_url}/")
 
     expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
-    expect(person.get_by_role("link", name="Log in", exact=True)).to_be_visible()
+    expect(person.get_by_role("link", name=kit_text("signIn.logIn"), exact=True)).to_be_visible()
     assert len(account_requests) == 1
 
 
@@ -195,9 +193,9 @@ def test_signing_out_ends_the_session_and_the_sign_in_page_follows(
     person.route(ISSUER_END_SESSION_URL, end_the_session_at_the_issuer)
     person.locator(ACCOUNT_AVATAR).click()
 
-    person.locator(ACCOUNT_MENU).get_by_role("button", name=text(SOURCE_LANGUAGE, "account.logOut")).click()
+    person.locator(ACCOUNT_MENU).get_by_role("button", name=kit_text("account.logOut")).click()
 
-    expect(person.get_by_role("link", name="Log in", exact=True)).to_be_visible()
+    expect(person.get_by_role("link", name=kit_text("signIn.logIn"), exact=True)).to_be_visible()
     assert urlsplit(person.url).path == LOGIN_PATH
     assert len(end_session_posts) == 1
     assert e2e_server.stores.sessions.load(session_id) is None

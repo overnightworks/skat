@@ -19,6 +19,7 @@ from tests.e2e.support.call_frame import (
     served_from,
     table_url,
 )
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.tables import SIT_DOWN, table_id_of
 
@@ -37,7 +38,7 @@ SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 OTHER_ORIGIN = f"https://{OTHER_HOST}:{OTHER_PORT}"
 VALID_HELLO = {"v": 1, "type": "hello", "attachment": 1, "attempt": None}
-LOG_IN = "Log in"
+LOG_IN = kit_text("signIn.logIn")
 MEGABYTE = 1_000_000
 RECORDED_MESSAGES = "window.messages.length"
 
