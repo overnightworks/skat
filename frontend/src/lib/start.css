@@ -1012,7 +1012,7 @@ body {
     white-space: nowrap;
 }
 
-/* On a phone the plaque lies on the felt under the far chairs, as the scenes draw it, and hangs into the free top of the trick's row: the cards of the trick lie below it however many lines it has, and the bar keeps its place on the screen. A plaque wider than the gap between the far chairs, and one over a declarer's open cards, keep their row above the chairs. */
+/* On a phone the plaque lies on the felt under the far chairs, as the scenes draw it, and hangs into the free top of the trick's row: the cards of the trick lie below it however many lines it has, and the bar keeps its place on the screen. A plaque wider than the gap between the far chairs, one over a declarer's open cards and one over a result card keep their row above the chairs. */
 @media (max-width: 899px) {
     /* The far chairs stand at the felt's rim, as the scenes draw them, so the plaque between them keeps clear of their fans. */
     .room .chair:nth-child(1) {
@@ -1025,7 +1025,7 @@ body {
         margin-right: -14px;
     }
 
-    .room .stage:not(:has(.open-row)) .plaque:not(.wide) {
+    .room .stage:not(:has(.open-row, > .result)) .plaque:not(.wide) {
         position: relative;
         z-index: 2;
         grid-row: 2;
