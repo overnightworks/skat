@@ -17,8 +17,8 @@
     const {
         tableId,
         streamedVersion,
-        agentsSeated,
-    }: { tableId: string; streamedVersion: number | null; agentsSeated: number } = $props();
+        seatedAgents,
+    }: { tableId: string; streamedVersion: number | null; seatedAgents: string } = $props();
 
     let control = $state<AgentsControl>({ shown: false, rows: [] });
     let refusal = $state<AgentControlRefusal | undefined>();
@@ -27,7 +27,7 @@
     let popover = $state<HTMLElement | undefined>();
     let placement = $state({ width: 0, left: 0, caret: 0 });
     let follower: AgentsFollower | undefined;
-    let agentsSeatedAtLastTable: number | undefined;
+    let seatedAgentsAtLastTable: string | undefined;
 
     $effect(() => {
         const following = followAgents(
@@ -46,9 +46,9 @@
 
     $effect(() => {
         if (streamedVersion === null) return;
-        const firstTable = agentsSeatedAtLastTable === undefined;
-        const agentsChanged = agentsSeated !== agentsSeatedAtLastTable;
-        agentsSeatedAtLastTable = agentsSeated;
+        const firstTable = seatedAgentsAtLastTable === undefined;
+        const agentsChanged = seatedAgents !== seatedAgentsAtLastTable;
+        seatedAgentsAtLastTable = seatedAgents;
         if (firstTable || agentsChanged || untrack(() => open)) void follower?.read();
     });
 

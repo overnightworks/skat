@@ -40,14 +40,14 @@ describe("the Agenten pill", () => {
     });
 
     // The page's two facts the pill follows, which a test moves like the stream does.
-    const table = $state<{ streamedVersion: number | null; agentsSeated: number }>({
+    const table = $state<{ streamedVersion: number | null; seatedAgents: string }>({
         streamedVersion: null,
-        agentsSeated: 0,
+        seatedAgents: "",
     });
 
     async function show(streamedVersion: number | null) {
         table.streamedVersion = streamedVersion;
-        table.agentsSeated = 0;
+        table.seatedAgents = "";
         mounted = mount(AgentsPill, {
             target: document.body,
             props: {
@@ -55,8 +55,8 @@ describe("the Agenten pill", () => {
                 get streamedVersion() {
                     return table.streamedVersion;
                 },
-                get agentsSeated() {
-                    return table.agentsSeated;
+                get seatedAgents() {
+                    return table.seatedAgents;
                 },
             },
         });
@@ -98,11 +98,28 @@ describe("the Agenten pill", () => {
         fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
 
         table.streamedVersion = 2;
-        table.agentsSeated = 1;
+        table.seatedAgents = "2:Nova";
         await settle();
         flushSync();
 
         expect([fetcher.mock.calls.length, pill() === null]).toEqual([2, false]);
+    });
+
+    it("reads again when one agent leaves and another sits in a single wake, so the count stays the same", async () => {
+        const fetcher = server({ control: { shown: false, rows: [] } });
+        await show(1);
+        table.seatedAgents = "2:Luna";
+        table.streamedVersion = 2;
+        await settle();
+        flushSync();
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.streamedVersion = 3;
+        table.seatedAgents = "3:Nova";
+        await settle();
+        flushSync();
+
+        expect([fetcher.mock.calls.length, pill() === null]).toEqual([3, false]);
     });
 
     it("closes the list when the control stops being shown, so it is not open when the pill comes back", async () => {
@@ -113,14 +130,14 @@ describe("the Agenten pill", () => {
         flushSync();
         fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: false, rows: [] })));
         table.streamedVersion = 2;
-        table.agentsSeated = 1;
+        table.seatedAgents = "2:Nova";
         await settle();
         flushSync();
         const whileHidden = [pill(), popover()];
         fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
 
         table.streamedVersion = 3;
-        table.agentsSeated = 0;
+        table.seatedAgents = "";
         await settle();
         flushSync();
 
