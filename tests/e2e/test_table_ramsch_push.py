@@ -35,6 +35,7 @@ GRAND_HAND = text(SOURCE_LANGUAGE, "push.grandHand")
 GRAND_HAND_ASKED = text(SOURCE_LANGUAGE, "push.grandHandAsk")
 GRAND_HAND_GAME = text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, "game.grand"))
 ANY_PLAQUE = ".plaque"
+GIVE_UP_KEY = ".copy.give-up"
 GRAND_HAND_BID = f"{text(SOURCE_LANGUAGE, 'table.bidValue')} {LOWEST_BID}"
 KEYS = (TAKE_SKAT, PUSH, PUT_BACK, GRAND_HAND, GRAND_HAND_ASKED)
 STRIP_CARD = ".own-hand .card button.pick"
@@ -181,6 +182,8 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
         assert take["y"] == push["y"] == grand["y"]
     for person in (*(table.pages[table.seat_of(position)] for position in ("middlehand", "rearhand")), table.watcher):
         expect_no_key(person)
+    for person in table.everyone:
+        expect(person.locator(GIVE_UP_KEY)).to_have_count(0)
 
     key(forehand, GRAND_HAND).click()
     expect(key(forehand, GRAND_HAND_ASKED)).to_be_visible()
@@ -198,6 +201,9 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
         expect(person.locator(f"{ANY_PLAQUE} .game.pushes")).to_have_text(GRAND_HAND_BID)
         expect_no_key(person)
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    for person in table.pages.values():
+        expect(person.locator(GIVE_UP_KEY)).to_have_count(1)
+    expect(table.watcher.locator(GIVE_UP_KEY)).to_have_count(0)
 
     play_to_the_result(table)
 
