@@ -1,0 +1,8 @@
+claim_id = "660adb2b329b46819dafacdc2b879a18"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "5b67b970a259046591f9a7ed276a4114a08f6dca"
+branch = "claude/issue-471-the-table-page-fits-a-phone-screen"
+scope = ["frontend/src/lib/cues.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/test_table_coasters.py", "tests/e2e/test_table_result.py"]
+opened_commit = "f1ff9084a985bf3db8dc0209811b8cbe851f4312"
+whole_reason = "One surface, the table page on a phone: the same plaque, bar and felt layout decides every finding, so each fix is checked against the others at the same widths."
