@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from playwright.sync_api import expect
 
 from skat.table.records import SERIES_LENGTH_DEFAULT, TABLE_ID_PATTERN
+from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
@@ -50,6 +51,11 @@ def open_table_with_options(
     path = f"{TABLE_PAGE_PREFIX}{opened['id']}"
     watch(person, server, path)
     return path
+
+
+def save_rule_set(session: RawSession, name: str, options: dict[str, object]) -> None:
+    """A rule set saved through the API in the person's own session, as an agent or another page would save it."""
+    session.post(RULE_SETS_PATH, {"name": name, "options": options})
 
 
 def table_id_of(path: str) -> str:

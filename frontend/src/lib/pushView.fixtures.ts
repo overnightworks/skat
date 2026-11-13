@@ -55,6 +55,7 @@ export function table(
                 grandHand === null
                     ? null
                     : {
+                          occasion: "passed-in",
                           scoring: "points",
                           jungfrau: "doubles-loser",
                           durchmarsch: "wins-120",
