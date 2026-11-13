@@ -1,13 +1,18 @@
 """A send-away frees an agent's chair as it is and scores nothing; a person is refused."""
 
 from dataclasses import replace
+from datetime import UTC, datetime
 
 import pytest
 
-from skat.table.records import HandProgress, Refusal, SeatHeld, SendAway
-from skat.table.send_away import decide_send_away, send_away_payload
+from skat.table.records import Actor, HandProgress, Refusal, SeatHeld, SendAway
+from skat.table.send_away import decide_send_away, decide_send_away_by, send_away_payload
 from tests.support.open_chairs import PHASES, REARHAND, REARHAND_SEAT, account_of
 from tests.support.played_game import after_the_first_game, table_in, with_agents
+
+NOW = datetime(2026, 11, 12, 9, tzinfo=UTC)
+OWNER = "account-owner"
+SENDER = "account-sender"
 
 
 def agents_at_rearhand(table):
@@ -87,6 +92,50 @@ class TestRefusals:
         decision = decide_send_away(freed, account_of(REARHAND))
 
         assert (decision.table, decision.refusal) == (freed, Refusal.NOT_SEATED)
+
+
+class TestWhoMaySendAnAgentAway:
+    def table(self):
+        return with_agents(PHASES["auction"](), REARHAND_SEAT, owner_account=OWNER)
+
+    def sent_by(self, table, sender, *, is_member=True, present=True, agent=None):
+        command = SendAway("command-away", table.id.value, agent or account_of(REARHAND))
+        connected = frozenset({sender}) if present else frozenset()
+        return decide_send_away_by(table, command, Actor(sender, "Sender"), connected, is_member, NOW)
+
+    @pytest.mark.parametrize("sender", [SENDER, OWNER])
+    def test_a_member_and_the_owner_present_free_the_chair(self, sender):
+        decision = self.sent_by(self.table(), sender)
+
+        assert decision.refusal is None
+        assert decision.table.chairs[REARHAND_SEAT - 1].occupant is None
+
+    def test_the_owner_outside_the_group_frees_the_chair(self):
+        decision = self.sent_by(self.table(), OWNER, is_member=False)
+
+        assert decision.refusal is None
+        assert decision.table.chairs[REARHAND_SEAT - 1].occupant is None
+
+    @pytest.mark.parametrize(
+        ("sender", "changes"),
+        [
+            pytest.param(SENDER, {"is_member": False}, id="a-person-who-is-no-member-and-no-owner"),
+            pytest.param(SENDER, {"present": False}, id="a-member-who-is-not-at-the-table"),
+            pytest.param(OWNER, {"is_member": False, "present": False}, id="the-owner-who-is-not-at-the-table"),
+        ],
+    )
+    def test_nobody_else_may_and_the_chair_stays(self, sender, changes):
+        table = self.table()
+
+        decision = self.sent_by(table, sender, **changes)
+
+        assert (decision.table, decision.refusal) == (table, Refusal.NOT_ALLOWED)
+
+    def test_a_member_is_refused_by_the_chairs_own_reason_when_no_agent_sits_there(self):
+        table = PHASES["auction"]()
+
+        assert self.sent_by(table, SENDER).refusal is Refusal.NOT_AN_AGENT
+        assert self.sent_by(table, SENDER, agent="account-nobody").refusal is Refusal.NOT_SEATED
 
 
 class TestThePayload:

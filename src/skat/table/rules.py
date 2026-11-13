@@ -58,7 +58,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
     """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length and
     the options it is opened with.
     """
-    opener = Chair(1, Occupant(actor.account_id, actor.display_name, actor.kind))
+    opener = Chair(1, Occupant(actor.account_id, actor.display_name, actor.kind, actor.owner_account))
     return TableRecord(
         id=table_id,
         version=FIRST_VERSION,
@@ -426,7 +426,7 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
     holder = table.chairs[seat - 1].occupant
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
-    seated = with_occupant(table, seat, Occupant(actor.account_id, actor.display_name, actor.kind))
+    seated = with_occupant(table, seat, Occupant(actor.account_id, actor.display_name, actor.kind, actor.owner_account))
     if new_hand is not None and sit_deals(table):
         seated = dealt(seated, new_hand, version=seated.version)
     return Decision(seated)

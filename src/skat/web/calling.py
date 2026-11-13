@@ -32,7 +32,7 @@ from webauth.admission import AdmissionConfig, NoAdmins, app_role
 from webauth.dependencies import session_id_from_request
 from webauth.oidc_login import AccessTokenRefusal
 
-from skat.table.member_place import CallFacts, InviteRefusal, OfferState, control_shown
+from skat.table.member_place import CallFacts, InviteRefusal, OfferState, control_shown, seated_call_facts
 from skat.table.records import SendAway, TableId
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import Exclusion, excluded, token_carries_agent_facts
@@ -246,31 +246,19 @@ def _facts_of(
     entry: RosterEntry,
     *,
     viewer: str,
-    present: frozenset[str],
+    viewer_present: bool,
+    streams: frozenset[str],
     listens: bool,
     viewer_is_member: bool,
 ) -> CallFacts:
     return CallFacts(
         viewer_account=viewer,
-        viewer_present=viewer in present,
+        viewer_present=viewer_present,
         viewer_is_member=viewer_is_member,
         agent_account=account,
         agent_listens=listens,
         owner_account=entry.owner,
-        owner_present=entry.owner in present,
-    )
-
-
-def _seated_facts_of(account: str, *, viewer: str, present: frozenset[str], viewer_is_member: bool) -> CallFacts:
-    """The facts of a seated agent the roster does not hold: no token states its owner, and it does not listen."""
-    return CallFacts(
-        viewer_account=viewer,
-        viewer_present=viewer in present,
-        viewer_is_member=viewer_is_member,
-        agent_account=account,
-        agent_listens=False,
-        owner_account=None,
-        owner_present=False,
+        owner_present=entry.owner in streams,
     )
 
 
@@ -318,12 +306,18 @@ class _Calling:
         self._listens = listens
         self._membership = membership
 
+    async def _at_the_table(self, table_id: TableId) -> frozenset[str]:
+        return await run_in_threadpool(
+            self._tables.accounts_at_the_table, table_id, self._presence.connected(table_id.value)
+        )
+
     async def _offered(self, request: Request, table_id: TableId, *, viewer_is_member: bool) -> list[_Offered]:
         """Every agent of the control, the roster's first and then the seated agents it does not hold, from one read of
         the table.
         """
         viewer = actor_of(request).account_id
-        present = self._presence.connected(table_id.value)
+        streams = self._presence.connected(table_id.value)
+        viewer_present = viewer in await self._at_the_table(table_id)
         calls = [
             (
                 entry,
@@ -331,7 +325,8 @@ class _Calling:
                     account,
                     entry,
                     viewer=viewer,
-                    present=present,
+                    viewer_present=viewer_present,
+                    streams=streams,
                     listens=self._listens(account),
                     viewer_is_member=viewer_is_member,
                 ),
@@ -340,7 +335,9 @@ class _Calling:
         ]
 
         def seated_facts(account: str) -> CallFacts:
-            return _seated_facts_of(account, viewer=viewer, present=present, viewer_is_member=viewer_is_member)
+            return seated_call_facts(
+                account, viewer_account=viewer, viewer_present=viewer_present, viewer_is_member=viewer_is_member
+            )
 
         offers = await run_in_threadpool(self._tables.offers_at, table_id, [facts for _, facts in calls], seated_facts)
         if offers is None:
@@ -356,11 +353,14 @@ class _Calling:
         return listed + seated
 
     async def control_of(self, request: Request, table_id: TableId) -> AgentControlAnswer:
-        viewer_present = actor_of(request).account_id in self._presence.connected(table_id.value)
+        viewer_present = actor_of(request).account_id in await self._at_the_table(table_id)
         viewer_is_member = viewer_present and await self._membership.displayed(request)
         offered = await self._offered(request, table_id, viewer_is_member=viewer_is_member)
         rows = [row for agent in offered if (row := _row_of(agent))]
-        shown = control_shown(viewer_present=viewer_present, viewer_is_member=viewer_is_member)
+        sends_agent_away = any(row.state is OfferState.HERE for row in rows)
+        shown = control_shown(
+            viewer_present=viewer_present, viewer_is_member=viewer_is_member, sends_agent_away=sends_agent_away
+        )
         return AgentControlAnswer(shown=shown, rows=rows)
 
     async def call_of(self, request: Request, table_id: TableId, key: str) -> CallRefusal | None:
@@ -395,15 +395,18 @@ class _Calling:
     async def send_away_of(self, request: Request, table_id: TableId, key: str, command_id: str) -> CallRefusal | None:
         """What the send-away comes to. `offer_of` decides it as it decides the row: a `here` answer with the person
         counted a member, then the same answer with the groups read fresh, and the service decides under the table's
-        lock whether the agent still holds a chair. An agent that is not here is no new act, but a command id the person
-        used for it already replays its answer, as long as no other request used the id.
+        lock whether the agent still holds a chair and the person may send it away. The owner its chair stores for the
+        agent may, whether or not the issuer answers the read. An agent that is not here is no new act, but a command
+        id the person used for it already replays its answer, as long as no other request used the id.
         """
         refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=True)
+        is_member = True
         if refusal is None:
             fresh = await self._membership.fresh(request)
-            if isinstance(fresh, AccessTokenRefusal):
+            is_member = fresh is True
+            refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=is_member)
+            if refusal is CallRefusal.NOT_ALLOWED and isinstance(fresh, AccessTokenRefusal):
                 return CallRefusal.TRY_AGAIN
-            refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=fresh)
         account = self._roster.account_of(key)
         if account is None:
             return refusal
@@ -414,7 +417,7 @@ class _Calling:
             return refusal
         connected = self._presence.connected(table_id.value)
         try:
-            sent = await run_in_threadpool(self._tables.send_away, actor_of(request), command, connected)
+            sent = await run_in_threadpool(self._tables.send_away, actor_of(request), command, connected, is_member)
         except CommandIdReusedError:
             return CallRefusal.TRY_AGAIN
         if sent is None:
@@ -427,7 +430,9 @@ class _Calling:
     async def _send_away_refusal(
         self, request: Request, table_id: TableId, key: str, *, viewer_is_member: bool
     ) -> CallRefusal | None:
-        """None exactly when `offer_of` answers `here` for the agent of the key."""
+        """None exactly when `offer_of` answers `here` for the agent of the key; the person's own refusals keep their
+        tokens and any other answer, an agent that holds no chair here, is `agent-unavailable`, never a call's reason.
+        """
         chosen = next(
             (
                 agent
@@ -441,7 +446,9 @@ class _Calling:
         answer = chosen.offer.answer
         if answer is OfferState.HERE:
             return None
-        return REFUSAL_TOKENS[answer] if isinstance(answer, InviteRefusal) else CallRefusal.AGENT_UNAVAILABLE
+        if answer is InviteRefusal.NOT_PRESENT or answer is InviteRefusal.NOT_A_MEMBER:
+            return REFUSAL_TOKENS[answer]
+        return CallRefusal.AGENT_UNAVAILABLE
 
     async def _replayed_send_away(self, request: Request, command: SendAway) -> CallRefusal | None:
         try:

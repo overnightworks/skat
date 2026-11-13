@@ -64,12 +64,14 @@ class RuleSetId(OpaqueId):
 class Actor:
     """The account behind a request, as the server resolved it; a client never names one.
 
-    `display_name` is the account's name for a person and the name its token carries for an agent.
+    `display_name` is the account's name for a person and the name its token carries for an agent, whose
+    `owner_account` is the account its token names as the one it works for.
     """
 
     account_id: str
     display_name: str
     kind: OccupantKind = OccupantKind.PERSON
+    owner_account: str | None = None
 
 
 class RamschOccasion(StrEnum):
@@ -174,6 +176,7 @@ class Refusal(StrEnum):
     NOT_AN_AGENT = "not-an-agent"
     SEAT_OPEN = "seat-open"
     OWN_SEAT_ONLY = "own-seat-only"
+    NOT_ALLOWED = "not-allowed"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal | KontraRefusal | PushRefusal
@@ -194,9 +197,12 @@ def parsed_refusal(token: str) -> CommandRefusal:
 
 @dataclass(frozen=True)
 class Occupant:
+    """Who sits in a chair; an agent's `owner_account` is who it works for, kept only while it holds the chair."""
+
     account_id: str
     display_name: str
     kind: OccupantKind
+    owner_account: str | None = None
 
 
 @dataclass(frozen=True)

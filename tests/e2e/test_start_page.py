@@ -7,6 +7,7 @@ import pytest
 from playwright.sync_api import Page, Route, expect
 
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, LOGIN_PATH
+from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import (
     ACCOUNT_AVATAR,
@@ -162,6 +163,8 @@ def test_a_session_that_ended_sends_the_page_to_the_sign_in_page_once_when_the_a
         route.fulfill(status=UNAUTHORIZED, body=json.dumps({}))
 
     person.route(ACCOUNT_ROUTE, end_the_session_and_answer_401)
+    # The list's own stream would meet the ended session too and reload the page a second time; it stays unanswered.
+    person.route(f"**{LOBBY_EVENTS_PATH}", lambda _route: None)
 
     person.goto(f"{e2e_server.base_url}/")
 
