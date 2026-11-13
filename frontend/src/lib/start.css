@@ -2964,14 +2964,22 @@ body {
     flex-direction: row;
 }
 
-.room .declare .step.hand {
+.room .declare .step:is(.hand, .glass) {
     color: var(--on-stage);
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(14px);
 }
 
-.room .declare .step.hand:disabled {
+.room .declare .step:is(.hand, .glass):disabled {
     background: #3a4350;
+}
+
+/* A phone wide enough for the picture's tighter keys draws the two stage keys with less padding. */
+@media (min-width: 380px) and (max-width: 899px) {
+    .room .declare.pushing .step {
+        gap: 8px;
+        padding: 0 16px;
+    }
 }
 
 .room .declare .confirm {

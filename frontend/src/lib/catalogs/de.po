@@ -559,6 +559,10 @@ msgctxt "declare.takeSkat"
 msgid "Aufnehmen"
 msgstr ""
 
+msgctxt "push.takeSkat"
+msgid "Skat nehmen"
+msgstr ""
+
 msgctxt "declare.putBack"
 msgid "Drücken"
 msgstr ""

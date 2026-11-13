@@ -32,6 +32,9 @@ import {
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_KONTRA_SUFFIX,
     TABLE_PAGE_PREFIX,
+    TABLE_PUSHING_PUSH_SUFFIX,
+    TABLE_PUSHING_PUT_BACK_SUFFIX,
+    TABLE_PUSHING_TAKE_SUFFIX,
     TABLE_READY_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
@@ -98,12 +101,14 @@ export type Playing = {
 };
 // What a seat that finished its turn of the stage before a Ramsch did with the skat.
 export type PushAction = "took" | "pushed";
-// The stage before a Ramsch's first card, the same for every viewer; it names no card.
+// The stage before a Ramsch's first card; only the seat on turn that holds twelve cards is told cards, the ones it may
+// put back.
 export type Pushing = {
     turn_seat: number;
     stage: Stage;
     moves: { seat: number; action: PushAction }[];
     factor: number;
+    put_back_cards: Card[];
 };
 export type Hand = {
     dealer_seat: number;
@@ -295,6 +300,20 @@ export function takeDeclaringStep(
     return post(id, DECLARING_STEP_SUFFIXES[action], { command_id: commandId, version, ...fields });
 }
 
+export type PushingStep = { action: "take" } | { action: "put_back"; cards: readonly Card[] } | { action: "push" };
+
+const PUSHING_STEP_SUFFIXES: Record<PushingStep["action"], string> = {
+    take: TABLE_PUSHING_TAKE_SUFFIX,
+    put_back: TABLE_PUSHING_PUT_BACK_SUFFIX,
+    push: TABLE_PUSHING_PUSH_SUFFIX,
+};
+
+// The version is the one the page shows; each tap brings its own command id, and nothing is retried.
+export function takePushingStep(id: string, version: number, commandId: string, step: PushingStep): Promise<Outcome> {
+    const { action, ...fields } = step;
+    return post(id, PUSHING_STEP_SUFFIXES[action], { command_id: commandId, version, ...fields });
+}
+
 // The client names only the card: the seat that plays it comes from the session.
 export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
     return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
@@ -479,7 +498,13 @@ export function includesCard(cards: readonly Card[], card: Card): boolean {
 }
 
 // What the hand needs while the declarer picks two cards from the twelve.
-export type Picking = { picked: readonly Card[]; disabled: boolean; toggle: (card: Card) => void };
+// `allowed` names the cards that may be picked; a card outside it is dimmed and not tappable, and without it every card may.
+export type Picking = {
+    picked: readonly Card[];
+    disabled: boolean;
+    toggle: (card: Card) => void;
+    allowed?: readonly Card[];
+};
 
 const GAME_WORDS: Record<Game, string> = {
     karo: words["game.karo"],
