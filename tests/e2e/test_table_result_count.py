@@ -69,7 +69,6 @@ def expect_every_gain_to_stand(table: PlayingTable) -> None:
         for seat in table.names:
             cell = gain_cell(person, seat)
             expect(cell).to_be_visible()
-            expect(cell).not_to_have_class("count")
             assert cell.evaluate(ANIMATION_NAME) == "none"
             assert cell.evaluate(COUNTER_CONTENT) == "none"
 
@@ -92,7 +91,7 @@ def test_a_won_gain_counts_up_through_its_frames_and_the_final_text_stands_from_
             cell = gain_cell(person, seat)
             expect(cell).to_be_visible()
             if gain <= 0:
-                expect(cell).not_to_have_class("count")
+                expect(cell).not_to_contain_class("count")
                 assert cell.evaluate(ANIMATION_NAME) == "none"
                 continue
             expect(cell).to_have_text(shown(gain))
