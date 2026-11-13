@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-# The words are design's English: the sign-in pages keep them.
+# The words are the kit's text in the language the sign-in pages are served in.
 LOG_IN = kit_text("signIn.logIn")
 UNFINISHED_NOTICE = kit_text("signIn.signInUnfinished")
 SIGNING_IN = kit_text("signIn.signingIn")
