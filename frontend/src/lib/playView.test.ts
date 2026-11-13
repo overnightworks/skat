@@ -4,6 +4,7 @@ import {
     cardLook,
     cardsToPlay,
     gameInPlay,
+    ownCardSlotOpen,
     sideNames,
     trickOnTheFelt,
     type PlayingHand,
@@ -155,6 +156,25 @@ describe("the trick on the felt", () => {
         });
 
         expect(trickOnTheFelt(chairs(WATCHER), next).map(({ card }) => card)).toEqual([HERZ_TEN]);
+    });
+
+    it.each([
+        { name: "leads", viewer: 2, turn: 2, current: [], open: true },
+        { name: "follows after the cards of both others", viewer: 2, turn: 2, current: [1, 3], open: true },
+        { name: "has played already", viewer: 2, turn: 3, current: [1, 2], open: false },
+        { name: "waits for another's card", viewer: 2, turn: 1, current: [], open: false },
+        { name: "only watches", viewer: WATCHER, turn: 2, current: [], open: false },
+    ])("opens the viewer's slot only when the viewer $name", ({ viewer, turn, current, open }) => {
+        const cards = current.map((seat) => ({ seat, card: KARO_SEVEN }));
+        const view = playing({ turn_seat: turn, current_trick: cards });
+
+        expect(ownCardSlotOpen(chairs(viewer), trickOnTheFelt(chairs(viewer), view), turn)).toBe(open);
+    });
+
+    it("keeps the viewer's slot shut while the turn is held back", () => {
+        const view = playing({ turn_seat: 2 });
+
+        expect(ownCardSlotOpen(chairs(2), trickOnTheFelt(chairs(2), view), undefined)).toBe(false);
     });
 
     it("lays nothing before the first card", () => {

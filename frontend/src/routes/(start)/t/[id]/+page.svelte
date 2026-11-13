@@ -533,7 +533,7 @@
                 trick !== null && trickOnTheFelt(outcome.table.chairs, trick).some(({ slot }) => slot === "near")}
             <CalloutStamp {stamp} aboveNearCard={nearCardLaid} />
             {#if trick !== null}
-                <PlayedTrick chairs={outcome.table.chairs} playing={trick} {playedThisHand} />
+                <PlayedTrick chairs={outcome.table.chairs} playing={trick} {playedThisHand} {turnSeat} />
             {/if}
             {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
             {@const auction = outcome.table.hand?.auction}
