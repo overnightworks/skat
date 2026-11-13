@@ -72,6 +72,15 @@ def expect_the_keys_in_one_row(person: Page) -> None:
     assert max(tops) - min(tops) <= 1
 
 
+def expect_the_proposal_asked(table: RamschTable) -> None:
+    """The first seat proposed: the other two are asked, the proposer waits for them and the watcher only reads."""
+    proposed = text(SOURCE_LANGUAGE, "table.wantsToEndSeries", name=table.names[1])
+    for person in (table.pages[2], table.pages[3], table.watcher):
+        expect(person.locator(ASK)).to_contain_text(proposed)
+    expect(table.pages[1].locator(ASK)).to_contain_text(waiting_for([table.names[2], table.names[3]]))
+    expect(table.watcher.locator(ASK).get_by_role("button")).to_have_count(0)
+
+
 def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
     expect(person.locator(STANDING)).to_have_count(1)
     expect(person.locator(ASK)).to_have_count(0)
@@ -98,6 +107,12 @@ def test_the_mark_counts_the_game_and_the_list_scrolls_inside_its_panel(
     table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
     for person in table.everyone:
         expect(person.locator(COUNT)).to_have_text(game_count(1))
+    # Nothing is finished in the first game, so the list says so.
+    first = table.pages[1]
+    first.locator(COUNT).click()
+    expect(first.locator(f"{GAME_LIST} .empty")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListEmpty"))
+    first.keyboard.press("Escape")
+    expect(first.locator(GAME_LIST)).not_to_be_visible()
 
     table.pass_all()
     table.play_out()
@@ -168,15 +183,7 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     if form_factor["viewport"]["width"] < PHONE_BREAKPOINT:
         expect_the_keys_in_one_row(first)
     propose_the_end(first)
-    for person in (second, third):
-        expect(person.locator(ASK)).to_contain_text(
-            text(SOURCE_LANGUAGE, "table.wantsToEndSeries", name=table.names[1])
-        )
-    expect(first.locator(ASK)).to_contain_text(waiting_for([table.names[2], table.names[3]]))
-    expect(table.watcher.locator(ASK)).to_contain_text(
-        text(SOURCE_LANGUAGE, "table.wantsToEndSeries", name=table.names[1])
-    )
-    expect(table.watcher.locator(ASK).get_by_role("button")).to_have_count(0)
+    expect_the_proposal_asked(table)
 
     answer_the_ask(second, NO)
     for person in table.everyone:
