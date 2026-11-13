@@ -83,7 +83,7 @@ class TestOpenTable:
         tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
 
         opened = agent.open_table(command_id="agent-open-open")
-        hidden = agent.open_table(command_id="agent-open-private", visibility="private")
+        hidden = agent.offered_every_tool().open_table(command_id="agent-open-private", visibility="private")
 
         assert "private" in json.dumps(tools[OPEN_TABLE_TOOL]["inputSchema"]["properties"]["visibility"])
         assert skat.tables.open_table_ids() == (TableId(opened.json()["id"]),)
