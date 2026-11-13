@@ -133,6 +133,13 @@ describe("the notice to the others about a chair of the running hand", () => {
         });
     });
 
+    it("says nothing to the person who took the open chair herself", () => {
+        const before = tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova);
+        const after = tableOf(handOf(null), felix, anna, { ...chairOf(OPEN_SEAT, "Lena", "person"), is_mine: true });
+
+        expect(seatNotice(before, after)).toBeNull();
+    });
+
     it("says nothing about a chair taken between hands, which the agent notice owns", () => {
         const before = tableOf(null, felix, anna, chairOf(OPEN_SEAT, null, null));
         const after = tableOf(null, felix, anna, novaThere);

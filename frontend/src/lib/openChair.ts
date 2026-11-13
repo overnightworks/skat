@@ -37,13 +37,14 @@ function agentLeft(previous: Table, table: Table): SeatNotice | null {
         : { text: words["table.agentLeft"]({ name: left.occupant_name as string }), initial: null };
 }
 
-// A chair that was open in the running hand and is taken now, by a person or an agent.
+// A chair that was open in the running hand and is taken now, by a person or an agent; the one who sat reads no notice
+// about herself.
 function openChairTaken(previous: Table, table: Table): SeatNotice | null {
     if (!handWaits(previous.hand)) return null;
     const taker = table.chairs.find(
         (chair) => chair.occupant_name !== null && chairAt(previous.chairs, chair.seat)?.occupant_name === null,
     );
-    if (taker === undefined) return null;
+    if (taker === undefined || taker.is_mine) return null;
     const name = taker.occupant_name as string;
     return {
         text: words["table.playsOn"]({ name }),
