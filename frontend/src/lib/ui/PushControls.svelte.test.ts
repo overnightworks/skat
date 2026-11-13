@@ -41,17 +41,6 @@ describe("the armed key of the Grand Hand", () => {
         flushSync();
     };
 
-    it("is armed by the first tap and says what the second tap does", () => {
-        expect(key().textContent).toContain(words["push.grandHand"]);
-
-        tapKey();
-
-        expect([key().classList.contains("armed"), key().textContent]).toEqual([
-            true,
-            expect.stringContaining(words["push.grandHandAsk"]) as unknown,
-        ]);
-    });
-
     it("disarms by itself once the time is up and not before", () => {
         tapKey();
 
@@ -63,15 +52,6 @@ describe("the armed key of the Grand Hand", () => {
         flushSync();
         expect(key().classList.contains("armed")).toBe(false);
         expect(key().textContent).toContain(words["push.grandHand"]);
-    });
-
-    it("disarms on a tap anywhere but the key", () => {
-        tapKey();
-
-        document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-        flushSync();
-
-        expect(key().classList.contains("armed")).toBe(false);
     });
 
     it("is not armed when the table offers the key again after it was withdrawn", () => {

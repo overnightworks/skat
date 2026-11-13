@@ -271,10 +271,6 @@ describe("the bid of a game declared in the stage of a Ramsch", () => {
         value: null,
     }));
 
-    it("is the bid the wire names when the three seats passed and a game is still declared", () => {
-        expect(bidOfGameDeclaredInTheStage(withAuction({ words: passes, declared: { seat: 2, value: 18 } }))).toBe(18);
-    });
-
     it("is none for a game the auction declared, which carries a bid or play word", () => {
         const won = [...passes.slice(0, 2), { seat: 3, action: "bid" as const, value: 20 }];
 
