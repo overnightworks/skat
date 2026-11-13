@@ -10,7 +10,6 @@ import {
     TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
-    TABLE_KONTRA_SUFFIX,
     TABLE_READY_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -36,7 +35,6 @@ import {
     playCard,
     positionWord,
     readTable,
-    sayKontra,
     sitDown,
     standUp,
     tablePath,
@@ -478,20 +476,6 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
-    });
-
-    it("sends the version shown, a command id and the word when saying a word", async () => {
-        answerWith(Response.json(table));
-
-        expect(await sayKontra(TABLE_ID, 7, "command-6", "re")).toEqual({ kind: "table", table });
-
-        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_KONTRA_SUFFIX}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({
-            command_id: "command-6",
-            version: 7,
-            word: "re",
-        });
     });
 
     it("reports a taken chair with who holds it", async () => {
