@@ -374,13 +374,13 @@ export function agentSitsNote(previous: Table, table: Table): string | null {
 
 // What the agents' control re-reads on: the agents by seat and name, and the version when the wake skipped versions,
 // which a swap of two agents of one name in one chair hides in the names; each version is read once.
+// A JSON tuple keeps a name that looks like a version from reading as one.
 export function seatedAgentsKey(previous: Table | undefined, table: Table): string {
     const agents = table.chairs
         .filter((chair) => chair.occupant_kind === "agent")
-        .map((chair) => `${String(chair.seat)}:${chair.occupant_name ?? ""}`)
-        .join(",");
+        .map((chair) => [chair.seat, chair.occupant_name]);
     const skipped = previous !== undefined && table.version > previous.version + 1;
-    return skipped ? `${agents}@${String(table.version)}` : agents;
+    return JSON.stringify([agents, skipped ? table.version : null]);
 }
 
 // The seats in drawing order: the viewer's own chair comes last, which is the one at the bottom.
