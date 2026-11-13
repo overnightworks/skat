@@ -140,9 +140,9 @@ def ended_series(service, transactions, table_id):
     return table_id
 
 
-def tap_all(service, table_id, round_name="new-series"):
+def tap_all(service, table_id, round_name="new-series", series=1):
     for seat, person in PEOPLE.items():
-        command = NewSeriesCommand(f"{round_name}-{seat}", table_id)
+        command = NewSeriesCommand(f"{round_name}-{seat}", table_id, series)
         assert service.start_new_series(person, command, ALL_THREE).refusal is None
 
 
@@ -164,7 +164,7 @@ class TestNewSeries:
 
     def test_two_taps_leave_the_rows_and_deal_nothing(self, service, transactions, engine, ended_series):
         for seat in (1, 2):
-            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"new-series-{seat}", ended_series), ALL_THREE)
+            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"new-series-{seat}", ended_series, 1), ALL_THREE)
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is False
 
@@ -239,7 +239,7 @@ class TestNewSeries:
                 ),
                 played_at=None,
             )
-        tap_all(service, ended_series, "second-new-series")
+        tap_all(service, ended_series, "second-new-series", series=2)
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
 
@@ -272,7 +272,7 @@ class TestNewSeries:
         service.deal_next(TableId(ended_series), nullcontext(ALL_THREE))
         dealt = read(transactions, ended_series)
 
-        again = service.start_new_series(OPENER, NewSeriesCommand("new-series-1", ended_series), ALL_THREE)
+        again = service.start_new_series(OPENER, NewSeriesCommand("new-series-1", ended_series, 1), ALL_THREE)
 
         assert again.refusal is None
         assert read(transactions, ended_series) == dealt

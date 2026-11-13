@@ -464,7 +464,7 @@ def everybody_taps_weiter(table):
             table.skat.client.cookies.clear()
             answer = table.skat.client.post(
                 f"{TABLES_PATH}/{table.table_id}{TABLE_READY_SUFFIX}",
-                json={"command_id": table.fresh_id(), "ordinal": 1},
+                json={"command_id": table.fresh_id(), "ordinal": 1, "series": 1},
                 headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
             )
             assert answer.status_code == 200, answer.text

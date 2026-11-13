@@ -85,6 +85,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             playing: changes === null ? null : playing(changes),
         },
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
