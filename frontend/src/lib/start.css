@@ -4218,8 +4218,10 @@ body {
         flex-wrap: wrap;
     }
 
-    /* In a call the speaker is the fourth button and the bar stays one row, and during a hand the strip has no room for two words: the stand-up keeps its mark alone and its word for assistive technology. */
+    /* In a call the speaker is the fourth button and the bar stays one row, during a hand the strip has no room for two words,
+       and the opener's close key is one more button beside the link: the stand-up keeps its mark alone and its word for assistive technology. */
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand,
+    .room .actions.on-result:has(.copy.close) .copy.stand,
     .room .copy.stand.round {
         position: relative;
         box-sizing: border-box;
@@ -4229,6 +4231,7 @@ body {
     }
 
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label,
+    .room .actions.on-result:has(.copy.close) .copy.stand .label,
     .room .copy.stand.round .label {
         position: absolute;
         width: 1px;
