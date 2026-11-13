@@ -55,14 +55,18 @@ def expect_the_totals(table: PlayingTable, totals: dict[int, int]) -> None:
             expect(person.locator(f".chair[data-seat='{seat}'] .coaster")).to_have_text(
                 re.compile(rf"^{sign}{abs(total)}$")
             )
-        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-        for coaster in person.locator(COASTER).all():
-            box = untilted_box(coaster)
-            for selector in NEVER_UNDER_A_COASTER:
-                for other in person.locator(selector).all():
-                    covered = untilted_box(other) if selector == COASTER else other.bounding_box()
-                    if covered is not None and covered != box:
-                        assert not overlaps(box, covered), selector
+        expect_nothing_under_a_coaster(person)
+
+
+def expect_nothing_under_a_coaster(person: Page) -> None:
+    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    for coaster in person.locator(COASTER).all():
+        box = untilted_box(coaster)
+        for selector in NEVER_UNDER_A_COASTER:
+            for other in person.locator(selector).all():
+                covered = untilted_box(other) if selector == COASTER else other.bounding_box()
+                if covered is not None and covered != box:
+                    assert not overlaps(box, covered), selector
 
 
 def untilted_box(coaster: Locator) -> dict[str, float]:
@@ -138,3 +142,19 @@ def test_a_freed_chair_has_no_coaster_and_a_newcomer_on_it_reads_zero(
 
     expect(table.watcher.locator(f".chair[data-seat='{leaver}'] .coaster")).to_have_text("0")
     assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_plate_of_an_away_chair_stays_clear_of_its_coaster(
+    play_a_table: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = play_a_table(form_factor)
+    table.play_out(CARDS_IN_A_GAME)
+    away_seat = next(seat for seat in table.names if seat != table.declarer_seat)
+    onlooker = table.pages[table.declarer_seat]
+
+    table.pages[away_seat].close()
+
+    expect(onlooker.locator(f".chair[data-seat='{away_seat}'] .mark.away")).to_have_count(1)
+    expect(onlooker.locator(COASTER)).to_have_count(len(table.names))
+    expect_nothing_under_a_coaster(onlooker)

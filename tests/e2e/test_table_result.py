@@ -531,6 +531,12 @@ def test_the_laid_name_tags_of_ordinary_names_show_each_name_whole(
             "names => names.filter(name => name.scrollWidth > name.clientWidth).map(name => name.textContent)"
         )
         assert clipped == []
+        # Each tag hangs below its own card by the same distance, so no tag steps below the others.
+        drops = person.locator(".trick .laid").evaluate_all(
+            "cards => cards.map(card => { const tag = card.querySelector('.tag');"
+            " return tag.offsetTop + tag.offsetHeight - card.offsetHeight; })"
+        )
+        assert len(set(drops)) == 1
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
