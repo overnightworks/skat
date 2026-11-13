@@ -20,6 +20,8 @@ import {
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
+    TABLE_ABORT_AGREE_SUFFIX,
+    TABLE_ABORT_REFUSE_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
@@ -105,6 +107,10 @@ export type Hand = {
     playing: Playing | null;
     // The open seat a running hand waits for, the same for every viewer.
     waiting_seat: number | null;
+    // The seats that said yes to aborting the hand, null while no vote stands; the same for every viewer.
+    abort: number[] | null;
+    // A chair of the hand is open, so the seated players may vote to abort it.
+    abortable: boolean;
 };
 export type Chair = {
     seat: number;
@@ -185,6 +191,8 @@ export type Table = {
     hand: Hand | null;
     result: Result | RamschResult | null;
     passed_in: PassedIn | null;
+    // Set between hands after a vote aborted the hand, with the next dealer as a passed-in hand names it.
+    aborted: PassedIn | null;
     bock: Bock | null;
     ended: Ended | null;
 };
@@ -295,6 +303,18 @@ const GIVE_UP_ANSWER_SUFFIXES: Record<GiveUpAnswer, string> = {
 // The version is the one the page shows, so an answer to a request that has since gone is refused; there is no retry.
 export function answerGiveUp(id: string, version: number, commandId: string, answer: GiveUpAnswer): Promise<Outcome> {
     return post(id, GIVE_UP_ANSWER_SUFFIXES[answer], { command_id: commandId, version });
+}
+
+export type AbortAnswer = "agree" | "refuse";
+
+const ABORT_ANSWER_SUFFIXES: Record<AbortAnswer, string> = {
+    agree: TABLE_ABORT_AGREE_SUFFIX,
+    refuse: TABLE_ABORT_REFUSE_SUFFIX,
+};
+
+// A vote has no version to name, so a yes or no arrives for the state the voter saw and is judged on the chairs as they are.
+export function answerAbort(id: string, commandId: string, answer: AbortAnswer): Promise<Outcome> {
+    return post(id, ABORT_ANSWER_SUFFIXES[answer], { command_id: commandId });
 }
 
 // The word is the one the table offered the viewer; the version is the one the page shows, so a word the table has

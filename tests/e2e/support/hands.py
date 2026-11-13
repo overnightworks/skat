@@ -9,6 +9,7 @@ from skat.engine.cards import Card
 from skat.engine.games import GameKind
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DEFAULT_JOINERS, DEFAULT_OPENER, DeclaringTable
@@ -115,6 +116,11 @@ class PlayingTable:
             if hand is None:
                 return
             seat = hand["playing"]["turn_seat"]
+
+    def stand_up_through_the_api(self, seat: int) -> None:
+        """The seat's person leaves the running hand, which opens the chair and makes the hand wait."""
+        command_id = f"playing-stand-{next(command_numbers):04d}"
+        self.declaring.sessions[seat].post(f"{self.declaring.api_path}{TABLE_STAND_SUFFIX}", {"command_id": command_id})
 
     def result(self) -> dict[str, Any]:
         return self.view(self.declarer_seat)["result"]

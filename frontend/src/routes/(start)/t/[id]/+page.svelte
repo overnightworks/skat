@@ -10,10 +10,11 @@
         PASSED_IN_MARKS,
         passedInScene,
     } from "#lib/auctionMarks.ts";
+    import { abortView } from "#lib/abort.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { cuesBetween } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
-    import { giveUpView } from "#lib/giveUp.ts";
+    import { giveUpAsk, giveUpView } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
@@ -27,8 +28,11 @@
         withMinus,
     } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
+    import AbortKey from "#lib/ui/AbortKey.svelte";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
+    import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
+    import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
@@ -38,7 +42,6 @@
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import FreeChairTile from "#lib/ui/FreeChairTile.svelte";
-    import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import LobbyButton from "#lib/ui/LobbyButton.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
@@ -56,6 +59,7 @@
     import TableClosed from "./TableClosed.svelte";
     import {
         agentSitsNote,
+        answerAbort,
         answerGiveUp,
         bidValueWhileDeclaring,
         copyTableLink,
@@ -70,6 +74,7 @@
         standUp,
         takeAuctionStep,
         watchTable,
+        type AbortAnswer,
         type AuctionAction,
         type Card,
         type GiveUpAnswer,
@@ -335,8 +340,18 @@
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
             {@const giveUp = giveUpView(outcome.table)}
+            {@const abort = abortView(outcome.table)}
             {#if onResult}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
+            {:else if abort.ask !== null}
+                {@const table = outcome.table}
+                <AskPlaque
+                    view={abort.ask}
+                    disabled={sentFromVersion === table.version}
+                    onanswer={(answer: AbortAnswer) => {
+                        void send(table, answerAbort(id, crypto.randomUUID(), answer));
+                    }}
+                />
             {:else if deciding !== null}
                 <div class="plaque deciding">
                     {#if deciding.kind === "won"}
@@ -360,8 +375,8 @@
                 {@const said = plaqueLine(inPlay.playing.kontra)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
-                    <GiveUpPlaque
-                        view={giveUp}
+                    <AskPlaque
+                        view={giveUpAsk(giveUp)}
                         disabled={sentFromVersion === table.version}
                         onanswer={(answer: GiveUpAnswer) => {
                             void send(table, answerGiveUp(id, table.version, crypto.randomUUID(), answer));
@@ -391,7 +406,11 @@
                 {/if}
             {:else if !outcome.table.hand?.declaring}
                 {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
-                <div class="plaque" class:hand-over={passedIn !== null} class:deciding={waits}>
+                <div
+                    class="plaque"
+                    class:hand-over={passedIn !== null}
+                    class:deciding={waits || outcome.table.aborted !== null}
+                >
                     {#if passedIn !== null}
                         <span class="verdict">{words["table.passedIn"]}</span>
                         {#if passedIn.dealerName !== null}
@@ -400,6 +419,9 @@
                                 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                             </span>
                         {/if}
+                    {:else if outcome.table.aborted !== null}
+                        <span>{words["table.aborted"]}</span>
+                        {@render waitingLine()}
                     {:else if outcome.table.hand === null}
                         <span>{words["table.waitingForPlayers"]}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -507,25 +529,7 @@
                                         {`${words["table.plays"]}`}
                                     </span>
                                 {/if}
-                                {#if giveUp?.marks.get(chair.seat) === "declined"}
-                                    <span class="mark declined" title={words["table.saidNo"]}>
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2.8"
-                                            stroke-linecap="round"
-                                            aria-hidden="true"
-                                        >
-                                            <path d="M6 6l12 12M18 6L6 18" />
-                                        </svg>
-                                    </span>
-                                {/if}
-                                {#if giveUp?.marks.get(chair.seat) === "unanswered"}
-                                    <span class="mark unanswered" title={words["table.noAnswerYet"]}>
-                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                                    </span>
-                                {/if}
+                                <AnswerMarks mark={(giveUp?.marks ?? abort.marks).get(chair.seat)} />
                                 {#if marks.turn || chair.seat === turnSeat}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -558,25 +562,7 @@
                                 {/if}
                             {/if}
                             {#if onResult}
-                                {#if chair.ready}
-                                    <span class="mark ready" title={words["table.readyMark"]}>
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="3"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            aria-hidden="true"
-                                        >
-                                            <path d="M5 12.5l4.5 4.5L19 7" />
-                                        </svg>
-                                    </span>
-                                {:else}
-                                    <span class="mark waits" title={words["table.notReadyMark"]}>
-                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                                    </span>
-                                {/if}
+                                <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
                             {/if}
                             {#if chair.is_away}
                                 <span class="mark away" aria-hidden="true">
@@ -682,6 +668,7 @@
                 {/if}
                 <div class="actions" class:on-result={onResult}>
                     <KontraKey {id} table={outcome.table} bind:note />
+                    <AbortKey {id} table={outcome.table} bind:note />
                     {#if bar?.kind === "tap"}
                         {@const table = outcome.table}
                         <button

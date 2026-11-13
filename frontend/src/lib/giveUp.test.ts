@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { giveUpView } from "#lib/giveUp.ts";
+import { giveUpAsk, giveUpView } from "#lib/giveUp.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, GiveUp, Table } from "../routes/(start)/tables.ts";
 
@@ -32,6 +32,7 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
         watchers: 0,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
         hand: {
@@ -39,6 +40,8 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
             own_cards: [],
             skat_count: 2,
             waiting_seat: changes.waiting ?? null,
+            abort: null,
+            abortable: changes.waiting !== undefined,
             auction: {
                 turn_seat: null,
                 facing_seat: null,
@@ -167,5 +170,27 @@ describe("a give-up request on the table", () => {
         { name: "the hand is a Ramsch", table: tableWith(FIRST_OPPONENT, DECLARER_ASKS, { ramsch: true }) },
     ])("draws no request when $name", ({ table }) => {
         expect(giveUpView(table)).toBeNull();
+    });
+});
+
+describe("the plaque's drawing of a give-up request", () => {
+    it("gives the opponent the stage's yes and the glass play-on button", () => {
+        const view = giveUpView(tableWith(FIRST_OPPONENT, DECLARER_ASKS)) as NonNullable<ReturnType<typeof giveUpView>>;
+
+        expect(giveUpAsk(view)).toEqual({
+            text: words["table.wantsToGiveUp"]({ name: "player 2" }),
+            faces: view.faces,
+            waits: false,
+            buttons: [
+                { answer: "agree", word: words["table.accept"], icon: "check", primary: true },
+                { answer: "decline", word: words["table.playOn"], icon: "play", primary: false },
+            ],
+        });
+    });
+
+    it("waits with no button for the asker", () => {
+        const view = giveUpView(tableWith(DECLARER, DECLARER_ASKS)) as NonNullable<ReturnType<typeof giveUpView>>;
+
+        expect(giveUpAsk(view)).toMatchObject({ waits: true, buttons: [] });
     });
 });

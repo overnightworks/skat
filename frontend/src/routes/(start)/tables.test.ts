@@ -4,6 +4,8 @@ import {
     CALL_MODE,
     MODE_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    TABLE_ABORT_AGREE_SUFFIX,
+    TABLE_ABORT_REFUSE_SUFFIX,
     TABLE_CARD_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -20,6 +22,7 @@ import {
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
+    answerAbort,
     answerGiveUp,
     bidValueWhileDeclaring,
     announcedWord,
@@ -312,7 +315,16 @@ describe("watchTable after a stream error", () => {
 
 describe("asking for a table", () => {
     const reload = vi.fn();
-    const table = { id: TABLE_ID, version: 1, chairs: [], watchers: 0, hand: null, passed_in: null, ended: null };
+    const table = {
+        id: TABLE_ID,
+        version: 1,
+        chairs: [],
+        watchers: 0,
+        hand: null,
+        passed_in: null,
+        aborted: null,
+        ended: null,
+    };
 
     beforeEach(() => {
         reload.mockClear();
@@ -478,6 +490,19 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
     });
 
+    it.each([
+        { answer: "agree" as const, suffix: TABLE_ABORT_AGREE_SUFFIX },
+        { answer: "refuse" as const, suffix: TABLE_ABORT_REFUSE_SUFFIX },
+    ])("sends a command id and no version to $answer aborting the hand", async ({ answer, suffix }) => {
+        answerWith(Response.json(table));
+
+        expect(await answerAbort(TABLE_ID, "command-6", answer)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-6" });
+    });
+
     it("reports a taken chair with who holds it", async () => {
         answerWith(Response.json({ reason: "seat-taken", holder_name: "Anna" }, { status: 409 }));
 
@@ -544,6 +569,7 @@ describe("what the declaring stage asks of this viewer", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
         hand: {
@@ -551,6 +577,8 @@ describe("what the declaring stage asks of this viewer", () => {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             auction: auctionWith(bidWon),
             declaring,
             playing: null,
@@ -592,6 +620,7 @@ describe("the auction's value while declaring", () => {
         watchers: 0,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
         hand: {
@@ -599,6 +628,8 @@ describe("the auction's value while declaring", () => {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             auction: auctionWith(declared),
             declaring,
             playing: null,
