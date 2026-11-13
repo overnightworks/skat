@@ -165,6 +165,8 @@ export type Result = {
     declarer_points: number;
     opponents_points: number;
     gains: SeatGain[];
+    // What the Bock rounds multiplied the list score by; 1 outside a Bock game.
+    bock_factor: number;
     // The last word said and the factor it doubled the score by; null when no word was said.
     kontra: { word: Word; factor: number } | null;
 };
@@ -189,6 +191,9 @@ export type Options = {
         pushing: { rule: (typeof PUSHING_RULE_TOKENS)[number]; grand_hand: (typeof GRAND_HAND_TOKENS)[number] } | null;
     } | null;
 };
+// The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
+// by; the same for every viewer. A table without Bock has none.
+export type Bock = { games_left: number; factor: number };
 export type Table = {
     id: string;
     version: number;
@@ -199,6 +204,7 @@ export type Table = {
     passed_in: PassedIn | null;
     // Null once the table has ended.
     options: Options | null;
+    bock: Bock | null;
     ended: Ended | null;
 };
 // A chair that was taken: `holder` is who sits there now.

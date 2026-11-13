@@ -1,4 +1,4 @@
-import type { Options } from "../routes/(start)/tables.ts";
+import type { Bock, Options } from "../routes/(start)/tables.ts";
 import {
     BOCK_OVERLAP_TOKENS,
     BOCK_TRIGGER_TOKENS,
@@ -18,7 +18,8 @@ type Token<Tokens extends readonly string[]> = Tokens[number];
 export type RuleId = "points" | "kontra" | "ramsch" | "pushing" | "bock";
 // A chip stands for one rule that is on; the table without any carries the one chip of the official rules.
 export type ChipId = Exclude<RuleId, "pushing"> | "official";
-export type RuleChip = { id: ChipId; word: string };
+// The Bock chip counts the games still to come, the running one included, and stands alone while none is pending.
+export type RuleChip = { id: ChipId; word: string; count: { number: string; label: string } | null };
 // A rule's settings are separate short texts, never one sentence.
 export type RuleRow = { id: RuleId; name: string; settings: string[] };
 export type TableRules = { chips: RuleChip[]; rows: RuleRow[] };
@@ -141,12 +142,29 @@ function rulesOf(options: Options): RuleRow[] {
     return rules.filter((rule) => rule !== null);
 }
 
+function countOf(id: ChipId, bock: Bock | null): RuleChip["count"] {
+    if (id !== "bock" || bock === null || bock.games_left === 0) return null;
+    return { number: String(bock.games_left), label: words["rules.bockLeft"]({ count: bock.games_left }) };
+}
+
 // What every viewer reads of a table's rules: the chips on the felt and the rows of the sheet behind them.
-export function tableRules(options: Options): TableRules {
+export function tableRules(options: Options, bock: Bock | null): TableRules {
     const rows = rulesOf(options);
     const chipIds = rows.map((row) => row.id).filter((id) => id !== "pushing");
     return {
-        chips: (chipIds.length === 0 ? (["official"] as const) : chipIds).map((id) => ({ id, word: CHIP_WORDS[id] })),
+        chips: (chipIds.length === 0 ? (["official"] as const) : chipIds).map((id) => ({
+            id,
+            word: CHIP_WORDS[id],
+            count: countOf(id, bock),
+        })),
         rows,
     };
+}
+
+export type BockLine = { word: string; factor: string };
+
+// What the plaque of a running game says of Bock: the factor that multiplies its list score.
+export function bockLine(bock: Bock | null): BockLine | null {
+    if (bock === null || bock.factor <= 1) return null;
+    return { word: words["rules.chipBock"], factor: words["bock.times"]({ factor: String(bock.factor) }) };
 }

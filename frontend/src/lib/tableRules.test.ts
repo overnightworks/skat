@@ -11,7 +11,8 @@ import {
     PUSHING_RULE_TOKENS,
     RAMSCH_SCORING_TOKENS,
 } from "#lib/wire.ts";
-import { tableRules } from "#lib/tableRules.ts";
+import { bockLine, tableRules } from "#lib/tableRules.ts";
+import { words } from "#lib/words.ts";
 import type { Options } from "../routes/(start)/tables.ts";
 
 const NOTHING: Options = { show_running_points: false, kontra: null, bock: null, ramsch: null };
@@ -36,15 +37,15 @@ const EVERYTHING: Options = {
     bock: { triggers: ["sixty-sixty", "schneider", "schwarz"], overlap: "append" },
 };
 
-const chipWords = (options: Options): string[] => tableRules(options).chips.map((chip) => chip.word);
+const chipWords = (options: Options): string[] => tableRules(options, null).chips.map((chip) => chip.word);
 const settingsOf = (options: Options, id: string): string[] =>
-    tableRules(options).rows.find((row) => row.id === id)?.settings ?? [];
+    tableRules(options, null).rows.find((row) => row.id === id)?.settings ?? [];
 
 function settingsPerToken<Token extends string>(
     tokens: readonly Token[],
     build: (token: Token) => Options,
 ): string[][] {
-    return tokens.map((token) => tableRules(build(token)).rows.flatMap((row) => row.settings));
+    return tokens.map((token) => tableRules(build(token), null).rows.flatMap((row) => row.settings));
 }
 
 const kontra = (patch: Partial<typeof KONTRA>): Options => ({ ...NOTHING, kontra: { ...KONTRA, ...patch } });
@@ -55,7 +56,7 @@ const pushing = (patch: Partial<NonNullable<typeof RAMSCH.pushing>>): Options =>
 describe("the chips", () => {
     it("is the one chip Offiziell, with no rows, for a table without a rule on", () => {
         expect(chipWords(NOTHING)).toEqual(["Offiziell"]);
-        expect(tableRules(NOTHING).rows).toEqual([]);
+        expect(tableRules(NOTHING, null).rows).toEqual([]);
     });
 
     it("lists each rule that is on in the order Augen, Kontra, Ramsch, Bock", () => {
@@ -67,13 +68,41 @@ describe("the chips", () => {
         const withPushing = pushing({ rule: "no-doubling" });
 
         expect(chipWords(withPushing)).toEqual(["Ramsch"]);
-        expect(tableRules(withPushing).rows.map((row) => row.name)).toEqual(["Ramsch beim Einpassen", "Schieberamsch"]);
+        expect(tableRules(withPushing, null).rows.map((row) => row.name)).toEqual([
+            "Ramsch beim Einpassen",
+            "Schieberamsch",
+        ]);
+    });
+});
+
+describe("the Bock chip", () => {
+    const withBock: Options = { ...NOTHING, bock: BOCK };
+
+    it.each([1, 3, 10])("counts the %i games still to come on the chip", (gamesLeft) => {
+        const [chip] = tableRules(withBock, { games_left: gamesLeft, factor: 2 }).chips;
+
+        expect(chip?.count).toEqual({
+            number: String(gamesLeft),
+            label: words["rules.bockLeft"]({ count: gamesLeft }),
+        });
+    });
+
+    it("stands alone while no Bock game is pending", () => {
+        const [chip] = tableRules(withBock, { games_left: 0, factor: 1 }).chips;
+
+        expect(chip).toEqual({ id: "bock", word: words["rules.chipBock"], count: null });
+    });
+
+    it("counts on no other chip", () => {
+        const chips = tableRules({ ...EVERYTHING }, { games_left: 3, factor: 2 }).chips;
+
+        expect(chips.filter((chip) => chip.count !== null).map((chip) => chip.id)).toEqual(["bock"]);
     });
 });
 
 describe("the rows", () => {
     it("read the words of the frozen picture for the operator's rules", () => {
-        const rows = tableRules(EVERYTHING).rows;
+        const rows = tableRules(EVERYTHING, null).rows;
 
         expect(rows.map((row) => [row.name, row.settings])).toEqual([
             ["Laufende Augen zeigen", ["Aus fertigen Stichen, nie in einer Null"]],
@@ -125,5 +154,21 @@ describe("the words of the options", () => {
     ])("%s has a text for every token, each its own", (_setting, perToken) => {
         expect(perToken.flat().every((text) => typeof text === "string" && text !== "")).toBe(true);
         expect(new Set(perToken.map((texts) => texts.join("|"))).size).toBe(perToken.length);
+    });
+});
+
+describe("the plaque's Bock line", () => {
+    it.each([2, 4, 8])("names the factor ×%i of a Bock game", (factor) => {
+        expect(bockLine({ games_left: 3, factor })).toEqual({
+            word: words["rules.chipBock"],
+            factor: words["bock.times"]({ factor: String(factor) }),
+        });
+    });
+
+    it.each([
+        { case: "a table without Bock", bock: null },
+        { case: "a game outside any Bock round", bock: { games_left: 0, factor: 1 } },
+    ])("says nothing for $case", ({ bock }) => {
+        expect(bockLine(bock)).toBeNull();
     });
 });

@@ -9,6 +9,7 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import Level
 from skat.table.auction import AuctionAction
+from skat.table.awaiting import WaitingCase
 from skat.table.records import (
     SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
@@ -41,6 +42,7 @@ from skat.web.declaring import (
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX
+from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.playing import TABLE_CARD_SUFFIX, TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_DECLINE_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import (
@@ -88,6 +90,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_GIVE_UP_DECLINE_SUFFIX", TABLE_GIVE_UP_DECLINE_SUFFIX),
         ("TABLE_LIST_SUFFIX", TABLE_LIST_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
+        ("LOBBY_EVENTS_PATH", LOBBY_EVENTS_PATH),
         ("NO_ACCESS_PATH", NO_ACCESS_PATH),
         ("MODE_QUERY_NAME", MODE_QUERY_NAME),
         ("CALL_MODE", CALL_MODE),
@@ -109,6 +112,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("AUCTION_ACTION_TOKENS", AuctionAction),
         ("LEVEL_TOKENS", Level),
         ("END_REASON_TOKENS", EndReason),
+        ("WAITING_CASE_TOKENS", WaitingCase),
     ],
 )
 def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, tokens: type[StrEnum]) -> None:

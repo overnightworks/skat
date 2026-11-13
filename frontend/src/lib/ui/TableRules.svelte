@@ -2,11 +2,11 @@
     import { tableRules, type ChipId, type RuleId } from "#lib/tableRules.ts";
     import { words } from "#lib/words.ts";
 
-    import type { Options } from "../../routes/(start)/tables.ts";
+    import type { Bock, Options } from "../../routes/(start)/tables.ts";
 
-    let { options }: { options: Options } = $props();
+    let { options, bock }: { options: Options; bock: Bock | null } = $props();
 
-    const rules = $derived(tableRules(options));
+    const rules = $derived(tableRules(options, bock));
     let chips: HTMLButtonElement | undefined = $state();
     let sheet: HTMLDialogElement | undefined = $state();
     let lockInfoShown = $state(false);
@@ -62,6 +62,9 @@
             {#each rules.chips as chip (chip.id)}
                 <span class="chip" class:official={chip.id === "official"}>
                     {@render mark(chip.id)}{chip.word}
+                    {#if chip.count !== null}
+                        <b class="n" aria-label={chip.count.label}>{chip.count.number}</b>
+                    {/if}
                 </span>
             {/each}
         </span>

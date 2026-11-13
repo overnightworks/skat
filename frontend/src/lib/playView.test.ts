@@ -69,6 +69,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
         },
         passed_in: null,
         options: null,
+        bock: null,
         ended: null,
     };
 }

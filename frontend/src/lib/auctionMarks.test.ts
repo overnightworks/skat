@@ -266,6 +266,7 @@ describe("what the others see while the declarer decides", () => {
         watchers: 0,
         passed_in: null,
         options: null,
+        bock: null,
         ended: null,
         result: null,
         hand: {

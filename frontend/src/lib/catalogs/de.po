@@ -63,6 +63,94 @@ msgctxt "start.newTableFailed"
 msgid "Der Tisch konnte nicht eröffnet werden."
 msgstr ""
 
+msgctxt "lobby.myTables"
+msgid "Meine Tische"
+msgstr ""
+
+msgctxt "lobby.openTable"
+msgid "{title} öffnen"
+msgstr ""
+
+msgctxt "lobby.title"
+msgid "{owner} Tisch"
+msgstr ""
+
+msgctxt "lobby.titleNameless"
+msgid "Tisch"
+msgstr ""
+
+msgctxt "lobby.progress"
+msgid "Spiel {game} von {count}"
+msgstr ""
+
+msgctxt "lobby.length.one"
+msgid "{count} Spiel"
+msgstr ""
+
+msgctxt "lobby.length.other"
+msgid "{count} Spiele"
+msgstr ""
+
+msgctxt "lobby.sideYou"
+msgid "Du"
+msgstr ""
+
+msgctxt "lobby.seatFree"
+msgid "Frei"
+msgstr ""
+
+msgctxt "lobby.seatAway"
+msgid "nicht da"
+msgstr ""
+
+msgctxt "lobby.minutesLeft.one"
+msgid "noch {minutes} Min"
+msgstr ""
+
+msgctxt "lobby.minutesLeft.other"
+msgid "noch {minutes} Min"
+msgstr ""
+
+msgctxt "lobby.ownSeatFreeIn.one"
+msgid "Dein Platz wird in {minutes} Minute frei"
+msgstr ""
+
+msgctxt "lobby.ownSeatFreeIn.other"
+msgid "Dein Platz wird in {minutes} Minuten frei"
+msgstr ""
+
+msgctxt "lobby.otherSeatFreeIn.one"
+msgid "{owner} Platz wird in {minutes} Minute frei"
+msgstr ""
+
+msgctxt "lobby.otherSeatFreeIn.other"
+msgid "{owner} Platz wird in {minutes} Minuten frei"
+msgstr ""
+
+msgctxt "lobby.chipYourTurn"
+msgid "Du bist dran"
+msgstr ""
+
+msgctxt "lobby.chipResultWaits"
+msgid "Ergebnis wartet"
+msgstr ""
+
+msgctxt "lobby.chipSeriesOver"
+msgid "Serie vorbei"
+msgstr ""
+
+msgctxt "lobby.endsInDays.one"
+msgid "endet in {days} Tag"
+msgstr ""
+
+msgctxt "lobby.endsInDays.other"
+msgid "endet in {days} Tagen"
+msgstr ""
+
+msgctxt "lobby.endsToday"
+msgid "endet heute"
+msgstr ""
+
 msgctxt "table.waitingForPlayers"
 msgid "Warte auf Mitspieler"
 msgstr ""
@@ -361,6 +449,22 @@ msgstr ""
 
 msgctxt "result.raise"
 msgid "Wert {value} < Reizwert {bid} → {settled}"
+msgstr ""
+
+msgctxt "bock.factor"
+msgid "Bock ×{factor}"
+msgstr ""
+
+msgctxt "bock.times"
+msgid "×{factor}"
+msgstr ""
+
+msgctxt "rules.chipBock"
+msgid "Bock"
+msgstr ""
+
+msgctxt "rules.bockLeft"
+msgid "noch {count}"
 msgstr ""
 
 msgctxt "result.sidePoints"
@@ -677,10 +781,6 @@ msgstr ""
 
 msgctxt "rules.chipRamsch"
 msgid "Ramsch"
-msgstr ""
-
-msgctxt "rules.chipBock"
-msgid "Bock"
 msgstr ""
 
 msgctxt "rules.namePoints"

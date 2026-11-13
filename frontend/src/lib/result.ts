@@ -127,6 +127,11 @@ const MISSED_WORDS: Record<Announcement, string | null> = {
     schwarz: words["result.missedSchwarz"],
 };
 
+// A Bock game's factor is one held chip; a game outside Bock has no such step.
+function bockWordOf(factor: number): string[] {
+    return factor > 1 ? [words["bock.factor"]({ factor: String(factor) })] : [];
+}
+
 const WORD_TEXTS: Record<Word, string> = {
     kontra: words["result.wordKontra"],
     re: words["result.wordRe"],
@@ -134,30 +139,36 @@ const WORD_TEXTS: Record<Word, string> = {
     hirsch: words["result.wordHirsch"],
 };
 
-// Every word up to the last one said was said, each doubling the score once more.
-function doublingsOf({ kontra }: Result): string[] {
+// Every word up to the last one said was said, each doubling the score once more; the Bock factor is held beside them.
+function doublingsOf({ kontra, bock_factor }: Result): string[] {
     if (kontra === null) return [];
     const last = WORD_TOKENS.indexOf(kontra.word);
-    return WORD_TOKENS.slice(0, last + 1).map((word, index) =>
-        words["result.wordFactor"]({
-            word: WORD_TEXTS[word],
-            factor: String(index === last ? kontra.factor : 2 ** (index + 1)),
-        }),
-    );
+    return [
+        ...WORD_TOKENS.slice(0, last + 1).map((word, index) =>
+            words["result.wordFactor"]({
+                word: WORD_TEXTS[word],
+                factor: String(index === last ? kontra.factor : 2 ** (index + 1)),
+            }),
+        ),
+        ...bockWordOf(bock_factor),
+    ];
 }
 
 function chipsOf(result: Result): Chip[] {
-    if (result.matadors === null) return [];
+    const factor = result.kontra === null ? bockWordOf(result.bock_factor).map((word) => ({ word, ticked: true })) : [];
+    if (result.matadors === null) return factor;
     const { count, mit } = result.matadors;
     const matadors = mit ? words["result.matadorsWith"](count) : words["result.matadorsWithout"](count);
     return [
         { word: matadors, ticked: false },
         ...result.levels.map((level) => ({ word: LEVEL_WORDS[level], ticked: true })),
+        ...factor,
     ];
 }
 
+// The value stands as a product when a step after it changes the score: the lost game's doubling or the Bock factor.
 function equationOf(result: Result): Equation | null {
-    const product = result.doubled ? result.game_value : null;
+    const product = result.doubled || result.bock_factor > 1 ? result.game_value : null;
     if (result.multiplier === null && product === null) return null;
     return { multiplier: result.multiplier, base: result.base_value, product };
 }
@@ -183,6 +194,14 @@ function listLineOf(result: Result, sides: SideNames): ListLine {
 
 export function declaredResult(table: Table): Result | null {
     return table.result?.kind === "declared" ? table.result : null;
+}
+
+// The ordinal of the declared result that the update brings to a page that watches; a page that opens later or
+// reconnects sees the result as it stands, so it has none.
+export function resultJustAppeared(previous: Table | undefined, next: Table): number | null {
+    const result = declaredResult(next);
+    if (previous === undefined || next.version <= previous.version || result === null) return null;
+    return previous.result?.ordinal === result.ordinal ? null : result.ordinal;
 }
 
 // The card reads only what the server counted: the sides, the ticks and the glow follow its answer.
@@ -294,6 +313,7 @@ export function ramschResultView(table: Table): RamschView | null {
             ...(result.divided_by_ten ? [words["result.byTen"]] : []),
             ...pushChip(result),
             ...(result.jungfrau ? [words["result.jungfrau"]] : []),
+            ...bockWordOf(result.bock_factor),
         ],
         score: signed(lead.score),
         loss: sweeper === undefined,

@@ -4,10 +4,10 @@
     import SoundButton from "./SoundButton.svelte";
     import TableRules from "./TableRules.svelte";
 
-    import type { Options } from "../../routes/(start)/tables.ts";
+    import type { Bock, Options } from "../../routes/(start)/tables.ts";
 
-    // `live` is the table while it runs: its watchers and the rules it was opened with. In a call the wordmark stands
-    // in for the link to the Lobby and the call's own strip carries the speaker.
+    // `live` is the table while it runs: its watchers, the rules it was opened with and its Bock games. In a call the
+    // wordmark stands in for the link to the Lobby and the call's own strip carries the speaker.
     let {
         callMode,
         attention,
@@ -17,7 +17,7 @@
         callMode: boolean;
         attention: number;
         connected: boolean;
-        live: { watchers: number; options: Options } | null;
+        live: { watchers: number; options: Options; bock: Bock | null } | null;
     } = $props();
 </script>
 
@@ -28,7 +28,7 @@
         <LobbyButton {attention} />
     {/if}
     {#if live !== null}
-        <TableRules options={live.options} />
+        <TableRules options={live.options} bock={live.bock} />
         {#if !callMode}
             <SoundButton place="bar" />
         {/if}
