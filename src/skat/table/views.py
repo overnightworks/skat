@@ -268,6 +268,22 @@ class CommandResult:
     seated_when_hand_ended: frozenset[str] = frozenset()
 
 
+def _ended_view_of(table: EndedTable) -> TableView:
+    return TableView(
+        id=table.id.value,
+        version=table.version,
+        chairs=(),
+        watchers=0,
+        hand=None,
+        passed_in=None,
+        result=None,
+        series=None,
+        options=None,
+        bock=None,
+        ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
+    )
+
+
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine.
 
@@ -284,19 +300,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
-        return TableView(
-            id=table.id.value,
-            version=table.version,
-            chairs=(),
-            watchers=0,
-            hand=None,
-            passed_in=None,
-            result=None,
-            series=None,
-            options=None,
-            bock=None,
-            ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
-        )
+        return _ended_view_of(table)
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
     seat_to_return_to = seat_held_in_hand(table, viewer_account_id)
