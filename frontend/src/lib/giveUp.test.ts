@@ -31,6 +31,7 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
         version: 7,
         chairs: chairs(mine),
         watchers: 0,
+        opened_by_me: false,
         result: null,
         passed_in: null,
         options: null,

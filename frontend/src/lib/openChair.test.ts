@@ -50,6 +50,7 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         version: 1,
         chairs,
         watchers: 0,
+        opened_by_me: false,
         hand,
         result: null,
         passed_in: null,

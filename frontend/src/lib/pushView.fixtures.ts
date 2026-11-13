@@ -41,6 +41,7 @@ export function table(
         version: 1,
         chairs: chairs(mine),
         watchers: 0,
+        opened_by_me: false,
         result: null,
         passed_in: null,
         bock: null,

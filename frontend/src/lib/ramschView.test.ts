@@ -49,6 +49,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         version: 7,
         chairs: chairs(mine),
         watchers: 0,
+        opened_by_me: false,
         result: null,
         passed_in: null,
         options: null,
