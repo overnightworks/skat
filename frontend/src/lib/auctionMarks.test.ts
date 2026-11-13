@@ -265,6 +265,7 @@ describe("what the others see while the declarer decides", () => {
         chairs: chairsAt(mine, chairChanges),
         watchers: 0,
         passed_in: null,
+        bock: null,
         ended: null,
         result: null,
         hand: {

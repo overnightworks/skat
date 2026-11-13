@@ -58,6 +58,7 @@ const WON_GAME: Result = {
         { seat: 2, gain: 86, won: true },
         { seat: 3, gain: 0, won: false },
     ],
+    bock_factor: 1,
     kontra: null,
 };
 
@@ -94,6 +95,7 @@ function table(
         hand: null,
         result: changes === null ? null : result(changes),
         passed_in: null,
+        bock: null,
         ended: null,
     };
 }
@@ -279,6 +281,58 @@ describe("the chips", () => {
         const view = resultView(table(2, NULL_GAME));
 
         expect(view.chips).toEqual([]);
+    });
+});
+
+// A Bock game multiplies the list score by the factor; the game's value and the list's 50 stay.
+const BOCK_GAME: Partial<Result> = { bock_factor: 2, score: 72, gains: [...WON_GAME.gains] };
+
+describe("a Bock game's card", () => {
+    it.each([2, 4])("holds the factor ×%i as a ticked chip after the counted levels", (factor) => {
+        const view = resultView(table(2, { ...BOCK_GAME, bock_factor: factor, score: 36 * factor }));
+
+        expect(view.chips).toEqual([
+            { word: words["result.matadorsWith"](2), ticked: false },
+            { word: words["result.levelSpiel"], ticked: true },
+            { word: words["bock.factor"]({ factor: String(factor) }), ticked: true },
+        ]);
+    });
+
+    it("shows the game's value under the multiplier line, so the factor takes it to the score", () => {
+        const view = resultView(table(2, BOCK_GAME));
+
+        expect(view.equation).toEqual({ multiplier: 3, base: 12, product: 36 });
+        expect(view.score).toBe("+72");
+    });
+
+    it("holds the factor of a lost game beside its doubling", () => {
+        const view = resultView(table(2, { ...LOST_GAME, bock_factor: 2, score: -144 }));
+
+        expect(view.chips.map(({ word }) => word)).toContain(words["bock.factor"]({ factor: "2" }));
+        expect(view.equation).toEqual({ multiplier: 3, base: 12, product: 36 });
+        expect(view.score).toBe("\u2212144");
+    });
+
+    it("holds the factor in the Kontra row, after the word, when a word was said", () => {
+        const view = resultView(table(2, { ...BOCK_GAME, kontra: { word: "kontra", factor: 2 }, score: 144 }));
+
+        expect(view.doublings).toEqual(["Kontra ×2", words["bock.factor"]({ factor: "2" })]);
+        expect(view.chips.map(({ word }) => word)).not.toContain(words["bock.factor"]({ factor: "2" }));
+        expect(view.equation).toEqual({ multiplier: 3, base: 12, product: 36 });
+    });
+
+    it("gives a Null game the chip and its fixed value as the line", () => {
+        const view = resultView(table(2, { ...NULL_GAME, bock_factor: 2, game_value: 35, score: 70 }));
+
+        expect(view.chips).toEqual([{ word: words["bock.factor"]({ factor: "2" }), ticked: true }]);
+        expect(view.equation).toEqual({ multiplier: null, base: null, product: 35 });
+    });
+
+    it("leaves a game without Bock its counted steps and no line under them", () => {
+        const view = resultView(table(2, {}));
+
+        expect(view.chips).toHaveLength(2);
+        expect(view.equation?.product).toBeNull();
     });
 });
 
@@ -527,6 +581,35 @@ const LOST_WITH_PUSHES = ramschResult([20, 14, 86], [0, 0, -344], { pushes: 2, p
 const OTHER_LOSES = ramschResult([14, 86, 20], [0, -86, 0], {});
 const JUNGFRAU = ramschResult([0, 86, 34], [0, -172, 0], { jungfrau: true });
 const DURCHMARSCH = ramschResult([120, 0, 0], [120, 0, 0], { durchmarsch_seat: 1 });
+
+describe("a Ramsch result's card in a Bock game", () => {
+    it.each([2, 4])("holds the factor ×%i after the pushes and the Jungfrau", (factor) => {
+        const result = ramschResult([20, 14, 86], [0, 0, -86 * 4 * factor], {
+            pushes: 2,
+            push_factor: 4,
+            bock_factor: factor,
+        });
+
+        expect(drawnRamsch(ramschTable(3, result)).chips).toEqual([
+            "2× geschoben ×4",
+            words["bock.factor"]({ factor: String(factor) }),
+        ]);
+    });
+
+    it("holds the factor last, behind the division by ten and the Jungfrau", () => {
+        const result = ramschResult([20, 14, 86], [0, 0, -64], {
+            divided_by_ten: true,
+            jungfrau: true,
+            bock_factor: 2,
+        });
+
+        expect(drawnRamsch(ramschTable(3, result)).chips).toEqual(["÷ 10", "Jungfrau ×2", "Bock ×2"]);
+    });
+
+    it("holds no chip for a Ramsch outside Bock", () => {
+        expect(drawnRamsch(ramschTable(3, OTHER_LOSES)).chips).toEqual([]);
+    });
+});
 
 describe("a Ramsch result's card", () => {
     it.each([

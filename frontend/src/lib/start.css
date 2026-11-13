@@ -322,6 +322,52 @@ body {
     height: 16px;
 }
 
+/* The table's rules as chips on the felt; a count on the Bock chip is the games still to come. */
+.room .rulepill {
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 1px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(14px);
+}
+
+.room .rulepill .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px 0 7px;
+    border-radius: 999px;
+    color: var(--accent-stage, #7aa7f0);
+    background: rgba(122, 167, 240, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(122, 167, 240, 0.4);
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.room .rulepill .chip svg {
+    width: 14px;
+    height: 14px;
+}
+
+.room .rulepill .chip .n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    margin-right: -4px;
+    border-radius: 999px;
+    color: var(--on-stage);
+    background: rgba(122, 167, 240, 0.34);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
 /* The last view stays, dimmed and still, until the line is back. */
 .room .stale {
     filter: saturate(0.45) brightness(0.55);
@@ -790,6 +836,12 @@ body {
     gap: 8px;
 }
 
+/* A Bock game's plaque names the factor under the game. */
+.room .plaque:has(.bock-line) {
+    flex-direction: column;
+    gap: 4px;
+}
+
 /* A Ramsch's plaque names the game, then what the table adds: the pushes and their factor, who acts, who is awaited. */
 .room .plaque.ramsch {
     flex-direction: column;
@@ -797,12 +849,14 @@ body {
     padding: 8px 12px 10px;
 }
 
-.room .plaque.ramsch .game.pushes {
+.room .plaque.ramsch .game.pushes,
+.room .plaque .bock-line {
     font-size: 13px;
     color: var(--on-stage-soft);
 }
 
-.room .plaque.ramsch .game.pushes b {
+.room .plaque.ramsch .game.pushes b,
+.room .plaque .bock-line b {
     color: var(--cream);
     font-weight: 700;
 }
