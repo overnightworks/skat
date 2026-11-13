@@ -1,0 +1,8 @@
+claim_id = "063f865b2d1a437b92cb6dc9e6fd089b"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "2a8a22c39b892d8202d7b775e0fcc5112c5a14ec"
+branch = "claude/issue-141-s5-3f3-a-won-gain-counts-up-on-the-resul"
+scope = ["frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/ResultCard.svelte", "frontend/src/routes/(start)/t/[id]/+page.svelte", "tests/e2e/support/result_card.py", "tests/e2e/test_table_result_count.py"]
+opened_commit = "9a91265a3cc2e0220a9f0f6ed7f2019425ff6719"
+whole_reason = "The count-up is one thing in four layers (the pure mark, the page's state, the card and its stylesheet) and its end-to-end proof; none of them is useful alone."
