@@ -6,7 +6,7 @@ app through the test client as everywhere else in the web tests.
 """
 
 import json
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 
 import anyio
 import httpx2
@@ -83,7 +83,9 @@ class InProcessApp(httpx2.AsyncBaseTransport):
                 answered.set()
             elif message["type"] == "http.response.body":
                 if message.get("body"):
-                    await chunks_in.send(message["body"])
+                    # A client that closed its response no longer reads; a real server drops what the app still writes.
+                    with suppress(anyio.BrokenResourceError):
+                        await chunks_in.send(message["body"])
                 if not message.get("more_body", False):
                     chunks_in.close()
 
