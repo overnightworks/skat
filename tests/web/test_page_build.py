@@ -1,5 +1,3 @@
-import base64
-import hashlib
 from typing import TYPE_CHECKING
 
 import pytest
@@ -60,14 +58,14 @@ class TestLoad:
         )
 
     def test_a_call_page_script_that_two_languages_share_is_admitted_once(self, tmp_path):
-        shell = '<html lang="en"><script>shell();</script></html>'
-        root = build_with_shell(tmp_path, shell, call_page='<html lang="en"><script>shared();</script></html>')
+        shell = '<html lang="en"><script>first();</script></html>'
+        root = build_with_shell(tmp_path, shell, call_page='<html lang="en"><script>second();</script></html>')
 
         hashes = PageBuild.load(root).script_hashes
 
         assert hashes == (
-            "sha256-" + base64.b64encode(hashlib.sha256(b"shell();").digest()).decode(),
-            "sha256-" + base64.b64encode(hashlib.sha256(b"shared();").digest()).decode(),
+            "sha256-zLkkCRwXnY9Po9RpPpnc0FGgkj110bMQ+s91j2btock=",
+            "sha256-dGCVYAQKA3St4oajZNnYqanOSQTbzydEw1qtGC2p8B4=",
         )
 
     def test_the_announcer_style_hash_is_the_known_one_of_the_fixture_chunk(self):
