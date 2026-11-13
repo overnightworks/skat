@@ -9,7 +9,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
-from tests.e2e.support.result_card import CARD, waiting_for
+from tests.e2e.support.result_card import CARD, listed, waiting_for
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,6 +29,11 @@ GIVE_UP_SURE = text(SOURCE_LANGUAGE, "table.giveUpSure")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
+WEITER = text(SOURCE_LANGUAGE, "table.weiter")
+GIVEN_UP_STAMP = text(SOURCE_LANGUAGE, "result.givenUp")
+NOTICE = ".notice"
+NOTICE_SENTENCE = f"{NOTICE} .label"
+NOTICE_MILLISECONDS = 4000
 KEY = ".copy.give-up"
 STRIP = ".actions"
 ROUND_KEY_PIXELS = 52
@@ -62,6 +67,22 @@ def deal_a_request(
         return table
 
     return deal
+
+
+def playing_on(names: list[str]) -> str:
+    return text(SOURCE_LANGUAGE, "table.playingOn", names=listed(names))
+
+
+def expect_no_refusal_notice(table: PlayingTable) -> None:
+    for person in table.everyone:
+        expect(person.locator(NOTICE, has_text=playing_on([]).strip())).to_have_count(0)
+
+
+def expect_the_given_up_stamp(table: PlayingTable, giver_seat: int) -> None:
+    for person in table.everyone:
+        stamp = person.locator(f"{CARD} .stamp")
+        expect(stamp).to_contain_text(GIVEN_UP_STAMP)
+        expect(stamp.locator(".by")).to_have_text(table.names[giver_seat][0])
 
 
 def opponents(table: PlayingTable) -> list[int]:
@@ -152,6 +173,70 @@ def test_a_yes_after_a_no_ends_the_game_on_every_page(
     for person in table.everyone:
         expect(person.locator(CARD)).to_be_visible()
         expect(person.locator(REQUEST)).to_have_count(0)
+    expect_the_given_up_stamp(table, table.declarer_seat)
+    expect_no_refusal_notice(table)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_two_nos_show_every_page_one_notice_with_both_faces_for_the_notice_time(
+    deal_a_request: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_request(form_factor)
+    first, second = sorted(opponents(table))
+    names = [table.names[first], table.names[second]]
+
+    button_of(table.pages[first], PLAY_ON).click()
+    expect(crossed(table.pages[second], first)).to_be_visible()
+    button_of(table.pages[second], PLAY_ON).click()
+
+    for person in table.everyone:
+        notice = person.locator(NOTICE)
+        expect(notice.locator(".label")).to_have_text(playing_on(names))
+        expect(notice.locator(".dot")).to_have_text([name[0] for name in names])
+        box = notice.bounding_box()
+        viewport = person.viewport_size
+        assert box is not None
+        assert viewport is not None
+        assert box["x"] >= 0
+        assert box["x"] + box["width"] <= viewport["width"]
+    expect_the_game_again(table)
+    for person in table.everyone:
+        expect(person.locator(NOTICE)).to_have_count(0, timeout=3 * NOTICE_MILLISECONDS)
+    assert page_errors == []
+
+
+def test_a_reload_after_the_second_no_shows_no_notice(
+    deal_a_request: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_request(PHONE)
+    first, second = opponents(table)
+    button_of(table.pages[first], PLAY_ON).click()
+    expect(crossed(table.pages[second], first)).to_be_visible()
+    button_of(table.pages[second], PLAY_ON).click()
+    expect(table.pages[first].locator(NOTICE)).to_be_visible()
+
+    reload_and_wait(table.pages[first])
+
+    expect_the_game_again(table)
+    expect(table.pages[first].locator(NOTICE)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_a_chair_that_changes_hands_after_the_first_no_shows_no_refusal(
+    deal_a_request: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_request(PHONE)
+    said_no, other = opponents(table)
+    button_of(table.pages[said_no], PLAY_ON).click()
+    expect(crossed(table.pages[other], said_no)).to_be_visible()
+
+    table.stand_up_through_the_api(table.declarer_seat)
+
+    stood_up = text(SOURCE_LANGUAGE, "table.standUpNotice", name=table.names[table.declarer_seat])
+    for seat in (said_no, other):
+        expect(table.pages[seat].locator(NOTICE_SENTENCE)).to_have_text(stood_up)
+    expect_no_refusal_notice(table)
     assert page_errors == []
 
 
@@ -179,6 +264,7 @@ def test_a_card_takes_the_request_back_on_every_page(
     table.play_out(1)
 
     expect_the_game_again(table)
+    expect_no_refusal_notice(table)
     assert page_errors == []
 
 
@@ -302,6 +388,25 @@ def test_the_declarers_no_lets_the_hand_go_on_with_his_cards_lit_again(
     expect(declarer.locator(OWN_CARDS).first).to_be_visible()
     for person in table.everyone:
         expect(person.locator(CARD)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_after_a_yes_the_given_up_card_takes_the_next_hand_with_weiter(
+    deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_an_opponents_give_up(PHONE)
+    asker = opponents(table)[0]
+    declarer = table.pages[table.declarer_seat]
+
+    button_of(declarer, ACCEPT).click()
+
+    expect_the_given_up_stamp(table, asker)
+    for person in table.pages.values():
+        person.locator(".actions").get_by_role("button", name=WEITER).click()
+    for person in table.everyone:
+        expect(person.locator(CARD)).to_have_count(0)
+    for person in table.pages.values():
+        expect(person.locator(OWN_CARDS)).to_have_count(10)
     assert page_errors == []
 
 
@@ -441,6 +546,7 @@ def test_the_declarers_second_tap_with_nine_or_ten_cards_ends_the_game_at_once_o
     for person in table.everyone:
         expect(person.locator(CARD)).to_be_visible()
         expect(person.locator(REQUEST)).to_have_count(0)
+    expect_the_given_up_stamp(table, table.declarer_seat)
     assert page_errors == []
 
 

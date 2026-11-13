@@ -115,6 +115,7 @@ export type Words = {
     readonly "result.won": string;
     readonly "result.lost": string;
     readonly "result.overbid": string;
+    readonly "result.givenUp": string;
     readonly "result.declarerWins": (gaps: { readonly name: string }) => string;
     readonly "result.declarerLoses": (gaps: { readonly name: string }) => string;
     readonly "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => string;
@@ -206,6 +207,7 @@ export type Words = {
     readonly "table.standUpNotice": (gaps: { readonly name: string }) => string;
     readonly "table.chairLocked": string;
     readonly "table.playsOn": (gaps: { readonly name: string }) => string;
+    readonly "table.playingOn": (gaps: { readonly names: string }) => string;
     readonly "table.sitQuestion": string;
     readonly "table.sitQuestionCancel": string;
     readonly "table.close": string;
@@ -441,6 +443,7 @@ export const words: Words = {
     "result.won": "Gewonnen!",
     "result.lost": "Verloren",
     "result.overbid": "Überreizt",
+    "result.givenUp": "Aufgegeben",
     "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " gewinnt",
     "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => gaps.declarer + ", " + gaps.game,
@@ -553,6 +556,7 @@ export const words: Words = {
     "table.standUpNotice": (gaps: { readonly name: string }) => gaps.name + " ist aufgestanden",
     "table.chairLocked": "Gesperrt",
     "table.playsOn": (gaps: { readonly name: string }) => gaps.name + " spielt weiter",
+    "table.playingOn": (gaps: { readonly names: string }) => gaps.names + " spielen weiter",
     "table.sitQuestion": "Mitten ins Spiel setzen?",
     "table.sitQuestionCancel": "Abbrechen",
     "table.close": "Tisch schließen",

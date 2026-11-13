@@ -479,6 +479,10 @@ msgctxt "result.overbid"
 msgid "Überreizt"
 msgstr ""
 
+msgctxt "result.givenUp"
+msgid "Aufgegeben"
+msgstr ""
+
 msgctxt "result.declarerWins"
 msgid "{name} gewinnt"
 msgstr ""
@@ -853,6 +857,10 @@ msgstr ""
 
 msgctxt "table.playsOn"
 msgid "{name} spielt weiter"
+msgstr ""
+
+msgctxt "table.playingOn"
+msgid "{names} spielen weiter"
 msgstr ""
 
 msgctxt "table.sitQuestion"
