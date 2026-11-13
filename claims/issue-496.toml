@@ -1,0 +1,8 @@
+claim_id = "ec3990ff30c7433bbf360854d16d4f26"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "9ef40f18d18722cfc65b06be16047a4618d8a5a7"
+branch = "claude/issue-496-s5-4c3-s5-4c4-the-table-says-when-a-give"
+scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/cues.ts", "frontend/src/lib/giveUp.test.ts", "frontend/src/lib/giveUp.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/lib/wire.ts", "scripts/generate_wire.py", "tests/e2e/test_table_give_up.py", "tests/e2e/test_table_result.py"]
+opened_commit = "f29e5dcc174aaaea994b5c6584b839a447353e0e"
+whole_reason = "One give-up story told to its end: the refusal notice and the given-up stamp share the give-up's words, cues and result card and are proven in one drive."
