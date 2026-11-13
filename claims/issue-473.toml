@@ -1,0 +1,8 @@
+claim_id = "732482b4e2e1457480acb800abcb495e"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "5b67b970a259046591f9a7ed276a4114a08f6dca"
+branch = "claude/issue-473-s13-2b-a-person-picks-a-rule-set-and-eve"
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/start.css", "frontend/src/lib/tableRules.test.ts", "frontend/src/lib/ui/RuleMark.svelte", "frontend/src/lib/ui/TableRules.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words/de.ts", "frontend/src/routes/(start)/NewTableButton.svelte", "frontend/src/routes/(start)/RuleUnit.svelte", "frontend/src/routes/(start)/openingRules.test.ts", "frontend/src/routes/(start)/openingRules.ts", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/table/rule_sets.py", "src/skat/web/words.py", "tests/e2e/support/tables.py", "tests/e2e/test_rule_set_choice.py", "tests/e2e/test_tables.py", "tests/scripts/test_generate_wire.py", "tests/store/test_migrate_felix_pushing.py"]
+opened_commit = "c79b7364d21c93c4051958eb3c78f753de1aa6a7"
+whole_reason = "Picking a set, switching a rule on and picking its variants are one sheet state with one request: a set choice without the variants opens tables whose values the opener cannot see or change, and variants without the start values leave a switch with nothing to turn on, so the three scenes are built and driven together; the other paths are the shared icon, the generated start values, the words, the styles and the tests."
