@@ -382,7 +382,8 @@ class RamschResultAnswer(BaseModel):
 
 class EndedAnswer(BaseModel):
     reason: EndReason
-    empty_seconds: int
+    empty_seconds: int | None
+    unplayed_days: int | None
 
 
 class StandingAnswer(BaseModel):
@@ -664,7 +665,11 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
         bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
         ended=None
         if view.ended is None
-        else EndedAnswer(reason=view.ended.reason, empty_seconds=view.ended.empty_seconds),
+        else EndedAnswer(
+            reason=view.ended.reason,
+            empty_seconds=view.ended.empty_seconds,
+            unplayed_days=view.ended.unplayed_days,
+        ),
     )
 
 
@@ -760,7 +765,9 @@ def create_tables_router(
         moves again once someone sits in the chair. `nudge` on a chair is set for a chair the table waits for: `nudges`
         is how often it was nudged at this version and `may_nudge` whether the caller may nudge it at all, the cap not
         reached; whether the minute has passed is judged by nudge_seat. For the chair's own occupant it also names the
-        latest nudger. A 404 means no table has this id.
+        latest nudger. `ended` is null while the table lives; once it ended it says why: `reason` is `empty` (nobody
+        was there while no hand was dealt; `empty_seconds` is the wait) or `unplayed` (no hand was dealt or played at
+        for `unplayed_days` days). A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.

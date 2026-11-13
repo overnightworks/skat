@@ -16,6 +16,7 @@ from tests.support.idle_presence import (
     idle_next_deal,
     idle_presence,
 )
+from tests.web.support.skat import Skat, streams_of
 from tests.web.support.streams import OPENER, VISITOR, next_view, run_on_a_loop_of_its_own, stream_of
 
 
@@ -78,7 +79,11 @@ class TestTheStreamRoute:
         assert len(lines) == 1
         assert time.pending == 0
         message = json.loads(lines[0].removeprefix("data: "))
-        assert message["ended"] == {"reason": "empty", "empty_seconds": hold.settings.empty_table_seconds}
+        assert message["ended"] == {
+            "reason": "empty",
+            "empty_seconds": hold.settings.empty_table_seconds,
+            "unplayed_days": None,
+        }
         assert (message["chairs"], message["hand"], message["result"], message["watchers"]) == ([], None, None, 0)
 
 
@@ -104,3 +109,33 @@ class TestAStreamWhoseArrivalWriteFails:
         retried = run_on_a_loop_of_its_own(scenario())
 
         assert (len(calls), retried.ended) == (2, None)
+
+
+class TestAnUnplayedEnd:
+    DAYS = 1
+
+    @pytest.fixture
+    def unplayed(self, sign_in_settings, time):
+        skat = Skat(
+            lambda: sign_in_settings(paused_table_days=self.DAYS),
+            now=time.moment,
+            chair_clock=time.clock,
+            chair_scheduler=time,
+        )
+        with skat.client:
+            yield skat
+
+    def test_an_open_page_and_the_old_link_say_that_nobody_played_for_the_days(self, unplayed, time):
+        anna, ben, cleo = unplayed.member(), unplayed.member(), unplayed.member()
+        table_id = unplayed.create(anna[0]).json()["id"]
+        unplayed.sit(ben[0], table_id, 2, command_id="command-ben")
+        unplayed.sit(cleo[0], table_id, 3, command_id="command-cleo")
+
+        with streams_of(unplayed, table_id, [anna]) as (open_page,):
+            unplayed.client.portal.call(time.advance, self.DAYS * 24 * 3600)
+            message = next(open_page)
+
+        old_link = unplayed.client.get(f"{TABLES_PATH}/{table_id}", headers=ben[0]).json()
+        expected = {"reason": "unplayed", "empty_seconds": None, "unplayed_days": self.DAYS}
+        assert (message["ended"], old_link["ended"]) == (expected, expected)
+        assert (old_link["chairs"], old_link["hand"], old_link["watchers"]) == ([], None, 0)

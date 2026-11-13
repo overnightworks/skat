@@ -1,5 +1,5 @@
 import { words } from "#lib/words.ts";
-import type { EndReason, Ended } from "../routes/(start)/tables.ts";
+import type { Ended } from "../routes/(start)/tables.ts";
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -11,11 +11,12 @@ function emptyHeading(seconds: number): string {
     return words["closed.emptyMinutes"](minutes, { minutes: String(minutes) });
 }
 
-// Each reason names its own heading; a reason added to the wire has to add its words here.
-const HEADINGS: Record<EndReason, (ended: Ended) => string> = {
-    empty: (ended) => emptyHeading(ended.empty_seconds),
-};
-
+// Each reason names its own heading; a reason added to the wire fails the type check until its words are here.
 export function closedWords(ended: Ended): string {
-    return HEADINGS[ended.reason](ended);
+    switch (ended.reason) {
+        case "empty":
+            return emptyHeading(ended.empty_seconds);
+        case "unplayed":
+            return words["closed.unplayedDays"](ended.unplayed_days);
+    }
 }

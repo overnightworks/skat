@@ -2,7 +2,7 @@ import copy
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-from skat.table.records import EndedTable, EndReason, Receipt, Replay, TableRecord
+from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.table.transactions import DuplicateReceiptError, HeldTable, LiveWait, OccupiedChair, PausedFacts
@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.member_place import BookEntry
-    from skat.table.records import TableId
 
 
 class FreeChairReadyError(Exception):
@@ -92,9 +91,16 @@ class FakeTableStore:
         self.tables[table.id.value] = table
         self.opener_names[table.id.value] = opener_name
 
-    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
+    def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
+        return tuple(
+            TableId(table_id)
+            for table_id, played_at in sorted(self.last_played_at.items())
+            if played_at <= cutoff and isinstance(self.tables[table_id], TableRecord)
+        )
+
+    def end_table(self, table_id: TableId, at: datetime, ending: Ending) -> None:
         table = self.tables[table_id.value]
-        self.tables[table_id.value] = EndedTable(table.id, table.version + 1, EndReason.EMPTY, empty_seconds)
+        self.tables[table_id.value] = EndedTable(table.id, table.version + 1, ending)
         self.ended_at[table_id.value] = at
         self.last_played_at.pop(table_id.value, None)
         self.opener_names.pop(table_id.value, None)

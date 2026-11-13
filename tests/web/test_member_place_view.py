@@ -14,7 +14,7 @@ from structlog.testing import capture_logs
 from skat.engine.deal import Position
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.table.asking import revision_of
-from skat.table.records import EndedTable, EndReason, Series, TableId, TableOptions
+from skat.table.records import EndedTable, Ending, Series, TableId, TableOptions
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX
 from skat.web.mcp import (
     AGREE_TO_END_SERIES_TOOL,
@@ -296,7 +296,7 @@ class TestTheViewEndsWithTheChair:
             pytest.param(
                 lambda skat, time, session, table_id: skat.store.tables.__setitem__(
                     table_id,
-                    EndedTable(TableId(table_id), skat.store.tables[table_id].version + 1, EndReason.EMPTY, 3600),
+                    EndedTable(TableId(table_id), skat.store.tables[table_id].version + 1, Ending.empty(3600)),
                 ),
                 0,
                 id="table-end",
@@ -448,10 +448,16 @@ class TestTheToolDescriptionsNameTheView:
 
 
 class TestARestartReadsTheSameView:
-    def test_the_view_after_a_restart_is_the_view_before_it(self, skat, issuer, hold, agent, middlehand_auction):
+    def test_the_view_after_a_restart_is_the_view_before_it(self, skat, issuer, hold, time, agent, middlehand_auction):
         before = agent.view(middlehand_auction.table_id)
 
-        restarted = Skat(lambda: hold, store=skat.store, stores=skat.stores, issuer_transports=issuer.transports)
+        restarted = Skat(
+            lambda: hold,
+            store=skat.store,
+            stores=skat.stores,
+            issuer_transports=issuer.transports,
+            now=time.moment,
+        )
         with restarted.client:
             after = Agent(restarted, issuer, agent.subject).view(middlehand_auction.table_id)
 

@@ -124,6 +124,7 @@ export type Words = {
     readonly "closed.notFound": string;
     readonly "closed.emptySeconds": (count: number) => string;
     readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
+    readonly "closed.unplayedDays": (count: number) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "declare.putBack": string;
@@ -382,6 +383,14 @@ export const words: Words = {
         few: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
         many: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
         other: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
+    })[pluralRules.select(count)],
+    "closed.unplayedDays": (count: number) => ({
+        zero: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        one: numberFormat.format(count) + " Tag nicht gespielt: Tisch geschlossen",
+        two: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        few: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        many: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        other: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
     })[pluralRules.select(count)],
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",

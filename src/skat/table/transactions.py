@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
 
-    from skat.table.records import EndedTable, Receipt, Replay, TableId, TableRecord
+    from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
 
 __all__ = [
     "DuplicateReceiptError",
@@ -53,10 +53,16 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """Insert the table with the opener's display name, which no later write changes."""
         ...
 
-    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
+    def end_table(self, table_id: TableId, at: datetime, ending: Ending) -> None:
         """End the table whose row this transaction locked, once: its version rises by one, its dealer, last
-        played time and opener's name clear, and it keeps only its row and its create receipt, so its id is never
-        issued again and a create retry finds it. Its book rows go with it.
+        played time, opener's name and give-up request clear, and it keeps only its row and its create receipt, so its
+        id is never issued again and a create retry finds it. Its book rows go with it. `ending` says why it ended.
+        """
+        ...
+
+    def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
+        """The live tables whose last deal or step of play was at or before `cutoff`, in id order; an unlocked read, so
+        a candidate list.
         """
         ...
 

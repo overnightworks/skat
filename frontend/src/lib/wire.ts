@@ -52,7 +52,7 @@ export const LEVEL_TOKENS = [
     "schwarz_announced",
     "ouvert",
 ] as const;
-export const END_REASON_TOKENS = ["empty"] as const;
+export const END_REASON_TOKENS = ["empty", "unplayed"] as const;
 export const WAITING_CASE_TOKENS = ["turn", "give_up", "kontra", "end_proposal", "result", "series_end"] as const;
 export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
 export const VALID_BIDS = [
