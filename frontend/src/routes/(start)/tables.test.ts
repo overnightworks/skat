@@ -4,6 +4,8 @@ import {
     CALL_MODE,
     MODE_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    RULE_SETS_PATH,
+    SWITCH_ON_OPTIONS,
     TABLE_ABORT_AGREE_SUFFIX,
     TABLE_ABORT_REFUSE_SUFFIX,
     TABLE_CARD_SUFFIX,
@@ -32,7 +34,9 @@ import {
     createTable,
     giveUp,
     markReady,
+    type OptionsRequest,
     playCard,
+    readRuleSets,
     readTable,
     seriesNumberOf,
     sitDown,
@@ -346,6 +350,42 @@ describe("asking for a table", () => {
             series_length: 30,
             options: { show_running_points: true },
         });
+    });
+
+    it("sends the request object as given when creating a table", async () => {
+        answerWith(Response.json(table));
+        const options: OptionsRequest = {
+            kontra: { sayer: "any-opponent", reach: "kontra-re", deadline: "own-card" },
+            bock: { triggers: ["sixty-sixty", "schneider"], overlap: "multiply" },
+        };
+
+        await createTable("command-1", 30, options);
+
+        const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(JSON.parse((init as { body: string }).body)).toEqual({
+            command_id: "command-1",
+            series_length: 30,
+            options,
+        });
+    });
+
+    it("answers the sets of the person as the server lists them", async () => {
+        const sets = [{ id: "set-1", name: "Felix", options: SWITCH_ON_OPTIONS }];
+        answerWith(Response.json({ sets }));
+
+        expect(await readRuleSets()).toEqual({ kind: "sets", sets });
+        expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe(RULE_SETS_PATH);
+    });
+
+    it.each([
+        ["a refusal", () => Response.json({}, { status: 500 })],
+        ["an answer that is not JSON", () => new Response("<html>", { status: 200 })],
+        ["an answer without a list", () => Response.json({})],
+        ["no answer", () => new TypeError("offline")],
+    ])("answers %s as failed, never as an empty list", async (_name, answer) => {
+        answerWith(answer());
+
+        expect(await readRuleSets()).toEqual({ kind: "failed" });
     });
 
     it("sends the command id and the chair when sitting down", async () => {

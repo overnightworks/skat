@@ -1,5 +1,7 @@
 """Tests for the generator that writes the browser's typed copy of the Python paths."""
 
+import json
+import re
 from typing import TYPE_CHECKING
 
 import pytest
@@ -18,7 +20,9 @@ from skat.table.records import (
     SERIES_LENGTH_STEP,
     TABLE_ID_PATTERN,
     EndReason,
+    RamschOccasion,
 )
+from skat.table.rule_sets import SWITCH_ON_OPTIONS
 from skat.table.rules import CHAIRS_PER_TABLE
 from skat.web.auction import (
     TABLE_AUCTION_BID_SUFFIX,
@@ -53,6 +57,8 @@ from skat.web.playing import (
     TABLE_GIVE_UP_SUFFIX,
 )
 from skat.web.ready import TABLE_READY_SUFFIX
+from skat.web.rule_sets import RULE_SETS_PATH
+from skat.web.table_options import options_answer_of
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
@@ -85,6 +91,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("CALL_ORIGIN_PATH", CALL_ORIGIN_PATH),
         ("ACCOUNT_CONSOLE_PATH", ACCOUNT_CONSOLE_PATH),
         ("TABLES_PATH", TABLES_PATH),
+        ("RULE_SETS_PATH", RULE_SETS_PATH),
         ("TABLE_PAGE_PREFIX", TABLE_PAGE_PREFIX),
         ("TABLE_DECLARING_TAKE_SUFFIX", TABLE_DECLARING_TAKE_SUFFIX),
         ("TABLE_DECLARING_PUT_BACK_SUFFIX", TABLE_DECLARING_PUT_BACK_SUFFIX),
@@ -125,6 +132,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("LEVEL_TOKENS", Level),
         ("END_REASON_TOKENS", EndReason),
         ("WORD_TOKENS", Word),
+        ("RAMSCH_OCCASION_TOKENS", RamschOccasion),
         ("WAITING_CASE_TOKENS", WaitingCase),
     ],
 )
@@ -132,6 +140,13 @@ def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, toke
     declaration = generate_wire.render().partition(f"export const {name} = ")[2].partition("as const;")[0]
 
     assert all(f'"{token.value}"' in declaration for token in tokens)
+
+
+def test_render_writes_the_start_values_of_a_switched_on_rule_in_the_shape_of_the_answer() -> None:
+    declaration = generate_wire.render().partition("export const SWITCH_ON_OPTIONS = ")[2].partition(" as const;")[0]
+    as_json = re.sub(r",(\s*[}\]])", r"\1", re.sub(r"^(\s*)(\w+):", r'\1"\2":', declaration, flags=re.MULTILINE))
+
+    assert json.loads(as_json) == options_answer_of(SWITCH_ON_OPTIONS).model_dump(mode="json")
 
 
 def test_render_names_the_chairs_of_a_table() -> None:
