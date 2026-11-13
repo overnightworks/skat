@@ -3456,9 +3456,8 @@ body {
         flex-wrap: wrap;
     }
 
-    /* In a call the speaker is the fourth button, and while the bar waits for named players the pill needs the width: the stand-up keeps its mark alone and its word for assistive technology. */
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand,
-    .room .actions.on-result:has(> .copy.wait) .copy.stand {
+    /* In a call the speaker is the fourth button and the bar stays one row: the stand-up keeps its mark alone and its word for assistive technology. */
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand {
         position: relative;
         box-sizing: border-box;
         justify-content: center;
@@ -3466,8 +3465,7 @@ body {
         padding: 0;
     }
 
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label,
-    .room .actions.on-result:has(> .copy.wait) .copy.stand .label {
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -3477,7 +3475,7 @@ body {
     }
 }
 
-/* The smallest phones hold two names of 25 characters in the pill on no more than three lines: a smaller type and padding. */
+/* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller type and padding. */
 @media (max-width: 379px) {
     .room .actions.on-result .copy.wait {
         padding-inline: 8px;

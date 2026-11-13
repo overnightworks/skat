@@ -355,7 +355,7 @@ def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_wait_pill_holds_its_whole_text_with_two_25_character_names_in_the_height_of_the_bar(
+def test_the_wait_pill_holds_its_whole_text_with_two_25_character_names(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES)
@@ -368,10 +368,19 @@ def test_the_wait_pill_holds_its_whole_text_with_two_25_character_names_in_the_h
     )
     heights = bar.evaluate(PILL_HEIGHTS)
     assert len(set(heights)) == 1
-    link = bar.locator(".copy.link").bounding_box()
-    assert link is not None
-    assert heights[0] <= link["height"]
     expect_the_bars_inside_the_pages(table)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_stand_up_button_keeps_its_word_while_the_bar_waits(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor)
+    bar = table.pages[table.declarer_seat].locator(".actions")
+    bar.get_by_role("button", name=WEITER).click()
+    expect(bar.get_by_role("status")).to_be_visible()
+    label = bar.get_by_role("button", name=STAND_UP).locator(".label")
+    assert label.evaluate("label => Math.ceil(label.getBoundingClientRect().width) >= label.scrollWidth")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -498,15 +507,6 @@ def test_the_laid_name_tags_of_full_length_names_stay_clear_of_each_other_and_of
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_card_counts_of_full_length_names_stand_clear_of_the_plates(
-    deal_a_table_of_full_length_names: Callable[..., DeclaringTable], form_factor: dict[str, Any]
-) -> None:
-    table = deal_a_table_of_full_length_names(form_factor)
-    for person in (table.declarer, *table.others, table.watcher):
-        expect(person.locator(".plate")).to_have_count(3)
-        expect_no_crossing(person, ".count-tag", ".plate")
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_laid_name_tags_of_ordinary_names_show_each_name_whole(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
@@ -523,6 +523,15 @@ def test_the_laid_name_tags_of_ordinary_names_show_each_name_whole(
         )
         assert clipped == []
 
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_card_counts_of_full_length_names_stand_clear_of_the_plates(
+    deal_a_table_of_full_length_names: Callable[..., DeclaringTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_table_of_full_length_names(form_factor)
+    for person in (table.declarer, *table.others, table.watcher):
+        expect(person.locator(".plate")).to_have_count(3)
+        expect_no_crossing(person, ".count-tag", ".plate")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
