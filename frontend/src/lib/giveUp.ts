@@ -91,6 +91,8 @@ export function refusalNotice(chairs: readonly Chair[], seats: readonly number[]
     return {
         text: words["table.playingOn"]({ names: listFormat.format(faces.map((face) => face.name)) }),
         initials: faces.map((face) => face.initial),
+        seat: null,
+        occupied: false,
     };
 }
 

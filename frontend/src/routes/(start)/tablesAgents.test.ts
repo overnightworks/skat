@@ -502,6 +502,8 @@ describe("the agent that sat down", () => {
         expect(agentSitsNote(before, after)).toEqual({
             text: words["table.agentSits"]({ name: "Nova" }),
             initials: [null],
+            seat: 2,
+            occupied: true,
         });
     });
 
