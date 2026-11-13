@@ -32,6 +32,7 @@ CONFIRM = text(SOURCE_LANGUAGE, "table.closeConfirm")
 CANCEL = text(SOURCE_LANGUAGE, "table.closeCancel")
 DESKTOP_WIDTH = 900
 ROUND_KEY_PIXELS = 52
+OWN_HAND = ".own-hand"
 
 
 def close_key(person: Page):
@@ -84,6 +85,8 @@ def test_the_opener_closes_the_table_after_the_question_and_every_page_names_the
 ) -> None:
     people, path = seat_the_table(open_person, e2e_server, page_errors, form_factor, 3 if dealt else 2)
     anna, ben, dora = people["anna"], people["ben"], people["dora"]
+    if dealt:
+        expect(anna.locator(OWN_HAND)).to_be_visible()
     for person in (anna, ben, dora):
         expect(watchers_of(person)).to_be_visible()
         mark_page(person)
