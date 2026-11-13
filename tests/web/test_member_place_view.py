@@ -42,7 +42,7 @@ from tests.support.calls import call_facts
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of
+from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of, window_uri_of
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.sdk_agent import SdkAgent
@@ -156,8 +156,16 @@ class TestTheViewIsAServedResource:
     ):
         standing = json.loads(agent.standing())["standings"]
 
-        assert agent.listed_resources() == sorted([STANDING_URI, view_uri_of(middlehand_auction.table_id)])
+        assert agent.listed_resources() == sorted(
+            [STANDING_URI, window_uri_of(middlehand_auction.table_id), view_uri_of(middlehand_auction.table_id)]
+        )
         assert [(each["state"], each["serves_view"]) for each in standing] == [("active", True)]
+
+    def test_the_window_beside_the_view_holds_no_line_and_its_generation_is_the_table(self, agent, middlehand_auction):
+        answer = agent.read_resource(window_uri_of(middlehand_auction.table_id))
+
+        window = json.loads(answer.json()["result"]["contents"][0]["text"])
+        assert (window["generation"], window["starts_at"], window["entries"]) == (middlehand_auction.table_id, 1, [])
 
     def test_the_revision_is_the_tables_version_with_no_ask_and_the_seat_on_turn_awaits(
         self, agent, middlehand_auction
@@ -219,6 +227,15 @@ class TestOnlyTheSeatedAgentReadsItsView:
 
         assert (unknown(other.read_resource(uri)), other.listed_resources()) == (True, [STANDING_URI])
 
+    def test_the_window_is_read_only_by_the_seated_agent(self, skat, issuer, agent, middlehand_auction):
+        window = window_uri_of(middlehand_auction.table_id)
+
+        assert (
+            unknown(a_person(skat, issuer).read_resource(window)),
+            unknown(another_agent(skat, issuer).read_resource(window)),
+            unknown(agent.read_resource(window_uri_of(UNKNOWN_ID))),
+        ) == (True, True, True)
+
     def test_a_table_that_does_not_exist_reads_an_unknown_resource(self, agent, middlehand_auction):
         assert unknown(agent.read_resource(view_uri_of(UNKNOWN_ID)))
 
@@ -228,7 +245,6 @@ class TestOnlyTheSeatedAgentReadsItsView:
             pytest.param(str.upper, id="upper-case"),
             pytest.param(lambda uri: uri + "/", id="trailing-slash"),
             pytest.param(lambda uri: uri + "?x=1", id="query"),
-            pytest.param(lambda uri: uri.removesuffix("/view"), id="the-window-without-the-view"),
             pytest.param(lambda uri: uri.replace("/table/", "/room/"), id="another-kind-of-place"),
             pytest.param(lambda uri: uri.replace("member://", "MEMBER://"), id="another-scheme-spelling"),
         ],
@@ -437,7 +453,7 @@ class TestASignalThatFailsAfterTheCommit:
 
 class TestTheToolDescriptionsNameTheView:
     def test_every_description_that_sends_a_seated_agent_to_read_table_also_names_the_table_view(self, agent):
-        tools = agent.request("tools/list").json()["result"]["tools"]
+        tools = agent.offered_every_tool().request("tools/list").json()["result"]["tools"]
         before_a_chair = {"sit_down", "open_table", "read_paused_tables"}
 
         naming_read_table = {tool["name"] for tool in tools if "read_table" in tool["description"]} - before_a_chair

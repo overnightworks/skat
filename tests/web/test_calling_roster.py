@@ -38,7 +38,7 @@ def listens_once_and_closes(roster, principal, facts, *, after_close):
     async def listen_then_close():
         changes = ResourceChanges(roster.listening_changed)
         with changes.opened(principal) as stream, token_of(facts):
-            changes.acknowledged(principal, stream, [STANDING_URI])
+            changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
         after_close()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
