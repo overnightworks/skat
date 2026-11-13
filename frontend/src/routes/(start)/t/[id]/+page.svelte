@@ -17,7 +17,13 @@
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
-    import { gameInPlay, sideNames, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
+    import {
+        bidOfGameDeclaredInTheStage,
+        gameInPlay,
+        sideNames,
+        trickOnTheFelt,
+        type PlayingHand,
+    } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
         declaredResult,
@@ -377,6 +383,7 @@
                 {@const label = gameLabel(inPlay.declaration)}
                 {@const running = inPlay.playing.running_points}
                 {@const said = plaqueLine(inPlay.playing.kontra)}
+                {@const stageBid = bidOfGameDeclaredInTheStage(outcome.table)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
                     <GiveUpPlaque
@@ -409,6 +416,9 @@
                                 <span class="announced">{label.announcement}</span>
                             {/if}
                         </span>
+                        {#if stageBid !== null}
+                            <span class="game pushes">{`${words["table.bidValue"]} ${String(stageBid)}`}</span>
+                        {/if}
                         {#if said !== null}
                             <span class="game pushes">{said.word} <b>{said.factor}</b></span>
                         {/if}

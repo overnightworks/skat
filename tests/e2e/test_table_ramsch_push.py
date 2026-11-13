@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
+from skat.engine.bidding import LOWEST_BID
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.people import WIDTHS
@@ -29,6 +30,7 @@ GRAND_HAND = text(SOURCE_LANGUAGE, "push.grandHand")
 GRAND_HAND_ASKED = text(SOURCE_LANGUAGE, "push.grandHandAsk")
 GRAND_HAND_GAME = text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, "game.grand"))
 ANY_PLAQUE = ".plaque"
+GRAND_HAND_BID = f"{text(SOURCE_LANGUAGE, 'table.bidValue')} {LOWEST_BID}"
 KEYS = (TAKE_SKAT, PUSH, PUT_BACK, GRAND_HAND, GRAND_HAND_ASKED)
 STRIP_CARD = ".own-hand .card button.pick"
 DIMMED_CARD = ".own-hand .card.no"
@@ -188,6 +190,7 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
     for person in table.everyone:
         expect(person.locator(PLAQUE)).to_have_count(0)
         expect(person.locator(ANY_PLAQUE)).to_contain_text(GRAND_HAND_GAME)
+        expect(person.locator(f"{ANY_PLAQUE} .game.pushes")).to_have_text(GRAND_HAND_BID)
         expect_no_key(person)
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
