@@ -62,10 +62,11 @@ class DeclaringTable:
         console: bool = True,
         hold_the_others_clock: bool = False,
         joiners: tuple[str, str] = ("ben", "cleo"),
+        opener_name: str = "anna",
         running_points: bool = False,
     ) -> None:
         self.server = server
-        opener = self._person(open_person, "anna", page_errors, form_factor, console)
+        opener = self._person(open_person, opener_name, page_errors, form_factor, console)
         path = open_new_table(opener, server, running_points=running_points)
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"

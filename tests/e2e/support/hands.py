@@ -151,6 +151,7 @@ def deal_playing_table(
     game: str = "kreuz",
     declaring: type[DeclaringTable] = DeclaringTable,
     joiners: tuple[str, str] = ("ben", "cleo"),
+    opener_name: str = "anna",
     running_points: bool = False,
 ) -> PlayingTable:
     table = declaring(
@@ -161,6 +162,7 @@ def deal_playing_table(
         form_factor,
         console=console,
         joiners=joiners,
+        opener_name=opener_name,
         running_points=running_points,
     )
     return PlayingTable(table, game)

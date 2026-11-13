@@ -284,7 +284,10 @@ def deal_with_running_points(
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
     def deal(
-        form_factor: dict[str, Any], game: str = "kreuz", joiners: tuple[str, str] = ("ben", "cleo")
+        form_factor: dict[str, Any],
+        game: str = "kreuz",
+        joiners: tuple[str, str] = ("ben", "cleo"),
+        opener_name: str = "anna",
     ) -> PlayingTable:
         return deal_playing_table(
             open_person,
@@ -295,6 +298,7 @@ def deal_with_running_points(
             game=game,
             running_points=True,
             joiners=joiners,
+            opener_name=opener_name,
         )
 
     return deal
@@ -323,7 +327,9 @@ def test_the_plaque_counts_from_completed_tricks_for_the_players_and_a_watcher(
 def test_a_long_player_name_is_cut_inside_the_plaque_and_the_points_stay_visible(
     deal_with_running_points: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
-    table = deal_with_running_points(form_factor, joiners=("maximilianalexander", "maximilianbartholomew"))
+    table = deal_with_running_points(
+        form_factor, joiners=("maximilianalexander", "maximilianbartholomew"), opener_name="maximilianchristopher"
+    )
     table.play_out(CARDS_IN_A_TRICK)
 
     counted = table.playing()["running_points"]
