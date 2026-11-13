@@ -110,6 +110,7 @@ class RamschStageTable:
         self.pages = {seat: people[username] for seat, username in enumerate(seated, start=1)}
         self.watcher = people["dora"]
         self.everyone = [*self.pages.values(), self.watcher]
+        expect(self.watcher.locator(".plaque")).to_contain_text(BIDDING)
         chairs = self.view(1)["chairs"]
         self.seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
         self.names = {chair["seat"]: chair["occupant_name"] for chair in chairs}
