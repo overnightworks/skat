@@ -43,6 +43,7 @@
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
+    import TableRules from "#lib/ui/TableRules.svelte";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -263,6 +264,7 @@
                 <LobbyButton {attention} />
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
+                <TableRules bock={outcome.table.bock} place="bar" />
                 {#if !callMode}
                     <SoundButton place="bar" />
                 {/if}
@@ -351,6 +353,7 @@
                                 <span class="announced">{label.announcement}</span>
                             {/if}
                         </span>
+                        <TableRules bock={outcome.table.bock} place="plaque" />
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
