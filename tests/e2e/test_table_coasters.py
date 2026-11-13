@@ -166,17 +166,18 @@ def test_a_freed_chair_has_no_coaster_and_a_newcomer_on_it_reads_zero(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_plate_of_an_away_chair_stays_clear_of_its_coaster(
+def test_the_plates_and_marks_of_both_away_chairs_stay_clear_of_their_coasters(
     play_a_table: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = play_a_table(form_factor)
     table.play_out(CARDS_IN_A_GAME)
-    away_seat = next(seat for seat in table.names if seat != table.declarer_seat)
+    away_seats = [seat for seat in table.names if seat != table.declarer_seat]
     onlooker = table.pages[table.declarer_seat]
 
-    table.pages[away_seat].close()
+    for seat in away_seats:
+        table.pages[seat].close()
 
-    expect(onlooker.locator(f".chair[data-seat='{away_seat}'] .mark.away")).to_have_count(1)
+    expect(onlooker.locator(AWAY)).to_have_count(len(away_seats))
     expect(onlooker.locator(COASTER)).to_have_count(len(table.names))
     expect_nothing_under_a_coaster(onlooker)
     expect_the_table_page_clear(onlooker)

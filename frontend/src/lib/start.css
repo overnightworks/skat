@@ -1863,10 +1863,11 @@ body {
     text-transform: uppercase;
 }
 
+/* The away mark beside another mark stands a pixel above it, so the coaster at the chair's inner corner does not touch it. */
 .room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
     right: auto;
     left: 6px;
-    top: 16px;
+    top: 15px;
 }
 
 /* The declarer's star: a chair is too small for its word, so the star shows alone and the word stays for assistive reading. */
