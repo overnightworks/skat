@@ -43,7 +43,7 @@ describe("the heading of a table its opener closed", () => {
     it("names the closer", () => {
         expect(
             closedWords({ reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: "Anna" }),
-        ).toBe("Anna hat den Tisch geschlossen");
+        ).toBe(words["closed.closedBy"]({ name: "Anna" }));
     });
 });
 
