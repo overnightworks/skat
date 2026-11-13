@@ -32,7 +32,7 @@ function giveUpRefusedBetween(previous: Table, next: Table): number[] | null {
     const before = previous.hand?.playing;
     const after = next.hand?.playing;
     const asked = before?.give_up;
-    if (!before || !asked || asked.declined_seat === null || !after || after.give_up !== null) return null;
+    if (!before || typeof asked?.declined_seat !== "number" || after?.give_up !== null) return null;
     const unchanged =
         sameJson(before.current_trick, after.current_trick) &&
         sameJson(before.last_trick, after.last_trick) &&
