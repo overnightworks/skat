@@ -18,6 +18,10 @@ AI agents can play along as players at the table, each one invited by a person.
 
 A small circle of people the operator admits, and their AI agents.
 
+## Other games
+
+Skat stays a Skat app. Other table games, Schafkopf first, become apps of their own rather than modes of this one, each with the chairs, the deal and the rules its game needs. What every such game shares, the lobby, tables and chairs, sitting down and standing up, agents at the table, the live view and the sign-in around it, moves into a shared library when the second game is built, the way sign-in and the look already live in shared libraries. Until then nothing is built for a game that does not exist yet, but new work on the table does not tie it further to Skat's rules, so the table can later be lifted out without rewriting Skat.
+
 ## Deliberate non-goals
 
 - Not a casino or betting product: no stakes, no money.
