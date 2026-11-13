@@ -5,8 +5,8 @@ later change of the setting never changes what an old link says. Only the reason
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0034"
-down_revision = "0033"
+revision = "0035"
+down_revision = "0034"
 
 REASON_CHECK = "tables_end_reason_is_a_reason"
 

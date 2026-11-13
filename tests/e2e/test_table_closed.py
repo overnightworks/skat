@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Page, Request, Route, expect
 from sqlalchemy import select, update
 
 from skat.store.schema import tables
@@ -84,8 +84,15 @@ def ended_table_path(e2e_server: RunningServer) -> str:
 
 
 def events_requests_of(person: Page) -> list[str]:
+    """The requests for a table's stream; the start page's own list stream is none of them."""
     requests: list[str] = []
-    person.on("request", lambda request: requests.append(request.url) if TABLE_EVENTS_SUFFIX in request.url else None)
+
+    def record(request: Request) -> None:
+        path = urlsplit(request.url).path
+        if path.startswith(f"{TABLES_PATH}/") and path.endswith(TABLE_EVENTS_SUFFIX):
+            requests.append(request.url)
+
+    person.on("request", record)
     return requests
 
 

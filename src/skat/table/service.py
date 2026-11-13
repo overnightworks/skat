@@ -20,6 +20,7 @@ from skat.table.member_place import (
     TableStanding,
     agent_in_chair,
     agents_seated_at,
+    at_the_table,
     decide_accept,
     decide_invite,
     standings_of,
@@ -60,6 +61,7 @@ from skat.table.records import (
     Decision,
     EndedTable,
     Ending,
+    Refusal,
     SendAway,
     SitDown,
     StandUp,
@@ -102,7 +104,7 @@ from skat.table.rules import (
     sit_payload,
     stand_payload,
 )
-from skat.table.send_away import SEND_AWAY_COMMAND, book_after_send_away, decide_send_away, send_away_payload
+from skat.table.send_away import SEND_AWAY_COMMAND, decide_send_away_by, save_book_after_send_away, send_away_payload
 from skat.table.series_end import (
     AGREE_TO_END_SERIES_COMMAND,
     REFUSE_TO_END_SERIES_COMMAND,
@@ -131,14 +133,6 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _tell_nobody(accounts: frozenset[str]) -> None:
-    """The signal of a service no one listens to."""
-
-
-def _show_nobody(table_id: TableId, accounts: frozenset[str]) -> None:
-    """The view signal of a service no one listens to."""
-
-
 class TableService:
     """The table commands and views; every command is one transaction."""
 
@@ -151,8 +145,8 @@ class TableService:
     ) -> None:
         self._transactions = transactions
         self._live_leases: Callable[[], frozenset[str]] = frozenset
-        self._standings_changed: Callable[[frozenset[str]], None] = _tell_nobody
-        self._view_changed: ViewSignal = _show_nobody
+        self._standings_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
+        self._view_changed: ViewSignal = lambda _table_id, _accounts: None
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -225,12 +219,14 @@ class TableService:
             lambda table: decide_stand(table, actor),
         )
 
-    def send_away(self, actor: Actor, command: SendAway, connected_accounts: frozenset[str]) -> CommandResult | None:
+    def send_away(
+        self, actor: Actor, command: SendAway, connected_accounts: frozenset[str], is_member: bool
+    ) -> CommandResult | None:
         """Free an agent's chair at once, in every phase of a hand, and take the place from its standing in the same
-        transaction: the agent's book row at this table gets a higher epoch and no invitation.
+        transaction: the agent's book row gets a higher epoch and no invitation. The hand waits for a sitter.
 
-        `actor` is the person who sends; who may send away is the caller's to check. The hand stays and waits for a
-        sitter. A replay and a refusal write no book row.
+        `actor` must be at the table and a member of the calling group (`is_member`) or the agent's owner, else
+        `not-allowed`, which writes no receipt. A replay and a refusal write no book row.
         """
         return self._run_command(
             actor,
@@ -239,12 +235,8 @@ class TableService:
             command.command_id,
             SEND_AWAY_COMMAND,
             send_away_payload(command),
-            lambda table: decide_send_away(table, command.agent_account),
-            lambda transaction, table: transaction.save_book_entry(
-                book_after_send_away(
-                    transaction.locked_book_entry(table.id, command.agent_account), table.id, command.agent_account
-                )
-            ),
+            lambda table: decide_send_away_by(table, command, actor, connected_accounts, is_member, self._now()),
+            lambda transaction, table: save_book_after_send_away(transaction, table.id, command.agent_account),
         )
 
     def replayed_send_away(self, actor: Actor, command: SendAway) -> Decision | None:
@@ -729,7 +721,9 @@ class TableService:
                         after_accepted(transaction, decision.table)
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                     viewers = view_recipients(table, decision.table)
-                transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
+                if decision.refusal is not Refusal.NOT_ALLOWED:
+                    # A refused authority is no outcome: the id stays free once the person has the right.
+                    transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
             else:
                 decision = replayed_decision(replay, command, payload)
             present = present_at(decision.table, connected_accounts, self._live_leases())
@@ -770,6 +764,11 @@ class TableService:
             else present_at(table, connected_accounts, self._live_leases())
         )
         return view_of(table, actor.account_id, present)
+
+    def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
+        """Who is at the live table for a call; an ended or missing table counts the open streams only."""
+        table = self._table_read(table_id.value)
+        return at_the_table(table, connected_accounts) if isinstance(table, TableRecord) else connected_accounts
 
     def member_view(self, account_id: str, table_id: str, connected_accounts: frozenset[str]) -> MemberView | None:
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None

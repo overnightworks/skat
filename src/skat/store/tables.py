@@ -153,6 +153,7 @@ def _table_record(
             chairs.c.account_id,
             chairs.c.display_name,
             chairs.c.occupant_kind,
+            chairs.c.owner_account,
             chairs.c.ready,
             chairs.c.held_in_hand,
         )
@@ -167,7 +168,7 @@ def _table_record(
                 seat.seat,
                 None
                 if seat.account_id is None
-                else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind)),
+                else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account),
                 ready=seat.ready,
             )
             for seat in seats
@@ -287,6 +288,7 @@ class _PostgresTableTransaction:
                     account_id=None if occupant is None else occupant.account_id,
                     display_name=None if occupant is None else occupant.display_name,
                     occupant_kind=None if occupant is None else occupant.kind.value,
+                    owner_account=None if occupant is None else occupant.owner_account,
                     ready=chair.ready,
                     held_in_hand=sorted(
                         mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
@@ -340,6 +342,7 @@ class _PostgresTableTransaction:
                     "account_id": None if chair.occupant is None else chair.occupant.account_id,
                     "display_name": None if chair.occupant is None else chair.occupant.display_name,
                     "occupant_kind": None if chair.occupant is None else chair.occupant.kind.value,
+                    "owner_account": None if chair.occupant is None else chair.occupant.owner_account,
                 }
                 for chair in table.chairs
             ],

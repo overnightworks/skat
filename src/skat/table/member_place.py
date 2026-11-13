@@ -46,6 +46,7 @@ __all__ = [
     "offer_of",
     "open_invitation",
     "seated_agents",
+    "seated_call_facts",
     "standings_among",
     "standings_of",
     "table_offers_of",
@@ -265,25 +266,37 @@ def agents_seated_at(table: TableRecord) -> frozenset[str]:
     return frozenset(agent.account for agent in seated_agents(table))
 
 
-def control_shown(*, viewer_present: bool, viewer_is_member: bool) -> bool:
-    """Whether the person sees the control that calls agents: at the table and a member of the calling group."""
-    return viewer_present and viewer_is_member
+def at_the_table(table: TableRecord, connected_accounts: frozenset[str]) -> frozenset[str]:
+    """Who counts as at the table for a person's call: whoever holds an open stream on it and whoever holds a chair."""
+    return connected_accounts | {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
+
+
+def control_shown(*, viewer_present: bool, viewer_is_member: bool, sends_agent_away: bool) -> bool:
+    """Whether the person sees the control that calls agents: at the table and either a member of the calling group or
+    one who may send an agent away.
+    """
+    return viewer_present and (viewer_is_member or sends_agent_away)
 
 
 def offer_of(
     facts: CallFacts, table: TableRecord | None, entry: BookEntry | None, now: datetime
 ) -> OfferState | InviteRefusal:
     """What the person's call to the agent comes to, decided in this order: the table is not live; the person is not
-    at it; not a member; the agent holds a chair there, which the person may send it away from, whether it listens or
-    its owner is present; the agent does not listen or is invited there by someone else; the agent is invited by this
-    person already; the owner is not at the table; no chair is free for the agent. A chair left open by a hand that
-    waits for a sitter is free, but an agent that left a chair of that hand is offered that chair only.
+    at it; neither a member nor the owner its chair stores for the agent; the agent holds a chair there, which the
+    person may send it away from, whether it listens or its owner is present; the agent does not listen or is invited
+    there by someone else; the agent is invited by this person already; the owner is not at the table; no chair is free
+    for the agent. A chair left open by a hand that waits for a sitter is free, but an agent that left a chair of that
+    hand is offered that chair only.
     """
     if table is None:
         return InviteRefusal.NO_TABLE
-    if not control_shown(viewer_present=facts.viewer_present, viewer_is_member=facts.viewer_is_member):
+    seated = seat_of(table, facts.agent_account)
+    owns_the_chair = bool(seated and seated.occupant and seated.occupant.owner_account == facts.viewer_account)
+    if not control_shown(
+        viewer_present=facts.viewer_present, viewer_is_member=facts.viewer_is_member, sends_agent_away=owns_the_chair
+    ):
         return InviteRefusal.NOT_PRESENT if not facts.viewer_present else InviteRefusal.NOT_A_MEMBER
-    if seat_of(table, facts.agent_account) is not None:
+    if seated is not None:
         return OfferState.HERE
     invitation = open_invitation(entry, now)
     invited_by_someone_else = invitation is not None and invitation.inviter_account != facts.viewer_account
@@ -296,6 +309,23 @@ def offer_of(
     if free_seat_for(table, facts.agent_account) is None:
         return InviteRefusal.NO_FREE_CHAIR
     return OfferState.AVAILABLE
+
+
+def seated_call_facts(
+    agent_account: str, *, viewer_account: str, viewer_present: bool, viewer_is_member: bool
+) -> CallFacts:
+    """The facts of a person's call to an agent that holds a chair at the table: no token states its owner and it does
+    not listen, which `offer_of` does not ask of a seated agent.
+    """
+    return CallFacts(
+        viewer_account=viewer_account,
+        viewer_present=viewer_present,
+        viewer_is_member=viewer_is_member,
+        agent_account=agent_account,
+        agent_listens=False,
+        owner_account=None,
+        owner_present=False,
+    )
 
 
 def call_offer_of(facts: CallFacts, table: TableRecord | None, entry: BookEntry | None, now: datetime) -> CallOffer:

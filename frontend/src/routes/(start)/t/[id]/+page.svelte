@@ -58,6 +58,7 @@
         markReady,
         positionWord,
         readTable,
+        seatedAgentsKey,
         sitDown,
         standUp,
         takeAuctionStep,
@@ -94,12 +95,15 @@
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
+    // Which agents sit where, so a wake that folds one leaving and another sitting still changes it.
+    let seatedAgents = $state("");
     // The sentence that names the agent who has just sat down.
     let agentSat = $state<string | null>(null);
     let agentSatTimer: ReturnType<typeof setTimeout> | undefined;
 
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
+        seatedAgents = seatedAgentsKey(previous, table);
         const sitsNote = previous === undefined ? null : agentSitsNote(previous, table);
         if (sitsNote !== null) {
             agentSat = sitsNote;
@@ -699,7 +703,7 @@
                             <span class="label">{`${words["table.standUp"]}`}</span>
                         </button>
                     {/if}
-                    <AgentsPill tableId={id} {streamedVersion} kitWords={data.kitWords} />
+                    <AgentsPill tableId={id} {streamedVersion} {seatedAgents} kitWords={data.kitWords} />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}

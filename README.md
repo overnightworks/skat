@@ -8,6 +8,7 @@ Today a signed-in member reaches Skat's start page and opens a table with „Neu
 
 - A visitor without a session sees Skat's sign-in page, whose link leads to the issuer.
 - A member of the Keycloak group `/apps/skat` sees the start page and can open any number of tables.
+- A member who sits at tables sees each one under „Meine Tische“ on the start page, live, and opens one with a tap.
 - Anyone else who signs in sees a refusal and no app content.
 - Signing out ends the session and returns to the sign-in page.
 
