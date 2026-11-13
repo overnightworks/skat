@@ -178,7 +178,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
         self, skat, issuer, felix, table_id
     ):
         outsider = person(skat, issuer, groups=())
-        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+        with listening(skat, issuer, person(skat, issuer), "Nova", NOVA) as nova:
             nova.sit_down(table_id, 2)
             key = only_row(skat, felix, table_id)["key"]
             with streams_of(skat, table_id, [(outsider.headers, None)]):
@@ -190,7 +190,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
     def test_a_member_removed_from_the_group_after_the_display_is_refused_and_then_sees_no_control(
         self, skat, issuer, felix, table_id
     ):
-        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+        with listening(skat, issuer, person(skat, issuer), "Nova", NOVA) as nova:
             nova.sit_down(table_id, 2)
             key = only_row(skat, felix, table_id)["key"]
             issuer.grant_groups(felix.id, ())
@@ -211,7 +211,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
     def test_an_issuer_that_refuses_the_fresh_read_means_try_again_and_keeps_the_chair_and_the_display(
         self, skat, issuer, felix, table_id, break_the_read
     ):
-        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+        with listening(skat, issuer, person(skat, issuer), "Nova", NOVA) as nova:
             nova.sit_down(table_id, 2)
             key = only_row(skat, felix, table_id)["key"]
             break_the_read(issuer)
@@ -256,6 +256,19 @@ class TestASendAwayThatChangesNothing(CallingTable):
             assert call(skat, felix, table_id, key).status_code == 200
             assert offer_of(nova).epoch == 0
 
+    def test_an_agent_that_holds_no_chair_while_the_table_is_full_is_agent_unavailable_and_writes_nothing(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            key = only_row(skat, felix, table_id)["key"]
+            seat_of_nobody_but(skat, table_id, 2)
+            before = skat.store.tables[table_id].version
+
+            answer = send_away(skat, felix, table_id, key)
+
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.AGENT_UNAVAILABLE})
+            assert (skat.store.tables[table_id].version, invitations_of(nova)) == (before, [])
+
     def test_the_refusal_of_an_agent_that_is_not_seated_leaves_its_command_id_unused(
         self, skat, issuer, felix, table_id
     ):
@@ -274,7 +287,9 @@ class TestASendAwayThatChangesNothing(CallingTable):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
             key = only_row(skat, felix, table_id)["key"]
             lost = SendAway("command-lost", table_id, skat.stores.accounts.get(NOVA).id)
-            skat.tables.send_away(Actor(account_id=felix.id, display_name="Felix"), lost, frozenset())
+            skat.tables.send_away(
+                Actor(account_id=felix.id, display_name="Felix"), lost, frozenset({felix.id}), is_member=True
+            )
             nova.sit_down(table_id, 2)
 
             answer = send_away(skat, felix, table_id, key, "command-lost")
@@ -313,10 +328,10 @@ class TestASendAwayThatChangesNothing(CallingTable):
         key = only_row(skat, felix, table_id)["key"]
         send_away_of_service = skat.tables.send_away
 
-        def ends_the_table_first(actor, command, connected):
+        def ends_the_table_first(actor, command, connected, is_member):
             skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
             assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
-            return send_away_of_service(actor, command, connected)
+            return send_away_of_service(actor, command, connected, is_member)
 
         monkeypatch.setattr(skat.tables, "send_away", ends_the_table_first)
 
