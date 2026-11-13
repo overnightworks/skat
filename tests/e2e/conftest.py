@@ -59,16 +59,23 @@ def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]
 
 
 PAGE_TIMELINE_SECTION = "page timeline"
+TIMELINE_PRINTED = pytest.StashKey[bool]()
 
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> Iterator[None]:
     """A test that fails while its pages run, in the test or in a fixture's teardown, carries the timeline of its
-    pages, so the CI log shows more than the assertion.
+    pages, so the CI log shows more than the assertion; a failed call and a failed teardown print it once.
     """
     report = yield
     record = getattr(item, "funcargs", {}).get("failure_record")
-    if report.when in ("call", "teardown") and report.failed and isinstance(record, FailureRecord):
+    if (
+        report.when in ("call", "teardown")
+        and report.failed
+        and isinstance(record, FailureRecord)
+        and TIMELINE_PRINTED not in item.stash
+    ):
+        item.stash[TIMELINE_PRINTED] = True
         report.sections.append((f"Captured {PAGE_TIMELINE_SECTION}", record.render()))
     return report
 
