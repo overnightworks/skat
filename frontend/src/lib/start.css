@@ -3435,17 +3435,17 @@ body {
     box-shadow: 0 0 0 6px rgba(122, 167, 240, 0.18);
 }
 
-/* The notice stands at the top of the felt's lower half: it lies over no chair, and where a trick stands it moves clear of the cards (below). */
+/* The notice stands on the top of the felt between the far chairs, where no card of a trick, no bubble of a call and no plaque lies. */
 .room .notice {
     grid-column: 1 / 3;
-    grid-row: 3;
+    grid-row: 2;
     z-index: 2;
     display: flex;
     align-items: center;
     gap: 8px;
     justify-self: center;
     align-self: start;
-    margin: 0;
+    margin: 28px 0 0;
     padding: 6px 16px 6px 7px;
     border-radius: 999px;
     color: #14161a;
@@ -3456,17 +3456,22 @@ body {
     max-width: 100%;
 }
 
-/* While a hand is played the notice stands at the foot of the trick's row, under the card of the near player: the plaque hangs into the row's top and the cards lie between. */
-@media (max-width: 899px) {
-    .room .stage:has(> .trick) .notice {
-        align-self: end;
-        margin-bottom: 14px;
-    }
-}
-
 .room .notice .label {
     flex-shrink: 0;
     white-space: nowrap;
+}
+
+/* On a phone the sentence wraps inside the gap between the far chairs. */
+@media (max-width: 899px) {
+    .room .notice {
+        box-sizing: border-box;
+        max-width: calc(100% - 2 * (var(--chair-width) - 14px) - 8px);
+    }
+
+    .room .notice .label {
+        flex-shrink: 1;
+        white-space: normal;
+    }
 }
 
 .room .notice b {

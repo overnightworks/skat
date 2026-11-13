@@ -28,6 +28,9 @@ SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 LOCKED = text(SOURCE_LANGUAGE, "table.chairLocked")
 ROUND_KEY_PIXELS = 52
 OWN_HAND = ".own-hand"
+NOTICE = "p.notice"
+NEVER_UNDER_THE_NOTICE = (".plaque", ".bubble", ".chair .fan", ".chair .tile", ".trick .laid")
+TWO_CARDS = 2
 
 
 def stand_key_of(person: Page):
@@ -36,6 +39,15 @@ def stand_key_of(person: Page):
 
 def chair_of(person: Page, seat: int):
     return person.locator(f".chair[data-seat='{seat}']")
+
+
+def overlaps(first: dict[str, float], second: dict[str, float]) -> bool:
+    return (
+        first["x"] < second["x"] + second["width"]
+        and second["x"] < first["x"] + first["width"]
+        and first["y"] < second["y"] + second["height"]
+        and second["y"] < first["y"] + first["height"]
+    )
 
 
 def stands_up_through_the_key(person: Page) -> None:
@@ -98,6 +110,31 @@ def test_the_second_tap_stands_up_and_the_others_read_it_once_while_the_person_w
     expect(chair_of(person, seat).locator(".fan-spot")).to_have_count(1)
     expect(person.locator(".chair").last).to_have_attribute("data-seat", str(seat))
     expect(stand_key_of(person)).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_notice_about_the_chair_lies_over_no_plaque_bubble_fan_chair_or_laid_card(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.play_out(TWO_CARDS)
+    seat = table.seat_at["rearhand"]
+
+    stands_up_through_the_key(table.pages[seat])
+
+    for other in (*(page for other_seat, page in table.pages.items() if other_seat != seat), table.watcher):
+        expect(other.locator(NOTICE)).to_have_count(1)
+        notice = other.locator(NOTICE).bounding_box()
+        assert notice is not None
+        for selector in NEVER_UNDER_THE_NOTICE:
+            for covered in other.locator(selector).all():
+                box = covered.bounding_box()
+                assert box is None or not overlaps(notice, box), selector
+    assert page_errors == []
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
