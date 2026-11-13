@@ -33,7 +33,7 @@ def ready_payload(command: ReadyCommand) -> str:
 
 @dataclass(frozen=True)
 class NewSeriesCommand:
-    """„Neue Serie“ after a series' end; `series` numbers the series that ended, and the chair comes from the session."""
+    """„Neue Serie“ after a series' end; `series` numbers the series it ended, and the chair comes from the session."""
 
     command_id: str
     table_id: str

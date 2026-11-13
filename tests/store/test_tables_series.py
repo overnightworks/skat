@@ -140,9 +140,9 @@ def ended_series(service, transactions, table_id):
     return table_id
 
 
-def tap_all(service, table_id, round_name="new-series"):
+def tap_all(service, table_id, round_name="new-series", series=1):
     for seat, person in PEOPLE.items():
-        command = NewSeriesCommand(f"{round_name}-{seat}", table_id, 1)
+        command = NewSeriesCommand(f"{round_name}-{seat}", table_id, series)
         assert service.start_new_series(person, command, ALL_THREE).refusal is None
 
 
@@ -239,7 +239,7 @@ class TestNewSeries:
                 ),
                 played_at=None,
             )
-        tap_all(service, ended_series, "second-new-series")
+        tap_all(service, ended_series, "second-new-series", series=2)
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
 

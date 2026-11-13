@@ -21,6 +21,7 @@ def test_the_series_of_a_table_reads_at_the_tool_as_the_route_gives_it(skat, age
     view = agent.read(table_id).json()
 
     assert view["series"] == {
+        "number": 1,
         "game_number": 0,
         "game_count": 12,
         "over": False,

@@ -215,7 +215,6 @@ class TestDecideNewSeries:
         assert decision.refusal is Refusal.SERIES_NOT_OVER
         assert decision.table == table
 
-
     @pytest.mark.parametrize("series", [1, 3], ids=["an-earlier-series", "a-series-not-yet-started"])
     def test_another_series_than_the_tables_is_stale_and_changes_nothing(self, series):
         table = at_the_end(1, number=2)
@@ -256,7 +255,8 @@ class TestReadyPayload:
 
 class TestReadyRefusalTokens:
     @pytest.mark.parametrize(
-        "refusal", [Refusal.NO_RESULT, Refusal.STALE_RESULT, Refusal.STALE_SERIES, Refusal.NO_SERIES, Refusal.SERIES_NOT_OVER]
+        "refusal",
+        [Refusal.NO_RESULT, Refusal.STALE_RESULT, Refusal.STALE_SERIES, Refusal.NO_SERIES, Refusal.SERIES_NOT_OVER],
     )
     def test_a_stored_token_reads_back_to_its_refusal(self, refusal):
         assert parsed_refusal(refusal.value) is refusal

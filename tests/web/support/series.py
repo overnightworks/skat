@@ -15,18 +15,18 @@ from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table
 
 
-def tap_weiter(skat, headers, table_id, command_id, ordinal=1):
+def tap_weiter(skat, headers, table_id, command_id, ordinal=1, series=1):
     return skat.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_READY_SUFFIX}",
-        json={"command_id": command_id, "ordinal": ordinal},
+        json={"command_id": command_id, "ordinal": ordinal, "series": series},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 
 
-def tap_new_series(skat, headers, table_id, command_id):
+def tap_new_series(skat, headers, table_id, command_id, series=1):
     return skat.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_NEW_SERIES_SUFFIX}",
-        json={"command_id": command_id},
+        json={"command_id": command_id, "series": series},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 
@@ -110,7 +110,7 @@ def deal_the_next_game(skat, table, number, game, *, after_pass=False):
         if not chair.ready:
             position = positions_from(DEALER_SEAT)[chair.seat]
             command_id = f"weiter-{number}-{game}-{chair.seat}"
-            answer = tap_weiter(skat, table.at[position], table.table_id, command_id, game)
+            answer = tap_weiter(skat, table.at[position], table.table_id, command_id, game, number)
             assert answer.status_code == 200, answer.text
     accounts = [chair.occupant.account_id for chair in table.record.chairs]
     assert deal_next(skat, table.table_id, accounts)

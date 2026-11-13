@@ -490,7 +490,13 @@ class TestARefusedActIsAnErrorResult:
         version = table.record.version
 
         marks = [
-            agent.call(CONTINUE_AFTER_RESULT_TOOL, table_id=table.table_id, command_id=f"agent-mark-{each}", ordinal=1)
+            agent.call(
+                CONTINUE_AFTER_RESULT_TOOL,
+                table_id=table.table_id,
+                command_id=f"agent-mark-{each}",
+                ordinal=1,
+                series=1,
+            )
             for each in (1, 2)
         ]
 
@@ -570,11 +576,15 @@ class TestAScriptedClientIsWokenAndPlays:
         table = after_a_game(forehand_auction)
 
         with sdk.connected() as session, session.listening() as events:
-            person_posts(table, TABLE_READY_SUFFIX, MIDDLEHAND, ordinal=1)
+            person_posts(table, TABLE_READY_SUFFIX, MIDDLEHAND, ordinal=1, series=1)
             view = events.woken_view(table.table_id)
             ordinal = view["state"]["result"]["ordinal"]
             answer = session.call(
-                CONTINUE_AFTER_RESULT_TOOL, table_id=table.table_id, command_id="agent-continue", ordinal=ordinal
+                CONTINUE_AFTER_RESULT_TOOL,
+                table_id=table.table_id,
+                command_id="agent-continue",
+                ordinal=ordinal,
+                series=1,
             )
             moved = session.view(table.table_id)
 
@@ -587,9 +597,11 @@ class TestAScriptedClientIsWokenAndPlays:
         table = after_a_game(forehand_auction, series_deals=36)
 
         with sdk.connected() as session, session.listening() as events:
-            person_posts(table, TABLE_NEW_SERIES_SUFFIX, MIDDLEHAND)
+            person_posts(table, TABLE_NEW_SERIES_SUFFIX, MIDDLEHAND, series=1)
             view = events.woken_view(table.table_id)
-            answer = session.call(START_NEW_SERIES_TOOL, table_id=table.table_id, command_id="agent-new-series")
+            answer = session.call(
+                START_NEW_SERIES_TOOL, table_id=table.table_id, command_id="agent-new-series", series=1
+            )
             moved = session.view(table.table_id)
 
         assert (view["awaits_you"], view["state"]["series"]["over"], answer.is_error) == (True, True, False)

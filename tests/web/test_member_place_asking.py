@@ -286,7 +286,7 @@ class TestASeatTheTableWaitsForIsAskedAgain:
         table = a_result_stands(forehand_auction)
         agent.view(table.table_id)
         wait(skat, time, ASK_AGAIN_AFTER - 10)
-        person_posts(table, TABLE_READY_SUFFIX, MIDDLEHAND, ordinal=1)
+        person_posts(table, TABLE_READY_SUFFIX, MIDDLEHAND, ordinal=1, series=1)
         moved = agent.view(table.table_id)
         pulses.clear()
 

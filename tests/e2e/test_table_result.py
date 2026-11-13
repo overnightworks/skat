@@ -412,7 +412,7 @@ def test_a_tap_on_a_result_the_table_has_left_shows_the_failure_note(
     tapper = table.pages[tapper_seat]
 
     def tap_for_another_result(route: Route) -> None:
-        route.continue_(post_data='{"command_id": "stale-tap", "ordinal": 99}')
+        route.continue_(post_data='{"command_id": "stale-tap", "ordinal": 99, "series": 1}')
 
     tapper.route(f"**{table.declaring.api_path}{TABLE_READY_SUFFIX}", tap_for_another_result)
     tapper.locator(".actions").get_by_role("button", name=WEITER).click()
