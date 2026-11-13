@@ -1,7 +1,7 @@
 import http.client
 import socket
 from contextlib import suppress
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
@@ -17,6 +17,9 @@ from tests.e2e.support.server import (
     running_skat,
 )
 from tests.support.postgres import created_database, migrated_template
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytestmark = pytest.mark.e2e
 
