@@ -64,6 +64,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         result: null,
         passed_in: null,
         ended: null,
+        bock: null,
     };
 }
 

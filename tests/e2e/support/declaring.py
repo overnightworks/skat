@@ -79,15 +79,23 @@ class DeclaringTable:
         self.watcher = self._person(open_person, "dora", page_errors, form_factor, console)
         watch(self.watcher, server, path)
         self.sessions = {seat: RawSession(server, member_of(person)) for seat, person in people.items()}
-        chairs = json.loads(self.sessions[1].get(self.api_path))["chairs"]
-        seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
-        self.declarer_seat = seat_at[self.declarer_position]
-        self.declarer = people[self.declarer_seat]
-        self.others = [person for seat, person in people.items() if seat != self.declarer_seat]
+        self.people = people
+        seat_at = self._seat_at()
+        self._name_the_declarer(seat_at)
         if hold_the_others_clock:
             self._hold_the_clock_of(*self.others, self.watcher)
         self._win_the_auction(seat_at)
         expect(self.declarer.get_by_role("button", name=TAKE_SKAT)).to_be_visible()
+
+    def _seat_at(self) -> dict[str, int]:
+        chairs = json.loads(self.sessions[1].get(self.api_path))["chairs"]
+        return {chair["hand"]["position"]: chair["seat"] for chair in chairs}
+
+    def _name_the_declarer(self, seat_at: dict[str, int]) -> None:
+        """The seat at the table's declarer position declares."""
+        self.declarer_seat = seat_at[self.declarer_position]
+        self.declarer = self.people[self.declarer_seat]
+        self.others = [person for seat, person in self.people.items() if seat != self.declarer_seat]
 
     @staticmethod
     def _open_table(opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
