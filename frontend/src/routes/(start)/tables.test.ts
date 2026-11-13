@@ -12,6 +12,7 @@ import {
     TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
@@ -29,6 +30,7 @@ import {
     answerAbort,
     answerGiveUp,
     createTable,
+    giveUp,
     markReady,
     playCard,
     readTable,
@@ -499,6 +501,16 @@ describe("asking for a table", () => {
             suit: "pik",
             rank: "queen",
         });
+    });
+
+    it("sends the version shown and a command id to give up the game", async () => {
+        answerWith(Response.json(table));
+
+        expect(await giveUp(TABLE_ID, 7, "command-5")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_GIVE_UP_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
     });
 
     it.each([

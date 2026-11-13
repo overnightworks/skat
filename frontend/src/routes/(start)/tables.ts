@@ -38,6 +38,7 @@ import {
     TABLE_EVENTS_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
     TABLE_KONTRA_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
@@ -362,6 +363,11 @@ export function takePushingStep(id: string, version: number, commandId: string, 
 // The client names only the card: the seat that plays it comes from the session.
 export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
     return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
+}
+
+// The version is the one the page shows, so a give-up on a table that has since moved on is refused; there is no retry.
+export function giveUp(id: string, version: number, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_GIVE_UP_SUFFIX, { command_id: commandId, version });
 }
 
 export type GiveUpAnswer = "agree" | "decline";
