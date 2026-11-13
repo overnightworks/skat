@@ -37,6 +37,7 @@ export function tableBetweenGames(mine: number, series: Series | null, ready: nu
         options: null,
         bock: null,
         ended: null,
+        opened_by_me: false,
     };
 }
 
