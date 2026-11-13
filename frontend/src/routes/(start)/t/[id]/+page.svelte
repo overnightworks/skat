@@ -77,6 +77,7 @@
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
+    import { motionInForce } from "#lib/settings.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -347,7 +348,7 @@
     </span>
 {/snippet}
 
-<div class="room" class:framed={callMode} data-theme="dark">
+<div class="room" class:framed={callMode} data-theme="dark" data-motion={motionInForce()}>
     <CardSprite />
     {#if !greeted}
         <TableBar
