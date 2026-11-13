@@ -373,7 +373,7 @@ class TableRecord:
     series: Series | None
     options: TableOptions
     bock: BockRounds
-    visibility: Visibility = Visibility.OPEN
+    visibility: Visibility
 
 
 class EndReason(StrEnum):

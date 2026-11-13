@@ -170,6 +170,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
         series=series,
         options=table.options,
         bock=table.bock,
+        visibility=table.visibility,
     )
     return _abort_if_agreed(_abort_while_open(changed))
 
@@ -250,6 +251,7 @@ def _abort_while_open(table: TableRecord) -> TableRecord:
         series=table.series,
         options=table.options,
         bock=table.bock,
+        visibility=table.visibility,
     )
 
 
@@ -274,6 +276,7 @@ def aborted_hand(table: TableRecord) -> TableRecord:
         series=table.series,
         options=table.options,
         bock=bock,
+        visibility=table.visibility,
     )
 
 
@@ -369,6 +372,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         series=series,
         options=table.options,
         bock=table.bock,
+        visibility=table.visibility,
     )
 
 

@@ -20,6 +20,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    Visibility,
     parsed_refusal,
 )
 
@@ -61,6 +62,7 @@ def table_in(progress):
         series=None,
         options=TableOptions(),
         bock=BockRounds.start(),
+        visibility=Visibility.OPEN,
     )
 
 

@@ -27,6 +27,7 @@ from tests.web.support.streams import (
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
+DORA = Actor(account_id="account-dora", display_name="Dora")
 
 
 @pytest.fixture
@@ -252,6 +253,28 @@ class TestTheOpenList:
         bens, annas = run_on_a_loop_of_its_own(scenario())
 
         assert (bens, [(entry["id"], entry["private"]) for entry in annas]) == ([], [(table_id, True)])
+
+    def test_a_private_table_stays_out_of_the_open_list_after_a_sit_and_a_deal(self):
+        scene = Scene()
+        table_id = scene.open_table(ANNA, Visibility.PRIVATE)
+        scene.sit(BEN, table_id, 2)
+        scene.sit(CLEO, table_id, 3)
+
+        async def scenario():
+            strangers, annas, bens = scene.open_stream(DORA), scene.stream(ANNA), scene.stream(BEN)
+            seen = await next_open(strangers), await next_mine(annas), await next_mine(bens)
+            await strangers.aclose()
+            await annas.aclose()
+            await bens.aclose()
+            return seen
+
+        strangers, annas, bens = run_on_a_loop_of_its_own(scenario())
+
+        assert (strangers, [entry["private"] for entry in annas], [entry["private"] for entry in bens]) == (
+            [],
+            [True],
+            [True],
+        )
 
     def test_an_open_table_is_not_marked_private_in_mine(self):
         scene = Scene()
