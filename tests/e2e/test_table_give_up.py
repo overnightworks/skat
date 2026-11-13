@@ -435,6 +435,7 @@ def test_the_declarers_second_tap_with_nine_or_ten_cards_ends_the_game_at_once_o
     table = deal_a_game(PHONE)
     table.play_out(played)
     declarer = table.pages[table.declarer_seat]
+    expect(declarer.locator(OWN_CARDS)).to_have_count(10 - played // 3)
 
     give_up_key(declarer).click()
     give_up_key(declarer).click()
@@ -451,6 +452,7 @@ def test_the_declarers_second_tap_with_fewer_cards_asks_the_opponents_with_the_r
     table = deal_a_game(PHONE)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     declarer = table.pages[table.declarer_seat]
+    expect(declarer.locator(OWN_CARDS)).to_have_count(10 - CARDS_AFTER_TWO_TRICKS // 3)
 
     give_up_key(declarer).click()
     give_up_key(declarer).click()
@@ -467,6 +469,7 @@ def test_an_opponents_second_tap_gives_up_for_the_side_and_the_declarer_answers_
     table = deal_a_game(PHONE)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     asker = opponents(table)[0]
+    expect(table.pages[asker].locator(OWN_CARDS)).to_have_count(10 - CARDS_AFTER_TWO_TRICKS // 3)
 
     give_up_key(table.pages[asker]).click()
     give_up_key(table.pages[asker]).click()

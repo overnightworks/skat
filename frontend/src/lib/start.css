@@ -4209,6 +4209,43 @@ body {
     }
 }
 
+/* During a hand a phone's strip holds the give-up, the round stand-up, the agents' pill and the link in one row: the link keeps its mark alone, and the armed give-up drops its mark and sets its question in a smaller type so the row still fits 360 px. */
+@media (max-width: 899px) {
+    .room .actions:has(.give-up) {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .room .actions:has(.give-up) .copy {
+        flex-shrink: 0;
+        padding: 0 16px;
+        gap: 8px;
+    }
+
+    .room .actions:has(.give-up) .copy.round {
+        padding: 0;
+    }
+
+    .room .actions:has(.give-up) .copy.link {
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions:has(.give-up) .copy.link .label {
+        display: none;
+    }
+
+    .room .copy.give-up.arm {
+        padding: 0 12px;
+        font-size: 14px;
+    }
+
+    .room .copy.give-up.arm svg {
+        display: none;
+    }
+}
+
 /* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller type and padding. */
 @media (max-width: 379px) {
     .room .actions.on-result .copy.wait {
