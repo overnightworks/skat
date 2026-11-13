@@ -228,8 +228,8 @@ def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
             pass
         ended.set()
 
-    # A database of its own: a start over the shared one takes every live table's row lock and can deadlock with a
-    # request the shared server still serves.
+    # A database of its own: a server start resumes the empty waits of every live table of its database and would
+    # stamp or end the shared server's tables.
     with skat_on_new_database(tmp_path_factory) as server:
         tables = TableService(PostgresTableTransactions(server.engine))
         member = seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
