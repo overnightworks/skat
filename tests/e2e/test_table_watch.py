@@ -130,6 +130,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
             "watchers",
             "hand",
             "passed_in",
+            "aborted",
             "result",
             "series",
             "options",
