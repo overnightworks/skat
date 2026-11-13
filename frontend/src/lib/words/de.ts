@@ -137,6 +137,13 @@ export type Words = {
     readonly "play.sideThem": string;
     readonly "play.trick": string;
     readonly "play.sideYou": string;
+    readonly "kontra.kontra": string;
+    readonly "kontra.re": string;
+    readonly "kontra.supra": string;
+    readonly "kontra.hirsch": string;
+    readonly "kontra.stamp": (gaps: { readonly word: string }) => string;
+    readonly "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => string;
+    readonly "kontra.commandFailed": string;
     readonly "bid.hold": string;
     readonly "bid.pass": string;
     readonly "game.forehand": string;
@@ -389,6 +396,13 @@ export const words: Words = {
     "play.sideThem": "Gegner",
     "play.trick": "Stich",
     "play.sideYou": "Du",
+    "kontra.kontra": "Kontra",
+    "kontra.re": "Re",
+    "kontra.supra": "Supra",
+    "kontra.hirsch": "Hirsch",
+    "kontra.stamp": (gaps: { readonly word: string }) => gaps.word + "!",
+    "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => gaps.name + " sagt " + gaps.word,
+    "kontra.commandFailed": "Das hat nicht geklappt",
     "bid.hold": "Halten",
     "bid.pass": "Weg",
     "game.forehand": "Vorhand",

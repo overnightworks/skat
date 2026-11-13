@@ -575,6 +575,34 @@ msgctxt "play.sideYou"
 msgid "Du"
 msgstr ""
 
+msgctxt "kontra.kontra"
+msgid "Kontra"
+msgstr ""
+
+msgctxt "kontra.re"
+msgid "Re"
+msgstr ""
+
+msgctxt "kontra.supra"
+msgid "Supra"
+msgstr ""
+
+msgctxt "kontra.hirsch"
+msgid "Hirsch"
+msgstr ""
+
+msgctxt "kontra.stamp"
+msgid "{word}!"
+msgstr ""
+
+msgctxt "kontra.saidBy"
+msgid "{name} sagt {word}"
+msgstr ""
+
+msgctxt "kontra.commandFailed"
+msgid "Das hat nicht geklappt"
+msgstr ""
+
 msgctxt "bid.hold"
 msgid "Halten"
 msgstr ""
