@@ -13,7 +13,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.tables import assert_never_reloaded, mark_page, open_new_table
+from tests.e2e.support.tables import RECONNECT_MILLISECONDS, assert_never_reloaded, mark_page, open_new_table
 from tests.e2e.support.waiting_tables import deal_a_table_that_waits_for
 from tests.support.signed_in import new_account, seed_member
 
@@ -33,7 +33,6 @@ LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 LOBBY_WAITING_ONE = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=1)
 LOBBY_WAITING_TWO = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=2)
 OTHER_TABLES_BEYOND_THE_CAP = 10
-RECONNECT_MILLISECONDS = 15_000
 RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
