@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { seriesAt } from "#lib/series.fixtures.ts";
 import {
     AUTH_START_PATH,
     CALL_MODE,
@@ -376,7 +377,7 @@ describe("asking for a table", () => {
     });
 
     it.each([
-        { series: { number: 3 }, expected: 3 },
+        { series: seriesAt({ number: 3 }), expected: 3 },
         { series: null, expected: 1 },
     ])("names series $expected for a table whose series is $series", ({ series, expected }) => {
         expect(seriesNumberOf({ series })).toBe(expected);

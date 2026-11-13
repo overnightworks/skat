@@ -40,7 +40,7 @@ export function tableBetweenGames(mine: number, series: Series | null, ready: nu
     };
 }
 
-export const DECLARED_ENTRY: SeriesEntry = {
+export const DECLARED_ENTRY: Extract<SeriesEntry, { kind: "declared" }> = {
     kind: "declared",
     number: 4,
     declarer_name: "player 2",

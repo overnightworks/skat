@@ -15,7 +15,7 @@ import { words } from "#lib/words.ts";
 describe("seriesCountText", () => {
     it("counts the game the series is at", () => {
         expect(seriesCountText(tableBetweenGames(1, seriesAt()))).toBe(
-            words["table.seriesCount"]({ game: "8", count: "36" }),
+            words["table.seriesCount"]({ game: "8", count: 36 }),
         );
     });
 
@@ -211,7 +211,7 @@ describe("gameRows", () => {
         expect(row).toMatchObject({
             number: 7,
             name: words["table.seriesRamschOf"]({ name: "player 2" }),
-            line: words["table.seriesPushed"]({ count: "2" }),
+            line: words["table.seriesPushed"]({ count: 2 }),
             value: "",
             gain: "−40",
             lost: true,

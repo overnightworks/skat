@@ -26,6 +26,7 @@
         type PlayingHand,
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
+    import { seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
     import {
         declaredResult,
         ramschResultView,
@@ -65,6 +66,8 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
+    import SeriesEndKey from "#lib/ui/SeriesEndKey.svelte";
+    import Standings from "#lib/ui/Standings.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
@@ -78,6 +81,7 @@
         agentSitsNote,
         answerAbort,
         answerGiveUp,
+        answerSeriesEnd,
         bidLineWhileDeclaring,
         copyTableLink,
         drawingOrder,
@@ -90,9 +94,11 @@
         seriesNumberOf,
         sitDown,
         standUp,
+        startNewSeries,
         takeAuctionStep,
         watchTable,
         type AbortAnswer,
+        type SeriesEndAnswer,
         type AuctionAction,
         type Card,
         type GiveUpAnswer,
@@ -286,15 +292,18 @@
         if ((await seat(command)).kind !== "table") sentFromVersion = null;
     }
 
+    // After the series' last game the same tap is „Neue Serie“, which names the series it saw as „Weiter“ does.
     const tapWeiter = (table: Table): Promise<void> =>
         send(
             table,
-            markReady(
-                id,
-                crypto.randomUUID(),
-                (table.result as NonNullable<Table["result"]>).ordinal,
-                seriesNumberOf(table),
-            ),
+            seriesOver(table)
+                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table))
+                : markReady(
+                      id,
+                      crypto.randomUUID(),
+                      (table.result as NonNullable<Table["result"]>).ordinal,
+                      seriesNumberOf(table),
+                  ),
         );
     const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
         send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
@@ -350,9 +359,12 @@
             {connected}
             live={outcome?.kind === "table" && outcome.table.ended === null
                 ? {
+                      id,
+                      version: outcome.table.version,
                       watchers: outcome.table.watchers,
                       options: outcome.table.options as Options,
                       bock: outcome.table.bock,
+                      count: seriesCountText(outcome.table),
                   }
                 : null}
         />
@@ -376,14 +388,27 @@
             {@const declared = declaredResult(outcome.table)}
             {@const view = declared === null ? null : resultView(outcome.table)}
             {@const ramschView = ramschResultView(outcome.table)}
-            {@const onResult = view !== null || ramschView !== null}
-            {@const winners = new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
+            {@const standing = standingsView(outcome.table)}
+            {@const onResult = standing !== null || view !== null || ramschView !== null}
+            {@const winners =
+                standing?.winnerSeats ??
+                new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
-            {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
+            {@const passedIn = standing === null ? passedInScene(outcome.table.passed_in, outcome.table.chairs) : null}
+            {@const seriesAsk = seriesEndAsk(outcome.table)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
             {@const giveUp = giveUpView(outcome.table)}
             {@const abort = abortView(outcome.table)}
-            {#if onResult}
+            {#if seriesAsk !== null}
+                {@const table = outcome.table}
+                <AskPlaque
+                    view={seriesAsk}
+                    disabled={sentFromVersion === table.version}
+                    onanswer={(answer: SeriesEndAnswer) => {
+                        void send(table, answerSeriesEnd(id, crypto.randomUUID(), answer));
+                    }}
+                />
+            {:else if onResult}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
             {:else if abort.ask !== null}
                 {@const table = outcome.table}
@@ -499,7 +524,9 @@
                 </div>
             {/if}
             <div class="felt" aria-hidden="true"></div>
-            {#if view !== null}
+            {#if standing !== null}
+                <Standings view={standing} />
+            {:else if view !== null}
                 <ResultCard {view} counts={declared?.ordinal === countedOrdinal} />
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
@@ -686,6 +713,7 @@
                 <div class="actions" class:on-result={onResult}>
                     <KontraKey {id} table={outcome.table} bind:note />
                     <AbortKey {id} table={outcome.table} bind:note />
+                    <SeriesEndKey {id} table={outcome.table} bind:note />
                     {#if bar?.kind === "tap"}
                         {@const table = outcome.table}
                         <button
@@ -696,12 +724,28 @@
                         >
                             {@render check()}
                             <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            {`${words["table.weiter"]}`}
+                            {`${seriesOver(table) ? words["table.newSeries"] : words["table.weiter"]}`}
                         </button>
                     {:else if bar !== null}
                         <span class="copy wait" role="status">
                             {bar.text}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                        </span>
+                    {:else if standing !== null}
+                        <span class="copy watching" role="status">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            {words["table.watchingOnly"]}
                         </span>
                     {/if}
                     <GiveUpKey {id} table={outcome.table} bind:note />

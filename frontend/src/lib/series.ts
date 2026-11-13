@@ -12,7 +12,7 @@ export function seriesOver(table: Table): boolean {
 export function seriesCountText(table: Table): string | null {
     const series = table.series;
     if (series === null || series.over || series.game_number === 0) return null;
-    return words["table.seriesCount"]({ game: String(series.game_number), count: String(series.game_count) });
+    return words["table.seriesCount"]({ game: String(series.game_number), count: series.game_count });
 }
 
 const SERIES_END_BUTTONS: AskButton<SeriesEndAnswer>[] = [
@@ -143,7 +143,7 @@ function ramschRow(entry: Extract<SeriesEntry, { kind: "ramsch" }>): GameRow {
         number: entry.number,
         name: words["table.seriesRamschOf"]({ name: listFormat.format(subjects) }),
         initial: (subjects[0] as string).slice(0, 1),
-        line: entry.pushes === 0 ? null : words["table.seriesPushed"]({ count: String(entry.pushes) }),
+        line: entry.pushes === 0 ? null : words["table.seriesPushed"]({ count: entry.pushes }),
         value: "",
         gain: signed(score),
         lost: score < 0,
