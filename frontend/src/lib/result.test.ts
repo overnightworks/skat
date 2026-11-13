@@ -141,6 +141,43 @@ describe("the overbid", () => {
     });
 });
 
+describe("the stamp under the result", () => {
+    const overbid: Partial<Result> = {
+        ...LOST_GAME,
+        overbid: true,
+        bid: 20,
+        game_value: 18,
+        settled_value: 27,
+        score: -54,
+    };
+    // Anna sits at seat 1 and gave up; the others keep the fixture's names.
+    const anna = { 1: { occupant_name: "Anna" } };
+    const givenUpBy = (changes: Partial<Result>): Partial<Result> => ({
+        ending: "given-up",
+        ended_by_seat: 1,
+        ...changes,
+    });
+
+    it.each([
+        { game: "a lost game", changes: givenUpBy(LOST_GAME) },
+        { game: "a game the declarer was already winning", changes: givenUpBy({}) },
+        { game: "an overbid game", changes: givenUpBy(overbid) },
+    ])("carries Aufgegeben with the face of whoever gave up in $game", ({ changes }) => {
+        expect(resultView(table(2, changes, anna)).stamp).toEqual({ word: words["result.givenUp"], face: "A" });
+    });
+
+    it("carries Überreizt without a face when an overbid game was played out", () => {
+        expect(resultView(table(2, overbid)).stamp).toEqual({ word: words["result.overbid"], face: null });
+    });
+
+    it.each([
+        { game: "a game played out", changes: {} },
+        { game: "a game thrown down", changes: { ending: "thrown-down", ended_by_seat: 1 } },
+    ] satisfies { game: string; changes: Partial<Result> }[])("carries no stamp for $game", ({ changes }) => {
+        expect(resultView(table(2, changes, anna)).stamp).toBeNull();
+    });
+});
+
 describe("the chips", () => {
     it("ticks each counted level after the unticked matadors", () => {
         expect(resultView(table(2, {})).chips).toEqual([

@@ -33,6 +33,8 @@ export type Chip = { word: string; ticked: boolean };
 export type Equation = { multiplier: number | null; base: number | null; product: number | null };
 // What the game added to the declarer's side, step by step, and for a lost game what each opponent gets.
 export type ListLine = { side: string; steps: string[]; share: string | null };
+// The word stamped beside the game's name: „Aufgegeben“ carries the face of whoever gave up, „Überreizt“ has none.
+export type Stamp = { word: string; face: string | null };
 export type ResultView = {
     word: string;
     // The mark's shape: a tick when the word is good news for this viewer, a cross when it is not.
@@ -49,6 +51,8 @@ export type ResultView = {
     // The Kontra words said, each held with the factor it doubled the score to; none when nobody doubled.
     doublings: string[];
     equation: Equation | null;
+    // Null unless the game was given up or overbid.
+    stamp: Stamp | null;
     // The line under the stamp: what the game was worth against what was bid and the value it was raised to.
     raise: string | null;
     // Whether the score was doubled: the lost game's ×2.
@@ -204,6 +208,15 @@ export function resultJustAppeared(previous: Table | undefined, next: Table): nu
     return previous.result?.ordinal === result.ordinal ? null : result.ordinal;
 }
 
+// A give-up is the ending that decided the game, so its stamp stands where an overbid game's would.
+function stampOf(result: Result, chairs: readonly Chair[]): Stamp | null {
+    if (result.ending === "given-up") {
+        const giver = nameOf(chairs, result.ended_by_seat as number) ?? "";
+        return { word: words["result.givenUp"], face: giver.slice(0, 1) };
+    }
+    return result.overbid ? { word: words["result.overbid"], face: null } : null;
+}
+
 // The card reads only what the server counted: the sides, the ticks and the glow follow its answer.
 export function resultView(table: Table): ResultView {
     const result = declaredResult(table) as Result;
@@ -233,6 +246,7 @@ export function resultView(table: Table): ResultView {
         chips: chipsOf(result),
         doublings: doublingsOf(result),
         equation: equationOf(result),
+        stamp: stampOf(result, chairs),
         raise: result.overbid
             ? words["result.raise"]({
                   value: String(result.game_value),

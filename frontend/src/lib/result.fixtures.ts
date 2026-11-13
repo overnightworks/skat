@@ -50,6 +50,8 @@ export const WON_GAME: Result = {
     ],
     bock_factor: 1,
     kontra: null,
+    ending: "played-out",
+    ended_by_seat: null,
 };
 
 // The same game lost: the value doubles to −72, the list takes 50 and each opponent gets 40.
