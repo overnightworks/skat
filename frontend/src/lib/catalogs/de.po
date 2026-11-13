@@ -123,6 +123,14 @@ msgctxt "table.lobby"
 msgid "Lobby"
 msgstr ""
 
+msgctxt "table.lobbyWaiting.one"
+msgid "Lobby, {count} Tisch wartet auf dich"
+msgstr ""
+
+msgctxt "table.lobbyWaiting.other"
+msgid "Lobby, {count} Tische warten auf dich"
+msgstr ""
+
 msgctxt "table.reconnecting"
 msgid "verbinde neu"
 msgstr ""
@@ -281,6 +289,30 @@ msgstr ""
 
 msgctxt "result.listGame"
 msgid "Spiel {score}"
+msgstr ""
+
+msgctxt "result.listGameWord"
+msgid "Spiel · {word} {score}"
+msgstr ""
+
+msgctxt "result.wordKontra"
+msgid "Kontra"
+msgstr ""
+
+msgctxt "result.wordRe"
+msgid "Re"
+msgstr ""
+
+msgctxt "result.wordSupra"
+msgid "Supra"
+msgstr ""
+
+msgctxt "result.wordHirsch"
+msgid "Hirsch"
+msgstr ""
+
+msgctxt "result.wordFactor"
+msgid "{word} ×{factor}"
 msgstr ""
 
 msgctxt "result.listBonus"
