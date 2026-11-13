@@ -31,6 +31,13 @@ def _already_lost(state: Playing) -> bool:
     return not settle(_ended(state, Ending.OPPONENTS_THREW_DOWN), state.declared.bid).won
 
 
+def _out_of_reach(state: Playing, claim: Announcement) -> bool:
+    """Null has no levels to demand; elsewhere the opponents' tricks and points decide whether the level is reached."""
+    if claim is not Announcement.NONE and not state.counts_card_points:
+        return True
+    return not announcement_reached(claim, _ended(state, Ending.OPPONENTS_THREW_DOWN))
+
+
 def give_up(state: Playing, *, consented: bool = False) -> PlayOutcome:
     """The declarer gives up his game: freely while he holds nine or ten cards, later only when an opponent agreed.
 
@@ -87,13 +94,13 @@ def opponent_plays_open(state: Playing, position: Position) -> PlayOutcome:
 def shorten(state: Playing, *, all_agreed: bool = False, claim: Announcement = Announcement.NONE) -> PlayOutcome:
     """The declarer shortens the game by showing his cards; it ends only when every opponent agreed.
 
-    A level he demands that the opponents already put out of reach is refused before anyone is asked. A game already
-    lost for him stays lost, one already won keeps its real result unless he demands a level, and an undecided one is
+    A level he demands that the opponents already put out of reach is refused before anyone is asked; in Null no level
+    can be reached, so any demand there is. A game already lost for him stays lost, one already won keeps its real result unless he demands a level, and an undecided one is
     won by its declaration and the demanded level.
     """
     if state.result is not None:
         return PlayOutcome(state, PlayRefusal.OVER)
-    if not announcement_reached(claim, _ended(state, Ending.OPPONENTS_THREW_DOWN)):
+    if _out_of_reach(state, claim):
         return PlayOutcome(state, PlayRefusal.CLAIM_OUT_OF_REACH)
     if not all_agreed:
         return PlayOutcome(state, PlayRefusal.NEEDS_CONSENT)
