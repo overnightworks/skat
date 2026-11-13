@@ -54,7 +54,7 @@ def seat_results(*points_and_scores):
     return [{"seat": seat, "points": p, "score": s} for seat, (p, s) in enumerate(points_and_scores, 1)]
 
 
-def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False):
+def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False, divided_by_ten=False):
     return {
         "kind": "ramsch",
         "ordinal": 1,
@@ -64,6 +64,7 @@ def ramsch_result(seats, *, durchmarsch_seat=None, jungfrau=False):
         "bock_factor": 1,
         "pushes": 0,
         "push_factor": 1,
+        "divided_by_ten": divided_by_ten,
     }
 
 
@@ -190,7 +191,7 @@ ENDED = [
         PLAIN_DEAL,
         PLAIN_HAND,
         {"scoring": "points-by-ten"},
-        ramsch_result(seat_results((22, 0), (86, -8), (12, 0))),
+        ramsch_result(seat_results((22, 0), (86, -8), (12, 0)), divided_by_ten=True),
         id="points-divided-by-ten",
     ),
     pytest.param(
@@ -225,7 +226,7 @@ ENDED = [
         JUNGFRAU_DEAL,
         JUNGFRAU_HAND,
         {"scoring": "points-by-ten"},
-        ramsch_result(seat_results((101, -20), (19, 0), (0, 0)), jungfrau=True),
+        ramsch_result(seat_results((101, -20), (19, 0), (0, 0)), jungfrau=True, divided_by_ten=True),
         id="points-divided-by-ten-before-the-doubling",
     ),
     pytest.param(

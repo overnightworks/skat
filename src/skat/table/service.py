@@ -18,6 +18,7 @@ from skat.table.member_place import (
     MemberRefusal,
     TableOffers,
     TableStanding,
+    agent_in_chair,
     agents_seated_at,
     decide_accept,
     decide_invite,
@@ -790,6 +791,15 @@ class TableService:
         if not isinstance(table, TableRecord):
             return None
         return member_view_of(table, account_id, present_at(table, connected_accounts, self._live_leases()))
+
+    def agent_in_chair(self, table_id: str, seat: int) -> str | None:
+        """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,
+        a table that ended and a table that is not there.
+        """
+        table = self._table_read(table_id)
+        if not isinstance(table, TableRecord):
+            return None
+        return agent_in_chair(table, seat)
 
     def series_list(self, table_id: str) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...] | None:
         """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""

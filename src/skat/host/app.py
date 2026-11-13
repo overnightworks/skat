@@ -41,7 +41,8 @@ from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
 from skat.web.lobby import AttentionSource, create_lobby_router
 from skat.web.mcp import McpAccess, mount_mcp
-from skat.web.member_place import AskClock, member_front, standing_signal, view_signal
+from skat.web.member_place import member_front, nudge_signal, standing_signal, view_signal
+from skat.web.nudging import create_nudging_router
 from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
@@ -190,22 +191,16 @@ def _next_deal(tables: TableService) -> NextDeal:
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
 
 
-def _empty_table(settings: ServerSettings, tables: TableService, asks: AskClock) -> EmptyTable:
+def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
     async def end(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        ended = await run_in_threadpool(
+        return await run_in_threadpool(
             tables.end_empty_table, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
-        if ended:
-            asks.drop(table_id)
-        return ended
 
     async def note(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        ended = await run_in_threadpool(
+        return await run_in_threadpool(
             tables.note_presence, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
-        if ended:
-            asks.drop(table_id)
-        return ended
 
     return EmptyTable(settings.empty_table_seconds, end, note)
 
@@ -215,13 +210,12 @@ def _presence(
     tables: TableService,
     clock: Callable[[], float],
     scheduler: Scheduler,
-    asks: AskClock,
     wakes: WakeList,
 ) -> Presence:
     return Presence(
         _chair_hold(settings, tables, clock, scheduler),
         _next_deal(tables),
-        _empty_table(settings, tables, asks),
+        _empty_table(settings, tables),
         _agent_lease(tables),
         wakes,
     )
@@ -282,7 +276,7 @@ def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONRespon
 
 
 async def _end_unplayed_tables(
-    settings: ServerSettings, tables: TableService, presence: Presence, asks: AskClock, *, at_start: bool
+    settings: ServerSettings, tables: TableService, presence: Presence, *, at_start: bool
 ) -> None:
     """End every table whose days without a deal or step of play are up and wake its streams. A table that fails is
     skipped and retried by the next run, except at the start, where the failure stops the server.
@@ -298,7 +292,7 @@ async def _end_unplayed_tables(
             log.error("unplayed table end failed", table_id=table_id.value, error=type(failure).__name__)
             continue
         if ended:
-            asks.drop(table_id.value)
+            presence.waits.drop(table_id.value)
             presence.wake_table(table_id.value)
 
 
@@ -306,13 +300,12 @@ def _sweep_unplayed_tables(
     settings: ServerSettings,
     tables: TableService,
     presence: Presence,
-    asks: AskClock,
     scheduler: Scheduler,
     period_seconds: float,
 ) -> None:
     async def sweep() -> None:
         try:
-            await _end_unplayed_tables(settings, tables, presence, asks, at_start=False)
+            await _end_unplayed_tables(settings, tables, presence, at_start=False)
         except Exception as failure:
             log.error("unplayed tables read failed", error=type(failure).__name__)
         if not presence.stopped:
@@ -325,7 +318,6 @@ def _serving(
     settings: ServerSettings,
     tables: TableService,
     presence: Presence,
-    asks: AskClock,
     scheduler: Scheduler,
     unplayed_sweep_seconds: float,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
@@ -336,8 +328,8 @@ def _serving(
         occupied = await run_in_threadpool(tables.occupied_chairs)
         presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
         presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
-        await _end_unplayed_tables(settings, tables, presence, asks, at_start=True)
-        _sweep_unplayed_tables(settings, tables, presence, asks, scheduler, unplayed_sweep_seconds)
+        await _end_unplayed_tables(settings, tables, presence, at_start=True)
+        _sweep_unplayed_tables(settings, tables, presence, scheduler, unplayed_sweep_seconds)
         try:
             async with serving.state.mcp_front.running():
                 yield
@@ -386,11 +378,10 @@ def create_app(
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
-    asks = AskClock(chair_clock)
     wakes = WakeList()
-    presence = _presence(settings, tables, chair_clock, scheduler, asks, wakes)
+    presence = _presence(settings, tables, chair_clock, scheduler, wakes)
 
-    app = _new_app(_serving(settings, tables, presence, asks, scheduler, unplayed_sweep_seconds))
+    app = _new_app(_serving(settings, tables, presence, scheduler, unplayed_sweep_seconds))
     app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
@@ -399,6 +390,7 @@ def create_app(
     app.include_router(create_calling_router(tables, presence, roster, changes, relying_party.issuer, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
+    app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
     _include_stream_routers(app, settings, tables, presence, wakes, sign_in_stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(
@@ -407,7 +399,7 @@ def create_app(
         sign_in_stores.transaction,
         settings.public_origin,
         _agent_heard(presence, roster),
-        member_front(tables, presence, changes, scheduler, asks),
+        member_front(tables, presence, changes, scheduler, presence.waits),
     )
     app.state.mcp_front = mcp.front
     _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)

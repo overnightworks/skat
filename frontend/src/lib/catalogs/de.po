@@ -367,6 +367,38 @@ msgctxt "result.sidePoints"
 msgid "{side} {points}"
 msgstr ""
 
+msgctxt "result.eyes"
+msgid "{points} Augen"
+msgstr ""
+
+msgctxt "result.loses"
+msgid "{name} verliert"
+msgstr ""
+
+msgctxt "result.losesTogether"
+msgid "{names} verlieren"
+msgstr ""
+
+msgctxt "result.byTen"
+msgid "÷ 10"
+msgstr ""
+
+msgctxt "result.jungfrau"
+msgid "Jungfrau ×2"
+msgstr ""
+
+msgctxt "result.durchmarsch"
+msgid "Durchmarsch"
+msgstr ""
+
+msgctxt "push.times"
+msgid "{count}× geschoben ×{factor}"
+msgstr ""
+
+msgctxt "push.timesFlat"
+msgid "{count}× geschoben"
+msgstr ""
+
 msgctxt "closed.notFound"
 msgid "Tisch nicht gefunden"
 msgstr ""
@@ -509,6 +541,10 @@ msgstr ""
 
 msgctxt "game.null"
 msgid "Null"
+msgstr ""
+
+msgctxt "game.ramsch"
+msgid "Ramsch"
 msgstr ""
 
 msgctxt "game.rankSeven"
