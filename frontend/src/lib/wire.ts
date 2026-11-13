@@ -56,6 +56,25 @@ export const LEVEL_TOKENS = [
     "ouvert",
 ] as const;
 export const END_REASON_TOKENS = ["empty", "unplayed"] as const;
+export const KONTRA_SAYER_TOKENS = ["any-opponent", "bidders-only"] as const;
+export const KONTRA_REACH_TOKENS = ["kontra-re", "kontra-re-standings", "up-to-hirsch"] as const;
+export const KONTRA_DEADLINE_TOKENS = ["own-card", "first-card"] as const;
+export const BOCK_TRIGGER_TOKENS = [
+    "sixty-sixty",
+    "won-grand-hand",
+    "lost-after-kontra",
+    "re",
+    "passed-in",
+    "schneider",
+    "schwarz",
+    "total-ending-in-00",
+] as const;
+export const BOCK_OVERLAP_TOKENS = ["append", "multiply", "ignore"] as const;
+export const RAMSCH_SCORING_TOKENS = ["points", "points-by-ten", "skat-to-loser"] as const;
+export const JUNGFRAU_TOKENS = ["doubles-loser", "off"] as const;
+export const DURCHMARSCH_TOKENS = ["wins-120", "wins-120-flat", "off"] as const;
+export const PUSHING_RULE_TOKENS = ["jacks-stay", "jacks-may-go", "no-doubling"] as const;
+export const GRAND_HAND_TOKENS = ["allowed", "off"] as const;
 export const WAITING_CASE_TOKENS = ["turn", "give_up", "kontra", "end_proposal", "result", "series_end"] as const;
 export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
 export const VALID_BIDS = [

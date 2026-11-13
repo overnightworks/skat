@@ -118,7 +118,7 @@ export type Words = {
     readonly "bock.times": (gaps: { readonly factor: string }) => string;
     readonly "rules.chipBock": string;
     readonly "rules.bockLeft": (gaps: { readonly count: number }) => string;
-    readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
+    readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[];
     readonly "result.eyes": (gaps: { readonly points: string }) => string;
     readonly "result.loses": (gaps: { readonly name: string }) => string;
     readonly "result.losesTogether": (gaps: { readonly names: string }) => string;
@@ -201,6 +201,55 @@ export type Words = {
     readonly "table.takeOverApostrophe": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverUnnamed": string;
     readonly "logout.button": string;
+    readonly "start.rulePoints": string;
+    readonly "start.rulePointsLine": string;
+    readonly "rules.button": string;
+    readonly "rules.title": string;
+    readonly "rules.lockBadge": string;
+    readonly "rules.lockInfo": string;
+    readonly "rules.info": string;
+    readonly "rules.close": string;
+    readonly "rules.chipOfficial": string;
+    readonly "rules.chipPoints": string;
+    readonly "rules.chipKontra": string;
+    readonly "rules.chipRamsch": string;
+    readonly "rules.namePoints": string;
+    readonly "rules.nameKontra": string;
+    readonly "rules.nameRamsch": string;
+    readonly "rules.namePushing": string;
+    readonly "rules.nameBock": string;
+    readonly "rules.pointsFromTricks": string;
+    readonly "rules.kontraSayerAnyOpponent": string;
+    readonly "rules.kontraSayerBiddersOnly": string;
+    readonly "rules.kontraReachKontraRe": string;
+    readonly "rules.kontraReachKontraReStandings": string;
+    readonly "rules.kontraReachUpToHirsch": string;
+    readonly "rules.kontraDeadlineOwnCard": string;
+    readonly "rules.kontraDeadlineFirstCard": string;
+    readonly "rules.ramschScoringPoints": string;
+    readonly "rules.ramschScoringPointsByTen": string;
+    readonly "rules.ramschScoringSkatToLoser": string;
+    readonly "rules.jungfrauDoublesLoser": string;
+    readonly "rules.jungfrauOff": string;
+    readonly "rules.durchmarschWins120": string;
+    readonly "rules.durchmarschWins120Flat": string;
+    readonly "rules.durchmarschOff": string;
+    readonly "rules.pushingJacksStay": string;
+    readonly "rules.pushingJacksMayGo": string;
+    readonly "rules.pushingNoDoubling": string;
+    readonly "rules.grandHandAllowed": string;
+    readonly "rules.bockTriggers": (gaps: { readonly triggers: string }) => string;
+    readonly "rules.bockTriggerSixtySixty": string;
+    readonly "rules.bockTriggerWonGrandHand": string;
+    readonly "rules.bockTriggerLostAfterKontra": string;
+    readonly "rules.bockTriggerRe": string;
+    readonly "rules.bockTriggerPassedIn": string;
+    readonly "rules.bockTriggerSchneider": string;
+    readonly "rules.bockTriggerSchwarz": string;
+    readonly "rules.bockTriggerTotalEndingIn00": string;
+    readonly "rules.bockOverlapAppend": string;
+    readonly "rules.bockOverlapMultiply": string;
+    readonly "rules.bockOverlapIgnore": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -380,7 +429,7 @@ export const words: Words = {
     "bock.times": (gaps: { readonly factor: string }) => "×" + gaps.factor,
     "rules.chipBock": "Bock",
     "rules.bockLeft": (gaps: { readonly count: number }) => "noch " + numberFormat.format(gaps.count),
-    "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
+    "result.sidePoints": (gaps: { readonly points: string; readonly side: string }): readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[] => [{ marker: "side", text: gaps.side }, " ", { marker: "tally", text: gaps.points }],
     "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
     "result.loses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.losesTogether": (gaps: { readonly names: string }) => gaps.names + " verlieren",
@@ -484,5 +533,54 @@ export const words: Words = {
     "table.takeOverApostrophe": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "’ Karten.",
     "table.takeOverUnnamed": "Du übernimmst die Karten dieses Platzes.",
     "logout.button": "Abmelden",
+    "start.rulePoints": "Laufende Augen zeigen",
+    "start.rulePointsLine": "Alle sehen die Augen im Spiel",
+    "rules.button": "Regeln",
+    "rules.title": "Regeln",
+    "rules.lockBadge": "Fest für diesen Tisch",
+    "rules.lockInfo": "Andere Regeln heißen neuer Tisch.",
+    "rules.info": "Info",
+    "rules.close": "Schließen",
+    "rules.chipOfficial": "Offiziell",
+    "rules.chipPoints": "Augen",
+    "rules.chipKontra": "Kontra",
+    "rules.chipRamsch": "Ramsch",
+    "rules.namePoints": "Laufende Augen zeigen",
+    "rules.nameKontra": "Kontra und Re",
+    "rules.nameRamsch": "Ramsch beim Einpassen",
+    "rules.namePushing": "Schieberamsch",
+    "rules.nameBock": "Bockrunden",
+    "rules.pointsFromTricks": "Aus fertigen Stichen, nie in einer Null",
+    "rules.kontraSayerAnyOpponent": "Jeder Gegner",
+    "rules.kontraSayerBiddersOnly": "Nur wer gereizt hat",
+    "rules.kontraReachKontraRe": "Nur Kontra und Re",
+    "rules.kontraReachKontraReStandings": "Kontra und Re, auch 50 und 40",
+    "rules.kontraReachUpToHirsch": "bis Hirsch",
+    "rules.kontraDeadlineOwnCard": "bis zur eigenen Karte",
+    "rules.kontraDeadlineFirstCard": "bis zur ersten Karte",
+    "rules.ramschScoringPoints": "Meiste Augen minus",
+    "rules.ramschScoringPointsByTen": "Augen durch zehn",
+    "rules.ramschScoringSkatToLoser": "Skat zum Verlierer",
+    "rules.jungfrauDoublesLoser": "Jungfrau ×2",
+    "rules.jungfrauOff": "Jungfrau ohne Wirkung",
+    "rules.durchmarschWins120": "Durchmarsch +120",
+    "rules.durchmarschWins120Flat": "Durchmarsch +120, nie doppelt",
+    "rules.durchmarschOff": "Kein Durchmarsch",
+    "rules.pushingJacksStay": "Ohne Buben, je doppelt",
+    "rules.pushingJacksMayGo": "Mit Buben, je doppelt",
+    "rules.pushingNoDoubling": "Ohne Verdopplung",
+    "rules.grandHandAllowed": "Grand Hand statt Ramsch",
+    "rules.bockTriggers": (gaps: { readonly triggers: string }) => "Bei " + gaps.triggers,
+    "rules.bockTriggerSixtySixty": "60 zu 60",
+    "rules.bockTriggerWonGrandHand": "gewonnenem Grand Hand",
+    "rules.bockTriggerLostAfterKontra": "Verlust nach Kontra",
+    "rules.bockTriggerRe": "Re",
+    "rules.bockTriggerPassedIn": "Einpassen",
+    "rules.bockTriggerSchneider": "Schneider",
+    "rules.bockTriggerSchwarz": "Schwarz",
+    "rules.bockTriggerTotalEndingIn00": "Stand auf 00",
+    "rules.bockOverlapAppend": "neue Runden hängen sich an",
+    "rules.bockOverlapMultiply": "neue Runden multiplizieren sich",
+    "rules.bockOverlapIgnore": "neue Runden zählen nicht",
 };
 export type Key = keyof Words;

@@ -53,6 +53,7 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         hand,
         result: null,
         passed_in: null,
+        options: null,
         bock: null,
         ended: null,
     };

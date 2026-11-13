@@ -57,12 +57,12 @@ export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
     });
 }
 
-// Each viewer counts their own side as „Wir“; a watcher sees the declarer against the opponents.
+// The declarer reads „Du“ against the opponents, an opponent counts their own side as „Wir“, and a watcher sees the declarer by name.
 export function sideNames(chairs: readonly Chair[], declarerSeat: number): SideNames {
     const declarer = (chairs.find((chair) => chair.seat === declarerSeat) as Chair).occupant_name ?? "";
     const mine = chairs.find((chair) => chair.is_mine);
     if (mine === undefined) return { declarer, opponents: words["play.sideThem"] };
-    if (mine.seat === declarerSeat) return { declarer: words["play.sideUs"], opponents: words["play.sideThem"] };
+    if (mine.seat === declarerSeat) return { declarer: words["result.sideYou"], opponents: words["result.sideThem"] };
     return { declarer, opponents: words["play.sideUs"] };
 }
 

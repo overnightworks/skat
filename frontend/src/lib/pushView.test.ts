@@ -46,6 +46,7 @@ function table(mine: number, stage: Stage, changes: Partial<Hand> = {}): Table {
         watchers: 0,
         result: null,
         passed_in: null,
+        options: null,
         bock: null,
         ended: null,
         hand: {

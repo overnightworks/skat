@@ -15,7 +15,10 @@ REPOSITORY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY / "src"))
 
 from skat.engine.bidding import VALID_BIDS  # noqa: E402
-from skat.engine.kontra import Word  # noqa: E402
+from skat.engine.bock import BockOverlap, BockTrigger  # noqa: E402
+from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer, Word  # noqa: E402
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschScoring  # noqa: E402
+from skat.engine.schieberamsch import GrandHandRule, PushingRule  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
@@ -101,6 +104,16 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "AUCTION_ACTION_TOKENS": AuctionAction,
     "LEVEL_TOKENS": Level,
     "END_REASON_TOKENS": EndReason,
+    "KONTRA_SAYER_TOKENS": KontraSayer,
+    "KONTRA_REACH_TOKENS": KontraReach,
+    "KONTRA_DEADLINE_TOKENS": KontraDeadline,
+    "BOCK_TRIGGER_TOKENS": BockTrigger,
+    "BOCK_OVERLAP_TOKENS": BockOverlap,
+    "RAMSCH_SCORING_TOKENS": RamschScoring,
+    "JUNGFRAU_TOKENS": JungfrauRule,
+    "DURCHMARSCH_TOKENS": DurchmarschRule,
+    "PUSHING_RULE_TOKENS": PushingRule,
+    "GRAND_HAND_TOKENS": GrandHandRule,
     "WAITING_CASE_TOKENS": WaitingCase,
     "WORD_TOKENS": Word,
 }

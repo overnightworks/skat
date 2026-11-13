@@ -18,7 +18,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import self_signed_tolerant_context
 from tests.e2e.support.server import skat_in_directory
-from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.tables import open_new_table, table_id_of, watchers_of
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -39,10 +39,6 @@ FIRST_EVENT = """(url) => new Promise((resolve) => {
 RECONNECTING = word_text(SOURCE_LANGUAGE, "table.reconnecting")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_TIMEOUT_MILLISECONDS = 15_000
-
-
-def watchers_of(person: Page):
-    return person.locator(".watchers span")
 
 
 def table_version(server: RunningServer, path: str) -> int:

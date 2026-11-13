@@ -7,6 +7,7 @@
 
     let choosing = $state(false);
     let length = $state(SERIES_LENGTH_DEFAULT);
+    let showRunningPoints = $state(false);
     let opening = $state(false);
     let failed = $state(false);
     let commandId = crypto.randomUUID();
@@ -14,6 +15,7 @@
     function choose(): void {
         failed = false;
         setLength(SERIES_LENGTH_DEFAULT);
+        setShowRunningPoints(false);
         choosing = true;
     }
 
@@ -21,6 +23,13 @@
         if (next === length) return;
         length = next;
         // Another length is another command, so a retry never sends two requests under one id.
+        commandId = crypto.randomUUID();
+    }
+
+    function setShowRunningPoints(next: boolean): void {
+        if (next === showRunningPoints) return;
+        showRunningPoints = next;
+        // Other rules are another command too.
         commandId = crypto.randomUUID();
     }
 
@@ -34,7 +43,11 @@
 
     async function open(): Promise<void> {
         opening = true;
-        const outcome = await createTable(commandId, length);
+        const outcome = await createTable(
+            commandId,
+            length,
+            showRunningPoints ? { show_running_points: true } : undefined,
+        );
         opening = false;
         failed = outcome.kind !== "table";
         if (outcome.kind === "table") {
@@ -110,6 +123,50 @@
                 </svg>
             </button>
         </div>
+        <button
+            type="button"
+            class="rule"
+            class:on={showRunningPoints}
+            role="switch"
+            aria-checked={showRunningPoints}
+            aria-label={words["start.rulePoints"]}
+            disabled={opening}
+            onclick={() => {
+                setShowRunningPoints(!showRunningPoints);
+            }}
+        >
+            <span class="ic">
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                >
+                    <path d="M18 5H6l6 7-6 7h12" />
+                </svg>
+            </span>
+            <span class="txt">
+                <b>{words["start.rulePoints"]}</b>
+                <small>{words["start.rulePointsLine"]}</small>
+            </span>
+            <span class="sw" aria-hidden="true">
+                <i>
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    </svg>
+                </i>
+            </span>
+        </button>
         {#if failed}
             <p role="alert">{words["start.newTableFailed"]}</p>
         {/if}

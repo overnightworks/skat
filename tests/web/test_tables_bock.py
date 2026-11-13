@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from skat.engine.bock import BockRounds
+from skat.engine.bock import BockRounds, BockTrigger
 from skat.engine.deal import Position
 from skat.table.records import Series
 from skat.web.declaring import GameToken
@@ -353,12 +353,16 @@ class TestTheSeriesLimitsTheRounds:
 
 
 class TestOpeningATable:
-    def test_the_answer_carries_the_options_with_the_triggers_sorted_by_their_token(self, server):
+    def test_the_answer_carries_the_options_with_the_triggers_in_the_rules_order(self, server):
         opener, _ = server.member()
+        scrambled = [BockTrigger.SCHWARZ, BockTrigger.RE, BockTrigger.SIXTY_SIXTY, BockTrigger.PASSED_IN]
 
-        answer = server.create(opener, options=bock_options("schwarz", "re", overlap="multiply"))
+        answer = server.create(opener, options=bock_options(*scrambled, overlap="multiply"))
 
-        assert answer.json()["options"]["bock"] == {"triggers": ["re", "schwarz"], "overlap": "multiply"}
+        assert answer.json()["options"]["bock"] == {
+            "triggers": [trigger for trigger in BockTrigger if trigger in scrambled],
+            "overlap": "multiply",
+        }
         assert answer.json()["bock"] == AFTER_THE_BOCK_ROUND
 
     def test_a_retry_with_the_same_triggers_in_any_order_is_the_first_table_and_other_triggers_a_reused_id(

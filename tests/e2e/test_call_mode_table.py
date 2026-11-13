@@ -23,6 +23,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.tables import open_new_table
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -102,6 +103,32 @@ def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_no_copy_
         expect(table.locator(WORDMARK)).to_have_text(APP_NAME)
         expect(table.locator(f"{BAR} a")).to_have_count(0)
         expect(table.get_by_role("button", name=COPY_LINK)).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_framed_table_holds_its_rule_chips_in_the_top_row_beside_the_wordmark_and_the_watchers(
+    open_person: Callable[..., Page],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    form_factor: dict[str, Any],
+) -> None:
+    path = open_new_table(open_person(server=framing_server), framing_server, running_points=True)
+    visitor = open_person(server=framing_server, **form_factor)
+
+    with in_the_call_frame(
+        visitor, browser_coverage, table_url(framing_server, path), filling_the_screen=True
+    ) as table:
+        expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+        wordmark = table.locator(WORDMARK).bounding_box()
+        chips = table.locator(f"{BAR} .rulepill").bounding_box()
+        watchers = table.locator(f"{BAR} .watchers").bounding_box()
+
+        assert wordmark is not None
+        assert chips is not None
+        assert watchers is not None
+        assert wordmark["y"] <= chips["y"] + chips["height"] / 2 <= wordmark["y"] + wordmark["height"]
+        assert wordmark["x"] + wordmark["width"] <= chips["x"]
+        assert chips["x"] + chips["width"] <= watchers["x"]
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
