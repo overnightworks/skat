@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from "svelte";
     import { page } from "$app/state";
+    import type { PageProps } from "./$types";
     import {
         awayOnTurn,
         chairMarks,
@@ -16,7 +17,7 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
-    import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
+    import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
@@ -32,6 +33,7 @@
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
+    import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
@@ -66,6 +68,7 @@
     const WON_MOMENT_MILLISECONDS = 2500;
     const SEAT_NOTICE_MILLISECONDS = 4000;
 
+    const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
     let outcome = $state<Outcome | null>(null);
@@ -308,14 +311,15 @@
             {@const waits = handWaits(outcome.table.hand)}
             {@const turnSeat = waits ? undefined : inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
-            {@const settledDeclarerSeat = declared?.declarer_seat ?? inPlay?.declarerSeat}
             {@const view = declared === null ? null : resultView(outcome.table)}
-            {@const winners = new Set(view?.rows.filter((row) => row.won).map((row) => row.seat))}
+            {@const ramschView = ramschResultView(outcome.table)}
+            {@const onResult = view !== null || ramschView !== null}
+            {@const winners = new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
             {@const giveUp = giveUpView(outcome.table)}
-            {#if view !== null}
+            {#if onResult}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
             {:else if deciding !== null}
                 <div class="plaque deciding">
@@ -392,6 +396,8 @@
             <div class="felt" aria-hidden="true"></div>
             {#if view !== null}
                 <ResultCard {view} />
+            {:else if ramschView !== null}
+                <RamschResultCard view={ramschView} />
             {/if}
             {#if inPlay !== null}
                 <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} {playedThisHand} />
@@ -442,7 +448,7 @@
                                     <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                                 {/if}
                             </span>
-                            {#if chair.hand !== null || passedIn !== null || view !== null}
+                            {#if chair.hand !== null || passedIn !== null || onResult}
                                 {#if chair.seat === dealerSeat}
                                     <span class="mark dealer" title={words["table.dealer"]}>
                                         <svg
@@ -465,7 +471,7 @@
                                 {#if chair.hand !== null}
                                     <span class="mark pos">{positionWord(chair.hand.position)}</span>
                                 {/if}
-                                {#if marks.declarer || chair.seat === settledDeclarerSeat}
+                                {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
                                     <span class="mark declarer" class:won={marks.declarer === "won"}>
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path
@@ -526,7 +532,7 @@
                                     <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
                                 {/if}
                             {/if}
-                            {#if view !== null}
+                            {#if onResult}
                                 {#if chair.ready}
                                     <span class="mark ready" title={words["table.readyMark"]}>
                                         <svg
@@ -663,7 +669,7 @@
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}
-                <div class="actions" class:on-result={view !== null}>
+                <div class="actions" class:on-result={onResult}>
                     {#if bar?.kind === "tap"}
                         {@const table = outcome.table}
                         <button
@@ -710,7 +716,7 @@
                             <span class="label">{`${words["table.standUp"]}`}</span>
                         </button>
                     {/if}
-                    <AgentsPill tableId={id} {streamedVersion} />
+                    <AgentsPill tableId={id} {streamedVersion} kitWords={data.kitWords} />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}
@@ -782,6 +788,6 @@
         <span class="spin"></span>{words["table.reconnecting"]}
     </div>
     <footer class="legal">
-        <LegalLinks links={LEGAL_LINKS} newTab />
+        <LegalLinks links={LEGAL_LINKS} newTab words={data.kitWords} />
     </footer>
 </div>
