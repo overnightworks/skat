@@ -139,6 +139,8 @@ export type Words = {
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "push.takeSkat": string;
+    readonly "push.grandHand": string;
+    readonly "push.grandHandAsk": string;
     readonly "declare.putBack": string;
     readonly "declare.announceGame": string;
     readonly "declare.hand": string;
@@ -476,6 +478,8 @@ export const words: Words = {
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "push.takeSkat": "Skat nehmen",
+    "push.grandHand": "Grand Hand",
+    "push.grandHandAsk": "Grand Hand?",
     "declare.putBack": "Drücken",
     "declare.announceGame": "Ansagen",
     "declare.hand": "Hand",

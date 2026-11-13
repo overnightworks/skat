@@ -1,5 +1,6 @@
 import pytest
 
+from skat.engine.bidding import LOWEST_BID
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.tables import GameToken
@@ -79,7 +80,15 @@ class TestDeclaringAGrandHandInstead:
                 "open_cards": [],
             }
             assert hand["playing"]["turn_seat"] == FOREHAND_SEAT
+            assert hand["auction"]["declared"] == {"seat": seat, "value": LOWEST_BID}
         assert read(table)["result"] is None
+
+    def test_a_passed_in_hand_played_as_a_ramsch_reports_no_declared_game(self, skat):
+        table = grand_hand_table(skat)
+        play_stage(table, "push", "push", "push")
+
+        for viewer in VIEWERS:
+            assert read(table, viewer)["hand"]["auction"]["declared"] is None
 
     def test_the_cards_are_the_ones_the_stage_left_and_nobody_names_the_skat(self, skat):
         table = grand_hand_table(skat)

@@ -80,6 +80,14 @@ export function gameInPlay(table: Table): GameInPlay | null {
     };
 }
 
+// The bid of a game that no bid or play word declared: the Grand Hand a seat declared instead of a Ramsch, at the
+// bid the table names for it. An auction-won game always carries a bid or play word.
+export function bidOfGameDeclaredInTheStage(table: Table): number | null {
+    const auction = table.hand?.auction;
+    if (!auction?.declared || !auction.words.every((word) => word.action === "pass")) return null;
+    return auction.declared.value;
+}
+
 // The cards the viewer may play now, or null when it is not the viewer's turn to play.
 export function cardsToPlay(table: Table): readonly Card[] | null {
     const playing = table.hand?.playing;

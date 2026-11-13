@@ -24,6 +24,7 @@ export const TABLE_DECLARING_DECLARE_SUFFIX = "/declaring/declare";
 export const TABLE_PUSHING_TAKE_SUFFIX = "/pushing/take";
 export const TABLE_PUSHING_PUT_BACK_SUFFIX = "/pushing/put-back";
 export const TABLE_PUSHING_PUSH_SUFFIX = "/pushing/push";
+export const TABLE_PUSHING_GRAND_HAND_SUFFIX = "/pushing/grand-hand";
 export const TABLE_AUCTION_BID_SUFFIX = "/auction/bid";
 export const TABLE_AUCTION_HOLD_SUFFIX = "/auction/hold";
 export const TABLE_AUCTION_PASS_SUFFIX = "/auction/pass";

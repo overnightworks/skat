@@ -1,5 +1,4 @@
 import json
-import random
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -15,12 +14,10 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, MutableSequence
-
-    from _typeshed import SupportsLenAndGetItem
+    from collections.abc import Callable, Iterator
 
     from tests.e2e.support.declaring import DeclaringTable
     from tests.e2e.support.server import RunningServer
@@ -99,22 +96,10 @@ def seat_of_position(table: DeclaringTable, position: str) -> int:
     return next(chair["seat"] for chair in chairs if chair["hand"]["position"] == position)
 
 
-class AlwaysTheSameDeal(random.Random):
-    """A source that draws the same dealer and shuffles the same deck on every draw, whatever was drawn before."""
-
-    def choice[Item](self, seq: SupportsLenAndGetItem[Item]) -> Item:
-        self.seed(WINNING_DEAL_SEED)
-        return super().choice(seq)
-
-    def shuffle(self, x: MutableSequence[Any]) -> None:
-        self.seed(WINNING_DEAL_SEED)
-        super().shuffle(x)
-
-
 @pytest.fixture(scope="module")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """This module's Skat, which deals every hand as one in which the declarer can win a first trick of Grand."""
-    with skat_on_new_database(tmp_path_factory, random_source=AlwaysTheSameDeal()) as server:
+    with skat_on_new_database(tmp_path_factory, random_source=AlwaysTheSameDeal(WINNING_DEAL_SEED)) as server:
         yield server
 
 
