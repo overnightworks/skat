@@ -1,0 +1,7 @@
+claim_id = "288f0d15b5944224ab20c84aca800ba8"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "088ae21fa4967246f07ce570d8dc64b25d803c2b"
+branch = "claude/issue-492-the-end-to-end-server-never-loses-its-po"
+scope = ["tests/e2e/support/edge.py", "tests/e2e/support/server.py"]
+opened_commit = "bb4ae34c87a68ae719d54e84ad7294100e22ad3f"
