@@ -46,11 +46,11 @@ describe("the armed key of the Grand Hand", () => {
 
         vi.advanceTimersByTime(ARMED_FOR - 1);
         flushSync();
-        expect(key().classList.contains("armed")).toBe(true);
+        expect(key().classList.contains("arm")).toBe(true);
 
         vi.advanceTimersByTime(1);
         flushSync();
-        expect(key().classList.contains("armed")).toBe(false);
+        expect(key().classList.contains("arm")).toBe(false);
         expect(key().textContent).toContain(words["push.grandHand"]);
     });
 
@@ -63,6 +63,6 @@ describe("the armed key of the Grand Hand", () => {
 
         props.table = table(FOREHAND, "choosing", {}, "allowed");
         flushSync();
-        expect(key().classList.contains("armed")).toBe(false);
+        expect(key().classList.contains("arm")).toBe(false);
     });
 });
