@@ -1,5 +1,5 @@
 import { tableRules, type ChipId, type RuleId } from "#lib/tableRules.ts";
-import { BOCK_TRIGGER_TOKENS, SWITCH_ON_OPTIONS } from "#lib/wire.ts";
+import { BOCK_TRIGGER_TOKENS, RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS } from "#lib/wire.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { Options, OptionsRequest } from "./tables.ts";
 
@@ -230,14 +230,22 @@ function held(options: Options, rule: Exclude<ChipId, "official">): unknown {
 }
 
 // The picked set's name with the rules that are on and changed after it; a sheet that only switched rules off is
-// the set adjusted. Schieberamsch is part of Ramsch.
+// the set adjusted. Schieberamsch is part of Ramsch. A name the API refuses for its length gives way to the adjusted
+// form, and that to the set's own name cut to the limit.
 export function suggestedName(setName: string, sheet: Options, picked: Options): string {
     const changed = tableRules(sheet, null).chips.flatMap((chip) =>
         chip.id !== "official" && JSON.stringify(held(sheet, chip.id)) !== JSON.stringify(held(picked, chip.id))
             ? [chip.word]
             : [],
     );
-    return changed.length === 0
-        ? words["start.savedNameAdjusted"]({ set: setName })
-        : words["start.savedNameWith"]({ set: setName, rules: listFormat.format(changed) });
+    const adjusted = words["start.savedNameAdjusted"]({ set: setName });
+    const candidates =
+        changed.length === 0
+            ? [adjusted]
+            : [words["start.savedNameWith"]({ set: setName, rules: listFormat.format(changed) }), adjusted];
+    return candidates.find(fits) ?? Array.from(setName).slice(0, RULE_SET_NAME_MAX).join("");
+}
+
+function fits(name: string): boolean {
+    return Array.from(name).length <= RULE_SET_NAME_MAX;
 }

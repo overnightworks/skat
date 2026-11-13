@@ -1,7 +1,13 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
-    import { SERIES_LENGTH_DEFAULT, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP } from "#lib/wire.ts";
+    import {
+        RULE_SET_NAME_MAX,
+        SERIES_LENGTH_DEFAULT,
+        SERIES_LENGTH_MAX,
+        SERIES_LENGTH_MIN,
+        SERIES_LENGTH_STEP,
+    } from "#lib/wire.ts";
     import RuleMark from "#lib/ui/RuleMark.svelte";
     import { words } from "#lib/words.ts";
     import { differs, isOn, OFFICIAL, requestOf, suggestedName } from "./openingRules.ts";
@@ -256,6 +262,7 @@
                         class="name"
                         type="text"
                         aria-label={words["start.saveName"]}
+                        maxlength={RULE_SET_NAME_MAX}
                         value={name}
                         disabled={opening || saving}
                         oninput={(event) => {

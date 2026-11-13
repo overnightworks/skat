@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SWITCH_ON_OPTIONS } from "#lib/wire.ts";
+import { RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS } from "#lib/wire.ts";
 import {
     OFFICIAL,
     QUESTIONS,
@@ -344,10 +344,10 @@ describe("the name suggested for a sheet", () => {
         ["one rule switched on", "Offiziell", OFFICIAL, POINTS_ONLY, "Offiziell, mit Augen"],
         [
             "four rules switched on",
-            "Abend",
+            "Alt",
             OFFICIAL,
             { ...OTHER, ramsch: RAMSCH_ALONE.ramsch },
-            "Abend, mit Augen, Kontra, Ramsch und Bock",
+            "Alt, mit Augen, Kontra, Ramsch und Bock",
         ],
         [
             "a variant of a rule that is on in both changed",
@@ -367,5 +367,17 @@ describe("the name suggested for a sheet", () => {
         ["a rule switched on and another off", "Felix", KONTRA_ONLY, POINTS_ONLY, "Felix, mit Augen"],
     ] as [string, string, Options, Options, string][])("reads with %s", (_name, set, picked, sheet, expected) => {
         expect(suggestedName(set, sheet, picked)).toBe(expected);
+    });
+
+    it("gives way to the adjusted form when the rules would exceed the name limit", () => {
+        const sheet = { ...OTHER, ramsch: RAMSCH_ALONE.ramsch };
+        const name = suggestedName("Offiziell", sheet, OFFICIAL);
+        expect(name).toBe("Offiziell, angepasst");
+        expect(Array.from(name).length).toBeLessThanOrEqual(RULE_SET_NAME_MAX);
+    });
+
+    it("gives way to the set's own name cut to the limit when that exceeds it too", () => {
+        const setName = "x".repeat(RULE_SET_NAME_MAX + 5);
+        expect(suggestedName(setName, POINTS_ONLY, OFFICIAL)).toBe("x".repeat(RULE_SET_NAME_MAX));
     });
 });
