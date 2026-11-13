@@ -2974,8 +2974,12 @@ body {
     background: #3a4350;
 }
 
-/* A phone wide enough for the picture's tighter keys draws the two stage keys with less padding. */
-@media (min-width: 380px) and (max-width: 899px) {
+/* The two stage keys stand side by side on one line; a phone gives them tighter padding so both fit its width. */
+.room .declare.pushing .step {
+    white-space: nowrap;
+}
+
+@media (max-width: 899px) {
     .room .declare.pushing .step {
         gap: 8px;
         padding: 0 16px;
@@ -3272,6 +3276,14 @@ body {
         grid-column: 2;
         justify-self: start;
         margin-left: 76px;
+    }
+
+    /* The stage's two keys stand centred under the skat, whose cards are 80px wide here. */
+    .room .declare.pushing.choosing {
+        grid-column: 1 / 3;
+        justify-self: center;
+        margin-left: 0;
+        translate: 0 106px;
     }
 
     /* The drop slots stand over their button. */
