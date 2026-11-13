@@ -91,6 +91,16 @@ class FakeTableStore:
         self.tables[table.id.value] = table
         self.opener_names[table.id.value] = opener_name
 
+    def opener_account(self, table_id: TableId) -> str | None:
+        return next(
+            (
+                receipt.account_id
+                for receipt in self.receipts.values()
+                if receipt.table_id == table_id and receipt.command == CREATE_TABLE_COMMAND
+            ),
+            None,
+        )
+
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         return tuple(
             TableId(table_id)

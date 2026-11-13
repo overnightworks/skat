@@ -155,7 +155,7 @@ def _table_record(
         return EndedTable(
             TableId(table_id),
             table.version,
-            Ending(EndReason(table.end_reason), table.empty_seconds, table.unplayed_days),
+            Ending(EndReason(table.end_reason), table.empty_seconds, table.unplayed_days, table.closed_by_name),
         )
     seats = connection.execute(
         select(
@@ -371,6 +371,7 @@ class _PostgresTableTransaction:
                 end_reason=ending.reason.value,
                 empty_seconds=ending.empty_seconds,
                 unplayed_days=ending.unplayed_days,
+                closed_by_name=ending.closed_by_name,
             )
         )
         _forget_played_hand(self._connection, table_id.value)
@@ -379,6 +380,13 @@ class _PostgresTableTransaction:
         self._connection.execute(
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
         )
+
+    def opener_account(self, table_id: TableId) -> str | None:
+        return self._connection.execute(
+            select(receipts.c.account_id).where(
+                receipts.c.table_id == table_id.value, receipts.c.command == CREATE_TABLE_COMMAND
+            )
+        ).scalar_one_or_none()
 
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         return tuple(

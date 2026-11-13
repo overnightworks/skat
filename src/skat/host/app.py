@@ -29,6 +29,7 @@ from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
 from skat.web.calling import AgentRoster, CallerMembership, ListeningChanged, create_calling_router
+from skat.web.closing import create_closing_router
 from skat.web.constants import (
     HEALTH_PATH,
     NO_CACHE_PATH_RULES,
@@ -231,6 +232,7 @@ def _include_table_routers(
     web_auth: WebAuthConfig,
 ) -> None:
     app.include_router(create_seating_router(tables, presence, wakes))
+    app.include_router(create_closing_router(tables, presence))
     app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
 
 

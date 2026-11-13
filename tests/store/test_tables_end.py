@@ -12,6 +12,7 @@ from skat.store.schema import tables
 from skat.table.playing import PlayCardCommand
 from skat.table.records import (
     Actor,
+    CloseTable,
     CreateTable,
     EndedTable,
     Ending,
@@ -423,6 +424,75 @@ def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_store
         ).one()
     assert tuple(row) == (UNPLAYED_AT, EndReason.UNPLAYED.value, None, UNPLAYED_DAYS, None, None, None)
     assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+
+
+CLOSED_AT = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
+
+
+def test_the_close_keeps_the_game_list_and_the_create_and_close_receipts_and_stores_the_closers_name(
+    service, transactions, stored, engine
+):
+    table_id = listed_games_in_two_series(service, transactions, stored, "one")
+    games = rows_of(engine, table_id.value)["game_list"]
+    version = stored(transactions, table_id.value).version
+
+    result = TableService(transactions, now=lambda: CLOSED_AT).close(OPENER, CloseTable("close-one", table_id.value))
+
+    assert result.refusal is None
+    after = rows_of(engine, table_id.value)
+    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert after["game_list"] == games
+    assert sorted(row[:3] for row in after["receipts"]) == [
+        (OPENER.account_id, "close-one", "close-table"),
+        (OPENER.account_id, "open-one", CREATE_TABLE_COMMAND),
+    ]
+    with engine.connect() as connection:
+        row = connection.execute(
+            select(tables.c.ended_at, tables.c.end_reason, tables.c.closed_by_name, tables.c.opener_name).where(
+                tables.c.id == table_id.value
+            )
+        ).one()
+    assert tuple(row) == (CLOSED_AT, EndReason.CLOSED.value, OPENER.display_name, None)
+    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.closed("Anna"))
+
+
+def test_the_close_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
+    table_id = played_hand(service, transactions, stored, "one")
+
+    service.close(OPENER, CloseTable("close-one", table_id.value))
+
+    after = rows_of(engine, table_id.value)
+    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+
+
+def test_a_close_retry_after_the_commit_answers_the_ended_table_and_a_refusal_writes_no_receipt(
+    service, transactions, stored, engine
+):
+    table_id = undealt_table(service, "one")
+    refused = service.close(SEATED[1], CloseTable("close-ben", table_id.value))
+    assert refused.refusal is not None
+    assert len(rows_of(engine, table_id.value)["receipts"]) == 2
+
+    service.close(OPENER, CloseTable("close-one", table_id.value))
+    again = service.close(OPENER, CloseTable("close-one", table_id.value))
+
+    assert again.view.ended.reason is EndReason.CLOSED
+    assert len(rows_of(engine, table_id.value)["receipts"]) == 2
+
+
+def test_a_table_view_names_the_opener_from_the_create_receipt_that_outlives_the_end(
+    service, transactions, stored, engine
+):
+    table_id = undealt_table(service, "one")
+
+    seen_by = {actor.account_id: service.view(actor, table_id.value, NOBODY_CONNECTED) for actor in SEATED[:2]}
+    service.close(OPENER, CloseTable("close-one", table_id.value))
+
+    assert {account: view.opened_by_me for account, view in seen_by.items()} == {
+        OPENER.account_id: True,
+        SEATED[1].account_id: False,
+    }
+    assert service.view(OPENER, table_id.value, NOBODY_CONNECTED).ended.closed_by_name == "Anna"
 
 
 def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):

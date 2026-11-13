@@ -131,6 +131,7 @@ export type Words = {
     readonly "closed.emptySeconds": (count: number) => string;
     readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
     readonly "closed.unplayedDays": (count: number) => string;
+    readonly "closed.closedBy": (gaps: { readonly name: string }) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "push.takeSkat": string;
@@ -199,6 +200,10 @@ export type Words = {
     readonly "table.playsOn": (gaps: { readonly name: string }) => string;
     readonly "table.sitQuestion": string;
     readonly "table.sitQuestionCancel": string;
+    readonly "table.close": string;
+    readonly "table.closeQuestion": string;
+    readonly "table.closeConfirm": string;
+    readonly "table.closeCancel": string;
     readonly "table.takeOverNamed": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverApostrophe": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverUnnamed": string;
@@ -465,6 +470,7 @@ export const words: Words = {
         many: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
         other: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
     })[pluralRules.select(count)],
+    "closed.closedBy": (gaps: { readonly name: string }) => gaps.name + " hat den Tisch geschlossen",
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "push.takeSkat": "Skat nehmen",
@@ -533,6 +539,10 @@ export const words: Words = {
     "table.playsOn": (gaps: { readonly name: string }) => gaps.name + " spielt weiter",
     "table.sitQuestion": "Mitten ins Spiel setzen?",
     "table.sitQuestionCancel": "Abbrechen",
+    "table.close": "Tisch schließen",
+    "table.closeQuestion": "Tisch für alle schließen?",
+    "table.closeConfirm": "Schließen",
+    "table.closeCancel": "Abbrechen",
     "table.takeOverNamed": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "s Karten.",
     "table.takeOverApostrophe": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "’ Karten.",
     "table.takeOverUnnamed": "Du übernimmst die Karten dieses Platzes.",
