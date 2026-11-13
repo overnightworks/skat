@@ -2,10 +2,10 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
-from skat.engine.cards import DECK, Rank
+from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
 from skat.engine.declaration import Stage
-from skat.engine.schieberamsch import DeclareGrandHand, GrandHandRule, Push, Put, Take, pushing_step
+from skat.engine.schieberamsch import DeclareGrandHand, GrandHandRule, Push, Put, Take, pushing_step, put
 from skat.table.game_list import pushes_factor
 from skat.table.hand_state import pushing_of
 from skat.table.records import Decision, Refusal
@@ -121,12 +121,20 @@ def _moves_of(steps: tuple[PushingStep, ...], dealer: int) -> tuple[PushingMove,
 
 
 def _put_back_cards(state: Pushing, viewer_positions: frozenset[Position], options: PushOptions) -> tuple[Card, ...]:
-    """The cards the seat on turn may put back after its take, for that seat alone."""
+    """The cards the seat on turn may put back after its take, for that seat alone: the cards some pair the engine
+    accepts contains."""
     if not state.holds_twelve or state.turn not in viewer_positions:
         return ()
     held = state.deal.hands[state.turn]
     return tuple(
-        card for card in DECK if card in held and (options.pushing.lets_jacks_go or card.rank is not Rank.JACK)
+        card
+        for card in DECK
+        if card in held
+        and any(
+            put(state, state.turn, (card, partner), options.pushing).refusal is None
+            for partner in held
+            if partner != card
+        )
     )
 
 
