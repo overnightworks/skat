@@ -22,6 +22,7 @@ from tests.e2e.support.result_card import (
     YOU,
     expect_the_page_around_the_card,
     loosely,
+    waiting_for,
 )
 from tests.e2e.support.tables import SIT_DOWN
 
@@ -248,7 +249,7 @@ def expect_the_buttons(table: PlayingTable, ready: set[int]) -> None:
         expect(bar.get_by_role("button", name=COPY_LINK)).to_be_visible()
         if seat in ready:
             expect(bar.get_by_role("button", name=WEITER)).to_have_count(0)
-            expect(bar.get_by_role("status")).to_have_text("Warte auf {} und {}".format(*awaited(table, ready)))
+            expect(bar.get_by_role("status")).to_have_text(waiting_for(awaited(table, ready)))
         else:
             expect(bar.get_by_role("button", name=WEITER)).to_be_visible()
     for name in (WEITER, STAND_UP):
@@ -346,8 +347,7 @@ def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
     person = table.pages[table.declarer_seat]
     bar = person.locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
-    first, second = awaited(table, {table.declarer_seat})
-    expect(bar.get_by_role("status")).to_contain_text(f"Warte auf {first} und {second}")
+    expect(bar.get_by_role("status")).to_contain_text(waiting_for(awaited(table, {table.declarer_seat})))
     heights = bar.evaluate(PILL_HEIGHTS)
     link = bar.locator(".copy.link").bounding_box()
     assert link is not None
@@ -440,7 +440,7 @@ def test_the_next_hand_waits_for_an_away_member_who_tapped_until_they_are_back(
         person.locator(".actions").get_by_role("button", name=WEITER).click()
 
     for person in (declarer, other):
-        expect(person.locator(".actions").get_by_role("status")).to_have_text(f"Warte auf {table.names[away_seat]}")
+        expect(person.locator(".actions").get_by_role("status")).to_have_text(waiting_for([table.names[away_seat]]))
         expect(person.locator(CARD)).to_have_count(1)
 
     back = away.context.new_page()
