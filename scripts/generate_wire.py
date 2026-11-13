@@ -227,7 +227,18 @@ def render() -> str:
     )
     chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
     rule_set_name_max = f"export const RULE_SET_NAME_MAX = {RULE_SET_NAME_MAX};\n"
-    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length + chairs + rule_set_name_max + switch_on_options()
+    return (
+        HEADER
+        + "\n"
+        + paths
+        + tuples
+        + valid_bids
+        + all_points
+        + series_length
+        + chairs
+        + rule_set_name_max
+        + switch_on_options()
+    )
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:
