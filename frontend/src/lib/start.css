@@ -324,6 +324,52 @@ body {
     height: 16px;
 }
 
+/* The table's rules as chips on the felt; a count on the Bock chip is the games still to come. */
+.room .rulepill {
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 1px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(14px);
+}
+
+.room .rulepill .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px 0 7px;
+    border-radius: 999px;
+    color: var(--accent-stage, #7aa7f0);
+    background: rgba(122, 167, 240, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(122, 167, 240, 0.4);
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.room .rulepill .chip svg {
+    width: 14px;
+    height: 14px;
+}
+
+.room .rulepill .chip .n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    margin-right: -4px;
+    border-radius: 999px;
+    color: var(--on-stage);
+    background: rgba(122, 167, 240, 0.34);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
 /* The last view stays, dimmed and still, until the line is back. */
 .room .stale {
     filter: saturate(0.45) brightness(0.55);
@@ -790,6 +836,22 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* A Bock game's plaque names the factor under the game. */
+.room .plaque:has(.bock-line) {
+    flex-direction: column;
+    gap: 4px;
+}
+
+.room .plaque .bock-line {
+    font-size: 13px;
+    color: var(--on-stage-soft);
+}
+
+.room .plaque .bock-line b {
+    color: var(--cream);
+    font-weight: 700;
 }
 
 /* A standing give-up request: the plaque names its asker, and the answers sit under its line. */
@@ -3311,14 +3373,50 @@ body {
 }
 
 .room .result .reck .dl {
-    color: #1f7a4d;
+    --ink: #1f7a4d;
+    color: var(--ink);
     font-size: 22px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
 
 .room .result .reck .dl.minus {
-    color: #6b6f78;
+    --ink: #6b6f78;
+}
+
+@property --n {
+    syntax: "<integer>";
+    inherits: false;
+    initial-value: 0;
+}
+
+/* The final gain stays the text, so the coaster keeps its width and every reader sees it; while the count runs the
+   text is transparent and the counter draws the running number over it, right-aligned. */
+@media (prefers-reduced-motion: no-preference) {
+    .room .result .reck .dl.count {
+        --n: var(--to);
+        position: relative;
+        color: transparent;
+        counter-reset: n var(--n);
+        animation: count 1.1s ease-out 0.3s both;
+    }
+
+    .room .result .reck .dl.count::after {
+        position: absolute;
+        right: 0;
+        color: var(--ink);
+        content: "+" counter(n);
+    }
+
+    @keyframes count {
+        from {
+            --n: 0;
+        }
+
+        to {
+            --n: var(--to);
+        }
+    }
 }
 
 .room .mark.ready {

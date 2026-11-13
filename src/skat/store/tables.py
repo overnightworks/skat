@@ -387,6 +387,7 @@ class _PostgresTableTransaction:
             for row in self._connection.execute(
                 select(tables.c.id, tables.c.dealer, tables.c.empty_since)
                 .where(tables.c.end_reason.is_(None))
+                .order_by(tables.c.id)
                 .with_for_update()
             )
         )

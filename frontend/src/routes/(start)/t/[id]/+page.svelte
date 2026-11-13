@@ -17,7 +17,14 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
-    import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
+    import {
+        declaredResult,
+        ramschResultView,
+        resultJustAppeared,
+        resultView,
+        weiterBar,
+        withMinus,
+    } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
@@ -38,6 +45,7 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
+    import TableRules from "#lib/ui/TableRules.svelte";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -81,6 +89,8 @@
     let playing = $state<PlayingHand | undefined>();
     // The first moment of the declaring, which only a page that sees the auction end shows.
     let justWon = $state(false);
+    // The ordinal of the result that appeared while this page watched; only its card counts the gains up.
+    let countedOrdinal = $state<number | null>(null);
     // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
     let playedThisHand = $state<Card[]>([]);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
@@ -113,6 +123,7 @@
                 wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
             }
         }
+        countedOrdinal = resultJustAppeared(previous, table) ?? (table.result === null ? null : countedOrdinal);
         outcome = { kind: "table", table };
     }
 
@@ -122,6 +133,7 @@
         connected = true;
         attention = 0;
         justWon = false;
+        countedOrdinal = null;
         streamedVersion = null;
         seatNote = null;
         asking = null;
@@ -271,6 +283,7 @@
                 <LobbyButton {attention} />
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
+                <TableRules bock={outcome.table.bock} place="bar" />
                 {#if !callMode}
                     <SoundButton place="bar" />
                 {/if}
@@ -366,6 +379,7 @@
                         {#if waits}
                             {@render waitingLine()}
                         {/if}
+                        <TableRules bock={outcome.table.bock} place="plaque" />
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
@@ -395,7 +409,7 @@
             {/if}
             <div class="felt" aria-hidden="true"></div>
             {#if view !== null}
-                <ResultCard {view} />
+                <ResultCard {view} counts={declared?.ordinal === countedOrdinal} />
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
             {/if}
