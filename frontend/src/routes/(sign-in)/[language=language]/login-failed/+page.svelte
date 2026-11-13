@@ -5,4 +5,4 @@
     const { data }: PageProps = $props();
 </script>
 
-<SignIn page="no-access" kitWords={data.kitWords} />
+<SignIn page="login-failed" kitWords={data.kitWords} words={data.words} />

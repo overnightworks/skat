@@ -9,11 +9,11 @@
         type CallSignIn,
         type CallSignInView,
     } from "#lib/callSignIn.ts";
-    import { LEGAL_LINKS } from "#lib/legal.ts";
-    import { words } from "#lib/words.ts";
+    import { legalLinks } from "#lib/legal.ts";
+    import type { Words } from "#lib/words/de.ts";
     import { AUTH_START_PATH } from "#lib/wire.ts";
 
-    const { kitWords }: { kitWords: KitWords } = $props();
+    const { kitWords, words }: { kitWords: KitWords; words: Words } = $props();
 
     let view = $state<CallSignInView>("signed-out");
     let tableId = $state<string | null>(null);
@@ -97,7 +97,7 @@
     <SignInPage
         appName={words["app.name"]}
         state={signInState}
-        legalLinks={LEGAL_LINKS}
+        legalLinks={legalLinks(words)}
         legalLinksNewTab
         words={kitWords}
     />

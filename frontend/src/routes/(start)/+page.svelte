@@ -2,7 +2,7 @@
     import { AccountMenu, LegalLinks } from "overnightworks-design";
     import { onMount } from "svelte";
     import type { PageProps } from "./$types";
-    import { LEGAL_LINKS } from "#lib/legal.ts";
+    import { legalLinks } from "#lib/legal.ts";
     import MyTables from "./MyTables.svelte";
     import NewTableButton from "./NewTableButton.svelte";
     import { menuName, readAccount } from "#lib/ui/account.svelte.ts";
@@ -49,7 +49,7 @@
                 accountMenu.hidePopover();
             }}
             appRows={[]}
-            legalLinks={LEGAL_LINKS}
+            legalLinks={legalLinks(words)}
             logOutAction={LOGOUT_PATH}
             words={data.kitWords}
         />
@@ -60,7 +60,7 @@
             <NewTableButton />
         </main>
         <footer class="start-legal">
-            <LegalLinks links={LEGAL_LINKS} words={data.kitWords} />
+            <LegalLinks links={legalLinks(words)} words={data.kitWords} />
         </footer>
     </div>
 </div>
