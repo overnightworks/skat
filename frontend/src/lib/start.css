@@ -2263,6 +2263,23 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+.room .points .sides :is(.declarer, .opponents) {
+    display: flex;
+    gap: 0.3em;
+    min-width: 0;
+}
+
+.room .points .sides .side {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .points .sides .tally {
+    flex: none;
+}
+
 .room .points .sides .declarer {
     color: #edb656;
 }

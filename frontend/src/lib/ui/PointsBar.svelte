@@ -11,10 +11,10 @@
 <div class="points" role="group" aria-label={words["result.trickPoints"]}>
     <span class="sides">
         <span class="declarer"
-            >{words["result.sidePoints"]({ side: sides.declarer, points: String(points.declarer) })}</span
+            ><span class="side">{sides.declarer}</span> <span class="tally">{points.declarer}</span></span
         >
         <span class="opponents"
-            >{words["result.sidePoints"]({ side: sides.opponents, points: String(points.opponents) })}</span
+            ><span class="side">{sides.opponents}</span> <span class="tally">{points.opponents}</span></span
         >
     </span>
     <span class="track">

@@ -283,9 +283,18 @@ def deal_with_running_points(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
-    def deal(form_factor: dict[str, Any], game: str = "kreuz") -> PlayingTable:
+    def deal(
+        form_factor: dict[str, Any], game: str = "kreuz", joiners: tuple[str, str] = ("ben", "cleo")
+    ) -> PlayingTable:
         return deal_playing_table(
-            open_person, e2e_server, member_of, page_errors, form_factor, game=game, running_points=True
+            open_person,
+            e2e_server,
+            member_of,
+            page_errors,
+            form_factor,
+            game=game,
+            running_points=True,
+            joiners=joiners,
         )
 
     return deal
@@ -308,6 +317,25 @@ def test_the_plaque_counts_from_completed_tricks_for_the_players_and_a_watcher(
     expect_the_bar(table, counted["declarer"], counted["opponents"])
     for person in table.everyone:
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_long_player_name_is_cut_inside_the_plaque_and_the_points_stay_visible(
+    deal_with_running_points: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_with_running_points(form_factor, joiners=("maximilianalexander", "maximilianbartholomew"))
+    table.play_out(CARDS_IN_A_TRICK)
+
+    counted = table.playing()["running_points"]
+    for person in table.everyone:
+        expect(person.locator(SHOWN_POINTS)).to_be_visible()
+        tallies = person.locator(f"{SHOWN_POINTS} .tally")
+        expect(tallies).to_have_text([str(counted["declarer"]), str(counted["opponents"])])
+        assert person.locator(".plaque.counting").evaluate(
+            "plaque => plaque.scrollWidth <= plaque.clientWidth"
+            " && [...plaque.querySelectorAll('.tally')].every("
+            "tally => tally.getBoundingClientRect().right <= plaque.getBoundingClientRect().right)"
+        )
 
 
 def test_the_bar_stays_beside_a_standing_give_up_request(
