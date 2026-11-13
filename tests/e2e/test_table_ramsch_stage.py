@@ -13,7 +13,7 @@ from skat.web.tables import TABLE_PAGE_PREFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
-from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS, McpAgent
+from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS, McpAgent
 from tests.e2e.support.tables import sit_in, watch
 from tests.support.signed_in import seed_member
 
@@ -41,6 +41,7 @@ THINKS = text(SOURCE_LANGUAGE, "table.thinks")
 CARDS_AFTER_A_TAKE = 12
 POSITIONS = ("forehand", "middlehand", "rearhand")
 AGENT_SEAT = 3
+TWO_LINES = 2
 
 
 def pushes(count: int) -> str:
@@ -194,6 +195,14 @@ class RamschStageTable:
             assert plaque["x"] >= 0
             assert plaque["x"] + plaque["width"] <= viewport["width"]
 
+    def expect_the_plaque_lines_to_read_alike(self, people: list[Page]) -> None:
+        for person in people:
+            sizes = person.locator(f"{PLAQUE} .game:not(.pushes)").evaluate_all(
+                "lines => lines.map(line => getComputedStyle(line).fontSize)"
+            )
+            assert len(sizes) >= TWO_LINES
+            assert len(set(sizes)) == 1
+
 
 def deal(
     open_person: Callable[..., Page],
@@ -251,6 +260,10 @@ def test_everyone_sees_who_acts_and_the_pushes_with_their_factor_and_a_reload_ch
         if person is not table.pages[table.seat_of("rearhand")]:
             expect(person.locator(PLAQUE)).to_contain_text(f"{table.name_of('rearhand')} {CHOOSES}")
     table.expect_nothing_to_overflow()
+    if form_factor != SMALL_PHONE:
+        table.expect_the_plaque_lines_to_read_alike(
+            [person for person in table.everyone if person is not table.pages[table.seat_of("rearhand")]]
+        )
 
     table.reload_everyone()
 

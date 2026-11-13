@@ -779,7 +779,7 @@ body {
 }
 
 /* A passed-in hand: the verdict above the line that names the next dealer. */
-.room .plaque:is(.hand-over, .deciding, .ramsch) {
+.room .plaque:is(.hand-over, .deciding) {
     flex-direction: column;
     gap: 4px;
 }
@@ -791,11 +791,14 @@ body {
 }
 
 /* A Ramsch's plaque names the game, then what the table adds: the pushes and their factor, who acts, who is awaited. */
-.room .plaque.ramsch .game:not(:first-child) {
-    font-size: 13px;
+.room .plaque.ramsch {
+    flex-direction: column;
+    gap: 7px;
+    padding: 8px 12px 10px;
 }
 
 .room .plaque.ramsch .game.pushes {
+    font-size: 13px;
     color: var(--on-stage-soft);
 }
 
@@ -2653,6 +2656,18 @@ body {
 
 /* The smallest phones keep the controls between the far fans and the own chair: the games stand close in two rows. */
 @media (max-width: 379px) {
+    .room .plaque.ramsch {
+        padding: 8px 8px 10px;
+    }
+
+    .room .plaque.ramsch .game:not(:first-child) {
+        font-size: 13px;
+    }
+
+    .room .plaque.ramsch .game.pushes {
+        font-size: 12px;
+    }
+
     .room .declare:is(.picked, .hand) {
         gap: 8px;
     }
