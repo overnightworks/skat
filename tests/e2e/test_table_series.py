@@ -26,6 +26,8 @@ STANDING = ".result.standing"
 ASK = ".plaque.ask"
 END_KEY = ".actions .end-series"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
+STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
+PHONE_BREAKPOINT = 900
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
@@ -55,6 +57,19 @@ def propose_the_end(person: Page) -> None:
     key = person.locator(END_KEY)
     key.click()
     key.click()
+
+
+def expect_the_keys_in_one_row(person: Page) -> None:
+    bar = person.locator(".actions")
+    keys = (
+        bar.locator(".end-series"),
+        bar.get_by_role("button", name=WEITER, exact=True),
+        bar.get_by_role("button", name=STAND_UP),
+    )
+    boxes = [key.bounding_box() for key in keys]
+    tops = [box["y"] for box in boxes if box is not None]
+    assert len(tops) == len(keys)
+    assert max(tops) - min(tops) <= 1
 
 
 def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
@@ -149,6 +164,9 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     table.play_out()
     first, second, third = table.pages[1], table.pages[2], table.pages[3]
 
+    expect(first.locator(END_KEY)).to_be_visible()
+    if form_factor["viewport"]["width"] < PHONE_BREAKPOINT:
+        expect_the_keys_in_one_row(first)
     propose_the_end(first)
     for person in (second, third):
         expect(person.locator(ASK)).to_contain_text(
