@@ -1,7 +1,0 @@
-claim_id = "5374bf913a424bafb18ace4837410715"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "f4476ea90c1285818f3512ba2915c318ccd906b1"
-branch = "claude/issue-479-s13-0c-picture-every-rule-unfolds-into-i"
-scope = ["docs/mockups/start.html"]
-opened_commit = "eb25e8cf9892175f820e5b09631cd8f3bd23f319"
