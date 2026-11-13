@@ -212,8 +212,8 @@ export type Result = {
     gains: SeatGain[];
     // What the Bock rounds multiplied the list score by; 1 outside a Bock game.
     bock_factor: number;
-    // The last word said and the factor it doubled the score by; null when no word was said.
-    kontra: { word: Word; factor: number } | null;
+    // Each word said, in the order said, with the factor it doubled the score to; null when no word was said.
+    kontra: { steps: { word: Word; factor: number }[] } | null;
     // How the game ended, and the seat whose give-up or throw-down ended it; null exactly when it was played out.
     ending: GameEnding;
     ended_by_seat: number | null;
