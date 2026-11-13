@@ -5826,7 +5826,7 @@ body {
         display: none;
     }
 
-    .room .actions {
+    .room .actions:not(.on-result) {
         width: calc(100% + 20px);
     }
 
