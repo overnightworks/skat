@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
+PHONE_WIDTH_LIMIT = 900
 COASTER = ".chair .coaster"
 AWAY = ".chair .mark.away"
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -55,14 +56,38 @@ def expect_the_totals(table: PlayingTable, totals: dict[int, int]) -> None:
             expect(person.locator(f".chair[data-seat='{seat}'] .coaster")).to_have_text(
                 re.compile(rf"^{sign}{abs(total)}$")
             )
-        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-        for coaster in person.locator(COASTER).all():
-            box = untilted_box(coaster)
-            for selector in NEVER_UNDER_A_COASTER:
-                for other in person.locator(selector).all():
-                    covered = untilted_box(other) if selector == COASTER else other.bounding_box()
-                    if covered is not None and covered != box:
-                        assert not overlaps(box, covered), selector
+        expect_nothing_under_a_coaster(person)
+        expect_the_table_page_clear(person)
+
+
+def expect_the_table_page_clear(person: Page) -> None:
+    """On a phone the bar and a note under it end inside the screen; the plaque lies over no fan, chair or laid card."""
+    viewport = person.viewport_size
+    assert viewport is not None
+    if viewport["width"] < PHONE_WIDTH_LIMIT:
+        for selector in (".actions", "p.note"):
+            for shown in person.locator(selector).all():
+                box = shown.bounding_box()
+                assert box is not None
+                assert box["y"] + box["height"] <= viewport["height"], selector
+    for plaque in person.locator(".plaque").all():
+        plaque_box = plaque.bounding_box()
+        assert plaque_box is not None
+        for selector in (".fan", ".laid .face", ".chair .tile"):
+            for other in person.locator(selector).all():
+                covered = other.bounding_box()
+                assert covered is None or not overlaps(plaque_box, covered), selector
+
+
+def expect_nothing_under_a_coaster(person: Page) -> None:
+    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    for coaster in person.locator(COASTER).all():
+        box = untilted_box(coaster)
+        for selector in NEVER_UNDER_A_COASTER:
+            for other in person.locator(selector).all():
+                covered = untilted_box(other) if selector == COASTER else other.bounding_box()
+                if covered is not None and covered != box:
+                    assert not overlaps(box, covered), selector
 
 
 def untilted_box(coaster: Locator) -> dict[str, float]:
@@ -138,3 +163,21 @@ def test_a_freed_chair_has_no_coaster_and_a_newcomer_on_it_reads_zero(
 
     expect(table.watcher.locator(f".chair[data-seat='{leaver}'] .coaster")).to_have_text("0")
     assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_plates_and_marks_of_both_away_chairs_stay_clear_of_their_coasters(
+    play_a_table: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = play_a_table(form_factor)
+    table.play_out(CARDS_IN_A_GAME)
+    away_seats = [seat for seat in table.names if seat != table.declarer_seat]
+    onlooker = table.pages[table.declarer_seat]
+
+    for seat in away_seats:
+        table.pages[seat].close()
+
+    expect(onlooker.locator(AWAY)).to_have_count(len(away_seats))
+    expect(onlooker.locator(COASTER)).to_have_count(len(table.names))
+    expect_nothing_under_a_coaster(onlooker)
+    expect_the_table_page_clear(onlooker)

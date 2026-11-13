@@ -29,6 +29,7 @@ import {
     type STAGE_TOKENS,
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
+    TABLE_CLOSE_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
@@ -43,12 +44,16 @@ import {
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_GIVE_UP_SUFFIX,
     TABLE_KONTRA_SUFFIX,
+    TABLE_LIST_SUFFIX,
+    TABLE_NEW_SERIES_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
     TABLE_READY_SUFFIX,
+    TABLE_SERIES_END_AGREE_SUFFIX,
+    TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
@@ -216,10 +221,12 @@ export type Result = {
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
-// Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, or the days nobody played.
+// Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
+// or the name its opener had when closing it.
 export type Ended =
-    | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null }
-    | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number };
+    | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
+    | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
+    | { reason: Extract<EndReason, "closed">; empty_seconds: null; unplayed_days: null; closed_by_name: string };
 // The rules a table was opened with, answered to every viewer; a rule that is off is null.
 export type Options = {
     show_running_points: boolean;
@@ -245,11 +252,25 @@ export type OptionsRequest = { show_running_points?: true } & {
 export type RuleSet = { id: string; name: string; options: Options };
 // The person's own sets in the order the server answers them; a set that cannot be read is its own outcome.
 export type RuleSetsOutcome = { kind: "sets"; sets: RuleSet[] } | { kind: "failed" };
+// A name the person already holds with other options is refused and saves nothing.
+export type SaveRuleSetOutcome = { kind: "saved"; set: RuleSet } | { kind: "taken" } | { kind: "failed" };
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
-// Which series of the table this is, 1 for the first.
-export type Series = { number: number };
+// One account's place at the end of a series; a name stored with no name is null.
+export type Standing = { display_name: string | null; total: number; won: number; lost: number; place: number };
+// The seat that proposed ending the series early and the one that has said yes so far.
+export type EndProposal = { proposer_seat: number; accepter_seat: number | null };
+// Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
+// is over; the standings come once it is, the same for every viewer.
+export type Series = {
+    number: number;
+    game_number: number;
+    game_count: number;
+    over: boolean;
+    standings: Standing[] | null;
+    end_proposal: EndProposal | null;
+};
 export type Table = {
     id: string;
     version: number;
@@ -265,6 +286,8 @@ export type Table = {
     options: Options | null;
     bock: Bock | null;
     ended: Ended | null;
+    // True only for the account that opened the table, who may close it.
+    opened_by_me: boolean;
 };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
@@ -272,6 +295,10 @@ export type Outcome =
 
 function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_name: string } {
     return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
+}
+
+function isNameTaken(body: unknown): boolean {
+    return typeof body === "object" && body !== null && "reason" in body && body.reason === "name-taken";
 }
 
 // The answer is null when the server cannot be reached.
@@ -331,6 +358,23 @@ export async function readRuleSets(): Promise<RuleSetsOutcome> {
     }
 }
 
+// Saving a name the person holds with the same options answers that set again.
+export async function saveRuleSet(name: string, options: OptionsRequest | undefined): Promise<SaveRuleSetOutcome> {
+    const answer = await fetchSigningInAgain(RULE_SETS_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, options: options ?? {} }),
+    });
+    if (answer === null) return { kind: "failed" };
+    try {
+        const body: unknown = await answer.json();
+        if (answer.ok) return { kind: "saved", set: body as RuleSet };
+        return answer.status === CONFLICT_STATUS && isNameTaken(body) ? { kind: "taken" } : { kind: "failed" };
+    } catch {
+        return { kind: "failed" };
+    }
+}
+
 function post(id: string, suffix: string, body: object): Promise<Outcome> {
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}${suffix}`, {
         method: "POST",
@@ -345,6 +389,10 @@ export function sitDown(id: string, seat: number, commandId: string): Promise<Ou
 
 export function standUp(id: string, commandId: string): Promise<Outcome> {
     return post(id, TABLE_STAND_SUFFIX, { command_id: commandId });
+}
+
+export function closeTable(id: string, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_CLOSE_SUFFIX, { command_id: commandId });
 }
 
 export type DeclaringStep =
@@ -434,6 +482,62 @@ export function seriesNumberOf(table: Pick<Table, "series">): number {
 // „Weiter“ names the result and the series it saw, so a tap on a result or series that has since been replaced is refused.
 export function markReady(id: string, commandId: string, ordinal: number, series: number): Promise<Outcome> {
     return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal, series });
+}
+
+// „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused.
+export function startNewSeries(id: string, commandId: string, series: number): Promise<Outcome> {
+    return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series });
+}
+
+export type SeriesEndAnswer = "agree" | "refuse";
+
+const SERIES_END_ANSWER_SUFFIXES: Record<SeriesEndAnswer, string> = {
+    agree: TABLE_SERIES_END_AGREE_SUFFIX,
+    refuse: TABLE_SERIES_END_REFUSE_SUFFIX,
+};
+
+// A yes proposes the end when none stands and accepts it when one does; neither names a version, so the answer is judged
+// on the table as it is.
+export function answerSeriesEnd(id: string, commandId: string, answer: SeriesEndAnswer): Promise<Outcome> {
+    return post(id, SERIES_END_ANSWER_SUFFIXES[answer], { command_id: commandId });
+}
+
+// A finished game of the series' list as the server projects it, the same for every viewer.
+export type SeriesEntry =
+    | {
+          kind: "declared";
+          number: number;
+          declarer_name: string | null;
+          game: Game;
+          hand: boolean;
+          ouvert: boolean;
+          announcement: Announcement;
+          levels: Level[];
+          settled_value: number;
+          score: number;
+          kontra_word: Word | null;
+          bock_factor: number;
+      }
+    | {
+          kind: "ramsch";
+          number: number;
+          seats: { name: string | null; score: number }[];
+          durchmarsch: boolean;
+          jungfrau: boolean;
+          bock_factor: number;
+          pushes: number;
+          push_factor: number;
+      };
+
+// The games in the order played; null when the list cannot be read.
+export async function readSeriesList(id: string): Promise<SeriesEntry[] | null> {
+    const answer = await fetchSigningInAgain(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_LIST_SUFFIX}`);
+    if (answer?.ok !== true) return null;
+    try {
+        return ((await answer.json()) as { entries: SeriesEntry[] }).entries;
+    } catch {
+        return null;
+    }
 }
 
 const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {
@@ -534,8 +638,9 @@ export function agentSitsNote(previous: Table, table: Table): SeatNotice | null 
     if (handWaits(previous.hand)) return null;
     const freed = new Set(previous.chairs.filter((chair) => chair.occupant_name === null).map((chair) => chair.seat));
     const sat = table.chairs.find((chair) => chair.occupant_kind === "agent" && freed.has(chair.seat));
-    const name = sat?.occupant_name ?? null;
-    return name === null ? null : { text: words["table.agentSits"]({ name }), initials: [null] };
+    if (sat === undefined) return null;
+    const name = sat.occupant_name as string;
+    return { text: words["table.agentSits"]({ name }), initials: [null], seat: sat.seat, occupied: true };
 }
 
 // What the agents' control re-reads on: the agents by seat and name, and the version when the wake skipped versions,

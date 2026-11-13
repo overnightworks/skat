@@ -34,7 +34,7 @@ from skat.table.records import (  # noqa: E402
     EndReason,
     RamschOccasion,
 )
-from skat.table.rule_sets import SWITCH_ON_OPTIONS  # noqa: E402
+from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS  # noqa: E402
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
 from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX  # noqa: E402
 from skat.web.auction import (  # noqa: E402
@@ -45,6 +45,7 @@ from skat.web.auction import (  # noqa: E402
 )
 from skat.web.call import CALL_ORIGIN_PATH  # noqa: E402
 from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
+from skat.web.closing import TABLE_CLOSE_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -64,7 +65,7 @@ from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
-from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX  # noqa: E402
+from skat.web.kontra import TABLE_KONTRA_SUFFIX  # noqa: E402
 from skat.web.lobby import LOBBY_EVENTS_PATH  # noqa: E402
 from skat.web.playing import (  # noqa: E402
     TABLE_CARD_SUFFIX,
@@ -78,8 +79,9 @@ from skat.web.pushing import (  # noqa: E402
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
 )
-from skat.web.ready import TABLE_READY_SUFFIX  # noqa: E402
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.rule_sets import RULE_SETS_PATH  # noqa: E402
+from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX  # noqa: E402
 from skat.web.table_options import options_answer_of  # noqa: E402
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
@@ -183,6 +185,7 @@ def path_constants() -> dict[str, str]:
         "TABLE_EVENTS_SUFFIX": TABLE_EVENTS_SUFFIX,
         "TABLE_SIT_SUFFIX": TABLE_SIT_SUFFIX,
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
+        "TABLE_CLOSE_SUFFIX": TABLE_CLOSE_SUFFIX,
         "TABLE_DECLARING_TAKE_SUFFIX": TABLE_DECLARING_TAKE_SUFFIX,
         "TABLE_DECLARING_PUT_BACK_SUFFIX": TABLE_DECLARING_PUT_BACK_SUFFIX,
         "TABLE_DECLARING_DECLARE_SUFFIX": TABLE_DECLARING_DECLARE_SUFFIX,
@@ -200,8 +203,10 @@ def path_constants() -> dict[str, str]:
         "TABLE_GIVE_UP_DECLINE_SUFFIX": TABLE_GIVE_UP_DECLINE_SUFFIX,
         "TABLE_LIST_SUFFIX": TABLE_LIST_SUFFIX,
         "TABLE_KONTRA_SUFFIX": TABLE_KONTRA_SUFFIX,
-        "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
+        "TABLE_NEW_SERIES_SUFFIX": TABLE_NEW_SERIES_SUFFIX,
+        "TABLE_SERIES_END_AGREE_SUFFIX": TABLE_SERIES_END_AGREE_SUFFIX,
+        "TABLE_SERIES_END_REFUSE_SUFFIX": TABLE_SERIES_END_REFUSE_SUFFIX,
         "TABLE_AGENTS_SUFFIX": TABLE_AGENTS_SUFFIX,
         "TABLE_AGENT_CALL_SUFFIX": TABLE_AGENT_CALL_SUFFIX,
         "TABLE_AGENT_SEND_AWAY_SUFFIX": TABLE_AGENT_SEND_AWAY_SUFFIX,
@@ -228,7 +233,19 @@ def render() -> str:
         )
     )
     chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
-    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length + chairs + switch_on_options()
+    rule_set_name_max = f"export const RULE_SET_NAME_MAX = {RULE_SET_NAME_MAX};\n"
+    return (
+        HEADER
+        + "\n"
+        + paths
+        + tuples
+        + valid_bids
+        + all_points
+        + series_length
+        + chairs
+        + rule_set_name_max
+        + switch_on_options()
+    )
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:

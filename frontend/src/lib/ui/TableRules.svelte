@@ -32,7 +32,7 @@
                 <span class="chip" class:official={chip.id === "official"}>
                     <RuleMark id={chip.id} />{chip.word}
                     {#if chip.count !== null}
-                        <b class="n" aria-label={chip.count.label}>{chip.count.number}</b>
+                        <b class="n" role="img" aria-label={chip.count.label}>{chip.count.number}</b>
                     {/if}
                 </span>
             {/each}

@@ -48,7 +48,7 @@ from skat.web.declaring import (
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
+from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.playing import (
     TABLE_CARD_SUFFIX,
@@ -105,7 +105,6 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_GIVE_UP_AGREE_SUFFIX", TABLE_GIVE_UP_AGREE_SUFFIX),
         ("TABLE_GIVE_UP_DECLINE_SUFFIX", TABLE_GIVE_UP_DECLINE_SUFFIX),
         ("TABLE_KONTRA_SUFFIX", TABLE_KONTRA_SUFFIX),
-        ("TABLE_NO_WORD_SUFFIX", TABLE_NO_WORD_SUFFIX),
         ("TABLE_LIST_SUFFIX", TABLE_LIST_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
         ("LOBBY_EVENTS_PATH", LOBBY_EVENTS_PATH),

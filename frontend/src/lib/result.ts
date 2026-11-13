@@ -69,7 +69,7 @@ export type ResultView = {
 };
 // The head's mark: a tick for the sweeper of a Durchmarsch, a cross for the viewer who lost; another's loss has none.
 export type RamschMark = "tick" | "cross";
-export type EyeCount = { seat: number; name: string; points: number; strong: boolean };
+export type EyeCount = { seat: number; text: string; strong: boolean };
 // The Ramsch's card: its head, the loser's eyes, the factors that multiply them, the value and each seat's eyes.
 export type RamschView = {
     word: string;
@@ -92,7 +92,7 @@ export type WeiterBar = { kind: "tap"; again: boolean } | { kind: "wait"; text: 
 const MINUS = "−";
 const SNUG_LEVELS = 2;
 
-const LEVEL_WORDS: Record<Level, string> = {
+export const LEVEL_WORDS: Record<Level, string> = {
     spiel: words["result.levelSpiel"],
     hand: words["result.hand"],
     schneider: words["result.levelSchneider"],
@@ -334,8 +334,10 @@ export function ramschResultView(table: Table): RamschView | null {
         loss: sweeper === undefined,
         counts: ownFirst(chairs).map(({ seat, is_mine }) => ({
             seat,
-            name: is_mine ? words["result.sideYou"] : shownName(chairs, seat),
-            points: (result.seats.find((one) => one.seat === seat) as RamschSeat).points,
+            text: words["result.eyeCount"]({
+                name: is_mine ? words["result.sideYou"] : shownName(chairs, seat),
+                points: String((result.seats.find((one) => one.seat === seat) as RamschSeat).points),
+            }),
             strong: strong.some((one) => one.seat === seat),
         })),
         rows: reckoningRows(
@@ -353,10 +355,11 @@ export function awaitedNames(chairs: readonly Chair[]): string[] {
 }
 
 // A seated viewer taps until their own chair is ready, then waits for the others by name. Ready with nobody
-// awaited while the result still stands means the deal after the last tap failed: the button stays so a tap asks again.
+// awaited while the result still stands, or the series' end does, means the deal after the last tap failed: the button
+// stays so a tap asks again. After the series' last game the tap is „Neue Serie“, and a passed-in last game has it too.
 export function weiterBar(table: Table): WeiterBar | null {
     const own = table.chairs.find((chair) => chair.is_mine);
-    if (own === undefined || table.result === null) return null;
+    if (own === undefined || (table.result === null && table.series?.over !== true)) return null;
     const awaited = awaitedNames(table.chairs);
     if (!own.ready) return { kind: "tap", again: false };
     if (awaited.length === 0) return { kind: "tap", again: true };

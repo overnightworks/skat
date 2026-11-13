@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
 import {
     bidLineWhileDeclaring,
@@ -11,8 +12,6 @@ import {
     type Stage,
     type Table,
 } from "./tables.ts";
-
-const TABLE_ID = "a".repeat(32);
 
 const NO_PUSHES = { ramsch: false, pushing: null, pushes: 0, push_factor: 1 };
 
@@ -46,6 +45,7 @@ describe("what the declaring stage asks of this viewer", () => {
         version: 1,
         chairs: seats(mine),
         watchers: 0,
+        opened_by_me: false,
         result: null,
         passed_in: null,
         series: null,
@@ -100,6 +100,7 @@ describe("the auction's value while declaring", () => {
         version: 1,
         chairs: [],
         watchers: 0,
+        opened_by_me: false,
         result: null,
         passed_in: null,
         series: null,

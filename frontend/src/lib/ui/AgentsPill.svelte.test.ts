@@ -44,15 +44,17 @@ describe("the Agenten pill", () => {
         vi.unstubAllGlobals();
     });
 
-    // The page's two facts the pill follows, which a test moves like the stream does.
-    const table = $state<{ streamedVersion: number | null; seatedAgents: string }>({
+    // The page's facts the pill follows, which a test moves like the stream does.
+    const table = $state<{ streamedVersion: number | null; seatedAgents: string; watchers: number }>({
         streamedVersion: null,
         seatedAgents: "",
+        watchers: 0,
     });
 
     async function show(streamedVersion: number | null) {
         table.streamedVersion = streamedVersion;
         table.seatedAgents = "";
+        table.watchers = 0;
         mounted = mount(AgentsPill, {
             target: document.body,
             props: {
@@ -63,6 +65,9 @@ describe("the Agenten pill", () => {
                 },
                 get seatedAgents() {
                     return table.seatedAgents;
+                },
+                get watchers() {
+                    return table.watchers;
                 },
             },
         });
@@ -155,6 +160,32 @@ describe("the Agenten pill", () => {
         await show(1);
 
         table.streamedVersion = 2;
+        await settle();
+        flushSync();
+
+        expect(fetcher.mock.calls).toHaveLength(1);
+    });
+
+    it("reads again when the people who watch change while the list is open, which lists an agent whose owner just came", async () => {
+        const fetcher = server({ control: { shown: true, rows: [] } });
+        await show(1);
+        pill()?.click();
+        await settle();
+        flushSync();
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.watchers = 1;
+        await settle();
+        flushSync();
+
+        expect(popover()?.textContent).toContain("Nova");
+    });
+
+    it("reads nothing for a change of the people who watch while the list is closed", async () => {
+        const fetcher = server({ control: { shown: true, rows: [row] } });
+        await show(1);
+
+        table.watchers = 1;
         await settle();
         flushSync();
 

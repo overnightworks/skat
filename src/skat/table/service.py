@@ -1,11 +1,11 @@
 import copy
 import secrets
-from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
+from skat.table.ending import close_table, end_unplayed_table, table_with_opener, unplayed_tables
 from skat.table.game_list import series_list_view_of
 from skat.table.hand_abort import (
     AGREE_TO_ABORT_COMMAND,
@@ -65,10 +65,10 @@ from skat.table.ready import (
 )
 from skat.table.records import (
     Actor,
+    CloseTable,
     CreateTable,
     Decision,
     EndedTable,
-    Ending,
     Refusal,
     SendAway,
     SitDown,
@@ -91,7 +91,6 @@ from skat.table.rules import (
     decide_sit,
     decide_stand,
     drawn_hand,
-    ends_unplayed,
     hand_was_dealt,
     is_deal_or_step_of_play,
     present_at,
@@ -112,7 +111,7 @@ from skat.table.series_end import (
     decide_refuse_to_end,
     series_end_payload,
 )
-from skat.table.server_steps import ServerSteps, members_of
+from skat.table.server_steps import ServerSteps
 from skat.table.transactions import DuplicateReceiptError
 from skat.table.views import CommandResult, PausedEntryView, TableView, view_of
 
@@ -187,13 +186,13 @@ class TableService:
         with self._transactions.begin() as transaction:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
-                return view_of(replayed_table(replay, command), actor.account_id, frozenset())
+                return view_of(replayed_table(replay, command), actor.account_id, frozenset(), actor.account_id)
             table = decide_create(actor, self._new_table_id(), command.series_length, command.options)
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
         self._tell(agents_seated_at(table))
-        return view_of(table, actor.account_id, frozenset())
+        return view_of(table, actor.account_id, frozenset(), actor.account_id)
 
     def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
@@ -493,25 +492,27 @@ class TableService:
         )
 
     def unplayed_tables(self, days: int) -> tuple[TableId, ...]:
-        """The live tables that look due for `end_unplayed_table`, in id order: an unlocked read."""
-        with self._transactions.begin() as transaction:
-            return transaction.played_before(self._now() - timedelta(days=days))
+        return unplayed_tables(self._transactions, days, self._now())
 
     def end_unplayed_table(
         self, table_id: TableId, days: int, writing: AbstractContextManager[frozenset[str] | None]
     ) -> bool:
-        """End a dealt table `days` days past its last deal or step of play, on the server's own account. `writing` is
-        entered once the row is locked and yields None once the presence has stopped. True when it ended it."""
-        with ExitStack() as after_commit, self._transactions.begin() as transaction:
-            table, now = transaction.locked_table(table_id), self._now()
-            if table is None or after_commit.enter_context(writing) is None:
-                return False
-            if not ends_unplayed(table, transaction.paused_facts(table_id).last_played_at, now, days):
-                return False
-            members = members_of(transaction, table)
-            transaction.end_table(table_id, now, Ending.unplayed(days))
+        """End a dealt table `days` days past its last deal or step of play, on the server's own account."""
+        members = end_unplayed_table(self._transactions, table_id, days, writing, self._now)
+        if members is None:
+            return False
         self._tell(members)
         return True
+
+    def close(self, actor: Actor, command: CloseTable) -> CommandResult | None:
+        """Close the table for everyone if the actor opened it, the ended table as the answer, else the refusal
+        `not-allowed`; None when no live table has the id.
+        """
+        closed = close_table(self._transactions, actor, command, self._now)
+        if closed is None:
+            return None
+        self._tell(closed.members)
+        return closed.result
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
@@ -666,7 +667,7 @@ class TableService:
             if replay is None:
                 seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
             result = CommandResult(
-                view_of(decision.table, actor.account_id, present),
+                view_of(decision.table, actor.account_id, present, transaction.opener_account(identifier)),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
@@ -691,7 +692,7 @@ class TableService:
             return transaction.table(identifier)
 
     def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
-        table = self._table_read(table_id)
+        table, opener = table_with_opener(self._transactions, table_id)
         if table is None:
             return None
         present = (
@@ -699,7 +700,7 @@ class TableService:
             if isinstance(table, EndedTable)
             else present_at(table, connected_accounts, self._live_leases())
         )
-        return view_of(table, actor.account_id, present)
+        return view_of(table, actor.account_id, present, opener)
 
     def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
         """Who is at the live table for a call; an ended or missing table counts the open streams only."""
@@ -710,10 +711,11 @@ class TableService:
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None
         for any other account, an ended table and a table that is not there.
         """
-        table = self._table_read(table_id)
+        table, opener = table_with_opener(self._transactions, table_id)
         if not isinstance(table, TableRecord):
             return None
-        return member_view_of(table, account_id, present_at(table, connected_accounts, self._live_leases()))
+        present = present_at(table, connected_accounts, self._live_leases())
+        return member_view_of(table, account_id, present, opener)
 
     def agent_in_chair(self, table_id: str, seat: int) -> str | None:
         """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,

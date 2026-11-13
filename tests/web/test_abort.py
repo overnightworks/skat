@@ -64,7 +64,7 @@ class TestTheVote:
         ended = the_agent_agrees(waiting)
 
         assert not ended.is_error, ended.text
-        view = ended.json()
+        view = waiting.staying.read(waiting.table_id).json()
         assert (view["hand"], view["aborted"], view["result"], view["passed_in"]) == (
             None,
             {"next_dealer_seat": None},

@@ -21,7 +21,8 @@ export type Words = {
     readonly "start.newTableFailed": string;
     readonly "lobby.myTables": string;
     readonly "lobby.openTable": (gaps: { readonly title: string }) => string;
-    readonly "lobby.title": (gaps: { readonly owner: string }) => string;
+    readonly "lobby.title": (gaps: { readonly name: string }) => string;
+    readonly "lobby.titleSibilant": (gaps: { readonly name: string }) => string;
     readonly "lobby.titleNameless": string;
     readonly "lobby.progress": (gaps: { readonly count: number; readonly game: string }) => string;
     readonly "lobby.length": (count: number) => string;
@@ -30,7 +31,8 @@ export type Words = {
     readonly "lobby.seatAway": string;
     readonly "lobby.minutesLeft": (count: number, gaps: { readonly minutes: string }) => string;
     readonly "lobby.ownSeatFreeIn": (count: number, gaps: { readonly minutes: string }) => string;
-    readonly "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly owner: string }) => string;
+    readonly "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly name: string }) => string;
+    readonly "lobby.otherSeatFreeInSibilant": (count: number, gaps: { readonly minutes: string; readonly name: string }) => string;
     readonly "lobby.chipYourTurn": string;
     readonly "lobby.chipResultWaits": string;
     readonly "lobby.chipSeriesOver": string;
@@ -88,6 +90,25 @@ export type Words = {
     readonly "table.openForAll": string;
     readonly "table.sideYou": string;
     readonly "table.weiter": string;
+    readonly "table.seriesCount": (gaps: { readonly count: number; readonly game: string }) => string;
+    readonly "table.seriesList": string;
+    readonly "table.seriesListTitle": string;
+    readonly "table.seriesListEmpty": string;
+    readonly "table.seriesListFailed": string;
+    readonly "table.seriesEnded": string;
+    readonly "table.seriesGames": (count: number) => string;
+    readonly "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => string;
+    readonly "table.seriesGone": string;
+    readonly "table.seriesNameless": string;
+    readonly "table.seriesRamschOf": (gaps: { readonly name: string }) => string;
+    readonly "table.seriesPushed": (gaps: { readonly count: number }) => string;
+    readonly "table.newSeries": string;
+    readonly "table.wantsToEndSeries": (gaps: { readonly name: string }) => string;
+    readonly "table.endSeries": string;
+    readonly "table.endSeriesSure": string;
+    readonly "table.yes": string;
+    readonly "table.no": string;
+    readonly "table.watchingOnly": string;
     readonly "table.readyMark": string;
     readonly "table.notReadyMark": string;
     readonly "result.seatFree": string;
@@ -128,6 +149,7 @@ export type Words = {
     readonly "rules.bockLeft": (gaps: { readonly count: number }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[];
     readonly "result.eyes": (gaps: { readonly points: string }) => string;
+    readonly "result.eyeCount": (gaps: { readonly name: string; readonly points: string }) => string;
     readonly "result.loses": (gaps: { readonly name: string }) => string;
     readonly "result.losesTogether": (gaps: { readonly names: string }) => string;
     readonly "result.byTen": string;
@@ -139,6 +161,7 @@ export type Words = {
     readonly "closed.emptySeconds": (count: number) => string;
     readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
     readonly "closed.unplayedDays": (count: number) => string;
+    readonly "closed.closedBy": (gaps: { readonly name: string }) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "push.takeSkat": string;
@@ -209,6 +232,10 @@ export type Words = {
     readonly "table.playingOn": (gaps: { readonly names: string }) => string;
     readonly "table.sitQuestion": string;
     readonly "table.sitQuestionCancel": string;
+    readonly "table.close": string;
+    readonly "table.closeQuestion": string;
+    readonly "table.closeConfirm": string;
+    readonly "table.closeCancel": string;
     readonly "table.takeOverNamed": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverApostrophe": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverUnnamed": string;
@@ -218,6 +245,12 @@ export type Words = {
     readonly "start.ruleSets": string;
     readonly "start.setOfficial": string;
     readonly "start.setsUnreadable": string;
+    readonly "start.saveRules": string;
+    readonly "start.saveName": string;
+    readonly "start.savedNameWith": (gaps: { readonly rules: string; readonly set: string }) => string;
+    readonly "start.savedNameAdjusted": (gaps: { readonly set: string }) => string;
+    readonly "start.saveNameTaken": string;
+    readonly "start.saveFailed": string;
     readonly "start.ruleKontra": string;
     readonly "start.ruleKontraLine": string;
     readonly "start.ruleRamsch": string;
@@ -335,7 +368,8 @@ export const words: Words = {
     "start.newTableFailed": "Der Tisch konnte nicht eröffnet werden.",
     "lobby.myTables": "Meine Tische",
     "lobby.openTable": (gaps: { readonly title: string }) => gaps.title + " öffnen",
-    "lobby.title": (gaps: { readonly owner: string }) => gaps.owner + " Tisch",
+    "lobby.title": (gaps: { readonly name: string }) => gaps.name + "s Tisch",
+    "lobby.titleSibilant": (gaps: { readonly name: string }) => gaps.name + "' Tisch",
     "lobby.titleNameless": "Tisch",
     "lobby.progress": (gaps: { readonly count: number; readonly game: string }) => "Spiel " + gaps.game + " von " + numberFormat.format(gaps.count),
     "lobby.length": (count: number) => ({
@@ -365,13 +399,21 @@ export const words: Words = {
         many: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
         other: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
     })[pluralRules.select(count)],
-    "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly owner: string }) => ({
-        zero: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        one: gaps.owner + " Platz wird in " + gaps.minutes + " Minute frei",
-        two: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        few: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        many: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        other: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
+    "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly name: string }) => ({
+        zero: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        one: gaps.name + "s Platz wird in " + gaps.minutes + " Minute frei",
+        two: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        few: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        many: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        other: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+    })[pluralRules.select(count)],
+    "lobby.otherSeatFreeInSibilant": (count: number, gaps: { readonly minutes: string; readonly name: string }) => ({
+        zero: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        one: gaps.name + "' Platz wird in " + gaps.minutes + " Minute frei",
+        two: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        few: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        many: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        other: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
     })[pluralRules.select(count)],
     "lobby.chipYourTurn": "Du bist dran",
     "lobby.chipResultWaits": "Ergebnis wartet",
@@ -444,6 +486,32 @@ export const words: Words = {
     "table.openForAll": "Offen für alle",
     "table.sideYou": "Du",
     "table.weiter": "Weiter",
+    "table.seriesCount": (gaps: { readonly count: number; readonly game: string }) => "Spiel " + gaps.game + " von " + numberFormat.format(gaps.count),
+    "table.seriesList": "Liste der Spiele",
+    "table.seriesListTitle": "Spiele",
+    "table.seriesListEmpty": "Noch kein Spiel gespielt",
+    "table.seriesListFailed": "Die Liste lässt sich nicht laden.",
+    "table.seriesEnded": "Serie zu Ende",
+    "table.seriesGames": (count: number) => ({
+        zero: numberFormat.format(count) + " Spiele",
+        one: numberFormat.format(count) + " Spiel",
+        two: numberFormat.format(count) + " Spiele",
+        few: numberFormat.format(count) + " Spiele",
+        many: numberFormat.format(count) + " Spiele",
+        other: numberFormat.format(count) + " Spiele",
+    })[pluralRules.select(count)],
+    "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => gaps.won + " gewonnen · " + gaps.lost + " verloren",
+    "table.seriesGone": "gegangen",
+    "table.seriesNameless": "Jemand",
+    "table.seriesRamschOf": (gaps: { readonly name: string }) => "Ramsch, " + gaps.name,
+    "table.seriesPushed": (gaps: { readonly count: number }) => numberFormat.format(gaps.count) + "× geschoben",
+    "table.newSeries": "Neue Serie",
+    "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " will die Serie beenden",
+    "table.endSeries": "Serie beenden",
+    "table.endSeriesSure": "Wirklich beenden?",
+    "table.yes": "Ja",
+    "table.no": "Nein",
+    "table.watchingOnly": "Du schaust zu",
     "table.readyMark": "Weiter getippt",
     "table.notReadyMark": "noch nicht getippt",
     "result.seatFree": "Frei",
@@ -498,6 +566,7 @@ export const words: Words = {
     "rules.bockLeft": (gaps: { readonly count: number }) => "noch " + numberFormat.format(gaps.count),
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }): readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[] => [{ marker: "side", text: gaps.side }, " ", { marker: "tally", text: gaps.points }],
     "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
+    "result.eyeCount": (gaps: { readonly name: string; readonly points: string }) => gaps.name + " " + gaps.points,
     "result.loses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.losesTogether": (gaps: { readonly names: string }) => gaps.names + " verlieren",
     "result.byTen": "÷ 10",
@@ -530,6 +599,7 @@ export const words: Words = {
         many: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
         other: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
     })[pluralRules.select(count)],
+    "closed.closedBy": (gaps: { readonly name: string }) => gaps.name + " hat den Tisch geschlossen",
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "push.takeSkat": "Skat nehmen",
@@ -600,6 +670,10 @@ export const words: Words = {
     "table.playingOn": (gaps: { readonly names: string }) => gaps.names + " spielen weiter",
     "table.sitQuestion": "Mitten ins Spiel setzen?",
     "table.sitQuestionCancel": "Abbrechen",
+    "table.close": "Tisch schließen",
+    "table.closeQuestion": "Tisch für alle schließen?",
+    "table.closeConfirm": "Schließen",
+    "table.closeCancel": "Abbrechen",
     "table.takeOverNamed": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "s Karten.",
     "table.takeOverApostrophe": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "’ Karten.",
     "table.takeOverUnnamed": "Du übernimmst die Karten dieses Platzes.",
@@ -609,6 +683,12 @@ export const words: Words = {
     "start.ruleSets": "Regeln",
     "start.setOfficial": "Offiziell",
     "start.setsUnreadable": "Deine eigenen Regeln ließen sich nicht lesen.",
+    "start.saveRules": "Als eigene Regeln speichern",
+    "start.saveName": "Name",
+    "start.savedNameWith": (gaps: { readonly rules: string; readonly set: string }) => gaps.set + ", mit " + gaps.rules,
+    "start.savedNameAdjusted": (gaps: { readonly set: string }) => gaps.set + ", angepasst",
+    "start.saveNameTaken": "Diesen Namen hast du schon für andere Regeln.",
+    "start.saveFailed": "Die Regeln ließen sich nicht speichern.",
     "start.ruleKontra": "Kontra und Re",
     "start.ruleKontraLine": "Verdoppeln und zurückdoppeln",
     "start.ruleRamsch": "Ramsch beim Einpassen",

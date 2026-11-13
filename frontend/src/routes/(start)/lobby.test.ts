@@ -194,6 +194,16 @@ describe("cardOf", () => {
             expect(seats[0]?.hold?.title).toBe("Annas Platz wird in 5 Minuten frei");
         });
 
+        it("titles the place of a person whose name ends in a sibilant with an apostrophe", () => {
+            const table = tableOf({
+                dealt: false,
+                game_number: 0,
+                chairs: [chairOf(0, { occupant_name: "Max", is_away: true, hold_seconds_left: 300 })],
+            });
+
+            expect(cardOf(table, NOW, 0).seats[0]?.hold?.title).toBe("Max' Platz wird in 5 Minuten frei");
+        });
+
         it("counts down with the time the page has held the list", () => {
             expect(cardOf(waitingTable(), NOW, 61 * SECOND).seats[2]?.hold?.note).toBe("noch 3 Min");
             expect(cardOf(waitingTable(), NOW, 239 * SECOND).seats[2]?.hold?.note).toBe("noch 1 Min");

@@ -15,13 +15,14 @@ from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.result_card import (
     CARD,
     LOST,
-    MINUS,
     OVERBID,
     TIMES,
     WON,
     YOU,
     expect_the_page_around_the_card,
+    expect_the_seat_tiles_inside_the_card,
     loosely,
+    signed,
     waiting_for,
 )
 from tests.e2e.support.tables import SIT_DOWN
@@ -42,6 +43,8 @@ COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 READY_MARK = ".mark.ready"
+ROUND_KEY_PIXELS = 52
+PHONE_BREAKPOINT = 900
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
@@ -123,14 +126,6 @@ def deal_a_finished_hand(
         return table
 
     return deal
-
-
-def with_minus(number: int) -> str:
-    return f"{MINUS}{-number}" if number < 0 else str(number)
-
-
-def signed(number: int) -> str:
-    return with_minus(number) if number < 0 else f"+{number}"
 
 
 def awaited(table: PlayingTable, ready: set[int]) -> list[str]:
@@ -273,6 +268,7 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     table = deal_a_finished_hand(form_factor, declaring=declaring)
     first, second = (seat for seat in table.names if seat != table.declarer_seat)
     expect_the_card(table)
+    expect_the_seat_tiles_inside_the_card(table.everyone)
     expect_the_page_around_the_card(table.everyone)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
@@ -372,15 +368,36 @@ def test_the_wait_pill_stays_as_tall_as_the_link_button_with_two_25_character_na
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_bar_of_the_opener_with_weiter_and_its_close_key_stays_inside_the_page(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES, opener_name=FULL_LENGTH_OPENER)
+    opener = next(person for person in table.pages.values() if person.locator(".copy.close").count() == 1)
+
+    expect(opener.locator(".actions").get_by_role("button", name=WEITER)).to_be_visible()
+
+    expect_the_bars_inside_the_pages(table)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_stand_up_button_keeps_its_word_while_the_bar_waits(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand(form_factor)
-    bar = table.pages[table.declarer_seat].locator(".actions")
+    bar = next(person for person in table.pages.values() if person.locator(".copy.close").count() == 0).locator(
+        ".actions"
+    )
     bar.get_by_role("button", name=WEITER).click()
     expect(bar.get_by_role("status")).to_be_visible()
-    label = bar.get_by_role("button", name=STAND_UP).locator(".label")
-    assert label.evaluate("label => Math.ceil(label.getBoundingClientRect().width) >= label.scrollWidth")
+    key = bar.get_by_role("button", name=STAND_UP)
+    box = key.bounding_box()
+    assert box is not None
+    if form_factor["viewport"]["width"] < PHONE_BREAKPOINT:
+        # Beside the key that proposes the end the phone's stand-up keeps its mark alone.
+        assert box["width"] <= ROUND_KEY_PIXELS
+    else:
+        label = key.locator(".label")
+        assert label.evaluate("label => Math.ceil(label.getBoundingClientRect().width) >= label.scrollWidth")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -545,6 +562,12 @@ def test_the_laid_name_tags_of_ordinary_names_show_each_name_whole(
             "names => names.filter(name => name.scrollWidth > name.clientWidth).map(name => name.textContent)"
         )
         assert clipped == []
+        # Each tag hangs below its own card by the same distance, so no tag steps below the others.
+        drops = person.locator(".trick .laid").evaluate_all(
+            "cards => cards.map(card => { const tag = card.querySelector('.tag');"
+            " return tag.offsetTop + tag.offsetHeight - card.offsetHeight; })"
+        )
+        assert len(set(drops)) == 1
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

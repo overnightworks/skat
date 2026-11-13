@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handWaits, lockedChairs, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
+import { handWaits, lockedChairs, noticeStanding, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
 import { declarerStage, type Chair, type Hand, type Table } from "../routes/(start)/tables.ts";
 
@@ -52,6 +52,7 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         version: 1,
         chairs,
         watchers: 0,
+        opened_by_me: false,
         hand,
         result: null,
         passed_in: null,
@@ -63,7 +64,7 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
     };
 }
 
-const felix = chairOf(1, "Felix", "person");
+const felix = { ...chairOf(1, "Felix", "person"), is_mine: true };
 const anna = chairOf(2, "Anna", "person");
 const novaThere = chairOf(OPEN_SEAT, "Nova", "agent");
 const openAfterNova = chairOf(OPEN_SEAT, null, null, "Nova");
@@ -111,6 +112,8 @@ describe("the notice to the others about a chair of the running hand", () => {
         expect(seatNotice(before, after)).toEqual({
             text: words["table.agentLeft"]({ name: "Nova" }),
             initials: [null],
+            seat: OPEN_SEAT,
+            occupied: false,
         });
     });
 
@@ -121,7 +124,26 @@ describe("the notice to the others about a chair of the running hand", () => {
         expect(seatNotice(before, after)).toEqual({
             text: words["table.standUpNotice"]({ name: "Lena" }),
             initials: ["L"],
+            seat: OPEN_SEAT,
+            occupied: false,
         });
+    });
+
+    it("tells a viewer who holds no chair of the hand that a person stood up but not that an agent left", () => {
+        const watcher = { ...felix, is_mine: false };
+        const lena = chairOf(OPEN_SEAT, "Lena", "person");
+        const standing = seatNotice(
+            tableOf(handOf(null), watcher, anna, lena),
+            tableOf(handOf(OPEN_SEAT), watcher, anna, chairOf(OPEN_SEAT, null, null, "Lena")),
+        );
+
+        expect(standing?.text).toBe(words["table.standUpNotice"]({ name: "Lena" }));
+        expect(
+            seatNotice(
+                tableOf(handOf(null), watcher, anna, novaThere),
+                tableOf(handOf(OPEN_SEAT), watcher, anna, openAfterNova),
+            ),
+        ).toBeNull();
     });
 
     it("says nothing to the person who stood up herself", () => {
@@ -161,6 +183,8 @@ describe("the notice to the others about a chair of the running hand", () => {
         expect(seatNotice(before, after)).toEqual({
             text: words["table.playsOn"]({ name: taker.occupant_name as string }),
             initials: [initial],
+            seat: OPEN_SEAT,
+            occupied: true,
         });
     });
 
@@ -176,6 +200,22 @@ describe("the notice to the others about a chair of the running hand", () => {
         const after = tableOf(null, felix, anna, novaThere);
 
         expect(seatNotice(before, after)).toBeNull();
+    });
+});
+
+describe("a notice that stands on a streamed table", () => {
+    const left = { text: "Nova ist gegangen", initials: [null], seat: OPEN_SEAT, occupied: false };
+    const sits = { text: "Nova setzt sich", initials: [null], seat: OPEN_SEAT, occupied: true };
+
+    it.each([
+        ["an open chair stays open", left, openAfterNova, left],
+        ["an occupied chair stays occupied", sits, novaThere, sits],
+        ["someone sits in the chair the notice says left", left, novaThere, null],
+        ["the agent leaves the chair the notice says it sat in", sits, openAfterNova, null],
+        ["the notice names no chair", { ...left, seat: null }, novaThere, { ...left, seat: null }],
+        ["there is no notice", null, novaThere, null],
+    ])("when %s", (_case, shown, chair, standing) => {
+        expect(noticeStanding(shown, tableOf(handOf(null), felix, anna, chair))).toEqual(standing);
     });
 });
 

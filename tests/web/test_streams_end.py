@@ -83,6 +83,7 @@ class TestTheStreamRoute:
             "reason": "empty",
             "empty_seconds": hold.settings.empty_table_seconds,
             "unplayed_days": None,
+            "closed_by_name": None,
         }
         assert (message["chairs"], message["hand"], message["result"], message["watchers"]) == ([], None, None, 0)
 
@@ -136,6 +137,6 @@ class TestAnUnplayedEnd:
             message = next(open_page)
 
         old_link = unplayed.client.get(f"{TABLES_PATH}/{table_id}", headers=ben[0]).json()
-        expected = {"reason": "unplayed", "empty_seconds": None, "unplayed_days": self.DAYS}
+        expected = {"reason": "unplayed", "empty_seconds": None, "unplayed_days": self.DAYS, "closed_by_name": None}
         assert (message["ended"], old_link["ended"]) == (expected, expected)
         assert (old_link["chairs"], old_link["hand"], old_link["watchers"]) == ([], None, 0)

@@ -20,6 +20,7 @@ export const TABLE_ID_PATTERN = "[0-9a-f]{32}";
 export const TABLE_EVENTS_SUFFIX = "/events";
 export const TABLE_SIT_SUFFIX = "/sit";
 export const TABLE_STAND_SUFFIX = "/stand";
+export const TABLE_CLOSE_SUFFIX = "/close";
 export const TABLE_DECLARING_TAKE_SUFFIX = "/declaring/take";
 export const TABLE_DECLARING_PUT_BACK_SUFFIX = "/declaring/put-back";
 export const TABLE_DECLARING_DECLARE_SUFFIX = "/declaring/declare";
@@ -37,8 +38,10 @@ export const TABLE_GIVE_UP_AGREE_SUFFIX = "/give-up/agree";
 export const TABLE_GIVE_UP_DECLINE_SUFFIX = "/give-up/decline";
 export const TABLE_LIST_SUFFIX = "/list";
 export const TABLE_KONTRA_SUFFIX = "/kontra";
-export const TABLE_NO_WORD_SUFFIX = "/kontra/no-word";
 export const TABLE_READY_SUFFIX = "/ready";
+export const TABLE_NEW_SERIES_SUFFIX = "/new-series";
+export const TABLE_SERIES_END_AGREE_SUFFIX = "/series-end/agree";
+export const TABLE_SERIES_END_REFUSE_SUFFIX = "/series-end/refuse";
 export const TABLE_AGENTS_SUFFIX = "/agents";
 export const TABLE_AGENT_CALL_SUFFIX = "/call";
 export const TABLE_AGENT_SEND_AWAY_SUFFIX = "/send-away";
@@ -61,7 +64,7 @@ export const LEVEL_TOKENS = [
     "schwarz_announced",
     "ouvert",
 ] as const;
-export const END_REASON_TOKENS = ["empty", "unplayed"] as const;
+export const END_REASON_TOKENS = ["empty", "unplayed", "closed"] as const;
 export const KONTRA_SAYER_TOKENS = ["any-opponent", "bidders-only"] as const;
 export const KONTRA_REACH_TOKENS = ["kontra-re", "kontra-re-standings", "up-to-hirsch"] as const;
 export const KONTRA_DEADLINE_TOKENS = ["own-card", "first-card"] as const;
@@ -96,6 +99,7 @@ export const SERIES_LENGTH_MAX = 99;
 export const SERIES_LENGTH_STEP = 3;
 export const SERIES_LENGTH_DEFAULT = 36;
 export const CHAIRS_PER_TABLE = 3;
+export const RULE_SET_NAME_MAX = 40;
 export const SWITCH_ON_OPTIONS = {
     show_running_points: false,
     kontra: {

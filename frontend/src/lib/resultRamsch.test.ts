@@ -106,7 +106,7 @@ describe("a Ramsch result's card", () => {
         expect(view.eyes).toBe(eyes);
         expect(view.chips).toEqual(chips);
         expect(view.score).toBe(score);
-        expect(view.counts.map((count) => `${count.name} ${String(count.points)}`)).toEqual(counts);
+        expect(view.counts.map((count) => count.text)).toEqual(counts);
     });
 
     it("marks the loser's own head as lost and the sweeper's as won", () => {
@@ -135,7 +135,11 @@ describe("a Ramsch result's card", () => {
         const view = drawnRamsch(ramschTable(NOBODY, OTHER_LOSES, { 2: { occupant_name: null } }));
 
         expect(view.word).toBe(`${words["result.seatFree"]} verliert`);
-        expect(view.counts.map((count) => count.name)).toEqual(["Anna", words["result.seatFree"], "Felix"]);
+        expect(view.counts.map((count) => count.text)).toEqual([
+            "Anna 14",
+            `${words["result.seatFree"]} 86`,
+            "Felix 20",
+        ]);
     });
 
     it.each([

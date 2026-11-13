@@ -18,7 +18,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import self_signed_tolerant_context
 from tests.e2e.support.server import skat_in_directory
-from tests.e2e.support.tables import open_new_table, table_id_of, watchers_of
+from tests.e2e.support.tables import RECONNECT_MILLISECONDS, open_new_table, table_id_of, watchers_of
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -37,8 +37,6 @@ FIRST_EVENT = """(url) => new Promise((resolve) => {
     source.onmessage = (event) => { source.close(); resolve(event.data); };
 })"""
 RECONNECTING = word_text(SOURCE_LANGUAGE, "table.reconnecting")
-# The browser asks again a few seconds after a failed stream.
-RECONNECT_TIMEOUT_MILLISECONDS = 15_000
 
 
 def table_version(server: RunningServer, path: str) -> int:
@@ -132,6 +130,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
             "options",
             "bock",
             "ended",
+            "opened_by_me",
         }
         assert {key for chair in event["chairs"] for key in chair} == {
             "seat",
@@ -170,7 +169,7 @@ def test_a_stream_the_network_refuses_dims_the_view_with_verbinde_neu_and_the_cu
     watch(other, e2e_server, path)
     opener.unroute(events)
 
-    expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_TIMEOUT_MILLISECONDS)
+    expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_MILLISECONDS)
     expect(opener.locator(".stale")).to_have_count(0)
     expect(watchers_of(opener)).to_have_text("1")
 
@@ -209,7 +208,7 @@ def test_a_stream_that_drops_after_its_view_dims_the_last_view_and_recovers_with
     watch(other, e2e_server, path)
     opener.unroute(events)
 
-    expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_TIMEOUT_MILLISECONDS)
+    expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_MILLISECONDS)
     expect(opener.locator(".stale")).to_have_count(0)
     expect(watchers_of(opener)).to_have_text("1")
     assert opener.evaluate("window.sameDocument === true")

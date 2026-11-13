@@ -162,6 +162,8 @@ describe("the notice that the opponents play on", () => {
         expect(refusalNotice(tableWith(DECLARER, null).chairs, [FIRST_OPPONENT, SECOND_OPPONENT])).toEqual({
             text: words["table.playingOn"]({ names: "player 1 und player 3" }),
             initials: ["p", "p"],
+            seat: null,
+            occupied: false,
         });
     });
 });

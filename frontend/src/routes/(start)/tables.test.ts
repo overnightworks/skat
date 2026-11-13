@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
+import { seriesAt } from "#lib/series.fixtures.ts";
 import {
     AUTH_START_PATH,
     CALL_MODE,
@@ -15,32 +17,42 @@ import {
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_GIVE_UP_SUFFIX,
+    TABLE_LIST_SUFFIX,
+    TABLE_NEW_SERIES_SUFFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
     TABLE_READY_SUFFIX,
+    TABLE_SERIES_END_AGREE_SUFFIX,
+    TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_SIT_SUFFIX,
+    TABLE_CLOSE_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
     answerAbort,
     answerGiveUp,
+    answerSeriesEnd,
     createTable,
     giveUp,
     markReady,
     type OptionsRequest,
     playCard,
     readRuleSets,
+    readSeriesList,
     readTable,
+    saveRuleSet,
     seriesNumberOf,
+    startNewSeries,
     sitDown,
     standUp,
+    closeTable,
     takeDeclaringStep,
     takePushingStep,
     takeAuctionStep,
@@ -62,8 +74,6 @@ class FakeEventSource {
         this.listeners.get("message")?.({ data } as MessageEvent<string>);
     }
 }
-
-const TABLE_ID = "a".repeat(32);
 
 describe("watchTable after a stream error", () => {
     // The marker is taken once per document, so each test loads the module afresh.
@@ -174,7 +184,10 @@ describe("watchTable after a stream error", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
         watchTable(TABLE_ID, onTable, vi.fn(), onConnection);
-        const ended = { id: TABLE_ID, ended: { reason: "empty", empty_seconds: 1800, unplayed_days: null } };
+        const ended = {
+            id: TABLE_ID,
+            ended: { reason: "empty", empty_seconds: 1800, unplayed_days: null, closed_by_name: null },
+        };
 
         FakeEventSource.last.message(JSON.stringify(ended));
         fail();
@@ -388,6 +401,40 @@ describe("asking for a table", () => {
         expect(await readRuleSets()).toEqual({ kind: "failed" });
     });
 
+    it("sends the name and the options of the sheet when saving a rule set and answers the saved set", async () => {
+        const options: OptionsRequest = { show_running_points: true };
+        const set = { id: "set-1", name: "Abend", options: { ...SWITCH_ON_OPTIONS, show_running_points: true } };
+        answerWith(Response.json(set));
+
+        expect(await saveRuleSet("Abend", options)).toEqual({ kind: "saved", set });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(RULE_SETS_PATH);
+        expect((init as { method: string }).method).toBe("POST");
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ name: "Abend", options });
+    });
+
+    it("sends no options as the official rules when saving a rule set", async () => {
+        answerWith(Response.json({ id: "set-1", name: "Abend", options: SWITCH_ON_OPTIONS }));
+
+        await saveRuleSet("Abend", undefined);
+
+        const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ name: "Abend", options: {} });
+    });
+
+    it.each([
+        ["a name that holds other options", () => Response.json({ reason: "name-taken" }, { status: 409 }), "taken"],
+        ["a refusal", () => Response.json({}, { status: 422 }), "failed"],
+        ["a conflict of another reason", () => Response.json({ reason: "other" }, { status: 409 }), "failed"],
+        ["an answer that is not JSON", () => new Response("<html>", { status: 200 }), "failed"],
+        ["no answer", () => new TypeError("offline"), "failed"],
+    ])("answers %s when saving a rule set", async (_name, answer, kind) => {
+        answerWith(answer());
+
+        expect(await saveRuleSet("Abend", undefined)).toEqual({ kind });
+    });
+
     it("sends the command id and the chair when sitting down", async () => {
         answerWith(Response.json(table));
 
@@ -396,6 +443,16 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_SIT_SUFFIX}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1", seat: 2 });
+    });
+
+    it("sends only the command id when closing the table", async () => {
+        answerWith(Response.json(table));
+
+        expect(await closeTable(TABLE_ID, "command-3")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_CLOSE_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3" });
     });
 
     it("sends only the command id when standing up", async () => {
@@ -409,7 +466,7 @@ describe("asking for a table", () => {
     });
 
     it.each([
-        { series: { number: 3 }, expected: 3 },
+        { series: seriesAt({ number: 3 }), expected: 3 },
         { series: null, expected: 1 },
     ])("names series $expected for a table whose series is $series", ({ series, expected }) => {
         expect(seriesNumberOf({ series })).toBe(expected);
@@ -586,6 +643,46 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-6" });
+    });
+
+    it("sends the command id and the series' number when starting the next series", async () => {
+        answerWith(Response.json(table));
+
+        expect(await startNewSeries(TABLE_ID, "command-7", 2)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_NEW_SERIES_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-7", series: 2 });
+    });
+
+    it.each([
+        { answer: "agree", suffix: TABLE_SERIES_END_AGREE_SUFFIX },
+        { answer: "refuse", suffix: TABLE_SERIES_END_REFUSE_SUFFIX },
+    ] as const)("sends the command id alone to $suffix", async ({ answer, suffix }) => {
+        answerWith(Response.json(table));
+
+        expect(await answerSeriesEnd(TABLE_ID, "command-8", answer)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-8" });
+    });
+
+    it("reads the series' list in the order played", async () => {
+        answerWith(Response.json({ entries: [{ kind: "ramsch", number: 1 }] }));
+
+        expect(await readSeriesList(TABLE_ID)).toEqual([{ kind: "ramsch", number: 1 }]);
+        expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_LIST_SUFFIX}`);
+    });
+
+    it.each([
+        ["a refusal", new Response(null, { status: 404 })],
+        ["an answer that is no list", new Response("<html>", { status: 200 })],
+        ["no answer", new Error("offline")],
+    ])("reads no list from %s", async (_name, response) => {
+        answerWith(response);
+
+        expect(await readSeriesList(TABLE_ID)).toBeNull();
     });
 
     it("reports a taken chair with who holds it", async () => {

@@ -1,18 +1,22 @@
 import json
 import re
 import uuid
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from playwright.sync_api import expect
 
 from skat.table.records import SERIES_LENGTH_DEFAULT, TABLE_ID_PATTERN
+from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from playwright.sync_api import Page
 
     from tests.e2e.support.raw_http import RawSession
@@ -21,6 +25,8 @@ if TYPE_CHECKING:
 OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
 RUNNING_POINTS_SWITCH = text(SOURCE_LANGUAGE, "start.rulePoints")
 SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
+# The browser asks again a few seconds after a failed stream.
+RECONNECT_MILLISECONDS = 15_000
 TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}{TABLE_ID_PATTERN}$")
 
 
@@ -51,6 +57,15 @@ def open_table_with_options(
     path = f"{TABLE_PAGE_PREFIX}{opened['id']}"
     watch(person, server, path)
     return path
+
+
+@contextmanager
+def until_the_agents_are_read(person: Page) -> Iterator[None]:
+    """Waits, once the block has run, for the page's first read of the agents, which the page makes once its stream
+    brings the first table; a read still on its way when the table ends is answered 404 and the browser logs that.
+    """
+    with person.expect_response(lambda response: urlsplit(response.url).path.endswith(TABLE_AGENTS_SUFFIX)):
+        yield
 
 
 def save_rule_set(session: RawSession, name: str, options: dict[str, object]) -> None:

@@ -17,6 +17,10 @@ ACKNOWLEDGED = "notifications/subscriptions/acknowledged"
 UPDATED = "notifications/resources/updated"
 
 
+def agent_account_id(skat):
+    return skat.stores.accounts.get(SUBJECT).id
+
+
 def view_uri_of(table_id):
     """The resource a seated agent reads its table through."""
     return place_view_uri(PlaceRef(kind="table", id=table_id))

@@ -702,6 +702,11 @@ body {
     background: #7aa7f0;
 }
 
+.sheet .btns .confirm.leave {
+    color: #fff;
+    background: #cf3238;
+}
+
 .sheet .btns .cancel {
     color: var(--on-stage);
     background: var(--glass);
@@ -982,6 +987,8 @@ body {
     padding: 8px 24px 24px;
     box-sizing: border-box;
     --chair-width: clamp(88px, 28vw, 120px);
+    /* The phone frame is drawn for 390 px; below that the cards of the hand and the trick shrink with the viewport so all ten fit. */
+    --table-card-width: min(64px, calc(100vw * 64 / 390));
     /* The declarer's ten cards lie face up in two staggered rows in front of the chair; the second row sits half a step in. */
     --open-width: 54px;
     --open-step: calc(var(--open-width) / 2);
@@ -1003,6 +1010,29 @@ body {
     font-size: 15px;
     font-weight: 600;
     white-space: nowrap;
+}
+
+/* On a phone the plaque lies on the felt under the far chairs, as the scenes draw it, and hangs into the free top of the trick's row: the cards of the trick lie below it however many lines it has, and the bar keeps its place on the screen. A plaque wider than the gap between the far chairs, one over a declarer's open cards and one over a result card keep their row above the chairs. */
+@media (max-width: 899px) {
+    /* The far chairs stand at the felt's rim, as the scenes draw them, so the plaque between them keeps clear of their fans. */
+    .room .chair:nth-child(1) {
+        justify-self: start;
+        margin-left: -14px;
+    }
+
+    .room .chair:nth-child(2) {
+        justify-self: end;
+        margin-right: -14px;
+    }
+
+    .room .stage:not(:has(.open-row, > .result)) .plaque:not(.wide) {
+        position: relative;
+        z-index: 2;
+        grid-row: 2;
+        align-self: start;
+        margin-top: calc(var(--chair-width) * 0.75 + 18px);
+        margin-bottom: calc(var(--table-card-width) * -1.07);
+    }
 }
 
 .room .dots {
@@ -1047,7 +1077,10 @@ body {
     margin: 36px 0;
     border-radius: 50%;
     background: radial-gradient(ellipse at 50% 40%, #24855f, #166443 60%, #0b3b2a);
+    /* The rim is wood with a brass inlay line in it. */
     box-shadow:
+        0 0 0 5.1px #57331b,
+        0 0 0 6.5px rgba(201, 164, 100, 0.8),
         0 0 0 10px #57331b,
         0 24px 40px -12px rgba(0, 0, 0, 0.9);
 }
@@ -1234,6 +1267,10 @@ body {
     .room .mark.pos ~ .mark.away {
         top: 14px;
     }
+}
+
+.room .plate:has(.away-note) {
+    padding-inline: 8px;
 }
 
 .room .plate .away-note {
@@ -1833,10 +1870,11 @@ body {
     text-transform: uppercase;
 }
 
+/* The away mark beside another mark stands a pixel above it, so the coaster at the chair's inner corner does not touch it. */
 .room .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
     right: auto;
     left: 6px;
-    top: 16px;
+    top: 15px;
 }
 
 /* The declarer's star: a chair is too small for its word, so the star shows alone and the word stays for assistive reading. */
@@ -1981,6 +2019,26 @@ body {
 
 .room .chair:is(:nth-child(1), :nth-child(2)):has(.count-tag) .bubble {
     top: calc(100% + 94px);
+}
+
+/* On a phone the far chairs stand at the felt's rim, so their bubbles open toward the middle from the chair's own edge and stay on the screen. */
+@media (max-width: 899px) {
+    .room .chair:nth-child(1) .bubble {
+        right: auto;
+        left: 0;
+        --tail: calc(var(--chair-width) * 0.5);
+    }
+
+    .room .chair:nth-child(2) .bubble {
+        right: 0;
+        left: auto;
+    }
+
+    .room .chair:nth-child(2) .bubble::after {
+        right: calc(var(--chair-width) * 0.5);
+        left: auto;
+        transform: translateX(50%) rotate(45deg);
+    }
 }
 
 /* The near chair speaks to its left, clear of its fan above and of the own controls. */
@@ -2318,9 +2376,8 @@ body {
     position: absolute;
 }
 
-/* The phone frame is drawn for 390 px; below that the fan shrinks with the viewport so all ten cards fit. */
 .room .own-hand {
-    --card-width: min(64px, calc(100vw * 64 / 390));
+    --card-width: var(--table-card-width);
     --strip: calc(var(--card-width) / 2);
     --strip-lifted: min(56px, calc(100vw * 56 / 390));
     --fan-turn: 1.5deg;
@@ -2613,7 +2670,7 @@ body {
     margin: 0;
     padding: 0;
     list-style: none;
-    --card-width: min(64px, calc(100vw * 64 / 390));
+    --card-width: var(--table-card-width);
 }
 
 /* In a call frame below 780 px the trick takes three card widths, room for its laid cards, so the call strip stays in the frame. */
@@ -2878,9 +2935,9 @@ body {
     background: var(--on-stage);
 }
 
-/* On a phone the far tags stand no further from the near tag than a full-length name is wide: the near tag steps below them. */
+/* On a phone the far tags stand no further from the near tag than a full-length name is wide: where a name is cut, the near tag steps below them. */
 @media (max-width: 899px) {
-    .room .laid.near .tag {
+    .room .trick.stepped .laid.near .tag {
         bottom: calc(var(--card-width) * -0.12 - 6px);
     }
 }
@@ -3409,6 +3466,37 @@ body {
 .room .notice .label {
     flex-shrink: 0;
     white-space: nowrap;
+}
+
+/* The notice about a chair stands on the top of the felt between the far chairs, where no card of a trick, no bubble of a call and no plaque lies; on a phone its sentence wraps inside the gap. */
+.room .notice.seat {
+    grid-row: 2;
+    align-self: start;
+    margin-top: 28px;
+}
+
+@media (max-width: 899px) {
+    /* The gap between the far chairs is 138 px at 360, so the pill packs tight and its longest word breaks inside it rather than past its edge. */
+    .room .notice.seat {
+        box-sizing: border-box;
+        max-width: calc(100% - 2 * (var(--chair-width) - 14px) - 8px);
+        gap: 6px;
+        padding: 5px 10px 5px 5px;
+        font-size: 13px;
+    }
+
+    .room .notice.seat .dot {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+
+    .room .notice.seat .label {
+        flex-shrink: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
 }
 
 .room .notice b {
@@ -4016,6 +4104,81 @@ body {
     --ink: #6b6f78;
 }
 
+/* The card packs as tight as the 390 px scene draws it, so its seat tiles stay whole on a short phone. */
+@media (max-width: 899px) {
+    .room .result {
+        gap: 8px;
+        margin: 16px 0 8px;
+        padding: 14px;
+    }
+
+    .room .result h3 {
+        font-size: 30px;
+    }
+
+    .room .result .reck {
+        gap: 2px;
+        padding: 8px 4px;
+    }
+
+    .room .result .reck .dot {
+        width: 26px;
+        height: 26px;
+    }
+
+    .room .result .reck .dl {
+        font-size: 20px;
+    }
+}
+
+/* On a 360 px phone the room between the chairs is 26 px shorter than the 390 px scene's, so the card packs once more and its seat tiles stay inside it, whole, without a scroll. */
+@media (max-width: 899px) and (max-height: 779px) {
+    .room .result {
+        margin: 8px 0 6px;
+    }
+
+    .room .result h3 {
+        font-size: 28px;
+    }
+
+    .room .result .value {
+        font-size: 34px;
+    }
+
+    .room .result.snug {
+        padding: 10px 14px;
+    }
+
+    .room .result .reck {
+        padding: 6px 4px;
+    }
+
+    .room .result .reck .dot {
+        width: 22px;
+        height: 22px;
+    }
+}
+
+/* On a 360 px phone the card is 296 px wide inside, so its chips of a game that reached Schwarz pack tight and keep one row. */
+@media (max-width: 389px) {
+    .room .stage:has(> .result) {
+        padding-inline: 12px;
+    }
+
+    .room .result .ladder {
+        gap: 4px;
+    }
+
+    .room .result .ladder > span {
+        padding: 0 5px;
+        font-size: 13px;
+    }
+
+    .room .result .ladder > span.held {
+        gap: 2px;
+    }
+}
+
 @property --n {
     syntax: "<integer>";
     inherits: false;
@@ -4037,7 +4200,7 @@ body {
         position: absolute;
         right: 0;
         color: var(--ink);
-        content: "+" counter(n);
+        content: "+" counter(n) / "";
     }
 
     @keyframes count {
@@ -4074,22 +4237,20 @@ body {
 }
 
 .room .copy.wait {
-    display: block;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
     height: auto;
     min-height: 52px;
     box-sizing: border-box;
     padding-block: 14px;
     border-radius: 26px;
     cursor: default;
+    font-size: 15px;
     line-height: 1.2;
     text-align: center;
     text-wrap: balance;
     overflow-wrap: anywhere;
-}
-
-.room .copy.wait .dots {
-    margin-left: 6px;
-    vertical-align: middle;
 }
 
 .room .copy:disabled {
@@ -4177,22 +4338,22 @@ body {
         gap: 8px;
     }
 
-    /* The pill stays as tall as its neighbours: three lines of its small type fill the 52px, and longer names end in an ellipsis.
-       The clip edge is the content box, so no fourth line peeks into the padding. The hopping dots are left out on a phone,
-       as the frozen scene leaves them out. */
+    /* The pill stays as tall as its neighbours and holds its words centred: up to three lines of its type fit the 52px,
+       and longer names end in an ellipsis. The hopping dots are left out on a phone, as the frozen scene leaves them out. */
     .room .actions.on-result .copy.wait {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-box-pack: center;
-        -webkit-line-clamp: 3;
         flex: 0 1 auto;
         min-width: 0;
-        padding-block: calc((52px - 3.3em) / 2);
+        padding-block: 0;
         padding-inline: 12px;
-        font-size: 12px;
         line-height: 1.1;
+    }
+
+    .room .actions.on-result .copy.wait .words {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        min-width: 0;
         overflow: clip;
-        overflow-clip-margin: content-box;
     }
 
     .room .actions.on-result .copy.wait .dots {
@@ -4200,7 +4361,7 @@ body {
     }
 
     /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
-    .room .actions.on-result:has(> .copy:not(.link)) .copy.link {
+    .room .actions:has(> .copy:not(.link)) .copy.link {
         justify-content: center;
         align-self: center;
         width: 52px;
@@ -4208,7 +4369,7 @@ body {
         padding: 0;
     }
 
-    .room .actions.on-result:has(> .copy:not(.link)) .copy.link .label {
+    .room .actions:has(> .copy:not(.link)) .copy.link .label {
         display: none;
     }
 
@@ -4217,8 +4378,11 @@ body {
         flex-wrap: wrap;
     }
 
-    /* In a call the speaker is the fourth button and the bar stays one row, and during a hand the strip has no room for two words: the stand-up keeps its mark alone and its word for assistive technology. */
+    /* In a call the speaker is the fourth button and the bar stays one row, as it does with the key that proposes the end, during a hand the strip has no room for two words,
+       and the opener's close key is one more button beside the link: the stand-up keeps its mark alone and its word for assistive technology. */
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up),
+    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up),
+    .room .actions.on-result:has(.copy.close) .copy.stand,
     .room .copy.round {
         position: relative;
         box-sizing: border-box;
@@ -4228,6 +4392,8 @@ body {
     }
 
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up) .label,
+    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up) .label,
+    .room .actions.on-result:has(.copy.close) .copy.stand .label,
     .room .copy.round .label {
         position: absolute;
         width: 1px;
@@ -4275,11 +4441,10 @@ body {
     }
 }
 
-/* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller type and padding. */
+/* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller padding. */
 @media (max-width: 379px) {
     .room .actions.on-result .copy.wait {
         padding-inline: 8px;
-        font-size: 11px;
     }
 }
 
@@ -4328,6 +4493,49 @@ body {
         to {
             transform: scaleX(0);
         }
+    }
+}
+
+/* The opener's close key: the leave red, dark enough for white text, with its word at 900 px and wider and the mark alone, round, on a phone. */
+.room .copy.close {
+    color: #fff;
+    background: #cf3238;
+    backdrop-filter: none;
+}
+
+@media (max-width: 899px) {
+    .room .actions .copy.close {
+        position: relative;
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .copy.close .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
+
+/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and on the narrowest the gaps and the words' padding give way too, so the row stays inside the screen. */
+@media (max-width: 899px) {
+    .room .actions:has(.copy.close) .copy.kontra svg {
+        display: none;
+    }
+}
+
+@media (max-width: 383px) {
+    .room .actions:has(.give-up):has(.copy.close) {
+        gap: 4px;
+    }
+
+    .room .actions:has(.give-up):has(.copy.close) .copy:is(.give-up, .kontra):not(.round) {
+        padding-inline: 10px;
     }
 }
 
@@ -4404,6 +4612,19 @@ body {
     height: 28px;
 }
 
+/* The closer's initial in a ring of cream where the other faces draw their sign. */
+.room .closed .glyph.by {
+    background: linear-gradient(150deg, #f1d898, #c9a464);
+    color: #111;
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 26px;
+    font-weight: 700;
+    text-transform: uppercase;
+    box-shadow:
+        0 0 0 2px var(--cream),
+        0 8px 16px -6px rgba(0, 0, 0, 0.8);
+}
+
 .room .closed h1 {
     margin: 0;
     color: var(--cream);
@@ -4438,15 +4659,32 @@ body {
     opacity: 0.85;
 }
 
+/* Each chair keeps its seat's colour, with the dark seat showing inside, as the closed-table scenes draw them. */
+.room .chairs.emptied .tile.empty {
+    background:
+        radial-gradient(80% 70% at 50% 30%, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.45)) 50% 50% / calc(100% - 16px)
+            calc(100% - 16px) no-repeat,
+        linear-gradient(180deg, var(--chair-top), var(--chair-bottom));
+    box-shadow:
+        inset 0 -6px 12px rgba(0, 0, 0, 0.35),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
 .room .chairs.emptied .chair:nth-child(1) {
+    --chair-top: #553a6e;
+    --chair-bottom: #2a1b38;
     rotate: -7deg;
 }
 
 .room .chairs.emptied .chair:nth-child(2) {
+    --chair-top: #5e4a30;
+    --chair-bottom: #2e2416;
     rotate: 7deg;
 }
 
 .room .chairs.emptied .chair:nth-child(3) {
+    --chair-top: #2a5a52;
+    --chair-bottom: #13302b;
     rotate: 4deg;
 }
 
@@ -5044,14 +5282,18 @@ body {
     width: 100%;
 }
 
+/* A pill is at least as wide as its check and whole name, so a row that cannot hold them wraps; only a name wider than the sheet ends in an ellipsis. */
 .sheet .set {
-    flex: 1 1 96px;
-    min-width: 0;
+    flex: 1;
+    max-width: 100%;
     height: 44px;
     padding: 0 10px;
     border-radius: 999px;
     font-size: 15px;
     white-space: nowrap;
+}
+
+.sheet .set .name {
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -5096,8 +5338,108 @@ body {
 
 .sheet > .stepper,
 .sheet > .sets,
+.sheet > .save,
 .sheet > .btns {
     flex: none;
+}
+
+/* The offer to save a changed sheet as the person's own rules: a tap anywhere on the row but the name saves it. */
+.sheet .save {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 12px;
+    border-radius: 16px;
+    background: rgba(122, 167, 240, 0.12);
+    box-shadow: inset 0 0 0 1.5px rgba(122, 167, 240, 0.55);
+}
+
+.sheet .save .ic {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: #0c0e11;
+    background: #7aa7f0;
+}
+
+.sheet .save .ic svg {
+    width: 20px;
+    height: 20px;
+}
+
+.sheet .save .txt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.sheet .save .go {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: left;
+    color: #7aa7f0;
+    cursor: pointer;
+}
+
+.sheet .save .go::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+}
+
+.sheet .save .go:focus-visible::after {
+    outline: 2px solid #7aa7f0;
+    outline-offset: 2px;
+}
+
+.sheet .save .go:disabled {
+    cursor: progress;
+}
+
+.sheet .save .name {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 28px;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.25;
+    color: var(--on-stage);
+    /* The name wraps onto a second line instead of being cut at the field's edge. */
+    field-sizing: content;
+    resize: none;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.sheet .save .name:focus-visible {
+    outline: 2px solid #7aa7f0;
+    outline-offset: 2px;
+}
+
+.sheet .save small {
+    font-size: 12.5px;
+    line-height: 1.2;
+    color: var(--on-stage-soft);
 }
 
 /* The table's rules: the chips on the felt and the read-only sheet behind them. On a phone the chips take a row of their own under the top row (the bar wraps); from 900 px they stand centred in it. */
@@ -5166,15 +5508,15 @@ body {
     flex: 0 1 auto;
 }
 
-/* A 360 px phone has no height to spare, so the chips' own row costs it none: the top row gives up the air above and below it, and the plaque sits close under the chips. */
-@media (max-width: 389px) {
+/* A phone has no height to spare, so the chips' own row costs it little: the top row gives up the air above and below it, and the far chairs sit close under the chips, as the Bock scenes draw them. */
+@media (max-width: 899px) {
     .room .bar {
         row-gap: 2px;
         padding: 4px 14px 0;
     }
 
     .room .stage {
-        padding-top: 4px;
+        padding-top: 16px;
     }
 }
 
@@ -5383,7 +5725,7 @@ body {
     grid-row: 3;
     justify-self: stretch;
     height: calc(var(--card-width) * 3.9);
-    --card-width: min(64px, calc(100vw * 64 / 390));
+    --card-width: var(--table-card-width);
     --callout-size: 30px;
     --callout-ring: 230px;
     --callout-top: 86%;
@@ -5479,9 +5821,32 @@ body {
     .room .copy.kontra {
         padding: 0 14px;
     }
+}
 
+/* A phone's strip keeps one row while a hand runs, as the scenes draw it: the Kontra key shows its word, the abort key its flag alone (its word stays for assistive technology) until a first tap arms it. */
+@media (max-width: 899px) {
     .room .copy.kontra svg {
         display: none;
+    }
+
+    .room .actions:not(.on-result) {
+        width: calc(100% + 20px);
+    }
+
+    .room .copy.abort:not(.arm) {
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .copy.abort:not(.arm) .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 }
 
@@ -5497,4 +5862,324 @@ body {
     .room .callout-spot.above-near-card {
         --callout-top: 16%;
     }
+}
+
+/* A series: the count on the felt, the standings at its end, the list of its games. */
+.room .series-count {
+    position: absolute;
+    top: 19px;
+    left: 50%;
+    z-index: 30;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 8px 0 12px;
+    border: 0;
+    border-radius: 999px;
+    color: var(--on-stage-soft);
+    background: var(--glass-dark);
+    backdrop-filter: blur(14px);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.room .series-count svg {
+    width: 16px;
+    height: 16px;
+}
+
+.room .series-count.unfolded {
+    color: var(--on-stage);
+    box-shadow: inset 0 0 0 1.5px rgba(122, 167, 240, 0.7);
+}
+
+.room .series-count:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+@media (max-width: 389px) {
+    .room .series-count {
+        top: 9px;
+    }
+}
+
+/* From 900 px the count stands in the middle of the top row and the rules' chips right of it instead of under it. */
+@media (min-width: 900px) {
+    .room .series-count {
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .room .bar:has(.series-count) .rules-slot {
+        left: calc(50% + 84px);
+        transform: translateY(-50%);
+    }
+}
+
+/* The list of every game scrolls inside its panel, never the page. */
+.room .game-list {
+    --glass: rgba(255, 255, 255, 0.15);
+    box-sizing: border-box;
+    width: min(354px, calc(100vw - 24px));
+    height: min(660px, calc(100dvh - 24px));
+    max-height: calc(100dvh - 24px);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 24px;
+    color: var(--on-stage);
+    background: rgba(12, 14, 17, 0.92);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
+        0 24px 50px -16px rgba(0, 0, 0, 0.9);
+    font-family: "Open Sans", Arial, sans-serif;
+}
+
+.room .game-list[open] {
+    display: flex;
+}
+
+.room .game-list::backdrop {
+    background: rgba(8, 9, 11, 0.62);
+}
+
+@media (min-width: 900px) {
+    .room .game-list {
+        width: 560px;
+        height: min(620px, calc(100dvh - 24px));
+    }
+}
+
+.room .game-list .panel-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    padding: 16px 8px 12px 14px;
+}
+
+.room .game-list h3 {
+    margin: 0;
+    color: #f3cf7a;
+    font-family: "Oswald", Arial, sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+}
+
+.room .game-list .rows {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    margin: 0;
+    padding: 0 6px 0 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(240, 214, 150, 0.45) transparent;
+}
+
+.room .game-list .empty {
+    margin: 0;
+    color: var(--on-stage-soft);
+    text-align: center;
+}
+
+.room .grow {
+    display: grid;
+    flex: none;
+    grid-template-columns: 24px 30px 1fr auto 56px;
+    gap: 8px;
+    align-items: center;
+    min-height: 50px;
+    padding: 6px 10px 6px 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.room .grow .nr {
+    color: var(--on-stage-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.room .grow .txt {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.room .grow b {
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .grow small {
+    overflow: hidden;
+    color: var(--on-stage-soft);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room .grow .val {
+    color: var(--cream, #f4ecd9);
+    font-family: var(--font-mark, "Oswald", Arial, sans-serif);
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .grow .gain {
+    color: var(--ok-stage, #6fcf97);
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.room .grow .gain.minus {
+    color: var(--on-stage-soft);
+}
+
+.room .grow .dot,
+.room .rank .dot {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: #111;
+    background: linear-gradient(150deg, #9fd0f2, #4b8fc4);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* The standings: place, name, games won and lost as declarer and the final total, the winner on top. */
+.room .result.standing .ranks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.room .rank {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 8px 16px 8px 10px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.14);
+}
+
+.room .rank.win {
+    background: rgba(243, 207, 122, 0.12);
+    box-shadow:
+        inset 0 0 0 2px #f3cf7a,
+        0 0 18px -4px rgba(243, 207, 122, 0.45);
+}
+
+.room .rank.gone {
+    opacity: 0.7;
+}
+
+.room .rank .place {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--ink, #2b1d05);
+    background: #f4ecd9;
+    box-shadow: 0 2px 0 #d8ccb0;
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .rank .txt {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.room .rank b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.room .rank b em {
+    color: var(--on-stage-soft);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 600;
+}
+
+.room .rank small {
+    color: var(--on-stage-soft);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .rank .sum {
+    color: var(--cream, #f4ecd9);
+    font-family: var(--font-mark, "Oswald", Arial, sans-serif);
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 899px) {
+    .room .rank {
+        gap: 10px;
+        min-height: 52px;
+        padding: 6px 14px 6px 8px;
+    }
+
+    .room .rank .place {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+.room .copy.watching {
+    color: var(--on-stage-soft);
+    cursor: default;
+}
+
+.room .copy.watching svg {
+    width: 20px;
+    height: 20px;
 }

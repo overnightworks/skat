@@ -72,8 +72,12 @@ msgid "{title} öffnen"
 msgstr "Open {title}"
 
 msgctxt "lobby.title"
-msgid "{owner} Tisch"
-msgstr "{owner} table"
+msgid "{name}s Tisch"
+msgstr "{name}'s table"
+
+msgctxt "lobby.titleSibilant"
+msgid "{name}' Tisch"
+msgstr "{name}' table"
 
 msgctxt "lobby.titleNameless"
 msgid "Tisch"
@@ -120,12 +124,20 @@ msgid "Dein Platz wird in {minutes} Minuten frei"
 msgstr "Your seat frees up in {minutes} minutes"
 
 msgctxt "lobby.otherSeatFreeIn.one"
-msgid "{owner} Platz wird in {minutes} Minute frei"
-msgstr "{owner} seat frees up in {minutes} minute"
+msgid "{name}s Platz wird in {minutes} Minute frei"
+msgstr "{name}'s seat frees up in {minutes} minute"
 
 msgctxt "lobby.otherSeatFreeIn.other"
-msgid "{owner} Platz wird in {minutes} Minuten frei"
-msgstr "{owner} seat frees up in {minutes} minutes"
+msgid "{name}s Platz wird in {minutes} Minuten frei"
+msgstr "{name}'s seat frees up in {minutes} minutes"
+
+msgctxt "lobby.otherSeatFreeInSibilant.one"
+msgid "{name}' Platz wird in {minutes} Minute frei"
+msgstr "{name}' seat frees up in {minutes} minute"
+
+msgctxt "lobby.otherSeatFreeInSibilant.other"
+msgid "{name}' Platz wird in {minutes} Minuten frei"
+msgstr "{name}' seat frees up in {minutes} minutes"
 
 msgctxt "lobby.chipYourTurn"
 msgid "Du bist dran"
@@ -363,6 +375,86 @@ msgctxt "table.weiter"
 msgid "Weiter"
 msgstr "Continue"
 
+msgctxt "table.seriesCount"
+msgid "Spiel {game} von {count}"
+msgstr "Game {game} of {count}"
+
+msgctxt "table.seriesList"
+msgid "Liste der Spiele"
+msgstr "List of games"
+
+msgctxt "table.seriesListTitle"
+msgid "Spiele"
+msgstr "Games"
+
+msgctxt "table.seriesListEmpty"
+msgid "Noch kein Spiel gespielt"
+msgstr "No game played yet"
+
+msgctxt "table.seriesListFailed"
+msgid "Die Liste lässt sich nicht laden."
+msgstr "The list cannot be loaded."
+
+msgctxt "table.seriesEnded"
+msgid "Serie zu Ende"
+msgstr "Series over"
+
+msgctxt "table.seriesGames.one"
+msgid "{count} Spiel"
+msgstr "{count} game"
+
+msgctxt "table.seriesGames.other"
+msgid "{count} Spiele"
+msgstr "{count} games"
+
+msgctxt "table.seriesRecord"
+msgid "{won} gewonnen · {lost} verloren"
+msgstr "{won} won · {lost} lost"
+
+msgctxt "table.seriesGone"
+msgid "gegangen"
+msgstr "left"
+
+msgctxt "table.seriesNameless"
+msgid "Jemand"
+msgstr "Someone"
+
+msgctxt "table.seriesRamschOf"
+msgid "Ramsch, {name}"
+msgstr "Ramsch, {name}"
+
+msgctxt "table.seriesPushed"
+msgid "{count}× geschoben"
+msgstr "{count}× pushed"
+
+msgctxt "table.newSeries"
+msgid "Neue Serie"
+msgstr "New series"
+
+msgctxt "table.wantsToEndSeries"
+msgid "{name} will die Serie beenden"
+msgstr "{name} wants to end the series"
+
+msgctxt "table.endSeries"
+msgid "Serie beenden"
+msgstr "End series"
+
+msgctxt "table.endSeriesSure"
+msgid "Wirklich beenden?"
+msgstr "Really end it?"
+
+msgctxt "table.yes"
+msgid "Ja"
+msgstr "Yes"
+
+msgctxt "table.no"
+msgid "Nein"
+msgstr "No"
+
+msgctxt "table.watchingOnly"
+msgid "Du schaust zu"
+msgstr "You are watching"
+
 msgctxt "table.readyMark"
 msgid "Weiter getippt"
 msgstr "Continue tapped"
@@ -531,6 +623,10 @@ msgctxt "result.eyes"
 msgid "{points} Augen"
 msgstr "{points} points"
 
+msgctxt "result.eyeCount"
+msgid "{name} {points}"
+msgstr "{name} {points}"
+
 msgctxt "result.loses"
 msgid "{name} verliert"
 msgstr "{name} loses"
@@ -586,6 +682,10 @@ msgstr "Not played for {count} day: table closed"
 msgctxt "closed.unplayedDays.other"
 msgid "{count} Tage nicht gespielt: Tisch geschlossen"
 msgstr "Not played for {count} days: table closed"
+
+msgctxt "closed.closedBy"
+msgid "{name} hat den Tisch geschlossen"
+msgstr "{name} closed the table"
 
 msgctxt "declare.commandFailed"
 msgid "Das hat nicht geklappt"
@@ -867,6 +967,22 @@ msgctxt "table.sitQuestionCancel"
 msgid "Abbrechen"
 msgstr "Cancel"
 
+msgctxt "table.close"
+msgid "Tisch schließen"
+msgstr "Close table"
+
+msgctxt "table.closeQuestion"
+msgid "Tisch für alle schließen?"
+msgstr "Close the table for everyone?"
+
+msgctxt "table.closeConfirm"
+msgid "Schließen"
+msgstr "Close"
+
+msgctxt "table.closeCancel"
+msgid "Abbrechen"
+msgstr "Cancel"
+
 msgctxt "table.takeOverNamed"
 msgid "Du übernimmst {name}s Karten."
 msgstr "You take over {name}’s cards."
@@ -902,6 +1018,30 @@ msgstr "Official"
 msgctxt "start.setsUnreadable"
 msgid "Deine eigenen Regeln ließen sich nicht lesen."
 msgstr "Your own rules could not be read."
+
+msgctxt "start.saveRules"
+msgid "Als eigene Regeln speichern"
+msgstr "Save as your own rules"
+
+msgctxt "start.saveName"
+msgid "Name"
+msgstr "Name"
+
+msgctxt "start.savedNameWith"
+msgid "{set}, mit {rules}"
+msgstr "{set}, with {rules}"
+
+msgctxt "start.savedNameAdjusted"
+msgid "{set}, angepasst"
+msgstr "{set}, adjusted"
+
+msgctxt "start.saveNameTaken"
+msgid "Diesen Namen hast du schon für andere Regeln."
+msgstr "You already have this name for other rules."
+
+msgctxt "start.saveFailed"
+msgid "Die Regeln ließen sich nicht speichern."
+msgstr "The rules could not be saved."
 
 msgctxt "start.ruleKontra"
 msgid "Kontra und Re"

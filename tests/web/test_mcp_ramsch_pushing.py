@@ -91,7 +91,7 @@ class TestAnAgentAtATableWithPushing:
         declared = agent.take_step(RAMSCH_DECLARE_GRAND_HAND_TOOL, table, command_id="agent-grand-hand")
 
         assert not declared.is_error, declared.text
-        hand = json.loads(declared.text)["hand"]
+        hand = agent.read(table.table_id).json()["hand"]
         assert (hand["ramsch"], hand["pushing"], hand["declaring"]["declarer_seat"]) == (False, None, 1)
         for number, played in enumerate(PLAIN_HAND, 1):
             if table.holder_of(played) is MIDDLEHAND:
@@ -121,7 +121,7 @@ class TestAnAgentAtATableWithPushing:
 
         taken = agent.take_step(RAMSCH_TAKE_SKAT_TOOL, table, command_id="agent-take")
         assert not taken.is_error, taken.text
-        hand = json.loads(taken.text)["hand"]
+        hand = agent.read(table.table_id).json()["hand"]
         assert (len(hand["own_cards"]), hand["pushing"]["stage"]) == (12, "discarding")
         put = agent.take_step(
             RAMSCH_PUT_BACK_CARDS_TOOL,

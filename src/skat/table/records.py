@@ -144,6 +144,14 @@ class StandUp:
 
 
 @dataclass(frozen=True)
+class CloseTable:
+    """The command to close the table for everyone; only its opener may."""
+
+    command_id: str
+    table_id: str
+
+
+@dataclass(frozen=True)
 class SendAway:
     """The command to send an agent away from its chair; `agent_account` is the agent whose chair is freed."""
 
@@ -205,6 +213,10 @@ class Occupant:
     display_name: str
     kind: OccupantKind
     owner_account: str | None = None
+
+    @property
+    def is_agent(self) -> bool:
+        return self.kind is OccupantKind.AGENT
 
 
 @dataclass(frozen=True)
@@ -356,6 +368,7 @@ class EndReason(StrEnum):
 
     EMPTY = "empty"
     UNPLAYED = "unplayed"
+    CLOSED = "closed"
 
 
 @dataclass(frozen=True)
@@ -367,6 +380,7 @@ class Ending:
     reason: EndReason
     empty_seconds: int | None = None
     unplayed_days: int | None = None
+    closed_by_name: str | None = None
 
     @classmethod
     def empty(cls, seconds: int) -> Self:
@@ -377,6 +391,11 @@ class Ending:
     def unplayed(cls, days: int) -> Self:
         """A dealt table was not played at for `days` days."""
         return cls(EndReason.UNPLAYED, unplayed_days=days)
+
+    @classmethod
+    def closed(cls, name: str) -> Self:
+        """The table's opener closed it, under the display name she had then."""
+        return cls(EndReason.CLOSED, closed_by_name=name)
 
 
 @dataclass(frozen=True)

@@ -17,7 +17,7 @@
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
-    import { handWaits, lockedChairs, seatNotice, type SeatNotice } from "#lib/openChair.ts";
+    import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
         bidLineOfGameDeclaredInTheStage,
         gameInPlay,
@@ -26,6 +26,7 @@
         type PlayingHand,
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
+    import { seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
     import {
         declaredResult,
         ramschResultView,
@@ -43,9 +44,11 @@
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
+    import CopyLinkKey from "#lib/ui/CopyLinkKey.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
+    import CloseKey from "#lib/ui/CloseKey.svelte";
     import CardCountTag from "#lib/ui/CardCountTag.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
@@ -65,10 +68,13 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
+    import SeriesEndKey from "#lib/ui/SeriesEndKey.svelte";
+    import Standings from "#lib/ui/Standings.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
+    import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
@@ -78,6 +84,7 @@
         agentSitsNote,
         answerAbort,
         answerGiveUp,
+        answerSeriesEnd,
         bidLineWhileDeclaring,
         copyTableLink,
         drawingOrder,
@@ -90,9 +97,11 @@
         seriesNumberOf,
         sitDown,
         standUp,
+        startNewSeries,
         takeAuctionStep,
         watchTable,
         type AbortAnswer,
+        type SeriesEndAnswer,
         type AuctionAction,
         type Card,
         type GiveUpAnswer,
@@ -131,6 +140,8 @@
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
+    // How many people watch without a chair, which the agents list follows while it is open.
+    let streamedWatchers = $state(0);
     // The sentence that names who has just left or taken a chair of the table.
     let seatNote = $state<SeatNotice | null>(null);
     let seatNoteTimer: ReturnType<typeof setTimeout> | undefined;
@@ -147,9 +158,11 @@
 
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
+        streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
         const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
         if (note !== null) showSeatNote(note);
+        seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
@@ -290,15 +303,18 @@
         if ((await seat(command)).kind !== "table") sentFromVersion = null;
     }
 
+    // After the series' last game the same tap is „Neue Serie“, which names the series it saw as „Weiter“ does.
     const tapWeiter = (table: Table): Promise<void> =>
         send(
             table,
-            markReady(
-                id,
-                crypto.randomUUID(),
-                (table.result as NonNullable<Table["result"]>).ordinal,
-                seriesNumberOf(table),
-            ),
+            seriesOver(table)
+                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table))
+                : markReady(
+                      id,
+                      crypto.randomUUID(),
+                      (table.result as NonNullable<Table["result"]>).ordinal,
+                      seriesNumberOf(table),
+                  ),
         );
     const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
         send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
@@ -314,19 +330,6 @@
         aria-hidden="true"
     >
         <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-{/snippet}
-{#snippet check()}
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="3"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-    >
-        <path d="M5 12.5l4.5 4.5L19 7" />
     </svg>
 {/snippet}
 
@@ -354,9 +357,12 @@
             {connected}
             live={outcome?.kind === "table" && outcome.table.ended === null
                 ? {
+                      id,
+                      version: outcome.table.version,
                       watchers: outcome.table.watchers,
                       options: outcome.table.options as Options,
                       bock: outcome.table.bock,
+                      count: seriesCountText(outcome.table),
                   }
                 : null}
         />
@@ -380,14 +386,28 @@
             {@const declared = declaredResult(outcome.table)}
             {@const view = declared === null ? null : resultView(outcome.table)}
             {@const ramschView = ramschResultView(outcome.table)}
-            {@const onResult = view !== null || ramschView !== null}
-            {@const winners = new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
+            {@const standing = standingsView(outcome.table)}
+            {@const onResult = standing !== null || view !== null || ramschView !== null}
+            {@const winners =
+                standing?.winnerSeats ??
+                new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
+            {@const current = outcome.table}
             {@const bar = weiterBar(outcome.table)}
-            {@const passedIn = passedInScene(outcome.table.passed_in, outcome.table.chairs)}
+            {@const passedIn = standing === null ? passedInScene(outcome.table.passed_in, outcome.table.chairs) : null}
+            {@const seriesAsk = seriesEndAsk(outcome.table)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
             {@const giveUp = giveUpView(outcome.table)}
             {@const abort = abortView(outcome.table)}
-            {#if onResult}
+            {#if seriesAsk !== null}
+                {@const table = outcome.table}
+                <AskPlaque
+                    view={seriesAsk}
+                    disabled={sentFromVersion === table.version}
+                    onanswer={(answer: SeriesEndAnswer) => {
+                        void send(table, answerSeriesEnd(id, crypto.randomUUID(), answer));
+                    }}
+                />
+            {:else if onResult}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
             {:else if abort.ask !== null}
                 {@const table = outcome.table}
@@ -503,7 +523,9 @@
                 </div>
             {/if}
             <div class="felt" aria-hidden="true"></div>
-            {#if view !== null}
+            {#if standing !== null}
+                <Standings view={standing} />
+            {:else if view !== null}
                 <ResultCard {view} counts={declared?.ordinal === countedOrdinal} />
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
@@ -690,24 +712,14 @@
                 <div class="actions" class:on-result={onResult}>
                     <KontraKey {id} table={outcome.table} bind:note />
                     <AbortKey {id} table={outcome.table} bind:note />
-                    {#if bar?.kind === "tap"}
-                        {@const table = outcome.table}
-                        <button
-                            type="button"
-                            class="copy weiter"
-                            disabled={sentFromVersion === table.version && !bar.again}
-                            onclick={() => tapWeiter(table)}
-                        >
-                            {@render check()}
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            {`${words["table.weiter"]}`}
-                        </button>
-                    {:else if bar !== null}
-                        <span class="copy wait" role="status">
-                            {bar.text}
-                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                        </span>
-                    {/if}
+                    <SeriesEndKey {id} table={outcome.table} bind:note />
+                    <WeiterKey
+                        {bar}
+                        watching={standing !== null}
+                        newSeries={seriesOver(current)}
+                        sent={sentFromVersion === current.version}
+                        ontap={() => tapWeiter(current)}
+                    />
                     <GiveUpKey {id} table={outcome.table} bind:note />
                     {#if seated}
                         <StandKey
@@ -717,25 +729,20 @@
                             }}
                         />
                     {/if}
-                    <AgentsPill tableId={id} {streamedVersion} {seatedAgents} kitWords={data.kitWords} />
+                    <AgentsPill
+                        tableId={id}
+                        {streamedVersion}
+                        {seatedAgents}
+                        watchers={streamedWatchers}
+                        kitWords={data.kitWords}
+                    />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}
-                        <button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={copy}>
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                aria-hidden="true"
-                            >
-                                <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
-                                <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
-                            </svg>
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            <span class="label">{`${words["table.copyLink"]}`}</span>
-                        </button>
+                        <CopyLinkKey oncopy={copy} />
+                    {/if}
+                    {#if outcome.table.opened_by_me && !callMode}
+                        <CloseKey {id} bind:note />
                     {/if}
                 </div>
                 <p class="note" role="status">{note}</p>

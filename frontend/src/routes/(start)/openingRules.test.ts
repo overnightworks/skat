@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { SWITCH_ON_OPTIONS } from "#lib/wire.ts";
+import { RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS } from "#lib/wire.ts";
 import {
     OFFICIAL,
     QUESTIONS,
     TRIGGER_SWITCHES,
+    differs,
     isOn,
     requestOf,
+    suggestedName,
     switchRule,
     toggleTrigger,
     triggerOn,
@@ -304,5 +306,78 @@ describe("the triggers of the Bock rounds", () => {
     it("answer off while Bock is off", () => {
         expect(triggerOn(OFFICIAL, "re")).toBe(false);
         expect(toggleTrigger(OFFICIAL, "re")).toBe(OFFICIAL);
+    });
+});
+
+describe("a sheet that differs from the picked set", () => {
+    const changeSayer = (sheet: Options): Options =>
+        QUESTIONS.find((each) => each.id === "kontraSayer")
+            ?.pills.find((each) => each.token === "bidders-only")
+            ?.apply(sheet) ?? sheet;
+
+    it.each([
+        ["as it was picked", OTHER, OTHER, false],
+        ["with a rule switched on", OFFICIAL, switchRule(OFFICIAL, "kontra", true, OFFICIAL), true],
+        ["with a rule switched off", OTHER, switchRule(OTHER, "points", false, OTHER), true],
+        ["with a variant of a rule changed", OTHER, changeSayer(OTHER), true],
+        [
+            "with a rule switched on and off again",
+            OFFICIAL,
+            switchRule(switchRule(OFFICIAL, "bock", true, OFFICIAL), "bock", false, OFFICIAL),
+            false,
+        ],
+        ["with a variant changed and changed back", OTHER, toggleTrigger(toggleTrigger(OTHER, "re"), "re"), false],
+    ] as [string, Options, Options, boolean][])("is told %s", (_name, picked, sheet, expected) => {
+        expect(differs(sheet, picked)).toBe(expected);
+    });
+});
+
+describe("the name suggested for a sheet", () => {
+    it.each([
+        [
+            "the rules switched on",
+            "Offiziell",
+            OFFICIAL,
+            { ...OFFICIAL, kontra: OTHER.kontra, ramsch: OTHER.ramsch },
+            "Offiziell, mit Kontra und Ramsch",
+        ],
+        ["one rule switched on", "Offiziell", OFFICIAL, POINTS_ONLY, "Offiziell, mit Augen"],
+        [
+            "four rules switched on",
+            "Alt",
+            OFFICIAL,
+            { ...OTHER, ramsch: RAMSCH_ALONE.ramsch },
+            "Alt, mit Augen, Kontra, Ramsch und Bock",
+        ],
+        [
+            "a variant of a rule that is on in both changed",
+            "Felix",
+            OTHER,
+            toggleTrigger(OTHER, "schneider"),
+            "Felix, mit Bock",
+        ],
+        [
+            "a variant of Schieberamsch changed",
+            "Felix",
+            OTHER,
+            { ...OTHER, ramsch: { ...(OTHER.ramsch as Ramsch), pushing: { ...OTHER_PUSHING, grand_hand: "off" } } },
+            "Felix, mit Ramsch",
+        ],
+        ["only rules switched off", "Felix", OTHER, KONTRA_ONLY, "Felix, angepasst"],
+        ["a rule switched on and another off", "Felix", KONTRA_ONLY, POINTS_ONLY, "Felix, mit Augen"],
+    ] as [string, string, Options, Options, string][])("reads with %s", (_name, set, picked, sheet, expected) => {
+        expect(suggestedName(set, sheet, picked)).toBe(expected);
+    });
+
+    it("gives way to the adjusted form when the rules would exceed the name limit", () => {
+        const sheet = { ...OTHER, ramsch: RAMSCH_ALONE.ramsch };
+        const name = suggestedName("Offiziell", sheet, OFFICIAL);
+        expect(name).toBe("Offiziell, angepasst");
+        expect(Array.from(name).length).toBeLessThanOrEqual(RULE_SET_NAME_MAX);
+    });
+
+    it("gives way to the set's own name cut to the limit when that exceeds it too", () => {
+        const setName = "x".repeat(RULE_SET_NAME_MAX + 5);
+        expect(suggestedName(setName, POINTS_ONLY, OFFICIAL)).toBe("x".repeat(RULE_SET_NAME_MAX));
     });
 });

@@ -1,13 +1,15 @@
 <script lang="ts">
     import { words } from "#lib/words.ts";
     import LobbyButton from "./LobbyButton.svelte";
+    import SeriesCount from "./SeriesCount.svelte";
     import SoundButton from "./SoundButton.svelte";
     import TableRules from "./TableRules.svelte";
 
     import type { Bock, Options } from "../../routes/(start)/tables.ts";
 
-    // `live` is the table while it runs: its watchers, the rules it was opened with and its Bock games. In a call the
-    // wordmark stands in for the link to the Lobby and the call's own strip carries the speaker.
+    // `live` is the table while it runs: its watchers, the rules it was opened with, its Bock games and the series' count,
+    // whose list reads again at each version of table `id`. In a call the wordmark stands in for the link to the Lobby and
+    // the call's own strip carries the speaker.
     let {
         callMode,
         attention,
@@ -17,7 +19,14 @@
         callMode: boolean;
         attention: number;
         connected: boolean;
-        live: { watchers: number; options: Options; bock: Bock | null } | null;
+        live: {
+            id: string;
+            version: number;
+            watchers: number;
+            options: Options;
+            bock: Bock | null;
+            count: string | null;
+        } | null;
     } = $props();
 </script>
 
@@ -28,6 +37,9 @@
         <LobbyButton {attention} />
     {/if}
     {#if live !== null}
+        {#if live.count !== null}
+            <SeriesCount id={live.id} text={live.count} version={live.version} />
+        {/if}
         <TableRules options={live.options} bock={live.bock} />
         {#if !callMode}
             <SoundButton place="bar" />

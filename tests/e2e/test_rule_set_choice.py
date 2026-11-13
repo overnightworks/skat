@@ -28,6 +28,8 @@ RAMSCH = text(SOURCE_LANGUAGE, "start.ruleRamsch")
 PUSHING = text(SOURCE_LANGUAGE, "start.rulePushing")
 BOCK = text(SOURCE_LANGUAGE, "start.ruleBock")
 CANCEL = text(SOURCE_LANGUAGE, "start.cancelNewTable")
+SAVE = text(SOURCE_LANGUAGE, "start.saveRules")
+SAVE_NAME = text(SOURCE_LANGUAGE, "start.saveName")
 
 HOUSE_SET = "Hausregeln"
 HOUSE_OPTIONS = {
@@ -55,12 +57,49 @@ def set_pill(person: Page, name: str) -> Locator:
     return person.get_by_role("radiogroup", name=RULES).get_by_role("radio", name=name, exact=True)
 
 
+# What a person sees of a set pill: its check and name wholly inside the pill with its padding kept, the pill wholly
+# inside the sheet.
+SUBPIXEL = 1
+PILL_GAPS_OF = """pill => {
+    // The radio button covers the whole pill, so only the check and the name count as its content.
+    const own = node => node.nodeName !== "INPUT" && node.nodeType !== Node.COMMENT_NODE;
+    const parts = [...pill.childNodes].filter(own).map(node => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        return node.nodeType === Node.TEXT_NODE ? range.getBoundingClientRect() : node.getBoundingClientRect();
+    }).filter(rect => rect.width > 0);
+    const content = {
+        left: Math.min(...parts.map(rect => rect.left)),
+        right: Math.max(...parts.map(rect => rect.right)),
+    };
+    const box = pill.getBoundingClientRect();
+    const sheet = pill.closest(".sheet").getBoundingClientRect();
+    const style = getComputedStyle(pill);
+    const name = pill.querySelector(".name");
+    return {
+        cut: name.clientWidth - name.scrollWidth,
+        left: content.left - box.left - parseFloat(style.paddingLeft),
+        right: box.right - content.right - parseFloat(style.paddingRight),
+        sheetLeft: box.left - sheet.left,
+        sheetRight: sheet.right - box.right,
+    };
+}"""
+
+
 def switch(person: Page, name: str) -> Locator:
     return person.get_by_role("switch", name=name, exact=True)
 
 
 def pill(person: Page, question: str, answer: str) -> Locator:
     return person.get_by_role("radiogroup", name=question).get_by_role("radio", name=answer, exact=True)
+
+
+def save_row(person: Page) -> Locator:
+    return person.get_by_role("group", name=SAVE)
+
+
+def save_name(person: Page) -> Locator:
+    return save_row(person).get_by_role("textbox", name=SAVE_NAME)
 
 
 def box_top(target: Locator) -> float:
@@ -271,6 +310,28 @@ def test_a_sheet_reopened_after_cancelling_has_the_official_rules_picked_again(
     expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "false")
 
 
+def test_escape_closes_the_sheet_unless_the_table_is_being_opened(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP)
+    held: list[Any] = []
+    person.route(f"**{TABLES_PATH}", lambda route: held.append(route))
+    sheet_of(person, e2e_server)
+    sheet = person.get_by_role("dialog", name=word("start.newTable"))
+
+    person.keyboard.press("Escape")
+    expect(sheet).to_be_hidden()
+
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_disabled()
+    person.keyboard.press("Escape")
+    expect(sheet).to_be_visible()
+
+    held[0].continue_()
+    expect(person).to_have_url(TABLE_URL)
+
+
 def test_the_official_rules_stay_offered_with_a_notice_when_the_own_sets_cannot_be_read(
     person_with_sets: Callable[..., Page],
     e2e_server: RunningServer,
@@ -307,3 +368,181 @@ def test_only_the_rules_scroll_while_the_title_the_sets_and_the_buttons_stay_in_
     switch(person, word("start.flagSchneider")).scroll_into_view_if_needed()
     expect(switch(person, word("start.flagSchneider"))).to_be_in_viewport()
     expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_in_viewport()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_every_set_pill_holds_its_whole_name_and_check_inside_the_sheet_when_picked(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
+) -> None:
+    person = person_with_sets(form_factor)
+    sheet_of(person, e2e_server)
+
+    for name in (HOUSE_SET, EVENING_SET, OFFICIAL):
+        set_pill(person, name).check()
+        for each in (OFFICIAL, HOUSE_SET, EVENING_SET):
+            gaps = set_pill(person, each).locator("xpath=..").evaluate(PILL_GAPS_OF)
+            assert min(gaps.values()) >= -SUBPIXEL, f"{each} with {name} picked: {gaps}"
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_save_row_is_offered_with_a_suggested_name_once_the_sheet_differs_from_the_picked_set(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
+) -> None:
+    person = person_with_sets(form_factor)
+    sheet_of(person, e2e_server)
+    expect(save_row(person)).to_have_count(0)
+
+    switch(person, KONTRA).click()
+    switch(person, RAMSCH).click()
+
+    expect(save_row(person)).to_be_visible()
+    expect(save_name(person)).to_have_value(f"{OFFICIAL}, mit Kontra und Ramsch")
+    # The whole name shows: the field grows to its text instead of cutting it off.
+    assert save_name(person).evaluate(
+        "field => field.scrollWidth <= field.clientWidth && field.scrollHeight <= field.clientHeight"
+    )
+    expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_in_viewport()
+    expect(save_row(person)).to_be_in_viewport()
+    switch(person, KONTRA).click()
+    expect(save_name(person)).to_have_value(f"{OFFICIAL}, mit Ramsch")
+    switch(person, RAMSCH).click()
+    expect(save_row(person)).to_have_count(0)
+
+
+def test_switching_rules_off_over_a_set_suggests_the_set_adjusted_and_a_pick_takes_the_offer_away(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP)
+    sheet_of(person, e2e_server)
+    set_pill(person, HOUSE_SET).check()
+
+    switch(person, KONTRA).click()
+
+    expect(save_name(person)).to_have_value(f"{HOUSE_SET}, angepasst")
+    set_pill(person, EVENING_SET).check()
+    expect(save_row(person)).to_have_count(0)
+
+
+def test_a_tap_saves_the_sheet_under_the_edited_name_as_the_picked_set_that_only_its_owner_sees(
+    person_with_sets: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+) -> None:
+    person = person_with_sets(DESKTOP)
+    other = person_with_sets(DESKTOP, sets=False)
+    sheet_of(person, e2e_server)
+    switch(person, KONTRA).click()
+    save_name(person).fill("Sonntag")
+
+    save_row(person).get_by_role("button", name=SAVE).click()
+
+    expect(set_pill(person, "Sonntag")).to_be_checked()
+    expect(save_row(person)).to_have_count(0)
+    expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "true")
+    assert saved_options(e2e_server, member_of(person), "Sonntag")["kontra"] is not None
+    person.get_by_role("button", name=CANCEL).click()
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    expect(set_pill(person, "Sonntag")).to_be_visible()
+    sheet_of(other, e2e_server)
+    expect(other.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(1)
+
+
+def test_a_name_taken_by_other_rules_shows_one_line_and_saves_nothing(
+    person_with_sets: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+) -> None:
+    person = person_with_sets(DESKTOP, console=False)
+    sheet_of(person, e2e_server)
+    switch(person, KONTRA).click()
+    save_name(person).fill(EVENING_SET)
+
+    save_row(person).get_by_role("button", name=SAVE).click()
+
+    expect(person.get_by_role("alert")).to_have_text(word("start.saveNameTaken"))
+    expect(set_pill(person, OFFICIAL)).to_be_checked()
+    expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(3)
+    held = json.loads(RawSession(e2e_server, member_of(person)).get(RULE_SETS_PATH))["sets"]
+    assert sorted(each["name"] for each in held) == sorted([HOUSE_SET, EVENING_SET])
+    assert saved_options(e2e_server, member_of(person), EVENING_SET)["kontra"] is None
+
+
+def test_a_save_the_server_refuses_shows_one_line_and_keeps_the_sheet_as_it_was(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP, console=False)
+
+    def refuse_the_save(route: Any) -> None:
+        if route.request.method == "POST":
+            route.fulfill(status=422, content_type="application/json", body="{}")
+        else:
+            route.continue_()
+
+    person.route(f"**{RULE_SETS_PATH}", refuse_the_save)
+    sheet_of(person, e2e_server)
+    switch(person, KONTRA).click()
+    save_name(person).fill("Sonntag")
+
+    save_row(person).get_by_role("button", name=SAVE).click()
+
+    expect(person.get_by_role("alert")).to_have_text(word("start.saveFailed"))
+    expect(save_name(person)).to_have_value("Sonntag")
+    expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(3)
+
+
+def test_a_save_answered_after_the_sheet_was_closed_and_opened_again_changes_nothing_on_the_new_sheet(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP)
+    held: list[Any] = []
+
+    def hold_the_save(route: Any) -> None:
+        if route.request.method == "POST":
+            held.append(route)
+        else:
+            route.continue_()
+
+    person.route(f"**{RULE_SETS_PATH}", hold_the_save)
+    sheet_of(person, e2e_server)
+    switch(person, KONTRA).click()
+    save_name(person).fill("Sonntag")
+    save_row(person).get_by_role("button", name=SAVE).click()
+    expect(save_name(person)).to_be_disabled()
+    person.get_by_role("button", name=CANCEL).click()
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    expect(set_pill(person, OFFICIAL)).to_be_checked()
+
+    with person.expect_response(lambda answer: answer.request.method == "POST" and answer.url.endswith(RULE_SETS_PATH)):
+        held[0].continue_()
+
+    expect(set_pill(person, OFFICIAL)).to_be_checked()
+    expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(3)
+    expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "false")
+
+
+def test_a_save_answered_after_the_list_already_holds_the_set_offers_the_set_once(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP)
+    reads: list[Any] = []
+    saves: list[tuple[Any, Any]] = []
+
+    def hold_both_answers(route: Any) -> None:
+        if route.request.method == "GET":
+            reads.append(route)
+            return
+        saves.append((route, route.fetch()))
+        reads[0].continue_()
+
+    person.route(f"**{RULE_SETS_PATH}", hold_both_answers)
+    sheet_of(person, e2e_server)
+    switch(person, KONTRA).click()
+    save_name(person).fill("Sonntag")
+    save_row(person).get_by_role("button", name=SAVE).click()
+    expect(set_pill(person, "Sonntag")).to_be_visible()
+
+    held_save, saved_answer = saves[0]
+    held_save.fulfill(response=saved_answer)
+
+    expect(set_pill(person, "Sonntag")).to_be_checked()
+    expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(4)

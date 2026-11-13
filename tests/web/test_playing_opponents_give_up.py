@@ -697,10 +697,11 @@ class TestThroughTheMcpTools:
         return agent.call(tool, table_id=table.table_id, command_id=command_id, version=table.record.version)
 
     def test_the_agent_opponents_give_up_waits_for_the_declarer_with_no_card_to_play(self, agent, gave_up):
-        table, answer = gave_up
+        table, _ = gave_up
 
-        assert answer.json()["hand"]["playing"]["give_up"] == {"asking_seat": 3, "declined_seat": None}
-        assert agent.read(table.table_id).json()["hand"]["playing"]["legal_cards"] == []
+        playing = agent.read(table.table_id).json()["hand"]["playing"]
+        assert playing["give_up"] == {"asking_seat": 3, "declined_seat": None}
+        assert playing["legal_cards"] == []
         assert table.record.hand is not None
 
     def test_the_agents_card_while_it_waits_is_a_failed_result_that_spends_the_id(self, agent, gave_up):
@@ -728,7 +729,7 @@ class TestThroughTheMcpTools:
         answer = self.answer(agent, declarer_asked, AGREE_TO_GIVE_UP_TOOL)
 
         assert not answer.is_error, answer.text
-        result = answer.json()["result"]
+        result = agent.read(declarer_asked.table_id).json()["result"]
         assert (result["won"], result["list_bonus"]) == (True, 50)
         assert ending_of(result) == ("given-up", 3)
         assert len(declarer_asked.record.game_list) == 1
@@ -737,6 +738,6 @@ class TestThroughTheMcpTools:
         answer = self.answer(agent, declarer_asked, DECLINE_GIVE_UP_TOOL)
 
         assert not answer.is_error, answer.text
-        assert answer.json()["hand"]["playing"]["give_up"] is None
+        assert agent.read(declarer_asked.table_id).json()["hand"]["playing"]["give_up"] is None
         assert declarer_asked.record.hand is not None
         assert declarer_asked.read_as(declarer_asked.at[FOREHAND]).json()["hand"]["playing"]["legal_cards"] != []
