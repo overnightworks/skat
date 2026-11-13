@@ -39,7 +39,7 @@ class TestStartNewSeries:
         answer = self.start(agent, table)
 
         assert not answer.is_error, answer.text
-        assert [chair["ready"] for chair in answer.json()["chairs"]] == [False, False, True]
+        assert [chair["ready"] for chair in agent.read(table.table_id).json()["chairs"]] == [False, False, True]
         assert [chair.ready for chair in table.record.chairs] == [False, False, True]
         assert len(table.record.game_list) == 3
 

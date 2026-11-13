@@ -56,7 +56,14 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
     def end_table(self, table_id: TableId, at: datetime, ending: Ending) -> None:
         """End the table whose row this transaction locked, once: its version rises by one, its dealer, last
         played time, opener's name and give-up request clear, and it keeps only its row and its create receipt, so its
-        id is never issued again and a create retry finds it. Its book rows go with it. `ending` says why it ended.
+        id is never issued again and a create retry finds it. Its book rows go with it. `ending` says why it ended;
+        a receipt written after it stays.
+        """
+        ...
+
+    def opener_account(self, table_id: TableId) -> str | None:
+        """The account that opened the table, read from the create receipt that stays after its end; None when the
+        table has none.
         """
         ...
 

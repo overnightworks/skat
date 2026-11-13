@@ -18,5 +18,7 @@ export function closedWords(ended: Ended): string {
             return emptyHeading(ended.empty_seconds);
         case "unplayed":
             return words["closed.unplayedDays"](ended.unplayed_days);
+        case "closed":
+            return words["closed.closedBy"]({ name: ended.closed_by_name });
     }
 }

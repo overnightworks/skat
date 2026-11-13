@@ -9,7 +9,6 @@ from playwright.sync_api import Page, Request, Route, expect
 from sqlalchemy import select, update
 
 from skat.store.schema import tables
-from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
@@ -23,6 +22,7 @@ from tests.e2e.support.tables import (
     open_new_table,
     sit_in,
     table_id_of,
+    until_the_agents_are_read,
     watch,
     watchers_of,
 )
@@ -242,10 +242,7 @@ def played_longer_ago_than_the_days(server: RunningServer, table_id: str) -> Non
 
 
 def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:
-    """Opens the table's page and waits for its first read of the agents, which the page makes once its stream brings
-    the first table; a read still on its way when the table ends is answered 404 and the browser logs that.
-    """
-    with person.expect_response(lambda response: urlsplit(response.url).path.endswith(TABLE_AGENTS_SUFFIX)):
+    with until_the_agents_are_read(person):
         watch(person, server, path)
 
 

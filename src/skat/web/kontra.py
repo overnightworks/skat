@@ -72,7 +72,7 @@ def create_kontra_router(tables: TableService, presence: Presence) -> APIRouter:
         table_id: str, body: NoWordRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Say that the caller's seat says no word now: it answers the word `hand.playing.kontra.my_word` names, so
-        that the table stops asking for it, and the answer shows in `my_word_answered` of the caller's own view.
+        that the table stops asking for it, and `my_word_answered` of the caller's own view shows it.
 
         The word stays open: the caller may still say it until he plays his next card, and play never waits for it.
         Answering a second time changes nothing. The table id and the version come from the answer of read_table or

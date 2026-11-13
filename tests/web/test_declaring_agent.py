@@ -163,10 +163,10 @@ class TestTakeSkat:
 
         assert not answer.is_error, answer.text
         assert answer.json()["version"] == before + 1
-        assert answer.json() == direct_view(declarer, MIDDLEHAND)
-        assert agent.read(declarer.table_id).json() == answer.json()
-        assert len(hand_of(answer.json())["own_cards"]) == len(MIDDLEHAND_CARDS) + len(SKAT_CARDS)
-        assert hand_of(answer.json())["skat_count"] == 0
+        view = agent.read(declarer.table_id).json()
+        assert view == direct_view(declarer, MIDDLEHAND)
+        assert len(hand_of(view)["own_cards"]) == len(MIDDLEHAND_CARDS) + len(SKAT_CARDS)
+        assert hand_of(view)["skat_count"] == 0
 
     def test_no_other_viewer_gets_a_skat_card_from_the_take(self, skat, agent, declarer):
         others = [(headers, None) for headers in other_viewers(declarer).values()]
@@ -198,7 +198,7 @@ class TestTakeSkat:
         again = agent.take_step(TAKE_SKAT_TOOL, picked, command_id="agent-take", version=version - 2)
 
         assert again.json()["version"] == version
-        assert len(hand_of(again.json())["own_cards"]) == len(MIDDLEHAND_CARDS)
+        assert len(hand_of(agent.read(picked.table_id).json())["own_cards"]) == len(MIDDLEHAND_CARDS)
         assert picked.record.version == version
 
 
@@ -211,15 +211,14 @@ class TestPutBackCards:
             answer = agent.take_step(PUT_BACK_CARDS_TOOL, after_take, **put_back_fields(*PUT_BACK_CARDS))
             seen = [cards_in(next(stream)) for stream in streams]
 
-        view = answer.json()
         assert not answer.is_error, answer.text
-        assert view["version"] == before + 1
+        assert answer.json()["version"] == before + 1
+        view = agent.read(after_take.table_id).json()
         assert view["hand"]["declaring"]["stage"] == "picked"
         assert view["hand"]["skat_count"] == len(SKAT_CARDS)
         assert len(view["hand"]["own_cards"]) == len(MIDDLEHAND_CARDS)
         assert wire_cards(PUT_BACK_CARDS).isdisjoint(cards_in(view))
         assert all(wire_cards(PUT_BACK_CARDS).isdisjoint(each) for each in seen)
-        assert wire_cards(PUT_BACK_CARDS).isdisjoint(cards_in(agent.read(after_take.table_id).json()))
 
     def test_the_kept_skat_card_is_the_declarers_own_card(self, agent, picked):
         kept = wire_cards(SKAT_CARDS[1:])
@@ -232,20 +231,19 @@ class TestDeclareGame:
     def test_declaring_after_the_pick_up_starts_the_play_with_the_forehand_to_lead(self, agent, picked):
         answer = agent.take_step(DECLARE_GAME_TOOL, picked, command_id="agent-declare", **declare_fields())
 
-        view = answer.json()
         assert not answer.is_error, answer.text
+        view = agent.read(picked.table_id).json()
         assert view["hand"]["declaring"]["stage"] == "declared"
         assert view["hand"]["playing"]["turn_seat"] == seat_of(FOREHAND)
 
     def test_a_hand_game_declared_at_the_choosing_stage_never_shows_the_skat(self, agent, declarer):
         answer = agent.take_step(DECLARE_GAME_TOOL, declarer, **declare_fields(hand=True))
 
-        view = answer.json()
         assert not answer.is_error, answer.text
+        view = agent.read(declarer.table_id).json()
         assert view["hand"]["declaring"]["stage"] == "declared"
         assert len(view["hand"]["own_cards"]) == len(MIDDLEHAND_CARDS)
         assert wire_cards(SKAT_CARDS).isdisjoint(cards_in(view))
-        assert wire_cards(SKAT_CARDS).isdisjoint(cards_in(agent.read(declarer.table_id).json()))
         assert not any(skat_cards_seen_by_others(declarer).values())
 
     @pytest.mark.parametrize(

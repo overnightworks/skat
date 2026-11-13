@@ -42,7 +42,7 @@ def create_abort_router(tables: TableService, presence: Presence) -> APIRouter:
         opened it) stands still and may be aborted by the seated players. The first yes proposes it and `hand.abort`
         names the seats that said yes; once the yeses are more than half of the seated chairs (one of one, two of
         two) the hand ends at once with no game-list entry and no result, counts as a deal and as a Bock game, and
-        the answer's `aborted` is set. A chair freed or taken meanwhile counts as it is then. Use it from the
+        `aborted` of read_table is set. A chair freed or taken meanwhile counts as it is then. Use it from the
         caller's chair when read_table or your table's view shows `hand.abortable`. The command id names this step:
         the same id is a retry that changes nothing twice. A refusal (not seated, no hand, no open chair) comes back
         as a failed result with its reason and spends the command id.

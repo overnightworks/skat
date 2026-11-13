@@ -3,19 +3,22 @@
 A route becomes a tool only by carrying `agent_tool` as its `openapi_extra`; every other route carries an exclusion
 with its reason, and an undecided route stops the build. A tool calls its route in-process through the whole app, so
 every middleware and every check of the route applies to it as to a browser; the actor is the account the bearer
-gate admitted, never a name the tool's caller gives. The one tool that is no route is `accept_invitation`, whose
-arguments are the agents library's and not a route's body; the front also serves the agent's standing as a resource.
+gate admitted, never a name the tool's caller gives. A table move's tool answers with what the move did and not with
+the table. The one tool that is no route is `accept_invitation`, whose arguments are the agents library's and not a
+route's body; the front also serves the agent's standing as a resource.
 """
 
+import json
 import warnings
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
-from agents.mcp_server import McpPersonFront, route_tools
+from agents.mcp_server import McpPersonFront, PersonTool, route_tools
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.tools import Principal, ToolEffect, agent_tool, not_an_agent_tool
+from agents.tools import Principal, ToolEffect, ToolOutcome, agent_tool, not_an_agent_tool
+from pydantic import BaseModel
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
 from webauth.middleware.bearer_gate import (
@@ -32,6 +35,8 @@ from skat.web.gate import admission_for
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from agents.mcp_server import PersonRequest
+    from agents.tools import JsonObject
     from fastapi import FastAPI
     from starlette.types import ASGIApp, Receive, Scope, Send
     from webauth.oidc import OidcRelyingParty
@@ -137,6 +142,68 @@ SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffec
 NUDGE_SEAT_MARK: Final = agent_tool(name=NUDGE_SEAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
+# The tools of a table's moves, whose route answers with the whole table; an agent is told only what the move did and
+# reads the table through READ_TABLE_TOOL or its live resource. A page's route answers unchanged. Taking or leaving a
+# chair is no move: its answer names who held the chair and which one the agent may return to.
+TABLE_COMMAND_TOOLS: Final = frozenset(
+    {
+        PLAY_CARD_TOOL,
+        AUCTION_BID_TOOL,
+        AUCTION_HOLD_TOOL,
+        AUCTION_PASS_TOOL,
+        AUCTION_PLAY_TOOL,
+        GIVE_UP_GAME_TOOL,
+        THROW_DOWN_CARDS_TOOL,
+        AGREE_TO_GIVE_UP_TOOL,
+        DECLINE_GIVE_UP_TOOL,
+        CONTINUE_AFTER_RESULT_TOOL,
+        AGREE_TO_END_SERIES_TOOL,
+        REFUSE_TO_END_SERIES_TOOL,
+        START_NEW_SERIES_TOOL,
+        AGREE_TO_ABORT_HAND_TOOL,
+        REFUSE_TO_ABORT_HAND_TOOL,
+        TAKE_SKAT_TOOL,
+        PUT_BACK_CARDS_TOOL,
+        DECLARE_GAME_TOOL,
+        RAMSCH_TAKE_SKAT_TOOL,
+        RAMSCH_PUT_BACK_CARDS_TOOL,
+        RAMSCH_PUSH_SKAT_TOOL,
+        RAMSCH_DECLARE_GRAND_HAND_TOOL,
+        SAY_KONTRA_TOOL,
+        SAY_NO_WORD_TOOL,
+        NUDGE_SEAT_TOOL,
+    }
+)
+
+
+class CommandDoneAnswer(BaseModel):
+    """What a table command did for an agent: the tool, and the table's id and version after it.
+
+    The version is the one the agent's next command names.
+    """
+
+    done: str
+    table_id: str
+    version: int
+
+
+def _done_answering(tool: PersonTool) -> PersonTool:
+    """The tool, with a table move's success answered as `CommandDoneAnswer`; a refusal and a failure pass as given."""
+    name = tool.declaration.name
+    if name not in TABLE_COMMAND_TOOLS:
+        return tool
+
+    async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
+        outcome = await tool.handler(request, arguments)
+        if outcome.is_error:
+            return outcome
+        table = json.loads(outcome.content)
+        done = CommandDoneAnswer(done=name, table_id=table["id"], version=table["version"])
+        return ToolOutcome(done.model_dump_json(), is_error=False)
+
+    return PersonTool(tool.declaration, handler)
+
+
 # The agent facts the admitted call's token carries, None for a person's token; the port that lists and reads resources
 # is given only the account, and a stored agent's account also holds a token without them, which is a person's.
 token_carries_agent_facts: Final[ContextVar[AgentFacts | None]] = ContextVar("token_carries_agent_facts", default=None)
@@ -208,7 +275,10 @@ def mount_mcp(
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
 
     front = McpPersonFront(
-        (*tools.tools, member.tool), resolve_person=resolve_person, resources=member.resources, changes=member.changes
+        (*map(_done_answering, tools.tools), member.tool),
+        resolve_person=resolve_person,
+        resources=member.resources,
+        changes=member.changes,
     )
     # No methods named, so every method reaches the front, which refuses all but POST itself.
     app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=_AgentHearingFront(front, agent_heard)))

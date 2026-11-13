@@ -702,6 +702,11 @@ body {
     background: #7aa7f0;
 }
 
+.sheet .btns .confirm.leave {
+    color: #fff;
+    background: #cf3238;
+}
+
 .sheet .btns .cancel {
     color: var(--on-stage);
     background: var(--glass);
@@ -4217,8 +4222,10 @@ body {
         flex-wrap: wrap;
     }
 
-    /* In a call the speaker is the fourth button and the bar stays one row, and during a hand the strip has no room for two words: the stand-up keeps its mark alone and its word for assistive technology. */
+    /* In a call the speaker is the fourth button and the bar stays one row, during a hand the strip has no room for two words,
+       and the opener's close key is one more button beside the link: the stand-up keeps its mark alone and its word for assistive technology. */
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up),
+    .room .actions.on-result:has(.copy.close) .copy.stand,
     .room .copy.round {
         position: relative;
         box-sizing: border-box;
@@ -4228,6 +4235,7 @@ body {
     }
 
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up) .label,
+    .room .actions.on-result:has(.copy.close) .copy.stand .label,
     .room .copy.round .label {
         position: absolute;
         width: 1px;
@@ -4331,6 +4339,49 @@ body {
     }
 }
 
+/* The opener's close key: the leave red, dark enough for white text, with its word at 900 px and wider and the mark alone, round, on a phone. */
+.room .copy.close {
+    color: #fff;
+    background: #cf3238;
+    backdrop-filter: none;
+}
+
+@media (max-width: 899px) {
+    .room .actions .copy.close {
+        position: relative;
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .copy.close .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
+
+/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and on the narrowest the gaps and the words' padding give way too, so the row stays inside the screen. */
+@media (max-width: 899px) {
+    .room .actions:has(.copy.close) .copy.kontra svg {
+        display: none;
+    }
+}
+
+@media (max-width: 383px) {
+    .room .actions:has(.give-up):has(.copy.close) {
+        gap: 4px;
+    }
+
+    .room .actions:has(.give-up):has(.copy.close) .copy:is(.give-up, .kontra):not(.round) {
+        padding-inline: 10px;
+    }
+}
+
 /* A chair the viewer may not take: the empty tile keeps its shape and the plus is a lock. */
 .room .tile.locked {
     color: rgba(244, 246, 248, 0.6);
@@ -4402,6 +4453,19 @@ body {
 .sheet.question .glyph svg {
     width: 28px;
     height: 28px;
+}
+
+/* The closer's initial in a ring of cream where the other faces draw their sign. */
+.room .closed .glyph.by {
+    background: linear-gradient(150deg, #f1d898, #c9a464);
+    color: #111;
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 26px;
+    font-weight: 700;
+    text-transform: uppercase;
+    box-shadow:
+        0 0 0 2px var(--cream),
+        0 8px 16px -6px rgba(0, 0, 0, 0.8);
 }
 
 .room .closed h1 {

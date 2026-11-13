@@ -47,8 +47,10 @@ class TestEndingTheSeriesEarly:
         proposed = agent.call(AGREE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-agree-0001")
 
         assert not proposed.is_error, proposed.text
-        assert proposed.json()["series"]["end_proposal"] == {"proposer_seat": 1, "accepter_seat": None}
-        assert agent.read(between_games.table_id).json()["series"] == proposed.json()["series"]
+        assert agent.read(between_games.table_id).json()["series"]["end_proposal"] == {
+            "proposer_seat": 1,
+            "accepter_seat": None,
+        }
 
         refused = agent.call(REFUSE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-refuse-0001")
 

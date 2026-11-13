@@ -129,7 +129,7 @@ def _add_give_up(router: APIRouter, tables: TableService, presence: Presence) ->
         """Give up the game for the caller's side, as the declarer or as an opponent; this cannot be undone.
 
         As the declarer: while the caller's chair holds nine or more cards the game is lost at once, valued as declared.
-        With fewer, the opponents are asked: `hand.playing.give_up` in the answer names the asking seat and an
+        With fewer, the opponents are asked: `hand.playing.give_up` in read_table names the asking seat and an
         opponent's seat that said no. The game ends once one opponent agrees, lost as declared, or won as it stands if
         the caller's tricks and the skat already win it. A card played, or a no from both, ends the request and play
         goes on. From an opponent's chair it gives up your side's defence at any moment: the game waits for the

@@ -84,7 +84,12 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
             time.sleep(POLL_SECONDS)
             answer = json.loads(anna.get(left_path))
 
-        assert answer["ended"] == {"reason": "empty", "empty_seconds": EMPTY_TABLE_SECONDS, "unplayed_days": None}
+        assert answer["ended"] == {
+            "reason": "empty",
+            "empty_seconds": EMPTY_TABLE_SECONDS,
+            "unplayed_days": None,
+            "closed_by_name": None,
+        }
         assert (answer["chairs"], answer["hand"], answer["watchers"]) == ([], None, 0)
         left = rows_of(e2e_server.engine, left_id)
         assert {name for name, rows in left.items() if rows} == {"tables", "receipts"}
@@ -124,5 +129,10 @@ def test_an_undealt_table_left_before_a_restart_ends_no_sooner_than_the_wait_aft
         time.sleep(POLL_SECONDS)
         answer = json.loads(anna.get(f"{TABLES_PATH}/{table_id}"))
 
-    assert answer["ended"] == {"reason": "empty", "empty_seconds": RESTARTED_WAIT_SECONDS, "unplayed_days": None}
+    assert answer["ended"] == {
+        "reason": "empty",
+        "empty_seconds": RESTARTED_WAIT_SECONDS,
+        "unplayed_days": None,
+        "closed_by_name": None,
+    }
     assert stored_times(restarted_server, table_id)[1] - left_at >= timedelta(seconds=RESTARTED_WAIT_SECONDS)

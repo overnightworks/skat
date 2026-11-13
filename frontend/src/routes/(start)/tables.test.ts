@@ -25,6 +25,7 @@ import {
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_SIT_SUFFIX,
+    TABLE_CLOSE_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
 } from "#lib/wire.ts";
@@ -42,6 +43,7 @@ import {
     seriesNumberOf,
     sitDown,
     standUp,
+    closeTable,
     takeDeclaringStep,
     takePushingStep,
     takeAuctionStep,
@@ -175,7 +177,10 @@ describe("watchTable after a stream error", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
         watchTable(TABLE_ID, onTable, vi.fn(), onConnection);
-        const ended = { id: TABLE_ID, ended: { reason: "empty", empty_seconds: 1800, unplayed_days: null } };
+        const ended = {
+            id: TABLE_ID,
+            ended: { reason: "empty", empty_seconds: 1800, unplayed_days: null, closed_by_name: null },
+        };
 
         FakeEventSource.last.message(JSON.stringify(ended));
         fail();
@@ -431,6 +436,16 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_SIT_SUFFIX}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1", seat: 2 });
+    });
+
+    it("sends only the command id when closing the table", async () => {
+        answerWith(Response.json(table));
+
+        expect(await closeTable(TABLE_ID, "command-3")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_CLOSE_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3" });
     });
 
     it("sends only the command id when standing up", async () => {
