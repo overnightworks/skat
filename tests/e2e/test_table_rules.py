@@ -50,14 +50,14 @@ EVERY_RULE = {
     },
     "bock": {
         "triggers": [
-            "sixty-sixty",
-            "won-grand-hand",
-            "lost-after-kontra",
-            "re",
-            "passed-in",
-            "schneider",
-            "schwarz",
             "total-ending-in-00",
+            "schwarz",
+            "schneider",
+            "passed-in",
+            "re",
+            "lost-after-kontra",
+            "won-grand-hand",
+            "sixty-sixty",
         ],
         "overlap": "append",
     },
@@ -235,17 +235,22 @@ def test_a_table_opened_with_every_rule_reads_all_its_rows(
     bock = sheet.locator(".rrow").nth(3).locator("small span")
     expect(bock).to_have_count(2)
     expect(bock.nth(1)).to_have_text(word("rules.bockOverlapAppend"))
-    for trigger in (
-        "SixtySixty",
-        "WonGrandHand",
-        "LostAfterKontra",
-        "Re",
-        "PassedIn",
-        "Schneider",
-        "Schwarz",
-        "TotalEndingIn00",
-    ):
-        expect(bock.nth(0)).to_contain_text(word(f"rules.bockTrigger{trigger}"))
+    trigger_words = [
+        word(f"rules.bockTrigger{trigger}")
+        for trigger in (
+            "SixtySixty",
+            "WonGrandHand",
+            "LostAfterKontra",
+            "Re",
+            "PassedIn",
+            "Schneider",
+            "Schwarz",
+            "TotalEndingIn00",
+        )
+    ]
+    expect(bock.nth(0)).to_have_text(
+        word("rules.bockTriggers", triggers=f"{', '.join(trigger_words[:-1])} und {trigger_words[-1]}")
+    )
     assert_inside_the_screen(sheet, form_factor)
 
 
