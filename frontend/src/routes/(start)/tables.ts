@@ -29,6 +29,7 @@ import {
     TABLE_EVENTS_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_KONTRA_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_READY_SUFFIX,
     TABLE_SIT_SUFFIX,
@@ -81,6 +82,9 @@ export type Sides = { declarer: number; opponents: number };
 export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number };
 // A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
 export type GiveUp = { asking_seat: number; declined_seat: number | null };
+// The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
+// a watcher and for a chair with none open).
+export type Kontra = { said: { seat: number; word: Word }[]; factor: number; my_word: Word | null };
 export type Playing = {
     turn_seat: number | null;
     current_trick: SeatedCard[];
@@ -88,6 +92,8 @@ export type Playing = {
     // Only the seated player on turn receives the cards they may play.
     legal_cards: Card[];
     give_up: GiveUp | null;
+    // Null at a table without Kontra.
+    kontra: Kontra | null;
 };
 // What a seat that finished its turn of the stage before a Ramsch did with the skat.
 export type PushAction = "took" | "pushed";
@@ -299,6 +305,12 @@ const GIVE_UP_ANSWER_SUFFIXES: Record<GiveUpAnswer, string> = {
 // The version is the one the page shows, so an answer to a request that has since gone is refused; there is no retry.
 export function answerGiveUp(id: string, version: number, commandId: string, answer: GiveUpAnswer): Promise<Outcome> {
     return post(id, GIVE_UP_ANSWER_SUFFIXES[answer], { command_id: commandId, version });
+}
+
+// The word is the one the table offered the viewer; the version is the one the page shows, so a word the table has
+// since moved past is refused, and there is no retry.
+export function sayKontra(id: string, version: number, commandId: string, word: Word): Promise<Outcome> {
+    return post(id, TABLE_KONTRA_SUFFIX, { command_id: commandId, version, word });
 }
 
 // „Weiter“ names the result it saw, so a tap on a result that has since been replaced is refused.

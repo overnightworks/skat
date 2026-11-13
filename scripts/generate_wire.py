@@ -55,7 +55,7 @@ from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
-from skat.web.kontra import TABLE_NO_WORD_SUFFIX  # noqa: E402
+from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX  # noqa: E402
 from skat.web.lobby import LOBBY_EVENTS_PATH  # noqa: E402
 from skat.web.playing import (  # noqa: E402
     TABLE_CARD_SUFFIX,
@@ -141,6 +141,7 @@ def render() -> str:
         "TABLE_GIVE_UP_AGREE_SUFFIX": TABLE_GIVE_UP_AGREE_SUFFIX,
         "TABLE_GIVE_UP_DECLINE_SUFFIX": TABLE_GIVE_UP_DECLINE_SUFFIX,
         "TABLE_LIST_SUFFIX": TABLE_LIST_SUFFIX,
+        "TABLE_KONTRA_SUFFIX": TABLE_KONTRA_SUFFIX,
         "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
         "TABLE_AGENTS_SUFFIX": TABLE_AGENTS_SUFFIX,

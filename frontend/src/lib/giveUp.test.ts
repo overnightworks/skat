@@ -65,6 +65,7 @@ function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: nu
                 last_trick: null,
                 legal_cards: [],
                 give_up: request,
+                kontra: null,
             },
         },
     };
