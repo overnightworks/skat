@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from "svelte";
     import { page } from "$app/state";
+    import type { PageProps } from "./$types";
     import {
         awayOnTurn,
         chairMarks,
@@ -63,6 +64,7 @@
     const WON_MOMENT_MILLISECONDS = 2500;
     const AGENT_SITS_MILLISECONDS = 4000;
 
+    const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
     let outcome = $state<Outcome | null>(null);
@@ -730,7 +732,7 @@
                             <span class="label">{`${words["table.standUp"]}`}</span>
                         </button>
                     {/if}
-                    <AgentsPill tableId={id} {streamedVersion} />
+                    <AgentsPill tableId={id} {streamedVersion} kitWords={data.kitWords} />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}
@@ -783,6 +785,6 @@
         <span class="spin"></span>{words["table.reconnecting"]}
     </div>
     <footer class="legal">
-        <LegalLinks links={LEGAL_LINKS} newTab />
+        <LegalLinks links={LEGAL_LINKS} newTab words={data.kitWords} />
     </footer>
 </div>
