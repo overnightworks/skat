@@ -298,8 +298,13 @@ async def _end_unplayed_tables(
             presence.wake_table(table_id.value)
 
 
-def _sweep_every_hour(
-    settings: ServerSettings, tables: TableService, presence: Presence, asks: AskClock, scheduler: Scheduler
+def _sweep_unplayed_tables(
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    asks: AskClock,
+    scheduler: Scheduler,
+    period_seconds: float,
 ) -> None:
     async def sweep() -> None:
         try:
@@ -307,13 +312,18 @@ def _sweep_every_hour(
         except Exception as failure:
             log.error("unplayed tables read failed", error=type(failure).__name__)
         if not presence.stopped:
-            scheduler.schedule(UNPLAYED_SWEEP_SECONDS, sweep)
+            scheduler.schedule(period_seconds, sweep)
 
-    scheduler.schedule(UNPLAYED_SWEEP_SECONDS, sweep)
+    scheduler.schedule(period_seconds, sweep)
 
 
 def _serving(
-    settings: ServerSettings, tables: TableService, presence: Presence, asks: AskClock, scheduler: Scheduler
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    asks: AskClock,
+    scheduler: Scheduler,
+    unplayed_sweep_seconds: float,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
     async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
@@ -323,7 +333,7 @@ def _serving(
         presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
         presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
         await _end_unplayed_tables(settings, tables, presence, asks, at_start=True)
-        _sweep_every_hour(settings, tables, presence, asks, scheduler)
+        _sweep_unplayed_tables(settings, tables, presence, asks, scheduler, unplayed_sweep_seconds)
         try:
             async with serving.state.mcp_front.running():
                 yield
@@ -351,6 +361,7 @@ def create_app(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
+    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
@@ -375,7 +386,7 @@ def create_app(
     wakes = WakeList()
     presence = _presence(settings, tables, chair_clock, scheduler, asks, wakes)
 
-    app = _new_app(_serving(settings, tables, presence, asks, scheduler))
+    app = _new_app(_serving(settings, tables, presence, asks, scheduler, unplayed_sweep_seconds))
     app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))

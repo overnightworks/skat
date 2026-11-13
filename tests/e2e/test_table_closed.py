@@ -51,12 +51,13 @@ UNKNOWN_ID = "0" * 32
 @pytest.fixture(scope="module")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """This module's Skat, with an empty-table wait and a sweep for unplayed tables short enough to wait out."""
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr("skat.host.app.UNPLAYED_SWEEP_SECONDS", UNPLAYED_SWEEP_SECONDS)
-        with skat_on_new_database(
-            tmp_path_factory, empty_table_seconds=EMPTY_TABLE_SECONDS, paused_table_days=UNPLAYED_DAYS
-        ) as server:
-            yield server
+    with skat_on_new_database(
+        tmp_path_factory,
+        unplayed_sweep_seconds=UNPLAYED_SWEEP_SECONDS,
+        empty_table_seconds=EMPTY_TABLE_SECONDS,
+        paused_table_days=UNPLAYED_DAYS,
+    ) as server:
+        yield server
 
 
 def wait_for_end(server: RunningServer, table_id: str) -> None:
