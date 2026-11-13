@@ -1,0 +1,8 @@
+claim_id = "89bb592c55c141cb962c2f2d340a5889"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "27dd0b8a5a2df691b96a4b8d4259d059725b4e66"
+branch = "claude/issue-518-main-s-end-to-end-job-a-random-red-in-th"
+scope = ["tests/e2e/conftest.py", "tests/e2e/support/tables.py", "tests/e2e/test_table_give_up.py", "tests/e2e/test_table_reckoning.py"]
+opened_commit = "ab66d890b1ef34a96f978675e77fd76196a77990"
+whole_reason = "Both causes keep main's end-to-end job green and share the end-to-end support code."
