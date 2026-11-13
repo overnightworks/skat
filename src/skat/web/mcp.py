@@ -78,6 +78,7 @@ SIT_DOWN_TOOL: Final = "sit_down"
 STAND_UP_TOOL: Final = "stand_up"
 READ_RULE_SETS_TOOL: Final = "read_rule_sets"
 SAVE_RULE_SET_TOOL: Final = "save_rule_set"
+NUDGE_SEAT_TOOL: Final = "nudge_seat"
 
 
 class Exclusion(StrEnum):
@@ -129,6 +130,7 @@ SIT_DOWN_MARK: Final = agent_tool(name=SIT_DOWN_TOOL, effect=ToolEffect.SIDE_EFF
 STAND_UP_MARK: Final = agent_tool(name=STAND_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 READ_RULE_SETS_MARK: Final = agent_tool(name=READ_RULE_SETS_TOOL, effect=ToolEffect.READ_ONLY)
 SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+NUDGE_SEAT_MARK: Final = agent_tool(name=NUDGE_SEAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
 # The agent facts the admitted call's token carries, None for a person's token; the port that lists and reads resources
