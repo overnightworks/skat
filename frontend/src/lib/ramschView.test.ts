@@ -41,6 +41,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         watchers: 0,
         result: null,
         passed_in: null,
+        bock: null,
         ended: null,
         hand: {
             dealer_seat: NOVA,
