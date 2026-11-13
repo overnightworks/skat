@@ -11,6 +11,8 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
+from tests.e2e.support.raw_http import RawSession
+from tests.e2e.support.tables import open_table_with_options
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,7 +34,15 @@ TIMES = "\N{MULTIPLICATION SIGN}"
 KONTRA_OPTIONS = {"kontra": {"sayer": "bidders-only", "reach": "kontra-re", "deadline": "own-card"}}
 
 
-class ContestedTable(DeclaringTable):
+class KontraTable(DeclaringTable):
+    """A table opened through the API with Kontra and Re."""
+
+    @staticmethod
+    def _open_table(opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
+        return open_table_with_options(opener, server, RawSession(server, member_of(opener)), KONTRA_OPTIONS)
+
+
+class ContestedTable(KontraTable):
     """The forehand holds at the first bid and drops out at the second; the rearhand passes at once."""
 
     def _win_the_auction(self, seat_at: dict[str, int]) -> None:
@@ -43,7 +53,7 @@ class ContestedTable(DeclaringTable):
         self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
 
 
-class LeadingTable(DeclaringTable):
+class LeadingTable(KontraTable):
     """The forehand outbids the middlehand, so the declarer leads and the middlehand may say Kontra."""
 
     declarer_position = "forehand"
@@ -75,7 +85,6 @@ def deal_a_kontra_table(
             form_factor,
             console=console,
             declaring=declaring,
-            options=KONTRA_OPTIONS,
         )
 
     return deal

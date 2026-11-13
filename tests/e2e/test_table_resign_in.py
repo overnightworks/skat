@@ -9,6 +9,7 @@ from skat.web.constants import AUTH_START_PATH, LOGIN_PATH, SIGNED_IN_AGAIN_QUER
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.sessions import end_sessions_of
 from tests.e2e.support.tables import open_new_table, table_id_of
@@ -36,7 +37,7 @@ def watching_signed_in_at_the_issuer(
     sign_in_starts: list[str] = []
     ben.on("request", lambda request: sign_in_starts.append(request.url) if AUTH_START_PATH in request.url else None)
     ben.goto(f"{server.base_url}{path}")
-    ben.get_by_role("link", name="Log in", exact=True).click()
+    ben.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
     expect(ben).to_have_url(f"{server.base_url}{path}")
     expect(ben.locator(".chair")).to_have_count(3)
     sign_in_starts.clear()
@@ -85,7 +86,7 @@ def test_a_second_refusal_soon_after_the_sign_in_shows_the_sign_in_page_instead_
     cleo.close()
 
     expect(ben).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
-    expect(ben.get_by_role("link", name="Log in", exact=True)).to_be_visible()
+    expect(ben.get_by_role("link", name=kit_text("signIn.logIn"), exact=True)).to_be_visible()
     assert len(sign_in_starts) == 1
 
 

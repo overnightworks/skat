@@ -3,23 +3,25 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 from sqlalchemy import select
 
 from skat.store.schema import tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.tables import open_new_table
+from tests.e2e.support.tables import assert_never_reloaded, mark_page, open_new_table
+from tests.e2e.support.waiting_tables import deal_a_table_that_waits_for
 from tests.support.signed_in import new_account, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
     from tests.e2e.support.server import RunningServer
+    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
@@ -28,6 +30,10 @@ ENDS_WITHIN_SECONDS = EMPTY_TABLE_SECONDS + 20
 POLL_SECONDS = 0.2
 UNKNOWN_ID = "0" * 32
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
+LOBBY_WAITING_ONE = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=1)
+LOBBY_WAITING_TWO = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=2)
+OTHER_TABLES_BEYOND_THE_CAP = 10
+RECONNECT_MILLISECONDS = 15_000
 RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
@@ -191,3 +197,110 @@ def test_the_lobby_button_of_an_ended_table_takes_the_person_home(
     expect(person.get_by_role("heading", name=CLOSED_HEADING)).to_be_visible()
     expect_the_lobby_top_left_and_tappable(person)
     expect_the_lobby_to_take_the_person_to_the_start_page(person, ended_server.base_url)
+
+
+def badge_of(person: Page) -> Any:
+    return person.locator(".lobby-badge")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_table_that_waits_for_the_person_puts_its_number_on_the_lobby_button_while_he_plays_here(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    person = record_page_errors(open_person(**form_factor), page_errors)
+    open_new_table(person, e2e_server)
+    mark_page(person)
+    expect(badge_of(person)).to_have_count(0)
+    expect(lobby_of(person)).to_have_attribute("aria-label", LOBBY)
+
+    deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
+
+    expect(badge_of(person)).to_have_text("1")
+    expect(lobby_of(person)).to_have_attribute("aria-label", LOBBY_WAITING_ONE)
+    expect(person.get_by_role("link", name=LOBBY_WAITING_ONE)).to_be_visible()
+    face, badge = person.locator(".lobby-face").bounding_box(), badge_of(person).bounding_box()
+    assert face is not None
+    assert badge is not None
+    assert badge["width"] == badge["height"] > 0
+    assert badge["x"] <= face["x"] + face["width"] <= badge["x"] + badge["width"]
+    assert badge["y"] <= face["y"] <= badge["y"] + badge["height"]
+    expect_the_lobby_top_left_and_tappable(person)
+    assert_never_reloaded(person)
+
+    deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
+
+    expect(badge_of(person)).to_have_text("2")
+    expect(lobby_of(person)).to_have_attribute("aria-label", LOBBY_WAITING_TWO)
+
+
+def test_the_table_the_person_is_at_is_never_counted_even_when_it_waits_for_him(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    person = record_page_errors(open_person(**PHONE), page_errors)
+    table_id = deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
+
+    person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table_id}")
+
+    expect(person.locator(".chair")).to_have_count(3)
+    expect(lobby_of(person)).to_be_visible()
+    expect(badge_of(person)).to_have_count(0)
+
+
+def test_more_than_nine_waiting_tables_read_nine_plus(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    person = record_page_errors(open_person(**PHONE), page_errors)
+    open_new_table(person, e2e_server)
+    him = RawSession(e2e_server, member_of(person))
+
+    for _ in range(OTHER_TABLES_BEYOND_THE_CAP):
+        deal_a_table_that_waits_for(e2e_server, him)
+
+    expect(badge_of(person)).to_have_text("9+")
+    expect(lobby_of(person)).to_have_attribute(
+        "aria-label", text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=OTHER_TABLES_BEYOND_THE_CAP)
+    )
+
+
+def test_a_lost_stream_hides_the_number_and_the_stream_coming_back_brings_it_again(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    expected_request_failures: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    person = record_page_errors(open_person(**PHONE), page_errors, console=False)
+    open_new_table(person, e2e_server)
+    deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
+    streams: list[str] = []
+
+    def count_one_then_end_and_refuse_the_rest(route: Route) -> None:
+        streams.append(route.request.url)
+        if len(streams) == 1:
+            route.fulfill(content_type="text/event-stream", body="event: attention\ndata: 1\n\n")
+        else:
+            route.abort()
+
+    # Playwright cannot end a stream that is open, so the reloaded page meets one that carries the count and ends.
+    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
+    person.route(events, count_one_then_end_and_refuse_the_rest)
+    person.reload()
+
+    expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
+    expect(badge_of(person)).to_have_count(0)
+    expect_the_lobby_top_left_and_tappable(person)
+    person.unroute(events, count_one_then_end_and_refuse_the_rest)
+
+    expect(badge_of(person)).to_have_text("1", timeout=RECONNECT_MILLISECONDS)
+    expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_have_count(0)

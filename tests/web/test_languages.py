@@ -7,7 +7,7 @@ from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.web import languages
-from skat.web.constants import HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH
+from skat.web.constants import CALL_SIGN_IN_PATH, HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE
 from tests.support.fake_rule_sets import in_memory_rule_sets
@@ -93,8 +93,8 @@ class TestShellLanguage:
 
 
 class TestPlainSignInPages:
-    @pytest.mark.parametrize("path", [LOGIN_PATH, NO_ACCESS_PATH])
-    def test_a_plain_sign_in_page_keeps_english_until_the_kit_speaks_german(self, sign_in_settings, path):
+    @pytest.mark.parametrize("path", [LOGIN_PATH, NO_ACCESS_PATH, CALL_SIGN_IN_PATH])
+    def test_a_plain_sign_in_page_says_the_source_language_its_words_are_in(self, sign_in_settings, path):
         client = TestClient(skat_app(sign_in_settings), base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
 
-        assert b'<html lang="en">' in client.get(path).content
+        assert html_lang_of(client.get(path).content) == SOURCE_LANGUAGE
