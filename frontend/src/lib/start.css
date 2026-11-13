@@ -3435,17 +3435,16 @@ body {
     box-shadow: 0 0 0 6px rgba(122, 167, 240, 0.18);
 }
 
-/* The notice stands on the top of the felt between the far chairs, where no card of a trick, no bubble of a call and no plaque lies. */
 .room .notice {
     grid-column: 1 / 3;
-    grid-row: 2;
+    grid-row: 2 / 4;
     z-index: 2;
     display: flex;
     align-items: center;
     gap: 8px;
     justify-self: center;
-    align-self: start;
-    margin: 28px 0 0;
+    align-self: center;
+    margin: 0;
     padding: 6px 16px 6px 7px;
     border-radius: 999px;
     color: #14161a;
@@ -3461,14 +3460,20 @@ body {
     white-space: nowrap;
 }
 
-/* On a phone the sentence wraps inside the gap between the far chairs. */
+/* The notice about a chair stands on the top of the felt between the far chairs, where no card of a trick, no bubble of a call and no plaque lies; on a phone its sentence wraps inside the gap. */
+.room .notice.seat {
+    grid-row: 2;
+    align-self: start;
+    margin-top: 28px;
+}
+
 @media (max-width: 899px) {
-    .room .notice {
+    .room .notice.seat {
         box-sizing: border-box;
         max-width: calc(100% - 2 * (var(--chair-width) - 14px) - 8px);
     }
 
-    .room .notice .label {
+    .room .notice.seat .label {
         flex-shrink: 1;
         white-space: normal;
     }

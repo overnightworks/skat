@@ -5,7 +5,7 @@
     const { notice }: { notice: SeatNotice } = $props();
 </script>
 
-<p class="notice" role="status">
+<p class="notice seat" role="status">
     {#if notice.initial === null}
         <span class="dot agent" aria-hidden="true">
             <AgentSparkle />
