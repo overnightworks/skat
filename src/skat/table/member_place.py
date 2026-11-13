@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from datetime import datetime, timedelta
 
     from skat.table.records import Actor, NewHand
+    from skat.table.transactions import TableTransactions
 
 __all__ = [
     "AcceptDecision",
@@ -47,6 +48,7 @@ __all__ = [
     "seated_agents",
     "seated_call_facts",
     "standings_among",
+    "standings_of",
     "table_offers_of",
 ]
 
@@ -429,3 +431,17 @@ def standings_among(entries: Iterable[BookEntry], held: Iterable[TableId], now: 
         if invitation is not None and entry.table_id not in active:
             standings.append(TableStanding(entry.table_id, MembershipState.INVITED, invitation.offered(entry.epoch)))
     return tuple(sorted(standings, key=lambda standing: standing.table_id.value))
+
+
+def standings_of(transactions: TableTransactions, agent_account: str, now: datetime) -> tuple[TableStanding, ...]:
+    """Every table the agent holds a chair at or has an open invitation to, from one read; the read forgets an
+    invitation of the agent that ran out by `now`.
+    """
+    with transactions.begin() as transaction:
+        entries = transaction.locked_book_entries_of(agent_account)
+        kept = tuple(forgotten_if_expired(entry, now) for entry in entries)
+        for before, after in zip(entries, kept, strict=True):
+            if after != before:
+                transaction.save_book_entry(after)
+        held = [each.table_id for each in transaction.tables_of(agent_account)]
+    return standings_among(kept, held, now)
