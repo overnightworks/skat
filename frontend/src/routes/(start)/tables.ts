@@ -157,6 +157,9 @@ export type Chair = {
     hand: ChairHand | null;
     // Whoever held the chair in the running hand and left it, while it stays open; the same for every viewer.
     former_holder_name: string | null;
+    // True only on the chair of the running hand that the viewer stood up from, open or taken since: the one chair they
+    // may sit in again.
+    is_mine_to_return: boolean;
 };
 export type RamschSeat = { seat: number; points: number; score: number };
 // The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
@@ -510,9 +513,10 @@ export function seatedAgentsKey(previous: Table | undefined, table: Table): stri
     return JSON.stringify([agents, skipped ? table.version : null]);
 }
 
-// The seats in drawing order: the viewer's own chair comes last, which is the one at the bottom.
+// The seats in drawing order: the viewer's own chair comes last, which is the one at the bottom. A viewer who stood up
+// from a chair of the running hand keeps the table as it was, with that chair at the bottom.
 export function drawingOrder(chairs: Chair[]): Chair[] {
-    const afterMine = chairs.findIndex((chair) => chair.is_mine) + 1;
+    const afterMine = chairs.findIndex((chair) => chair.is_mine || chair.is_mine_to_return) + 1;
     return [...chairs.slice(afterMine), ...chairs.slice(0, afterMine)];
 }
 

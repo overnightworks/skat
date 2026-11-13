@@ -275,7 +275,7 @@ def test_the_auctions_bubbles_and_marks_stay_clear_of_the_plaque_for_every_viewe
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_no_stand_up_shows_while_a_hand_runs_and_it_returns_once_no_hand_runs(
+def test_the_stand_up_shows_before_during_and_after_a_hand_for_every_seated_player_and_never_for_a_watcher(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     players = table_with_two_seated(open_person, e2e_server, page_errors, form_factor)
@@ -285,8 +285,9 @@ def test_no_stand_up_shows_while_a_hand_runs_and_it_returns_once_no_hand_runs(
 
     deal_the_hand(players)
 
-    expect(stand_up_of(players.anna)).to_have_count(0)
-    expect(stand_up_of(players.ben)).to_have_count(0)
+    expect(stand_up_of(players.anna)).to_be_visible()
+    expect(stand_up_of(players.ben)).to_be_visible()
+    expect(stand_up_of(players.watcher)).to_have_count(0)
 
     end_the_hand(e2e_server, players.table_id)
     players.ben.reload()

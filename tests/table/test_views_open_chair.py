@@ -6,7 +6,7 @@ import pytest
 
 from skat.engine.kontra import Word
 from skat.table.records import HandProgress
-from skat.table.rules import decide_sit
+from skat.table.rules import decide_sit, decide_stand
 from skat.table.views import turn_seat_of, view_of
 from tests.support.open_chairs import (
     FOREHAND_SEAT,
@@ -14,6 +14,7 @@ from tests.support.open_chairs import (
     MIDDLEHAND_SEAT,
     PHASES,
     REARHAND_SEAT,
+    actor_at,
     newcomer,
     sent_away,
 )
@@ -107,6 +108,49 @@ class TestTheFormerHolder:
         stored = replace(table, progress=replace(table.progress, former_holders=frozenset()))
 
         assert view_of(stored, "account-watcher", NOBODY).chairs[REARHAND_SEAT - 1].former_holder_name is None
+
+
+class TestTheChairToReturnTo:
+    @pytest.mark.parametrize("phase", PHASES)
+    def test_only_the_person_who_stood_up_may_return_to_the_chair_and_only_that_one(self, phase):
+        running = PHASES[phase]()
+        stood = decide_stand(running, actor_at(running, REARHAND_SEAT)).table
+        leaver = running.chairs[REARHAND_SEAT - 1].occupant.account_id
+
+        returns = {
+            viewer: [chair.is_mine_to_return for chair in view_of(stood, viewer, NOBODY).chairs]
+            for viewer in (*VIEWERS, leaver)
+        }
+
+        assert returns.pop(leaver) == [False, True, False]
+        assert set(map(tuple, returns.values())) == {(False, False, False)}
+
+    def test_a_second_open_chair_is_no_chair_to_return_to_for_the_person_who_stood_up(self):
+        running = PHASES["auction"]()
+        stood = decide_stand(running, actor_at(running, REARHAND_SEAT)).table
+        leaver = running.chairs[REARHAND_SEAT - 1].occupant.account_id
+        both = sent_away(stood, FOREHAND_SEAT)
+
+        assert [chair.is_mine_to_return for chair in view_of(both, leaver, NOBODY).chairs] == [False, True, False]
+
+    def test_the_chair_taken_by_a_sit_stays_the_leavers_chair_and_another_open_chair_is_not(self):
+        running = PHASES["auction"]()
+        stood = decide_stand(running, actor_at(running, REARHAND_SEAT)).table
+        leaver = running.chairs[REARHAND_SEAT - 1].occupant
+        sat = decide_sit(stood, newcomer(), REARHAND_SEAT, None).table
+        both = sent_away(sat, FOREHAND_SEAT)
+
+        assert [chair.is_mine_to_return for chair in view_of(both, leaver.account_id, NOBODY).chairs] == [
+            False,
+            True,
+            False,
+        ]
+        assert not any(chair.is_mine_to_return for chair in view_of(both, "account-watcher", NOBODY).chairs)
+
+    def test_no_chair_is_to_return_to_between_hands(self):
+        between = replace(table_in(HandProgress()), hand=None, dealer=None)
+
+        assert not any(chair.is_mine_to_return for chair in view_of(between, "account-middlehand", NOBODY).chairs)
 
 
 def account_of_a_seated_person(table):
