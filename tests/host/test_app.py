@@ -361,35 +361,44 @@ UNPLAYED_DAYS = 7
 NOW = datetime(2026, 11, 12, 12, tzinfo=UTC)
 
 
-class HeldUnplayedEnd(TableService):
-    """A table service whose unplayed end can wait before it takes the row and can hold its write guard open."""
+class HeldStore(FakeTableStore):
+    """A store whose row lock waits for the test and whose commit of an end waits for the test."""
 
-    def __init__(self, store, **options):
-        super().__init__(store, **options)
+    def __init__(self):
+        super().__init__()
+        self.holds_the_row = False
+        self.holds_the_commit = False
         self.awaiting_the_row = threading.Event()
         self.row_free = threading.Event()
-        self.end_entered = threading.Event()
-        self.release_end = threading.Event()
+        self.awaiting_the_commit = threading.Event()
+        self.commit_free = threading.Event()
+        self._ended = False
 
-    def end_unplayed_table(self, table_id, days, writing):
-        @contextmanager
-        def held_inside_the_end():
-            with writing as connected:
-                self.end_entered.set()
-                assert self.release_end.wait(timeout=10)
-                yield connected
+    def locked_table(self, table_id):
+        if self.holds_the_row:
+            self.awaiting_the_row.set()
+            assert self.row_free.wait(timeout=10)
+        return super().locked_table(table_id)
 
-        self.awaiting_the_row.set()
-        assert self.row_free.wait(timeout=10)
-        return super().end_unplayed_table(table_id, days, held_inside_the_end())
+    def end_table(self, table_id, at, ending):
+        self._ended = True
+        super().end_table(table_id, at, ending)
+
+    @contextmanager
+    def begin(self):
+        with super().begin() as transaction:
+            yield transaction
+            if self.holds_the_commit and self._ended:
+                self.awaiting_the_commit.set()
+                assert self.commit_free.wait(timeout=10)
 
 
 class UnplayedTables:
     """Dealt tables on a service whose clock the test moves, started by an app on a scheduler the test runs."""
 
-    def __init__(self, sign_in_settings, service=TableService):
+    def __init__(self, sign_in_settings, service=TableService, store=None):
         self.clock = [NOW]
-        self.store = FakeTableStore()
+        self.store = FakeTableStore() if store is None else store
         self.tables = service(self.store, now=lambda: self.clock[0])
         self.scheduler = RecordedScheduler()
         self.settings = sign_in_settings(paused_table_days=UNPLAYED_DAYS).settings
@@ -411,6 +420,32 @@ class UnplayedTables:
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=self.scheduler,
         )
+
+    async def stop_while_held(self, reached, free):
+        """Serve until the hourly run, started past the days, reaches the hold of `reached`; stop the server then,
+        free the hold after the stop had time to finish and answer whether the lifespan returned before that.
+        """
+        left_the_lifespan = asyncio.Event()
+        leaving = asyncio.Event()
+        app = self.app()
+
+        async def serve():
+            async with app.router.lifespan_context(app):
+                ((_, tick),) = self.scheduler.sweeps()
+                self.play_on(UNPLAYED_DAYS)
+                running = asyncio.create_task(tick())
+                await leaving.wait()
+            left_the_lifespan.set()
+            await running
+
+        serving = asyncio.create_task(serve())
+        await asyncio.to_thread(reached.wait, 10)
+        leaving.set()
+        await asyncio.wait({serving}, timeout=0.3)
+        returned = left_the_lifespan.is_set()
+        free.set()
+        await serving
+        return returned
 
     def ended(self, table_id):
         return self.tables.view(OPENER, table_id.value, frozenset()).ended
@@ -542,52 +577,24 @@ class TestUnplayedTables:
         assert unplayed.ended(table_id) is None
 
     def test_a_run_that_awaits_the_row_lock_when_the_server_stops_ends_no_table(self, sign_in_settings):
-        unplayed = UnplayedTables(sign_in_settings, HeldUnplayedEnd)
+        store = HeldStore()
+        unplayed = UnplayedTables(sign_in_settings, store=store)
         table_id = unplayed.dealt("command-open")
-        unplayed.tables.release_end.set()
-        app = unplayed.app()
+        store.holds_the_row = True
 
-        async def stop_while_the_run_awaits_the_row():
-            lifespan = app.router.lifespan_context(app)
-            await lifespan.__aenter__()
-            ((_, tick),) = unplayed.scheduler.sweeps()
-            unplayed.play_on(UNPLAYED_DAYS)
-            running = asyncio.create_task(tick())
-            await asyncio.to_thread(unplayed.tables.awaiting_the_row.wait, 10)
-            await lifespan.__aexit__(None, None, None)
-            unplayed.tables.row_free.set()
-            await running
-
-        asyncio.run(stop_while_the_run_awaits_the_row())
+        asyncio.run(unplayed.stop_while_held(store.awaiting_the_row, store.row_free))
 
         assert unplayed.ended(table_id) is None
 
-    def test_the_lifespan_returns_only_after_an_unplayed_end_that_holds_its_row_has_committed(self, sign_in_settings):
-        unplayed = UnplayedTables(sign_in_settings, HeldUnplayedEnd)
+    def test_the_lifespan_returns_only_after_an_unplayed_end_awaiting_its_commit_has_committed(self, sign_in_settings):
+        store = HeldStore()
+        unplayed = UnplayedTables(sign_in_settings, store=store)
         table_id = unplayed.dealt("command-open")
-        unplayed.tables.row_free.set()
-        app = unplayed.app()
+        store.holds_the_commit = True
 
-        async def serve_until_the_end_holds_its_row():
-            async with app.router.lifespan_context(app):
-                ((_, tick),) = unplayed.scheduler.sweeps()
-                unplayed.play_on(UNPLAYED_DAYS)
-                running = asyncio.create_task(tick())
-                await asyncio.to_thread(unplayed.tables.end_entered.wait, 10)
-            return running
+        returned_before_the_commit = asyncio.run(unplayed.stop_while_held(store.awaiting_the_commit, store.commit_free))
 
-        async def stop_while_the_end_holds_its_row():
-            serving = asyncio.create_task(serve_until_the_end_holds_its_row())
-            await asyncio.to_thread(unplayed.tables.end_entered.wait, 10)
-            await asyncio.wait({serving}, timeout=0.3)
-            waited_for_the_end = not serving.done()
-            unplayed.tables.release_end.set()
-            await (await serving)
-            return waited_for_the_end
-
-        waited_for_the_end = asyncio.run(stop_while_the_end_holds_its_row())
-
-        assert waited_for_the_end
+        assert not returned_before_the_commit
         assert unplayed.ended(table_id).reason is EndReason.UNPLAYED
 
     def test_a_run_after_the_server_stopped_asks_for_no_further_run(self, unplayed):
