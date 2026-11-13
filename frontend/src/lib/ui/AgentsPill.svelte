@@ -13,7 +13,7 @@
 
     // `streamedVersion` is the version of the latest table the page's stream brought, null before the first: the first
     // one means the viewer has a stream on the table, which the control needs, and each later one is read only while
-    // the list is open or when the count of agents seated changed, which can show the pill to an owner or take it away.
+    // the list is open or when the agents seated changed, which can show the pill to an owner or take it away.
     const {
         tableId,
         streamedVersion,
