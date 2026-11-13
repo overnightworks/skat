@@ -41,6 +41,7 @@ BAR = ".bar"
 WORDMARK = ".bar .wordmark"
 APP_NAME = text(SOURCE_LANGUAGE, "app.name")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
+CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
 NEW_TABLE = text(SOURCE_LANGUAGE, "start.newTable")
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -103,6 +104,23 @@ def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_no_copy_
         expect(table.locator(WORDMARK)).to_have_text(APP_NAME)
         expect(table.locator(f"{BAR} a")).to_have_count(0)
         expect(table.get_by_role("button", name=COPY_LINK)).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_framed_call_mode_table_offers_its_opener_the_speaker_and_no_close_key(
+    open_person: Callable[..., Page],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    form_factor: dict[str, Any],
+) -> None:
+    opener = open_person(server=framing_server, **form_factor)
+    path = open_new_table(opener, framing_server)
+
+    with in_the_call_frame(opener, browser_coverage, table_url(framing_server, path)) as table:
+        expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+
+        expect(table.locator(SPEAKER)).to_be_visible()
+        expect(table.get_by_role("button", name=CLOSE_KEY, exact=True)).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

@@ -38,6 +38,7 @@ export function tableWith(
         options: null,
         bock: null,
         ended: null,
+        opened_by_me: false,
         hand: {
             dealer_seat: 3,
             own_cards: [],

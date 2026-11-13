@@ -88,6 +88,7 @@ function table(
         version,
         chairs: chairsWithCards(cards),
         watchers: 0,
+        opened_by_me: false,
         hand: {
             dealer_seat: REARHAND,
             own_cards: [],
