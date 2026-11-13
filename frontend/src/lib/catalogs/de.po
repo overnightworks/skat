@@ -508,7 +508,7 @@ msgid "noch {count}"
 msgstr ""
 
 msgctxt "result.sidePoints"
-msgid "{side} {points}"
+msgid "{#side}{side}{/side} {#tally}{points}{/tally}"
 msgstr ""
 
 msgctxt "result.eyes"
@@ -841,4 +841,200 @@ msgstr ""
 
 msgctxt "logout.button"
 msgid "Abmelden"
+msgstr ""
+
+msgctxt "start.rulePoints"
+msgid "Laufende Augen zeigen"
+msgstr ""
+
+msgctxt "start.rulePointsLine"
+msgid "Alle sehen die Augen im Spiel"
+msgstr ""
+
+msgctxt "rules.button"
+msgid "Regeln"
+msgstr ""
+
+msgctxt "rules.title"
+msgid "Regeln"
+msgstr ""
+
+msgctxt "rules.lockBadge"
+msgid "Fest für diesen Tisch"
+msgstr ""
+
+msgctxt "rules.lockInfo"
+msgid "Andere Regeln heißen neuer Tisch."
+msgstr ""
+
+msgctxt "rules.info"
+msgid "Info"
+msgstr ""
+
+msgctxt "rules.close"
+msgid "Schließen"
+msgstr ""
+
+msgctxt "rules.chipOfficial"
+msgid "Offiziell"
+msgstr ""
+
+msgctxt "rules.chipPoints"
+msgid "Augen"
+msgstr ""
+
+msgctxt "rules.chipKontra"
+msgid "Kontra"
+msgstr ""
+
+msgctxt "rules.chipRamsch"
+msgid "Ramsch"
+msgstr ""
+
+msgctxt "rules.namePoints"
+msgid "Laufende Augen zeigen"
+msgstr ""
+
+msgctxt "rules.nameKontra"
+msgid "Kontra und Re"
+msgstr ""
+
+msgctxt "rules.nameRamsch"
+msgid "Ramsch beim Einpassen"
+msgstr ""
+
+msgctxt "rules.namePushing"
+msgid "Schieberamsch"
+msgstr ""
+
+msgctxt "rules.nameBock"
+msgid "Bockrunden"
+msgstr ""
+
+msgctxt "rules.pointsFromTricks"
+msgid "Aus fertigen Stichen, nie in einer Null"
+msgstr ""
+
+msgctxt "rules.kontraSayerAnyOpponent"
+msgid "Jeder Gegner"
+msgstr ""
+
+msgctxt "rules.kontraSayerBiddersOnly"
+msgid "Nur wer gereizt hat"
+msgstr ""
+
+msgctxt "rules.kontraReachKontraRe"
+msgid "Nur Kontra und Re"
+msgstr ""
+
+msgctxt "rules.kontraReachKontraReStandings"
+msgid "Kontra und Re, auch 50 und 40"
+msgstr ""
+
+msgctxt "rules.kontraReachUpToHirsch"
+msgid "bis Hirsch"
+msgstr ""
+
+msgctxt "rules.kontraDeadlineOwnCard"
+msgid "bis zur eigenen Karte"
+msgstr ""
+
+msgctxt "rules.kontraDeadlineFirstCard"
+msgid "bis zur ersten Karte"
+msgstr ""
+
+msgctxt "rules.ramschScoringPoints"
+msgid "Meiste Augen minus"
+msgstr ""
+
+msgctxt "rules.ramschScoringPointsByTen"
+msgid "Augen durch zehn"
+msgstr ""
+
+msgctxt "rules.ramschScoringSkatToLoser"
+msgid "Skat zum Verlierer"
+msgstr ""
+
+msgctxt "rules.jungfrauDoublesLoser"
+msgid "Jungfrau ×2"
+msgstr ""
+
+msgctxt "rules.jungfrauOff"
+msgid "Jungfrau ohne Wirkung"
+msgstr ""
+
+msgctxt "rules.durchmarschWins120"
+msgid "Durchmarsch +120"
+msgstr ""
+
+msgctxt "rules.durchmarschWins120Flat"
+msgid "Durchmarsch +120, nie doppelt"
+msgstr ""
+
+msgctxt "rules.durchmarschOff"
+msgid "Kein Durchmarsch"
+msgstr ""
+
+msgctxt "rules.pushingJacksStay"
+msgid "Ohne Buben, je doppelt"
+msgstr ""
+
+msgctxt "rules.pushingJacksMayGo"
+msgid "Mit Buben, je doppelt"
+msgstr ""
+
+msgctxt "rules.pushingNoDoubling"
+msgid "Ohne Verdopplung"
+msgstr ""
+
+msgctxt "rules.grandHandAllowed"
+msgid "Grand Hand statt Ramsch"
+msgstr ""
+
+msgctxt "rules.bockTriggers"
+msgid "Bei {triggers}"
+msgstr ""
+
+msgctxt "rules.bockTriggerSixtySixty"
+msgid "60 zu 60"
+msgstr ""
+
+msgctxt "rules.bockTriggerWonGrandHand"
+msgid "gewonnenem Grand Hand"
+msgstr ""
+
+msgctxt "rules.bockTriggerLostAfterKontra"
+msgid "Verlust nach Kontra"
+msgstr ""
+
+msgctxt "rules.bockTriggerRe"
+msgid "Re"
+msgstr ""
+
+msgctxt "rules.bockTriggerPassedIn"
+msgid "Einpassen"
+msgstr ""
+
+msgctxt "rules.bockTriggerSchneider"
+msgid "Schneider"
+msgstr ""
+
+msgctxt "rules.bockTriggerSchwarz"
+msgid "Schwarz"
+msgstr ""
+
+msgctxt "rules.bockTriggerTotalEndingIn00"
+msgid "Stand auf 00"
+msgstr ""
+
+msgctxt "rules.bockOverlapAppend"
+msgid "neue Runden hängen sich an"
+msgstr ""
+
+msgctxt "rules.bockOverlapMultiply"
+msgid "neue Runden multiplizieren sich"
+msgstr ""
+
+msgctxt "rules.bockOverlapIgnore"
+msgid "neue Runden zählen nicht"
 msgstr ""

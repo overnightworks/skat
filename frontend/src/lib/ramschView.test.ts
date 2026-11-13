@@ -35,6 +35,7 @@ const PLAYING: Playing = {
     legal_cards: [],
     give_up: null,
     kontra: null,
+    running_points: null,
 };
 
 function stage(changes: Partial<Pushing>): Pushing {
@@ -50,6 +51,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         result: null,
         passed_in: null,
         aborted: null,
+        options: null,
         bock: null,
         ended: null,
         hand: {

@@ -30,6 +30,7 @@ pytestmark = pytest.mark.e2e
 BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
 PASSED_IN = text(SOURCE_LANGUAGE, "table.passedIn")
 RULE_CHIP = ".rulepill .chip"
+BOCK_WORD = text(SOURCE_LANGUAGE, "rules.chipBock")
 BOCK_COUNT = f"{RULE_CHIP} .n"
 BOCK_LINE = ".plaque .bock-line"
 BOCK_FACTOR = f"{BOCK_LINE} b"
@@ -46,8 +47,15 @@ class BockTable(DeclaringTable):
     overlap = "append"
     other_options: ClassVar[dict[str, Any]] = {}
 
-    def _open_table(self, opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
-        del member_of
+    def _open_table(
+        self,
+        opener: Page,
+        server: RunningServer,
+        member_of: Callable[[Page], SeededMember],
+        *,
+        running_points: bool,
+    ) -> str:
+        del member_of, running_points
         options = {"bock": {"triggers": ["passed-in"], "overlap": self.overlap}, **self.other_options}
         answer = opener.request.post(
             f"{server.base_url}{TABLES_PATH}",
@@ -187,7 +195,7 @@ def test_a_table_without_bock_shows_nothing_of_it(
 
     for person in table.everyone:
         expect(person.locator(".plaque")).to_be_visible()
-        expect(person.locator(RULE_CHIP)).to_have_count(0)
+        expect(person.locator(RULE_CHIP).filter(has_text=BOCK_WORD)).to_have_count(0)
         expect(person.locator(BOCK_LINE)).to_have_count(0)
     assert table.view(table.declarer_seat)["bock"] is None
 

@@ -58,6 +58,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
             current_trick: [],
             last_trick: null,
             legal_cards: [],
+            running_points: null,
             give_up: null,
             kontra: playingKontra === "no hand" ? null : playingKontra,
         },
@@ -72,6 +73,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         passed_in: null,
         aborted: null,
         ended: null,
+        options: null,
         bock: null,
     };
 }

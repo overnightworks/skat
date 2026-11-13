@@ -57,6 +57,7 @@ function tableSeenFrom(ownSeat: number): Table {
         result: null,
         passed_in: null,
         aborted: null,
+        options: null,
         bock: null,
         ended: null,
     };

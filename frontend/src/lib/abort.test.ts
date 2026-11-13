@@ -30,6 +30,7 @@ function tableWith(mine: number, open: number | null, yes: number[] | null): Tab
         result: null,
         passed_in: null,
         aborted: null,
+        options: null,
         bock: null,
         ended: null,
         hand: {

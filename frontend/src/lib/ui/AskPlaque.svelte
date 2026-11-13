@@ -1,11 +1,19 @@
 <script lang="ts" generics="Answer extends string">
+    import type { Snippet } from "svelte";
+
     import type { AskView } from "#lib/giveUp.ts";
 
     const {
         view,
         disabled,
         onanswer,
-    }: { view: AskView<Answer>; disabled: boolean; onanswer: (answer: Answer) => void } = $props();
+        children,
+    }: {
+        view: AskView<Answer>;
+        disabled: boolean;
+        onanswer: (answer: Answer) => void;
+        children?: Snippet;
+    } = $props();
 </script>
 
 <div class="plaque ask">
@@ -19,6 +27,7 @@
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         {/if}
     </span>
+    {@render children?.()}
     {#if view.buttons.length > 0}
         <div class="answers">
             {#each view.buttons as button (button.answer)}

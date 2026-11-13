@@ -47,6 +47,7 @@ describe("what the declaring stage asks of this viewer", () => {
         result: null,
         passed_in: null,
         aborted: null,
+        options: null,
         bock: null,
         ended: null,
         hand: {
@@ -99,6 +100,7 @@ describe("the auction's value while declaring", () => {
         result: null,
         passed_in: null,
         aborted: null,
+        options: null,
         bock: null,
         ended: null,
         hand: {

@@ -212,7 +212,6 @@ export function resultView(table: Table): ResultView {
     const isDeclarer = own?.seat === result.declarer_seat;
     const declarerName = nameOf(chairs, result.declarer_seat) ?? "";
     const sides = sideNames(chairs, result.declarer_seat);
-    const shownSides = isDeclarer ? { declarer: words["result.sideYou"], opponents: words["result.sideThem"] } : sides;
     const good = own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
     let word: string;
     if (own === undefined) {
@@ -243,8 +242,8 @@ export function resultView(table: Table): ResultView {
             : null,
         doubled: result.doubled,
         score: signed(result.score),
-        list: listLineOf(result, shownSides),
-        sides: shownSides,
+        list: listLineOf(result, sides),
+        sides,
         points:
             result.game === "null" ? null : { declarer: result.declarer_points, opponents: result.opponents_points },
         snug: result.overbid || result.levels.length > SNUG_LEVELS || result.kontra !== null,
