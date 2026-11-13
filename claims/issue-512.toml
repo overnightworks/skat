@@ -1,0 +1,7 @@
+claim_id = "e2168bf034074ea6a889751ab3c16caf"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "56f06c657c48cfc2676b4cad7696dcdb3eb8ecac"
+branch = "claude/issue-512-the-call-mode-sign-in-redirect-reads-as"
+scope = ["src/skat/web/sign_in.py", "tests/web/test_sign_in_routes.py"]
+opened_commit = "f9179e8e41c45c94ddfd6e01e8b0ab8a42340976"
