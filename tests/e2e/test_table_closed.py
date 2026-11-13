@@ -263,8 +263,14 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
     for person in open_pages:
         expect_the_unplayed_face(person)
     assert_never_reloaded(*open_pages)
-    for person in (anna, dora, erik):
+    old_link = f"{e2e_server.base_url}{path}"
+    # The coverage collector answers a goto of a page that runs the app with a 204, so a page at the link reloads it.
+    for person, open_old_link in (
+        (anna, anna.reload),
+        (dora, dora.reload),
+        (erik, lambda: erik.goto(old_link)),
+    ):
         requests = events_requests_of(person)
-        person.goto(f"{e2e_server.base_url}{path}")
+        open_old_link()
         expect_the_unplayed_face(person)
         assert requests == []
