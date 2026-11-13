@@ -4,6 +4,7 @@ export const AUTH_START_PATH = "/auth/start";
 export const RETURN_PATH_QUERY_NAME = "next";
 export const SIGNED_IN_AGAIN_QUERY_NAME = "signedInAgain";
 export const NO_ACCESS_PATH = "/no-access";
+export const CALL_SIGN_IN_PATH = "/login/call";
 export const MODE_QUERY_NAME = "mode";
 export const CALL_MODE = "call";
 export const LOGOUT_PATH = "/logout";
