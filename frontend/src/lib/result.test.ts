@@ -731,7 +731,7 @@ describe("the result that just appeared", () => {
     });
 
     it("is nothing when the update brings no result or a Ramsch result", () => {
-        const ramsch: Table = { ...after(null), result: { kind: "ramsch", ordinal: 6 } };
+        const ramsch: Table = { ...after(null), result: OTHER_LOSES };
 
         expect(resultJustAppeared(before, after(null))).toBeNull();
         expect(resultJustAppeared(before, ramsch)).toBeNull();
