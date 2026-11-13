@@ -448,10 +448,16 @@ class TestTheToolDescriptionsNameTheView:
 
 
 class TestARestartReadsTheSameView:
-    def test_the_view_after_a_restart_is_the_view_before_it(self, skat, issuer, hold, agent, middlehand_auction):
+    def test_the_view_after_a_restart_is_the_view_before_it(self, skat, issuer, hold, time, agent, middlehand_auction):
         before = agent.view(middlehand_auction.table_id)
 
-        restarted = Skat(lambda: hold, store=skat.store, stores=skat.stores, issuer_transports=issuer.transports)
+        restarted = Skat(
+            lambda: hold,
+            store=skat.store,
+            stores=skat.stores,
+            issuer_transports=issuer.transports,
+            now=time.moment,
+        )
         with restarted.client:
             after = Agent(restarted, issuer, agent.subject).view(middlehand_auction.table_id)
 
