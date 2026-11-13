@@ -3376,6 +3376,12 @@ body {
         left: -58px;
     }
 
+    /* A far chair's coaster reaches 32px into the chair at the plate's height, so the plate keeps 34px off both sides and a long name ends in an ellipsis. */
+    .room .chair:nth-child(-n + 2):has(.coaster) .plate {
+        box-sizing: border-box;
+        max-width: calc(100% - 2 * 34px);
+    }
+
     .room .skat-spot {
         --card-width: 80px;
     }

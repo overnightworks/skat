@@ -11,7 +11,7 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DEFAULT_JOINERS, DEFAULT_OPENER, TAKE_SKAT, DeclaringTable, button_of
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.result_card import (
     CARD,
     LOST,
@@ -541,6 +541,27 @@ def test_the_card_counts_of_full_length_names_stand_clear_of_the_plates(
     for person in (table.declarer, *table.others, table.watcher):
         expect(person.locator(".plate")).to_have_count(3)
         expect_no_crossing(person, ".count-tag", ".plate")
+
+
+def test_the_coasters_of_the_far_chairs_stand_clear_of_full_length_names_on_a_desktop(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = deal_playing_table(
+        open_person,
+        e2e_server,
+        member_of,
+        page_errors,
+        DESKTOP,
+        joiners=FULL_LENGTH_NAMES,
+        opener_name=FULL_LENGTH_OPENER,
+    )
+    table.play_out(CARDS_IN_A_GAME)
+    for person in table.everyone:
+        expect(person.locator(".chair .coaster")).to_have_count(3)
+        expect_no_crossing(person, ".chair .coaster", ".chair .plate")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
