@@ -1,5 +1,6 @@
 import { words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
+import { WORD_TOKENS } from "#lib/wire.ts";
 import {
     gameLabel,
     gameWord,
@@ -12,6 +13,7 @@ import {
     type SeatGain,
     type Suit,
     type Table,
+    type Word,
 } from "../routes/(start)/tables.ts";
 
 export type ReckoningRow = {
@@ -42,6 +44,8 @@ export type ResultView = {
     // The announcement that was missed, said as the line under the result.
     missed: string | null;
     chips: Chip[];
+    // The Kontra words said, each held with the factor it doubled the score to; none when nobody doubled.
+    doublings: string[];
     equation: Equation | null;
     // The line under the stamp: what the game was worth against what was bid and the value it was raised to.
     raise: string | null;
@@ -97,6 +101,25 @@ const MISSED_WORDS: Record<Announcement, string | null> = {
     schwarz: words["result.missedSchwarz"],
 };
 
+const WORD_TEXTS: Record<Word, string> = {
+    kontra: words["result.wordKontra"],
+    re: words["result.wordRe"],
+    supra: words["result.wordSupra"],
+    hirsch: words["result.wordHirsch"],
+};
+
+// Every word up to the last one said was said, each doubling the score once more.
+function doublingsOf({ kontra }: Result): string[] {
+    if (kontra === null) return [];
+    const last = WORD_TOKENS.indexOf(kontra.word);
+    return WORD_TOKENS.slice(0, last + 1).map((word, index) =>
+        words["result.wordFactor"]({
+            word: WORD_TEXTS[word],
+            factor: String(index === last ? kontra.factor : 2 ** (index + 1)),
+        }),
+    );
+}
+
 function chipsOf(result: Result): Chip[] {
     if (result.matadors === null) return [];
     const { count, mit } = result.matadors;
@@ -116,10 +139,13 @@ function equationOf(result: Result): Equation | null {
 function listLineOf(result: Result, sides: SideNames): ListLine {
     const declarerGain = (result.gains.find((one) => one.seat === result.declarer_seat) as SeatGain).gain;
     const opponentGain = result.gains.find((one) => one.seat !== result.declarer_seat) as SeatGain;
+    const score = signed(result.score);
     return {
         side: sides.declarer,
         steps: [
-            words["result.listGame"]({ score: signed(result.score) }),
+            result.kontra === null
+                ? words["result.listGame"]({ score })
+                : words["result.listGameWord"]({ word: WORD_TEXTS[result.kontra.word], score }),
             words["result.listBonus"]({ bonus: signed(result.list_bonus) }),
             `= ${signed(declarerGain)}`,
         ],
@@ -161,6 +187,7 @@ export function resultView(table: Table): ResultView {
                 : name,
         missed: result.announcement_missed ? MISSED_WORDS[result.announcement] : null,
         chips: chipsOf(result),
+        doublings: doublingsOf(result),
         equation: equationOf(result),
         raise: result.overbid
             ? words["result.raise"]({
@@ -175,7 +202,7 @@ export function resultView(table: Table): ResultView {
         sides: shownSides,
         points:
             result.game === "null" ? null : { declarer: result.declarer_points, opponents: result.opponents_points },
-        snug: result.overbid || result.levels.length > SNUG_LEVELS,
+        snug: result.overbid || result.levels.length > SNUG_LEVELS || result.kontra !== null,
         rows: ownFirst(chairs).map(({ seat }) => {
             const { gain, won } = result.gains.find((one) => one.seat === seat) as SeatGain;
             return {
