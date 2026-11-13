@@ -125,13 +125,15 @@ class EndedView:
 
 @dataclass(frozen=True)
 class SeriesView:
-    """Which game of how many the table runs, 0 before the first deal, and whether the series is over.
+    """Which series of the table this is, 1 for the first, which game of how many it runs, 0 before the first deal,
+    and whether the series is over.
 
     The series is over once its last game is played or it ended early.
     Once it is over, `standings` ranks every account the list seated, the same for every viewer. Between two games
     `end_proposal` names the seats that proposed and accepted ending the series; once it is over none stands.
     """
 
+    number: int
     game_number: int
     game_count: int
     over: bool
@@ -281,6 +283,7 @@ def _series_view(table: TableRecord) -> SeriesView | None:
         return None
     over = series_over(table)
     return SeriesView(
+        table.series.number,
         table.series.deals,
         table.series.length,
         over,

@@ -87,6 +87,7 @@
         positionWord,
         readTable,
         seatedAgentsKey,
+        seriesNumberOf,
         sitDown,
         standUp,
         takeAuctionStep,
@@ -290,7 +291,15 @@
     }
 
     const tapWeiter = (table: Table): Promise<void> =>
-        send(table, markReady(id, crypto.randomUUID(), (table.result as NonNullable<Table["result"]>).ordinal));
+        send(
+            table,
+            markReady(
+                id,
+                crypto.randomUUID(),
+                (table.result as NonNullable<Table["result"]>).ordinal,
+                seriesNumberOf(table),
+            ),
+        );
     const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
         send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
 </script>

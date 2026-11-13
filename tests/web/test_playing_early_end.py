@@ -67,7 +67,7 @@ def ready(table, position):
     table.skat.client.cookies.clear()
     answer = table.skat.client.post(
         f"{TABLES_PATH}/{table.table_id}{TABLE_READY_SUFFIX}",
-        json={"command_id": table.fresh_id(), "ordinal": FIRST_RESULT},
+        json={"command_id": table.fresh_id(), "ordinal": FIRST_RESULT, "series": 1},
         headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
     )
     assert answer.status_code == 200, answer.text
