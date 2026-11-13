@@ -43,7 +43,9 @@ SEAT_COUNT = 3
 
 
 def open_start_page(person: Page, server: RunningServer) -> Page:
-    person.goto(f"{server.base_url}/")
+    # The browser coverage collector answers a Playwright navigation away from a page with app code with a 204 that
+    # aborts it; a navigation the page starts itself is taken and re-issued.
+    person.evaluate("address => location.assign(address)", f"{server.base_url}/")
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     return person
 
