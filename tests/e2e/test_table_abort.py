@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
@@ -14,6 +15,8 @@ from tests.e2e.support.people import PHONE, WIDTHS
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from playwright.sync_api import Route
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -24,6 +27,8 @@ ABORT = text(SOURCE_LANGUAGE, "table.abort")
 ABORT_SURE = text(SOURCE_LANGUAGE, "table.abortSure")
 WAIT = text(SOURCE_LANGUAGE, "table.abortWait")
 ABORTED = text(SOURCE_LANGUAGE, "table.aborted")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+REFUSED = 409
 WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -46,8 +51,8 @@ def deal_a_waiting_hand(
 ) -> Callable[..., tuple[PlayingTable, Page, Page]]:
     """A game in play whose rearhand has stood up: the table with its two seated pages, who proposes and who answers."""
 
-    def deal(form_factor: dict[str, Any]) -> tuple[PlayingTable, Page, Page]:
-        table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
+    def deal(form_factor: dict[str, Any], *, console: bool = True) -> tuple[PlayingTable, Page, Page]:
+        table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
         leaver_seat = table.seat_at["rearhand"]
         table.stand_up_through_the_api(leaver_seat)
         proposer_seat, answerer_seat = (seat for seat in table.pages if seat != leaver_seat)
@@ -151,3 +156,22 @@ def test_the_armed_key_runs_out_after_three_seconds_and_sends_nothing(
     expect(answerer.locator(ASK)).to_have_count(0)
     assert table.view(table.seat_of(answerer))["hand"]["abort"] is None
     assert page_errors == []
+
+
+def test_a_refused_yes_shows_the_failure_and_offers_the_key_again(
+    deal_a_waiting_hand: Callable[..., tuple[PlayingTable, Page, Page]],
+) -> None:
+    # The browser logs the refused yes as a console error; that refusal is the point of this test.
+    table, proposer, answerer = deal_a_waiting_hand(PHONE, console=False)
+
+    def refuse(route: Route) -> None:
+        route.fulfill(status=REFUSED, content_type="application/json", body="{}")
+
+    proposer.route(f"**{table.declaring.api_path}{TABLE_ABORT_AGREE_SUFFIX}", refuse)
+    proposer.locator(KEY).click()
+    proposer.locator(KEY).click()
+
+    expect(proposer.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(proposer.locator(KEY)).to_contain_text(ABORT)
+    expect(proposer.locator(KEY)).to_be_enabled()
+    expect(answerer.locator(ASK)).to_have_count(0)

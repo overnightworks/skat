@@ -58,11 +58,12 @@ class RamschStageTable:
         *,
         rule: str,
         agent: McpAgent | None = None,
+        console: bool = True,
     ) -> None:
         self.agent = agent
         seated = ("anna", "ben") if agent else ("anna", "ben", "cleo")
         people = {
-            username: record_page_errors(open_person(username=username, **form_factor), page_errors)
+            username: record_page_errors(open_person(username=username, **form_factor), page_errors, console=console)
             for username in (*seated, "dora")
         }
         self.sessions = {
@@ -194,5 +195,7 @@ def deal(
     page_errors: list[str],
     form_factor: dict[str, Any],
     rule: str = "jacks-stay",
+    *,
+    console: bool = True,
 ) -> RamschStageTable:
-    return RamschStageTable(open_person, e2e_server, member_of, page_errors, form_factor, rule=rule)
+    return RamschStageTable(open_person, e2e_server, member_of, page_errors, form_factor, rule=rule, console=console)

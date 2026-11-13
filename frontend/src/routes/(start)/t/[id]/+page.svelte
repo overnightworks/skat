@@ -314,7 +314,8 @@
 
 {#snippet waitingLine()}
     <span class="gives">
-        {words["table.waitingForPlayers"]}
+        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+        {`${words["table.waitingForPlayers"]}`}
         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </span>
 {/snippet}
@@ -379,9 +380,8 @@
                     {:else}
                         <span>{`${words["table.bidValue"]} ${String(deciding.value)}`}</span>
                         <span class="gives">
-                            {deciding.kind === "waiting"
-                                ? words["table.waitingForPlayers"]
-                                : `${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}
+                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                            {`${deciding.kind === "waiting" ? words["table.waitingForPlayers"] : `${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}`}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
@@ -429,13 +429,13 @@
                             {/if}
                         </span>
                         {#if said !== null}
-                            <span class="game pushes">{said.word} <b>{said.factor}</b></span>
+                            <span class="game pushes">{`${said.word} `}<b>{said.factor}</b></span>
                         {/if}
                         {#if waits}
                             {@render waitingLine()}
                         {/if}
                         {#if bock !== null}
-                            <div class="bock-line">{bock.word} <b>{bock.factor}</b></div>
+                            <div class="bock-line">{`${bock.word} `}<b>{bock.factor}</b></div>
                         {/if}
                         {#if running !== null}
                             <PointsBar sides={sideNames(outcome.table.chairs, inPlay.declarerSeat)} points={running} />

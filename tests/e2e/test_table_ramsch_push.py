@@ -3,12 +3,15 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
+from skat.web.pushing import TABLE_PUSHING_TAKE_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch_stage import RamschStageTable, deal
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from playwright.sync_api import Route
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -18,6 +21,8 @@ pytestmark = pytest.mark.e2e
 TAKE_SKAT = text(SOURCE_LANGUAGE, "push.takeSkat")
 PUSH = text(SOURCE_LANGUAGE, "table.push")
 PUT_BACK = text(SOURCE_LANGUAGE, "declare.putBack")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "declare.commandFailed")
+REFUSED = 409
 KEYS = (TAKE_SKAT, PUSH, PUT_BACK)
 STRIP_CARD = ".own-hand .card button.pick"
 DIMMED_CARD = ".own-hand .card.no"
@@ -112,3 +117,24 @@ def test_each_seat_on_turn_takes_or_pushes_on_the_page_and_puts_two_cards_back_w
     table.expect_the_turn_at("forehand")
     expect(forehand.locator(PLAYABLE_CARD).first).to_be_visible()
     table.expect_nothing_to_overflow()
+
+
+def test_a_refused_step_shows_the_failure_and_leaves_the_keys_to_tap_again(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused step as a console error; that refusal is the point of this test.
+    table = deal(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
+    forehand = table.pages[table.seat_of("forehand")]
+
+    def refuse(route: Route) -> None:
+        route.fulfill(status=REFUSED, content_type="application/json", body="{}")
+
+    forehand.route(f"**{table.api_path}{TABLE_PUSHING_TAKE_SUFFIX}", refuse)
+    key(forehand, TAKE_SKAT).click()
+
+    expect(forehand.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(key(forehand, TAKE_SKAT)).to_be_enabled()
+    expect(key(forehand, PUSH)).to_be_enabled()
