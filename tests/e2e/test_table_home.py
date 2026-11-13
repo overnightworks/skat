@@ -3,7 +3,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 from sqlalchemy import select
 
 from skat.store.schema import tables
@@ -33,6 +33,7 @@ LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 LOBBY_WAITING_ONE = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=1)
 LOBBY_WAITING_TWO = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=2)
 OTHER_TABLES_BEYOND_THE_CAP = 10
+RECONNECT_MILLISECONDS = 15_000
 RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
@@ -282,14 +283,24 @@ def test_a_lost_stream_hides_the_number_and_the_stream_coming_back_brings_it_aga
     person = record_page_errors(open_person(**PHONE), page_errors, console=False)
     open_new_table(person, e2e_server)
     deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
-    expect(badge_of(person)).to_have_text("1")
+    streams: list[str] = []
 
-    person.context.set_offline(True)
+    def count_one_then_end_and_refuse_the_rest(route: Route) -> None:
+        streams.append(route.request.url)
+        if len(streams) == 1:
+            route.fulfill(content_type="text/event-stream", body="event: attention\ndata: 1\n\n")
+        else:
+            route.abort()
+
+    # Playwright cannot end a stream that is open, so the reloaded page meets one that carries the count and ends.
+    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
+    person.route(events, count_one_then_end_and_refuse_the_rest)
+    person.reload()
 
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
     expect(badge_of(person)).to_have_count(0)
     expect_the_lobby_top_left_and_tappable(person)
-    person.context.set_offline(False)
+    person.unroute(events, count_one_then_end_and_refuse_the_rest)
 
+    expect(badge_of(person)).to_have_text("1", timeout=RECONNECT_MILLISECONDS)
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_have_count(0)
-    expect(badge_of(person)).to_have_text("1")
