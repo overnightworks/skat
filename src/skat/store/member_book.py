@@ -4,7 +4,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
 from skat.store.schema import member_book
-from skat.table.member_place import BookEntry, OpenInvitation
+from skat.table.member_place import BookEntry, CallOutcome, OpenInvitation
 from skat.table.records import TableId
 
 if TYPE_CHECKING:
@@ -14,11 +14,12 @@ if TYPE_CHECKING:
 __all__ = ["accounts_at", "forget_table", "locked_entries_of", "locked_entry", "save_entry"]
 
 
-def _entry_of(row: Row[tuple[str, str, int, str | None, object, str | None, str | None]]) -> BookEntry:
-    invitation = (
-        None
-        if row.invitation_id is None
-        else OpenInvitation(row.invitation_id, row.invitation_expires_at, row.owner_account, row.inviter_account)
+def _entry_of(row: Row[tuple[str, str, int, str | None, object, str | None, str | None, str | None]]) -> BookEntry:
+    if row.invitation_id is None:
+        return BookEntry(TableId(row.table_id), row.agent_account, row.epoch)
+    ended = None if row.ended_outcome is None else CallOutcome(row.ended_outcome)
+    invitation = OpenInvitation(
+        row.invitation_id, row.invitation_expires_at, row.owner_account, row.inviter_account, ended
     )
     return BookEntry(TableId(row.table_id), row.agent_account, row.epoch, invitation)
 
@@ -50,6 +51,7 @@ def save_entry(connection: Connection, entry: BookEntry) -> None:
         "invitation_expires_at": None if invitation is None else invitation.expires_at,
         "owner_account": None if invitation is None else invitation.owner_account,
         "inviter_account": None if invitation is None else invitation.inviter_account,
+        "ended_outcome": None if invitation is None or invitation.ended is None else invitation.ended.value,
     }
     insertion = insert(member_book).values(table_id=entry.table_id.value, agent_account=entry.agent_account, **values)
     connection.execute(

@@ -44,15 +44,17 @@ describe("the Agenten pill", () => {
         vi.unstubAllGlobals();
     });
 
-    // The page's two facts the pill follows, which a test moves like the stream does.
-    const table = $state<{ streamedVersion: number | null; seatedAgents: string }>({
+    // The page's facts the pill follows, which a test moves like the stream does.
+    const table = $state<{ streamedVersion: number | null; seatedAgents: string; watchers: number }>({
         streamedVersion: null,
         seatedAgents: "",
+        watchers: 0,
     });
 
     async function show(streamedVersion: number | null) {
         table.streamedVersion = streamedVersion;
         table.seatedAgents = "";
+        table.watchers = 0;
         mounted = mount(AgentsPill, {
             target: document.body,
             props: {
@@ -63,6 +65,9 @@ describe("the Agenten pill", () => {
                 },
                 get seatedAgents() {
                     return table.seatedAgents;
+                },
+                get watchers() {
+                    return table.watchers;
                 },
             },
         });
@@ -161,6 +166,32 @@ describe("the Agenten pill", () => {
         expect(fetcher.mock.calls).toHaveLength(1);
     });
 
+    it("reads again when the people who watch change while the list is open, which lists an agent whose owner just came", async () => {
+        const fetcher = server({ control: { shown: true, rows: [] } });
+        await show(1);
+        pill()?.click();
+        await settle();
+        flushSync();
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.watchers = 1;
+        await settle();
+        flushSync();
+
+        expect(popover()?.textContent).toContain("Nova");
+    });
+
+    it("reads nothing for a change of the people who watch while the list is closed", async () => {
+        const fetcher = server({ control: { shown: true, rows: [row] } });
+        await show(1);
+
+        table.watchers = 1;
+        await settle();
+        flushSync();
+
+        expect(fetcher.mock.calls).toHaveLength(1);
+    });
+
     it("opens the kit's list on a tap, with a row per agent, and closes it with the next tap", async () => {
         server({ control: { shown: true, rows: [row] } });
         await show(1);
@@ -210,6 +241,26 @@ describe("the Agenten pill", () => {
         expect(fetcher).toHaveBeenCalledWith(`${CONTROL_PATH}/key-nova${TABLE_AGENT_CALL_SUFFIX}`, { method: "POST" });
         expect(popover()?.textContent).toContain(kitWords["agent.calling"]);
     });
+
+    it.each([
+        ["no-answer", "agent.noAnswer"],
+        ["busy", "agent.busy"],
+        ["owner-absent", "agent.ownerAbsent"],
+    ] as const)(
+        "tells the caller a call that ended %s in the kit's words in place of the call key",
+        async (outcome, wording) => {
+            const ended = { ...row, state: "ended", outcome };
+            server({ control: { shown: true, rows: [ended] } });
+            await show(1);
+
+            pill()?.click();
+            await settle();
+            flushSync();
+
+            expect(popover()?.textContent).toContain(kitWords[wording]);
+            expect(popover()?.querySelector(".act")).toBeNull();
+        },
+    );
 
     it("asks a here row's agent to leave with a tap on Bitten zu gehen and shows the row available again", async () => {
         const here = { ...row, state: "here" };

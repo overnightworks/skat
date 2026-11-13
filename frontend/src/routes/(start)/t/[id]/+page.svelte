@@ -131,6 +131,8 @@
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
+    // How many people watch without a chair, which the agents list follows while it is open.
+    let streamedWatchers = $state(0);
     // The sentence that names who has just left or taken a chair of the table.
     let seatNote = $state<SeatNotice | null>(null);
     let seatNoteTimer: ReturnType<typeof setTimeout> | undefined;
@@ -147,6 +149,7 @@
 
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
+        streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
         const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
         if (note !== null) showSeatNote(note);
@@ -718,7 +721,13 @@
                             }}
                         />
                     {/if}
-                    <AgentsPill tableId={id} {streamedVersion} {seatedAgents} kitWords={data.kitWords} />
+                    <AgentsPill
+                        tableId={id}
+                        {streamedVersion}
+                        {seatedAgents}
+                        watchers={streamedWatchers}
+                        kitWords={data.kitWords}
+                    />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}

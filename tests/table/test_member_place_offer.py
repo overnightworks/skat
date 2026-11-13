@@ -6,8 +6,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.table.member_place import (
+    ENDED_CALL_KEPT,
     BookEntry,
     CallOffer,
+    CallOutcome,
     InvitationId,
     InviteRefusal,
     OfferState,
@@ -30,9 +32,9 @@ AGENT = "account-agent"
 OTHER_PERSON = "account-someone-else"
 
 
-def entry_inviting(inviter, *, expires_at=NOW + LASTING, epoch=0):
+def entry_inviting(inviter, *, expires_at=NOW + LASTING, epoch=0, ended=None):
     table = table_in(HandProgress())
-    return BookEntry(table.id, AGENT, epoch, OpenInvitation("invitation-1", expires_at, OWNER, inviter))
+    return BookEntry(table.id, AGENT, epoch, OpenInvitation("invitation-1", expires_at, OWNER, inviter, ended))
 
 
 def a_table_with_a_free_chair():
@@ -231,6 +233,89 @@ class TestAnInvitingRowTellsWhenItsInvitationEnds:
 
     def test_a_row_that_is_not_inviting_tells_no_end(self):
         assert call_offer_of(facts(), a_table_with_a_free_chair(), None, NOW) == CallOffer(OfferState.AVAILABLE)
+
+
+class TestACallThatEndedWithoutASeatTellsTheCallerWhy:
+    @pytest.mark.parametrize(
+        ("ended", "outcome"),
+        [
+            pytest.param(None, CallOutcome.NO_ANSWER, id="the-invitation-ran-out"),
+            pytest.param(CallOutcome.BUSY, CallOutcome.BUSY, id="the-accept-was-busy"),
+            pytest.param(CallOutcome.OWNER_ABSENT, CallOutcome.OWNER_ABSENT, id="the-accept-found-the-owner-away"),
+        ],
+    )
+    def test_the_caller_has_the_outcome_of_the_call_that_ended(self, ended, outcome):
+        entry = entry_inviting(VIEWER, expires_at=NOW - timedelta(seconds=1), ended=ended)
+
+        offer = call_offer_of(facts(), a_table_with_a_free_chair(), entry, NOW)
+
+        assert offer == CallOffer(OfferState.AVAILABLE, outcome=outcome)
+
+    def test_the_outcome_stays_with_the_row_when_the_call_cannot_be_made_again_for_the_room_or_the_owner(self):
+        busy = entry_inviting(VIEWER, expires_at=NOW, ended=CallOutcome.BUSY)
+        away = entry_inviting(VIEWER, expires_at=NOW, ended=CallOutcome.OWNER_ABSENT)
+
+        assert call_offer_of(facts(), table_in(HandProgress()), busy, NOW) == CallOffer(
+            InviteRefusal.NO_FREE_CHAIR, outcome=CallOutcome.BUSY
+        )
+        assert call_offer_of(facts(owner_present=False), a_table_with_a_free_chair(), away, NOW) == CallOffer(
+            InviteRefusal.OWNER_ABSENT, outcome=CallOutcome.OWNER_ABSENT
+        )
+
+    def test_only_the_caller_has_it(self):
+        entry = entry_inviting(OTHER_PERSON, expires_at=NOW)
+
+        assert call_offer_of(facts(), a_table_with_a_free_chair(), entry, NOW) == CallOffer(OfferState.AVAILABLE)
+
+    def test_it_goes_once_the_kept_time_has_passed(self):
+        entry = entry_inviting(VIEWER, expires_at=NOW - ENDED_CALL_KEPT)
+
+        assert call_offer_of(facts(), a_table_with_a_free_chair(), entry, NOW) == CallOffer(OfferState.AVAILABLE)
+
+    def test_it_is_there_just_before_the_kept_time_has_passed(self):
+        entry = entry_inviting(VIEWER, expires_at=NOW - ENDED_CALL_KEPT + timedelta(seconds=1))
+
+        assert call_offer_of(facts(), a_table_with_a_free_chair(), entry, NOW).outcome is CallOutcome.NO_ANSWER
+
+    def test_a_call_under_way_has_no_outcome_yet(self):
+        entry = entry_inviting(VIEWER)
+
+        assert call_offer_of(facts(), a_table_with_a_free_chair(), entry, NOW) == CallOffer(
+            OfferState.INVITING, int(LASTING.total_seconds())
+        )
+
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            pytest.param({"viewer_present": False}, id="the-viewer-left-the-table"),
+            pytest.param({"viewer_is_member": False}, id="the-viewer-is-no-member"),
+            pytest.param({"agent_listens": False}, id="the-agent-does-not-listen"),
+        ],
+    )
+    def test_a_row_that_is_not_offered_to_the_caller_tells_no_outcome(self, changes):
+        entry = entry_inviting(VIEWER, expires_at=NOW)
+
+        assert call_offer_of(facts(**changes), a_table_with_a_free_chair(), entry, NOW).outcome is None
+
+    def test_a_seated_agent_is_here_with_no_outcome(self):
+        seated = with_agents(a_table_with_a_free_chair(), 1)
+        entry = BookEntry(
+            seated.id,
+            seated_agent(seated),
+            0,
+            OpenInvitation("invitation-1", NOW, OWNER, VIEWER, CallOutcome.BUSY),
+        )
+
+        assert call_offer_of(seated_facts(seated), seated, entry, NOW) == CallOffer(OfferState.HERE)
+
+    def test_a_call_again_is_offered_and_writes_a_new_invitation(self):
+        entry = entry_inviting(VIEWER, expires_at=NOW, ended=CallOutcome.BUSY)
+
+        written, _ = decide_invite(
+            a_table_with_a_free_chair(), entry, facts(), InvitationId("invitation-2"), NOW, LASTING
+        )
+
+        assert written.invitation == OpenInvitation("invitation-2", NOW + LASTING, OWNER, VIEWER)
 
 
 class TestDecidingAnInvite:
