@@ -3428,6 +3428,11 @@ body {
     text-transform: uppercase;
 }
 
+.room .notice .dot + .dot {
+    margin-left: -16px;
+    box-shadow: 0 0 0 2px #f6efe2;
+}
+
 .room .notice .dot.agent {
     background: radial-gradient(circle at 34% 30%, #d9e6ff, #4467b8 60%, #1d2c55);
 }

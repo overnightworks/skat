@@ -107,7 +107,10 @@ describe("the notice to the others about a chair of the running hand", () => {
         const before = tableOf(handOf(null), felix, anna, novaThere);
         const after = tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova);
 
-        expect(seatNotice(before, after)).toEqual({ text: words["table.agentLeft"]({ name: "Nova" }), initial: null });
+        expect(seatNotice(before, after)).toEqual({
+            text: words["table.agentLeft"]({ name: "Nova" }),
+            initials: [null],
+        });
     });
 
     it("says a person stood up when their chair opens in the running hand", () => {
@@ -116,7 +119,7 @@ describe("the notice to the others about a chair of the running hand", () => {
 
         expect(seatNotice(before, after)).toEqual({
             text: words["table.standUpNotice"]({ name: "Lena" }),
-            initial: "L",
+            initials: ["L"],
         });
     });
 
@@ -156,7 +159,7 @@ describe("the notice to the others about a chair of the running hand", () => {
 
         expect(seatNotice(before, after)).toEqual({
             text: words["table.playsOn"]({ name: taker.occupant_name as string }),
-            initial,
+            initials: [initial],
         });
     });
 
