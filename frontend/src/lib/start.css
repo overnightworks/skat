@@ -1035,9 +1035,9 @@ body {
     }
 }
 
-/* A landscape phone's frame is short: the felt's rows keep no 120 px minimum, so the call strip stays in the frame. */
+/* A landscape phone's call frame is short: the felt's rows keep no 120 px minimum, so the call strip stays in the frame. */
 @media (max-height: 500px) {
-    .room .stage {
+    .room.framed .stage {
         grid-template-rows: auto minmax(60px, 1fr) minmax(60px, 1fr) auto;
     }
 }

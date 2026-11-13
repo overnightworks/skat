@@ -51,6 +51,8 @@ PHONE_FRAME = "width:390px;height:780px"
 LANDSCAPE_FRAME = "width:844px;height:326px"
 # The small phone, taller than any short call frame: its chairs and trick keep the sizes a standalone page draws.
 TALLER_PHONE_VIEWPORT = {"width": 360, "height": 1000}
+# Taller than the landscape phone and past the height below which a call frame counts as short.
+TALLER_LANDSCAPE_VIEWPORT = {"width": 844, "height": 600}
 TRICK = ".trick"
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -58,6 +60,7 @@ SPEAKER = ".actions .sound-button"
 # A call's strip holds stand up, the agents pill and the speaker.
 CALL_STRIP_ITEMS = 3
 STRIP = ".actions"
+STAGE = ".stage"
 STATUS = ".plaque"
 NOTICE = ".notice"
 CARDS_AFTER_TWO_TRICKS = 6
@@ -382,4 +385,30 @@ def test_a_framed_call_at_390_by_780_keeps_the_chair_and_trick_sizes_of_a_taller
         person.locator(FRAME).evaluate("frame => { frame.style.height = '844px'; }")
 
         assert chair_and_trick_sizes(call) == pytest.approx(short)
+    assert page_errors == []
+
+
+def stage_rows_of(person: Page) -> list[float]:
+    rows = person.locator(STAGE).evaluate("stage => getComputedStyle(stage).gridTemplateRows")
+    return [float(row.removesuffix("px")) for row in rows.split()]
+
+
+def test_a_standalone_landscape_phone_keeps_the_stage_rows_of_a_window_past_the_short_call_frames(
+    open_person: Callable[..., Page], framing_server: RunningServer, page_errors: list[str]
+) -> None:
+    person = record_page_errors(
+        open_person(username="felix-standalone-landscape", server=framing_server, **LANDSCAPE_PHONE), page_errors
+    )
+    open_new_table(person, framing_server)
+    expect(person.locator(CHAIR).first).to_be_visible()
+    landscape = stage_rows_of(person)
+    stage_height = box_of(person.locator(STAGE))["height"]
+
+    # The same stage height in a window the height rules do not reach: only a height rule can tell the two apart.
+    person.set_viewport_size(TALLER_LANDSCAPE_VIEWPORT)
+    person.locator(STAGE).evaluate(
+        "(stage, height) => { stage.style.flex = 'none'; stage.style.height = `${height}px`; }", stage_height
+    )
+
+    assert landscape == pytest.approx(stage_rows_of(person))
     assert page_errors == []
