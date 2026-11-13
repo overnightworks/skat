@@ -11,11 +11,6 @@ export type Words = {
     readonly "app.pageNotFound": string;
     readonly "app.pageFailed": string;
     readonly "account.title": string;
-    readonly "account.theme": string;
-    readonly "account.followSystem": string;
-    readonly "account.light": string;
-    readonly "account.dark": string;
-    readonly "account.logOut": string;
     readonly "start.newTable": string;
     readonly "start.seriesLength": string;
     readonly "start.seriesGames": (count: number) => string;
@@ -97,6 +92,14 @@ export type Words = {
     readonly "result.missedSchwarz": string;
     readonly "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => string;
+    readonly "result.eyes": (gaps: { readonly points: string }) => string;
+    readonly "result.loses": (gaps: { readonly name: string }) => string;
+    readonly "result.losesTogether": (gaps: { readonly names: string }) => string;
+    readonly "result.byTen": string;
+    readonly "result.jungfrau": string;
+    readonly "result.durchmarsch": string;
+    readonly "push.times": (gaps: { readonly count: number; readonly factor: string }) => string;
+    readonly "push.timesFlat": (gaps: { readonly count: number }) => string;
     readonly "closed.notFound": string;
     readonly "closed.emptySeconds": (count: number) => string;
     readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
@@ -129,6 +132,7 @@ export type Words = {
     readonly "game.kreuz": string;
     readonly "game.grand": string;
     readonly "game.null": string;
+    readonly "game.ramsch": string;
     readonly "game.rankSeven": string;
     readonly "game.rankEight": string;
     readonly "game.rankNine": string;
@@ -150,17 +154,6 @@ export type Words = {
     readonly "card.letterKing": string;
     readonly "card.letterAce": string;
     readonly "agents.pill": string;
-    readonly "agents.call": string;
-    readonly "agents.calling": string;
-    readonly "agents.askToLeave": string;
-    readonly "agents.callLabel": (gaps: { readonly name: string }) => string;
-    readonly "agents.askToLeaveLabel": (gaps: { readonly name: string }) => string;
-    readonly "agents.empty": string;
-    readonly "agents.refusalNotAllowed": string;
-    readonly "agents.refusalOwnerAbsent": string;
-    readonly "agents.refusalPlaceFull": string;
-    readonly "agents.refusalAgentUnavailable": string;
-    readonly "agents.refusalTryAgain": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
     readonly "logout.button": string;
     readonly "start.rulePoints": string;
@@ -222,11 +215,6 @@ export const words: Words = {
     "app.pageNotFound": "Diese Seite gibt es nicht.",
     "app.pageFailed": "Diese Seite lässt sich nicht laden.",
     "account.title": "Konto",
-    "account.theme": "Darstellung",
-    "account.followSystem": "System",
-    "account.light": "Hell",
-    "account.dark": "Dunkel",
-    "account.logOut": "Abmelden",
     "start.newTable": "Neuer Tisch",
     "start.seriesLength": "Länge der Serie",
     "start.seriesGames": (count: number) => ({
@@ -336,6 +324,14 @@ export const words: Words = {
     "result.missedSchwarz": "Schwarz angesagt, nicht erreicht",
     "result.raise": (gaps: { readonly bid: string; readonly settled: string; readonly value: string }) => "Wert " + gaps.value + " < Reizwert " + gaps.bid + " → " + gaps.settled,
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => gaps.side + " " + gaps.points,
+    "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
+    "result.loses": (gaps: { readonly name: string }) => gaps.name + " verliert",
+    "result.losesTogether": (gaps: { readonly names: string }) => gaps.names + " verlieren",
+    "result.byTen": "÷ 10",
+    "result.jungfrau": "Jungfrau ×2",
+    "result.durchmarsch": "Durchmarsch",
+    "push.times": (gaps: { readonly count: number; readonly factor: string }) => numberFormat.format(gaps.count) + "× geschoben ×" + gaps.factor,
+    "push.timesFlat": (gaps: { readonly count: number }) => numberFormat.format(gaps.count) + "× geschoben",
     "closed.notFound": "Tisch nicht gefunden",
     "closed.emptySeconds": (count: number) => ({
         zero: numberFormat.format(count) + " Sekunden niemand da: Tisch geschlossen",
@@ -382,6 +378,7 @@ export const words: Words = {
     "game.kreuz": "Kreuz",
     "game.grand": "Grand",
     "game.null": "Null",
+    "game.ramsch": "Ramsch",
     "game.rankSeven": "Sieben",
     "game.rankEight": "Acht",
     "game.rankNine": "Neun",
@@ -403,17 +400,6 @@ export const words: Words = {
     "card.letterKing": "K",
     "card.letterAce": "A",
     "agents.pill": "Agenten",
-    "agents.call": "Rufen",
-    "agents.calling": "Wird gerufen…",
-    "agents.askToLeave": "Bitten zu gehen",
-    "agents.callLabel": (gaps: { readonly name: string }) => gaps.name + " rufen",
-    "agents.askToLeaveLabel": (gaps: { readonly name: string }) => gaps.name + " bitten zu gehen",
-    "agents.empty": "Gerade ist kein Agent erreichbar.",
-    "agents.refusalNotAllowed": "Du darfst diesen Agenten nicht rufen.",
-    "agents.refusalOwnerAbsent": "Sein Besitzer ist nicht hier.",
-    "agents.refusalPlaceFull": "Hier ist kein Platz für einen weiteren Agenten.",
-    "agents.refusalAgentUnavailable": "Der Agent ist gerade nicht erreichbar.",
-    "agents.refusalTryAgain": "Das hat nicht geklappt. Versuch es noch einmal.",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
     "logout.button": "Abmelden",
     "start.rulePoints": "Laufende Augen zeigen",

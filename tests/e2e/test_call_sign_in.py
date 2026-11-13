@@ -36,6 +36,7 @@ from tests.e2e.support.call_frame import (
     served_from,
     table_url,
 )
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, SMALL_PHONE, WIDTHS, playwright_cookie
 from tests.e2e.support.sessions import end_sessions_of
 from tests.e2e.support.tables import open_new_table
@@ -50,15 +51,15 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-# The words are design's English: the sign-in pages keep them.
-LOG_IN = "Log in"
-UNFINISHED_NOTICE = "Sign-in did not finish."
-SIGNING_IN = "Signing in"
-BLOCKED = "Window blocked"
-BLOCKED_SENTENCE = "Your browser blocked the sign-in window."
-OPEN_IN_TAB = "Open in a tab"
-NO_ACCESS = "No access"
-LOG_OUT = "Log out"
+# The words are the kit's text in the language the sign-in pages are served in.
+LOG_IN = kit_text("signIn.logIn")
+UNFINISHED_NOTICE = kit_text("signIn.signInUnfinished")
+SIGNING_IN = kit_text("signIn.signingIn")
+BLOCKED = kit_text("signIn.windowBlocked")
+BLOCKED_SENTENCE = kit_text("signIn.windowBlockedSentence")
+OPEN_IN_TAB = kit_text("signIn.openInTab")
+NO_ACCESS = kit_text("signIn.noAccess")
+LOG_OUT = kit_text("signIn.logOut")
 NOT_ADMITTED = ["/apps/other"]
 # The window and the frame meet within a poll or two; a bound stops a hang.
 WAIT_MILLISECONDS = 10_000

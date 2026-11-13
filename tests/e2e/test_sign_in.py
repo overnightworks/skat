@@ -8,6 +8,7 @@ from playwright.sync_api import Page, expect
 
 from skat.web.constants import AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_PATH, OIDC_CLIENT_ID
 from tests.e2e.support.browser import ACCOUNT_AVATAR, NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import FORM_FACTORS, playwright_cookie
 from tests.e2e.support.server import LOOPBACK_HOST
 from tests.support.sign_in_settings import TEST_ISSUER
@@ -39,7 +40,7 @@ def test_a_member_signs_in_at_the_issuer_and_reaches_the_start_page(
     sign_in_at_issuer(person, e2e_server, username="anna")
 
     person.goto(f"{e2e_server.base_url}{LOGIN_PATH}")
-    person.get_by_role("link", name="Log in", exact=True).click()
+    person.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
 
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
@@ -54,9 +55,9 @@ def test_a_member_the_group_does_not_admit_sees_the_refusal_and_no_start_page(
     sign_in_at_issuer(person, e2e_server, username="ben", groups=["/apps/other"])
 
     person.goto(f"{e2e_server.base_url}{LOGIN_PATH}")
-    person.get_by_role("link", name="Log in", exact=True).click()
+    person.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
 
-    expect(person.get_by_role("button", name="Log out")).to_be_visible()
+    expect(person.get_by_role("button", name=kit_text("signIn.logOut"))).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
     expect(person.locator(ACCOUNT_AVATAR)).to_have_count(0)
     assert not any(cookie["name"] == e2e_server.config.session_cookie_name for cookie in person.context.cookies())
@@ -78,7 +79,7 @@ def test_a_visitor_without_a_session_sees_the_sign_in_page_and_its_link_leads_to
 
     expect(person).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
     with person.expect_event("requestfailed"):
-        person.get_by_role("link", name="Log in", exact=True).click()
+        person.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
     start, issuer = documents[-2:]
     assert urlsplit(start).path == AUTH_START_PATH
     query = parse_qs(urlsplit(issuer).query)
@@ -118,7 +119,7 @@ def test_a_forged_or_expired_session_cookie_is_treated_as_no_session(
 def sign_in_through(person: Page, e2e_server: RunningServer, query: str, *, username: str) -> None:
     sign_in_at_issuer(person, e2e_server, username=username)
     person.goto(f"{e2e_server.base_url}{LOGIN_PATH}{query}")
-    person.get_by_role("link", name="Log in", exact=True).click()
+    person.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
 
 
 @pytest.mark.parametrize(

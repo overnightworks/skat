@@ -13,6 +13,7 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE
 from skat.web.words import text as word_text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.tables import (
     OPEN_TABLE,
@@ -525,7 +526,7 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
     outsider = record_page_errors(open_person(signed_in=False, **DESKTOP), page_errors)
     sign_in_at_issuer(outsider, e2e_server, username="ben", groups=["/apps/other"])
     outsider.goto(f"{e2e_server.base_url}{LOGIN_PATH}")
-    outsider.get_by_role("link", name="Log in", exact=True).click()
+    outsider.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
     before = table_count(e2e_server)
 
     outsider.goto(f"{e2e_server.base_url}{path}")
