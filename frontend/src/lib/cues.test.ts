@@ -53,6 +53,7 @@ function chairsWithCards(cards: [number, number, number]): Chair[] {
         total: null,
         hand: { position: POSITIONS[seat] as Position, card_count: cards[index] as number },
         former_holder_name: null,
+        is_mine_to_return: false,
     }));
 }
 

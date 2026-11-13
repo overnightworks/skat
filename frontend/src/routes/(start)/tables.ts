@@ -119,6 +119,8 @@ export type Chair = {
     hand: ChairHand | null;
     // Whoever held the chair in the running hand and left it, while it stays open; the same for every viewer.
     former_holder_name: string | null;
+    // True only on the open chair of the running hand that the viewer stood up from, the one chair they may sit in again.
+    is_mine_to_return: boolean;
 };
 export type RamschSeat = { seat: number; points: number; score: number };
 // The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a

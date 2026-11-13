@@ -4006,8 +4006,9 @@ body {
         flex-wrap: wrap;
     }
 
-    /* In a call the speaker is the fourth button and the bar stays one row: the stand-up keeps its mark alone and its word for assistive technology. */
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand {
+    /* In a call the speaker is the fourth button and the bar stays one row, and during a hand the strip has no room for two words: the stand-up keeps its mark alone and its word for assistive technology. */
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand,
+    .room .copy.stand.round {
         position: relative;
         box-sizing: border-box;
         justify-content: center;
@@ -4015,7 +4016,8 @@ body {
         padding: 0;
     }
 
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label {
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label,
+    .room .copy.stand.round .label {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -4023,6 +4025,58 @@ body {
         clip-path: inset(50%);
         white-space: nowrap;
     }
+}
+
+/* The armed stand-up key: red, with a line that runs out in the three seconds the arming lasts. */
+.room .copy.stand.arm {
+    position: relative;
+    color: #fff;
+    background: var(--leave, #e5484d);
+    backdrop-filter: none;
+}
+
+.room .copy.stand .drain {
+    position: absolute;
+    right: 18px;
+    bottom: 6px;
+    left: 18px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.85);
+    transform-origin: left;
+}
+
+@media (max-width: 899px) {
+    .room .copy.stand.round .drain {
+        right: 14px;
+        bottom: 7px;
+        left: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .copy.stand .drain {
+        animation: drain 3s linear both;
+    }
+
+    @keyframes drain {
+        to {
+            transform: scaleX(0);
+        }
+    }
+}
+
+/* A chair the viewer may not take: the empty tile keeps its shape and the plus is a lock. */
+.room .tile.locked {
+    color: rgba(244, 246, 248, 0.6);
+}
+
+.room .tile.locked svg {
+    width: clamp(30px, 40%, 48px);
+    padding: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    box-sizing: border-box;
 }
 
 /* An ended table, or a link whose table is gone: one panel on the felt, or over a turned card back. */

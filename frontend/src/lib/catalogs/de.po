@@ -211,6 +211,10 @@ msgctxt "table.standUp"
 msgid "Aufstehen"
 msgstr ""
 
+msgctxt "table.standUpArmed"
+msgid "Wirklich aufstehen?"
+msgstr ""
+
 msgctxt "table.seatTaken"
 msgid "Platz vergeben"
 msgstr ""
@@ -769,6 +773,14 @@ msgstr ""
 
 msgctxt "table.agentLeft"
 msgid "{name} ist gegangen"
+msgstr ""
+
+msgctxt "table.standUpNotice"
+msgid "{name} ist aufgestanden"
+msgstr ""
+
+msgctxt "table.chairLocked"
+msgid "Gesperrt"
 msgstr ""
 
 msgctxt "table.playsOn"

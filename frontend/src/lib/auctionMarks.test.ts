@@ -182,6 +182,7 @@ function chair(seat: number, changes: Partial<Chair> = {}): Chair {
         total: null,
         hand: null,
         former_holder_name: null,
+        is_mine_to_return: false,
         ...changes,
     };
 }
@@ -215,6 +216,7 @@ describe("the scene of a passed-in hand", () => {
         total: null,
         hand: null,
         former_holder_name: null,
+        is_mine_to_return: false,
         ...changes,
     });
     const all = [chairOf(FOREHAND), chairOf(MIDDLEHAND), chairOf(REARHAND)];
@@ -255,6 +257,7 @@ describe("what the others see while the declarer decides", () => {
             total: null,
             hand: null,
             former_holder_name: null,
+            is_mine_to_return: false,
             ...(seat === MIDDLEHAND ? changes : {}),
         }));
     const tableAt = (
@@ -410,6 +413,7 @@ describe("the marks while a chair of the running hand is open", () => {
             total: null,
             hand: { position: "forehand", card_count: 10 },
             former_holder_name: seat === REARHAND ? "Nova" : null,
+            is_mine_to_return: false,
         })),
         watchers: 0,
         passed_in: null,

@@ -26,15 +26,18 @@ function chairAt(chairs: readonly Chair[], seat: number): Chair | undefined {
     return chairs.find((chair) => chair.seat === seat);
 }
 
-// A chair of the running hand that is open now and held an agent a moment before.
-function agentLeft(previous: Table, table: Table): SeatNotice | null {
+// A chair of the running hand that is open now and was held a moment before by an agent or by another person; the one
+// who stood up reads no notice about herself.
+function chairLeft(previous: Table, table: Table): SeatNotice | null {
     if (!handWaits(table.hand)) return null;
     const left = previous.chairs.find(
-        (was) => was.occupant_kind === "agent" && chairAt(table.chairs, was.seat)?.occupant_name === null,
+        (was) => !was.is_mine && was.occupant_name !== null && chairAt(table.chairs, was.seat)?.occupant_name === null,
     );
-    return left === undefined
-        ? null
-        : { text: words["table.agentLeft"]({ name: left.occupant_name as string }), initial: null };
+    if (left === undefined) return null;
+    const name = left.occupant_name as string;
+    return left.occupant_kind === "agent"
+        ? { text: words["table.agentLeft"]({ name }), initial: null }
+        : { text: words["table.standUpNotice"]({ name }), initial: name.slice(0, 1) };
 }
 
 // A chair that was open in the running hand and is taken now, by a person or an agent; the one who sat reads no notice
@@ -52,9 +55,26 @@ function openChairTaken(previous: Table, table: Table): SeatNotice | null {
     };
 }
 
-// What the others read once when a streamed table shows a chair of the running hand open that an agent held a moment
-// before, or an open chair of the running hand taken; null when neither happened. A person's stand-up has its own
-// notice, and a chair taken between hands is the agent notice's.
+// What the others read once when a streamed table shows a chair of the running hand open that an agent or a person held
+// a moment before, or an open chair of the running hand taken; null when neither happened. A chair that opens or is
+// taken between hands is the agent notice's.
 export function seatNotice(previous: Table, table: Table): SeatNotice | null {
-    return agentLeft(previous, table) ?? openChairTaken(previous, table);
+    return chairLeft(previous, table) ?? openChairTaken(previous, table);
+}
+
+// The first tap on the stand-up key arms it while a hand runs, so a stray tap does not open the chair; the second tap,
+// or any tap between hands, stands up.
+export function standTap(handRuns: boolean, armed: boolean): "arm" | "stand" {
+    return handRuns && !armed ? "arm" : "stand";
+}
+
+// The open chairs a person who stood up from this hand may not sit in: she may return only to the chair she left, so
+// every other open chair is locked for her; a viewer who held no chair of the hand has none.
+export function lockedChairs(table: Table): ReadonlySet<number> {
+    if (!table.chairs.some((chair) => chair.is_mine_to_return)) return new Set();
+    return new Set(
+        table.chairs
+            .filter((chair) => chair.occupant_name === null && !chair.is_mine_to_return)
+            .map((chair) => chair.seat),
+    );
 }

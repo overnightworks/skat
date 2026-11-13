@@ -20,6 +20,7 @@ function chairs(mine: number): Chair[] {
         total: null,
         hand: { position: "forehand", card_count: 9 },
         former_holder_name: null,
+        is_mine_to_return: false,
     }));
 }
 
