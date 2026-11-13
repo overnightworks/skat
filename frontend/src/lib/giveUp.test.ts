@@ -3,7 +3,6 @@ import { giveUpAsk, giveUpKey, giveUpView } from "#lib/giveUp.ts";
 import { words } from "#lib/words.ts";
 import type { GiveUp } from "../routes/(start)/tables.ts";
 import { DECLARER, FIRST_OPPONENT, SECOND_OPPONENT, WATCHER, tableWith } from "#lib/giveUp.fixtures.ts";
-const AND = ` ${words["result.and"]} `;
 
 const DECLARER_ASKS: GiveUp = { asking_seat: DECLARER, declined_seat: null };
 const ONE_NO: GiveUp = { asking_seat: DECLARER, declined_seat: SECOND_OPPONENT };
@@ -41,6 +40,7 @@ describe("a give-up request on the table", () => {
         {
             request: DECLARER_ASKS,
             names: ["player 1", "player 3"],
+            listed: "player 1 und player 3",
             marks: [
                 [1, "unanswered"],
                 [3, "unanswered"],
@@ -49,17 +49,18 @@ describe("a give-up request on the table", () => {
         {
             request: ONE_NO,
             names: ["player 1"],
+            listed: "player 1",
             marks: [
                 [1, "unanswered"],
                 [3, "declined"],
             ],
         },
-    ] as const)("makes the asker wait for those who have not said no", ({ request, names, marks }) => {
+    ] as const)("makes the asker wait for those who have not said no", ({ request, names, listed, marks }) => {
         const view = giveUpView(tableWith(DECLARER, request));
 
         expect(view).toMatchObject({
             line: "waits",
-            text: `${words["table.waitingFor"]} ${names.join(AND)}`,
+            text: words["table.waitingFor"]({ names: listed }),
             answers: [],
             cardsHeld: false,
         });
@@ -87,7 +88,7 @@ describe("a give-up request on the table", () => {
     it("makes the opponent who asked wait for the declarer", () => {
         expect(giveUpView(tableWith(FIRST_OPPONENT, OPPONENT_ASKS))).toMatchObject({
             line: "waits",
-            text: `${words["table.waitingFor"]} player 2`,
+            text: words["table.waitingFor"]({ names: "player 2" }),
             answers: [],
             marks: new Map([[DECLARER, "unanswered"]]),
             cardsHeld: true,

@@ -19,7 +19,7 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, lockedChairs, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
-        bidOfGameDeclaredInTheStage,
+        bidLineOfGameDeclaredInTheStage,
         gameInPlay,
         sideNames,
         trickOnTheFelt,
@@ -34,7 +34,7 @@
         weiterBar,
         withMinus,
     } from "#lib/result.ts";
-    import { AiMark, LegalLinks } from "overnightworks-design";
+    import { AiMark, LegalLinks, Marked } from "overnightworks-design";
     import AbortKey from "#lib/ui/AbortKey.svelte";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
@@ -79,7 +79,7 @@
         agentSitsNote,
         answerAbort,
         answerGiveUp,
-        bidValueWhileDeclaring,
+        bidLineWhileDeclaring,
         copyTableLink,
         drawingOrder,
         gameLabel,
@@ -88,6 +88,7 @@
         positionWord,
         readTable,
         seatedAgentsKey,
+        seriesNumberOf,
         sitDown,
         standUp,
         takeAuctionStep,
@@ -287,7 +288,15 @@
     }
 
     const tapWeiter = (table: Table): Promise<void> =>
-        send(table, markReady(id, crypto.randomUUID(), (table.result as NonNullable<Table["result"]>).ordinal));
+        send(
+            table,
+            markReady(
+                id,
+                crypto.randomUUID(),
+                (table.result as NonNullable<Table["result"]>).ordinal,
+                seriesNumberOf(table),
+            ),
+        );
     const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
         send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
 </script>
@@ -323,6 +332,8 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
+{#snippet factor({ text }: { text: string })}<b>{text}</b>{/snippet}
+
 {#snippet waitingLine()}
     <span class="gives">
         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
@@ -355,7 +366,7 @@
             <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
             {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
-            {@const bidValue = bidValueWhileDeclaring(outcome.table)}
+            {@const bidLine = bidLineWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
             {@const ramschTable = outcome.table}
             {@const ramsch = ramschPlaque(outcome.table)}
@@ -387,19 +398,18 @@
             {:else if deciding !== null}
                 <div class="plaque deciding">
                     {#if deciding.kind === "won"}
-                        <span>{`${deciding.name} ${words["table.plays"]}, ${String(deciding.value)}`}</span>
+                        <span>{deciding.text}</span>
                     {:else}
-                        <span>{`${words["table.bidValue"]} ${String(deciding.value)}`}</span>
+                        <span>{deciding.bid}</span>
                         <span class="gives">
-                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                            {`${deciding.kind === "waiting" ? words["table.waitingForPlayers"] : `${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}`}
+                            {deciding.line}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
                 </div>
-            {:else if bidValue !== null}
+            {:else if bidLine !== null}
                 <div class="plaque">
-                    <span>{`${words["table.bidValue"]} ${String(bidValue)}`}</span>
+                    <span>{bidLine}</span>
                 </div>
             {:else if ramsch !== null}
                 <RamschPlaque plaque={ramsch} />
@@ -407,7 +417,7 @@
                 {@const label = gameLabel(inPlay.declaration)}
                 {@const running = inPlay.playing.running_points}
                 {@const said = plaqueLine(inPlay.playing.kontra)}
-                {@const stageBid = bidOfGameDeclaredInTheStage(outcome.table)}
+                {@const stageBid = bidLineOfGameDeclaredInTheStage(outcome.table)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
                     <AskPlaque
@@ -441,16 +451,16 @@
                             {/if}
                         </span>
                         {#if stageBid !== null}
-                            <span class="game pushes">{`${words["table.bidValue"]} ${String(stageBid)}`}</span>
+                            <span class="game pushes">{stageBid}</span>
                         {/if}
                         {#if said !== null}
-                            <span class="game pushes">{`${said.word} `}<b>{said.factor}</b></span>
+                            <span class="game pushes"><Marked parts={said} marked={{ factor }} /></span>
                         {/if}
                         {#if waits}
                             {@render waitingLine()}
                         {/if}
                         {#if bock !== null}
-                            <div class="bock-line">{`${bock.word} `}<b>{bock.factor}</b></div>
+                            <div class="bock-line"><Marked parts={bock} marked={{ factor }} /></div>
                         {/if}
                         {#if running !== null}
                             <PointsBar sides={sideNames(outcome.table.chairs, inPlay.declarerSeat)} points={running} />
@@ -466,9 +476,9 @@
                 >
                     {#if passedIn !== null}
                         <span class="verdict">{words["table.passedIn"]}</span>
-                        {#if passedIn.dealerName !== null}
+                        {#if passedIn.dealerLine !== null}
                             <span class="gives">
-                                {`${passedIn.dealerName} ${words["table.gives"]}`}
+                                {passedIn.dealerLine}
                                 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                             </span>
                         {/if}
@@ -479,7 +489,7 @@
                         <span>{words["table.waitingForPlayers"]}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else if awayName && !waits}
-                        <span>{`${words["table.waitingFor"]} ${awayName}`}</span>
+                        <span>{words["table.waitingFor"]({ names: awayName })}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else}
                         <span>{words["table.bidding"]}</span>
@@ -691,7 +701,7 @@
                         </button>
                     {:else if bar !== null}
                         <span class="copy wait" role="status">
-                            {`${words["table.waitingFor"]} ${bar.names}`}
+                            {bar.text}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}

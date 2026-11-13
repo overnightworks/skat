@@ -22,6 +22,7 @@ from tests.e2e.support.result_card import (
     YOU,
     expect_the_page_around_the_card,
     loosely,
+    waiting_for,
 )
 from tests.e2e.support.tables import SIT_DOWN
 
@@ -37,8 +38,6 @@ WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
 AGENTS_PILL = text(SOURCE_LANGUAGE, "agents.pill")
-WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
-AND = text(SOURCE_LANGUAGE, "result.and")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
@@ -134,8 +133,8 @@ def signed(number: int) -> str:
     return with_minus(number) if number < 0 else f"+{number}"
 
 
-def awaited(table: PlayingTable, ready: set[int]) -> str:
-    return f" {AND} ".join(name for seat, name in table.names.items() if seat not in ready)
+def awaited(table: PlayingTable, ready: set[int]) -> list[str]:
+    return [name for seat, name in table.names.items() if seat not in ready]
 
 
 def role_of(table: PlayingTable, person: Page) -> str:
@@ -250,7 +249,7 @@ def expect_the_buttons(table: PlayingTable, ready: set[int]) -> None:
         expect(bar.get_by_role("button", name=COPY_LINK)).to_be_visible()
         if seat in ready:
             expect(bar.get_by_role("button", name=WEITER)).to_have_count(0)
-            expect(bar.get_by_role("status")).to_have_text(f"{WAITING_FOR} {awaited(table, ready)}")
+            expect(bar.get_by_role("status")).to_have_text(waiting_for(awaited(table, ready)))
         else:
             expect(bar.get_by_role("button", name=WEITER)).to_be_visible()
     for name in (WEITER, STAND_UP):
@@ -348,7 +347,7 @@ def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
     person = table.pages[table.declarer_seat]
     bar = person.locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
-    expect(bar.get_by_role("status")).to_contain_text(awaited(table, {table.declarer_seat}))
+    expect(bar.get_by_role("status")).to_contain_text(waiting_for(awaited(table, {table.declarer_seat})))
     heights = bar.evaluate(PILL_HEIGHTS)
     link = bar.locator(".copy.link").bounding_box()
     assert link is not None
@@ -418,6 +417,21 @@ def test_a_member_who_stands_up_leaves_a_free_chair_and_the_card_stays(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_weiter_names_the_series_the_page_shows(
+    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor)
+    tapper_seat = next(seat for seat in table.names if seat != table.declarer_seat)
+    tapper = table.pages[tapper_seat]
+
+    with tapper.expect_request(lambda request: request.url.endswith(TABLE_READY_SUFFIX)) as tap:
+        tapper.locator(".actions").get_by_role("button", name=WEITER).click()
+
+    assert tap.value.post_data_json["series"] == table.view(tapper_seat)["series"]["number"]
+    expect_the_marks(table, {tapper_seat})
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_tap_on_a_result_the_table_has_left_shows_the_failure_note(
     deal_a_finished_hand: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
@@ -427,7 +441,7 @@ def test_a_tap_on_a_result_the_table_has_left_shows_the_failure_note(
     tapper = table.pages[tapper_seat]
 
     def tap_for_another_result(route: Route) -> None:
-        route.continue_(post_data='{"command_id": "stale-tap", "ordinal": 99}')
+        route.continue_(post_data='{"command_id": "stale-tap", "ordinal": 99, "series": 1}')
 
     tapper.route(f"**{table.declaring.api_path}{TABLE_READY_SUFFIX}", tap_for_another_result)
     tapper.locator(".actions").get_by_role("button", name=WEITER).click()
@@ -455,7 +469,7 @@ def test_the_next_hand_waits_for_an_away_member_who_tapped_until_they_are_back(
         person.locator(".actions").get_by_role("button", name=WEITER).click()
 
     for person in (declarer, other):
-        expect(person.locator(".actions").get_by_role("status")).to_have_text(f"{WAITING_FOR} {table.names[away_seat]}")
+        expect(person.locator(".actions").get_by_role("status")).to_have_text(waiting_for([table.names[away_seat]]))
         expect(person.locator(CARD)).to_have_count(1)
 
     back = away.context.new_page()

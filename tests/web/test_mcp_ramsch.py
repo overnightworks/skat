@@ -62,7 +62,11 @@ class TestAnAgentAtARamschTable:
         assert result == table.result()
         assert (result["kind"], result["ordinal"]) == ("ramsch", 1)
         tapped = agent.call(
-            CONTINUE_AFTER_RESULT_TOOL, table_id=table.table_id, command_id="agent-tap", ordinal=result["ordinal"]
+            CONTINUE_AFTER_RESULT_TOOL,
+            table_id=table.table_id,
+            command_id="agent-tap",
+            ordinal=result["ordinal"],
+            series=1,
         )
         assert not tapped.is_error
         assert [chair["ready"] for chair in agent.read(table.table_id).json()["chairs"]] == [True, False, False]

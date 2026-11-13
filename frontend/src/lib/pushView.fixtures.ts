@@ -44,6 +44,7 @@ export function table(
         opened_by_me: false,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         bock: null,
         ended: null,

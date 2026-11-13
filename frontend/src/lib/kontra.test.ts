@@ -73,6 +73,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         hand: playingKontra === "no hand" ? null : hand,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         ended: null,
         options: null,
@@ -156,7 +157,7 @@ describe("the plaque's line", () => {
     ] as const)("names the last word $word with the table's factor $factor", ({ said, word, factor }) => {
         const line = plaqueLine({ said: said.map((each) => ({ seat: OPPONENT, word: each })), factor, my_word: null });
 
-        expect(line).toEqual({ word: words[`kontra.${word}`], factor: `×${String(factor)}` });
+        expect(line).toEqual(words["kontra.plaque"]({ word: words[`kontra.${word}`], factor: String(factor) }));
     });
 
     it.each([

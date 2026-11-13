@@ -21,8 +21,6 @@ DECLARER_MARK = ".mark.declarer"
 RAMSCH = text(SOURCE_LANGUAGE, "table.ramsch")
 PUSH_WORD = text(SOURCE_LANGUAGE, "table.push")
 WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
-CHOOSES = text(SOURCE_LANGUAGE, "table.chooses")
-DISCARDS = text(SOURCE_LANGUAGE, "table.discards")
 THINKS = text(SOURCE_LANGUAGE, "table.thinks")
 CARDS_AFTER_A_TAKE = 12
 POSITIONS = ("forehand", "middlehand", "rearhand")
@@ -54,8 +52,8 @@ def test_everyone_sees_who_acts_and_the_pushes_with_their_factor_and_a_reload_ch
         expect(person.locator(SKAT_CARDS)).to_have_count(2)
         expect(person.locator(DECLARER_MARK)).to_have_count(0)
         if person is not on_turn:
-            expect(person.locator(PLAQUE)).to_contain_text(f"{forehand} {CHOOSES}")
-    expect(on_turn.locator(PLAQUE)).not_to_contain_text(CHOOSES)
+            expect(person.locator(PLAQUE)).to_contain_text(text(SOURCE_LANGUAGE, "table.chooses", name=forehand))
+    expect(on_turn.locator(PLAQUE)).not_to_contain_text(text(SOURCE_LANGUAGE, "table.chooses", name=forehand))
     table.expect_the_turn_at("forehand")
     table.expect_nothing_to_overflow()
 
@@ -63,7 +61,7 @@ def test_everyone_sees_who_acts_and_the_pushes_with_their_factor_and_a_reload_ch
 
     for person in table.everyone:
         if person is not on_turn:
-            expect(person.locator(PLAQUE)).to_contain_text(f"{forehand} {DISCARDS}")
+            expect(person.locator(PLAQUE)).to_contain_text(text(SOURCE_LANGUAGE, "table.discards", name=forehand))
             expect(table.chair(person, "forehand").locator(".count-tag")).to_contain_text(str(CARDS_AFTER_A_TAKE))
         expect(person.locator(SKAT_CARDS)).to_have_count(0)
 
@@ -79,7 +77,9 @@ def test_everyone_sees_who_acts_and_the_pushes_with_their_factor_and_a_reload_ch
     table.expect_the_turn_at("rearhand")
     for person in table.everyone:
         if person is not table.pages[table.seat_of("rearhand")]:
-            expect(person.locator(PLAQUE)).to_contain_text(f"{table.name_of('rearhand')} {CHOOSES}")
+            expect(person.locator(PLAQUE)).to_contain_text(
+                text(SOURCE_LANGUAGE, "table.chooses", name=table.name_of("rearhand"))
+            )
     table.expect_nothing_to_overflow()
     if form_factor != SMALL_PHONE:
         table.expect_the_plaque_lines_to_read_alike(
@@ -165,7 +165,9 @@ def test_an_open_chair_makes_the_plaque_wait_and_leaves_nobody_on_turn(
 
     for person in (*still_seated, table.watcher):
         expect(person.locator(PLAQUE)).to_contain_text(WAITING_FOR_PLAYERS)
-        expect(person.locator(PLAQUE)).not_to_contain_text(CHOOSES)
+        expect(person.locator(PLAQUE)).not_to_contain_text(
+            text(SOURCE_LANGUAGE, "table.chooses", name=table.name_of("forehand"))
+        )
         expect(person.locator(TURN_CHAIR)).to_have_count(0)
     table.expect_nothing_to_overflow([*still_seated, table.watcher])
 

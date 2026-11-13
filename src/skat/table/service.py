@@ -401,7 +401,7 @@ class TableService:
             command.command_id,
             NEW_SERIES_COMMAND,
             new_series_payload(command),
-            lambda table: decide_new_series(table, actor),
+            lambda table: decide_new_series(table, actor, command),
         )
 
     def agree_to_end_series(

@@ -52,6 +52,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         opened_by_me: false,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
@@ -95,16 +96,16 @@ describe("the plaque of a Ramsch", () => {
         expect(plaque).toEqual({
             pushes: null,
             factor: null,
-            acting: `Anna ${words["table.chooses"]}`,
+            acting: words["table.chooses"]({ name: "Anna" }),
             waiting: false,
         });
-        expect(ramschPlaque(ramsch(WATCHER, {}))?.acting).toBe(`Anna ${words["table.chooses"]}`);
+        expect(ramschPlaque(ramsch(WATCHER, {}))?.acting).toBe(words["table.chooses"]({ name: "Anna" }));
     });
 
     it("names who discards once the seat on turn took the skat", () => {
         const plaque = ramschPlaque(ramsch(FELIX, { pushing: stage({ stage: "discarding" }) }));
 
-        expect(plaque?.acting).toBe(`Anna ${words["table.discards"]}`);
+        expect(plaque?.acting).toBe(words["table.discards"]({ name: "Anna" }));
     });
 
     it("names nobody to the seat on turn itself", () => {

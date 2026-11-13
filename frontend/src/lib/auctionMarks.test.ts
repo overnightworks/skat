@@ -6,7 +6,9 @@ import {
     decidingPlaque,
     passedInScene,
     type ChairMarks,
+    type DecidingPlaque,
 } from "#lib/auctionMarks.ts";
+import { words } from "#lib/words.ts";
 import type { Auction, Chair, Declaring, PassedIn, Stage, Table } from "../routes/(start)/tables.ts";
 
 const FOREHAND = 1;
@@ -228,19 +230,31 @@ describe("the scene of a passed-in hand", () => {
     it("names the next dealer when all three are there", () => {
         const passedIn: PassedIn = { next_dealer_seat: MIDDLEHAND };
 
-        expect(passedInScene(passedIn, all)).toEqual({ dealerSeat: MIDDLEHAND, dealerName: "Name2" });
+        expect(passedInScene(passedIn, all)).toEqual({
+            dealerSeat: MIDDLEHAND,
+            dealerLine: words["table.gives"]({ name: "Name2" }),
+        });
     });
 
     it("names nobody while an occupied chair is away", () => {
         const chairs = [chairOf(FOREHAND), chairOf(MIDDLEHAND, { is_away: true }), chairOf(REARHAND)];
 
-        expect(passedInScene({ next_dealer_seat: REARHAND }, chairs)).toEqual({ dealerSeat: null, dealerName: null });
+        expect(passedInScene({ next_dealer_seat: REARHAND }, chairs)).toEqual({ dealerSeat: null, dealerLine: null });
+    });
+
+    it("says nothing of a dealer whose chair has no occupant", () => {
+        const chairs = [chairOf(FOREHAND), chairOf(MIDDLEHAND, { occupant_name: null }), chairOf(REARHAND)];
+
+        expect(passedInScene({ next_dealer_seat: MIDDLEHAND }, chairs)).toEqual({
+            dealerSeat: MIDDLEHAND,
+            dealerLine: null,
+        });
     });
 
     it("names nobody while the answer names no dealer", () => {
         const chairs = [chairOf(FOREHAND), chairOf(MIDDLEHAND, { occupant_name: null }), chairOf(REARHAND)];
 
-        expect(passedInScene({ next_dealer_seat: null }, chairs)).toEqual({ dealerSeat: null, dealerName: null });
+        expect(passedInScene({ next_dealer_seat: null }, chairs)).toEqual({ dealerSeat: null, dealerLine: null });
     });
 });
 
@@ -272,6 +286,7 @@ describe("what the others see while the declarer decides", () => {
         watchers: 0,
         opened_by_me: false,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
@@ -301,6 +316,13 @@ describe("what the others see while the declarer decides", () => {
     });
 
     describe("the plaque", () => {
+        const name = `Name${String(MIDDLEHAND)}`;
+        const bid = words["table.bidValue"]({ value: String(BID_WON) });
+        const plaqueOf = (kind: "won" | "choosing" | "discarding"): DecidingPlaque =>
+            kind === "won"
+                ? { kind, text: words["table.playsValue"]({ name, value: String(BID_WON) }) }
+                : { kind, bid, line: words[`table.${kind === "choosing" ? "chooses" : "discards"}`]({ name }) };
+
         it.each([
             {
                 name: "the moment the auction ended names the winner and the value",
@@ -321,15 +343,11 @@ describe("what the others see while the declarer decides", () => {
                 justWon: false,
                 kind: "discarding",
             },
-        ] satisfies { name: string; stage: Stage; justWon: boolean; kind: string }[])(
+        ] satisfies { name: string; stage: Stage; justWon: boolean; kind: "won" | "choosing" | "discarding" }[])(
             "reads $name for an opponent and a watcher",
             ({ stage, justWon, kind }) => {
                 for (const mine of [FOREHAND, REARHAND, null]) {
-                    expect(decidingPlaque(tableAt(declaringAt(stage), mine), justWon)).toEqual({
-                        kind,
-                        name: `Name${String(MIDDLEHAND)}`,
-                        value: BID_WON,
-                    });
+                    expect(decidingPlaque(tableAt(declaringAt(stage), mine), justWon)).toEqual(plaqueOf(kind));
                 }
             },
         );
@@ -427,6 +445,7 @@ describe("the marks while a chair of the running hand is open", () => {
         watchers: 0,
         opened_by_me: false,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
@@ -482,7 +501,8 @@ describe("the marks while a chair of the running hand is open", () => {
             for (const mine of [FOREHAND, MIDDLEHAND, null]) {
                 expect(decidingPlaque(waitingTable(declaringAt(stage), mine), false)).toEqual({
                     kind: "waiting",
-                    value: 20,
+                    bid: words["table.bidValue"]({ value: "20" }),
+                    line: words["table.waitingForPlayers"],
                 });
             }
         },

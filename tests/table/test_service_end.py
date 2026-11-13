@@ -228,7 +228,7 @@ class TestAtAnEndedTable:
                 id="card",
             ),
             pytest.param(
-                lambda service, table_id: service.mark_ready(OPENER, ReadyCommand("c-ready", table_id, 1), NOBODY),
+                lambda service, table_id: service.mark_ready(OPENER, ReadyCommand("c-ready", table_id, 1, 1), NOBODY),
                 id="ready",
             ),
         ],

@@ -49,7 +49,7 @@ from skat.table.records import (
     TableRecord,
     parsed_refusal,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND
+from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
 from skat.table.transactions import (
     DuplicateReceiptError,
     HeldTable,
@@ -207,10 +207,6 @@ def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked 
     return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
 
 
-def _series_number_of(table: TableRecord) -> int:
-    return 1 if table.series is None else table.series.number
-
-
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out or aborted hand keeps nothing but its list entry, if it has one: its cards and every step it took
     go.
@@ -279,7 +275,7 @@ class _PostgresTableTransaction:
                 dealer=table.dealer,
                 **played,
                 series_deals=None if table.series is None else table.series.deals,
-                series_number=_series_number_of(table),
+                series_number=series_number_of(table),
                 **_series_end_columns(table.series),
                 bock_rounds=list(table.bock.remaining),
                 abort_yes_seats=sorted(table.progress.abort_yes),
@@ -329,7 +325,7 @@ class _PostgresTableTransaction:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if played_out or aborted:
             _forget_played_hand(self._connection, table.id.value)
-        append_game_list(self._connection, table.id.value, _series_number_of(table), table.game_list, played_at)
+        append_game_list(self._connection, table.id.value, series_number_of(table), table.game_list, played_at)
         if table.hand is not None and dealt is None:
             delete_steps(self._connection, table.id.value)
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
@@ -349,7 +345,7 @@ class _PostgresTableTransaction:
                 opener_name=opener_name,
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
-                series_number=_series_number_of(table),
+                series_number=series_number_of(table),
                 **option_values(table.options),
             )
         )

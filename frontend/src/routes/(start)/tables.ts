@@ -235,6 +235,8 @@ export type Options = {
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
+// Which series of the table this is, 1 for the first.
+export type Series = { number: number };
 export type Table = {
     id: string;
     version: number;
@@ -243,6 +245,7 @@ export type Table = {
     hand: Hand | null;
     result: Result | RamschResult | null;
     passed_in: PassedIn | null;
+    series: Series | null;
     // Set between hands after a vote aborted the hand, with the next dealer as a passed-in hand names it.
     aborted: PassedIn | null;
     // Null once the table has ended.
@@ -409,9 +412,14 @@ export function sayKontra(id: string, version: number, commandId: string, word: 
     return post(id, TABLE_KONTRA_SUFFIX, { command_id: commandId, version, word });
 }
 
-// „Weiter“ names the result it saw, so a tap on a result that has since been replaced is refused.
-export function markReady(id: string, commandId: string, ordinal: number): Promise<Outcome> {
-    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal });
+// A table opened without a series has none and counts as the first series, as the server counts it.
+export function seriesNumberOf(table: Pick<Table, "series">): number {
+    return table.series?.number ?? 1;
+}
+
+// „Weiter“ names the result and the series it saw, so a tap on a result or series that has since been replaced is refused.
+export function markReady(id: string, commandId: string, ordinal: number, series: number): Promise<Outcome> {
+    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal, series });
 }
 
 const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {
@@ -540,11 +548,12 @@ const POSITION_WORDS: Record<Position, string> = {
     rearhand: words["game.rearhand"],
 };
 
-// The auction's value, shown to everyone until the game is declared.
-export function bidValueWhileDeclaring(table: Table): number | null {
+// The auction's value as the plaque says it, shown to everyone until the game is declared.
+export function bidLineWhileDeclaring(table: Table): string | null {
     const hand = table.hand;
     if (!hand?.declaring || hand.declaring.stage === "declared") return null;
-    return hand.auction.declared?.value ?? null;
+    const value = hand.auction.declared?.value;
+    return value === undefined ? null : words["table.bidValue"]({ value: String(value) });
 }
 
 // The stage this viewer must act on: only the declarer acts, and only until the game is declared and while the hand

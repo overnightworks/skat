@@ -92,6 +92,7 @@ export function table(
         hand: null,
         result: changes === null ? null : result(changes),
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,

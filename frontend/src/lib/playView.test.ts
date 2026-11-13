@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    bidOfGameDeclaredInTheStage,
+    bidLineOfGameDeclaredInTheStage,
     cardLook,
     cardsToPlay,
     gameInPlay,
@@ -86,6 +86,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             playing: changes === null ? null : playing(changes),
         },
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
@@ -277,17 +278,21 @@ describe("the bid of a game declared in the stage of a Ramsch", () => {
     }));
 
     it("is the bid the wire names when the three seats passed and a game is still declared", () => {
-        expect(bidOfGameDeclaredInTheStage(withAuction({ words: passes, declared: { seat: 2, value: 18 } }))).toBe(18);
+        expect(bidLineOfGameDeclaredInTheStage(withAuction({ words: passes, declared: { seat: 2, value: 18 } }))).toBe(
+            words["table.bidValue"]({ value: "18" }),
+        );
     });
 
     it("is none for a game the auction declared, which carries a bid or play word", () => {
         const won = [...passes.slice(0, 2), { seat: 3, action: "bid" as const, value: 20 }];
 
-        expect(bidOfGameDeclaredInTheStage(withAuction({ words: won, declared: { seat: 3, value: 20 } }))).toBeNull();
+        expect(
+            bidLineOfGameDeclaredInTheStage(withAuction({ words: won, declared: { seat: 3, value: 20 } })),
+        ).toBeNull();
     });
 
     it("is none while no game is declared and with no hand on the table", () => {
-        expect(bidOfGameDeclaredInTheStage(withAuction({ words: passes }))).toBeNull();
-        expect(bidOfGameDeclaredInTheStage({ ...table(1, {}), hand: null })).toBeNull();
+        expect(bidLineOfGameDeclaredInTheStage(withAuction({ words: passes }))).toBeNull();
+        expect(bidLineOfGameDeclaredInTheStage({ ...table(1, {}), hand: null })).toBeNull();
     });
 });

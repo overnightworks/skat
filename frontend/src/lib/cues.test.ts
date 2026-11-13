@@ -102,6 +102,7 @@ function table(
         },
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,

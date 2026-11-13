@@ -175,6 +175,7 @@ class Refusal(StrEnum):
     REQUEST_PENDING = "request-pending"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
+    STALE_SERIES = "stale-series"
     SERIES_OVER = "series-over"
     NO_SERIES = "no-series"
     SERIES_NOT_OVER = "series-not-over"

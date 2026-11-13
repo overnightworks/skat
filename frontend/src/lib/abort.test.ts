@@ -30,6 +30,7 @@ function tableWith(mine: number, open: number | null, yes: number[] | null): Tab
         watchers: 0,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
@@ -97,7 +98,7 @@ describe("the vote to abort a hand with an open chair", () => {
         expect(view).toEqual({
             offered: false,
             ask: {
-                text: `${words["table.waitingFor"]} player 3`,
+                text: words["table.waitingFor"]({ names: "player 3" }),
                 faces: [{ seat: 3, name: "player 3", initial: "p" }],
                 waits: true,
                 buttons: [],

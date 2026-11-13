@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { words } from "#lib/words.ts";
 import {
-    bidValueWhileDeclaring,
+    bidLineWhileDeclaring,
     declarerStage,
     togglePicked,
     type Auction,
@@ -48,6 +49,7 @@ describe("what the declaring stage asks of this viewer", () => {
         opened_by_me: false,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
@@ -102,6 +104,7 @@ describe("the auction's value while declaring", () => {
         opened_by_me: false,
         result: null,
         passed_in: null,
+        series: null,
         aborted: null,
         options: null,
         bock: null,
@@ -122,10 +125,10 @@ describe("the auction's value while declaring", () => {
 
     it.each<Stage>(["choosing", "discarding", "picked"])("is shown at %s", (stage) => {
         expect(
-            bidValueWhileDeclaring(
+            bidLineWhileDeclaring(
                 table({ declarer_seat: 2, stage, declaration: null, open_cards: [] }, { seat: 2, value: 20 }),
             ),
-        ).toBe(20);
+        ).toBe(words["table.bidValue"]({ value: "20" }));
     });
 
     it.each([
@@ -146,11 +149,11 @@ describe("the auction's value while declaring", () => {
             null,
         ],
     ])("is not shown %s", (_name, declaring, declared) => {
-        expect(bidValueWhileDeclaring(table(declaring, declared))).toBeNull();
+        expect(bidLineWhileDeclaring(table(declaring, declared))).toBeNull();
     });
 
     it("is not shown with no hand on the table", () => {
-        expect(bidValueWhileDeclaring({ ...table(null, null), hand: null })).toBeNull();
+        expect(bidLineWhileDeclaring({ ...table(null, null), hand: null })).toBeNull();
     });
 });
 
