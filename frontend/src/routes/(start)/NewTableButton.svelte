@@ -2,35 +2,68 @@
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
     import { SERIES_LENGTH_DEFAULT, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP } from "#lib/wire.ts";
+    import RuleMark from "#lib/ui/RuleMark.svelte";
     import { words } from "#lib/words.ts";
-    import { createTable } from "./tables.ts";
+    import { isOn, OFFICIAL, requestOf } from "./openingRules.ts";
+    import RuleUnit from "./RuleUnit.svelte";
+    import { createTable, readRuleSets, type Options, type RuleSet } from "./tables.ts";
 
     let choosing = $state(false);
     let length = $state(SERIES_LENGTH_DEFAULT);
-    let showRunningPoints = $state(false);
+    // The person's own sets, read each time the sheet opens; the official rules are no set and always offered.
+    let sets = $state<RuleSet[]>([]);
+    let setsUnreadable = $state(false);
+    let picked = $state<RuleSet | null>(null);
+    let sheet = $state(OFFICIAL);
     let opening = $state(false);
     let failed = $state(false);
     let commandId = crypto.randomUUID();
+    let openings = 0;
+    let scrolledDown = $state(false);
+    let scrolledUp = $state(false);
 
-    function choose(): void {
+    const pickedOptions = $derived(picked?.options ?? OFFICIAL);
+    const rows = $derived(
+        (["points", "kontra", "ramsch", "pushing", "bock"] as const).filter(
+            (row) => row !== "pushing" || isOn(sheet, "ramsch"),
+        ),
+    );
+
+    // Another length, set or rule is another command, so a retry never sends two requests under one id.
+    function changed(): void {
+        commandId = crypto.randomUUID();
+    }
+
+    async function choose(): Promise<void> {
         failed = false;
         setLength(SERIES_LENGTH_DEFAULT);
-        setShowRunningPoints(false);
+        pick(null);
+        sets = [];
+        setsUnreadable = false;
         choosing = true;
+        const opened = ++openings;
+        const outcome = await readRuleSets();
+        if (opened !== openings) return;
+        sets = outcome.kind === "sets" ? outcome.sets : [];
+        setsUnreadable = outcome.kind === "failed";
     }
 
     function setLength(next: number): void {
         if (next === length) return;
         length = next;
-        // Another length is another command, so a retry never sends two requests under one id.
-        commandId = crypto.randomUUID();
+        changed();
     }
 
-    function setShowRunningPoints(next: boolean): void {
-        if (next === showRunningPoints) return;
-        showRunningPoints = next;
-        // Other rules are another command too.
-        commandId = crypto.randomUUID();
+    // A pick replaces whatever was changed on the sheet.
+    function pick(set: RuleSet | null): void {
+        picked = set;
+        sheet = set?.options ?? OFFICIAL;
+        changed();
+    }
+
+    function change(next: Options): void {
+        sheet = next;
+        changed();
     }
 
     function step(by: number): void {
@@ -39,15 +72,30 @@
 
     function close(): void {
         choosing = false;
+        openings++;
+    }
+
+    // The rules scroll beneath the fixed head and buttons; a fade shows where more of them lie.
+    function fades(node: HTMLElement): { destroy: () => void } {
+        const update = (): void => {
+            scrolledUp = node.scrollTop > 0;
+            scrolledDown = node.scrollTop + node.clientHeight < node.scrollHeight - 1;
+        };
+        const observer = new ResizeObserver(update);
+        observer.observe(node);
+        for (const child of node.children) observer.observe(child);
+        node.addEventListener("scroll", update);
+        return {
+            destroy: () => {
+                observer.disconnect();
+                node.removeEventListener("scroll", update);
+            },
+        };
     }
 
     async function open(): Promise<void> {
         opening = true;
-        const outcome = await createTable(
-            commandId,
-            length,
-            showRunningPoints ? { show_running_points: true } : undefined,
-        );
+        const outcome = await createTable(commandId, length, requestOf(sheet));
         opening = false;
         failed = outcome.kind !== "table";
         if (outcome.kind === "table") {
@@ -123,50 +171,46 @@
                 </svg>
             </button>
         </div>
-        <button
-            type="button"
-            class="rule"
-            class:on={showRunningPoints}
-            role="switch"
-            aria-checked={showRunningPoints}
-            aria-label={words["start.rulePoints"]}
-            disabled={opening}
-            onclick={() => {
-                setShowRunningPoints(!showRunningPoints);
-            }}
-        >
-            <span class="ic">
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                >
-                    <path d="M18 5H6l6 7-6 7h12" />
-                </svg>
-            </span>
-            <span class="txt">
-                <b>{words["start.rulePoints"]}</b>
-                <small>{words["start.rulePointsLine"]}</small>
-            </span>
-            <span class="sw" aria-hidden="true">
-                <i>
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <path d="M5 12.5l4.5 4.5L19 7.5" />
-                    </svg>
-                </i>
-            </span>
-        </button>
+        <div class="sets" role="radiogroup" aria-label={words["start.ruleSets"]}>
+            <label class="set" class:on={picked === null}>
+                <input
+                    type="radio"
+                    name="rule-set"
+                    checked={picked === null}
+                    disabled={opening}
+                    onchange={() => {
+                        pick(null);
+                    }}
+                />
+                {#if picked === null}<RuleMark id="official" />{/if}
+                {words["start.setOfficial"]}
+            </label>
+            {#each sets as set (set.id)}
+                <label class="set" class:on={picked?.id === set.id}>
+                    <input
+                        type="radio"
+                        name="rule-set"
+                        checked={picked?.id === set.id}
+                        disabled={opening}
+                        onchange={() => {
+                            pick(set);
+                        }}
+                    />
+                    {#if picked?.id === set.id}<RuleMark id="official" />{/if}
+                    {set.name}
+                </label>
+            {/each}
+        </div>
+        {#if setsUnreadable}
+            <p role="status">{words["start.setsUnreadable"]}</p>
+        {/if}
+        <div class="sheet-body" class:up={scrolledUp} class:down={scrolledDown} use:fades>
+            <div class="rules">
+                {#each rows as row (row)}
+                    <RuleUnit {row} {sheet} picked={pickedOptions} disabled={opening} onchange={change} />
+                {/each}
+            </div>
+        </div>
         {#if failed}
             <p role="alert">{words["start.newTableFailed"]}</p>
         {/if}
