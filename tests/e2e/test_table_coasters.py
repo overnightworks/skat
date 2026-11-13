@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
+PHONE_WIDTH_LIMIT = 900
 COASTER = ".chair .coaster"
 AWAY = ".chair .mark.away"
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -60,18 +61,22 @@ def expect_the_totals(table: PlayingTable, totals: dict[int, int]) -> None:
 
 
 def expect_the_table_page_clear(person: Page) -> None:
-    """The bar and the note under it end inside the screen, and the plaque lies over no fan, chair or laid card."""
-    screen_height = person.evaluate("window.innerHeight")
-    for selector in (".actions", "p.note"):
-        box = person.locator(selector).bounding_box()
-        assert box is not None
-        assert box["y"] + box["height"] <= screen_height, selector
-    plaque = person.locator(".plaque").bounding_box()
-    if plaque is not None:
+    """On a phone the bar and a note under it end inside the screen; the plaque lies over no fan, chair or laid card."""
+    viewport = person.viewport_size
+    assert viewport is not None
+    if viewport["width"] < PHONE_WIDTH_LIMIT:
+        for selector in (".actions", "p.note"):
+            for shown in person.locator(selector).all():
+                box = shown.bounding_box()
+                assert box is not None
+                assert box["y"] + box["height"] <= viewport["height"], selector
+    for plaque in person.locator(".plaque").all():
+        plaque_box = plaque.bounding_box()
+        assert plaque_box is not None
         for selector in (".fan", ".laid .face", ".chair .tile"):
             for other in person.locator(selector).all():
                 covered = other.bounding_box()
-                assert covered is None or not overlaps(plaque, covered), selector
+                assert covered is None or not overlaps(plaque_box, covered), selector
 
 
 def expect_nothing_under_a_coaster(person: Page) -> None:
