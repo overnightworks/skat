@@ -100,8 +100,9 @@
             saveProblem = outcome.kind;
             return;
         }
-        // The server lists sets by name without regard to case, then by id.
-        if (!sets.some((each) => each.id === outcome.set.id)) sets = [...sets, outcome.set].sort(byNameThenId);
+        // The server lists sets by name without regard to case, then by id. A list read that already holds the set
+        // is replaced by the saved one, so the set stays offered once.
+        sets = [...sets.filter((each) => each.id !== outcome.set.id), outcome.set].sort(byNameThenId);
         pick(outcome.set);
     }
 
