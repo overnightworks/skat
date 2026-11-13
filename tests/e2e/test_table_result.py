@@ -9,7 +9,7 @@ from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.declaring import DEFAULT_JOINERS, TAKE_SKAT, DeclaringTable, button_of
+from tests.e2e.support.declaring import DEFAULT_JOINERS, DEFAULT_OPENER, TAKE_SKAT, DeclaringTable, button_of
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.result_card import (
@@ -106,6 +106,7 @@ def deal_a_finished_hand(
         declaring: type[DeclaringTable] = DeclaringTable,
         console: bool = True,
         joiners: tuple[str, str] = DEFAULT_JOINERS,
+        opener_name: str = DEFAULT_OPENER,
     ) -> PlayingTable:
         table = deal_playing_table(
             open_person,
@@ -117,6 +118,7 @@ def deal_a_finished_hand(
             game="kreuz",
             declaring=declaring,
             joiners=joiners,
+            opener_name=opener_name,
         )
         table.play_out(CARDS_IN_A_GAME)
         return table
@@ -356,19 +358,17 @@ def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_wait_pill_holds_its_whole_text_with_two_25_character_names(
+def test_the_wait_pill_stays_as_tall_as_the_link_button_with_two_25_character_names(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
-    table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES)
+    table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES, opener_name=FULL_LENGTH_OPENER)
     bar = table.pages[table.declarer_seat].locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
     pill = bar.get_by_role("status")
     expect(pill).to_be_visible()
-    assert pill.evaluate(
-        "pill => pill.scrollHeight <= pill.clientHeight + 1 && pill.scrollWidth <= pill.clientWidth + 1"
-    )
-    heights = bar.evaluate(PILL_HEIGHTS)
-    assert len(set(heights)) == 1
+    link = bar.locator(".copy.link").bounding_box()
+    assert link is not None
+    assert max(bar.evaluate(PILL_HEIGHTS)) <= link["height"] + 1
     expect_the_bars_inside_the_pages(table)
 
 

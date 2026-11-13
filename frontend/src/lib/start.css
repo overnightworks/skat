@@ -3988,6 +3988,23 @@ body {
         align-content: center;
     }
 
+    /* The pill stays as tall as its neighbours: three lines of its small type fill the 52px, and longer names end in an ellipsis.
+       The clip edge is the content box, so no fourth line peeks into the padding. The hopping dots are left out on a phone,
+       as the frozen scene leaves them out. */
+    .room .actions.on-result .copy.wait {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-box-pack: center;
+        -webkit-line-clamp: 3;
+        padding-block: calc((52px - 3.3em) / 2);
+        overflow: clip;
+        overflow-clip-margin: content-box;
+    }
+
+    .room .actions.on-result .copy.wait .dots {
+        display: none;
+    }
+
     /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
     .room .actions.on-result:has(> .copy:not(.link)) .copy.link {
         justify-content: center;
