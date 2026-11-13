@@ -17,12 +17,13 @@ from skat.web.words import text as word_text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import self_signed_tolerant_context
-from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.server import skat_in_directory
 from tests.e2e.support.tables import open_new_table, table_id_of
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from tests.e2e.support.server import RunningServer
 
@@ -215,9 +216,7 @@ def test_a_stream_that_drops_after_its_view_dims_the_last_view_and_recovers_with
     assert opener.evaluate("window.sameDocument === true")
 
 
-def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> None:
+def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(tmp_path: Path) -> None:
     ended = threading.Event()
 
     def read_until_the_stream_ends(response: http.client.HTTPResponse) -> None:
@@ -230,7 +229,7 @@ def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
 
     # A database of its own: a server start resumes the empty waits of every live table of its database and would
     # stamp or end the shared server's tables.
-    with skat_on_new_database(tmp_path_factory) as server:
+    with skat_in_directory(tmp_path) as server:
         tables = TableService(PostgresTableTransactions(server.engine))
         member = seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
         table = tables.create(

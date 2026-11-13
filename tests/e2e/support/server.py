@@ -2,7 +2,7 @@ import datetime
 import socket
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, replace
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING
@@ -203,9 +203,19 @@ def running_skat(
         server.stop()
 
 
-@contextmanager
 def skat_on_new_database(
     directories: pytest.TempPathFactory,
+    random_source: random.Random | None = None,
+    heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
+    **settings_changes: float,
+) -> AbstractContextManager[RunningServer]:
+    """`skat_in_directory` over a directory of the session's temporary directories, for a fixture of a wider scope."""
+    return skat_in_directory(directories.mktemp("server"), random_source, heartbeat_seconds, **settings_changes)
+
+
+@contextmanager
+def skat_in_directory(
+    directory: Path,
     random_source: random.Random | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     **settings_changes: float,
@@ -216,7 +226,11 @@ def skat_on_new_database(
     replaces the source Skat deals from; `heartbeat_seconds` is the streams' idle tick, which a test that proves a
     wake sets so long that no heartbeat can stand in for it.
     """
-    loopback = loopback_sign_in(directories.mktemp("sign-in"))
+    sign_in_directory = directory / "sign-in"
+    tls_directory = directory / "tls"
+    sign_in_directory.mkdir()
+    tls_directory.mkdir()
+    loopback = loopback_sign_in(sign_in_directory)
     settings = loopback.sign_in.settings.model_copy(update=settings_changes)
     loopback = replace(loopback, sign_in=replace(loopback.sign_in, settings=settings))
     with migrated_template() as template, created_database(template) as database_url:
@@ -224,7 +238,7 @@ def skat_on_new_database(
         try:
             with running_skat(
                 loopback,
-                directories.mktemp("tls"),
+                tls_directory,
                 engine,
                 random_source=random_source,
                 heartbeat_seconds=heartbeat_seconds,
