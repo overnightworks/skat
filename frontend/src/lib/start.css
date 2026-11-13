@@ -4217,8 +4217,9 @@ body {
         flex-wrap: wrap;
     }
 
-    /* In a call the speaker is the fourth button and the bar stays one row, and during a hand the strip has no room for two words: the stand-up keeps its mark alone and its word for assistive technology. */
+    /* In a call the speaker is the fourth button and the bar stays one row, as it does with the key that proposes the end, and during a hand the strip has no room for two words: the stand-up keeps its mark alone and its word for assistive technology. */
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up),
+    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up),
     .room .copy.round {
         position: relative;
         box-sizing: border-box;
@@ -4228,6 +4229,7 @@ body {
     }
 
     .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up) .label,
+    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up) .label,
     .room .copy.round .label {
         position: absolute;
         width: 1px;
@@ -5806,13 +5808,6 @@ body {
     .room .rank .place {
         width: 32px;
         height: 32px;
-    }
-}
-
-/* The key that proposes the end is one more button on a phone's strip: where the row does not fit, the strip wraps instead of cutting a button. */
-@media (max-width: 899px) {
-    .room .actions.on-result:has(.end-series) {
-        flex-wrap: wrap;
     }
 }
 
