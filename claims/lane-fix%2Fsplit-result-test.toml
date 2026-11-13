@@ -1,0 +1,7 @@
+claim_id = "5988e4ce9858491db72fb21a42df250a"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "62a929bd6af2630d4e042223c9e8673b90c9a974"
+branch = "fix/split-result-test"
+scope = ["frontend/src/lib/result.fixtures.ts", "frontend/src/lib/result.test.ts", "frontend/src/lib/resultRamsch.test.ts"]
+opened_commit = "d399e8a4d297abc4e933c89f59ba1d8f50af6c5c"
