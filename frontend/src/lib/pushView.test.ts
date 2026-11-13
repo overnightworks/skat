@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mayPick, pushStage } from "#lib/pushView.ts";
+import { mayDeclareGrandHand, mayPick, pushStage } from "#lib/pushView.ts";
 import {
     type Card,
     type Picking,
     type Chair,
     type Hand,
+    type GrandHandRule,
     type Pushing,
     type Stage,
     type Table,
@@ -30,7 +31,7 @@ function chairs(mine: number): Chair[] {
     }));
 }
 
-function table(mine: number, stage: Stage, changes: Partial<Hand> = {}): Table {
+function table(mine: number, stage: Stage, changes: Partial<Hand> = {}, grandHand: GrandHandRule | null = null): Table {
     const pushing: Pushing = {
         turn_seat: FOREHAND,
         stage,
@@ -47,6 +48,9 @@ function table(mine: number, stage: Stage, changes: Partial<Hand> = {}): Table {
         passed_in: null,
         bock: null,
         ended: null,
+        options: {
+            ramsch: grandHand === null ? null : { pushing: { grand_hand: grandHand } },
+        },
         hand: {
             dealer_seat: 3,
             own_cards: [],
@@ -95,6 +99,23 @@ describe("what the stage before a Ramsch asks of this viewer", () => {
 
     it("asks nothing once the stage is over", () => {
         expect(pushStage(table(FOREHAND, "choosing", { pushing: null }))).toBeNull();
+    });
+});
+
+describe("whether the seat on turn may declare a Grand Hand instead", () => {
+    it("may at a table that allows it, as the seat on turn choosing", () => {
+        expect(mayDeclareGrandHand(table(FOREHAND, "choosing", {}, "allowed"))).toBe(true);
+    });
+
+    it.each<[string, Table]>([
+        ["the table does not allow it", table(FOREHAND, "choosing", {}, "off")],
+        ["the table has no Ramsch with pushing", table(FOREHAND, "choosing")],
+        ["the seat is not on turn", table(MIDDLEHAND, "choosing", {}, "allowed")],
+        ["the viewer has no chair", table(WATCHER, "choosing", {}, "allowed")],
+        ["the stage is past choosing", table(FOREHAND, "discarding", {}, "allowed")],
+        ["a chair is open", table(FOREHAND, "choosing", { waiting_seat: 3 }, "allowed")],
+    ])("may not when %s", (_reason, shown) => {
+        expect(mayDeclareGrandHand(shown)).toBe(false);
     });
 });
 

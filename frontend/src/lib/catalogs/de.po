@@ -563,6 +563,14 @@ msgctxt "push.takeSkat"
 msgid "Skat nehmen"
 msgstr ""
 
+msgctxt "push.grandHand"
+msgid "Grand Hand"
+msgstr ""
+
+msgctxt "push.grandHandAsk"
+msgid "Grand Hand?"
+msgstr ""
+
 msgctxt "declare.putBack"
 msgid "Drücken"
 msgstr ""

@@ -2986,6 +2986,64 @@ body {
     }
 }
 
+/* A row of keys is transparent to the layout unless the Grand Hand key stands under the other two. */
+.room .declare.pushing .line {
+    display: contents;
+}
+
+.room .declare .step.grand.armed {
+    position: relative;
+    color: #fff;
+    background: var(--leave, #e5484d);
+}
+
+.room .declare .step.grand.armed i {
+    position: absolute;
+    inset: auto 22px 6px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.85);
+    transform-origin: left;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .declare .step.grand.armed i {
+        animation: grand-hand-runout 3s linear both;
+    }
+}
+
+@keyframes grand-hand-runout {
+    to {
+        transform: scaleX(0);
+    }
+}
+
+@media (max-width: 899px) {
+    .room .declare.pushing.choosing.grand {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .room .declare.pushing.grand .line {
+        display: flex;
+        gap: 10px;
+    }
+
+    .room .declare.pushing.grand .step {
+        height: 48px;
+    }
+
+    /* The second row of keys takes the room the skat lay in. */
+    .room .stage:has(.declare.pushing.grand) .skat-spot {
+        translate: 0 -30px;
+    }
+
+    .room .declare.pushing.grand .line:last-child .step {
+        flex: 1;
+    }
+}
+
 .room .declare .confirm {
     display: flex;
     flex-direction: column;

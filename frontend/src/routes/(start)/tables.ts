@@ -32,6 +32,7 @@ import {
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_KONTRA_SUFFIX,
     TABLE_PAGE_PREFIX,
+    TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
@@ -197,6 +198,12 @@ export type Ended =
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
+// Whether a seat may declare a Grand Hand in the stage before a Ramsch.
+export type GrandHandRule = "allowed" | "off";
+// The table's rules the page reads; a table without a Ramsch or without its stage has no `pushing`.
+export type TableOptions = {
+    ramsch: { pushing: { grand_hand: GrandHandRule } | null } | null;
+};
 export type Table = {
     id: string;
     version: number;
@@ -207,6 +214,7 @@ export type Table = {
     passed_in: PassedIn | null;
     bock: Bock | null;
     ended: Ended | null;
+    options?: TableOptions | null;
 };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
@@ -300,12 +308,14 @@ export function takeDeclaringStep(
     return post(id, DECLARING_STEP_SUFFIXES[action], { command_id: commandId, version, ...fields });
 }
 
-export type PushingStep = { action: "take" } | { action: "put_back"; cards: readonly Card[] } | { action: "push" };
+export type PushingStep =
+    { action: "take" } | { action: "put_back"; cards: readonly Card[] } | { action: "push" } | { action: "grand_hand" };
 
 const PUSHING_STEP_SUFFIXES: Record<PushingStep["action"], string> = {
     take: TABLE_PUSHING_TAKE_SUFFIX,
     put_back: TABLE_PUSHING_PUT_BACK_SUFFIX,
     push: TABLE_PUSHING_PUSH_SUFFIX,
+    grand_hand: TABLE_PUSHING_GRAND_HAND_SUFFIX,
 };
 
 // The version is the one the page shows; each tap brings its own command id, and nothing is retried.
