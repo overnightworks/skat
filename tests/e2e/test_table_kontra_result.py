@@ -13,7 +13,7 @@ from tests.e2e.support.declaring import DeclaringTable, command_numbers
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.result_card import CARD, MINUS, TIMES, expect_the_page_around_the_card
+from tests.e2e.support.result_card import CARD, MINUS, expect_the_page_around_the_card
 from tests.e2e.support.tables import TABLE_URL
 
 if TYPE_CHECKING:
@@ -82,7 +82,7 @@ def test_every_viewers_card_draws_the_kontra_word_and_the_score_the_answer_count
         SOURCE_LANGUAGE,
         "result.wordFactor",
         word=text(SOURCE_LANGUAGE, "result.wordKontra"),
-        factor=f"{TIMES}{Word.KONTRA.factor}",
+        factor=str(Word.KONTRA.factor),
     )
     game_step = text(
         SOURCE_LANGUAGE,
