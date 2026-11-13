@@ -14,10 +14,12 @@ import { agentSitsNote, seatedAgentsKey, type Chair, type Table } from "./tables
 
 const TABLE_ID = "a".repeat(32);
 
-const nova = (state: "available" | "inviting" | "here", ends = 120): AgentRow =>
-    state === "inviting"
-        ? { key: "key-nova", name: "Nova", state, ends_in_seconds: ends }
-        : { key: "key-nova", name: "Nova", state, ends_in_seconds: null };
+const nova = (state: "available" | "inviting" | "here" | "ended", ends = 120): AgentRow =>
+    state === "ended"
+        ? { key: "key-nova", name: "Nova", state, outcome: "no-answer", ends_in_seconds: null }
+        : state === "inviting"
+          ? { key: "key-nova", name: "Nova", state, ends_in_seconds: ends }
+          : { key: "key-nova", name: "Nova", state, ends_in_seconds: null };
 const controlOf = (...rows: AgentRow[]): AgentsControl => ({ shown: true, rows });
 const cutOff = () =>
     new ReadableStream({
@@ -170,10 +172,12 @@ describe("the control that calls agents", () => {
         it.each([
             ["a row that is only available", [nova("available")], null],
             ["a row that is here", [nova("here")], null],
+            ["a row that ended without a seat", [nova("ended")], null],
             ["no row at all", [], null],
-            ["an inviting row, its own seconds", [nova("inviting", 90)], 90],
+            ["an inviting row, the wait for an accept that ends the call early", [nova("inviting", 90)], 3],
+            ["an inviting row that ends in two seconds, its own seconds", [nova("inviting", 2)], 2],
             ["an inviting row that ends in under a second", [nova("inviting", 0)], 1],
-            ["the nearest of two inviting rows", [nova("inviting", 90), { ...nova("inviting", 30), key: "b" }], 30],
+            ["the nearest of two inviting rows", [nova("inviting", 90), { ...nova("inviting", 1), key: "b" }], 1],
         ])("is %s", (_case, rows, seconds) => {
             expect(rereadAfterSeconds(controlOf(...rows))).toBe(seconds);
         });
@@ -206,13 +210,13 @@ describe("the control that calls agents", () => {
             expect(fetcher).toHaveBeenCalledTimes(1);
         });
 
-        it("reads again after an inviting row's own seconds, and again until no row is inviting", async () => {
+        it("reads again while a row is inviting, so a call the agent's accept ended shows at once", async () => {
             vi.useFakeTimers();
             const fetcher = answers(controlOf(nova("inviting", 30)), controlOf(nova("inviting", 0)), controlOf());
             const { following, shown } = follower();
 
             await following.read();
-            await vi.advanceTimersByTimeAsync(29_999);
+            await vi.advanceTimersByTimeAsync(2_999);
             const before = fetcher.mock.calls.length;
             await vi.advanceTimersByTimeAsync(1);
             const afterTheRowsSeconds = fetcher.mock.calls.length;
@@ -230,9 +234,9 @@ describe("the control that calls agents", () => {
             const { following } = follower();
 
             await following.read();
-            await vi.advanceTimersByTimeAsync(10_000);
+            await vi.advanceTimersByTimeAsync(2_000);
             await following.read();
-            await vi.advanceTimersByTimeAsync(29_999);
+            await vi.advanceTimersByTimeAsync(2_999);
             const beforeTheSecondWaitEnds = fetcher.mock.calls.length;
             await vi.advanceTimersByTimeAsync(1);
 

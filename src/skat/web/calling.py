@@ -20,7 +20,7 @@ import secrets
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Literal
 
 from agents.member import INVITATION_SECONDS, STANDING_URI
 from agents.tools import Principal
@@ -32,7 +32,14 @@ from webauth.admission import AdmissionConfig, NoAdmins, app_role
 from webauth.dependencies import session_id_from_request
 from webauth.oidc_login import AccessTokenRefusal
 
-from skat.table.member_place import CallFacts, InviteRefusal, OfferState, control_shown, seated_call_facts
+from skat.table.member_place import (
+    CallFacts,
+    CallOutcome,
+    InviteRefusal,
+    OfferState,
+    control_shown,
+    seated_call_facts,
+)
 from skat.table.records import SendAway, TableId
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import Exclusion, excluded, token_carries_agent_facts
@@ -86,13 +93,15 @@ REFUSAL_TOKENS: Final = {
 
 
 class AgentRowAnswer(BaseModel):
-    """One agent the person may call or send away; `key` is opaque and the same in every state of the row, and an
-    `inviting` row says in whole seconds on the server's clock how long its invitation stays open.
+    """One agent the person may call or send away; `key` is opaque and the same in every state of the row, an
+    `inviting` row says in whole seconds on the server's clock how long its invitation stays open, and an `ended` row
+    is the person's own call that ended without a seat, with how it ended.
     """
 
     key: str
     name: str
-    state: OfferState
+    state: OfferState | Literal["ended"]
+    outcome: CallOutcome | None
     ends_in_seconds: int | None
 
 
@@ -273,10 +282,15 @@ class _Offered:
 
 
 def _row_of(offered: _Offered) -> AgentRowAnswer | None:
-    if not isinstance(offered.offer.answer, OfferState):
+    offer = offered.offer
+    if offer.outcome is not None:
+        return AgentRowAnswer(
+            key=offered.key, name=offered.name, state="ended", outcome=offer.outcome, ends_in_seconds=None
+        )
+    if not isinstance(offer.answer, OfferState):
         return None
     return AgentRowAnswer(
-        key=offered.key, name=offered.name, state=offered.offer.answer, ends_in_seconds=offered.offer.ends_in_seconds
+        key=offered.key, name=offered.name, state=offer.answer, outcome=None, ends_in_seconds=offer.ends_in_seconds
     )
 
 
