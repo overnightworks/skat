@@ -131,6 +131,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
             "options",
             "bock",
             "ended",
+            "opened_by_me",
         }
         assert {key for chair in event["chairs"] for key in chair} == {
             "seat",
