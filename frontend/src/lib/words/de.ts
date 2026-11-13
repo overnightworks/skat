@@ -218,6 +218,12 @@ export type Words = {
     readonly "start.ruleSets": string;
     readonly "start.setOfficial": string;
     readonly "start.setsUnreadable": string;
+    readonly "start.saveRules": string;
+    readonly "start.saveName": string;
+    readonly "start.savedNameWith": (gaps: { readonly rules: string; readonly set: string }) => string;
+    readonly "start.savedNameAdjusted": (gaps: { readonly set: string }) => string;
+    readonly "start.saveNameTaken": string;
+    readonly "start.saveFailed": string;
     readonly "start.ruleKontra": string;
     readonly "start.ruleKontraLine": string;
     readonly "start.ruleRamsch": string;
@@ -609,6 +615,12 @@ export const words: Words = {
     "start.ruleSets": "Regeln",
     "start.setOfficial": "Offiziell",
     "start.setsUnreadable": "Deine eigenen Regeln ließen sich nicht lesen.",
+    "start.saveRules": "Als eigene Regeln speichern",
+    "start.saveName": "Name",
+    "start.savedNameWith": (gaps: { readonly rules: string; readonly set: string }) => gaps.set + ", mit " + gaps.rules,
+    "start.savedNameAdjusted": (gaps: { readonly set: string }) => gaps.set + ", angepasst",
+    "start.saveNameTaken": "Diesen Namen hast du schon für andere Regeln.",
+    "start.saveFailed": "Die Regeln ließen sich nicht speichern.",
     "start.ruleKontra": "Kontra und Re",
     "start.ruleKontraLine": "Verdoppeln und zurückdoppeln",
     "start.ruleRamsch": "Ramsch beim Einpassen",

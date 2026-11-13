@@ -38,6 +38,7 @@ import {
     playCard,
     readRuleSets,
     readTable,
+    saveRuleSet,
     seriesNumberOf,
     sitDown,
     standUp,
@@ -386,6 +387,40 @@ describe("asking for a table", () => {
         answerWith(answer());
 
         expect(await readRuleSets()).toEqual({ kind: "failed" });
+    });
+
+    it("sends the name and the options of the sheet when saving a rule set and answers the saved set", async () => {
+        const options: OptionsRequest = { show_running_points: true };
+        const set = { id: "set-1", name: "Abend", options: { ...SWITCH_ON_OPTIONS, show_running_points: true } };
+        answerWith(Response.json(set));
+
+        expect(await saveRuleSet("Abend", options)).toEqual({ kind: "saved", set });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(RULE_SETS_PATH);
+        expect((init as { method: string }).method).toBe("POST");
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ name: "Abend", options });
+    });
+
+    it("sends no options as the official rules when saving a rule set", async () => {
+        answerWith(Response.json({ id: "set-1", name: "Abend", options: SWITCH_ON_OPTIONS }));
+
+        await saveRuleSet("Abend", undefined);
+
+        const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ name: "Abend", options: {} });
+    });
+
+    it.each([
+        ["a name that holds other options", () => Response.json({ reason: "name-taken" }, { status: 409 }), "taken"],
+        ["a refusal", () => Response.json({}, { status: 422 }), "failed"],
+        ["a conflict of another reason", () => Response.json({ reason: "other" }, { status: 409 }), "failed"],
+        ["an answer that is not JSON", () => new Response("<html>", { status: 200 }), "failed"],
+        ["no answer", () => new TypeError("offline"), "failed"],
+    ])("answers %s when saving a rule set", async (_name, answer, kind) => {
+        answerWith(answer());
+
+        expect(await saveRuleSet("Abend", undefined)).toEqual({ kind });
     });
 
     it("sends the command id and the chair when sitting down", async () => {

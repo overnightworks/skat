@@ -1,6 +1,6 @@
-import type { RuleId } from "#lib/tableRules.ts";
+import { tableRules, type ChipId, type RuleId } from "#lib/tableRules.ts";
 import { BOCK_TRIGGER_TOKENS, SWITCH_ON_OPTIONS } from "#lib/wire.ts";
-import { words } from "#lib/words.ts";
+import { listFormat, words } from "#lib/words.ts";
 import type { Options, OptionsRequest } from "./tables.ts";
 
 // The sheet's rules are the options a table is opened with, a rule that is off null; a picked set is a sheet.
@@ -218,4 +218,26 @@ export function requestOf(sheet: Options): OptionsRequest | undefined {
         ...(sheet.ramsch === null ? {} : { ramsch: sheet.ramsch }),
     };
     return Object.keys(request).length === 0 ? undefined : request;
+}
+
+// Two sheets differ when a table opened with one plays other rules than a table opened with the other.
+export function differs(sheet: Options, picked: Options): boolean {
+    return JSON.stringify(requestOf(sheet)) !== JSON.stringify(requestOf(picked));
+}
+
+function held(options: Options, rule: Exclude<ChipId, "official">): unknown {
+    return rule === "points" ? options.show_running_points : options[rule];
+}
+
+// The picked set's name with the rules that are on and changed after it; a sheet that only switched rules off is
+// the set adjusted. Schieberamsch is part of Ramsch.
+export function suggestedName(setName: string, sheet: Options, picked: Options): string {
+    const changed = tableRules(sheet, null).chips.flatMap((chip) =>
+        chip.id !== "official" && JSON.stringify(held(sheet, chip.id)) !== JSON.stringify(held(picked, chip.id))
+            ? [chip.word]
+            : [],
+    );
+    return changed.length === 0
+        ? words["start.savedNameAdjusted"]({ set: setName })
+        : words["start.savedNameWith"]({ set: setName, rules: listFormat.format(changed) });
 }
