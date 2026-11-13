@@ -32,6 +32,12 @@ def _declared_in_the_stage(table: TableRecord) -> tuple[Declared, Deal] | None:
     return stage.result, stage.deal
 
 
+def declared_in_the_stage_of(table: TableRecord) -> Declared | None:
+    """The Grand Hand a seat declared instead of a Ramsch, at the bid the table names for it; None otherwise."""
+    in_the_stage = _declared_in_the_stage(table)
+    return None if in_the_stage is None else in_the_stage[0]
+
+
 def declaring_of(table: TableRecord) -> Declaring | None:
     """The declarer's stored steps replayed through the engine; None while no seat is declarer, which is the auction's
     winner or, in a Ramsch's stage, the seat that declared a Grand Hand instead.
