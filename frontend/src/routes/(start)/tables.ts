@@ -96,6 +96,15 @@ export type Playing = {
     // Null at a table without Kontra.
     kontra: Kontra | null;
 };
+// What a seat that finished its turn of the stage before a Ramsch did with the skat.
+export type PushAction = "took" | "pushed";
+// The stage before a Ramsch's first card, the same for every viewer; it names no card.
+export type Pushing = {
+    turn_seat: number;
+    stage: Stage;
+    moves: { seat: number; action: PushAction }[];
+    factor: number;
+};
 export type Hand = {
     dealer_seat: number;
     own_cards: Card[];
@@ -105,6 +114,12 @@ export type Hand = {
     playing: Playing | null;
     // The open seat a running hand waits for, the same for every viewer.
     waiting_seat: number | null;
+    ramsch: boolean;
+    // Set while the stage runs; the Ramsch's play has none.
+    pushing: Pushing | null;
+    // How often the skat was pushed on unseen and what that multiplies the Ramsch's score by, through the play.
+    pushes: number;
+    push_factor: number;
 };
 export type Chair = {
     seat: number;

@@ -214,6 +214,23 @@ class TestTheStage:
         row = list_rows(table)[0]
         assert (row["kind"], row["pushes"], row["push_factor"], row["bock_factor"]) == ("ramsch", 2, 4, 1)
 
+    @pytest.mark.parametrize(
+        ("rule", "factor"),
+        [pytest.param("jacks-stay", 4, id="doubling"), pytest.param("no-doubling", 1, id="no-doubling")],
+    )
+    def test_the_push_factor_stays_through_the_stage_and_the_play_for_every_viewer(self, skat, rule, factor):
+        table = stage_table(skat, rule=rule)
+        assert [read(table, position)["hand"]["push_factor"] for position in VIEWERS] == [1] * 4
+        accepted(table, FOREHAND, "push")
+        accepted(table, MIDDLEHAND, "push")
+        assert read(table)["hand"]["push_factor"] == factor
+        accepted(table, REARHAND, "take")
+        accepted(table, REARHAND, "put-back", table.record.hand.skat)
+
+        for position in VIEWERS:
+            hand = read(table, position)["hand"]
+            assert (hand["pushing"], hand["pushes"], hand["push_factor"]) == (None, 2, factor)
+
     def test_the_ramsch_starts_on_the_hands_the_stage_left_and_not_on_the_dealt_ones(self, skat):
         table = stage_table(skat)
         accepted(table, FOREHAND, "take")

@@ -13,6 +13,7 @@ from skat.table.game_list import (
     RamschResultView,
     ResultView,
     Standing,
+    pushes_factor,
     reach_of,
     result_view_of,
     standings_of,
@@ -68,7 +69,8 @@ class HandView:
     step: no card to play, no value to bid, no word to say.
 
     `pushing` is the Ramsch's stage before its first card while it runs, and `pushes` how often the skat was pushed on
-    unseen so far, through the Ramsch's play; no card is named by either.
+    unseen so far, through the Ramsch's play, and `push_factor` what they multiply the Ramsch's score by (1 without a
+    push and at a table whose pushes do not double); no card is named by any of them.
     """
 
     dealer_seat: int
@@ -81,6 +83,7 @@ class HandView:
     waiting_seat: int | None
     pushing: PushingView | None
     pushes: int
+    push_factor: int
 
 
 @dataclass(frozen=True)
@@ -190,6 +193,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
     acting_positions = _acting_positions(
         viewer_positions, waiting_seat, game_waits_for_the_declarers_answer(playing, table.progress.give_up)
     )
+    pushes = 0 if stage is None else stage.pushes
     hand_view = HandView(
         table.dealer,
         tuple(card for card in DECK if card in own_cards),
@@ -209,7 +213,8 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
         isinstance(playing, RamschPlaying) or (stage is not None and state is None),
         waiting_seat,
         pushing_view_of(stage, table.options, table.progress.pushing, table.dealer),
-        0 if stage is None else stage.pushes,
+        pushes,
+        pushes_factor(pushes, table.options),
     )
     return hand_view, {seat: ChairHand(position, len(hands[position])) for seat, position in positions.items()}
 
