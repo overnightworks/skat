@@ -226,12 +226,6 @@ export type Options = {
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
-// Whether a seat may declare a Grand Hand in the stage before a Ramsch.
-export type GrandHandRule = "allowed" | "off";
-// The table's rules the page reads; a table without a Ramsch or without its stage has no `pushing`.
-export type TableOptions = {
-    ramsch: { pushing: { grand_hand: GrandHandRule } | null } | null;
-};
 export type Table = {
     id: string;
     version: number;
@@ -244,7 +238,6 @@ export type Table = {
     options: Options | null;
     bock: Bock | null;
     ended: Ended | null;
-    options?: TableOptions | null;
 };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
