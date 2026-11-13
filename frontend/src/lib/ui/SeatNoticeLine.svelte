@@ -5,7 +5,7 @@
     const { notice }: { notice: SeatNotice } = $props();
 </script>
 
-<p class="notice" role="status">
+<p class="notice seat" role="status">
     {#each notice.initials as initial, index (index)}
         {#if initial === null}
             <span class="dot agent" aria-hidden="true">

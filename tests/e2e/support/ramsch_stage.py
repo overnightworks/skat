@@ -28,6 +28,18 @@ BUBBLE = ".chair .bubble.word"
 BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
 AGENT_SEAT = 3
 TWO_LINES = 2
+# What the push bubble shares a box with: any other bubble and every key on the page, as the names of their classes.
+COVERED_BY_THE_PUSH_BUBBLE = """() => {
+    const inside = (box, other) => box.left < other.right && box.right > other.left
+        && box.top < other.bottom && box.bottom > other.top;
+    return [...document.querySelectorAll('.chair .bubble.word')].flatMap((push) => {
+        const box = push.getBoundingClientRect();
+        return [...document.querySelectorAll('.bubble, button')]
+            .filter((other) => other !== push && other.getClientRects().length > 0
+                && inside(box, other.getBoundingClientRect()))
+            .map((other) => other.textContent.trim() || other.className);
+    });
+}"""
 
 
 def ramsch_options(rule: str, grand_hand: str) -> dict[str, Any]:
@@ -180,6 +192,11 @@ class RamschStageTable:
                 assert box is not None
                 assert box["x"] >= 0
                 assert box["x"] + box["width"] <= viewport["width"]
+
+    def expect_the_push_bubble_to_overlap_no_other_bubble_or_key(self) -> None:
+        for person in self.everyone:
+            expect(person.locator(BUBBLE)).to_have_count(1)
+            assert person.evaluate(COVERED_BY_THE_PUSH_BUBBLE) == []
 
     def expect_the_plaque_lines_to_read_alike(self, people: list[Page]) -> None:
         for person in people:
