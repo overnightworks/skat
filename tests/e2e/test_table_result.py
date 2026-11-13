@@ -48,6 +48,7 @@ CARDS_IN_A_HAND = 10
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
 # Two 25-character account names.
 FULL_LENGTH_NAMES = ("Maximiliane-Bartholomaea1", "Maximiliane-Bartholomaea2")
+ORDINARY_NAMES = ("Felix", "Nova")
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
 INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 PICKED_INDEX = 7
@@ -504,6 +505,24 @@ def test_the_card_counts_of_full_length_names_stand_clear_of_the_plates(
     for person in (table.declarer, *table.others, table.watcher):
         expect(person.locator(".plate")).to_have_count(3)
         expect_no_crossing(person, ".count-tag", ".plate")
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_laid_name_tags_of_ordinary_names_show_each_name_whole(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, joiners=ORDINARY_NAMES)
+    table.play_out(3)
+    for person in table.everyone:
+        expect(person.locator(".trick .laid")).to_have_count(3)
+        clipped = person.locator(".trick .laid .name").evaluate_all(
+            "names => names.filter(name => name.scrollWidth > name.clientWidth).map(name => name.textContent)"
+        )
+        assert clipped == []
+
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

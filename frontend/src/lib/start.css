@@ -2121,7 +2121,9 @@ body {
     }
 }
 
+/* The cap counts the padding: a long name ends in an ellipsis inside it, so the tag stays clear of the next card and of the next tag. */
 .room .laid .tag {
+    box-sizing: border-box;
     position: absolute;
     left: 50%;
     bottom: calc(var(--card-width) * -0.12);
@@ -2273,12 +2275,10 @@ body {
     background: var(--on-stage);
 }
 
-/* A long name ends in an ellipsis inside the tag's width, padding included, so the tag stays clear of the next card and of
-   the next tag. On a phone the tag is no wider than its card, because the near card's tag lies close under the far ones'. */
-@media (max-width: 899px) {
-    .room .laid .tag {
-        box-sizing: border-box;
-        max-width: var(--card-width);
+/* On the smallest phones the far tags stand no further from the near tag than a full-length name is wide: the near tag steps below them. */
+@media (max-width: 379px) {
+    .room .laid.near .tag {
+        bottom: calc(var(--card-width) * -0.12 - 6px);
     }
 }
 
@@ -2286,10 +2286,6 @@ body {
     .room .trick {
         height: calc(var(--card-width) * 2.6);
         --card-width: 80px;
-    }
-
-    .room .laid .tag {
-        box-sizing: border-box;
     }
 
     .room .laid.left {
