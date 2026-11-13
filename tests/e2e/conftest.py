@@ -69,10 +69,12 @@ PAGE_TIMELINE_SECTION = "page timeline"
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> Iterator[None]:
-    """A failed end-to-end test carries the timeline of its pages, so the CI log shows more than the assertion."""
+    """A test that fails while its pages run, in the test or in a fixture's teardown, carries the timeline of its
+    pages, so the CI log shows more than the assertion.
+    """
     report = yield
     record = getattr(item, "funcargs", {}).get("failure_record")
-    if report.when == "call" and report.failed and isinstance(record, FailureRecord):
+    if report.when in ("call", "teardown") and report.failed and isinstance(record, FailureRecord):
         report.sections.append((f"Captured {PAGE_TIMELINE_SECTION}", record.render()))
     return report
 
