@@ -65,7 +65,7 @@ class DeclaringTable:
     ) -> None:
         self.server = server
         opener = self._person(open_person, "anna", page_errors, form_factor, console)
-        path = self._open_table(opener, server)
+        path = self._open_table(opener, server, member_of)
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
@@ -85,10 +85,6 @@ class DeclaringTable:
         self._win_the_auction(seat_at)
         expect(self.declarer.get_by_role("button", name=TAKE_SKAT)).to_be_visible()
 
-    def _open_table(self, opener: Page, server: RunningServer) -> str:
-        """The page path of the table the opener opens; a table with rule options is opened through the API instead."""
-        return open_new_table(opener, server)
-
     def _seat_at(self) -> dict[str, int]:
         chairs = json.loads(self.sessions[1].get(self.api_path))["chairs"]
         return {chair["hand"]["position"]: chair["seat"] for chair in chairs}
@@ -98,6 +94,12 @@ class DeclaringTable:
         self.declarer_seat = seat_at["middlehand"]
         self.declarer = self.people[self.declarer_seat]
         self.others = [person for seat, person in self.people.items() if seat != self.declarer_seat]
+
+    @staticmethod
+    def _open_table(opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
+        """Opens the table through the page, which plays the official rules."""
+        del member_of
+        return open_new_table(opener, server)
 
     @staticmethod
     def _person(

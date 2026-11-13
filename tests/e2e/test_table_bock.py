@@ -1,7 +1,7 @@
 import json
 import re
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -9,12 +9,15 @@ from playwright.sync_api import Page, expect
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, MINUS, TIMES, loosely
+from tests.e2e.test_table_kontra_result import KONTRA_OPTIONS, say_kontra_as_an_opponent
+from tests.e2e.test_table_ramsch_result import RAMSCH_OPTIONS, RamschTable, signed
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -40,9 +43,11 @@ class BockTable(DeclaringTable):
 
     hands_passed_in = 1
     overlap = "append"
+    other_options: ClassVar[dict[str, Any]] = {}
 
-    def _open_table(self, opener: Page, server: RunningServer) -> str:
-        options = {"bock": {"triggers": ["passed-in"], "overlap": self.overlap}}
+    def _open_table(self, opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
+        del member_of
+        options = {"bock": {"triggers": ["passed-in"], "overlap": self.overlap}, **self.other_options}
         answer = opener.request.post(
             f"{server.base_url}{TABLES_PATH}",
             data={"command_id": uuid.uuid4().hex, "series_length": 36, "options": options},
@@ -70,6 +75,12 @@ class BockTable(DeclaringTable):
 
     def bock(self) -> dict[str, int]:
         return json.loads(self.sessions[1].get(self.api_path))["bock"]
+
+
+class KontraBockTable(BockTable):
+    """A Bock round table whose opponents may also say Kontra."""
+
+    other_options: ClassVar[dict[str, Any]] = {"kontra": KONTRA_OPTIONS}
 
 
 class TwoPassedInBockTable(BockTable):
@@ -176,3 +187,80 @@ def test_a_table_without_bock_shows_nothing_of_it(
         expect(person.locator(RULE_CHIP)).to_have_count(0)
         expect(person.locator(BOCK_LINE)).to_have_count(0)
     assert table.view(table.declarer_seat)["bock"] is None
+
+
+def expect_the_kontra_row_to_hold_the_factor(table: PlayingTable) -> None:
+    result = table.result()
+    kontra_word = text(SOURCE_LANGUAGE, "result.wordKontra")
+    kontra = text(SOURCE_LANGUAGE, "result.wordFactor", word=kontra_word, factor=str(result["kontra"]["factor"]))
+    bock = text(SOURCE_LANGUAGE, "bock.factor", factor=str(result["bock_factor"]))
+    doubled_by_loss = 1 if result["won"] else 2
+    assert abs(result["score"]) == (
+        result["settled_value"] * doubled_by_loss * result["kontra"]["factor"] * result["bock_factor"]
+    )
+    for person in table.everyone:
+        row = person.locator(CARD).locator(".ladder").nth(1)
+        expect(row.locator("> *")).to_have_text([kontra, bock])
+        expect(person.locator(CARD).locator(".value")).to_have_text(signed(result["score"]))
+
+
+@pytest.mark.parametrize("form_factor", [pytest.param(PHONE, id="390")])
+def test_a_bock_game_with_kontra_holds_the_factor_beside_the_word(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, declaring=KontraBockTable)
+    say_kontra_as_an_opponent(table)
+    table.play_out(CARDS_IN_A_GAME)
+
+    expect_the_kontra_row_to_hold_the_factor(table)
+    assert page_errors == []
+
+
+class BockRamschTable(RamschTable):
+    """A Ramsch table whose first Ramsch starts a Bock round, so the second Ramsch is a Bock game."""
+
+    options: ClassVar[dict[str, Any]] = {
+        "ramsch": RAMSCH_OPTIONS,
+        "bock": {"triggers": ["passed-in"], "overlap": "append"},
+    }
+
+    def deal_the_next_hand(self) -> None:
+        for seat in self.names:
+            self.sessions[seat].post(
+                f"{self.api_path}{TABLE_READY_SUFFIX}",
+                {"command_id": self._command_id(), "ordinal": self.view(seat)["result"]["ordinal"]},
+            )
+        for person in self.everyone:
+            expect(person.locator(CARD)).to_have_count(0)
+        self.seat_at = {chair["hand"]["position"]: chair["seat"] for chair in self.view(1)["chairs"]}
+
+
+@pytest.mark.parametrize("form_factor", [pytest.param(PHONE, id="390")])
+def test_a_bock_ramsch_holds_the_factor_after_its_other_chips(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = BockRamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    table.deal_the_next_hand()
+    table.pass_all()
+    table.play_out()
+
+    result = table.result()
+    assert result["bock_factor"] > 1
+    bock = text(SOURCE_LANGUAGE, "bock.factor", factor=str(result["bock_factor"]))
+    scores = [each["score"] for each in result["seats"]]
+    leader = max(scores) if result["durchmarsch_seat"] is not None else min(scores)
+    for person in table.everyone:
+        card = person.locator(CARD)
+        expect(card.locator(".ladder > *").last).to_have_text(bock)
+        expect(card.locator(".value")).to_have_text(signed(leader))
+    assert page_errors == []

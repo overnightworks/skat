@@ -10,6 +10,7 @@ from playwright.sync_api import expect
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.server import skat_on_new_database
@@ -26,8 +27,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
-CALLING = text(SOURCE_LANGUAGE, "agents.calling")
-EMPTY = text(SOURCE_LANGUAGE, "agents.empty")
+CALLING = kit_text("agent.calling")
+EMPTY = kit_text("agent.empty")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
@@ -56,11 +57,11 @@ def wait_until_inside_the_margin(person: Page, selector: str) -> None:
 
 
 def call_label(name: str) -> str:
-    return text(SOURCE_LANGUAGE, "agents.callLabel", name=name)
+    return kit_text("agent.callLabel", name=name)
 
 
 def ask_to_leave_label(name: str) -> str:
-    return text(SOURCE_LANGUAGE, "agents.askToLeaveLabel", name=name)
+    return kit_text("agent.askToLeaveLabel", name=name)
 
 
 def sits_note(name: str) -> str:

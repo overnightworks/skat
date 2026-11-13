@@ -69,6 +69,8 @@ def test_stopping_the_server_with_streams_open_on_several_tables_ends_them_all_a
             )
             answer = connection.getresponse()
             assert (answer.status, answer.readline().startswith(b"data: ")) == (200, True)
+            # The count of the other tables is the stream's second message; read, it leaves the stream idle.
+            assert [answer.readline() for _ in range(3)] == [b"\n", b"event: attention\n", b"data: 0\n"]
             connections.append(answer)
 
         stopping = time.monotonic()

@@ -26,10 +26,19 @@ def admitting(actor):
     return admitted
 
 
-def stream_of(presence, service, actor, table_id, admit=None, heartbeat_seconds=NO_HEARTBEAT_SECONDS, read_view=None):
-    source = TableSource(presence, read_view or reader(service, table_id), table_id, actor.account_id)
+def stream_of(
+    presence,
+    service,
+    actor,
+    table_id,
+    admit=None,
+    heartbeat_seconds=NO_HEARTBEAT_SECONDS,
+    read_view=None,
+    more_sources=(),
+):
+    table = TableSource(presence, read_view or reader(service, table_id), table_id, actor.account_id)
     return stream_messages(
-        source, admit or admitting(actor), lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
+        [table, *more_sources], admit or admitting(actor), lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
     )
 
 

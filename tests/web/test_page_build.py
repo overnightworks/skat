@@ -9,6 +9,7 @@ from tests.support.page_build import (
     CALL_PAGE_SCRIPT_HASH,
     FIXTURE_DIRECTORY,
     FIXTURE_SCRIPT_HASH,
+    served_page,
 )
 
 if TYPE_CHECKING:
@@ -17,8 +18,8 @@ if TYPE_CHECKING:
 
 SIGN_IN_PAGES = ("login.html", "login-failed.html", "no-access.html")
 CALL_PAGE = "login/call.html"
-EMPTY_PAGE = "<html></html>"
 SHELL = '<html lang="en"></html>'
+EMPTY_PAGE = SHELL
 ANNOUNCER_STYLE = "position: absolute; width: 1px"
 CHUNKS = "_app/immutable/chunks"
 
@@ -151,22 +152,20 @@ class TestLoad:
         with pytest.raises(StartRefusedError, match="make frontend"):
             PageBuild.load(tmp_path)
 
-    def test_the_sign_in_pages_are_the_bytes_read_with_strong_etags(self):
-        page_build = PageBuild.load(FIXTURE_DIRECTORY)
+    @pytest.mark.parametrize(
+        ("name", "page_of"),
+        [
+            ("login.html", lambda build: build.signed_out),
+            ("login-failed.html", lambda build: build.login_failed),
+            ("no-access.html", lambda build: build.no_access),
+            (CALL_PAGE, lambda build: build.call_sign_in),
+        ],
+        ids=["signed-out", "login-failed", "no-access", "call"],
+    )
+    def test_a_sign_in_page_is_the_bytes_read_in_the_source_language_with_a_strong_etag(self, name, page_of):
+        page = page_of(PageBuild.load(FIXTURE_DIRECTORY))
 
-        for page, name in (
-            (page_build.signed_out, "login.html"),
-            (page_build.login_failed, "login-failed.html"),
-            (page_build.no_access, "no-access.html"),
-        ):
-            assert page.content == (FIXTURE_DIRECTORY / name).read_bytes()
-            assert page.etag.startswith('"')
-            assert page.etag.endswith('"')
-
-    def test_the_call_sign_in_page_is_the_bytes_read_with_a_strong_etag(self):
-        page = PageBuild.load(FIXTURE_DIRECTORY).call_sign_in
-
-        assert page.content == (FIXTURE_DIRECTORY / CALL_PAGE).read_bytes()
+        assert page.content == served_page(FIXTURE_DIRECTORY / name)
         assert page.etag.startswith('"')
         assert page.etag.endswith('"')
 
@@ -177,6 +176,15 @@ class TestLoad:
         (root / page).write_text(script, encoding="utf-8")
 
         with pytest.raises(StartRefusedError, match=page):
+            PageBuild.load(root)
+
+    @pytest.mark.parametrize("page", [*SIGN_IN_PAGES, CALL_PAGE])
+    @pytest.mark.parametrize("content", ["<html></html>", '<html lang="en"><html lang="en"></html>'])
+    def test_a_sign_in_page_without_its_one_built_lang_attribute_refuses_the_start(self, tmp_path, page, content):
+        root = build_with_shell(tmp_path, SHELL)
+        (root / page).write_text(content, encoding="utf-8")
+
+        with pytest.raises(PageBuildMissingError, match=f"{page}.*lang"):
             PageBuild.load(root)
 
     @pytest.mark.parametrize("missing", [*SIGN_IN_PAGES, CALL_PAGE])
