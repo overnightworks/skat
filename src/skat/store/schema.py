@@ -306,6 +306,8 @@ chairs = Table(
     # The accounts that held this chair in the running hand and left it; they no longer sit here, so a query of an
     # account's tables reads `account_id` and never counts them.
     Column("held_in_hand", ARRAY(Text), nullable=False, server_default=text("'{}'")),
+    # The name of whoever last held this chair in the running hand and left it, while the chair stays open.
+    Column("former_holder_name", Text),
     CheckConstraint("account_id IS NOT NULL OR NOT ready", name="chairs_ready_only_when_occupied"),
     CheckConstraint("array_position(held_in_hand, NULL) IS NULL", name="chairs_held_in_hand_has_no_null"),
     CheckConstraint("(account_id IS NULL) = (occupant_kind IS NULL)", name="chairs_kind_only_when_occupied"),

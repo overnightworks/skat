@@ -27,6 +27,7 @@ describe("the table's seats and link", () => {
         ready: false,
         total: null,
         hand: null,
+        former_holder_name: null,
     });
 
     afterEach(() => {

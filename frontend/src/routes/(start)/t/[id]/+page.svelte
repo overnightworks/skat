@@ -16,6 +16,7 @@
     import { giveUpView } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
+    import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import { gameInPlay, sideNames, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
     import {
         declaredResult,
@@ -27,15 +28,16 @@
     } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
-    import CardSprite from "#lib/ui/CardSprite.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
+    import CardSprite from "#lib/ui/CardSprite.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
+    import FreeChairTile from "#lib/ui/FreeChairTile.svelte";
     import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
@@ -44,6 +46,8 @@
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
+    import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
+    import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
@@ -78,7 +82,7 @@
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
-    const AGENT_SITS_MILLISECONDS = 4000;
+    const SEAT_NOTICE_MILLISECONDS = 4000;
 
     const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
@@ -102,21 +106,24 @@
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
+    // The sentence that names who has just left or taken a chair of the table.
+    let seatNote = $state<SeatNotice | null>(null);
+    let seatNoteTimer: ReturnType<typeof setTimeout> | undefined;
     // Which agents sit where, so a wake that folds one leaving and another sitting still changes it.
     let seatedAgents = $state("");
-    // The sentence that names the agent who has just sat down.
-    let agentSat = $state<string | null>(null);
-    let agentSatTimer: ReturnType<typeof setTimeout> | undefined;
+    // The free chair whose tap asks the question before a sit, while a hand runs.
+    let asking = $state<number | null>(null);
 
     function showTable(previous: Table | undefined, table: Table): void {
         streamedVersion = table.version;
         seatedAgents = seatedAgentsKey(previous, table);
-        const sitsNote = previous === undefined ? null : agentSitsNote(previous, table);
-        if (sitsNote !== null) {
-            agentSat = sitsNote;
-            clearTimeout(agentSatTimer);
-            agentSatTimer = setTimeout(() => (agentSat = null), AGENT_SITS_MILLISECONDS);
+        const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
+        if (note !== null) {
+            seatNote = note;
+            clearTimeout(seatNoteTimer);
+            seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
         }
+        if (!handWaits(table.hand)) asking = null;
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
         const cues = cuesBetween(previous, table);
@@ -142,7 +149,8 @@
         justWon = false;
         countedOrdinal = null;
         streamedVersion = null;
-        agentSat = null;
+        seatNote = null;
+        asking = null;
         playedThisHand = [];
         stamp = null;
         let current = true;
@@ -177,7 +185,7 @@
         return () => {
             current = false;
             clearTimeout(wonTimer);
-            clearTimeout(agentSatTimer);
+            clearTimeout(seatNoteTimer);
             stopWatching();
         };
     });
@@ -186,7 +194,7 @@
     const ownTurnLadder = $derived.by(() => {
         if (outcome?.kind !== "table" || outcome.table.hand === null) return null;
         const viewerSeat = outcome.table.chairs.find((chair) => chair.is_mine)?.seat;
-        return bidLadder(outcome.table.hand.auction, viewerSeat);
+        return bidLadder(outcome.table.hand.auction, viewerSeat, handWaits(outcome.table.hand));
     });
     // The version a step was sent from: the controls stay off until a newer version arrives or the step fails.
     let sentFromVersion: number | null = $state(null);
@@ -217,6 +225,12 @@
             },
         );
     });
+
+    // While a hand runs the sit asks first, because the sitter takes over the open chair's cards.
+    function tapFreeChair(chairSeat: number, handRuns: boolean): void {
+        if (handRuns) asking = chairSeat;
+        else void seat(sitDown(id, chairSeat, crypto.randomUUID()));
+    }
 
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words["table.linkCopied"] : words["table.linkCopyFailed"];
@@ -257,6 +271,13 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
+{#snippet waitingLine()}
+    <span class="gives">
+        {words["table.waitingForPlayers"]}
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </span>
+{/snippet}
+
 <div class="room" class:framed={callMode} data-theme="dark">
     <CardSprite />
     {#if !greeted}
@@ -283,6 +304,8 @@
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
+            {@const waits = handWaits(outcome.table.hand)}
+            {@const turnSeat = waits ? undefined : inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
             {@const view = declared === null ? null : resultView(outcome.table)}
             {@const ramschView = ramschResultView(outcome.table)}
@@ -301,7 +324,9 @@
                     {:else}
                         <span>{`${words["table.bidValue"]} ${String(deciding.value)}`}</span>
                         <span class="gives">
-                            {`${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}
+                            {deciding.kind === "waiting"
+                                ? words["table.waitingForPlayers"]
+                                : `${deciding.name} ${deciding.kind === "choosing" ? words["table.chooses"] : words["table.discards"]}`}
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
@@ -329,7 +354,12 @@
                     </GiveUpPlaque>
                 {:else}
                     {@const bock = bockLine(outcome.table.bock)}
-                    <div class="plaque" class:wide={label.announcement !== null} class:counting={running !== null}>
+                    <div
+                        class="plaque"
+                        class:wide={label.announcement !== null}
+                        class:counting={running !== null}
+                        class:deciding={waits}
+                    >
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}
                                 <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -344,6 +374,9 @@
                         {#if said !== null}
                             <span class="game pushes">{said.word} <b>{said.factor}</b></span>
                         {/if}
+                        {#if waits}
+                            {@render waitingLine()}
+                        {/if}
                         {#if bock !== null}
                             <div class="bock-line">{bock.word} <b>{bock.factor}</b></div>
                         {/if}
@@ -354,7 +387,7 @@
                 {/if}
             {:else if !outcome.table.hand?.declaring}
                 {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
-                <div class="plaque" class:hand-over={passedIn !== null}>
+                <div class="plaque" class:hand-over={passedIn !== null} class:deciding={waits}>
                     {#if passedIn !== null}
                         <span class="verdict">{words["table.passedIn"]}</span>
                         {#if passedIn.dealerName !== null}
@@ -366,11 +399,14 @@
                     {:else if outcome.table.hand === null}
                         <span>{words["table.waitingForPlayers"]}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                    {:else if awayName}
+                    {:else if awayName && !waits}
                         <span>{`${words["table.waitingFor"]} ${awayName}`}</span>
                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                     {:else}
                         <span>{words["table.bidding"]}</span>
+                        {#if waits}
+                            {@render waitingLine()}
+                        {/if}
                     {/if}
                 </div>
             {/if}
@@ -411,8 +447,8 @@
                         passedIn !== null
                             ? PASSED_IN_MARKS
                             : declaring
-                              ? decidingMarks(declaring, chair.seat, justWon)
-                              : chairMarks(auction, chair.seat, ownChair?.seat)}
+                              ? decidingMarks(declaring, chair.seat, justWon, waits)
+                              : chairMarks(auction, chair.seat, ownChair?.seat, waits)}
                     {@const openCards = chair.seat === declaring?.declarer_seat ? declaring.open_cards : []}
                     <li
                         class="chair"
@@ -420,7 +456,7 @@
                         class:away={chair.is_away}
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
-                        class:turn={marks.turn || chair.seat === inPlay?.playing.turn_seat}
+                        class:turn={marks.turn || chair.seat === turnSeat}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -486,7 +522,7 @@
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
-                                {#if marks.turn || chair.seat === inPlay?.playing.turn_seat}
+                                {#if marks.turn || chair.seat === turnSeat}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path d="M8 5l11 7-11 7z" />
@@ -555,23 +591,11 @@
                         {:else if seated}
                             <span class="tile empty"></span>
                         {:else}
-                            <button
-                                type="button"
-                                class="tile empty free"
-                                aria-label={words["table.sitDown"]}
-                                onclick={() => seat(sitDown(id, chair.seat, crypto.randomUUID()))}
-                            >
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.2"
-                                    stroke-linecap="round"
-                                    aria-hidden="true"
-                                >
-                                    <path d="M12 5v14M5 12h14" />
-                                </svg>
-                            </button>
+                            <FreeChairTile
+                                ontap={() => {
+                                    tapFreeChair(chair.seat, waits);
+                                }}
+                            />
                         {/if}
                         <span class="plate"
                             >{chair.is_mine
@@ -723,14 +747,23 @@
                 </div>
                 <p class="note" role="status">{note}</p>
             </div>
-            {#if agentSat !== null}
-                <p class="notice" role="status">
-                    <span class="dot agent" aria-hidden="true">
-                        <AgentSparkle />
-                    </span>
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {agentSat} compiles to a `?? ""` branch no sentence can take -->
-                    <span class="label">{`${agentSat}`}</span>
-                </p>
+            {#if seatNote !== null}
+                <SeatNoticeLine notice={seatNote} />
+            {/if}
+            {@const asked = waits
+                ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)
+                : undefined}
+            {#if asked !== undefined}
+                <SitQuestion
+                    formerHolder={asked.former_holder_name}
+                    onsit={() => {
+                        void seat(sitDown(id, asked.seat, crypto.randomUUID()));
+                        asking = null;
+                    }}
+                    oncancel={() => {
+                        asking = null;
+                    }}
+                />
             {/if}
             {#if taken !== null}
                 <p class="notice" role="status">

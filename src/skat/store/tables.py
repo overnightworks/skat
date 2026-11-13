@@ -36,6 +36,7 @@ from skat.table.records import (
     Ending,
     EndProposal,
     EndReason,
+    FormerHolder,
     GiveUpAsked,
     HandProgress,
     Occupant,
@@ -132,6 +133,15 @@ def _series_of(table: Row[Any]) -> Series | None:
     )
 
 
+def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
+    occupant = (
+        None
+        if seat.account_id is None
+        else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account)
+    )
+    return Chair(seat.seat, occupant, ready=seat.ready)
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -156,6 +166,7 @@ def _table_record(
             chairs.c.owner_account,
             chairs.c.ready,
             chairs.c.held_in_hand,
+            chairs.c.former_holder_name,
         )
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
@@ -163,16 +174,7 @@ def _table_record(
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
-        chairs=tuple(
-            Chair(
-                seat.seat,
-                None
-                if seat.account_id is None
-                else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account),
-                ready=seat.ready,
-            )
-            for seat in seats
-        ),
+        chairs=tuple(_chair_of(seat) for seat in seats),
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
         progress=HandProgress(
@@ -184,6 +186,11 @@ def _table_record(
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
             seats_held=frozenset(SeatHeld(account_id, seat.seat) for seat in seats for account_id in seat.held_in_hand),
+            former_holders=frozenset(
+                FormerHolder(seat.seat, seat.former_holder_name)
+                for seat in seats
+                if seat.former_holder_name is not None
+            ),
         ),
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
@@ -293,6 +300,7 @@ class _PostgresTableTransaction:
                     held_in_hand=sorted(
                         mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
                     ),
+                    former_holder_name=table.progress.former_holder_name(chair.seat),
                 )
             )
 

@@ -32,6 +32,9 @@ if TYPE_CHECKING:
 
 TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 command_numbers = itertools.count(1)
+# The seat that opens a dealt table and the two seats that join it unless a test names them: every helper shares them.
+DEFAULT_OPENER = "anna"
+DEFAULT_JOINERS = ("ben", "cleo")
 DECLARING_STEP_SUFFIXES = {
     "take": TABLE_DECLARING_TAKE_SUFFIX,
     "put_back": TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -63,8 +66,8 @@ class DeclaringTable:
         *,
         console: bool = True,
         hold_the_others_clock: bool = False,
-        joiners: tuple[str, str] = ("ben", "cleo"),
-        opener_name: str = "anna",
+        joiners: tuple[str, str] = DEFAULT_JOINERS,
+        opener_name: str = DEFAULT_OPENER,
         running_points: bool = False,
     ) -> None:
         self.server = server
@@ -90,8 +93,7 @@ class DeclaringTable:
         expect(self.declarer.get_by_role("button", name=TAKE_SKAT)).to_be_visible()
 
     def _seat_at(self) -> dict[str, int]:
-        chairs = json.loads(self.sessions[1].get(self.api_path))["chairs"]
-        return {chair["hand"]["position"]: chair["seat"] for chair in chairs}
+        return {chair["hand"]["position"]: chair["seat"] for chair in self.chairs()}
 
     def _name_the_declarer(self, seat_at: dict[str, int]) -> None:
         """The seat at the table's declarer position declares."""
@@ -145,6 +147,9 @@ class DeclaringTable:
 
     def declare_through_the_api(self, *, action: str, **fields: object) -> None:
         self.step(self.declarer_seat, DECLARING_STEP_SUFFIXES[action], **fields)
+
+    def chairs(self) -> list[dict[str, Any]]:
+        return json.loads(self.sessions[1].get(self.api_path))["chairs"]
 
     def stored(self) -> TableRecord:
         with PostgresTableTransactions(self.server.engine).begin() as transaction:

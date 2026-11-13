@@ -35,9 +35,8 @@ class TestSendingAnAgentAway:
 
         freed = decide_send_away(table, account_of(REARHAND)).table
 
-        assert replace(freed, progress=replace(freed.progress, seats_held=frozenset())) == replace(
-            table, version=table.version + 1, chairs=freed.chairs
-        )
+        left_marks = replace(freed.progress, seats_held=frozenset(), former_holders=frozenset())
+        assert replace(freed, progress=left_marks) == replace(table, version=table.version + 1, chairs=freed.chairs)
         assert [chair for chair in freed.chairs if chair.occupant is not None] == [
             chair for chair in table.chairs if chair.seat != REARHAND_SEAT
         ]

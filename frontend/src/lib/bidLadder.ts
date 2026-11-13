@@ -40,9 +40,10 @@ function responderLadder(auction: Auction, viewerSeat: number): BidLadder {
     };
 }
 
-// Which controls the viewer gets on their own turn, or null when it is not their turn.
-export function bidLadder(auction: Auction, viewerSeat: number | undefined): BidLadder | null {
-    if (auction.awaiting === null || viewerSeat === undefined || auction.turn_seat !== viewerSeat) return null;
+// Which controls the viewer gets on their own turn, or null when it is not their turn or the hand waits for a sitter.
+export function bidLadder(auction: Auction, viewerSeat: number | undefined, waiting: boolean): BidLadder | null {
+    if (waiting || auction.awaiting === null || viewerSeat === undefined || auction.turn_seat !== viewerSeat)
+        return null;
     switch (auction.awaiting) {
         case "bid":
             return bidderLadder(auction);

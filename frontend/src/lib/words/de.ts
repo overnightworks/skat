@@ -184,6 +184,13 @@ export type Words = {
     readonly "card.letterAce": string;
     readonly "agents.pill": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
+    readonly "table.agentLeft": (gaps: { readonly name: string }) => string;
+    readonly "table.playsOn": (gaps: { readonly name: string }) => string;
+    readonly "table.sitQuestion": string;
+    readonly "table.sitQuestionCancel": string;
+    readonly "table.takeOverNamed": (gaps: { readonly name: string }) => string;
+    readonly "table.takeOverApostrophe": (gaps: { readonly name: string }) => string;
+    readonly "table.takeOverUnnamed": string;
     readonly "logout.button": string;
     readonly "start.rulePoints": string;
     readonly "start.rulePointsLine": string;
@@ -500,6 +507,13 @@ export const words: Words = {
     "card.letterAce": "A",
     "agents.pill": "Agenten",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
+    "table.agentLeft": (gaps: { readonly name: string }) => gaps.name + " ist gegangen",
+    "table.playsOn": (gaps: { readonly name: string }) => gaps.name + " spielt weiter",
+    "table.sitQuestion": "Mitten ins Spiel setzen?",
+    "table.sitQuestionCancel": "Abbrechen",
+    "table.takeOverNamed": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "s Karten.",
+    "table.takeOverApostrophe": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "’ Karten.",
+    "table.takeOverUnnamed": "Du übernimmst die Karten dieses Platzes.",
     "logout.button": "Abmelden",
     "start.rulePoints": "Laufende Augen zeigen",
     "start.rulePointsLine": "Alle sehen die Augen im Spiel",

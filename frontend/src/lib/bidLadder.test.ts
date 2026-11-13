@@ -67,11 +67,11 @@ describe("the viewer's turn on the ladder", () => {
             ladder: { held: null, lit: 18, rungs: [], rungsBid: false, main: { action: "play" } },
         },
     ] satisfies { name: string; changes: Partial<Auction>; ladder: object }[])("$name", ({ changes, ladder }) => {
-        expect(bidLadder(auction(changes), VIEWER)).toEqual({ kind: "climb", ...ladder });
+        expect(bidLadder(auction(changes), VIEWER, false)).toEqual({ kind: "climb", ...ladder });
     });
 
     it("leaves only the pass at the top of the ladder", () => {
-        expect(bidLadder(auction({ awaiting: "bid", standing: 264, values: [] }), VIEWER)).toEqual({
+        expect(bidLadder(auction({ awaiting: "bid", standing: 264, values: [] }), VIEWER, false)).toEqual({
             kind: "passOnly",
         });
     });
@@ -83,7 +83,13 @@ describe("the viewer's turn on the ladder", () => {
     ] satisfies { name: string; changes: Partial<Auction>; seat: number | undefined }[])(
         "shows nothing for $name",
         ({ changes, seat }) => {
-            expect(bidLadder(auction(changes), seat)).toBeNull();
+            expect(bidLadder(auction(changes), seat, false)).toBeNull();
         },
     );
+});
+
+describe("the ladder while a chair of the running hand is open", () => {
+    it.each(["bid", "answer", "play"] as const)("is nothing for the seat on turn who would %s", (awaiting) => {
+        expect(bidLadder(auction({ awaiting, standing: 20, values: [22] }), VIEWER, true)).toBeNull();
+    });
 });
