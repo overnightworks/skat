@@ -1,8 +1,0 @@
-claim_id = "01c3a95a06ff48a9bad6ca4ef6d4cc14"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "35daf456510d0e08855bb6fd3c54368b1195acc6"
-branch = "claude/issue-472-the-give-up-key-on-the-table-bar"
-scope = ["docs/mockups/table.html", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/giveUp.fixtures.ts", "frontend/src/lib/giveUp.test.ts", "frontend/src/lib/giveUp.ts", "frontend/src/lib/openChair.test.ts", "frontend/src/lib/openChair.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/lib/wire.ts", "frontend/src/lib/words", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_call_frame.py", "tests/e2e/test_table_give_up.py", "tests/e2e/test_table_kontra.py", "tests/e2e/test_table_ramsch_push.py", "tests/e2e/test_table_stand_mid_hand.py", "tests/scripts/test_generate_wire.py"]
-opened_commit = "af2ceaede8fb4b19d91b78346c0dbfbfc24223b9"
-whole_reason = "One control end to end: the key, the one armed-key owner its three siblings move onto, its words, its wire path, its leave red and the scenes it replaces change together and are proven in one drive."
