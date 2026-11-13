@@ -58,6 +58,8 @@ export type Words = {
     readonly "table.waitingFor": string;
     readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
     readonly "table.givesUp": (gaps: { readonly name: string }) => string;
+    readonly "table.giveUp": string;
+    readonly "table.giveUpSure": string;
     readonly "table.accept": string;
     readonly "table.playOn": string;
     readonly "table.saidNo": string;
@@ -362,6 +364,8 @@ export const words: Words = {
     "table.waitingFor": "Warte auf",
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",
     "table.givesUp": (gaps: { readonly name: string }) => gaps.name + " gibt auf",
+    "table.giveUp": "Aufgeben",
+    "table.giveUpSure": "Wirklich aufgeben?",
     "table.accept": "Annehmen",
     "table.playOn": "Weiterspielen",
     "table.saidNo": "sagte Nein",

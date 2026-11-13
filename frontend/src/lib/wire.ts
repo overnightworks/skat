@@ -30,6 +30,7 @@ export const TABLE_AUCTION_HOLD_SUFFIX = "/auction/hold";
 export const TABLE_AUCTION_PASS_SUFFIX = "/auction/pass";
 export const TABLE_AUCTION_PLAY_SUFFIX = "/auction/play";
 export const TABLE_CARD_SUFFIX = "/card";
+export const TABLE_GIVE_UP_SUFFIX = "/give-up";
 export const TABLE_GIVE_UP_AGREE_SUFFIX = "/give-up/agree";
 export const TABLE_GIVE_UP_DECLINE_SUFFIX = "/give-up/decline";
 export const TABLE_LIST_SUFFIX = "/list";
