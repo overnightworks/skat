@@ -3984,16 +3984,6 @@ body {
         gap: 8px;
     }
 
-    .room .actions.on-result .copy.wait {
-        flex: 0 1 auto;
-        min-width: 0;
-        padding-block: 6px;
-        padding-inline: 12px;
-        font-size: 12px;
-        line-height: 1.1;
-        align-content: center;
-    }
-
     /* The pill stays as tall as its neighbours: three lines of its small type fill the 52px, and longer names end in an ellipsis.
        The clip edge is the content box, so no fourth line peeks into the padding. The hopping dots are left out on a phone,
        as the frozen scene leaves them out. */
@@ -4002,7 +3992,12 @@ body {
         -webkit-box-orient: vertical;
         -webkit-box-pack: center;
         -webkit-line-clamp: 3;
+        flex: 0 1 auto;
+        min-width: 0;
         padding-block: calc((52px - 3.3em) / 2);
+        padding-inline: 12px;
+        font-size: 12px;
+        line-height: 1.1;
         overflow: clip;
         overflow-clip-margin: content-box;
     }
