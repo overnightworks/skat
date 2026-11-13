@@ -254,9 +254,9 @@ def bock_at_series_end() -> BockRounds:
 
 
 def bock_rounds_after(table: TableRecord, triggered_by: Callable[[BockOptions], bool]) -> BockRounds:
-    """The pending Bock rounds once the table's running hand has ended without a series' end: it uses up a Bock game,
-    then a trigger acts by the option; no Bock options mean no rounds, and the series' last game lets every round
-    lapse. `triggered_by` is asked only when the rounds go on.
+    """The pending Bock rounds once the table's running hand has ended: it uses up a Bock game, then a trigger acts by
+    the option; no Bock options mean no rounds, and the series' last game lets every round lapse (an early end by
+    consent goes through `skat.table.series_end`). `triggered_by` is asked only when the rounds go on.
     """
     options = table.options.bock
     if options is None:
