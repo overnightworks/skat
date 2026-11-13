@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from skat.engine.bock import bock_factor, bock_settlement
 from skat.engine.deal import SEATS, positions_from, seats_from
 from skat.engine.kontra import KontraReach, doubled_reckoning, doubled_settlement
-from skat.engine.ramsch import reckon_ramsch
+from skat.engine.ramsch import ramsch_rules_of, reckon_ramsch
 from skat.engine.schieberamsch import push_factor
 from skat.engine.score import Reckoning, Settlement, announcement_missed, overbid, settle
 from skat.engine.tricks import opponents_points_of
@@ -277,7 +277,9 @@ class RamschSeatResult:
 @dataclass(frozen=True)
 class RamschResultView:
     """The last Ramsch's result while it stands, the same for every viewer; it names no account and no card. `pushes`
-    is how often the skat was pushed on unseen and `push_factor` what that made of the scores, beside the Bock factor.
+    is how often the skat was pushed on unseen and `push_factor` what that made of the scores, beside the Bock factor;
+    a Durchmarsch the table scores flat took no push, so its `push_factor` is 1. `divided_by_ten` says the loser's
+    eyes were divided by ten before the factors, as the table scores them.
     """
 
     ordinal: int
@@ -287,6 +289,7 @@ class RamschResultView:
     bock_factor: int
     pushes: int
     push_factor: int
+    divided_by_ten: bool
 
 
 def _reckoning_of(entry: ListEntry, reach: KontraReach) -> Reckoning:
@@ -356,6 +359,8 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
     entry = table.game_list[-1]
     ordinal = len(table.game_list)
     if isinstance(entry, RamschEntry):
+        ramsch = table.options.ramsch
+        rules = None if ramsch is None else ramsch_rules_of(ramsch.reckoning, swept=entry.durchmarsch_seat is not None)
         return RamschResultView(
             ordinal=ordinal,
             seats=tuple(
@@ -365,7 +370,8 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
             jungfrau=entry.jungfrau,
             bock_factor=entry.bock_factor,
             pushes=entry.pushes,
-            push_factor=pushes_factor(entry.pushes, table.options),
+            push_factor=pushes_factor(entry.pushes, table.options) if rules is None or rules.multiplied else 1,
+            divided_by_ten=rules is not None and rules.divided_by_ten,
         )
     breakdown = entry.breakdown
     reach = reach_of(table.options)
