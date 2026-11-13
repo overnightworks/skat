@@ -1,12 +1,39 @@
-from skat.table.records import CloseTable, CreateTable, SitDown, StandUp, Visibility
+import json
+
+from skat.table.records import Actor, CloseTable, CreateTable, SitDown, StandUp, Visibility
 from skat.web.lobby import AttentionSource, LobbySource, OpenTablesSource
-from skat.web.streams import stream_messages
+from skat.web.streams import SourceMessage, StreamEvent, stream_messages
 from skat.web.wakes import AccountTopic, OpenTablesTopic, WakeList
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import idle_presence
-from tests.web.support.streams import NO_HEARTBEAT_SECONDS, admitting
+from tests.web.support.streams import NO_HEARTBEAT_SECONDS, admitting, next_item
 
 DAYS = 90
+
+ANNA = Actor(account_id="account-anna", display_name="Anna")
+BEN = Actor(account_id="account-ben", display_name="Ben")
+CLEO = Actor(account_id="account-cleo", display_name="Cleo")
+DORA = Actor(account_id="account-dora", display_name="Dora")
+
+
+async def next_mine(stream):
+    """The tables of the next `mine`; fails on any other item."""
+    item = await next_item(stream)
+    assert isinstance(item, SourceMessage)
+    assert item.event is StreamEvent.MINE
+    return json.loads(item.data)["tables"]
+
+
+async def next_open(stream):
+    """The tables of the next `open`; fails on any other item."""
+    item = await next_item(stream)
+    assert isinstance(item, SourceMessage)
+    assert item.event is StreamEvent.OPEN
+    return json.loads(item.data)["tables"]
+
+
+def ids_of(entries):
+    return [entry["id"] for entry in entries]
 
 
 class Scene:
