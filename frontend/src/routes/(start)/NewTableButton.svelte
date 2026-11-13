@@ -1,6 +1,7 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
+    import { closeOnEscape } from "#lib/closeOnEscape.ts";
     import {
         RULE_SET_NAME_MAX,
         SERIES_LENGTH_DEFAULT,
@@ -165,7 +166,15 @@
 </div>
 {#if choosing}
     <div class="scrim"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label={words["start.newTable"]}>
+    <div
+        class="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={words["start.newTable"]}
+        {@attach closeOnEscape(() => {
+            if (!opening) close();
+        })}
+    >
         <h3>{words["start.newTable"]}</h3>
         <div class="stepper" role="group" aria-label={words["start.seriesLength"]}>
             <button
