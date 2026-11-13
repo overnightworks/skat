@@ -61,6 +61,11 @@ def watch(person: Page, server: RunningServer, path: str) -> None:
     expect(person.locator(".chair")).to_have_count(3)
 
 
+def watchers_of(person: Page):
+    """The count of people who watch, which a page shows only from a table its own stream brought."""
+    return person.locator(".watchers span")
+
+
 def plate_of(person: Page, seat: int):
     return person.locator(f".chair[data-seat='{seat}'] .plate")
 
