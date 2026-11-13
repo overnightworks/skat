@@ -35,11 +35,6 @@ def _total_changes(table: TableRecord, entry: GameEntry) -> tuple[TotalChange, .
     )
 
 
-def bock_at_series_end() -> BockRounds:
-    """The pending Bock rounds once a series ends, with its last game or early by consent: every round lapses."""
-    return BockRounds.start()
-
-
 def bock_after(
     table: TableRecord, ended: PlayedOut | PassedIn | RamschPlayedOut, entry: GameEntry | None
 ) -> BockRounds:

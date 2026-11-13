@@ -248,14 +248,21 @@ def aborted_hand(table: TableRecord) -> TableRecord:
     return replace(table, hand=None, progress=HandProgress(aborted=True), bock=bock)
 
 
+def bock_at_series_end() -> BockRounds:
+    """The pending Bock rounds once a series ends, with its last game or early by consent: every round lapses."""
+    return BockRounds.start()
+
+
 def bock_rounds_after(table: TableRecord, triggered_by: Callable[[BockOptions], bool]) -> BockRounds:
     """The pending Bock rounds once the table's running hand has ended without a series' end: it uses up a Bock game,
     then a trigger acts by the option; no Bock options mean no rounds, and the series' last game lets every round
     lapse. `triggered_by` is asked only when the rounds go on.
     """
     options = table.options.bock
-    if options is None or series_games_left(table) == 1:  # the running hand counts as a game left
+    if options is None:
         return BockRounds.start()
+    if series_games_left(table) == 1:  # the running hand counts as a game left
+        return bock_at_series_end()
     return advance(table.bock, options.overlap, triggered=triggered_by(options))
 
 

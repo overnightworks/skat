@@ -1,6 +1,6 @@
 """The steps the server takes on its own account, with no actor, command id or receipt: freeing a chair its holder
 left, the next deal, a table's end for being empty and the presence's bookkeeping. Each is one transaction over the
-table's row lock; the one caller is the host's composition.
+table's row lock; `TableService` forwards to them.
 """
 
 from contextlib import ExitStack, nullcontext
