@@ -4157,6 +4157,26 @@ body {
     }
 }
 
+/* On a 360 px phone the card is 296 px wide inside, so its chips of a game that reached Schwarz pack tight and keep one row. */
+@media (max-width: 389px) {
+    .room .stage:has(> .result) {
+        padding-inline: 12px;
+    }
+
+    .room .result .ladder {
+        gap: 4px;
+    }
+
+    .room .result .ladder > span {
+        padding: 0 5px;
+        font-size: 13px;
+    }
+
+    .room .result .ladder > span.held {
+        gap: 2px;
+    }
+}
+
 @property --n {
     syntax: "<integer>";
     inherits: false;
