@@ -700,6 +700,11 @@ body {
     background: #7aa7f0;
 }
 
+.sheet .btns .confirm.leave {
+    color: #fff;
+    background: #cf3238;
+}
+
 .sheet .btns .cancel {
     color: var(--on-stage);
     background: var(--glass);
@@ -4281,6 +4286,32 @@ body {
     }
 }
 
+/* The opener's close key: the leave red, dark enough for white text, with its word at 900 px and wider and the mark alone, round, on a phone. */
+.room .copy.close {
+    color: #fff;
+    background: #cf3238;
+    backdrop-filter: none;
+}
+
+@media (max-width: 899px) {
+    .room .actions .copy.close {
+        position: relative;
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .copy.close .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
+
 /* A chair the viewer may not take: the empty tile keeps its shape and the plus is a lock. */
 .room .tile.locked {
     color: rgba(244, 246, 248, 0.6);
@@ -4352,6 +4383,19 @@ body {
 .sheet.question .glyph svg {
     width: 28px;
     height: 28px;
+}
+
+/* The closer's initial in a ring of cream where the other faces draw their sign. */
+.room .closed .glyph.by {
+    background: linear-gradient(150deg, #f1d898, #c9a464);
+    color: #111;
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 26px;
+    font-weight: 700;
+    text-transform: uppercase;
+    box-shadow:
+        0 0 0 2px var(--cream),
+        0 8px 16px -6px rgba(0, 0, 0, 0.8);
 }
 
 .room .closed h1 {

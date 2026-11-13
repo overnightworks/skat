@@ -1128,7 +1128,6 @@ const tableBar=(desk,o={})=>{
   return `<div class="sbar${o.above?' above':''}">${stand}${o.pill||''}${copy}${close}</div>`;};
 const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3>${o.line?`<p class="line">${o.line}</p>`:''}<div class="btns">${o.buttons}</div></div>`;
 const NEW_TABLE=`<span class="button button-stage">${I.plus}Neuer Tisch</span>`;
-const CONFIRM=`<span class="button button-leave">${I.power}Schließen</span><span class="button button-glass">Abbrechen</span>`;
 const emptyChair=(pos,k,cr)=>`<div class="chair empty" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h,'--l1':P[k].l[0],'--l2':P[k].l[1],'--cr':`${cr}deg`})}"></div>`;
 const PE={anna:{x:14,y:46,w:112,h:86},right:{x:264,y:46,w:112,h:86},you:{x:145,y:594,w:100,h:78}};
 const DE={anna:{x:60,y:190,w:200,h:150},right:{x:1020,y:190,w:200,h:150},you:{x:150,y:560,w:160,h:120}};
@@ -1148,9 +1147,6 @@ const S3_SCENES=[
   ['s3-watch','Zuschauen',(d)=>S3.watch(d)],
   ['s3-mine','Am eigenen Tisch',(d)=>S3.mine(d)],
   ['s3-taken','Platz vergeben',(d)=>S3.taken(d)],
-  ['s3-close','Tisch schließen',(d)=>S3.mine(d)+'<div class="scrim"></div>'
-    +panel({...(d?{x:640,y:220,w:460}:{x:195,y:270,w:340}),role:'dialog',icon:I.power,text:'Tisch für alle schließen?',buttons:CONFIRM})],
-  ['s3-closed','Geschlossen',(d)=>S3.ended(d,{k:'anna',text:'Anna hat den Tisch geschlossen',buttons:NEW_TABLE})],
   ['s3-idle','Leer geschlossen',(d)=>S3.ended(d,{icon:I.clock,text:'30 Minuten niemand da: Tisch geschlossen',buttons:NEW_TABLE})],
   ['s3-missing','Nicht gefunden',(d)=>back(at({left:d?600:158,top:d?470:520,'--w':d?84:70,transform:'rotate(-16deg)'}))
     +panel({...(d?{x:640,y:200,w:460}:{x:195,y:250,w:330}),icon:I.ask,text:'Tisch nicht gefunden',buttons:NEW_TABLE})+homeButton(d,homeBadge)],
