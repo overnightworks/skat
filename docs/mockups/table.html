@@ -1094,7 +1094,6 @@ const IDEAS=[
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp macht die Taste scharf, der zweite sagt an, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-arm, push-grand-done, push-grand-off'],
-  ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. (S11.9p)','stand-play, stand-arm, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
   ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
@@ -2037,66 +2036,9 @@ const roundKey=(cls,icon,label)=>`<span class="cb ${cls}" role="button" title="$
 const STAND_WORD=barKey('glass',I.stand,'Aufstehen');
 const STAND_ROUND=roundKey('',I.stand,'Aufstehen');
 const standLead=(d)=>GIVE_UP+(d?STAND_WORD:STAND_ROUND);
-/* Felix has the turn in the trick: Anna led, Nova answered */
-const felixOnTurn=(d,strip)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
-    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
-    +ownCards(d,FELIX_FOLLOWS)+strip;};
-const STAND_SCENES=[
-  ['stand-play','Aufstehen im Spiel: die Leiste',[360,390,1280],(d)=>felixOnTurn(d,stripOf(d,{lead:standLead(d),pill:agentPill(d)})),
-    ['Felix ist im Stich dran. Die Leiste trägt „Aufgeben“ mit Wort, den runden „Aufstehen“ mit dem Zeichen der Seite, die Pille und den Link; gezählt bei 360: 320 von 332 Pixeln. Am Rechner ist Platz, dort behält „Aufstehen“ sein Wort.']],
-];
-const STAND_WORD_ARMED=barKey('leave arm',I.stand,'Wirklich aufstehen?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
-const STAND_ROUND_ARMED=roundKey('leave arm',I.stand,'Wirklich aufstehen?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
-STAND_SCENES.push(
-  ['stand-arm','Aufstehen im Spiel: erster Tipp',[360,1280],(d)=>felixOnTurn(d,stripOf(d,{lead:GIVE_UP+(d?STAND_WORD_ARMED:STAND_ROUND_ARMED),pill:agentPill(d)})),
-    ['Wie bei „Aufgeben“ scharft der erste Tipp die Taste, sie wird rot, ein Strich läuft in drei Sekunden aus, erst der zweite Tipp steht auf. Auf dem Handy bleibt die runde Taste rund, am Rechner sagt sie „Wirklich aufstehen?“. Zwischen den Spielen genügt ein Tipp.']],
-);
-/* Felix stood up while Anna's lead lay and Nova was to answer: his chair is free, nobody has the turn, the notice names him once */
 /* on the phone the near card rests on the nameplate's edge, whatever the frame's height, and the left one steps down below the plaque */
 const trickAt=(d,k,slot)=>{const at_=TRICK_SLOT[slot](d);
   return played('K','s',k,slotAt(d,{...at_,y:d?at_.y:slot==='near'?PB.you.y-57:at_.y+DROP_TRICK}));};
-const STOOD_NOTICE='Felix ist aufgestanden';
-/* on the 360 phone no gap between the plaque and the trick holds the notice: it sits below the near chair, over no card */
-const stoodNoticeY=(d)=>d?330:PB.table.w===PHONE_360.PB.table.w?PB.you.y+120:PB.you.y-147;
-/* Anna's view turns the table: she sits at the bottom, Nova is on her left and Felix's chair on her right */
-const annaSeesStand=(d)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true})+kreuz(d,WAIT_LINE)+trickAt(d,'anna','near')+notice(STOOD_NOTICE,'felix',mid(d),stoodNoticeY(d))
-    +seat('nova',L.anna)+freeSeat(L.nova,{idle:true})+seat('annaSelf',{...L.you,marks:['decl']})+chairCoasters(L,[TOTALS_BEFORE[1],TOTALS_BEFORE[2],TOTALS_BEFORE[0]])
-    +ownCards(d,SPARE_HAND)+stripOf(d,{lead:ABORT+(d?STAND_WORD:STAND_ROUND)});};
-/* Felix's own view right after: a watcher's, the table as he left it, the plus on his chair */
-const felixStoodUp=(d)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true})+nearFan(d,8)+kreuz(d,WAIT_LINE)+trickAt(d,'anna','left')
-    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+freeSeat(L.you)+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
-STAND_SCENES.push(
-  ['stand-open','Aufgestanden: die anderen sehen den freien Stuhl',[360,390,1280],annaSeesStand,
-    ['Anna sieht Felix’ Stuhl leer, seine Karten als Rücken daneben, „Kreuz · Warte auf Mitspieler“ und einmal den Hinweis „Felix ist aufgestanden“; niemand ist dran, „Aufgeben“ fehlt. Die Leiste trägt „Abbrechen“ (#332) und „Aufstehen“; Annas Sicht: ihr Stuhl unten, Nova links, Felix rechts. Felix schaut jetzt zu: die Zahl oben rechts.']],
-  ['stand-open-self','Aufgestanden: Felix sieht zu',[360,390,1280],felixStoodUp,
-    ['Felix’ Sicht danach ist die eines Zuschauers: derselbe Tisch wie vorher, das Plus auf seinem alten Stuhl, seine Karten als Rücken daneben, keine Hand und kein „Aufgeben“; die Leiste trägt nur den Link.']],
-);
-/* the last one stood up: three free chairs, the fans stay, the table is found by its link */
-const nobodySits=(d)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true})+nearFan(d,8)+kreuz(d,WAIT_LINE)+trickAt(d,'anna','left')
-    +freeSeat(L.anna)+freeSeat(L.nova)+freeSeat(L.you)+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
-/* a chair he may not take: the dashed tile keeps its shape, the plus is a lock */
-const lockedSeat=(pos)=>freeSeat(pos,{idle:true}).replace('class="seat free','class="seat free locked').replace('<div class="tile"></div>',`<div class="tile"><span class="sit" aria-label="Gesperrt">${I.lock}</span></div>`);
-/* Nova left earlier, then Felix stood up: his own chair offers the plus, Nova's is locked for him */
-const lockedForFelix=(d)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true})+nearFan(d,8)+kreuz(d,WAIT_LINE)+trickAt(d,'anna','left')
-    +seat('anna',{...L.anna,marks:['decl']})+lockedSeat(L.nova)+freeSeat(L.you)+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
-STAND_SCENES.push(
-  ['stand-last','Aufgestanden: der Letzte',[360,1280],nobodySits,
-    ['Wer als Letzter aufsteht, sieht alle drei Stühle frei mit dem Plus, die Rücken der Karten neben jedem Stuhl und „Kreuz · Warte auf Mitspieler“; sonst ändert sich nichts, der Tisch ist über seinen Link zu finden. Für den, der aufstand, sind die Stühle der anderen gesperrt (stand-locked).']],
-  ['stand-locked','Aufgestanden: ein gesperrter Stuhl',[360],lockedForFelix,
-    ['Wer einen Platz des laufenden Spiels hielt, darf nur auf ihn zurück. Novas freier Stuhl trägt für Felix ein Schloss statt des Plus; nur sein eigener Stuhl bietet das Plus. Mit dem Ende des Spiels fällt die Sperre.']],
-);
-STAND_SCENES.push(
-  ['stand-framed','Aufstehen im Anruf',[390,1280],(d)=>room(d,{left:8,glow:novaGlow(d)})+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
-    +seats(d,{video:true,anna:['decl'],nova:['turn','think'],score:TOTALS_BEFORE})+ownHand(d,FELIX_HAND,{bottom:d?170:164})+callBar(d)
-    +stripOf(d,{lead:standLead(d),pill:agentPill(d),above:true}),
-    ['Im Anruf steht Skats Leiste mit „Aufgeben“, dem runden „Aufstehen“ und der Pille über der Leiste des Anrufs; die Hand rückt um eine Leiste nach oben, wie bei agents-framed.']],
-);
-agentScenes(STAND_SCENES);
 
 /* ===== S13.3cp: Kontra and Re: the key that says a word, the word said, the plaque of a doubled game, the card that explains its score ===== */
 /* the words are KONTRA_STEPS; the key names the next one. Felix is an opponent who bid (Anna declares) or the declarer (he led); Lena watches */
@@ -2130,7 +2072,7 @@ const KONTRA_SCENES=[
   ['kontra-offer','Kontra: der Knopf in der Leiste',[360,390,1280],(d)=>KONTRA_OFFER(d),
     ['Felix ist Gegner und hat gereizt; Anna spielt Kreuz, Nova hat bedient, Felix ist dran. Vor seiner ersten Karte steht „Kontra“ als Leistentaste an erster Stelle, hell wie „Weiter“; „Aufgeben“ wird dafür rund, wie vorher „Aufstehen“. Bei 360 steht das Wort ohne Blitz. Die Taste wartet auf niemanden und sperrt keine Karte.']],
   ['kontra-none','Kontra: keine Taste',[390],(d)=>KONTRA_OFFER(d,{none:true}),
-    ['Felix passte sofort: kein Reizwort, kein Knopf; die Leiste ist die von stand-play. „Hast du sofort gepasst, fehlt dir der Knopf „Kontra“.“']],
+    ['Felix passte sofort: kein Reizwort, kein Knopf; die Leiste trägt „Aufgeben“ und den runden „Aufstehen“. „Hast du sofort gepasst, fehlt dir der Knopf „Kontra“.“']],
   ['kontra-said','Kontra: gesagt',[360,390,1280],(d)=>kontraTable(d,{word:'Kontra',stamp:['Kontra','felix']})+kontraStrip(d,''),
     ['Felix sagte Kontra: der Stempel mit seinem Gesicht auf allen Tischen, die Tafel trägt eine zweite Zeile „Kontra ×2“ bis zum Ergebnis, seine Taste ist weg. Seine Karten bleiben spielbar; der Tisch wartet auf niemanden.']],
   ['kontra-re','Re: die Taste des Alleinspielers',[360,390,1280],(d)=>kontraTable(d,{cast:'declarer',word:'Kontra',stamp:['Kontra','anna']})+kontraStrip(d,'Re'),
@@ -2417,13 +2359,6 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .d1280 .snd-slider i{top:17px}
 .d1280 .snd-slider u{top:6px}
 .tap-ring{position:absolute;z-index:80;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 2px rgba(255,255,255,.7);pointer-events:none}
-/* ---------- standing up during a hand: the round key's armed state, the locked chair ---------- */
-.cb.arm:not(.wide){position:relative}
-.cb.arm:not(.wide) i{position:absolute;left:14px;right:14px;bottom:7px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform-origin:left}
-@media (prefers-reduced-motion:no-preference){
-  .cb.arm:not(.wide) i.mo{animation:runout 3s linear both}
-}
-.seat.free.locked .sit{background:var(--glass);color:var(--on-stage-soft);box-shadow:none}
 </style>
 <style>
 /* Open Sans (latin, 400 and 600) and Oswald (latin, 400) as appkit ships them, embedded so the page needs no network */

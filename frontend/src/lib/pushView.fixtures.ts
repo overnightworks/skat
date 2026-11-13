@@ -19,6 +19,7 @@ function chairs(mine: number): Chair[] {
         total: null,
         hand: null,
         former_holder_name: null,
+        is_mine_to_return: false,
     }));
 }
 

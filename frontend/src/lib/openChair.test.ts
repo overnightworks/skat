@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handWaits, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
+import { handWaits, lockedChairs, seatNotice, sitQuestionLine, standTap } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
 import { declarerStage, type Chair, type Hand, type Table } from "../routes/(start)/tables.ts";
 
@@ -16,6 +16,7 @@ function chairOf(seat: number, name: string | null, kind: Chair["occupant_kind"]
         total: null,
         hand: { position: "forehand", card_count: 10 },
         former_holder_name: former,
+        is_mine_to_return: false,
     };
 }
 
@@ -106,9 +107,26 @@ describe("the notice to the others about a chair of the running hand", () => {
         expect(seatNotice(before, after)).toEqual({ text: words["table.agentLeft"]({ name: "Nova" }), initial: null });
     });
 
-    it("says nothing when a person's chair opens, which another notice owns", () => {
+    it("says a person stood up when their chair opens in the running hand", () => {
         const before = tableOf(handOf(null), felix, anna, chairOf(OPEN_SEAT, "Lena", "person"));
-        const after = tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova);
+        const after = tableOf(handOf(OPEN_SEAT), felix, anna, chairOf(OPEN_SEAT, null, null, "Lena"));
+
+        expect(seatNotice(before, after)).toEqual({
+            text: words["table.standUpNotice"]({ name: "Lena" }),
+            initial: "L",
+        });
+    });
+
+    it("says nothing to the person who stood up herself", () => {
+        const before = tableOf(handOf(null), felix, anna, { ...chairOf(OPEN_SEAT, "Lena", "person"), is_mine: true });
+        const after = tableOf(handOf(OPEN_SEAT), felix, anna, chairOf(OPEN_SEAT, null, null, "Lena"));
+
+        expect(seatNotice(before, after)).toBeNull();
+    });
+
+    it("says nothing when a person stands up between hands", () => {
+        const before = tableOf(null, felix, anna, chairOf(OPEN_SEAT, "Lena", "person"));
+        const after = tableOf(null, felix, anna, chairOf(OPEN_SEAT, null, null));
 
         expect(seatNotice(before, after)).toBeNull();
     });
@@ -169,5 +187,35 @@ describe("the declarer's step", () => {
 
     it("is none while the hand waits for a sitter", () => {
         expect(declarerStage(declaring(OPEN_SEAT))).toBeNull();
+    });
+});
+
+describe("the tap on the stand-up key", () => {
+    it.each([
+        ["a running hand, not armed", true, false, "arm"],
+        ["a running hand, armed", true, true, "stand"],
+        ["between hands, not armed", false, false, "stand"],
+        ["between hands, armed", false, true, "stand"],
+    ])("%s: the tap is %s", (_case, handRuns, armed, tap) => {
+        expect(standTap(handRuns, armed)).toBe(tap);
+    });
+});
+
+describe("the open chairs a stood-up person may not take", () => {
+    const own = { ...chairOf(OPEN_SEAT, null, null, "Felix"), is_mine_to_return: true };
+    const other = chairOf(2, null, null, "Nova");
+
+    it("are every open chair but the one to return to", () => {
+        expect(lockedChairs(tableOf(handOf(2), felix, other, own))).toEqual(new Set([2]));
+    });
+
+    it("are none for a watcher who held no chair of the hand", () => {
+        expect(lockedChairs(tableOf(handOf(2), felix, other, chairOf(OPEN_SEAT, null, null)))).toEqual(new Set());
+    });
+
+    it("are every open chair once the chair to return to is taken", () => {
+        const taken = { ...chairOf(OPEN_SEAT, "Lena", "person"), is_mine_to_return: true };
+
+        expect(lockedChairs(tableOf(handOf(2), felix, other, taken))).toEqual(new Set([2]));
     });
 });

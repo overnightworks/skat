@@ -24,7 +24,7 @@ from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.pushing import PushingView, pushing_view_of
 from skat.table.records import CommandRefusal, EndedTable, EndReason, OccupantKind
-from skat.table.rules import hand_runs, series_over, waiting_seat_of
+from skat.table.rules import hand_runs, seat_held_in_hand, series_over, waiting_seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -48,7 +48,10 @@ class ChairHand:
 @dataclass(frozen=True)
 class ChairView:
     """A chair as one viewer sees it; `ready` says its occupant is ready for the next hand,
-    by a tap of „Weiter“ or by sitting down while a result is pending, the same for every viewer."""
+    by a tap of „Weiter“ or by sitting down while a result is pending, the same for every viewer.
+
+    `is_mine_to_return` is true only for the viewer who stood up from this chair of the running hand, whether it is
+    open or taken since: the one chair that viewer may sit in again, so every other open chair is closed to them."""
 
     seat: int
     occupant_name: str | None
@@ -59,6 +62,7 @@ class ChairView:
     hand: ChairHand | None
     total: int | None
     former_holder_name: str | None
+    is_mine_to_return: bool
 
 
 @dataclass(frozen=True)
@@ -265,6 +269,22 @@ class CommandResult:
     seated_when_hand_ended: frozenset[str] = frozenset()
 
 
+def _ended_view_of(table: EndedTable) -> TableView:
+    return TableView(
+        id=table.id.value,
+        version=table.version,
+        chairs=(),
+        watchers=0,
+        hand=None,
+        passed_in=None,
+        result=None,
+        series=None,
+        options=None,
+        bock=None,
+        ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
+    )
+
+
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine.
 
@@ -281,21 +301,10 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
     An ended table names nobody and holds nothing of a hand.
     """
     if isinstance(table, EndedTable):
-        return TableView(
-            id=table.id.value,
-            version=table.version,
-            chairs=(),
-            watchers=0,
-            hand=None,
-            passed_in=None,
-            result=None,
-            series=None,
-            options=None,
-            bock=None,
-            ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
-        )
+        return _ended_view_of(table)
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)
+    seat_to_return_to = seat_held_in_hand(table, viewer_account_id)
     return TableView(
         id=table.id.value,
         version=table.version,
@@ -313,6 +322,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
                 hand=chair_hands.get(chair.seat),
                 total=_total_shown(table, chair),
                 former_holder_name=table.progress.former_holder_name(chair.seat),
+                is_mine_to_return=chair.seat == seat_to_return_to,
             )
             for chair in table.chairs
         ),

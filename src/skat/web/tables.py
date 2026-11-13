@@ -310,6 +310,7 @@ class ChairAnswer(BaseModel):
     hand: ChairHandAnswer | None
     total: int | None
     former_holder_name: str | None
+    is_mine_to_return: bool
     nudge: NudgeAnswer | None
 
 
@@ -658,6 +659,7 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
                 hand=chair_hand_answer_of(c.hand),
                 total=c.total,
                 former_holder_name=c.former_holder_name,
+                is_mine_to_return=c.is_mine_to_return,
                 nudge=nudge_answer_of(view, nudges.get(c.seat)),
             )
             for c in view.chairs
