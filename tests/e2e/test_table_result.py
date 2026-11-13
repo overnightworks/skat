@@ -21,6 +21,7 @@ from tests.e2e.support.result_card import (
     WON,
     YOU,
     expect_the_page_around_the_card,
+    expect_the_seat_tiles_inside_the_card,
     loosely,
     waiting_for,
 )
@@ -273,6 +274,7 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     table = deal_a_finished_hand(form_factor, declaring=declaring)
     first, second = (seat for seat in table.names if seat != table.declarer_seat)
     expect_the_card(table)
+    expect_the_seat_tiles_inside_the_card(table.everyone)
     expect_the_page_around_the_card(table.everyone)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())

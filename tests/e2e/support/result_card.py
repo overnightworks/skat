@@ -52,3 +52,19 @@ def expect_the_page_around_the_card(people: list[Page]) -> None:
         assert last_row is not None
         assert last_row["y"] >= card["y"]
         assert last_row["y"] + last_row["height"] <= card["y"] + card["height"]
+
+
+def expect_the_seat_tiles_inside_the_card(people: list[Page]) -> None:
+    """Every seat tile of the declared result lies whole inside its card, with the card unscrolled."""
+    for person in people:
+        card = person.locator(CARD).bounding_box()
+        assert card is not None
+        tiles = person.locator(f"{CARD} .reck")
+        expect(tiles).to_have_count(3)
+        for tile in tiles.all():
+            box = tile.bounding_box()
+            assert box is not None
+            assert box["x"] >= card["x"]
+            assert box["x"] + box["width"] <= card["x"] + card["width"]
+            assert box["y"] >= card["y"]
+            assert box["y"] + box["height"] <= card["y"] + card["height"]

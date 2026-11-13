@@ -4114,6 +4114,34 @@ body {
     }
 }
 
+/* On a 360 px phone the room between the chairs is 26 px shorter than the 390 px scene's, so the card packs once more and its seat tiles stay inside it, whole, without a scroll. */
+@media (max-width: 899px) and (max-height: 779px) {
+    .room .result {
+        margin: 8px 0 6px;
+    }
+
+    .room .result h3 {
+        font-size: 28px;
+    }
+
+    .room .result .value {
+        font-size: 34px;
+    }
+
+    .room .result.snug {
+        padding: 10px 14px;
+    }
+
+    .room .result .reck {
+        padding: 6px 4px;
+    }
+
+    .room .result .reck .dot {
+        width: 22px;
+        height: 22px;
+    }
+}
+
 @property --n {
     syntax: "<integer>";
     inherits: false;
