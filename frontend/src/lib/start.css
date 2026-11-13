@@ -1005,7 +1005,7 @@ body {
     white-space: nowrap;
 }
 
-/* On a phone the plaque lies on the felt under the far chairs, as the scenes draw it, and hangs into the free top of the trick's row: the cards of the trick lie below it however many lines it has, and the bar keeps its place on the screen. */
+/* On a phone the plaque lies on the felt under the far chairs, as the scenes draw it, and hangs into the free top of the trick's row: the cards of the trick lie below it however many lines it has, and the bar keeps its place on the screen. A plaque wider than the gap between the far chairs, and one over a declarer's open cards, keep their row above the chairs. */
 @media (max-width: 899px) {
     /* The far chairs stand at the felt's rim, as the scenes draw them, so the plaque between them keeps clear of their fans. */
     .room .chair:nth-child(1) {
@@ -1018,7 +1018,7 @@ body {
         margin-right: -14px;
     }
 
-    .room .plaque {
+    .room .stage:not(:has(.open-row)) .plaque:not(.wide) {
         position: relative;
         z-index: 2;
         grid-row: 2;
@@ -2011,6 +2011,26 @@ body {
 
 .room .chair:is(:nth-child(1), :nth-child(2)):has(.count-tag) .bubble {
     top: calc(100% + 94px);
+}
+
+/* On a phone the far chairs stand at the felt's rim, so their bubbles open toward the middle from the chair's own edge and stay on the screen. */
+@media (max-width: 899px) {
+    .room .chair:nth-child(1) .bubble {
+        right: auto;
+        left: 0;
+        --tail: calc(var(--chair-width) * 0.5);
+    }
+
+    .room .chair:nth-child(2) .bubble {
+        right: 0;
+        left: auto;
+    }
+
+    .room .chair:nth-child(2) .bubble::after {
+        right: calc(var(--chair-width) * 0.5);
+        left: auto;
+        transform: translateX(50%) rotate(45deg);
+    }
 }
 
 /* The near chair speaks to its left, clear of its fan above and of the own controls. */
@@ -3240,6 +3260,10 @@ body {
 @media (max-width: 899px) and (max-height: 780px) {
     .room .stage {
         padding-bottom: 8px;
+    }
+
+    .room .plaque {
+        margin-bottom: 14px;
     }
 
     .room .controls {
