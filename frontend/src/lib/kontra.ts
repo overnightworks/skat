@@ -20,7 +20,7 @@ function wordSaidBetween(previous: Table | undefined, next: Table): SaidWord | n
     if (previous === undefined || next.version <= previous.version) return null;
     const before = previous.hand?.playing?.kontra?.said ?? [];
     const after = next.hand?.playing?.kontra?.said ?? [];
-    return after.length > before.length ? (after[after.length - 1] as SaidWord) : null;
+    return after.length > before.length ? (after.at(-1) as SaidWord) : null;
 }
 
 function stampOf(table: Table, said: SaidWord): Stamp {
@@ -39,7 +39,7 @@ function stampOf(table: Table, said: SaidWord): Stamp {
 // The plaque carries the last word with the factor the words make, until the hand ends.
 export function plaqueLine(kontra: Kontra | null): PlaqueLine | null {
     if (kontra === null || kontra.said.length === 0) return null;
-    const last = kontra.said[kontra.said.length - 1] as SaidWord;
+    const last = kontra.said.at(-1) as SaidWord;
     return { word: wordLabel(last.word), factor: `×${String(kontra.factor)}` };
 }
 
