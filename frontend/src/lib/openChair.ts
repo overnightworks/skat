@@ -73,8 +73,9 @@ export function seatNotice(previous: Table, table: Table): SeatNotice | null {
 
 // The notice a viewer still reads on a streamed table: it goes as soon as its chair changes hands again.
 export function noticeStanding(shown: SeatNotice | null, table: Table): SeatNotice | null {
-    if (shown === null || shown.seat === null) return shown;
-    const occupied = chairAt(table.chairs, shown.seat)?.occupant_name !== null;
+    const seat = shown?.seat ?? null;
+    if (shown === null || seat === null) return shown;
+    const occupied = chairAt(table.chairs, seat)?.occupant_name !== null;
     return occupied === shown.occupied ? shown : null;
 }
 
