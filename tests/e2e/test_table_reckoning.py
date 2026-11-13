@@ -556,9 +556,9 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
         assert rows[str(seat)]["won"] == (entry.won == declares)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
-    """A Skat whose streams read the table again every tenth of a second, so a game listed through the
+    """This module's Skat, whose streams read the table again every tenth of a second, so a game listed through the
     store reaches the open pages without a reload.
     """
     with skat_on_new_database(tmp_path_factory, heartbeat_seconds=STORE_READ_SECONDS) as server:
