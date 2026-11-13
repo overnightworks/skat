@@ -35,6 +35,8 @@ YOUR_TURN = text(SOURCE_LANGUAGE, "lobby.chipYourTurn")
 RECONNECTING = text(SOURCE_LANGUAGE, "app.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 LENGTH = text(SOURCE_LANGUAGE, "lobby.length", count=SERIES_LENGTH_DEFAULT)
+RESULT_WAITS = text(SOURCE_LANGUAGE, "lobby.chipResultWaits")
+SERIES_OVER = text(SOURCE_LANGUAGE, "lobby.chipSeriesOver")
 ENDS_IN_DAYS = re.compile(r"endet in \d+ Tagen")
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
@@ -252,6 +254,37 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
 
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_have_count(0)
     expect(person.locator(".my-tables")).to_have_count(0)
+
+
+@pytest.mark.parametrize(
+    ("series_over", "chip_text"), [(False, RESULT_WAITS), (True, SERIES_OVER)], ids=["result", "series-over"]
+)
+def test_a_stood_result_and_a_finished_series_each_draw_their_chip_with_the_trophy(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    series_over: bool,
+    chip_text: str,
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(username="Dina", **DESKTOP)
+    table = waiting_table("Mara").model_copy(update={"result_waits": True, "series_over": series_over})
+    fulfilled = {"once": False}
+
+    def answer(route: Route) -> None:
+        if fulfilled["once"]:
+            route.abort()
+            return
+        fulfilled["once"] = True
+        route.fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=mine_event(table, {}))
+
+    person.route(f"**{LOBBY_EVENTS_PATH}", answer)
+
+    person.goto(f"{e2e_server.base_url}/")
+
+    chip = chip_texts_of(card_named(person, "Maras Tisch"))
+    expect(chip).to_have_text([chip_text])
+    expect(chip.locator("svg")).to_have_count(1)
 
 
 def test_going_back_from_a_table_returns_to_a_current_list(
