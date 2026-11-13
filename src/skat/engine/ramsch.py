@@ -82,6 +82,27 @@ _POINTS_PER_UNIT: Final = 10
 _ALL_POSITIONS: Final = tuple(Position)
 
 
+@dataclass(frozen=True)
+class RamschRules:
+    """What the table's options make of one Ramsch's reckoning: a Durchmarsch that scores, whether the pushes and Bock
+    multiply it, and whether the loser's eyes are divided by ten.
+    """
+
+    durchmarsch_scores: bool
+    multiplied: bool
+    divided_by_ten: bool
+
+
+def ramsch_rules_of(options: RamschOptions, *, swept: bool) -> RamschRules:
+    """The rules `options` apply to a Ramsch in which a player did (`swept`) or did not take all ten tricks."""
+    durchmarsch_scores = swept and options.durchmarsch is not DurchmarschRule.OFF
+    return RamschRules(
+        durchmarsch_scores=durchmarsch_scores,
+        multiplied=not (durchmarsch_scores and options.durchmarsch is DurchmarschRule.WINS_120_FLAT),
+        divided_by_ten=not durchmarsch_scores and options.scoring is RamschScoring.POINTS_BY_TEN,
+    )
+
+
 def _counted_points(played: RamschPlayedOut, scoring: RamschScoring) -> dict[Position, int]:
     skat_points = sum(card.points for card in played.skat)
     counted = {position: played.points_of(position) for position in _ALL_POSITIONS}
@@ -96,8 +117,9 @@ def reckon_ramsch(played: RamschPlayedOut, options: RamschOptions, *, multiplier
     """The Ramsch's gains per player; `multiplier` is the pushes and Bock as one number."""
     counted = _counted_points(played, options.scoring)
     sweeper = next((position for position in _ALL_POSITIONS if played.tricks_of(position) == TRICKS_IN_A_GAME), None)
-    if sweeper is not None and options.durchmarsch is not DurchmarschRule.OFF:
-        factor = 1 if options.durchmarsch is DurchmarschRule.WINS_120_FLAT else multiplier
+    rules = ramsch_rules_of(options, swept=sweeper is not None)
+    if sweeper is not None and rules.durchmarsch_scores:
+        factor = multiplier if rules.multiplied else 1
         gains = dict.fromkeys(_ALL_POSITIONS, 0)
         gains[sweeper] = _DURCHMARSCH_GAIN * factor
         return RamschReckoning(
@@ -108,7 +130,7 @@ def reckon_ramsch(played: RamschPlayedOut, options: RamschOptions, *, multiplier
     jungfrau = options.jungfrau is JungfrauRule.DOUBLES_LOSER and any(
         played.tricks_of(position) == 0 for position in _ALL_POSITIONS
     )
-    payment = most // _POINTS_PER_UNIT if options.scoring is RamschScoring.POINTS_BY_TEN else most
+    payment = most // _POINTS_PER_UNIT if rules.divided_by_ten else most
     if jungfrau:
         payment *= 2
     gains = {position: -payment * multiplier if position in losers else 0 for position in _ALL_POSITIONS}
