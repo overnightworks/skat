@@ -2691,18 +2691,24 @@ body {
     left: 28%;
     top: 48%;
     --lie: -9deg;
+    --from-x: -150%;
+    --from-y: -90%;
 }
 
 .room .laid.right {
     left: 72%;
     top: 48%;
     --lie: 8deg;
+    --from-x: 150%;
+    --from-y: -90%;
 }
 
 .room .laid.near {
     left: 50%;
     top: 56%;
     --lie: 0deg;
+    --from-x: 0;
+    --from-y: 180%;
 }
 
 .room .laid .face {
@@ -2714,21 +2720,6 @@ body {
 
 /* A card this page saw laid lands from its player's side in the motion set the table carries: it fades in, settles and ends at rest.
    The table carries no set while the device asks for reduced motion and the player has not overridden it. Only the card moves; its name tag stands still from the first frame. */
-.room .laid.left {
-    --from-x: -150%;
-    --from-y: -90%;
-}
-
-.room .laid.right {
-    --from-x: 150%;
-    --from-y: -90%;
-}
-
-.room .laid.near {
-    --from-x: 0;
-    --from-y: 180%;
-}
-
 /* "verspielt": 340 ms, with a small bounce. */
 .room[data-motion="verspielt"] .laid.fresh .face {
     animation: land-verspielt 340ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
