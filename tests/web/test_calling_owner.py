@@ -91,6 +91,19 @@ class TestAnOwnerOutsideTheGroupSendsHisAgentAway(CallingTable):
         assert answer.json() == {"shown": False, "rows": []}
 
     @pytest.mark.usefixtures("seated")
+    def test_the_owner_retrying_the_same_command_id_is_answered_alike_and_changes_nothing_twice(
+        self, skat, table_id, owner
+    ):
+        key = only_row(skat, owner, table_id)["key"]
+
+        first = send_away(skat, owner, table_id, key, "command-owner-retry")
+        after_first = skat.store.tables[table_id]
+        second = send_away(skat, owner, table_id, key, "command-owner-retry")
+
+        assert (second.status_code, second.json()) == (first.status_code, first.json())
+        assert skat.store.tables[table_id] == after_first
+
+    @pytest.mark.usefixtures("seated")
     def test_the_right_needs_no_group_read_so_an_issuer_that_refuses_it_changes_nothing(
         self, skat, issuer, table_id, owner
     ):
