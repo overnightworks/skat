@@ -2,7 +2,7 @@ import datetime
 import socket
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, replace
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING
@@ -214,19 +214,38 @@ def running_skat(
         server.stop()
 
 
-@contextmanager
 def skat_on_new_database(
     directories: pytest.TempPathFactory,
     random_source: random.Random | None = None,
+    heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
+    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
+    **settings_changes: float,
+) -> AbstractContextManager[RunningServer]:
+    """`skat_in_directory` over a directory of the session's temporary directories, for a fixture of a wider scope."""
+    return skat_in_directory(
+        directories.mktemp("server"), random_source, heartbeat_seconds, unplayed_sweep_seconds, **settings_changes
+    )
+
+
+@contextmanager
+def skat_in_directory(
+    directory: Path,
+    random_source: random.Random | None = None,
+    heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     **settings_changes: float,
 ) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake.
 
     `settings_changes` replace server settings, as a test that needs a short chair hold does; `random_source`
-    replaces the source Skat deals from; `unplayed_sweep_seconds` is as in `running_skat`.
+    replaces the source Skat deals from; `heartbeat_seconds` is the streams' idle tick, which a test that proves a
+    wake sets so long that no heartbeat can stand in for it; `unplayed_sweep_seconds` is as in `running_skat`.
     """
-    loopback = loopback_sign_in(directories.mktemp("sign-in"))
+    sign_in_directory = directory / "sign-in"
+    tls_directory = directory / "tls"
+    sign_in_directory.mkdir()
+    tls_directory.mkdir()
+    loopback = loopback_sign_in(sign_in_directory)
     settings = loopback.sign_in.settings.model_copy(update=settings_changes)
     loopback = replace(loopback, sign_in=replace(loopback.sign_in, settings=settings))
     with migrated_template() as template, created_database(template) as database_url:
@@ -234,9 +253,10 @@ def skat_on_new_database(
         try:
             with running_skat(
                 loopback,
-                directories.mktemp("tls"),
+                tls_directory,
                 engine,
                 random_source=random_source,
+                heartbeat_seconds=heartbeat_seconds,
                 unplayed_sweep_seconds=unplayed_sweep_seconds,
             ) as server:
                 yield server
