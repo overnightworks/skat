@@ -135,7 +135,7 @@ describe("the Agenten pill", () => {
         await settle();
         flushSync();
 
-        expect(fetcher.mock.calls.length).toBe(1);
+        expect(fetcher.mock.calls).toHaveLength(1);
     });
 
     it("opens the kit's list on a tap, with a row per agent, and closes it with the next tap", async () => {
