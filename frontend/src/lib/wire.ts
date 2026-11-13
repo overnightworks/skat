@@ -37,7 +37,6 @@ export const TABLE_GIVE_UP_AGREE_SUFFIX = "/give-up/agree";
 export const TABLE_GIVE_UP_DECLINE_SUFFIX = "/give-up/decline";
 export const TABLE_LIST_SUFFIX = "/list";
 export const TABLE_KONTRA_SUFFIX = "/kontra";
-export const TABLE_NO_WORD_SUFFIX = "/kontra/no-word";
 export const TABLE_READY_SUFFIX = "/ready";
 export const TABLE_NEW_SERIES_SUFFIX = "/new-series";
 export const TABLE_SERIES_END_AGREE_SUFFIX = "/series-end/agree";
