@@ -62,12 +62,6 @@ export function seatNotice(previous: Table, table: Table): SeatNotice | null {
     return chairLeft(previous, table) ?? openChairTaken(previous, table);
 }
 
-// The first tap on the stand-up key arms it while a hand runs, so a stray tap does not open the chair; the second tap,
-// or any tap between hands, stands up.
-export function standTap(handRuns: boolean, armed: boolean): "arm" | "stand" {
-    return handRuns && !armed ? "arm" : "stand";
-}
-
 // The open chairs a person who stood up from this hand may not sit in: she may return only to the chair she left, even
 // when someone else has taken it since, so every other open chair is locked for her; a viewer who held no chair of
 // the hand has none.

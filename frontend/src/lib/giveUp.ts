@@ -1,3 +1,4 @@
+import { keyWord } from "#lib/kontra.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { Chair, GiveUpAnswer, Table } from "../routes/(start)/tables.ts";
@@ -33,6 +34,14 @@ export type GiveUpView = {
     // The declarer's side may not play a card while an opponent's request stands.
     cardsHeld: boolean;
 };
+
+// The key „Aufgeben“ on the bar of every seated person while a declared game is played, a Grand Hand declared in a
+// Ramsch's stage included; it goes round on a phone while the strip carries „Kontra“.
+export function giveUpKey(table: Table): { round: boolean } | null {
+    const seated = table.chairs.some((chair) => chair.is_mine);
+    if (!seated || gameInPlay(table) === null || table.hand?.waiting_seat !== null) return null;
+    return { round: keyWord(table) !== null };
+}
 
 export function faceOf(chairs: readonly Chair[], seat: number): AskFace {
     // A chair of a running hand is occupied.
