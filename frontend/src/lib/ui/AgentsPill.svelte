@@ -32,7 +32,10 @@
     $effect(() => {
         const following = followAgents(
             tableId,
-            (answer) => (control = answer),
+            (answer) => {
+                control = answer;
+                if (!answer.shown) open = false;
+            },
             (reason) => (refusal = reason ?? undefined),
         );
         follower = following;

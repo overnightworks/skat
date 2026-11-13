@@ -105,6 +105,28 @@ describe("the Agenten pill", () => {
         expect([fetcher.mock.calls.length, pill() === null]).toEqual([2, false]);
     });
 
+    it("closes the list when the control stops being shown, so it is not open when the pill comes back", async () => {
+        const fetcher = server({ control: { shown: true, rows: [row] } });
+        await show(1);
+        pill()?.click();
+        await settle();
+        flushSync();
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: false, rows: [] })));
+        table.streamedVersion = 2;
+        table.agentsSeated = 1;
+        await settle();
+        flushSync();
+        const whileHidden = [pill(), popover()];
+        fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
+
+        table.streamedVersion = 3;
+        table.agentsSeated = 0;
+        await settle();
+        flushSync();
+
+        expect([whileHidden, pill() === null, popover()]).toEqual([[null, null], false, null]);
+    });
+
     it("reads nothing for a later table that seats no other agent while the list is closed", async () => {
         const fetcher = server({ control: { shown: true, rows: [row] } });
         await show(1);
