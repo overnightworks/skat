@@ -1252,6 +1252,13 @@ body {
     height: 15px;
 }
 
+/* On a phone the position label reaches 11px into the tile's corner, so the away mark steps below it. */
+@media (max-width: 899px) {
+    .room .mark.pos ~ .mark.away {
+        top: 14px;
+    }
+}
+
 .room .plate .away-note {
     display: block;
     font-size: 10.5px;
@@ -2492,6 +2499,18 @@ body {
         0 0 26px 2px rgba(122, 167, 240, 0.8);
 }
 
+/* On a phone the near chair stands right above the hand and the bar must stay on the screen, so a picked card lifts less
+   and the hand steps down by that lift, which keeps the card clear of the chair and its plate. */
+@media (max-width: 899px) {
+    .room .own-hand.picking {
+        margin-top: calc(var(--card-width) * 0.35 + 6px);
+    }
+
+    .room .own-hand .pick.picked {
+        translate: 0 calc(var(--card-width) * -0.35);
+    }
+}
+
 /* On turn the legal cards stand lifted with the blue ring, the tapped one higher and wider, the others dimmed. */
 .room .own-hand .card.ok {
     --lift: calc(var(--card-width) * -0.18);
@@ -2647,7 +2666,9 @@ body {
     }
 }
 
+/* The cap counts the padding: a long name ends in an ellipsis inside it, so the tag stays clear of the next card and of the next tag. */
 .room .laid .tag {
+    box-sizing: border-box;
     position: absolute;
     left: 50%;
     bottom: calc(var(--card-width) * -0.12);
@@ -2797,6 +2818,13 @@ body {
     width: 2px;
     border-radius: 1px;
     background: var(--on-stage);
+}
+
+/* On a phone the far tags stand no further from the near tag than a full-length name is wide: the near tag steps below them. */
+@media (max-width: 899px) {
+    .room .laid.near .tag {
+        bottom: calc(var(--card-width) * -0.12 - 6px);
+    }
 }
 
 @media (min-width: 900px) {
@@ -3092,6 +3120,11 @@ body {
         margin-top: 10px;
     }
 
+    /* The near chair's plate grows by the away note, so the bar under it steps down by as much. */
+    .room .stage:has(.chair:nth-child(3) .away-note) .controls {
+        margin-top: 18px;
+    }
+
     .room .own-hand {
         margin-bottom: 8px;
     }
@@ -3382,6 +3415,12 @@ body {
         left: -58px;
     }
 
+    /* A far chair's coaster reaches 32px into the chair at the plate's height, so the plate keeps 34px off both sides and a long name ends in an ellipsis. */
+    .room .chair:nth-child(-n + 2):has(.coaster) .plate {
+        box-sizing: border-box;
+        max-width: calc(100% - 2 * 34px);
+    }
+
     .room .skat-spot {
         --card-width: 80px;
     }
@@ -3402,13 +3441,14 @@ body {
         transform: rotate(270deg);
     }
 
+    /* The tags stand beyond the widest plate, which a long name stretches to 140% of the chair. */
     .room .chair:nth-child(1) .count-tag {
-        left: 104%;
+        left: calc(120% + 4px);
         top: 90%;
     }
 
     .room .chair:nth-child(2) .count-tag {
-        left: -70px;
+        left: -96px;
         top: 90%;
     }
 
@@ -3432,13 +3472,18 @@ body {
         font-size: 12.5px;
     }
 
-    .room .mark.pos + .mark.away {
+    .room .mark.pos ~ .mark.away {
         right: auto;
         left: 6px;
     }
 
     .room .mark.dealer ~ .mark.away {
         top: 18px;
+    }
+
+    /* The dealer is the hindmost hand, whose label is the widest: the pass mark closes up beside it. */
+    .room .mark.dealer ~ .mark.pass {
+        padding: 0 6px 0 5px;
     }
 
     .room .mark.dealer {
@@ -3978,14 +4023,26 @@ body {
         gap: 8px;
     }
 
+    /* The pill stays as tall as its neighbours: three lines of its small type fill the 52px, and longer names end in an ellipsis.
+       The clip edge is the content box, so no fourth line peeks into the padding. The hopping dots are left out on a phone,
+       as the frozen scene leaves them out. */
     .room .actions.on-result .copy.wait {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-box-pack: center;
+        -webkit-line-clamp: 3;
         flex: 0 1 auto;
         min-width: 0;
-        padding-block: 6px;
+        padding-block: calc((52px - 3.3em) / 2);
         padding-inline: 12px;
         font-size: 12px;
         line-height: 1.1;
-        align-content: center;
+        overflow: clip;
+        overflow-clip-margin: content-box;
+    }
+
+    .room .actions.on-result .copy.wait .dots {
+        display: none;
     }
 
     /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
@@ -4024,6 +4081,14 @@ body {
         overflow: hidden;
         clip-path: inset(50%);
         white-space: nowrap;
+    }
+}
+
+/* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller type and padding. */
+@media (max-width: 379px) {
+    .room .actions.on-result .copy.wait {
+        padding-inline: 8px;
+        font-size: 11px;
     }
 }
 
