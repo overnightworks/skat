@@ -5220,7 +5220,7 @@ body {
 /* A series: the count on the felt, the standings at its end, the list of its games. */
 .room .series-count {
     position: absolute;
-    top: 14px;
+    top: 19px;
     left: 50%;
     z-index: 30;
     transform: translateX(-50%);
@@ -5259,12 +5259,17 @@ body {
 
 @media (max-width: 389px) {
     .room .series-count {
-        top: 4px;
+        top: 9px;
     }
 }
 
-/* From 900 px the rules' chips stand right of the count instead of under it. */
+/* From 900 px the count stands in the middle of the top row and the rules' chips right of it instead of under it. */
 @media (min-width: 900px) {
+    .room .series-count {
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
     .room .bar:has(.series-count) .rules-slot {
         left: calc(50% + 84px);
         transform: translateY(-50%);
@@ -5519,6 +5524,26 @@ body {
     .room .rank .place {
         width: 32px;
         height: 32px;
+    }
+}
+
+/* The strip of a phone keeps its one row when the key that proposes the end joins it: the stand-up keeps its mark alone and its word for assistive technology. */
+@media (max-width: 899px) {
+    .room .actions.on-result:has(.end-series) .copy.stand {
+        position: relative;
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions.on-result:has(.end-series) .copy.stand .label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 }
 
