@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { SignInPage, type SignInState } from "overnightworks-design";
+    import { SignInPage, type KitWords, type SignInState } from "overnightworks-design";
     import { onMount } from "svelte";
     import {
         createCallSignIn,
@@ -12,6 +12,8 @@
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { words } from "#lib/words.ts";
     import { AUTH_START_PATH } from "#lib/wire.ts";
+
+    const { kitWords }: { kitWords: KitWords } = $props();
 
     let view = $state<CallSignInView>("signed-out");
     let tableId = $state<string | null>(null);
@@ -92,5 +94,11 @@
 
 <!-- The wrapper recognises the tab link by its address and hears its tap on the way down; the link keeps design's behaviour. -->
 <div class="sign-in" bind:this={face} onclickcapture={tabOpened}>
-    <SignInPage appName={words["app.name"]} state={signInState} legalLinks={LEGAL_LINKS} legalLinksNewTab />
+    <SignInPage
+        appName={words["app.name"]}
+        state={signInState}
+        legalLinks={LEGAL_LINKS}
+        legalLinksNewTab
+        words={kitWords}
+    />
 </div>
