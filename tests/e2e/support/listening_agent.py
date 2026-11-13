@@ -111,6 +111,15 @@ class ListeningAgent:
         assert not result.is_error, text
         return json.loads(text)
 
+    def accept_refused(self, standing: dict[str, Any]) -> str:
+        """The accept of the invitation, which the server refuses; the refusal's text."""
+        invitation = standing["invitation"]
+        arguments = {"place": standing["place"], "invitation": invitation["id"], "epoch": invitation["epoch"]}
+        result = self._run(self._client.call_tool(ACCEPT_INVITATION_TOOL, arguments))
+        text = result.content[0].text
+        assert result.is_error, text
+        return text
+
     def close(self) -> None:
         if self._stream is not None:
             self._loop.call_soon_threadsafe(self._stream.cancel)

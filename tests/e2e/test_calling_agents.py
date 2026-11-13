@@ -28,6 +28,7 @@ pytestmark = pytest.mark.e2e
 
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
 CALLING = kit_text("agent.calling")
+BUSY = kit_text("agent.busy")
 EMPTY = kit_text("agent.empty")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 AI_MARK = "AI"
@@ -240,6 +241,40 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
     finally:
         mozart.close()
         leonardo.close()
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one_else(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict,
+) -> None:
+    felix = record_page_errors(
+        open_person(username="felix-hears-busy", groups=(AGENT_ADDERS_GROUP,), **form_factor), page_errors
+    )
+    path = open_new_table(felix, e2e_server)
+    guests = [
+        record_page_errors(open_person(username=f"guest-{seat}-keeps-busy", **DESKTOP), page_errors) for seat in (2, 3)
+    ]
+    agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Michelangelo", "agent-subject-michelangelo")
+    try:
+        pill(felix).click()
+        felix.get_by_role("button", name=call_label("Michelangelo")).click()
+        invitation = agent.invitation_within(felix, INVITATION_WITHIN_SECONDS)
+        for seat, guest in zip((2, 3), guests, strict=True):
+            watch(guest, e2e_server, path)
+            sit_in(guest, seat)
+            expect(plate_of(felix, seat)).not_to_contain_text(SEAT_FREE)
+
+        agent.accept_refused(invitation)
+
+        expect(felix.get_by_text(BUSY)).to_be_visible()
+        expect(pill(guests[0])).to_have_count(0)
+    finally:
+        agent.close()
 
 
 @pytest.fixture

@@ -1,29 +1,33 @@
 """A table is a member place: an agent is a member of it exactly while it holds a chair there or an invitation to it
-is open, so the book stores only the open invitations and each pair's epoch, never the membership itself.
+is open, so the book stores the invitations, the open ones and the ended ones until their outcome was told, and each
+pair's epoch, never the membership itself.
 """
 
 import math
 from dataclasses import dataclass, replace
+from datetime import timedelta
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Final, Protocol
 
 from skat.table.records import Chair, Occupant, OccupantKind, OpaqueId, TableId, TableRecord
 from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     from skat.table.records import Actor, NewHand
     from skat.table.transactions import TableTransactions
 
 __all__ = [
+    "ENDED_CALL_KEPT",
     "AcceptDecision",
     "AcceptResult",
     "Acceptance",
     "BookEntry",
     "CallFacts",
     "CallOffer",
+    "CallOutcome",
     "InvitationId",
     "InvitationOffer",
     "InviteRefusal",
@@ -53,6 +57,11 @@ __all__ = [
 ]
 
 
+# How long a book row keeps an invitation that ended, so the person who called is told how the call ended; the row
+# forgets its two people at the first read after.
+ENDED_CALL_KEPT: Final = timedelta(seconds=30)
+
+
 class MembershipState(StrEnum):
     """What a table is to an agent: one it holds a chair at, or one it is invited to."""
 
@@ -79,6 +88,16 @@ class InviteRefusal(StrEnum):
     NO_FREE_CHAIR = "no-free-chair"
 
 
+class CallOutcome(StrEnum):
+    """How a call ended without a seat, in the tokens the page hands the kit: the invitation ran out unanswered, the
+    accept found no free chair, or the accept found the owner away.
+    """
+
+    NO_ANSWER = "no-answer"
+    BUSY = "busy"
+    OWNER_ABSENT = "owner-absent"
+
+
 class OfferState(StrEnum):
     """What an agent is to the person who may call it: free to call, called by that person and not yet answered, or
     seated at the table, where the person may send it away.
@@ -89,18 +108,26 @@ class OfferState(StrEnum):
     HERE = "here"
 
 
+# The answers of a row whose caller may tell the outcome of the last call.
+_CALLABLE_AGAIN: Final = frozenset({OfferState.AVAILABLE, InviteRefusal.OWNER_ABSENT, InviteRefusal.NO_FREE_CHAIR})
+
+
 class InvitationId(OpaqueId):
     """The id of an invitation."""
 
 
 @dataclass(frozen=True)
 class OpenInvitation:
-    """An invitation as stored: its owner and inviter are the people it is bound to and go when it ends."""
+    """An invitation as stored: its owner and inviter are the people it is bound to and go once its outcome was kept.
+    It stands until `expires_at`, which an accept that ended it moves to the moment of that accept, and `ended` says
+    how such an accept ended it; one that ran out has none.
+    """
 
     id: str
     expires_at: datetime
     owner_account: str
     inviter_account: str
+    ended: CallOutcome | None = None
 
     def offered(self, epoch: int) -> InvitationOffer:
         return InvitationOffer(self.id, epoch, self.expires_at)
@@ -151,10 +178,13 @@ class CallFacts:
 
 @dataclass(frozen=True)
 class CallOffer:
-    """What a call to one agent comes to now; `ends_in_seconds` is the whole seconds an open invitation still stands."""
+    """What a call to one agent comes to now; `ends_in_seconds` is the whole seconds an open invitation still stands,
+    and `outcome` how the caller's last call ended, while it is told.
+    """
 
     answer: OfferState | InviteRefusal
     ends_in_seconds: int | None = None
+    outcome: CallOutcome | None = None
 
 
 @dataclass(frozen=True)
@@ -236,10 +266,24 @@ def open_invitation(entry: BookEntry | None, now: datetime) -> OpenInvitation | 
 
 
 def forgotten_if_expired(entry: BookEntry, now: datetime) -> BookEntry:
-    """The entry without an invitation that ran out, so its two people's ids are not kept."""
-    if entry.invitation is None or open_invitation(entry, now) is not None:
+    """The entry without an invitation that ended and whose outcome was kept long enough, so its two people's ids are
+    not kept.
+    """
+    if entry.invitation is None or now < entry.invitation.expires_at + ENDED_CALL_KEPT:
         return entry
     return BookEntry(table_id=entry.table_id, agent_account=entry.agent_account, epoch=entry.epoch)
+
+
+def ended_outcome(entry: BookEntry | None, viewer_account: str, now: datetime) -> CallOutcome | None:
+    """How the viewer's last call to the agent ended, while the entry keeps it; only the one who called is told."""
+    invitation = None if entry is None else entry.invitation
+    if (
+        invitation is None
+        or invitation.inviter_account != viewer_account
+        or not invitation.expires_at <= now < invitation.expires_at + ENDED_CALL_KEPT
+    ):
+        return None
+    return invitation.ended or CallOutcome.NO_ANSWER
 
 
 def _agent_of(chair: Chair) -> Occupant | None:
@@ -329,10 +373,15 @@ def seated_call_facts(
 
 
 def call_offer_of(facts: CallFacts, table: TableRecord | None, entry: BookEntry | None, now: datetime) -> CallOffer:
-    """`offer_of`, with how long the invitation of an inviting row stands, in whole seconds on the same clock."""
+    """`offer_of`, with how long the invitation of an inviting row stands, in whole seconds on the same clock, and how
+    the caller's last call ended. The outcome is told wherever the person could call the agent again and where only the
+    room or the owner stands in the way, which are the two reasons an accept ends a call with.
+    """
     answer = offer_of(facts, table, entry, now)
     invitation = open_invitation(entry, now) if answer is OfferState.INVITING else None
-    return CallOffer(answer, None if invitation is None else math.ceil((invitation.expires_at - now).total_seconds()))
+    ends_in_seconds = None if invitation is None else math.ceil((invitation.expires_at - now).total_seconds())
+    outcome = ended_outcome(entry, facts.viewer_account, now) if answer in _CALLABLE_AGAIN else None
+    return CallOffer(answer, ends_in_seconds, outcome)
 
 
 def table_offers_of(
@@ -399,25 +448,27 @@ def decide_accept(
     Stale changes nothing: no invitation stands (none, expired, another id or epoch, another owner than the one it is
     bound to, a chair the agent already holds). Without the owner at the table the accept is `sponsor_away`, and with no
     free chair for the agent (the chair it held in the running hand being taken included) `busy`; both end the
-    invitation.
+    invitation as of now and keep it for its caller to be told how it ended.
     """
     invitation = open_invitation(entry, now)
-    stale = (
+    if (
         invitation is None
         or invitation.id != acceptance.invitation_id
         or entry.epoch != acceptance.epoch
         or invitation.owner_account != owner_account
         or seat_of(table, agent.account_id) is not None
-    )
-    if stale:
+    ):
         return AcceptDecision(table, entry, MemberRefusal.STALE_INVITATION)
-    ended = replace(entry, invitation=None)
+
+    def ended_as(outcome: CallOutcome) -> BookEntry:
+        return replace(entry, invitation=replace(invitation, expires_at=now, ended=outcome))
+
     if not owner_present:
-        return AcceptDecision(table, ended, MemberRefusal.SPONSOR_AWAY)
+        return AcceptDecision(table, ended_as(CallOutcome.OWNER_ABSENT), MemberRefusal.SPONSOR_AWAY)
     seat = free_seat_for(table, agent.account_id)
     if seat is None:
-        return AcceptDecision(table, ended, MemberRefusal.BUSY)
-    return AcceptDecision(decide_sit(table, agent, seat, new_hand).table, ended)
+        return AcceptDecision(table, ended_as(CallOutcome.BUSY), MemberRefusal.BUSY)
+    return AcceptDecision(decide_sit(table, agent, seat, new_hand).table, replace(entry, invitation=None))
 
 
 def standings_among(entries: Iterable[BookEntry], held: Iterable[TableId], now: datetime) -> tuple[TableStanding, ...]:
