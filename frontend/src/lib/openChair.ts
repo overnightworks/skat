@@ -28,18 +28,22 @@ function chairAt(chairs: readonly Chair[], seat: number): Chair | undefined {
 }
 
 // A chair of the running hand that is open now and was held a moment before by an agent or by another person; the one
-// who stood up reads no notice about herself, and a viewer without a chair of the hand reads none.
+// who stood up reads no notice about herself; an agent's leave goes to the seated others only, a person's stand-up to
+// every viewer.
 function chairLeft(previous: Table, table: Table): SeatNotice | null {
-    if (!handWaits(table.hand) || !table.chairs.some((chair) => chair.is_mine)) return null;
+    if (!handWaits(table.hand)) return null;
     const left = previous.chairs.find(
         (was) => !was.is_mine && was.occupant_name !== null && chairAt(table.chairs, was.seat)?.occupant_name === null,
     );
     if (left === undefined) return null;
     const name = left.occupant_name as string;
     const { seat } = left;
-    return left.occupant_kind === "agent"
+    if (left.occupant_kind !== "agent") {
+        return { text: words["table.standUpNotice"]({ name }), initial: name.slice(0, 1), seat, occupied: false };
+    }
+    return table.chairs.some((chair) => chair.is_mine)
         ? { text: words["table.agentLeft"]({ name }), initial: null, seat, occupied: false }
-        : { text: words["table.standUpNotice"]({ name }), initial: name.slice(0, 1), seat, occupied: false };
+        : null;
 }
 
 // A chair that was open in the running hand and is taken now, by a person or an agent; the one who sat reads no notice

@@ -127,12 +127,21 @@ describe("the notice to the others about a chair of the running hand", () => {
         });
     });
 
-    it("says nothing to a viewer who holds no chair of the hand", () => {
+    it("tells a viewer who holds no chair of the hand that a person stood up but not that an agent left", () => {
         const watcher = { ...felix, is_mine: false };
-        const before = tableOf(handOf(null), watcher, anna, novaThere);
-        const after = tableOf(handOf(OPEN_SEAT), watcher, anna, openAfterNova);
+        const lena = chairOf(OPEN_SEAT, "Lena", "person");
+        const standing = seatNotice(
+            tableOf(handOf(null), watcher, anna, lena),
+            tableOf(handOf(OPEN_SEAT), watcher, anna, chairOf(OPEN_SEAT, null, null, "Lena")),
+        );
 
-        expect(seatNotice(before, after)).toBeNull();
+        expect(standing?.text).toBe(words["table.standUpNotice"]({ name: "Lena" }));
+        expect(
+            seatNotice(
+                tableOf(handOf(null), watcher, anna, novaThere),
+                tableOf(handOf(OPEN_SEAT), watcher, anna, openAfterNova),
+            ),
+        ).toBeNull();
     });
 
     it("says nothing to the person who stood up herself", () => {
