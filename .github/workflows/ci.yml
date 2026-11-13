@@ -90,11 +90,12 @@ jobs:
 
   e2e-shard:
     name: End-to-end shard ${{ matrix.shard }}
-    # One runner per shard: the suite saturates a runner's cores, so only more runners shorten it.
+    # One runner per shard: the suite saturates a runner's cores, so only more runners shorten it. The shards trace every
+    # context, which costs a quarter of the run; a shard that nears the step limit calls for another runner.
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4]
     runs-on: ubuntu-24.04
     needs: frontend
     timeout-minutes: 15
