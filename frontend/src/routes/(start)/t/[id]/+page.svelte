@@ -53,6 +53,7 @@
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import FreeChairTile from "#lib/ui/FreeChairTile.svelte";
     import LockedChairTile from "#lib/ui/LockedChairTile.svelte";
+    import GiveUpKey from "#lib/ui/GiveUpKey.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
@@ -693,6 +694,7 @@
                             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                         </span>
                     {/if}
+                    <GiveUpKey {id} table={outcome.table} bind:note />
                     {#if seated}
                         <StandKey
                             handRuns={outcome.table.hand !== null}

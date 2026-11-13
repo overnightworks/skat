@@ -1,82 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { giveUpAsk, giveUpView } from "#lib/giveUp.ts";
+import { giveUpAsk, giveUpKey, giveUpView } from "#lib/giveUp.ts";
 import { words } from "#lib/words.ts";
-import type { Chair, GiveUp, Table } from "../routes/(start)/tables.ts";
-
-const DECLARER = 2;
-const FIRST_OPPONENT = 1;
-const SECOND_OPPONENT = 3;
-const WATCHER = 0;
+import type { GiveUp } from "../routes/(start)/tables.ts";
+import { DECLARER, FIRST_OPPONENT, SECOND_OPPONENT, WATCHER, tableWith } from "#lib/giveUp.fixtures.ts";
 const AND = ` ${words["result.and"]} `;
-
-function chairs(mine: number): Chair[] {
-    return [1, 2, 3].map((seat) => ({
-        seat,
-        occupant_name: `player ${String(seat)}`,
-        occupant_kind: "person",
-        is_mine: seat === mine,
-        is_away: false,
-        ready: false,
-        total: null,
-        hand: { position: "forehand", card_count: 9 },
-        former_holder_name: null,
-        is_mine_to_return: false,
-    }));
-}
-
-// A declared game in play at which `request` stands, seen by the chair `mine` (0 is a watcher's).
-function tableWith(mine: number, request: GiveUp | null, changes: { waiting?: number; ramsch?: boolean } = {}): Table {
-    return {
-        id: "a".repeat(32),
-        version: 7,
-        chairs: chairs(mine),
-        watchers: 0,
-        result: null,
-        passed_in: null,
-        aborted: null,
-        options: null,
-        bock: null,
-        ended: null,
-        hand: {
-            dealer_seat: 3,
-            own_cards: [],
-            skat_count: 2,
-            waiting_seat: changes.waiting ?? null,
-            abort: null,
-            abortable: changes.waiting !== undefined,
-            ramsch: changes.ramsch === true,
-            pushing: null,
-            pushes: 0,
-            push_factor: 1,
-            auction: {
-                turn_seat: null,
-                facing_seat: null,
-                awaiting: null,
-                standing: null,
-                values: [],
-                words: [],
-                declared: null,
-            },
-            declaring: changes.ramsch
-                ? null
-                : {
-                      declarer_seat: DECLARER,
-                      stage: "declared",
-                      declaration: { game: "kreuz", hand: false, ouvert: false, announcement: "none" },
-                      open_cards: [],
-                  },
-            playing: {
-                turn_seat: 1,
-                current_trick: [],
-                last_trick: null,
-                legal_cards: [],
-                running_points: null,
-                give_up: request,
-                kontra: null,
-            },
-        },
-    };
-}
 
 const DECLARER_ASKS: GiveUp = { asking_seat: DECLARER, declined_seat: null };
 const ONE_NO: GiveUp = { asking_seat: DECLARER, declined_seat: SECOND_OPPONENT };
@@ -199,5 +126,32 @@ describe("the plaque's drawing of a give-up request", () => {
         const view = giveUpView(tableWith(DECLARER, DECLARER_ASKS)) as NonNullable<ReturnType<typeof giveUpView>>;
 
         expect(giveUpAsk(view)).toMatchObject({ waits: true, buttons: [] });
+    });
+});
+
+describe("the give-up key on the table bar", () => {
+    it.each([FIRST_OPPONENT, DECLARER, SECOND_OPPONENT])("is offered to the seated person on chair %i", (viewer) => {
+        expect(giveUpKey(tableWith(viewer, null))).toEqual({ round: false });
+    });
+
+    it("stays while a request stands, so a repeated tap is the table's to refuse", () => {
+        expect(giveUpKey(tableWith(FIRST_OPPONENT, DECLARER_ASKS))).toEqual({ round: false });
+    });
+
+    it("goes round while Kontra is offered", () => {
+        expect(giveUpKey(tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra" }))).toEqual({ round: true });
+    });
+
+    it("is offered for a Grand Hand declared in the Ramsch stage", () => {
+        expect(giveUpKey(tableWith(FIRST_OPPONENT, null, { grandHandInRamsch: true }))).toEqual({ round: false });
+    });
+
+    it.each([
+        { name: "a watcher looks on", table: tableWith(WATCHER, null) },
+        { name: "a chair is open", table: tableWith(FIRST_OPPONENT, null, { waiting: 3 }) },
+        { name: "the hand is a Ramsch", table: tableWith(FIRST_OPPONENT, null, { ramsch: true }) },
+        { name: "no hand is dealt", table: { ...tableWith(FIRST_OPPONENT, null), hand: null } },
+    ])("is missing when $name", ({ table }) => {
+        expect(giveUpKey(table)).toBeNull();
     });
 });
