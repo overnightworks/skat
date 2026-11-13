@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from "svelte";
-    import { resolve } from "$app/paths";
     import { page } from "$app/state";
+    import type { PageProps } from "./$types";
     import {
         awayOnTurn,
         chairMarks,
@@ -27,6 +27,7 @@
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
+    import LobbyButton from "#lib/ui/LobbyButton.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
@@ -63,12 +64,15 @@
     const WON_MOMENT_MILLISECONDS = 2500;
     const AGENT_SITS_MILLISECONDS = 4000;
 
+    const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
     let outcome = $state<Outcome | null>(null);
     let note = $state("");
     let taken: string | null = $state(null);
     let connected = $state(true);
+    // The number of the person's other tables that wait for him; a lost stream sets it back to none, so a count is never stale.
+    let attention = $state(0);
     let picking = $state<Picking | undefined>();
     let playing = $state<PlayingHand | undefined>();
     // The first moment of the declaring, which only a page that sees the auction end shows.
@@ -109,6 +113,7 @@
     $effect(() => {
         outcome = null;
         connected = true;
+        attention = 0;
         justWon = false;
         streamedVersion = null;
         agentSat = null;
@@ -125,10 +130,20 @@
                     shown = table;
                 };
                 // A dropped connection forgets the table shown: the first table after it stands still.
-                stopWatching = watchTable(id, show, (isConnected) => {
-                    connected = isConnected;
-                    if (!isConnected) shown = undefined;
-                });
+                stopWatching = watchTable(
+                    id,
+                    show,
+                    (count) => {
+                        attention = count;
+                    },
+                    (isConnected) => {
+                        connected = isConnected;
+                        if (!isConnected) {
+                            shown = undefined;
+                            attention = 0;
+                        }
+                    },
+                );
             }
         });
         // An answer for an address the person has left must not replace the current table.
@@ -225,7 +240,7 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
-<div class="room" data-theme="dark">
+<div class="room" class:framed={callMode} data-theme="dark">
     <!-- Kept out of layout with zero size: display:none would break the gradient references in Chrome. -->
     <svg class="sprite" width="0" height="0" aria-hidden="true">
         <defs>
@@ -283,28 +298,7 @@
             {#if callMode}
                 <span class="wordmark" class:stale={!connected}>{words["app.name"]}</span>
             {:else}
-                <a
-                    class="lobby"
-                    href={resolve("/(start)")}
-                    title={words["table.lobby"]}
-                    aria-label={words["table.lobby"]}
-                >
-                    <span class="lobby-face button-glass">
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            aria-hidden="true"
-                        >
-                            <path d="M4 11.5 12 5l8 6.5" />
-                            <path d="M6.5 10v9h11v-9" />
-                        </svg>
-                        <span class="lobby-word">{words["table.lobby"]}</span>
-                    </span>
-                </a>
+                <LobbyButton {attention} />
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
                 {#if !callMode}
@@ -738,7 +732,7 @@
                             <span class="label">{`${words["table.standUp"]}`}</span>
                         </button>
                     {/if}
-                    <AgentsPill tableId={id} {streamedVersion} />
+                    <AgentsPill tableId={id} {streamedVersion} kitWords={data.kitWords} />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}
@@ -791,6 +785,6 @@
         <span class="spin"></span>{words["table.reconnecting"]}
     </div>
     <footer class="legal">
-        <LegalLinks links={LEGAL_LINKS} newTab />
+        <LegalLinks links={LEGAL_LINKS} newTab words={data.kitWords} />
     </footer>
 </div>

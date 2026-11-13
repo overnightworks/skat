@@ -9,6 +9,7 @@ from skat.web.constants import LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ def follow_a_shared_link_and_sign_in(
     sign_in_at_issuer(visitor, server, username=username, groups=groups)
     visitor.goto(f"{server.base_url}{path}")
     expect(visitor).to_have_url(re.compile(rf"{re.escape(LOGIN_PATH)}\?"))
-    visitor.get_by_role("link", name="Log in", exact=True).click()
+    visitor.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
@@ -84,7 +85,7 @@ def test_a_signed_out_person_the_group_does_not_admit_reaches_the_no_access_page
 
     follow_a_shared_link_and_sign_in(outsider, e2e_server, path, username="carl", groups=["/apps/other"])
 
-    expect(outsider.get_by_role("button", name="Log out")).to_be_visible()
+    expect(outsider.get_by_role("button", name=kit_text("signIn.logOut"))).to_be_visible()
     assert urlsplit(outsider.url).path == NO_ACCESS_PATH
     expect(outsider.get_by_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_have_count(0)
     expect(outsider.locator(".chair")).to_have_count(0)
