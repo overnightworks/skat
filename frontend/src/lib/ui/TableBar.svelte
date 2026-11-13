@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { resolve } from "$app/paths";
     import { words } from "#lib/words.ts";
+    import LobbyButton from "./LobbyButton.svelte";
     import SoundButton from "./SoundButton.svelte";
     import TableRules from "./TableRules.svelte";
 
@@ -10,32 +10,22 @@
     // in for the link to the Lobby and the call's own strip carries the speaker.
     let {
         callMode,
+        attention,
         connected,
         live,
-    }: { callMode: boolean; connected: boolean; live: { watchers: number; options: Options } | null } = $props();
+    }: {
+        callMode: boolean;
+        attention: number;
+        connected: boolean;
+        live: { watchers: number; options: Options } | null;
+    } = $props();
 </script>
 
 <header class="bar">
     {#if callMode}
         <span class="wordmark" class:stale={!connected}>{words["app.name"]}</span>
     {:else}
-        <a class="lobby" href={resolve("/(start)")} title={words["table.lobby"]} aria-label={words["table.lobby"]}>
-            <span class="lobby-face button-glass">
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                >
-                    <path d="M4 11.5 12 5l8 6.5" />
-                    <path d="M6.5 10v9h11v-9" />
-                </svg>
-                <span class="lobby-word">{words["table.lobby"]}</span>
-            </span>
-        </a>
+        <LobbyButton {attention} />
     {/if}
     {#if live !== null}
         <TableRules options={live.options} />

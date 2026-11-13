@@ -16,7 +16,7 @@ sys.path.insert(0, str(REPOSITORY / "src"))
 
 from skat.engine.bidding import VALID_BIDS  # noqa: E402
 from skat.engine.bock import BockOverlap, BockTrigger  # noqa: E402
-from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer  # noqa: E402
+from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer, Word  # noqa: E402
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschScoring  # noqa: E402
 from skat.engine.schieberamsch import GrandHandRule, PushingRule  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
@@ -107,6 +107,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "DURCHMARSCH_TOKENS": DurchmarschRule,
     "PUSHING_RULE_TOKENS": PushingRule,
     "GRAND_HAND_TOKENS": GrandHandRule,
+    "WORD_TOKENS": Word,
 }
 
 

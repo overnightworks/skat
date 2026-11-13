@@ -30,7 +30,7 @@ from tests.web.support.presence import (
     pass_hand_in,
     run,
 )
-from tests.web.support.skat import FakeTime
+from tests.web.support.skat import FakeTime, read_the_first_round
 
 
 @pytest.fixture
@@ -414,9 +414,9 @@ class TestChairHold:
 
 
 def leaves_the_table(server, table_id, headers):
-    """The member opens the table's stream, reads its first view and closes it, which starts their hold."""
+    """The member opens the table's stream, reads its first round and closes it, which starts their hold."""
     with server.client.stream("GET", f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", headers=headers) as stream:
-        next(stream.iter_lines())
+        read_the_first_round(stream.iter_lines())
         stream.close()
     server.client.cookies.clear()
 

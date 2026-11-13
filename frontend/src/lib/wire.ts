@@ -70,6 +70,7 @@ export const JUNGFRAU_TOKENS = ["doubles-loser", "off"] as const;
 export const DURCHMARSCH_TOKENS = ["wins-120", "wins-120-flat", "off"] as const;
 export const PUSHING_RULE_TOKENS = ["jacks-stay", "jacks-may-go", "no-doubling"] as const;
 export const GRAND_HAND_TOKENS = ["allowed", "off"] as const;
+export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,

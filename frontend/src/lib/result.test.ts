@@ -49,6 +49,7 @@ const WON_GAME: Result = {
         { seat: 2, gain: 86, won: true },
         { seat: 3, gain: 0, won: false },
     ],
+    kontra: null,
 };
 
 // The same game lost: the value doubles to −72, the list takes 50 and each opponent gets 40.
@@ -326,6 +327,62 @@ describe("the doubling and the list line", () => {
 
         expect(view.list.side).toBe(side);
         expect(view.list.share).toBe(words["result.share"]({ opponents, gain: "+40" }));
+    });
+});
+
+// Each word said doubles the game's score once more; the list's 50 stays.
+describe("the Kontra words on the card", () => {
+    const KONTRA_SCORES = [
+        { word: "kontra", text: "Kontra", factor: 2, steps: ["Kontra ×2"] },
+        { word: "re", text: "Re", factor: 4, steps: ["Kontra ×2", "Re ×4"] },
+        { word: "supra", text: "Supra", factor: 8, steps: ["Kontra ×2", "Re ×4", "Supra ×8"] },
+        { word: "hirsch", text: "Hirsch", factor: 16, steps: ["Kontra ×2", "Re ×4", "Supra ×8", "Hirsch ×16"] },
+    ] as const;
+
+    it.each(KONTRA_SCORES)("draws a won game after $text as steps that multiply to its score", (said) => {
+        const view = resultView(
+            table(2, { kontra: { word: said.word, factor: said.factor }, score: 36 * said.factor, list_bonus: 50 }),
+        );
+        const drawn = view.doublings.map((chip) => Number(chip.split("×")[1]));
+
+        expect(view.doublings).toEqual(said.steps);
+        expect((view.equation?.multiplier as number) * (view.equation?.base as number) * (drawn.at(-1) as number)).toBe(
+            Number(view.score.replace("+", "")),
+        );
+    });
+
+    it.each(KONTRA_SCORES)("draws a lost game after $text with the loss doubled once more", (said) => {
+        const view = resultView(
+            table(2, {
+                ...LOST_GAME,
+                kontra: { word: said.word, factor: said.factor },
+                score: -72 * said.factor,
+            }),
+        );
+        const drawn = Number(view.doublings.at(-1)?.split("×")[1]);
+
+        expect(view.equation?.product).toBe(36);
+        expect(view.doubled).toBe(true);
+        expect(2 * (view.equation?.product as number) * drawn).toBe(-Number(view.score.replace("−", "-")));
+    });
+
+    it.each(KONTRA_SCORES)("names $text in the list line's game step", (said) => {
+        const view = resultView(
+            table(2, { kontra: { word: said.word, factor: said.factor }, score: 36 * said.factor }),
+        );
+
+        expect(view.list.steps[0]).toBe(
+            words["result.listGameWord"]({ word: said.text, score: `+${String(36 * said.factor)}` }),
+        );
+        expect(view.snug).toBe(true);
+    });
+
+    it("leaves a game nobody doubled as it was", () => {
+        const view = resultView(table(2, {}));
+
+        expect(view.doublings).toEqual([]);
+        expect(view.list.steps[0]).toBe(words["result.listGame"]({ score: "+36" }));
+        expect(view.snug).toBe(false);
     });
 });
 
