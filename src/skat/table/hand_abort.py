@@ -6,11 +6,11 @@ every change of a chair passes.
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
-from skat.table.records import Decision, Refusal
+from skat.table.records import Decision, Refusal, TableRecord
 from skat.table.rules import abort_agreed, aborted_hand, hand_runs, seat_of, waiting_seat_of
 
 if TYPE_CHECKING:
-    from skat.table.records import Actor, TableRecord
+    from skat.table.records import Actor
 
 AGREE_TO_ABORT_COMMAND: Final = "agree-to-abort-hand"
 REFUSE_TO_ABORT_COMMAND: Final = "refuse-to-abort-hand"
@@ -43,10 +43,17 @@ def decide_agree_to_abort(table: TableRecord, actor: Actor) -> Decision:
         return Decision(table, Refusal.HAND_NOT_OPEN)
     if chair.seat in table.progress.abort_yes:
         return Decision(table)
-    agreed: TableRecord = replace(
-        table,
+    agreed = TableRecord(
+        id=table.id,
         version=table.version + 1,
+        chairs=table.chairs,
+        dealer=table.dealer,
+        hand=table.hand,
         progress=replace(table.progress, abort_yes=table.progress.abort_yes | {chair.seat}),
+        game_list=table.game_list,
+        series=table.series,
+        options=table.options,
+        bock=table.bock,
     )
     return Decision(aborted_hand(agreed) if abort_agreed(agreed) else agreed)
 

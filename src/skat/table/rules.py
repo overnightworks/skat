@@ -232,8 +232,18 @@ def _abort_while_open(table: TableRecord) -> TableRecord:
     """The table with no proposal to abort once no chair of its hand is open, since the hand moves again."""
     if waiting_seat_of(table) is not None or not table.progress.abort_yes:
         return table
-    cleared: TableRecord = replace(table, progress=replace(table.progress, abort_yes=frozenset()))
-    return cleared
+    return TableRecord(
+        id=table.id,
+        version=table.version,
+        chairs=table.chairs,
+        dealer=table.dealer,
+        hand=table.hand,
+        progress=replace(table.progress, abort_yes=frozenset()),
+        game_list=table.game_list,
+        series=table.series,
+        options=table.options,
+        bock=table.bock,
+    )
 
 
 def _abort_if_agreed(table: TableRecord) -> TableRecord:
@@ -246,8 +256,18 @@ def aborted_hand(table: TableRecord) -> TableRecord:
     since it was no pass.
     """
     bock = bock_rounds_after(table, lambda _options: False)
-    ended: TableRecord = replace(table, hand=None, progress=HandProgress(aborted=True), bock=bock)
-    return ended
+    return TableRecord(
+        id=table.id,
+        version=table.version,
+        chairs=table.chairs,
+        dealer=table.dealer,
+        hand=None,
+        progress=HandProgress(aborted=True),
+        game_list=table.game_list,
+        series=table.series,
+        options=table.options,
+        bock=bock,
+    )
 
 
 def bock_at_series_end() -> BockRounds:
