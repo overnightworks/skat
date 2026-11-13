@@ -57,6 +57,21 @@ def propose_the_end(person: Page) -> None:
     key.click()
 
 
+def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
+    expect(person.locator(STANDING)).to_have_count(1)
+    expect(person.locator(ASK)).to_have_count(0)
+    expect(person.locator(COUNT)).to_have_count(0)
+    expect(person.get_by_role("button", name=WEITER, exact=True)).to_have_count(0)
+    rows = person.locator(f"{STANDING} .rank")
+    expect(rows).to_have_count(len(standings))
+    for index, standing in enumerate(standings):
+        row = rows.nth(index)
+        expect(row.locator(".place")).to_have_text(str(standing["place"]))
+        expect(row.locator("b")).to_contain_text(standing["display_name"])
+        expect(row.locator(".sum")).to_have_text(shown(standing["total"]))
+    expect(person.locator(f"{STANDING} .rank.win")).to_have_count(sum(standing["place"] == 1 for standing in standings))
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_mark_counts_the_game_and_the_list_scrolls_inside_its_panel(
     open_person: Callable[..., Page],
@@ -154,23 +169,13 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     expect(second.locator(ASK)).to_contain_text(waiting_for([table.names[3]]))
     answer_the_ask(third, YES)
 
+    # The last tap returns before the stream brings the end, so the view is read once every page shows the standings.
+    for person in table.everyone:
+        expect(person.locator(STANDING)).to_have_count(1)
     series = table.view(1)["series"]
     assert series["over"] is True
     for person in table.everyone:
-        expect(person.locator(STANDING)).to_have_count(1)
-        expect(person.locator(ASK)).to_have_count(0)
-        expect(person.locator(COUNT)).to_have_count(0)
-        expect(person.get_by_role("button", name=WEITER, exact=True)).to_have_count(0)
-        rows = person.locator(f"{STANDING} .rank")
-        expect(rows).to_have_count(len(series["standings"]))
-        for index, standing in enumerate(series["standings"]):
-            row = rows.nth(index)
-            expect(row.locator(".place")).to_have_text(str(standing["place"]))
-            expect(row.locator("b")).to_contain_text(standing["display_name"])
-            expect(row.locator(".sum")).to_have_text(shown(standing["total"]))
-        expect(person.locator(f"{STANDING} .rank.win")).to_have_count(
-            sum(standing["place"] == 1 for standing in series["standings"])
-        )
+        expect_the_standings(person, series["standings"])
     watching = text(SOURCE_LANGUAGE, "table.watchingOnly")
     expect(table.watcher.get_by_text(watching)).to_be_visible()
     expect(table.watcher.get_by_role("button", name=NEW_SERIES, exact=True)).to_have_count(0)
