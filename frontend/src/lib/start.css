@@ -4174,11 +4174,11 @@ body {
     }
 }
 
-/* The armed stand-up key: red, with a line that runs out in the three seconds the arming lasts. */
+/* The armed stand-up key: red dark enough for white text (contrast above 4.5), with a line that runs out in the three seconds the arming lasts. */
 .room .copy.stand.arm {
     position: relative;
     color: #fff;
-    background: var(--leave, #e5484d);
+    background: #cf3238;
     backdrop-filter: none;
 }
 
