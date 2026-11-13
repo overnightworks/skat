@@ -36,10 +36,6 @@ ANNOUNCED_WORDS = {
 }
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "declare.commandFailed")
 BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
-BID_VALUE = text(SOURCE_LANGUAGE, "table.bidValue")
-PLAYS = text(SOURCE_LANGUAGE, "table.plays")
-CHOOSES = text(SOURCE_LANGUAGE, "table.chooses")
-DISCARDS = text(SOURCE_LANGUAGE, "table.discards")
 NULL_GAME = text(SOURCE_LANGUAGE, "game.null")
 NULL_OUVERT = text(SOURCE_LANGUAGE, "game.ouvertName", game=NULL_GAME)
 NULL_HAND = text(SOURCE_LANGUAGE, "game.handName", game=NULL_GAME)
@@ -68,6 +64,18 @@ RISEN_OUT_OF_ITS_PLACE = (
 )
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
 INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
+
+
+def bid_value(value: int) -> str:
+    return text(SOURCE_LANGUAGE, "table.bidValue", value=str(value))
+
+
+def chooses(name: str) -> str:
+    return text(SOURCE_LANGUAGE, "table.chooses", name=name)
+
+
+def discards(name: str) -> str:
+    return text(SOURCE_LANGUAGE, "table.discards", name=name)
 
 
 def drawn_cards_of(person: Page) -> set[tuple[str, str]]:
@@ -134,7 +142,7 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect(button_of(declarer, TAKE_SKAT)).to_be_enabled()
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(declarer.get_by_text(BIDDING)).to_have_count(0)
-    bid_plaque = f"{BID_VALUE} {table.bid_value()}"
+    bid_plaque = bid_value(table.bid_value())
     expect(declarer.get_by_text(bid_plaque)).to_have_count(1)
     for onlooker in (*table.others, table.watcher):
         expect(onlooker.get_by_text(bid_plaque)).to_have_count(1)
@@ -312,7 +320,7 @@ def test_the_others_see_the_declarer_decide_at_every_stage(
             expect(onlooker.locator(declarer_chair)).to_have_class(re.compile(r"\bturn\b"))
             expect_no_controls(onlooker)
 
-    expect_the_plaque(f"{name} {PLAYS}, {value}")
+    expect_the_plaque(text(SOURCE_LANGUAGE, "table.playsValue", name=name, value=str(value)))
     for onlooker in onlookers:
         expect(onlooker.locator(".chair.out")).to_have_count(2)
 
@@ -320,27 +328,27 @@ def test_the_others_see_the_declarer_decide_at_every_stage(
         onlooker.clock.run_for(LONGER_THAN_THE_WON_MOMENT)
         expect(onlooker.locator(".chair.out")).to_have_count(0)
         expect(onlooker.locator(SKAT_BACK)).to_have_count(2)
-    expect_the_plaque(f"{BID_VALUE} {value}", f"{name} {CHOOSES}")
+    expect_the_plaque(bid_value(value), chooses(name))
 
     table.declare_through_the_api(action="take")
     expect(table.declarer.locator(HAND_CARD)).to_have_count(CARDS_AFTER_THE_TAKE)
-    expect_the_plaque(f"{BID_VALUE} {value}", f"{name} {DISCARDS}")
+    expect_the_plaque(bid_value(value), discards(name))
     for onlooker in onlookers:
         expect(onlooker.locator(SKAT_BACK)).to_have_count(0)
         expect(onlooker.locator(declarer_fan)).to_have_count(CARDS_AFTER_THE_TAKE)
         reload_and_wait(onlooker)
-    expect_the_plaque(f"{BID_VALUE} {value}", f"{name} {DISCARDS}")
+    expect_the_plaque(bid_value(value), discards(name))
 
     skat = sorted(table.skat())
     table.declare_through_the_api(action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in skat])
     expect(table.declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
-    expect_the_plaque(f"{name} {DISCARDS}")
+    expect_the_plaque(discards(name))
 
     table.declare_through_the_api(action="declare", game="null", hand=False, ouvert=False, announcement="none")
     for onlooker in onlookers:
         expect(onlooker.locator(DECLARER_MARK)).to_have_count(1)
         expect(onlooker.locator(f"{declarer_chair} {DECLARER_MARK}")).to_have_count(1)
-        expect(onlooker.get_by_text(f"{name} {DISCARDS}")).to_have_count(0)
+        expect(onlooker.get_by_text(discards(name))).to_have_count(0)
         assert onlooker.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert page_errors == []
 
@@ -354,8 +362,8 @@ def test_the_declarer_carries_the_mark_and_the_turn_and_keeps_the_own_plaque(
 
     expect(declarer.locator(DECLARER_MARK)).to_have_count(1)
     expect(declarer.locator(".chair.mine")).to_have_class(re.compile(r"\bturn\b"))
-    expect(declarer.locator(PLAQUE)).not_to_contain_text(CHOOSES)
-    expect(declarer.locator(PLAQUE)).to_contain_text(f"{BID_VALUE} {table.bid_value()}")
+    expect(declarer.locator(PLAQUE)).not_to_contain_text(chooses(table.name_of_the_declarer()))
+    expect(declarer.locator(PLAQUE)).to_contain_text(bid_value(table.bid_value()))
     assert page_errors == []
 
 
@@ -412,7 +420,7 @@ def test_the_declarer_declares_each_game_as_hand_after_a_page_step_and_a_reload_
     assert table.declaring_as_the_declarer_sees_it()["stage"] == "choosing"
     for onlooker in (*table.others, table.watcher):
         expect_no_controls(onlooker)
-        expect(onlooker.locator(PLAQUE)).to_contain_text(CHOOSES)
+        expect(onlooker.locator(PLAQUE)).to_contain_text(chooses(table.name_of_the_declarer()))
 
     reload_and_wait(declarer)
     expect_the_choice(declarer)

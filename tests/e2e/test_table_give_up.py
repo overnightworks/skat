@@ -7,6 +7,7 @@ from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.name_lists import waiting_for
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD
 
@@ -20,8 +21,6 @@ pytestmark = pytest.mark.e2e
 
 ACCEPT = text(SOURCE_LANGUAGE, "table.accept")
 PLAY_ON = text(SOURCE_LANGUAGE, "table.playOn")
-WAITING_FOR = text(SOURCE_LANGUAGE, "table.waitingFor")
-AND = text(SOURCE_LANGUAGE, "result.and")
 SAID_NO = text(SOURCE_LANGUAGE, "table.saidNo")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
@@ -79,7 +78,7 @@ def expect_the_request_without_a_no(table: PlayingTable) -> None:
         expect(button_of(person, PLAY_ON)).to_be_visible()
     expect(table.watcher.locator(REQUEST)).to_contain_text(wants_to_give_up(asker))
     expect(table.watcher.locator(f"{REQUEST} button")).to_have_count(0)
-    waiting = f"{WAITING_FOR} {table.names[first]} {AND} {table.names[second]}"
+    waiting = waiting_for([table.names[first], table.names[second]])
     expect(table.pages[table.declarer_seat].locator(REQUEST)).to_contain_text(waiting)
     expect(table.pages[table.declarer_seat].locator(f"{REQUEST} button")).to_have_count(0)
     expect(table.pages[table.declarer_seat].locator(f".mark.unanswered[title='{NO_ANSWER_YET}']")).to_have_count(2)
@@ -124,7 +123,7 @@ def test_a_no_puts_a_cross_on_its_chair_for_everyone_and_leaves_that_opponent_on
     expect(button_of(table.pages[said_no], PLAY_ON)).to_have_count(0)
     expect(button_of(table.pages[other], PLAY_ON)).to_be_visible()
     declarer = table.pages[table.declarer_seat]
-    expect(declarer.locator(REQUEST)).to_contain_text(f"{WAITING_FOR} {table.names[other]}")
+    expect(declarer.locator(REQUEST)).to_contain_text(waiting_for([table.names[other]]))
     expect(declarer.locator(f".mark.unanswered[title='{NO_ANSWER_YET}']")).to_have_count(1)
     assert page_errors == []
 
@@ -193,7 +192,7 @@ def test_a_reload_in_every_role_shows_the_request_as_it_stands(
     expect(button_of(table.pages[other], PLAY_ON)).to_be_visible()
     expect(table.watcher.locator(REQUEST)).to_contain_text(wants_to_give_up(asker))
     expect(table.watcher.locator(f"{REQUEST} button")).to_have_count(0)
-    expect(table.pages[table.declarer_seat].locator(REQUEST)).to_contain_text(f"{WAITING_FOR} {table.names[other]}")
+    expect(table.pages[table.declarer_seat].locator(REQUEST)).to_contain_text(waiting_for([table.names[other]]))
     assert page_errors == []
 
 
