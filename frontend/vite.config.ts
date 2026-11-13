@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => ({
                 "src/routes/(start)/tables.ts",
                 "src/routes/(start)/lobby.ts",
                 "src/routes/(start)/agents.ts",
+                "src/routes/(start)/openingRules.ts",
             ],
             // wire.ts is generated.
             // The words loader is generated and has no caller until the prerendering load of a second language lands.
