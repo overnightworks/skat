@@ -1,14 +1,19 @@
 <script lang="ts">
-    import { bockChip } from "#lib/tableRules.ts";
+    import { bockChip, bockLine } from "#lib/tableRules.ts";
 
     import type { Bock } from "../../routes/(start)/tables.ts";
 
-    let { bock }: { bock: Bock | null } = $props();
+    // The rules of the table as every viewer sees them: `bar` is the chip in the top row, `plaque` the line a running
+    // game's plaque carries.
+    let { bock, place }: { bock: Bock | null; place: "bar" | "plaque" } = $props();
 
-    const chip = $derived(bockChip(bock));
+    const chip = $derived(place === "bar" ? bockChip(bock) : null);
+    const line = $derived(place === "plaque" ? bockLine(bock) : null);
 </script>
 
-{#if chip !== null}
+{#if line !== null}
+    <span class="bock-line">{line}</span>
+{:else if chip !== null}
     <div class="rulepill">
         <span class="chip">
             <svg

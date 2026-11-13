@@ -817,7 +817,7 @@ body {
 }
 
 /* A Bock game's plaque names the factor under the game. */
-.room .plaque.bocked {
+.room .plaque:has(.bock-line) {
     flex-direction: column;
     gap: 4px;
 }

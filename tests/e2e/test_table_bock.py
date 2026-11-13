@@ -39,9 +39,10 @@ class BockTable(DeclaringTable):
     """
 
     hands_passed_in = 1
+    overlap = "append"
 
     def _open_table(self, opener: Page, server: RunningServer) -> str:
-        options = {"bock": {"triggers": ["passed-in"], "overlap": "append"}}
+        options = {"bock": {"triggers": ["passed-in"], "overlap": self.overlap}}
         answer = opener.request.post(
             f"{server.base_url}{TABLES_PATH}",
             data={"command_id": uuid.uuid4().hex, "series_length": 36, "options": options},
@@ -72,7 +73,10 @@ class BockTable(DeclaringTable):
 
 
 class TwoPassedInBockTable(BockTable):
+    """The second passed-in hand meets a pending round, which ignores its trigger, so it only uses up a game."""
+
     hands_passed_in = 2
+    overlap = "ignore"
 
 
 def expect_the_count(table: PlayingTable) -> None:
@@ -89,6 +93,7 @@ def expect_the_count(table: PlayingTable) -> None:
 def expect_the_plaque_line(table: PlayingTable) -> None:
     factor = table.view(table.declarer_seat)["bock"]["factor"]
     for person in table.everyone:
+        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         expect(person.locator(BOCK_LINE)).to_have_text(text(SOURCE_LANGUAGE, "bock.factor", factor=str(factor)))
 
 

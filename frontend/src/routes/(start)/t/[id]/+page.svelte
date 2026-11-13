@@ -34,7 +34,6 @@
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import TableRules from "#lib/ui/TableRules.svelte";
-    import { bockLine } from "#lib/tableRules.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -309,7 +308,7 @@
                 </a>
             {/if}
             {#if outcome?.kind === "table" && outcome.table.ended === null}
-                <TableRules bock={outcome.table.bock} />
+                <TableRules bock={outcome.table.bock} place="bar" />
                 {#if !callMode}
                     <SoundButton place="bar" />
                 {/if}
@@ -347,9 +346,7 @@
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
             {@const bidValue = bidValueWhileDeclaring(outcome.table)}
             {@const inPlay = gameInPlay(outcome.table)}
-            {@const turnSeat = inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
-            {@const settledDeclarerSeat = declared?.declarer_seat ?? inPlay?.declarerSeat}
             {@const view = declared === null ? null : resultView(outcome.table)}
             {@const winners = new Set(view?.rows.filter((row) => row.won).map((row) => row.seat))}
             {@const bar = weiterBar(outcome.table)}
@@ -376,7 +373,6 @@
                 </div>
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
-                {@const bockText = bockLine(outcome.table.bock)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
                     <GiveUpPlaque
@@ -387,7 +383,7 @@
                         }}
                     />
                 {:else}
-                    <div class="plaque" class:wide={label.announcement !== null} class:bocked={bockText !== null}>
+                    <div class="plaque" class:wide={label.announcement !== null}>
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}
                                 <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -399,9 +395,7 @@
                                 <span class="announced">{label.announcement}</span>
                             {/if}
                         </span>
-                        {#if bockText !== null}
-                            <span class="bock-line">{bockText}</span>
-                        {/if}
+                        <TableRules bock={outcome.table.bock} place="plaque" />
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
@@ -466,7 +460,7 @@
                         class:away={chair.is_away}
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
-                        class:turn={marks.turn || chair.seat === turnSeat}
+                        class:turn={marks.turn || chair.seat === inPlay?.playing.turn_seat}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -502,7 +496,7 @@
                                 {#if chair.hand !== null}
                                     <span class="mark pos">{positionWord(chair.hand.position)}</span>
                                 {/if}
-                                {#if marks.declarer || chair.seat === settledDeclarerSeat}
+                                {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
                                     <span class="mark declarer" class:won={marks.declarer === "won"}>
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path
@@ -532,7 +526,7 @@
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
-                                {#if marks.turn || chair.seat === turnSeat}
+                                {#if marks.turn || chair.seat === inPlay?.playing.turn_seat}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path d="M8 5l11 7-11 7z" />
