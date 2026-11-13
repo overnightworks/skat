@@ -2984,7 +2984,7 @@ body {
 .room .declare .step.grand.armed {
     position: relative;
     color: #fff;
-    background: var(--leave, #e5484d);
+    background: #c62a30;
 }
 
 .room .declare .step.grand.armed i {
