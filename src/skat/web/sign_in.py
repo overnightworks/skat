@@ -197,8 +197,10 @@ def _create_pages_router(page_build: PageBuild) -> APIRouter:
         if next_path is None:
             return built_page_response(signed_out_page)
         if _is_call_mode_table(next_path):
+            # `+` with the encoded value on its right is the concatenation CodeQL's py/url-redirection accepts
+            # as a fixed local target; an f-string is not.
             return RedirectResponse(
-                f"{CALL_SIGN_IN_PATH}?{RETURN_PATH_QUERY_NAME}={quote(next_path, safe='')}", HTTPStatus.SEE_OTHER
+                CALL_SIGN_IN_PATH + "?" + RETURN_PATH_QUERY_NAME + "=" + quote(next_path, safe=""), HTTPStatus.SEE_OTHER
             )
         address = f"{AUTH_START_PATH}?{RETURN_PATH_QUERY_NAME}={quote(next_path, safe='')}".encode()
         return built_page_response(
