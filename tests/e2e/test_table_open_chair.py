@@ -6,7 +6,7 @@ import itertools
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.seating import TABLE_STAND_SUFFIX
@@ -41,6 +41,7 @@ CALL_PILL = text(SOURCE_LANGUAGE, "agents.pill")
 LEGAL_CARD = ".own-hand .card.ok"
 BID_CONTROLS = ".bid"
 INVITATION_WITHIN_SECONDS = 15
+MIDDLE_TOLERANCE_PIXELS = 3
 command_numbers = itertools.count(1)
 
 
@@ -73,6 +74,32 @@ def expect_no_scroll_sideways(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
+def expect_the_question_drawn_as_its_scene(question: Locator) -> None:
+    """The scene draws a centred circled icon above a centred title that fits one line."""
+    drawn = question.evaluate(
+        """dialog => {
+            const box = dialog.getBoundingClientRect();
+            const icon = dialog.querySelector(".glyph")?.getBoundingClientRect();
+            const title = dialog.querySelector("h3");
+            const text = document.createRange();
+            text.selectNodeContents(title);
+            const lines = new Set([...text.getClientRects()].map(line => Math.round(line.top)));
+            const written = text.getBoundingClientRect();
+            const middle = box.left + box.width / 2;
+            return {
+                iconAboveTitle: icon !== undefined && icon.bottom <= title.getBoundingClientRect().top,
+                iconMiddleOffset: icon === undefined ? null : Math.abs(icon.left + icon.width / 2 - middle),
+                titleLines: lines.size,
+                titleMiddleOffset: Math.abs(written.left + written.width / 2 - middle),
+            };
+        }"""
+    )
+    assert drawn["iconAboveTitle"]
+    assert drawn["iconMiddleOffset"] <= MIDDLE_TOLERANCE_PIXELS
+    assert drawn["titleLines"] == 1
+    assert drawn["titleMiddleOffset"] <= MIDDLE_TOLERANCE_PIXELS
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_person_stands_up_mid_game_and_a_watcher_asks_then_sits_and_the_others_read_who_plays_on(
     open_person: Callable[..., Page],
@@ -100,6 +127,7 @@ def test_a_person_stands_up_mid_game_and_a_watcher_asks_then_sits_and_the_others
     free_chair.get_by_role("button", name=SIT_DOWN).click()
     question = watcher.get_by_role("dialog", name=SIT_QUESTION)
     expect(question).to_contain_text(line_of(leaver_name))
+    expect_the_question_drawn_as_its_scene(question)
     expect_no_scroll_sideways(watcher)
 
     button_of(watcher, CANCEL).click()
