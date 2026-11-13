@@ -42,6 +42,7 @@ import {
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_KONTRA_SUFFIX,
     TABLE_PAGE_PREFIX,
+    TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
@@ -338,12 +339,14 @@ export function takeDeclaringStep(
     return post(id, DECLARING_STEP_SUFFIXES[action], { command_id: commandId, version, ...fields });
 }
 
-export type PushingStep = { action: "take" } | { action: "put_back"; cards: readonly Card[] } | { action: "push" };
+export type PushingStep =
+    { action: "take" } | { action: "put_back"; cards: readonly Card[] } | { action: "push" } | { action: "grand_hand" };
 
 const PUSHING_STEP_SUFFIXES: Record<PushingStep["action"], string> = {
     take: TABLE_PUSHING_TAKE_SUFFIX,
     put_back: TABLE_PUSHING_PUT_BACK_SUFFIX,
     push: TABLE_PUSHING_PUSH_SUFFIX,
+    grand_hand: TABLE_PUSHING_GRAND_HAND_SUFFIX,
 };
 
 // The version is the one the page shows; each tap brings its own command id, and nothing is retried.

@@ -1,78 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { mayPick, pushStage } from "#lib/pushView.ts";
-import {
-    type Card,
-    type Picking,
-    type Chair,
-    type Hand,
-    type Pushing,
-    type Stage,
-    type Table,
-} from "../routes/(start)/tables.ts";
-
-const FOREHAND = 1;
-const MIDDLEHAND = 2;
-const WATCHER = 0;
-const CLUBS_JACK: Card = { suit: "kreuz", rank: "jack" };
-const CLUBS_SEVEN: Card = { suit: "kreuz", rank: "seven" };
-
-function chairs(mine: number): Chair[] {
-    return [FOREHAND, MIDDLEHAND, 3].map((seat) => ({
-        seat,
-        occupant_name: `player ${String(seat)}`,
-        occupant_kind: "person",
-        is_mine: seat === mine,
-        is_away: false,
-        ready: false,
-        total: null,
-        hand: null,
-        former_holder_name: null,
-        is_mine_to_return: false,
-    }));
-}
-
-function table(mine: number, stage: Stage, changes: Partial<Hand> = {}): Table {
-    const pushing: Pushing = {
-        turn_seat: FOREHAND,
-        stage,
-        moves: [],
-        factor: 1,
-        put_back_cards: stage === "discarding" ? [CLUBS_SEVEN] : [],
-    };
-    return {
-        id: "a".repeat(32),
-        version: 1,
-        chairs: chairs(mine),
-        watchers: 0,
-        result: null,
-        passed_in: null,
-        options: null,
-        bock: null,
-        ended: null,
-        hand: {
-            dealer_seat: 3,
-            own_cards: [],
-            skat_count: 2,
-            waiting_seat: null,
-            auction: {
-                turn_seat: null,
-                facing_seat: null,
-                awaiting: null,
-                standing: null,
-                values: [],
-                words: [],
-                declared: null,
-            },
-            declaring: null,
-            playing: null,
-            ramsch: true,
-            pushing,
-            pushes: 0,
-            push_factor: 1,
-            ...changes,
-        },
-    };
-}
+import { mayDeclareGrandHand, mayPick, pushStage } from "#lib/pushView.ts";
+import { CLUBS_JACK, CLUBS_SEVEN, FOREHAND, MIDDLEHAND, WATCHER, table } from "#lib/pushView.fixtures.ts";
+import type { Picking, Stage, Table } from "../routes/(start)/tables.ts";
 
 describe("what the stage before a Ramsch asks of this viewer", () => {
     it.each<Stage>(["choosing", "discarding"])("asks the seat on turn to act at %s", (stage) => {
@@ -97,6 +26,23 @@ describe("what the stage before a Ramsch asks of this viewer", () => {
 
     it("asks nothing once the stage is over", () => {
         expect(pushStage(table(FOREHAND, "choosing", { pushing: null }))).toBeNull();
+    });
+});
+
+describe("whether the seat on turn may declare a Grand Hand instead", () => {
+    it("may at a table that allows it, as the seat on turn choosing", () => {
+        expect(mayDeclareGrandHand(table(FOREHAND, "choosing", {}, "allowed"))).toBe(true);
+    });
+
+    it.each<[string, Table]>([
+        ["the table does not allow it", table(FOREHAND, "choosing", {}, "off")],
+        ["the table has no Ramsch with pushing", table(FOREHAND, "choosing")],
+        ["the seat is not on turn", table(MIDDLEHAND, "choosing", {}, "allowed")],
+        ["the viewer has no chair", table(WATCHER, "choosing", {}, "allowed")],
+        ["the stage is past choosing", table(FOREHAND, "discarding", {}, "allowed")],
+        ["a chair is open", table(FOREHAND, "choosing", { waiting_seat: 3 }, "allowed")],
+    ])("may not when %s", (_reason, shown) => {
+        expect(mayDeclareGrandHand(shown)).toBe(false);
     });
 });
 

@@ -1,11 +1,12 @@
 import datetime
+import random
 import socket
 import threading
 import time
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, replace
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from cryptography import x509
@@ -29,10 +30,10 @@ from tests.support.postgres import created_database, migrated_template
 from tests.support.sign_in_settings import build_sign_in_settings
 
 if TYPE_CHECKING:
-    import random
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Iterator, MutableSequence
     from pathlib import Path
 
+    from _typeshed import SupportsLenAndGetItem
     from sqlalchemy import Engine
     from webauth.single_process_stores import SingleProcessStores
 
@@ -102,6 +103,22 @@ def loopback_sign_in(
         },
     )
     return LoopbackSignIn(host, port, sign_in, in_memory_stores(), FakeIssuer(sign_in))
+
+
+class AlwaysTheSameDeal(random.Random):
+    """A source that draws the same dealer and shuffles the same deck on every draw, whatever was drawn before."""
+
+    def __init__(self, deal_seed: int) -> None:
+        super().__init__()
+        self._deal_seed = deal_seed
+
+    def choice[Item](self, seq: SupportsLenAndGetItem[Item]) -> Item:
+        self.seed(self._deal_seed)
+        return super().choice(seq)
+
+    def shuffle(self, x: MutableSequence[Any]) -> None:
+        self.seed(self._deal_seed)
+        super().shuffle(x)
 
 
 class RunningServer:

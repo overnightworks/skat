@@ -30,14 +30,14 @@ AGENT_SEAT = 3
 TWO_LINES = 2
 
 
-def ramsch_options(rule: str) -> dict[str, Any]:
+def ramsch_options(rule: str, grand_hand: str) -> dict[str, Any]:
     return {
         "ramsch": {
             "occasion": "passed-in",
             "scoring": "points",
             "jungfrau": "doubles-loser",
             "durchmarsch": "wins-120",
-            "pushing": {"rule": rule},
+            "pushing": {"rule": rule, "grand_hand": grand_hand},
         }
     }
 
@@ -57,6 +57,7 @@ class RamschStageTable:
         form_factor: dict[str, Any],
         *,
         rule: str,
+        grand_hand: str = "off",
         agent: McpAgent | None = None,
     ) -> None:
         self.agent = agent
@@ -76,7 +77,8 @@ class RamschStageTable:
                 server, seed_member(server.stores, server.config, account=account)
             )
         created = self.sessions[1].post(
-            TABLES_PATH, {"command_id": self._command(), "series_length": 36, "options": ramsch_options(rule)}
+            TABLES_PATH,
+            {"command_id": self._command(), "series_length": 36, "options": ramsch_options(rule, grand_hand)},
         )
         self.api_path = f"{TABLES_PATH}/{json.loads(created)['id']}"
         page_path = f"{TABLE_PAGE_PREFIX}{self.api_path.removeprefix(TABLES_PATH + '/')}"
@@ -194,5 +196,8 @@ def deal(
     page_errors: list[str],
     form_factor: dict[str, Any],
     rule: str = "jacks-stay",
+    grand_hand: str = "off",
 ) -> RamschStageTable:
-    return RamschStageTable(open_person, e2e_server, member_of, page_errors, form_factor, rule=rule)
+    return RamschStageTable(
+        open_person, e2e_server, member_of, page_errors, form_factor, rule=rule, grand_hand=grand_hand
+    )

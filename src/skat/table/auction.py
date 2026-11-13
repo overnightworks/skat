@@ -17,7 +17,7 @@ from skat.engine.bidding import (
 )
 from skat.engine.deal import seats_from
 from skat.table.bock import bock_after
-from skat.table.hand_state import auction_of
+from skat.table.hand_state import auction_of, declared_in_the_stage_of
 from skat.table.records import Decision, Refusal
 from skat.table.rules import acting_position, seat_of
 
@@ -175,6 +175,7 @@ def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int, *, 
     )
     standing = auction.standing
     faced = _faced(auction)
+    declared = auction.result if isinstance(auction.result, Declared) else declared_in_the_stage_of(table)
     return AuctionView(
         turn_seat=seats[auction.actor] if running else None,
         facing_seat=None if faced is None else seats[faced],
@@ -182,7 +183,5 @@ def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int, *, 
         standing=standing,
         values=tuple(value for value in VALID_BIDS if standing is None or value > standing) if my_turn_to_bid else (),
         words=_words(table.progress.auction, seats),
-        declared=None
-        if not isinstance(auction.result, Declared)
-        else AuctionDeclared(seats[auction.result.declarer], auction.result.value),
+        declared=None if declared is None else AuctionDeclared(seats[declared.declarer], declared.value),
     )

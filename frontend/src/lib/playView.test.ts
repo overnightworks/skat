@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { cardLook, cardsToPlay, gameInPlay, sideNames, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
+import {
+    bidOfGameDeclaredInTheStage,
+    cardLook,
+    cardsToPlay,
+    gameInPlay,
+    sideNames,
+    trickOnTheFelt,
+    type PlayingHand,
+} from "#lib/playView.ts";
 import { words } from "#lib/words.ts";
-import type { Card, Chair, Playing, Position, Table } from "../routes/(start)/tables.ts";
+import type { Auction, Card, Chair, Playing, Position, Table } from "../routes/(start)/tables.ts";
 
 const KARO_SEVEN: Card = { suit: "karo", rank: "seven" };
 const KARO_ACE: Card = { suit: "karo", rank: "ace" };
@@ -249,5 +257,33 @@ describe("the game in play", () => {
 
     it("is none with no hand on the table", () => {
         expect(gameInPlay({ ...table(1, {}), hand: null })).toBeNull();
+    });
+});
+
+describe("the bid of a game declared in the stage of a Ramsch", () => {
+    const withAuction = (changes: Partial<Auction>): Table => {
+        const base = table(1, {});
+        const hand = base.hand as NonNullable<Table["hand"]>;
+        return { ...base, hand: { ...hand, auction: { ...hand.auction, ...changes } } };
+    };
+    const passes = ["pass", "pass", "pass"].map((action, seat) => ({
+        seat: seat + 1,
+        action: action as "pass",
+        value: null,
+    }));
+
+    it("is the bid the wire names when the three seats passed and a game is still declared", () => {
+        expect(bidOfGameDeclaredInTheStage(withAuction({ words: passes, declared: { seat: 2, value: 18 } }))).toBe(18);
+    });
+
+    it("is none for a game the auction declared, which carries a bid or play word", () => {
+        const won = [...passes.slice(0, 2), { seat: 3, action: "bid" as const, value: 20 }];
+
+        expect(bidOfGameDeclaredInTheStage(withAuction({ words: won, declared: { seat: 3, value: 20 } }))).toBeNull();
+    });
+
+    it("is none while no game is declared and with no hand on the table", () => {
+        expect(bidOfGameDeclaredInTheStage(withAuction({ words: passes }))).toBeNull();
+        expect(bidOfGameDeclaredInTheStage({ ...table(1, {}), hand: null })).toBeNull();
     });
 });

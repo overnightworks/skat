@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { pushStage } from "#lib/pushView.ts";
+    import { mayDeclareGrandHand, pushStage } from "#lib/pushView.ts";
     import { words } from "#lib/words.ts";
     import {
         SKAT_SIZE,
@@ -18,7 +18,13 @@
         note = $bindable(),
     }: { id: string; table: Table; picking?: Picking | undefined; note: string } = $props();
 
+    // The first tap on the Grand Hand key arms it for this long; only the second tap inside the time declares.
+    const ARMED_MILLISECONDS = 3000;
+
     const stage = $derived(pushStage(table));
+    const grandHandKey = $derived(mayDeclareGrandHand(table));
+    let armed = $state(false);
+    let grandHandButton = $state<HTMLButtonElement | undefined>();
     let picked = $state<Card[]>([]);
     // A step is under way from the tap until the stream brings a new version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
@@ -44,6 +50,35 @@
                 : undefined;
     });
 
+    // Whatever is tapped but the armed key, and the time, disarm it.
+    $effect(() => {
+        if (!armed) return;
+        const timer = setTimeout(() => {
+            armed = false;
+        }, ARMED_MILLISECONDS);
+        const disarmOnOtherTap = (event: PointerEvent): void => {
+            if (!(event.target instanceof Node && grandHandButton?.contains(event.target))) armed = false;
+        };
+        window.addEventListener("pointerdown", disarmOnOtherTap);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener("pointerdown", disarmOnOtherTap);
+        };
+    });
+
+    $effect(() => {
+        if (!grandHandKey || busy) armed = false;
+    });
+
+    function tapGrandHand(): void {
+        if (!armed) {
+            armed = true;
+            return;
+        }
+        armed = false;
+        void send({ action: "grand_hand" });
+    }
+
     async function send(step: PushingStep): Promise<void> {
         note = "";
         sentAtVersion = table.version;
@@ -56,18 +91,35 @@
 </script>
 
 {#if stage !== null}
-    <div class={`declare pushing ${stage}`}>
+    <div class={`declare pushing ${stage}`} class:grand={grandHandKey}>
         {#if stage === "choosing"}
-            <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                {`${words["push.takeSkat"]}`}
-            </button>
-            <button type="button" class="step glass" disabled={busy} onclick={() => send({ action: "push" })}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
-                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                {`${words["table.push"]}`}
-            </button>
+            <div class="line">
+                <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                    {`${words["push.takeSkat"]}`}
+                </button>
+                <button type="button" class="step glass" disabled={busy} onclick={() => send({ action: "push" })}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
+                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                    {`${words["table.push"]}`}
+                </button>
+            </div>
+            {#if grandHandKey}
+                <div class="line">
+                    <button
+                        type="button"
+                        class={["step", "grand", armed ? "armed" : "glass"]}
+                        disabled={busy}
+                        bind:this={grandHandButton}
+                        onclick={tapGrandHand}
+                    >
+                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                        {`${armed ? words["push.grandHandAsk"] : words["push.grandHand"]}`}
+                        {#if armed}<i aria-hidden="true"></i>{/if}
+                    </button>
+                </div>
+            {/if}
         {:else}
             <div class="slots" aria-hidden="true">
                 {#each [0, 1] as slot (slot)}

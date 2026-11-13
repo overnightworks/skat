@@ -10,6 +10,7 @@ import {
     TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
@@ -438,6 +439,7 @@ describe("asking for a table", () => {
             },
         },
         { step: { action: "push" } as const, suffix: TABLE_PUSHING_PUSH_SUFFIX, body: {} },
+        { step: { action: "grand_hand" } as const, suffix: TABLE_PUSHING_GRAND_HAND_SUFFIX, body: {} },
     ])(
         "sends the shown version and a command id with the pushing step $step.action to its own path",
         async ({ step, suffix, body }) => {

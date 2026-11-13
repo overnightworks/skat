@@ -15,3 +15,8 @@ export function pushStage(table: Table): PushStage | null {
 export function mayPick(picking: Picking, card: Card): boolean {
     return picking.allowed === undefined || includesCard(picking.allowed, card);
 }
+
+// The seat on turn may declare a Grand Hand beside taking and pushing only at a table whose rule allows it.
+export function mayDeclareGrandHand(table: Table): boolean {
+    return pushStage(table) === "choosing" && table.options?.ramsch?.pushing?.grand_hand === "allowed";
+}
