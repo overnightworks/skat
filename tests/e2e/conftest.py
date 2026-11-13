@@ -9,6 +9,7 @@ from skat.web.words import SOURCE_LANGUAGE
 from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT
 from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.failure_record import FailureRecord
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
 from tests.e2e.support.shards import select_shard
@@ -63,6 +64,25 @@ def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]
     }
 
 
+PAGE_TIMELINE_SECTION = "page timeline"
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> Iterator[None]:
+    """A failed end-to-end test carries the timeline of its pages, so the CI log shows more than the assertion."""
+    report = yield
+    record = getattr(item, "funcargs", {}).get("failure_record")
+    if report.when == "call" and report.failed and isinstance(record, FailureRecord):
+        report.sections.append((f"Captured {PAGE_TIMELINE_SECTION}", record.render()))
+    return report
+
+
+@pytest.fixture
+def failure_record() -> FailureRecord:
+    """The timeline of every page this test opens through `open_person`."""
+    return FailureRecord()
+
+
 @pytest.fixture
 def seeded_members() -> dict[Page, SeededMember]:
     return {}
@@ -101,6 +121,7 @@ def open_person(
     seeded_members: dict[Page, SeededMember],
     expected_request_failures: list[str],
     browser_coverage: BrowserCoverage,
+    failure_record: FailureRecord,
 ) -> Iterator[Callable[..., Page]]:
     contexts: list[BrowserContext] = []
     failed_requests: list[str] = []
@@ -117,7 +138,8 @@ def open_person(
         groups: tuple[str, ...] | None = None,
         **device_options: Any,
     ) -> Page:
-        person_address = PERSON_ADDRESS_BASE + next(person_address_offsets)
+        person_number = next(person_address_offsets)
+        person_address = PERSON_ADDRESS_BASE + person_number
         context = browser.new_context(
             **{**browser_context_args, "extra_http_headers": {"X-Forwarded-For": str(person_address)}, **device_options}
         )
@@ -126,6 +148,7 @@ def open_person(
         browser_coverage.watch(context)
         context.on("requestfailed", note_failed_request)
         page = context.new_page()
+        failure_record.watch(page, username or f"person-{person_number}")
         if signed_in:
             if username is None:
                 account = new_account(server.stores, server.config)

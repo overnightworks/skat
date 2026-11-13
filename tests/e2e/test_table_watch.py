@@ -17,7 +17,7 @@ from skat.web.words import text as word_text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import self_signed_tolerant_context
-from tests.e2e.support.server import LOOPBACK_HOST, loopback_sign_in, running_skat
+from tests.e2e.support.server import skat_in_directory
 from tests.e2e.support.tables import open_new_table, table_id_of
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
@@ -216,13 +216,7 @@ def test_a_stream_that_drops_after_its_view_dims_the_last_view_and_recovers_with
     assert opener.evaluate("window.sameDocument === true")
 
 
-def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
-    e2e_server: RunningServer, tmp_path: Path
-) -> None:
-    loopback = loopback_sign_in(tmp_path)
-    tls = tmp_path / "tls"
-    tls.mkdir()
-    tables = TableService(PostgresTableTransactions(e2e_server.engine))
+def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(tmp_path: Path) -> None:
     ended = threading.Event()
 
     def read_until_the_stream_ends(response: http.client.HTTPResponse) -> None:
@@ -233,15 +227,17 @@ def test_stopping_the_server_ends_every_open_stream_within_its_stop_time(
             pass
         ended.set()
 
-    with running_skat(loopback, tls, e2e_server.engine) as server:
+    # A database of its own: a server start resumes the empty waits of every live table of its database and would
+    # stamp or end the shared server's tables.
+    with skat_in_directory(tmp_path) as server:
+        tables = TableService(PostgresTableTransactions(server.engine))
         member = seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
         table = tables.create(
             Actor(account_id=member.account.id, display_name=member.account.username),
             CreateTable(command_id="stop-0001"),
         )
         connection = http.client.HTTPSConnection(
-            LOOPBACK_HOST,
-            loopback.port,
+            server.base_url.removeprefix("https://"),
             context=self_signed_tolerant_context(),
         )
         connection.request(
