@@ -18,7 +18,7 @@ from tests.support.signed_in import SeededMember, new_account, seed_member
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from playwright.sync_api import Browser, BrowserContext, Page, Request
+    from playwright.sync_api import BrowserContext, Page, Request
 
 PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
 
@@ -54,14 +54,8 @@ def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[s
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]:
-    # A measured card is not in motion: a test that needs motion names "no-preference" itself.
     # Every context asks for the source language, so the suite stays in it when a further catalog lands.
-    return {
-        **browser_context_args,
-        "ignore_https_errors": True,
-        "reduced_motion": "reduce",
-        "locale": SOURCE_LANGUAGE,
-    }
+    return {**browser_context_args, "ignore_https_errors": True, "locale": SOURCE_LANGUAGE}
 
 
 PAGE_TIMELINE_SECTION = "page timeline"
@@ -115,10 +109,27 @@ def realm_reusing_refresh_tokens(e2e_server: RunningServer) -> Iterator[None]:
     e2e_server.issuer.reuses_refresh_tokens = False
 
 
+def sign_in(
+    context: BrowserContext, server: RunningServer, username: str | None, groups: tuple[str, ...] | None
+) -> SeededMember:
+    if username is None:
+        account = new_account(server.stores, server.config)
+    else:
+        account = server.stores.accounts.create_for_subject(
+            f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
+        )
+    # With `groups` the session holds a refresh token and the issuer reports them as the person's groups.
+    refresh_token = None if groups is None else server.issuer.refresh_token_for(account.id)
+    if groups is not None:
+        server.issuer.grant_groups(account.id, groups)
+    member = seed_member(server.stores, server.config, account=account, refresh_token=refresh_token)
+    context.add_cookies([playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers])
+    return member
+
+
 @pytest.fixture
 def open_person(
-    browser: Browser,
-    browser_context_args: dict[str, Any],
+    new_context: Callable[..., BrowserContext],
     e2e_server: RunningServer,
     seeded_members: dict[Page, SeededMember],
     expected_request_failures: list[str],
@@ -142,8 +153,14 @@ def open_person(
     ) -> Page:
         person_number = next(person_address_offsets)
         person_address = PERSON_ADDRESS_BASE + person_number
-        context = browser.new_context(
-            **{**browser_context_args, "extra_http_headers": {"X-Forwarded-For": str(person_address)}, **device_options}
+        # The plugin's factory traces the context, so a failing test leaves its trace in the output directory.
+        # A measured card is not in motion: a test that needs motion names "no-preference" itself.
+        context = new_context(
+            **{
+                "reduced_motion": "reduce",
+                "extra_http_headers": {"X-Forwarded-For": str(person_address)},
+                **device_options,
+            }
         )
         contexts.append(context)
         context.add_init_script(path=RECORDING_AUDIO_SCRIPT)
@@ -152,21 +169,7 @@ def open_person(
         page = context.new_page()
         failure_record.watch(page, username or f"person-{person_number}")
         if signed_in:
-            if username is None:
-                account = new_account(server.stores, server.config)
-            else:
-                account = server.stores.accounts.create_for_subject(
-                    f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
-                )
-            # With `groups` the session holds a refresh token and the issuer reports them as the person's groups.
-            refresh_token = None if groups is None else server.issuer.refresh_token_for(account.id)
-            if groups is not None:
-                server.issuer.grant_groups(account.id, groups)
-            member = seed_member(server.stores, server.config, account=account, refresh_token=refresh_token)
-            context.add_cookies(
-                [playwright_cookie(header, server.config, server.host) for header in member.set_cookie_headers]
-            )
-            seeded_members[page] = member
+            seeded_members[page] = sign_in(context, server, username, groups)
         return page
 
     yield open_page
