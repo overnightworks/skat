@@ -61,7 +61,7 @@ describe("the stand-up key", () => {
         const key = show(true);
 
         tap(key);
-        const armed = [stood, key.title, key.classList.contains("arm"), key.querySelector(".drain") !== null];
+        const armed = [stood, key.title, key.classList.contains("arm"), key.querySelector(".run-out") !== null];
         tap(key);
 
         expect(armed).toEqual([0, words["table.standUpArmed"], true, true]);

@@ -626,6 +626,7 @@ class TestHandOnTheStream:
             "watchers",
             "hand",
             "passed_in",
+            "aborted",
             "result",
             "series",
             "options",

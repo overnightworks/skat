@@ -25,6 +25,7 @@ from webauth.session_groups import SessionGroups
 from webauth.single_process_stores import SingleProcessStores
 
 from skat.table.records import TableId
+from skat.web.abort import create_abort_router
 from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
@@ -266,6 +267,7 @@ def _include_table_sub_routers(
     app.include_router(create_kontra_router(tables, presence))
     app.include_router(create_ready_router(tables, presence))
     app.include_router(create_series_end_router(tables, presence))
+    app.include_router(create_abort_router(tables, presence))
     app.include_router(create_game_list_router(tables))
     app.include_router(create_paused_router(tables, settings.paused_table_days))
 

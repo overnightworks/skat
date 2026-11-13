@@ -52,6 +52,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         opened_by_me: false,
         result: null,
         passed_in: null,
+        aborted: null,
         options: null,
         bock: null,
         ended: null,
@@ -60,6 +61,8 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             auction: {
                 turn_seat: null,
                 facing_seat: null,

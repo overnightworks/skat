@@ -10,7 +10,7 @@
   --accent-stage:#7aa7f0; --stage:#0D1013; --stage-2:#171B20; --stage-3:#252B32;
   --on-stage:#F4F6F8; --on-stage-soft:rgba(244,246,248,.72);
   --glass:rgba(255,255,255,.15); --glass-dark:rgba(12,14,17,.55); --vignette:rgba(6,8,10,.42);
-  --busy-stage:#EDB656; --ok-stage:#4cc38a; --leave:#E5484D; --stage-fade:rgba(13,16,19,.92);
+  --busy-stage:#EDB656; --ok-stage:#4cc38a; --leave:#D63A40; --stage-fade:rgba(13,16,19,.92);
   --font-body:'Open Sans',Arial,sans-serif; --font-mark:'Noto Serif','DejaVu Serif',Georgia,serif;
   --clubs:#17191c; --spades:#14873f; --hearts:#d81f35; --diamonds:#ec9800;
   --felt-1:#24855f; --felt-2:#166443; --felt-3:#0b3b2a;
@@ -538,15 +538,11 @@ body.solo section.shot .rule{display:none}
 .mark.declined{width:28px;height:28px;padding:0;justify-content:center;background:var(--glass-dark);color:var(--leave);backdrop-filter:blur(12px)}
 .seat.sm .mark.declined{width:26px;height:26px}
 .mark.decl + .mark.declined{right:auto;left:calc(var(--pad) + 6px)}
-/* the armed button: red, with a line that runs out in three seconds */
-.cb.wide.arm{position:relative}
-.cb.wide.arm i{position:absolute;left:18px;right:18px;bottom:6px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform-origin:left}
 .notice .dot + .dot{margin-left:-16px;box-shadow:0 0 0 2px var(--cream)}
 .result .stamp{gap:7px}
 .result .stamp:has(.by){padding-left:5px}
 .result .stamp .by{width:24px;font-size:12px}
 @media (prefers-reduced-motion:no-preference){
-  .cb.wide.arm i.mo{animation:runout 3s linear both}
   @keyframes runout{to{transform:scaleX(0)}}
 }
 </style>
@@ -1083,7 +1079,7 @@ const IDEAS=[
   ['✨','Nova denkt','Zwei Punkte kreisen um Novas Kugel, nur solange Nova am Zug ist.','solo-play'],
   ['🎉','Farben-Konfetti','Ein Sieg wirft Konfetti aus Kreuz, Pik, Herz, Karo aus den Stühlen der Gewinner; Schneider mehr, Schwarz am meisten.','call-end'],
   ['0','Null-Plumps','Eine verlorene Null sackt freundlich in sich zusammen, ohne Spott.','nur hier','null'],
-  ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-button, giveup-asked, giveup-waits, giveup-side, giveup-end'],
+  ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
   ['🤖','Agenten rufen','Die Pille „AI“ in Skats Leiste öffnet die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht weder Pille noch Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
@@ -1503,34 +1499,27 @@ const faceDot=(k)=>`<span class="dot" style="${dotStyle(P[k])}">${dotInner(P[k])
 const answers=()=>`<div class="answers"><span class="button button-stage" role="button">${I.check}Annehmen</span><span class="button button-glass" role="button">${I.play}Weiterspielen</span></div>`;
 /* the plaque keeps its place and says who asks; the answers sit in it, under the line, clear of the trick */
 const askPlaque=(d,line,below='',phoneY=176)=>plaque(d?640:195,d?98:phoneY,`<div class="game">${line}</div>${below}`).replace('class="plaque"','class="plaque ask"');
-/* Skat's bar in play: the give-up takes the place the stand-up has between hands */
+/* Skat's bar in play, the stand-up's place left empty for the key a scene puts there */
 const STAND_UP=/<span class="cb wide glass" role="button"><svg[^]*?<\/svg>Aufstehen<\/span>/;
 const giveUpBar=(d,control='')=>tableBar(d,{seated:true}).replace(STAND_UP,control);
 const barKey=(cls,icon,label)=>`<span class="cb wide ${cls}" role="button">${icon}${label}</span>`;
 const GIVE_UP=barKey('glass',I.flag,'Aufgeben');
-const GIVE_UP_ARMED=barKey('leave arm',I.flag,'Wirklich aufgeben?').replace('</span>','<i class="mo" style="--k:1s"></i></span>');
 const giveUpTable=(d,o={})=>room(d,{left:0,call:false,glow:o.glow})+watching(o.watchers||1,d)
   +sideFans(d,o.left??8,o.left??8,{dim:o.dim,dimRight:o.dim});
 const giveUpSeats=(d,o)=>{const L=d?DB:PB;
   return seat('anna',{...L.anna,marks:o.anna||[]})+seat('ben',{...L.nova,marks:o.ben||[]})+seat(o.near||'felix',{...L.you,marks:o.you||[]});};
-const FELIX_LEADS=PLAY_HAND.map(([r,s])=>[r,s,'ok']);
 const FELIX_FOLLOWS=PLAY_HAND.map(([r,s,c])=>[r,s,c==='no'?'no':'ok']);
 const FELIX_HOLDS=PLAY_HAND.map(([r,s])=>[r,s,'no']);
-/* eight lit cards would run past the phone's edge at the usual strip */
-const giveUpHand=(d,cards,o={})=>ownHand(d,cards,d||!o.lead?{}:{strip:{base:40,no:32,ok:40,touch:56}});
 /* on the phone the trick sits lower than usual, clear of the plaque that grows to carry the answers */
 const lowered=(slot)=>({...slot,y:slot.y+(slot.w<80?16:0)});
 const earlierCards=(d,left='anna')=>played('K','s',left,lowered(TRICK_SLOT.left(d)))+played('7','s','ben',lowered(TRICK_SLOT.right(d)));
 const yourCard=(d)=>d?ghost(640,432,96):ghost(195,440,70);
-/* Felix declares Kreuz and leads: nothing stands, so only the bar differs between the scenes that start a give-up */
-const atLead=(d,control)=>giveUpTable(d,{glow:yourTurn(d)})+plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))+yourCard(d)
-  +giveUpSeats(d,{you:['decl','turn']})+giveUpHand(d,FELIX_LEADS,{lead:true})+giveUpBar(d,control);
 /* Anna declares and asks; Felix, an opponent, answers while the trick stays his to play */
 const answeringAnna=(d,o={})=>giveUpTable(d,{glow:yourTurn(d),left:7})+askPlaque(d,`${faceDot('anna')}Anna will aufgeben`,answers())
-  +earlierCards(d)+yourCard(d)+giveUpSeats(d,{anna:['decl'],ben:o.ben,you:['turn']})+giveUpHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);
+  +earlierCards(d)+yourCard(d)+giveUpSeats(d,{anna:['decl'],ben:o.ben,you:['turn']})+ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);
 /* an opponent gave up for the side: no card is playable while the declarer answers */
 const sideAsks=(d)=>giveUpTable(d,{dim:true})+askPlaque(d,`${faceDot('anna')}Anna gibt auf`,answers(),FANS_CLEAR)
-  +giveUpSeats(d,{you:['decl']})+giveUpHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
+  +giveUpSeats(d,{you:['decl']})+ownHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
 /* with no trick on the felt the phone's plaque drops below the fans, so their dimmed backs show */
 const FANS_CLEAR=232;
 const NOTE_SIDE='Solange die Anfrage steht, ist keine Karte spielbar: Felix’ Karten und die Rücken der Gegner sind gedimmt (ISkO 4.4.3 mit 4.1.6).';
@@ -1538,24 +1527,20 @@ const NOTE_ANSWERS='Zwei Antworten für die Seite, die nicht fragte: „Annehmen
 const GIVEN_UP={near:'felix',declarer:'anna',winners:['felix','ben'],adds:[-90,40,40],won:true,word:'Gewonnen!',suit:'h',game:'Anna, Herz',
   calc:{suit:'h',base:10,mit:true,count:1,steps:['Spiel'],won:false},eyes:[38,44],names:['Anna','Wir'],ready:[],stamp:'Aufgegeben',stampBy:'anna'};
 const GIVEUP_SCENES=[
-  ['giveup-button','Der Knopf „Aufgeben“',(d)=>atLead(d,GIVE_UP),
-    ['Während des Spiels trägt Skats Leiste jedes sitzenden Spielers „Aufgeben“ mit einer weißen Flagge; ein Tipp scharft die Taste, siehe das nächste Bild.']],
-  ['giveup-arm','Erster Tipp, die Taste ist scharf',(d)=>atLead(d,GIVE_UP_ARMED),
-    ['Erst der zweite Tipp binnen drei Sekunden schickt es: mit neun oder mehr Karten verliert er sofort, mit weniger fragt er die Gegner (ISkO 4.4.1 und 4.4.2); jeder andere Tipp und die Zeit entschärfen die Taste.']],
   ['giveup-asked','Anna will aufgeben, du antwortest',(d)=>answeringAnna(d),
     [NOTE_ANSWERS,'Der Stich und die Hand bleiben sichtbar und spielbar, eine gespielte Karte beendet die Anfrage; ein Zuschauer sieht dieselbe Tafel.']],
   ['giveup-one-no','Ben sagte Nein',(d)=>answeringAnna(d,{ben:['declined']}),
     ['Ben hat Nein gesagt: das Kreuz auf seinem Stuhl zeigt es allen, und er behält nur „Annehmen“; Felix hat beide Antworten, denn ein Ja genügt.']],
   ['giveup-waits','Du fragst, Anna antwortet noch',(d)=>giveUpTable(d,{glow:yourTurn(d),left:7})+askPlaque(d,`${faceDot('anna')}Warte auf Anna${waitDots()}`)
-    +earlierCards(d)+yourCard(d)+giveUpSeats(d,{anna:['unanswered'],ben:['declined'],you:['decl','turn']})+giveUpHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP),
+    +earlierCards(d)+yourCard(d)+giveUpSeats(d,{anna:['unanswered'],ben:['declined'],you:['decl','turn']})+ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP),
     ['Wer fragt, sieht, dass seine Anfrage wartet und wer Nein sagte; er hat keine Taste zum Zurücknehmen, seine nächste Karte nimmt sie zurück.']],
   ['giveup-refused','Beide sagten Nein',(d)=>giveUpTable(d,{glow:yourTurn(d),left:7})+plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))
     +earlierCards(d)+yourCard(d)+notice('Anna und Ben spielen weiter',['anna','ben'],d?640:195,d?170:250)
-    +giveUpSeats(d,{you:['decl','turn']})+giveUpHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP),
+    +giveUpSeats(d,{you:['decl','turn']})+ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP),
     ['Das zweite Nein räumt die Anfrage weg: ein kurzer Hinweis mit beiden Gesichtern, und die Tafel zeigt wieder das Spiel.']],
   ['giveup-side','Anna gibt auf, du antwortest',(d)=>sideAsks(d),[NOTE_SIDE,NOTE_ANSWERS]],
   ['giveup-side-waits','Du gibst auf, Anna antwortet',(d)=>giveUpTable(d,{dim:true})+askPlaque(d,`${faceDot('anna')}Warte auf Anna${waitDots()}`,'',FANS_CLEAR)
-    +giveUpSeats(d,{anna:['decl','unanswered']})+giveUpHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP),
+    +giveUpSeats(d,{anna:['decl','unanswered']})+ownHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP),
     [NOTE_SIDE,'Sagt Anna Nein, spielt das Spiel weiter (ISkO 4.1.6): die Karten leuchten wieder, und der Hinweis „Anna spielt weiter“ trägt ihr Gesicht.']],
   ['giveup-watch','Zuschauen bei der Anfrage',(d)=>giveUpTable(d,{watchers:3,left:7,glow:nearTurn(d)})+nearFan(d,8)
     +askPlaque(d,`${faceDot('anna')}Anna will aufgeben`)+earlierCards(d)
@@ -1759,7 +1744,7 @@ const AGENT_SCENES=[
     return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
       +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
       +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d,{open:true,panel:agentPanel(NOVA_HERE)})});},
-    ['Mitten im Spiel öffnet Felix die Pille: Novas Zeile sagt „Bitten zu gehen“. Anna hat kein Recht an Nova, keine Zeile und darum keine Pille: ihre Leiste ist die von giveup-button.']],
+    ['Mitten im Spiel öffnet Felix die Pille: Novas Zeile sagt „Bitten zu gehen“. Anna hat kein Recht an Nova, keine Zeile und darum keine Pille: ihre Leiste trägt „Aufgeben“ und keine Pille.']],
   ['abort-offer','Abbrechen: das Angebot',[390,1280],(d)=>openChair(d)+ownCards(d)+stripOf(d,{lead:ABORT,pill:agentPill(d)}),
     ['Solange der Stuhl frei ist, bietet Felix’ Leiste „Abbrechen“ mit einem Stopp-Quadrat neben der Pille und dem Link; ein zweiter Tipp binnen drei Sekunden schickt es, wie „Aufgeben“.']],
   ['abort-asked','Abbrechen: die Frage',[390,1280],askingAnna,

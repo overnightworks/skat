@@ -66,7 +66,7 @@ def test_the_key_is_round_on_a_phone_and_keeps_its_word_at_1280_and_the_first_ta
     key.click()
 
     expect(person.get_by_role("button", name=STAND_UP_ARMED)).to_have_attribute("title", STAND_UP_ARMED)
-    expect(person.locator(".stand .drain")).to_have_count(1)
+    expect(person.locator(".stand .run-out")).to_have_count(1)
     assert table.view(seat)["hand"]["waiting_seat"] is None
 
 

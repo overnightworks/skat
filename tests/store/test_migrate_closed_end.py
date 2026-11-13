@@ -11,7 +11,7 @@ pytestmark = pytest.mark.postgres
 class TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        upgrade_to(unmigrated_engine, "0036")
+        upgrade_to(unmigrated_engine, "0037")
         with unmigrated_engine.begin() as connection:
             connection.execute(
                 text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('dealt', 5, 2, now())")

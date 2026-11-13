@@ -185,6 +185,7 @@ class Refusal(StrEnum):
     SEAT_OPEN = "seat-open"
     OWN_SEAT_ONLY = "own-seat-only"
     NOT_ALLOWED = "not-allowed"
+    HAND_NOT_OPEN = "hand-not-open"
 
 
 type CommandRefusal = Refusal | BidRefusal | DeclarationRefusal | PlayRefusal | KontraRefusal | PushRefusal
@@ -267,9 +268,12 @@ class HandProgress:
     cards, so each carries how many cards were played before it. `pushing` holds the steps of a Ramsch's stage before
     its first card.
 
-    `give_up` and `no_words` are no step logs: the end of the hand or a deal clears them, a card clears `give_up`,
-    and a chair that changes hands takes its seat's part of them. `seats_held` ends with the hand likewise. A chair
-    left in the hand names its leaver in `former_holders` until someone sits in it or the hand ends.
+    `give_up`, `no_words` and `abort_yes` are no step logs: the end of the hand or a deal clears them, a card clears
+    `give_up`, and a chair that changes hands takes its seat's part of them. `abort_yes` holds the seats that voted to
+    abort the hand while one of its chairs is open; empty means no proposal. `seats_held` ends with the hand likewise.
+    A chair left in the hand names its leaver in `former_holders` until someone sits in it or the hand ends.
+
+    `aborted` says the hand ended by a vote to abort it; such a hand keeps no step, and the next deal clears the end.
     """
 
     auction: tuple[AuctionStep, ...] = ()
@@ -281,6 +285,8 @@ class HandProgress:
     pushing: tuple[PushingStep, ...] = ()
     seats_held: frozenset[SeatHeld] = frozenset()
     former_holders: frozenset[FormerHolder] = frozenset()
+    abort_yes: frozenset[int] = frozenset()
+    aborted: bool = False
 
     def former_holder_name(self, seat: int) -> str | None:
         """The name of whoever left the chair `seat` in this hand, or None when no one is on record for it."""

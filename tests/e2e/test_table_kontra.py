@@ -6,6 +6,7 @@ from playwright.sync_api import Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
@@ -26,6 +27,7 @@ KONTRA = text(SOURCE_LANGUAGE, "kontra.kontra")
 RE = text(SOURCE_LANGUAGE, "kontra.re")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "kontra.commandFailed")
 KEY = ".copy.kontra"
+ROUND_KEY_PIXELS = 52
 STAMP = ".callout"
 NEAR_CARD = ".laid.near .face"
 SECOND_LINE = ".plaque .pushes"
@@ -147,6 +149,28 @@ def test_an_opponent_who_bid_says_kontra_and_the_declarer_re_and_every_page_show
     assert page_errors == []
 
 
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_aufgeben_goes_round_on_a_phone_while_kontra_is_offered_and_the_strip_stays_one_row(
+    deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_kontra_table({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
+    phone = form_factor["viewport"]["width"] < 900
+    offered = says_kontra(table)
+    none = passed_at_once(table)
+
+    give_up = offered.locator(".copy.give-up").bounding_box()
+    assert give_up is not None
+    assert (give_up["width"] <= ROUND_KEY_PIXELS) is phone
+    wide = none.locator(".copy.give-up").bounding_box()
+    assert wide is not None
+    assert wide["width"] > ROUND_KEY_PIXELS
+    for person in (offered, none):
+        keys = person.locator(".actions > .copy, .actions .pill-anchor")
+        assert keys.evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
+    expect_nothing_to_overflow(offered)
+    assert page_errors == []
+
+
 def test_the_stamp_lands_above_the_declarers_own_led_card_at_1280(
     deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
@@ -177,6 +201,19 @@ def test_a_reload_after_a_word_shows_the_plaque_and_no_second_stamp(
 
     expect(table.watcher.locator(SECOND_LINE)).to_have_text(f"{KONTRA} {TIMES}2")
     expect(table.watcher.locator(STAMP)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_the_stamp_leaves_the_felt_once_its_moment_has_passed(
+    deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_kontra_table(PHONE)
+    button_of(says_kontra(table), KONTRA).click()
+    expect(table.watcher.locator(STAMP)).to_be_visible()
+
+    expect(table.watcher.locator(STAMP)).to_have_count(0)
+
+    expect(table.watcher.locator(SECOND_LINE)).to_have_text(f"{KONTRA} {TIMES}2")
     assert page_errors == []
 
 

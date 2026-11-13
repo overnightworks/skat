@@ -1,24 +1,49 @@
+import { keyWord } from "#lib/kontra.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, GiveUpAnswer, Table } from "../routes/(start)/tables.ts";
 
+// What a chair carries about a question to the table: it said no, has not answered yet, or has tapped „Weiter“ or not.
+export type AnswerMark = "declined" | "unanswered" | "ready" | "unready";
+export type AskFace = { seat: number; name: string; initial: string };
+export type AskButton<Answer extends string> = {
+    answer: Answer;
+    word: string;
+    icon: "check" | "play" | "cross";
+    // The answer that moves the table on is drawn as the stage's button, the other as glass.
+    primary: boolean;
+};
+// What a plaque that asks the table says: the faces it names, the line, and the answers the viewer may give.
+export type AskView<Answer extends string> = {
+    text: string;
+    faces: AskFace[];
+    waits: boolean;
+    buttons: AskButton<Answer>[];
+};
+
 export type GiveUpLine = "wants-to-give-up" | "gives-up" | "waits";
-export type GiveUpMark = "declined" | "unanswered";
-export type GiveUpFace = { seat: number; name: string; initial: string };
 
 // What the plaque says about a standing request and what the viewer may answer, read from the request's own fields.
 export type GiveUpView = {
     line: GiveUpLine;
     text: string;
     // The asker's face, or the faces of those the asker waits for.
-    faces: GiveUpFace[];
+    faces: AskFace[];
     answers: GiveUpAnswer[];
-    marks: ReadonlyMap<number, GiveUpMark>;
+    marks: ReadonlyMap<number, AnswerMark>;
     // The declarer's side may not play a card while an opponent's request stands.
     cardsHeld: boolean;
 };
 
-function faceOf(chairs: readonly Chair[], seat: number): GiveUpFace {
+// The key „Aufgeben“ on the bar of every seated person while a declared game is played, a Grand Hand declared in a
+// Ramsch's stage included; it goes round on a phone while the strip carries „Kontra“.
+export function giveUpKey(table: Table): { round: boolean } | null {
+    const seated = table.chairs.some((chair) => chair.is_mine);
+    if (!seated || gameInPlay(table) === null || table.hand?.waiting_seat !== null) return null;
+    return { round: keyWord(table) !== null };
+}
+
+export function faceOf(chairs: readonly Chair[], seat: number): AskFace {
     // A chair of a running hand is occupied.
     const name = (chairs.find((chair) => chair.seat === seat) as Chair).occupant_name as string;
     return { seat, name, initial: name.slice(0, 1) };
@@ -40,7 +65,7 @@ export function giveUpView(table: Table): GiveUpView | null {
     const asking = viewerSeat === askerSeat;
     const answering = viewerSeat !== undefined && answererSeats.includes(viewerSeat);
     const unansweredSeats = asking ? pendingSeats : [];
-    const marks = new Map<number, GiveUpMark>(unansweredSeats.map((seat) => [seat, "unanswered"]));
+    const marks = new Map<number, AnswerMark>(unansweredSeats.map((seat) => [seat, "unanswered"]));
     if (declinedSeat !== null) marks.set(declinedSeat, "declined");
 
     const faces = (asking ? pendingSeats : [askerSeat]).map((seat) => faceOf(table.chairs, seat));
@@ -56,5 +81,20 @@ export function giveUpView(table: Table): GiveUpView | null {
         answers: answering ? offeredAnswers : [],
         marks,
         cardsHeld: !declarerAsks,
+    };
+}
+
+const GIVE_UP_BUTTONS: Record<GiveUpAnswer, AskButton<GiveUpAnswer>> = {
+    agree: { answer: "agree", word: words["table.accept"], icon: "check", primary: true },
+    decline: { answer: "decline", word: words["table.playOn"], icon: "play", primary: false },
+};
+
+// The plaque's drawing of the request: what it says and the answers the viewer may give.
+export function giveUpAsk(view: GiveUpView): AskView<GiveUpAnswer> {
+    return {
+        text: view.text,
+        faces: view.faces,
+        waits: view.line === "waits",
+        buttons: view.answers.map((answer) => GIVE_UP_BUTTONS[answer]),
     };
 }

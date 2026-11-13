@@ -243,6 +243,14 @@ msgctxt "table.givesUp"
 msgid "{name} gibt auf"
 msgstr ""
 
+msgctxt "table.giveUp"
+msgid "Aufgeben"
+msgstr ""
+
+msgctxt "table.giveUpSure"
+msgid "Wirklich aufgeben?"
+msgstr ""
+
 msgctxt "table.accept"
 msgid "Annehmen"
 msgstr ""
@@ -257,6 +265,26 @@ msgstr ""
 
 msgctxt "table.noAnswerYet"
 msgid "noch keine Antwort"
+msgstr ""
+
+msgctxt "table.abort"
+msgid "Abbrechen"
+msgstr ""
+
+msgctxt "table.abortSure"
+msgid "Wirklich abbrechen?"
+msgstr ""
+
+msgctxt "table.abortWait"
+msgid "Warten"
+msgstr ""
+
+msgctxt "table.wantsToAbort"
+msgid "{name} will abbrechen"
+msgstr ""
+
+msgctxt "table.aborted"
+msgid "Spiel abgebrochen"
 msgstr ""
 
 msgctxt "table.passedIn"

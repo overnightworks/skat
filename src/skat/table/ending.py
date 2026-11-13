@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Final
 
-from skat.table.member_place import agents_seated_at
 from skat.table.records import Actor, CloseTable, Ending, Receipt, Refusal, TableId, TableRecord
 from skat.table.rules import CommandIdReusedError, ends_unplayed
+from skat.table.server_steps import members_of
 from skat.table.transactions import DuplicateReceiptError
 from skat.table.views import CommandResult, view_of
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.records import EndedTable, Replay
-    from skat.table.transactions import TableTransaction, TableTransactions
+    from skat.table.transactions import TableTransactions
 
 __all__ = [
     "CLOSE_TABLE_COMMAND",
@@ -23,7 +23,6 @@ __all__ = [
     "close_table",
     "decide_close",
     "end_unplayed_table",
-    "members_of",
     "table_with_opener",
     "unplayed_tables",
 ]
@@ -46,11 +45,6 @@ def decide_close(opener_account: str | None, actor: Actor) -> Refusal | None:
     not known, are refused.
     """
     return None if opener_account == actor.account_id else Refusal.NOT_ALLOWED
-
-
-def members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
-    """The agents whose standing the table's end changes: those that hold a chair and those invited."""
-    return agents_seated_at(table) | transaction.book_accounts_at(table.id)
 
 
 def _replayed_close(replay: Replay, actor: Actor, command: CloseTable) -> CommandResult:

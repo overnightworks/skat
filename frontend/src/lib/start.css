@@ -723,6 +723,8 @@ body {
     --cream: #fbf8f0;
     --ink: #14181d;
     --ok-stage: #4cc38a;
+    /* The one red of leaving: white text on it meets 4.5:1, and the declined cross on the dark glass meets 3:1. */
+    --leave: #d63a40;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -1342,7 +1344,7 @@ body {
 
 .room .mark.declined {
     width: 26px;
-    color: var(--leave, #e5484d);
+    color: var(--leave);
 }
 
 .room .mark.unanswered {
@@ -2959,13 +2961,13 @@ body {
     flex-direction: row;
 }
 
-.room .declare .step:is(.hand, .glass) {
+.room .declare .step:is(.hand, .glass, .grand:not(.arm)) {
     color: var(--on-stage);
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(14px);
 }
 
-.room .declare .step:is(.hand, .glass):disabled {
+.room .declare .step:is(.hand, .glass, .grand:not(.arm)):disabled {
     background: #3a4350;
 }
 
@@ -2984,33 +2986,6 @@ body {
 /* A row of keys is transparent to the layout unless the Grand Hand key stands under the other two. */
 .room .declare.pushing .line {
     display: contents;
-}
-
-.room .declare .step.grand.armed {
-    position: relative;
-    color: #fff;
-    background: #c62a30;
-}
-
-.room .declare .step.grand.armed i {
-    position: absolute;
-    inset: auto 22px 6px;
-    height: 3px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.85);
-    transform-origin: left;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-    .room .declare .step.grand.armed i {
-        animation: grand-hand-runout 3s linear both;
-    }
-}
-
-@keyframes grand-hand-runout {
-    to {
-        transform: scaleX(0);
-    }
 }
 
 @media (max-width: 899px) {
@@ -4220,9 +4195,9 @@ body {
 
     /* In a call the speaker is the fourth button and the bar stays one row, during a hand the strip has no room for two words,
        and the opener's close key is one more button beside the link: the stand-up keeps its mark alone and its word for assistive technology. */
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand,
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up),
     .room .actions.on-result:has(.copy.close) .copy.stand,
-    .room .copy.stand.round {
+    .room .copy.round {
         position: relative;
         box-sizing: border-box;
         justify-content: center;
@@ -4230,15 +4205,52 @@ body {
         padding: 0;
     }
 
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy.stand .label,
+    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up) .label,
     .room .actions.on-result:has(.copy.close) .copy.stand .label,
-    .room .copy.stand.round .label {
+    .room .copy.round .label {
         position: absolute;
         width: 1px;
         height: 1px;
         overflow: hidden;
         clip-path: inset(50%);
         white-space: nowrap;
+    }
+}
+
+/* During a hand a phone's strip holds the give-up, the round stand-up, the agents' pill and the link in one row: the link keeps its mark alone, and the armed give-up drops its mark and sets its question in a smaller type so the row still fits 360 px. */
+@media (max-width: 899px) {
+    .room .actions:has(.give-up) {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .room .actions:has(.give-up) .copy {
+        flex-shrink: 0;
+        padding: 0 16px;
+        gap: 8px;
+    }
+
+    .room .actions:has(.give-up) .copy.round {
+        padding: 0;
+    }
+
+    .room .actions:has(.give-up) .copy.link {
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .actions:has(.give-up) .copy.link .label {
+        display: none;
+    }
+
+    .room .copy.give-up.arm {
+        padding: 0 12px;
+        font-size: 14px;
+    }
+
+    .room .copy.give-up.arm svg {
+        display: none;
     }
 }
 
@@ -4250,15 +4262,19 @@ body {
     }
 }
 
-/* The armed stand-up key: red dark enough for white text (contrast above 4.5), with a line that runs out in the three seconds the arming lasts. */
-.room .copy.stand.arm {
+/* An armed key: the leave red under white text, and a line that runs out in the three seconds the second tap has. */
+.room .armed-key {
     position: relative;
+}
+
+.room .copy.armed-key.arm,
+.room .declare .step.armed-key.arm {
     color: #fff;
-    background: #cf3238;
+    background: var(--leave);
     backdrop-filter: none;
 }
 
-.room .copy.stand .drain {
+.room .armed-key .run-out {
     position: absolute;
     right: 18px;
     bottom: 6px;
@@ -4269,8 +4285,13 @@ body {
     transform-origin: left;
 }
 
+.room .declare .step.grand .run-out {
+    right: 22px;
+    left: 22px;
+}
+
 @media (max-width: 899px) {
-    .room .copy.stand.round .drain {
+    .room .copy.round .run-out {
         right: 14px;
         bottom: 7px;
         left: 14px;
@@ -4278,11 +4299,11 @@ body {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-    .room .copy.stand .drain {
-        animation: drain 3s linear both;
+    .room .armed-key .run-out {
+        animation: run-out 3s linear both;
     }
 
-    @keyframes drain {
+    @keyframes run-out {
         to {
             transform: scaleX(0);
         }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handWaits, lockedChairs, seatNotice, sitQuestionLine, standTap } from "#lib/openChair.ts";
+import { handWaits, lockedChairs, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
 import { declarerStage, type Chair, type Hand, type Table } from "../routes/(start)/tables.ts";
 
@@ -26,6 +26,8 @@ function handOf(waitingSeat: number | null): Hand {
         own_cards: [],
         skat_count: 2,
         waiting_seat: waitingSeat,
+        abort: null,
+        abortable: waitingSeat !== null,
         ramsch: false,
         pushing: null,
         pushes: 0,
@@ -54,6 +56,7 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         hand,
         result: null,
         passed_in: null,
+        aborted: null,
         options: null,
         bock: null,
         ended: null,
@@ -188,17 +191,6 @@ describe("the declarer's step", () => {
 
     it("is none while the hand waits for a sitter", () => {
         expect(declarerStage(declaring(OPEN_SEAT))).toBeNull();
-    });
-});
-
-describe("the tap on the stand-up key", () => {
-    it.each([
-        ["a running hand, not armed", true, false, "arm"],
-        ["a running hand, armed", true, true, "stand"],
-        ["between hands, not armed", false, false, "stand"],
-        ["between hands, armed", false, true, "stand"],
-    ])("%s: the tap is %s", (_case, handRuns, armed, tap) => {
-        expect(standTap(handRuns, armed)).toBe(tap);
     });
 });
 

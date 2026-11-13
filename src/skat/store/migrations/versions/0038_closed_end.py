@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0038"
-down_revision = "0036"
+down_revision = "0037"
 
 REASON_CHECK = "tables_end_reason_is_a_reason"
 

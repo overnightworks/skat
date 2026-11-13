@@ -44,6 +44,7 @@ export function table(
         opened_by_me: false,
         result: null,
         passed_in: null,
+        aborted: null,
         bock: null,
         ended: null,
         options: {
@@ -65,6 +66,8 @@ export function table(
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            abort: null,
+            abortable: false,
             auction: {
                 turn_seat: null,
                 facing_seat: null,

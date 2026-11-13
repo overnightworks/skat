@@ -33,6 +33,8 @@ LATER_COLUMNS = (
     "ramsch_grand_hand",
     "owner_account",
     "unplayed_days",
+    "abort_yes_seats",
+    "hand_aborted",
     "closed_by_name",
 )
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")

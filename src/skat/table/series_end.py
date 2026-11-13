@@ -1,9 +1,8 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
-from skat.table.bock import bock_at_series_end
 from skat.table.records import Decision, EndProposal, Refusal
-from skat.table.rules import hand_runs, hand_was_dealt, seat_of, series_over
+from skat.table.rules import bock_at_series_end, hand_runs, hand_was_dealt, seat_of, series_over
 
 if TYPE_CHECKING:
     from skat.table.records import Actor, Series, TableRecord

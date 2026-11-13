@@ -513,6 +513,8 @@ HAND_KEYS = {
     "pushing",
     "pushes",
     "push_factor",
+    "abort",
+    "abortable",
 }
 
 

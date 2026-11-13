@@ -58,10 +58,17 @@ export type Words = {
     readonly "table.waitingFor": string;
     readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
     readonly "table.givesUp": (gaps: { readonly name: string }) => string;
+    readonly "table.giveUp": string;
+    readonly "table.giveUpSure": string;
     readonly "table.accept": string;
     readonly "table.playOn": string;
     readonly "table.saidNo": string;
     readonly "table.noAnswerYet": string;
+    readonly "table.abort": string;
+    readonly "table.abortSure": string;
+    readonly "table.abortWait": string;
+    readonly "table.wantsToAbort": (gaps: { readonly name: string }) => string;
+    readonly "table.aborted": string;
     readonly "table.passedIn": string;
     readonly "table.gives": string;
     readonly "table.waitsForYou": string;
@@ -362,10 +369,17 @@ export const words: Words = {
     "table.waitingFor": "Warte auf",
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",
     "table.givesUp": (gaps: { readonly name: string }) => gaps.name + " gibt auf",
+    "table.giveUp": "Aufgeben",
+    "table.giveUpSure": "Wirklich aufgeben?",
     "table.accept": "Annehmen",
     "table.playOn": "Weiterspielen",
     "table.saidNo": "sagte Nein",
     "table.noAnswerYet": "noch keine Antwort",
+    "table.abort": "Abbrechen",
+    "table.abortSure": "Wirklich abbrechen?",
+    "table.abortWait": "Warten",
+    "table.wantsToAbort": (gaps: { readonly name: string }) => gaps.name + " will abbrechen",
+    "table.aborted": "Spiel abgebrochen",
     "table.passedIn": "Eingepasst",
     "table.gives": "gibt",
     "table.waitsForYou": "wartet auf dich",

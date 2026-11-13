@@ -64,6 +64,8 @@ CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
 AGREE_TO_END_SERIES_TOOL: Final = "agree_to_end_series"
 REFUSE_TO_END_SERIES_TOOL: Final = "refuse_to_end_series"
 START_NEW_SERIES_TOOL: Final = "start_new_series"
+AGREE_TO_ABORT_HAND_TOOL: Final = "agree_to_abort_hand"
+REFUSE_TO_ABORT_HAND_TOOL: Final = "refuse_to_abort_hand"
 TAKE_SKAT_TOOL: Final = "take_skat"
 PUT_BACK_CARDS_TOOL: Final = "put_back_cards"
 DECLARE_GAME_TOOL: Final = "declare_game"
@@ -114,6 +116,8 @@ CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, 
 AGREE_TO_END_SERIES_MARK: Final = agent_tool(name=AGREE_TO_END_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 REFUSE_TO_END_SERIES_MARK: Final = agent_tool(name=REFUSE_TO_END_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 START_NEW_SERIES_MARK: Final = agent_tool(name=START_NEW_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+AGREE_TO_ABORT_HAND_MARK: Final = agent_tool(name=AGREE_TO_ABORT_HAND_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+REFUSE_TO_ABORT_HAND_MARK: Final = agent_tool(name=REFUSE_TO_ABORT_HAND_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 PUT_BACK_CARDS_MARK: Final = agent_tool(name=PUT_BACK_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLARE_GAME_MARK: Final = agent_tool(name=DECLARE_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
