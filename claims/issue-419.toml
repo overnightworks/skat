@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "2a8a22c39b892d8202d7b775e0fcc5112c5a14ec"
 branch = "claude/issue-419-the-second-refusal-end-to-end-test-recor"
-scope = ["docs/ARCHITECTURE.md", "tests/e2e/conftest.py", "tests/e2e/support/failure_record.py", "tests/e2e/support/raw_http.py", "tests/e2e/support/server.py", "tests/e2e/test_failure_record.py", "tests/e2e/test_table_resign_in.py"]
+scope = ["docs/ARCHITECTURE.md", "tests/e2e/conftest.py", "tests/e2e/support/failure_record.py", "tests/e2e/support/raw_http.py", "tests/e2e/support/server.py", "tests/e2e/test_failure_record.py", "tests/e2e/test_table_resign_in.py", "tests/e2e/test_table_watch.py", "tests/web/support/sdk_agent.py", "tests/web/test_mcp_sdk_agent_transport.py"]
 opened_commit = "5194083c8b0ebc3643e8214840f7d72b7e554d23"
 whole_reason = "The failure record is one mechanism: its collector, its fixture hook, its own proof and its first caller, and the raw proof of the server half needs its reader and the server's heartbeat parameter; none of the parts is useful without the others."
