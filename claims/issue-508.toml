@@ -1,0 +1,8 @@
+claim_id = "db6897a271814575af6f224cf98fb751"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "b314293e33f18c7b9770b24d0aa1d07031daebff"
+branch = "claude/issue-508-an-agent-is-offered-only-the-tools-of-it"
+scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host/app.py", "src/skat/table", "src/skat/web/mcp.py", "src/skat/web/member_place.py", "tests/e2e/test_calling_agents.py", "tests/table", "tests/web", "uv.lock"]
+opened_commit = "39a0a3a3049e3d2b5b045991d3ee8e42b4f16434"
+whole_reason = "The agents bump, the phase-to-tools rule and the MCP front that lists by it are one change, proven in one live game."
