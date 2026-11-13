@@ -283,6 +283,26 @@ msgctxt "table.discards"
 msgid "drückt"
 msgstr ""
 
+msgctxt "table.ramsch"
+msgid "Ramsch"
+msgstr ""
+
+msgctxt "table.pushCount"
+msgid "{count}× geschoben"
+msgstr ""
+
+msgctxt "table.pushFactor"
+msgid "×{factor}"
+msgstr ""
+
+msgctxt "table.push"
+msgid "Schieben"
+msgstr ""
+
+msgctxt "table.thinks"
+msgid "denkt"
+msgstr ""
+
 msgctxt "table.dealer"
 msgid "Geber"
 msgstr ""

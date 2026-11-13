@@ -234,6 +234,8 @@ def test_a_reloaded_frame_greets_again(
         visitor, browser_coverage, framing_server, table_url(framing_server, path), greets=True
     ) as skat:
         table = visitor.frame_locator(FRAME)
+        wait_for_ready(visitor)
+        expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
         expect(table.locator(BAR)).to_have_count(0)
 
         skat.evaluate("location.reload()")

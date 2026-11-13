@@ -86,6 +86,10 @@ function table(
             own_cards: [],
             skat_count: 2,
             waiting_seat: null,
+            ramsch: false,
+            pushing: null,
+            pushes: 0,
+            push_factor: 1,
             auction: auction(),
             declaring: changes.declaring === undefined ? declaringAt("picked") : changes.declaring,
             playing: hasPlaying
