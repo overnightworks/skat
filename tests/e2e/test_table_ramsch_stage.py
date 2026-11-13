@@ -187,7 +187,7 @@ def test_an_agent_on_turn_wears_denkt_over_the_turn_mark_for_everyone(
         page_errors,
         form_factor,
         rule="jacks-stay",
-        agent=McpAgent(e2e_server, "agent-subject-ramsch-thinker"),
+        agent=McpAgent(e2e_server, f"agent-subject-ramsch-thinker-{form_factor['viewport']['width']}"),
     )
     agent_position = next(position for position in POSITIONS if table.seat_of(position) == AGENT_SEAT)
     for position in POSITIONS[: POSITIONS.index(agent_position)]:
