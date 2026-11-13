@@ -314,15 +314,6 @@ class TestMemberSignIn:
         response = harness.browser().get(LOGIN_PATH)
         assert response.content == served_page("login.html", SOURCE_LANGUAGE)
 
-    @pytest.mark.parametrize("language", LANGUAGES)
-    def test_the_signed_out_page_in_each_language_carries_the_return_path_onto_its_sign_in_address(
-        self, harness, language
-    ):
-        response = harness.browser().get(LOGIN_PATH, params={"next": "/t/abc"}, headers={"accept-language": language})
-        original = served_page("login.html", language)
-
-        assert response.content == original.replace(b'href="/auth/start"', b'href="/auth/start?next=%2Ft%2Fabc"')
-
     @pytest.mark.parametrize(
         ("requested", "encoded"),
         [
@@ -332,11 +323,12 @@ class TestMemberSignIn:
             ("", ""),
         ],
     )
+    @pytest.mark.parametrize("language", LANGUAGES)
     def test_the_signed_out_page_carries_the_raw_return_path_encoded_onto_its_sign_in_address(
-        self, harness, requested, encoded
+        self, harness, requested, encoded, language
     ):
-        response = harness.browser().get(LOGIN_PATH, params={"next": requested})
-        original = served_page("login.html", SOURCE_LANGUAGE)
+        response = harness.browser().get(LOGIN_PATH, params={"next": requested}, headers={"accept-language": language})
+        original = served_page("login.html", language)
         expected = original.replace(b'href="/auth/start"', f'href="/auth/start?next={encoded}"'.encode())
         assert response.content == expected
         assert response.headers["etag"] == BuiltPage.of(expected).etag
