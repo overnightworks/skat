@@ -51,6 +51,8 @@ def reload_and_wait(person: Page) -> None:
 class DeclaringTable:
     """A dealt table: three browsers at their chairs, one watching, and the declarer known by API, not by the page."""
 
+    declarer_position = "middlehand"
+
     def __init__(
         self,
         open_person: Callable[..., Page],
@@ -83,7 +85,7 @@ class DeclaringTable:
         self.sessions = {seat: RawSession(server, member_of(person)) for seat, person in people.items()}
         chairs = json.loads(self.sessions[1].get(self.api_path))["chairs"]
         seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
-        self.declarer_seat = seat_at["middlehand"]
+        self.declarer_seat = seat_at[self.declarer_position]
         self.declarer = people[self.declarer_seat]
         self.others = [person for seat, person in people.items() if seat != self.declarer_seat]
         if hold_the_others_clock:

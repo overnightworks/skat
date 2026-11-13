@@ -3962,4 +3962,8 @@ body {
         --callout-ring: 380px;
         --callout-top: 76%;
     }
+
+    .room .callout-spot.above-near-card {
+        --callout-top: 16%;
+    }
 }

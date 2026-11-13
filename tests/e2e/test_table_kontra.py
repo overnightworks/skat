@@ -10,7 +10,7 @@ from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
-from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -25,6 +25,7 @@ RE = text(SOURCE_LANGUAGE, "kontra.re")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "kontra.commandFailed")
 KEY = ".copy.kontra"
 STAMP = ".callout"
+NEAR_CARD = ".laid.near .face"
 SECOND_LINE = ".plaque .pushes"
 TIMES = "\N{MULTIPLICATION SIGN}"
 # Only an opponent who bid says Kontra, and the declarer answers with Re.
@@ -42,6 +43,18 @@ class ContestedTable(DeclaringTable):
         self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
 
 
+class LeadingTable(DeclaringTable):
+    """The forehand outbids the middlehand, so the declarer leads and the middlehand may say Kontra."""
+
+    declarer_position = "forehand"
+
+    def _win_the_auction(self, seat_at: dict[str, int]) -> None:
+        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[0])
+        self.step(seat_at["forehand"], TABLE_AUCTION_HOLD_SUFFIX)
+        self.step(seat_at["middlehand"], TABLE_AUCTION_PASS_SUFFIX)
+        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
+
+
 @pytest.fixture
 def deal_a_kontra_table(
     open_person: Callable[..., Page],
@@ -51,7 +64,9 @@ def deal_a_kontra_table(
 ) -> Callable[..., PlayingTable]:
     """A declared Kreuz game at a table with Kontra, before the first card."""
 
-    def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
+    def deal(
+        form_factor: dict[str, Any], *, console: bool = True, declaring: type[DeclaringTable] = ContestedTable
+    ) -> PlayingTable:
         return deal_playing_table(
             open_person,
             e2e_server,
@@ -59,7 +74,7 @@ def deal_a_kontra_table(
             page_errors,
             form_factor,
             console=console,
-            declaring=ContestedTable,
+            declaring=declaring,
             options=KONTRA_OPTIONS,
         )
 
@@ -117,6 +132,25 @@ def test_an_opponent_who_bid_says_kontra_and_the_declarer_re_and_every_page_show
     expect_every_page_to_show(table, RE, 4)
     for person in table.everyone:
         expect(person.locator(KEY)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_the_stamp_lands_above_the_declarers_own_led_card_at_1280(
+    deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_kontra_table(DESKTOP, declaring=LeadingTable)
+    table.play_through_the_api(sorted(table.legal_cards(table.declarer_seat))[0])
+    declarer = table.pages[table.declarer_seat]
+    expect(declarer.locator(NEAR_CARD)).to_be_visible()
+
+    button_of(table.pages[table.seat_at["middlehand"]], KONTRA).click()
+
+    expect(declarer.locator(STAMP)).to_contain_text(KONTRA)
+    stamp = declarer.locator(STAMP).bounding_box()
+    card = declarer.locator(NEAR_CARD).bounding_box()
+    assert stamp is not None
+    assert card is not None
+    assert stamp["y"] + stamp["height"] / 2 <= card["y"]
     assert page_errors == []
 
 

@@ -5,7 +5,8 @@
     const STAMP_MILLISECONDS = 2500;
 
     // The latest word's stamp; a new one replaces the one on the felt, and none shows again once its moment has passed.
-    const { stamp }: { stamp: Stamp | null } = $props();
+    // Where a card of the viewer's own lies in the near slot of the trick, the stamp lands above it.
+    const { stamp, aboveNearCard }: { stamp: Stamp | null; aboveNearCard: boolean } = $props();
     let visible = $state(false);
 
     $effect(() => {
@@ -20,7 +21,7 @@
 
 {#if stamp !== null && visible}
     {#key stamp}
-        <div class="callout-spot">
+        <div class="callout-spot" class:above-near-card={aboveNearCard}>
             <span class="callout-ring" aria-hidden="true"></span>
             <div class="callout" class:agent={stamp.agent} role="img" aria-label={stamp.label}>
                 <span class="by" aria-hidden="true">

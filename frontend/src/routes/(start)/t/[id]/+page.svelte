@@ -16,7 +16,7 @@
     import { giveUpView } from "#lib/giveUp.ts";
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
-    import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
+    import { gameInPlay, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
     import { declaredResult, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
@@ -424,7 +424,10 @@
             {#if view !== null}
                 <ResultCard {view} />
             {/if}
-            <CalloutStamp {stamp} />
+            {@const nearCardLaid =
+                inPlay !== null &&
+                trickOnTheFelt(outcome.table.chairs, inPlay.playing).some(({ slot }) => slot === "near")}
+            <CalloutStamp {stamp} aboveNearCard={nearCardLaid} />
             {#if inPlay !== null}
                 <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} {playedThisHand} />
             {/if}
