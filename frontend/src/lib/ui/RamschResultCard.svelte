@@ -61,9 +61,9 @@
         {#each view.counts as count (count.seat)}
             <span>
                 {#if count.strong}
-                    <b>{`${count.name} ${count.points}`}</b>
+                    <b>{`${count.name} ${String(count.points)}`}</b>
                 {:else}
-                    {`${count.name} ${count.points}`}
+                    {`${count.name} ${String(count.points)}`}
                 {/if}
             </span>
         {/each}
