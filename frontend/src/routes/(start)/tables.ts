@@ -252,6 +252,8 @@ export type OptionsRequest = { show_running_points?: true } & {
 export type RuleSet = { id: string; name: string; options: Options };
 // The person's own sets in the order the server answers them; a set that cannot be read is its own outcome.
 export type RuleSetsOutcome = { kind: "sets"; sets: RuleSet[] } | { kind: "failed" };
+// A name the person already holds with other options is refused and saves nothing.
+export type SaveRuleSetOutcome = { kind: "saved"; set: RuleSet } | { kind: "taken" } | { kind: "failed" };
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
@@ -293,6 +295,10 @@ export type Outcome =
 
 function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_name: string } {
     return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
+}
+
+function isNameTaken(body: unknown): boolean {
+    return typeof body === "object" && body !== null && "reason" in body && body.reason === "name-taken";
 }
 
 // The answer is null when the server cannot be reached.
@@ -347,6 +353,23 @@ export async function readRuleSets(): Promise<RuleSetsOutcome> {
     try {
         const body = (await answer.json()) as { sets?: RuleSet[] };
         return Array.isArray(body.sets) ? { kind: "sets", sets: body.sets } : { kind: "failed" };
+    } catch {
+        return { kind: "failed" };
+    }
+}
+
+// Saving a name the person holds with the same options answers that set again.
+export async function saveRuleSet(name: string, options: OptionsRequest | undefined): Promise<SaveRuleSetOutcome> {
+    const answer = await fetchSigningInAgain(RULE_SETS_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, options: options ?? {} }),
+    });
+    if (answer === null) return { kind: "failed" };
+    try {
+        const body: unknown = await answer.json();
+        if (answer.ok) return { kind: "saved", set: body as RuleSet };
+        return answer.status === CONFLICT_STATUS && isNameTaken(body) ? { kind: "taken" } : { kind: "failed" };
     } catch {
         return { kind: "failed" };
     }

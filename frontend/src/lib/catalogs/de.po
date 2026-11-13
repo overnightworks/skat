@@ -1003,6 +1003,30 @@ msgctxt "start.setsUnreadable"
 msgid "Deine eigenen Regeln ließen sich nicht lesen."
 msgstr ""
 
+msgctxt "start.saveRules"
+msgid "Als eigene Regeln speichern"
+msgstr ""
+
+msgctxt "start.saveName"
+msgid "Name"
+msgstr ""
+
+msgctxt "start.savedNameWith"
+msgid "{set}, mit {rules}"
+msgstr ""
+
+msgctxt "start.savedNameAdjusted"
+msgid "{set}, angepasst"
+msgstr ""
+
+msgctxt "start.saveNameTaken"
+msgid "Diesen Namen hast du schon für andere Regeln."
+msgstr ""
+
+msgctxt "start.saveFailed"
+msgid "Die Regeln ließen sich nicht speichern."
+msgstr ""
+
 msgctxt "start.ruleKontra"
 msgid "Kontra und Re"
 msgstr ""
