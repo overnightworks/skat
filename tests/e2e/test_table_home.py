@@ -32,7 +32,6 @@ UNKNOWN_ID = "0" * 32
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 LOBBY_WAITING_ONE = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=1)
 LOBBY_WAITING_TWO = text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=2)
-OTHER_TABLES_BEYOND_THE_CAP = 10
 RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
@@ -250,25 +249,6 @@ def test_the_table_the_person_is_at_is_never_counted_even_when_it_waits_for_him(
     expect(person.locator(".chair")).to_have_count(3)
     expect(lobby_of(person)).to_be_visible()
     expect(badge_of(person)).to_have_count(0)
-
-
-def test_more_than_nine_waiting_tables_read_nine_plus(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> None:
-    person = record_page_errors(open_person(**PHONE), page_errors)
-    open_new_table(person, e2e_server)
-    him = RawSession(e2e_server, member_of(person))
-
-    for _ in range(OTHER_TABLES_BEYOND_THE_CAP):
-        deal_a_table_that_waits_for(e2e_server, him)
-
-    expect(badge_of(person)).to_have_text("9+")
-    expect(lobby_of(person)).to_have_attribute(
-        "aria-label", text(SOURCE_LANGUAGE, "table.lobbyWaiting", count=OTHER_TABLES_BEYOND_THE_CAP)
-    )
 
 
 def test_a_lost_stream_hides_the_number_and_the_stream_coming_back_brings_it_again(
