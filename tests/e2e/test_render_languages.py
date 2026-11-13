@@ -3,13 +3,21 @@ text runs over its box, at the phone and the desktop width."""
 
 import re
 from typing import TYPE_CHECKING, Any, get_args
+from urllib.parse import quote
 
 import pytest
 from design.words import text as kit_text
 from playwright.sync_api import Page, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
-from skat.web.constants import AUTH_CALLBACK_PATH, CALL_SIGN_IN_PATH, LOGIN_PATH, NO_ACCESS_PATH
+from skat.web.constants import (
+    AUTH_CALLBACK_PATH,
+    AUTH_START_PATH,
+    CALL_SIGN_IN_PATH,
+    LOGIN_PATH,
+    NO_ACCESS_PATH,
+    RETURN_PATH_QUERY_NAME,
+)
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, Key, text
 from tests.e2e.support.browser import record_page_errors
@@ -44,7 +52,8 @@ FINDINGS_OF_A_RENDER = """(keys) => {
     const overflowing = [...document.body.querySelectorAll("*")]
         .filter((element) => [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim()))
         .filter((element) => !["auto", "scroll"].includes(getComputedStyle(element).overflowX))
-        .filter((element) => element.scrollWidth > element.clientWidth)
+        // A one pixel box is a label only a screen reader reads.
+        .filter((element) => element.clientWidth > 1 && element.scrollWidth > element.clientWidth)
         .map((element) => `${element.tagName.toLowerCase()}.${element.className} ${element.textContent.trim()}`);
     return { shown, findings, overflowing };
 }"""
@@ -125,6 +134,27 @@ def test_each_sign_in_page_reads_in_the_language_the_browser_asks_for(
     ).to_have_count(1)
     for key in ("legal.imprint", "legal.privacy", "legal.terms"):
         expect(person.get_by_role("link", name=text(language, key))).to_have_count(1)
+    assert_renders_in(person, language)
+
+
+@pytest.mark.parametrize("language", FURTHER_LANGUAGES)
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_the_call_sign_in_page_hydrates_in_the_language_the_browser_asks_for(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    language: Language,
+) -> None:
+    table_path = f"{TABLE_PAGE_PREFIX}{'0' * 32}"
+    person = record_page_errors(open_person(signed_in=False, locale=language, **form_factor), page_errors)
+
+    person.goto(f"{e2e_server.base_url}{CALL_SIGN_IN_PATH}?{RETURN_PATH_QUERY_NAME}={quote(table_path, safe='')}")
+
+    # Only the page's script knows the table, so its sign-in address carries the return path once it has hydrated.
+    expect(person.get_by_role("link", name=kit_text(language, "signIn.logIn"), exact=True)).to_have_attribute(
+        "href", f"{AUTH_START_PATH}?{RETURN_PATH_QUERY_NAME}={quote(table_path, safe='')}"
+    )
     assert_renders_in(person, language)
 
 
@@ -237,7 +267,7 @@ def test_a_table_reads_in_the_language_while_the_declarer_declares(
         open_in_language, e2e_server, member_of(table.declarer), language, form_factor, table.table_id
     )
 
-    expect(reader.get_by_role("button", name=text(language, "declare.announceGame"))).to_be_visible()
+    expect(reader.get_by_role("button", name=text(language, "declare.putBack"))).to_be_visible()
     assert_renders_in(reader, language)
 
 
