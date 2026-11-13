@@ -1,6 +1,7 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
+    import { closeOnEscape } from "#lib/closeOnEscape.ts";
     import {
         RULE_SET_NAME_MAX,
         SERIES_LENGTH_DEFAULT,
@@ -165,7 +166,15 @@
 </div>
 {#if choosing}
     <div class="scrim"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label={words["start.newTable"]}>
+    <div
+        class="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={words["start.newTable"]}
+        {@attach closeOnEscape(() => {
+            if (!opening) close();
+        })}
+    >
         <h3>{words["start.newTable"]}</h3>
         <div class="stepper" role="group" aria-label={words["start.seriesLength"]}>
             <button
@@ -223,7 +232,7 @@
                     }}
                 />
                 {#if picked === null}<RuleMark id="official" />{/if}
-                {words["start.setOfficial"]}
+                <span class="name">{words["start.setOfficial"]}</span>
             </label>
             {#each sets as set (set.id)}
                 <label class="set" class:on={picked?.id === set.id}>
@@ -237,7 +246,7 @@
                         }}
                     />
                     {#if picked?.id === set.id}<RuleMark id="official" />{/if}
-                    {set.name}
+                    <span class="name">{set.name}</span>
                 </label>
             {/each}
         </div>

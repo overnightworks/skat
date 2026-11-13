@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { seriesAt } from "#lib/series.fixtures.ts";
 import {
     AUTH_START_PATH,
@@ -73,8 +74,6 @@ class FakeEventSource {
         this.listeners.get("message")?.({ data } as MessageEvent<string>);
     }
 }
-
-const TABLE_ID = "a".repeat(32);
 
 describe("watchTable after a stream error", () => {
     // The marker is taken once per document, so each test loads the module afresh.

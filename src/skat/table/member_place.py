@@ -9,7 +9,7 @@ from datetime import timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Protocol
 
-from skat.table.records import Chair, Occupant, OccupantKind, OpaqueId, TableId, TableRecord
+from skat.table.records import Chair, Occupant, OpaqueId, TableId, TableRecord
 from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
@@ -288,7 +288,7 @@ def ended_outcome(entry: BookEntry | None, viewer_account: str, now: datetime) -
 
 def _agent_of(chair: Chair) -> Occupant | None:
     """The occupant of the chair when it is an agent; None for a person and a free chair."""
-    return chair.occupant if chair.occupant is not None and chair.occupant.kind is OccupantKind.AGENT else None
+    return chair.occupant if chair.occupant is not None and chair.occupant.is_agent else None
 
 
 def seated_agents(table: TableRecord) -> tuple[SeatedAgent, ...]:

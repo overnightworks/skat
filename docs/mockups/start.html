@@ -10,7 +10,7 @@
   --accent-stage:#7aa7f0; --stage:#0D1013; --stage-2:#171B20; --stage-3:#252B32;
   --on-stage:#F4F6F8; --on-stage-soft:rgba(244,246,248,.72);
   --glass:rgba(255,255,255,.15); --glass-dark:rgba(12,14,17,.55); --vignette:rgba(6,8,10,.42);
-  --busy-stage:#EDB656; --ok-stage:#4cc38a; --leave:#E5484D; --stage-fade:rgba(13,16,19,.92);
+  --busy-stage:#EDB656; --ok-stage:#4cc38a; --leave:#D63A40; --stage-fade:rgba(13,16,19,.92);
   --font-body:'Open Sans',Arial,sans-serif; --font-mark:'Noto Serif','DejaVu Serif',Georgia,serif;
   --clubs:#17191c; --spades:#14873f; --hearts:#d81f35; --diamonds:#ec9800;
   --felt-1:#24855f; --felt-2:#166443; --felt-3:#0b3b2a;
@@ -429,7 +429,7 @@ const aiMark=()=>'<span class="ai-mark">AI</span>';
 const P={
   felix:{n:'Du',i:'F',c:['#6fd3bd','#2f8f7d'],v:['#2c4646','#172326'],l:['#2a5a52','#13302b'],hair:'short',glasses:true},
   anna:{n:'Anna',i:'A',c:['#c2a8f5','#7c5cd6'],v:['#3a3350','#1d1a29'],l:['#553a6e','#2a1b38'],hair:'long'},
-  nova:{n:'Nova',agent:true,sub:'Agent von Felix',l:['#2a3b5e','#141d31']},
+  nova:{n:'Nova',agent:true,l:['#2a3b5e','#141d31']},
   ben:{n:'Ben',i:'B',c:['#e8c895','#b08a55'],v:['#3c3832','#1f1c18'],l:['#5e4a30','#2e2416'],hair:'cap'},
 };
 /* camera stand-in: a person drawn as a silhouette in their own colour */
@@ -482,7 +482,7 @@ function seat(k,o){
   if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
   else if(o.video) inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}">${silhouette(p)}</div>`;
   else inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}"></div><div class="av" style="${dotStyle(p)}">${p.i}</div>`;
-  const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b>${p.sub&&!o.short?`<small>${p.sub}</small>`:''}</span>`;
+  const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b></span>`;
   return `<div class="${cls}" style="${at({left:o.x,top:o.y,width:o.w,height:o.h,position:o.inline?'relative':undefined,'--l1':p.l[0],'--l2':p.l[1]})}">
     <div class="chair ${o.got?'mo':''}" style="${o.got?`--k:${o.got}`:''}"><div class="tile ${p.agent?'agent':''}">${inner}</div></div>${marks.map(m=>MARK[m]).join('')}${o.plate===false?'':plate}</div>`;
 }

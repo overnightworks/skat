@@ -57,6 +57,35 @@ def set_pill(person: Page, name: str) -> Locator:
     return person.get_by_role("radiogroup", name=RULES).get_by_role("radio", name=name, exact=True)
 
 
+# What a person sees of a set pill: its check and name wholly inside the pill with its padding kept, the pill wholly
+# inside the sheet.
+SUBPIXEL = 1
+PILL_GAPS_OF = """pill => {
+    // The radio button covers the whole pill, so only the check and the name count as its content.
+    const own = node => node.nodeName !== "INPUT" && node.nodeType !== Node.COMMENT_NODE;
+    const parts = [...pill.childNodes].filter(own).map(node => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        return node.nodeType === Node.TEXT_NODE ? range.getBoundingClientRect() : node.getBoundingClientRect();
+    }).filter(rect => rect.width > 0);
+    const content = {
+        left: Math.min(...parts.map(rect => rect.left)),
+        right: Math.max(...parts.map(rect => rect.right)),
+    };
+    const box = pill.getBoundingClientRect();
+    const sheet = pill.closest(".sheet").getBoundingClientRect();
+    const style = getComputedStyle(pill);
+    const name = pill.querySelector(".name");
+    return {
+        cut: name.clientWidth - name.scrollWidth,
+        left: content.left - box.left - parseFloat(style.paddingLeft),
+        right: box.right - content.right - parseFloat(style.paddingRight),
+        sheetLeft: box.left - sheet.left,
+        sheetRight: sheet.right - box.right,
+    };
+}"""
+
+
 def switch(person: Page, name: str) -> Locator:
     return person.get_by_role("switch", name=name, exact=True)
 
@@ -281,6 +310,28 @@ def test_a_sheet_reopened_after_cancelling_has_the_official_rules_picked_again(
     expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "false")
 
 
+def test_escape_closes_the_sheet_unless_the_table_is_being_opened(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = person_with_sets(DESKTOP)
+    held: list[Any] = []
+    person.route(f"**{TABLES_PATH}", lambda route: held.append(route))
+    sheet_of(person, e2e_server)
+    sheet = person.get_by_role("dialog", name=word("start.newTable"))
+
+    person.keyboard.press("Escape")
+    expect(sheet).to_be_hidden()
+
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_disabled()
+    person.keyboard.press("Escape")
+    expect(sheet).to_be_visible()
+
+    held[0].continue_()
+    expect(person).to_have_url(TABLE_URL)
+
+
 def test_the_official_rules_stay_offered_with_a_notice_when_the_own_sets_cannot_be_read(
     person_with_sets: Callable[..., Page],
     e2e_server: RunningServer,
@@ -317,6 +368,20 @@ def test_only_the_rules_scroll_while_the_title_the_sets_and_the_buttons_stay_in_
     switch(person, word("start.flagSchneider")).scroll_into_view_if_needed()
     expect(switch(person, word("start.flagSchneider"))).to_be_in_viewport()
     expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_in_viewport()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_every_set_pill_holds_its_whole_name_and_check_inside_the_sheet_when_picked(
+    person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
+) -> None:
+    person = person_with_sets(form_factor)
+    sheet_of(person, e2e_server)
+
+    for name in (HOUSE_SET, EVENING_SET, OFFICIAL):
+        set_pill(person, name).check()
+        for each in (OFFICIAL, HOUSE_SET, EVENING_SET):
+            gaps = set_pill(person, each).locator("xpath=..").evaluate(PILL_GAPS_OF)
+            assert min(gaps.values()) >= -SUBPIXEL, f"{each} with {name} picked: {gaps}"
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

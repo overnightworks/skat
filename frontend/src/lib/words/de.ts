@@ -21,7 +21,8 @@ export type Words = {
     readonly "start.newTableFailed": string;
     readonly "lobby.myTables": string;
     readonly "lobby.openTable": (gaps: { readonly title: string }) => string;
-    readonly "lobby.title": (gaps: { readonly owner: string }) => string;
+    readonly "lobby.title": (gaps: { readonly name: string }) => string;
+    readonly "lobby.titleSibilant": (gaps: { readonly name: string }) => string;
     readonly "lobby.titleNameless": string;
     readonly "lobby.progress": (gaps: { readonly count: number; readonly game: string }) => string;
     readonly "lobby.length": (count: number) => string;
@@ -30,7 +31,8 @@ export type Words = {
     readonly "lobby.seatAway": string;
     readonly "lobby.minutesLeft": (count: number, gaps: { readonly minutes: string }) => string;
     readonly "lobby.ownSeatFreeIn": (count: number, gaps: { readonly minutes: string }) => string;
-    readonly "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly owner: string }) => string;
+    readonly "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly name: string }) => string;
+    readonly "lobby.otherSeatFreeInSibilant": (count: number, gaps: { readonly minutes: string; readonly name: string }) => string;
     readonly "lobby.chipYourTurn": string;
     readonly "lobby.chipResultWaits": string;
     readonly "lobby.chipSeriesOver": string;
@@ -147,6 +149,7 @@ export type Words = {
     readonly "rules.bockLeft": (gaps: { readonly count: number }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[];
     readonly "result.eyes": (gaps: { readonly points: string }) => string;
+    readonly "result.eyeCount": (gaps: { readonly name: string; readonly points: string }) => string;
     readonly "result.loses": (gaps: { readonly name: string }) => string;
     readonly "result.losesTogether": (gaps: { readonly names: string }) => string;
     readonly "result.byTen": string;
@@ -365,7 +368,8 @@ export const words: Words = {
     "start.newTableFailed": "Der Tisch konnte nicht eröffnet werden.",
     "lobby.myTables": "Meine Tische",
     "lobby.openTable": (gaps: { readonly title: string }) => gaps.title + " öffnen",
-    "lobby.title": (gaps: { readonly owner: string }) => gaps.owner + " Tisch",
+    "lobby.title": (gaps: { readonly name: string }) => gaps.name + "s Tisch",
+    "lobby.titleSibilant": (gaps: { readonly name: string }) => gaps.name + "' Tisch",
     "lobby.titleNameless": "Tisch",
     "lobby.progress": (gaps: { readonly count: number; readonly game: string }) => "Spiel " + gaps.game + " von " + numberFormat.format(gaps.count),
     "lobby.length": (count: number) => ({
@@ -395,13 +399,21 @@ export const words: Words = {
         many: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
         other: "Dein Platz wird in " + gaps.minutes + " Minuten frei",
     })[pluralRules.select(count)],
-    "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly owner: string }) => ({
-        zero: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        one: gaps.owner + " Platz wird in " + gaps.minutes + " Minute frei",
-        two: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        few: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        many: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
-        other: gaps.owner + " Platz wird in " + gaps.minutes + " Minuten frei",
+    "lobby.otherSeatFreeIn": (count: number, gaps: { readonly minutes: string; readonly name: string }) => ({
+        zero: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        one: gaps.name + "s Platz wird in " + gaps.minutes + " Minute frei",
+        two: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        few: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        many: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+        other: gaps.name + "s Platz wird in " + gaps.minutes + " Minuten frei",
+    })[pluralRules.select(count)],
+    "lobby.otherSeatFreeInSibilant": (count: number, gaps: { readonly minutes: string; readonly name: string }) => ({
+        zero: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        one: gaps.name + "' Platz wird in " + gaps.minutes + " Minute frei",
+        two: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        few: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        many: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
+        other: gaps.name + "' Platz wird in " + gaps.minutes + " Minuten frei",
     })[pluralRules.select(count)],
     "lobby.chipYourTurn": "Du bist dran",
     "lobby.chipResultWaits": "Ergebnis wartet",
@@ -554,6 +566,7 @@ export const words: Words = {
     "rules.bockLeft": (gaps: { readonly count: number }) => "noch " + numberFormat.format(gaps.count),
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }): readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[] => [{ marker: "side", text: gaps.side }, " ", { marker: "tally", text: gaps.points }],
     "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
+    "result.eyeCount": (gaps: { readonly name: string; readonly points: string }) => gaps.name + " " + gaps.points,
     "result.loses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.losesTogether": (gaps: { readonly names: string }) => gaps.names + " verlieren",
     "result.byTen": "÷ 10",

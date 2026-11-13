@@ -21,8 +21,8 @@ pytestmark = pytest.mark.e2e
 
 REFUSED = 401
 MISSING = 404
-REPOSITORY_ROOT = Path(__file__).parents[2]
 ANSWERED = 200
+REPOSITORY_ROOT = Path(__file__).parents[2]
 FORBIDDEN_HEADER_NAMES = ("cookie", "x-forwarded-for", "user-agent", "authorization", "origin")
 
 
@@ -148,6 +148,21 @@ def page_errors(failure_record):
 def test_it(page_errors):
     page_errors.append("Failed to load resource")
 """
+FAILS_IN_CALL_AND_TEARDOWN = """
+import pytest
+
+
+@pytest.fixture
+def page_errors(failure_record):
+    errors = []
+    yield errors
+    assert errors == []
+
+
+def test_it(page_errors):
+    page_errors.append("Failed to load resource")
+    assert False
+"""
 PASSES = """
 def test_it(failure_record):
     pass
@@ -156,11 +171,11 @@ def test_it(failure_record):
 
 @pytest.mark.parametrize(
     ("test_source", "prints"),
-    [(FAILS_IN_CALL, True), (FAILS_IN_TEARDOWN, True), (PASSES, False)],
-    ids=["fails in the call", "fails in the teardown", "passes"],
+    [(FAILS_IN_CALL, 1), (FAILS_IN_TEARDOWN, 1), (FAILS_IN_CALL_AND_TEARDOWN, 1), (PASSES, 0)],
+    ids=["fails in the call", "fails in the teardown", "fails in both", "passes"],
 )
-def test_a_failed_test_prints_its_timeline_in_the_call_and_the_teardown(
-    pytester: pytest.Pytester, test_source: str, prints: bool
+def test_a_failed_test_prints_its_timeline_once_whether_the_call_or_the_teardown_failed(
+    pytester: pytest.Pytester, test_source: str, prints: int
 ) -> None:
     pytester.makeini(f"[pytest]\npythonpath = {REPOSITORY_ROOT} {REPOSITORY_ROOT / 'src'}\n")
     pytester.makeconftest(INNER_CONFTEST)
@@ -168,4 +183,4 @@ def test_a_failed_test_prints_its_timeline_in_the_call_and_the_teardown(
 
     result = pytester.runpytest_subprocess("-p", "no:cacheprovider")
 
-    assert (TIMELINE in result.stdout.str()) is prints
+    assert result.stdout.str().count(TIMELINE) == prints
