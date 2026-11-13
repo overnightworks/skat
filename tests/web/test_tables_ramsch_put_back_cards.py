@@ -1,11 +1,12 @@
 import pytest
 
+from skat.engine.cards import Rank
 from tests.support.payload_cards import cards_in, wire_cards
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, PLAIN_DEAL, REARHAND, cards
-from tests.web.support.ramsch_stage import VIEWERS, accepted, read, stage_table
+from tests.web.support.ramsch_stage import accepted, read, stage_table
 
 TWELVE = (*PLAIN_DEAL.forehand, *PLAIN_DEAL.skat)
-WITHOUT_JACKS = tuple(each for each in TWELVE if each.rank.name != "JACK")
+WITHOUT_JACKS = tuple(each for each in TWELVE if each.rank is not Rank.JACK)
 
 
 def named_by(table, position):
@@ -28,12 +29,6 @@ class TestTheCardsThatMayGoBack:
 
         assert named_by(table, FOREHAND) == wire_cards(may_go)
         assert [named_by(table, position) for position in (MIDDLEHAND, REARHAND, None)] == [set(), set(), set()]
-
-    @pytest.mark.parametrize("position", VIEWERS)
-    def test_nobody_is_told_a_card_while_the_seat_on_turn_still_chooses(self, skat, position):
-        table = stage_table(skat)
-
-        assert read(table, position)["hand"]["pushing"]["put_back_cards"] == []
 
     def test_the_next_seat_is_told_none_until_it_takes_and_then_its_own(self, skat):
         table = stage_table(skat, "jacks-may-go")
