@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { closeOnEscape } from "#lib/closeOnEscape.ts";
     import { sitQuestionLine } from "#lib/openChair.ts";
     import { words } from "#lib/words.ts";
 
@@ -8,7 +9,13 @@
 </script>
 
 <div class="scrim"></div>
-<div class="sheet question" role="dialog" aria-modal="true" aria-label={words["table.sitQuestion"]}>
+<div
+    class="sheet question"
+    role="dialog"
+    aria-modal="true"
+    aria-label={words["table.sitQuestion"]}
+    {@attach closeOnEscape(oncancel)}
+>
     <span class="glyph">
         <svg
             viewBox="0 0 24 24"

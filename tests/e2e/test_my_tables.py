@@ -243,7 +243,7 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
         "title", text(SOURCE_LANGUAGE, "lobby.ownSeatFreeIn", count=4, minutes="4")
     )
     expect(card.locator(".lobby-plate small").first).to_have_attribute(
-        "title", text(SOURCE_LANGUAGE, "lobby.otherSeatFreeIn", count=5, minutes="5", owner="Maras")
+        "title", text(SOURCE_LANGUAGE, "lobby.otherSeatFreeIn", count=5, minutes="5", name="Mara")
     )
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
     expect(person.locator(".my-tables")).to_have_class(re.compile(r"\bstale\b"))

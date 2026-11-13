@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
 import {
     announcedWord,
@@ -14,8 +15,6 @@ import {
     type Game,
     type Position,
 } from "./tables.ts";
-
-const TABLE_ID = "a".repeat(32);
 
 describe("the table's seats and link", () => {
     const chair = (seat: number, isMine = false, isMineToReturn = false): Chair => ({

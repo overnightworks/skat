@@ -1,5 +1,5 @@
 import { keyWord } from "#lib/kontra.ts";
-import type { SeatNotice } from "#lib/openChair.ts";
+import { handWaits, type SeatNotice } from "#lib/openChair.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { Chair, GiveUpAnswer, Table } from "../routes/(start)/tables.ts";
@@ -40,7 +40,7 @@ export type GiveUpView = {
 // Ramsch's stage included; it goes round on a phone while the strip carries „Kontra“.
 export function giveUpKey(table: Table): { round: boolean } | null {
     const seated = table.chairs.some((chair) => chair.is_mine);
-    if (!seated || gameInPlay(table) === null || table.hand?.waiting_seat !== null) return null;
+    if (!seated || gameInPlay(table) === null || handWaits(table.hand)) return null;
     return { round: keyWord(table) !== null };
 }
 
@@ -54,7 +54,7 @@ export function faceOf(chairs: readonly Chair[], seat: number): AskFace {
 export function giveUpView(table: Table): GiveUpView | null {
     const inPlay = gameInPlay(table);
     const request = inPlay?.playing.give_up;
-    if (inPlay === null || !request || table.hand?.waiting_seat !== null) return null;
+    if (inPlay === null || !request || handWaits(table.hand)) return null;
     const { declarerSeat } = inPlay;
     const { asking_seat: askerSeat, declined_seat: declinedSeat } = request;
     const viewerSeat = table.chairs.find((chair) => chair.is_mine)?.seat;

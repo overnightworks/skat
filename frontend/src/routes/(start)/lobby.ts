@@ -8,7 +8,7 @@ import { words } from "#lib/words.ts";
 const MILLISECONDS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
 const MILLISECONDS_PER_DAY = 86_400_000;
-// A name that ends in one of these takes an apostrophe where another takes an s.
+// A name that ends in one of these takes the catalog's sibilant sentence where another takes the plain one.
 const SIBILANT_ENDINGS = /[sßxz]$/i;
 
 export type WaitingCase = (typeof WAITING_CASE_TOKENS)[number];
@@ -83,12 +83,13 @@ export function watchLobby(
     });
 }
 
-function possessiveOf(name: string): string {
-    return SIBILANT_ENDINGS.test(name) ? `${name}'` : `${name}s`;
+function isSibilant(name: string): boolean {
+    return SIBILANT_ENDINGS.test(name);
 }
 
 export function titleOf(name: string | null): string {
-    return name === null ? words["lobby.titleNameless"] : words["lobby.title"]({ owner: possessiveOf(name) });
+    if (name === null) return words["lobby.titleNameless"];
+    return isSibilant(name) ? words["lobby.titleSibilant"]({ name }) : words["lobby.title"]({ name });
 }
 
 // Whole days rounded down; below a day, and once the end has passed, the table ends today.
@@ -116,6 +117,13 @@ function isAway(chair: LobbyChair, table: LobbyTable): boolean {
     return chair.is_mine && ((chair.hold_seconds_left ?? null) !== null || table.ends_at !== null);
 }
 
+function otherSeatFreeIn(name: string, minutes: number): string {
+    const gaps = { name, minutes: String(minutes) };
+    return isSibilant(name)
+        ? words["lobby.otherSeatFreeInSibilant"](minutes, gaps)
+        : words["lobby.otherSeatFreeIn"](minutes, gaps);
+}
+
 function holdOf(chair: LobbyChair, heldMilliseconds: number): SeatCard["hold"] {
     const seconds = chair.hold_seconds_left;
     if (chair.occupant_name === null || seconds === undefined || seconds === null) return null;
@@ -126,7 +134,7 @@ function holdOf(chair: LobbyChair, heldMilliseconds: number): SeatCard["hold"] {
         note: words["lobby.minutesLeft"](minutes, gaps),
         title: chair.is_mine
             ? words["lobby.ownSeatFreeIn"](minutes, gaps)
-            : words["lobby.otherSeatFreeIn"](minutes, { ...gaps, owner: possessiveOf(chair.occupant_name) }),
+            : otherSeatFreeIn(chair.occupant_name, minutes),
     };
 }
 

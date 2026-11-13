@@ -214,6 +214,10 @@ class Occupant:
     kind: OccupantKind
     owner_account: str | None = None
 
+    @property
+    def is_agent(self) -> bool:
+        return self.kind is OccupantKind.AGENT
+
 
 @dataclass(frozen=True)
 class Chair:

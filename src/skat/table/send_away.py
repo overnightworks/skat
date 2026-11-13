@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Final
 
 from skat.table.member_place import BookEntry, InviteRefusal, at_the_table, offer_of, seated_call_facts
-from skat.table.records import Decision, OccupantKind, Refusal, SendAway, TableId, TableRecord
+from skat.table.records import Decision, Refusal, SendAway, TableId, TableRecord
 from skat.table.rules import seat_of, with_occupant
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ def decide_send_away(table: TableRecord, account_id: str) -> Decision:
     own = seat_of(table, account_id)
     if own is None or own.occupant is None:
         return Decision(table, Refusal.NOT_SEATED)
-    if own.occupant.kind is not OccupantKind.AGENT:
+    if not own.occupant.is_agent:
         return Decision(table, Refusal.NOT_AN_AGENT)
     return Decision(with_occupant(table, own.seat, None))
 

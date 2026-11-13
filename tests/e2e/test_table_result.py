@@ -15,13 +15,13 @@ from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.result_card import (
     CARD,
     LOST,
-    MINUS,
     OVERBID,
     TIMES,
     WON,
     YOU,
     expect_the_page_around_the_card,
     loosely,
+    signed,
     waiting_for,
 )
 from tests.e2e.support.tables import SIT_DOWN
@@ -125,14 +125,6 @@ def deal_a_finished_hand(
         return table
 
     return deal
-
-
-def with_minus(number: int) -> str:
-    return f"{MINUS}{-number}" if number < 0 else str(number)
-
-
-def signed(number: int) -> str:
-    return with_minus(number) if number < 0 else f"+{number}"
 
 
 def awaited(table: PlayingTable, ready: set[int]) -> list[str]:

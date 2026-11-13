@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
 import {
     bidLineWhileDeclaring,
@@ -11,8 +12,6 @@ import {
     type Stage,
     type Table,
 } from "./tables.ts";
-
-const TABLE_ID = "a".repeat(32);
 
 const NO_PUSHES = { ramsch: false, pushing: null, pushes: 0, push_factor: 1 };
 

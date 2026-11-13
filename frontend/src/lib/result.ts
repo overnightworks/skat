@@ -69,7 +69,7 @@ export type ResultView = {
 };
 // The head's mark: a tick for the sweeper of a Durchmarsch, a cross for the viewer who lost; another's loss has none.
 export type RamschMark = "tick" | "cross";
-export type EyeCount = { seat: number; name: string; points: number; strong: boolean };
+export type EyeCount = { seat: number; text: string; strong: boolean };
 // The Ramsch's card: its head, the loser's eyes, the factors that multiply them, the value and each seat's eyes.
 export type RamschView = {
     word: string;
@@ -334,8 +334,10 @@ export function ramschResultView(table: Table): RamschView | null {
         loss: sweeper === undefined,
         counts: ownFirst(chairs).map(({ seat, is_mine }) => ({
             seat,
-            name: is_mine ? words["result.sideYou"] : shownName(chairs, seat),
-            points: (result.seats.find((one) => one.seat === seat) as RamschSeat).points,
+            text: words["result.eyeCount"]({
+                name: is_mine ? words["result.sideYou"] : shownName(chairs, seat),
+                points: String((result.seats.find((one) => one.seat === seat) as RamschSeat).points),
+            }),
             strong: strong.some((one) => one.seat === seat),
         })),
         rows: reckoningRows(
