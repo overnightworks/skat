@@ -430,7 +430,9 @@ class _Calling:
     async def _send_away_refusal(
         self, request: Request, table_id: TableId, key: str, *, viewer_is_member: bool
     ) -> CallRefusal | None:
-        """None exactly when `offer_of` answers `here` for the agent of the key."""
+        """None exactly when `offer_of` answers `here` for the agent of the key; the person's own refusals keep their
+        tokens and any other answer, an agent that holds no chair here, is `agent-unavailable`, never a call's reason.
+        """
         chosen = next(
             (
                 agent
@@ -444,7 +446,9 @@ class _Calling:
         answer = chosen.offer.answer
         if answer is OfferState.HERE:
             return None
-        return REFUSAL_TOKENS[answer] if isinstance(answer, InviteRefusal) else CallRefusal.AGENT_UNAVAILABLE
+        if answer in {InviteRefusal.NOT_PRESENT, InviteRefusal.NOT_A_MEMBER}:
+            return REFUSAL_TOKENS[answer]
+        return CallRefusal.AGENT_UNAVAILABLE
 
     async def _replayed_send_away(self, request: Request, command: SendAway) -> CallRefusal | None:
         try:

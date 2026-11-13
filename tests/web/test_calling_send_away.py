@@ -256,6 +256,19 @@ class TestASendAwayThatChangesNothing(CallingTable):
             assert call(skat, felix, table_id, key).status_code == 200
             assert offer_of(nova).epoch == 0
 
+    def test_an_agent_that_holds_no_chair_while_the_table_is_full_is_agent_unavailable_and_writes_nothing(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA) as nova:
+            key = only_row(skat, felix, table_id)["key"]
+            seat_of_nobody_but(skat, table_id, 2)
+            before = skat.store.tables[table_id].version
+
+            answer = send_away(skat, felix, table_id, key)
+
+            assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.AGENT_UNAVAILABLE})
+            assert (skat.store.tables[table_id].version, invitations_of(nova)) == (before, [])
+
     def test_the_refusal_of_an_agent_that_is_not_seated_leaves_its_command_id_unused(
         self, skat, issuer, felix, table_id
     ):
