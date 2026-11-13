@@ -29,9 +29,15 @@
         ),
     );
 
-    // Another length, set or rule is another command, so a retry never sends two requests under one id.
+    // Another length or another request is another command, so a retry never sends two requests under one id,
+    // and a sheet that shows what was asked before keeps its id, so a lost answer is replayed, not duplicated.
     function changed(): void {
         commandId = crypto.randomUUID();
+    }
+
+    function show(next: Options): void {
+        if (JSON.stringify(requestOf(next)) !== JSON.stringify(requestOf(sheet))) changed();
+        sheet = next;
     }
 
     async function choose(): Promise<void> {
@@ -57,13 +63,7 @@
     // A pick replaces whatever was changed on the sheet.
     function pick(set: RuleSet | null): void {
         picked = set;
-        sheet = set?.options ?? OFFICIAL;
-        changed();
-    }
-
-    function change(next: Options): void {
-        sheet = next;
-        changed();
+        show(set?.options ?? OFFICIAL);
     }
 
     function step(by: number): void {
@@ -207,7 +207,7 @@
         <div class="sheet-body" class:up={scrolledUp} class:down={scrolledDown} use:fades>
             <div class="rules">
                 {#each rows as row (row)}
-                    <RuleUnit {row} {sheet} picked={pickedOptions} disabled={opening} onchange={change} />
+                    <RuleUnit {row} {sheet} picked={pickedOptions} disabled={opening} onchange={show} />
                 {/each}
             </div>
         </div>
