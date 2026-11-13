@@ -289,7 +289,7 @@ body.key .frame *:not(.mo){animation:none!important}
 .sheet-body.up,.sheet-body.down{clip-path:inset(16px -24px)}
 .d1280 .sheet-body{gap:10px}
 .p360 .sheet .button{padding:0 12px}
-.sheet>.save,.sheet>.btns{flex:none}
+.sheet>.choice,.sheet>.stepper,.sheet>.sets,.sheet>.save,.sheet>.btns{flex:none}
 .sheet-body.down{-webkit-mask-image:linear-gradient(#000 calc(100% - 40px),transparent);mask-image:linear-gradient(#000 calc(100% - 40px),transparent)}
 .sheet-body.up{-webkit-mask-image:linear-gradient(transparent,#000 40px);mask-image:linear-gradient(transparent,#000 40px)}
 .sheet-body.up.down{-webkit-mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent)}
@@ -613,11 +613,11 @@ const savedName=(picked,on)=>{const set=RULE_SETS.find(t=>t.id===picked),added=H
   return on.length===set.on.length&&on.every(id=>set.on.includes(id))?'':`${set.name}, mit ${added.join(' und ')}`};
 const newTable=(x,y,w,on=[],picked='official',length=36,o={})=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w,'max-height':o.h})}"><h3>Neuer Tisch</h3>
   <span class="info" role="button" tabindex="0" title="Offen: steht in der Lobby. Privat: nur mit dem Link." aria-label="Info">i</span>
-  <div class="sheet-body"${o.scroll?` data-scroll="${o.scroll}"`:''}><div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
+  <div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
   <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
   ${lengthChoice(length)}
   ${setChoice(picked)}
-  ${rulesPart(on)}</div>${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
+  <div class="sheet-body"${o.scroll?` data-scroll="${o.scroll}"`:''}>${rulesPart(on)}</div>${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
   <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
 /* a listed table names its house rules under its name; a table without plays the official rules */
 const ruleChips=(on)=>`<span class="chips">${on.length?HOUSE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
@@ -727,9 +727,9 @@ ORDER.unshift(...LOBBY_SCENES.flatMap(([id,,,,widths])=>widths.map(w=>`${id}-${w
 /* the choice for a new table stands over the lobby */
 frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',lobbyBackdrop(390)+newTable(195,100,354),LENGTH_NOTE);
 frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',lobbyBackdrop(1280)+newTable(640,60,440),LENGTH_NOTE);
-/* the rules sheets: x and height by width; the sheet scrolls under its title while the offer to save and the buttons stay in reach */
+/* the rules sheets: x and height by width; only the rule rows scroll, under the set choice, while the title, the choices above, the offer to save and the buttons stay in reach */
 const RULES_SHEET={360:{x:180,w:324,top:40,h:716,frame:780},390:{x:195,w:354,top:40,h:780,frame:844},1280:{x:640,w:440,top:24,h:752,frame:800}};
-const UNFOLD_NOTES=[...LENGTH_NOTE,'Eine eingeschaltete Regel klappt unter sich in ihre Varianten auf, jede eine kurze Frage mit der gewählten Antwort. Eine Regel, die bei „Offiziell“ eingeschaltet wird, beginnt mit den Werten von „Felix“; bei einem gewählten Satz mit den Werten dieses Satzes. Das Blatt scrollt unter dem Titel; „Aufmachen“ und das Speichern bleiben immer in Reichweite.'];
+const UNFOLD_NOTES=[...LENGTH_NOTE,'Eine eingeschaltete Regel klappt unter sich in ihre Varianten auf, jede eine kurze Frage mit der gewählten Antwort. Eine Regel, die bei „Offiziell“ eingeschaltet wird, beginnt mit den Werten von „Felix“; bei einem gewählten Satz mit den Werten dieses Satzes. Nur die Regeln scrollen, unter der Wahl des Satzes; Titel, Satzwahl, „Aufmachen“ und das Speichern bleiben immer in Reichweite.'];
 const rulesScene=(id,title,on,picked,scroll)=>[360,390,1280].forEach(w=>{const z=RULES_SHEET[w];
   frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,lobbyBackdrop(w)+newTable(z.x,z.top,z.w,on,picked,36,{h:z.h,scroll}),UNFOLD_NOTES);ORDER.push(`${id}-${w}`)});
 rulesScene('rules-on','Neuer Tisch mit Hausregeln',['kontra','ramsch'],'official');
