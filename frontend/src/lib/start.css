@@ -619,6 +619,12 @@ body {
     }
 }
 
+@media (max-width: 360px) {
+    .sheet.question h3 {
+        font-size: 20px;
+    }
+}
+
 @media (min-width: 900px) {
     .sheet.question {
         width: 460px;
