@@ -1,8 +1,0 @@
-claim_id = "a86e4e0ba44148c38d106d897b94c83b"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "b314293e33f18c7b9770b24d0aa1d07031daebff"
-branch = "claude/issue-521-two-pills-on-a-phone-match-their-scenes"
-scope = ["frontend/src/lib/start.css", "frontend/src/routes/(start)/NewTableButton.svelte", "tests/e2e/test_rule_set_choice.py", "tests/e2e/test_table_series.py"]
-opened_commit = "e0c78aaed4d6bc11adec41ea8d2c19a1b4a75c6c"
-whole_reason = "Both are phone-width pill sizes in the one shared stylesheet and are proven in one drive against their scenes."
