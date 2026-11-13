@@ -178,6 +178,18 @@ def _roster_and_changes(
     return roster, resource_changes(roster.listening_changed)
 
 
+def _telling_agents(
+    tables: TableService, live_leases: Callable[[], frozenset[str]], changes: ResourceChanges, issuer: str
+) -> TableService:
+    """`tables` counting `live_leases` and telling agents their standing, their tables' views and their tools."""
+    return (
+        tables.with_leases(live_leases)
+        .with_standing_signal(standing_signal(changes, issuer))
+        .with_view_signal(view_signal(changes, issuer))
+        .with_tools_signal(tools_signal(changes, issuer))
+    )
+
+
 def _agent_heard(presence: Presence, roster: AgentRoster) -> Callable[[str, AgentFacts], None]:
     def heard(account_id: str, facts: AgentFacts) -> None:
         presence.renew_lease(account_id)
@@ -371,14 +383,8 @@ def create_app(
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     roster, changes = _roster_and_changes(resource_changes)
-    # Wrapped first, so the timers' commands capture the service that counts leases and tells agents their standing,
-    # their tables' views and their tools.
-    tables = (
-        tables.with_leases(lambda: presence.live_leases())
-        .with_standing_signal(standing_signal(changes, relying_party.issuer))
-        .with_view_signal(view_signal(changes, relying_party.issuer))
-        .with_tools_signal(tools_signal(changes, relying_party.issuer))
-    )
+    # Wrapped first, so the timers' commands capture the service that counts leases and tells agents.
+    tables = _telling_agents(tables, lambda: presence.live_leases(), changes, relying_party.issuer)
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
