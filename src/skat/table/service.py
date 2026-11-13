@@ -35,8 +35,10 @@ from skat.table.member_place import (
     table_offers_of,
 )
 from skat.table.member_view import (
+    MemberActs,
     MemberView,
     ViewSignal,
+    member_acts_of,
     member_view_of,
     moment_at,
     moment_recipients,
@@ -755,6 +757,13 @@ class TableService:
             return None
         present = present_at(table, connected_accounts, self._live_leases())
         return member_view_of(table, account_id, present, opener)
+
+    def member_acts(self, account_id: str, table_id: str) -> MemberActs | None:
+        """The acts of the live table's latest hand for the account that holds a chair there; None for any other
+        account, an ended table and a table that is not there.
+        """
+        table = self._table_read(table_id)
+        return member_acts_of(table, account_id) if isinstance(table, TableRecord) else None
 
     def moments_of(self, account_id: str) -> frozenset[TableMoment]:
         """The moments of the account's seats at the live tables it holds a chair at, from one read; the lobby moment
