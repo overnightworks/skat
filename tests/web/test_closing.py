@@ -81,7 +81,7 @@ class TestClose:
         answer = close(skat, visitor, table_id)
 
         assert (answer.status_code, answer.json()) == (409, {"reason": "not-allowed", "holder_name": None})
-        assert (skat.store.tables, skat.store.receipts) == before
+        assert before == (skat.store.tables, skat.store.receipts)
 
     def test_the_view_of_a_live_table_marks_it_only_for_its_opener(self, skat, table):
         headers, _, table_id = table
@@ -102,4 +102,4 @@ class TestClose:
         before = (dict(skat.store.tables), dict(skat.store.receipts))
 
         assert close(skat, FETCH, table_id).status_code == 401
-        assert (skat.store.tables, skat.store.receipts) == before
+        assert before == (skat.store.tables, skat.store.receipts)

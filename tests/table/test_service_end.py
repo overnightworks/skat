@@ -502,7 +502,7 @@ class TestClose:
         again = close(service, OPENER, table_id)
 
         assert again.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name)
-        assert (store.tables, store.receipts) == written
+        assert written == (store.tables, store.receipts)
 
     def test_the_command_id_is_refused_for_another_table(self, service, table_id):
         other = TableId(service.create(OPENER, CreateTable(command_id="command-other")).id)
@@ -517,7 +517,7 @@ class TestClose:
         result = close(service, VISITOR, dealt_id)
 
         assert result.refusal is Refusal.NOT_ALLOWED
-        assert (store.tables, store.receipts) == written
+        assert written == (store.tables, store.receipts)
 
     def test_the_command_id_is_refused_for_another_table_when_a_rival_close_commits_between_lookup_and_receipt(
         self, store, service, table_id
@@ -544,7 +544,7 @@ class TestClose:
         assert close(service, OPENER, table_id) is None
         assert close(service, OPENER, TableId("0" * 32)) is None
         assert service.close(OPENER, CloseTable("command-close", "not-an-id")) is None
-        assert (store.tables, store.receipts) == written
+        assert written == (store.tables, store.receipts)
 
     def test_the_closed_table_leaves_every_holders_paused_list(self, service, dealt_id):
         holders = (OPENER, VISITOR, THIRD)
