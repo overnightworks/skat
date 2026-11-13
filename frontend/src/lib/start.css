@@ -4218,6 +4218,14 @@ body {
     color: rgba(244, 246, 248, 0.6);
 }
 
+.room .tile.locked::before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: inherit;
+    border: 2px dashed rgba(244, 246, 248, 0.2);
+}
+
 .room .tile.locked svg {
     width: clamp(30px, 40%, 48px);
     padding: 8px;

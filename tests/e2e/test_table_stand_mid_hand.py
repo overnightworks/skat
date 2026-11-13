@@ -116,6 +116,12 @@ def test_the_person_who_stood_up_finds_a_lock_on_another_open_chair_and_sits_in_
     stands_up_through_the_key(person)
 
     expect(chair_of(person, other_seat).get_by_role("img", name=LOCKED)).to_be_visible()
+    ring_style = (
+        chair_of(person, other_seat)
+        .get_by_role("img", name=LOCKED)
+        .evaluate("tile => getComputedStyle(tile, '::before').borderTopStyle")
+    )
+    assert ring_style == "dashed"
     expect(chair_of(person, other_seat).get_by_role("button", name=SIT_DOWN)).to_have_count(0)
     expect(chair_of(table.watcher, other_seat).get_by_role("button", name=SIT_DOWN)).to_be_visible()
 
