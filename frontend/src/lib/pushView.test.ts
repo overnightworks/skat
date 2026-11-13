@@ -89,6 +89,10 @@ describe("what the stage before a Ramsch asks of this viewer", () => {
         expect(pushStage(table(FOREHAND, "choosing", { waiting_seat: 3 }))).toBeNull();
     });
 
+    it.each<Stage>(["picked", "declared"])("asks nothing at %s, a step of the declarer's stage", (stage) => {
+        expect(pushStage(table(FOREHAND, stage))).toBeNull();
+    });
+
     it("asks nothing once the stage is over", () => {
         expect(pushStage(table(FOREHAND, "choosing", { pushing: null }))).toBeNull();
     });
