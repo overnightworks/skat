@@ -506,7 +506,7 @@ describe("asking for a table", () => {
 });
 
 describe("the table's seats and link", () => {
-    const chair = (seat: number, isMine = false): Chair => ({
+    const chair = (seat: number, isMine = false, isMineToReturn = false): Chair => ({
         seat,
         occupant_name: null,
         occupant_kind: null,
@@ -516,11 +516,15 @@ describe("the table's seats and link", () => {
         total: null,
         hand: null,
         former_holder_name: null,
-        is_mine_to_return: false,
+        is_mine_to_return: isMineToReturn,
     });
 
     afterEach(() => {
         vi.unstubAllGlobals();
+    });
+
+    it("draws the chair a stood-up viewer may return to last, so the table keeps its turn", () => {
+        expect(drawingOrder([chair(0), chair(1, false, true), chair(2)]).map((each) => each.seat)).toEqual([2, 0, 1]);
     });
 
     it("draws the viewer's own chair last", () => {

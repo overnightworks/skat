@@ -96,6 +96,7 @@ def test_the_second_tap_stands_up_and_the_others_read_it_once_while_the_person_w
     expect(person.get_by_text(notice)).to_have_count(0)
     expect(chair_of(person, seat).get_by_role("button", name=SIT_DOWN)).to_be_visible()
     expect(chair_of(person, seat).locator(".fan-spot")).to_have_count(1)
+    expect(person.locator(".chair").last).to_have_attribute("data-seat", str(seat))
     expect(stand_key_of(person)).to_have_count(0)
 
 
