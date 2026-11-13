@@ -15,16 +15,11 @@ __all__ = ["accounts_at", "forget_table", "locked_entries_of", "locked_entry", "
 
 
 def _entry_of(row: Row[tuple[str, str, int, str | None, object, str | None, str | None, str | None]]) -> BookEntry:
-    invitation = (
-        None
-        if row.invitation_id is None
-        else OpenInvitation(
-            row.invitation_id,
-            row.invitation_expires_at,
-            row.owner_account,
-            row.inviter_account,
-            None if row.ended_outcome is None else CallOutcome(row.ended_outcome),
-        )
+    if row.invitation_id is None:
+        return BookEntry(TableId(row.table_id), row.agent_account, row.epoch)
+    ended = None if row.ended_outcome is None else CallOutcome(row.ended_outcome)
+    invitation = OpenInvitation(
+        row.invitation_id, row.invitation_expires_at, row.owner_account, row.inviter_account, ended
     )
     return BookEntry(TableId(row.table_id), row.agent_account, row.epoch, invitation)
 
