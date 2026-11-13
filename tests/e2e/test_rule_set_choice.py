@@ -82,8 +82,10 @@ def person_with_sets(
 ) -> Callable[..., Page]:
     """A signed-in person who saved the house set and the evening set through the API."""
 
-    def open_page(form_factor: dict[str, Any], *, username: str = "anna", sets: bool = True) -> Page:
-        person = record_page_errors(open_person(username=username, **form_factor), page_errors)
+    def open_page(form_factor: dict[str, Any], *, sets: bool = True, console: bool = True) -> Page:
+        # Every call is a new account: the server and its database live for the whole session, and a set saved by
+        # one test must not be offered to the next.
+        person = record_page_errors(open_person(**form_factor), page_errors, console=console)
         if sets:
             session = RawSession(e2e_server, member_of(person))
             save_rule_set(session, HOUSE_SET, HOUSE_OPTIONS)
@@ -105,7 +107,7 @@ def test_a_person_sees_the_official_rules_picked_and_their_own_sets_and_nobody_e
     form_factor: dict[str, Any],
 ) -> None:
     person = person_with_sets(form_factor)
-    other = person_with_sets(form_factor, username="ben", sets=False)
+    other = person_with_sets(form_factor, sets=False)
 
     sheet_of(person, e2e_server)
     sheet_of(other, e2e_server)
@@ -218,7 +220,7 @@ def test_a_rule_switched_off_after_a_lost_answer_opens_a_table_without_it_under_
     expected_request_failures: list[str],
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
-    person = person_with_sets(DESKTOP)
+    person = person_with_sets(DESKTOP, console=False)
     attempts: list[dict[str, Any]] = []
 
     def lose_the_first_answer(route: Any) -> None:
@@ -266,7 +268,7 @@ def test_the_official_rules_stay_offered_with_a_notice_when_the_own_sets_cannot_
     expected_request_failures: list[str],
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{RULE_SETS_PATH}")
-    person = person_with_sets(DESKTOP)
+    person = person_with_sets(DESKTOP, console=False)
     person.route(f"**{RULE_SETS_PATH}", lambda route: route.abort())
 
     sheet_of(person, e2e_server)
