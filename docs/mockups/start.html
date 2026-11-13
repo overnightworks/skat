@@ -261,8 +261,39 @@ body.key .frame *:not(.mo){animation:none!important}
 .rule small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
 .rule.sub{margin-left:26px;min-height:46px;position:relative}
 .rule.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
-.rule.sub .ic{width:30px;height:30px}
-.rule.sub .ic svg{width:17px;height:17px}
+/* a rule switched on unfolds into its variants: one question per line, one glance per question, the answer a pill; Felix's values are picked */
+.unit{display:flex;flex-direction:column;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
+.unit>.rule{background:none;box-shadow:none}
+.unit.sub{margin-left:26px;position:relative}
+.unit.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
+.unit.sub>.rule{min-height:46px}
+.rule.sub .ic,.unit.sub .rule .ic{width:30px;height:30px}
+.rule.sub .ic svg,.unit.sub .rule .ic svg{width:17px;height:17px}
+.vars{display:flex;flex-direction:column;gap:10px;padding:2px 12px 12px}
+.ask{display:flex;flex-direction:column;gap:5px}
+.ask .q{font-size:12.5px;font-weight:600;line-height:1.2;color:var(--on-stage-soft)}
+.pick{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px}
+.pk{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:40px;padding:4px 8px;border-radius:999px;background:var(--glass);color:var(--on-stage);
+  font-size:13px;font-weight:600;line-height:1.15;text-align:center;box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);cursor:pointer}
+.pk svg{width:14px;height:14px;flex:none}
+.pk.on{background:var(--accent-stage);color:var(--stage);box-shadow:none}
+.flags{display:flex;flex-direction:column;gap:4px}
+.flag{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px 0 12px;border-radius:12px;background:rgba(0,0,0,.22);font-size:14px;font-weight:600}
+.flag>span:first-child{flex:1;min-width:0}
+.sw.sm{width:40px;height:24px}
+.sw.sm i{width:18px;height:18px}
+.sw.sm.on i{left:19px}
+.sw.sm i svg{width:11px;height:11px}
+/* the sheet scrolls under its title; the offer to save and the buttons stay in reach, a fade shows more above or below */
+.sheet-body{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px;flex:0 1 auto;min-height:0;width:calc(100% + 48px);margin:-24px;padding:24px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.sheet-body.up,.sheet-body.down{clip-path:inset(16px -24px)}
+.d1280 .sheet-body{gap:10px}
+.p360 .sheet .button{padding:0 12px}
+.sheet>.choice,.sheet>.stepper,.sheet>.sets,.sheet>.save,.sheet>.btns{flex:none}
+.sheet-body.down{-webkit-mask-image:linear-gradient(#000 calc(100% - 40px),transparent);mask-image:linear-gradient(#000 calc(100% - 40px),transparent)}
+.sheet-body.up{-webkit-mask-image:linear-gradient(transparent,#000 40px);mask-image:linear-gradient(transparent,#000 40px)}
+.sheet-body.up.down{-webkit-mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent)}
+.sheet-body>*{flex:none}
 .sw{flex:none;position:relative;width:48px;height:28px;border-radius:999px;background:var(--glass);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
 .sw i{position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#f4ecd9;color:var(--stage);box-shadow:0 2px 4px rgba(0,0,0,.5)}
 .sw i svg{display:none;width:13px;height:13px}
@@ -294,7 +325,7 @@ body.key .frame *:not(.mo){animation:none!important}
 .save .ic svg{width:20px;height:20px}
 .save .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .save b{font-size:15px;font-weight:600;line-height:1.2;color:var(--accent-stage)}
-.save .name{height:28px;padding:0 12px;border-radius:999px;display:flex;align-items:center;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);font-size:14px;color:var(--on-stage)}
+.save .name{min-height:28px;padding:4px 12px;line-height:1.25;border-radius:999px;display:flex;align-items:center;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);font-size:14px;color:var(--on-stage)}
 @media (prefers-reduced-motion:no-preference){
   .sheet{animation:rise .5s cubic-bezier(.2,.9,.3,1.2) both}
   @keyframes rise{from{translate:0 30px;opacity:0;scale:.94}}
@@ -546,13 +577,31 @@ const cta=(x,y)=>`<span class="cta" role="button" style="${at({left:x,top:y})}">
 /* the house rules of a new table, in the order of how common they are; each is off until switched on */
 const HOUSE_RULES=[
   {id:'points',ic:I.points,name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel',chip:'Augen'},
-  {id:'kontra',ic:I.kontra,name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',chip:'Kontra'},
-  {id:'ramsch',ic:I.ramsch,name:'Ramsch beim Einpassen',line:'Alle passen: jeder gegen jeden',chip:'Ramsch',sub:{id:'schieben',ic:I.schieben,name:'Schieberamsch',line:'Den Skat weiterschieben'}},
-  {id:'bock',ic:I.bock,name:'Bockrunden',line:'Manche Spiele zählen doppelt',chip:'Bock'},
+  {id:'kontra',ic:I.kontra,name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',chip:'Kontra',vars:[
+    {q:'Wer darf Kontra sagen?',pick:['Jeder Gegner','Nur wer gereizt hat'],at:1},
+    {q:'Wie weit geht es?',pick:['Kontra, Re','mit Ständen','bis Hirsch'],at:2}]},
+  {id:'ramsch',ic:I.ramsch,name:'Ramsch beim Einpassen',line:'Alle passen: jeder gegen jeden',chip:'Ramsch',vars:[
+    {q:'Wie zählt der Ramsch?',pick:['Augen','Augen durch 10','Skat zum Verlierer'],at:0},
+    {q:'Jungfrau (kein Stich)',pick:['Verlierer doppelt','Aus'],at:0},
+    {q:'Durchmarsch (alle Stiche)',pick:['Gewinnt 120','120, nicht doppelt','Aus'],at:0}],
+    sub:{id:'schieben',ic:I.schieben,name:'Schieberamsch',line:'Den Skat weiterschieben',vars:[
+      {q:'Was beim Schieben gilt',pick:['Buben bleiben','Buben dürfen weg','Nicht doppelt'],at:0},
+      {q:'Grand Hand statt Ramsch',pick:['Aus','Erlaubt'],at:0}]}},
+  {id:'bock',ic:I.bock,name:'Bockrunden',line:'Manche Spiele zählen doppelt',chip:'Bock',vars:[
+    {q:'Bock gibt es nach',flags:[['60 zu 60',1],['Grand Hand gewonnen',1],['Verloren nach Kontra',1],['Re',1],['Alle gepasst',0],['Schneider',0]]},
+    {q:'Neuer Auslöser im Bock',pick:['Runden dazu','Nochmal doppelt','Zählt nicht'],at:0}]},
 ];
 const ruleRow=(r,on,sub)=>`<div class="rule ${sub?'sub':''} ${on.includes(r.id)?'on':''}" role="group" aria-label="${r.name}"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.line}</small></span>
   <span class="sw ${on.includes(r.id)?'on':''}" role="switch" tabindex="0" aria-checked="${on.includes(r.id)}" aria-label="${r.name}"><i>${I.check}</i></span></div>`;
-const rulesPart=(on)=>`<div class="rules">${HOUSE_RULES.map(r=>ruleRow(r,on)+(r.sub&&on.includes(r.id)?ruleRow(r.sub,on,true):'')).join('')}</div>`;
+/* a rule's variants start with the values of the picked set; „Offiziell“ holds none, so a rule switched on there starts with Felix's */
+const askRow=(a)=>a.flags
+  ?`<div class="ask" role="group" aria-label="${a.q}"><span class="q">${a.q}</span><div class="flags">${a.flags.map(([name,v])=>`<div class="flag"><span>${name}</span><span class="sw sm ${v?'on':''}" role="switch" tabindex="0" aria-checked="${!!v}" aria-label="${name}"><i>${I.check}</i></span></div>`).join('')}</div></div>`
+  :`<div class="ask" role="radiogroup" aria-label="${a.q}"><span class="q">${a.q}</span><div class="pick" style="--n:${a.pick.length}">${a.pick.map((name,i)=>`<span class="pk ${i===a.at?'on':''}" role="radio" aria-checked="${i===a.at}" tabindex="0">${i===a.at?I.check:''}${name}</span>`).join('')}</div></div>`;
+/* a rule switched on unfolds into its variants; one with none, or off, stays the plain row */
+const ruleUnit=(r,on,sub)=>on.includes(r.id)&&r.vars
+  ?`<div class="unit ${sub?'sub':''}">${ruleRow(r,on)}<div class="vars">${r.vars.map(askRow).join('')}</div></div>`
+  :ruleRow(r,on,sub);
+const rulesPart=(on)=>`<div class="rules">${HOUSE_RULES.map(r=>ruleUnit(r,on)+(r.sub&&on.includes(r.id)?ruleUnit(r.sub,on,true):'')).join('')}</div>`;
 /* the sets a person can pick when opening a table; the official one is the default */
 const RULE_SETS=[{id:'official',name:'Offiziell',on:[]},{id:'felix',name:'Felix',on:['kontra','ramsch','schieben','bock']},{id:'skatabend',name:'Skatabend',on:[]}];
 const setChoice=(picked)=>`<div class="sets" role="radiogroup" aria-label="Regeln">${RULE_SETS.map(t=>`<span class="set ${t.id===picked?'on':''}" role="radio" aria-checked="${t.id===picked}" tabindex="0">${t.id===picked?I.check:''}${t.name}</span>`).join('')}</div>`;
@@ -562,13 +611,13 @@ const saveOffer=(name)=>`<div class="save" role="group" aria-label="Als eigene R
 /* a switch changed away from the picked set offers to save the result as the person's own rules */
 const savedName=(picked,on)=>{const set=RULE_SETS.find(t=>t.id===picked),added=HOUSE_RULES.filter(r=>r.chip&&on.includes(r.id)&&!set.on.includes(r.id)).map(r=>r.chip);
   return on.length===set.on.length&&on.every(id=>set.on.includes(id))?'':`${set.name}, mit ${added.join(' und ')}`};
-const newTable=(x,y,w,on=[],picked='official',length=36)=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w})}"><h3>Neuer Tisch</h3>
+const newTable=(x,y,w,on=[],picked='official',length=36,o={})=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w,'max-height':o.h})}"><h3>Neuer Tisch</h3>
   <span class="info" role="button" tabindex="0" title="Offen: steht in der Lobby. Privat: nur mit dem Link." aria-label="Info">i</span>
   <div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
   <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
   ${lengthChoice(length)}
   ${setChoice(picked)}
-  ${rulesPart(on)}${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
+  <div class="sheet-body"${o.scroll?` data-scroll="${o.scroll}"`:''}>${rulesPart(on)}</div>${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
   <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
 /* a listed table names its house rules under its name; a table without plays the official rules */
 const ruleChips=(on)=>`<span class="chips">${on.length?HOUSE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
@@ -587,7 +636,7 @@ frame('s3-empty-1280','Niemand spielt','Desktop 1280 px','d1280',
   +table({x:340,y:318,w:600,h:420,tr:210,rim:16,ry:'44%',rs:200})
   +`<div class="lull" role="status" style="${at({left:640,top:350})}">Gerade spielt niemand</div>`
   +jacks(640,544,100)+cta(640,600)+legal);
-ORDER.push(...['s3-empty','s3-new','rules-on','rules-set'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
+ORDER.push(...['s3-empty','s3-new'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
 /* the clock of a chip and the running totals of the coasters */
 I.clock=sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',2);
 const standing=(v)=>v<0?`−${-v}`:`${v}`;
@@ -678,16 +727,24 @@ ORDER.unshift(...LOBBY_SCENES.flatMap(([id,,,,widths])=>widths.map(w=>`${id}-${w
 /* the choice for a new table stands over the lobby */
 frame('s3-new-390','Neuer Tisch','Handy 390 px','p390',lobbyBackdrop(390)+newTable(195,100,354),LENGTH_NOTE);
 frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',lobbyBackdrop(1280)+newTable(640,60,440),LENGTH_NOTE);
-frame('rules-on-390','Neuer Tisch mit Hausregeln','Handy 390 px','p390',lobbyBackdrop(390)+newTable(195,40,354,['kontra','ramsch']),LENGTH_NOTE);
-frame('rules-on-1280','Neuer Tisch mit Hausregeln','Desktop 1280 px','d1280',lobbyBackdrop(1280)+newTable(640,24,440,['kontra','ramsch']),LENGTH_NOTE);
-frame('rules-set-390','Neuer Tisch mit eigenem Regelsatz','Handy 390 px','p390',lobbyBackdrop(390)+newTable(195,40,354,['points','kontra','ramsch','schieben','bock'],'felix'),LENGTH_NOTE);
-frame('rules-set-1280','Neuer Tisch mit eigenem Regelsatz','Desktop 1280 px','d1280',lobbyBackdrop(1280)+newTable(640,24,440,['points','kontra','ramsch','schieben','bock'],'felix'),LENGTH_NOTE);
+/* the rules sheets: x and height by width; only the rule rows scroll, under the set choice, while the title, the choices above, the offer to save and the buttons stay in reach */
+const RULES_SHEET={360:{x:180,w:324,top:40,h:716,frame:780},390:{x:195,w:354,top:40,h:780,frame:844},1280:{x:640,w:440,top:24,h:752,frame:800}};
+const UNFOLD_NOTES=[...LENGTH_NOTE,'Eine eingeschaltete Regel klappt unter sich in ihre Varianten auf, jede eine kurze Frage mit der gewählten Antwort. Eine Regel, die bei „Offiziell“ eingeschaltet wird, beginnt mit den Werten von „Felix“; bei einem gewählten Satz mit den Werten dieses Satzes. Nur die Regeln scrollen, unter der Wahl des Satzes; Titel, Satzwahl, „Aufmachen“ und das Speichern bleiben immer in Reichweite.'];
+const rulesScene=(id,title,on,picked,scroll)=>[360,390,1280].forEach(w=>{const z=RULES_SHEET[w];
+  frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,lobbyBackdrop(w)+newTable(z.x,z.top,z.w,on,picked,36,{h:z.h,scroll}),UNFOLD_NOTES);ORDER.push(`${id}-${w}`)});
+rulesScene('rules-on','Neuer Tisch mit Hausregeln',['kontra','ramsch'],'official');
+rulesScene('rules-set','Neuer Tisch mit eigenem Regelsatz',['points','kontra','ramsch','schieben','bock'],'felix',1);
+rulesScene('rules-detail','Neuer Tisch mit Bockrunden',['bock'],'official','end');
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
 if(solo){document.body.classList.add('solo');document.getElementById(solo).closest('section').classList.add('on');}
 if(q.has('key'))document.body.classList.add('key');
-document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{const f=b.closest('section').querySelector('.frame');f.replaceWith(f.cloneNode(true));}));
+/* a scrolling sheet starts where its scene says (top, the end, or an unfolded rule at the top) and fades toward the side that has more */
+const fade=(e)=>{e.classList.toggle('up',e.scrollTop>1);e.classList.toggle('down',e.scrollTop+e.clientHeight<e.scrollHeight-1);};
+const settle=(root)=>root.querySelectorAll('.sheet-body').forEach(e=>{const to=e.dataset.scroll;if(to==='end')e.scrollTop=e.scrollHeight;else if(to)e.scrollTop=e.querySelectorAll(".unit")[+to].offsetTop-32;fade(e);e.addEventListener('scroll',()=>fade(e));});
+settle(document);
+document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{const f=b.closest('section').querySelector('.frame');const c=f.cloneNode(true);f.replaceWith(c);settle(c);}));
 </script>
 <style>
 /* Open Sans as appkit ships it (latin, 400 and 600), embedded so the page needs no network */
