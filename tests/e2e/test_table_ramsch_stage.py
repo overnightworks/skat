@@ -6,14 +6,16 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
+from skat.web.mcp import AUCTION_PASS_TOOL, SIT_DOWN_TOOL
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX, TABLE_PUSHING_PUT_BACK_SUFFIX, TABLE_PUSHING_TAKE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
-from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS, McpAgent
 from tests.e2e.support.tables import sit_in, watch
+from tests.support.signed_in import seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -35,7 +37,11 @@ BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
 WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
 CHOOSES = text(SOURCE_LANGUAGE, "table.chooses")
 DISCARDS = text(SOURCE_LANGUAGE, "table.discards")
+THINKS = text(SOURCE_LANGUAGE, "table.thinks")
 CARDS_AFTER_A_TAKE = 12
+POSITIONS = ("forehand", "middlehand", "rearhand")
+AGENT_SEAT = 3
+DESKTOP_FROM = 900
 
 
 def pushes(count: int) -> str:
@@ -48,7 +54,8 @@ def factor(value: int) -> str:
 
 class RamschStageTable:
     """A table with Ramsch and pushing opened through the API, three browsers at its chairs and one watching; the
-    stage is stepped through the API and every page is read as a person reads it.
+    stage is stepped through the API and every page is read as a person reads it. With an agent, it sits at the third
+    chair instead of the third person and passes through its tool.
     """
 
     def __init__(
@@ -60,15 +67,24 @@ class RamschStageTable:
         form_factor: dict[str, Any],
         *,
         rule: str,
+        agent: McpAgent | None = None,
     ) -> None:
+        self.agent = agent
+        seated = ("anna", "ben") if agent else ("anna", "ben", "cleo")
         people = {
             username: record_page_errors(open_person(username=username, **form_factor), page_errors)
-            for username in ("anna", "ben", "cleo", "dora")
+            for username in (*seated, "dora")
         }
         self.sessions = {
-            seat: AddressedSession(server, member_of(people[username]))
-            for seat, username in enumerate(("anna", "ben", "cleo"), start=1)
+            seat: AddressedSession(server, member_of(people[username])) for seat, username in enumerate(seated, start=1)
         }
+        if agent:
+            agent.request("tools/list")
+            account = server.stores.accounts.get(agent.subject)
+            assert account is not None
+            self.sessions[AGENT_SEAT] = AddressedSession(
+                server, seed_member(server.stores, server.config, account=account)
+            )
         options = {
             "ramsch": {
                 "occasion": "passed-in",
@@ -85,9 +101,14 @@ class RamschStageTable:
         page_path = f"{TABLE_PAGE_PREFIX}{self.api_path.removeprefix(TABLES_PATH + '/')}"
         for person in people.values():
             watch(person, server, page_path)
-        for seat in (2, 3):
-            sit_in(people[("anna", "ben", "cleo")[seat - 1]], seat)
-        self.pages = {1: people["anna"], 2: people["ben"], 3: people["cleo"]}
+        for seat, username in enumerate(seated[1:], start=2):
+            sit_in(people[username], seat)
+        if agent:
+            sat_failed, sat_text = agent.call(
+                SIT_DOWN_TOOL, table_id=self.api_path.rsplit("/", 1)[1], seat=AGENT_SEAT, command_id=self._command()
+            )
+            assert not sat_failed, sat_text
+        self.pages = {seat: people[username] for seat, username in enumerate(seated, start=1)}
         self.watcher = people["dora"]
         self.everyone = [*self.pages.values(), self.watcher]
         chairs = self.view(1)["chairs"]
@@ -106,6 +127,13 @@ class RamschStageTable:
 
     def step(self, seat: int, suffix: str, **fields: object) -> None:
         version = self.view(seat)["version"]
+        if self.agent and seat == AGENT_SEAT:
+            assert suffix == TABLE_AUCTION_PASS_SUFFIX
+            failed, text = self.agent.call(
+                AUCTION_PASS_TOOL, table_id=self.api_path.rsplit("/", 1)[1], command_id=self._command(), version=version
+            )
+            assert not failed, text
+            return
         self.sessions[seat].post(
             f"{self.api_path}{suffix}", {"command_id": self._command(), "version": version, **fields}
         )
@@ -300,3 +328,53 @@ def test_an_open_chair_makes_the_plaque_wait_and_leaves_nobody_on_turn(
         expect(person.locator(PLAQUE)).not_to_contain_text(CHOOSES)
         expect(person.locator(TURN_CHAIR)).to_have_count(0)
     table.expect_nothing_to_overflow([*still_seated, table.watcher])
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_an_agent_on_turn_wears_denkt_beside_the_turn_mark_for_everyone(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschStageTable(
+        open_person,
+        e2e_server,
+        member_of,
+        page_errors,
+        form_factor,
+        rule="jacks-stay",
+        agent=McpAgent(e2e_server, "agent-subject-mozart"),
+    )
+    agent_position = next(position for position in POSITIONS if table.seat_of(position) == AGENT_SEAT)
+    for position in POSITIONS[: POSITIONS.index(agent_position)]:
+        table.push(position)
+
+    table.expect_the_turn_at(agent_position)
+    for person in table.everyone:
+        chair = table.chair(person, agent_position)
+        thinks = chair.locator(".mark.think")
+        expect(person.locator(".mark.think")).to_have_count(1)
+        expect(thinks).to_be_visible()
+        expect(thinks).to_have_css("position", "absolute")
+        think_box = thinks.bounding_box()
+        turn_box = chair.locator(".mark.turn").bounding_box()
+        chair_box = chair.bounding_box()
+        assert think_box is not None
+        assert turn_box is not None
+        assert chair_box is not None
+        assert chair_box["x"] <= think_box["x"]
+        assert think_box["x"] + think_box["width"] <= chair_box["x"] + chair_box["width"]
+        assert (
+            think_box["x"] + think_box["width"] <= turn_box["x"] or turn_box["x"] + turn_box["width"] <= think_box["x"]
+        )
+        if form_factor["viewport"]["width"] >= DESKTOP_FROM:
+            expect(thinks).to_contain_text(THINKS)
+            assert thinks.evaluate("mark => getComputedStyle(mark).fontSize") != "0px"
+    table.expect_nothing_to_overflow()
+
+    table.reload_everyone()
+
+    for person in table.everyone:
+        expect(table.chair(person, agent_position).locator(".mark.think")).to_be_visible()
