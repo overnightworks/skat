@@ -4661,7 +4661,7 @@ body {
     display: block;
 }
 
-/* The table's rules: the chips on the felt and the read-only sheet behind them. On a phone the chips take a row of their own under the top row (the bar wraps); from 900 px they stand centred in it. */
+/* The table's rules: the chips on the felt and the read-only sheet behind them. From 390 px on a phone the chips take a row of their own under the top row (the bar wraps); from 900 px they stand centred in it. */
 .room .rules-slot {
     order: 3;
     display: flex;
@@ -4725,6 +4725,15 @@ body {
 .room.framed .rules-slot {
     order: 0;
     flex: 0 1 auto;
+}
+
+/* Below the 390 px of the drawn phone the screen has no height to spare: the chips take the gap of the top row when they fit and wrap to a row of their own when they do not. */
+@media (max-width: 389px) {
+    .room .rules-slot {
+        order: 0;
+        flex: 0 1 auto;
+        margin-inline: auto;
+    }
 }
 
 @media (min-width: 900px) {
