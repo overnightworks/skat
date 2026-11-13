@@ -18,7 +18,8 @@ from skat.web.tables import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from skat.table.service import CommandResult, TableService
+    from skat.table.service import TableService
+    from skat.table.views import CommandResult
     from skat.web.presence import Presence
 
 # „Weiter“ after a result: `TABLES_PATH/{table_id}` plus this.
