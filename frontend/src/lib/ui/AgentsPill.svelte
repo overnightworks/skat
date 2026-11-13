@@ -13,12 +13,21 @@
     // `streamedVersion` is the version of the latest table the page's stream brought, null before the first: the first
     // one means the viewer has a stream on the table, which the control needs, and each later one is read only while
     // the list is open or when the agents seated changed, which can show the pill to an owner or take it away.
+    // `watchers` is how many people watch without a chair: an owner who comes to the table lists his agent without any
+    // change of the table, so an open list follows that count too.
     const {
         tableId,
         streamedVersion,
         seatedAgents,
+        watchers,
         kitWords,
-    }: { tableId: string; streamedVersion: number | null; seatedAgents: string; kitWords: KitWords } = $props();
+    }: {
+        tableId: string;
+        streamedVersion: number | null;
+        seatedAgents: string;
+        watchers: number;
+        kitWords: KitWords;
+    } = $props();
 
     let control = $state<AgentsControl>({ shown: false, rows: [] });
     let refusal = $state<AgentControlRefusal | undefined>();
@@ -44,8 +53,11 @@
         };
     });
 
+    // What the latest streamed table brought that can change the list, null before the first table.
+    const streamedFacts = $derived(streamedVersion === null ? null : [streamedVersion, watchers]);
+
     $effect(() => {
-        if (streamedVersion === null) return;
+        if (streamedFacts === null) return;
         const firstTable = seatedAgentsAtLastTable === undefined;
         const agentsChanged = seatedAgents !== seatedAgentsAtLastTable;
         seatedAgentsAtLastTable = seatedAgents;
