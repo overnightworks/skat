@@ -611,6 +611,10 @@ msgctxt "result.eyes"
 msgid "{points} Augen"
 msgstr ""
 
+msgctxt "result.eyeCount"
+msgid "{name} {points}"
+msgstr ""
+
 msgctxt "result.loses"
 msgid "{name} verliert"
 msgstr ""
