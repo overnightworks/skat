@@ -243,6 +243,14 @@ msgctxt "table.givesUp"
 msgid "{name} gibt auf"
 msgstr ""
 
+msgctxt "table.giveUp"
+msgid "Aufgeben"
+msgstr ""
+
+msgctxt "table.giveUpSure"
+msgid "Wirklich aufgeben?"
+msgstr ""
+
 msgctxt "table.accept"
 msgid "Annehmen"
 msgstr ""
