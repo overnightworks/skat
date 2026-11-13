@@ -128,7 +128,11 @@ class PlayingTable:
     def ready_through_the_api(self, seat: int) -> None:
         """„Weiter“ for the result the seat's own view shows."""
         command_id = f"playing-ready-{next(command_numbers):04d}"
-        body = {"command_id": command_id, "ordinal": self.view(seat)["result"]["ordinal"]}
+        body = {
+            "command_id": command_id,
+            "ordinal": self.view(seat)["result"]["ordinal"],
+            "series": self.view(seat)["series"]["number"],
+        }
         self.declaring.sessions[seat].post(f"{self.declaring.api_path}{TABLE_READY_SUFFIX}", body)
 
     def a_lead_the_middlehand_must_follow(self) -> WireCard:
