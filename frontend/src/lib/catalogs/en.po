@@ -891,6 +891,194 @@ msgctxt "start.rulePointsLine"
 msgid "Alle sehen die Augen im Spiel"
 msgstr "Everyone sees the points during play"
 
+msgctxt "start.ruleSets"
+msgid "Regeln"
+msgstr "Rules"
+
+msgctxt "start.setOfficial"
+msgid "Offiziell"
+msgstr "Official"
+
+msgctxt "start.setsUnreadable"
+msgid "Deine eigenen Regeln ließen sich nicht lesen."
+msgstr "Your own rules could not be read."
+
+msgctxt "start.ruleKontra"
+msgid "Kontra und Re"
+msgstr "Kontra and Re"
+
+msgctxt "start.ruleKontraLine"
+msgid "Verdoppeln und zurückdoppeln"
+msgstr "Double and redouble"
+
+msgctxt "start.ruleRamsch"
+msgid "Ramsch beim Einpassen"
+msgstr "Ramsch when everyone passes"
+
+msgctxt "start.ruleRamschLine"
+msgid "Alle passen: jeder gegen jeden"
+msgstr "Everyone passes: each plays against all"
+
+msgctxt "start.rulePushing"
+msgid "Schieberamsch"
+msgstr "Pushing Ramsch"
+
+msgctxt "start.rulePushingLine"
+msgid "Den Skat weiterschieben"
+msgstr "Push the skat on"
+
+msgctxt "start.ruleBock"
+msgid "Bockrunden"
+msgstr "Bock rounds"
+
+msgctxt "start.ruleBockLine"
+msgid "Manche Spiele zählen doppelt"
+msgstr "Some games count double"
+
+msgctxt "start.askKontraSayer"
+msgid "Wer darf Kontra sagen?"
+msgstr "Who may say Kontra?"
+
+msgctxt "start.pillAnyOpponent"
+msgid "Jeder Gegner"
+msgstr "Any opponent"
+
+msgctxt "start.pillBiddersOnly"
+msgid "Nur wer gereizt hat"
+msgstr "Only those who bid"
+
+msgctxt "start.askKontraReach"
+msgid "Wie weit geht es?"
+msgstr "How far does it go?"
+
+msgctxt "start.pillKontraRe"
+msgid "Kontra, Re"
+msgstr "Kontra, Re"
+
+msgctxt "start.pillKontraReStandings"
+msgid "mit Ständen"
+msgstr "with standings"
+
+msgctxt "start.pillUpToHirsch"
+msgid "bis Hirsch"
+msgstr "up to Hirsch"
+
+msgctxt "start.askRamschScoring"
+msgid "Wie zählt der Ramsch?"
+msgstr "How does Ramsch score?"
+
+msgctxt "start.pillScoringPoints"
+msgid "Augen"
+msgstr "Points"
+
+msgctxt "start.pillScoringPointsByTen"
+msgid "Augen durch 10"
+msgstr "Points divided by 10"
+
+msgctxt "start.pillScoringSkatToLoser"
+msgid "Skat zum Verlierer"
+msgstr "Skat to the loser"
+
+msgctxt "start.askJungfrau"
+msgid "Jungfrau (kein Stich)"
+msgstr "Jungfrau (no trick)"
+
+msgctxt "start.pillJungfrauDoublesLoser"
+msgid "Verlierer doppelt"
+msgstr "Loser doubled"
+
+msgctxt "start.pillJungfrauOff"
+msgid "Aus"
+msgstr "Off"
+
+msgctxt "start.askDurchmarsch"
+msgid "Durchmarsch (alle Stiche)"
+msgstr "Durchmarsch (all tricks)"
+
+msgctxt "start.pillDurchmarschWins120"
+msgid "Gewinnt 120"
+msgstr "Wins 120"
+
+msgctxt "start.pillDurchmarschWins120Flat"
+msgid "120, nicht doppelt"
+msgstr "120, not doubled"
+
+msgctxt "start.pillDurchmarschOff"
+msgid "Aus"
+msgstr "Off"
+
+msgctxt "start.askPushingRule"
+msgid "Was beim Schieben gilt"
+msgstr "What applies when pushing"
+
+msgctxt "start.pillPushingJacksStay"
+msgid "Buben bleiben"
+msgstr "Jacks stay"
+
+msgctxt "start.pillPushingJacksMayGo"
+msgid "Buben dürfen weg"
+msgstr "Jacks may go"
+
+msgctxt "start.pillPushingNoDoubling"
+msgid "Nicht doppelt"
+msgstr "Not doubled"
+
+msgctxt "start.askGrandHand"
+msgid "Grand Hand statt Ramsch"
+msgstr "Grand Hand instead of Ramsch"
+
+msgctxt "start.pillGrandHandOff"
+msgid "Aus"
+msgstr "Off"
+
+msgctxt "start.pillGrandHandAllowed"
+msgid "Erlaubt"
+msgstr "Allowed"
+
+msgctxt "start.askBockTriggers"
+msgid "Bock gibt es nach"
+msgstr "Bock comes after"
+
+msgctxt "start.flagSixtySixty"
+msgid "60 zu 60"
+msgstr "60 to 60"
+
+msgctxt "start.flagWonGrandHand"
+msgid "Grand Hand gewonnen"
+msgstr "Grand Hand won"
+
+msgctxt "start.flagLostAfterKontra"
+msgid "Verloren nach Kontra"
+msgstr "Lost after Kontra"
+
+msgctxt "start.flagRe"
+msgid "Re"
+msgstr "Re"
+
+msgctxt "start.flagPassedIn"
+msgid "Alle gepasst"
+msgstr "Everyone passed"
+
+msgctxt "start.flagSchneider"
+msgid "Schneider"
+msgstr "Schneider"
+
+msgctxt "start.askBockOverlap"
+msgid "Neuer Auslöser im Bock"
+msgstr "New trigger during Bock"
+
+msgctxt "start.pillOverlapAppend"
+msgid "Runden dazu"
+msgstr "Add rounds"
+
+msgctxt "start.pillOverlapMultiply"
+msgid "Nochmal doppelt"
+msgstr "Doubles again"
+
+msgctxt "start.pillOverlapIgnore"
+msgid "Zählt nicht"
+msgstr "Does not count"
+
 msgctxt "rules.button"
 msgid "Regeln"
 msgstr "Rules"
