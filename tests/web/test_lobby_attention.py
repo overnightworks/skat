@@ -64,54 +64,40 @@ async def next_attention(stream):
     return item.data
 
 
+def first_attention(scene, person, table_id):
+    async def scenario():
+        stream = scene.attention_stream(person, table_id)
+        number = await next_attention(stream)
+        await stream.aclose()
+        return number
+
+    return run_on_a_loop_of_its_own(scenario())
+
+
 class TestWhatIsCounted:
     def test_a_table_that_waits_for_the_person_counts_one_at_the_table_he_sits_at_alone(self, scene):
         deal_at_a_table_of_three(scene)
         solo = scene.open_table(ANNA)
 
-        async def scenario():
-            stream = scene.attention_stream(ANNA, solo)
-            number = await next_attention(stream)
-            await stream.aclose()
-            return number
-
-        assert run_on_a_loop_of_its_own(scenario()) == "1"
+        assert first_attention(scene, ANNA, solo) == "1"
 
     def test_the_table_the_stream_belongs_to_is_not_counted(self, scene):
         table_id = deal_at_a_table_of_three(scene)
 
-        async def scenario():
-            stream = scene.attention_stream(ANNA, table_id)
-            number = await next_attention(stream)
-            await stream.aclose()
-            return number
-
-        assert run_on_a_loop_of_its_own(scenario()) == "0"
+        assert first_attention(scene, ANNA, table_id) == "0"
 
     @pytest.mark.parametrize("person", [BEN, CLEO, DORA], ids=["another seat", "a third seat", "no chair"])
     def test_a_table_that_waits_for_another_member_never_counts_for_him(self, scene, person):
         deal_at_a_table_of_three(scene)
         elsewhere = scene.open_table(DORA)
 
-        async def scenario():
-            stream = scene.attention_stream(person, elsewhere)
-            number = await next_attention(stream)
-            await stream.aclose()
-            return number
-
-        assert run_on_a_loop_of_its_own(scenario()) == "0"
+        assert first_attention(scene, person, elsewhere) == "0"
 
     def test_a_person_without_a_chair_at_the_table_he_watches_gets_the_count_of_his_own_tables(self, scene):
         deal_at_a_table_of_three(scene)
         watched = scene.open_table(DORA)
 
-        async def scenario():
-            stream = scene.attention_stream(ANNA, watched)
-            number = await next_attention(stream)
-            await stream.aclose()
-            return number
-
-        assert run_on_a_loop_of_its_own(scenario()) == "1"
+        assert first_attention(scene, ANNA, watched) == "1"
 
     def test_a_table_that_does_not_wait_yet_counts_nothing_until_a_deal_makes_it_wait(self, scene):
         table_id = scene.open_table(ANNA)
