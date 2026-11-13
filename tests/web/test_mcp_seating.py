@@ -1,13 +1,14 @@
 """An agent opens a table, sits and stands like a person, and its chair says agent with the name its token carries."""
 
 import copy
+import json
 
 import pytest
 
 from skat.engine.deal import Position, seats_from
-from skat.table.records import Refusal
+from skat.table.records import Refusal, TableId
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.mcp import READ_SERIES_LIST_TOOL, THROW_DOWN_CARDS_TOOL
+from skat.web.mcp import OPEN_TABLE_TOOL, READ_SERIES_LIST_TOOL, THROW_DOWN_CARDS_TOOL
 from skat.web.tables import TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -76,6 +77,26 @@ class TestOpenTable:
 
         view = answer.json()
         assert (view["series"]["game_count"], view["options"]["show_running_points"]) == (12, True)
+
+    def test_a_table_is_open_unless_the_agent_opens_it_private_and_the_tool_offers_both(self, skat, agent):
+        agent.admitted()
+        tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
+
+        opened = agent.open_table(command_id="agent-open-open")
+        hidden = agent.open_table(command_id="agent-open-private", visibility="private")
+
+        assert "private" in json.dumps(tools[OPEN_TABLE_TOOL]["inputSchema"]["properties"]["visibility"])
+        assert skat.tables.open_table_ids() == (TableId(opened.json()["id"]),)
+        assert hidden.json()["id"] != opened.json()["id"]
+
+    def test_a_visibility_the_tool_does_not_know_is_refused_and_opens_nothing(self, skat, agent):
+        agent.admitted()
+        before = stored(skat)
+
+        refused = agent.open_table(visibility="secret")
+
+        assert refused.is_error
+        assert stored(skat)[0] == before[0]
 
     def test_the_same_id_with_the_same_request_opens_no_second_table_and_with_another_request_is_refused(
         self, skat, agent

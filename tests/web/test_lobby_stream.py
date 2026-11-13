@@ -8,7 +8,7 @@ import pytest
 
 from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
-from skat.table.records import Actor, SitDown, TableId
+from skat.table.records import Actor, SitDown, TableId, Visibility
 from skat.table.service import TableService
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent
@@ -60,6 +60,14 @@ async def next_mine(stream):
     item = await next_item(stream)
     assert isinstance(item, SourceMessage)
     assert item.event is StreamEvent.MINE
+    return json.loads(item.data)["tables"]
+
+
+async def next_open(stream):
+    """The tables of the next `open`; fails on any other item."""
+    item = await next_item(stream)
+    assert isinstance(item, SourceMessage)
+    assert item.event is StreamEvent.OPEN
     return json.loads(item.data)["tables"]
 
 
@@ -205,6 +213,162 @@ class TestWhoReceivesWhichTable:
         before, after = run_on_a_loop_of_its_own(scenario())
 
         assert (ids_of(before), after) == ([table_id], [])
+
+
+class TestTheOpenList:
+    def test_a_member_with_no_chair_gets_the_open_tables_with_their_free_chairs_and_the_opener_gets_none_of_his_own(
+        self,
+    ):
+        scene = Scene()
+        table_id = scene.open_table(ANNA)
+
+        async def scenario():
+            bens, annas = scene.open_stream(BEN), scene.open_stream(ANNA)
+            seen = await next_open(bens), await next_open(annas)
+            await bens.aclose()
+            await annas.aclose()
+            return seen
+
+        bens, annas = run_on_a_loop_of_its_own(scenario())
+
+        assert (ids_of(bens), [chair["occupant_name"] for chair in bens[0]["chairs"]], bens[0]["free_chairs"]) == (
+            [table_id],
+            ["Anna", None, None],
+            2,
+        )
+        assert annas == []
+
+    def test_a_private_table_is_in_no_open_list_and_in_the_opener_s_mine_with_a_lock(self):
+        scene = Scene()
+        table_id = scene.open_table(ANNA, Visibility.PRIVATE)
+
+        async def scenario():
+            bens, annas = scene.open_stream(BEN), scene.stream(ANNA)
+            seen = await next_open(bens), await next_mine(annas)
+            await bens.aclose()
+            await annas.aclose()
+            return seen
+
+        bens, annas = run_on_a_loop_of_its_own(scenario())
+
+        assert (bens, [(entry["id"], entry["private"]) for entry in annas]) == ([], [(table_id, True)])
+
+    def test_an_open_table_is_not_marked_private_in_mine(self):
+        scene = Scene()
+        scene.open_table(ANNA)
+
+        async def scenario():
+            stream = scene.stream(ANNA)
+            mine = await next_mine(stream)
+            await stream.aclose()
+            return mine
+
+        assert [entry["private"] for entry in run_on_a_loop_of_its_own(scenario())] == [False]
+
+    def test_the_list_follows_a_table_opened_a_sit_a_stand_up_a_close_and_an_end(self):
+        scene = Scene()
+
+        async def scenario():
+            stream = scene.open_stream(CLEO)
+            seen = [await next_open(stream)]
+            table_id = scene.open_table(ANNA)
+            seen.append(await next_open(stream))
+            scene.sit(BEN, table_id, 2)
+            seen.append(await next_open(stream))
+            scene.stand(BEN, table_id)
+            seen.append(await next_open(stream))
+            scene.close(ANNA, table_id)
+            seen.append(await next_open(stream))
+            ended = scene.open_table(ANNA)
+            seen.append(await next_open(stream))
+            assert scene.service.end_empty_table(TableId(ended), nullcontext(frozenset()), 0)
+            scene.presence.wake_table(ended)
+            seen.append(await next_open(stream))
+            await stream.aclose()
+            return table_id, ended, seen
+
+        table_id, ended, seen = run_on_a_loop_of_its_own(scenario())
+
+        assert [ids_of(tables) for tables in seen] == [[], [table_id], [table_id], [table_id], [], [ended], []]
+        assert [[chair["occupant_name"] for chair in tables[0]["chairs"]] for tables in seen[1:4]] == [
+            ["Anna", None, None],
+            ["Anna", "Ben", None],
+            ["Anna", None, None],
+        ]
+
+    def test_a_table_a_member_sits_at_leaves_his_open_list_and_joins_his_mine(self):
+        scene = Scene()
+        table_id = scene.open_table(ANNA)
+
+        async def scenario():
+            open_list, mine = scene.open_stream(BEN), scene.stream(BEN)
+            before = await next_open(open_list), await next_mine(mine)
+            scene.sit(BEN, table_id, 2)
+            after = await next_open(open_list), await next_mine(mine)
+            await open_list.aclose()
+            await mine.aclose()
+            return before, after
+
+        before, after = run_on_a_loop_of_its_own(scenario())
+
+        assert ([ids_of(each) for each in before], [ids_of(each) for each in after]) == (
+            [[table_id], []],
+            [[], [table_id]],
+        )
+
+    def test_a_table_with_a_free_chair_is_listed_before_a_full_one(self):
+        scene = Scene()
+        full = scene.open_table(ANNA)
+        scene.sit(BEN, full, 2)
+        scene.sit(CLEO, full, 3)
+        free = scene.open_table(ANNA)
+
+        async def scenario():
+            stream = scene.open_stream(Actor(account_id="account-dora", display_name="Dora"))
+            listed = await next_open(stream)
+            await stream.aclose()
+            return listed
+
+        listed = run_on_a_loop_of_its_own(scenario())
+
+        assert [(entry["id"], entry["free_chairs"]) for entry in listed] == [(free, 2), (full, 0)]
+
+    def test_an_away_member_at_an_undealt_open_table_shows_the_seconds_left_of_the_hold_from_presence(self):
+        scene = Scene()
+        table_id = scene.open_table(ANNA)
+        scene.presence.hold_chairs([(table_id, ANNA.account_id)])
+
+        async def scenario():
+            stream = scene.open_stream(BEN)
+            listed = await next_open(stream)
+            await stream.aclose()
+            return listed
+
+        (entry,) = run_on_a_loop_of_its_own(scenario())
+
+        assert [(chair["is_away"], chair["hold_seconds_left"]) for chair in entry["chairs"]] == [
+            (True, 300),
+            (False, None),
+            (False, None),
+        ]
+
+    def test_the_open_entry_carries_the_series_the_options_and_the_watchers_and_no_card_or_account(self):
+        scene = Scene()
+        table_id = scene.open_table(ANNA)
+
+        async def scenario():
+            await scene.presence.subscribe(table_id, CLEO.account_id, lambda: None)
+            stream = scene.open_stream(BEN)
+            listed = await next_open(stream)
+            await stream.aclose()
+            return listed
+
+        (entry,) = run_on_a_loop_of_its_own(scenario())
+
+        assert set(entry) == OPEN_ENTRY_FIELDS
+        assert all(set(chair) == OPEN_CHAIR_FIELDS for chair in entry["chairs"])
+        assert (entry["id"], entry["watchers"], entry["options"]["show_running_points"]) == (table_id, 1, False)
+        assert CLEO.account_id not in json.dumps(entry)
 
 
 class TestTheWakes:
@@ -480,6 +644,7 @@ class TestWhatTheEntriesCarry:
 
 ENTRY_FIELDS = {
     "id",
+    "private",
     "title_name",
     "game_number",
     "game_count",
@@ -491,7 +656,31 @@ ENTRY_FIELDS = {
     "ends_at",
     "chairs",
 }
-CHAIR_FIELDS = {"seat", "occupant_name", "occupant_kind", "is_mine", "ready", "total", "is_away", "is_turn"}
+CHAIR_FIELDS = {
+    "seat",
+    "occupant_name",
+    "occupant_kind",
+    "is_mine",
+    "ready",
+    "total",
+    "is_away",
+    "is_turn",
+    "hold_seconds_left",
+}
+OPEN_ENTRY_FIELDS = {
+    "id",
+    "title_name",
+    "game_number",
+    "game_count",
+    "options",
+    "watchers",
+    "free_chairs",
+    "dealt",
+    "waiting_seat",
+    "ends_at",
+    "chairs",
+}
+OPEN_CHAIR_FIELDS = {"seat", "occupant_name", "occupant_kind", "is_away", "hold_seconds_left"}
 
 
 EMPTY = {"tables": []}
@@ -499,23 +688,27 @@ HEARTBEAT_LINE = ": "
 HEARTBEATS_AWAITED = 10
 
 
-def next_event(lines):
-    """The next event of a response's lines as (name, decoded data), past any heartbeat comment."""
-    line = next(lines)
-    while line == HEARTBEAT_LINE:
-        assert next(lines) == ""
+def next_event(lines, named="mine"):
+    """The next event of a response's lines with the given name as (name, decoded data), past any heartbeat comment
+    and any event of another name.
+    """
+    while True:
         line = next(lines)
-    name = line.removeprefix("event: ")
-    data = json.loads(next(lines).removeprefix("data: "))
-    assert next(lines) == ""
-    return name, data
+        if line == HEARTBEAT_LINE:
+            assert next(lines) == ""
+            continue
+        name = line.removeprefix("event: ")
+        data = json.loads(next(lines).removeprefix("data: "))
+        assert next(lines) == ""
+        if name == named:
+            return name, data
 
 
 class TestTheRoute:
     def test_signed_out_gets_no_stream_and_no_data(self, skat):
         answer = skat.client.get(LOBBY_EVENTS_PATH, headers=FETCH)
 
-        assert (answer.status_code, "tables" in answer.text) == (401, False)
+        assert (answer.status_code, "tables" in answer.text, "event: open" in answer.text) == (401, False, False)
 
     def test_an_agents_bearer_token_gets_no_stream(self, skat, agent, issuer):
         agent.admitted()
@@ -535,7 +728,7 @@ class TestTheRoute:
 
         with skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=headers) as answer:
             lines = answer.iter_lines()
-            read = [next(lines) for _ in range(5)]
+            read = [next(lines) for _ in range(8)]
             answer.close()
 
         assert (answer.status_code, answer.headers["content-type"], answer.headers["cache-control"]) == (
@@ -543,7 +736,16 @@ class TestTheRoute:
             "text/event-stream; charset=utf-8",
             "no-store",
         )
-        assert read == ["event: mine", 'data: {"tables":[]}', "", ": ", ""]
+        assert read == [
+            "event: mine",
+            'data: {"tables":[]}',
+            "",
+            "event: open",
+            'data: {"tables":[]}',
+            "",
+            ": ",
+            "",
+        ]
 
     def test_a_table_opened_and_one_sat_at_through_the_routes_reach_the_open_lobbies_of_their_accounts_and_no_stranger(
         self, tables_skat
@@ -575,13 +777,41 @@ class TestTheRoute:
             bens.close()
 
         assert firsts == [("mine", EMPTY)] * 3
-        assert not any(line.startswith("event") for line in strangers_seen)
+        assert "event: mine" not in strangers_seen
         assert ids_of(opened["tables"]) == [table_id]
         assert [chair["occupant_name"] for chair in named["tables"][0]["chairs"]] == [anna.username, ben.username, None]
         assert (sat["tables"][0]["id"], [chair["is_mine"] for chair in sat["tables"][0]["chairs"]]) == (
             table_id,
             [False, True, False],
         )
+
+    def test_a_table_opened_private_through_the_route_reaches_only_its_opener_and_an_open_one_every_member(
+        self, tables_skat
+    ):
+        skat = tables_skat
+        annas_headers, _ = skat.member()
+        bens_headers, _ = skat.member()
+        skat.client.cookies.clear()
+
+        with (
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=annas_headers) as annas,
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=bens_headers) as bens,
+        ):
+            annas_lines, bens_lines = annas.iter_lines(), bens.iter_lines()
+            for lines in (annas_lines, bens_lines):
+                next_event(lines)
+                next_event(lines, "open")
+            skat.client.cookies.clear()
+            hidden = skat.create(annas_headers, command_id="command-private", visibility="private").json()["id"]
+            _, annas_mine = next_event(annas_lines)
+            skat.client.cookies.clear()
+            listed = skat.create(annas_headers, command_id="command-open").json()["id"]
+            _, bens_open = next_event(bens_lines, "open")
+            annas.close()
+            bens.close()
+
+        assert [(entry["id"], entry["private"]) for entry in annas_mine["tables"]] == [(hidden, True)]
+        assert ids_of(bens_open["tables"]) == [listed]
 
     def test_no_message_carries_a_card_a_card_count_or_the_account_of_anybody(self, skat):
         people = [skat.member() for _ in range(3)]
@@ -627,10 +857,9 @@ class TestTheRoute:
 
         with skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=headers) as answer:
             lines = answer.iter_lines()
-            first = next(lines)
+            first = [next(lines) for _ in range(6)]
             skat.stores.sessions.delete_for_user(member.id)
             rest = list(lines)
 
-        assert first == "event: mine"
-        assert rest[-1] == ""
+        assert first[0] == "event: mine"
         assert not any(line.startswith("event") for line in rest)
