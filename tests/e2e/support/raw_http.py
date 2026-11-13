@@ -1,6 +1,7 @@
 import http.client
 import json
 import ssl
+import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -9,6 +10,9 @@ from tests.support.signed_in import cookie_header
 if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
+
+
+READ_BYTES = 65536
 
 
 def self_signed_tolerant_context() -> ssl.SSLContext:
@@ -50,6 +54,11 @@ class RawSession:
         self.bodies.append(text)
         return text
 
+    def open_stream(self, path: str) -> RawStream:
+        connection = self._connect()
+        connection.request("GET", path, headers=self._headers())
+        return RawStream(connection)
+
     def first_stream_message(self, path: str) -> None:
         """Open the event stream, keep its first message and close it."""
         connection = self._connect()
@@ -57,3 +66,30 @@ class RawSession:
         response = connection.getresponse()
         self.bodies.append(response.readline().decode())
         connection.close()
+
+
+class RawStream:
+    """One member's open event stream, read as raw bytes over the real TLS connection; closing it ends the viewer."""
+
+    def __init__(self, connection: http.client.HTTPSConnection) -> None:
+        self._connection = connection
+        self._response = connection.getresponse()
+
+    def first_message(self) -> str:
+        """The first line the server sent; it is the view the stream opens with."""
+        return self._response.readline().decode()
+
+    def ends_within(self, seconds: float) -> bool:
+        """Whether the server ended the stream before the deadline, whatever it still sent until then."""
+        deadline = time.monotonic() + seconds
+        while (remaining := deadline - time.monotonic()) > 0:
+            self._connection.sock.settimeout(remaining)
+            try:
+                if not self._response.read1(READ_BYTES):
+                    return True
+            except TimeoutError:
+                return False
+        return False
+
+    def close(self) -> None:
+        self._connection.close()
