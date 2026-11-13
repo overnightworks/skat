@@ -13,14 +13,20 @@ from skat.web.declaring import (
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
+from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.raw_http import RawSession
 from tests.support.payload_cards import cards_in_text, wire_cards
 from tests.support.signed_in import new_account, seed_member
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from playwright.sync_api import Page
+
     from skat.engine.cards import Card
     from skat.table.records import TableRecord
     from tests.e2e.support.server import RunningServer
+    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
@@ -149,3 +155,23 @@ def test_a_hand_games_skat_stays_out_of_every_raw_payload_at_every_stage(e2e_ser
     for person in table.people:
         assert table.cards_seen_by(person) == wire_cards(cards_held_by(table.stored, person.member.account.id))
         assert table.last_declaring_of(person)["stage"] == "declared"
+
+
+@pytest.mark.parametrize("width", [320, 900, 1000])
+def test_a_hand_in_play_fits_the_screen_width_so_the_page_never_scrolls_sideways(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    width: int,
+) -> None:
+    table = deal_playing_table(
+        open_person,
+        e2e_server,
+        member_of,
+        page_errors,
+        {"viewport": {"width": width, "height": 800}, "is_mobile": width == 320, "has_touch": width == 320},
+    )
+    for person in table.pages.values():
+        measured = person.evaluate("() => [innerWidth, document.documentElement.scrollWidth]")
+        assert measured == [width, width]

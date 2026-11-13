@@ -254,7 +254,7 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
-<div class="room" data-theme="dark">
+<div class="room" class:framed={callMode} data-theme="dark">
     <!-- Kept out of layout with zero size: display:none would break the gradient references in Chrome. -->
     <svg class="sprite" width="0" height="0" aria-hidden="true">
         <defs>
