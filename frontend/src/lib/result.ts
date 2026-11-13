@@ -33,7 +33,8 @@ export type Chip = { word: string; ticked: boolean };
 export type Equation = { multiplier: number | null; base: number | null; product: number | null };
 // What the game added to the declarer's side, step by step, and for a lost game what each opponent gets.
 export type ListLine = { side: string; steps: string[]; share: string | null };
-// The word stamped beside the game's name: „Aufgegeben“ carries the face of whoever gave up, „Überreizt“ has none.
+// The word stamped beside the game's name: „Aufgegeben“ carries the face of whoever gave up while they sit there,
+// „Überreizt“ has none.
 export type Stamp = { word: string; face: string | null };
 export type ResultView = {
     word: string;
@@ -211,8 +212,8 @@ export function resultJustAppeared(previous: Table | undefined, next: Table): nu
 // A give-up is the ending that decided the game, so its stamp stands where an overbid game's would.
 function stampOf(result: Result, chairs: readonly Chair[]): Stamp | null {
     if (result.ending === "given-up") {
-        const giver = nameOf(chairs, result.ended_by_seat as number) ?? "";
-        return { word: words["result.givenUp"], face: giver.slice(0, 1) };
+        const giver = nameOf(chairs, result.ended_by_seat as number);
+        return { word: words["result.givenUp"], face: giver === null ? null : giver.slice(0, 1) };
     }
     return result.overbid ? { word: words["result.overbid"], face: null } : null;
 }

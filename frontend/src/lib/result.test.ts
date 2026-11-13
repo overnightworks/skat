@@ -166,6 +166,12 @@ describe("the stamp under the result", () => {
         expect(resultView(table(2, changes, anna)).stamp).toEqual({ word: words["result.givenUp"], face: "A" });
     });
 
+    it("carries Aufgegeben without a face once whoever gave up has left the chair", () => {
+        const view = resultView(table(2, givenUpBy({}), { 1: { occupant_name: null } }));
+
+        expect(view.stamp).toEqual({ word: words["result.givenUp"], face: null });
+    });
+
     it("carries Überreizt without a face when an overbid game was played out", () => {
         expect(resultView(table(2, overbid)).stamp).toEqual({ word: words["result.overbid"], face: null });
     });
