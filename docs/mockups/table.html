@@ -638,12 +638,7 @@ body.solo section.shot .rule{display:none}
 section.shot h2 .draft{height:24px;padding:0 10px;border-radius:999px;display:inline-grid;place-items:center;border:1.5px solid var(--busy-stage);color:var(--busy-stage);font-size:12px;font-weight:700;letter-spacing:.02em}
 </style>
 <style>
-/* ---------- S13.3cp: the Kontra key, its dismiss mark, the mark of an unchosen variant ---------- */
-.cb.wide.kontra{position:relative}
-.cb.kontra .dismiss{position:absolute;top:-9px;right:-7px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--stage);color:var(--on-stage);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55),0 3px 8px -3px rgba(0,0,0,.8)}
-.cb.kontra .dismiss svg{width:12px;height:12px}
-.cb.kontra .dismiss::after{content:"";position:absolute;inset:-11px}
-.btns.kontra-felt .button{padding:0 18px 0 14px;gap:8px}
+/* ---------- S13.3cp: the Kontra key at 360 ---------- */
 .draft-tab{position:absolute;left:50%;bottom:0;translate:-50% 0;z-index:80;padding:2px 12px;border-radius:8px 8px 0 0;background:#f3cf7a;color:#2a1c00;font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 .p360 .cb.wide.kontra{padding:0 14px}
 </style>
@@ -1103,7 +1098,7 @@ const IDEAS=[
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-row, push-grand-arm, push-grand-done, push-grand-off'],
   ['🧍','Aufstehen im Spiel','Aufstehen geht immer: mitten im Spiel wird „Aufstehen“ rund, damit die Leiste bei 360 Pixeln passt; der Stuhl wird frei, die Karten warten, und wer aufstand, sieht zu. (S11.9p)','stand-play, stand-arm, stand-open, stand-open-self, stand-last, stand-locked, stand-framed'],
-  ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt. Offen zur Wahl: der Ort der Taste, die Tafel nach dem Wort, ein „×“ zum Verzichten.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end; Entwürfe: kontra-offer-felt, kontra-offer-dismiss, kontra-said-bare'],
+  ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -2113,25 +2108,23 @@ agentScenes(STAND_SCENES);
 /* the words are KONTRA_STEPS; the key names the next one. Felix is an opponent who bid (Anna declares) or the declarer (he led); Lena watches */
 const ROUND_GIVE_UP=roundKey('',I.flag,'Aufgeben');
 /* the key takes the strip's first place and never waits; on a phone Aufgeben goes round for it, as Aufstehen did, and at 360 the word stands without its bolt */
-const kontraKey=(word,o={})=>`<span class="cb wide kontra ${o.dismiss?'dismissable':''}" role="button">${narrow()||o.felt?'':I.kontra}${word}${o.dismiss?`<span class="dismiss" role="button" aria-label="Kein Wort">${I.cross}</span>`:''}</span>`;
-const kontraStrip=(d,word,o={})=>stripOf(d,{lead:word?kontraKey(word,o)+(d?GIVE_UP+STAND_WORD:ROUND_GIVE_UP+STAND_ROUND):standLead(d),pill:agentPill(d)});
+const kontraKey=(word)=>`<span class="cb wide kontra" role="button">${narrow()?'':I.kontra}${word}</span>`;
+const kontraStrip=(d,word)=>stripOf(d,{lead:word?kontraKey(word)+(d?GIVE_UP+STAND_WORD:ROUND_GIVE_UP+STAND_ROUND):standLead(d),pill:agentPill(d)});
 const kontraLine=(word)=>`<div class="game pushes">${word} <b>×${kontraFactor(word)}</b></div>`;
 /* the stamp lands on the felt below the trick, where the next card goes; Felix's own card lies there when he led, so it lands higher then */
 const kontraStamp=(d,word,who,high)=>stamp(`${word}!`,who,{x:mid(d),y:high?(d?330:350):d?430:narrow()?396:440,sf:d?50:30,ss:d?380:230,k:.42});
-/* the key on the felt: the stage button of the Ramsch's choice, between the trick and Felix's chair */
-const feltKey=(d,word)=>row(mid(d),d?490:narrow()?376:392,`<span class="button button-stage">${narrow()?'':I.kontra}${word}</span>`).replace('class="btns"','class="btns kontra-felt"');
-/* o.word: the last word said, which the plaque carries (o.bare: only the stamp tells it); o.stamp: [word, sayer] */
-const kontraTable=(d,o={})=>{const L=seatsOf(d),declares=o.cast==='declarer',two=o.word&&!o.bare,drop=!d&&two?DROP_TRICK:0,right=TRICK_SLOT.right(d);
+/* o.word: the last word said, which the plaque carries; o.stamp: [word, sayer] */
+const kontraTable=(d,o={})=>{const L=seatsOf(d),declares=o.cast==='declarer',two=o.word,drop=!d&&two?DROP_TRICK:0,right=TRICK_SLOT.right(d);
   const trick=declares?trickAt(d,'felix','near'):lead(d,'anna','left',drop)+played('7','s','nova',slotAt(d,{...right,y:right.y+(d?0:drop)}));
   return tableOf(d,{fans:8,count:true,glow:declares?annaTurn(d):turnGlow(d)})+kreuz(d,two?kontraLine(o.word):'')+trick+(o.stamp?kontraStamp(d,...o.stamp,declares):'')
     +seat('anna',{...L.anna,marks:declares?['turn']:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:declares?['decl']:['turn']})+chairCoasters(L,TOTALS_BEFORE)
-    +(o.felt?feltKey(d,o.felt):'')+ownCards(d,declares?FELIX_HOLDS.slice(1):FELIX_FOLLOWS);};
+    +ownCards(d,declares?FELIX_HOLDS.slice(1):FELIX_FOLLOWS);};
 /* Lena watches Anna's table: the word and its plaque, no key */
 const kontraWatch=(d)=>{const L=seatsOf(d);
   return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d)+sideFans(d,7,7)+nearFan(d,8)+kreuz(d,kontraLine('Kontra'))
     +lead(d,'anna','left',d?0:DROP_TRICK)+played('7','s','ben',slotAt(d,{...TRICK_SLOT.right(d),y:TRICK_SLOT.right(d).y+(d?0:DROP_TRICK)}))+kontraStamp(d,'Kontra','ben')
     +seat('anna',{...L.anna,marks:['decl']})+seat('ben',L.nova)+seat('lena',{...L.you,marks:['turn']})+tableBar(d);};
-const KONTRA_OFFER=(d,o={})=>kontraTable(d,o)+kontraStrip(d,o.felt||o.none?'':'Kontra',o);
+const KONTRA_OFFER=(d,o={})=>kontraTable(d,o)+kontraStrip(d,o.none?'':'Kontra');
 /* Anna declares and wins Kreuz after Kontra and Re; Felix lost against her. The list adds 50 once, doubled by nothing */
 const KONTRA_WON={near:'felix',declarer:'anna',winners:['anna'],adds:[146,0,0],word:'Verloren',suit:'c',game:'Anna, Kreuz',
   calc:{suit:'c',base:12,mit:true,count:1,steps:['Spiel'],won:true,words:['Kontra','Re']},eyes:[74,46],names:['Anna','Wir'],ready:['anna']};
@@ -2142,16 +2135,10 @@ const kontraCard=(o)=>narrow()?{...o,eyes:null}:o;
 const KONTRA_SCENES=[
   ['kontra-offer','Kontra: der Knopf in der Leiste',[360,390,1280],(d)=>KONTRA_OFFER(d),
     ['Felix ist Gegner und hat gereizt; Anna spielt Kreuz, Nova hat bedient, Felix ist dran. Vor seiner ersten Karte steht „Kontra“ als Leistentaste an erster Stelle, hell wie „Weiter“; „Aufgeben“ wird dafür rund, wie vorher „Aufstehen“. Bei 360 steht das Wort ohne Blitz. Die Taste wartet auf niemanden und sperrt keine Karte.']],
-  ['kontra-offer-felt','Kontra: der Knopf auf dem Filz',[360,390,1280],(d)=>KONTRA_OFFER(d,{felt:'Kontra'}),
-    ['Dieselbe Lage, die Taste liegt auf dem Filz zwischen dem Stich und Felix’ Stuhl, die Leiste bleibt, wie sie ist (stand-play): kein Platzproblem bei 360, aber ein zweiter Ort für eine Taste.'],true],
-  ['kontra-offer-dismiss','Kontra: ein Knopf mit „×“',[360,390,1280],(d)=>KONTRA_OFFER(d,{dismiss:true}),
-    ['Die Taste trägt ein kleines „×“ an ihrer Ecke: es sagt „kein Wort“ (die Route no-word) und nimmt die Taste weg. Es hängt über der Kante und braucht keine Breite.'],true],
   ['kontra-none','Kontra: keine Taste',[390],(d)=>KONTRA_OFFER(d,{none:true}),
     ['Felix passte sofort: kein Reizwort, kein Knopf; die Leiste ist die von stand-play. „Hast du sofort gepasst, fehlt dir der Knopf „Kontra“.“']],
   ['kontra-said','Kontra: gesagt',[360,390,1280],(d)=>kontraTable(d,{word:'Kontra',stamp:['Kontra','felix']})+kontraStrip(d,''),
     ['Felix sagte Kontra: der Stempel mit seinem Gesicht auf allen Tischen, die Tafel trägt eine zweite Zeile „Kontra ×2“ bis zum Ergebnis, seine Taste ist weg. Seine Karten bleiben spielbar; der Tisch wartet auf niemanden.']],
-  ['kontra-said-bare','Kontra: gesagt, Tafel bleibt',[390,1280],(d)=>kontraTable(d,{word:'Kontra',bare:true,stamp:['Kontra','felix']})+kontraStrip(d,''),
-    ['Dasselbe, aber die Tafel bleibt „Kreuz“: nur der Stempel erzählt es, und er geht wieder. Wer später hinschaut, sieht nichts von der Verdoppelung bis zum Ergebnis.'],true],
   ['kontra-re','Re: die Taste des Alleinspielers',[360,390,1280],(d)=>kontraTable(d,{cast:'declarer',word:'Kontra',stamp:['Kontra','anna']})+kontraStrip(d,'Re'),
     ['Felix spielt Kreuz allein und spielte aus; Anna sagte Kontra. Nun steht „Re“ in seiner Leiste bis zu seiner nächsten Karte; der Tisch wartet nicht auf ihn, Anna ist dran.']],
   ['kontra-supra','Supra: nach Re',[390],(d)=>kontraTable(d,{word:'Re',stamp:['Re','anna']})+kontraStrip(d,'Supra'),

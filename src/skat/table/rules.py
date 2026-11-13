@@ -1,10 +1,10 @@
 from dataclasses import dataclass, replace
-from datetime import timedelta
+from datetime import UTC, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.bock import BockRounds
-from skat.engine.deal import positions_from
+from skat.engine.deal import deal, draw_dealer, next_dealer, positions_from
 from skat.engine.schieberamsch import GrandHandRule
 from skat.table.records import (
     Actor,
@@ -30,6 +30,7 @@ from skat.table.records import (
 )
 
 if TYPE_CHECKING:
+    import random
     from datetime import datetime
 
     from skat.engine.cards import Card
@@ -332,6 +333,20 @@ def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) ->
     return not hand_was_dealt(table) and connected_accounts is not None and not connected_accounts
 
 
+def unplayed_end(last_played_at: datetime, days: int) -> datetime:
+    """The instant, in UTC, a dealt table ends: `days` days after its last deal or step of play. The paused list names
+    it and the end happens at it.
+    """
+    return last_played_at.astimezone(UTC) + timedelta(days=days)
+
+
+def ends_unplayed(table: TableRecord, last_played_at: datetime | None, now: datetime, days: int) -> bool:
+    """A table on which a hand was dealt ends once its `unplayed_end` has come, whether a hand runs or anybody is
+    connected; a table with no hand dealt has no last played time and never ends this way.
+    """
+    return hand_was_dealt(table) and last_played_at is not None and unplayed_end(last_played_at, days) <= now
+
+
 class PresenceStep(Enum):
     KEEP = "keep"
     STAMP = "stamp"
@@ -415,6 +430,15 @@ def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> boo
         and connected_accounts.issuperset(occupants)
         and (not (result_pending(table) or series_over(table)) or all(chair.ready for chair in table.chairs))
     )
+
+
+def drawn_hand(table: TableRecord, random_source: random.Random) -> NewHand:
+    """The only place a hand is drawn: a table's first dealer by lot, every later one in turn, then the shuffle.
+
+    Randomness enters only here, both from the one source.
+    """
+    dealer = draw_dealer(random_source) if table.dealer is None else next_dealer(table.dealer)
+    return NewHand(dealer, deal(random_source))
 
 
 def dealt_next(table: TableRecord, new_hand: NewHand) -> TableRecord:

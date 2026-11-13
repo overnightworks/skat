@@ -1,19 +1,32 @@
 import threading
 from contextlib import contextmanager, nullcontext
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+from skat.engine.deal import Position, positions_from
 from skat.store.schema import tables
-from skat.table.records import Actor, CreateTable, EndedTable, EndReason, SitDown, TableId, TableRecord
+from skat.table.playing import PlayCardCommand
+from skat.table.records import (
+    Actor,
+    CreateTable,
+    EndedTable,
+    Ending,
+    EndReason,
+    GiveUpAsked,
+    SitDown,
+    TableId,
+    TableRecord,
+)
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from tests.support.faulty_tables import FaultyTableTransactions
-from tests.support.played_game import after_the_first_game, before_the_last_card
-from tests.support.table_rows import rows_of, wait_until_a_session_waits_for_a_lock
+from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
+from tests.support.played_game import a_whole_game, after_the_first_game, before_the_last_card, declared_herz_hand
+from tests.support.table_rows import WorkInAThread, rows_of, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
 
@@ -27,9 +40,9 @@ SEATED = (
 )
 
 
-def seated_table(service, name, seats=3):
+def seated_table(service, name, seats=3, series_length=None):
     """A table with the opener and the next `seats - 1` people seated; the third sitting deals the first hand."""
-    table_id = service.create(OPENER, CreateTable(command_id=f"open-{name}")).id
+    table_id = service.create(OPENER, CreateTable(command_id=f"open-{name}", series_length=series_length)).id
     for seat, actor in enumerate(SEATED[1:seats], start=2):
         service.sit(actor, SitDown(f"sit-{name}-{seat}", table_id, seat), NOBODY_CONNECTED)
     return TableId(table_id)
@@ -58,6 +71,17 @@ def listed_game(service, transactions, stored, name):
     return table_id
 
 
+def listed_games_in_two_series(service, transactions, stored, name):
+    """A seated table with a finished game in its first series and another in its second, the current one."""
+    table_id = seated_table(service, name, series_length=12)
+    first_game = after_the_first_game(stored(transactions, table_id.value))
+    second_series = replace(first_game.series, number=2)
+    save(transactions, first_game)
+    save(transactions, replace(first_game, series=second_series, game_list=()))
+    save(transactions, replace(first_game, series=second_series))
+    return table_id
+
+
 def end(service, table_id):
     return service.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), DEFAULT_EMPTY_TABLE_SECONDS)
 
@@ -65,7 +89,9 @@ def end(service, table_id):
 def end_at_the_store(transactions, table_id):
     with transactions.begin() as transaction:
         assert transaction.locked_table(table_id) is not None
-        transaction.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), DEFAULT_EMPTY_TABLE_SECONDS)
+        transaction.end_table(
+            table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS)
+        )
 
 
 def test_the_end_step_deletes_the_chairs_hand_and_steps_of_a_running_hand_and_keeps_the_row(
@@ -163,7 +189,7 @@ def test_the_end_stores_the_time_the_reason_and_the_wait_and_bumps_the_version_o
             )
         ).one()
     assert tuple(row) == (at, EndReason.EMPTY.value, 42, None)
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, EndReason.EMPTY, 42)
+    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.empty(42))
 
 
 def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_ended_table(
@@ -172,7 +198,7 @@ def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_en
     table_id = undealt_table(service, "one")
 
     with transactions.begin() as ending:
-        ending.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), DEFAULT_EMPTY_TABLE_SECONDS)
+        ending.end_table(table_id, datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS))
         views = []
         reading = threading.Thread(target=lambda: views.append(service.view(OPENER, table_id.value, NOBODY_CONNECTED)))
         reading.start()
@@ -349,3 +375,236 @@ def test_the_start_leaves_a_dealt_table_with_no_time_unstamped_and_unwaited(serv
     left = service.resume_empty_waits(DEFAULT_EMPTY_TABLE_SECONDS)
 
     assert (left, stored_since(engine, dealt)) == ({}, None)
+
+
+UNPLAYED_DAYS = 90
+PLAYED_AT = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
+UNPLAYED_AT = PLAYED_AT + timedelta(days=UNPLAYED_DAYS)
+
+
+def unplayed_service(transactions, now=UNPLAYED_AT):
+    return TableService(transactions, now=lambda: now)
+
+
+def played_at(transactions, table_id, when):
+    with transactions.begin() as transaction:
+        transaction.save_table(transaction.table(table_id), played_at=when)
+
+
+def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_stores_the_days(
+    service, transactions, stored, engine
+):
+    table_id = listed_games_in_two_series(service, transactions, stored, "one")
+    played_at(transactions, table_id, PLAYED_AT)
+    games = rows_of(engine, table_id.value)["game_list"]
+    version = stored(transactions, table_id.value).version
+    assert {row[1] for row in games} == {1, 2}
+
+    assert (
+        unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
+        is True
+    )
+
+    after = rows_of(engine, table_id.value)
+    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert after["game_list"] == games
+    assert [row[2] for row in after["receipts"]] == [CREATE_TABLE_COMMAND]
+    with engine.connect() as connection:
+        row = connection.execute(
+            select(
+                tables.c.ended_at,
+                tables.c.end_reason,
+                tables.c.empty_seconds,
+                tables.c.unplayed_days,
+                tables.c.dealer,
+                tables.c.last_played_at,
+                tables.c.opener_name,
+            ).where(tables.c.id == table_id.value)
+        ).one()
+    assert tuple(row) == (UNPLAYED_AT, EndReason.UNPLAYED.value, None, UNPLAYED_DAYS, None, None, None)
+    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+
+
+def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
+    table_id = played_hand(service, transactions, stored, "one")
+    played_at(transactions, table_id, PLAYED_AT)
+
+    unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
+
+    after = rows_of(engine, table_id.value)
+    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+
+
+def test_the_unplayed_end_clears_an_outstanding_give_up_request(service, transactions, stored, engine):
+    table_id = played_hand(service, transactions, stored, "one")
+    running = stored(transactions, table_id.value)
+    save(
+        transactions,
+        replace(
+            running, progress=replace(running.progress, give_up=GiveUpAsked(Position.MIDDLEHAND, Position.FOREHAND))
+        ),
+    )
+    played_at(transactions, table_id, PLAYED_AT)
+
+    unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
+
+    with engine.connect() as connection:
+        row = connection.execute(
+            select(tables.c.give_up_asked_by, tables.c.give_up_declined_by).where(tables.c.id == table_id.value)
+        ).one()
+    assert tuple(row) == (None, None)
+
+
+def test_a_table_played_at_after_the_unplayed_read_is_not_ended_by_it(service, transactions, stored):
+    table_id = seated_table(service, "one")
+    played_at(transactions, table_id, PLAYED_AT)
+    candidates = unplayed_service(transactions).unplayed_tables(UNPLAYED_DAYS)
+    played_at(transactions, table_id, UNPLAYED_AT)
+
+    assert candidates == (table_id,)
+    assert (
+        unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
+        is False
+    )
+    assert isinstance(stored(transactions, table_id.value), TableRecord)
+
+
+def test_the_unplayed_read_lists_only_live_dealt_tables_played_at_or_before_the_line_in_id_order(service, transactions):
+    old = seated_table(service, "old")
+    played_at(transactions, old, PLAYED_AT)
+    recent = seated_table(service, "recent")
+    played_at(transactions, recent, PLAYED_AT + timedelta(seconds=1))
+    undealt_table(service, "undealt")
+    ended = seated_table(service, "ended")
+    played_at(transactions, ended, PLAYED_AT)
+    end_at_the_store(transactions, ended)
+
+    assert unplayed_service(transactions).unplayed_tables(UNPLAYED_DAYS) == (old,)
+
+
+class HeldWrite:
+    """A write guard that waits in its worker until released, so the transaction that entered it keeps the row lock."""
+
+    def __init__(self, connected=NOBODY_CONNECTED):
+        self._connected = connected
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def __enter__(self):
+        self.entered.set()
+        assert self.release.wait(HANG_DEADLINE_SECONDS)
+        return self._connected
+
+    def __exit__(self, *_):
+        return None
+
+
+class HoldingAfterSave:
+    """A transactions port whose saves wait in their worker until `hold` is released, so the command that saved keeps
+    the row lock it took.
+    """
+
+    def __init__(self, inner, hold):
+        self._inner = inner
+        self._hold = hold
+
+    @contextmanager
+    def begin(self):
+        with self._inner.begin() as transaction:
+            yield _HoldingTransaction(transaction, self._hold)
+
+
+class _HoldingTransaction:
+    def __init__(self, inner, hold):
+        self._inner = inner
+        self._hold = hold
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    def save_table(self, table, *, played_at):
+        self._inner.save_table(table, played_at=played_at)
+        with self._hold:
+            pass
+
+
+class Rivals:
+    """A table with a hand running and a game listed, past its days, that two writes reach at once: the first holds the
+    row lock, the second waits for it, and `settle` lets the first commit and returns both outcomes in that order.
+    """
+
+    def __init__(self, service, transactions, engine, stored):
+        self.engine = engine
+        self.transactions = transactions
+        self.service = unplayed_service(transactions)
+        self.table_id = seated_table(service, "one")
+        seated = stored(transactions, self.table_id.value)
+        declared = replace(seated, progress=declared_herz_hand())
+        plays = a_whole_game(declared)
+        running = replace(declared, progress=replace(declared.progress, plays=plays[:3]))
+        save(transactions, replace(running, game_list=after_the_first_game(seated).game_list))
+        played_at(transactions, self.table_id, PLAYED_AT)
+        self.everyone = frozenset(chair.account_id for chair in SEATED)
+        self.first_hold = HeldWrite(self.everyone)
+        self.stored = lambda: stored(transactions, self.table_id.value)
+        self.next_card = plays[3].card
+        seats = {position: seat for seat, position in positions_from(running.dealer).items()}
+        self.card_player = SEATED[seats[plays[3].position] - 1]
+
+    def expire(self, writing=None):
+        return WorkInAThread(
+            lambda: self.service.end_unplayed_table(self.table_id, UNPLAYED_DAYS, writing or nullcontext(frozenset()))
+        )
+
+    def play(self, holding=None):
+        """The next card of the running hand, played by its player through the card command; with `holding`, the
+        command keeps the row lock until that hold is released.
+        """
+        transactions = self.transactions if holding is None else HoldingAfterSave(self.transactions, holding)
+        command = PlayCardCommand("card-rival", self.table_id.value, self.stored().version, self.next_card)
+        return WorkInAThread(lambda: unplayed_service(transactions).play_card(self.card_player, command, self.everyone))
+
+    def settle(self, first, second):
+        first.start()
+        assert self.first_hold.entered.wait(HANG_DEADLINE_SECONDS)
+        second.start()
+        wait_until_a_session_waits_for_a_lock(self.engine, second)
+        self.first_hold.release.set()
+        first.join()
+        second.join()
+        return first.outcome, second.outcome
+
+
+@pytest.fixture
+def rivals(service, transactions, engine, stored):
+    return Rivals(service, transactions, engine, stored)
+
+
+def test_a_table_played_while_its_expiry_waits_for_the_row_is_not_ended_by_it(rivals):
+    played, expired = rivals.settle(rivals.play(rivals.first_hold), rivals.expire())
+
+    assert [result.refusal for result in played] == [None]
+    assert expired == [False]
+    assert isinstance(rivals.stored(), TableRecord)
+    assert len(rivals.stored().progress.plays) == 4
+
+
+def test_a_play_that_meets_the_expiry_holding_the_row_finds_the_table_ended_and_plays_nothing(rivals):
+    version = rivals.stored().version
+    expired, played = rivals.settle(rivals.expire(rivals.first_hold), rivals.play())
+
+    assert (expired, played) == ([True], [None])
+    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert {name for name, rows in rows_of(rivals.engine, rivals.table_id.value).items() if rows} == {
+        "tables",
+        "receipts",
+        "game_list",
+    }
+
+
+def test_two_expiries_that_meet_end_the_table_once(rivals):
+    version = rivals.stored().version
+    first, second = rivals.settle(rivals.expire(rivals.first_hold), rivals.expire())
+
+    assert (first, second) == ([True], [False])
+    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))

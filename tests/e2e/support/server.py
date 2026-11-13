@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from webauth.config import installed_web_auth_config
 
-from skat.host.app import create_app
+from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
 from skat.host.main import streams_ending_server, uvicorn_options
 from skat.store.migrate import create_store_engine
 from skat.store.rule_sets import PostgresRuleSets
@@ -118,6 +118,7 @@ class RunningServer:
         page_build_directory: Path,
         random_source: random.Random | None = None,
         heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
+        unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     ) -> None:
         self.host = loopback.host
         self.base_url = f"https://{loopback.host}:{loopback.port}"
@@ -128,6 +129,7 @@ class RunningServer:
         self._page_build_directory = page_build_directory
         self._random_source = random_source
         self._heartbeat_seconds = heartbeat_seconds
+        self._unplayed_sweep_seconds = unplayed_sweep_seconds
         self._tls_files = write_self_signed_certificate(tls_directory)
 
     def start(self) -> None:
@@ -139,6 +141,7 @@ class RunningServer:
             stores=self.stores,
             issuer_transports=self.issuer.transports,
             heartbeat_seconds=self._heartbeat_seconds,
+            unplayed_sweep_seconds=self._unplayed_sweep_seconds,
         )
         self.config = installed_web_auth_config(app)
         key_file, certificate_file = self._tls_files
@@ -187,14 +190,22 @@ def running_skat(
     page_build_directory: Path = BUILD_DIRECTORY,
     random_source: random.Random | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
+    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
 ) -> Iterator[RunningServer]:
     """Serve Skat over https on `loopback`.
 
     The page comes from `page_build_directory`, so a test can serve a copy it changes; `random_source` replaces the
-    source the table service deals and draws the dealer from; `heartbeat_seconds` is the stream's idle tick.
+    source the table service deals and draws the dealer from; `heartbeat_seconds` is the stream's idle tick;
+    `unplayed_sweep_seconds` is how often the server looks for dealt tables nobody has played at for the days.
     """
     server = RunningServer(
-        loopback, tls_directory, engine, page_build_directory, random_source, heartbeat_seconds=heartbeat_seconds
+        loopback,
+        tls_directory,
+        engine,
+        page_build_directory,
+        random_source,
+        heartbeat_seconds=heartbeat_seconds,
+        unplayed_sweep_seconds=unplayed_sweep_seconds,
     )
     server.start()
     try:
@@ -205,12 +216,15 @@ def running_skat(
 
 @contextmanager
 def skat_on_new_database(
-    directories: pytest.TempPathFactory, random_source: random.Random | None = None, **settings_changes: float
+    directories: pytest.TempPathFactory,
+    random_source: random.Random | None = None,
+    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
+    **settings_changes: float,
 ) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake.
 
     `settings_changes` replace server settings, as a test that needs a short chair hold does; `random_source`
-    replaces the source Skat deals from.
+    replaces the source Skat deals from; `unplayed_sweep_seconds` is as in `running_skat`.
     """
     loopback = loopback_sign_in(directories.mktemp("sign-in"))
     settings = loopback.sign_in.settings.model_copy(update=settings_changes)
@@ -218,7 +232,13 @@ def skat_on_new_database(
     with migrated_template() as template, created_database(template) as database_url:
         engine = create_store_engine(database_url)
         try:
-            with running_skat(loopback, directories.mktemp("tls"), engine, random_source=random_source) as server:
+            with running_skat(
+                loopback,
+                directories.mktemp("tls"),
+                engine,
+                random_source=random_source,
+                unplayed_sweep_seconds=unplayed_sweep_seconds,
+            ) as server:
                 yield server
         finally:
             engine.dispose()

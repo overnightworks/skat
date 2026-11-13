@@ -34,6 +34,7 @@ function playing(changes: Partial<Playing>): Playing {
         last_trick: null,
         legal_cards: [],
         give_up: null,
+        kontra: null,
         ...changes,
     };
 }

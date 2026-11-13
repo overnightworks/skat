@@ -17,6 +17,7 @@ from skat.table.records import (
     Actor,
     CreateTable,
     EndedTable,
+    Ending,
     EndReason,
     HandProgress,
     SitDown,
@@ -36,6 +37,7 @@ NOBODY = frozenset[str]()
 THIRD = Actor(account_id="account-third", display_name="Cleo")
 ENDED_AT = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
 EMPTY_SECONDS = 7
+UNPLAYED_DAYS = 90
 
 
 @pytest.fixture
@@ -96,7 +98,7 @@ class TestEndEmptyTable:
 
         assert end_empty(service, table_id) is True
 
-        assert store.tables[table_id.value] == EndedTable(table_id, before.version + 1, EndReason.EMPTY, EMPTY_SECONDS)
+        assert store.tables[table_id.value] == EndedTable(table_id, before.version + 1, Ending.empty(EMPTY_SECONDS))
         assert store.receipts == receipts_before
 
     def test_stamps_the_end_with_the_service_clock(self, service, store, table_id):
@@ -147,7 +149,7 @@ class TestEndEmptyTable:
         assert view.chairs == ()
         assert [view.hand, view.result, view.passed_in] == [None, None, None]
         assert view.watchers == 0
-        assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS)
+        assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None)
 
     def test_the_wait_is_stored_with_the_end(self, service, table_id):
         service.end_empty_table(table_id, nullcontext(NOBODY), 7)
@@ -191,7 +193,7 @@ class TestAtAnEndedTable:
         again = service.create(OPENER, CreateTable(command_id="command-open"))
 
         assert again.id == ended_id.value
-        assert again.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS)
+        assert again.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None)
         assert list(store.tables) == [ended_id.value]
 
     @pytest.mark.parametrize(
@@ -366,3 +368,92 @@ class TestResumeEmptyWaits:
         assert service.resume_empty_waits(EMPTY_SECONDS) == {}
         assert isinstance(store.tables[dealt_id.value], TableRecord)
         assert store.empty_since_by_table[dealt_id.value] == before
+
+
+def last_played(store, table_id, *, days_ago=UNPLAYED_DAYS, seconds_more=0):
+    store.last_played_at[table_id.value] = ENDED_AT - timedelta(days=days_ago, seconds=seconds_more)
+
+
+class TestEndUnplayedTable:
+    def test_ends_a_dealt_table_with_a_running_hand_with_one_version_bump_and_the_days_in_force(
+        self, service, store, dealt_id
+    ):
+        before = store.tables[dealt_id.value]
+        last_played(store, dealt_id, seconds_more=1)
+
+        assert service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(NOBODY)) is True
+
+        assert before.hand is not None
+        assert store.tables[dealt_id.value] == EndedTable(dealt_id, before.version + 1, Ending.unplayed(UNPLAYED_DAYS))
+        assert store.ended_at[dealt_id.value] == ENDED_AT
+        assert dealt_id.value not in store.last_played_at
+        assert dealt_id.value not in store.opener_names
+
+    @pytest.mark.parametrize(
+        ("seconds_more", "ends"),
+        [pytest.param(-1, False, id="a-second-before"), pytest.param(0, True, id="exactly-at-the-end")],
+    )
+    def test_ends_exactly_when_the_paused_list_says_it_ends(self, service, store, dealt_id, seconds_more, ends):
+        last_played(store, dealt_id, seconds_more=seconds_more)
+
+        assert service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(NOBODY)) is ends
+
+    def test_a_longer_setting_ends_nothing_that_the_shorter_one_would(self, service, store, dealt_id):
+        last_played(store, dealt_id)
+
+        assert service.end_unplayed_table(dealt_id, UNPLAYED_DAYS + 1, nullcontext(NOBODY)) is False
+        assert isinstance(store.tables[dealt_id.value], TableRecord)
+
+    def test_deletes_the_receipts_but_the_create_receipt(self, service, store, dealt_id):
+        last_played(store, dealt_id)
+
+        service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(NOBODY))
+
+        assert [receipt.command for receipt in store.receipts.values()] == [CREATE_TABLE_COMMAND]
+
+    def test_the_ended_table_says_why_with_the_days(self, service, store, dealt_id):
+        last_played(store, dealt_id)
+
+        service.end_unplayed_table(dealt_id, 90, nullcontext(NOBODY))
+
+        assert service.view(OPENER, dealt_id.value, NOBODY).ended == EndedView(EndReason.UNPLAYED, None, 90)
+
+    def test_a_second_run_changes_nothing(self, service, store, dealt_id):
+        last_played(store, dealt_id)
+        service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(NOBODY))
+        written = dict(store.tables)
+
+        assert service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(NOBODY)) is False
+        assert store.tables == written
+
+    def test_a_table_that_was_played_since_it_was_read_as_due_changes_nothing(self, service, store, dealt_id):
+        last_played(store, dealt_id, days_ago=1)
+        written = dict(store.tables)
+
+        assert service.end_unplayed_table(dealt_id, UNPLAYED_DAYS, nullcontext(NOBODY)) is False
+        assert store.tables == written
+
+    def test_a_table_with_no_hand_dealt_changes_nothing(self, service, store, table_id):
+        written = dict(store.tables)
+
+        assert service.end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY)) is False
+        assert store.tables == written
+
+    def test_a_table_ended_empty_changes_nothing(self, service, store, table_id):
+        end_empty(service, table_id)
+        written = dict(store.tables)
+
+        assert service.end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY)) is False
+        assert store.tables == written
+
+
+class TestUnplayedTables:
+    def test_lists_the_dealt_tables_played_the_days_ago_or_earlier_in_id_order(self, service, store, dealt_id):
+        service.create(VISITOR, CreateTable(command_id="command-undealt"))
+        recent = TableId(service.create(VISITOR, CreateTable(command_id="command-recent")).id)
+        service.sit(OPENER, SitDown("command-sit-recent-1", recent.value, 2), NOBODY)
+        service.sit(THIRD, SitDown("command-sit-recent-2", recent.value, 3), NOBODY)
+        last_played(store, dealt_id)
+        last_played(store, recent, days_ago=UNPLAYED_DAYS - 1)
+
+        assert service.unplayed_tables(UNPLAYED_DAYS) == (dealt_id,)

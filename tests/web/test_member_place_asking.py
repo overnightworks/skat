@@ -18,7 +18,7 @@ from webauth.ports import AgentFacts
 
 from skat.engine.deal import Position
 from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, revision_of
-from skat.table.records import EndedTable, EndReason, Series, TableId
+from skat.table.records import EndedTable, Ending, Series, TableId
 from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, token_carries_agent_facts
 from skat.web.member_place import MemberStandings
 from skat.web.nudging import TABLE_NUDGE_SUFFIX
@@ -485,7 +485,7 @@ class TestWhenTheTableEndsThePulseTellsNobody:
         with sdk.connected() as session, session.listening() as events:
             session.view(table_id)
             skat.store.tables[table_id] = EndedTable(
-                TableId(table_id), skat.store.tables[table_id].version + 1, EndReason.EMPTY, 3600
+                TableId(table_id), skat.store.tables[table_id].version + 1, Ending.empty(3600)
             )
             wait(skat, time, ASK_AGAIN_AFTER)
             a_standing_change(skat, time)

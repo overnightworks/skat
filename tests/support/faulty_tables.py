@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.member_place import BookEntry
-    from skat.table.records import EndedTable, Receipt, Replay, TableId, TableRecord
+    from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
     from skat.table.transactions import LiveWait, OccupiedChair, PausedFacts, TableTransaction, TableTransactions
 
 
@@ -86,10 +86,13 @@ class _FaultyTransaction:
     def add_table(self, table: TableRecord, opener_name: str) -> None:
         self._inner.add_table(table, opener_name)
 
-    def end_table(self, table_id: TableId, at: datetime, empty_seconds: int) -> None:
-        self._inner.end_table(table_id, at, empty_seconds)
+    def end_table(self, table_id: TableId, at: datetime, ending: Ending) -> None:
+        self._inner.end_table(table_id, at, ending)
         if self._faults.end_failure is not None:
             raise self._faults.end_failure
+
+    def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
+        return self._inner.played_before(cutoff)
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self._inner.empty_since(table_id)

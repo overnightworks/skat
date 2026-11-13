@@ -18,8 +18,8 @@ RUNNING_HAND = (
 
 @pytest.fixture
 def before_the_upgrade(unmigrated_engine):
-    """A database at 0034 holding a table whose seat 2 was freed before the upgrade."""
-    upgrade_to(unmigrated_engine, "0034")
+    """A database at 0035 holding a table whose seat 2 was freed before the upgrade."""
+    upgrade_to(unmigrated_engine, "0035")
     with unmigrated_engine.begin() as connection:
         for statement in RUNNING_HAND:
             connection.execute(text(statement), {"table": TABLE})

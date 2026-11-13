@@ -14,9 +14,10 @@
     import { cuesBetween } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpView } from "#lib/giveUp.ts";
+    import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
-    import { gameInPlay, type PlayingHand } from "#lib/playView.ts";
+    import { gameInPlay, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
     import {
         declaredResult,
         ramschResultView,
@@ -29,6 +30,7 @@
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AgentsPill from "#lib/ui/AgentsPill.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import CardBack from "#lib/ui/CardBack.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
@@ -36,6 +38,7 @@
     import BidControls from "#lib/ui/BidControls.svelte";
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
+    import KontraKey from "#lib/ui/KontraKey.svelte";
     import LobbyButton from "#lib/ui/LobbyButton.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
@@ -95,6 +98,8 @@
     let countedOrdinal = $state<number | null>(null);
     // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
     let playedThisHand = $state<Card[]>([]);
+    // The latest word said at this table in the running hand, which the stamp shows for a moment.
+    let stamp = $state<Stamp | null>(null);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
@@ -117,6 +122,7 @@
         }
         if (!handWaits(table.hand)) asking = null;
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
+        stamp = stampBetween(previous, table) ?? stamp;
         const cues = cuesBetween(previous, table);
         soundForCues(cues, table);
         for (const cue of cues) {
@@ -143,6 +149,7 @@
         seatNote = null;
         asking = null;
         playedThisHand = [];
+        stamp = null;
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -244,26 +251,16 @@
         return answer;
     }
 
-    // „Weiter“ names the result on the page; the button stays busy until the stream brings a newer version.
-    async function tapWeiter(table: Table): Promise<void> {
+    // A step is under way from the tap until the stream brings a newer version; only a refusal ends it sooner.
+    async function send(table: Table, command: Promise<Outcome>): Promise<void> {
         sentFromVersion = table.version;
-        const answer = await seat(
-            markReady(id, crypto.randomUUID(), (table.result as NonNullable<Table["result"]>).ordinal),
-        );
-        if (answer.kind !== "table") sentFromVersion = null;
+        if ((await seat(command)).kind !== "table") sentFromVersion = null;
     }
 
-    async function answerRequest(table: Table, answer: GiveUpAnswer): Promise<void> {
-        sentFromVersion = table.version;
-        const reply = await seat(answerGiveUp(id, table.version, crypto.randomUUID(), answer));
-        if (reply.kind !== "table") sentFromVersion = null;
-    }
-
-    async function takeStep(table: Table, action: AuctionAction, value?: number): Promise<void> {
-        sentFromVersion = table.version;
-        const answer = await seat(takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
-        if (answer.kind !== "table") sentFromVersion = null;
-    }
+    const tapWeiter = (table: Table): Promise<void> =>
+        send(table, markReady(id, crypto.randomUUID(), (table.result as NonNullable<Table["result"]>).ordinal));
+    const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
+        send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
 </script>
 
 <svelte:head>
@@ -359,13 +356,14 @@
                 </div>
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
+                {@const said = plaqueLine(inPlay.playing.kontra)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
                     <GiveUpPlaque
                         view={giveUp}
                         disabled={sentFromVersion === table.version}
                         onanswer={(answer: GiveUpAnswer) => {
-                            void answerRequest(table, answer);
+                            void send(table, answerGiveUp(id, table.version, crypto.randomUUID(), answer));
                         }}
                     />
                 {:else}
@@ -381,6 +379,9 @@
                                 <span class="announced">{label.announcement}</span>
                             {/if}
                         </span>
+                        {#if said !== null}
+                            <span class="game pushes">{said.word} <b>{said.factor}</b></span>
+                        {/if}
                         {#if waits}
                             {@render waitingLine()}
                         {/if}
@@ -418,6 +419,10 @@
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
             {/if}
+            {@const nearCardLaid =
+                inPlay !== null &&
+                trickOnTheFelt(outcome.table.chairs, inPlay.playing).some(({ slot }) => slot === "near")}
+            <CalloutStamp {stamp} aboveNearCard={nearCardLaid} />
             {#if inPlay !== null}
                 <PlayedTrick chairs={outcome.table.chairs} playing={inPlay.playing} {playedThisHand} />
             {/if}
@@ -689,6 +694,7 @@
                     <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}
                 <div class="actions" class:on-result={onResult}>
+                    <KontraKey {id} table={outcome.table} bind:note />
                     {#if bar?.kind === "tap"}
                         {@const table = outcome.table}
                         <button

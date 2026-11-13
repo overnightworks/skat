@@ -9,8 +9,8 @@ from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, Kontr
 from skat.table.awaiting import WaitingCase
 from skat.table.records import (
     EndedTable,
+    Ending,
     EndProposal,
-    EndReason,
     HandProgress,
     OccupantKind,
     Series,
@@ -218,7 +218,7 @@ class TestWhichTablesAreListed:
     def test_a_table_that_ended_or_is_not_there_is_skipped(self, lobby):
         kept = lobby.put(1, undealt())
         ended = table_id_of(2)
-        lobby.store.tables[ended.value] = EndedTable(ended, 9, EndReason.EMPTY, 3600)
+        lobby.store.tables[ended.value] = EndedTable(ended, 9, Ending.empty(3600))
 
         assert [entry.id for entry in lobby.entries(MIDDLEHAND, held=[kept, ended, table_id_of(3)])] == [kept.value]
 

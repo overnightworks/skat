@@ -348,16 +348,37 @@ class EndReason(StrEnum):
     """Why a table ended; the stored token and the one the answer carries."""
 
     EMPTY = "empty"
+    UNPLAYED = "unplayed"
+
+
+@dataclass(frozen=True)
+class Ending:
+    """How a table ended: the reason and the one fact that comes with it, stored so a later change of the setting
+    never changes what an old link says.
+    """
+
+    reason: EndReason
+    empty_seconds: int | None = None
+    unplayed_days: int | None = None
+
+    @classmethod
+    def empty(cls, seconds: int) -> Self:
+        """Nobody was at the table for `seconds` while no hand was dealt."""
+        return cls(EndReason.EMPTY, empty_seconds=seconds)
+
+    @classmethod
+    def unplayed(cls, days: int) -> Self:
+        """A dealt table was not played at for `days` days."""
+        return cls(EndReason.UNPLAYED, unplayed_days=days)
 
 
 @dataclass(frozen=True)
 class EndedTable:
-    """What stays of an ended table: its id, version and reason, and for an empty one how long nobody was there."""
+    """What stays of an ended table: its id, version and how it ended."""
 
     id: TableId
     version: int
-    reason: EndReason
-    empty_seconds: int
+    ending: Ending
 
 
 @dataclass(frozen=True)

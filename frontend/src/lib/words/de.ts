@@ -124,6 +124,7 @@ export type Words = {
     readonly "closed.notFound": string;
     readonly "closed.emptySeconds": (count: number) => string;
     readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
+    readonly "closed.unplayedDays": (count: number) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "declare.putBack": string;
@@ -137,6 +138,13 @@ export type Words = {
     readonly "play.sideThem": string;
     readonly "play.trick": string;
     readonly "play.sideYou": string;
+    readonly "kontra.kontra": string;
+    readonly "kontra.re": string;
+    readonly "kontra.supra": string;
+    readonly "kontra.hirsch": string;
+    readonly "kontra.stamp": (gaps: { readonly word: string }) => string;
+    readonly "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => string;
+    readonly "kontra.commandFailed": string;
     readonly "bid.hold": string;
     readonly "bid.pass": string;
     readonly "game.forehand": string;
@@ -383,6 +391,14 @@ export const words: Words = {
         many: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
         other: gaps.minutes + " Minuten niemand da: Tisch geschlossen",
     })[pluralRules.select(count)],
+    "closed.unplayedDays": (count: number) => ({
+        zero: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        one: numberFormat.format(count) + " Tag nicht gespielt: Tisch geschlossen",
+        two: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        few: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        many: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+        other: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
+    })[pluralRules.select(count)],
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "declare.putBack": "Drücken",
@@ -396,6 +412,13 @@ export const words: Words = {
     "play.sideThem": "Gegner",
     "play.trick": "Stich",
     "play.sideYou": "Du",
+    "kontra.kontra": "Kontra",
+    "kontra.re": "Re",
+    "kontra.supra": "Supra",
+    "kontra.hirsch": "Hirsch",
+    "kontra.stamp": (gaps: { readonly word: string }) => gaps.word + "!",
+    "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => gaps.name + " sagt " + gaps.word,
+    "kontra.commandFailed": "Das hat nicht geklappt",
     "bid.hold": "Halten",
     "bid.pass": "Weg",
     "game.forehand": "Vorhand",
