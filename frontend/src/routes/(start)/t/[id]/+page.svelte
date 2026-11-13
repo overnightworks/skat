@@ -716,7 +716,7 @@
                             <span class="label">{`${words["table.copyLink"]}`}</span>
                         </button>
                     {/if}
-                    {#if outcome.table.opened_by_me}
+                    {#if outcome.table.opened_by_me && !callMode}
                         <CloseKey {id} bind:note />
                     {/if}
                 </div>
