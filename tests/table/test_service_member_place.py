@@ -10,8 +10,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.table.member_place import (
+    ENDED_CALL_KEPT,
     Acceptance,
     CallOffer,
+    CallOutcome,
     InvitationOffer,
     InviteRefusal,
     MemberRefusal,
@@ -95,6 +97,11 @@ class Scene:
     def book(self, agent=MOZART):
         with self.store.begin() as transaction:
             return transaction.locked_book_entry(TableId(self.table_id), agent.account_id)
+
+    def offers_to_the_caller(self, **facts):
+        calls = [call_facts(MOZART.account_id, OWNER, **facts)]
+        (offer,) = self.service.offers_at(TableId(self.table_id), calls, seated_facts).listed
+        return offer
 
     def occupants(self):
         return [None if chair.occupant is None else chair.occupant.display_name for chair in self.table.chairs]
@@ -229,12 +236,12 @@ class TestOffersAtATable:
 
         assert self.offers(scene, MOZART).listed == (CallOffer(OfferState.INVITING, 30),)
 
-    def test_an_invitation_that_ran_out_is_no_row_state_and_the_read_forgets_nothing(self, scene):
+    def test_an_invitation_that_ran_out_is_available_again_with_its_outcome_and_the_read_forgets_nothing(self, scene):
         scene.invite(MOZART)
         scene.at(START + timedelta(seconds=INVITATION_SECONDS))
         before = scene.snapshot()
 
-        assert self.offers(scene, MOZART).listed == (CallOffer(OfferState.AVAILABLE),)
+        assert self.offers(scene, MOZART).listed == (CallOffer(OfferState.AVAILABLE, outcome=CallOutcome.NO_ANSWER),)
         assert scene.snapshot() == before
 
     @pytest.mark.parametrize("table_id", [UNKNOWN_TABLE, "not-a-table"])
@@ -413,7 +420,7 @@ class TestTheAcceptDuringARunningHand:
         result = scene.accept(offer)
 
         assert result.refusal is MemberRefusal.BUSY
-        assert (scene.table, scene.standing(), scene.book().invitation) == (before, (), None)
+        assert (scene.table, scene.standing(), scene.book().invitation.ended) == (before, (), CallOutcome.BUSY)
 
     def test_an_agent_that_held_no_chair_of_the_hand_takes_the_lowest_free_chair(self, scene):
         scene.sit(VISITOR, 2)
@@ -523,7 +530,10 @@ class TestSponsorAway:
         assert result.refusal is MemberRefusal.SPONSOR_AWAY
         assert scene.table == before
         assert scene.standing() == ()
-        assert scene.book().invitation is None
+        assert scene.book().invitation.ended is CallOutcome.OWNER_ABSENT
+        assert scene.offers_to_the_caller(owner_present=False) == CallOffer(
+            InviteRefusal.OWNER_ABSENT, outcome=CallOutcome.OWNER_ABSENT
+        )
 
     def test_when_the_owner_is_seated_but_away(self, scene):
         offer = scene.invite()
@@ -553,7 +563,8 @@ class TestBusy:
         assert result.refusal is MemberRefusal.BUSY
         assert scene.table == before
         assert scene.standing() == ()
-        assert scene.book().invitation is None
+        assert scene.book().invitation.ended is CallOutcome.BUSY
+        assert scene.offers_to_the_caller() == CallOffer(InviteRefusal.NO_FREE_CHAIR, outcome=CallOutcome.BUSY)
 
     def test_a_new_invitation_to_the_same_agent_works_after_a_refusal(self, scene):
         offer = scene.invite()
@@ -617,9 +628,16 @@ class TestTheStandingFollowsTheChair:
 
 
 class TestAnExpiredInvitation:
-    def test_is_absent_at_the_next_read_and_the_read_clears_the_two_people(self, scene):
+    def test_is_absent_at_the_next_read_and_the_caller_is_told_it_ran_out_unanswered(self, scene):
         scene.invite()
         scene.at(START + timedelta(seconds=INVITATION_SECONDS))
+
+        assert scene.standing() == ()
+        assert scene.offers_to_the_caller() == CallOffer(OfferState.AVAILABLE, outcome=CallOutcome.NO_ANSWER)
+
+    def test_is_forgotten_with_its_two_people_by_the_read_after_the_outcome_is_kept(self, scene):
+        scene.invite()
+        scene.at(START + timedelta(seconds=INVITATION_SECONDS) + ENDED_CALL_KEPT)
 
         assert scene.standing() == ()
         assert scene.book().invitation is None

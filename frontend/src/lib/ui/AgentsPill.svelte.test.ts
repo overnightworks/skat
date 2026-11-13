@@ -242,6 +242,26 @@ describe("the Agenten pill", () => {
         expect(popover()?.textContent).toContain(kitWords["agent.calling"]);
     });
 
+    it.each([
+        ["no-answer", "agent.noAnswer"],
+        ["busy", "agent.busy"],
+        ["owner-absent", "agent.ownerAbsent"],
+    ] as const)(
+        "tells the caller a call that ended %s in the kit's words in place of the call key",
+        async (outcome, wording) => {
+            const ended = { ...row, state: "ended", outcome };
+            server({ control: { shown: true, rows: [ended] } });
+            await show(1);
+
+            pill()?.click();
+            await settle();
+            flushSync();
+
+            expect(popover()?.textContent).toContain(kitWords[wording]);
+            expect(popover()?.querySelector(".act")).toBeNull();
+        },
+    );
+
     it("asks a here row's agent to leave with a tap on Bitten zu gehen and shows the row available again", async () => {
         const here = { ...row, state: "here" };
         const fetcher = server({
