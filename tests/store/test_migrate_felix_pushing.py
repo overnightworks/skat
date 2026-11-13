@@ -25,7 +25,7 @@ from skat.table.hand_state import game_of, pushing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.pushing import PushingCommand, PushingKind
 from skat.table.records import RamschOccasion, RamschSetting, RuleSetId, TableId, TableOptions
-from skat.table.rule_sets import RuleSet
+from skat.table.rule_sets import SWITCH_ON_OPTIONS, RuleSet
 from skat.table.service import TableService
 from tests.support.migrations import upgrade_to
 from tests.support.rule_set_rows import a_set, row_count, save_before_grand_hand, sets_of
@@ -111,6 +111,15 @@ def test_the_felix_without_pushing_is_replaced_keeping_its_id(
 
     replaced = RuleSet(earlier.id, operator_account_id, set_name, felix_options)
     assert sets_of(before_the_pushing_value, operator_account_id) == (replaced,)
+
+
+def test_the_start_values_of_a_switched_on_rule_are_the_options_the_migrated_felix_holds(
+    unmigrated_engine, operator_account_id, set_name
+):
+    migrate(unmigrated_engine, operator_account_id=operator_account_id)
+
+    [felix] = sets_of(unmigrated_engine, operator_account_id)
+    assert (felix.name, felix.options) == (set_name, SWITCH_ON_OPTIONS)
 
 
 def test_another_name_of_the_account_and_another_accounts_felix_stay_untouched(
