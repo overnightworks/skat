@@ -5527,23 +5527,10 @@ body {
     }
 }
 
-/* The strip of a phone keeps its one row when the key that proposes the end joins it: the stand-up keeps its mark alone and its word for assistive technology. */
+/* The key that proposes the end is one more button on a phone's strip: where the row does not fit, the strip wraps instead of cutting a button. */
 @media (max-width: 899px) {
-    .room .actions.on-result:has(.end-series) .copy.stand {
-        position: relative;
-        box-sizing: border-box;
-        justify-content: center;
-        width: 52px;
-        padding: 0;
-    }
-
-    .room .actions.on-result:has(.end-series) .copy.stand .label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
+    .room .actions.on-result:has(.end-series) {
+        flex-wrap: wrap;
     }
 }
 
