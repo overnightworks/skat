@@ -36,14 +36,20 @@ def test_a_table_stored_before_the_upgrade_reads_with_no_proposal_and_no_aborted
 
 
 @pytest.mark.parametrize(
-    "columns",
+    "update",
     [
-        pytest.param("abort_yes_seats = '{4}'", id="a-vote-of-a-seat-the-table-does-not-have"),
-        pytest.param("abort_yes_seats = '{1}', hand_aborted = true", id="a-proposal-beside-an-aborted-hand"),
+        pytest.param(
+            "UPDATE tables SET abort_yes_seats = '{4}' WHERE id = :table",
+            id="a-vote-of-a-seat-the-table-does-not-have",
+        ),
+        pytest.param(
+            "UPDATE tables SET abort_yes_seats = '{1}', hand_aborted = true WHERE id = :table",
+            id="a-proposal-beside-an-aborted-hand",
+        ),
     ],
 )
-def test_the_store_refuses_a_proposal_that_is_no_proposal(before_the_upgrade, columns):
+def test_the_store_refuses_a_proposal_that_is_no_proposal(before_the_upgrade, update):
     upgrade_to(before_the_upgrade, "head")
 
     with pytest.raises(Exception, match="violates check constraint"), before_the_upgrade.begin() as connection:
-        connection.execute(text(f"UPDATE tables SET {columns} WHERE id = :table"), {"table": TABLE})
+        connection.execute(text(update), {"table": TABLE})
