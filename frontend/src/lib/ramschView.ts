@@ -1,3 +1,4 @@
+import { handWaits } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, Playing, Pushing, Table } from "../routes/(start)/tables.ts";
 
@@ -20,7 +21,7 @@ function actingWords(chairs: readonly Chair[], stage: Pushing): string {
 export function ramschPlaque(table: Table): RamschPlaque | null {
     const hand = table.hand;
     if (!hand?.ramsch) return null;
-    const waiting = hand.waiting_seat !== null;
+    const waiting = handWaits(hand);
     const stage = hand.pushing;
     const ownSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
     const acting = waiting || stage === null || stage.turn_seat === ownSeat ? null : actingWords(table.chairs, stage);
@@ -38,7 +39,7 @@ export function ramschMarks(table: Table, seat: number): RamschMarks {
     const hand = table.hand;
     if (!hand?.ramsch) return { turn: false, thinks: false, pushed: false };
     const stage = hand.pushing;
-    const turnSeat = hand.waiting_seat === null ? (stage?.turn_seat ?? hand.playing?.turn_seat) : null;
+    const turnSeat = handWaits(hand) ? null : (stage?.turn_seat ?? hand.playing?.turn_seat);
     const turn = turnSeat === seat;
     return {
         turn,

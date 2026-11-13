@@ -487,7 +487,7 @@
                               ? decidingMarks(declaring, chair.seat, justWon, waits)
                               : chairMarks(auction, chair.seat, ownChair?.seat, waits)}
                     {@const ramschMark = ramschMarks(ramschTable, chair.seat)}
-                    {@const onTurn = !waits && (marks.turn || chair.seat === turnSeat || ramschMark.turn)}
+                    {@const onTurn = marks.turn || chair.seat === turnSeat || ramschMark.turn}
                     {@const openCards = chair.seat === declaring?.declarer_seat ? declaring.open_cards : []}
                     <li
                         class="chair"
