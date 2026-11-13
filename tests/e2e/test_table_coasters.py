@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 COASTER = ".chair .coaster"
+AWAY = ".chair .mark.away"
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 NEVER_UNDER_A_COASTER = (".plate", COASTER, ".mark", ".fan", ".plaque", ".result", ".actions")
 
@@ -46,6 +47,8 @@ def expect_no_coaster(table: PlayingTable) -> None:
 def expect_the_totals(table: PlayingTable, totals: dict[int, int]) -> None:
     """Every viewer reads each occupied chair's total as the answer counted it, and nothing on the page covers one."""
     for person in table.everyone:
+        # A reloading player shows away to the others for a moment, which widens the plate under a coaster.
+        expect(person.locator(AWAY)).to_have_count(0)
         expect(person.locator(COASTER)).to_have_count(len(totals))
         for seat, total in totals.items():
             sign = r"\D" if total < 0 else ""
