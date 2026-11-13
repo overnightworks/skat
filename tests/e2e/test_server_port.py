@@ -1,6 +1,7 @@
 import http.client
 import socket
 from contextlib import suppress
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
@@ -38,11 +39,11 @@ def go_for_port(competitor: socket.socket, port: int) -> None:
         competitor.listen()
 
 
-def test_skat_starts_though_another_process_goes_for_its_port_between_choosing_and_serving(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> None:
-    sign_in_directory = tmp_path_factory.mktemp("sign-in")
-    tls_directory = tmp_path_factory.mktemp("tls")
+def test_skat_starts_though_another_process_goes_for_its_port_between_choosing_and_serving(tmp_path: Path) -> None:
+    sign_in_directory = tmp_path / "sign-in"
+    tls_directory = tmp_path / "tls"
+    sign_in_directory.mkdir()
+    tls_directory.mkdir()
     loopback = loopback_sign_in(sign_in_directory)
     with socket.socket() as competitor:
         go_for_port(competitor, loopback.port)
@@ -58,11 +59,9 @@ def test_skat_starts_though_another_process_goes_for_its_port_between_choosing_a
                 engine.dispose()
 
 
-def test_the_edge_listens_though_another_process_goes_for_its_port_between_choosing_and_serving(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> None:
+def test_the_edge_listens_though_another_process_goes_for_its_port_between_choosing_and_serving(tmp_path: Path) -> None:
     listener = listening_loopback_socket()
-    edge = Edge(listener, backend_port=1, idle_cut_seconds=1, certificate_directory=tmp_path_factory.mktemp("edge-tls"))
+    edge = Edge(listener, backend_port=1, idle_cut_seconds=1, certificate_directory=tmp_path)
     with socket.socket() as competitor:
         go_for_port(competitor, edge.port)
         edge.start()
