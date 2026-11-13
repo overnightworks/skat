@@ -51,6 +51,18 @@ def factor(value: int) -> str:
     return text(SOURCE_LANGUAGE, "table.pushFactor", factor=str(value))
 
 
+def ramsch_options(rule: str) -> dict[str, Any]:
+    return {
+        "ramsch": {
+            "occasion": "passed-in",
+            "scoring": "points",
+            "jungfrau": "doubles-loser",
+            "durchmarsch": "wins-120",
+            "pushing": {"rule": rule},
+        }
+    }
+
+
 class RamschStageTable:
     """A table with Ramsch and pushing opened through the API, three browsers at its chairs and one watching; the
     stage is stepped through the API and every page is read as a person reads it. With an agent, it sits at the third
@@ -84,17 +96,8 @@ class RamschStageTable:
             self.sessions[AGENT_SEAT] = AddressedSession(
                 server, seed_member(server.stores, server.config, account=account)
             )
-        options = {
-            "ramsch": {
-                "occasion": "passed-in",
-                "scoring": "points",
-                "jungfrau": "doubles-loser",
-                "durchmarsch": "wins-120",
-                "pushing": {"rule": rule},
-            }
-        }
         created = self.sessions[1].post(
-            TABLES_PATH, {"command_id": self._command(), "series_length": 36, "options": options}
+            TABLES_PATH, {"command_id": self._command(), "series_length": 36, "options": ramsch_options(rule)}
         )
         self.api_path = f"{TABLES_PATH}/{json.loads(created)['id']}"
         page_path = f"{TABLE_PAGE_PREFIX}{self.api_path.removeprefix(TABLES_PATH + '/')}"
@@ -103,10 +106,7 @@ class RamschStageTable:
         for seat, username in enumerate(seated[1:], start=2):
             sit_in(people[username], seat)
         if agent:
-            sat_failed, sat_text = agent.call(
-                SIT_DOWN_TOOL, table_id=self.api_path.rsplit("/", 1)[1], seat=AGENT_SEAT, command_id=self._command()
-            )
-            assert not sat_failed, sat_text
+            self._seat_agent(agent)
         self.pages = {seat: people[username] for seat, username in enumerate(seated, start=1)}
         self.watcher = people["dora"]
         self.everyone = [*self.pages.values(), self.watcher]
@@ -117,6 +117,12 @@ class RamschStageTable:
         for position in ("middlehand", "rearhand", "forehand"):
             self.step(self.seat_at[position], TABLE_AUCTION_PASS_SUFFIX)
         expect(self.watcher.locator(PLAQUE)).to_be_visible()
+
+    def _seat_agent(self, agent: McpAgent) -> None:
+        failed, reason = agent.call(
+            SIT_DOWN_TOOL, table_id=self.api_path.rsplit("/", 1)[1], seat=AGENT_SEAT, command_id=self._command()
+        )
+        assert not failed, reason
 
     @staticmethod
     def _command() -> str:
