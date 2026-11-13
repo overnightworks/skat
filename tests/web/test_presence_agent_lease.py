@@ -559,6 +559,7 @@ class TestRestart:
             issuer_transports=issuer.transports,
             chair_clock=time.clock,
             chair_scheduler=time,
+            now=time.moment,
         )
         with again.client:
             yield again, time

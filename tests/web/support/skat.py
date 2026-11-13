@@ -13,7 +13,7 @@ from mcp_types import CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY
 from webauth.config import install_web_auth_config, installed_web_auth_config
 
 from skat.engine.deal import positions_from
-from skat.host.app import create_app
+from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
@@ -39,7 +39,8 @@ def stored(skat):
 
 class FakeTime:
     """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order, and
-    `callers` keeps the thread of each call of `schedule`."""
+    `callers` keeps the thread of each call of `schedule`. `pending` counts the presence's timers: the server's hourly
+    end of unplayed tables always waits and is no timer of a table."""
 
     def __init__(self, now=SERVER_START_SECONDS):
         self.now = now
@@ -55,14 +56,14 @@ class FakeTime:
 
     def schedule(self, delay, action):
         self.callers.append(threading.get_ident())
-        self._scheduled.append((self.now + delay, action))
+        self._scheduled.append((self.now + delay, action, delay == UNPLAYED_SWEEP_SECONDS))
 
     def cancel_all(self):
         self._scheduled.clear()
 
     @property
     def pending(self):
-        return len(self._scheduled)
+        return sum(1 for _, _, sweeps in self._scheduled if not sweeps)
 
     async def advance(self, seconds):
         horizon = self.now + seconds

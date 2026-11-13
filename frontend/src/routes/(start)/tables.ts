@@ -182,8 +182,10 @@ export type Result = {
 // Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
-// Why a table ended and the whole seconds nobody was there, as stored when it ended.
-export type Ended = { reason: EndReason; empty_seconds: number };
+// Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, or the days nobody played.
+export type Ended =
+    | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null }
+    | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number };
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };

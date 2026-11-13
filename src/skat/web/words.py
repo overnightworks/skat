@@ -131,6 +131,7 @@ type Key = Literal[
     'closed.notFound',
     'closed.emptySeconds',
     'closed.emptyMinutes',
+    'closed.unplayedDays',
     'declare.commandFailed',
     'declare.takeSkat',
     'declare.putBack',
@@ -366,6 +367,10 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'closed.emptyMinutes': {
             'one': '{minutes} Minute niemand da: Tisch geschlossen',
             'other': '{minutes} Minuten niemand da: Tisch geschlossen',
+        },
+        'closed.unplayedDays': {
+            'one': '{count} Tag nicht gespielt: Tisch geschlossen',
+            'other': '{count} Tage nicht gespielt: Tisch geschlossen',
         },
         'declare.commandFailed': 'Das hat nicht geklappt',
         'declare.takeSkat': 'Aufnehmen',

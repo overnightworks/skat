@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from skat.store.schema import tables
-from skat.table.records import Actor, CreateTable, SitDown, TableId
+from skat.table.records import Actor, CreateTable, Ending, SitDown, TableId
 from skat.table.service import TableService
 from skat.table.transactions import PausedFacts
 
@@ -89,6 +89,6 @@ class TestTheEnd:
     def test_clears_both_facts_in_the_row(self, engine, transactions, dealt):
         with transactions.begin() as transaction:
             assert transaction.locked_table(TableId(dealt)) is not None
-            transaction.end_table(TableId(dealt), LATER, 60)
+            transaction.end_table(TableId(dealt), LATER, Ending.empty(60))
 
         assert columns_of(engine, dealt) == (None, None)

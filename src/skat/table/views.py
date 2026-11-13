@@ -94,10 +94,13 @@ class PassedInView:
 
 @dataclass(frozen=True)
 class EndedView:
-    """Why the table ended and, for an empty one, the whole seconds nobody was there."""
+    """Why the table ended: for an empty one the whole seconds nobody was there, for an unplayed one the days that
+    passed without a deal or step of play; the other is None.
+    """
 
     reason: EndReason
-    empty_seconds: int
+    empty_seconds: int | None
+    unplayed_days: int | None
 
 
 @dataclass(frozen=True)
@@ -133,20 +136,6 @@ class TableView:
     options: TableOptions | None
     bock: BockView | None
     ended: EndedView | None = None
-
-
-@dataclass(frozen=True)
-class CommandResult:
-    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
-
-    `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
-    retry restarts no pause.
-    """
-
-    view: TableView
-    refusal: CommandRefusal | None = None
-    holder: str | None = None
-    seated_when_hand_ended: frozenset[str] = frozenset()
 
 
 def _is_occupied_by(chair: Chair, account_id: str) -> bool:
@@ -260,6 +249,20 @@ def _series_view(table: TableRecord) -> SeriesView | None:
     )
 
 
+@dataclass(frozen=True)
+class CommandResult:
+    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
+
+    `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
+    retry restarts no pause.
+    """
+
+    view: TableView
+    refusal: CommandRefusal | None = None
+    holder: str | None = None
+    seated_when_hand_ended: frozenset[str] = frozenset()
+
+
 def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_accounts: frozenset[str]) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine.
 
@@ -287,7 +290,7 @@ def view_of(table: TableRecord | EndedTable, viewer_account_id: str, connected_a
             series=None,
             options=None,
             bock=None,
-            ended=EndedView(table.reason, table.empty_seconds),
+            ended=EndedView(table.ending.reason, table.ending.empty_seconds, table.ending.unplayed_days),
         )
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     hand_view, chair_hands = _hand_views(table, viewer_account_id)

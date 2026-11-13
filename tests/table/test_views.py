@@ -15,8 +15,8 @@ from skat.table.records import (
     SERIES_LENGTH_MIN,
     Chair,
     EndedTable,
+    Ending,
     EndProposal,
-    EndReason,
     HandProgress,
     Occupant,
     OccupantKind,
@@ -377,6 +377,6 @@ class TestEndProposalInTheSeries:
 
 class TestOptions:
     def test_an_ended_table_carries_no_options(self):
-        ended = EndedTable(TableId("0" * 32), 7, EndReason.EMPTY, 1800)
+        ended = EndedTable(TableId("0" * 32), 7, Ending.empty(1800))
 
         assert view_of(ended, ANNA, NOBODY_CONNECTED).options is None
