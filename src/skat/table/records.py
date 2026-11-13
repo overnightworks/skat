@@ -246,13 +246,22 @@ class SeatHeld:
 
 
 @dataclass(frozen=True)
+class FormerHolder:
+    """The name of whoever held a chair of the running hand and left it, while that chair stays open."""
+
+    seat: int
+    display_name: str
+
+
+@dataclass(frozen=True)
 class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
     cards, so each carries how many cards were played before it. `pushing` holds the steps of a Ramsch's stage before
     its first card.
 
     `give_up` and `no_words` are no step logs: the end of the hand or a deal clears them, a card clears `give_up`,
-    and a chair that changes hands takes its seat's part of them. `seats_held` ends with the hand likewise.
+    and a chair that changes hands takes its seat's part of them. `seats_held` ends with the hand likewise. A chair
+    left in the hand names its leaver in `former_holders` until someone sits in it or the hand ends.
     """
 
     auction: tuple[AuctionStep, ...] = ()
@@ -263,6 +272,11 @@ class HandProgress:
     no_words: frozenset[NoWordSaid] = frozenset()
     pushing: tuple[PushingStep, ...] = ()
     seats_held: frozenset[SeatHeld] = frozenset()
+    former_holders: frozenset[FormerHolder] = frozenset()
+
+    def former_holder_name(self, seat: int) -> str | None:
+        """The name of whoever left the chair `seat` in this hand, or None when no one is on record for it."""
+        return next((holder.display_name for holder in self.former_holders if holder.seat == seat), None)
 
 
 @dataclass(frozen=True)

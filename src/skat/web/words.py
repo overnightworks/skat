@@ -186,6 +186,13 @@ type Key = Literal[
     'card.letterAce',
     'agents.pill',
     'table.agentSits',
+    'table.agentLeft',
+    'table.playsOn',
+    'table.sitQuestion',
+    'table.sitQuestionCancel',
+    'table.takeOverNamed',
+    'table.takeOverApostrophe',
+    'table.takeOverUnnamed',
     'logout.button',
 ]
 type Language = Literal[
@@ -421,6 +428,13 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'card.letterAce': 'A',
         'agents.pill': 'Agenten',
         'table.agentSits': '{name} setzt sich',
+        'table.agentLeft': '{name} ist gegangen',
+        'table.playsOn': '{name} spielt weiter',
+        'table.sitQuestion': 'Mitten ins Spiel setzen?',
+        'table.sitQuestionCancel': 'Abbrechen',
+        'table.takeOverNamed': 'Du übernimmst {name}s Karten.',
+        'table.takeOverApostrophe': 'Du übernimmst {name}’ Karten.',
+        'table.takeOverUnnamed': 'Du übernimmst die Karten dieses Platzes.',
         'logout.button': 'Abmelden',
     },
 }

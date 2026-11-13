@@ -258,6 +258,18 @@ class TestStandUp:
         )
         assert skat.store.book == book
 
+    def test_the_answer_of_a_stand_up_during_a_hand_names_the_former_holder_of_the_open_chair(self, skat, agent):
+        table = AgentTable(skat, agent, Position.MIDDLEHAND)
+        seat = seats_from(DEALER_SEAT)[Position.MIDDLEHAND]
+        name = skat.store.tables[table.table_id].chairs[seat - 1].occupant.display_name
+
+        answer = agent.stand_up(table.table_id)
+        read = agent.read(table.table_id).json()
+
+        names = [chair["former_holder_name"] for chair in read["chairs"]]
+        assert [chair["former_holder_name"] for chair in answer.json()["chairs"]] == names
+        assert names == [name if number == seat else None for number in (1, 2, 3)]
+
     def test_an_agent_that_stood_up_during_a_hand_may_sit_only_in_its_own_chair_again(self, skat, agent):
         table = AgentTable(skat, agent, Position.MIDDLEHAND)
         seat = seats_from(DEALER_SEAT)[Position.MIDDLEHAND]
