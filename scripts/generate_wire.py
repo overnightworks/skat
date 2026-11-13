@@ -34,7 +34,7 @@ from skat.table.records import (  # noqa: E402
     EndReason,
     RamschOccasion,
 )
-from skat.table.rule_sets import SWITCH_ON_OPTIONS  # noqa: E402
+from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS  # noqa: E402
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
 from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX  # noqa: E402
 from skat.web.auction import (  # noqa: E402
@@ -232,7 +232,19 @@ def render() -> str:
         )
     )
     chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
-    return HEADER + "\n" + paths + tuples + valid_bids + all_points + series_length + chairs + switch_on_options()
+    rule_set_name_max = f"export const RULE_SET_NAME_MAX = {RULE_SET_NAME_MAX};\n"
+    return (
+        HEADER
+        + "\n"
+        + paths
+        + tuples
+        + valid_bids
+        + all_points
+        + series_length
+        + chairs
+        + rule_set_name_max
+        + switch_on_options()
+    )
 
 
 def main(arguments: Sequence[str], root: Path = REPOSITORY) -> int:
