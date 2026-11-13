@@ -378,6 +378,12 @@ class TestTheMomentsOfAnAccount:
     def test_a_seated_account_is_in_the_moment_of_its_seat(self, scene):
         assert scene.service.moments_of(MOZART.account_id) == {TableMoment.AUCTION}
 
+    def test_an_account_at_two_tables_in_different_moments_is_in_both(self, scene):
+        second_table_id = scene.service.create(CLEO, CreateTable(command_id="command-open-second")).id
+        scene.service.sit(MOZART, SitDown(scene.command_id(), second_table_id, 2), NOBODY)
+
+        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.AUCTION, TableMoment.WAITING}
+
     def test_a_table_that_ended_after_the_candidates_were_listed_counts_for_no_moment(self, scene, monkeypatch):
         scene.store.tables[scene.table_id] = EndedTable(TableId(scene.table_id), 9, Ending.empty(3600))
         monkeypatch.setattr(scene.store, "tables_of", lambda _account: (HeldTable(TableId(scene.table_id), 8),))
