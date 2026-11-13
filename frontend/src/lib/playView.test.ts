@@ -33,6 +33,7 @@ function playing(changes: Partial<Playing>): Playing {
         current_trick: [],
         last_trick: null,
         legal_cards: [],
+        running_points: null,
         give_up: null,
         kontra: null,
         ...changes,
@@ -73,6 +74,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             playing: changes === null ? null : playing(changes),
         },
         passed_in: null,
+        options: null,
         bock: null,
         ended: null,
     };
@@ -166,7 +168,7 @@ describe("the names of the two sides", () => {
         {
             who: "the declarer",
             viewer: DECLARER_SEAT,
-            names: { declarer: words["play.sideUs"], opponents: words["play.sideThem"] },
+            names: { declarer: words["result.sideYou"], opponents: words["result.sideThem"] },
         },
         { who: "an opponent", viewer: 1, names: { declarer: "player 2", opponents: words["play.sideUs"] } },
         { who: "a watcher", viewer: WATCHER, names: { declarer: "player 2", opponents: words["play.sideThem"] } },

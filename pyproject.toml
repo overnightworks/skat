@@ -74,6 +74,8 @@ select = [
 ignore = []
 # quality owns S and T20; its noqa lines would read as unused here
 external = ["S", "T20"]
+# the generated catalog module carries the × of the blessed scene
+allowed-confusables = ["×"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRouter.get"]

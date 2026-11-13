@@ -31,7 +31,10 @@ class KontraTable(DeclaringTable):
     """A table opened through the API with Kontra and Re, whose opener sits in chair 1."""
 
     @staticmethod
-    def _open_table(opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
+    def _open_table(
+        opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember], *, running_points: bool
+    ) -> str:
+        assert not running_points
         body = {
             "command_id": f"kontra-result-create-{next(command_numbers):04d}",
             "series_length": SERIES_LENGTH,

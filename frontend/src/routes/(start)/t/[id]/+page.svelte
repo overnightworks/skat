@@ -17,7 +17,7 @@
     import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
     import { LEGAL_LINKS } from "#lib/legal.ts";
     import { handWaits, seatNotice, type SeatNotice } from "#lib/openChair.ts";
-    import { gameInPlay, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
+    import { gameInPlay, sideNames, trickOnTheFelt, type PlayingHand } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
         declaredResult,
@@ -41,11 +41,11 @@
     import FreeChairTile from "#lib/ui/FreeChairTile.svelte";
     import GiveUpPlaque from "#lib/ui/GiveUpPlaque.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
-    import LobbyButton from "#lib/ui/LobbyButton.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PushControls from "#lib/ui/PushControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
+    import PointsBar from "#lib/ui/PointsBar.svelte";
     import RamschMarks from "#lib/ui/RamschMarks.svelte";
     import RamschPlaque from "#lib/ui/RamschPlaque.svelte";
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
@@ -53,8 +53,9 @@
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
+    import TableBar from "#lib/ui/TableBar.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
-    import TableRules from "#lib/ui/TableRules.svelte";
+    import { bockLine } from "#lib/tableRules.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -77,6 +78,7 @@
         type AuctionAction,
         type Card,
         type GiveUpAnswer,
+        type Options,
         type Outcome,
         type Picking,
         type Table,
@@ -312,40 +314,18 @@
 <div class="room" class:framed={callMode} data-theme="dark">
     <CardSprite />
     {#if !greeted}
-        <header class="bar">
-            {#if callMode}
-                <span class="wordmark" class:stale={!connected}>{words["app.name"]}</span>
-            {:else}
-                <LobbyButton {attention} />
-            {/if}
-            {#if outcome?.kind === "table" && outcome.table.ended === null}
-                <TableRules bock={outcome.table.bock} place="bar" />
-                {#if !callMode}
-                    <SoundButton place="bar" />
-                {/if}
-                <div
-                    class="watchers"
-                    class:stale={!connected}
-                    title={words["table.watchers"]}
-                    role="group"
-                    aria-label={words["table.watchers"]}
-                >
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                    >
-                        <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
-                        <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    <span>{outcome.table.watchers}</span>
-                </div>
-            {/if}
-        </header>
+        <TableBar
+            {callMode}
+            {attention}
+            {connected}
+            live={outcome?.kind === "table" && outcome.table.ended === null
+                ? {
+                      watchers: outcome.table.watchers,
+                      options: outcome.table.options as Options,
+                      bock: outcome.table.bock,
+                  }
+                : null}
+        />
     {/if}
     <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table" && outcome.table.ended !== null}
@@ -395,6 +375,7 @@
                 <RamschPlaque plaque={ramsch} />
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
+                {@const running = inPlay.playing.running_points}
                 {@const said = plaqueLine(inPlay.playing.kontra)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
@@ -404,9 +385,19 @@
                         onanswer={(answer: GiveUpAnswer) => {
                             void send(table, answerGiveUp(id, table.version, crypto.randomUUID(), answer));
                         }}
-                    />
+                    >
+                        {#if running !== null}
+                            <PointsBar sides={sideNames(table.chairs, inPlay.declarerSeat)} points={running} />
+                        {/if}
+                    </GiveUpPlaque>
                 {:else}
-                    <div class="plaque" class:wide={label.announcement !== null} class:deciding={waits}>
+                    {@const bock = bockLine(outcome.table.bock)}
+                    <div
+                        class="plaque"
+                        class:wide={label.announcement !== null}
+                        class:counting={running !== null}
+                        class:deciding={waits}
+                    >
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}
                                 <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
@@ -424,7 +415,12 @@
                         {#if waits}
                             {@render waitingLine()}
                         {/if}
-                        <TableRules bock={outcome.table.bock} place="plaque" />
+                        {#if bock !== null}
+                            <div class="bock-line">{bock.word} <b>{bock.factor}</b></div>
+                        {/if}
+                        {#if running !== null}
+                            <PointsBar sides={sideNames(outcome.table.chairs, inPlay.declarerSeat)} points={running} />
+                        {/if}
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}

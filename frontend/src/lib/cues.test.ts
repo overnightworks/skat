@@ -62,6 +62,7 @@ function playing(changes: Partial<Playing>): Playing {
         current_trick: [],
         last_trick: null,
         legal_cards: [],
+        running_points: null,
         give_up: null,
         kontra: null,
         ...changes,
@@ -97,6 +98,7 @@ function table(
         },
         result: null,
         passed_in: null,
+        options: null,
         bock: null,
         ended: null,
     };

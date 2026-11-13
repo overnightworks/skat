@@ -24,6 +24,7 @@ from tests.e2e.support.tables import (
     sit_in,
     table_id_of,
     watch,
+    watchers_of,
 )
 from tests.support.signed_in import new_account, seed_member
 
@@ -271,6 +272,9 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
     watch_until_the_agents_are_read(dora, e2e_server, path)
     expect(anna.locator(".card-face").first).to_be_visible()
     open_pages = (anna, ben, cleo, dora)
+    # A page asks for the table's agents when its stream brings its first table; the table ends only after all have.
+    for person in open_pages:
+        expect(watchers_of(person)).to_have_text("1")
     for person in open_pages:
         mark_page(person)
 

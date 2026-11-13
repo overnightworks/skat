@@ -68,10 +68,11 @@ class DeclaringTable:
         hold_the_others_clock: bool = False,
         joiners: tuple[str, str] = DEFAULT_JOINERS,
         opener_name: str = DEFAULT_OPENER,
+        running_points: bool = False,
     ) -> None:
         self.server = server
         opener = self._person(open_person, opener_name, page_errors, form_factor, console)
-        path = self._open_table(opener, server, member_of)
+        path = self._open_table(opener, server, member_of, running_points=running_points)
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
@@ -101,10 +102,12 @@ class DeclaringTable:
         self.others = [person for seat, person in self.people.items() if seat != self.declarer_seat]
 
     @staticmethod
-    def _open_table(opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember]) -> str:
-        """Opens the table through the page, which plays the official rules."""
+    def _open_table(
+        opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember], *, running_points: bool
+    ) -> str:
+        """Opens the table through the page, which plays the official rules and the one switch it carries."""
         del member_of
-        return open_new_table(opener, server)
+        return open_new_table(opener, server, running_points=running_points)
 
     @staticmethod
     def _person(

@@ -15,7 +15,14 @@ from skat.web.words import text as word_text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
-from tests.e2e.support.tables import OPEN_TABLE, TABLE_URL, click_new_table, open_new_table, table_id_of
+from tests.e2e.support.tables import (
+    OPEN_TABLE,
+    RUNNING_POINTS_SWITCH,
+    TABLE_URL,
+    click_new_table,
+    open_new_table,
+    table_id_of,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -161,6 +168,54 @@ def test_a_table_opens_with_the_chosen_length_in_one_request_even_when_the_butto
     series = answer.json()["series"]
     assert (series["game_number"], series["game_count"], series["over"]) == (0, 30, False)
     assert table_count(e2e_server) == before + 1
+
+
+@pytest.mark.parametrize("running_points", [True, False])
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_table_opens_with_the_running_points_as_switched_in_one_request_even_when_double_tapped(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    running_points: bool,
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    requests: list[dict[str, Any]] = []
+    person.on(
+        "request",
+        lambda request: requests.append(json.loads(request.post_data or "{}")) if request.method == "POST" else None,
+    )
+    a_sheet(person, e2e_server)
+    running_points_switch = person.get_by_role("switch", name=RUNNING_POINTS_SWITCH)
+    expect(running_points_switch).to_have_attribute("aria-checked", "false")
+    if running_points:
+        running_points_switch.click()
+        expect(running_points_switch).to_have_attribute("aria-checked", "true")
+
+    person.get_by_role("button", name=OPEN_TABLE).dblclick()
+
+    expect(person).to_have_url(TABLE_URL)
+    assert len(requests) == 1
+    assert ("options" in requests[0]) == running_points
+    if running_points:
+        assert requests[0]["options"] == {"show_running_points": True}
+    answer = person.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(urlsplit(person.url).path)}")
+    assert answer.json()["options"]["show_running_points"] is running_points
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_sheet_reopened_after_cancelling_reads_the_switch_off_again(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
+    a_sheet(person, e2e_server)
+    person.get_by_role("switch", name=RUNNING_POINTS_SWITCH).press("Space")
+    expect(person.get_by_role("switch", name=RUNNING_POINTS_SWITCH)).to_have_attribute("aria-checked", "true")
+
+    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.cancelNewTable")).click()
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+
+    expect(person.get_by_role("switch", name=RUNNING_POINTS_SWITCH)).to_have_attribute("aria-checked", "false")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -487,3 +542,27 @@ def test_a_signed_in_person_the_group_does_not_admit_gets_no_table_and_writes_no
     )
     assert answer.status == UNAUTHORIZED
     assert table_count(e2e_server) == before
+
+
+def test_a_switch_flipped_after_a_lost_answer_opens_a_table_at_the_new_choice(
+    open_person: Callable[..., Page],
+    expected_request_failures: list[str],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
+    person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
+    attempts = lose_the_first_answer_of_opening_a_table(person)
+    a_sheet(person, e2e_server)
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person.get_by_role("alert")).to_have_text(word_text(SOURCE_LANGUAGE, "start.newTableFailed"))
+
+    person.get_by_role("switch", name=RUNNING_POINTS_SWITCH).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+
+    expect(person).to_have_url(TABLE_URL)
+    assert "options" not in attempts[0]
+    assert attempts[1]["options"] == {"show_running_points": True}
+    assert attempts[1]["command_id"] != attempts[0]["command_id"]
+    answer = person.request.get(f"{e2e_server.base_url}{TABLES_PATH}/{table_id_of(urlsplit(person.url).path)}")
+    assert answer.json()["options"]["show_running_points"] is True
