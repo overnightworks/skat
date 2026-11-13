@@ -1284,11 +1284,20 @@ body {
     gap: 4px;
 }
 
+/* A Ramsch's plaque names the game, then what the table adds: the pushes and their factor, who acts, who is awaited. */
+.room .plaque.ramsch {
+    flex-direction: column;
+    gap: 7px;
+    padding: 8px 12px 10px;
+}
+
+.room .plaque.ramsch .game.pushes,
 .room .plaque .bock-line {
     font-size: 13px;
     color: var(--on-stage-soft);
 }
 
+.room .plaque.ramsch .game.pushes b,
 .room .plaque .bock-line b {
     color: var(--cream);
     font-weight: 700;
@@ -1774,8 +1783,8 @@ body {
 }
 
 /* A phone chair carries its position at the top right, so the turn, pass and waits marks sit below it, clear of
-   the dealer badge; a chair carries only one of them. */
-.room .mark:is(.turn, .pass, .waits, .ready) {
+   the dealer badge; a chair carries one of them, except that the think mark lies over the turn mark. */
+.room .mark:is(.turn, .pass, .waits, .ready, .think) {
     position: absolute;
     z-index: 2;
     top: 16px;
@@ -1814,6 +1823,23 @@ body {
     padding: 0 7px 0 5px;
     background: var(--glass-dark);
     backdrop-filter: blur(12px);
+}
+
+/* The agent on turn in the stage before a Ramsch: the mark lies over the turn mark and shows its sparkle alone on a
+   phone chair, too small for the word. */
+.room .mark.think {
+    width: 26px;
+    gap: 4px;
+    font-weight: 600;
+    color: var(--accent-stage, #7aa7f0);
+    background: rgba(29, 42, 66, 0.85);
+    box-shadow: inset 0 0 0 1px rgba(122, 167, 240, 0.5);
+    font-size: 0;
+}
+
+.room .mark.think svg {
+    width: 15px;
+    height: 15px;
 }
 
 .room .mark.waits .dot,
@@ -1950,6 +1976,19 @@ body {
     color: var(--ok-stage);
 }
 
+/* The word of a push stands in a bubble like a bid does, smaller than a number. */
+.room .bubble.word {
+    gap: 5px;
+    padding: 3px 12px 3px 5px;
+    font-size: 17px;
+}
+
+.room .bubble.word .dot {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+}
+
 /* A phone's far bubbles hang below their fans, beside the skat, and below a watcher's card counts. */
 .room .chair:nth-child(1) .bubble {
     right: 15%;
@@ -2003,11 +2042,18 @@ body {
         height: 170px;
     }
 
-    .room .mark:is(.turn, .pass, .waits, .ready) {
+    .room .mark:is(.turn, .pass, .waits, .ready, .think) {
         top: 6px;
         right: auto;
         left: 6px;
         height: 28px;
+    }
+
+    .room .mark.think {
+        width: auto;
+        height: 28px;
+        padding: 0 9px 0 7px;
+        font-size: 12.5px;
     }
 
     .room .mark.turn {
@@ -2026,7 +2072,7 @@ body {
         font-size: 11px;
     }
 
-    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready) {
+    .room .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready, .think) {
         top: 18px;
     }
 
@@ -2071,6 +2117,24 @@ body {
     .room .chair.turn:not(.mine)::before {
         width: 300px;
         height: 200px;
+    }
+
+    /* The near chair stands too close to the screen's edge for the word of a push at its left: it hangs above the
+       chair, as the near chair's call does in bid-watch. */
+    .room .chair:nth-child(3) .bubble.word {
+        right: auto;
+        left: 20px;
+        top: auto;
+        bottom: calc(100% + 34px);
+        transform: none;
+        --tail: 30%;
+    }
+
+    .room .chair:nth-child(3) .bubble.word::after {
+        left: var(--tail);
+        right: auto;
+        top: calc(100% - 6px);
+        transform: translateX(-50%) rotate(45deg);
     }
 }
 
@@ -3132,6 +3196,24 @@ body {
 
 /* The smallest phones keep the controls between the far fans and the own chair: the games stand close in two rows. */
 @media (max-width: 379px) {
+    .room .plaque.ramsch {
+        padding: 8px 8px 10px;
+    }
+
+    .room .plaque.ramsch .game:not(:first-child) {
+        font-size: 13px;
+    }
+
+    .room .plaque.ramsch .game.pushes {
+        font-size: 12px;
+    }
+
+    /* The word of a push is wider than a number: it keeps whole beside the chair on the narrowest felt. */
+    .room .chair:nth-child(3) .bubble.word {
+        right: calc(100% + 6px);
+        font-size: 16px;
+    }
+
     .room .declare:is(.picked, .hand) {
         gap: 8px;
     }

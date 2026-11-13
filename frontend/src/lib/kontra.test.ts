@@ -38,6 +38,10 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         own_cards: [],
         skat_count: 2,
         waiting_seat: null,
+        ramsch: false,
+        pushing: null,
+        pushes: 0,
+        push_factor: 1,
         auction: {
             turn_seat: null,
             facing_seat: null,
