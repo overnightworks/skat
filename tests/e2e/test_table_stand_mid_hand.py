@@ -31,6 +31,13 @@ OWN_HAND = ".own-hand"
 NOTICE = "p.notice"
 NEVER_UNDER_THE_NOTICE = (".plaque", ".bubble", ".chair .fan", ".chair .tile", ".trick .laid")
 TWO_CARDS = 2
+SENTENCE_INSIDE_THE_PILL = """notice => {
+    const sentence = document.createRange();
+    sentence.selectNodeContents(notice.querySelector('.label'));
+    const text = sentence.getBoundingClientRect();
+    const pill = notice.getBoundingClientRect();
+    return text.left >= pill.left && text.right <= pill.right;
+}"""
 
 
 def stand_key_of(person: Page):
@@ -113,7 +120,7 @@ def test_the_second_tap_stands_up_and_the_others_read_it_once_while_the_person_w
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_notice_about_the_chair_lies_over_no_plaque_bubble_fan_chair_or_laid_card(
+def test_the_notice_about_the_chair_holds_its_sentence_and_lies_over_no_plaque_bubble_fan_chair_or_laid_card(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -130,6 +137,7 @@ def test_the_notice_about_the_chair_lies_over_no_plaque_bubble_fan_chair_or_laid
         expect(other.locator(NOTICE)).to_have_count(1)
         notice = other.locator(NOTICE).bounding_box()
         assert notice is not None
+        assert other.locator(NOTICE).evaluate(SENTENCE_INSIDE_THE_PILL)
         for selector in NEVER_UNDER_THE_NOTICE:
             for covered in other.locator(selector).all():
                 box = covered.bounding_box()

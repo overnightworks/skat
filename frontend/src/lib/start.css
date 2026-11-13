@@ -3476,8 +3476,23 @@ body {
         max-width: calc(100% - 2 * (var(--chair-width) - 14px) - 8px);
     }
 
+    /* The gap between the far chairs is 138 px at 360, so the pill packs tight and its longest word breaks inside it rather than past its edge. */
+    .room .notice.seat {
+        gap: 6px;
+        padding: 5px 10px 5px 5px;
+        font-size: 13px;
+    }
+
+    .room .notice.seat .dot {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+
     .room .notice.seat .label {
         flex-shrink: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
         white-space: normal;
     }
 }
