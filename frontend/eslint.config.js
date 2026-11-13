@@ -40,6 +40,30 @@ export default ts.config(
         },
     },
     {
+        // A sign-in page is prerendered once per language, so it takes its words from the layout's data; the module's
+        // words are those of the language the build runs in.
+        files: [
+            "src/lib/ui/SignIn.svelte",
+            "src/lib/ui/CallSignIn.svelte",
+            "src/lib/legal.ts",
+            "src/routes/(sign-in)/**",
+        ],
+        rules: {
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: [
+                        {
+                            group: ["**/words.ts", "**/words.js"],
+                            message: "Sign-in pages read their words from the layout data, never from lib/words.ts.",
+                            allowTypeImports: true,
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
         rules: { "@typescript-eslint/no-explicit-any": "error" },
     },
     { ignores: ["build/", ".svelte-kit/", "coverage/", "../src/skat/web/build/"] },

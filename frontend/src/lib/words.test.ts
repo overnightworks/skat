@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { listFormat, pageLanguage } from "#lib/words.ts";
-import { sourceLanguage } from "#lib/words/index.ts";
+import { languages, sourceLanguage } from "#lib/words/index.ts";
 
 describe("the language of the page", () => {
     it.each(["de", "fr"])("is the tag %s of <html lang> when the app offers it", (tag) => {
         expect(pageLanguage(tag, ["de", "fr"])).toBe(tag);
+    });
+
+    it("is en for the tag en of <html lang>, since the catalog offers English", () => {
+        expect(pageLanguage("en", languages)).toBe("en");
     });
 
     it.each(["", "xx", "DE", "de-AT"])("is the source language for the tag '%s' the app does not offer", (tag) => {
