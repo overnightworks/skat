@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
-from skat.table.records import OccupantKind, OpaqueId, TableId, TableRecord
+from skat.table.records import Chair, Occupant, OccupantKind, OpaqueId, TableId, TableRecord
 from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
@@ -35,6 +35,7 @@ __all__ = [
     "SeatedOffer",
     "TableOffers",
     "TableStanding",
+    "agent_in_chair",
     "agents_seated_at",
     "call_offer_of",
     "control_shown",
@@ -239,12 +240,22 @@ def forgotten_if_expired(entry: BookEntry, now: datetime) -> BookEntry:
     return BookEntry(table_id=entry.table_id, agent_account=entry.agent_account, epoch=entry.epoch)
 
 
+def _agent_of(chair: Chair) -> Occupant | None:
+    """The occupant of the chair when it is an agent; None for a person and a free chair."""
+    return chair.occupant if chair.occupant is not None and chair.occupant.kind is OccupantKind.AGENT else None
+
+
 def seated_agents(table: TableRecord) -> tuple[SeatedAgent, ...]:
     """The agents that hold a chair at the table, in chair order."""
     return tuple(
-        SeatedAgent(chair.occupant.account_id, chair.occupant.display_name)
-        for chair in table.chairs
-        if chair.occupant is not None and chair.occupant.kind is OccupantKind.AGENT
+        SeatedAgent(agent.account_id, agent.display_name) for chair in table.chairs if (agent := _agent_of(chair))
+    )
+
+
+def agent_in_chair(table: TableRecord, seat: int) -> str | None:
+    """The account of the agent that holds the chair `seat`; None for a person, a free chair and a seat not there."""
+    return next(
+        (agent.account_id for chair in table.chairs if chair.seat == seat and (agent := _agent_of(chair))), None
     )
 
 

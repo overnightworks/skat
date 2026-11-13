@@ -1,1 +1,2 @@
 dependency_paths = [".github/workflows/", "pyproject.toml", "uv.lock", "Dockerfile", "frontend/package.json", "frontend/pnpm-lock.yaml"]
+lane_shared = ["tests/"]

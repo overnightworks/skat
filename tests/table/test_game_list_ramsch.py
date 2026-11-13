@@ -3,6 +3,8 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.kontra import KontraReach
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
+from skat.engine.schieberamsch import PushingRule
 from skat.table.game_list import (
     RamschResultView,
     RamschSeatResult,
@@ -14,7 +16,7 @@ from skat.table.game_list import (
     standings_of,
     total_of,
 )
-from skat.table.records import HandProgress
+from skat.table.records import HandProgress, RamschOccasion, RamschSetting, TableOptions
 from skat.table.rules import result_pending
 from tests.support.played_game import ANNA_BEN_CLEO, a_ramsch_entry, an_entry, table_in
 
@@ -64,10 +66,42 @@ class TestTheRamschResult:
             bock_factor=1,
             pushes=0,
             push_factor=1,
+            divided_by_ten=False,
         )
 
     def test_stands_as_a_result_that_deals_the_next_hand(self):
         assert result_pending(self.at_the_end(a_ramsch_entry()))
+
+
+class TestTheFactorsTheRamschResultDraws:
+    @pytest.mark.parametrize(
+        ("scoring", "durchmarsch", "swept", "push_factor", "divided_by_ten"),
+        [
+            pytest.param(
+                RamschScoring.POINTS_BY_TEN, DurchmarschRule.WINS_120, True, 4, False, id="a-sweep-is-no-division"
+            ),
+            pytest.param(
+                RamschScoring.POINTS, DurchmarschRule.WINS_120_FLAT, True, 1, False, id="a-flat-sweep-has-no-push"
+            ),
+            pytest.param(RamschScoring.POINTS, DurchmarschRule.WINS_120_FLAT, False, 4, False, id="a-loss-under-flat"),
+        ],
+    )
+    def test_the_push_factor_is_the_one_the_scores_carry_and_the_division_is_named(
+        self, scoring, durchmarsch, swept, push_factor, divided_by_ten
+    ):
+        options = TableOptions(
+            ramsch=RamschSetting(
+                RamschOccasion.PASSED_IN,
+                RamschOptions(scoring, JungfrauRule.OFF, durchmarsch),
+                pushing=PushingRule.JACKS_STAY,
+            )
+        )
+        entry = replace(a_ramsch_entry(), pushes=2, durchmarsch_seat=1 if swept else None)
+        table = replace(table_in(HandProgress(), options), hand=None, game_list=(entry,))
+
+        view = result_view_of(table)
+
+        assert (view.push_factor, view.divided_by_ten) == (push_factor, divided_by_ten)
 
 
 class TestTheSeriesRows:
