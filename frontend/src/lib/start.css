@@ -943,6 +943,9 @@ body {
     --ok-stage: #4cc38a;
     /* The one red of leaving: white text on it meets 4.5:1, and the declined cross on the dark glass meets 3:1. */
     --leave: #d63a40;
+    /* The pile and the last trick shown again. */
+    --brass-hi: #f1d898;
+    --pile-card: 32px;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -6978,13 +6981,8 @@ body {
 }
 
 /* The trick's way to its taker's pile, the pile and the last trick shown again, as the scenes last-trick-rest,
-   last-trick-sweep, last-trick-pile and last-trick-shown draw them. */
-.room {
-    --brass-hi: #f1d898;
-    --pile-card: 32px;
-}
-
-/* A pile is as big as one back, centred on its place beside its chair; its backs lie on it, one more for every trick
+   last-trick-sweep, last-trick-pile and last-trick-shown draw them.
+   A pile is as big as one back, centred on its place beside its chair; its backs lie on it, one more for every trick
    taken, each crossed against the one below. */
 .room .pile {
     position: absolute;
