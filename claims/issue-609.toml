@@ -1,0 +1,8 @@
+claim_id = "8931d6663ba44281903ae7fd158a54a3"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "76b0739c5db5bd426b35541fbb5e662d63f76d3e"
+branch = "claude/issue-609-s15-11-the-bell-rings-a-cowbell-over-the"
+scope = ["docs/mockups/table.html", "frontend/src", "scripts", "src/skat/table", "src/skat/web", "tests"]
+opened_commit = "9172576b48b88ca21145c22c51653cfb3132dd59"
+whole_reason = "One visible nudge crosses the picture, the stream that tells every page, the page's motion and the recorded voice; a split would land a sound no page plays."
