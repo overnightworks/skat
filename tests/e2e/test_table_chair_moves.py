@@ -2,7 +2,6 @@
 a reload plays nothing, and a device that asks for reduced motion keeps the chair still but not silent.
 """
 
-import itertools
 import json
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -10,11 +9,10 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, expect
 
-from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap, voices_started
 from tests.e2e.support.browser import record_page_errors
-from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.tables import SIT_DOWN, open_new_table, plate_of, sit_in
 
@@ -43,7 +41,6 @@ STANDING = "chair-stood"
 OPENING = "chair-opened"
 # An installed clock keeps ticking until paused, and pausing only moves time forward, so it stops this far ahead.
 CLOCK_HOLD_LEAD = timedelta(seconds=5)
-command_numbers = itertools.count(1)
 
 
 def held_page(
@@ -72,12 +69,6 @@ def animation_of(page: Page, seat: int) -> str:
 
 def sounded_since(page: Page, before: int) -> list[dict[str, Any]]:
     return voices_started(page)[before:]
-
-
-def stand_up_through_the_api(table: PlayingTable, seat: int) -> None:
-    table.declaring.sessions[seat].post(
-        f"{table.declaring.api_path}{TABLE_STAND_SUFFIX}", {"command_id": f"stand-{next(command_numbers):04d}"}
-    )
 
 
 def lobby_with_onlooker(
@@ -204,7 +195,7 @@ def test_a_chair_of_the_running_hand_opens_and_is_taken_again_and_both_move_and_
     expect(onlooker.locator(".chair")).to_have_count(3)
     tap(onlooker)
 
-    stand_up_through_the_api(table, leaver_seat)
+    table.stand_up_through_the_api(leaver_seat)
 
     expect(chair_of(onlooker, leaver_seat)).to_have_attribute("data-moving", OPENING)
     assert animation_of(onlooker, leaver_seat) == f"empty-{motion_set}"
