@@ -34,6 +34,9 @@
                           if (lifted !== null && includesCard([lifted], card)) void send(card);
                           else lifted = card;
                       },
+                      play: (card) => {
+                          void send(card);
+                      },
                   };
     });
 
