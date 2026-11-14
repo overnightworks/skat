@@ -301,7 +301,7 @@ def bock_rounds_after(table: TableRecord, triggered_by: Callable[[BockOptions], 
     if series_games_left(table) == 1:  # the running hand counts as a game left
         return bock_at_series_end()
     ramsch = table.options.ramsch
-    ramsch_follows = ramsch is not None and ramsch.occasion.in_bock_rounds
+    ramsch_follows = ramsch is not None and ramsch.occasion.after_bock_rounds
     return advance(table.bock, options.overlap, triggered=triggered_by(options), ramsch_follows=ramsch_follows)
 
 

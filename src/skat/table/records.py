@@ -87,8 +87,8 @@ class Actor:
 class RamschOccasion(StrEnum):
     """When a table plays a Ramsch; the stored token, also the request's and the answer's.
 
-    `PASSED_IN` plays a hand all three pass as a Ramsch. `BOCK_ROUNDS` deals a Ramsch with no auction for each game of
-    a Bock round and passes a hand all three pass in. `PASSED_IN_AND_BOCK_ROUNDS` does both.
+    `PASSED_IN` plays a hand all three pass as a Ramsch. `BOCK_ROUNDS` follows each Bock round with a Ramsch round of
+    three games with no auction and passes a hand all three pass in. `PASSED_IN_AND_BOCK_ROUNDS` does both.
     """
 
     PASSED_IN = "passed-in"
@@ -100,7 +100,7 @@ class RamschOccasion(StrEnum):
         return self is not RamschOccasion.BOCK_ROUNDS
 
     @property
-    def in_bock_rounds(self) -> bool:
+    def after_bock_rounds(self) -> bool:
         return self is not RamschOccasion.PASSED_IN
 
 

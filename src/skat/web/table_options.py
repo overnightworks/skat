@@ -51,8 +51,8 @@ class PushingOptionsRequest(BaseModel):
 
 class RamschOptionsRequest(BaseModel):
     """The opener names all four Ramsch choices or none: the program defaults none of them. The table plays a Ramsch
-    for a hand all three pass, in a Bock round's games with no auction, or both, as `occasion` says. `pushing` is the
-    one optional choice: left out, the Ramsch has no stage of takes and pushes.
+    for a hand all three pass, in a Ramsch round of three games with no auction after each Bock round, or both, as
+    `occasion` says. `pushing` is the one optional choice: left out, the Ramsch has no stage of takes and pushes.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -76,8 +76,8 @@ class OptionsRequest(BaseModel):
 
     @model_validator(mode="after")
     def _bock_rounds_need_bock(self) -> Self:
-        if self.ramsch is not None and self.ramsch.occasion.in_bock_rounds and self.bock is None:
-            message = "a Ramsch in Bock rounds needs the table's Bock options"
+        if self.ramsch is not None and self.ramsch.occasion.after_bock_rounds and self.bock is None:
+            message = "a Ramsch round after each Bock round needs the table's Bock options"
             raise ValueError(message)
         return self
 
