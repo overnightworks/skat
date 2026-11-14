@@ -6,7 +6,7 @@ from alembic.migration import MigrationContext
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate, require_head
+from skat.store.migrate import create_store_engine, migrate
 from skat.store.tables import metadata
 from tests.support.migrations import list_row, only_row, run_in_transaction, upgrade_to
 
@@ -517,25 +517,6 @@ class TestFromChairsAtRevisionTwentyEight:
         migrate(at_revision)
 
         assert (self.chair_rows(at_revision), self.indexed_columns(at_revision)) == (before, [["account_id"]])
-
-
-class TestRequireHead:
-    def test_accepts_a_database_at_head(self, unmigrated_engine):
-        migrate(unmigrated_engine)
-
-        require_head(unmigrated_engine)
-
-    def test_refuses_an_unmigrated_database_and_says_which_command_fixes_it(self, unmigrated_engine):
-        with pytest.raises(DatabaseNotAtHeadError, match="skat migrate"):
-            require_head(unmigrated_engine)
-
-    def test_refuses_a_database_at_an_older_revision(self, unmigrated_engine):
-        migrate(unmigrated_engine)
-        with unmigrated_engine.begin() as connection:
-            connection.execute(text("UPDATE alembic_version SET version_num = 'older'"))
-
-        with pytest.raises(DatabaseNotAtHeadError, match="older"):
-            require_head(unmigrated_engine)
 
 
 class TestFromATableAtRevisionEight:
