@@ -110,6 +110,12 @@ class Agent:
         assert answer.status_code == 200, answer.text
         return json.loads(answer.json()["result"]["contents"][0]["text"])
 
+    def window(self, table_id):
+        """The agent's window of its table, as a runner reads it: generation, starts_at and entries."""
+        answer = self.read_resource(window_uri_of(table_id))
+        assert answer.status_code == 200, answer.text
+        return json.loads(answer.json()["result"]["contents"][0]["text"])
+
     def listed_resources(self):
         answer = self.request("resources/list")
         assert answer.status_code == 200, answer.text

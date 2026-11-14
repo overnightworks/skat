@@ -25,7 +25,7 @@ from skat.web.mcp import (
     TOOLS_OF_MOMENT,
 )
 from skat.web.member_place import ACCEPT_INVITATION_DECLARATION
-from tests.web.support.agent import Agent, person_passes, person_steps
+from tests.web.support.agent import Agent, person_passes, person_steps, view_uri_of, window_uri_of
 from tests.web.support.calling import running_skat
 from tests.web.support.playing import MIDDLEHAND, REARHAND
 from tests.web.support.sdk_agent import TOOLS_CHANGED, SdkAgent
@@ -116,21 +116,26 @@ class TestTheAgentIsToldWhenTheListChanges:
         self, skat, sdk, agent, forehand_auction
     ):
         table = forehand_auction
-        view = f"member://standing/places/table/{table.table_id}/view"
+        window, view = window_uri_of(table.table_id), view_uri_of(table.table_id)
 
         with sdk.connected() as session, session.listening(tools_list_changed=True) as events:
             table.middlehand_bids()
-            first = events.next_kind()
+            first = [events.next_kind() for _ in range(2)]
             session.call(
                 AUCTION_PASS_TOOL, table_id=table.table_id, command_id="agent-pass", version=table.record.version
             )
-            second = events.next_kind()
+            second = [events.next_kind() for _ in range(2)]
             person_passes(table, REARHAND)
-            ending = sorted([events.next_kind(), events.next_kind()])
+            ending = sorted(events.next_kind() for _ in range(3))
             person_steps(table, MIDDLEHAND, TABLE_DECLARING_TAKE_SUFFIX)
-            after = events.next_kind()
+            after = [events.next_kind() for _ in range(2)]
 
-        assert (first, second, ending, after) == (view, view, sorted([view, TOOLS_CHANGED]), view)
+        assert (first, second, ending, after) == (
+            [window, view],
+            [window, view],
+            sorted([window, view, TOOLS_CHANGED]),
+            [window, view],
+        )
 
     def test_the_notice_comes_when_the_agent_sits_down_and_when_it_stands_up(self, sdk, agent):
         with sdk.connected() as session, session.listening(tools_list_changed=True) as events:
