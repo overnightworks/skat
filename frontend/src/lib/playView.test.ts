@@ -216,7 +216,7 @@ const FINISHED: LastTrick = { cards: [KARO_SEVEN, KARO_ACE, HERZ_TEN], leader_se
 const EARLIER: LastTrick = { cards: [KARO_SEVEN, KARO_ACE, HERZ_TEN], leader_seat: 2, taker_seat: 1 };
 
 function onTheMove(phase: StageState["phase"], before: Playing | null = null): StageState {
-    return { phase, until: 0, trick: FINISHED, before, glideMilliseconds: 750 };
+    return { phase, until: 0, trick: FINISHED, before, glideMilliseconds: 750, turnPending: false };
 }
 
 describe("the finished trick on the felt", () => {

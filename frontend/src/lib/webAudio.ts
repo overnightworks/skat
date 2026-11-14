@@ -28,11 +28,12 @@ const LIMITER_RATIO = 20;
 const LIMITER_ATTACK_SECONDS = 0.001;
 const LIMITER_RELEASE_SECONDS = 0.1;
 const NOISE_SECONDS = 1.5;
-const TONE_ATTACK_SECONDS = 0.004;
-const NOISE_ATTACK_SECONDS = 0.003;
-const TAIL_SECONDS = 0.05;
-const ENVELOPE_FLOOR = 0.0001;
-const GAIN_FLOOR = 0.0002;
+/** The envelope of a voice: a quick rise, an exponential fall, a tail before the source stops. The sets' loudness test renders by them. */
+export const TONE_ATTACK_SECONDS = 0.004;
+export const NOISE_ATTACK_SECONDS = 0.003;
+export const TAIL_SECONDS = 0.05;
+export const ENVELOPE_FLOOR = 0.0001;
+export const GAIN_FLOOR = 0.0002;
 
 /** Web Audio behind the port. The context is made inside the player's first gesture, since the browser keeps a context made earlier suspended. */
 export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
