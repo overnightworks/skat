@@ -22,6 +22,8 @@ from tests.web.support.presence import (
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
 FIRST_RESULT = 1
+# The event of logline's request line, which the server writes beside Skat's own lines.
+REQUEST_LINE_EVENT = "request"
 
 
 WEITER_COMMAND_ID = "weiter-0001"
@@ -233,7 +235,8 @@ class TestRetry:
                     first = weiter(server, people[2][0], table_id)
                 assert first.status_code == 200, first.text
                 assert store.tables[table_id].hand is None
-                assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+                skat_logs = [log for log in logs if log["event"] != REQUEST_LINE_EVENT]
+                assert [(log["log_level"], log["error"]) for log in skat_logs] == [NAMED_FAILURE]
 
                 retried = weiter(server, people[2][0], table_id)
                 dealt = store.tables[table_id]

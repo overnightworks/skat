@@ -54,6 +54,9 @@ COPY --from=page-build /build/src/skat/web/build ./src/skat/web/build
 RUN uv build --wheel --out-dir /tmp/wheel \
  && uv pip install --python /opt/venv/bin/python --no-deps --no-build /tmp/wheel/*.whl \
  && rm -r /tmp/wheel
+# logline writes this release as the version of every log line; the release workflow passes it.
+ARG SERVICE_VERSION
+ENV SERVICE_VERSION=$SERVICE_VERSION
 # A pod's runAsNonRoot can verify only a numeric user; 1001 is skat's uid.
 USER 1001
 

@@ -11,7 +11,6 @@ from skat.host.main import create_database_engine, main, uvicorn_options
 from skat.store import migrate as migrate_module
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate
 from skat.store.rule_sets import PostgresRuleSets
-from skat.web.constants import UVICORN_LOG_LEVEL
 from skat.web.secret_files import StartRefusedError
 from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
@@ -277,10 +276,8 @@ class TestRefusedDatabaseSettings:
 
 
 class TestUvicornOptions:
-    def test_writes_no_access_line_and_logs_only_warnings(self, sign_in_settings):
-        options = uvicorn_options(sign_in_settings().settings)
-        assert options["access_log"] is False
-        assert options["log_level"] == UVICORN_LOG_LEVEL
+    def test_leaves_uvicorn_logging_to_logline(self, sign_in_settings):
+        assert uvicorn_options(sign_in_settings().settings)["log_config"] is None
 
     def test_leaves_the_client_address_to_the_trusted_proxy_setting(self, sign_in_settings):
         assert uvicorn_options(sign_in_settings().settings)["proxy_headers"] is False
