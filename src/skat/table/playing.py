@@ -110,6 +110,14 @@ class LastTrick:
 
 
 @dataclass(frozen=True)
+class TakenTricks:
+    """How many tricks one seat has taken so far, 0 included."""
+
+    seat: int
+    tricks: int
+
+
+@dataclass(frozen=True)
 class GiveUpView:
     """A give-up waiting for the other side's answer, by seat: who asked, and the opponent who said no to the
     declarer's.
@@ -144,12 +152,14 @@ class OpenHand:
 class PlayingView:
     """The game in play as one viewer may see it; the turn is the seat that plays next. `shortening_refused_seat` is
     the opponent whose no to the declarer's shortening left his cards open, `open_play_seat` the opponent whose open
-    play waits for the declarer's answer, and `open_hands` the opponents' cards that stay open after it.
+    play waits for the declarer's answer, and `open_hands` the opponents' cards that stay open after it. `taken` is
+    the completed tricks of each of the three seats in seat order, the same for every viewer.
     """
 
     turn_seat: int
     current_trick: tuple[SeatedCard, ...]
     last_trick: LastTrick | None
+    taken: tuple[TakenTricks, ...]
     legal_cards: tuple[Card, ...]
     running_points: Sides | None
     give_up: GiveUpView | None
@@ -456,6 +466,13 @@ def _legal_cards(state: Playing | RamschPlaying, viewer_positions: frozenset[Pos
     return tuple(card for card in DECK if card in held and _card_played(state, turn, card).refusal is None)
 
 
+def _taken_of(state: Playing | RamschPlaying, seats: dict[Position, int]) -> tuple[TakenTricks, ...]:
+    return tuple(
+        TakenTricks(seat, sum(trick.taker is position for trick in state.tricks))
+        for position, seat in sorted(seats.items(), key=lambda each: each[1])
+    )
+
+
 def playing_view_of(
     state: Playing | RamschPlaying | None,
     dealer: int,
@@ -469,7 +486,7 @@ def playing_view_of(
 ) -> PlayingView | None:
     """The game in play for one viewer; None until a game is played.
 
-    Everyone sees the turn, the trick in progress and the last completed trick.
+    Everyone sees the turn, the trick in progress, the last completed trick and how many tricks each seat has taken.
     Only the seated player on turn gets the cards they may play, and nobody while the hand waits for a sitter or the
     game for the declarer's answer to an opponent's give-up, which the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
@@ -486,6 +503,7 @@ def playing_view_of(
         turn_seat=seats[state.turn],
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
         last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
+        taken=_taken_of(state, seats),
         legal_cards=_legal_cards(state, viewer_positions),
         running_points=state.tally.points
         if show_running_points and isinstance(state, Playing) and state.counts_card_points

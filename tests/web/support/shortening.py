@@ -1,7 +1,7 @@
 import pytest
 
 from skat.engine.deal import Position
-from skat.web.declaring import AnnouncementToken, GameToken
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_DECLINE_SUFFIX, TABLE_SHORTEN_SUFFIX
 from tests.support.payload_cards import CARDS_BY_SEAT, wire_cards
 from tests.web.support.giving_up import (

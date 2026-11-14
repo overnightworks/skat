@@ -34,10 +34,11 @@
                           if (lifted !== null && includesCard([lifted], card)) void send(card);
                           else lifted = card;
                       },
+                      play: send,
                   };
     });
 
-    async function send(card: Card): Promise<void> {
+    async function send(card: Card): Promise<boolean> {
         note = "";
         sentAtVersion = table.version;
         const answer = await playCard(id, table.version, crypto.randomUUID(), card);
@@ -45,5 +46,6 @@
             sentAtVersion = null;
             note = words["play.commandFailed"];
         }
+        return answer.kind === "table";
     }
 </script>

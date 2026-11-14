@@ -4,7 +4,7 @@ from skat.engine.deal import Deal
 from skat.engine.tricks import PlayRefusal
 from skat.table.hand_state import playing_of
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import AnnouncementToken, GameToken
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import (

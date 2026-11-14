@@ -7,6 +7,7 @@ from skat.engine.games import GameKind
 from skat.table.declaring import DECLARING_STEP_COMMAND
 from skat.table.hand_state import declaring_of
 from skat.table.records import Refusal
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -21,7 +22,7 @@ from skat.web.mcp import (
     PUT_BACK_CARDS_TOOL,
     TAKE_SKAT_TOOL,
 )
-from skat.web.tables import TABLES_PATH, AnnouncementToken, GameToken
+from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import (
     DEALER_SEAT,
     FOREHAND_CARDS,

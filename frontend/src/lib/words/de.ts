@@ -177,6 +177,7 @@ export type Words = {
     readonly "declare.levelSchwarz": string;
     readonly "declare.levelOuvert": string;
     readonly "play.commandFailed": string;
+    readonly "play.swipeHint": string;
     readonly "play.sideUs": string;
     readonly "play.sideThem": string;
     readonly "play.trick": string;
@@ -701,6 +702,7 @@ export const words: Words = {
     "declare.levelSchwarz": "Schwarz",
     "declare.levelOuvert": "Ouvert",
     "play.commandFailed": "Das hat nicht geklappt",
+    "play.swipeHint": "Nochmal tippen oder hochwischen spielt die Karte",
     "play.sideUs": "Wir",
     "play.sideThem": "Gegner",
     "play.trick": "Stich",

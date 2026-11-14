@@ -747,6 +747,10 @@ msgctxt "play.commandFailed"
 msgid "Das hat nicht geklappt"
 msgstr "That did not work"
 
+msgctxt "play.swipeHint"
+msgid "Nochmal tippen oder hochwischen spielt die Karte"
+msgstr "Tap again or swipe up to play the card"
+
 msgctxt "play.sideUs"
 msgid "Wir"
 msgstr "Us"

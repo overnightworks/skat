@@ -58,8 +58,10 @@ from skat.web.constants import (  # noqa: E402
     NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    STREAM_HEARTBEAT_SECONDS,
     VERSION_FILE_PATH,
 )
+from skat.web.declaration_tokens import AnnouncementToken, GameToken  # noqa: E402
 from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -91,9 +93,7 @@ from skat.web.tables import (  # noqa: E402
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
-    AnnouncementToken,
     AwaitingToken,
-    GameToken,
     PositionToken,
     RankToken,
     StageToken,
@@ -238,6 +238,7 @@ def render() -> str:
     chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
     ask_again_after = f"export const ASK_AGAIN_AFTER = {ASK_AGAIN_AFTER:g};\n"
     rule_set_name_max = f"export const RULE_SET_NAME_MAX = {RULE_SET_NAME_MAX};\n"
+    stream_heartbeat = f"export const STREAM_HEARTBEAT_SECONDS = {STREAM_HEARTBEAT_SECONDS};\n"
     return (
         HEADER
         + "\n"
@@ -249,6 +250,7 @@ def render() -> str:
         + chairs
         + ask_again_after
         + rule_set_name_max
+        + stream_heartbeat
         + switch_on_options()
     )
 
