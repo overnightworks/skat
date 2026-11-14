@@ -349,7 +349,11 @@ class TestBothOpponentsSayYes:
             result["score"],
         )
         listed = list_entry_of(table)
-        assert (listed["settled_value"], listed["score"]) == (result["settled_value"], result["score"])
+        assert (listed["declarer_points"], listed["settled_value"], listed["score"]) == (
+            result["declarer_points"],
+            result["settled_value"],
+            result["score"],
+        )
 
     def test_every_stream_carries_the_same_result_and_no_card_after_the_second_yes(self, herz_hand):
         shortens(herz_hand)
@@ -720,8 +724,8 @@ class TestThroughTheMcpTools:
         (entry,) = table.record.game_list
         assert entry.declarer_points == result["declarer_points"]
         listed = agent.call(READ_SERIES_LIST_TOOL, table_id=table.table_id).json()["entries"]
-        assert [(each["settled_value"], each["score"]) for each in listed] == [
-            (result["settled_value"], result["score"])
+        assert [(each["declarer_points"], each["settled_value"], each["score"]) for each in listed] == [
+            (result["declarer_points"], result["settled_value"], result["score"])
         ]
 
     def test_the_agent_declarers_unreached_demand_is_a_failed_result(self, skat, agent):

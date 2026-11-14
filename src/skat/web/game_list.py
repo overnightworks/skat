@@ -35,6 +35,7 @@ class SeriesEntryAnswer(BaseModel):
     levels: list[Level]
     settled_value: int
     score: int
+    declarer_points: int
     kontra_word: Word | None
     bock_factor: int
 
@@ -83,6 +84,7 @@ def _entry_answer_of(entry: SeriesEntryView | RamschSeriesEntryView) -> SeriesEn
         levels=list(entry.levels),
         settled_value=entry.settled_value,
         score=entry.score,
+        declarer_points=entry.declarer_points,
         kontra_word=entry.kontra_word,
         bock_factor=entry.bock_factor,
     )
