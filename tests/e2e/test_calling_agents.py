@@ -31,6 +31,8 @@ CALLING = kit_text("agent.calling")
 BUSY = kit_text("agent.busy")
 EMPTY = kit_text("agent.empty")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
+# A point of the page outside the pill and its list.
+BESIDE_THE_LIST = (4, 4)
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
 # The list keeps this far from either edge of the viewport, in pixels.
@@ -277,6 +279,36 @@ def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one
 
         expect(felix.get_by_text(BUSY)).to_be_visible()
         expect(pill(guests[0])).to_have_count(0)
+    finally:
+        agent.close()
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+def test_a_caller_who_left_the_calling_group_keeps_the_list_until_he_has_read_the_refusal(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused call as a console error; that refusal is the point of this test.
+    felix = record_page_errors(
+        open_person(username="felix-leaves-the-group", groups=(AGENT_ADDERS_GROUP,), **DESKTOP),
+        page_errors,
+        console=False,
+    )
+    open_new_table(felix, e2e_server)
+    account = member_of(felix).account.id
+    agent = ListeningAgent(e2e_server, account, "Raffael", "agent-subject-raffael")
+    try:
+        pill(felix).click()
+        e2e_server.issuer.grant_groups(account, ())
+
+        felix.get_by_role("button", name=call_label("Raffael")).click()
+
+        expect(felix.get_by_role("dialog", name=PILL).get_by_role("alert")).to_be_visible()
+        expect(pill(felix)).to_be_visible()
+        felix.mouse.click(*BESIDE_THE_LIST)
+        expect(pill(felix)).to_have_count(0)
     finally:
         agent.close()
 
