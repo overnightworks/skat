@@ -14,6 +14,10 @@ BURST_SIZE = 50
 STALL_GUARD_SECONDS = 10
 
 
+class ProbeBrokeError(Exception):
+    pass
+
+
 class FakeClock:
     def __init__(self) -> None:
         self.now = 0.0
@@ -33,6 +37,7 @@ class ScriptedDatabase:
         self.most_probes_running = 0
         self.seconds_per_probe = 0.0
         self.stalled = False
+        self.fails = False
         self.released = threading.Event()
 
     def probe(self) -> DatabaseHealth:
@@ -41,6 +46,8 @@ class ScriptedDatabase:
         self.most_probes_running = max(self.most_probes_running, self.probes_running)
         if self.stalled:
             self.released.wait(timeout=STALL_GUARD_SECONDS)
+        if self.fails:
+            raise ProbeBrokeError
         self._clock.now += self.seconds_per_probe
         health = self.health
         self.probes_running -= 1
@@ -126,6 +133,20 @@ class TestReadinessProbe:
                 database.released.set()
 
         assert (asyncio.run(burst_into_the_stall()), database.probes_started) == ([False] * BURST_SIZE, 2)
+
+    def test_asks_that_wait_on_a_probe_that_raised_get_its_error_and_the_next_ask_probes_again(
+        self, readiness, database
+    ):
+        database.fails = True
+
+        async def burst_then_recover() -> tuple[list[object], bool]:
+            raised = await asyncio.gather(*(readiness() for _ in range(BURST_SIZE)), return_exceptions=True)
+            database.fails = False
+            return raised, await readiness()
+
+        raised, recovered = asyncio.run(burst_then_recover())
+
+        assert (set(map(type, raised)), recovered, database.probes_started) == ({ProbeBrokeError}, True, 2)
 
 
 class TestReadinessLogging:
