@@ -558,7 +558,7 @@ body.solo section.shot .rule{display:none}
   font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--stage)}
 </style>
 <style>
-/* ---------- playing with my agent: the Agenten pill in the strip, the kit's list in a popover, the bell, the open chair ---------- */
+/* ---------- playing with my agent: the Agenten pill in the strip, the kit's list in a popover, the open chair ---------- */
 .cb.agents .ai-mark,.cb.wide.agents .ai-mark{color:inherit}
 .cb.agents.on,.cb.wide.glass.agents.on{background:var(--on-stage);color:var(--stage)}
 .pill-anchor{position:relative;display:inline-flex}
@@ -594,19 +594,7 @@ body.solo section.shot .rule{display:none}
   .agent-control .dots i{animation:hop 1.2s ease-in-out infinite}
   .agent-control .dots i:nth-child(2){animation-delay:.12s}
   .agent-control .dots i:nth-child(3){animation-delay:.24s}
-  .mark.shaken > svg.mo{animation:shake .8s ease-in-out .5s both;transform-origin:50% 22%}
-  @keyframes shake{0%,100%{rotate:0deg}20%{rotate:-16deg}40%{rotate:14deg}60%{rotate:-9deg}80%{rotate:5deg}}
 }
-/* the bell: a glass circle with an accent ring while it may be tapped, inside a 44 px tap area; with a tick once nudged */
-.mark.bell{top:-8px;right:auto;left:-8px;width:28px;height:28px;padding:0;justify-content:center;background:rgba(12,14,17,.86);color:var(--on-stage);backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5),0 4px 10px -4px rgba(0,0,0,.7)}
-.mark.bell svg{width:17px;height:17px}
-.mark.bell[role=button]{box-shadow:0 0 0 2px var(--accent-stage),0 4px 10px -4px rgba(0,0,0,.7);cursor:pointer}
-.mark.bell[role=button]::after{content:"";position:absolute;inset:-8px}
-.mark.bell i{position:absolute;right:-5px;bottom:-5px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:var(--ok-stage);color:#0D1013;box-shadow:0 0 0 2px var(--stage)}
-.mark.bell i svg{width:9px;height:9px}
-.mark.shaken::before,.mark.shaken::after{content:"";position:absolute;top:6px;width:6px;height:16px;border:2px solid var(--accent-stage);border-radius:50%}
-.mark.shaken::before{left:-10px;border-right:0}
-.mark.shaken::after{right:-10px;border-left:0}
 .result.closed .line{font-size:15px;line-height:1.4;font-weight:400;color:var(--on-stage-soft);text-align:center}
 </style>
 <style>
@@ -1084,7 +1072,6 @@ const IDEAS=[
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
   ['🤖','Agenten rufen','Die Pille „AI“ in Skats Leiste öffnet die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht weder Pille noch Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
-  ['🔔','Anstupsen','Nach einer Minute Warten trägt der wartende Stuhl eine Glocke; ein Tipp stupst an, danach ruht sie mit einem Haken für alle, und der Angestupste sieht sie an seinem Stuhl wackeln. (S11.14)','nudge-chair, nudge-sent, nudge-mine'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
@@ -1616,16 +1603,11 @@ const RULES_SCENES=[
 scenes(RULES_SCENES);
 ORDER.push(...RULES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
-/* ===== playing with my agent at the table: calling it, its open chair, the nudge, the vote ===== */
+/* ===== playing with my agent at the table: calling it, its open chair, the vote ===== */
 Object.assign(I,{
-  bell:sv('<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 1.5h-15z"/><path d="M10 21.2a2.2 2.2 0 0 0 4 0"/>',1.9),
   stop:sv('<rect x="6" y="6" width="12" height="12" rx="3" fill="currentColor"/>',2),
 });
 P.annaSelf={...P.anna,n:'Du'};
-/* the bell: a button while it may be tapped, a mark with a tick once nudged, and the one that shakes on the nudged person's own chair */
-MARK.bell=`<span class="mark bell" role="button" tabindex="0" title="Nova anstupsen" aria-label="Nova anstupsen">${I.bell}</span>`;
-MARK.belled=`<span class="mark bell belled" title="Angestupst">${I.bell}<i>${I.check}</i></span>`;
-MARK.shaken=MARK.belled.replace('mark bell belled','mark bell belled shaken').replace('<svg','<svg class="mo" style="--k:.16s"');
 
 /* the 360 frame: the phone's geometry narrowed by 30 px and shortened by 64, so the strip's crowding is drawn at its real width */
 const PHONE_360={PB:{table:{...PB.table,w:344,h:428},nova:{...PB.nova,x:230},you:{...PB.you,x:127,y:PB.you.y-64},
@@ -1710,17 +1692,6 @@ const askingAnna=(d)=>{const L=seatsOf(d);
     +ownCards(d,SPARE_HAND)+stripOf(d,{lead:''});};
 const AWAITING_ANNA=`${faceDot('anna')}Warte auf Anna${waitDots()}`;
 
-const NUDGE_NOTE='Die Glocke steht erst, wenn der Tisch eine Minute auf diesen Stuhl gewartet hat; jeder Sitzende außer dem Erwarteten sieht sie, ein Zuschauer nicht.';
-/* Nova has been thinking for over a minute: the table waits for her seat; the marks are the bell (top left) and „denkt“ (top right) */
-const waitingForNova=(d,o={})=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true,glow:novaGlow(d)})+kreuz(d)+lead(d,'anna','left')
-    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',{...L.nova,marks:['turn','think',...(o.bell?[o.bell]:[])]})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
-    +ownCards(d)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)});};
-const nudgedFelix=(d)=>{const L=seatsOf(d);
-  return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)+notice('Anna stupst dich an','anna',mid(d),d?432:440)
-    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn','shaken']})+chairCoasters(L,TOTALS_BEFORE)
-    +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)});};
-
 const AGENT_SCENES=[
   ['agents-strip','Agenten: die Leiste',[360,390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d))),
     [`${AT_TABLE}; die Leiste trägt „Aufstehen“, die runde AI-Pille, den Link und „Tisch schließen“. Am Rechner steht „Agenten“ neben dem Zeichen. Gezählt: 326 von 332 Pixeln bei 360.`]],
@@ -1759,12 +1730,6 @@ const AGENT_SCENES=[
       +seat('anna',L.anna)+freeSeat(L.nova,{idle:true})+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
       +stripOf(d,{pill:agentPill(d)});},
     ['Beide waren einverstanden: der Filz ist leer, „Spiel abgebrochen“; der Stuhl bleibt frei, bis wieder drei sitzen, und „Aufstehen“ ist zurück.']],
-  ['nudge-chair','Anstupsen: die Glocke am Stuhl',[360,390,1280],(d)=>waitingForNova(d,{bell:'bell'}),
-    [`Nova denkt schon über eine Minute: eine Glocke an ihrem Stuhl, für Anna und Felix. ${NUDGE_NOTE}`]],
-  ['nudge-sent','Anstupsen: angestupst',[390,1280],(d)=>waitingForNova(d,{bell:'belled'}),
-    ['Anna tippte: die Glocke ruht mit einem Haken an Novas Stuhl, für alle am Tisch, und „denkt“ bewegt sich wieder.']],
-  ['nudge-mine','Anstupsen: du wirst angestupst',[390,1280],nudgedFelix,
-    ['Felix wird angestupst: die Glocke an seinem eigenen Stuhl wackelt einmal, „Anna stupst dich an“ steht über seiner Hand, und er ist dran.']],
 ];
 /* a scene that is one variant of an open choice carries its mark inside the frame, so a single frame shows it too */
 const DRAFT='<span class="draft-tab">Entwurf zur Wahl</span>';
