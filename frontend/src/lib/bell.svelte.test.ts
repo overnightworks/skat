@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import { flushSync } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
 import { grumbleOf } from "#lib/voice.ts";
@@ -56,5 +58,21 @@ describe("the bell that rings at a nudged chair", () => {
         stopRinging();
 
         expect(grumblingAt(NUDGED_SEAT)).toBeNull();
+    });
+
+    it("can be stopped from inside an effect, as the page does when it shows another table, and the effect runs once", () => {
+        ring({ kind: "nudged", seat: NUDGED_SEAT, pick: 4 });
+        let runs = 0;
+
+        const end = $effect.root(() => {
+            $effect(() => {
+                runs += 1;
+                stopRinging();
+            });
+        });
+        flushSync();
+        end();
+
+        expect(runs).toBe(1);
     });
 });

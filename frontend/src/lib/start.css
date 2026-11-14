@@ -2175,7 +2175,32 @@ body {
 
 .room .bubble.grumble {
     z-index: 5;
+    gap: 5px;
+    padding: 3px 12px 3px 5px;
     font-size: 17px;
+}
+
+.room .bubble.grumble .dot {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+}
+
+/* The near chair's grumble is wider than the room left of the chair on a phone: it hangs above the chair, over the cowbell's strap. */
+.room .chair:nth-child(3) .bubble.grumble {
+    right: auto;
+    bottom: calc(100% + var(--chair-width) * 0.22 + 8px);
+    left: 50%;
+    top: auto;
+    transform: translateX(-50%);
+    --tail: 50%;
+}
+
+.room .chair:nth-child(3) .bubble.grumble::after {
+    top: calc(100% - 6px);
+    right: auto;
+    left: var(--tail);
+    transform: translateX(-50%) rotate(45deg);
 }
 
 .room[data-motion] .cowbell {

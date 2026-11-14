@@ -68,7 +68,7 @@
 
 {#if grumble !== null}
     <Cowbell />
-    <span class="bubble word grumble">
+    <span class="bubble grumble">
         <span class="dot" aria-hidden="true">{name.slice(0, 1)}</span>
         <span class="said">{grumble}</span>
     </span>

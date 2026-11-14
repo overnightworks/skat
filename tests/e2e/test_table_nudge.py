@@ -5,7 +5,6 @@ grumble in a bubble, while the nudged person also reads a sentence above the han
 
 import re
 import time
-from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -111,7 +110,7 @@ class SilentSeat:
     def hold_the_pages_still(self) -> None:
         """Stops the pages' clocks, so a timer fires only when the test lets the pages wait."""
         for page in self.table.everyone:
-            page.clock.pause_at(datetime.now(UTC) + timedelta(seconds=1))
+            page.clock.pause_at(page.evaluate("Date.now()") + MILLISECONDS_PER_SECOND)
 
     def let_the_pages_wait(self, seconds: float) -> None:
         for page in self.table.everyone:
