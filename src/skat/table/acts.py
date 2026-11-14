@@ -40,7 +40,6 @@ if TYPE_CHECKING:
 
 HAND_SPAN: Final = 1000
 LAST_SLOT: Final = HAND_SPAN - 1
-SECOND_LAST_SLOT: Final = LAST_SLOT - 1
 
 
 class ActKind(StrEnum):
