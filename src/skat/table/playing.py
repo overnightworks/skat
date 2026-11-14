@@ -3,12 +3,19 @@ from typing import TYPE_CHECKING
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
+from skat.engine.kontra import KontraRefusal
 from skat.engine.giving_up import give_up, opponent_gives_up, shorten, throw_down
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
 from skat.engine.tricks import CardPlayed, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
 from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
-from skat.table.hand_state import doubling_of, game_of, game_waits_for_the_declarers_answer, playing_of
+from skat.table.hand_state import (
+    doubling_of,
+    first_card_waits_for_words,
+    game_of,
+    game_waits_for_the_declarers_answer,
+    playing_of,
+)
 from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
 
@@ -145,7 +152,7 @@ def card_payload(command: PlayCardCommand) -> str:
 
 def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> Decision:
     """One card: no hand, no chair, a stale version, the wrong phase, an opponent's give-up waiting for the declarer,
-    then the engine's reason.
+    a first card that waits for a Kontra word or its decline, then the engine's reason.
 
     The card that ends the game, a Ramsch's too, ends the hand; the Bock rounds are asked once its entry exists.
     """
@@ -157,6 +164,8 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
         return Decision(table, Refusal.WRONG_PHASE)
     if game_waits_for_the_declarers_answer(state, table.progress.give_up):
         return Decision(table, Refusal.REQUEST_PENDING)
+    if first_card_waits_for_words(table):
+        return Decision(table, KontraRefusal.WORDS_DUE)
     outcome = _card_played(state, position, command.card)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)

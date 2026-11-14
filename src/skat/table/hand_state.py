@@ -1,9 +1,10 @@
+from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import Declared, PassedIn, auction_after
 from skat.engine.declaration import Announcement, Declare, Declaring, declaring_after
 from skat.engine.games import GameKind
-from skat.engine.kontra import Doubling, bidders_of, doubling_after
+from skat.engine.kontra import Doubling, KontraDeadline, awaits_words, bidders_of, doubling_after
 from skat.engine.ramsch import ramsch_after, start_ramsch
 from skat.engine.schieberamsch import Pushing, RamschOn, pushing_after
 from skat.engine.tricks import Playing, playing_after, start_play
@@ -105,11 +106,25 @@ def game_waits_for_the_declarers_answer(state: Playing | RamschPlaying | None, a
 
 
 def doubling_of(table: TableRecord) -> Doubling | None:
-    """The words of the running hand replayed through the engine, each against the cards it followed; None while no
-    game is played or the table plays without Kontra.
+    """The words of the running hand replayed through the engine, each against the cards it followed, and at a table
+    whose words end with the first card the seats that answered no word as declined; None while no game is played or
+    the table plays without Kontra.
     """
     start, options = _play_start(table), table.options.kontra
     if start is None or options is None:
         return None
     bidders = bidders_of(table.progress.auction)
-    return doubling_after(start, table.progress.plays, table.progress.words, options, bidders)
+    doubling = doubling_after(start, table.progress.plays, table.progress.words, options, bidders)
+    if options.deadline is not KontraDeadline.FIRST_CARD:
+        return doubling
+    return replace(doubling, declined=frozenset(answered.position for answered in table.progress.no_words))
+
+
+def first_card_waits_for_words(table: TableRecord) -> bool:
+    """True while the hand's first card waits for a word or a decline: a table whose words end with the first card,
+    no card played yet, and a seat that has neither said what it owes nor declined it.
+    """
+    doubling, options, start = doubling_of(table), table.options.kontra, _play_start(table)
+    if doubling is None or options is None or start is None or table.progress.plays:
+        return False
+    return awaits_words(doubling, options, bidders_of(table.progress.auction), start.declared.declarer)

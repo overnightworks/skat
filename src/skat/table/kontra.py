@@ -2,14 +2,19 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import seats_from
-from skat.engine.kontra import KontraRefusal, WordSaid, bidders_of, say
-from skat.table.hand_state import doubling_of, game_waits_for_the_declarers_answer, playing_of
+from skat.engine.kontra import KontraDeadline, KontraRefusal, Word, WordSaid, bidders_of, decline, say
+from skat.table.hand_state import (
+    doubling_of,
+    first_card_waits_for_words,
+    game_waits_for_the_declarers_answer,
+    playing_of,
+)
 from skat.table.records import Decision, NoWordSaid, Refusal
 from skat.table.rules import acting_position
 
 if TYPE_CHECKING:
     from skat.engine.deal import Position
-    from skat.engine.kontra import Doubling, KontraOptions, Word
+    from skat.engine.kontra import Doubling, KontraOptions
     from skat.engine.tricks import Playing
     from skat.table.records import Actor, TableRecord
 
@@ -40,13 +45,15 @@ class SeatedWord:
 @dataclass(frozen=True)
 class KontraView:
     """The words of the running hand as one viewer sees them: every word said in order, the factor they make, and
-    the word the viewer's own chair may say now and whether it has answered that word with no word.
+    the word the viewer's own chair may say now and whether it has answered that word with no word. At a table whose
+    words end with the first card, `first_card_waits` says the hand's first card waits for a word or a decline.
     """
 
     said: tuple[SeatedWord, ...]
     factor: int
     my_word: Word | None
     my_word_answered: bool
+    first_card_waits: bool
 
 
 def kontra_payload(command: KontraCommand) -> str:
@@ -84,6 +91,8 @@ def decide_kontra(table: TableRecord, actor: Actor, command: KontraCommand) -> D
     if game_waits_for_the_declarers_answer(state, table.progress.give_up):
         return Decision(table, Refusal.REQUEST_PENDING)
     bidders = bidders_of(table.progress.auction)
+    if command.word is None and options.deadline is KontraDeadline.FIRST_CARD:
+        return _declined(table, options, doubling, state, bidders, position)
     if command.word is None:
         return _answered_no_word(table, position, _word_open_to(doubling, options, state, bidders, position))
     outcome = say(doubling, options, state, bidders, position, command.word)
@@ -109,6 +118,28 @@ def _answered_no_word(table: TableRecord, position: Position, word: Word | Kontr
     return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, no_words=no_words)))
 
 
+def _declined(
+    table: TableRecord,
+    options: KontraOptions,
+    doubling: Doubling,
+    state: Playing,
+    bidders: frozenset[Position],
+    position: Position,
+) -> Decision:
+    """The seat's answer of no word at a table whose words end with the first card: the engine's decline, which ends
+    the table's wait for this seat. A second answer of a seat that declined changes nothing.
+    """
+    if position in doubling.declined:
+        return Decision(table)
+    outcome = decline(doubling, options, state, bidders, position)
+    if outcome.refusal is not None:
+        return Decision(table, outcome.refusal)
+    word = doubling.next_word if position in (state.declared.declarer, doubling.kontra_by) else Word.KONTRA
+    assert word is not None  # noqa: S101 - narrows the type; the engine accepts an answerer only while a word stands
+    no_words = table.progress.no_words | {NoWordSaid(position, word)}
+    return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, no_words=no_words)))
+
+
 def kontra_view_of(
     table: TableRecord, state: Playing, dealer: int, viewer_positions: frozenset[Position]
 ) -> KontraView | None:
@@ -131,4 +162,5 @@ def kontra_view_of(
         my_word=doubling.next_word if mine else None,
         my_word_answered=bool(mine)
         and all(NoWordSaid(position, word) in table.progress.no_words for position, word in mine.items()),
+        first_card_waits=first_card_waits_for_words(table),
     )
