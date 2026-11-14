@@ -1,12 +1,11 @@
 from contextlib import contextmanager
 
 from skat.engine.deal import Deal, Position
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
-    AnnouncementToken,
-    GameToken,
 )
 from tests.support.payload_cards import CARDS_BY_SEAT, wire_cards
 from tests.web.support.playing import card_body, cards, game_of

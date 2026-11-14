@@ -1,8 +1,7 @@
 import pytest
 
 from skat.engine.tricks import ALL_POINTS
-from skat.web.declaration_tokens import AnnouncementToken
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from tests.support.payload_cards import cards_in_text
 from tests.web.support.playing import DECLARER_SEAT, Table, card, cards, ending_of, points_of_cards

@@ -5,8 +5,7 @@ import pytest
 from skat.engine.deal import Deal, Position, next_dealer
 from skat.engine.tricks import PlayRefusal
 from skat.table.records import Refusal
-from skat.web.declaration_tokens import AnnouncementToken
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,

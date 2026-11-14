@@ -9,7 +9,7 @@ from skat.engine.deal import Deal, Position
 from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
 from skat.table.hand_state import playing_of
 from skat.table.records import Refusal
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import GameToken
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import KNOWN_DEAL, SKAT_CARDS, cards_in_text, wire_cards

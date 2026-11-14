@@ -5,8 +5,7 @@ import pytest
 from skat.engine.bock import BockRounds, BockTrigger
 from skat.engine.deal import Position
 from skat.table.records import Series
-from skat.web.declaration_tokens import AnnouncementToken
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
