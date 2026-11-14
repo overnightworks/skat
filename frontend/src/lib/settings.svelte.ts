@@ -2,6 +2,7 @@ import { deviceReducesMotion } from "./deviceMotion.svelte.ts";
 import { DEFAULT_MOTION_SET, MOTION_SETS, type MotionSetId } from "./motionSets.ts";
 import { DEFAULT_SOUND_SETTINGS, type SoundSettings } from "./sound.ts";
 import { DEFAULT_SOUND_SET, SOUND_SETS, type SoundSetId } from "./soundSets.ts";
+import { DEFAULT_LAST_TRICK_MODE, LAST_TRICK_MODES, type LastTrickMode } from "./stage.ts";
 
 // The only code that reads or writes this key; the record holds one field per setting a player has changed.
 const STORAGE_KEY = "skat.settings";
@@ -14,6 +15,8 @@ export interface Settings extends SoundSettings {
     readonly replayMotion: boolean;
     /** Says the bids and the words of Kontra from recordings. */
     readonly voice: boolean;
+    /** Whether a finished trick is swept to its taker's pile or stays on the felt until the next lead. */
+    readonly lastTrick: LastTrickMode;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +25,7 @@ const DEFAULT_SETTINGS: Settings = {
     motionSet: DEFAULT_MOTION_SET,
     replayMotion: false,
     voice: false,
+    lastTrick: DEFAULT_LAST_TRICK_MODE,
 };
 
 const VOLUME_STEPS = 100;
@@ -35,6 +39,7 @@ const CHECKS: { readonly [Field in keyof Settings]: (value: unknown) => value is
     motionSet: (value): value is MotionSetId => typeof value === "string" && Object.hasOwn(MOTION_SETS, value),
     replayMotion: (value): value is boolean => typeof value === "boolean",
     voice: (value): value is boolean => typeof value === "boolean",
+    lastTrick: (value): value is LastTrickMode => LAST_TRICK_MODES.includes(value as LastTrickMode),
 };
 
 const FIELDS = Object.keys(CHECKS) as (keyof Settings)[];

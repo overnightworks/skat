@@ -538,6 +538,7 @@ def test_the_laid_name_tags_of_full_length_names_stay_clear_of_each_other_and_of
         joiners=FULL_LENGTH_NAMES,
         opener_name=FULL_LENGTH_OPENER,
     )
+    table.leave_the_last_trick_on_the_felt()
     for plays, laid in ((2, 2), (1, 3)):
         table.play_out(plays)
         for person in table.everyone:
@@ -555,6 +556,7 @@ def test_the_laid_name_tags_of_ordinary_names_show_each_name_whole(
     form_factor: dict[str, Any],
 ) -> None:
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, joiners=ORDINARY_NAMES)
+    table.leave_the_last_trick_on_the_felt()
     table.play_out(3)
     for person in table.everyone:
         expect(person.locator(".trick .laid")).to_have_count(3)

@@ -1,4 +1,0 @@
-[[code]]
-path = "src/skat/table/playing.py"
-item = "overnightworks/skat#509"
-reason = "S15.4 draws the trick piles from `PlayingView.taken`, which the page does not read yet."

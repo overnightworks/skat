@@ -320,7 +320,7 @@ TRICK_CARDS = ".trick .face"
 def expect_the_cards_played_to_have_reached(declarer: Page, played: int) -> None:
     """The declarer's page shows the last card played, so no newer version is left to put the armed key back."""
     expect(declarer.locator(OWN_CARDS)).to_have_count(10 - played // CARDS_AFTER_ONE_TRICK)
-    expect(declarer.locator(TRICK_CARDS)).to_have_count(CARDS_AFTER_ONE_TRICK if played else 0)
+    expect(declarer.locator(TRICK_CARDS)).to_have_count(0)
 
 
 def gives_up(opponent: str) -> str:

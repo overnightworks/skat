@@ -943,6 +943,9 @@ body {
     --ok-stage: #4cc38a;
     /* The one red of leaving: white text on it meets 4.5:1, and the declined cross on the dark glass meets 3:1. */
     --leave: #d63a40;
+    /* The pile and the last trick shown again. */
+    --brass-hi: #f1d898;
+    --pile-card: 32px;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -6999,4 +7002,449 @@ body {
 .room .copy.watching svg {
     width: 20px;
     height: 20px;
+}
+
+/* The trick's way to its taker's pile, the pile and the last trick shown again, as the scenes last-trick-rest,
+   last-trick-sweep, last-trick-pile and last-trick-shown draw them.
+   A pile is as big as one back, centred on its place beside its chair; its backs lie on it, one more for every trick
+   taken, each crossed against the one below. */
+.room .pile {
+    position: absolute;
+    z-index: 8;
+    width: var(--pile-card);
+    height: calc(var(--pile-card) * 1.4);
+    translate: -50% -50%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+}
+
+.room .pile.last {
+    cursor: pointer;
+}
+
+.room .pile .card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--pile-card);
+    border-radius: calc(var(--pile-card) * 0.07);
+    box-shadow:
+        0 1px 0 #d9d2c2,
+        0 2px 0 #aaa18e,
+        0 7px 12px -5px rgba(0, 0, 0, 0.75);
+    transform: translateY(var(--lift, 0px)) rotate(var(--rot, 0deg));
+}
+
+.room .pile .card-back {
+    width: 100%;
+    height: auto;
+    filter: none;
+}
+
+.room .pile .card.last {
+    outline: 2px solid var(--brass-hi);
+    outline-offset: 2px;
+    filter: drop-shadow(0 0 7px rgba(243, 207, 122, 0.55));
+}
+
+.room .pile .card:nth-child(1) {
+    --lift: 0px;
+    --rot: -4deg;
+}
+
+.room .pile .card:nth-child(2) {
+    --lift: -2px;
+    --rot: 87deg;
+}
+
+.room .pile .card:nth-child(3) {
+    --lift: -4px;
+    --rot: -3deg;
+}
+
+.room .pile .card:nth-child(4) {
+    --lift: -6px;
+    --rot: 83deg;
+}
+
+.room .pile .card:nth-child(5) {
+    --lift: -8px;
+    --rot: -2deg;
+}
+
+.room .pile .card:nth-child(6) {
+    --lift: -10px;
+    --rot: 88deg;
+}
+
+.room .pile .card:nth-child(7) {
+    --lift: -12px;
+    --rot: -1deg;
+}
+
+.room .pile .card:nth-child(8) {
+    --lift: -14px;
+    --rot: 84deg;
+}
+
+.room .pile .card:nth-child(9) {
+    --lift: -16px;
+    --rot: 0deg;
+}
+
+.room .pile .card:nth-child(10) {
+    --lift: -18px;
+    --rot: 80deg;
+}
+
+/* Each pile lies beside its chair, clear of the fans, the coaster and the own hand. */
+.room .chair:nth-child(1) .pile {
+    left: 22%;
+    top: calc(100% + 40px);
+}
+
+.room .chair:nth-child(2) .pile {
+    left: 78%;
+    top: calc(100% + 40px);
+}
+
+.room .chair:nth-child(3) .pile {
+    left: -46px;
+    top: 55%;
+}
+
+@media (min-width: 900px) {
+    .room {
+        --pile-card: 50px;
+    }
+
+    .room .chair:nth-child(1) .pile {
+        left: calc(100% + 100px);
+        top: 12px;
+    }
+
+    .room .chair:nth-child(2) .pile {
+        left: -100px;
+        top: 12px;
+    }
+
+    .room .chair:nth-child(3) .pile {
+        left: calc(100% + 190px);
+        top: 30%;
+    }
+}
+
+/* The trick gathers in the middle and glides onto the pile; the page measures each card's way and sets it as
+   --gx --gy --gr (to the middle) and --wx --wy --ps (to the pile). Only a table that moves has these. */
+.room[data-motion="verspielt"] .trick.sweeping .laid {
+    animation: sweep-verspielt 1s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="verspielt"] .trick.sweeping .laid .tag {
+    animation: fade-out 200ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes sweep-verspielt {
+    0% {
+        translate: 0 0;
+        rotate: 0deg;
+        animation-timing-function: cubic-bezier(0.5, 0, 0.4, 1);
+    }
+
+    25% {
+        translate: var(--gx) var(--gy);
+        rotate: var(--gr);
+        animation-timing-function: cubic-bezier(0.45, 0.05, 0.3, 1);
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        translate: var(--wx) var(--wy);
+        rotate: 84deg;
+        scale: var(--ps);
+        opacity: 0;
+    }
+}
+
+@keyframes fade-out {
+    to {
+        opacity: 0;
+    }
+}
+
+.room[data-motion="dezent"] .trick.sweeping .laid {
+    animation: sweep-dezent 280ms cubic-bezier(0.45, 0.05, 0.3, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="dezent"] .trick.sweeping .laid .tag {
+    animation: fade-out 120ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes sweep-dezent {
+    to {
+        translate: var(--wx) var(--wy);
+        rotate: 84deg;
+        scale: var(--ps);
+        opacity: 0;
+    }
+}
+
+/* The top back of the pile the trick lands on appears as the cards arrive. */
+.room[data-motion="verspielt"] .pile .card.landing {
+    animation: pile-lands 1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="dezent"] .pile .card.landing {
+    animation: pile-lands 280ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes pile-lands {
+    0%,
+    84% {
+        opacity: 0;
+        scale: 1.15;
+    }
+
+    100% {
+        opacity: 1;
+        scale: 1;
+    }
+}
+
+/* The dotted arc the trick travels, drawn only for the playful set. */
+.room .trick .trail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: none;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.room .trick .trail svg {
+    overflow: visible;
+}
+
+.room .trick .trail path {
+    fill: none;
+    stroke: rgba(251, 248, 240, 0.6);
+    stroke-width: 2.5;
+    stroke-dasharray: 1 8;
+    stroke-linecap: round;
+}
+
+.room[data-motion="verspielt"] .trick.sweeping .trail {
+    display: block;
+    animation: trail 1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes trail {
+    0%,
+    20% {
+        opacity: 0;
+    }
+
+    35%,
+    65% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+/* The chair that takes the trick flashes gold as the trick lands: a still ring whose opacity is all that moves. */
+.room .chair.got .tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow:
+        0 0 0 3px #f3cf7a,
+        0 0 34px 6px rgba(243, 207, 122, 0.45);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.room[data-motion="verspielt"] .chair.got .tile::after {
+    animation: got 1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="dezent"] .chair.got .tile::after {
+    animation: got 280ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes got {
+    0%,
+    45% {
+        opacity: 0;
+    }
+
+    85% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}
+
+/* The last trick lifted out of its pile lies over the middle of the felt, face up, in the order it was played. */
+.room .lastshow {
+    position: relative;
+    z-index: 40;
+    grid-column: 1 / 3;
+    grid-row: 3;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px 16px;
+    border-radius: 18px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    box-shadow:
+        inset 0 0 0 1px rgba(240, 214, 150, 0.3),
+        0 18px 36px -12px rgba(0, 0, 0, 0.9);
+}
+
+.room .lastshow::after {
+    content: "";
+    position: absolute;
+    bottom: -7px;
+    left: calc(50% + var(--caret, 0px) - 7px);
+    width: 14px;
+    height: 14px;
+    rotate: 45deg;
+    background: inherit;
+    box-shadow: inset -1px -1px 0 rgba(240, 214, 150, 0.3);
+}
+
+.room .lastshow.over::after {
+    top: -7px;
+    bottom: auto;
+    rotate: 225deg;
+}
+
+.room .lt-head {
+    color: var(--on-stage-soft);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.room .lt-cards {
+    display: flex;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.room .lt-card {
+    --lt-card: 58px;
+
+    position: relative;
+}
+
+.room .lt-card:nth-child(1) {
+    rotate: -5deg;
+}
+
+.room .lt-card:nth-child(3) {
+    rotate: 5deg;
+}
+
+.room .lt-card .face {
+    display: block;
+    width: var(--lt-card);
+    aspect-ratio: 100 / 140;
+    border-radius: calc(var(--lt-card) * 0.07);
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+.room .lt-card.took .face {
+    outline: 2px solid var(--brass-hi);
+    outline-offset: 2px;
+}
+
+.room .lt-card .tag {
+    position: absolute;
+    left: 50%;
+    bottom: -10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: rgba(10, 12, 14, 0.78);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    translate: -50% 0;
+}
+
+.room .lt-card:nth-child(1) .tag {
+    rotate: 5deg;
+}
+
+.room .lt-card:nth-child(3) .tag {
+    rotate: -5deg;
+}
+
+.room .lt-card .dot {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--brass);
+    color: #111;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+/* On a phone the tags show only the player's initial: three names do not fit under three cards. */
+@media (max-width: 899px) {
+    .room .lt-card .name {
+        display: none;
+    }
+}
+
+@media (min-width: 900px) {
+    .room .lt-card {
+        --lt-card: 84px;
+    }
+
+    .room .lt-cards {
+        gap: 16px;
+    }
+
+    .room .lt-card .tag {
+        padding-right: 9px;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .lastshow {
+        animation: liftoff 350ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+    }
+
+    @keyframes liftoff {
+        from {
+            opacity: 0;
+            translate: 0 24px;
+            scale: 0.8;
+        }
+    }
 }

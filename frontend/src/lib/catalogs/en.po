@@ -815,6 +815,10 @@ msgctxt "play.trick"
 msgid "Stich"
 msgstr "Trick"
 
+msgctxt "play.lastTrick"
+msgid "Letzter Stich"
+msgstr "Last trick"
+
 msgctxt "play.sideYou"
 msgid "Du"
 msgstr "You"
@@ -1312,6 +1316,18 @@ msgstr "Regulars’ table"
 msgctxt "sound.setFunkeln"
 msgid "Funkeln"
 msgstr "Sparkle"
+
+msgctxt "sound.lastTrick"
+msgid "Letzter Stich"
+msgstr "Last trick"
+
+msgctxt "sound.lastTrickSweep"
+msgid "wegfegen"
+msgstr "sweep away"
+
+msgctxt "sound.lastTrickStay"
+msgid "liegen lassen"
+msgstr "leave in place"
 
 msgctxt "sound.motionDezent"
 msgid "dezent"
