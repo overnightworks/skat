@@ -1068,6 +1068,7 @@ const IDEAS=[
   ['🎉','Farben-Konfetti','Ein Sieg wirft Konfetti aus Kreuz, Pik, Herz, Karo aus den Stühlen der Gewinner; Schneider mehr, Schwarz am meisten.','call-end'],
   ['0','Null-Plumps','Eine verlorene Null sackt freundlich in sich zusammen, ohne Spott.','nur hier','null'],
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-asked, giveup-waits, giveup-side, giveup-end'],
+  ['✂','Abkürzen und offen spielen','Der Alleinspieler fragt „Abkürzen“: die Tafel nennt ihn mit seinem Gesicht und die geforderte Stufe, jeder Gegner antwortet „Ja“ oder „Nein“, ein Nein legt die Karten des Alleinspielers für alle offen und das Spiel geht weiter. Ein Gegner „spielt offen“ mit einer Taste neben „Aufgeben“; liegt er falsch, fragt die Tafel den Alleinspieler, und spielt der weiter, liegen die Karten dieses Gegners für alle offen.','shorten-asked, shorten-waits, shorten-watch, shorten-refused, shorten-end, open-play-key, open-play-asked, open-play-on, open-play-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['🃏','Stiche eines Spiels','Ein Tipp auf eine Zeile der Liste öffnet das Spiel: Skat und Gedrücktes, die Augen gegen die 61, dann jeder Stich mit seinen drei Karten, dem Punkt dessen, der stach, und seinen Augen; ein Ramsch zeigt die Augen jedes Stuhls, ein früh beendetes Spiel, wie es endete. (#573)','game-tricks, game-ramsch, game-ended'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
@@ -1237,7 +1238,7 @@ const reckoning=(o)=>`<div class="coasters">${[[o.near,o.adds[2]],['anna',o.adds
 const tapButton=`<span class="cb wide" role="button">${I.check}Weiter</span>`;
 const waitButton=(names)=>`<span class="cb wide glass" role="status">Warte auf ${names}${waitDots()}</span>`;
 const endBar=(d,tap)=>tap?tableBar(d,{seated:true}).replace('<div class="sbar">',`<div class="sbar">${tap}`):tableBar(d);
-const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'} ${o.calc.bid||o.calc.steps.length>2||o.calc.words?'snug':''}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:PB.cx,top:160,width:2*PB.cx-36})}">
+const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'} ${o.snug||o.calc.bid||o.calc.steps.length>2||o.calc.words?'snug':''}" role="status" style="${at(d?{left:640,top:112,width:470}:{left:PB.cx,top:160,width:2*PB.cx-36})}">
   <h3>${o.won?I.check:I.cross}${o.word}</h3>
   ${o.calc.missed?`<div class="miss">${o.calc.missed}, nicht erreicht</div>`:''}
   <div class="sub">${gameLine(o.suit,o.game)}${o.stamp?`<span class="stamp mo" style="--k:1.5s;--d:.45s">${o.stampBy?`<span class="by" style="${dotStyle(P[o.stampBy])}">${dotInner(P[o.stampBy])}</span>`:''}${o.stamp}</span>`:''}</div>
@@ -1486,7 +1487,7 @@ I.flag=sv('<path d="M5 21V3.5"/><path d="M5 4.5c4-2 7 2 11.5 0v8.5c-4.5 2-7.5-2-
 MARK.declined=`<span class="mark declined" title="sagte Nein">${I.cross}</span>`;
 MARK.unanswered=MARK.notTapped.replace('noch nicht getippt','noch keine Antwort');
 const faceDot=(k)=>`<span class="dot" style="${dotStyle(P[k])}">${dotInner(P[k])}</span>`;
-const answers=()=>`<div class="answers"><span class="button button-stage" role="button">${I.check}Annehmen</span><span class="button button-glass" role="button">${I.play}Weiterspielen</span></div>`;
+const answers=(yes={icon:I.check,text:'Annehmen'},no={icon:I.play,text:'Weiterspielen'})=>`<div class="answers"><span class="button button-stage" role="button">${yes.icon}${yes.text}</span><span class="button button-glass" role="button">${no.icon}${no.text}</span></div>`;
 /* the plaque keeps its place and says who asks; the answers sit in it, under the line, clear of the trick */
 const askPlaque=(d,line,below='',phoneY=176)=>plaque(d?640:195,d?98:phoneY,`<div class="game">${line}</div>${below}`).replace('class="plaque"','class="plaque ask"');
 /* Skat's bar in play, the stand-up's place left empty for the key a scene puts there */
@@ -2089,7 +2090,7 @@ const KONTRA_WON={near:'felix',declarer:'anna',winners:['anna'],adds:[146,0,0],w
 /* Felix declared Kreuz and lost it after Kontra: the loss doubles once more, the opponents get their 40 */
 const KONTRA_LOST={...OWN_LOSS,adds:[40,40,-194],calc:{...KREUZ_MIT_2,won:false,words:['Kontra']}};
 /* on a 360 phone the felt is 64 px shorter: the card drops the bar of the eyes to keep clear of the chair */
-const kontraCard=(o)=>narrow()?{...o,eyes:null}:o;
+const narrowCard=(o)=>narrow()?{...o,eyes:null}:o;
 const KONTRA_SCENES=[
   ['kontra-offer','Kontra: der Knopf in der Leiste',[360,390,1280],(d)=>KONTRA_OFFER(d),
     ['Felix ist Gegner und hat gereizt; Anna spielt Kreuz, Nova hat bedient, Felix ist dran. Vor seiner ersten Karte steht „Kontra“ als Leistentaste an erster Stelle, hell wie „Weiter“; „Aufgeben“ wird dafür rund, wie vorher „Aufstehen“. Bei 360 steht das Wort ohne Blitz. Die Taste wartet auf niemanden und sperrt keine Karte.']],
@@ -2107,9 +2108,9 @@ const KONTRA_SCENES=[
     ['Nova, ein Agent, sagte Kontra (say_kontra): derselbe Stempel mit Novas blauer Kugel, die Tafel „Kontra ×2“; Felix, der Alleinspieler, sieht „Re“.']],
   ['kontra-watch','Kontra: Zuschauen',[390,1280],kontraWatch,
     ['Lena schaut zu: der Stempel mit Bens Gesicht und die Tafel „Kontra ×2“; keine Taste, nur die Leiste des Zuschauers.']],
-  ['kontra-end','Kontra: das Ergebnis',[360,390,1280],(d)=>endScene(d,kontraCard(KONTRA_WON),tapButton),
+  ['kontra-end','Kontra: das Ergebnis',[360,390,1280],(d)=>endScene(d,narrowCard(KONTRA_WON),tapButton),
     ['Anna gewann Kreuz nach Kontra und Re: die Rechnung wie immer (2 × Kreuz 12 = 24), danach „Kontra ×2“ und „Re ×4“ als gehaltene Marken, der Wert 4 × 24 = 96, die Zeile „Spiel · Re +96“ und die Liste +50: Annas Deckel 148 + 146 = 294, bei Felix und Nova nichts.']],
-  ['kontra-lost-end','Kontra: verloren',[390],(d)=>endScene(d,kontraCard(KONTRA_LOST),tapButton),
+  ['kontra-lost-end','Kontra: verloren',[390],(d)=>endScene(d,narrowCard(KONTRA_LOST),tapButton),
     ['Felix verlor sein Kreuz nach Kontra: 3 × Kreuz 12 = 36, „Kontra ×2“, das Verlieren verdoppelt noch einmal, −144 im Grau der verlorenen Karten, Liste −50 = −194; Anna und Nova je +40.']],
 ];
 agentScenes(KONTRA_SCENES);
@@ -2150,6 +2151,98 @@ const HOME_SCENES=[
 ];
 scenes(HOME_SCENES);
 ORDER.unshift(...HOME_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+/* ===== shortening and the open play: the declarer asks the opponents to shorten, each answers; an opponent plays open, and a wrong open play waits for the declarer ===== */
+I.shorten=sv('<path d="M4 6l7 6-7 6zM12.5 6l7 6-7 6z"/><path d="M21 6v12"/>');
+MARK.agreed=MARK.ready.replace('Weiter getippt','sagte Ja');
+MARK.open=MARK.watch.replace('class="mark watch"','class="mark watch" title="spielt offen"');
+const YES_NO=[{icon:I.check,text:'Ja'},{icon:I.cross,text:'Nein'}];
+const SHORTEN_LEVEL='Schneider';
+/* the level the declarer demands stands under the request, small like the count line of a Ramsch */
+const demandLine=(level)=>level?`<div class="game pushes">Fordert <b>${level}</b></div>`:'';
+/* the request keeps the plaque's place; on the phone the trick below it steps down by what the plaque grew */
+const requestPlaque=(d,line,below)=>centred(d,askPlaque(d,line,below));
+const trickDrop=(d,level,answering)=>(d?0:answering?16:0)+(level&&(answering||!d)?PLAQUE_LINE:0);
+/* Felix's own card has no room on the 360 felt, which is 64 px shorter */
+const cardWaits=(d,drop=0)=>narrow()?'':d?ghost(640,432+drop,96):centred(d,yourCard(d));
+const earlierAt=(d,drop=0)=>{const lowered_=(slot)=>slotAt(d,{...slot,y:slot.y+drop});
+  return played('K','s','anna',lowered_(TRICK_SLOT.left(d)))+played('7','s','ben',lowered_(TRICK_SLOT.right(d)));};
+/* Anna declares and asks to shorten; Felix, an opponent, answers while the trick stays his to play */
+const shortenAsked=(d,o={})=>giveUpTable(d,{glow:turnGlow(d),left:7})+requestPlaque(d,`${faceDot('anna')}Anna will abkürzen`,demandLine(o.level)+answers(...YES_NO))
+  +earlierAt(d,trickDrop(d,o.level,true))+cardWaits(d,trickDrop(d,o.level,true))+giveUpSeats(d,{anna:['decl'],you:['turn']})+ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);
+/* Felix declares and asked; Anna said yes, Ben has not answered */
+const shortenWaiting=(d,o={})=>giveUpTable(d,{glow:turnGlow(d),left:7})+requestPlaque(d,`${faceDot('ben')}Warte auf Ben${waitDots()}`,demandLine(o.level))
+  +earlierAt(d,trickDrop(d,o.level,false))+cardWaits(d,trickDrop(d,o.level,false))+giveUpSeats(d,{anna:['agreed'],ben:['unanswered'],you:['decl','turn']})+ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);
+/* Lena looks on: Anna declares, Ben said yes, Felix still owes his answer */
+const watchGlow=(d)=>d?nearTurn(d):turnGlow(d);
+const shortenWatch=(d,o={})=>{const L=seatsOf(d);
+  return giveUpTable(d,{watchers:3,left:7,glow:watchGlow(d)})+nearFan(d,8)+requestPlaque(d,`${faceDot('anna')}Anna will abkürzen`,demandLine(o.level))
+    +earlierAt(d,trickDrop(d,o.level,false))+seat('anna',{...L.anna,marks:['decl']})+seat('ben',{...L.nova,marks:['agreed']})+seat('felixSeen',{...L.you,marks:['unanswered']})+tableBar(d);};
+/* a declarer's cards open: two staggered rows under his chair, the felt below them stays free for the plaque, which moves right on the phone */
+const ANNA_OPEN=[['B','c'],['B','s'],['B','d'],['A','c'],['10','c'],['A','h'],['A','d']];
+const ANNA_OPEN_AS_OPPONENT=[['D','s'],['K','c'],['9','c'],['10','s'],['8','s'],['D','h'],['9','d']];
+const sidePlaque=(d)=>plaque(d?640:PB.cx+95,d?98:196,gameLine('c','Kreuz'));
+/* on the phone the notice stands below the open cards and the trick steps down to make room */
+const playsOn=(text,who,d)=>notice(text,who,mid(d),d?170:298);
+const openDrop=(d)=>d?0:48;
+/* Ben said no: his chair carries the cross, every viewer sees Anna's cards, and the notice says play goes on */
+const shortenRefused=(d)=>{const L=seatsOf(d);
+  return room(d,{left:0,call:false,glow:turnGlow(d)})+watching(1,d)+sideFans(d,0,7)+sidePlaque(d)+openHand(ANNA_OPEN,d)+earlierAt(d,openDrop(d))+cardWaits(d)
+    +playsOn('Ben sagte Nein, es geht weiter','ben',d)+seat('anna',{...L.anna,marks:['decl']})+seat('ben',{...L.nova,marks:['declined']})+seat('felix',{...L.you,marks:['turn']})
+    +ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);};
+/* both opponents said yes: an undecided game is won as declared with the level demanded, so the card shows no count of eyes */
+const SHORTENED_END={near:'felix',declarer:'anna',winners:['anna'],adds:[80,0,0],word:'Verloren',suit:'h',game:'Anna, Herz',
+  calc:{suit:'h',base:10,mit:true,count:1,steps:['Spiel',SHORTEN_LEVEL],won:true},names:['Anna','Wir'],ready:['anna'],stamp:'Abgekürzt',stampBy:'anna'};
+/* the keys: one wide key leads the strip, Aufgeben and Aufstehen go round on a phone, and at 360 the word stands without its icon */
+const stripKey=(d,icon,label)=>{const key=barKey('glass',narrow()?'':icon,label);
+  return stripOf(d,{lead:d?key+GIVE_UP+STAND_WORD:key+ROUND_GIVE_UP+STAND_ROUND});};
+/* an opponent's wrong open play waits for the declarer, who chooses as after a give-up; every card is dimmed until he does */
+const openPlayAsked=(d)=>giveUpTable(d,{dim:true})+requestPlaque(d,`${faceDot('anna')}Anna spielt offen`,answers(),FANS_CLEAR)
+  +giveUpSeats(d,{you:['decl']})+ownHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
+const openPlayWaiting=(d)=>giveUpTable(d,{dim:true})+requestPlaque(d,`${faceDot('felix')}Du spielst offen`,`<div class="game">${faceDot('anna')}Warte auf Anna${waitDots()}</div>`,FANS_CLEAR)
+  +giveUpSeats(d,{anna:['decl','unanswered']})+ownHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
+/* Felix declared and played on: Anna's cards lie open for every viewer, Ben's stay backs, the skat stays unseen */
+const openPlayOn=(d)=>{const L=seatsOf(d);
+  return room(d,{left:0,call:false,glow:turnGlow(d)})+watching(1,d)+sideFans(d,0,7)+sidePlaque(d)+openHand(ANNA_OPEN_AS_OPPONENT,d)+earlierAt(d,openDrop(d))+cardWaits(d)
+    +playsOn('Anna spielt offen weiter','anna',d)+seat('anna',{...L.anna,marks:['open']})+seat('ben',L.nova)+seat('felix',{...L.you,marks:['decl','turn']})
+    +ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);};
+const openPlayWatch=(d)=>{const L=seatsOf(d);
+  return room(d,{left:0,call:false,glow:watchGlow(d)})+watching(3,d)+sideFans(d,0,7)+nearFan(d,8)+sidePlaque(d)+openHand(ANNA_OPEN_AS_OPPONENT,d)+earlierAt(d)
+    +seat('anna',{...L.anna,marks:['open']})+seat('ben',L.nova)+seat('felixSeen',{...L.you,marks:['decl','turn']})+tableBar(d);};
+/* Anna played open and Felix could take no further trick: the rest goes to the opponents, the stamp names who played open */
+const OPENED_END={...OWN_LOSS,eyes:[38,82],stamp:'Offen gespielt',stampBy:'anna',snug:true};
+const SHORTEN_SCENES=[
+  ['shorten-asked','Anna will abkürzen, du antwortest',[360,390,1280],(d)=>shortenAsked(d,{level:SHORTEN_LEVEL}),
+    ['Die Anfrage steht auf der Tafel wie „Anna will aufgeben“, mit dem Gesicht der Fragenden und der Stufe, die sie fordert; jeder Gegner sieht „Ja“ und „Nein“. Der Stich und die Hand bleiben spielbar, eine gespielte Karte beendet die Anfrage. Es liegt noch keine Karte offen.']],
+  ['shorten-plain','Anna will abkürzen, ohne Stufe',[360,390,1280],(d)=>shortenAsked(d),
+    ['Fordert Anna keine Stufe, fehlt die Zeile darunter; sonst ist alles wie nebenan.']],
+  ['shorten-key','Die Taste „Abkürzen“',[360,390,1280],(d)=>kontraTable(d,{cast:'declarer'})+stripKey(d,I.shorten,'Abkürzen'),
+    ['Der Alleinspieler hat „Abkürzen“ in der Leiste neben „Aufgeben“; die Taste wartet auf niemanden, bis er fragt.']],
+  ['shorten-waits','Du fragst, Ben antwortet noch',[360,390,1280],(d)=>shortenWaiting(d,{level:SHORTEN_LEVEL}),
+    ['Wer fragt, sieht, wer noch eine Antwort schuldet: Anna sagte Ja (der Haken an ihrem Stuhl), Ben antwortet noch (die Punkte). Er hat keine Taste zum Zurücknehmen, seine nächste Karte nimmt die Anfrage zurück. Es endet nur, wenn beide Ja sagen.']],
+  ['shorten-watch','Zuschauen bei der Anfrage',[360,390,1280],(d)=>shortenWatch(d,{level:SHORTEN_LEVEL}),
+    ['Lena sieht dieselbe Tafel: Ben sagte Ja, Felix antwortet noch; keine Taste, und keine Karte der Anfrage liegt offen.']],
+  ['shorten-refused','Ben sagte Nein, Annas Karten liegen offen',[360,390,1280],shortenRefused,
+    ['Ein Nein beendet die Anfrage sofort: das Kreuz an Bens Stuhl, der Hinweis „es geht weiter“, und Annas Karten liegen für alle offen, wie beim offenen Spiel. Kein Skat und keine Hand eines Gegners sind zu sehen. Anna und jeder Zuschauer sehen dieselben Karten.']],
+  ['shorten-end','Abgekürzt, mit Gesicht',[360,390,1280],(d)=>endScene(d,SHORTENED_END,tapButton),
+    ['Der Stempel „Abgekürzt“ trägt das Gesicht dessen, der abkürzte, und steht dort, wo sonst „Aufgegeben“ steht. Beide Gegner sagten Ja: das Spiel zählt wie angesagt mit der geforderten Stufe, die Karte zeigt keine Augen, denn die Wertung liest sie nicht.']],
+];
+const OPEN_PLAY_SCENES=[
+  ['open-play-key','Die Taste „Offen spielen“',[360,390,1280],(d)=>kontraTable(d)+stripKey(d,I.eye,'Offen spielen'),
+    ['Ein Gegner hat „Offen spielen“ in der Leiste neben „Aufgeben“; sie gilt in jedem Zug, auch wenn ein anderer dran ist. Sie sagt, dass der Alleinspieler keinen Stich mehr macht, was auch gespielt wird.']],
+  ['open-play-asked','Anna spielt offen, du antwortest',[360,390,1280],openPlayAsked,
+    ['Hätte der Alleinspieler keinen Stich mehr gemacht, endete das Spiel gleich. Fragt die Tafel ihn, war es falsch: er hat „Annehmen“ (das Spiel endet) oder „Weiterspielen“. Bis dahin ist keine Karte spielbar; dass er gefragt wird, sagt allen, dass er noch einen Stich machen kann.']],
+  ['open-play-waits','Du spielst offen, Anna antwortet',[360,390,1280],openPlayWaiting,
+    ['Wer offen spielte, wartet auf den Alleinspieler; seine Karten sind gedimmt. Ein Zuschauer sieht dieselbe Tafel ohne Taste.']],
+  ['open-play-on','Falsch, Anna spielt offen weiter',[360,390,1280],openPlayOn,
+    ['Spielt der Alleinspieler weiter, liegen Annas Karten für alle offen; Bens Karten und der Skat bleiben verdeckt. Annas Stuhl trägt das Auge.']],
+  ['open-play-watch','Zuschauen bei Annas offenen Karten',[360,390,1280],openPlayWatch,
+    ['Lena sieht Annas offene Karten und nur die Rücken der anderen, auch die des Alleinspielers.']],
+  ['open-play-end','Offen gespielt, mit Gesicht',[360,390,1280],(d)=>endScene(d,narrowCard(OPENED_END),tapButton),
+    ['Konnte der Alleinspieler keinen Stich mehr machen, endet das Spiel gleich, der Rest geht an die Gegner, und der Stempel „Offen gespielt“ trägt Annas Gesicht, wo sonst „Aufgegeben“ steht.']],
+];
+agentScenes(SHORTEN_SCENES);
+agentScenes(OPEN_PLAY_SCENES);
+
 /* ===== S15.p: Ton und Bewegung: the speaker at the table, its panel, mute, first visit, reduced motion, in a call ===== */
 Object.assign(I,{
   speaker:sv('<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.3 6.6a7.8 7.8 0 0 1 0 10.8"/>',2),
