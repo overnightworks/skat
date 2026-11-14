@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "7e754d02b3d68e5555481dc546dfcea447c2c673"
 branch = "claude/issue-546-the-test-helper-skat-has-one-owner-in-th"
-scope = ["tests/web/support/calling.py", "tests/web/test_mcp_moment.py", "tests/web/test_member_place.py", "tests/web/test_member_place_asking.py", "tests/web/test_member_place_view.py", "tests/web/test_nudging_agent.py", "tests/web/test_presence_agent_lease.py", "tests/web/test_tables_open_chair.py"]
+scope = ["quality/baseline.toml", "tests/web/support/calling.py", "tests/web/test_mcp_moment.py", "tests/web/test_member_place.py", "tests/web/test_member_place_asking.py", "tests/web/test_member_place_view.py", "tests/web/test_nudging_agent.py", "tests/web/test_presence_agent_lease.py", "tests/web/test_tables_open_chair.py"]
 opened_commit = "00b37fa05302692e7341f8ebd9ec83b5fa878651"
 whole_reason = "One helper's seven copies collapse into one owner; splitting would leave the debt check red between slices."
