@@ -734,8 +734,8 @@ dependencies = [
 
 [[package]]
 name = "overnightworks-webauth"
-version = "0.39.0"
-source = { git = "https://github.com/overnightworks/webauth?rev=v0.39.0#5a3dd30689bc9166eb0e72fc073621f478e8f098" }
+version = "0.40.0"
+source = { git = "https://github.com/overnightworks/webauth?rev=v0.40.0#80f194023733e5ba82a5c7efe7c7c7cd4370a5dd" }
 dependencies = [
     { name = "anyio" },
     { name = "cryptography" },
@@ -1255,7 +1255,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.123.7" },
     { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.39.0" },
     { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v0.1.0" },
-    { name = "overnightworks-webauth", git = "https://github.com/overnightworks/webauth?rev=v0.39.0" },
+    { name = "overnightworks-webauth", git = "https://github.com/overnightworks/webauth?rev=v0.40.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },
