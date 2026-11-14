@@ -10,7 +10,7 @@ pytestmark = pytest.mark.postgres
 RAMSCH_OPTIONS = "ramsch_scoring = 'points', ramsch_jungfrau = 'off', ramsch_durchmarsch = 'off'"
 
 
-class TestFromATableAndARuleSetWithRamschAtRevisionForty:
+class TestFromATableAndARuleSetWithRamschAtRevisionFortyOne:
     @pytest.fixture
     def migrated(self, unmigrated_database_url):
         engine = create_store_engine(unmigrated_database_url)
