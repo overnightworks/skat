@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
 import { MOTION_SETS } from "./motionSets.ts";
+import voiceLevel from "./voice/level.json";
 import {
     ENVELOPE_FLOOR,
     GAIN_FLOOR,
@@ -241,6 +242,12 @@ describe("the sets together", () => {
         const loudness = MEASURES.map((measure) => measure.decibels);
 
         expect(Math.max(...loudness) - Math.min(...loudness)).toBeLessThanOrEqual(2 * TOLERANCE_DECIBELS);
+    });
+
+    it("sit within a few decibels of the loudness the voice is levelled to", () => {
+        const mean = MEASURES.reduce((sum, measure) => sum + measure.decibels, 0) / MEASURES.length;
+
+        expect(Math.abs(voiceLevel.decibels - mean)).toBeLessThanOrEqual(TOLERANCE_DECIBELS);
     });
 
     it.each(MEASURES)("sound $moment of $set below the limiter's threshold at the full volume", ({ peak }) => {

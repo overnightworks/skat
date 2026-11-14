@@ -169,13 +169,6 @@ def test_a_word_is_measured_by_its_loudest_window_not_by_its_silence() -> None:
     )
 
 
-def test_the_voice_is_levelled_to_the_target_the_sound_sets_are_held_to() -> None:
-    target = json.loads(record_voice.LEVEL_FILE.read_text())["decibels"]
-
-    assert record_voice.target_decibels() == target
-    assert target < 0
-
-
 def test_a_level_run_gives_each_recording_the_gain_that_brings_it_to_the_target(tmp_path: Path) -> None:
     lines = lines_of("de")[:2]
     for line in lines:
