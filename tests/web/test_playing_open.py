@@ -227,9 +227,15 @@ class TestTheDeclarerPlaysOn:
     def test_nothing_is_shown_while_the_declarer_decides_and_nothing_else_after_his_no(self, herz_hand):
         with everyones_streams(herz_hand) as streams:
             asked_to_play_open(herz_hand, REARHAND)
-            asked = [(position, next(stream)) for position, stream in streams]
+            asked = [
+                (position, next(frame for frame in stream if frame["hand"]["playing"]["open_play_seat"] is not None))
+                for position, stream in streams
+            ]
             declarer_plays_on(herz_hand)
-            answered = [(position, next(stream)) for position, stream in streams]
+            answered = [
+                (position, next(frame for frame in stream if frame["hand"]["playing"]["open_hands"]))
+                for position, stream in streams
+            ]
 
         for position, frame in asked:
             assert cards_in(frame) == own_cards_of(position)
