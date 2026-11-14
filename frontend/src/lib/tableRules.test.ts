@@ -160,21 +160,22 @@ describe("the words of the options", () => {
 });
 
 describe("the Ramsch occasion", () => {
-    const namesPerOccasion = RAMSCH_OCCASION_TOKENS.map(
-        (occasion) => tableRules(ramsch({ occasion }), null).rows.find((row) => row.id === "ramsch")?.name,
-    );
+    const nameOf = (occasion: typeof RAMSCH.occasion) =>
+        tableRules(ramsch({ occasion }), null).rows.find((row) => row.id === "ramsch")?.name;
 
     it("names the Ramsch row with a text of its own for every occasion", () => {
-        expect(namesPerOccasion.every((name) => typeof name === "string" && name !== "")).toBe(true);
-        expect(new Set(namesPerOccasion).size).toBe(RAMSCH_OCCASION_TOKENS.length);
+        const names = RAMSCH_OCCASION_TOKENS.map(nameOf);
+
+        expect(names.every((name) => typeof name === "string" && name !== "")).toBe(true);
+        expect(new Set(names).size).toBe(RAMSCH_OCCASION_TOKENS.length);
     });
 
-    it("names the Bock rounds in the rows of the occasions that play there", () => {
-        expect(namesPerOccasion).toEqual([
-            "Ramsch beim Einpassen",
-            "Ramsch in den Bockrunden",
-            "Ramsch beim Einpassen und in den Bockrunden",
-        ]);
+    it.each([
+        ["passed-in", words["rules.nameRamsch"]],
+        ["bock-rounds", words["rules.nameRamschBockRounds"]],
+        ["passed-in-and-bock-rounds", words["rules.nameRamschPassedInAndBockRounds"]],
+    ] as const)("names the row of the occasion %s by its catalog word", (occasion, name) => {
+        expect(nameOf(occasion)).toBe(name);
     });
 });
 
