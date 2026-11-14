@@ -13,7 +13,8 @@ from skat.web.declaring import (
     AnnouncementToken,
     GameToken,
 )
-from skat.web.mcp import AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL, SHORTEN_GAME_TOOL
+from skat.web.game_list import TABLE_LIST_SUFFIX
+from skat.web.mcp import AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL, READ_SERIES_LIST_TOOL, SHORTEN_GAME_TOOL
 from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
@@ -21,7 +22,9 @@ from skat.web.playing import (
     TABLE_SHORTEN_SUFFIX,
     TABLE_THROW_DOWN_SUFFIX,
 )
+from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import CARDS_BY_SEAT, cards_in, cards_in_text, wire_cards
+from tests.web.support.agent import Agent
 from tests.web.support.playing import HERZ_GAME, Table, card_body, cards, ending_of, game_of
 from tests.web.support.series import tap_weiter
 from tests.web.support.skat import AgentTable, Skat, streams_of
@@ -185,6 +188,60 @@ def null_before_a_trick(table):
     table.played_out(NULL_TWO_TRICKS)
 
 
+SETTLED_GAMES = pytest.mark.parametrize(
+    ("scene", "claim", "expected"),
+    [
+        pytest.param(
+            herz_at_22_with_42_points_against,
+            NONE,
+            {"won": False, "opponents_points": 42, "declarer_points": 78},
+            id="already-lost-stays-lost",
+        ),
+        pytest.param(
+            herz_hand_with_63_points_against,
+            NONE,
+            {"won": False, "opponents_points": 63, "declarer_points": 57},
+            id="already-lost-with-sixty-three",
+        ),
+        pytest.param(
+            herz_hand_won_by_tricks_and_skat,
+            NONE,
+            {"won": True, "opponents_points": 50, "declarer_points": 70, "game_value": 30},
+            id="already-won-keeps-its-real-result",
+        ),
+        pytest.param(
+            herz_hand_won_by_tricks_and_skat,
+            SCHNEIDER,
+            {"won": True, "game_value": 40, "schneider": True},
+            id="already-won-with-a-demand-counts-the-level",
+        ),
+        pytest.param(
+            null_before_a_trick,
+            NONE,
+            {"won": True, "game_value": 35, "declarer_points": 101},
+            id="null-without-a-demand",
+        ),
+    ],
+)
+# The opponent who says no, and whom of the other opponents said yes before.
+NO_AFTER_YES = pytest.mark.parametrize(
+    ("no", "earlier_yes"),
+    [
+        pytest.param(FOREHAND, (), id="forehand-no"),
+        pytest.param(REARHAND, (), id="rearhand-no"),
+        pytest.param(FOREHAND, (REARHAND,), id="forehand-no-after-rearhand-yes"),
+        pytest.param(REARHAND, (FOREHAND,), id="rearhand-no-after-forehand-yes"),
+    ],
+)
+
+
+def list_entry_of(table):
+    answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
+    assert answer.status_code == 200, answer.text
+    (entry,) = answer.json()["entries"]
+    return entry
+
+
 class TestTheDeclarerShortens:
     @pytest.mark.parametrize("claim", [None, NONE, SCHNEIDER, SCHWARZ])
     def test_the_request_is_stored_and_every_viewer_reads_who_asked_with_the_level_and_nobody_has_answered(
@@ -274,42 +331,10 @@ class TestBothOpponentsSayYes:
             levels,
         )
 
-    @pytest.mark.parametrize(
-        ("scene", "claim", "expected"),
-        [
-            pytest.param(
-                herz_at_22_with_42_points_against,
-                NONE,
-                {"won": False, "opponents_points": 42, "declarer_points": 78},
-                id="already-lost-stays-lost",
-            ),
-            pytest.param(
-                herz_hand_with_63_points_against,
-                NONE,
-                {"won": False, "opponents_points": 63, "declarer_points": 57},
-                id="already-lost-with-sixty-three",
-            ),
-            pytest.param(
-                herz_hand_won_by_tricks_and_skat,
-                NONE,
-                {"won": True, "opponents_points": 50, "declarer_points": 70, "game_value": 30},
-                id="already-won-keeps-its-real-result",
-            ),
-            pytest.param(
-                herz_hand_won_by_tricks_and_skat,
-                SCHNEIDER,
-                {"won": True, "game_value": 40, "schneider": True},
-                id="already-won-with-a-demand-counts-the-level",
-            ),
-            pytest.param(
-                null_before_a_trick,
-                NONE,
-                {"won": True, "game_value": 35, "declarer_points": 101},
-                id="null-without-a-demand",
-            ),
-        ],
-    )
-    def test_the_engines_settlement_decides_a_game_already_decided(self, table, scene, claim, expected):
+    @SETTLED_GAMES
+    def test_the_engines_settlement_decides_a_game_already_decided_and_the_list_entry_counts_the_same_points(
+        self, table, scene, claim, expected
+    ):
         scene(table)
         shortens(table, claim)
 
@@ -317,6 +342,14 @@ class TestBothOpponentsSayYes:
 
         assert {key: result[key] for key in expected} == expected
         assert ending_of(result) == ("shortened", SEAT[MIDDLEHAND])
+        (entry,) = table.record.game_list
+        assert (entry.declarer_points, entry.settled_value, entry.score) == (
+            result["declarer_points"],
+            result["settled_value"],
+            result["score"],
+        )
+        listed = list_entry_of(table)
+        assert (listed["settled_value"], listed["score"]) == (result["settled_value"], result["score"])
 
     def test_every_stream_carries_the_same_result_and_no_card_after_the_second_yes(self, herz_hand):
         shortens(herz_hand)
@@ -369,16 +402,18 @@ class TestAnOpponentSaysNo:
         assert refusals_read(herz_hand) == [SEAT[position]] * 4
         assert playing_as(herz_hand, herz_hand.at[FOREHAND])["legal_cards"] != []
 
-    @pytest.mark.parametrize("position", OPPONENTS)
-    def test_the_declarers_cards_are_open_to_every_viewer_and_nothing_else_is(self, herz_hand, position):
+    @NO_AFTER_YES
+    def test_the_declarers_cards_are_open_to_every_viewer_and_nothing_else_is(self, herz_hand, no, earlier_yes):
         shortens(herz_hand)
+        for opponent in earlier_yes:
+            says_yes(herz_hand, opponent)
 
-        says_no(herz_hand, position)
+        says_no(herz_hand, no)
 
         assert open_cards_read(herz_hand) == [declarers_cards()] * 4
         viewers = {None: herz_hand.watcher, **herz_hand.at}
-        for position, headers in viewers.items():
-            assert cards_in_text(herz_hand.read_as(headers).text) == own_cards_of(position) | declarers_cards()
+        for viewer, headers in viewers.items():
+            assert cards_in_text(herz_hand.read_as(headers).text) == own_cards_of(viewer) | declarers_cards()
 
     def test_the_second_opponents_yes_after_the_first_ones_no_finds_no_request(self, herz_hand):
         shortens(herz_hand)
@@ -439,15 +474,21 @@ class TestAnOpponentSaysNo:
         assert everyone(table, lambda each, headers: each.read_as(headers).json()["hand"]["playing"]) == [None] * 4
         assert everyone(table, lambda each, headers: each.read_as(headers).json()["hand"]["declaring"]) == [None] * 4
 
-    def test_every_stream_carries_the_declarers_cards_after_the_no_and_no_other_hidden_card(self, herz_hand):
+    @NO_AFTER_YES
+    def test_every_stream_carries_the_declarers_cards_after_the_no_and_no_other_hidden_card(
+        self, herz_hand, no, earlier_yes
+    ):
         shortens(herz_hand)
+        for opponent in earlier_yes:
+            says_yes(herz_hand, opponent)
         with everyones_streams(herz_hand) as streams:
-            says_no(herz_hand, REARHAND)
+            says_no(herz_hand, no)
             frames = [(position, next(stream)) for position, stream in streams]
 
         for position, frame in frames:
             assert cards_in(frame) == own_cards_of(position) | declarers_cards()
-            assert frame["hand"]["playing"]["shortening_refused_seat"] == SEAT[REARHAND]
+            assert frame["hand"]["playing"]["shortening_refused_seat"] == SEAT[no]
+            assert frame["hand"]["playing"]["shortening"] is None
 
 
 class TestWhatTheDeclarerMayAsk:
@@ -579,6 +620,51 @@ class TestWhenAChairChangesHands:
         assert shortenings_read(herz_hand) == [None] * 4
 
 
+def restarted(skat, hold, **options):
+    """The same stores under a freshly built app, as after a restart."""
+    return Skat(lambda: hold, store=skat.store, stores=skat.stores, **options)
+
+
+class TestARequestAcrossARestart:
+    @pytest.fixture
+    def skat(self, hold):
+        return Skat(lambda: hold)
+
+    @pytest.mark.parametrize(
+        ("earlier_yes", "agreed", "then_yes"),
+        [
+            pytest.param((), None, (FOREHAND, REARHAND), id="unanswered"),
+            pytest.param((FOREHAND,), SEAT[FOREHAND], (REARHAND,), id="one-yes"),
+        ],
+    )
+    def test_an_unanswered_request_and_a_yes_are_read_after_a_restart_and_the_last_yes_ends_the_game(
+        self, skat, hold, herz_hand, earlier_yes, agreed, then_yes
+    ):
+        shortens(herz_hand, SCHNEIDER)
+        for opponent in earlier_yes:
+            says_yes(herz_hand, opponent)
+
+        herz_hand.skat = restarted(skat, hold)
+
+        assert shortenings_read(herz_hand) == [asked(SCHNEIDER, agreed)] * 4
+        for opponent in then_yes:
+            says_yes(herz_hand, opponent)
+        result = herz_hand.result()
+        assert (result["won"], result["game_value"], result["schneider"]) == (True, 40, True)
+        assert ending_of(result) == ("shortened", SEAT[MIDDLEHAND])
+
+    def test_a_no_keeps_the_declarers_cards_open_after_a_restart_while_play_goes_on(self, skat, hold, herz_hand):
+        shortens(herz_hand)
+        says_no(herz_hand, FOREHAND)
+
+        herz_hand.skat = restarted(skat, hold)
+
+        assert open_cards_read(herz_hand) == [declarers_cards()] * 4
+        assert refusals_read(herz_hand) == [SEAT[FOREHAND]] * 4
+        herz_hand.accepted(HERZ_GAME[0])
+        assert open_cards_read(herz_hand) == [declarers_cards()] * 4
+
+
 class TestThroughTheMcpTools:
     """An agent declarer shortens; agent opponents answer."""
 
@@ -588,26 +674,55 @@ class TestThroughTheMcpTools:
         with skat.client:
             yield skat
 
-    def test_the_agent_declarer_shortens_with_a_demand_and_the_persons_yes_ends_the_game(self, skat, agent):
+    @pytest.fixture
+    def declarer_asked(self, skat, agent):
+        """The agent holds the declarer's chair and has shortened the game through the tool."""
         table = AgentTable(skat, agent, MIDDLEHAND)
         table.declared_hand_game()
         skat.client.cookies.clear()
-
-        answer = agent.call(
-            SHORTEN_GAME_TOOL,
-            table_id=table.table_id,
-            command_id="agent-shorten-0001",
-            version=table.record.version,
-            claim=SCHNEIDER,
-        )
-
+        answer = agent.take_step(SHORTEN_GAME_TOOL, table, command_id="agent-shorten-0001", claim=SCHNEIDER)
         assert not answer.is_error, answer.text
-        assert agent.read(table.table_id).json()["hand"]["playing"]["shortening"] == asked(SCHNEIDER)
-        says_yes(table, FOREHAND)
-        says_yes(table, REARHAND)
-        result = agent.read(table.table_id).json()["result"]
+        return table
+
+    @pytest.fixture
+    def opponent_asked(self, skat, agent):
+        """The agent holds the forehand chair, on turn; the person in the middlehand chair has shortened the game."""
+        table = AgentTable(skat, agent, FOREHAND)
+        table.declared_hand_game()
+        shortens(table)
+        skat.client.cookies.clear()
+        return table
+
+    def test_the_agent_declarer_shortens_with_a_demand_and_the_persons_yes_ends_the_game(self, agent, declarer_asked):
+        assert agent.read(declarer_asked.table_id).json()["hand"]["playing"]["shortening"] == asked(SCHNEIDER)
+
+        both_say_yes(declarer_asked)
+
+        result = agent.read(declarer_asked.table_id).json()["result"]
         assert (result["won"], result["game_value"], result["schneider"]) == (True, 40, True)
         assert ending_of(result) == ("shortened", SEAT[MIDDLEHAND])
+
+    @SETTLED_GAMES
+    def test_the_engines_settlement_reaches_the_agent_and_its_list_entry_counts_the_same_points(
+        self, skat, agent, scene, claim, expected
+    ):
+        table = AgentTable(skat, agent, MIDDLEHAND)
+        scene(table)
+        skat.client.cookies.clear()
+
+        answer = agent.take_step(SHORTEN_GAME_TOOL, table, command_id="agent-shorten-0004", claim=claim)
+        assert not answer.is_error, answer.text
+        both_say_yes(table)
+
+        result = agent.read(table.table_id).json()["result"]
+        assert {key: result[key] for key in expected} == expected
+        assert ending_of(result) == ("shortened", SEAT[MIDDLEHAND])
+        (entry,) = table.record.game_list
+        assert entry.declarer_points == result["declarer_points"]
+        listed = agent.call(READ_SERIES_LIST_TOOL, table_id=table.table_id).json()["entries"]
+        assert [(each["settled_value"], each["score"]) for each in listed] == [
+            (result["settled_value"], result["score"])
+        ]
 
     def test_the_agent_declarers_unreached_demand_is_a_failed_result(self, skat, agent):
         table = AgentTable(skat, agent, MIDDLEHAND)
@@ -616,29 +731,109 @@ class TestThroughTheMcpTools:
         table.played_out(HEAVY_THREE_TRICKS)
         skat.client.cookies.clear()
 
-        answer = agent.call(
-            SHORTEN_GAME_TOOL,
-            table_id=table.table_id,
-            command_id="agent-shorten-0002",
-            version=table.record.version,
-            claim=SCHNEIDER,
-        )
+        answer = agent.take_step(SHORTEN_GAME_TOOL, table, command_id="agent-shorten-0002", claim=SCHNEIDER)
 
         assert answer.is_error
         assert answer.json()["reason"] == PlayRefusal.CLAIM_OUT_OF_REACH
+        assert shortenings_read(table) == [None] * 4
 
     @pytest.mark.parametrize("tool", [AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL])
-    def test_an_agent_opponent_answers_the_shortening_with_the_give_up_answer_tools(self, skat, agent, tool):
-        table = AgentTable(skat, agent, FOREHAND)
-        table.declared_hand_game()
-        assert shorten(table).status_code == 200
-        skat.client.cookies.clear()
-
-        answer = agent.call(tool, table_id=table.table_id, command_id="agent-answer-0001", version=table.record.version)
+    def test_an_agent_opponent_answers_the_shortening_with_the_give_up_answer_tools(self, agent, opponent_asked, tool):
+        answer = agent.take_step(tool, opponent_asked, command_id="agent-answer-0001")
 
         assert not answer.is_error, answer.text
-        playing = agent.read(table.table_id).json()["hand"]["playing"]
+        playing = agent.read(opponent_asked.table_id).json()["hand"]["playing"]
         if tool == AGREE_TO_GIVE_UP_TOOL:
             assert playing["shortening"] == asked(NONE, SEAT[FOREHAND])
         else:
             assert (playing["shortening"], playing["shortening_refused_seat"]) == (None, SEAT[FOREHAND])
+
+    def test_the_agent_opponents_no_opens_the_declarers_cards_to_the_agent_and_every_viewer(
+        self, agent, opponent_asked
+    ):
+        says_yes(opponent_asked, REARHAND)
+        opponent_asked.skat.client.cookies.clear()
+
+        answer = agent.take_step(DECLINE_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0002")
+
+        assert not answer.is_error, answer.text
+        assert open_cards_read(opponent_asked) == [declarers_cards()] * 4
+        assert cards_in_text(agent.read(opponent_asked.table_id).text) == own_cards_of(FOREHAND) | declarers_cards()
+
+    def test_a_card_played_by_the_agent_after_its_yes_ends_the_request_and_late_answers_find_none(
+        self, agent, opponent_asked
+    ):
+        answer = agent.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0003")
+        assert not answer.is_error, answer.text
+
+        played = agent.play(opponent_asked, HERZ_GAME[0], command_id="agent-move-0002")
+
+        assert not played.is_error, played.text
+        assert agent.read(opponent_asked.table_id).json()["hand"]["playing"]["shortening"] is None
+        opponent_asked.refused_act(TABLE_GIVE_UP_AGREE_SUFFIX, opponent_asked.at[REARHAND], Refusal.NO_REQUEST)
+        late = agent.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0004")
+        assert late.is_error
+        assert late.json()["reason"] == Refusal.NO_REQUEST
+
+    def test_a_card_played_by_a_person_ends_the_agent_declarers_request_with_nothing_opened(
+        self, agent, declarer_asked
+    ):
+        says_yes(declarer_asked, FOREHAND)
+
+        declarer_asked.accepted(HERZ_GAME[0])
+
+        view = agent.read(declarer_asked.table_id).json()["hand"]
+        assert (view["playing"]["shortening"], view["declaring"]["open_cards"]) == (None, [])
+
+    @pytest.mark.parametrize(
+        ("tool", "reason"),
+        [
+            pytest.param(AGREE_TO_GIVE_UP_TOOL, PlayRefusal.NOT_AN_OPPONENT, id="yes"),
+            pytest.param(DECLINE_GIVE_UP_TOOL, PlayRefusal.NOT_AN_OPPONENT, id="no"),
+        ],
+    )
+    def test_the_agent_declarer_cannot_answer_its_own_request(self, agent, declarer_asked, tool, reason):
+        answer = agent.take_step(tool, declarer_asked, command_id="agent-answer-0005")
+
+        assert answer.is_error
+        assert answer.json()["reason"] == reason
+        assert shortenings_read(declarer_asked) == [asked(SCHNEIDER)] * 4
+
+    def test_the_agent_opponent_is_not_the_declarer_and_cannot_say_yes_twice(self, agent, opponent_asked):
+        refused = agent.take_step(SHORTEN_GAME_TOOL, opponent_asked, command_id="agent-shorten-0005")
+        assert refused.is_error
+        assert refused.json()["reason"] == Refusal.NOT_DECLARER
+        assert not agent.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0006").is_error
+
+        again = agent.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0007")
+
+        assert again.is_error
+        assert again.json()["reason"] == Refusal.ALREADY_ANSWERED
+        assert shortenings_read(opponent_asked) == [asked(NONE, SEAT[FOREHAND])] * 4
+
+    def test_an_answer_with_nothing_asked_has_no_request(self, skat, agent):
+        table = AgentTable(skat, agent, FOREHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+
+        answer = agent.take_step(AGREE_TO_GIVE_UP_TOOL, table, command_id="agent-answer-0008")
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.NO_REQUEST
+
+    def test_the_request_and_the_yes_are_read_through_the_tools_after_a_restart(
+        self, hold, issuer, skat, agent, opponent_asked
+    ):
+        agree = agent.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0009")
+        assert not agree.is_error, agree.text
+        after = restarted(skat, hold, issuer_transports=issuer.transports)
+        opponent_asked.skat = after
+
+        with after.client:
+            returned = Agent(after, issuer)
+            playing = returned.read(opponent_asked.table_id).json()["hand"]["playing"]
+            assert playing["shortening"] == asked(NONE, SEAT[FOREHAND])
+            says_yes(opponent_asked, REARHAND)
+            result = returned.read(opponent_asked.table_id).json()["result"]
+
+        assert ending_of(result) == ("shortened", SEAT[MIDDLEHAND])
