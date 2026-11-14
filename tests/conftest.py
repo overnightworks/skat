@@ -10,6 +10,7 @@ pytest_plugins = ["pytester"]
 # The `tests` namespace itself is already imported when this conftest loads.
 pytest.register_assert_rewrite("tests.support", "tests.e2e.support")
 
+from tests.support.database_relay import DatabaseRelay  # noqa: E402
 from tests.support.postgres import created_database, migrated_template  # noqa: E402
 from tests.support.sign_in_settings import SignInSettings, build_sign_in_settings  # noqa: E402
 
@@ -41,3 +42,17 @@ def database_url(postgres_template: str) -> Iterator[str]:
 def unmigrated_database_url() -> Iterator[str]:
     with created_database() as url:
         yield url
+
+
+@pytest.fixture
+def relay_in_front_of() -> Iterator[Callable[[str], DatabaseRelay]]:
+    """Puts a relay in front of a database; its `url` reaches the database through the relay."""
+    relays: list[DatabaseRelay] = []
+
+    def relay(database_url: str) -> DatabaseRelay:
+        relays.append(DatabaseRelay(database_url))
+        return relays[-1]
+
+    yield relay
+    for each in relays:
+        each.close()

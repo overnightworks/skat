@@ -1,7 +1,16 @@
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from skat.store.migrate import MIGRATIONS_DIRECTORY, migrate
+
+
+def revision_before_head():
+    """The revision the newest migration comes after."""
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+    scripts = ScriptDirectory.from_config(config)
+    return scripts.get_revision(scripts.get_current_head()).down_revision
 
 
 def upgrade_to(engine, revision, operator_account_id=None):
