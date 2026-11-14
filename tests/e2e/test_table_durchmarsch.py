@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.people import PHONE
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import CARD, WON
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
@@ -47,4 +47,32 @@ def test_the_player_who_takes_every_trick_reads_won_with_a_tick_and_the_others_r
         card = person.locator(CARD)
         expect(card.locator("h3")).to_have_text(DURCHMARSCH)
         expect(card.locator("h3 svg")).to_have_count(0)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_an_opened_durchmarsch_names_itself_on_an_end_line_inside_the_panel(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    person = table.pages[SWEEPER_SEAT]
+
+    person.locator(".series-count").click()
+    person.locator(".game-list .grow").click()
+
+    end = person.locator(".game-sheet .trick-row.ended")
+    expect(end).to_contain_text(text(SOURCE_LANGUAGE, "table.sheetDurchmarsch"))
+    assert end.evaluate(
+        """end => {
+            const box = end.getBoundingClientRect();
+            const panel = end.closest('.game-list').getBoundingClientRect();
+            return box.left >= panel.left && box.right <= panel.right;
+        }"""
+    )
     assert page_errors == []

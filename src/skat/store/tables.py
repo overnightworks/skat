@@ -10,7 +10,7 @@ from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
-from skat.store.game_list import append_game_list, game_list, read_game_list
+from skat.store.game_list import append_game_list, game_list, read_game_cards, read_game_list
 from skat.store.kontra import append_words, kontra_no_words, kontra_words, read_no_words, read_words, write_no_words
 from skat.store.member_book import accounts_at, forget_table, locked_entries_of, locked_entry, save_entry
 from skat.store.playing import append_plays, played_cards, read_plays
@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     from sqlalchemy import Row
     from sqlalchemy.engine import Connection, Engine
 
+    from skat.table.game_cards import GameCards
     from skat.table.member_place import BookEntry
 
 __all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
@@ -339,6 +340,9 @@ class _PostgresTableTransaction:
                     former_holder_name=table.progress.former_holder_name(chair.seat),
                 )
             )
+
+    def game_cards(self, table_id: TableId, number: int) -> GameCards | None:
+        return read_game_cards(self._connection, table_id.value, number)
 
     def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         dealt = _read_hand(self._connection, table.id.value)

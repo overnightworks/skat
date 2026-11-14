@@ -756,3 +756,42 @@ export async function copyTableLink(id: string): Promise<boolean> {
         return false;
     }
 }
+
+export type CardState = "played" | "put-away" | "unplayed";
+// One finished game of the series as the server opens it: what it counted and, unless it was finished before games kept
+// their cards, every card of it. A trick the end of the game interrupted has fewer than three cards and no taker.
+export type GameSheet = {
+    number: number;
+    seat_names: (string | null)[];
+    count:
+        | {
+              kind: "declared";
+              declarer_seat: number;
+              declarer_points: number;
+              opponents_points: number;
+              ending: GameEnding;
+              ended_by_seat: number | null;
+          }
+        | { kind: "ramsch"; seat_points: number[]; durchmarsch_seat: number | null };
+    cards: {
+        hands: { seat: number; cards: { card: Card; state: CardState }[] }[];
+        skat: Card[];
+        laid_skat: Card[];
+        put_away: SeatedCard[];
+        tricks: { number: number; cards: SeatedCard[]; taker_seat: number | null; points: number | null }[];
+        skat_takers: number[];
+    } | null;
+};
+
+// The `number`th game of the current series; null when it cannot be read.
+export async function readGameSheet(id: string, number: number): Promise<GameSheet | null> {
+    const answer = await fetchSigningInAgain(
+        `${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_LIST_SUFFIX}/${String(number)}`,
+    );
+    if (answer?.ok !== true) return null;
+    try {
+        return (await answer.json()) as GameSheet;
+    } catch {
+        return null;
+    }
+}

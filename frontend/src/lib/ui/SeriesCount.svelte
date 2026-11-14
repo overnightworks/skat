@@ -1,5 +1,6 @@
 <script lang="ts">
     import { gameRows, type GameRow } from "#lib/series.ts";
+    import GameSheet from "#lib/ui/GameSheet.svelte";
     import { words } from "#lib/words.ts";
 
     import { readSeriesList } from "../../routes/(start)/tables.ts";
@@ -12,6 +13,8 @@
     let open = $state(false);
     let rows = $state<GameRow[] | null>(null);
     let failed = $state(false);
+    // The game opened from the list, which replaces the list in the panel until the way back is tapped.
+    let opened = $state<GameRow | null>(null);
 
     const wanted = $derived(open ? { id, version } : null);
 
@@ -38,6 +41,7 @@
     onclick={() => {
         rows = null;
         failed = false;
+        opened = null;
         open = true;
         sheet?.showModal();
     }}
@@ -66,26 +70,32 @@
         if (event.target === sheet) sheet.close();
     }}
 >
-    <div class="panel-body">
-        <h3>{words["table.seriesListTitle"]}</h3>
-        <ol class="rows">
-            {#each rows ?? [] as row (row.number)}
-                <li class="grow">
-                    <span class="nr">{row.number}</span>
-                    <span class="dot" aria-hidden="true">{row.initial}</span>
-                    <span class="txt">
-                        <b>{row.name}</b>
-                        {#if row.line !== null}<small>{row.line}</small>{/if}
-                    </span>
-                    <span class="val">{row.value}</span>
-                    <span class="gain" class:minus={row.lost}>{row.gain}</span>
-                </li>
-            {/each}
-        </ol>
-        {#if failed}
-            <p class="empty" role="alert">{words["table.seriesListFailed"]}</p>
-        {:else if rows?.length === 0}
-            <p class="empty">{words["table.seriesListEmpty"]}</p>
-        {/if}
-    </div>
+    {#if opened !== null}
+        <GameSheet {id} row={opened} back={() => (opened = null)} />
+    {:else}
+        <div class="panel-body">
+            <h3>{words["table.seriesListTitle"]}</h3>
+            <ol class="rows">
+                {#each rows ?? [] as row (row.number)}
+                    <li>
+                        <button type="button" class="grow" onclick={() => (opened = row)}>
+                            <span class="nr">{row.number}</span>
+                            <span class="dot" aria-hidden="true">{row.initial}</span>
+                            <span class="txt">
+                                <b>{row.name}</b>
+                                {#if row.line !== null}<small>{row.line}</small>{/if}
+                            </span>
+                            <span class="val">{row.value}</span>
+                            <span class="gain" class:minus={row.lost}>{row.gain}</span>
+                        </button>
+                    </li>
+                {/each}
+            </ol>
+            {#if failed}
+                <p class="empty" role="alert">{words["table.seriesListFailed"]}</p>
+            {:else if rows?.length === 0}
+                <p class="empty">{words["table.seriesListEmpty"]}</p>
+            {/if}
+        </div>
+    {/if}
 </dialog>

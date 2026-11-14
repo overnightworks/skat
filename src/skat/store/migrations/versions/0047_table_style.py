@@ -4,8 +4,8 @@ classic.
 
 from alembic import op
 
-revision = "0046"
-down_revision = "0045"
+revision = "0047"
+down_revision = "0046"
 
 
 def upgrade() -> None:

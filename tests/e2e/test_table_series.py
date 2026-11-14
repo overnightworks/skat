@@ -25,9 +25,20 @@ pytestmark = pytest.mark.e2e
 SERIES_LENGTH = 3
 # A room this short cannot show two rows of the list beside its heading.
 SHORT_ROOM = 160
+# A room that holds the head of an opened game and leaves its tricks less height than they need.
+SHEET_ROOM = 480
 COUNT = ".series-count"
 GAME_LIST = ".game-list"
 ROWS = f"{GAME_LIST} .grow"
+SHEET = f"{GAME_LIST} .game-sheet"
+TRICKS = f"{SHEET} .tricks"
+TRICKS_IN_A_GAME = 10
+PLAYS_IN_A_TRICK = 3
+SEATS = 3
+PUT_AWAY_PER_SEAT = 2
+# The panel body pads its content by less than this on each side.
+FRAME_PADDING = 24
+SHEET_BACK = text(SOURCE_LANGUAGE, "table.sheetBack")
 STANDING = ".result.standing"
 ASK = ".plaque.ask"
 END_KEY = ".actions .end-series"
@@ -73,6 +84,28 @@ def propose_the_end(person: Page) -> None:
     key = person.locator(END_KEY)
     key.click()
     key.click()
+
+
+def expect_the_sheet_inside_the_panel(person: Page) -> None:
+    panel = person.locator(GAME_LIST).bounding_box()
+    assert panel is not None
+    for part in (".skatline .pair", ".held-row", ".trick-row"):
+        for box in (each.bounding_box() for each in person.locator(f"{SHEET} {part}").all()):
+            assert box is not None
+            assert box["x"] >= panel["x"]
+            assert box["x"] + box["width"] <= panel["x"] + panel["width"]
+
+
+def expect_the_tricks_to_lay_their_cards_side_by_side_in_the_panels_one_frame(person: Page) -> None:
+    panel = person.locator(GAME_LIST).bounding_box()
+    sheet = person.locator(SHEET).bounding_box()
+    assert panel is not None
+    assert sheet is not None
+    assert sheet["x"] - panel["x"] <= FRAME_PADDING
+    assert panel["x"] + panel["width"] - (sheet["x"] + sheet["width"]) <= FRAME_PADDING
+    for trick in person.locator(f"{TRICKS} .trick-row").all():
+        lefts = [box["x"] for box in (card.bounding_box() for card in trick.locator(".mini").all()) if box]
+        assert len({round(left) for left in lefts}) == PLAYS_IN_A_TRICK, f"cards overlap at x={lefts}"
 
 
 def expect_the_keys_in_one_row(person: Page) -> None:
@@ -204,6 +237,79 @@ def test_the_mark_counts_the_game_and_the_list_scrolls_inside_its_panel(
         assert person.evaluate("window.scrollY") == 0
         person.keyboard.press("Escape")
         expect(person.locator(GAME_LIST)).not_to_be_visible()
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_game_of_the_list_opens_with_every_seat_and_every_trick_and_the_way_back_returns_to_the_list(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    person = table.pages[1]
+    person.locator(COUNT).click()
+    person.locator(ROWS).click()
+
+    expect(person.locator(f"{SHEET} .held-row")).to_have_count(SEATS)
+    expect(person.locator(f"{TRICKS} .trick-row")).to_have_count(TRICKS_IN_A_GAME)
+    # Every card of a trick names the seat that played it.
+    expect(person.locator(f"{TRICKS} .by")).to_have_count(TRICKS_IN_A_GAME * PLAYS_IN_A_TRICK)
+    expect_the_sheet_inside_the_panel(person)
+    expect_the_tricks_to_lay_their_cards_side_by_side_in_the_panels_one_frame(person)
+
+    # A panel shorter than its game scrolls its tricks, and neither the page nor the panel moves.
+    person.set_viewport_size({"width": form_factor["viewport"]["width"], "height": SHEET_ROOM})
+    tricks = person.locator(TRICKS)
+    assert tricks.evaluate("tricks => tricks.scrollHeight > tricks.clientHeight")
+    assert tricks.evaluate("tricks => { tricks.scrollTop = tricks.scrollHeight; return tricks.scrollTop > 0; }")
+    assert person.evaluate("window.scrollY") == 0
+    assert person.locator(GAME_LIST).evaluate("panel => panel.scrollTop") == 0
+
+    person.get_by_role("button", name=SHEET_BACK).click()
+    expect(person.locator(SHEET)).to_have_count(0)
+    expect(person.locator(ROWS)).to_have_count(1)
+    person.keyboard.press("Escape")
+    expect(person.locator(GAME_LIST)).not_to_be_visible()
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_game_with_three_putters_keeps_every_putter_and_the_skat_inside_the_panel(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    person = table.pages[1]
+
+    def three_putters(route: Route) -> None:
+        sheet = route.fetch().json()
+        dealt = [dealt["card"] for hand in sheet["cards"]["hands"] for dealt in hand["cards"]]
+        sheet["cards"]["put_away"] = [
+            {"seat": seat, "card": dealt[PUT_AWAY_PER_SEAT * (seat - 1) + each]}
+            for seat in range(1, SEATS + 1)
+            for each in range(PUT_AWAY_PER_SEAT)
+        ]
+        route.fulfill(json=sheet)
+
+    person.route(f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}/*", three_putters)
+    person.locator(COUNT).click()
+    person.locator(ROWS).click()
+
+    expect(person.locator(f"{SHEET} .skatline .pair")).to_have_count(SEATS + 1)
+    lines = person.locator(f"{SHEET} .skatline .puts .pair")
+    lefts = {round(box["x"]) for box in (line.bounding_box() for line in lines.all()) if box}
+    assert len(lefts) == 1, f"the putters' lines start at x={lefts}"
+    expect_the_sheet_inside_the_panel(person)
     assert page_errors == []
 
 

@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import (
@@ -6,6 +7,8 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
+    Index,
     Integer,
     SmallInteger,
     Table,
@@ -16,26 +19,33 @@ from sqlalchemy import (
 )
 
 from skat.engine.bidding import VALID_BIDS
+from skat.engine.cards import Card
 from skat.engine.deal import SEATS, Position
 from skat.engine.declaration import Declaration
 from skat.engine.games import GameKind
 from skat.engine.kontra import Word
-from skat.engine.tricks import ALL_POINTS
+from skat.engine.tricks import ALL_POINTS, TRICKS_IN_A_GAME
 from skat.engine.value import Matadors
 from skat.store.schema import (
     ANNOUNCEMENT_OF_TEXT,
     ANNOUNCEMENT_TEXT,
     GAME_OF_TEXT,
     GAME_TEXT,
+    RANK_OF_TEXT,
+    RANK_TEXT,
+    SUIT_OF_TEXT,
+    SUIT_TEXT,
     metadata,
     one_of,
     tables,
     unstored_steps,
 )
+from skat.table.game_cards import GameCards, SeatedCard, in_deck_order, put_away_in_order
 from skat.table.game_list import GameEnding, GameEntry, ListEntry, RamschEntry
 from skat.table.rules import CHAIRS_PER_TABLE
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import datetime
 
     from sqlalchemy import Row
@@ -160,6 +170,112 @@ game_list = Table(
 )
 
 
+class Pile(StrEnum):
+    """Where a stored card lay: in a seat's hand as dealt, in the skat as dealt, in the skat as it lay when a
+    Schieberamsch's play began, put away by a seat or in a trick.
+    """
+
+    HAND = "hand"
+    SKAT = "skat"
+    LAID_SKAT = "laid-skat"
+    PUT_AWAY = "put-away"
+    TRICK = "trick"
+
+
+_CARDS_PER_TRICK: Final = len(Position)
+_SHAPE_OF_A_PILE: Final = {
+    Pile.HAND: "seat IS NOT NULL AND trick IS NULL AND place IS NULL",
+    Pile.SKAT: "seat IS NULL AND trick IS NULL AND place IS NULL",
+    Pile.LAID_SKAT: "seat IS NULL AND trick IS NULL AND place IS NULL",
+    Pile.PUT_AWAY: "seat IS NOT NULL AND trick IS NULL AND place IS NULL",
+    Pile.TRICK: "seat IS NOT NULL AND trick IS NOT NULL AND place IS NOT NULL",
+}
+_DEALT_PILES: Final = f"pile IN ('{Pile.HAND.value}', '{Pile.SKAT.value}')"
+
+# A card has no row of its own: a game stores each card once per pile it lay in, and a pile's shape says which of
+# the seat, the trick and the place it names.
+game_cards = Table(
+    "game_cards",
+    metadata,
+    Column("table_id", Text, nullable=False),
+    Column("series_number", SmallInteger, nullable=False),
+    Column("ordinal", SmallInteger, nullable=False),
+    Column("pile", Text, nullable=False),
+    Column("seat", SmallInteger),
+    Column("trick", SmallInteger),
+    Column("place", SmallInteger),
+    Column("suit", Text, nullable=False),
+    Column("rank", Text, nullable=False),
+    ForeignKeyConstraint(
+        ["table_id", "series_number", "ordinal"],
+        [game_list.c.table_id, game_list.c.series_number, game_list.c.ordinal],
+    ),
+    one_of("pile", (pile.value for pile in Pile), "game_cards_pile_is_a_pile"),
+    CheckConstraint(f"seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_cards_seat_is_a_seat"),
+    CheckConstraint(f"trick BETWEEN 1 AND {TRICKS_IN_A_GAME}", name="game_cards_trick_is_a_trick_of_the_game"),
+    CheckConstraint(f"place BETWEEN 1 AND {_CARDS_PER_TRICK}", name="game_cards_place_is_a_place_in_a_trick"),
+    one_of("suit", SUIT_TEXT.values(), "game_cards_suit_is_a_suit"),
+    one_of("rank", RANK_TEXT.values(), "game_cards_rank_is_a_rank"),
+    CheckConstraint(
+        "CASE pile "
+        + " ".join(f"WHEN '{pile.value}' THEN {shape}" for pile, shape in _SHAPE_OF_A_PILE.items())
+        + " END",
+        name="game_cards_a_pile_names_what_it_is_in",
+    ),
+    Index(
+        "game_cards_each_card_dealt_once",
+        "table_id",
+        "series_number",
+        "ordinal",
+        "suit",
+        "rank",
+        unique=True,
+        postgresql_where=text(_DEALT_PILES),
+    ),
+    Index(
+        "game_cards_each_card_laid_once",
+        "table_id",
+        "series_number",
+        "ordinal",
+        "suit",
+        "rank",
+        unique=True,
+        postgresql_where=text(f"pile = '{Pile.LAID_SKAT.value}'"),
+    ),
+    Index(
+        "game_cards_each_card_played_once",
+        "table_id",
+        "series_number",
+        "ordinal",
+        "suit",
+        "rank",
+        unique=True,
+        postgresql_where=text(f"pile = '{Pile.TRICK.value}'"),
+    ),
+    Index(
+        "game_cards_each_place_taken_once",
+        "table_id",
+        "series_number",
+        "ordinal",
+        "trick",
+        "place",
+        unique=True,
+        postgresql_where=text(f"pile = '{Pile.TRICK.value}'"),
+    ),
+    Index(
+        "game_cards_a_seat_puts_a_card_away_once",
+        "table_id",
+        "series_number",
+        "ordinal",
+        "seat",
+        "suit",
+        "rank",
+        unique=True,
+        postgresql_where=text(f"pile = '{Pile.PUT_AWAY.value}'"),
+    ),
+)
+
+
 def _ramsch_entry_of(row: Row[tuple[object, ...]]) -> RamschEntry:
     return RamschEntry(
         seat_accounts=(row.seat_1_account, row.seat_2_account, row.seat_3_account),
@@ -268,6 +384,76 @@ def read_game_list(connection: Connection, table_id: str) -> tuple[GameEntry, ..
     return tuple(_entry_of(row) for row in rows)
 
 
+def _card_row(
+    pile: Pile, card: Card, seat: int | None = None, trick: int | None = None, place: int | None = None
+) -> dict[str, object]:
+    return {
+        "pile": pile.value,
+        "seat": seat,
+        "trick": trick,
+        "place": place,
+        "suit": SUIT_TEXT[card.suit],
+        "rank": RANK_TEXT[card.rank],
+    }
+
+
+def _card_rows_of(cards: GameCards) -> list[dict[str, object]]:
+    return [
+        *(_card_row(Pile.HAND, card, seat) for seat, hand in enumerate(cards.hands, start=1) for card in hand),
+        *(_card_row(Pile.SKAT, card) for card in cards.skat),
+        *(_card_row(Pile.LAID_SKAT, card) for card in cards.laid_skat),
+        *(_card_row(Pile.PUT_AWAY, put.card, put.seat) for put in cards.put_away),
+        *(
+            _card_row(Pile.TRICK, played.card, played.seat, number, place)
+            for number, trick in enumerate(cards.tricks, start=1)
+            for place, played in enumerate(trick, start=1)
+        ),
+    ]
+
+
+def _cards_of(rows: Iterable[Row[tuple[object, ...]]]) -> GameCards:
+    """The game's cards from its rows, each pile in the order the record keeps it."""
+    hands: dict[int, list[Card]] = {seat: [] for seat in SEATS}
+    skat: list[Card] = []
+    laid_skat: list[Card] = []
+    put_away: list[SeatedCard] = []
+    tricks: dict[int, list[SeatedCard]] = {}
+    for row in sorted(rows, key=lambda each: (each.trick or 0, each.place or 0)):
+        card = Card(SUIT_OF_TEXT[row.suit], RANK_OF_TEXT[row.rank])
+        match Pile(row.pile):
+            case Pile.HAND:
+                hands[row.seat].append(card)
+            case Pile.SKAT:
+                skat.append(card)
+            case Pile.LAID_SKAT:
+                laid_skat.append(card)
+            case Pile.PUT_AWAY:
+                put_away.append(SeatedCard(row.seat, card))
+            case _:  # the trick pile, the last of the five
+                tricks.setdefault(row.trick, []).append(SeatedCard(row.seat, card))
+    first, second, third = (in_deck_order(hands[seat]) for seat in SEATS)
+    return GameCards(
+        hands=(first, second, third),
+        skat=in_deck_order(skat),
+        put_away=put_away_in_order(put_away),
+        tricks=tuple(tuple(tricks[number]) for number in sorted(tricks)),
+        laid_skat=in_deck_order(laid_skat),
+    )
+
+
+def read_game_cards(connection: Connection, table_id: str, number: int) -> GameCards | None:
+    """The cards of the `number`th game of the table's current series; None for a game stored without them."""
+    current_series = select(tables.c.series_number).where(tables.c.id == table_id).scalar_subquery()
+    rows = connection.execute(
+        select(game_cards).where(
+            game_cards.c.table_id == table_id,
+            game_cards.c.series_number == current_series,
+            game_cards.c.ordinal == number,
+        )
+    ).all()
+    return _cards_of(rows) if rows else None
+
+
 def append_game_list(
     connection: Connection,
     table_id: str,
@@ -275,18 +461,13 @@ def append_game_list(
     entries: tuple[GameEntry, ...],
     finished_at: datetime | None,
 ) -> None:
-    """Store the entries of the current series not yet stored, each as finished at `finished_at`; a stored list that
-    is no prefix of `entries` raises.
+    """Store the entries of the current series not yet stored, each as finished at `finished_at` with the cards it
+    carries; a stored list that is no prefix of `entries` raises.
     """
     stored = read_game_list(connection, table_id)
     fresh = unstored_steps(table_id, stored, entries)
     for ordinal, entry in enumerate(fresh, start=len(stored) + 1):
-        connection.execute(
-            insert(game_list).values(
-                table_id=table_id,
-                series_number=series_number,
-                ordinal=ordinal,
-                finished_at=finished_at,
-                **_columns_of(entry),
-            )
-        )
+        key = {"table_id": table_id, "series_number": series_number, "ordinal": ordinal}
+        connection.execute(insert(game_list).values(**key, finished_at=finished_at, **_columns_of(entry)))
+        if entry.cards is not None:
+            connection.execute(insert(game_cards), [{**key, **row} for row in _card_rows_of(entry.cards)])

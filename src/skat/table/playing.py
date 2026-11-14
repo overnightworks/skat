@@ -8,6 +8,7 @@ from skat.engine.kontra import KontraRefusal
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
 from skat.engine.tricks import CardPlayed, Ending, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
+from skat.table.game_cards import SeatedCard, game_cards_of
 from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
 from skat.table.hand_state import (
     doubling_of,
@@ -97,14 +98,6 @@ class DeclineGiveUpCommand:
     command_id: str
     table_id: str
     version: int
-
-
-@dataclass(frozen=True)
-class SeatedCard:
-    """A card of the trick in progress and the seat that played it."""
-
-    seat: int
-    card: Card
 
 
 @dataclass(frozen=True)
@@ -198,7 +191,7 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
         return Decision(table, Refusal.REQUEST_PENDING)
     if positions_the_first_card_waits_on(table):
         return Decision(table, KontraRefusal.WORDS_DUE)
-    outcome = _card_played(state, position, command.card)
+    outcome = card_played(state, position, command.card)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     plays = (*table.progress.plays, CardPlayed(position, command.card))
@@ -208,12 +201,12 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
             replace(table, version=table.version + 1, progress=replace(table.progress, plays=plays, give_up=None))
         )
     if isinstance(played, RamschPlayedOut):
-        entry = ramsch_entry_of(played, table)
+        entry = replace(ramsch_entry_of(played, table), cards=game_cards_of(table, played))
         return Decision(_ended(table, entry, bock_after(table, played, entry)))
     return Decision(_ended_declared(table, played, GameEnding.PLAYED_OUT, None))
 
 
-def _card_played(
+def card_played(
     state: Playing | RamschPlaying, position: Position, card: Card
 ) -> PlayOutcome[Playing] | PlayOutcome[RamschPlaying]:
     """The card in the game that runs: a Ramsch's cards and a declared game's are played alike by the engine."""
@@ -445,7 +438,9 @@ def _ended_declared(
     """The card, give-up or throw-down that ends a declared game ends the hand; the Bock rounds are asked once its
     entry exists. The entry keeps how the game ended, which the engine's ending does not say.
     """
-    entry = list_entry_of(played, table, doubling_of(table), ending, ended_by)
+    entry = replace(
+        list_entry_of(played, table, doubling_of(table), ending, ended_by), cards=game_cards_of(table, played)
+    )
     return _ended(table, entry, bock_after(table, played, entry))
 
 
@@ -473,7 +468,7 @@ def _legal_cards(state: Playing | RamschPlaying, viewer_positions: frozenset[Pos
     if turn not in viewer_positions:
         return ()
     held = state.hands[turn]
-    return tuple(card for card in DECK if card in held and _card_played(state, turn, card).refusal is None)
+    return tuple(card for card in DECK if card in held and card_played(state, turn, card).refusal is None)
 
 
 def _taken_of(state: Playing | RamschPlaying, seats: dict[Position, int]) -> tuple[TakenTricks, ...]:
