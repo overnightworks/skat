@@ -31,6 +31,8 @@ class GameEnding(StrEnum):
     PLAYED_OUT = "played-out"
     GIVEN_UP = "given-up"
     THROWN_DOWN = "thrown-down"
+    SHORTENED = "shortened"
+    PLAYED_OPEN = "played-open"
 
 
 @dataclass(frozen=True)
@@ -419,8 +421,8 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
 @dataclass(frozen=True)
 class SeriesEntryView:
     """One finished game in the table's list, the same for every viewer: its place, its declarer by the name stored
-    with the game (None for an entry stored before names were kept), the game, its levels, its value and the
-    declarer's gain or loss. It names no account and no card.
+    with the game (None for an entry stored before names were kept), the game, its levels, its value, the
+    declarer's gain or loss and the card points he is credited with. It names no account and no card.
     """
 
     number: int
@@ -429,6 +431,7 @@ class SeriesEntryView:
     levels: tuple[Level, ...]
     settled_value: int
     score: int
+    declarer_points: int
     kontra_word: Word | None
     bock_factor: int
 
@@ -481,6 +484,7 @@ def _series_entry_view_of(
         levels=entry.levels,
         settled_value=entry.settled_value,
         score=entry.score,
+        declarer_points=entry.declarer_points,
         kontra_word=entry.kontra_word,
         bock_factor=entry.bock_factor,
     )

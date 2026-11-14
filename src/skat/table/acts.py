@@ -56,6 +56,8 @@ class ActKind(StrEnum):
     PLAY = "play"
     WORD = "word"
     GIVE_UP = "give-up"
+    SHORTEN = "shorten"
+    PLAY_OPEN = "play-open"
     THROW_DOWN = "throw-down"
     RESULT = "result"
     PASSED_IN = "passed-in"
@@ -170,10 +172,17 @@ def _running_events(table: TableRecord, seats: dict[Position, int], dealer: int)
     yield from _play_events(progress.plays, progress.words, seats)
 
 
+_ENDING_KINDS: Final = {
+    GameEnding.GIVEN_UP: ActKind.GIVE_UP,
+    GameEnding.SHORTENED: ActKind.SHORTEN,
+    GameEnding.PLAYED_OPEN: ActKind.PLAY_OPEN,
+    GameEnding.THROWN_DOWN: ActKind.THROW_DOWN,
+}
+
+
 def _result_events(result: ResultView | RamschResultView) -> Iterator[_Event]:
     if isinstance(result, ResultView) and result.ending is not GameEnding.PLAYED_OUT:
-        kind = ActKind.GIVE_UP if result.ending is GameEnding.GIVEN_UP else ActKind.THROW_DOWN
-        yield result.ended_by_seat, kind, None
+        yield result.ended_by_seat, _ENDING_KINDS[result.ending], None
     yield None, ActKind.RESULT, result
 
 

@@ -385,6 +385,10 @@ class Moment:
             "legal_cards": [card_body(each) for each in legal],
             "running_points": None,
             "give_up": None,
+            "shortening": None,
+            "shortening_refused_seat": None,
+            "open_play_seat": None,
+            "open_hands": [],
             "kontra": None,
         }
 

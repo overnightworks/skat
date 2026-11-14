@@ -523,6 +523,7 @@ export type SeriesEntry =
           levels: Level[];
           settled_value: number;
           score: number;
+          declarer_points: number;
           kontra_word: Word | null;
           bock_factor: number;
       }

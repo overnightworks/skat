@@ -199,7 +199,11 @@ POSITION_TEXT: Final = {
     Position.MIDDLEHAND: "middlehand",
     Position.REARHAND: "rearhand",
 }
-
+ANNOUNCEMENT_TEXT: Final = {
+    Announcement.NONE: "none",
+    Announcement.SCHNEIDER: "schneider",
+    Announcement.SCHWARZ: "schwarz",
+}
 
 tables = Table(
     "tables",
@@ -224,10 +228,16 @@ tables = Table(
     Column("series_end_accepter", SmallInteger),
     Column("give_up_asked_by", Text),
     Column("give_up_declined_by", Text),
+    Column("give_up_claim", Text),
+    Column("give_up_agreed_by", Text),
+    Column("shortening_refused_by", Text),
+    Column("give_up_open", Boolean, nullable=False, server_default=false()),
+    Column("played_open", ARRAY(Text), nullable=False, server_default=text("'{}'")),
     Column("abort_yes_seats", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("hand_aborted", Boolean, nullable=False, server_default=false()),
     *option_columns("tables"),
     Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
+    Column("ramsch_round_games", SmallInteger, nullable=False, server_default="0"),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -283,6 +293,29 @@ tables = Table(
         "give_up_declined_by IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_no_comes_with_an_ask"
     ),
     CheckConstraint("give_up_declined_by <> give_up_asked_by", name="tables_give_up_no_comes_from_another_position"),
+    one_of("give_up_claim", ANNOUNCEMENT_TEXT.values(), "tables_give_up_claim_is_an_announcement"),
+    one_of("give_up_agreed_by", POSITION_TEXT.values(), "tables_give_up_agreer_is_a_position"),
+    one_of("shortening_refused_by", POSITION_TEXT.values(), "tables_shortening_refuser_is_a_position"),
+    CheckConstraint(
+        "give_up_claim IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_claim_comes_with_an_ask"
+    ),
+    CheckConstraint(
+        "give_up_agreed_by IS NULL OR (give_up_claim IS NOT NULL AND give_up_agreed_by <> give_up_asked_by)",
+        name="tables_give_up_yes_is_to_a_shortening_by_another",
+    ),
+    CheckConstraint(
+        "give_up_claim IS NULL OR give_up_declined_by IS NULL", name="tables_a_shortening_ends_with_its_first_no"
+    ),
+    CheckConstraint(
+        "NOT give_up_open OR (give_up_asked_by IS NOT NULL AND give_up_claim IS NULL AND give_up_declined_by IS NULL"
+        " AND give_up_agreed_by IS NULL)",
+        name="tables_an_open_play_is_asked_of_the_declarer_alone",
+    ),
+    CheckConstraint(
+        f"played_open <@ ARRAY[{', '.join(f"'{each}'" for each in POSITION_TEXT.values())}]::text[]"
+        " AND array_position(played_open, NULL) IS NULL",
+        name="tables_played_open_are_positions",
+    ),
     CheckConstraint(
         "abort_yes_seats <@ ARRAY[1, 2, 3]::smallint[] AND array_position(abort_yes_seats, NULL) IS NULL",
         name="tables_abort_yes_are_seats",
@@ -297,6 +330,7 @@ tables = Table(
     CheckConstraint(
         "bock_triggers IS NOT NULL OR cardinality(bock_rounds) = 0", name="tables_bock_rounds_only_with_bock"
     ),
+    CheckConstraint("ramsch_round_games >= 0", name="tables_ramsch_round_games_are_not_negative"),
 )
 
 rule_sets = Table(
@@ -377,11 +411,6 @@ GAME_TEXT: Final = {
     GameKind.KREUZ: "kreuz",
     GameKind.GRAND: "grand",
     GameKind.NULL: "null",
-}
-ANNOUNCEMENT_TEXT: Final = {
-    Announcement.NONE: "none",
-    Announcement.SCHNEIDER: "schneider",
-    Announcement.SCHWARZ: "schwarz",
 }
 SUIT_OF_TEXT: Final = {text: suit for suit, text in SUIT_TEXT.items()}
 RANK_OF_TEXT: Final = {text: rank for rank, text in RANK_TEXT.items()}

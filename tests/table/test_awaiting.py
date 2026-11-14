@@ -34,6 +34,7 @@ from tests.support.played_game import (
     a_whole_game,
     asked_by_an_opponent,
     asked_by_the_declarer,
+    asked_to_shorten,
     between_games,
     declared_herz_hand,
     table_in,
@@ -118,6 +119,15 @@ class TestTheWaitingCase:
             ),
             pytest.param(
                 asked_by_an_opponent(), FOREHAND, None, id="nothing-for-the-seat-on-turn-while-the-declarer-is-asked"
+            ),
+            pytest.param(
+                asked_by_an_opponent(open_play=True),
+                MIDDLEHAND,
+                WaitingCase.GIVE_UP,
+                id="the-declarer-on-an-opponents-wrong-open-play",
+            ),
+            pytest.param(
+                asked_by_an_opponent(open_play=True), FOREHAND, None, id="nothing-for-the-opponent-who-played-open"
             ),
             pytest.param(kontra_hand(), REARHAND, WaitingCase.KONTRA, id="an-unanswered-kontra-word"),
             pytest.param(kontra_hand(), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-kontra-word"),
@@ -232,6 +242,18 @@ class TestAGiveUpQuestion:
         assert waiting_for(asked_by_the_declarer(declined_by)) == waiting
 
 
+class TestAShorteningQuestion:
+    @pytest.mark.parametrize(
+        ("agreed_by", "waiting"),
+        [
+            pytest.param(None, {FOREHAND, REARHAND}, id="both-opponents-who-have-not-answered"),
+            pytest.param(Position.REARHAND, {FOREHAND}, id="not-the-opponent-who-agreed-nor-the-asker"),
+        ],
+    )
+    def test_the_opponents_who_have_not_agreed_are_awaited(self, agreed_by, waiting):
+        assert waiting_for(asked_to_shorten(agreed_by)) == waiting
+
+
 class TestAnOpponentsGiveUp:
     @pytest.mark.parametrize("opponent", [Position.FOREHAND, Position.REARHAND], ids=lambda opponent: opponent.name)
     def test_the_declarer_alone_is_awaited_not_the_seat_on_turn_nor_the_asker_nor_the_other_opponent(self, opponent):
@@ -337,6 +359,9 @@ class TestTheAwaitedSeats:
             ),
             pytest.param(asked_by_the_declarer(None), {2, 3}, id="a-declarers-give-up-both-opponents"),
             pytest.param(asked_by_an_opponent(), {1}, id="an-opponents-give-up-the-declarer-alone"),
+            pytest.param(
+                asked_by_an_opponent(open_play=True), {1}, id="an-opponents-wrong-open-play-the-declarer-alone"
+            ),
             pytest.param(between_games(SEAT_OF[REARHAND]), {1, 3}, id="a-result-the-seats-not-ready"),
             pytest.param(
                 between_games(series=Series(12, 12)), set(SEAT_OF.values()), id="a-series-end-the-seats-not-ready"

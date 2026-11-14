@@ -418,6 +418,8 @@ const translated = {
     "rules.namePoints": "Show running points",
     "rules.nameKontra": "Kontra and Re",
     "rules.nameRamsch": "Ramsch when everyone passes",
+    "rules.nameRamschBockRounds": "Ramsch round after each Bock round",
+    "rules.nameRamschPassedInAndBockRounds": "Ramsch when everyone passes and Ramsch round after each Bock round",
     "rules.namePushing": "Push Ramsch",
     "rules.nameBock": "Bock rounds",
     "rules.pointsFromTricks": "From finished tricks, never in a Null",

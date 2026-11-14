@@ -79,14 +79,14 @@ export const BOCK_TRIGGER_TOKENS = [
     "total-ending-in-00",
 ] as const;
 export const BOCK_OVERLAP_TOKENS = ["append", "multiply", "ignore"] as const;
-export const RAMSCH_OCCASION_TOKENS = ["passed-in"] as const;
+export const RAMSCH_OCCASION_TOKENS = ["passed-in", "bock-rounds", "passed-in-and-bock-rounds"] as const;
 export const RAMSCH_SCORING_TOKENS = ["points", "points-by-ten", "skat-to-loser"] as const;
 export const JUNGFRAU_TOKENS = ["doubles-loser", "off"] as const;
 export const DURCHMARSCH_TOKENS = ["wins-120", "wins-120-flat", "off"] as const;
 export const PUSHING_RULE_TOKENS = ["jacks-stay", "jacks-may-go", "no-doubling"] as const;
 export const GRAND_HAND_TOKENS = ["allowed", "off"] as const;
 export const WAITING_CASE_TOKENS = ["turn", "give_up", "kontra", "end_proposal", "result", "series_end"] as const;
-export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down"] as const;
+export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down", "shortened", "played-open"] as const;
 export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
 export const VISIBILITY_TOKENS = ["open", "private"] as const;
 export const VALID_BIDS = [

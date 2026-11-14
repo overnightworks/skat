@@ -50,6 +50,8 @@ from skat.table.playing import (
     DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
+    PlayOpenCommand,
+    ShortenCommand,
     ThrowDownCommand,
     agree_to_give_up_payload,
     card_payload,
@@ -57,9 +59,13 @@ from skat.table.playing import (
     decide_card,
     decide_decline_give_up,
     decide_give_up,
+    decide_play_open,
+    decide_shorten,
     decide_throw_down,
     decline_give_up_payload,
     give_up_payload,
+    play_open_payload,
+    shorten_payload,
     throw_down_payload,
 )
 from skat.table.pushing import PUSHING_STEP_COMMAND, PushingCommand, decide_pushing_step, pushing_payload
@@ -91,6 +97,8 @@ from skat.table.rules import (
     DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
+    PLAY_OPEN_COMMAND,
+    SHORTEN_COMMAND,
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
     THROW_DOWN_COMMAND,
@@ -268,10 +276,7 @@ class TableService(LobbyReads):
         return None if replay is None else replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
 
     def take_auction_step(
-        self,
-        actor: Actor,
-        command: AuctionCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -310,10 +315,7 @@ class TableService(LobbyReads):
         )
 
     def play_card(
-        self,
-        actor: Actor,
-        command: PlayCardCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: PlayCardCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -338,12 +340,7 @@ class TableService(LobbyReads):
             lambda table: decide_kontra(table, actor, command),
         )
 
-    def give_up(
-        self,
-        actor: Actor,
-        command: GiveUpCommand,
-        connected_accounts: frozenset[str],
-    ) -> CommandResult | None:
+    def give_up(self, actor: Actor, command: GiveUpCommand, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
             actor,
             connected_accounts,
@@ -354,11 +351,34 @@ class TableService(LobbyReads):
             lambda table: decide_give_up(table, actor, command),
         )
 
+    def shorten(
+        self, actor: Actor, command: ShortenCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            SHORTEN_COMMAND,
+            shorten_payload(command),
+            lambda table: decide_shorten(table, actor, command),
+        )
+
+    def play_open(
+        self, actor: Actor, command: PlayOpenCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            PLAY_OPEN_COMMAND,
+            play_open_payload(command),
+            lambda table: decide_play_open(table, actor, command),
+        )
+
     def agree_to_give_up(
-        self,
-        actor: Actor,
-        command: AgreeToGiveUpCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AgreeToGiveUpCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -384,10 +404,7 @@ class TableService(LobbyReads):
         )
 
     def throw_down(
-        self,
-        actor: Actor,
-        command: ThrowDownCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: ThrowDownCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,

@@ -73,12 +73,17 @@ def auction_payload(command: AuctionCommand) -> str:
     return f"{command.table_id}:{command.version}:{command.action.value}:{value}"
 
 
+def _ramsch_on_the_third_pass(table: TableRecord) -> bool:
+    ramsch = table.options.ramsch
+    return ramsch is not None and ramsch.occasion.on_the_third_pass
+
+
 def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> Decision:
     """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason.
 
-    At a table without Ramsch the third pass ends the hand: its cards go, its steps stay until the next deal, and the
-    Bock rounds are asked. At a table with Ramsch the hand stays and its steps start the Ramsch, whose end asks the
-    Bock rounds.
+    At a table that plays no Ramsch on the third pass the third pass ends the hand: its cards go, its steps stay until
+    the next deal, and the Bock rounds are asked. At a table that does the hand stays and its steps start the Ramsch,
+    whose end asks the Bock rounds.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
@@ -90,7 +95,7 @@ def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> De
     steps = (*table.progress.auction, step)
     changed = replace(table, version=table.version + 1, progress=replace(table.progress, auction=steps))
     result = outcome.auction.result
-    if isinstance(result, PassedIn) and table.options.ramsch is None:
+    if isinstance(result, PassedIn) and not _ramsch_on_the_third_pass(table):
         changed = replace(
             changed,
             hand=None,
