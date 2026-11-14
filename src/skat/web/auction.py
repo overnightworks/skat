@@ -7,7 +7,16 @@ from pydantic import Field
 
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.web.mcp import AUCTION_BID_MARK, AUCTION_HOLD_MARK, AUCTION_PASS_MARK, AUCTION_PLAY_MARK
-from skat.web.tables import COMMAND_RESPONSES, TABLES_PATH, CommandRequest, TableAnswer, actor_of, command_answer
+from skat.web.tables import (
+    COMMAND_RESPONSES,
+    TABLES_PATH,
+    CommandRequest,
+    TableAnswer,
+    TableIdInPath,
+    TableVersion,
+    actor_of,
+    command_answer,
+)
 
 if TYPE_CHECKING:
     from skat.table.service import TableService
@@ -23,7 +32,7 @@ TABLE_AUCTION_PLAY_SUFFIX: Final = "/auction/play"
 class _AuctionStepRequest(CommandRequest):
     """A client names only the step and the version it saw: its seat and position come from the session."""
 
-    version: Annotated[int, Field(strict=True)]
+    version: TableVersion
 
 
 class BidRequest(_AuctionStepRequest):
@@ -37,7 +46,7 @@ type StepTaker = Callable[
 
 def _step_taker(tables: TableService, presence: Presence) -> StepTaker:
     async def take_step(
-        table_id: str, body: _AuctionStepRequest, request: Request, response: Response, action: AuctionAction
+        table_id: TableIdInPath, body: _AuctionStepRequest, request: Request, response: Response, action: AuctionAction
     ) -> Response | TableAnswer:
         command = AuctionCommand(
             command_id=body.command_id,
@@ -63,15 +72,14 @@ def _add_bid(router: APIRouter, take_step: StepTaker) -> None:
         responses=COMMAND_RESPONSES,
         openapi_extra=AUCTION_BID_MARK,
     )
-    async def bid(table_id: str, body: BidRequest, request: Request, response: Response) -> Response | TableAnswer:
+    async def bid(
+        table_id: TableIdInPath, body: BidRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
         """Bid a value in the auction of a Skat table, on the caller's turn as the bidder.
 
         Use it when `hand.auction.awaiting` in the answer of read_table or the state of your table's view is "bid" and
-        it is the caller's turn. The table id and the version come from that answer, and the value from
-        `hand.auction.values`. The command id names this step: the same id with the same value and the same version is a
-        retry that changes nothing twice. A refusal (a stale version, a value that is not above the standing one, not
-        the caller's turn) comes back as a failed result with its reason, leaves the table as it was and spends the
-        command id: the next attempt takes a new command id.
+        it is the caller's turn. The value comes from `hand.auction.values`. Refused: a stale version, a value that is
+        not above the standing one, not the caller's turn.
         """
         return await take_step(table_id, body, request, response, AuctionAction.BID)
 
@@ -84,15 +92,12 @@ def _add_hold(router: APIRouter, take_step: StepTaker) -> None:
         openapi_extra=AUCTION_HOLD_MARK,
     )
     async def hold(
-        table_id: str, body: _AuctionStepRequest, request: Request, response: Response
+        table_id: TableIdInPath, body: _AuctionStepRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Hold the bid that stands in the auction of a Skat table, on the caller's turn as the responder.
 
         Use it when `hand.auction.awaiting` in the answer of read_table or the state of your table's view is "answer"
-        and it is the caller's turn. The table id and the version come from that answer. The command id names this step:
-        the same id with the same version is a retry that changes nothing twice. A refusal (a stale version, not the
-        caller's turn, a hold where a bid is awaited) comes back as a failed result with its reason, leaves the table as
-        it was and spends the command id: the next attempt takes a new command id.
+        and it is the caller's turn. Refused: a stale version, not the caller's turn, a hold where a bid is awaited.
         """
         return await take_step(table_id, body, request, response, AuctionAction.HOLD)
 
@@ -105,15 +110,13 @@ def _add_pass(router: APIRouter, take_step: StepTaker) -> None:
         openapi_extra=AUCTION_PASS_MARK,
     )
     async def pass_(
-        table_id: str, body: _AuctionStepRequest, request: Request, response: Response
+        table_id: TableIdInPath, body: _AuctionStepRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Pass in the auction of a Skat table: the caller is out and takes no further step of it.
 
         Use it on the caller's turn, whatever `hand.auction.awaiting` in the answer of read_table or the state of your
-        table's view holds: no value of it names a pass. The table id and the version come from that answer. The command
-        id names this step: the same id with the same version is a retry that changes nothing twice. A refusal (a stale
-        version, not the caller's turn, already passed) comes back as a failed result with its reason, leaves the table
-        as it was and spends the command id: the next attempt takes a new command id.
+        table's view holds: no value of it names a pass. Refused: a stale version, not the caller's turn, already
+        passed.
         """
         return await take_step(table_id, body, request, response, AuctionAction.PASS)
 
@@ -126,16 +129,13 @@ def _add_play(router: APIRouter, take_step: StepTaker) -> None:
         openapi_extra=AUCTION_PLAY_MARK,
     )
     async def play(
-        table_id: str, body: _AuctionStepRequest, request: Request, response: Response
+        table_id: TableIdInPath, body: _AuctionStepRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Play the lowest game value as the forehand, once both others passed, to end the auction of a Skat table.
 
         This is the forehand's "Spielen" and no card: a card goes through play_card. Use it on the caller's turn when
-        `hand.auction.awaiting` in the answer of read_table or the state of your table's view is "play". The table id
-        and the version come from that answer. The command id names this step: the same id with the same version is a
-        retry that changes nothing twice. A refusal (a stale version, not the caller's turn) comes back as a failed
-        result with its reason, leaves the table as it was and spends the command id: the next attempt takes a new
-        command id.
+        `hand.auction.awaiting` in the answer of read_table or the state of your table's view is "play". Refused: a
+        stale version, not the caller's turn.
         """
         return await take_step(table_id, body, request, response, AuctionAction.PLAY)
 

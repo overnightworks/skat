@@ -17,6 +17,7 @@ function chairOf(seat: number, name: string | null, kind: Chair["occupant_kind"]
         hand: { position: "forehand", card_count: 10 },
         former_holder_name: former,
         is_mine_to_return: false,
+        nudge: null,
     };
 }
 
