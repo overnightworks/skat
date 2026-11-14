@@ -625,22 +625,20 @@ describe("the sound of the viewer's turn", () => {
     });
 
     it("vibrates once for the turn when the player switched vibration on, even while muted", () => {
-        const patterns: (readonly number[])[] = [];
+        const port = new FakePort();
 
-        soundAt(new FakePort(), { vibration: true, muted: true, vibrate: (pattern) => patterns.push(pattern) }).forTurn(
-            [],
-        );
+        soundAt(port, { vibration: true, muted: true }).forTurn([]);
 
-        expect(patterns).toHaveLength(1);
-        expect(patterns[0]?.reduce((sum, each) => sum + each, 0)).toBeGreaterThan(0);
+        expect(port.vibrations).toHaveLength(1);
+        expect(port.vibrations[0]?.reduce((sum, each) => sum + each, 0)).toBeGreaterThan(0);
     });
 
     it("does not vibrate while vibration is off", () => {
-        const patterns: (readonly number[])[] = [];
+        const port = new FakePort();
 
-        soundAt(new FakePort(), { vibrate: (pattern) => patterns.push(pattern) }).forTurn([]);
+        soundAt(port).forTurn([]);
 
-        expect(patterns).toEqual([]);
+        expect(port.vibrations).toEqual([]);
     });
 });
 

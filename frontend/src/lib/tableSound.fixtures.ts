@@ -20,6 +20,8 @@ export class FakePort implements AudioPort {
     played: { voice: Voice; afterSeconds: number }[] = [];
     // What each sound asked of the window: true for a sound that is wanted while it is hidden.
     askedWhenHidden: boolean[] = [];
+    // The patterns the device was asked to vibrate with.
+    vibrations: (readonly number[])[] = [];
 
     ready(whenHidden: boolean): boolean {
         this.askedWhenHidden.push(whenHidden);
@@ -96,7 +98,6 @@ interface Options {
     muted?: boolean;
     background?: boolean;
     vibration?: boolean;
-    vibrate?: (pattern: readonly number[]) => void;
 }
 
 export function soundAt(port: FakePort, options: Options = {}): TableSound {
@@ -105,7 +106,7 @@ export function soundAt(port: FakePort, options: Options = {}): TableSound {
         settings: () => ({ ...SETTINGS, muted: options.muted ?? false }),
         turnInBackground: () => options.background ?? false,
         vibrationOn: () => options.vibration ?? false,
-        vibrate: options.vibrate ?? (() => undefined),
+        vibrate: (pattern) => port.vibrations.push(pattern),
         soundSet: () => SOUND_SETS[options.soundSet ?? "leise"],
         motion: () => (options.motion === undefined ? undefined : MOTION_SETS[options.motion]),
         voiceOn: () => options.voice ?? false,
