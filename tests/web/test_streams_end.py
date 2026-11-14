@@ -202,8 +202,10 @@ class TestTheEndLogOfAStream:
         async def scenario():
             return [message async for message in messages_with_end_log(failing(), lambda: False, StreamKind.LOBBY)]
 
+        producer_run = scenario()
+
         with capture_logs() as logs, pytest.raises(ProducerFailedError):
-            run_on_a_loop_of_its_own(scenario())
+            run_on_a_loop_of_its_own(producer_run)
 
         assert [(log["reason"], log["error_type"]) for log in ended_lines(logs)] == [("error", "ProducerFailedError")]
 
