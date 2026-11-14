@@ -133,7 +133,7 @@ def expect_the_rows_to_fit(person: Page) -> None:
 
 @pytest.mark.parametrize("form_factor", FRAME_WIDTHS)
 @pytest.mark.parametrize(("table_kind", "word_frame", "re_frame"), TABLES)
-def test_the_kontra_and_re_keys_have_the_size_mark_and_word_the_scenes_draw(
+def test_the_kontra_and_re_keys_have_the_scenes_size_mark_and_word_and_every_key_stays_on_the_screen(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
