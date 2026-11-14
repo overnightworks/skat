@@ -4,13 +4,18 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.web.game_list import TABLE_LIST_SUFFIX
+from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
+from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from playwright.sync_api import Route
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -33,6 +38,16 @@ NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
+GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
+STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+REFUSED = 409
+# A point of the room outside the centred panel, where a tap lands on the backdrop of the list.
+BESIDE_THE_PANEL = (4, 4)
+
+
+def refuse(route: Route) -> None:
+    route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
 
 def game_count(game: int) -> str:
@@ -271,4 +286,68 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(COUNT)).to_have_text(game_count(1))
         expect(person.locator(STANDING)).to_have_count(0)
         expect(person.locator(".chair .coaster")).to_have_text(["0", "0", "0"])
+    assert page_errors == []
+
+
+def test_a_list_the_server_cannot_read_says_so_and_a_tap_beside_the_panel_closes_it(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused read as a console error; that refusal is the point of this test.
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
+    first = table.pages[1]
+    first.route(f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}", refuse)
+
+    first.locator(COUNT).click()
+
+    expect(first.locator(f"{GAME_LIST} [role=alert]")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListFailed"))
+    first.mouse.click(*BESIDE_THE_PANEL)
+    expect(first.locator(GAME_LIST)).not_to_be_visible()
+    assert page_errors == []
+
+
+def test_a_proposed_end_the_server_refuses_shows_the_failure_and_leaves_the_key_to_tap_again(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused proposal as a console error; that refusal is the point of this test.
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
+    table.pass_all()
+    table.play_out()
+    first = table.pages[1]
+    first.route(f"**{TABLES_PATH}/*{TABLE_SERIES_END_AGREE_SUFFIX}", refuse)
+
+    propose_the_end(first)
+
+    expect(first.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(first.locator(END_KEY)).to_be_enabled()
+    for person in (table.pages[2], table.pages[3]):
+        expect(person.locator(ASK)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_a_player_who_stands_up_from_the_ended_series_stays_in_the_standings_marked_as_gone(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    propose_the_end(table.pages[1])
+    answer_the_ask(table.pages[2], YES)
+    answer_the_ask(table.pages[3], YES)
+    for person in table.everyone:
+        expect(person.locator(STANDING)).to_have_count(1)
+
+    table.pages[3].get_by_role("button", name=STAND_UP, exact=True).click()
+
+    for person in table.everyone:
+        leaver = person.locator(f"{STANDING} .rank b", has_text=table.names[3])
+        expect(leaver.locator("em")).to_have_text(GONE)
     assert page_errors == []

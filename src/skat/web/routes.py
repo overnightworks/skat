@@ -18,7 +18,7 @@ from skat.web.mcp import Exclusion, excluded
 
 if TYPE_CHECKING:
     import os
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from starlette.types import Scope
     from webauth.config import WebAuthConfig
@@ -51,13 +51,16 @@ class _PageBuildFiles(StaticFiles):
 
 
 def create_router(
-    page_build: PageBuild, sessions: SessionRecordStore, web_auth: WebAuthConfig, database_ready: Callable[[], bool]
+    page_build: PageBuild,
+    sessions: SessionRecordStore,
+    web_auth: WebAuthConfig,
+    database_ready: Callable[[], Awaitable[bool]],
 ) -> APIRouter:
     router = APIRouter()
 
     @router.api_route(HEALTH_PATH, methods=READ_METHODS, openapi_extra=excluded(Exclusion.READINESS_PROBE))
-    def health() -> JSONResponse:
-        if database_ready():
+    async def health() -> JSONResponse:
+        if await database_ready():
             return JSONResponse({"status": "ok"})
         return JSONResponse({"status": "unavailable"}, status_code=HTTPStatus.SERVICE_UNAVAILABLE)
 

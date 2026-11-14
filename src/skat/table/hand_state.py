@@ -1,7 +1,8 @@
 from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
-from skat.engine.bidding import Declared, PassedIn, auction_after
+from skat.engine.bidding import Auction, Declared, PassedIn, auction_after
+from skat.engine.bock import in_ramsch_round
 from skat.engine.declaration import Announcement, Declare, Declaring, declaring_after
 from skat.engine.games import GameKind
 from skat.engine.kontra import Doubling, KontraDeadline, awaits_words, bidders_of, doubling_after
@@ -10,14 +11,25 @@ from skat.engine.schieberamsch import Pushing, RamschOn, pushing_after
 from skat.engine.tricks import Playing, playing_after, start_play
 
 if TYPE_CHECKING:
-    from skat.engine.bidding import Auction
     from skat.engine.deal import Deal
     from skat.engine.ramsch import RamschPlaying
     from skat.table.records import GiveUpAsked, TableRecord
 
 
+def is_ramsch_round(table: TableRecord) -> bool:
+    """The running hand is a Ramsch-round game, dealt as a Ramsch with no auction: no Bock game is pending and the
+    table's rounds left Ramsch-round games, the running one included.
+    """
+    bock = table.options.bock
+    return table.hand is not None and bock is not None and in_ramsch_round(table.bock, bock.overlap)
+
+
 def auction_of(table: TableRecord) -> Auction:
-    """The auction of a table, replayed through the engine from its stored steps."""
+    """The auction of a table, replayed through the engine from its stored steps; a Ramsch round has none and reads as
+    passed in from the deal.
+    """
+    if is_ramsch_round(table):
+        return Auction.passed_in_from_the_deal()
     return auction_after(table.progress.auction)
 
 

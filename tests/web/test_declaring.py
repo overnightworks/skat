@@ -12,19 +12,13 @@ from skat.engine.games import GameKind
 from skat.table.hand_state import declaring_of
 from skat.table.records import Refusal
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
-from skat.web.tables import (
-    RANK_TOKENS,
-    SUIT_TOKENS,
-    TABLE_EVENTS_SUFFIX,
-    TABLES_PATH,
-    AnnouncementToken,
-    GameToken,
-)
+from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import (
     DEALER_SEAT,
     FOREHAND_CARDS,

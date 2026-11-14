@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keyWord, plaqueLine, stampBetween } from "#lib/kontra.ts";
+import { keyWord, plaqueLine } from "#lib/kontra.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, Hand, Kontra, Table, Word } from "../routes/(start)/tables.ts";
 
@@ -20,6 +20,7 @@ function chairs(): Chair[] {
         occupant_kind: kind,
         former_holder_name: null,
         is_mine_to_return: false,
+        nudge: null,
         is_mine: seat === OPPONENT,
         is_away: false,
         ready: false,
@@ -58,6 +59,11 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
             turn_seat: OPPONENT,
             current_trick: [],
             last_trick: null,
+            taken: [
+                { seat: 1, tricks: 0 },
+                { seat: 2, tricks: 0 },
+                { seat: 3, tricks: 0 },
+            ],
             legal_cards: [],
             running_points: null,
             give_up: null,
@@ -82,7 +88,6 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
 }
 
 const SAID_KONTRA = { seat: OPPONENT, word: "kontra" } as const;
-const SAID_RE = { seat: DECLARER, word: "re" } as const;
 
 describe("the key of a seat", () => {
     it.each([
@@ -92,59 +97,6 @@ describe("the key of a seat", () => {
         ["no word between hands", "no hand" as const, null],
     ])("is %s", (_name, playingKontra, expected) => {
         expect(keyWord(table(5, playingKontra))).toBe(expected);
-    });
-});
-
-const STAMP_OF_FELIX = {
-    text: words["kontra.stamp"]({ word: words["kontra.kontra"] }),
-    label: words["kontra.saidBy"]({ name: "Felix", word: words["kontra.kontra"] }),
-    initial: "F",
-    agent: false,
-};
-
-describe("the stamp an update brings", () => {
-    it("carries the word said between the two versions with its mark and the sayer's face", () => {
-        const before = table(5, kontra([]));
-        const after = table(6, kontra([SAID_KONTRA]));
-
-        expect(stampBetween(before, after)).toEqual(STAMP_OF_FELIX);
-    });
-
-    it("is the stamp of the last of two words said at once", () => {
-        const stamp = stampBetween(table(5, kontra([])), table(7, kontra([SAID_KONTRA, SAID_RE])));
-
-        expect(stamp).toMatchObject({ text: words["kontra.stamp"]({ word: words["kontra.re"] }), initial: "A" });
-    });
-
-    it("is the stamp of a hand's first word, as the table before it had no hand", () => {
-        expect(stampBetween(table(5, "no hand"), table(6, kontra([SAID_KONTRA])))).toEqual(STAMP_OF_FELIX);
-    });
-
-    it("shows an agent's word with the agent's mark", () => {
-        const said = { seat: AGENT, word: "kontra" } as const;
-
-        expect(stampBetween(table(5, kontra([])), table(6, kontra([said])))).toMatchObject({
-            initial: "N",
-            agent: true,
-        });
-    });
-
-    it("has no initial for a chair that has since been left", () => {
-        const left = table(6, kontra([SAID_KONTRA]));
-        (left.chairs[0] as Chair).occupant_name = null;
-
-        expect(stampBetween(table(5, kontra([])), left)?.initial).toBe("");
-    });
-
-    it.each([
-        ["a page that has no table before it", undefined, table(6, kontra([SAID_KONTRA]))],
-        ["a table that is not newer", table(6, kontra([])), table(6, kontra([SAID_KONTRA]))],
-        ["the same words again", table(5, kontra([SAID_KONTRA])), table(6, kontra([SAID_KONTRA]))],
-        ["words of another hand", table(5, kontra([SAID_KONTRA, SAID_RE])), table(6, kontra([]))],
-        ["a table without Kontra", table(5, null), table(6, null)],
-        ["a hand that has just ended", table(5, kontra([SAID_KONTRA])), table(6, "no hand")],
-    ])("is none for %s", (_name, before, after) => {
-        expect(stampBetween(before, after)).toBeNull();
     });
 });
 

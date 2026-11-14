@@ -14,6 +14,7 @@ from skat.engine.bock import (
     bock_settlement,
     bock_triggered,
     games_left,
+    in_ramsch_round,
 )
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
@@ -207,7 +208,7 @@ def factors_over(overlap: BockOverlap, hands: tuple[bool, ...]) -> list[int]:
     rounds, factors = BockRounds.start(), []
     for triggered in hands:
         factors.append(bock_factor(rounds, overlap))
-        rounds = advance(rounds, overlap, triggered=triggered)
+        rounds = advance(rounds, overlap, triggered=triggered, ramsch_follows=False)
     return factors
 
 
@@ -242,18 +243,106 @@ def test_a_bock_round_is_the_next_three_games_and_a_trigger_inside_one_acts_by_t
     assert factors_over(overlap, hands) == expected
 
 
+def kinds_of_the_hands_dealt(
+    overlap: BockOverlap, triggering: frozenset[int], dealt: int, *, ramsch_follows: bool = True
+) -> list[str]:
+    """What each hand dealt is: a Bock game while any is pending, else a Ramsch-round game while any is pending, else an
+    auction; `triggering` holds the numbers of the hands that start a Bock round.
+    """
+    rounds, kinds = BockRounds.start(), []
+    for number in range(dealt):
+        if games_left(rounds, overlap) > 0:
+            kinds.append("bock")
+        elif in_ramsch_round(rounds, overlap):
+            kinds.append("ramsch")
+        else:
+            kinds.append("auction")
+        rounds = advance(rounds, overlap, triggered=number in triggering, ramsch_follows=ramsch_follows)
+    return kinds
+
+
+AUCTION, BOCK, RAMSCH = "auction", "bock", "ramsch"
+
+
+@pytest.mark.parametrize(
+    ("overlap", "triggering", "expected"),
+    [
+        pytest.param(
+            APPEND,
+            frozenset({0}),
+            [AUCTION, *[BOCK] * 3, *[RAMSCH] * 3, AUCTION],
+            id="a-bock-round-is-followed-by-a-ramsch-round-of-three",
+        ),
+        pytest.param(
+            APPEND,
+            frozenset({0, 4}),
+            [AUCTION, *[BOCK] * 3, RAMSCH, *[BOCK] * 3, *[RAMSCH] * 5, AUCTION],
+            id="a-trigger-in-a-ramsch-round-game-starts-its-bock-round-at-once-and-the-pending-ramsch-games-follow-it",
+        ),
+        pytest.param(
+            APPEND,
+            frozenset({0, 2}),
+            [AUCTION, *[BOCK] * 6, *[RAMSCH] * 6, AUCTION],
+            id="each-appended-bock-round-adds-its-ramsch-round",
+        ),
+        pytest.param(
+            MULTIPLY,
+            frozenset({0, 2}),
+            [AUCTION, *[BOCK] * 5, *[RAMSCH] * 6, AUCTION],
+            id="each-side-by-side-round-adds-three-once-its-last-game-is-dealt",
+        ),
+        pytest.param(
+            IGNORE,
+            frozenset({0, 2}),
+            [AUCTION, *[BOCK] * 3, *[RAMSCH] * 3, AUCTION],
+            id="the-one-round-adds-three-and-the-ignored-trigger-adds-none",
+        ),
+    ],
+)
+def test_a_bock_round_that_ends_adds_a_ramsch_round_of_three_games_after_its_bock_games(
+    overlap: BockOverlap, triggering: frozenset[int], expected: list[str]
+) -> None:
+    assert kinds_of_the_hands_dealt(overlap, triggering, len(expected)) == expected
+
+
+def test_a_table_that_plays_no_ramsch_round_adds_none_after_a_bock_round() -> None:
+    kinds = kinds_of_the_hands_dealt(APPEND, frozenset({0}), 5, ramsch_follows=False)
+
+    assert kinds == [AUCTION, BOCK, BOCK, BOCK, AUCTION]
+
+
+def test_a_ramsch_round_game_uses_up_a_ramsch_round_game_and_no_bock_game() -> None:
+    rounds = BockRounds((), ramsch_games=2)
+
+    after = advance(rounds, APPEND, triggered=False, ramsch_follows=True)
+
+    assert after == BockRounds((), ramsch_games=1)
+
+
+def test_a_bock_game_leaves_the_ramsch_round_games_pending_alone() -> None:
+    rounds = BockRounds((2,), ramsch_games=2)
+
+    after = advance(rounds, APPEND, triggered=False, ramsch_follows=True)
+
+    assert after == BockRounds((1,), ramsch_games=2)
+
+
 def test_a_passed_in_hand_uses_up_a_bock_game() -> None:
     options = options_of(SIXTY_SIXTY)
     rounds = advance(
         BockRounds.start(),
         options.overlap,
         triggered=bock_triggered(options.triggers, HERZ_SIXTY, NO_WORDS, NO_TOTALS),
+        ramsch_follows=False,
     )
     factors = []
     for _ in range(4):
         factors.append(bock_factor(rounds, options.overlap))
         rounds = advance(
-            rounds, options.overlap, triggered=bock_triggered(options.triggers, PassedIn(), NO_WORDS, NO_TOTALS)
+            rounds,
+            options.overlap,
+            triggered=bock_triggered(options.triggers, PassedIn(), NO_WORDS, NO_TOTALS),
+            ramsch_follows=False,
         )
     assert factors == [2, 2, 2, 1]
 
@@ -304,7 +393,7 @@ def test_a_bock_game_doubles_the_list_score_and_leaves_the_value_and_the_standin
     doubled_score: int,
     expected_reckoning: Reckoning,
 ) -> None:
-    rounds = advance(BockRounds.start(), APPEND, triggered=True)
+    rounds = advance(BockRounds.start(), APPEND, triggered=True, ramsch_follows=False)
     settlement = bock_settlement(settle(ended, ended.declared.bid), rounds, APPEND)
     assert settlement.value == 24
     assert settlement.score == expected_score

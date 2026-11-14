@@ -77,7 +77,7 @@ from skat.web.tables import create_tables_router
 from skat.web.wakes import WakeList
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable, Sequence
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
     from webauth.config import WebAuthConfig
@@ -93,6 +93,10 @@ if TYPE_CHECKING:
 UNPLAYED_SWEEP_SECONDS: Final = 3600
 
 log = structlog.get_logger()
+
+
+async def _always_ready() -> bool:  # NOSONAR(S7503) the database_ready port is awaited
+    return True
 
 
 def _configure_logging() -> None:
@@ -312,7 +316,11 @@ async def _end_unplayed_tables(
             presence.table_ended(table_id.value)
 
 
-def _sweep_unplayed_tables(
+async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -> None:
+    await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
+
+
+def _sweep_tables(
     settings: ServerSettings,
     tables: TableService,
     presence: Presence,
@@ -324,6 +332,10 @@ def _sweep_unplayed_tables(
             await _end_unplayed_tables(settings, tables, presence, at_start=False)
         except Exception as failure:
             log.error("unplayed tables read failed", error=type(failure).__name__)
+        try:
+            await _forget_ended_tables(settings, tables)
+        except Exception as failure:
+            log.error("ended tables forget failed", error=type(failure).__name__)
         if not presence.stopped:
             scheduler.schedule(period_seconds, sweep)
 
@@ -345,7 +357,8 @@ def _serving(
         presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
         presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
         await _end_unplayed_tables(settings, tables, presence, at_start=True)
-        _sweep_unplayed_tables(settings, tables, presence, scheduler, unplayed_sweep_seconds)
+        await _forget_ended_tables(settings, tables)
+        _sweep_tables(settings, tables, presence, scheduler, unplayed_sweep_seconds)
         try:
             async with serving.state.mcp_front.running():
                 yield
@@ -375,7 +388,7 @@ def create_app(
     chair_scheduler: Scheduler | None = None,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
-    database_ready: Callable[[], bool] = lambda: True,
+    database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
 

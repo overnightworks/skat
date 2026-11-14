@@ -1,12 +1,11 @@
 from contextlib import contextmanager
 
 from skat.engine.deal import Deal, Position
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
-    AnnouncementToken,
-    GameToken,
 )
 from tests.support.payload_cards import CARDS_BY_SEAT, wire_cards
 from tests.web.support.playing import card_body, cards, game_of
@@ -40,6 +39,15 @@ def playing_as(table, headers):
     answer = table.read_as(headers)
     assert answer.status_code == 200, answer.text
     return answer.json()["hand"]["playing"]
+
+
+def assert_the_request_ended_and_play_goes_on(table, before, answer, request):
+    """A standing request (the key `request` of the playing view) ended in one version and the hand plays on."""
+    assert table.record.version == before.version + 1
+    assert table.record.hand is not None
+    assert table.record.game_list == ()
+    assert answer.json()["hand"]["playing"][request] is None
+    assert playing_as(table, table.at[Position.FOREHAND])["legal_cards"] != []
 
 
 @contextmanager

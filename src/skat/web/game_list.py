@@ -7,14 +7,9 @@ from starlette.concurrency import run_in_threadpool
 from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.game_list import RamschSeriesEntryView
+from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
 from skat.web.mcp import READ_SERIES_LIST_MARK
-from skat.web.tables import (
-    ANNOUNCEMENT_TOKENS,
-    GAME_TOKENS,
-    TABLES_PATH,
-    AnnouncementToken,
-    GameToken,
-)
+from skat.web.tables import TABLES_PATH
 
 if TYPE_CHECKING:
     from skat.table.game_list import SeriesEntryView

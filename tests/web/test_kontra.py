@@ -3,7 +3,9 @@ from functools import partial
 import pytest
 
 from skat.engine.deal import Position
-from skat.web.declaring import GameToken
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.declaration_tokens import GameToken
+from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX

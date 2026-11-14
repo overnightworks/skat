@@ -223,9 +223,9 @@ class AgentTable(Table):
     """The known hand dealt at a table where the agent's account holds the chair of `position`.
 
     The agent takes its chair through the tools: it opens the table at chair 1 and sits down at the others. The
-    other two chairs are people's, and the watcher is a fourth member. The table opens with the rule `options` of the
-    request when it gets any. `at[position]` of the agent is a cookie session for its account, for the direct reads
-    that compare the routes with the tools.
+    other two chairs are people's, and the watcher is a fourth member. `at[position]` of the agent is a cookie
+    session for its account, for the direct reads that compare the routes with the tools. `options` are the table's
+    options as its opener names them.
     """
 
     def __init__(self, skat, agent, position, options=None):

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
-from skat.table.ending import close_table, end_unplayed_table, table_with_opener, unplayed_tables
+from skat.table.ending import close_table, end_unplayed_table, forget_ended_tables, table_with_opener, unplayed_tables
 from skat.table.game_list import series_list_view_of
 from skat.table.hand_abort import (
     AGREE_TO_ABORT_COMMAND,
@@ -50,6 +50,7 @@ from skat.table.playing import (
     DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
+    PlayOpenCommand,
     ShortenCommand,
     ThrowDownCommand,
     agree_to_give_up_payload,
@@ -58,10 +59,12 @@ from skat.table.playing import (
     decide_card,
     decide_decline_give_up,
     decide_give_up,
+    decide_play_open,
     decide_shorten,
     decide_throw_down,
     decline_give_up_payload,
     give_up_payload,
+    play_open_payload,
     shorten_payload,
     throw_down_payload,
 )
@@ -94,6 +97,7 @@ from skat.table.rules import (
     DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
+    PLAY_OPEN_COMMAND,
     SHORTEN_COMMAND,
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
@@ -272,10 +276,7 @@ class TableService(LobbyReads):
         return None if replay is None else replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
 
     def take_auction_step(
-        self,
-        actor: Actor,
-        command: AuctionCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -314,10 +315,7 @@ class TableService(LobbyReads):
         )
 
     def play_card(
-        self,
-        actor: Actor,
-        command: PlayCardCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: PlayCardCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -342,12 +340,7 @@ class TableService(LobbyReads):
             lambda table: decide_kontra(table, actor, command),
         )
 
-    def give_up(
-        self,
-        actor: Actor,
-        command: GiveUpCommand,
-        connected_accounts: frozenset[str],
-    ) -> CommandResult | None:
+    def give_up(self, actor: Actor, command: GiveUpCommand, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
             actor,
             connected_accounts,
@@ -371,11 +364,21 @@ class TableService(LobbyReads):
             lambda table: decide_shorten(table, actor, command),
         )
 
+    def play_open(
+        self, actor: Actor, command: PlayOpenCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            PLAY_OPEN_COMMAND,
+            play_open_payload(command),
+            lambda table: decide_play_open(table, actor, command),
+        )
+
     def agree_to_give_up(
-        self,
-        actor: Actor,
-        command: AgreeToGiveUpCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AgreeToGiveUpCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -401,10 +404,7 @@ class TableService(LobbyReads):
         )
 
     def throw_down(
-        self,
-        actor: Actor,
-        command: ThrowDownCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: ThrowDownCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -547,6 +547,9 @@ class TableService(LobbyReads):
             return False
         self._tell_seats(members)
         return True
+
+    def forget_ended_tables(self, days: int) -> None:
+        forget_ended_tables(self._transactions, days, self._now())
 
     def close(self, actor: Actor, command: CloseTable) -> CommandResult | None:
         """Close the table for everyone if the actor opened it, the ended table as the answer, else the refusal

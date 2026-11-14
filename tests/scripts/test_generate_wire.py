@@ -11,6 +11,7 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.kontra import Word
 from skat.engine.tricks import ALL_POINTS
 from skat.engine.value import Level
+from skat.table.asking import ASK_AGAIN_AFTER
 from skat.table.auction import AuctionAction
 from skat.table.awaiting import WaitingCase
 from skat.table.records import (
@@ -42,6 +43,7 @@ from skat.web.constants import (
     NO_ACCESS_PATH,
     VERSION_FILE_PATH,
 )
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -50,6 +52,7 @@ from skat.web.declaring import (
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.lobby import LOBBY_EVENTS_PATH
+from skat.web.nudging import TABLE_NUDGE_SUFFIX
 from skat.web.playing import (
     TABLE_CARD_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -62,9 +65,7 @@ from skat.web.table_options import options_answer_of
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
-    AnnouncementToken,
     AwaitingToken,
-    GameToken,
     PositionToken,
     RankToken,
     StageToken,
@@ -106,6 +107,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_GIVE_UP_DECLINE_SUFFIX", TABLE_GIVE_UP_DECLINE_SUFFIX),
         ("TABLE_KONTRA_SUFFIX", TABLE_KONTRA_SUFFIX),
         ("TABLE_LIST_SUFFIX", TABLE_LIST_SUFFIX),
+        ("TABLE_NUDGE_SUFFIX", TABLE_NUDGE_SUFFIX),
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
         ("LOBBY_EVENTS_PATH", LOBBY_EVENTS_PATH),
         ("NO_ACCESS_PATH", NO_ACCESS_PATH),
@@ -150,6 +152,10 @@ def test_render_writes_the_start_values_of_a_switched_on_rule_in_the_shape_of_th
 
 def test_render_names_the_chairs_of_a_table() -> None:
     assert f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};" in generate_wire.render()
+
+
+def test_render_names_the_seconds_after_which_a_seat_is_asked_again() -> None:
+    assert f"export const ASK_AGAIN_AFTER = {ASK_AGAIN_AFTER:g};" in generate_wire.render().splitlines()
 
 
 def test_render_lists_every_valid_bid_in_rising_order() -> None:

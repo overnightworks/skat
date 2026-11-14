@@ -3,7 +3,7 @@ import pytest
 from skat.engine.deal import Deal, Position, next_dealer
 from skat.table.game_list import GameEnding
 from skat.table.records import Refusal
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.mcp import AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL, GIVE_UP_GAME_TOOL

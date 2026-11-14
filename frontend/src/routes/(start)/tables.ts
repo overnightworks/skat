@@ -24,7 +24,6 @@ import {
     type RAMSCH_SCORING_TOKENS,
     type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
-    RULE_SETS_PATH,
     SIGNED_IN_AGAIN_QUERY_NAME,
     type STAGE_TOKENS,
     SUIT_TOKENS,
@@ -60,6 +59,7 @@ import {
     type WORD_TOKENS,
 } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
+import type { Nudge } from "./nudge.ts";
 
 const SIGNED_OUT_STATUS = 401;
 export const NOT_FOUND_STATUS = 404;
@@ -103,6 +103,8 @@ export type SeatedCard = { seat: number; card: Card };
 export type Sides = { declarer: number; opponents: number };
 // The last trick's cards lie in playing order from the seat that led it.
 export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number };
+// How many tricks a seat has taken, 0 included; the answer lists the three seats in seat order.
+export type Taken = { seat: number; tricks: number };
 // A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
 export type GiveUp = { asking_seat: number; declined_seat: number | null };
 // The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
@@ -112,6 +114,7 @@ export type Playing = {
     turn_seat: number | null;
     current_trick: SeatedCard[];
     last_trick: LastTrick | null;
+    taken: Taken[];
     // Only the seated player on turn receives the cards they may play.
     legal_cards: Card[];
     // Both sides' points from completed tricks; null unless the table shows them, and in a Null game and a Ramsch.
@@ -167,6 +170,8 @@ export type Chair = {
     // True only on the chair of the running hand that the viewer stood up from, open or taken since: the one chair they
     // may sit in again.
     is_mine_to_return: boolean;
+    // What the viewer is shown of the nudges of a chair the table waits for; null on every other chair.
+    nudge: Nudge | null;
 };
 export type RamschSeat = { seat: number; points: number; score: number };
 // The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
@@ -222,11 +227,11 @@ export type Result = {
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
-// or the name its opener had when closing it.
+// or the name its opener had when closing it, which is null once the days of the link's reason have passed.
 export type Ended =
     | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
     | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
-    | { reason: Extract<EndReason, "closed">; empty_seconds: null; unplayed_days: null; closed_by_name: string };
+    | { reason: Extract<EndReason, "closed">; empty_seconds: null; unplayed_days: null; closed_by_name: string | null };
 // The rules a table was opened with, answered to every viewer; a rule that is off is null.
 export type Options = {
     show_running_points: boolean;
@@ -248,12 +253,6 @@ export type Options = {
 export type OptionsRequest = { show_running_points?: true } & {
     [Rule in "kontra" | "bock" | "ramsch"]?: NonNullable<Options[Rule]>;
 };
-// A rule set the person saved: the options a table opens with when it is picked.
-export type RuleSet = { id: string; name: string; options: Options };
-// The person's own sets in the order the server answers them; a set that cannot be read is its own outcome.
-export type RuleSetsOutcome = { kind: "sets"; sets: RuleSet[] } | { kind: "failed" };
-// A name the person already holds with other options is refused and saves nothing.
-export type SaveRuleSetOutcome = { kind: "saved"; set: RuleSet } | { kind: "taken" } | { kind: "failed" };
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
@@ -297,10 +296,6 @@ function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_nam
     return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
 }
 
-function isNameTaken(body: unknown): boolean {
-    return typeof body === "object" && body !== null && "reason" in body && body.reason === "name-taken";
-}
-
 // The answer is null when the server cannot be reached.
 export async function fetchOrNull(path: string, init?: RequestInit): Promise<Response | null> {
     try {
@@ -322,7 +317,7 @@ export async function fetchSigningInAgain(path: string, init?: RequestInit): Pro
 }
 
 // Any other failure is shown to the person as it is, and nothing is retried behind their back.
-async function ask(path: string, init?: RequestInit): Promise<Outcome> {
+export async function ask(path: string, init?: RequestInit): Promise<Outcome> {
     const answer = await fetchSigningInAgain(path, init);
     if (answer === null) return { kind: "failed" };
     if (answer.status === NOT_FOUND_STATUS) return { kind: "missing" };
@@ -337,45 +332,7 @@ async function ask(path: string, init?: RequestInit): Promise<Outcome> {
     }
 }
 
-// The command id is the retry key: asking again with the same one, the same length and the same options returns the
-// table the first ask opened. A table opened without options plays the official rules.
-export function createTable(commandId: string, seriesLength: number, options?: OptionsRequest): Promise<Outcome> {
-    return ask(TABLES_PATH, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command_id: commandId, series_length: seriesLength, options }),
-    });
-}
-
-export async function readRuleSets(): Promise<RuleSetsOutcome> {
-    const answer = await fetchSigningInAgain(RULE_SETS_PATH);
-    if (!answer?.ok) return { kind: "failed" };
-    try {
-        const body = (await answer.json()) as { sets?: RuleSet[] };
-        return Array.isArray(body.sets) ? { kind: "sets", sets: body.sets } : { kind: "failed" };
-    } catch {
-        return { kind: "failed" };
-    }
-}
-
-// Saving a name the person holds with the same options answers that set again.
-export async function saveRuleSet(name: string, options: OptionsRequest | undefined): Promise<SaveRuleSetOutcome> {
-    const answer = await fetchSigningInAgain(RULE_SETS_PATH, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, options: options ?? {} }),
-    });
-    if (answer === null) return { kind: "failed" };
-    try {
-        const body: unknown = await answer.json();
-        if (answer.ok) return { kind: "saved", set: body as RuleSet };
-        return answer.status === CONFLICT_STATUS && isNameTaken(body) ? { kind: "taken" } : { kind: "failed" };
-    } catch {
-        return { kind: "failed" };
-    }
-}
-
-function post(id: string, suffix: string, body: object): Promise<Outcome> {
+export function post(id: string, suffix: string, body: object): Promise<Outcome> {
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}${suffix}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

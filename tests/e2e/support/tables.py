@@ -44,6 +44,14 @@ def open_new_table(person: Page, server: RunningServer, *, running_points: bool 
     return click_new_table(person, running_points=running_points)
 
 
+def open_start_page(person: Page, server: RunningServer) -> Page:
+    # The browser coverage collector answers a Playwright navigation away from a page with app code with a 204 that
+    # aborts it; a navigation the page starts itself is taken and re-issued.
+    person.evaluate("address => location.assign(address)", f"{server.base_url}/")
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    return person
+
+
 def open_table_with_options(
     person: Page, server: RunningServer, session: RawSession, options: dict[str, object]
 ) -> str:

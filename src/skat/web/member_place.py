@@ -62,15 +62,9 @@ from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, asks_due, revision_of
 from skat.table.game_list import RamschResultView, ResultView
 from skat.table.member_place import Acceptance, MembershipState
 from skat.table.nudging import own_nudges
+from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS
 from skat.web.mcp import token_carries_agent_facts
-from skat.web.tables import (
-    ANNOUNCEMENT_TOKENS,
-    GAME_TOKENS,
-    RANK_TOKENS,
-    SUIT_TOKENS,
-    actor_for,
-    answer_of,
-)
+from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, actor_for, answer_of
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Collection, Iterable
@@ -136,6 +130,7 @@ _FIXED_TEXTS: Final = {
     ActKind.PUSH: "pushes the skat on unseen",
     ActKind.GIVE_UP: "gives up the game",
     ActKind.SHORTEN: "shortens the game",
+    ActKind.PLAY_OPEN: "plays open",
     ActKind.THROW_DOWN: "throws the cards down",
     ActKind.PASSED_IN: "ends the hand: all passed",
     ActKind.ABORTED: "ends the hand: the seats voted to abort it",

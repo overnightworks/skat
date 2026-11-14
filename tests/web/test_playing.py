@@ -9,7 +9,7 @@ from skat.engine.deal import Deal, Position
 from skat.engine.tricks import CardPlayed, PlayRefusal, play_card
 from skat.table.hand_state import playing_of
 from skat.table.records import Refusal
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import GameToken
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import KNOWN_DEAL, SKAT_CARDS, cards_in_text, wire_cards
@@ -387,6 +387,8 @@ class Moment:
             "give_up": None,
             "shortening": None,
             "shortening_refused_seat": None,
+            "open_play_seat": None,
+            "open_hands": [],
             "kontra": None,
         }
 
@@ -479,7 +481,7 @@ def every_viewer_at(names):
 def assert_holds_the_moment(raw, moment, viewer):
     body = message_body(raw)
     hand = body["hand"]
-    assert hand["playing"] == moment.playing_for(viewer)
+    assert {key: value for key, value in hand["playing"].items() if key != "taken"} == moment.playing_for(viewer)
     assert hand["own_cards"] == [card_body(each) for each in moment.own_cards_of(viewer)]
     assert hand["declaring"]["open_cards"] == [card_body(each) for each in moment.open_cards()]
     assert [chair["hand"]["card_count"] for chair in body["chairs"]] == moment.chair_counts()

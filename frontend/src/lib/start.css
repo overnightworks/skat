@@ -72,17 +72,17 @@ body {
     padding: 24px;
 }
 
-/* With tables to list, the page keeps its head and scrolls its list; the new-table button sticks to the bottom over a fade and the legal links end the scroll. */
+/* With the lobby to show, the page keeps its head and scrolls its list; the new-table button sticks to the bottom over a fade and the legal links end the scroll. */
 .start-body {
     display: contents;
 }
 
-.start.with-tables {
+.start.with-lobby {
     height: 100dvh;
     min-height: 0;
 }
 
-.with-tables .start-body {
+.with-lobby .start-body {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -91,13 +91,13 @@ body {
     overscroll-behavior: contain;
 }
 
-.with-tables .start-legal {
+.with-lobby .start-legal {
     order: 1;
     margin-top: auto;
 }
 
 /* The legal links stand at z-index 1 after this block in the page's order, so the block's stacking level, which holds the opening sheet, is 2: a tall sheet covers them. */
-.with-tables .start-main {
+.with-lobby .start-main {
     --fade: rgba(14, 9, 7, 0.97);
 
     position: sticky;
@@ -111,18 +111,23 @@ body {
     background: linear-gradient(to top, var(--fade) 46%, transparent);
 }
 
-/* Meine Tische: one card per table the member sits at, each a link that opens the table. */
-.my-tables {
+/* The lobby: Meine Tische above Offene Tische, each a grid of cards as wide as the page's columns allow. */
+.lobby-lists {
     --accent: var(--accent-stage, #7aa7f0);
+    --columns: 1;
+    --gap: 12px;
 
     box-sizing: border-box;
-    width: fit-content;
-    max-width: 100%;
+    width: min(100%, calc(var(--columns) * 372px + (var(--columns) - 1) * var(--gap) + 32px));
     margin: 0 auto;
     padding: 0 16px;
 }
 
-.my-tables h2 {
+.lobby-section + .lobby-section {
+    margin-top: 12px;
+}
+
+.lobby-lists h2 {
     margin: 8px 0 12px;
     color: color-mix(in srgb, var(--brass) 80%, transparent);
     font-size: 14px;
@@ -130,14 +135,30 @@ body {
     line-height: 20px;
 }
 
-.my-tables-list {
+.lobby-list {
     display: grid;
-    grid-template-columns: minmax(0, 372px);
-    gap: 12px;
-    justify-content: center;
+    grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+    gap: var(--gap);
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+/* The quiet line of an open section with nothing in it, and the word of a sit that did not work. */
+.lobby-quiet {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 64px;
+    margin: 0;
+    padding: 0 16px;
+    border: 1.5px dashed rgba(240, 214, 150, 0.22);
+    border-radius: 22px;
+    color: var(--on-stage-soft);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
 }
 
 .lobby-card {
@@ -182,6 +203,49 @@ body {
     text-overflow: ellipsis;
     text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
     white-space: nowrap;
+}
+
+.lobby-card .side {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.lobby-card h3 .lock {
+    display: inline-flex;
+    margin-left: 8px;
+    color: var(--on-stage-soft);
+    vertical-align: -2px;
+}
+
+.lobby-card h3 .lock svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Who looks on at an open table. */
+.lobby-card .watch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px 0 10px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.lobby-card .watch svg {
+    width: 16px;
+    height: 16px;
+    color: var(--on-stage-soft);
+}
+
+.lobby-card .watch.none {
+    color: var(--on-stage-soft);
 }
 
 .lobby-row {
@@ -272,6 +336,45 @@ body {
     inset: 4px;
     border: 2px dashed rgba(244, 246, 248, 0.2);
     border-radius: inherit;
+}
+
+/* A free chair of an open table is the one control of its card: the whole chair seats the person. */
+.lobby-sit {
+    padding: 0;
+    border: 0;
+    color: #0d1013;
+    font: inherit;
+    cursor: pointer;
+}
+
+.lobby-sit:disabled {
+    cursor: progress;
+}
+
+.lobby-sit:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.lobby-card .lobby-sit .tile.free::before {
+    border-color: rgba(122, 167, 240, 0.8);
+}
+
+.lobby-sit .plus {
+    display: grid;
+    place-items: center;
+    width: calc(var(--card-chair-height) * 0.46);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow:
+        0 0 0 5px rgba(122, 167, 240, 0.18),
+        0 8px 16px -6px rgba(0, 0, 0, 0.8);
+}
+
+.lobby-sit .plus svg {
+    width: 52%;
+    height: 52%;
 }
 
 .lobby-seat.away .tile {
@@ -393,7 +496,7 @@ body {
     gap: 6px;
 }
 
-.my-tables .chip {
+.lobby-card .chip {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -408,25 +511,25 @@ body {
     white-space: nowrap;
 }
 
-.my-tables .chip svg {
+.lobby-card .chip svg {
     width: 14px;
     height: 14px;
 }
 
-.my-tables .chip.official {
+.lobby-card .chip.official {
     color: var(--on-stage-soft);
     background: rgba(255, 255, 255, 0.15);
     box-shadow: none;
 }
 
-.my-tables .chip.now {
+.lobby-card .chip.now {
     color: #0d1013;
     background: var(--accent);
     box-shadow: 0 0 0 3px rgba(122, 167, 240, 0.22);
 }
 
 @media (prefers-reduced-motion: no-preference) {
-    .my-tables .chip.now {
+    .lobby-card .chip.now {
         animation: nudge 2.4s ease-in-out infinite;
     }
 
@@ -449,16 +552,16 @@ body {
 }
 
 @media (min-width: 900px) {
-    .my-tables-list {
-        gap: 22px;
+    .lobby-lists {
+        --gap: 22px;
     }
 
-    .my-tables-list[data-columns="2"] {
-        grid-template-columns: repeat(2, 372px);
+    .lobby-lists[data-columns="2"] {
+        --columns: 2;
     }
 
-    .my-tables-list[data-columns="3"] {
-        grid-template-columns: repeat(3, 372px);
+    .lobby-lists[data-columns="3"] {
+        --columns: 3;
     }
 
     .lobby-card {
@@ -669,6 +772,119 @@ body {
     opacity: 0.75;
 }
 
+/* Who sees the table: two cream tiles, the chosen one ringed and ticked; the info button names both. */
+.sheet .info {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage-soft);
+    background: var(--glass);
+    font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
+    font-size: 17px;
+    font-style: italic;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* The italic i is the mark of the button, not a word; the button's name is its aria-label. */
+.sheet .info::before {
+    content: "i";
+}
+
+.sheet .choice {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.sheet .opt {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 16px 6px 14px;
+    border-radius: 50% 50% 16px 16px / 34% 34% 16px 16px;
+    color: var(--ink);
+    background: #f4ecd9;
+    box-shadow:
+        0 3px 0 #d8ccb0,
+        0 10px 18px -6px rgba(0, 0, 0, 0.8);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.sheet .opt input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+}
+
+.sheet .opt:has(input:focus-visible) {
+    outline: 2px solid #7aa7f0;
+    outline-offset: 3px;
+}
+
+.sheet .opt .ic {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    color: #4a3d24;
+    background: #e4d9bf;
+}
+
+.sheet .opt .ic svg {
+    width: 26px;
+    height: 26px;
+}
+
+.sheet .opt.on {
+    box-shadow:
+        0 0 0 3px #7aa7f0,
+        0 3px 0 #d8ccb0,
+        0 10px 22px -6px rgba(122, 167, 240, 0.45);
+}
+
+.sheet .opt.on .ic {
+    color: #0c0e11;
+    background: #7aa7f0;
+}
+
+.sheet .opt .tick {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    color: #0c0e11;
+    background: #7aa7f0;
+    box-shadow: 0 0 0 3px rgba(12, 14, 17, 0.9);
+}
+
+.sheet .opt .tick svg {
+    width: 15px;
+    height: 15px;
+}
+
 .sheet .btns {
     display: flex;
     gap: 10px;
@@ -786,7 +1002,7 @@ body {
 
 /* The last view stays, dimmed and still, until the line is back. */
 .room .stale,
-.my-tables.stale {
+.lobby-lists.stale {
     filter: saturate(0.45) brightness(0.55);
     pointer-events: none;
 }
@@ -1856,6 +2072,121 @@ body {
     height: 15px;
 }
 
+/* The bell at the top-left corner of the chair the table waits for: a button inside a 44 px tap area while it may be
+   tapped, a mark with a tick once nudged; the dealer's badge sits at the same corner, so the bell steps below it. */
+.room .mark.bell {
+    position: absolute;
+    z-index: 2;
+    top: -8px;
+    left: -8px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage);
+    background: rgba(12, 14, 17, 0.86);
+    backdrop-filter: blur(12px);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.5),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+}
+
+.room .mark.dealer ~ .mark.bell {
+    top: 18px;
+}
+
+.room .mark.bell svg {
+    width: 17px;
+    height: 17px;
+}
+
+.room button.mark.bell {
+    cursor: pointer;
+    box-shadow:
+        0 0 0 2px var(--accent-stage, #7aa7f0),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+}
+
+.room button.mark.bell::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+}
+
+.room .mark.bell i {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    color: #0d1013;
+    background: var(--ok-stage);
+    box-shadow: 0 0 0 2px var(--stage-ink, #0c0e11);
+}
+
+.room .mark.bell i svg {
+    width: 9px;
+    height: 9px;
+}
+
+/* The nudged person's own bell, ringing once: two arcs beside it, and the bell swinging where motion is welcome. */
+.room .mark.bell.shaken::before,
+.room .mark.bell.shaken::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    width: 6px;
+    height: 16px;
+    border: 2px solid var(--accent-stage, #7aa7f0);
+    border-radius: 50%;
+}
+
+.room .mark.bell.shaken::before {
+    left: -10px;
+    border-right: 0;
+}
+
+.room .mark.bell.shaken::after {
+    right: -10px;
+    border-left: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .mark.bell.shaken > svg {
+        animation: bell-shake 0.8s ease-in-out 0.5s both;
+        transform-origin: 50% 22%;
+    }
+}
+
+@keyframes bell-shake {
+    0%,
+    100% {
+        rotate: 0deg;
+    }
+
+    20% {
+        rotate: -16deg;
+    }
+
+    40% {
+        rotate: 14deg;
+    }
+
+    60% {
+        rotate: -9deg;
+    }
+
+    80% {
+        rotate: 5deg;
+    }
+}
+
 .room .mark.waits .dot,
 .room .bubble .dot {
     display: grid;
@@ -2004,6 +2335,48 @@ body {
     font-size: 11px;
 }
 
+/* A bid this page saw said springs up beside its speaker in the motion set the table carries.
+   "dezent": 140 ms, it fades in. */
+.room[data-motion="dezent"] .bubble.fresh {
+    animation: bubble-dezent 140ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes bubble-dezent {
+    from {
+        opacity: 0;
+        translate: 0 5px;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+/* "verspielt": 180 ms, it springs up with a little swing. */
+.room[data-motion="verspielt"] .bubble.fresh {
+    animation: bubble-verspielt 180ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes bubble-verspielt {
+    from {
+        opacity: 0;
+        scale: 0.5;
+        translate: 0 8px;
+    }
+
+    60% {
+        opacity: 1;
+        scale: 1.15;
+        translate: 0 0;
+    }
+
+    to {
+        scale: 1;
+        translate: 0 0;
+    }
+}
+
 /* A phone's far bubbles hang below their fans, beside the skat, and below a watcher's card counts. */
 .room .chair:nth-child(1) .bubble {
     right: 15%;
@@ -2109,6 +2482,11 @@ body {
 
     .room .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready, .think) {
         top: 18px;
+    }
+
+    /* The chair the table waits for keeps its top-left corner for the bell, so its mark stands right of the bell's tap area. */
+    .room .chair.nudgeable .mark:is(.turn, .pass, .waits, .ready, .think) {
+        left: 34px;
     }
 
     /* The declarer's mark stands under the chair's letter, clear of the turn mark above it and of the coaster at the chair's lower corner, and a wide chair has room for the word. */
@@ -2397,7 +2775,8 @@ body {
     border-radius: calc(var(--card-width) * 0.075);
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
     transform-origin: 50% 100%;
-    transform: translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
+    transform: translate(var(--drag-x, 0px), var(--drag-y, 0px))
+        translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
         rotate(calc(var(--step) * var(--fan-turn)));
     --step: calc((var(--from-start) - var(--from-end)) / 2);
 }
@@ -2578,6 +2957,11 @@ body {
     cursor: pointer;
 }
 
+/* A pressed card is dragged by the pointer, so the browser must not scroll or zoom under the finger. */
+.room .own-hand .play {
+    touch-action: none;
+}
+
 .room .own-hand .pick:focus-visible,
 .room .own-hand .play:focus-visible {
     outline: 3px solid var(--accent-stage, #7aa7f0);
@@ -2640,6 +3024,39 @@ body {
     filter: brightness(0.5) saturate(0.55) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
 }
 
+/* A dragged card follows the pointer at once and stands above its neighbours. */
+.room .own-hand .card.dragging {
+    z-index: 3;
+    transition: none;
+}
+
+/* The lifted card carries the arrow that tells: tap again or swipe up. */
+.room .own-hand .swipe {
+    position: absolute;
+    left: 50%;
+    top: calc(var(--card-width) * -0.36);
+    translate: -50% 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    background: var(--accent-stage, #7aa7f0);
+    color: var(--stage-ink, #0c0e11);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.room .own-hand .swipe svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 /* While a game is played the trick takes a row of its own between the far chairs and the near one. */
 .room .stage:has(> .trick) {
     grid-template-rows: auto auto auto auto auto;
@@ -2692,12 +3109,16 @@ body {
     left: 28%;
     top: 48%;
     --lie: -9deg;
+    --from-x: -150%;
+    --from-y: -90%;
 }
 
 .room .laid.right {
     left: 72%;
     top: 48%;
     --lie: 8deg;
+    --from-x: 150%;
+    --from-y: -90%;
 }
 
 .room .laid.near,
@@ -2705,6 +3126,8 @@ body {
     left: 50%;
     top: 56%;
     --lie: 0deg;
+    --from-x: 0;
+    --from-y: 180%;
 }
 
 /* Where the viewer's card will lie once it is their turn: the dashed slot of the scene push-grand-done. */
@@ -2730,55 +3153,63 @@ body {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
 }
 
-/* A card this page saw laid lands from its player's side: the approved "verspielt" motion, 340 ms, which fades in,
-   settles once and ends at rest. Only the card moves; its name tag stands still from the first frame. */
-@media (prefers-reduced-motion: no-preference) {
-    .room .laid.left {
-        --from-x: -150%;
-        --from-y: -90%;
+/* A card this page saw laid lands from its player's side in the motion set the table carries: it fades in, settles and ends at rest.
+   The table carries no set while the device asks for reduced motion and the player has not overridden it. Only the card moves; its name tag stands still from the first frame. */
+/* "verspielt": 340 ms, with a small bounce. */
+.room[data-motion="verspielt"] .laid.fresh .face {
+    animation: land-verspielt 340ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+@keyframes land-verspielt {
+    from {
+        translate: var(--from-x) var(--from-y);
+        rotate: -24deg;
+        scale: 0.55;
+        opacity: 0;
     }
 
-    .room .laid.right {
-        --from-x: 150%;
-        --from-y: -90%;
+    50% {
+        opacity: 1;
     }
 
-    .room .laid.near {
-        --from-x: 0;
-        --from-y: 180%;
+    78% {
+        translate: 0 2px;
+        rotate: 0deg;
+        scale: 1.07;
     }
 
-    .room .laid.fresh .face {
-        animation: land 340ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+    90% {
+        scale: 0.98;
     }
 
-    @keyframes land {
-        from {
-            translate: var(--from-x) var(--from-y);
-            rotate: -24deg;
-            scale: 0.55;
-            opacity: 0;
-        }
+    to {
+        translate: 0 0;
+        rotate: 0deg;
+        scale: 1;
+    }
+}
 
-        50% {
-            opacity: 1;
-        }
+/* "dezent": 220 ms, straight in and without a bounce. */
+.room[data-motion="dezent"] .laid.fresh .face {
+    animation: land-dezent 220ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
 
-        78% {
-            translate: 0 2px;
-            rotate: 0deg;
-            scale: 1.07;
-        }
+@keyframes land-dezent {
+    from {
+        translate: var(--from-x) var(--from-y);
+        rotate: -4deg;
+        scale: 0.8;
+        opacity: 0;
+    }
 
-        90% {
-            scale: 0.98;
-        }
+    60% {
+        opacity: 1;
+    }
 
-        to {
-            translate: 0 0;
-            rotate: 0deg;
-            scale: 1;
-        }
+    to {
+        translate: 0 0;
+        rotate: 0deg;
+        scale: 1;
     }
 }
 
@@ -2990,6 +3421,17 @@ body {
 @media (prefers-reduced-motion: no-preference) {
     .room .own-hand .card {
         transition: transform 0.15s ease-out;
+    }
+
+    /* The arrow nudges upward twice after the card has lifted. */
+    .room .own-hand .swipe {
+        animation: swipe-nudge 0.7s ease-in-out 0.7s 2;
+    }
+
+    @keyframes swipe-nudge {
+        50% {
+            translate: -50% -9px;
+        }
     }
 }
 
@@ -4985,9 +5427,269 @@ body {
     display: block;
 }
 
+.room .sound-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    border-radius: 0 0 12px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(240, 214, 150, 0.45) transparent;
+}
+
+.room .sound-row + .sound-row {
+    border-top: 1px solid var(--glass);
+}
+
+/* Where the rows run past the panel's room, this strip says there is more below. */
+.room .sound-more {
+    flex: none;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    border-top: 1px solid var(--glass);
+    border-radius: 0 0 12px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-stage-soft);
+}
+
+.room .sound-more.shown {
+    display: flex;
+}
+
+.room .sound-more svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* The volume: the name and the number above a slider whose knob is a 28 px circle; the filled part ends under the knob's middle. */
+.room .sound-volume {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+        "name value"
+        "slider slider";
+    row-gap: 2px;
+    padding: 8px 16px 6px;
+    cursor: default;
+}
+
+.room .sound-volume .sound-row-name {
+    grid-area: name;
+}
+
+.room .sound-value {
+    grid-area: value;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-stage-soft);
+}
+
+.room .sound-slider {
+    grid-area: slider;
+    appearance: none;
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    --filled: linear-gradient(
+        to right,
+        var(--accent-stage, #7aa7f0) calc(14px + (100% - 28px) * var(--volume) / 100),
+        var(--glass) 0
+    );
+}
+
+.room .sound-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--filled);
+}
+
+.room .sound-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--filled);
+}
+
+.room .sound-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    margin-top: -11px;
+    border: 0;
+    border-radius: 50%;
+    background: #f4ecd9;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.room .sound-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: #f4ecd9;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.room .sound-slider:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* A pick among names: the label above a pill with one segment per name, the picked one filled and carrying a check. */
+.room .sound-stack {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-content: center;
+    padding: 10px 16px 12px;
+    cursor: default;
+}
+
+.room .sound-stack .sound-row-name {
+    flex: 1 0 auto;
+}
+
+.room .sound-segments {
+    flex: 1 0 100%;
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.22);
+}
+
+.room .sound-option {
+    position: relative;
+    flex: 1 1 auto;
+    cursor: pointer;
+}
+
+/* The radio is the focus and the arrow keys; the face draws it. */
+.room .sound-option input {
+    appearance: none;
+    position: absolute;
+    inset: -3px 0;
+    margin: 0;
+    cursor: inherit;
+}
+
+.room .sound-option-face {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.room .sound-option-face svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+}
+
+.room .sound-option input:checked + .sound-option-face {
+    background: var(--accent-stage, #7aa7f0);
+    color: var(--stage-ink, #0c0e11);
+}
+
+.room .sound-option input:focus-visible + .sound-option-face {
+    outline: 2px solid var(--on-stage);
+    outline-offset: 1px;
+}
+
+.room .sound-played {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .sound-played svg {
+    width: 14px;
+    height: 14px;
+}
+
+.room .sound-note {
+    flex: 1 0 100%;
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--on-stage-soft);
+}
+
+.room .sound-stack.greyed .sound-segments {
+    opacity: 0.45;
+}
+
+.room .sound-stack.greyed .sound-option {
+    cursor: default;
+}
+
+.room .sound-stack.greyed .sound-option input:checked + .sound-option-face {
+    background: rgba(255, 255, 255, 0.22);
+    color: var(--on-stage);
+}
+
 @media (min-width: 900px) {
     .room .sound-row {
         min-height: 48px;
+    }
+
+    .room .sound-stack {
+        flex-wrap: nowrap;
+        align-items: center;
+        padding: 6px 16px;
+    }
+
+    .room .sound-stack .sound-row-name {
+        flex: none;
+    }
+
+    .room .sound-segments {
+        flex: 1 1 auto;
+    }
+
+    .room .sound-option-face {
+        height: 34px;
+    }
+
+    .room .sound-played {
+        order: 3;
+    }
+
+    .room .sound-note {
+        order: 9;
+    }
+
+    .room .sound-stack:has(.sound-note) {
+        flex-wrap: wrap;
+    }
+
+    .room .sound-volume {
+        grid-template-columns: 96px 1fr 28px;
+        grid-template-areas: "name slider value";
+        column-gap: 12px;
+        padding: 0 16px;
+    }
+
+    .room .sound-slider {
+        height: 40px;
+    }
+
+    .room .sound-slider::-webkit-slider-runnable-track {
+        margin-top: 0;
     }
 }
 
@@ -5354,6 +6056,7 @@ body {
     mask-image: linear-gradient(transparent, #000 40px, #000 calc(100% - 40px), transparent);
 }
 
+.sheet > .choice,
 .sheet > .stepper,
 .sheet > .sets,
 .sheet > .save,
@@ -5812,26 +6515,98 @@ body {
     translate: -50% -50%;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .room .callout {
-        animation: slam 0.6s cubic-bezier(0.5, 0, 0.7, 1.4) both;
+/* A word lands in the motion set the table carries (none while the device asks for reduced motion and the player has not overridden it).
+   "dezent": 450 ms, the stamp alone. */
+.room[data-motion="dezent"] .callout {
+    animation: stamp-dezent 450ms cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes stamp-dezent {
+    from {
+        opacity: 0;
+        scale: 1.6;
     }
 
-    .room .callout-ring {
-        display: block;
-        animation: callout-ring 0.7s ease-out 0.32s both;
+    40% {
+        opacity: 1;
+        scale: 1;
     }
+
+    to {
+        scale: 1;
+    }
+}
+
+/* "verspielt": 700 ms, the stamp lands hard, a ring runs out from it and the felt jolts. */
+.room[data-motion="verspielt"] .callout {
+    animation: stamp-verspielt 700ms cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes stamp-verspielt {
+    from {
+        opacity: 0;
+        scale: 2.4;
+    }
+
+    43% {
+        opacity: 1;
+        scale: 0.9;
+    }
+
+    50% {
+        scale: 1;
+    }
+
+    61% {
+        scale: 1.07;
+    }
+
+    70%,
+    to {
+        scale: 1;
+    }
+}
+
+.room[data-motion="verspielt"] .callout-ring {
+    display: block;
+    animation: callout-ring 700ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes callout-ring {
     from {
+        opacity: 0;
+        scale: 0.3;
+    }
+
+    43% {
         opacity: 1;
         scale: 0.3;
     }
 
     to {
         opacity: 0;
-        scale: 1.5;
+        scale: 1.9;
+    }
+}
+
+.room[data-motion="verspielt"]:has(.callout) .felt {
+    animation: felt-jolt 700ms both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes felt-jolt {
+    from,
+    40%,
+    70%,
+    to {
+        translate: 0 0;
+    }
+
+    45% {
+        translate: 0 3px;
+    }
+
+    55% {
+        translate: 0 -2px;
     }
 }
 

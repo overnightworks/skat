@@ -1,3 +1,4 @@
+import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -5,7 +6,15 @@ from playwright.sync_api import Page, expect
 
 from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, playing_table, tap, voices_started
+from tests.e2e.support.audio import (
+    FELT_FACE,
+    VOICES_OF_ONE_CARD,
+    open_at,
+    open_watcher,
+    playing_table,
+    tap,
+    voices_started,
+)
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.tables import open_new_table
@@ -25,6 +34,22 @@ SOUND_ON_NAME = text(SOURCE_LANGUAGE, "sound.panelName")
 SOUND_OFF_NAME = text(SOURCE_LANGUAGE, "sound.muted")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
+VOLUME = text(SOURCE_LANGUAGE, "sound.volume")
+SOUND_SETS = text(SOURCE_LANGUAGE, "sound.sets")
+MOTION = text(SOURCE_LANGUAGE, "sound.motion")
+REPLAY_MOTION = text(SOURCE_LANGUAGE, "sound.replayMotion")
+REDUCED_NOTE = text(SOURCE_LANGUAGE, "sound.reducedMotionNote")
+# The hand is a tilted fan whose cards cover each other, so a tap this far in from a card's left edge reaches it.
+CARD_EDGE_INSET = 14
+PLAYS_ONCE = text(SOURCE_LANGUAGE, "sound.playsOnce")
+LEISE = text(SOURCE_LANGUAGE, "sound.setLeise")
+STAMMTISCH = text(SOURCE_LANGUAGE, "sound.setStammtisch")
+FUNKELN = text(SOURCE_LANGUAGE, "sound.setFunkeln")
+DEZENT = text(SOURCE_LANGUAGE, "sound.motionDezent")
+VERSPIELT = text(SOURCE_LANGUAGE, "sound.motionVerspielt")
+# The voices of a card in the sets "Stammtisch" and "Funkeln", in the order they start.
+STAMMTISCH_KINDS = ["noise", "noise", "tone"]
+FUNKELN_KINDS = ["tone", "noise", "tone"]
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
 # The desktop layout starts at this width, where the speaker carries its word.
@@ -192,14 +217,24 @@ def test_a_reload_keeps_the_choice(
     assert page_errors == []
 
 
+def uncovered_card_point(page: Page) -> tuple[float, float]:
+    """A point on a card of the own hand, beside the open panel and outside of it."""
+    panel = panel_of(page).bounding_box()
+    assert panel is not None
+    for card in page.locator(".own-hand .play").all():
+        box = card.bounding_box()
+        assert box is not None
+        x, y = box["x"] + CARD_EDGE_INSET, box["y"] + box["height"] / 2
+        if not (panel["x"] <= x <= panel["x"] + panel["width"] and panel["y"] <= y <= panel["y"] + panel["height"]):
+            return x, y
+    raise AssertionError("the open panel covers every card")
+
+
 def test_the_tap_that_closes_the_panel_reaches_no_card(table: PlayingTable, page_errors: list[str]) -> None:
     forehand = table.pages[table.seat_at["forehand"]]
-    card = forehand.locator(".own-hand .play").first
-    box = card.bounding_box()
-    assert box is not None
-    middle = (box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-
     open_the_panel(forehand)
+    middle = uncovered_card_point(forehand)
+
     forehand.mouse.click(*middle)
 
     expect(panel_of(forehand)).to_be_hidden()
@@ -309,4 +344,217 @@ def test_the_panel_opens_at_once_whatever_the_device_asks_for_motion(
 
     moving = watcher.evaluate("document.getAnimations().filter(a => a.effect?.target?.closest?.('[popover]')).length")
     assert moving == 0
+    assert page_errors == []
+
+
+def row_of(page: Page, name: str) -> Any:
+    return panel_of(page).get_by_role("radiogroup", name=name)
+
+
+def picked_in(page: Page, name: str) -> Any:
+    """The name picked in a row of choices."""
+    return row_of(page, name).get_by_role("radio", checked=True)
+
+
+def volume_of(page: Page) -> Any:
+    return panel_of(page).get_by_role("slider", name=VOLUME)
+
+
+def pick(page: Page, row: str, name: str) -> None:
+    row_of(page, row).get_by_role("radio", name=name).check()
+
+
+def voice_kinds(page: Page) -> list[str]:
+    return [voice["kind"] for voice in voices_started(page)]
+
+
+def inside_the_viewport(page: Page) -> bool:
+    return page.evaluate(
+        """() => {
+            const panel = document.querySelector('[role=dialog]').getBoundingClientRect();
+            return panel.x >= 0 && panel.right <= innerWidth && panel.y >= 0 && panel.bottom <= innerHeight;
+        }"""
+    )
+
+
+STORED = "localStorage.setItem({key!r}, {record!r})"
+
+
+def stored_before_the_page_opens(page: Page, record: dict[str, Any]) -> None:
+    page.add_init_script(STORED.format(key=SETTINGS_KEY, record=json.dumps(record)))
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize("device_motion", ["no-preference", "reduce"])
+def test_the_panel_shows_the_volume_and_both_sets_at_their_defaults(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    device_motion: str,
+) -> None:
+    watcher = open_at(open_person, page_errors, table, reduced_motion=device_motion, **form_factor)
+
+    open_the_panel(watcher)
+
+    expect(volume_of(watcher)).to_have_value("70")
+    expect(picked_in(watcher, SOUND_SETS)).to_have_accessible_name(LEISE)
+    expect(picked_in(watcher, MOTION)).to_have_accessible_name(VERSPIELT)
+    assert inside_the_viewport(watcher)
+    assert not horizontal_scroll(watcher)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize(
+    ("device_motion", "asks_to_reduce"), [("no-preference", False), ("reduce", True)], ids=["moving", "reduced"]
+)
+def test_the_override_shows_only_where_the_device_asks_for_reduced_motion(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    device_motion: str,
+    asks_to_reduce: bool,
+) -> None:
+    watcher = open_at(open_person, page_errors, table, reduced_motion=device_motion, **PHONE)
+
+    open_the_panel(watcher)
+
+    expect(panel_of(watcher).get_by_role("switch", name=REPLAY_MOTION)).to_have_count(int(asks_to_reduce))
+    expect(panel_of(watcher).get_by_text(REDUCED_NOTE)).to_have_count(int(asks_to_reduce))
+    expect(row_of(watcher, MOTION)).to_have_attribute("aria-disabled", str(asks_to_reduce).lower())
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_picked_volume_and_picked_sets_hold_after_a_reload(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    watcher = open_at(open_person, page_errors, table, reduced_motion="no-preference", **form_factor)
+    open_the_panel(watcher)
+
+    volume_of(watcher).focus()
+    watcher.keyboard.press("End")
+    pick(watcher, SOUND_SETS, FUNKELN)
+    pick(watcher, MOTION, DEZENT)
+    assert json.loads(stored_record(watcher) or "") == {"volume": 100, "soundSet": "funkeln", "motionSet": "dezent"}
+    watcher.reload()
+    expect(watcher.locator(".chair")).to_have_count(3)
+    open_the_panel(watcher)
+
+    expect(volume_of(watcher)).to_have_value("100")
+    expect(panel_of(watcher).locator(".sound-value")).to_have_text("100")
+    expect(picked_in(watcher, SOUND_SETS)).to_have_accessible_name(FUNKELN)
+    expect(picked_in(watcher, MOTION)).to_have_accessible_name(DEZENT)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("sound_on", [True, False], ids=["sound-on", "sound-off"])
+def test_picking_a_sound_set_sounds_its_card_once_and_says_so_only_while_the_sound_is_on(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], sound_on: bool
+) -> None:
+    watcher = open_at(open_person, page_errors, table, **PHONE)
+    if not sound_on:
+        switch_the_sound(watcher, on=False)
+    open_the_panel(watcher)
+
+    pick(watcher, SOUND_SETS, STAMMTISCH)
+
+    expect(panel_of(watcher).get_by_text(PLAYS_ONCE)).to_have_count(int(sound_on))
+    assert voice_kinds(watcher) == (STAMMTISCH_KINDS if sound_on else [])
+    watcher.keyboard.press("Escape")
+    open_the_panel(watcher)
+    expect(panel_of(watcher).get_by_text(PLAYS_ONCE)).to_have_count(0)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize(("soundset", "kinds"), [(STAMMTISCH, STAMMTISCH_KINDS), (FUNKELN, FUNKELN_KINDS)])
+def test_a_played_card_sounds_in_the_picked_set(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], soundset: str, kinds: list[str]
+) -> None:
+    watcher = open_at(open_person, page_errors, table, **PHONE)
+    open_the_panel(watcher)
+    pick(watcher, SOUND_SETS, soundset)
+    watcher.keyboard.press("Escape")
+    preview = len(voices_started(watcher))
+
+    table.play_out(1)
+    expect(watcher.locator(FELT_FACE)).to_have_count(1)
+
+    assert voice_kinds(watcher)[preview:] == kinds
+    assert page_errors == []
+
+
+STORED_CHOICES = {"volume": 30, "soundSet": "stammtisch", "motionSet": "dezent", "replayMotion": True, "muted": True}
+SHOWN_CHOICES = {"volume": "30", "sound": STAMMTISCH, "motion": DEZENT, "override": True, "tone": False}
+
+
+def shown_choices(page: Page) -> dict[str, Any]:
+    return {
+        "volume": volume_of(page).input_value(),
+        "sound": picked_in(page, SOUND_SETS).evaluate("node => node.parentElement.textContent.trim()"),
+        "motion": picked_in(page, MOTION).evaluate("node => node.parentElement.textContent.trim()"),
+        "override": panel_of(page).get_by_role("switch", name=REPLAY_MOTION).is_checked(),
+        "tone": switch_of(page).is_checked(),
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "bad", "shown", "default"),
+    [
+        ("volume", 500, "volume", "70"),
+        ("volume", 12.5, "volume", "70"),
+        ("soundSet", "laut", "sound", LEISE),
+        ("motionSet", 7, "motion", VERSPIELT),
+        ("replayMotion", "ja", "override", False),
+        ("muted", 1, "tone", True),
+    ],
+)
+def test_a_bad_stored_field_shows_its_default_and_leaves_the_other_fields_as_stored(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    field: str,
+    bad: Any,
+    shown: str,
+    default: Any,
+) -> None:
+    watcher = record_page_errors(open_person(**PHONE), page_errors)
+    stored_before_the_page_opens(watcher, {**STORED_CHOICES, field: bad})
+    watcher.goto(table.watcher.url)
+    expect(watcher.locator(".chair")).to_have_count(3)
+    open_the_panel(watcher)
+
+    assert shown_choices(watcher) == {**SHOWN_CHOICES, shown: default}
+    assert page_errors == []
+
+
+def test_the_override_moves_a_card_in_the_chosen_set_and_the_device_setting_still_stills_it_without(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
+) -> None:
+    watcher = open_at(open_person, page_errors, table, reduced_motion="reduce", **PHONE)
+    open_the_panel(watcher)
+    expect(row_of(watcher, MOTION).get_by_role("radio", name=DEZENT)).to_be_disabled()
+
+    panel_of(watcher).get_by_role("switch", name=REPLAY_MOTION).check()
+
+    expect(row_of(watcher, MOTION).get_by_role("radio", name=DEZENT)).to_be_enabled()
+    assert json.loads(stored_record(watcher) or "") == {"replayMotion": True}
+    pick(watcher, MOTION, DEZENT)
+    watcher.keyboard.press("Escape")
+    table.play_out(1)
+    expect(watcher.locator(FELT_FACE)).to_have_css("animation-name", "land-dezent")
+    assert page_errors == []
+
+
+def test_a_panel_without_room_scrolls_and_says_there_is_more_until_its_end(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
+) -> None:
+    watcher = open_at(open_person, page_errors, table, viewport={"width": 390, "height": 420}, is_mobile=True)
+    open_the_panel(watcher)
+    more = panel_of(watcher).locator(".sound-more")
+    expect(more).to_be_visible()
+
+    watcher.evaluate("document.querySelector('.sound-body').scrollTo(0, 10000)")
+
+    expect(more).to_be_hidden()
     assert page_errors == []

@@ -22,6 +22,7 @@ from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschScoring  # n
 from skat.engine.schieberamsch import GrandHandRule, PushingRule  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
+from skat.table.asking import ASK_AGAIN_AFTER  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
 from skat.table.game_list import GameEnding  # noqa: E402
@@ -33,6 +34,7 @@ from skat.table.records import (  # noqa: E402
     TABLE_ID_PATTERN,
     EndReason,
     RamschOccasion,
+    Visibility,
 )
 from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS  # noqa: E402
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
@@ -57,8 +59,10 @@ from skat.web.constants import (  # noqa: E402
     NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
+    STREAM_HEARTBEAT_SECONDS,
     VERSION_FILE_PATH,
 )
+from skat.web.declaration_tokens import AnnouncementToken, GameToken  # noqa: E402
 from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -67,6 +71,7 @@ from skat.web.declaring import (  # noqa: E402
 from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
 from skat.web.kontra import TABLE_KONTRA_SUFFIX  # noqa: E402
 from skat.web.lobby import LOBBY_EVENTS_PATH  # noqa: E402
+from skat.web.nudging import TABLE_NUDGE_SUFFIX  # noqa: E402
 from skat.web.playing import (  # noqa: E402
     TABLE_CARD_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -89,9 +94,7 @@ from skat.web.tables import (  # noqa: E402
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
-    AnnouncementToken,
     AwaitingToken,
-    GameToken,
     PositionToken,
     RankToken,
     StageToken,
@@ -132,6 +135,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "WAITING_CASE_TOKENS": WaitingCase,
     "GAME_ENDING_TOKENS": GameEnding,
     "WORD_TOKENS": Word,
+    "VISIBILITY_TOKENS": Visibility,
 }
 
 
@@ -212,6 +216,7 @@ def path_constants() -> dict[str, str]:
         "TABLE_AGENT_SEND_AWAY_SUFFIX": TABLE_AGENT_SEND_AWAY_SUFFIX,
         "TABLE_ABORT_AGREE_SUFFIX": TABLE_ABORT_AGREE_SUFFIX,
         "TABLE_ABORT_REFUSE_SUFFIX": TABLE_ABORT_REFUSE_SUFFIX,
+        "TABLE_NUDGE_SUFFIX": TABLE_NUDGE_SUFFIX,
     }
 
 
@@ -233,7 +238,9 @@ def render() -> str:
         )
     )
     chairs = f"export const CHAIRS_PER_TABLE = {CHAIRS_PER_TABLE};\n"
+    ask_again_after = f"export const ASK_AGAIN_AFTER = {ASK_AGAIN_AFTER:g};\n"
     rule_set_name_max = f"export const RULE_SET_NAME_MAX = {RULE_SET_NAME_MAX};\n"
+    stream_heartbeat = f"export const STREAM_HEARTBEAT_SECONDS = {STREAM_HEARTBEAT_SECONDS};\n"
     return (
         HEADER
         + "\n"
@@ -243,7 +250,9 @@ def render() -> str:
         + all_points
         + series_length
         + chairs
+        + ask_again_after
         + rule_set_name_max
+        + stream_heartbeat
         + switch_on_options()
     )
 

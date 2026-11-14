@@ -23,6 +23,7 @@ __all__ = [
     "close_table",
     "decide_close",
     "end_unplayed_table",
+    "forget_ended_tables",
     "table_with_opener",
     "unplayed_tables",
 ]
@@ -136,3 +137,9 @@ def end_unplayed_table(
         members = members_of(transaction, table)
         transaction.end_table(table_id, ended_at, Ending.unplayed(days))
     return members
+
+
+def forget_ended_tables(transactions: TableTransactions, days: int, now: datetime) -> None:
+    """Forget what a table that ended `days` days ago or longer keeps: see `TableTransaction.forget_ended_before`."""
+    with transactions.begin() as transaction:
+        transaction.forget_ended_before(now - timedelta(days=days))

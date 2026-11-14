@@ -95,7 +95,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4]
+        shard: [0, 1, 2, 3, 4, 5]
     runs-on: ubuntu-24.04
     needs: frontend
     timeout-minutes: 15
@@ -235,11 +235,13 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       # The page build's hidden source maps map Chromium's coverage to frontend/src. The step fails on a shipped source
-      # with code and no record; the Coverage job judges the merged report.
+      # with code and no record; the Coverage job judges the merged report. The conversion keeps the data of every page
+      # the suite opened in memory, which outgrew Node's default heap of about 4 GB; the runner has 16 GB.
       - name: Convert the browser coverage to lcov
         working-directory: frontend
         env:
           SKAT_BROWSER_COVERAGE_DIR: ${{ runner.temp }}/browser-coverage-raw
+          NODE_OPTIONS: --max-old-space-size=8192
         run: |
           pnpm install --frozen-lockfile
           node scripts/browser-coverage-report.js "${SKAT_BROWSER_COVERAGE_DIR}" ../src/skat/web/build ../browser-coverage
@@ -413,7 +415,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: overnightworks/quality/.github/workflows/gate.yml@24c8484f86eccd5da41f9e7177ebabe52ccf3fd1 # v0.16.0
+    uses: overnightworks/quality/.github/workflows/gate.yml@853a9545c26aaa884896223b87a2505d2b918e31 # v0.17.0
     with:
       coverage-artifact: coverage
     secrets:

@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
-from skat.engine.giving_up import give_up, opponent_gives_up, shorten, throw_down
+from skat.engine.giving_up import give_up, opponent_gives_up, opponent_plays_open, shorten, throw_down
 from skat.engine.kontra import KontraRefusal
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
-from skat.engine.tricks import CardPlayed, Playing, PlayRefusal, play_card
+from skat.engine.tricks import CardPlayed, Ending, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
 from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
 from skat.table.hand_state import (
@@ -73,6 +73,15 @@ class ShortenCommand:
 
 
 @dataclass(frozen=True)
+class PlayOpenCommand:
+    """An opponent plays open; the actor's seat and position come from the session, never from the client."""
+
+    command_id: str
+    table_id: str
+    version: int
+
+
+@dataclass(frozen=True)
 class AgreeToGiveUpCommand:
     """The other side says yes to a give-up or a shortening; the actor's seat and position come from the session."""
 
@@ -108,6 +117,14 @@ class LastTrick:
 
 
 @dataclass(frozen=True)
+class TakenTricks:
+    """How many tricks one seat has taken so far, 0 included."""
+
+    seat: int
+    tricks: int
+
+
+@dataclass(frozen=True)
 class GiveUpView:
     """A give-up waiting for the other side's answer, by seat: who asked, and the opponent who said no to the
     declarer's.
@@ -129,19 +146,34 @@ class ShorteningView:
 
 
 @dataclass(frozen=True)
+class OpenHand:
+    """An opponent's remaining cards in deck order, open to every viewer because the declarer demanded play on after
+    his wrong open play.
+    """
+
+    seat: int
+    cards: tuple[Card, ...]
+
+
+@dataclass(frozen=True)
 class PlayingView:
     """The game in play as one viewer may see it; the turn is the seat that plays next. `shortening_refused_seat` is
-    the opponent whose no to the declarer's shortening left his cards open.
+    the opponent whose no to the declarer's shortening left his cards open, `open_play_seat` the opponent whose open
+    play waits for the declarer's answer, and `open_hands` the opponents' cards that stay open after it. `taken` is
+    the completed tricks of each of the three seats in seat order, the same for every viewer.
     """
 
     turn_seat: int
     current_trick: tuple[SeatedCard, ...]
     last_trick: LastTrick | None
+    taken: tuple[TakenTricks, ...]
     legal_cards: tuple[Card, ...]
     running_points: Sides | None
     give_up: GiveUpView | None
     shortening: ShorteningView | None
     shortening_refused_seat: int | None
+    open_play_seat: int | None
+    open_hands: tuple[OpenHand, ...]
     kontra: KontraView | None
 
 
@@ -200,7 +232,8 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
 
     The declarer's give-up is decided last by the engine, which says whether the game ends at once. Where it asks for
     consent, the request is stored and the opponents are asked; a request already standing changes nothing. An
-    opponent's give-up is stored at any moment and the declarer is asked; the other opponent's changes nothing.
+    opponent's give-up is stored at any moment and the declarer is asked; the other opponent's changes nothing. While
+    an opponent's wrong open play waits for the declarer, every give-up is refused as pending.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
@@ -214,7 +247,7 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
         return Decision(table, Refusal.REQUEST_PENDING) if waits else _declarer_gives_up(table, state, asked)
     if asked is None:
         return _with_request(table, GiveUpAsked(position))
-    return Decision(table) if waits else Decision(table, Refusal.REQUEST_PENDING)
+    return Decision(table) if waits and not asked.open_play else Decision(table, Refusal.REQUEST_PENDING)
 
 
 def _declarer_gives_up(table: TableRecord, state: Playing, asked: GiveUpAsked | None) -> Decision:
@@ -232,6 +265,11 @@ def _with_request(table: TableRecord, asked: GiveUpAsked | None) -> Decision:
 
 def _with_the_cards_open(table: TableRecord, refused_by: Position) -> Decision:
     progress = replace(table.progress, give_up=None, shortening_refused_by=refused_by)
+    return Decision(replace(table, version=table.version + 1, progress=progress))
+
+
+def _with_the_open_hand(table: TableRecord, opponent: Position) -> Decision:
+    progress = replace(table.progress, give_up=None, played_open=table.progress.played_open | {opponent})
     return Decision(replace(table, version=table.version + 1, progress=progress))
 
 
@@ -261,6 +299,35 @@ def decide_shorten(table: TableRecord, actor: Actor, command: ShortenCommand) ->
     if outcome.refusal is PlayRefusal.CLAIM_OUT_OF_REACH:
         return Decision(table, outcome.refusal)
     return Decision(table) if asked is not None else _with_request(table, GiveUpAsked(position, claim=command.claim))
+
+
+def play_open_payload(command: PlayOpenCommand) -> str:
+    """The receipt's payload: a retry repeats its original version, so another version is another request."""
+    return f"{command.table_id}:{command.version}"
+
+
+def decide_play_open(table: TableRecord, actor: Actor, command: PlayOpenCommand) -> Decision:
+    """An opponent plays open, at any moment: no hand, no chair, a stale version, the wrong phase, a request waiting,
+    then the engine's exact search under the table's row lock, which refuses the declarer.
+
+    Where the declarer could take no further trick the game ends at once and the rest goes to the opponents. Otherwise
+    the open play was wrong and the declarer is asked, like an opponent's give-up, to accept the end or play on.
+    """
+    position = acting_position(table, actor, command.version)
+    if isinstance(position, Refusal):
+        return Decision(table, position)
+    state = playing_of(table)
+    if state is None:
+        return Decision(table, Refusal.WRONG_PHASE)
+    if table.progress.give_up is not None:
+        return Decision(table, Refusal.REQUEST_PENDING)
+    outcome = opponent_plays_open(state, position)
+    if outcome.refusal is not None:
+        return Decision(table, outcome.refusal)
+    assert outcome.state.result is not None  # noqa: S101 - the engine's open play always leaves a result
+    if outcome.state.result.ending is Ending.REST_TO_OPPONENTS:
+        return _end_of(table, outcome, GameEnding.PLAYED_OPEN, position)
+    return _with_request(table, GiveUpAsked(position, open_play=True))
 
 
 def agree_to_give_up_payload(command: AgreeToGiveUpCommand) -> str:
@@ -296,7 +363,8 @@ def _answerer(
 
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
-    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked. The declarer's
+    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked; the declarer's
+    yes to an opponent's wrong open play settles it the same way and writes it as played open. The declarer's
     shortening needs both opponents' yes: the first is kept, the same opponent's again is refused as already
     answered, and the other's ends the game as the engine settles the shortening.
     """
@@ -305,7 +373,8 @@ def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGi
         return Decision(table, answering)
     state, asked, position = answering
     if game_waits_for_the_declarers_answer(state, asked):
-        return _end_of(table, opponent_gives_up(state), GameEnding.GIVEN_UP, asked.asker)
+        ending = GameEnding.PLAYED_OPEN if asked.open_play else GameEnding.GIVEN_UP
+        return _end_of(table, opponent_gives_up(state), ending, asked.asker)
     if asked.claim is not None:
         return _agree_to_shortening(table, state, asked, position, asked.claim)
     return _end_of(table, give_up(state, consented=True), GameEnding.GIVEN_UP, asked.asker)
@@ -322,17 +391,18 @@ def _agree_to_shortening(
 
 
 def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiveUpCommand) -> Decision:
-    """The other side says no. The declarer's no to an opponent's give-up demands play on: the request ends. An
-    opponent's no to the declarer's give-up keeps the request for the other opponent, whose no ends it; a second no of
-    the same opponent changes nothing. An opponent's no to the declarer's shortening ends it at once, and the game
-    goes on scored by its play alone, with the declarer's cards open for the rest of the hand.
+    """The other side says no. The declarer's no to an opponent's give-up demands play on: the request ends; to an
+    opponent's wrong open play it ends the request too and leaves that opponent's cards open for the rest of the
+    hand. An opponent's no to the declarer's give-up keeps the request for the other opponent, whose no ends it; a
+    second no of the same opponent changes nothing. An opponent's no to the declarer's shortening ends it at once, and
+    the game goes on scored by its play alone, with the declarer's cards open for the rest of the hand.
     """
     answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
     state, asked, position = answering
     if game_waits_for_the_declarers_answer(state, asked):
-        return _with_request(table, None)
+        return _with_the_open_hand(table, asked.asker) if asked.open_play else _with_request(table, None)
     if asked.claim is not None:
         return _with_the_cards_open(table, position)
     if asked.declined_by is position:
@@ -405,6 +475,13 @@ def _legal_cards(state: Playing | RamschPlaying, viewer_positions: frozenset[Pos
     return tuple(card for card in DECK if card in held and _card_played(state, turn, card).refusal is None)
 
 
+def _taken_of(state: Playing | RamschPlaying, seats: dict[Position, int]) -> tuple[TakenTricks, ...]:
+    return tuple(
+        TakenTricks(seat, sum(trick.taker is position for trick in state.tricks))
+        for position, seat in sorted(seats.items(), key=lambda each: each[1])
+    )
+
+
 def playing_view_of(
     state: Playing | RamschPlaying | None,
     dealer: int,
@@ -413,17 +490,19 @@ def playing_view_of(
     show_running_points: bool,
     asked: GiveUpAsked | None,
     shortening_refused_by: Position | None,
+    played_open: frozenset[Position],
     kontra: KontraView | None,
 ) -> PlayingView | None:
     """The game in play for one viewer; None until a game is played.
 
-    Everyone sees the turn, the trick in progress and the last completed trick.
+    Everyone sees the turn, the trick in progress, the last completed trick and how many tricks each seat has taken.
     Only the seated player on turn gets the cards they may play, and nobody while the hand waits for a sitter or the
     game for the declarer's answer to an opponent's give-up, which the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
     the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
-    A give-up or a shortening waiting for the other side's answer, and the opponent whose no to a shortening left the
-    declarer's cards open, are the same for every viewer.
+    A give-up, a shortening or a wrong open play waiting for the other side's answer, the opponent whose no to a
+    shortening left the declarer's cards open, and the opponents whose open play the declarer would not accept, are the
+    same for every viewer.
     """
     if state is None:
         return None
@@ -433,20 +512,40 @@ def playing_view_of(
         turn_seat=seats[state.turn],
         current_trick=tuple(SeatedCard(seats[play.position], play.card) for play in state.current_plays),
         last_trick=None if last is None else LastTrick(last.cards, seats[last.leader], seats[last.taker]),
+        taken=_taken_of(state, seats),
         legal_cards=_legal_cards(state, viewer_positions),
         running_points=state.tally.points
         if show_running_points and isinstance(state, Playing) and state.counts_card_points
         else None,
-        give_up=None if asked is None or asked.claim is not None else _give_up_view_of(asked, seats),
-        shortening=None if asked is None or asked.claim is None else _shortening_view_of(asked, asked.claim, seats),
+        give_up=_give_up_view_of(asked, seats),
+        shortening=_shortening_view_of(asked, seats),
         shortening_refused_seat=None if shortening_refused_by is None else seats[shortening_refused_by],
+        open_play_seat=_open_play_seat_of(asked, seats),
+        open_hands=_open_hands_of(state, played_open, seats),
         kontra=kontra,
     )
 
 
-def _give_up_view_of(asked: GiveUpAsked, seats: dict[Position, int]) -> GiveUpView:
+def _give_up_view_of(asked: GiveUpAsked | None, seats: dict[Position, int]) -> GiveUpView | None:
+    if asked is None or asked.claim is not None or asked.open_play:
+        return None
     return GiveUpView(seats[asked.asker], None if asked.declined_by is None else seats[asked.declined_by])
 
 
-def _shortening_view_of(asked: GiveUpAsked, claim: Announcement, seats: dict[Position, int]) -> ShorteningView:
-    return ShorteningView(seats[asked.asker], claim, None if asked.agreed_by is None else seats[asked.agreed_by])
+def _shortening_view_of(asked: GiveUpAsked | None, seats: dict[Position, int]) -> ShorteningView | None:
+    if asked is None or asked.claim is None:
+        return None
+    return ShorteningView(seats[asked.asker], asked.claim, None if asked.agreed_by is None else seats[asked.agreed_by])
+
+
+def _open_play_seat_of(asked: GiveUpAsked | None, seats: dict[Position, int]) -> int | None:
+    return None if asked is None or not asked.open_play else seats[asked.asker]
+
+
+def _open_hands_of(
+    state: Playing | RamschPlaying, played_open: frozenset[Position], seats: dict[Position, int]
+) -> tuple[OpenHand, ...]:
+    return tuple(
+        OpenHand(seats[position], tuple(card for card in DECK if card in state.hands[position]))
+        for position in sorted(played_open, key=seats.__getitem__)
+    )

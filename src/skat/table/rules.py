@@ -49,11 +49,19 @@ STAND_UP_COMMAND: Final = "stand-up"
 PLAY_CARD_COMMAND: Final = "play-card"
 GIVE_UP_COMMAND: Final = "give-up"
 SHORTEN_COMMAND: Final = "shorten"
+PLAY_OPEN_COMMAND: Final = "play-open"
 THROW_DOWN_COMMAND: Final = "throw-down"
 AGREE_TO_GIVE_UP_COMMAND: Final = "give-up-agree"
 DECLINE_GIVE_UP_COMMAND: Final = "give-up-decline"
 STEP_OF_PLAY_COMMANDS: Final = frozenset(
-    {PLAY_CARD_COMMAND, GIVE_UP_COMMAND, SHORTEN_COMMAND, AGREE_TO_GIVE_UP_COMMAND, THROW_DOWN_COMMAND}
+    {
+        PLAY_CARD_COMMAND,
+        GIVE_UP_COMMAND,
+        SHORTEN_COMMAND,
+        PLAY_OPEN_COMMAND,
+        AGREE_TO_GIVE_UP_COMMAND,
+        THROW_DOWN_COMMAND,
+    }
 )
 
 
@@ -293,16 +301,20 @@ def bock_at_series_end() -> BockRounds:
 
 
 def bock_rounds_after(table: TableRecord, triggered_by: Callable[[BockOptions], bool]) -> BockRounds:
-    """The pending Bock rounds once the table's running hand has ended: it uses up a Bock game, then a trigger acts by
-    the option; no Bock options mean no rounds, and the series' last game lets every round lapse (an early end by
-    consent goes through `skat.table.series_end`). `triggered_by` is asked only when the rounds go on.
+    """The pending Bock rounds and Ramsch-round games once the table's running hand has ended: it uses up a Bock game,
+    or a Ramsch-round game while no Bock game is pending, then a trigger acts by the option, and a Bock round it ended
+    adds its Ramsch round at a table that plays one; no Bock options mean no rounds, and the series' last game lets
+    every round lapse (an early end by consent goes through `skat.table.series_end`). `triggered_by` is asked only
+    when the rounds go on.
     """
     options = table.options.bock
     if options is None:
         return BockRounds.start()
     if series_games_left(table) == 1:  # the running hand counts as a game left
         return bock_at_series_end()
-    return advance(table.bock, options.overlap, triggered=triggered_by(options))
+    ramsch = table.options.ramsch
+    ramsch_follows = ramsch is not None and ramsch.occasion.after_bock_rounds
+    return advance(table.bock, options.overlap, triggered=triggered_by(options), ramsch_follows=ramsch_follows)
 
 
 def sit_deals(table: TableRecord) -> bool:

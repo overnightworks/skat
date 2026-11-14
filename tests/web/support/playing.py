@@ -5,12 +5,11 @@ from skat.engine.bock import BockRounds
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Deal, Position, positions_from
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
-    AnnouncementToken,
-    GameToken,
 )
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
@@ -316,8 +315,8 @@ def three_pass(table):
         table.passes(position)
 
 
-def with_pending(table, *rounds):
-    table.skat.store.tables[table.table_id] = replace(table.record, bock=BockRounds(rounds))
+def with_pending(table, *rounds, ramsch_games=0):
+    table.skat.store.tables[table.table_id] = replace(table.record, bock=BockRounds(rounds, ramsch_games))
 
 
 def bock_of(table):

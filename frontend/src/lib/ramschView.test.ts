@@ -26,6 +26,7 @@ function chairs(mine: number): Table["chairs"] {
         hand: { position: "forehand", card_count: 10 },
         former_holder_name: null,
         is_mine_to_return: false,
+        nudge: null,
     }));
 }
 
@@ -33,6 +34,11 @@ const PLAYING: Playing = {
     turn_seat: ANNA,
     current_trick: [],
     last_trick: null,
+    taken: [
+        { seat: 1, tricks: 0 },
+        { seat: 2, tricks: 0 },
+        { seat: 3, tricks: 0 },
+    ],
     legal_cards: [],
     give_up: null,
     kontra: null,

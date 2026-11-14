@@ -26,6 +26,7 @@ from skat.web.mcp import (
     NUDGE_SEAT_TOOL,
     OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
+    PLAY_OPEN_TOOL,
     PUT_BACK_CARDS_TOOL,
     RAMSCH_DECLARE_GRAND_HAND_TOOL,
     RAMSCH_PUSH_SKAT_TOOL,
@@ -95,6 +96,7 @@ class TestTools:
                 PLAY_CARD_TOOL,
                 GIVE_UP_GAME_TOOL,
                 SHORTEN_GAME_TOOL,
+                PLAY_OPEN_TOOL,
                 THROW_DOWN_CARDS_TOOL,
                 AGREE_TO_GIVE_UP_TOOL,
                 DECLINE_GIVE_UP_TOOL,
@@ -139,6 +141,21 @@ class TestTools:
 
         tools = {listed["name"]: listed for listed in answer.json()["result"]["tools"]}
         assert f'is "{token.value}"' in tools[tool]["description"]
+
+    @pytest.mark.parametrize(
+        ("shared_input", "rule_phrase"),
+        [("command_id", "command id"), ("table_id", "table id"), ("version", "come from")],
+    )
+    def test_a_shared_input_is_explained_by_its_field_and_by_no_move_description(
+        self, agent, shared_input, rule_phrase
+    ):
+        answer = agent.offered_every_tool().request("tools/list")
+
+        moves = [tool for tool in answer.json()["result"]["tools"] if "command_id" in tool["inputSchema"]["properties"]]
+        having = [tool for tool in moves if shared_input in tool["inputSchema"]["properties"]]
+        assert having
+        assert all(tool["inputSchema"]["properties"][shared_input].get("description") for tool in having)
+        assert not [tool["name"] for tool in moves if rule_phrase in tool["description"]]
 
     def test_the_resource_metadata_is_public(self, skat):
         answer = skat.client.get(METADATA_PATH)

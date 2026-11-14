@@ -20,8 +20,10 @@ def loosely(*parts: str) -> re.Pattern[str]:
 
 
 def listed(names: list[str]) -> str:
-    """The names as the page's list format writes them: "Anna und Ben"."""
-    return " und ".join(names)
+    """The names as the page's German list format writes them: "Anna", "Anna und Ben", "Anna, Ben und Cleo"."""
+    if len(names) < 2:
+        return "".join(names)
+    return ", ".join(names[:-1]) + " und " + names[-1]
 
 
 def waiting_for(names: list[str]) -> str:

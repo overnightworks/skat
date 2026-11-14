@@ -6,9 +6,11 @@ from playwright.sync_api import Page, expect
 from sqlalchemy import select
 
 from skat.store.schema import tables
+from skat.web.closing import TABLE_CLOSE_SUFFIX
+from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.tables import (
     click_new_table,
     mark_page,
@@ -23,6 +25,8 @@ from tests.e2e.support.tables import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from playwright.sync_api import Route
+
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
@@ -34,6 +38,8 @@ CANCEL = text(SOURCE_LANGUAGE, "table.closeCancel")
 DESKTOP_WIDTH = 900
 ROUND_KEY_PIXELS = 52
 OWN_HAND = ".own-hand"
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+REFUSED = 409
 
 
 def close_key(person: Page):
@@ -137,3 +143,26 @@ def test_the_old_link_of_a_closed_table_names_the_closer_and_a_new_table_gets_a_
 
     click_new_table(anna)
     expect(anna).not_to_have_url(f"{e2e_server.base_url}{path}")
+
+
+def test_a_close_the_server_refuses_shows_the_failure_and_keeps_the_table_open(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused close as a console error; that refusal is the point of this test.
+    anna = record_page_errors(open_person(username="anna", **PHONE), page_errors, console=False)
+    with until_the_agents_are_read(anna):
+        open_new_table(anna, e2e_server)
+
+    def refuse(route: Route) -> None:
+        route.fulfill(status=REFUSED, content_type="application/json", body="{}")
+
+    anna.route(f"**{TABLES_PATH}/*{TABLE_CLOSE_SUFFIX}", refuse)
+    close_key(anna).click()
+    dialog_of(anna).get_by_role("button", name=CONFIRM, exact=True).click()
+
+    expect(anna.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(dialog_of(anna)).to_have_count(0)
+    expect(close_key(anna)).to_be_visible()
+    assert page_errors == []

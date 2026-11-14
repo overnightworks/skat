@@ -1,9 +1,12 @@
-// The start page's list of the tables a member sits at: the stream it reads and what each card says.
+// The start page's lists of the tables a member sits at and of the open tables: the stream they come on and what each
+// card says.
 
 import { withMinus } from "#lib/result.ts";
 import { openStream } from "#lib/stream.ts";
+import { tableRules, type RuleChip } from "#lib/tableRules.ts";
 import { ACCOUNT_PATH, LOBBY_EVENTS_PATH, type WAITING_CASE_TOKENS } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
+import type { Options } from "./tables.ts";
 
 const MILLISECONDS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
@@ -26,6 +29,8 @@ export type LobbyChair = {
 };
 export type LobbyTable = {
     id: string;
+    // A private table is listed to its chair holders alone.
+    private: boolean;
     title_name: string | null;
     game_number: number | null;
     game_count: number | null;
@@ -37,9 +42,32 @@ export type LobbyTable = {
     ends_at: string | null;
     chairs: LobbyChair[];
 };
+// A chair of an open table, whose entry names no card, no total and no account.
+export type OpenChair = {
+    seat: number;
+    occupant_name: string | null;
+    occupant_kind: "person" | "agent" | null;
+    is_away: boolean;
+    hold_seconds_left: number | null;
+};
+// An open table the member holds no chair at, with the chair a running hand waits at and the end of a paused one.
+export type OpenTable = {
+    id: string;
+    title_name: string | null;
+    game_number: number | null;
+    game_count: number | null;
+    options: Options;
+    watchers: number;
+    free_chairs: number;
+    dealt: boolean;
+    waiting_seat: number | null;
+    ends_at: string | null;
+    chairs: OpenChair[];
+};
 type Mine = { tables: LobbyTable[] };
+type Open = { tables: OpenTable[] };
 
-export type ChipKind = "turn" | "result" | "seriesOver" | "ends";
+export type ChipKind = "turn" | "result" | "seriesOver" | "ends" | "gameWaits" | "paused";
 export type Chip = { kind: ChipKind; text: string; accent: boolean };
 export type SeatCard = {
     seat: number;
@@ -51,27 +79,37 @@ export type SeatCard = {
     away: boolean;
     total: string | null;
     hold: { note: string; title: string } | null;
+    // What a screen reader says for the control that seats the person; null where the chair is no control.
+    sitLabel: string | null;
 };
 export type Card = {
     id: string;
     title: string;
-    // What a screen reader says for the card's link.
-    openLabel: string;
+    private: boolean;
+    // What a screen reader says for the card's link; an open card is no link.
+    openLabel: string | null;
     progress: string | null;
+    // How many accounts without a chair look on, and the rules the table plays: an open table shows both.
+    watchers: number | null;
+    rules: RuleChip[];
     seats: SeatCard[];
     chips: Chip[];
 };
 
-// The stream sends the whole list first and again after every change, so each list replaces the last. The shared
+// The stream sends each whole list first and again after every change, so each list replaces the last. The shared
 // reader reconnects by itself; the returned function closes the stream.
 export function watchLobby(
     onMine: (tables: LobbyTable[]) => void,
+    onOpen: (tables: OpenTable[]) => void,
     onConnection: (connected: boolean) => void,
 ): () => void {
     return openStream(LOBBY_EVENTS_PATH, {
         events: {
             mine: (data) => {
                 onMine((JSON.parse(data) as Mine).tables);
+            },
+            open: (data) => {
+                onOpen((JSON.parse(data) as Open).tables);
             },
         },
         sessionPath: ACCOUNT_PATH,
@@ -105,14 +143,14 @@ export function minutesLeft(secondsLeft: number, heldMilliseconds: number): numb
 }
 
 // The stream counts the game as 0 before the first deal.
-function progressOf(table: LobbyTable): string | null {
+function progressOf(table: Pick<LobbyTable, "game_number" | "game_count">): string | null {
     if (table.game_number === null || table.game_count === null) return null;
     if (table.game_number === 0) return words["lobby.length"](table.game_count);
     return words["lobby.progress"]({ game: String(table.game_number), count: table.game_count });
 }
 
 // The stream never marks the own chair away; it is away where its hold runs or where nobody is at a dealt table.
-function isAway(chair: LobbyChair, table: LobbyTable): boolean {
+function isAway(chair: LobbyChair, table: Pick<LobbyTable, "ends_at">): boolean {
     if (chair.is_away) return true;
     return chair.is_mine && ((chair.hold_seconds_left ?? null) !== null || table.ends_at !== null);
 }
@@ -138,7 +176,12 @@ function holdOf(chair: LobbyChair, heldMilliseconds: number): SeatCard["hold"] {
     };
 }
 
-function seatOf(chair: LobbyChair, table: LobbyTable, heldMilliseconds: number): SeatCard {
+function seatOf(
+    chair: LobbyChair,
+    table: Pick<LobbyTable, "ends_at">,
+    heldMilliseconds: number,
+    sitLabel: string | null,
+): SeatCard {
     const name = chair.occupant_name;
     return {
         seat: chair.seat,
@@ -150,6 +193,7 @@ function seatOf(chair: LobbyChair, table: LobbyTable, heldMilliseconds: number):
         away: isAway(chair, table),
         total: chair.total === null ? null : withMinus(chair.total),
         hold: holdOf(chair, heldMilliseconds),
+        sitLabel: name === null ? sitLabel : null,
     };
 }
 
@@ -177,9 +221,44 @@ export function cardOf(table: LobbyTable, nowMilliseconds: number, heldMilliseco
     return {
         id: table.id,
         title,
+        private: table.private,
         openLabel: words["lobby.openTable"]({ title }),
         progress: progressOf(table),
-        seats: table.chairs.map((chair) => seatOf(chair, table, heldMilliseconds)),
+        watchers: null,
+        rules: [],
+        seats: table.chairs.map((chair) => seatOf(chair, table, heldMilliseconds, null)),
         chips: chipsOf(table, nowMilliseconds),
+    };
+}
+
+// A chair of an open table is seen from outside: nobody's own, no total, no turn.
+function outsideChairOf(chair: OpenChair): LobbyChair {
+    return { ...chair, is_mine: false, ready: false, total: null, is_turn: false };
+}
+
+// A running hand that waits for a sitter is the accent; a paused table, where a hand was dealt and nobody is present,
+// is plain, and names no end.
+function openChipsOf(table: OpenTable): Chip[] {
+    const chips: Chip[] = [];
+    if (table.waiting_seat !== null)
+        chips.push({ kind: "gameWaits", text: words["lobby.chipGameWaits"], accent: true });
+    if (table.ends_at !== null) chips.push({ kind: "paused", text: words["lobby.chipPaused"], accent: false });
+    return chips;
+}
+
+// The entry of an open table: every free chair is the control that seats the person, and the rest of it is display.
+export function openCardOf(table: OpenTable, heldMilliseconds: number): Card {
+    const title = titleOf(table.title_name);
+    const sitLabel = words["lobby.sitAt"]({ title });
+    return {
+        id: table.id,
+        title,
+        private: false,
+        openLabel: null,
+        progress: progressOf(table),
+        watchers: table.watchers,
+        rules: tableRules(table.options, null).chips,
+        seats: table.chairs.map((chair) => seatOf(outsideChairOf(chair), table, heldMilliseconds, sitLabel)),
+        chips: openChipsOf(table),
     };
 }

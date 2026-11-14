@@ -57,6 +57,7 @@ class ActKind(StrEnum):
     WORD = "word"
     GIVE_UP = "give-up"
     SHORTEN = "shorten"
+    PLAY_OPEN = "play-open"
     THROW_DOWN = "throw-down"
     RESULT = "result"
     PASSED_IN = "passed-in"
@@ -174,6 +175,7 @@ def _running_events(table: TableRecord, seats: dict[Position, int], dealer: int)
 _ENDING_KINDS: Final = {
     GameEnding.GIVEN_UP: ActKind.GIVE_UP,
     GameEnding.SHORTENED: ActKind.SHORTEN,
+    GameEnding.PLAYED_OPEN: ActKind.PLAY_OPEN,
     GameEnding.THROWN_DOWN: ActKind.THROW_DOWN,
 }
 

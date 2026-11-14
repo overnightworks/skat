@@ -17,6 +17,7 @@ function chairs(mine: number): Chair[] {
         hand: { position: "forehand", card_count: 9 },
         former_holder_name: null,
         is_mine_to_return: false,
+        nudge: null,
     }));
 }
 
@@ -72,6 +73,11 @@ export function tableWith(
                 turn_seat: 1,
                 current_trick: [],
                 last_trick: null,
+                taken: [
+                    { seat: 1, tricks: 0 },
+                    { seat: 2, tricks: 0 },
+                    { seat: 3, tricks: 0 },
+                ],
                 legal_cards: [],
                 running_points: null,
                 give_up: request,

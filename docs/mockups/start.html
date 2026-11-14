@@ -579,7 +579,8 @@ const HOUSE_RULES=[
   {id:'points',ic:I.points,name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel',chip:'Augen'},
   {id:'kontra',ic:I.kontra,name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',chip:'Kontra',vars:[
     {q:'Wer darf Kontra sagen?',pick:['Jeder Gegner','Nur wer gereizt hat'],at:1},
-    {q:'Wie weit geht es?',pick:['Kontra, Re','mit Ständen','bis Hirsch'],at:2}]},
+    {q:'Wie weit geht es?',pick:['Kontra, Re','mit Ständen','bis Hirsch'],at:2},
+    {q:'Wann muss das Wort fallen?',pick:['bis zur eigenen Karte','vor der ersten Karte'],at:0}]},
   {id:'ramsch',ic:I.ramsch,name:'Ramsch beim Einpassen',line:'Alle passen: jeder gegen jeden',chip:'Ramsch',vars:[
     {q:'Wie zählt der Ramsch?',pick:['Augen','Augen durch 10','Skat zum Verlierer'],at:0},
     {q:'Jungfrau (kein Stich)',pick:['Verlierer doppelt','Aus'],at:0},
@@ -617,7 +618,7 @@ const newTable=(x,y,w,on=[],picked='official',length=36,o={})=>`<div class="scri
   <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
   ${lengthChoice(length)}
   ${setChoice(picked)}
-  <div class="sheet-body"${o.scroll?` data-scroll="${o.scroll}"`:''}>${rulesPart(on)}</div>${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
+  <div class="sheet-body"${o.scroll!==undefined?` data-scroll="${o.scroll}"`:''}>${rulesPart(on)}</div>${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
   <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
 /* a listed table names its house rules under its name; a table without plays the official rules */
 const ruleChips=(on)=>`<span class="chips">${on.length?HOUSE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
@@ -730,9 +731,11 @@ frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',lobbyBackdrop(1280)+
 /* the rules sheets: x and height by width; only the rule rows scroll, under the set choice, while the title, the choices above, the offer to save and the buttons stay in reach */
 const RULES_SHEET={360:{x:180,w:324,top:40,h:716,frame:780},390:{x:195,w:354,top:40,h:780,frame:844},1280:{x:640,w:440,top:24,h:752,frame:800}};
 const UNFOLD_NOTES=[...LENGTH_NOTE,'Eine eingeschaltete Regel klappt unter sich in ihre Varianten auf, jede eine kurze Frage mit der gewählten Antwort. Eine Regel, die bei „Offiziell“ eingeschaltet wird, beginnt mit den Werten von „Felix“; bei einem gewählten Satz mit den Werten dieses Satzes. Nur die Regeln scrollen, unter der Wahl des Satzes; Titel, Satzwahl, „Aufmachen“ und das Speichern bleiben immer in Reichweite.'];
-const rulesScene=(id,title,on,picked,scroll)=>[360,390,1280].forEach(w=>{const z=RULES_SHEET[w];
-  frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,lobbyBackdrop(w)+newTable(z.x,z.top,z.w,on,picked,36,{h:z.h,scroll}),UNFOLD_NOTES);ORDER.push(`${id}-${w}`)});
-rulesScene('rules-on','Neuer Tisch mit Hausregeln',['kontra','ramsch'],'official');
+const DEADLINE_NOTE='Kontra und Re fragt zuletzt, wann das Wort fallen muss: „bis zur eigenen Karte“, wie bisher und der Wert von „Felix“, oder „vor der ersten Karte“; dann hält der Tisch die erste Karte, bis jeder, der noch ein Wort hat, es gesagt oder abgelehnt hat.';
+const rulesScene=(id,title,on,picked,scroll,notes=UNFOLD_NOTES)=>[360,390,1280].forEach(w=>{const z=RULES_SHEET[w];
+  frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,lobbyBackdrop(w)+newTable(z.x,z.top,z.w,on,picked,36,{h:z.h,scroll}),notes);ORDER.push(`${id}-${w}`)});
+/* the sheet comes to rest at the end of Kontra und Re, so its last question shows whole at every width */
+rulesScene('rules-on','Neuer Tisch mit Hausregeln',['kontra','ramsch'],'official','0:end',[...UNFOLD_NOTES,DEADLINE_NOTE]);
 rulesScene('rules-set','Neuer Tisch mit eigenem Regelsatz',['points','kontra','ramsch','schieben','bock'],'felix',1);
 rulesScene('rules-detail','Neuer Tisch mit Bockrunden',['bock'],'official','end');
 const byId=Object.fromEntries(FRAMES);
@@ -742,7 +745,7 @@ if(solo){document.body.classList.add('solo');document.getElementById(solo).close
 if(q.has('key'))document.body.classList.add('key');
 /* a scrolling sheet starts where its scene says (top, the end, or an unfolded rule at the top) and fades toward the side that has more */
 const fade=(e)=>{e.classList.toggle('up',e.scrollTop>1);e.classList.toggle('down',e.scrollTop+e.clientHeight<e.scrollHeight-1);};
-const settle=(root)=>root.querySelectorAll('.sheet-body').forEach(e=>{const to=e.dataset.scroll;if(to==='end')e.scrollTop=e.scrollHeight;else if(to)e.scrollTop=e.querySelectorAll(".unit")[+to].offsetTop-32;fade(e);e.addEventListener('scroll',()=>fade(e));});
+const settle=(root)=>root.querySelectorAll('.sheet-body').forEach(e=>{const to=e.dataset.scroll;if(to==='end')e.scrollTop=e.scrollHeight;else if(to){const[i,edge]=to.split(':'),unit=e.querySelectorAll(".unit")[+i];e.scrollTop=edge==='end'?unit.offsetTop+unit.offsetHeight-e.clientHeight+28:unit.offsetTop-32;}fade(e);e.addEventListener('scroll',()=>fade(e));});
 settle(document);
 document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{const f=b.closest('section').querySelector('.frame');const c=f.cloneNode(true);f.replaceWith(c);settle(c);}));
 </script>

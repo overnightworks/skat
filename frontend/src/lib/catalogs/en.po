@@ -63,9 +63,37 @@ msgctxt "start.newTableFailed"
 msgid "Der Tisch konnte nicht eröffnet werden."
 msgstr "The table could not be opened."
 
+msgctxt "start.visibility"
+msgid "Wer den Tisch sieht"
+msgstr "Who sees the table"
+
+msgctxt "start.visibilityOpen"
+msgid "Offen"
+msgstr "Open"
+
+msgctxt "start.visibilityPrivate"
+msgid "Privat"
+msgstr "Private"
+
+msgctxt "start.visibilityInfoButton"
+msgid "Info"
+msgstr "Info"
+
+msgctxt "start.visibilityInfo"
+msgid "Offen: steht in der Lobby. Privat: nur mit dem Link."
+msgstr "Open: listed in the lobby. Private: only with the link."
+
 msgctxt "lobby.myTables"
 msgid "Meine Tische"
 msgstr "My tables"
+
+msgctxt "lobby.openTables"
+msgid "Offene Tische"
+msgstr "Open tables"
+
+msgctxt "lobby.noOpenTables"
+msgid "Sonst ist kein Tisch offen"
+msgstr "No other table is open"
 
 msgctxt "lobby.openTable"
 msgid "{title} öffnen"
@@ -150,6 +178,26 @@ msgstr "Result waiting"
 msgctxt "lobby.chipSeriesOver"
 msgid "Serie vorbei"
 msgstr "Series over"
+
+msgctxt "lobby.private"
+msgid "Privat"
+msgstr "Private"
+
+msgctxt "lobby.sitAt"
+msgid "{title}: hinsetzen"
+msgstr "Sit down at {title}"
+
+msgctxt "lobby.sitFailed"
+msgid "Das Hinsetzen hat nicht geklappt"
+msgstr "Sitting down did not work"
+
+msgctxt "lobby.chipGameWaits"
+msgid "Spiel wartet"
+msgstr "Game waits"
+
+msgctxt "lobby.chipPaused"
+msgid "pausiert"
+msgstr "paused"
 
 msgctxt "lobby.endsInDays.one"
 msgid "endet in {days} Tag"
@@ -350,6 +398,18 @@ msgstr "Push"
 msgctxt "table.thinks"
 msgid "denkt"
 msgstr "thinking"
+
+msgctxt "table.nudge"
+msgid "anstupsen"
+msgstr "nudge"
+
+msgctxt "table.nudged"
+msgid "Angestupst"
+msgstr "Nudged"
+
+msgctxt "table.nudgesYou"
+msgid "stupst dich an"
+msgstr "nudges you"
 
 msgctxt "table.dealer"
 msgid "Geber"
@@ -683,6 +743,10 @@ msgctxt "closed.unplayedDays.other"
 msgid "{count} Tage nicht gespielt: Tisch geschlossen"
 msgstr "Not played for {count} days: table closed"
 
+msgctxt "closed.closed"
+msgid "Tisch geschlossen"
+msgstr "Table closed"
+
 msgctxt "closed.closedBy"
 msgid "{name} hat den Tisch geschlossen"
 msgstr "{name} closed the table"
@@ -734,6 +798,10 @@ msgstr "Ouvert"
 msgctxt "play.commandFailed"
 msgid "Das hat nicht geklappt"
 msgstr "That did not work"
+
+msgctxt "play.swipeHint"
+msgid "Nochmal tippen oder hochwischen spielt die Karte"
+msgstr "Tap again or swipe up to play the card"
 
 msgctxt "play.sideUs"
 msgid "Wir"
@@ -790,6 +858,278 @@ msgstr "Hold"
 msgctxt "bid.pass"
 msgid "Weg"
 msgstr "Pass"
+
+msgctxt "voice.pass"
+msgid "Weg"
+msgstr "Pass"
+
+msgctxt "voice.kontra"
+msgid "Kontra"
+msgstr "Kontra"
+
+msgctxt "voice.re"
+msgid "Re"
+msgstr "Re"
+
+msgctxt "voice.supra"
+msgid "Supra"
+msgstr "Supra"
+
+msgctxt "voice.hirsch"
+msgid "Hirsch"
+msgstr "Hirsch"
+
+msgctxt "voice.value18"
+msgid "achtzehn"
+msgstr "eighteen"
+
+msgctxt "voice.value20"
+msgid "zwanzig"
+msgstr "twenty"
+
+msgctxt "voice.value22"
+msgid "zweiundzwanzig"
+msgstr "twenty-two"
+
+msgctxt "voice.value23"
+msgid "dreiundzwanzig"
+msgstr "twenty-three"
+
+msgctxt "voice.value24"
+msgid "vierundzwanzig"
+msgstr "twenty-four"
+
+msgctxt "voice.value27"
+msgid "siebenundzwanzig"
+msgstr "twenty-seven"
+
+msgctxt "voice.value30"
+msgid "dreißig"
+msgstr "thirty"
+
+msgctxt "voice.value33"
+msgid "dreiunddreißig"
+msgstr "thirty-three"
+
+msgctxt "voice.value35"
+msgid "fünfunddreißig"
+msgstr "thirty-five"
+
+msgctxt "voice.value36"
+msgid "sechsunddreißig"
+msgstr "thirty-six"
+
+msgctxt "voice.value40"
+msgid "vierzig"
+msgstr "forty"
+
+msgctxt "voice.value44"
+msgid "vierundvierzig"
+msgstr "forty-four"
+
+msgctxt "voice.value45"
+msgid "fünfundvierzig"
+msgstr "forty-five"
+
+msgctxt "voice.value46"
+msgid "sechsundvierzig"
+msgstr "forty-six"
+
+msgctxt "voice.value48"
+msgid "achtundvierzig"
+msgstr "forty-eight"
+
+msgctxt "voice.value50"
+msgid "fünfzig"
+msgstr "fifty"
+
+msgctxt "voice.value54"
+msgid "vierundfünfzig"
+msgstr "fifty-four"
+
+msgctxt "voice.value55"
+msgid "fünfundfünfzig"
+msgstr "fifty-five"
+
+msgctxt "voice.value59"
+msgid "neunundfünfzig"
+msgstr "fifty-nine"
+
+msgctxt "voice.value60"
+msgid "sechzig"
+msgstr "sixty"
+
+msgctxt "voice.value63"
+msgid "dreiundsechzig"
+msgstr "sixty-three"
+
+msgctxt "voice.value66"
+msgid "sechsundsechzig"
+msgstr "sixty-six"
+
+msgctxt "voice.value70"
+msgid "siebzig"
+msgstr "seventy"
+
+msgctxt "voice.value72"
+msgid "zweiundsiebzig"
+msgstr "seventy-two"
+
+msgctxt "voice.value77"
+msgid "siebenundsiebzig"
+msgstr "seventy-seven"
+
+msgctxt "voice.value80"
+msgid "achtzig"
+msgstr "eighty"
+
+msgctxt "voice.value81"
+msgid "einundachtzig"
+msgstr "eighty-one"
+
+msgctxt "voice.value84"
+msgid "vierundachtzig"
+msgstr "eighty-four"
+
+msgctxt "voice.value88"
+msgid "achtundachtzig"
+msgstr "eighty-eight"
+
+msgctxt "voice.value90"
+msgid "neunzig"
+msgstr "ninety"
+
+msgctxt "voice.value96"
+msgid "sechsundneunzig"
+msgstr "ninety-six"
+
+msgctxt "voice.value99"
+msgid "neunundneunzig"
+msgstr "ninety-nine"
+
+msgctxt "voice.value100"
+msgid "hundert"
+msgstr "one hundred"
+
+msgctxt "voice.value108"
+msgid "hundertacht"
+msgstr "one hundred and eight"
+
+msgctxt "voice.value110"
+msgid "hundertzehn"
+msgstr "one hundred and ten"
+
+msgctxt "voice.value117"
+msgid "hundertsiebzehn"
+msgstr "one hundred and seventeen"
+
+msgctxt "voice.value120"
+msgid "hundertzwanzig"
+msgstr "one hundred and twenty"
+
+msgctxt "voice.value121"
+msgid "hunderteinundzwanzig"
+msgstr "one hundred and twenty-one"
+
+msgctxt "voice.value126"
+msgid "hundertsechsundzwanzig"
+msgstr "one hundred and twenty-six"
+
+msgctxt "voice.value130"
+msgid "hundertdreißig"
+msgstr "one hundred and thirty"
+
+msgctxt "voice.value132"
+msgid "hundertzweiunddreißig"
+msgstr "one hundred and thirty-two"
+
+msgctxt "voice.value135"
+msgid "hundertfünfunddreißig"
+msgstr "one hundred and thirty-five"
+
+msgctxt "voice.value140"
+msgid "hundertvierzig"
+msgstr "one hundred and forty"
+
+msgctxt "voice.value143"
+msgid "hundertdreiundvierzig"
+msgstr "one hundred and forty-three"
+
+msgctxt "voice.value144"
+msgid "hundertvierundvierzig"
+msgstr "one hundred and forty-four"
+
+msgctxt "voice.value150"
+msgid "hundertfünfzig"
+msgstr "one hundred and fifty"
+
+msgctxt "voice.value153"
+msgid "hundertdreiundfünfzig"
+msgstr "one hundred and fifty-three"
+
+msgctxt "voice.value154"
+msgid "hundertvierundfünfzig"
+msgstr "one hundred and fifty-four"
+
+msgctxt "voice.value156"
+msgid "hundertsechsundfünfzig"
+msgstr "one hundred and fifty-six"
+
+msgctxt "voice.value160"
+msgid "hundertsechzig"
+msgstr "one hundred and sixty"
+
+msgctxt "voice.value162"
+msgid "hundertzweiundsechzig"
+msgstr "one hundred and sixty-two"
+
+msgctxt "voice.value165"
+msgid "hundertfünfundsechzig"
+msgstr "one hundred and sixty-five"
+
+msgctxt "voice.value168"
+msgid "hundertachtundsechzig"
+msgstr "one hundred and sixty-eight"
+
+msgctxt "voice.value170"
+msgid "hundertsiebzig"
+msgstr "one hundred and seventy"
+
+msgctxt "voice.value176"
+msgid "hundertsechsundsiebzig"
+msgstr "one hundred and seventy-six"
+
+msgctxt "voice.value180"
+msgid "hundertachtzig"
+msgstr "one hundred and eighty"
+
+msgctxt "voice.value187"
+msgid "hundertsiebenundachtzig"
+msgstr "one hundred and eighty-seven"
+
+msgctxt "voice.value192"
+msgid "hundertzweiundneunzig"
+msgstr "one hundred and ninety-two"
+
+msgctxt "voice.value198"
+msgid "hundertachtundneunzig"
+msgstr "one hundred and ninety-eight"
+
+msgctxt "voice.value204"
+msgid "zweihundertvier"
+msgstr "two hundred and four"
+
+msgctxt "voice.value216"
+msgid "zweihundertsechzehn"
+msgstr "two hundred and sixteen"
+
+msgctxt "voice.value240"
+msgid "zweihundertvierzig"
+msgstr "two hundred and forty"
+
+msgctxt "voice.value264"
+msgid "zweihundertvierundsechzig"
+msgstr "two hundred and sixty-four"
 
 msgctxt "game.forehand"
 msgid "Vorhand"
@@ -914,6 +1254,60 @@ msgstr "Sound"
 msgctxt "sound.tone"
 msgid "Ton"
 msgstr "Sound"
+
+msgctxt "sound.volume"
+msgid "Lautstärke"
+msgstr "Volume"
+
+msgctxt "sound.sets"
+msgid "Klänge"
+msgstr "Sounds"
+
+msgctxt "sound.voice"
+msgid "Stimme"
+msgstr "Voice"
+
+msgctxt "sound.motion"
+msgid "Bewegung"
+msgstr "Motion"
+
+msgctxt "sound.replayMotion"
+msgid "Bewegung trotzdem abspielen"
+msgstr "Play motion anyway"
+
+msgctxt "sound.reducedMotionNote"
+msgid ""
+"Dein Gerät sagt „Bewegung reduzieren“. Darum zeigt Skat jeden Zustand "
+"sofort."
+msgstr "Your device says “reduce motion”. So Skat shows every state at once."
+
+msgctxt "sound.playsOnce"
+msgid "spielt einmal"
+msgstr "plays once"
+
+msgctxt "sound.more"
+msgid "mehr"
+msgstr "more"
+
+msgctxt "sound.setLeise"
+msgid "Leise"
+msgstr "Quiet"
+
+msgctxt "sound.setStammtisch"
+msgid "Stammtisch"
+msgstr "Regulars’ table"
+
+msgctxt "sound.setFunkeln"
+msgid "Funkeln"
+msgstr "Sparkle"
+
+msgctxt "sound.motionDezent"
+msgid "dezent"
+msgstr "subtle"
+
+msgctxt "sound.motionVerspielt"
+msgid "verspielt"
+msgstr "playful"
 
 msgctxt "card.letterJack"
 msgid "B"
@@ -1270,6 +1664,14 @@ msgstr "Kontra and Re"
 msgctxt "rules.nameRamsch"
 msgid "Ramsch beim Einpassen"
 msgstr "Ramsch when everyone passes"
+
+msgctxt "rules.nameRamschBockRounds"
+msgid "Ramschrunde nach jeder Bockrunde"
+msgstr "Ramsch round after each Bock round"
+
+msgctxt "rules.nameRamschPassedInAndBockRounds"
+msgid "Ramsch beim Einpassen und Ramschrunde nach jeder Bockrunde"
+msgstr "Ramsch when everyone passes and Ramsch round after each Bock round"
 
 msgctxt "rules.namePushing"
 msgid "Schieberamsch"

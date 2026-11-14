@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openStream, type StreamOptions } from "./stream.ts";
+import { STREAM_HEARTBEAT_SECONDS } from "#lib/wire.ts";
 
 const STREAM_PATH = "/api/things/a/events";
 const SESSION_PATH = "/api/things/a";
 const SIGNED_OUT = 401;
 const LOST_CONNECTION = 500;
+const HEARTBEAT_MILLISECONDS = STREAM_HEARTBEAT_SECONDS * 1000;
 
 class FakeEventSource {
     static opened: FakeEventSource[] = [];
@@ -21,6 +23,10 @@ class FakeEventSource {
     }
     send(type: string, data: string) {
         this.listeners.get(type)?.({ data } as MessageEvent<string>);
+    }
+    // The connection's own event of that name, which the browser fires with no data.
+    connect(type: string) {
+        this.listeners.get(type)?.(new Event(type) as MessageEvent<string>);
     }
     fail() {
         this.onerror?.();
@@ -110,6 +116,25 @@ describe("openStream", () => {
         expect(onConnection.mock.calls).toEqual([[true], [true]]);
     });
 
+    it("ignores the browser's own open event, so a handler named open gets no data and the connection is not marked", () => {
+        const handled: string[] = [];
+        const onConnection = vi.fn();
+        openStream(
+            STREAM_PATH,
+            optionsWith({ events: { open: (data) => handled.push(`open ${data}`) }, onConnection }),
+        );
+
+        latest().connect("open");
+
+        expect(onConnection).not.toHaveBeenCalled();
+        expect(handled).toEqual([]);
+
+        latest().send("open", "[1]");
+
+        expect(onConnection).toHaveBeenCalledWith(true);
+        expect(handled).toEqual(["open [1]"]);
+    });
+
     it("retries a failed open after a delay that doubles from one second and stops growing at thirty", async () => {
         const onConnection = vi.fn();
         openStream(STREAM_PATH, optionsWith({ onConnection }));
@@ -124,18 +149,70 @@ describe("openStream", () => {
         expect(onConnection).toHaveBeenLastCalledWith(false);
     });
 
-    it("starts the delay again from one second after a message arrives", async () => {
+    function gapsBetweenOpens(): number[] {
+        return FakeEventSource.openedAt.slice(1).map((at, index) => at - (FakeEventSource.openedAt[index] ?? 0));
+    }
+
+    it("backs off a stream that closes right after its first message like a failed open, up to the ceiling", async () => {
         openStream(STREAM_PATH, optionsWith({ events: { message: vi.fn() } }));
-        await failLatest();
-        await vi.runOnlyPendingTimersAsync();
-        await failLatest();
-        await vi.runOnlyPendingTimersAsync();
-        latest().send("message", "a");
+
+        for (let failure = 0; failure < 7; failure += 1) {
+            latest().send("message", "view");
+            await failLatest();
+            await vi.runOnlyPendingTimersAsync();
+        }
+
+        expect(gapsBetweenOpens()).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000]);
+    });
+
+    it("backs off a stream that dropped just short of one heartbeat after its first message", async () => {
+        openStream(STREAM_PATH, optionsWith({ events: { message: vi.fn() } }));
+
+        const almostOneHeartbeat = HEARTBEAT_MILLISECONDS - 1;
+        for (let failure = 0; failure < 2; failure += 1) {
+            latest().send("message", "view");
+            await vi.advanceTimersByTimeAsync(almostOneHeartbeat);
+            await failLatest();
+            await vi.runOnlyPendingTimersAsync();
+        }
+
+        expect(gapsBetweenOpens()).toEqual([almostOneHeartbeat + 1000, almostOneHeartbeat + 2000]);
+    });
+
+    it("reconnects from the first delay when a stream that stayed open past a heartbeat drops, whatever came before", async () => {
+        openStream(STREAM_PATH, optionsWith({ events: { message: vi.fn() } }));
+        for (let failure = 0; failure < 3; failure += 1) {
+            latest().send("message", "view");
+            await failLatest();
+            await vi.runOnlyPendingTimersAsync();
+        }
+        latest().send("message", "view");
+        await vi.advanceTimersByTimeAsync(HEARTBEAT_MILLISECONDS);
         await failLatest();
         await vi.runOnlyPendingTimersAsync();
 
-        const gaps = FakeEventSource.openedAt.slice(1).map((at, index) => at - (FakeEventSource.openedAt[index] ?? 0));
-        expect(gaps).toEqual([1000, 2000, 1000]);
+        expect(gapsBetweenOpens().slice(3)).toEqual([HEARTBEAT_MILLISECONDS + 1000]);
+    });
+
+    it("does not count a stream that stayed open without a message as healthy", async () => {
+        openStream(STREAM_PATH, optionsWith({ events: { message: vi.fn() } }));
+        await failLatest();
+        await vi.runOnlyPendingTimersAsync();
+        await vi.advanceTimersByTimeAsync(HEARTBEAT_MILLISECONDS);
+        await failLatest();
+        await vi.runOnlyPendingTimersAsync();
+
+        expect(gapsBetweenOpens()).toEqual([1000, HEARTBEAT_MILLISECONDS + 2000]);
+    });
+
+    it("marks the connection lost at every drop, also of a stream that delivered messages", async () => {
+        const onConnection = vi.fn();
+        openStream(STREAM_PATH, optionsWith({ events: { message: vi.fn() }, onConnection }));
+
+        latest().send("message", "view");
+        await failLatest();
+
+        expect(onConnection.mock.calls).toEqual([[true], [false]]);
     });
 
     it("counts a check that cannot reach the server as a lost connection and retries", async () => {

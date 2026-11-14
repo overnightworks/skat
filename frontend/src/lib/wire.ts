@@ -47,6 +47,7 @@ export const TABLE_AGENT_CALL_SUFFIX = "/call";
 export const TABLE_AGENT_SEND_AWAY_SUFFIX = "/send-away";
 export const TABLE_ABORT_AGREE_SUFFIX = "/abort/agree";
 export const TABLE_ABORT_REFUSE_SUFFIX = "/abort/refuse";
+export const TABLE_NUDGE_SUFFIX = "/nudge";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;
@@ -79,15 +80,16 @@ export const BOCK_TRIGGER_TOKENS = [
     "total-ending-in-00",
 ] as const;
 export const BOCK_OVERLAP_TOKENS = ["append", "multiply", "ignore"] as const;
-export const RAMSCH_OCCASION_TOKENS = ["passed-in"] as const;
+export const RAMSCH_OCCASION_TOKENS = ["passed-in", "bock-rounds", "passed-in-and-bock-rounds"] as const;
 export const RAMSCH_SCORING_TOKENS = ["points", "points-by-ten", "skat-to-loser"] as const;
 export const JUNGFRAU_TOKENS = ["doubles-loser", "off"] as const;
 export const DURCHMARSCH_TOKENS = ["wins-120", "wins-120-flat", "off"] as const;
 export const PUSHING_RULE_TOKENS = ["jacks-stay", "jacks-may-go", "no-doubling"] as const;
 export const GRAND_HAND_TOKENS = ["allowed", "off"] as const;
 export const WAITING_CASE_TOKENS = ["turn", "give_up", "kontra", "end_proposal", "result", "series_end"] as const;
-export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down", "shortened"] as const;
+export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down", "shortened", "played-open"] as const;
 export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
+export const VISIBILITY_TOKENS = ["open", "private"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,
@@ -99,7 +101,9 @@ export const SERIES_LENGTH_MAX = 99;
 export const SERIES_LENGTH_STEP = 3;
 export const SERIES_LENGTH_DEFAULT = 36;
 export const CHAIRS_PER_TABLE = 3;
+export const ASK_AGAIN_AFTER = 60;
 export const RULE_SET_NAME_MAX = 40;
+export const STREAM_HEARTBEAT_SECONDS = 15;
 export const SWITCH_ON_OPTIONS = {
     show_running_points: false,
     kontra: {

@@ -1,9 +1,9 @@
 import pytest
 
 from skat.engine.bidding import LOWEST_BID
+from skat.web.declaration_tokens import GameToken
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
-from skat.web.tables import GameToken
 from tests.support.payload_cards import cards_in_text, wire_cards
 from tests.web.support.playing import (
     FOREHAND,

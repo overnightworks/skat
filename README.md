@@ -39,6 +39,7 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_CHAIR_HOLD_SECONDS` | `300` | How long a seated member whose last stream ended keeps the chair at a table on which no hand was dealt; a positive number. At a table on which a hand was dealt the chair is kept until its holder stands up or the table ends. |
 | `SKAT_EMPTY_TABLE_SECONDS` | `1800` | How long a table on which no hand was dealt stays after nobody is connected to it, before it ends; a positive whole number. |
 | `SKAT_PAUSED_TABLE_DAYS` | `90` | How many days after its last deal or step of play a table on which a hand was dealt ends by itself, as each paused entry's `ends_at` names; Skat checks at its start and every hour, and a table that ends keeps every finished game in the history. A positive whole number, at most 36500. |
+| `SKAT_ENDED_TABLE_DAYS` | `7` | How many days after its end an ended table's link names why it ended; Skat checks at its start and every hour, then deletes a table with no finished game together with its create receipt, so its link reads „Tisch nicht gefunden“, and clears the name of whoever closed a table with games, whose link then reads „Tisch geschlossen“. A positive whole number, at most 36500. |
 | `SKAT_STREAMS_PER_ACCOUNT` | `12` | How many lobby and table streams one account may hold open at once; one more gets a 429 before anything is held open, and closing a stream frees its slot. A positive whole number. |
 | `SKAT_HOST` | `0.0.0.0` | The listen address. |
 | `SKAT_PORT` | `8080` | The listen port. |

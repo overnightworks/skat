@@ -1,7 +1,7 @@
 from enum import StrEnum
-from typing import TYPE_CHECKING, Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Final
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Path, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
@@ -10,18 +10,17 @@ from webauth.middleware import admitted_user
 from skat.engine.bidding import Awaiting
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Position
-from skat.engine.declaration import Announcement, Stage
-from skat.engine.games import GameKind
+from skat.engine.declaration import Stage
 from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.game_list import GameEnding, RamschResultView
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import Actor, CommandRefusal, EndReason, OccupantKind
 from skat.table.service import CommandIdReusedError
+from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
 from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
+from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answer_of
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.series_answer import SeriesAnswer, series_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
@@ -34,7 +33,6 @@ if TYPE_CHECKING:
 
     from skat.table.auction import AuctionView
     from skat.table.declaring import DeclaringView
-    from skat.table.game_list import ResultView
     from skat.table.kontra import KontraView
     from skat.table.nudging import NudgeState
     from skat.table.playing import PlayingView
@@ -54,13 +52,25 @@ TABLE_STAND_SUFFIX: Final = "/stand"
 # The browser's `crypto.randomUUID()` writes 36 characters of this alphabet.
 COMMAND_ID_PATTERN: Final = r"^[A-Za-z0-9_-]{8,64}$"
 
+# The inputs every move of a table shares. A tool's schema carries these descriptions with it, so they are the one
+# place the command id, the table id and the version are explained, and they stay short.
+TableIdInPath = Annotated[str, Path(description="From read_table, or the link /t/{id}.")]
+CommandId = Annotated[
+    str,
+    Field(
+        pattern=COMMAND_ID_PATTERN,
+        description="Names this step: resend it to retry, take a new one after a refusal.",
+    ),
+]
+TableVersion = Annotated[int, Field(strict=True, description="From read_table or your table's view.")]
+
 
 class CommandRequest(BaseModel):
     """A client names only its retry key: the account and chair come from the session."""
 
     model_config = ConfigDict(extra="forbid")
 
-    command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
+    command_id: CommandId
 
 
 class RefusalAnswer(BaseModel):
@@ -107,21 +117,6 @@ class StageToken(StrEnum):
     DECLARED = "declared"
 
 
-class GameToken(StrEnum):
-    KARO = "karo"
-    HERZ = "herz"
-    PIK = "pik"
-    KREUZ = "kreuz"
-    GRAND = "grand"
-    NULL = "null"
-
-
-class AnnouncementToken(StrEnum):
-    NONE = "none"
-    SCHNEIDER = "schneider"
-    SCHWARZ = "schwarz"
-
-
 # The engine orders cards by number; the wire names them by word, so that order is no public contract.
 SUIT_TOKENS: Final = {
     Suit.KREUZ: SuitToken.KREUZ,
@@ -154,19 +149,6 @@ STAGE_TOKENS: Final = {
     Stage.DISCARDING: StageToken.DISCARDING,
     Stage.PICKED: StageToken.PICKED,
     Stage.DECLARED: StageToken.DECLARED,
-}
-GAME_TOKENS: Final = {
-    GameKind.KARO: GameToken.KARO,
-    GameKind.HERZ: GameToken.HERZ,
-    GameKind.PIK: GameToken.PIK,
-    GameKind.KREUZ: GameToken.KREUZ,
-    GameKind.GRAND: GameToken.GRAND,
-    GameKind.NULL: GameToken.NULL,
-}
-ANNOUNCEMENT_TOKENS: Final = {
-    Announcement.NONE: AnnouncementToken.NONE,
-    Announcement.SCHNEIDER: AnnouncementToken.SCHNEIDER,
-    Announcement.SCHWARZ: AnnouncementToken.SCHWARZ,
 }
 ANNOUNCEMENTS_OF_TOKEN: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
@@ -227,9 +209,19 @@ class LastTrickAnswer(BaseModel):
     taker_seat: int
 
 
+class TakenAnswer(BaseModel):
+    seat: int
+    tricks: int
+
+
 class SidesAnswer(BaseModel):
     declarer: int
     opponents: int
+
+
+class OpenHandAnswer(BaseModel):
+    seat: int
+    cards: list[CardAnswer]
 
 
 class GiveUpAnswer(BaseModel):
@@ -260,11 +252,14 @@ class PlayingAnswer(BaseModel):
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
+    taken: list[TakenAnswer]
     legal_cards: list[CardAnswer]
     running_points: SidesAnswer | None
     give_up: GiveUpAnswer | None
     shortening: ShorteningAnswer | None
     shortening_refused_seat: int | None
+    open_play_seat: int | None
+    open_hands: list[OpenHandAnswer]
     kontra: KontraAnswer | None
 
 
@@ -328,76 +323,6 @@ class NextDealerAnswer(BaseModel):
     """
 
     next_dealer_seat: int | None
-
-
-class MatadorsAnswer(BaseModel):
-    mit: bool
-    count: int
-
-
-class SeatGainAnswer(BaseModel):
-    seat: int
-    gain: int
-    won: bool
-
-
-class KontraStepAnswer(BaseModel):
-    word: Word
-    factor: int
-
-
-class KontraResultAnswer(BaseModel):
-    steps: list[KontraStepAnswer]
-
-
-class ResultAnswer(BaseModel):
-    kind: Literal["declared"]
-    ordinal: int
-    declarer_seat: int
-    game: GameToken
-    hand: bool
-    ouvert: bool
-    announcement: AnnouncementToken
-    schneider: bool
-    schwarz: bool
-    matadors: MatadorsAnswer | None
-    base_value: int | None
-    levels: list[Level]
-    multiplier: int | None
-    list_bonus: int
-    announcement_missed: bool
-    won: bool
-    doubled: bool
-    overbid: bool
-    bid: int
-    game_value: int
-    settled_value: int
-    score: int
-    declarer_points: int
-    opponents_points: int
-    gains: list[SeatGainAnswer]
-    kontra: KontraResultAnswer | None
-    bock_factor: int
-    ending: GameEnding
-    ended_by_seat: int | None
-
-
-class RamschSeatAnswer(BaseModel):
-    seat: int
-    points: int
-    score: int
-
-
-class RamschResultAnswer(BaseModel):
-    kind: Literal["ramsch"]
-    ordinal: int
-    seats: list[RamschSeatAnswer]
-    durchmarsch_seat: int | None
-    jungfrau: bool
-    bock_factor: int
-    pushes: int
-    push_factor: int
-    divided_by_ten: bool
 
 
 class EndedAnswer(BaseModel):
@@ -524,6 +449,7 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
             leader_seat=last.leader_seat,
             taker_seat=last.taker_seat,
         ),
+        taken=[TakenAnswer(seat=each.seat, tricks=each.tricks) for each in playing.taken],
         legal_cards=[card_answer_of(card) for card in playing.legal_cards],
         running_points=None
         if playing.running_points is None
@@ -539,6 +465,11 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
             agreed_seat=playing.shortening.agreed_seat,
         ),
         shortening_refused_seat=playing.shortening_refused_seat,
+        open_play_seat=playing.open_play_seat,
+        open_hands=[
+            OpenHandAnswer(seat=each.seat, cards=[card_answer_of(card) for card in each.cards])
+            for each in playing.open_hands
+        ],
         kontra=kontra_answer_of(playing.kontra),
     )
 
@@ -567,59 +498,6 @@ def next_dealer_answer_of(ended: PassedInView | AbortedView | None) -> NextDeale
     if ended is None:
         return None
     return NextDealerAnswer(next_dealer_seat=ended.next_dealer_seat)
-
-
-def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnswer | RamschResultAnswer | None:
-    if result is None:
-        return None
-    if isinstance(result, RamschResultView):
-        return RamschResultAnswer(
-            kind="ramsch",
-            ordinal=result.ordinal,
-            seats=[RamschSeatAnswer(seat=each.seat, points=each.points, score=each.score) for each in result.seats],
-            durchmarsch_seat=result.durchmarsch_seat,
-            jungfrau=result.jungfrau,
-            bock_factor=result.bock_factor,
-            pushes=result.pushes,
-            push_factor=result.push_factor,
-            divided_by_ten=result.divided_by_ten,
-        )
-    declaration, matadors = result.declaration, result.matadors
-    return ResultAnswer(
-        kind="declared",
-        ordinal=result.ordinal,
-        declarer_seat=result.declarer_seat,
-        game=GAME_TOKENS[declaration.kind],
-        hand=declaration.hand,
-        ouvert=declaration.ouvert,
-        announcement=ANNOUNCEMENT_TOKENS[declaration.announcement],
-        schneider=result.schneider,
-        schwarz=result.schwarz,
-        matadors=None if matadors is None else MatadorsAnswer(mit=matadors.mit, count=matadors.count),
-        base_value=result.base_value,
-        levels=list(result.levels),
-        multiplier=result.multiplier,
-        list_bonus=result.list_bonus,
-        announcement_missed=result.announcement_missed,
-        won=result.won,
-        doubled=result.doubled,
-        overbid=result.overbid,
-        bid=result.bid,
-        game_value=result.game_value,
-        settled_value=result.settled_value,
-        score=result.score,
-        declarer_points=result.declarer_points,
-        opponents_points=result.opponents_points,
-        gains=[SeatGainAnswer(seat=gain.seat, gain=gain.gain, won=gain.won) for gain in result.gains],
-        kontra=None
-        if result.kontra is None
-        else KontraResultAnswer(
-            steps=[KontraStepAnswer(word=step.word, factor=step.factor) for step in result.kontra.steps]
-        ),
-        bock_factor=result.bock_factor,
-        ending=result.ending,
-        ended_by_seat=result.ended_by_seat,
-    )
 
 
 def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | None:
@@ -749,7 +627,7 @@ def create_tables_router(
         responses={404: {"description": "No table has this id."}},
         openapi_extra=READ_TABLE_MARK,
     )
-    async def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
+    async def read_table(table_id: TableIdInPath, request: Request, response: Response) -> TableAnswer:
         """Read one Skat table by its id: what the caller's own chair may see.
 
         The answer holds the table's version, its chairs, and the caller's own cards and the cards it may play when
@@ -768,7 +646,9 @@ def create_tables_router(
         is true only for the caller that opened the table. `ended` is null while the table lives; once it ended it
         says why: `reason` is `empty` (nobody was there while no hand was dealt; `empty_seconds` is the wait),
         `unplayed` (no hand was dealt or played at for `unplayed_days` days) or `closed` (its opener closed it, and
-        `closed_by_name` is the opener's name).
+        `closed_by_name` is the opener's name, which the sweep at the start and every hour clears once
+        `SKAT_ENDED_TABLE_DAYS` days have passed, so it stays until that next sweep).
+        A game can also end shortened or played-open, each with the seat that did it.
         A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"
