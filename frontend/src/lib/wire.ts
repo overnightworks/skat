@@ -47,6 +47,7 @@ export const TABLE_AGENT_CALL_SUFFIX = "/call";
 export const TABLE_AGENT_SEND_AWAY_SUFFIX = "/send-away";
 export const TABLE_ABORT_AGREE_SUFFIX = "/abort/agree";
 export const TABLE_ABORT_REFUSE_SUFFIX = "/abort/refuse";
+export const TABLE_NUDGE_SUFFIX = "/nudge";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;
@@ -99,6 +100,7 @@ export const SERIES_LENGTH_MAX = 99;
 export const SERIES_LENGTH_STEP = 3;
 export const SERIES_LENGTH_DEFAULT = 36;
 export const CHAIRS_PER_TABLE = 3;
+export const ASK_AGAIN_AFTER = 60;
 export const RULE_SET_NAME_MAX = 40;
 export const SWITCH_ON_OPTIONS = {
     show_running_points: false,
