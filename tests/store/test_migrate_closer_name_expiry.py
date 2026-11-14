@@ -2,8 +2,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import migrate
-from tests.support.migrations import run_in_transaction, upgrade_to
+from tests.support.migrations import migrated_from, run_in_transaction
 
 pytestmark = pytest.mark.postgres
 
@@ -11,22 +10,18 @@ pytestmark = pytest.mark.postgres
 class TestFromAClosedTableAndAnEmptiedOneAtTheRevisionBefore:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        upgrade_to(unmigrated_engine, "0043")
-        with unmigrated_engine.begin() as connection:
-            connection.execute(
-                text(
-                    "INSERT INTO tables (id, version, ended_at, end_reason, closed_by_name)"
-                    " VALUES ('closed', 3, now(), 'closed', 'Anna')"
-                )
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO tables (id, version, ended_at, end_reason, empty_seconds)"
-                    " VALUES ('empty', 4, now(), 'empty', 60)"
-                )
-            )
-        migrate(unmigrated_engine)
-        return unmigrated_engine
+        return migrated_from(
+            unmigrated_engine,
+            "0043",
+            text(
+                "INSERT INTO tables (id, version, ended_at, end_reason, closed_by_name)"
+                " VALUES ('closed', 3, now(), 'closed', 'Anna')"
+            ),
+            text(
+                "INSERT INTO tables (id, version, ended_at, end_reason, empty_seconds)"
+                " VALUES ('empty', 4, now(), 'empty', 60)"
+            ),
+        )
 
     def test_nothing_changes_in_them(self, migrated):
         with migrated.connect() as connection:
