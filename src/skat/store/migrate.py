@@ -138,6 +138,20 @@ async def _read_current_revisions(engine: Engine) -> tuple[str, ...]:
         await connection.close()
 
 
+def _run_within_deadline(engine: Engine) -> tuple[str, ...]:
+    """Runs the probe on a loop of its own and closes the loop without waiting for the resolver thread.
+
+    A hostname lookup runs in the loop's executor, and no cancellation reaches a lookup already running; the
+    lookup finishes on its own, however long the system resolver takes. `asyncio.run` would wait for it, up to
+    five minutes, so the loop is closed instead, which leaves the executor to wind down once the lookup returns.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_read_current_revisions(engine))
+    finally:
+        loop.close()
+
+
 def database_health(engine: Engine) -> DatabaseHealth:
     """Whether the database serves a query and is at the newest migration; it raises on neither and returns within
     the health deadline.
@@ -148,7 +162,7 @@ def database_health(engine: Engine) -> DatabaseHealth:
     process.
     """
     try:
-        current = asyncio.run(_read_current_revisions(engine))
+        current = _run_within_deadline(engine)
     except psycopg.Error, TimeoutError:
         return DatabaseHealth(serves_queries=False, at_head=False)
     return DatabaseHealth(serves_queries=True, at_head=_at_head(current))
