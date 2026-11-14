@@ -238,9 +238,7 @@ class TestTheWindowTellsWhatHappenedSinceTheDeal:
         ]
         assert [line["seq"] for line in entries] == list(range(entries[0]["seq"], entries[0]["seq"] + len(entries)))
 
-    def test_a_put_back_names_no_card_and_an_ouvert_game_names_none_of_the_cards_it_opens(
-        self, agent, forehand_auction
-    ):
+    def test_a_put_back_names_no_card(self, agent, forehand_auction):
         forehand_auction.declared_after_putting_back(DECK[30:32])
 
         texts = [line["text"] for line in agent.window(forehand_auction.table_id)["entries"]]
