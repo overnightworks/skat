@@ -4,10 +4,10 @@ import pytest
 
 from skat.engine.deal import Position
 from skat.engine.kontra import KontraRefusal, Word
-from skat.table.records import NoWordSaid
+from skat.table.records import NoWordSaid, Refusal
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.mcp import SAY_KONTRA_TOOL, SAY_NO_WORD_TOOL
-from tests.web.support.playing import HERZ_GAME, contested_auction
+from tests.web.support.playing import HERZ_GAME, Table, contested_auction
 from tests.web.support.skat import AgentTable, Skat, stored
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -180,6 +180,84 @@ class TestAFirstCardTable:
         assert late_kontra.json()["reason"] == KontraRefusal.NOT_YOUR_WORD
         assert (kontra["my_word"], kontra["first_card_waits"]) == (None, True)
         assert table.record.progress.no_words == {NoWordSaid(FOREHAND, Word.KONTRA)}
+
+    @pytest.mark.parametrize("declarer_answer", ["re", "no-word"])
+    def test_the_agents_first_card_waits_for_the_declarers_answer_to_the_kontra_it_said(
+        self, skat, agent, declarer_answer
+    ):
+        table = self.first_card_table(skat, agent, FOREHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+        self.person_answers_no_word(table, REARHAND)
+        said = self.say_kontra(agent, table)
+
+        waiting = agent.play(table, HERZ_GAME[0], command_id="agent-move-0001")
+        if declarer_answer == "re":
+            answered = table.act(TABLE_KONTRA_SUFFIX, table.at[MIDDLEHAND], body={"word": "re"})
+            assert answered.status_code == 200, answered.text
+        else:
+            self.person_answers_no_word(table, MIDDLEHAND)
+        answered_play = agent.play(table, HERZ_GAME[0], command_id="agent-move-0002")
+
+        assert not said.is_error, said.text
+        assert waiting.json()["reason"] == KontraRefusal.WORDS_DUE
+        assert not answered_play.is_error, answered_play.text
+        assert table.record.progress.plays != ()
+
+    @pytest.mark.parametrize(
+        ("tool", "changes"),
+        [
+            pytest.param(SAY_KONTRA_TOOL, {"word": "kontra"}, id="kontra"),
+            pytest.param(SAY_NO_WORD_TOOL, {}, id="no-word"),
+        ],
+    )
+    def test_a_stale_version_is_refused_and_leaves_the_waiting_table_unchanged(self, skat, agent, tool, changes):
+        table = self.first_card_table(skat, agent, FOREHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+        before = stored(skat)
+
+        refused = agent.take_step(tool, table, command_id="agent-stale-0001", **{**changes, "version": 0})
+
+        assert refused.is_error
+        assert refused.json()["reason"] == Refusal.STALE_VERSION
+        assert stored(skat)[0] == before[0]
+
+    @pytest.mark.parametrize(
+        ("tool", "changes"),
+        [
+            pytest.param(SAY_KONTRA_TOOL, {"word": "kontra"}, id="kontra"),
+            pytest.param(SAY_NO_WORD_TOOL, {}, id="no-word"),
+        ],
+    )
+    def test_an_agent_that_watches_the_first_card_table_is_refused_its_word(self, skat, agent, tool, changes):
+        agent.admitted()
+        table = Table(skat, options=kontra_options("first-card"))
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+        before = stored(skat)
+
+        refused = agent.offered_every_tool().take_step(tool, table, command_id="agent-watch-0001", **changes)
+
+        assert refused.is_error
+        assert refused.json()["reason"] == Refusal.NOT_SEATED
+        assert stored(skat)[0] == before[0]
+
+    def test_an_agent_opponent_that_answers_after_the_first_card_is_refused_as_too_late(self, skat, agent):
+        table = self.first_card_table(skat, agent, REARHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+        said = table.act(TABLE_KONTRA_SUFFIX, table.at[FOREHAND], body={"word": "kontra"})
+        assert said.status_code == 200, said.text
+        self.person_answers_no_word(table, MIDDLEHAND)
+        table.accepted(HERZ_GAME[0])
+        before = stored(skat)
+
+        refused = agent.take_step(SAY_NO_WORD_TOOL, table, command_id="agent-late-0001")
+
+        assert refused.is_error
+        assert refused.json()["reason"] == KontraRefusal.TOO_LATE
+        assert stored(skat)[0] == before[0]
 
     def say_kontra(self, agent, table):
         return agent.take_step(SAY_KONTRA_TOOL, table, command_id="agent-word-0001", word="kontra")
