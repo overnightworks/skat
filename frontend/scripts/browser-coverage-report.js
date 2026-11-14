@@ -25,9 +25,7 @@ const report = new CoverageReport({
 // Chromium reports a script's coverage without its text, and the bundles carry no pointer to their hidden maps. Thousands
 // of raw files name the same few bundles, each under the port of its own test server, and the report keeps a full copy
 // of source and map per added entry, which exhausts the heap. So the coverage of each bundle is merged first, and the
-// report gets each bundle once. The merge also keeps the few raw entries that lack a bundle's top-level function honest:
-// the report reads every byte outside the reported functions as run, so on its own such an entry would mark the whole
-// bundle covered; merged, the other entries supply the top level and its unrun functions.
+// report gets each bundle once.
 const entriesByBundle = new Map();
 const MERGE_EVERY = 64;
 const mergeEntries = (entries) => ({ ...entries[0], ...Util.mergeV8Coverage(entries) });
@@ -44,8 +42,14 @@ for (const file of await readdir(rawDirectory)) {
 }
 
 async function mergedWithBundleAndMap([bundle, entries]) {
+    const merged = mergeEntries(entries);
+    // Some raw entries lack the bundle's top-level function, and the report reads every byte outside the reported
+    // functions as run; merged, the other entries supply it. Without it the whole bundle would read as covered.
+    if (!merged.functions.some((fn) => fn.ranges[0].startOffset === 0)) {
+        throw new Error(`No coverage entry of ${bundle} reports its top-level code`);
+    }
     const [source, sourceMap] = await Promise.all([readFile(bundle, "utf8"), readFile(`${bundle}.map`, "utf8")]);
-    return { ...mergeEntries(entries), source, sourceMap: JSON.parse(sourceMap) };
+    return { ...merged, source, sourceMap: JSON.parse(sourceMap) };
 }
 
 if (entriesByBundle.size > 0) {
