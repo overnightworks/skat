@@ -49,6 +49,8 @@ export interface TableSound {
     preview(): Promise<void>;
     /** Fetches the recordings while the voice is on, so a word is said the moment its cue comes. */
     prepareVoice(): Promise<void>;
+    /** Runs the sea under the table while it is wanted, or lets it fade; it sounds only after a tap and follows the device's volume and mute. */
+    sea(wanted: boolean): void;
 }
 
 interface Moment {
@@ -189,6 +191,9 @@ export function createTableSound({
             sound.play(soundSet().voices["card-played"](OWN_CARD_GAIN));
         },
         prepareVoice,
+        sea: (wanted) => {
+            sound.sea(wanted);
+        },
     };
 }
 
@@ -244,6 +249,11 @@ export function soundForTurn(cues: readonly Cue[]): void {
 /** Lets the player hear the sound set they just chose. */
 export function previewSound(): Promise<void> {
     return pageSound().preview();
+}
+
+/** Runs the sea under the table while `wanted`; every call re-reads the device's volume and mute. */
+export function runSea(wanted: boolean): void {
+    pageSound().sea(wanted);
 }
 
 /** Fetches the recordings of the voice once the player has switched it on. */

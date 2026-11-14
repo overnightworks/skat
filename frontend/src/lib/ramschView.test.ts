@@ -61,6 +61,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
         hand: {

@@ -61,6 +61,7 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
     };

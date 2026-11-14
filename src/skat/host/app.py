@@ -75,6 +75,7 @@ from skat.web.sign_in import (
     install_sign_in,
 )
 from skat.web.streams import StreamSlots, StreamSource, create_streams_router
+from skat.web.style import create_style_router
 from skat.web.tables import create_tables_router
 from skat.web.wakes import WakeList
 
@@ -282,6 +283,7 @@ def _include_table_sub_routers(
     app.include_router(create_ready_router(tables, presence))
     app.include_router(create_series_end_router(tables, presence))
     app.include_router(create_abort_router(tables, presence))
+    app.include_router(create_style_router(tables, presence))
     app.include_router(create_game_list_router(tables))
     app.include_router(create_paused_router(tables, settings.paused_table_days))
 

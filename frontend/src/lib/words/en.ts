@@ -566,6 +566,11 @@ const translated = {
     "rules.bockOverlapAppend": "new rounds are appended",
     "rules.bockOverlapMultiply": "new rounds multiply",
     "rules.bockOverlapIgnore": "new rounds do not count",
+    "table.style": "Style",
+    "table.styleName": "Table style",
+    "table.styleKlassik": "Classic",
+    "table.styleStrandbar": "Beach bar",
+    "table.styleNote": "Applies to everyone at the table, watchers included.",
 } satisfies Words;
 // A translation that leaves out a gap of its source fails here.
 ({} as Words) satisfies typeof translated;

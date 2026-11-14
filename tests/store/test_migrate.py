@@ -762,3 +762,43 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
 
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, refused)
+
+
+class TestFromATableAtRevisionFortyFive:
+    @pytest.fixture
+    def migrated(self, unmigrated_engine):
+        """A database at 0045 holding a live and an ended table, then taken to head."""
+        upgrade_to(unmigrated_engine, "0045")
+        with unmigrated_engine.begin() as connection:
+            connection.execute(text("INSERT INTO tables (id, version) VALUES ('live', 1)"))
+            connection.execute(
+                text(
+                    "INSERT INTO tables (id, version, ended_at, end_reason, empty_seconds)"
+                    " VALUES ('ended', 2, now(), 'empty', 1800)"
+                )
+            )
+        migrate(unmigrated_engine)
+        return unmigrated_engine
+
+    def test_every_table_that_exists_reads_klassik(self, migrated):
+        with migrated.connect() as connection:
+            rows = connection.execute(text("SELECT id, style FROM tables ORDER BY id")).all()
+
+        assert [tuple(row) for row in rows] == [("ended", "klassik"), ("live", "klassik")]
+
+    def test_accepts_the_other_style(self, migrated):
+        run_in_transaction(migrated, text("UPDATE tables SET style = 'strandbar' WHERE id = 'live'"))
+
+        with migrated.connect() as connection:
+            assert connection.execute(text("SELECT style FROM tables WHERE id = 'live'")).scalar_one() == "strandbar"
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            pytest.param("UPDATE tables SET style = 'pokerkeller'", id="an-unknown-style"),
+            pytest.param("UPDATE tables SET style = NULL", id="no-style"),
+        ],
+    )
+    def test_the_checks_refuse_what_is_no_style(self, migrated, statement):
+        with pytest.raises(IntegrityError):
+            run_in_transaction(migrated, text(statement))

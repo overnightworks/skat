@@ -1105,7 +1105,7 @@ const IDEAS=[
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
-  ['🏖','Stil Strandbar','Ein zweiter Stil für den Tisch, pro Gerät in der Tafel „Ton und Bewegung“ gewählt: Strand bei Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer, eigene Kartenrücken, dazu Meeresrauschen. Klassik bleibt der Standard.','strand-auction, strand-trick, strand-result, strand-choose'],
+  ['🏖','Stil Strandbar','Ein zweiter Stil für den Tisch, von einer sitzenden Person am Tisch gewählt und für alle am Tisch geltend: Strand bei Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer, eigene Kartenrücken, dazu Meeresrauschen. Klassik bleibt der Standard.','strand-auction, strand-trick, strand-result, strand-choose'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp macht die Taste scharf, der zweite sagt an, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-arm, push-grand-done, push-grand-off'],
@@ -2310,7 +2310,7 @@ const soundTop=(d,w,o={})=>soundButton(d,{...o,top:true,at:SOUND_AT[w]});
 const soundTable=(d,w,o={})=>{const L=seatsOf(d);
   return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
-    +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)})+soundTop(d,w,o)+(o.over||'');};
+    +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)+(o.styleKey||'')})+soundTop(d,w,o)+(o.over||'');};
 /* the panel: what a player chooses, per device; rows are data, the panel only draws them */
 const SOUND_CHOICES={sound:['Leise','Stammtisch','Funkeln'],motion:['dezent','verspielt'],last:['wegfegen','liegen lassen']};
 const REDUCED_NOTE='Dein Gerät sagt „Bewegung reduzieren“. Darum zeigt Skat jeden Zustand sofort.';
@@ -2328,6 +2328,7 @@ const soundRows=(s,o={})=>[
 ];
 const soundSwitch=(on)=>`<span class="snd-sw ${on?'on':''}" aria-hidden="true"><i>${I.check}</i></span>`;
 const soundRow={
+  note:(r)=>`<p class="snd-note snd-table-note">${r.text}</p>`,
   switch:(r)=>`<div class="snd-row" role="switch" tabindex="0" aria-checked="${r.on}"><b>${r.label}</b>${soundSwitch(r.on)}</div>`,
   volume:(r)=>`<div class="snd-row vol"><b>${r.label}</b><span class="val">${r.value}</span><div class="snd-slider" role="slider" tabindex="0" aria-label="${r.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${r.value}" style="--vol:${r.value}"><i></i><u></u></div></div>`,
   look:(r)=>`<div class="snd-row stack look" data-row="${r.label}" role="radiogroup" aria-label="${r.label}"><b>${r.label}</b><div class="snd-look">${r.options.map(o=>`<span class="${o.name===r.picked?'on':''}" role="radio" aria-checked="${o.name===r.picked}" tabindex="0">${o.preview}<em>${o.name===r.picked?I.check:''}${o.name}</em></span>`).join('')}</div></div>`,
@@ -2335,7 +2336,7 @@ const soundRow={
     +`<div class="snd-seg">${r.options.map(name=>`<span class="${name===r.picked?'on':''}" role="radio" aria-checked="${name===r.picked}" tabindex="0">${name===r.picked?I.check:''}${name}</span>`).join('')}</div>${r.note?`<p class="snd-note">${r.note}</p>`:''}</div>`,
 };
 /* o.above: the panel opens above its button (the strip in a call); o.scroll: a number of pixels, 'end', or the name of a row to bring up */
-const soundPanel=(d,rows,o={})=>`<div class="snd-pop ${o.above?'above':''}" role="dialog" aria-label="${SOUND_WORD}" data-scroll="${o.scroll??0}"><div class="snd-head">${I.speaker}${SOUND_WORD}</div>`
+const soundPanel=(d,rows,o={})=>`<div class="snd-pop ${o.above?'above':''}" role="dialog" aria-label="${o.title||SOUND_WORD}" data-scroll="${o.scroll??0}"><div class="snd-head">${o.icon||I.speaker}${o.title||SOUND_WORD}</div>`
   +`<div class="snd-body">${rows.map(r=>soundRow[r.kind](r)).join('')}</div><div class="snd-more" aria-hidden="true">${I.chev}mehr</div></div>`;
 /* Lena's first visit: a watcher's table with its top row, the speaker beside the watchers or Lobby */
 const lenaTable=(d,w,o={})=>watchOpen(d)+soundTop(d,w,o)+(o.over||'');
@@ -2468,7 +2469,12 @@ const LOOK_PREVIEW={
   Strandbar:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#cba57a"/><rect width="120" height="24" fill="url(#lkSky)"/><circle cx="84" cy="24" r="7" fill="#fff0c2"/><rect y="24" width="120" height="12" fill="#2f6285"/><path d="M0 36Q8 33 16 36T32 36T48 36T64 36T80 36T96 36T112 36T128 36" fill="none" stroke="#fff" stroke-width="1.6" opacity=".85"/><circle cx="60" cy="48" r="26" fill="#e8cf9f"/><circle cx="60" cy="48" r="22" fill="#d7b27c"/><circle cx="60" cy="48" r="20" fill="none" stroke="#fff3d0" stroke-opacity=".6" stroke-width="1"/><rect x="50" y="38" width="12" height="17" rx="2" fill="#26427a" stroke="#f4dfae" stroke-width=".8" transform="rotate(-8 56 46)"/><rect x="59" y="38" width="12" height="17" rx="2" fill="#26427a" stroke="#f4dfae" stroke-width=".8" transform="rotate(7 65 46)"/><circle cx="14" cy="48" r="8" fill="#e6c88c"/><circle cx="106" cy="48" r="8" fill="#e6c88c"/></svg>`,
 };
 const STYLES=Object.entries(LOOK_PREVIEW).map(([name,preview])=>({name,preview}));
-const strandRows=(s)=>[{kind:'look',label:'Stil',options:STYLES,picked:'Strandbar'},...soundRows(s)];
+/* the table's style is chosen at the table, by a person who sits: a key in Skat's strip opens a small panel above it; the sound panel keeps only sound and motion */
+const STYLE_WORD='Stil des Tisches';
+Object.assign(I,{style:sv('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-1 1.5-2.1-.5-1.2.2-2.4 1.6-2.4H17a3.5 3.5 0 0 0 3.5-3.5C20.5 6.9 16.7 3.5 12 3.5z"/><circle cx="7.8" cy="11.2" r="1" fill="currentColor" stroke="none"/><circle cx="10.6" cy="7.6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.9" r="1" fill="currentColor" stroke="none"/>',2)});
+const styleKey=(d,o={})=>{const state=`aria-haspopup="dialog" aria-expanded="${!!o.open}"`,attrs=`role="button" tabindex="0" data-snd ${state} title="${STYLE_WORD}" aria-label="${STYLE_WORD}"`;
+  return d?`<span class="cb wide glass style ${o.open?'on':''}" ${attrs}>${I.style}Stil</span>`:`<span class="cb style ${o.open?'on':''}" ${attrs}>${I.style}</span>`;};
+const stylePanel=(d,picked)=>soundPanel(d,[{kind:'look',label:'Stil',options:STYLES,picked},{kind:'note',text:'Gilt für alle am Tisch, auch für die Zuschauer.'}],{above:true,title:STYLE_WORD,icon:I.style});
 const STRAND_SCENES=[
   ['strand-auction','Strandbar: Reizen',[360,390,1280],strandView(BID_SCENES.find(([id])=>id==='bid-middle')[2]),
     ['Der Tisch „Reizen“, dieselben Stühle, Karten und Tasten wie in Klassik, im Stil Strandbar: Strand in der Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer an den Plätzen, eigene Kartenrücken. Muschel und Cocktail stehen am Rand des Tisches und decken keine Karte und keine Taste.',SEA_CAPTION]],
@@ -2476,8 +2482,8 @@ const STRAND_SCENES=[
     ['Der Stich liegt mit seinen Namen auf dem Tisch: Annas Pik-König, Novas Sieben, Felix’ Ass. Neben Annas Stuhl liegt ihr Stapel mit dem letzten Stich und dem hellen Rand, neben Felix sein erster.',SEA_CAPTION]],
   ['strand-result','Strandbar: das Ergebnis',[360,390,1280],strandView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],shell:[54,596]}),
     ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, die Strohuntersetzer tragen die Punkte.',SEA_CAPTION]],
-  ['strand-choose','Strandbar: der Stil in der Tafel',[360,390,1280],strandView((d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,strandRows(soundState()))})),
-    ['Die Tafel „Ton und Bewegung“ führt den Stil als erste Zeile: Klassik oder Strandbar, je mit einer kleinen Vorschau; die gewählte trägt Haken und Farbe. Der Stil gilt für dieses Gerät und nur für die Person, und er ändert den Tisch hinter der Tafel sofort.',SEA_CAPTION]],
+  ['strand-choose','Strandbar: der Stil am Tisch',[360,390,1280],strandView((d,w)=>soundTable(d,w,{styleKey:styleKey(d,{open:true}),over:stylePanel(d,'Strandbar')})),
+    ['Wer am Tisch sitzt, wählt den Stil mit der Taste „Stil“ in Skats Leiste: Klassik oder Strandbar, je mit einer kleinen Vorschau; die gewählte trägt Haken und Farbe. Der Stil gehört dem Tisch und nicht der Person: Er ändert sich für alle am Tisch sofort, auch für die Zuschauer, die selbst keine Taste dafür haben. Die Tafel „Ton und Bewegung“ behält nur Ton, Lautstärke und die Sets; Lautstärke und Stumm bleiben je Gerät.',SEA_CAPTION]],
 ];
 soundScenes(STRAND_SCENES,'strand');
 const byId=Object.fromEntries(FRAMES);
@@ -2836,13 +2842,15 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .snd-look em svg{width:14px;height:14px}
 .d1280 .snd-row.stack.look{flex-wrap:wrap;padding:8px 16px 10px}
 .d1280 .snd-row.stack.look b{flex:1 0 100%}
+.snd-note.snd-table-note{margin:0;padding:2px 16px 14px;order:0}
+.cb.style.on,.cb.wide.glass.style.on{background:var(--on-stage);color:var(--stage)}
 </style>
 <script>
 /* the panel hangs on its button: centred under it (above it in a call), never closer than 16 px to the frame's edge, the caret over the button's centre, the rows rolled as the scene says, the „mehr“ strip shown while rows follow; only the shown frames are touched */
 {const only=new URLSearchParams(location.search).get('f');
 const panels=[...(only?document.getElementById(only):document).querySelectorAll('.snd-pop')];
 const hangPanels=()=>panels.forEach(pop=>{
-  const frame=pop.closest('.frame'),f=frame.getBoundingClientRect(),a=frame.querySelector('[data-snd]').getBoundingClientRect(),w=pop.offsetWidth,centre=a.left-f.left+a.width/2;
+  const frame=pop.closest('.frame'),f=frame.getBoundingClientRect(),a=(frame.querySelector('[data-snd][aria-expanded="true"]')||frame.querySelector('[data-snd]')).getBoundingClientRect(),w=pop.offsetWidth,centre=a.left-f.left+a.width/2;
   const left=Math.min(Math.max(centre-w/2,16),f.width-16-w);
   pop.style.left=`${left}px`;pop.style.setProperty('--caret',`${centre-left}px`);
   if(pop.classList.contains('above')){pop.style.bottom=`${f.bottom-a.top+10}px`;pop.style.maxHeight=`${Math.min(f.height*.7,a.top-f.top-10-16)}px`;}

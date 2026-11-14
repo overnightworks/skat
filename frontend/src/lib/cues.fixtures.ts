@@ -116,6 +116,7 @@ export function table(
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
     };

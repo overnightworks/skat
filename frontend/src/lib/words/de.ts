@@ -468,6 +468,11 @@ export type Words = {
     readonly "rules.bockOverlapAppend": string;
     readonly "rules.bockOverlapMultiply": string;
     readonly "rules.bockOverlapIgnore": string;
+    readonly "table.style": string;
+    readonly "table.styleName": string;
+    readonly "table.styleKlassik": string;
+    readonly "table.styleStrandbar": string;
+    readonly "table.styleNote": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -1032,5 +1037,10 @@ export const words: Words = {
     "rules.bockOverlapAppend": "neue Runden hängen sich an",
     "rules.bockOverlapMultiply": "neue Runden multiplizieren sich",
     "rules.bockOverlapIgnore": "neue Runden zählen nicht",
+    "table.style": "Stil",
+    "table.styleName": "Stil des Tisches",
+    "table.styleKlassik": "Klassik",
+    "table.styleStrandbar": "Strandbar",
+    "table.styleNote": "Gilt für alle am Tisch, auch für die Zuschauer.",
 };
 export type Key = keyof Words;

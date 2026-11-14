@@ -34,6 +34,7 @@ from skat.table.records import (  # noqa: E402
     TABLE_ID_PATTERN,
     EndReason,
     RamschOccasion,
+    TableStyle,
     Visibility,
 )
 from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS  # noqa: E402
@@ -87,6 +88,7 @@ from skat.web.pushing import (  # noqa: E402
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.rule_sets import RULE_SETS_PATH  # noqa: E402
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX  # noqa: E402
+from skat.web.style import TABLE_STYLE_SUFFIX  # noqa: E402
 from skat.web.table_options import options_answer_of  # noqa: E402
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
@@ -136,6 +138,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "GAME_ENDING_TOKENS": GameEnding,
     "WORD_TOKENS": Word,
     "VISIBILITY_TOKENS": Visibility,
+    "TABLE_STYLE_TOKENS": TableStyle,
 }
 
 
@@ -210,6 +213,7 @@ def path_constants() -> dict[str, str]:
         "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
         "TABLE_NEW_SERIES_SUFFIX": TABLE_NEW_SERIES_SUFFIX,
+        "TABLE_STYLE_SUFFIX": TABLE_STYLE_SUFFIX,
         "TABLE_SERIES_END_AGREE_SUFFIX": TABLE_SERIES_END_AGREE_SUFFIX,
         "TABLE_SERIES_END_REFUSE_SUFFIX": TABLE_SERIES_END_REFUSE_SUFFIX,
         "TABLE_AGENTS_SUFFIX": TABLE_AGENTS_SUFFIX,

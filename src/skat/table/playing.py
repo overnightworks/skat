@@ -458,6 +458,7 @@ def _ended(table: TableRecord, entry: GameEntry, bock: BockRounds) -> TableRecor
         options=table.options,
         bock=bock,
         visibility=table.visibility,
+        style=table.style,
     )
 
 

@@ -62,6 +62,15 @@ class Visibility(StrEnum):
     PRIVATE = "private"
 
 
+class TableStyle(StrEnum):
+    """How a table looks and sounds, for everyone at it: a seated member changes it, a new table starts with the
+    classic one. The stored token, also the request's and the answer's.
+    """
+
+    KLASSIK = "klassik"
+    STRANDBAR = "strandbar"
+
+
 class TableId(OpaqueId):
     """The id of a table."""
 
@@ -391,7 +400,8 @@ class Series:
 @dataclass(frozen=True)
 class TableRecord:
     """A table as stored; its game list outlives every deal of its series and goes with the next series' first deal
-    or with the table. `bock` holds the pending Bock rounds, none at a table without Bock and after a series' end."""
+    or with the table. `bock` holds the pending Bock rounds, none at a table without Bock and after a series' end.
+    `style` is the look the whole table shares; it stays over hands and series."""
 
     id: TableId
     version: int
@@ -404,6 +414,7 @@ class TableRecord:
     options: TableOptions
     bock: BockRounds
     visibility: Visibility
+    style: TableStyle = TableStyle.KLASSIK
 
 
 class EndReason(StrEnum):

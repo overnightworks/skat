@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
     from skat.engine.schieberamsch import Pushing
-    from skat.table.records import Chair, EndProposal, TableOptions, TableRecord
+    from skat.table.records import Chair, EndProposal, TableOptions, TableRecord, TableStyle
 
 
 @dataclass(frozen=True)
@@ -147,8 +147,8 @@ class SeriesView:
 @dataclass(frozen=True)
 class TableView:
     """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series,
-    options or Bock games. A live table without Bock has no `bock`. `opened_by_me` is true only for the account that
-    opened the live table.
+    options, style or Bock games. A live table without Bock has no `bock`. `opened_by_me` is true only for the account
+    that opened the live table.
     """
 
     id: str
@@ -161,6 +161,7 @@ class TableView:
     result: ResultView | RamschResultView | None
     series: SeriesView | None
     options: TableOptions | None
+    style: TableStyle | None
     bock: BockView | None
     ended: EndedView | None = None
     opened_by_me: bool = False
@@ -330,6 +331,7 @@ def _ended_view_of(table: EndedTable) -> TableView:
         result=None,
         series=None,
         options=None,
+        style=None,
         bock=None,
         ended=EndedView(
             table.ending.reason,
@@ -393,6 +395,7 @@ def view_of(
         result=result_view_of(table),
         series=_series_view(table),
         options=table.options,
+        style=table.style,
         bock=bock_view_of(table),
         opened_by_me=opener_account == viewer_account_id,
     )

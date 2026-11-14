@@ -93,6 +93,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         aborted: null,
         ended: null,
         options: null,
+        style: null,
         bock: null,
     };
 }
