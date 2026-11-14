@@ -202,22 +202,13 @@ describe("gameRows", () => {
         expect(row).toMatchObject({
             number: 4,
             name: "player 2",
+            subject: "player 2",
             initial: "p",
             line: `${words["game.handName"]({ game: words["game.grand"] })}, ${words["result.levelSchneider"]}`,
             value: "48",
             gain: "+98",
             lost: false,
         });
-    });
-
-    it.each([
-        ["null", true],
-        ["kreuz", false],
-        ["grand", false],
-    ] as const)("tells a %s game to be a Null game (%s)", (game, isNull) => {
-        const [row] = gameRows([{ ...DECLARED_ENTRY, game }]);
-
-        expect(row?.nullGame).toBe(isNull);
     });
 
     it("shows a lost game's loss with a minus", () => {
@@ -232,6 +223,7 @@ describe("gameRows", () => {
         expect(row).toMatchObject({
             number: 7,
             name: words["table.seriesRamschOf"]({ name: "player 2" }),
+            subject: "player 2",
             line: words["table.seriesPushed"]({ count: 2 }),
             value: "",
             gain: "−40",

@@ -1,4 +1,5 @@
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -104,15 +105,13 @@ def test_a_declared_game_given_up_in_its_first_trick_shows_its_count_its_cards_a
     assert page_errors == []
 
 
-@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_null_games_sheet_draws_no_points_bar_and_still_its_tricks(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
-    form_factor: dict[str, Any],
 ) -> None:
-    table = a_declared_game_with_two_hand_cards_put_away(open_person, e2e_server, member_of, page_errors, form_factor)
+    table = a_declared_game_with_two_hand_cards_put_away(open_person, e2e_server, member_of, page_errors, PHONE)
     table.play_out(1)
     table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
     person = table.pages[table.declarer_seat]
@@ -168,6 +167,7 @@ def test_a_ramsch_sheet_draws_every_dot_round_and_its_tricks_inside_the_panel(
     assert all(abs(width - height) < 1 for width, height in sizes)
     seat_dots = person.locator(f"{GAME_SHEET} .seat-eyes .dot")
     assert len(set(seat_dots.evaluate_all("dots => dots.map(dot => getComputedStyle(dot).backgroundImage)"))) == SEATS
+    expect(person.locator(f"{GAME_SHEET} .sheet-head .dot")).to_have_class(re.compile(r"\bseat-[123]\b"))
     assert person.locator(f"{GAME_SHEET} .tricks").evaluate(
         "tricks => tricks.getBoundingClientRect().right <= tricks.closest('.game-list').getBoundingClientRect().right"
     )

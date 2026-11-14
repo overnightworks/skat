@@ -102,6 +102,8 @@ export function standingsView(table: Table): StandingsView | null {
 export type GameRow = {
     number: number;
     name: string;
+    // Whose seat colours the row's dot: the declarer, or the first one a Ramsch cost the most.
+    subject: string;
     initial: string;
     // The game and its levels; a Ramsch says how often its skat was pushed, and a Ramsch with no push has none.
     line: string | null;
@@ -128,6 +130,7 @@ function declaredRow(entry: Extract<SeriesEntry, { kind: "declared" }>): GameRow
     return {
         number: entry.number,
         name,
+        subject: name,
         initial: name.slice(0, 1),
         line: [gameLabel(entry).name, ...levels].join(", "),
         value: String(entry.settled_value),
@@ -145,6 +148,7 @@ function ramschRow(entry: Extract<SeriesEntry, { kind: "ramsch" }>): GameRow {
     return {
         number: entry.number,
         name: words["table.seriesRamschOf"]({ name: listFormat.format(subjects) }),
+        subject: subjects[0] as string,
         initial: (subjects[0] as string).slice(0, 1),
         line: entry.pushes === 0 ? null : words["table.seriesPushed"]({ count: entry.pushes }),
         value: "",

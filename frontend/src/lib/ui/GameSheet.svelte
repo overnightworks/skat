@@ -13,6 +13,8 @@
 
     let view = $state<GameSheetView | null>(null);
     let failed = $state(false);
+    // The head's dot wears the colour of the seat its row names, as the dots below do; it is plain until the sheet is read.
+    const headSeat = $derived(view?.seats.find((seat) => seat.name === row.subject));
 
     $effect(() => {
         let current = true;
@@ -54,7 +56,9 @@
         </button>
         <span class="grow">
             <span class="nr">{row.number}</span>
-            <span class="dot" aria-hidden="true">{row.initial}</span>
+            <span class={["dot", headSeat !== undefined && `seat-${String(headSeat.seat)}`]} aria-hidden="true"
+                >{row.initial}</span
+            >
             <span class="txt">
                 <b>{row.name}</b>
                 {#if row.line !== null}<small>{row.line}</small>{/if}

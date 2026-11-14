@@ -29,7 +29,12 @@ export type SheetCards = {
     hands: SheetHand[];
     tricks: SheetTrick[];
 };
-export type GameSheetView = { count: SheetCount; cards: SheetCards | null; end: SheetEnd | null };
+export type GameSheetView = {
+    seats: SheetSeat[];
+    count: SheetCount;
+    cards: SheetCards | null;
+    end: SheetEnd | null;
+};
 
 const ENDING_WORDS: Partial<Record<GameEnding, string>> = {
     "given-up": words["result.givenUp"],
@@ -55,6 +60,7 @@ export function gameSheetView(sheet: GameSheet): GameSheetView {
     if (count.kind === "ramsch") {
         const most = Math.max(...count.seat_points);
         return {
+            seats,
             count: {
                 kind: "ramsch",
                 seats: seats.map((seat) => ({
@@ -73,6 +79,7 @@ export function gameSheetView(sheet: GameSheet): GameSheetView {
     const opponents = seats.filter((seat) => seat.seat !== count.declarer_seat).map((seat) => seat.name);
     const ending = ENDING_WORDS[count.ending] ?? (played < TRICKS_IN_A_GAME ? words["table.sheetDecided"] : null);
     return {
+        seats,
         count: {
             kind: "declared",
             sides: { declarer: seatOf(count.declarer_seat).name, opponents: listFormat.format(opponents) },
