@@ -46,6 +46,8 @@ FUNKELN = text(SOURCE_LANGUAGE, "sound.setFunkeln")
 DEZENT = text(SOURCE_LANGUAGE, "sound.motionDezent")
 VERSPIELT = text(SOURCE_LANGUAGE, "sound.motionVerspielt")
 LAST_TRICK = text(SOURCE_LANGUAGE, "sound.lastTrick")
+TURN_IN_BACKGROUND = text(SOURCE_LANGUAGE, "sound.turnInBackground")
+VIBRATION = text(SOURCE_LANGUAGE, "sound.vibration")
 SWEEP = text(SOURCE_LANGUAGE, "sound.lastTrickSweep")
 STAY = text(SOURCE_LANGUAGE, "sound.lastTrickStay")
 # The voices of a card in the sets "Stammtisch" and "Funkeln", in the order they start.
@@ -456,6 +458,28 @@ def test_a_picked_volume_and_picked_sets_hold_after_a_reload(
     expect(panel_of(watcher).locator(".sound-value")).to_have_text("100")
     expect(picked_in(watcher, SOUND_SETS)).to_have_accessible_name(FUNKELN)
     expect(picked_in(watcher, MOTION)).to_have_accessible_name(DEZENT)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_turn_cue_switches_are_stored_and_hold_after_a_reload(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    watcher = open_at(open_person, page_errors, table, reduced_motion="no-preference", **form_factor)
+    open_the_panel(watcher)
+    for name in (TURN_IN_BACKGROUND, VIBRATION):
+        expect(panel_of(watcher).get_by_role("switch", name=name)).not_to_be_checked()
+
+    for name in (TURN_IN_BACKGROUND, VIBRATION):
+        panel_of(watcher).get_by_role("switch", name=name).set_checked(True)
+
+    assert json.loads(stored_record(watcher) or "") == {"turnInBackground": True, "vibration": True}
+    watcher.reload()
+    expect(watcher.locator(".chair")).to_have_count(3)
+    open_the_panel(watcher)
+
+    for name in (TURN_IN_BACKGROUND, VIBRATION):
+        expect(panel_of(watcher).get_by_role("switch", name=name)).to_be_checked()
     assert page_errors == []
 
 
