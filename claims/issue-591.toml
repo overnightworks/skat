@@ -1,7 +1,0 @@
-claim_id = "e18de56752c2401e975a11bf42fb321c"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "7f4ab02747aa61fb227c40f0b25cabc9f5170819"
-branch = "claude/issue-591-the-picture-draws-the-table-in-the-stran"
-scope = ["docs/mockups/table.html"]
-opened_commit = "a712c31545ee29d4e9abc661903cd1467f0b211b"
