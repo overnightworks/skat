@@ -5,7 +5,6 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from skat.engine.kontra import KontraDeadline
 from skat.table.rule_sets import RULE_SET_NAME_MAX, RuleSet, RuleSetRefusal, rule_set_name
 from skat.web.mcp import READ_RULE_SETS_MARK, SAVE_RULE_SET_MARK, Exclusion, excluded
 from skat.web.table_options import OptionsAnswer, OptionsRequest, options_answer_of, table_options_of
@@ -26,15 +25,6 @@ class SaveRuleSetRequest(BaseModel):
 
     name: Annotated[str, Field(strict=True)]
     options: OptionsRequest
-
-    @field_validator("options")
-    @classmethod
-    def _options_the_table_page_can_play(cls, options: OptionsRequest) -> OptionsRequest:
-        # The page picks a set onto its opening sheet, and its table has no key to answer a Kontra word with no word.
-        if options.kontra is not None and options.kontra.deadline is KontraDeadline.FIRST_CARD:
-            message = "a set cannot hold the first-card Kontra deadline: a table page cannot answer its words"
-            raise ValueError(message)
-        return options
 
     @field_validator("name")
     @classmethod
@@ -85,8 +75,7 @@ def create_rule_sets_router(rule_sets: RuleSetService) -> APIRouter:
     )
     async def save_rule_set(body: SaveRuleSetRequest, request: Request, response: Response) -> Response | RuleSetAnswer:
         """Save the given table options under a name as one of the caller's own rule sets, and answer the set.
-        `options` takes the same fields as a table's `options`, except that the Kontra deadline `first-card` is
-        refused (422): a table page cannot answer its words. `{}` holds the official rules. Saving a name the
+        `options` takes the same fields as a table's `options`; `{}` holds the official rules. Saving a name the
         caller already holds with the same options answers that set again and changes nothing; with other options it
         is refused with the reason `name-taken`, and nothing changes. A set is copied into a table when the table is
         opened with its options; changing the set later never changes such a table.

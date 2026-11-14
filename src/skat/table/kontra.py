@@ -5,9 +5,9 @@ from skat.engine.deal import seats_from
 from skat.engine.kontra import KontraDeadline, KontraRefusal, Word, WordSaid, bidders_of, decline, say
 from skat.table.hand_state import (
     doubling_of,
-    first_card_waits_for_words,
     game_waits_for_the_declarers_answer,
     playing_of,
+    positions_the_first_card_waits_on,
 )
 from skat.table.records import Decision, NoWordSaid, Refusal
 from skat.table.rules import acting_position
@@ -46,14 +46,16 @@ class SeatedWord:
 class KontraView:
     """The words of the running hand as one viewer sees them: every word said in order, the factor they make, and
     the word the viewer's own chair may say now and whether it has answered that word with no word. At a table whose
-    words end with the first card, `first_card_waits` says the hand's first card waits for a word or a decline.
+    words end with the first card, `first_card_waits_on` names the seats the hand's first card waits on for a word or
+    a decline and `first_card_declined` the seats that declined, both empty once the wait is over.
     """
 
     said: tuple[SeatedWord, ...]
     factor: int
     my_word: Word | None
     my_word_answered: bool
-    first_card_waits: bool
+    first_card_waits_on: tuple[int, ...]
+    first_card_declined: tuple[int, ...]
 
 
 def kontra_payload(command: KontraCommand) -> str:
@@ -156,11 +158,13 @@ def kontra_view_of(
     open_words = {position: _word_open_to(doubling, options, state, bidders, position) for position in viewer_positions}
     mine = {position: word for position, word in open_words.items() if not isinstance(word, KontraRefusal)}
     seats = seats_from(dealer)
+    waits_on = positions_the_first_card_waits_on(table)
     return KontraView(
         said=tuple(SeatedWord(seats[each.position], each.word) for each in table.progress.words),
         factor=doubling.factor,
         my_word=doubling.next_word if mine else None,
         my_word_answered=bool(mine)
         and all(NoWordSaid(position, word) in table.progress.no_words for position, word in mine.items()),
-        first_card_waits=first_card_waits_for_words(table),
+        first_card_waits_on=tuple(sorted(seats[position] for position in waits_on)),
+        first_card_declined=tuple(sorted(seats[answered.position] for answered in table.progress.no_words if waits_on)),
     )

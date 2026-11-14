@@ -255,17 +255,22 @@ class TestTheFirstCardDeadline:
 
         table.accepted(HERZ_GAME[0])
 
-    def test_the_view_of_every_viewer_tells_that_the_first_card_waits_on_a_word_until_the_words_are_in(
+    def test_the_view_of_every_viewer_tells_which_seats_the_first_card_waits_on_until_the_words_are_in(
         self, first_card_hand
     ):
         table = first_card_hand
         viewers = (table.at[FOREHAND], table.at[MIDDLEHAND], table.watcher)
-        waiting = [kontra_view(table, headers)["first_card_waits"] for headers in viewers]
+        waiting = [kontra_view(table, headers)["first_card_waits_on"] for headers in viewers]
         answered_no_word(table, FOREHAND)
+        declined = [kontra_view(table, headers) for headers in viewers]
         answered_no_word(table, REARHAND)
-        decided = [kontra_view(table, headers)["first_card_waits"] for headers in viewers]
+        decided = [kontra_view(table, headers)["first_card_waits_on"] for headers in viewers]
 
-        assert (waiting, decided) == ([True] * 3, [False] * 3)
+        assert waiting == [[SEAT[REARHAND], SEAT[FOREHAND]]] * 3
+        assert [(view["first_card_waits_on"], view["first_card_declined"]) for view in declined] == [
+            ([SEAT[REARHAND]], [SEAT[FOREHAND]])
+        ] * 3
+        assert decided == [[]] * 3
 
     def test_a_no_word_answer_is_a_decline_the_opponent_cannot_take_back_by_saying_kontra(self, first_card_hand):
         answered_no_word(first_card_hand, FOREHAND)
@@ -306,7 +311,7 @@ class TestTheFirstCardDeadline:
 
     def test_the_table_with_the_time_of_the_own_card_plays_the_first_card_at_once(self, herz_hand):
         herz_hand.accepted(HERZ_GAME[0])
-        assert kontra_view(herz_hand, herz_hand.watcher)["first_card_waits"] is False
+        assert kontra_view(herz_hand, herz_hand.watcher)["first_card_waits_on"] == []
 
 
 class TestTheDeadlines:
@@ -502,7 +507,14 @@ class TestWhatEveryViewerSees:
 
         assert table.record.progress.words == ()
         assert [(kontra_view(table, table.at[position])) for position in (FOREHAND, REARHAND)] == [
-            {"said": [], "factor": 1, "my_word": "kontra", "my_word_answered": False, "first_card_waits": False}
+            {
+                "said": [],
+                "factor": 1,
+                "my_word": "kontra",
+                "my_word_answered": False,
+                "first_card_waits_on": [],
+                "first_card_declined": [],
+            }
         ] * 2
 
 

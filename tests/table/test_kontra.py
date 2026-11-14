@@ -460,28 +460,40 @@ class TestTheFirstCardWaitingInTheViewer:
             pytest.param(frozenset(), id="a-watcher"),
         ],
     )
-    def test_every_viewer_is_told_that_the_first_card_waits_on_a_word_until_the_words_are_in(self, viewer):
+    def test_every_viewer_is_told_which_seats_the_first_card_waits_on_until_the_words_are_in(self, viewer):
         table = first_card_table()
         decided = after_answers(table, FOREHAND, REARHAND)
+        seats = seats_from(table.dealer)
 
         before = kontra_view_of(table, playing_of(table), table.dealer, viewer)
         after = kontra_view_of(decided, playing_of(decided), decided.dealer, viewer)
 
-        assert (before.first_card_waits, after.first_card_waits) == (True, False)
+        assert (before.first_card_waits_on, after.first_card_waits_on) == (
+            tuple(sorted((seats[FOREHAND], seats[REARHAND]))),
+            (),
+        )
+
+    def test_every_viewer_is_told_which_seats_declined_while_the_first_card_still_waits(self):
+        table = after_answers(first_card_table(), FOREHAND)
+        seats = seats_from(table.dealer)
+
+        view = kontra_view_of(table, playing_of(table), table.dealer, frozenset())
+
+        assert (view.first_card_waits_on, view.first_card_declined) == ((seats[REARHAND],), (seats[FOREHAND],))
 
     def test_a_table_with_the_time_of_the_own_card_does_not_tell_that_the_first_card_waits(self):
-        table = kontra_table()
+        table = answer_as(kontra_table(), FOREHAND).table
 
         view = kontra_view_of(table, playing_of(table), table.dealer, frozenset({FOREHAND}))
 
-        assert view.first_card_waits is False
+        assert (view.first_card_waits_on, view.first_card_declined) == ((), ())
 
     def test_the_first_card_no_longer_waits_after_it_is_played(self):
         table = with_words(first_card_table(), plays=1)
 
         view = kontra_view_of(table, playing_of(table), table.dealer, frozenset({FOREHAND}))
 
-        assert view.first_card_waits is False
+        assert view.first_card_waits_on == ()
 
     def test_a_seat_that_declined_is_offered_no_word_and_a_seat_still_undecided_keeps_its_kontra(self):
         table = after_answers(first_card_table(), FOREHAND)

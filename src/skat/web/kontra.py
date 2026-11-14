@@ -59,10 +59,11 @@ def create_kontra_router(tables: TableService, presence: Presence) -> APIRouter:
         with Hirsch, as far as the table's `options.kontra.reach` allows. Send the word `hand.playing.kontra.my_word`
         names in the answer of read_table or the state of your table's view; a word stays open until the caller plays
         his next card, and play never waits for it, unless the table's `options.kontra.deadline` is `first-card`: then
-        the words end with the hand's first card, which waits (`hand.playing.kontra.first_card_waits`) until each
-        opponent who may say Kontra has said it or answered no word, and the declarer has answered a Kontra. Refused: a
-        stale version, not the caller's word, too late, beyond the table's reach, an opponent who did not bid where the
-        table asks it, a table without Kontra, an opponent's give-up waiting for the declarer.
+        the words end with the hand's first card, which waits until each opponent who may say Kontra has said it or
+        answered no word, and the declarer has answered a Kontra; `hand.playing.kontra.first_card_waits_on` names the
+        seats it waits on and is empty when it waits for none. Refused: a stale version, not the caller's word, too
+        late, beyond the table's reach, an opponent who did not bid where the table asks it, a table without Kontra,
+        an opponent's give-up waiting for the declarer.
         """
         command = KontraCommand(command_id=body.command_id, table_id=table_id, version=body.version, word=body.word)
         return await command_answer(

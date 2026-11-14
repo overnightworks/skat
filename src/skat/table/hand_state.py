@@ -5,13 +5,13 @@ from skat.engine.bidding import Auction, Declared, PassedIn, auction_after
 from skat.engine.bock import in_ramsch_round
 from skat.engine.declaration import Announcement, Declare, Declaring, declaring_after
 from skat.engine.games import GameKind
-from skat.engine.kontra import Doubling, KontraDeadline, awaits_words, bidders_of, doubling_after
+from skat.engine.kontra import Doubling, KontraDeadline, awaited_positions, bidders_of, doubling_after
 from skat.engine.ramsch import ramsch_after, start_ramsch
 from skat.engine.schieberamsch import Pushing, RamschOn, pushing_after
 from skat.engine.tricks import Playing, playing_after, start_play
 
 if TYPE_CHECKING:
-    from skat.engine.deal import Deal
+    from skat.engine.deal import Deal, Position
     from skat.engine.ramsch import RamschPlaying
     from skat.table.records import GiveUpAsked, TableRecord
 
@@ -132,11 +132,11 @@ def doubling_of(table: TableRecord) -> Doubling | None:
     return replace(doubling, declined=frozenset(answered.position for answered in table.progress.no_words))
 
 
-def first_card_waits_for_words(table: TableRecord) -> bool:
-    """True while the hand's first card waits for a word or a decline: a table whose words end with the first card,
-    no card played yet, and a seat that has neither said what it owes nor declined it.
+def positions_the_first_card_waits_on(table: TableRecord) -> frozenset[Position]:
+    """The positions that have neither said what they owe nor declined it while the hand's first card waits for them:
+    only at a table whose words end with the first card, and none once a card is played.
     """
     doubling, options, start = doubling_of(table), table.options.kontra, _play_start(table)
     if doubling is None or options is None or start is None or table.progress.plays:
-        return False
-    return awaits_words(doubling, options, bidders_of(table.progress.auction), start.declared.declarer)
+        return frozenset()
+    return awaited_positions(doubling, options, bidders_of(table.progress.auction), start.declared.declarer)

@@ -11,10 +11,10 @@ from skat.table.bock import bock_after
 from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
 from skat.table.hand_state import (
     doubling_of,
-    first_card_waits_for_words,
     game_of,
     game_waits_for_the_declarers_answer,
     playing_of,
+    positions_the_first_card_waits_on,
 )
 from skat.table.records import Decision, GiveUpAsked, HandProgress, Refusal, TableRecord
 from skat.table.rules import acting_position, card_text
@@ -196,7 +196,7 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
         return Decision(table, Refusal.WRONG_PHASE)
     if game_waits_for_the_declarers_answer(state, table.progress.give_up):
         return Decision(table, Refusal.REQUEST_PENDING)
-    if first_card_waits_for_words(table):
+    if positions_the_first_card_waits_on(table):
         return Decision(table, KontraRefusal.WORDS_DUE)
     outcome = _card_played(state, position, command.card)
     if outcome.refusal is not None:

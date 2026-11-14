@@ -245,7 +245,8 @@ class KontraAnswer(BaseModel):
     factor: int
     my_word: Word | None
     my_word_answered: bool
-    first_card_waits: bool
+    first_card_waits_on: list[int]
+    first_card_declined: list[int]
 
 
 class PlayingAnswer(BaseModel):
@@ -429,7 +430,8 @@ def kontra_answer_of(kontra: KontraView | None) -> KontraAnswer | None:
         factor=kontra.factor,
         my_word=kontra.my_word,
         my_word_answered=kontra.my_word_answered,
-        first_card_waits=kontra.first_card_waits,
+        first_card_waits_on=list(kontra.first_card_waits_on),
+        first_card_declined=list(kontra.first_card_declined),
     )
 
 

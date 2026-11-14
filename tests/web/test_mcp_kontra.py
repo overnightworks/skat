@@ -48,7 +48,8 @@ class TestSayKontra:
             "factor": 2,
             "my_word": None,
             "my_word_answered": False,
-            "first_card_waits": False,
+            "first_card_waits_on": [],
+            "first_card_declined": [],
         }
         assert kontra_table.record.progress.words[0].position is FOREHAND
 
@@ -90,7 +91,7 @@ class TestAFirstCardTable:
         return table
 
     def waits(self, agent, table):
-        return agent.read(table.table_id).json()["hand"]["playing"]["kontra"]["first_card_waits"]
+        return agent.read(table.table_id).json()["hand"]["playing"]["kontra"]["first_card_waits_on"]
 
     def person_answers_no_word(self, table, position):
         answer = table.act(TABLE_NO_WORD_SUFFIX, table.at[position])
@@ -132,12 +133,12 @@ class TestAFirstCardTable:
         said = table.act(TABLE_KONTRA_SUFFIX, table.at[FOREHAND], body={"word": "kontra"})
         assert said.status_code == 200, said.text
         table.refused(table.at[FOREHAND], HERZ_GAME[0], KontraRefusal.WORDS_DUE)
-        assert self.waits(agent, table) is True
+        assert self.waits(agent, table)
 
         answered = agent.take_step(tool, table, command_id="agent-answer-0001", **answer)
 
         assert not answered.is_error, answered.text
-        assert self.waits(agent, table) is False
+        assert not self.waits(agent, table)
         table.accepted(HERZ_GAME[0])
 
     def test_where_only_bidders_say_kontra_a_bidding_agent_answering_no_word_frees_the_first_card(self, skat, agent):
@@ -178,7 +179,7 @@ class TestAFirstCardTable:
         assert not answered.is_error, answered.text
         assert not again.is_error, again.text
         assert late_kontra.json()["reason"] == KontraRefusal.NOT_YOUR_WORD
-        assert (kontra["my_word"], kontra["first_card_waits"]) == (None, True)
+        assert (kontra["my_word"], bool(kontra["first_card_waits_on"])) == (None, True)
         assert table.record.progress.no_words == {NoWordSaid(FOREHAND, Word.KONTRA)}
 
     @pytest.mark.parametrize("declarer_answer", ["re", "no-word"])
