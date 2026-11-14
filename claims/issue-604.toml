@@ -1,0 +1,8 @@
+claim_id = "f2b075f357a34defb8963a6888f5f040"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "00900ab07a5fbeb85af27f72ffffd772d114cc5e"
+branch = "claude/issue-604-logline"
+scope = [".github/workflows/release.yml", "Dockerfile", "README.md", "docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host", "src/skat/web", "tests/e2e/support", "tests/host", "tests/web", "uv.lock"]
+opened_commit = "f14825550feacea0ba13bb1507eae6bf923fb7d2"
+whole_reason = "One switch of the logging owner: the entry point, the uvicorn start, the request middleware with sub and ip, the image's version and the tests that read log records change together, or skat logs half in each format."
