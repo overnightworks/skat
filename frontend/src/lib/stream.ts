@@ -1,11 +1,22 @@
 // The page's one reader of a server-sent stream. It owns every reconnect: each failed source is closed at once,
 // so the browser's own retry stays off, and the reader opens the next one itself. A stream that closes before it
-// has stayed open for a heartbeat backs off like a failed open, however many messages it delivered.
+// has stayed open for a heartbeat backs off like a failed open, however many messages it delivered. The browser
+// hides why a stream failed, so the reader asks the stream's own address once after each failure: a refusal it
+// learns that way is named to the page, and the ones that cannot pass on their own end the stream.
 
 import { retryDelayMilliseconds } from "#lib/backoff.ts";
 import { STREAM_HEARTBEAT_SECONDS } from "#lib/wire.ts";
 
-const SIGNED_OUT_STATUS = 401;
+// Why the server refused a stream: the session ended, no table has the id, or the account holds as many streams as
+// it may. The first two end the stream; the third is retried, since a slot comes free.
+export type StreamRefusal = "signedOut" | "notFound" | "tooMany";
+
+const REFUSALS = new Map<number, StreamRefusal>([
+    [401, "signedOut"],
+    [404, "notFound"],
+    [429, "tooMany"],
+]);
+const FINAL_REFUSALS: ReadonlySet<StreamRefusal> = new Set(["signedOut", "notFound"]);
 const MILLISECONDS_PER_SECOND = 1_000;
 // A stream is healthy once it has stayed open this long after its first message: the server sends a heartbeat
 // within it, so a stream that survives it is not one that closes right after what it says first.
@@ -16,18 +27,24 @@ export type StreamHandler = (data: string, end: () => void) => void;
 export type StreamOptions = {
     // Handlers by event name; the stream's unnamed messages arrive under `message`.
     events: Record<string, StreamHandler>;
-    // Asked after a failed or ended stream: a 401 there means the session ended, so nothing reconnects.
-    sessionPath: string;
     onConnection: (connected: boolean) => void;
-    onRefused: () => void;
+    // Called with the reason each time a failed stream is found refused; a signed-out or missing refusal is the
+    // last call, and nothing reconnects after it.
+    onRefused: (refusal: StreamRefusal) => void;
 };
 
-async function sessionIsRefused(sessionPath: string): Promise<boolean> {
+// The stream's own answer to a plain request: its status is all that is read, and the stream it may have opened is
+// let go at once.
+async function refusalOf(url: string): Promise<StreamRefusal | null> {
+    const probe = new AbortController();
     try {
-        return (await fetch(sessionPath)).status === SIGNED_OUT_STATUS;
+        const answer = await fetch(url, { signal: probe.signal });
+        return REFUSALS.get(answer.status) ?? null;
     } catch {
         // The connection is down: the stream's own retry carries on.
-        return false;
+        return null;
+    } finally {
+        probe.abort();
     }
 }
 
@@ -79,13 +96,14 @@ export function openStream(url: string, options: StreamOptions): () => void {
 
     async function checkThenRetry(): Promise<void> {
         checking = true;
-        const refused = await sessionIsRefused(options.sessionPath);
+        const refusal = await refusalOf(url);
         checking = false;
         if (closed) return;
-        if (refused) {
-            end();
-            options.onRefused();
-            return;
+        if (refusal !== null) {
+            const final = FINAL_REFUSALS.has(refusal);
+            if (final) end();
+            options.onRefused(refusal);
+            if (final) return;
         }
         // A tab that became visible already opened a stream while this check ran.
         if (source !== null) return;

@@ -1,5 +1,5 @@
 import { isFramedInCallMode } from "#lib/callFrame.ts";
-import { openStream } from "#lib/stream.ts";
+import { openStream, type StreamRefusal } from "#lib/stream.ts";
 import { handWaits } from "#lib/openChair.ts";
 import {
     type AUCTION_ACTION_TOKENS,
@@ -576,6 +576,7 @@ export function watchTable(
     onTable: (table: Table) => void,
     onAttention: (count: number) => void,
     onConnection: (connected: boolean) => void,
+    onRefusal: (refusal: Exclude<StreamRefusal, "signedOut">) => void,
 ): () => void {
     const reachedNow = reachedBySigningIn;
     const path = `${TABLES_PATH}/${encodeURIComponent(id)}`;
@@ -591,10 +592,10 @@ export function watchTable(
                 onAttention(JSON.parse(data) as number);
             },
         },
-        sessionPath: path,
         onConnection,
-        onRefused: () => {
-            signInAgain(id, reachedNow);
+        onRefused: (refusal) => {
+            if (refusal === "signedOut") signInAgain(id, reachedNow);
+            else onRefusal(refusal);
         },
     });
 }

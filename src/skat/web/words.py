@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 type Key = Literal[
     'app.name',
     'app.reconnecting',
+    'app.tooManyStreams',
     'app.unreachable',
     'app.pageNotFound',
     'app.pageFailed',
@@ -64,6 +65,7 @@ type Key = Literal[
     'table.lobby',
     'table.lobbyWaiting',
     'table.reconnecting',
+    'table.tooManyStreams',
     'table.sitDown',
     'table.standUp',
     'table.standUpArmed',
@@ -493,6 +495,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
     'de': {
         'app.name': 'Skat',
         'app.reconnecting': 'verbinde neu',
+        'app.tooManyStreams': 'zu viele Seiten offen',
         'app.unreachable': 'Skat ist gerade nicht erreichbar.',
         'app.pageNotFound': 'Diese Seite gibt es nicht.',
         'app.pageFailed': 'Diese Seite lässt sich nicht laden.',
@@ -572,6 +575,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
             'other': 'Lobby, {count} Tische warten auf dich',
         },
         'table.reconnecting': 'verbinde neu',
+        'table.tooManyStreams': 'zu viele Seiten offen',
         'table.sitDown': 'Hinsetzen',
         'table.standUp': 'Aufstehen',
         'table.standUpArmed': 'Wirklich aufstehen?',
@@ -1000,6 +1004,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
     'en': {
         'app.name': 'Skat',
         'app.reconnecting': 'reconnecting',
+        'app.tooManyStreams': 'too many pages open',
         'app.unreachable': 'Skat is not reachable right now.',
         'app.pageNotFound': 'This page does not exist.',
         'app.pageFailed': 'This page cannot be loaded.',
@@ -1079,6 +1084,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
             'other': 'Lobby, {count} tables are waiting for you',
         },
         'table.reconnecting': 'reconnecting',
+        'table.tooManyStreams': 'too many pages open',
         'table.sitDown': 'Sit down',
         'table.standUp': 'Stand up',
         'table.standUpArmed': 'Really stand up?',
