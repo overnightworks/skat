@@ -1,8 +1,0 @@
-claim_id = "341ed15a7e7b491789bd1983d33e0cfe"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "d01514fec3da272590c83e3f0999ecb3c1a434a8"
-branch = "claude/issue-527-s15-7-s15-12-a-chair-that-is-taken-left"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/cues.test.ts", "frontend/src/lib/cues.ts", "frontend/src/lib/motionSets.ts", "frontend/src/lib/openChair.test.ts", "frontend/src/lib/openChair.ts", "frontend/src/lib/soundSets.test.ts", "frontend/src/lib/soundSets.ts", "frontend/src/lib/stage.svelte.test.ts", "frontend/src/lib/stage.svelte.ts", "frontend/src/lib/stage.test.ts", "frontend/src/lib/stage.ts", "frontend/src/lib/start.css", "frontend/src/lib/tableSound.test.ts", "frontend/src/lib/tableSound.ts", "frontend/src/lib/ui", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.ts", "frontend/src/routes/(start)/tablesAgents.test.ts", "tests/e2e/test_table_chair_moves.py", "tests/e2e/test_table_open_chair.py", "tests/e2e/test_table_seats.py"]
-opened_commit = "21c19cf2be07cde53ab06c0a13f47dac98c8671e"
-whole_reason = "One owner of who changed chairs: the cue, its notice, its motion and its sound are proven in one drive."
