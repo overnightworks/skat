@@ -70,13 +70,13 @@ class LoggingAuditSink:
         logger.info("account_event", kind=event.kind.value, subject_id=event.subject_id, role=event.role)
 
 
-class ExpirableSessions(SessionRecordStore, Protocol):
+class ExpirableSessions(SessionRecordStore, Protocol):  # pragma: no cover - a port's method bodies are signatures
     """The sessions the session gate asks, which also drop the ones expired at a time."""
 
     def delete_expired(self, now: datetime) -> int: ...
 
 
-class SignInPorts(Protocol):
+class SignInPorts(Protocol):  # pragma: no cover - a port's method bodies are signatures
     """What the app signs in with: the sessions the gate and the routes ask and the sign-in entry, both over the
     database every pod shares.
     """
