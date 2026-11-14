@@ -9,6 +9,7 @@ import {
     KONTRA_REACH_TOKENS,
     KONTRA_SAYER_TOKENS,
     PUSHING_RULE_TOKENS,
+    RAMSCH_OCCASION_TOKENS,
     RAMSCH_SCORING_TOKENS,
 } from "#lib/wire.ts";
 import { bockLine, tableRules } from "#lib/tableRules.ts";
@@ -155,6 +156,25 @@ describe("the words of the options", () => {
     ])("%s has a text for every token, each its own", (_setting, perToken) => {
         expect(perToken.flat().every((text) => typeof text === "string" && text !== "")).toBe(true);
         expect(new Set(perToken.map((texts) => texts.join("|"))).size).toBe(perToken.length);
+    });
+});
+
+describe("the Ramsch occasion", () => {
+    const namesPerOccasion = RAMSCH_OCCASION_TOKENS.map(
+        (occasion) => tableRules(ramsch({ occasion }), null).rows.find((row) => row.id === "ramsch")?.name,
+    );
+
+    it("names the Ramsch row with a text of its own for every occasion", () => {
+        expect(namesPerOccasion.every((name) => typeof name === "string" && name !== "")).toBe(true);
+        expect(new Set(namesPerOccasion).size).toBe(RAMSCH_OCCASION_TOKENS.length);
+    });
+
+    it("names the Bock rounds in the rows of the occasions that play there", () => {
+        expect(namesPerOccasion).toEqual([
+            "Ramsch beim Einpassen",
+            "Ramsch in den Bockrunden",
+            "Ramsch beim Einpassen und in den Bockrunden",
+        ]);
     });
 });
 

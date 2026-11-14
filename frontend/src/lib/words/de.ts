@@ -308,6 +308,8 @@ export type Words = {
     readonly "rules.namePoints": string;
     readonly "rules.nameKontra": string;
     readonly "rules.nameRamsch": string;
+    readonly "rules.nameRamschBockRounds": string;
+    readonly "rules.nameRamschPassedInAndBockRounds": string;
     readonly "rules.namePushing": string;
     readonly "rules.nameBock": string;
     readonly "rules.pointsFromTricks": string;
@@ -746,6 +748,8 @@ export const words: Words = {
     "rules.namePoints": "Laufende Augen zeigen",
     "rules.nameKontra": "Kontra und Re",
     "rules.nameRamsch": "Ramsch beim Einpassen",
+    "rules.nameRamschBockRounds": "Ramsch in den Bockrunden",
+    "rules.nameRamschPassedInAndBockRounds": "Ramsch beim Einpassen und in den Bockrunden",
     "rules.namePushing": "Schieberamsch",
     "rules.nameBock": "Bockrunden",
     "rules.pointsFromTricks": "Aus fertigen Stichen, nie in einer Null",

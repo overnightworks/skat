@@ -1271,6 +1271,14 @@ msgctxt "rules.nameRamsch"
 msgid "Ramsch beim Einpassen"
 msgstr ""
 
+msgctxt "rules.nameRamschBockRounds"
+msgid "Ramsch in den Bockrunden"
+msgstr ""
+
+msgctxt "rules.nameRamschPassedInAndBockRounds"
+msgid "Ramsch beim Einpassen und in den Bockrunden"
+msgstr ""
+
 msgctxt "rules.namePushing"
 msgid "Schieberamsch"
 msgstr ""
