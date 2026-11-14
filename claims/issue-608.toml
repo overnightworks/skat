@@ -1,0 +1,8 @@
+claim_id = "9ebe5aa9c76c4417a8881b47ee0a53fb"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "f34153e626a06b0716da90e397f83141ffb927a6"
+branch = "claude/issue-608-a-table-whose-series-was-ended-opens-aga"
+scope = ["frontend/src/lib/stream.ts", "frontend/src/routes/(start)", "src/skat/table", "src/skat/web/streams.py", "tests"]
+opened_commit = "19dcdca77da8c05104c49de6447e89e630c02386"
+whole_reason = "The cause sits somewhere on the path from the series end through the stream to the page; the fix lands with its regression test wherever the reproduction points."
