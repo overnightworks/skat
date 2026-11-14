@@ -1,8 +1,0 @@
-claim_id = "6015398e6683467fb27f4b431565a5af"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "f99d119d751ea6be422f23b5bde9e54b4c875bcc"
-branch = "claude/issue-509-s15-4-the-trick-goes-to-its-winner-and-t"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "docs/mockups/table.html", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/catalogs/en.po", "frontend/src/lib/cues.test.ts", "frontend/src/lib/cues.ts", "frontend/src/lib/motionSets.ts", "frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/settings.svelte.test.ts", "frontend/src/lib/settings.svelte.ts", "frontend/src/lib/soundSets.test.ts", "frontend/src/lib/soundSets.ts", "frontend/src/lib/stage.svelte.test.ts", "frontend/src/lib/stage.svelte.ts", "frontend/src/lib/stage.test.ts", "frontend/src/lib/stage.ts", "frontend/src/lib/start.css", "frontend/src/lib/tableSound.test.ts", "frontend/src/lib/tableSound.ts", "frontend/src/lib/ui", "frontend/src/lib/words", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/testing/stubBrowser.ts", "src/skat/web/words.py", "tests/e2e/test_table_last_trick.py", "tests/e2e/test_table_playing.py", "tests/e2e/test_table_restart.py"]
-opened_commit = "520703072b98a71f581228754078c9ca41048d26"
-whole_reason = "The stage, the sweep, the setting and looking back at the last trick share one shown-table state and are proven in one drive."
