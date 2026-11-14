@@ -23,6 +23,7 @@ from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from tests.e2e.support.deal_pause import HeldDealPause
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
@@ -632,7 +633,11 @@ def assert_the_hand_is_passed_in(person: Page, dealer: tuple[int, str] | None) -
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_after_three_passes_every_viewer_sees_eingepasst_and_the_next_dealer_then_the_new_hand(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    held_deal_pause: HeldDealPause,
 ) -> None:
     table = passed_in_table(open_person, e2e_server, page_errors, form_factor)
     dealer = next_dealer(table)
@@ -641,6 +646,8 @@ def test_after_three_passes_every_viewer_sees_eingepasst_and_the_next_dealer_the
         assert_the_hand_is_passed_in(person, dealer)
     table.watcher.reload()
     assert_the_hand_is_passed_in(table.watcher, dealer)
+
+    held_deal_pause.release()
 
     for person in table.everyone:
         expect(person.locator(PLAQUE)).to_have_text(BIDDING)
