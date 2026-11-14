@@ -1,1 +1,317 @@
 # Measured by `quality check --fix`. Entries only ever go down.
+
+[clones."src/skat/store/declaring.py"]
+append_declaring_steps = [["src/skat/store/pushing.py", "append_pushing_steps"]]
+read_declaring_steps = [["src/skat/store/member_book.py", "locked_entries_of"], ["src/skat/store/pushing.py", "read_pushing_steps"]]
+
+[clones."src/skat/store/kontra.py"]
+append_words = [["src/skat/store/playing.py", "append_plays"]]
+
+[clones."src/skat/store/member_book.py"]
+locked_entries_of = [["src/skat/store/pushing.py", "read_pushing_steps"]]
+
+[clones."src/skat/store/migrations/versions/0003_hands.py"]
+_one_of = [["src/skat/store/migrations/versions/0004_auction.py", "_one_of"], ["src/skat/store/migrations/versions/0005_declaring.py", "_one_of"], ["src/skat/store/migrations/versions/0006_played_cards.py", "_one_of"], ["src/skat/store/migrations/versions/0007_game_list.py", "_one_of"], ["src/skat/store/migrations/versions/0027_pushing.py", "_one_of"]]
+
+[clones."src/skat/store/migrations/versions/0004_auction.py"]
+_one_of = [["src/skat/store/migrations/versions/0005_declaring.py", "_one_of"], ["src/skat/store/migrations/versions/0006_played_cards.py", "_one_of"], ["src/skat/store/migrations/versions/0007_game_list.py", "_one_of"], ["src/skat/store/migrations/versions/0027_pushing.py", "_one_of"]]
+upgrade = [["src/skat/store/migrations/versions/0005_declaring.py", "upgrade"], ["src/skat/store/migrations/versions/0007_game_list.py", "upgrade"]]
+
+[clones."src/skat/store/migrations/versions/0005_declaring.py"]
+_one_of = [["src/skat/store/migrations/versions/0006_played_cards.py", "_one_of"], ["src/skat/store/migrations/versions/0007_game_list.py", "_one_of"], ["src/skat/store/migrations/versions/0027_pushing.py", "_one_of"]]
+upgrade = [["src/skat/store/migrations/versions/0007_game_list.py", "upgrade"]]
+
+[clones."src/skat/store/migrations/versions/0006_played_cards.py"]
+_one_of = [["src/skat/store/migrations/versions/0007_game_list.py", "_one_of"], ["src/skat/store/migrations/versions/0027_pushing.py", "_one_of"]]
+
+[clones."src/skat/store/migrations/versions/0007_game_list.py"]
+_one_of = [["src/skat/store/migrations/versions/0027_pushing.py", "_one_of"]]
+
+[clones."src/skat/store/migrations/versions/0009_table_end.py"]
+upgrade = [["src/skat/store/migrations/versions/0024_paused_tables.py", "upgrade"]]
+
+[clones."src/skat/store/migrations/versions/0010_series.py"]
+upgrade = [["src/skat/store/migrations/versions/0018_occupant_kind.py", "upgrade"]]
+
+[clones."src/skat/store/migrations/versions/0014_kontra.py"]
+_is_one_of = [["src/skat/store/migrations/versions/0016_rule_sets.py", "_is_one_of"], ["src/skat/store/migrations/versions/0017_bock.py", "_is_one_of"], ["src/skat/store/migrations/versions/0021_ramsch.py", "_is_one_of"], ["src/skat/store/migrations/versions/0030_kontra_no_words.py", "_is_one_of"]]
+
+[clones."src/skat/store/migrations/versions/0016_rule_sets.py"]
+_is_one_of = [["src/skat/store/migrations/versions/0017_bock.py", "_is_one_of"], ["src/skat/store/migrations/versions/0021_ramsch.py", "_is_one_of"], ["src/skat/store/migrations/versions/0030_kontra_no_words.py", "_is_one_of"]]
+
+[clones."src/skat/store/migrations/versions/0017_bock.py"]
+_is_one_of = [["src/skat/store/migrations/versions/0021_ramsch.py", "_is_one_of"], ["src/skat/store/migrations/versions/0030_kontra_no_words.py", "_is_one_of"]]
+
+[clones."src/skat/store/migrations/versions/0021_ramsch.py"]
+_is_one_of = [["src/skat/store/migrations/versions/0030_kontra_no_words.py", "_is_one_of"]]
+
+[clones."src/skat/store/migrations/versions/0035_unplayed_end.py"]
+upgrade = [["src/skat/store/migrations/versions/0039_closed_end.py", "upgrade"]]
+
+[clones."src/skat/store/rule_sets.py"]
+"_PostgresRuleSetTransaction.add" = [["src/skat/store/tables.py", "_PostgresTableTransaction.add_receipt"]]
+
+[clones."src/skat/web/abort.py"]
+create_abort_router = [["src/skat/web/kontra.py", "create_kontra_router"], ["src/skat/web/ready.py", "create_ready_router"], ["src/skat/web/series_end.py", "create_series_end_router"]]
+"create_abort_router.agree_to_abort_hand" = [["src/skat/web/declaring.py", "_step_taker.take_step"], ["src/skat/web/kontra.py", "create_kontra_router.say_kontra"], ["src/skat/web/playing.py", "_add_agree_to_give_up.agree_to_give_up"], ["src/skat/web/playing.py", "_add_decline_give_up.decline_give_up"], ["src/skat/web/playing.py", "_add_give_up.give_up_game"], ["src/skat/web/playing.py", "_add_throw_down.throw_down_cards"], ["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+"create_abort_router.refuse_to_abort_hand" = [["src/skat/web/declaring.py", "_step_taker.take_step"], ["src/skat/web/kontra.py", "create_kontra_router.say_kontra"], ["src/skat/web/playing.py", "_add_agree_to_give_up.agree_to_give_up"], ["src/skat/web/playing.py", "_add_decline_give_up.decline_give_up"], ["src/skat/web/playing.py", "_add_give_up.give_up_game"], ["src/skat/web/playing.py", "_add_throw_down.throw_down_cards"], ["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+
+[clones."src/skat/web/auction.py"]
+create_auction_router = [["src/skat/web/declaring.py", "create_declaring_router"], ["src/skat/web/pushing.py", "create_pushing_router"]]
+
+[clones."src/skat/web/declaring.py"]
+"_step_taker.take_step" = [["src/skat/web/kontra.py", "create_kontra_router.say_kontra"], ["src/skat/web/playing.py", "_add_agree_to_give_up.agree_to_give_up"], ["src/skat/web/playing.py", "_add_decline_give_up.decline_give_up"], ["src/skat/web/playing.py", "_add_give_up.give_up_game"], ["src/skat/web/playing.py", "_add_throw_down.throw_down_cards"], ["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+create_declaring_router = [["src/skat/web/pushing.py", "create_pushing_router"]]
+
+[clones."src/skat/web/kontra.py"]
+create_kontra_router = [["src/skat/web/ready.py", "create_ready_router"], ["src/skat/web/series_end.py", "create_series_end_router"]]
+"create_kontra_router.say_kontra" = [["src/skat/web/playing.py", "_add_agree_to_give_up.agree_to_give_up"], ["src/skat/web/playing.py", "_add_decline_give_up.decline_give_up"], ["src/skat/web/playing.py", "_add_give_up.give_up_game"], ["src/skat/web/playing.py", "_add_throw_down.throw_down_cards"], ["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+
+[clones."src/skat/web/lobby.py"]
+_table_answer_of = [["src/skat/web/paused.py", "_table_answer_of"]]
+
+[clones."src/skat/web/playing.py"]
+"_add_agree_to_give_up.agree_to_give_up" = [["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+"_add_decline_give_up.decline_give_up" = [["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+"_add_give_up.give_up_game" = [["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+"_add_throw_down.throw_down_cards" = [["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+
+[clones."src/skat/web/ready.py"]
+create_ready_router = [["src/skat/web/series_end.py", "create_series_end_router"]]
+"create_ready_router.start_new_series" = [["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+"create_ready_router.tap_weiter" = [["src/skat/web/series_end.py", "create_series_end_router.agree_to_end_series"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
+
+[clones."tests/e2e/conftest.py"]
+deal_a_declaring_table = [["tests/e2e/test_table_give_up.py", "deal_a_game"]]
+
+[clones."tests/e2e/support/declaring.py"]
+"DeclaringTable._win_the_auction" = [["tests/e2e/test_table_kontra.py", "ContestedTable._win_the_auction"]]
+
+[clones."tests/e2e/support/tables.py"]
+watch = [["tests/e2e/test_table_cards.py", "watch"], ["tests/e2e/test_table_deal_marks.py", "watch"], ["tests/e2e/test_table_watch.py", "watch"]]
+
+[clones."tests/e2e/test_call_sign_in.py"]
+"test_a_framed_table_whose_stream_ends_without_a_refusal_dims_and_comes_back_without_reload_or_sign_in.end_the_first_stream" = [["tests/e2e/test_table_home.py", "test_a_lost_stream_hides_the_number_and_the_stream_coming_back_brings_it_again.count_one_then_end_and_refuse_the_rest"]]
+
+[clones."tests/e2e/test_my_tables.py"]
+test_going_back_from_a_table_returns_to_a_current_list = [["tests/e2e/test_tables.py", "test_a_reload_shows_the_same_table_with_the_opener_still_in_chair_one"]]
+
+[clones."tests/e2e/test_render_languages.py"]
+played_out_table = [["tests/e2e/test_table_result_count.py", "deal_a_finished_hand"]]
+
+[clones."tests/e2e/test_rule_set_choice.py"]
+"test_a_rule_switched_off_after_a_lost_answer_opens_a_table_without_it_under_another_command.lose_the_first_answer" = [["tests/e2e/test_tables.py", "lose_the_first_answer_of_opening_a_table.lose_the_first_answer"]]
+
+[clones."tests/e2e/test_table_card_lands.py"]
+deal_a_playing_table = [["tests/e2e/test_table_coasters.py", "play_a_table"]]
+
+[clones."tests/e2e/test_table_card_sound.py"]
+table = [["tests/e2e/test_table_sound_settings.py", "table"]]
+
+[clones."tests/e2e/test_table_cards.py"]
+watch = [["tests/e2e/test_table_deal_marks.py", "watch"], ["tests/e2e/test_table_watch.py", "watch"]]
+
+[clones."tests/e2e/test_table_closed.py"]
+wait_for_end = [["tests/e2e/test_table_home.py", "wait_for_end"]]
+
+[clones."tests/e2e/test_table_deal_marks.py"]
+watch = [["tests/e2e/test_table_watch.py", "watch"]]
+
+[clones."tests/e2e/test_table_declaring.py"]
+overlaps = [["tests/e2e/test_table_stand_mid_hand.py", "overlaps"]]
+test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announcement = [["tests/e2e/test_table_ouvert.py", "test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null"]]
+
+[clones."tests/e2e/test_table_end.py"]
+signed_in = [["tests/e2e/test_table_hand.py", "signed_in"]]
+
+[clones."tests/e2e/test_table_kontra.py"]
+"LeadingTable._win_the_auction" = [["tests/e2e/test_table_result.py", "ModestBidTable._win_the_auction"]]
+
+[clones."tests/engine/test_bock.py"]
+trick_worth = [["tests/engine/test_score.py", "trick_worth"], ["tests/engine/test_value.py", "trick_worth"]]
+
+[clones."tests/engine/test_giving_up.py"]
+next_card = [["tests/engine/test_kontra.py", "next_card"], ["tests/engine/test_tricks.py", "first_accepted"]]
+
+[clones."tests/engine/test_kontra.py"]
+next_card = [["tests/engine/test_tricks.py", "first_accepted"]]
+
+[clones."tests/engine/test_score.py"]
+trick_worth = [["tests/engine/test_value.py", "trick_worth"]]
+
+[clones."tests/store/test_auction.py"]
+"Hand.send" = [["tests/store/test_declaring.py", "Hand.send"]]
+
+[clones."tests/store/test_declaring.py"]
+_rewrite = [["tests/store/test_playing.py", "_rewrite"]]
+
+[clones."tests/store/test_game_list.py"]
+"Game.next_card" = [["tests/support/stored_game.py", "Game.legal_card"]]
+
+[clones."tests/store/test_migrate.py"]
+"TestFromADealtTableAtRevisionNine.migrated" = [["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromADealtTableAtRevisionNine.test_accepts_a_series_with_its_deals" = [["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.test_accepts_a_later_series_number_on_a_table_with_a_series"]]
+"TestFromADealtTableAtRevisionNine.test_the_old_table_has_no_series" = [["tests/store/test_migrate_give_up_asked.py", "TestFromALiveTableAtRevisionFourteen.test_reads_the_table_with_no_request"]]
+"TestFromAGameListRowAtRevisionTen.migrated" = [["tests/store/test_migrate_bock.py", "TestFromALiveTableAndAGameAtRevisionSixteen.migrated"]]
+"TestFromAHandAtRevisionFour.migrated" = [["tests/store/test_migrate_bock.py", "TestFromALiveTableAndAGameAtRevisionSixteen.migrated"], ["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromAHandAtRevisionThree.migrated" = [["tests/store/test_migrate_bock.py", "TestFromALiveTableAndAGameAtRevisionSixteen.migrated"], ["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromAHandAtRevisionThree.test_accepts_a_bid_with_its_value" = [["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.test_accepts_a_later_series_number_on_a_table_with_a_series"]]
+"TestFromALiveAndAnEndedTableAtRevisionTwelve.migrated" = [["tests/store/test_migrate_bock.py", "TestFromALiveTableAndAGameAtRevisionSixteen.migrated"], ["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromALiveTableAndAGameAtRevisionThirteen.migrated" = [["tests/store/test_migrate_bock.py", "TestFromALiveTableAndAGameAtRevisionSixteen.migrated"]]
+"TestFromALiveTableAndAGameAtRevisionThirteen.test_the_table_plays_without_kontra_and_the_row_names_no_word" = [["tests/store/test_migrate_bock.py", "TestFromALiveTableAndAGameAtRevisionSixteen.test_the_table_plays_without_bock_and_holds_no_pending_game_and_the_old_row_has_factor_1"]]
+"TestFromALiveTableAtRevisionEleven.migrated" = [["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromAPlayedCardAtRevisionSix.at_revision" = [["tests/store/test_migrate_ramsch.py", "TestFromALiveTableAndAGameAtRevisionTwenty.at_revision"]]
+"TestFromATableAtRevisionEight.migrated" = [["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromATableAtRevisionEight.test_accepts_an_end_with_its_time_reason_and_wait" = [["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.test_accepts_a_later_series_number_on_a_table_with_a_series"]]
+"TestFromATableAtRevisionEight.test_reads_the_table_as_live" = [["tests/store/test_migrate_give_up_asked.py", "TestFromALiveTableAtRevisionFourteen.test_reads_the_table_with_no_request"]]
+"TestFromChairsAtRevisionSeven.migrated" = [["tests/store/test_migrate_bock.py", "TestFromALiveTableAndAGameAtRevisionSixteen.migrated"], ["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromChairsAtRevisionSeven.test_an_occupied_chair_may_be_ready" = [["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.test_accepts_a_later_series_number_on_a_table_with_a_series"]]
+
+[clones."tests/store/test_migrate_bock.py"]
+"TestFromALiveTableAndAGameAtRevisionSixteen.migrated" = [["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+"TestFromALiveTableAndAGameAtRevisionSixteen.test_the_checks_refuse_what_is_no_bock_option_on_a_table_or_a_rule_set" = [["tests/store/test_migrate_ramsch.py", "TestFromALiveTableAndAGameAtRevisionTwenty.test_the_checks_refuse_what_is_no_ramsch_option_on_a_table_or_a_rule_set"]]
+
+[clones."tests/store/test_migrate_closed_end.py"]
+"TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated" = [["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+
+[clones."tests/store/test_migrate_felix_pushing.py"]
+"StagedTable.two_cards_to_put_back" = [["tests/store/test_pushing.py", "StageTable.two_cards_to_put_back"]]
+test_another_name_of_the_account_and_another_accounts_felix_stay_untouched = [["tests/store/test_migrate_felix_ramsch.py", "test_another_name_of_the_account_and_another_accounts_felix_stay_untouched"]]
+
+[clones."tests/store/test_migrate_felix_ramsch.py"]
+test_the_felix_without_ramsch_is_replaced_keeping_its_id = [["tests/store/test_migrate_felix_set.py", "test_a_felix_the_account_already_holds_is_replaced_keeping_its_id"]]
+test_the_operator_account_gets_the_set_with_kontra_bock_and_ramsch_values_though_it_never_signed_in = [["tests/store/test_migrate_felix_set.py", "test_the_operator_account_gets_the_set_with_the_ruled_options_though_it_never_signed_in"], ["tests/store/test_migrate_operator_set.py", "test_a_list_value_binds_and_reads_back_without_naming_its_column"]]
+
+[clones."tests/store/test_migrate_felix_set.py"]
+test_the_operator_account_gets_the_set_with_the_ruled_options_though_it_never_signed_in = [["tests/store/test_migrate_operator_set.py", "test_a_list_value_binds_and_reads_back_without_naming_its_column"]]
+
+[clones."tests/store/test_migrate_former_holder.py"]
+before_the_upgrade = [["tests/store/test_migrate_hand_abort.py", "before_the_upgrade"]]
+
+[clones."tests/store/test_migrate_grand_hand.py"]
+"TestFromATableWithPushingAtRevisionThirtyTwo.test_every_old_table_and_set_reads_no_grand_hand_choice" = [["tests/store/test_migrate_pushing.py", "TestFromARamschTableAndItsListAtRevisionTwentySix.test_every_old_table_and_set_reads_no_pushing_rule"]]
+step = [["tests/store/test_migrate_pushing.py", "step"]]
+
+[clones."tests/store/test_migrate_occupant_kind.py"]
+"TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated" = [["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+
+[clones."tests/store/test_migrate_rule_sets.py"]
+"TestFromALiveTableAtRevisionFifteen.migrated" = [["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+
+[clones."tests/store/test_migrate_series_end.py"]
+"TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated" = [["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"], ["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+
+[clones."tests/store/test_migrate_series_number.py"]
+"TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated" = [["tests/store/test_migrate_unplayed_end.py", "TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore.migrated"]]
+
+[clones."tests/store/test_pushing.py"]
+"StageTable.play" = [["tests/store/test_tables_ramsch.py", "RamschTable.play"]]
+
+[clones."tests/store/test_rule_sets.py"]
+"TestOwnership.test_an_account_deletes_only_its_own_set" = [["tests/table/test_rule_sets.py", "TestService.test_an_owner_deletes_a_set_once"], ["tests/table/test_rule_sets.py", "TestService.test_another_account_deletes_nothing"]]
+
+[clones."tests/store/test_tables_hand_abort.py"]
+table_id = [["tests/store/test_tables_send_away.py", "table_id"]]
+
+[clones."tests/store/test_tables_paused.py"]
+columns_of = [["tests/store/test_tables_unplayed_start.py", "stored_row"]]
+
+[clones."tests/table/test_declaring.py"]
+table_in = [["tests/table/test_playing.py", "table_in"]]
+
+[clones."tests/table/test_rules_former_holder.py"]
+"TestTheFormerHolder.test_a_stand_up_between_hands_names_nobody" = [["tests/table/test_rules_open_chair.py", "TestAStandUpDuringAHand.test_a_stand_up_between_hands_writes_no_mark"]]
+
+[clones."tests/table/test_service.py"]
+"TestDealNext.test_changes_nothing_while_a_member_is_away" = [["tests/table/test_service_end.py", "TestEndUnplayedTable.test_a_table_with_no_hand_dealt_changes_nothing"]]
+
+[clones."tests/web/conftest.py"]
+"Ends.__init__" = [["tests/web/support/presence.py", "Releases.__init__"]]
+holding = [["tests/web/test_presence_empty_table.py", "noting"]]
+
+[clones."tests/web/support/agent.py"]
+"Agent.take_step" = [["tests/web/test_mcp.py", "TestAnsweringAGiveUp.answer"], ["tests/web/test_mcp.py", "TestGiveUpGame.give_up"], ["tests/web/test_mcp.py", "TestThrowDownCards.throw_down"], ["tests/web/test_mcp_kontra.py", "TestSayNoWord.say_no_word"]]
+person_steps = [["tests/web/support/playing.py", "Table._post"]]
+
+[clones."tests/web/support/calling.py"]
+"CallingTable.skat" = [["tests/web/test_member_place.py", "skat"], ["tests/web/test_member_place_asking.py", "skat"], ["tests/web/test_member_place_view.py", "skat"], ["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
+
+[clones."tests/web/support/presence.py"]
+post_pass = [["tests/web/test_declaring.py", "post_declaring"]]
+
+[clones."tests/web/support/ramsch_stage.py"]
+list_rows = [["tests/web/test_ready_new_series.py", "entries_of"], ["tests/web/test_tables_ramsch.py", "read_list"], ["tests/web/test_tables_ramsch_bock.py", "list_rows"]]
+
+[clones."tests/web/test_auction.py"]
+"Table.__init__" = [["tests/web/test_declaring.py", "Table.__init__"]]
+"Table.refused" = [["tests/web/test_declaring.py", "Table.refused"]]
+"TestRefused.test_a_body_that_breaks_the_contract_is_refused_and_stores_nothing" = [["tests/web/test_declaring.py", "TestContract.test_a_body_that_breaks_the_contract_is_refused_and_stores_nothing"]]
+"TestRefused.test_an_unknown_table_answers_404" = [["tests/web/test_declaring.py", "TestContract.test_an_unknown_table_answers_404"]]
+"TestRefused.test_signed_out_is_refused_and_changes_nothing" = [["tests/web/test_declaring.py", "TestContract.test_signed_out_is_refused_and_changes_nothing"]]
+
+[clones."tests/web/test_calling.py"]
+"TestACallThatChangesNothing.test_a_table_that_is_not_live_answers_404" = [["tests/web/test_calling_send_away.py", "TestASendAwayThatChangesNothing.test_a_table_that_is_not_live_answers_404"]]
+
+[clones."tests/web/test_declaring.py"]
+message_at_version = [["tests/web/test_playing.py", "message_at_version"]]
+
+[clones."tests/web/test_declaring_agent.py"]
+"TestRoutes.test_a_token_that_does_not_fit_is_refused_at_each_route_and_nothing_runs" = [["tests/web/test_mcp_who_may_call.py", "TestAuctionRoutesTakeTheAgentsBearer.test_a_token_that_does_not_fit_is_refused_at_the_route_and_nothing_runs"]]
+
+[clones."tests/web/test_kontra.py"]
+"TestOpeningATable.test_a_request_that_does_not_name_all_three_choices_validly_opens_no_table" = [["tests/web/test_tables_ramsch_pushing.py", "TestOpeningAPushingTable.test_refuses_what_is_no_pushing_rule_with_422_and_opens_no_table"]]
+play = [["tests/web/test_tables_bock.py", "played_with_words"]]
+
+[clones."tests/web/test_lobby_attention.py"]
+"TestTheWakes.test_a_commit_at_the_table_of_the_stream_does_not_wake_it_and_one_at_another_table_of_the_person_does.scenario" = [["tests/web/test_lobby_stream.py", "TestTheWakes.test_a_commit_at_another_table_does_not_wake_the_lobby_and_a_commit_at_a_held_one_does.scenario"]]
+"TestWhatIsCounted.test_a_table_that_does_not_wait_yet_counts_nothing_until_a_deal_makes_it_wait.scenario" = [["tests/web/test_lobby_stream.py", "TestWhoReceivesWhichTable.test_a_table_a_person_sits_at_reaches_the_lobby_he_has_open_through_his_account.scenario"]]
+
+[clones."tests/web/test_mcp.py"]
+"TestAnsweringAGiveUp.answer" = [["tests/web/test_mcp_kontra.py", "TestSayNoWord.say_no_word"]]
+"TestGiveUpGame.give_up" = [["tests/web/test_mcp_kontra.py", "TestSayNoWord.say_no_word"]]
+"TestThrowDownCards.throw_down" = [["tests/web/test_mcp_kontra.py", "TestSayNoWord.say_no_word"]]
+
+[clones."tests/web/test_mcp_ramsch.py"]
+"AgentRamschTable.__init__" = [["tests/web/test_mcp_ramsch_pushing.py", "AgentPushingTable.__init__"]]
+
+[clones."tests/web/test_member_place.py"]
+skat = [["tests/web/test_member_place_asking.py", "skat"], ["tests/web/test_member_place_view.py", "skat"], ["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
+
+[clones."tests/web/test_member_place_asking.py"]
+skat = [["tests/web/test_member_place_view.py", "skat"], ["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
+
+[clones."tests/web/test_member_place_view.py"]
+skat = [["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
+
+[clones."tests/web/test_nudging_agent.py"]
+skat = [["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
+
+[clones."tests/web/test_playing_early_end.py"]
+"TestAfterTheEnd.test_an_expiry_reaching_the_table_right_after_the_end_committed_frees_nothing" = [["tests/web/test_playing_give_up_consent.py", "TestAfterTheYes.test_an_expiry_reaching_the_table_right_after_the_yes_committed_frees_nothing"]]
+"TestRetries.test_a_refused_retry_returns_the_same_refusal" = [["tests/web/test_playing_give_up_consent.py", "TestRetries.test_a_refused_retry_returns_the_same_refusal"]]
+
+[clones."tests/web/test_playing_give_up_consent.py"]
+kontra_table = [["tests/web/test_playing_opponents_give_up.py", "kontra_table"]]
+say = [["tests/web/test_tables_bock.py", "say"]]
+
+[clones."tests/web/test_presence_agent_lease.py"]
+skat = [["tests/web/test_tables_open_chair.py", "skat"]]
+
+[clones."tests/web/test_presence_empty_table.py"]
+"TestWhenTheServerStops.test_stopping_cancels_every_pending_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_the_server_stopping_during_the_pause_cancels_the_deal_and_a_later_request_starts_none"]]
+"TestWhenTheTimerStarts.test_each_table_has_its_own_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_asks_for_the_deal_with_who_is_connected_when_the_pause_ends"]]
+
+[clones."tests/web/test_ready_new_series.py"]
+entries_of = [["tests/web/test_tables_ramsch.py", "read_list"], ["tests/web/test_tables_ramsch_bock.py", "list_rows"]]
+
+[clones."tests/web/test_tables.py"]
+"TestCreateTable.test_refuses_a_malformed_command_id" = [["tests/web/test_tables_series.py", "TestOpening.test_refuses_a_length_outside_the_range_or_not_an_integer_and_stores_nothing"], ["tests/web/test_tables_series.py", "TestOptions.test_refuses_options_that_are_no_strict_switch_and_stores_nothing"]]
+
+[clones."tests/web/test_tables_bock.py"]
+"TestOpeningATable.test_a_request_that_is_no_valid_bock_option_opens_no_table" = [["tests/web/test_tables_ramsch.py", "TestOpeningARamschTable.test_refuses_an_option_that_is_no_ramsch_with_422_and_opens_no_table"]]
+
+[clones."tests/web/test_tables_ramsch.py"]
+read_list = [["tests/web/test_tables_ramsch_bock.py", "list_rows"]]
+
+[literal_text]
+"frontend/src/lib/ui/TableRules.svelte" = 1
