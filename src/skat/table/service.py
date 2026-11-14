@@ -549,9 +549,6 @@ class TableService(LobbyReads):
         return True
 
     def forget_ended_tables(self, days: int) -> None:
-        """Delete every ended table with no game in the history `days` days after its end, and clear the closer's name
-        of every other.
-        """
         forget_ended_tables(self._transactions, days, self._now())
 
     def close(self, actor: Actor, command: CloseTable) -> CommandResult | None:
