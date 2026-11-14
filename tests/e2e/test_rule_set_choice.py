@@ -57,6 +57,11 @@ def set_pill(person: Page, name: str) -> Locator:
     return person.get_by_role("radiogroup", name=RULES).get_by_role("radio", name=name, exact=True)
 
 
+def set_names(person: Page) -> Locator:
+    """The names on the set pills in the order the sheet offers them, the official rules first."""
+    return person.get_by_role("radiogroup", name=RULES).locator(".set .name")
+
+
 # What a person sees of a set pill: its check and name wholly inside the pill with its padding kept, the pill wholly
 # inside the sheet.
 SUBPIXEL = 1
@@ -424,7 +429,7 @@ def test_switching_rules_off_over_a_set_suggests_the_set_adjusted_and_a_pick_tak
     expect(save_row(person)).to_have_count(0)
 
 
-def test_a_tap_saves_the_sheet_under_the_edited_name_as_the_picked_set_that_only_its_owner_sees(
+def test_a_tap_saves_the_sheet_under_the_edited_name_as_the_picked_set_in_its_place_by_name_that_only_its_owner_sees(
     person_with_sets: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -433,17 +438,23 @@ def test_a_tap_saves_the_sheet_under_the_edited_name_as_the_picked_set_that_only
     other = person_with_sets(DESKTOP, sets=False)
     sheet_of(person, e2e_server)
     switch(person, KONTRA).click()
-    save_name(person).fill("Sonntag")
+    # A name that sorts before both saved sets, so the saved set is placed ahead of them.
+    save_name(person).fill("Aachen")
+    # The name is one line: Enter neither breaks it nor saves.
+    save_name(person).press("Enter")
+    expect(save_name(person)).to_have_value("Aachen")
+    expect(save_row(person)).to_be_visible()
 
     save_row(person).get_by_role("button", name=SAVE).click()
 
-    expect(set_pill(person, "Sonntag")).to_be_checked()
+    expect(set_pill(person, "Aachen")).to_be_checked()
     expect(save_row(person)).to_have_count(0)
     expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "true")
-    assert saved_options(e2e_server, member_of(person), "Sonntag")["kontra"] is not None
+    expect(set_names(person)).to_have_text([OFFICIAL, "Aachen", EVENING_SET, HOUSE_SET])
+    assert saved_options(e2e_server, member_of(person), "Aachen")["kontra"] is not None
     person.get_by_role("button", name=CANCEL).click()
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-    expect(set_pill(person, "Sonntag")).to_be_visible()
+    expect(set_pill(person, "Aachen")).to_be_visible()
     sheet_of(other, e2e_server)
     expect(other.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(1)
 
