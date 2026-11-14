@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "540682229ff504d740edb00791a91286d5cf3cd7"
 branch = "claude/issue-533-the-lobby-s-idle-heartbeat-re-reads-chea"
-scope = ["README.md", "src/skat/web/lobby.py", "src/skat/web/settings.py", "src/skat/web/streams.py", "tests/web/test_lobby_stream.py", "tests/web/test_streams.py", "tests/web/test_streams_end.py", "tests/web/test_streams_loop.py"]
+scope = ["README.md", "docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/store/tables.py", "src/skat/table/lobby.py", "src/skat/table/transactions.py", "src/skat/web/lobby.py", "src/skat/web/settings.py", "src/skat/web/streams.py", "tests/e2e/support/declaring.py", "tests/store/test_tables_held.py", "tests/support/fake_tables.py", "tests/table/test_service_member_view.py", "tests/table/test_views_paused.py", "tests/web/support/lobby_scene.py", "tests/web/support/streams.py", "tests/web/test_lobby_heartbeat.py", "tests/web/test_lobby_stream.py", "tests/web/test_settings.py", "tests/web/test_streams.py", "tests/web/test_streams_end.py", "tests/web/test_streams_loop.py"]
 opened_commit = "348487d6b1326f59d7749983eedc98dce53364d7"
 whole_reason = "The heartbeat's cheap re-read and the per-account cap share the one loop in streams.py and the one route in lobby.py; a cap with no cheap re-read still costs 1 + 11K SELECTs per idle beat below it."
