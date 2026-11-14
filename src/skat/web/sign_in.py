@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Protocol
 from urllib.parse import parse_qs, quote, urlsplit
 
 import structlog
@@ -12,6 +12,7 @@ from webauth.config import SessionLifetime, WebAuthConfig
 from webauth.https_client import fetch_key_set_over_https
 from webauth.oidc import OidcClientConfig, OidcRefusal, OidcRelyingParty, TokenRequestPost
 from webauth.oidc_transport import post_token_request_over_https
+from webauth.ports import SessionRecordStore
 from webauth.proxies import TrustedProxies
 from webauth.rate_limit import SingleProcessRateLimitBackend
 from webauth.sign_in_routes import (
@@ -46,11 +47,12 @@ from skat.web.words import text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import datetime
 
     from pydantic import SecretStr
     from starlette.requests import HTTPConnection
     from webauth.jwt_verification import KeySetFetch
-    from webauth.ports import AccountEvent, SessionRecordStore, SignInTransaction
+    from webauth.ports import AccountEvent, SignInTransaction
 
     from skat.web.page_build import PageBuild, SignInPages
     from skat.web.settings import ServerSettings
@@ -66,6 +68,24 @@ class LoggingAuditSink:
 
     def account_event(self, event: AccountEvent) -> None:
         logger.info("account_event", kind=event.kind.value, subject_id=event.subject_id, role=event.role)
+
+
+class ExpirableSessions(SessionRecordStore, Protocol):  # pragma: no cover - a port's method bodies are signatures
+    """The sessions the session gate asks, which also drop the ones expired at a time."""
+
+    def delete_expired(self, now: datetime) -> int: ...
+
+
+class SignInPorts(Protocol):  # pragma: no cover - a port's method bodies are signatures
+    """What the app signs in with: the sessions the gate and the routes ask and the sign-in entry, both over the
+    database every pod shares.
+    """
+
+    @property
+    def sessions(self) -> ExpirableSessions: ...
+
+    @property
+    def transaction(self) -> SignInTransaction: ...
 
 
 class SignInConfigurationError(StartRefusedError):

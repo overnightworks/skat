@@ -1,5 +1,6 @@
 import time
 from contextlib import asynccontextmanager, nullcontext
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final, cast
 
 import structlog
@@ -10,7 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
-from webauth.config import install_web_auth_config
+from webauth.config import install_web_auth_config, installed_web_auth_config
 from webauth.middleware import install_web_auth_middleware
 from webauth.policies import (
     CacheControlRule,
@@ -22,7 +23,6 @@ from webauth.policies import (
     default_content_security_policy,
 )
 from webauth.session_groups import SessionGroups
-from webauth.single_process_stores import SingleProcessStores
 
 from skat.table.records import TableId
 from skat.web.abort import create_abort_router
@@ -66,8 +66,8 @@ from skat.web.series_end import create_series_end_router
 from skat.web.sign_in import (
     ISSUER_OVER_HTTPS,
     IssuerTransports,
-    LoggingAuditSink,
     SignInConfigs,
+    SignInPorts,
     build_relying_party,
     build_sign_in_configs,
     install_sign_in,
@@ -88,6 +88,7 @@ if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
+    from skat.web.sign_in import ExpirableSessions
 
 
 UNPLAYED_SWEEP_SECONDS: Final = 3600
@@ -141,7 +142,7 @@ def _install_sign_in(
     app: FastAPI,
     sign_in_configs: SignInConfigs,
     relying_party: OidcRelyingParty,
-    stores: SingleProcessStores,
+    stores: SignInPorts,
     page_build: PageBuild,
 ) -> None:
     install_web_auth_config(app, sign_in_configs.web_auth)
@@ -172,7 +173,7 @@ def _caller_membership(
     clock: Callable[[], float],
 ) -> CallerMembership:
     groups = SessionGroups(relying_party, lambda: nullcontext(sessions), sign_in_configs.web_auth)
-    return CallerMembership(groups, sessions, sign_in_configs.web_auth, relying_party.issuer, clock)
+    return CallerMembership(groups, sign_in_configs.web_auth, relying_party.issuer, clock)
 
 
 def _roster_and_changes(
@@ -320,22 +321,35 @@ async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -
     await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
 
 
+def _session_forgetter(app: FastAPI, sessions: ExpirableSessions) -> Callable[[], Awaitable[None]]:
+    """The call that deletes the sessions expired by webauth's clock; every pod runs it, and a repeat deletes none."""
+
+    async def forget() -> None:
+        now = datetime.fromtimestamp(installed_web_auth_config(app).wall_clock(), UTC)
+        await run_in_threadpool(sessions.delete_expired, now)
+
+    return forget
+
+
 def _sweep_tables(
     settings: ServerSettings,
     tables: TableService,
     presence: Presence,
     scheduler: Scheduler,
+    forget_expired_sessions: Callable[[], Awaitable[None]],
     period_seconds: float,
 ) -> None:
     async def sweep() -> None:
-        try:
-            await _end_unplayed_tables(settings, tables, presence, at_start=False)
-        except Exception as failure:
-            log.error("unplayed tables read failed", error=type(failure).__name__)
-        try:
-            await _forget_ended_tables(settings, tables)
-        except Exception as failure:
-            log.error("ended tables forget failed", error=type(failure).__name__)
+        steps = (
+            ("unplayed tables read failed", lambda: _end_unplayed_tables(settings, tables, presence, at_start=False)),
+            ("ended tables forget failed", lambda: _forget_ended_tables(settings, tables)),
+            ("expired sessions forget failed", forget_expired_sessions),
+        )
+        for failure_message, step in steps:
+            try:
+                await step()
+            except Exception as failure:
+                log.error(failure_message, error=type(failure).__name__)
         if not presence.stopped:
             scheduler.schedule(period_seconds, sweep)
 
@@ -347,6 +361,7 @@ def _serving(
     tables: TableService,
     presence: Presence,
     scheduler: Scheduler,
+    sessions: ExpirableSessions,
     unplayed_sweep_seconds: float,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
@@ -358,7 +373,9 @@ def _serving(
         presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
         await _end_unplayed_tables(settings, tables, presence, at_start=True)
         await _forget_ended_tables(settings, tables)
-        _sweep_tables(settings, tables, presence, scheduler, unplayed_sweep_seconds)
+        forget_expired_sessions = _session_forgetter(serving, sessions)
+        await forget_expired_sessions()
+        _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
         try:
             async with serving.state.mcp_front.running():
                 yield
@@ -381,8 +398,8 @@ def create_app(
     page_build: PageBuild,
     tables: TableService,
     rule_sets: RuleSetService,
+    stores: SignInPorts,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
-    stores: SingleProcessStores | None = None,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
@@ -394,7 +411,6 @@ def create_app(
 
     _configure_logging()
 
-    sign_in_stores = stores if stores is not None else SingleProcessStores(audit=LoggingAuditSink())
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     roster, changes = _roster_and_changes(resource_changes)
@@ -407,27 +423,27 @@ def create_app(
     slots = StreamSlots(settings.streams_per_account)
     presence = _presence(settings, tables, chair_clock, scheduler, wakes)
 
-    app = _new_app(_serving(settings, tables, presence, scheduler, unplayed_sweep_seconds))
-    app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth, database_ready))
+    app = _new_app(_serving(settings, tables, presence, scheduler, stores.sessions, unplayed_sweep_seconds))
+    app.include_router(create_router(page_build, stores.sessions, sign_in_configs.web_auth, database_ready))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
-    _include_table_routers(app, tables, page_build, presence, wakes, sign_in_stores.sessions, sign_in_configs.web_auth)
-    membership = _caller_membership(relying_party, sign_in_configs, sign_in_stores.sessions, chair_clock)
+    _include_table_routers(app, tables, page_build, presence, wakes, stores.sessions, sign_in_configs.web_auth)
+    membership = _caller_membership(relying_party, sign_in_configs, stores.sessions, chair_clock)
     app.include_router(create_calling_router(tables, presence, roster, changes, relying_party.issuer, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
-    _include_stream_routers(app, settings, tables, presence, wakes, slots, sign_in_stores.sessions, heartbeat_seconds)
-    _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
+    _include_stream_routers(app, settings, tables, presence, wakes, slots, stores.sessions, heartbeat_seconds)
+    _install_sign_in(app, sign_in_configs, relying_party, stores, page_build)
     mcp = mount_mcp(
         app,
         relying_party,
-        sign_in_stores.transaction,
+        stores.transaction,
         settings.public_origin,
         _agent_heard(presence, roster),
         member_front(tables, presence, changes, scheduler, presence.waits),
     )
     app.state.mcp_front = mcp.front
-    _install_web_auth(app, sign_in_stores.sessions, page_build, settings.call_origin, mcp)
+    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp)
 
     return app

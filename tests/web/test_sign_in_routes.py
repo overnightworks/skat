@@ -556,6 +556,7 @@ class TestBackchannelLogout:
         now = datetime.now(UTC)
         session = harness.sessions.create(
             account.id,
+            session_id=secrets.token_urlsafe(),
             now=now,
             expires_at=now + timedelta(hours=1),
             refresh_token=None,

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Page, expect
-from sqlalchemy import text
 
 from skat.web.constants import AUTH_START_PATH, GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.tables import TABLES_PATH
@@ -16,6 +15,7 @@ from tests.e2e.support.browser import sign_in_at_issuer
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.sessions import holds_a_session
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -29,7 +29,6 @@ pytestmark = pytest.mark.e2e
 
 RECONNECTING = word_text(SOURCE_LANGUAGE, "table.reconnecting")
 CARDS_PLAYED_BEFORE = 4
-ISSUER_LOGIN_FORM = "issuer login form"
 FACES = "(faces) => faces.map((face) => face.dataset.suit + face.dataset.rank).sort()"
 FELT_CARD = ".trick .laid"
 # What uvicorn logs when its graceful wait ends with a stream still running: a task cancelled, or its error.
@@ -61,15 +60,10 @@ def view_of(page: Page) -> View:
     return View(page.locator(".card-face").evaluate_all(FACES), page.locator(".plaque").inner_text())
 
 
-def restart_under_open_pages(
-    table: PlayingTable, server: RunningServer, caplog: LogCaptureFixture, *, issuer_session_ended: set[str]
-) -> Restart:
-    """Skat stops with every page open at the running hand and a new one starts; the issuer's sessions live.
+def restart_under_open_pages(table: PlayingTable, server: RunningServer, caplog: LogCaptureFixture) -> Restart:
+    """Skat stops with every page open at the running hand and a new one starts; the sessions live in the database.
 
     Every page shows the table dimmed within the graceful wait of the stop, so the server ended its streams.
-
-    The sign-in start of a person whose issuer session ended is answered with the issuer's login form, where
-    only a person can go on.
     """
     people = {table.names[seat]: page for seat, page in table.pages.items()} | {"dora": table.watcher}
     sign_in_starts: dict[str, list[str]] = {name: [] for name in people}
@@ -82,13 +76,7 @@ def restart_under_open_pages(
             ),
         )
         page.on("load", lambda loaded, name=name: loads[name].append(loaded.url))
-        if name in issuer_session_ended:
-            page.route(
-                f"**{AUTH_START_PATH}**",
-                lambda route: route.fulfill(content_type="text/html", body=f"<title>{ISSUER_LOGIN_FORM}</title>"),
-            )
-        else:
-            sign_in_at_issuer(page, server, username=name)
+        sign_in_at_issuer(page, server, username=name)
         page.evaluate("window.sameDocument = true")
     views_before = {name: view_of(page) for name, page in people.items()}
     dimmed_views: dict[str, View] = {}
@@ -118,15 +106,16 @@ def expect_back_at_the_table(table: PlayingTable, restart: Restart, names: list[
     pages = {table.names[seat]: page for seat, page in table.pages.items()} | {"dora": table.watcher}
     for name in names:
         page = pages[name]
-        page.wait_for_function("() => window.sameDocument !== true")
         expect(page.locator(".chair")).to_have_count(3, timeout=BACK_AT_THE_TABLE_MILLISECONDS)
         expect(page.locator(".plaque")).to_have_text(
             restart.views_before[name].plaque, timeout=BACK_AT_THE_TABLE_MILLISECONDS
         )
         assert view_of(page) == restart.views_before[name]
         expect(page.locator(".stage.stale")).to_have_count(0)
-        assert len(restart.sign_in_starts[name]) == 1
-        assert len(restart.loads[name]) == 1
+        # The session outlived the restart, so the page stayed the same document and signed in nowhere.
+        assert page.evaluate("window.sameDocument") is True
+        assert restart.sign_in_starts[name] == []
+        assert restart.loads[name] == []
 
 
 @pytest.fixture
@@ -157,18 +146,8 @@ def playing_table(
     return deal
 
 
-def holds_a_session(server: RunningServer, name: str) -> bool:
-    return bool(server.stores.sessions.records_of(f"subject-{name}").sessions)
-
-
-def stored_session_tables(server: RunningServer) -> list[str]:
-    with server.engine.connect() as connection:
-        query = text("SELECT table_name FROM information_schema.tables WHERE table_name ILIKE '%session%'")
-        return list(connection.execute(query).scalars())
-
-
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_open_pages_come_back_through_the_issuer_without_a_click_after_skat_restarts(
+def test_open_pages_come_back_signed_in_without_a_click_after_skat_restarts(
     playing_table: Callable[..., PlayingTable],
     e2e_server: RunningServer,
     caplog: LogCaptureFixture,
@@ -177,32 +156,12 @@ def test_open_pages_come_back_through_the_issuer_without_a_click_after_skat_rest
     table = playing_table(form_factor)
     names = ["dora", *table.names.values()]
 
-    restart = restart_under_open_pages(table, e2e_server, caplog, issuer_session_ended=set())
+    restart = restart_under_open_pages(table, e2e_server, caplog)
 
     assert STREAM_CANCELLED.search(restart.server_log) is None
     assert restart.dimmed_views == restart.views_before
     expect_back_at_the_table(table, restart, names)
-    assert stored_session_tables(e2e_server) == []
     assert all(holds_a_session(e2e_server, name) for name in names)
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_person_whose_issuer_session_ended_waits_at_the_issuer_and_the_others_are_back(
-    playing_table: Callable[..., PlayingTable],
-    e2e_server: RunningServer,
-    caplog: LogCaptureFixture,
-    form_factor: dict[str, Any],
-) -> None:
-    table = playing_table(form_factor)
-    others = [*table.names.values()]
-
-    restart = restart_under_open_pages(table, e2e_server, caplog, issuer_session_ended={"dora"})
-
-    expect(table.watcher).to_have_title(ISSUER_LOGIN_FORM)
-    assert len(restart.sign_in_starts["dora"]) == 1
-    expect_back_at_the_table(table, restart, others)
-    assert all(holds_a_session(e2e_server, name) for name in others)
-    assert not holds_a_session(e2e_server, "dora")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -213,7 +172,7 @@ def test_after_the_restart_a_card_played_by_a_seated_member_reaches_every_page(
     form_factor: dict[str, Any],
 ) -> None:
     table = playing_table(form_factor)
-    restart = restart_under_open_pages(table, e2e_server, caplog, issuer_session_ended=set())
+    restart = restart_under_open_pages(table, e2e_server, caplog)
     expect_back_at_the_table(table, restart, ["dora", *table.names.values()])
     laid_before = table.watcher.locator(FELT_CARD).count()
     on_turn = int(table.watcher.locator(".chair.turn").get_attribute("data-seat") or "")

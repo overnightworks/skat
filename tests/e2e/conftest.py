@@ -139,9 +139,11 @@ def sign_in(
     if username is None:
         account = new_account(server.stores, server.config)
     else:
-        account = server.stores.accounts.create_for_subject(
-            f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
-        )
+        # A person who signs in again, in this test or in an earlier one, is the account the database already holds.
+        with server.stores.transaction() as entry:
+            account = entry.accounts.get(f"subject-{username}") or entry.accounts.create_for_subject(
+                f"subject-{username}", username, role=AppRole.USER, kind=AccountKind.PERSON
+            )
     # With `groups` the session holds a refresh token and the issuer reports them as the person's groups.
     refresh_token = None if groups is None else server.issuer.refresh_token_for(account.id)
     if groups is not None:

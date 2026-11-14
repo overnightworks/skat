@@ -1,9 +1,8 @@
 """Whether a session's person may call agents is read once for the display and held, never per render; a call reads the
-issuer fresh and replaces what is held; a session that ended takes its answer with it.
+issuer fresh and replaces what is held; an answer is dropped once the session cap has passed.
 """
 
 import asyncio
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from starlette.requests import Request
@@ -137,17 +136,6 @@ class FakeGroups:
         return self.answer
 
 
-class FlickeringSessions:
-    """The session store, which can report a session as no longer there."""
-
-    def __init__(self, stores):
-        self._stores = stores
-        self.gone = set()
-
-    def load(self, session_id):
-        return None if session_id in self.gone else self._stores.sessions.load(session_id)
-
-
 def request_of(skat):
     """A request carrying the cookie of a new session, and that session's id."""
     member = seed_member(skat.stores, skat.config, account=new_account(skat.stores, skat.config))
@@ -162,60 +150,63 @@ def displayed(held, *requests):
     return asyncio.run(read())
 
 
-class TestAnAnswerWhoseSessionEnded:
+class TestAnAnswerHeldForTheSessionCap:
     @pytest.fixture
     def groups(self):
         return FakeGroups(frozenset({AGENT_ADDERS_GROUP}))
 
     @pytest.fixture
-    def sessions(self, skat):
-        return FlickeringSessions(skat.stores)
+    def now(self):
+        return [0.0]
 
     @pytest.fixture
-    def membership(self, skat, groups, sessions):
-        return CallerMembership(groups, sessions, skat.config, "an-issuer", lambda: 0.0)
+    def cap(self, skat):
+        return skat.config.session_lifetime.absolute_max_age_seconds
 
-    def test_is_dropped_at_the_next_control_read_of_anyone_when_the_session_no_longer_loads(
-        self, skat, membership, groups, sessions
+    @pytest.fixture
+    def membership(self, skat, groups, now):
+        return CallerMembership(groups, skat.config, "an-issuer", lambda: now[0])
+
+    def test_is_dropped_at_the_next_control_read_of_anyone_once_the_cap_has_passed(
+        self, skat, membership, groups, now, cap
     ):
-        ended, ended_id = request_of(skat)
+        ended, _ = request_of(skat)
         other, _ = request_of(skat)
         displayed(membership, ended)
-        sessions.gone.add(ended_id)
+        now[0] = cap - 1
         displayed(membership, other)
-        sessions.gone.clear()
+        now[0] = cap
 
-        displayed(membership, ended)
+        displayed(membership, ended, other)
 
         assert groups.reads == 3
 
-    def test_is_dropped_when_the_session_loads_but_its_expiry_has_passed(self, skat, membership, groups):
-        lapsing, lapsing_id = request_of(skat)
-        other, _ = request_of(skat)
-        displayed(membership, lapsing)
-        skat.stores.sessions.touch(lapsing_id, expires_at=datetime.now(UTC) - timedelta(hours=1))
-        displayed(membership, other)
-        skat.stores.sessions.touch(lapsing_id, expires_at=datetime.now(UTC) + timedelta(hours=1))
-
-        displayed(membership, lapsing)
-
-        assert groups.reads == 3
-
-    def test_a_session_that_stands_keeps_its_answer(self, skat, membership, groups):
+    def test_is_kept_while_the_cap_has_not_passed(self, skat, membership, groups, now, cap):
         standing, _ = request_of(skat)
         other, _ = request_of(skat)
         displayed(membership, standing, other)
+        now[0] = cap - 1
 
-        displayed(membership, standing)
+        displayed(membership, standing, other)
 
         assert groups.reads == 2
+
+    def test_is_held_from_the_read_that_made_it_not_from_the_start(self, skat, membership, groups, now, cap):
+        late, _ = request_of(skat)
+        now[0] = 1000
+        displayed(membership, late)
+        now[0] = 1000 + cap - 1
+
+        displayed(membership, late)
+
+        assert groups.reads == 1
 
 
 class TestARefusedRead:
     @pytest.mark.parametrize("reason", list(AccessTokenRefusalReason))
     def test_answers_no_member_at_the_display_and_is_handed_on_by_a_call_whatever_the_reason(self, skat, reason):
         groups = FakeGroups(AccessTokenRefusal(reason))
-        held = CallerMembership(groups, FlickeringSessions(skat.stores), skat.config, "an-issuer", lambda: 0.0)
+        held = CallerMembership(groups, skat.config, "an-issuer", lambda: 0.0)
         request, _ = request_of(skat)
 
         assert displayed(held, request) == [False]

@@ -7,6 +7,7 @@ from sqlalchemy.engine import make_url
 from skat.host.app import create_app
 from skat.store.migrate import ReadinessProbe, create_store_engine, database_health, migrate, require_head
 from skat.store.rule_sets import PostgresRuleSets
+from skat.store.sign_in import PostgresSignInStores
 from skat.store.tables import PostgresTableTransactions
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
@@ -14,6 +15,7 @@ from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS, UVICORN_LOG_LEVEL
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.secret_files import read_secret_file
 from skat.web.settings import DatabaseSettings, ServerSettings
+from skat.web.sign_in import LoggingAuditSink
 
 if TYPE_CHECKING:
     import socket
@@ -104,6 +106,7 @@ def main(
         page_build=PageBuild.load(build_directory),
         tables=TableService(PostgresTableTransactions(engine)),
         rule_sets=RuleSetService(PostgresRuleSets(engine)),
+        stores=PostgresSignInStores(engine, audit=LoggingAuditSink()),
         database_ready=ReadinessProbe(lambda: database_health(engine)),
     )
     run_server(app, **uvicorn_options(settings))

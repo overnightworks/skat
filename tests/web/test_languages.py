@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 
-def skat_app(sign_in_settings, stores=None) -> FastAPI:
+def skat_app(sign_in_settings, stores) -> FastAPI:
     return create_app(
         sign_in_settings().settings,
         page_build=fixture_page_build(),
@@ -106,7 +106,12 @@ SIGN_IN_PAGES = pytest.mark.parametrize(
 
 def anonymous_client(sign_in_settings, *, accept_language: str | None) -> TestClient:
     headers = {} if accept_language is None else {"accept-language": accept_language}
-    return TestClient(skat_app(sign_in_settings), base_url=TEST_PUBLIC_ORIGIN, headers=headers, follow_redirects=False)
+    return TestClient(
+        skat_app(sign_in_settings, in_memory_stores()),
+        base_url=TEST_PUBLIC_ORIGIN,
+        headers=headers,
+        follow_redirects=False,
+    )
 
 
 class TestSignInPageLanguage:

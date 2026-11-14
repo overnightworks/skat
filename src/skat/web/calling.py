@@ -18,7 +18,7 @@ at the act.
 
 import secrets
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal
 
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 
     from agents.mcp_server import ResourceChanges
     from webauth.config import WebAuthConfig
-    from webauth.ports import AgentFacts, SessionRecordStore
+    from webauth.ports import AgentFacts
     from webauth.session_groups import SessionGroups
 
     from skat.table.member_place import CallOffer
@@ -181,28 +181,29 @@ class AgentRoster:
 
 @dataclass(frozen=True)
 class _Held:
-    """A session's answer, and until when it holds: for ever while the session stands, or the refusal's hold."""
+    """A session's answer, and until when it holds on the membership clock: a read's answer for as long as a session can
+    stand, a refusal's for the refusal's hold.
+    """
 
     is_member: bool
-    until: float | None = None
+    until: float
 
 
 class CallerMembership:
     """Whether a session's person counts as a member of the calling group: one held answer per session for the display,
-    and a fresh read of the issuer at each call, which replaces what is held. A read the issuer refused is held as
-    "no" for `DISPLAY_REFUSAL_HOLD` at the display and replaces nothing at a call.
+    and a fresh read of the issuer at each call, which replaces what is held. An answer is held for the session cap,
+    the longest a session stands. A read the issuer refused is held as "no" for `DISPLAY_REFUSAL_HOLD` at the display
+    and replaces nothing at a call.
     """
 
     def __init__(
         self,
         groups: SessionGroups,
-        sessions: SessionRecordStore,
         web_auth: WebAuthConfig,
         admission_issuer: str,
         clock: Callable[[], float],
     ) -> None:
         self._groups = groups
-        self._sessions = sessions
         self._web_auth = web_auth
         self._admission = AdmissionConfig(
             bound_issuer=admission_issuer, login_group=AGENT_ADDERS_GROUP, admin_group=NoAdmins.IN_THIS_APP
@@ -211,11 +212,11 @@ class CallerMembership:
         self._held: dict[str, _Held] = {}
 
     async def displayed(self, request: Request) -> bool:
-        """The held answer, read once for the session when none is held; also drops every answer whose session ended."""
-        self._drop_ended_sessions()
+        """The held answer, read once for the session when none is held; also drops every answer held out."""
+        self._drop_held_out_answers()
         session_id = self._session_id(request)
         held = self._held.get(session_id)
-        if held is not None and (held.until is None or self._clock() < held.until):
+        if held is not None:
             return held.is_member
         answer = await self._groups.of_session(session_id)
         if isinstance(answer, AccessTokenRefusal):
@@ -231,7 +232,8 @@ class CallerMembership:
 
     def _hold(self, session_id: str, groups: Collection[str]) -> bool:
         is_member = app_role(groups, self._admission) is not None
-        self._held[session_id] = _Held(is_member)
+        session_cap = self._web_auth.session_lifetime.absolute_max_age_seconds
+        self._held[session_id] = _Held(is_member, self._clock() + session_cap)
         return is_member
 
     def _session_id(self, request: Request) -> str:
@@ -242,13 +244,12 @@ class CallerMembership:
             raise RuntimeError(message)
         return session_id
 
-    def _drop_ended_sessions(self) -> None:
-        now = datetime.fromtimestamp(self._web_auth.wall_clock(), UTC)
-        self._held = {
-            session_id: held
-            for session_id, held in self._held.items()
-            if (record := self._sessions.load(session_id)) is not None and record.expires_at > now
-        }
+    def _drop_held_out_answers(self) -> None:
+        """Drops the answers whose hold has run out. A session cannot outlive the cap its answer was held for, so no
+        session is read to tell an ended one.
+        """
+        now = self._clock()
+        self._held = {session_id: held for session_id, held in self._held.items() if now < held.until}
 
 
 def _facts_of(

@@ -18,6 +18,7 @@ from sqlalchemy import (
     false,
     text,
 )
+from webauth.ports import AccountKind
 
 from skat.engine.bock import GAMES_IN_A_ROUND, BockOptions, BockOverlap, BockTrigger
 from skat.engine.cards import Rank, Suit
@@ -454,4 +455,30 @@ receipts = Table(
     Column("refusal", Text),
     Column("holder", Text),
     ForeignKeyConstraint(["table_id"], [tables.c.id]),
+)
+
+accounts = Table(
+    "accounts",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("username", Text, nullable=False),
+    Column("role", Text, nullable=False),
+    Column("kind", Text, nullable=False),
+    one_of("kind", (kind.value for kind in AccountKind), "accounts_kind_is_a_kind"),
+)
+
+# The session's id is stored only as its hash; no domain table references accounts, because chairs, rule sets, the
+# member book and receipts hold issuer subjects, some of which never signed in.
+sessions = Table(
+    "sessions",
+    metadata,
+    Column("id_hash", Text, primary_key=True),
+    Column("account_id", Text, ForeignKey(accounts.c.id, ondelete="CASCADE"), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("refresh_token", Text),
+    Column("id_token", Text),
+    Column("account_language", Text),
+    Index("sessions_account_created_at", "account_id", "created_at"),
+    Index("sessions_expires_at", "expires_at"),
 )
