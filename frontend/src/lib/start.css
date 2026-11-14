@@ -7348,8 +7348,8 @@ body {
     }
 }
 
-/* The chair that takes the trick flashes gold as the trick lands: a still ring whose opacity is all that moves. */
-.room .chair.got .tile::after {
+/* The chair that takes the trick flashes gold as the trick lands, and the chair that is taken glows once as its sitter fills it: a still ring whose opacity is all that moves. */
+.room .chair:is(.got, [data-moving="chair-taken"]) .tile::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -7381,6 +7381,101 @@ body {
 
     100% {
         opacity: 0.6;
+    }
+}
+
+/* A chair that is taken fills in the motion set the table carries, which none carries while the device asks for reduced motion and the player has not overridden it:
+   its sitter fades in and settles while the gold ring glows once. The durations are the set's chairSitsSeconds. */
+.room[data-motion="dezent"] .chair[data-moving="chair-taken"] .tile {
+    animation: sit-dezent 900ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="dezent"] .chair[data-moving="chair-taken"] .tile::after {
+    animation: sit-ring 900ms both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes sit-dezent {
+    from {
+        opacity: 0;
+        scale: 0.9;
+    }
+
+    40%,
+    to {
+        opacity: 1;
+        scale: 1;
+    }
+}
+
+.room[data-motion="verspielt"] .chair[data-moving="chair-taken"] .tile {
+    animation: sit-verspielt 1400ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="verspielt"] .chair[data-moving="chair-taken"] .tile::after {
+    animation: sit-ring 1400ms both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes sit-verspielt {
+    from {
+        opacity: 0;
+        scale: 0.9;
+    }
+
+    35% {
+        opacity: 1;
+        scale: 1.05;
+    }
+
+    to {
+        opacity: 1;
+        scale: 1;
+    }
+}
+
+@keyframes sit-ring {
+    0%,
+    20% {
+        opacity: 0;
+    }
+
+    45% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+/* A chair that stands up or opens fades into its empty seat in the same sets; "verspielt" lets it settle down a little.
+   The durations are the set's chairEmptiesSeconds. */
+.room[data-motion="dezent"] .chair:is([data-moving="chair-stood"], [data-moving="chair-opened"]) .tile {
+    animation: empty-dezent 300ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes empty-dezent {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.room[data-motion="verspielt"] .chair:is([data-moving="chair-stood"], [data-moving="chair-opened"]) .tile {
+    animation: empty-verspielt 400ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes empty-verspielt {
+    from {
+        opacity: 0;
+        translate: 0 -6px;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
     }
 }
 

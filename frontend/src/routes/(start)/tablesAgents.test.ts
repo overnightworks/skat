@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
-import { words } from "#lib/words.ts";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import {
     callAgent,
@@ -11,7 +10,7 @@ import {
     type AgentRow,
     type AgentsControl,
 } from "./agents.ts";
-import { agentSitsNote, seatedAgentsKey, type Chair, type Table } from "./tables.ts";
+import { seatedAgentsKey, type Chair, type Table } from "./tables.ts";
 
 const nova = (state: "available" | "inviting" | "here" | "ended", ends = 120): AgentRow =>
     state === "ended"
@@ -466,7 +465,7 @@ describe("the control that calls agents", () => {
     });
 });
 
-describe("the agent that sat down", () => {
+describe("the key of the agents that sit", () => {
     const chairOf = (seat: number, occupant_name: string | null, occupant_kind: Chair["occupant_kind"]): Chair => ({
         seat,
         occupant_name,
@@ -494,64 +493,6 @@ describe("the agent that sat down", () => {
         options: null,
         bock: null,
         ended: null,
-    });
-
-    it("is named when a chair that was free now holds an agent", () => {
-        const before = tableOf(chairOf(1, "Felix", "person"), chairOf(2, null, null));
-        const after = tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent"));
-
-        expect(agentSitsNote(before, after)).toEqual({
-            text: words["table.agentSits"]({ name: "Nova" }),
-            initials: [null],
-            seat: 2,
-            occupied: true,
-        });
-    });
-
-    it("is nobody when the agent takes a chair that was open in the running hand", () => {
-        const waiting: Table = {
-            ...tableOf(chairOf(1, "Felix", "person"), chairOf(2, null, null)),
-            hand: {
-                dealer_seat: 1,
-                own_cards: [],
-                skat_count: 2,
-                waiting_seat: 2,
-                abort: null,
-                abortable: true,
-                ramsch: false,
-                pushing: null,
-                pushes: 0,
-                push_factor: 1,
-                auction: {
-                    turn_seat: 1,
-                    facing_seat: null,
-                    awaiting: "bid",
-                    standing: null,
-                    values: [],
-                    words: [],
-                    declared: null,
-                },
-                declaring: null,
-                playing: null,
-            },
-        };
-        const after = tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent"));
-
-        expect(agentSitsNote(waiting, after)).toBeNull();
-    });
-
-    it.each([
-        ["a person sat down", chairOf(2, "Anna", "person")],
-        ["the chair is still free", chairOf(2, null, null)],
-        ["the agent sat there before", chairOf(2, "Nova", "agent")],
-    ])("is nobody when %s", (_case, now) => {
-        const sitting = _case === "the agent sat there before";
-        const before = tableOf(
-            chairOf(1, "Felix", "person"),
-            sitting ? chairOf(2, "Nova", "agent") : chairOf(2, null, null),
-        );
-
-        expect(agentSitsNote(before, tableOf(chairOf(1, "Felix", "person"), now))).toBeNull();
     });
 
     it("differs when two agents of one name swap one chair in a wake that skipped versions", () => {

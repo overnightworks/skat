@@ -16,7 +16,20 @@ import {
 // What a chair said in the auction that the table shows: a bid or a hold with its value, or a pass.
 export type BidWord = { action: Exclude<AuctionAction, "play">; value: number | null };
 
+// Who a chair changed hands with: the one who sat down or the one who left, and whether she is the viewer.
+type Sitter = { seat: number; name: string; agent: boolean; mine: boolean };
+
+// A chair that was open and now holds someone; `inHand` when it was an open chair of the running hand, whose cards the
+// sitter takes over.
+export type TakenCue = { kind: "chair-taken"; inHand: boolean } & Sitter;
+// A chair that was held between hands and is open now.
+export type StoodCue = { kind: "chair-stood" } & Sitter;
+// A chair of the running hand that is open now, which the hand waits on.
+export type OpenedCue = { kind: "chair-opened" } & Sitter;
+export type ChairCue = TakenCue | StoodCue | OpenedCue;
+
 export type Cue =
+    | ChairCue
     | { kind: "card-played"; seat: number; card: Card }
     | { kind: "auction-ended" }
     // The trick this update's completing card finished, which goes to its taker.
@@ -36,7 +49,7 @@ export type Cue =
 // before it yields nothing, and so does a change the two versions do not fully explain.
 export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     if (previous === undefined || next.version <= previous.version) return [];
-    const cues: Cue[] = [];
+    const cues: Cue[] = chairCuesBetween(previous, next);
     if (auctionJustEnded(previous, next)) cues.push({ kind: "auction-ended" });
     const { laid, completed } = cardsLaidBetween(previous, next);
     for (const [index, { seat, card }] of laid.entries()) {
@@ -56,6 +69,10 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     return cues;
 }
 
+export function isChairCue(cue: Cue): cue is ChairCue {
+    return cue.kind === "chair-taken" || cue.kind === "chair-stood" || cue.kind === "chair-opened";
+}
+
 // The stamp of the word an update brought, or null. A page that has no table before it, as after a reload or a dropped
 // connection, stamps nothing: the plaque already tells the word.
 export function stampBetween(previous: Table | undefined, next: Table): Stamp | null {
@@ -66,6 +83,31 @@ export function stampBetween(previous: Table | undefined, next: Table): Stamp | 
 // Whether the bubble a chair shows is the bid this page saw said, which is the one that springs up.
 export function springsUp(said: { seat: number; word: BidWord } | null, seat: number, bubble: Bubble | null): boolean {
     return said?.seat === seat && said.word.action === bubble?.kind && said.word.value === bubble.value;
+}
+
+// A chair that was open and holds someone now was taken. A chair that was held and is open now stood up, and opened for
+// the running hand when the hand waits for a sitter in `next`.
+function chairCuesBetween(previous: Table, next: Table): ChairCue[] {
+    const opensForHand = handWaits(next.hand);
+    const tookOpenChair = handWaits(previous.hand);
+    return next.chairs.flatMap((after): ChairCue[] => {
+        const before = previous.chairs.find((chair) => chair.seat === after.seat) as Chair;
+        if (before.occupant_name === null && after.occupant_name !== null)
+            return [{ kind: "chair-taken", inHand: tookOpenChair, ...sitterOf(after) }];
+        if (before.occupant_name !== null && after.occupant_name === null)
+            return [{ kind: opensForHand ? "chair-opened" : "chair-stood", ...sitterOf(before) }];
+        return [];
+    });
+}
+
+// Only a chair that is held is asked who holds it.
+function sitterOf(chair: Chair): Sitter {
+    return {
+        seat: chair.seat,
+        name: chair.occupant_name as string,
+        agent: chair.occupant_kind === "agent",
+        mine: chair.is_mine,
+    };
 }
 
 type Turn = { phase: "auction" | "declare" | "push" | "play"; seat: number };
