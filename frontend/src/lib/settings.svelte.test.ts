@@ -9,6 +9,8 @@ const DEFAULTS = {
     replayMotion: false,
     voice: false,
     lastTrick: "sweep",
+    turnInBackground: false,
+    vibration: false,
 };
 
 // The record is module state, so each test reads a module of its own.
@@ -71,6 +73,8 @@ describe("loadSettings", () => {
             replayMotion: true,
             voice: true,
             lastTrick: "stay",
+            turnInBackground: true,
+            vibration: true,
         };
         storeHolding(JSON.stringify({ ...kept, other: "x" }));
         const { currentSettings, loadSettings } = await freshSettings();
@@ -93,6 +97,8 @@ describe("loadSettings", () => {
         { field: "voice", bad: "on" },
         { field: "lastTrick", bad: "wegfegen" },
         { field: "lastTrick", bad: "toString" },
+        { field: "turnInBackground", bad: "on" },
+        { field: "vibration", bad: 1 },
     ])("gives a $field of $bad its default and keeps the other fields as stored", async ({ field, bad }) => {
         const kept = {
             muted: true,
@@ -102,6 +108,8 @@ describe("loadSettings", () => {
             replayMotion: true,
             voice: true,
             lastTrick: "stay",
+            turnInBackground: true,
+            vibration: true,
         };
         storeHolding(JSON.stringify({ ...kept, [field]: bad }));
         const { currentSettings, loadSettings } = await freshSettings();
@@ -140,6 +148,8 @@ describe("changeSetting", () => {
         { field: "replayMotion", value: true, record: '{"replayMotion":true}' },
         { field: "voice", value: true, record: '{"voice":true}' },
         { field: "lastTrick", value: "stay", record: '{"lastTrick":"stay"}' },
+        { field: "turnInBackground", value: true, record: '{"turnInBackground":true}' },
+        { field: "vibration", value: true, record: '{"vibration":true}' },
     ] as const)("writes exactly the record for $field $value under the one key", async ({ field, value, record }) => {
         const storage = storeHolding(null);
         const { changeSetting, currentSettings } = await freshSettings();

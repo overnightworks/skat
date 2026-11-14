@@ -14,10 +14,17 @@ const OWN_CARD_GAIN = 1;
 /** Two cards of one update land on the felt together; heard together they sound as one. */
 const MOMENT_STAGGER_SECONDS = 0.12;
 const ARMING_EVENTS = ["pointerup", "keydown"] as const;
+/** One short buzz, for a device that can vibrate. */
+const TURN_VIBRATION_MILLISECONDS: readonly number[] = [40];
 
 export interface TableSoundParts {
     readonly port: AudioPort;
     readonly settings: () => SoundSettings;
+    /** Whether „Du bist dran“ also sounds while the window is hidden. */
+    readonly turnInBackground: () => boolean;
+    /** Whether „Du bist dran“ also vibrates the device. */
+    readonly vibrationOn: () => boolean;
+    readonly vibrate: (pattern: readonly number[]) => void;
     readonly soundSet: () => SoundSet;
     /** The set the cards move in, or nothing while they stand still. */
     readonly motion: () => MotionSet | undefined;
@@ -34,6 +41,8 @@ export interface TableSound {
     forCues(cues: readonly Cue[], table: Table): void;
     /** Sounds the swept trick at the moment it begins to glide, when it has gathered. */
     forGlide(): void;
+    /** Sounds and vibrates „Du bist dran“ for the viewer once the table shows it, after the moves of `cues` have landed. */
+    forTurn(cues: readonly Cue[]): void;
     /** Sounds the chosen set's played card once, as the player's own card, for the player to hear what the choice sounds like. */
     preview(): Promise<void>;
     /** Fetches the recordings while the voice is on, so a word is said the moment its cue comes. */
@@ -56,6 +65,10 @@ function momentOf(cue: Cue, table: Table): Moment | undefined {
             return cue.word.action === "pass" ? undefined : { moment: "bid-said", gain: 1 };
         case "word-said":
             return { moment: "word-said", gain: 1 };
+        case "dealt":
+            return { moment: "dealt", gain: 1 };
+        case "result-appeared":
+            return { moment: cue.won ? "result-won" : "result-lost", gain: 1 };
         default:
             return undefined;
     }
@@ -69,11 +82,27 @@ const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "auction-ended": () => 0,
     "trick-taken": () => 0,
     "give-up-refused": () => 0,
+    "turn-came": () => 0,
+    dealt: () => 0,
+    "result-appeared": (motion) => motion.resultLandsSeconds,
 };
+
+// The gains count up from the moment the result has risen, and tick as long as the set's count runs.
+function countVoices(cues: readonly Cue[], set: SoundSet, motion: MotionSet | undefined): Voice[] {
+    if (motion === undefined) return [];
+    return cues
+        .filter((cue) => cue.kind === "result-appeared" && cue.counts)
+        .flatMap(() =>
+            set.counts(1, motion.countSeconds).map((voice) => ({ ...voice, at: voice.at + motion.countStartsSeconds })),
+        );
+}
 
 export function createTableSound({
     port,
     settings,
+    turnInBackground,
+    vibrationOn,
+    vibrate,
     soundSet,
     motion,
     voiceOn,
@@ -115,7 +144,8 @@ export function createTableSound({
                         at: voice.at + lands + index * MOMENT_STAGGER_SECONDS,
                     })),
                 );
-            if (voices.length > 0) sound.play(voices);
+            const ticks = countVoices(cues, set, moving);
+            if (voices.length + ticks.length > 0) sound.play([...voices, ...ticks]);
             if (!voiceOn()) return;
             for (const { cue, lands } of landings) {
                 const key = voiceKeyOf(cue);
@@ -130,6 +160,17 @@ export function createTableSound({
                     .voices["trick-swept"](1)
                     .map((voice) => ({ ...voice, at: voice.at + gathers })),
             );
+        },
+        forTurn(cues) {
+            const moving = motion();
+            const lands = moving === undefined ? 0 : Math.max(0, ...cues.map((cue) => LANDS_AFTER[cue.kind](moving)));
+            sound.play(
+                soundSet()
+                    .voices["turn-came"](1)
+                    .map((voice) => ({ ...voice, at: voice.at + lands })),
+                { whenHidden: turnInBackground() },
+            );
+            if (vibrationOn()) vibrate(TURN_VIBRATION_MILLISECONDS);
         },
         async preview() {
             await sound.resume();
@@ -150,6 +191,11 @@ function pageSound(): TableSound {
         shared = createTableSound({
             port: createWebAudioPort(window),
             settings: soundSettings,
+            turnInBackground: () => currentSettings().turnInBackground,
+            vibrationOn: () => currentSettings().vibration,
+            vibrate: (pattern) => {
+                if ("vibrate" in window.navigator) window.navigator.vibrate(pattern);
+            },
             soundSet: () => SOUND_SETS[currentSettings().soundSet],
             motion: () => {
                 const id = motionInForce();
@@ -176,6 +222,11 @@ export function soundForCues(cues: readonly Cue[], table: Table): void {
 /** Sounds the trick that begins to glide to its taker's pile. */
 export function soundForGlide(): void {
     pageSound().forGlide();
+}
+
+/** Sounds and vibrates the viewer's turn, which the stage shows after the moves of `cues` have landed. */
+export function soundForTurn(cues: readonly Cue[]): void {
+    pageSound().forTurn(cues);
 }
 
 /** Lets the player hear the sound set they just chose. */
