@@ -4,14 +4,12 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, Route, expect
 
-from skat.engine.bidding import VALID_BIDS
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
-from tests.e2e.support.kontra import KEY, STAMP, ContestedTable, KontraTable, expect_nothing_to_overflow
+from tests.e2e.support.kontra import KEY, STAMP, ContestedTable, LeadingTable, expect_nothing_to_overflow
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 
 if TYPE_CHECKING:
@@ -28,18 +26,6 @@ COMMAND_FAILED = text(SOURCE_LANGUAGE, "kontra.commandFailed")
 ROUND_KEY_PIXELS = 52
 NEAR_CARD = ".laid.near .face"
 SECOND_LINE = ".plaque .pushes"
-
-
-class LeadingTable(KontraTable):
-    """The forehand outbids the middlehand, so the declarer leads and the middlehand may say Kontra."""
-
-    declarer_position = "forehand"
-
-    def _win_the_auction(self, seat_at: dict[str, int]) -> None:
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[0])
-        self.step(seat_at["forehand"], TABLE_AUCTION_HOLD_SUFFIX)
-        self.step(seat_at["middlehand"], TABLE_AUCTION_PASS_SUFFIX)
-        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
 
 
 @pytest.fixture

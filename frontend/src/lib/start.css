@@ -1733,6 +1733,12 @@ body {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
 }
 
+/* While the first card waits for a word the leader holds its cards back, open ones as well as hidden. */
+.room .open.dim .open-row .card {
+    filter: brightness(0.5) saturate(0.55) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45))
+        drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+}
+
 .room .open-row .card + .card {
     margin-left: calc(var(--open-step) - var(--open-width));
 }

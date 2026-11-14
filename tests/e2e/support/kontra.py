@@ -49,6 +49,18 @@ class ContestedTable(KontraTable):
         self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
 
 
+class LeadingTable(KontraTable):
+    """The forehand outbids the middlehand, so the declarer leads and the middlehand may say Kontra."""
+
+    declarer_position = "forehand"
+
+    def _win_the_auction(self, seat_at: dict[str, int]) -> None:
+        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[0])
+        self.step(seat_at["forehand"], TABLE_AUCTION_HOLD_SUFFIX)
+        self.step(seat_at["middlehand"], TABLE_AUCTION_PASS_SUFFIX)
+        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
+
+
 def expect_nothing_to_overflow(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size

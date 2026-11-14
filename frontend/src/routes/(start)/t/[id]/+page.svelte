@@ -683,7 +683,7 @@
                                 {#if chair.is_mine}
                                     <OpenTag />
                                 {:else}
-                                    <OpenHand cards={openCards} />
+                                    <OpenHand cards={openCards} dim={wait?.held(chair.seat)} />
                                 {/if}
                             {:else if !chair.is_mine}
                                 <div class="fan-spot">
