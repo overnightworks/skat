@@ -169,10 +169,17 @@ def test_the_new_table_sheet_offers_open_checked_by_default_and_private_with_a_l
     expect(person.get_by_text(VISIBILITY_INFO)).to_be_visible()
     pick_visibility(person, VISIBILITY_PRIVATE)
     expect(choice.get_by_role("radio", name=VISIBILITY_OPEN)).not_to_be_checked()
-    pick_visibility(person, VISIBILITY_OPEN)
-    expect(choice.get_by_role("radio", name=VISIBILITY_PRIVATE)).not_to_be_checked()
-    expect(choice.get_by_role("radio", name=VISIBILITY_OPEN)).to_be_checked()
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    pick_visibility(person, VISIBILITY_OPEN)
+    person.get_by_role("button", name=OPEN_TABLE).click()
+    expect(person).to_have_url(TABLE_URL)
+    path = person.url.removeprefix(e2e_server.base_url)
+
+    open_start_page(person, e2e_server)
+
+    mine = person.locator(f"a.lobby-card[href='{path}']")
+    expect(mine).to_have_count(1)
+    expect(mine.get_by_role("img", name=PRIVATE)).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
