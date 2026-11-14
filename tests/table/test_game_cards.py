@@ -66,7 +66,9 @@ class TestAGamePlayedOut:
 
         ended = finished_by_the_last_card(table)
 
-        assert ended.game_list[-1].cards == GameCards(hands=DEALT, skat=SKAT, put_away=(), tricks=in_threes(plays))
+        assert ended.game_list[-1].cards == GameCards(
+            hands=DEALT, skat=SKAT, laid_skat=(), put_away=(), tricks=in_threes(plays)
+        )
 
     def test_a_declarer_who_took_the_skat_keeps_the_two_cards_he_put_away_under_his_seat(self):
         put_away = (DECK[10], DECK[31])
@@ -103,7 +105,9 @@ class TestARamsch:
 
         ended, plays = a_ramsch_ended_by_its_last_card(table)
 
-        assert ended.game_list[-1].cards == GameCards(hands=DEALT, skat=SKAT, put_away=(), tricks=in_threes(plays))
+        assert ended.game_list[-1].cards == GameCards(
+            hands=DEALT, skat=SKAT, laid_skat=(), put_away=(), tricks=in_threes(plays)
+        )
 
     def test_a_schieberamsch_keeps_what_each_seat_put_away_and_the_hands_and_the_skat_as_dealt(self):
         taken = (DECK[0], DECK[1])

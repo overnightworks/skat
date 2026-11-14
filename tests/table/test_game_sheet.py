@@ -29,6 +29,7 @@ HERZ_GAME = Declaration(GameKind.HERZ, hand=False, ouvert=False, announcement=An
 def cards_of(**changed):
     """A game of seat 1's Herz in which seat 1 took both tricks."""
     fields = {
+        "laid_skat": (),
         "hands": ((HERZ_SEVEN, KARO_ACE, PIK_KING), (KREUZ_ACE, PIK_NINE), (KREUZ_TEN, KREUZ_SEVEN, PIK_EIGHT)),
         "skat": (KARO_JACK, KREUZ_SEVEN),
         "put_away": (SeatedCard(1, PIK_KING), SeatedCard(1, KARO_JACK)),

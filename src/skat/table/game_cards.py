@@ -38,7 +38,7 @@ class GameCards:
     skat: tuple[Card, ...]
     put_away: tuple[SeatedCard, ...]
     tricks: tuple[tuple[SeatedCard, ...], ...]
-    laid_skat: tuple[Card, ...] = ()
+    laid_skat: tuple[Card, ...]
 
 
 def in_deck_order(cards: Iterable[Card]) -> tuple[Card, ...]:
