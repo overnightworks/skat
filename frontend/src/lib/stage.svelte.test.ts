@@ -230,6 +230,19 @@ describe("the viewer's turn on the page's stage", () => {
         expect(asked.sweeps()).toBe(TURN_VOICES);
     });
 
+    it("vibrates once when the player switched vibration on and the device can, and stays quiet otherwise", async () => {
+        const buzz = vi.fn();
+        const capable = await stageOnAPage({ ...MOVING, vibration: true });
+        vi.stubGlobal("window", { ...window, navigator: { vibrate: buzz } });
+        capable.stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
+        const incapable = await stageOnAPage({ ...MOVING, vibration: true });
+
+        expect(() => {
+            incapable.stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
+        }).not.toThrow();
+        expect(buzz).toHaveBeenCalledExactlyOnceWith([40]);
+    });
+
     it("sounds nothing for the first table of a page", async () => {
         const { stage, sweeps } = await stageOnAPage(MOVING);
         stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN, TURN]);
