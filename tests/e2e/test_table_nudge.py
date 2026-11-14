@@ -12,6 +12,7 @@ from playwright.sync_api import Locator, Page, expect
 from skat.table.asking import ASK_AGAIN_AFTER
 from skat.table.nudging import NudgeRefusal
 from skat.web.nudging import TABLE_NUDGE_SUFFIX
+from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import reload_and_wait
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
@@ -167,6 +168,26 @@ def test_the_bell_comes_after_a_minute_to_the_seated_but_the_awaited_and_a_tap_r
     for page in (*waiting.nudgers, waiting.watcher):
         expect(page.locator(NOTICE)).to_have_count(0)
         expect(page.locator(f"{BELL}.shaken")).to_have_count(0)
+
+
+def test_a_new_version_at_the_same_awaited_chair_starts_the_minute_again(
+    silent_seat: Callable[..., SilentSeat],
+) -> None:
+    waiting = silent_seat(PHONE)
+    declarer = waiting.table.pages[waiting.table.declarer_seat]
+    waiting.let_the_server_wait(ASK_AGAIN_AFTER)
+    waiting.let_the_pages_wait(ASK_AGAIN_AFTER + 1)
+    expect(waiting.bell_button(declarer)).to_have_count(1)
+
+    # The declarer asks the defenders to let him give up: the new version still waits for the same chair.
+    waiting.table.declaring.step(waiting.table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
+    expect(waiting.bell_button(declarer)).to_have_count(0)
+    waiting.let_the_server_wait(ASK_AGAIN_AFTER)
+    waiting.let_the_pages_wait(2)
+
+    expect(waiting.bell_button(declarer)).to_have_count(0)
+    waiting.let_the_pages_wait(ASK_AGAIN_AFTER)
+    expect(waiting.bell_button(declarer)).to_have_count(1)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
