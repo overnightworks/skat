@@ -25,6 +25,7 @@ from skat.web.tables import (
     TABLES_PATH,
     CommandRequest,
     TableAnswer,
+    TableIdInPath,
     actor_of,
     answer_of,
     command_answer,
@@ -64,20 +65,18 @@ def _create_chairs_router(tables: TableService, presence: Presence, wakes: WakeL
         openapi_extra=SIT_DOWN_MARK,
     )
     async def sit_down(
-        table_id: str, body: SitDownRequest, request: Request, response: Response
+        table_id: TableIdInPath, body: SitDownRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Take a free chair at a Skat table.
 
-        The table id is the last part of the table's link /t/{id}, which a person gives the caller, or the id of a table
-        the caller opened. `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the answer of
+        `seat` is the chair's number, 1 to 3: a chair whose `occupant_name` is null in the answer of
         read_table. Whoever sits first has the chair. The sit that fills the third chair deals the first hand; while a
         game's result stands, sitting down counts as continuing. At a table whose running hand waits for a sitter
         (`hand.waiting_seat` is set in the answer), the sit takes that seat over as it stands: its cards, its role and
         its turn, and the hand moves again once no chair is open; a caller that held another chair of this hand cannot
-        take it. The command id names this step: the same id with the same seat is a retry that changes nothing twice. A
-        refusal (the chair is taken, and the answer names who holds it; the caller already sits at this table;
+        take it. Refused: the chair is taken, and the answer names who holds it; the caller already sits at this table;
         `own-seat-only`: the caller left another chair of the running hand and may sit only in that one until the hand
-        ends) comes back as a failed result with its reason, leaves the table as it was and spends the command id.
+        ends.
         """
         command = SitDown(command_id=body.command_id, table_id=table_id, seat=body.seat)
         answer = await command_answer(partial(tables.sit, actor_of(request), command), presence, table_id, response)
@@ -96,15 +95,13 @@ def _create_chairs_router(tables: TableService, presence: Presence, wakes: WakeL
         openapi_extra=STAND_UP_MARK,
     )
     async def stand_up(
-        table_id: str, body: CommandRequest, request: Request, response: Response
+        table_id: TableIdInPath, body: CommandRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Leave the caller's own chair at a Skat table.
 
         The chair keeps its number and becomes free, at any time. While a hand runs, the hand waits for a sitter
-        (`hand.waiting_seat` is set in the answer) and nothing is scored; until that hand ends the caller may sit
-        again only in the chair it left. The command id names this step: the same id again is a retry that changes
-        nothing twice. A refusal (the caller holds no chair here) comes back as a failed result with its reason,
-        leaves the table as it was and spends the command id.
+        (`hand.waiting_seat` is set in the answer) and nothing is scored; until that hand ends the caller may sit again
+        only in the chair it left. Refused: the caller holds no chair here.
         """
         command = StandUp(command_id=body.command_id, table_id=table_id)
         answer = await command_answer(partial(tables.stand, actor_of(request), command), presence, table_id, response)
@@ -132,8 +129,7 @@ def create_seating_router(tables: TableService, presence: Presence, wakes: WakeL
         `visibility` is open by default, which lists the table to every member of the app with its free chairs, or
         private, which lists it to its chair holders only; it stays fixed for the table's life and the link reaches
         either. The answer is the table as read_table gives it. Its `id` makes the table's link /t/{id}, which the
-        caller gives the people it wants to play with. The command id names this opening: the same id with the same
-        request is a retry that opens no second table, and the same id with another request is refused.
+        caller gives the people it wants to play with.
         """
         # The answer names people, so no cache may keep it past the gate.
         response.headers["Cache-Control"] = "no-store"
