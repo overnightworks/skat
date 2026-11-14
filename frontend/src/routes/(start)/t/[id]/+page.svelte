@@ -79,7 +79,6 @@
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
     import {
-        agentSitsNote,
         answerAbort,
         answerGiveUp,
         answerSeriesEnd,
@@ -164,14 +163,13 @@
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
         shaking = nudged !== null;
-        const note =
-            previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table) ?? nudged);
+        const cues = cuesBetween(previous, table);
+        const note = seatNotice(cues, table) ?? nudged;
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
         if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
-        const cues = cuesBetween(previous, table);
         soundForCues(cues, table);
         receiveOnStage(previous, cues);
         for (const cue of cues) {

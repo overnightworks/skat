@@ -533,3 +533,121 @@ describe("the bubble that springs up", () => {
         expect(springsUp(bid, seat, bubble)).toBe(springs);
     });
 });
+
+describe("the chairs that changed hands between two versions of a table", () => {
+    const OPEN_SEAT = 3;
+
+    function chairOf(seat: number, name: string | null, kind: Chair["occupant_kind"], mine = false): Chair {
+        return {
+            ...(chairsWithCards(EVERY_HAND_DEALT)[0] as Chair),
+            seat,
+            occupant_name: name,
+            occupant_kind: name === null ? null : kind,
+            is_mine: mine,
+            hand: null,
+        };
+    }
+
+    // A table at `version` whose running hand waits for a sitter at the open seat, or has every chair taken.
+    function chairsTable(version: number, waits: boolean, ...chairs: Chair[]): Table {
+        const base = table(version, EVERY_HAND_DEALT);
+        return {
+            ...base,
+            chairs,
+            hand: { ...(base.hand as NonNullable<Table["hand"]>), waiting_seat: waits ? OPEN_SEAT : null },
+        };
+    }
+
+    const anna = chairOf(1, "Anna", "person");
+    const felix = chairOf(2, "Felix", "person", true);
+    const free = chairOf(OPEN_SEAT, null, null);
+    const nova = chairOf(OPEN_SEAT, "Nova", "agent");
+    const lena = chairOf(OPEN_SEAT, "Lena", "person");
+
+    it.each([
+        {
+            name: "an agent sits on a chair that was free between hands",
+            previous: chairsTable(1, false, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, nova),
+            cue: { kind: "chair-taken", seat: OPEN_SEAT, name: "Nova", agent: true, mine: false, inHand: false },
+        },
+        {
+            name: "a person sits on a chair that was free between hands",
+            previous: chairsTable(1, false, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, lena),
+            cue: { kind: "chair-taken", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false, inHand: false },
+        },
+        {
+            name: "a person takes the open chair of the running hand",
+            previous: chairsTable(1, true, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, lena),
+            cue: { kind: "chair-taken", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false, inHand: true },
+        },
+        {
+            name: "the viewer sits down herself",
+            previous: chairsTable(1, false, anna, chairOf(2, null, null), lena),
+            next: chairsTable(2, false, anna, felix, lena),
+            cue: { kind: "chair-taken", seat: 2, name: "Felix", agent: false, mine: true, inHand: false },
+        },
+        {
+            name: "a person stands up between hands",
+            previous: chairsTable(1, false, anna, felix, lena),
+            next: chairsTable(2, false, anna, felix, free),
+            cue: { kind: "chair-stood", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false },
+        },
+        {
+            name: "an agent leaves between hands",
+            previous: chairsTable(1, false, anna, felix, nova),
+            next: chairsTable(2, false, anna, felix, free),
+            cue: { kind: "chair-stood", seat: OPEN_SEAT, name: "Nova", agent: true, mine: false },
+        },
+        {
+            name: "an agent leaves a chair of the running hand",
+            previous: chairsTable(1, false, anna, felix, nova),
+            next: chairsTable(2, true, anna, felix, free),
+            cue: { kind: "chair-opened", seat: OPEN_SEAT, name: "Nova", agent: true, mine: false },
+        },
+        {
+            name: "a person stands up from the running hand",
+            previous: chairsTable(1, false, anna, felix, lena),
+            next: chairsTable(2, true, anna, felix, free),
+            cue: { kind: "chair-opened", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false },
+        },
+        {
+            name: "the viewer stands up from the running hand herself",
+            previous: chairsTable(1, false, anna, felix, lena),
+            next: chairsTable(2, true, anna, chairOf(2, null, null), lena),
+            cue: { kind: "chair-opened", seat: 2, name: "Felix", agent: false, mine: true },
+        },
+    ] satisfies { name: string; previous: Table; next: Table; cue: Cue }[])(
+        "brings $name as one cue",
+        ({ previous, next, cue }) => {
+            expect(cuesBetween(previous, next)).toEqual([cue]);
+        },
+    );
+
+    it.each([
+        {
+            name: "a page that has no table before it",
+            previous: undefined,
+            next: chairsTable(2, false, anna, felix, nova),
+        },
+        {
+            name: "a table that is not newer",
+            previous: chairsTable(2, false, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, nova),
+        },
+        {
+            name: "chairs that stay as they were",
+            previous: chairsTable(1, false, anna, felix, nova),
+            next: chairsTable(2, false, anna, felix, nova),
+        },
+        {
+            name: "a chair that stays open",
+            previous: chairsTable(1, true, anna, felix, free),
+            next: chairsTable(2, true, anna, felix, free),
+        },
+    ])("bring nothing for $name", ({ previous, next }) => {
+        expect(cuesBetween(previous, next)).toEqual([]);
+    });
+});

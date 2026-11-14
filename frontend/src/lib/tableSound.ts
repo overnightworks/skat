@@ -69,6 +69,9 @@ const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "auction-ended": () => 0,
     "trick-taken": () => 0,
     "give-up-refused": () => 0,
+    "chair-taken": () => 0,
+    "chair-stood": () => 0,
+    "chair-opened": () => 0,
 };
 
 export function createTableSound({
