@@ -23,8 +23,11 @@ pytestmark = pytest.mark.e2e
 
 GAME_SHEET = ".game-list .game-sheet"
 SHEET_ROUTE = f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}/*"
+LIST_ROUTE = f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}"
+LONG_LABEL_LEVELS = ["hand", "schneider", "schneider_announced", "schwarz", "schwarz_announced", "ouvert"]
 PUT_AWAY_FROM_THE_HAND = 2
 DEALT_CARDS = 30
+SEATS = 3
 SERVER_ERROR = 500
 
 
@@ -37,6 +40,16 @@ def without_cards(route: Route) -> None:
     sheet = route.fetch().json()
     sheet["cards"] = None
     route.fulfill(json=sheet)
+
+
+def as_the_list_names_it(fields: dict[str, object]) -> Callable[[Route], None]:
+    def named(route: Route) -> None:
+        answer = route.fetch().json()
+        for entry in answer["entries"]:
+            entry.update(fields)
+        route.fulfill(json=answer)
+
+    return named
 
 
 def broken(route: Route) -> None:
@@ -92,6 +105,48 @@ def test_a_declared_game_given_up_in_its_first_trick_shows_its_count_its_cards_a
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_null_games_sheet_draws_no_points_bar_and_still_its_tricks(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = a_declared_game_with_two_hand_cards_put_away(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.play_out(1)
+    table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
+    person = table.pages[table.declarer_seat]
+    person.route(LIST_ROUTE, as_the_list_names_it({"game": "null"}))
+
+    open_the_game(person)
+
+    expect(person.locator(f"{GAME_SHEET} .tricks .trick-row:not(.ended)")).to_have_count(1)
+    expect(person.locator(f"{GAME_SHEET} .points")).to_have_count(0)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_long_game_label_wraps_in_the_sheet_head_instead_of_being_cut(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = a_declared_game_with_two_hand_cards_put_away(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.play_out(1)
+    table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
+    person = table.pages[table.declarer_seat]
+    person.route(LIST_ROUTE, as_the_list_names_it({"levels": LONG_LABEL_LEVELS, "hand": True, "ouvert": True}))
+
+    open_the_game(person)
+
+    for part in (".sheet-head b", ".sheet-head small"):
+        assert person.locator(f"{GAME_SHEET} {part}").evaluate("label => label.scrollWidth <= label.clientWidth")
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_ramsch_sheet_draws_every_dot_round_and_its_tricks_inside_the_panel(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
@@ -111,6 +166,8 @@ def test_a_ramsch_sheet_draws_every_dot_round_and_its_tricks_inside_the_panel(
         "dots => dots.map(dot => { const box = dot.getBoundingClientRect(); return [box.width, box.height]; })"
     )
     assert all(abs(width - height) < 1 for width, height in sizes)
+    seat_dots = person.locator(f"{GAME_SHEET} .seat-eyes .dot")
+    assert len(set(seat_dots.evaluate_all("dots => dots.map(dot => getComputedStyle(dot).backgroundImage)"))) == SEATS
     assert person.locator(f"{GAME_SHEET} .tricks").evaluate(
         "tricks => tricks.getBoundingClientRect().right <= tricks.closest('.game-list').getBoundingClientRect().right"
     )

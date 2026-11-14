@@ -108,6 +108,8 @@ export type GameRow = {
     value: string;
     gain: string;
     lost: boolean;
+    // Null is not decided by card points, so its sheet draws no points bar.
+    nullGame: boolean;
 };
 
 const PLAIN_LEVELS = new Set(["spiel", "hand", "ouvert"]);
@@ -131,6 +133,7 @@ function declaredRow(entry: Extract<SeriesEntry, { kind: "declared" }>): GameRow
         value: String(entry.settled_value),
         gain: signed(entry.score),
         lost: entry.score < 0,
+        nullGame: entry.game === "null",
     };
 }
 
@@ -147,6 +150,7 @@ function ramschRow(entry: Extract<SeriesEntry, { kind: "ramsch" }>): GameRow {
         value: "",
         gain: signed(score),
         lost: score < 0,
+        nullGame: false,
     };
 }
 

@@ -210,6 +210,16 @@ describe("gameRows", () => {
         });
     });
 
+    it.each([
+        ["null", true],
+        ["kreuz", false],
+        ["grand", false],
+    ] as const)("tells a %s game to be a Null game (%s)", (game, isNull) => {
+        const [row] = gameRows([{ ...DECLARED_ENTRY, game }]);
+
+        expect(row?.nullGame).toBe(isNull);
+    });
+
     it("shows a lost game's loss with a minus", () => {
         const [row] = gameRows([LOST_ENTRY]);
 

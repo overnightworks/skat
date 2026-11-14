@@ -28,7 +28,7 @@
 </script>
 
 {#snippet dot(seat: SheetSeat, label?: string)}
-    <span class="dot" role="img" aria-label={label ?? seat.name}>{seat.initial}</span>
+    <span class={["dot", `seat-${String(seat.seat)}`]} role="img" aria-label={label ?? seat.name}>{seat.initial}</span>
 {/snippet}
 
 {#snippet minis(cards: readonly Card[])}
@@ -78,20 +78,26 @@
                         {@render dot(taker, words["table.sheetSkatTaker"]({ name: taker.name }))}
                     {/each}
                 </span>
-                {#each cards.putAway as put (put.by.seat)}
-                    <span class="pair">
-                        <small>{words["table.sheetPutAway"]}</small>
-                        {#if view.count.kind === "ramsch"}{@render dot(
-                                put.by,
-                                words["table.sheetPutBy"]({ name: put.by.name }),
-                            )}{/if}
-                        {@render minis(put.cards)}
+                {#if cards.putAway.length > 0}
+                    <span class="puts">
+                        {#each cards.putAway as put (put.by.seat)}
+                            <span class="pair">
+                                <small>{words["table.sheetPutAway"]}</small>
+                                {#if view.count.kind === "ramsch"}{@render dot(
+                                        put.by,
+                                        words["table.sheetPutBy"]({ name: put.by.name }),
+                                    )}{/if}
+                                {@render minis(put.cards)}
+                            </span>
+                        {/each}
                     </span>
-                {/each}
+                {/if}
             </div>
         {/if}
         {#if view.count.kind === "declared"}
-            <PointsBar sides={view.count.sides} points={view.count.points} />
+            {#if !row.nullGame}
+                <PointsBar sides={view.count.sides} points={view.count.points} />
+            {/if}
         {:else}
             <div class="seat-eyes">
                 {#each view.count.seats as each (each.seat.seat)}

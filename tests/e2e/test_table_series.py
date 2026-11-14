@@ -306,6 +306,9 @@ def test_a_game_with_three_putters_keeps_every_putter_and_the_skat_inside_the_pa
     person.locator(ROWS).click()
 
     expect(person.locator(f"{SHEET} .skatline .pair")).to_have_count(SEATS + 1)
+    lines = person.locator(f"{SHEET} .skatline .puts .pair")
+    lefts = {round(box["x"]) for box in (line.bounding_box() for line in lines.all()) if box}
+    assert len(lefts) == 1, f"the putters' lines start at x={lefts}"
     expect_the_sheet_inside_the_panel(person)
     assert page_errors == []
 

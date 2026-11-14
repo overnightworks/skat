@@ -6991,6 +6991,13 @@ body {
     background: none;
 }
 
+.room .game-list .sheet-head .grow b,
+.room .game-list .sheet-head .grow small {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+}
+
 .room .game-list .back {
     display: grid;
     flex: none;
@@ -7025,6 +7032,13 @@ body {
     align-items: center;
 }
 
+.room .game-list .skatline .puts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+}
+
 .room .game-list .skatline small {
     color: var(--on-stage-soft);
     font-size: 12px;
@@ -7057,10 +7071,26 @@ body {
     height: 26px;
     border-radius: 50%;
     color: #111;
-    background: linear-gradient(150deg, #9fd0f2, #4b8fc4);
+    background: linear-gradient(150deg, var(--c1, #9fd0f2), var(--c2, #4b8fc4));
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
+}
+
+/* The scenes colour each person's dot; the sheet colours each seat's the same way. */
+.room .game-list .game-sheet .dot.seat-1 {
+    --c1: #6fd3bd;
+    --c2: #2f8f7d;
+}
+
+.room .game-list .game-sheet .dot.seat-2 {
+    --c1: #c2a8f5;
+    --c2: #7c5cd6;
+}
+
+.room .game-list .game-sheet .dot.seat-3 {
+    --c1: #e8c895;
+    --c2: #b08a55;
 }
 
 .room .game-list .seat-eyes {
