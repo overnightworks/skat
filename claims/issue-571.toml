@@ -1,8 +1,0 @@
-claim_id = "ed71775ee9304933b3768f2f15a82dc3"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "d5e856c770c53e6ba3afd66c5a4f4505d5be387b"
-branch = "claude/issue-571-an-agent-reads-each-shared-command-rule"
-scope = ["src/skat/web/abort.py", "src/skat/web/auction.py", "src/skat/web/calling.py", "src/skat/web/declaring.py", "src/skat/web/kontra.py", "src/skat/web/playing.py", "src/skat/web/pushing.py", "src/skat/web/ready.py", "src/skat/web/seating.py", "src/skat/web/series_end.py", "src/skat/web/tables.py", "tests/web/test_mcp.py"]
-opened_commit = "c15cfb77ce3a25ae9c7b3242b88eb08d0754bb1b"
-whole_reason = "One wording rule across every move's description: the shared sentences leave all tools at once and land once in the shared fields."
