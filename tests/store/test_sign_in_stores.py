@@ -11,6 +11,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import NoResultFound
 from webauth.ports import AccountEvent, AccountEventKind, AccountKind
 
+from skat.store.migrate import SIGN_IN_LOCK_KEY
 from skat.store.schema import accounts, sessions
 from skat.store.sign_in import PostgresSignInStores
 
@@ -71,7 +72,13 @@ def sign_in(stores, subject=SUBJECT, **session_options):
 def an_entry_waits_for_the_lock(engine):
     with engine.connect() as connection:
         waiting = connection.execute(
-            text("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted")
+            text(
+                "SELECT count(*) FROM pg_locks"
+                " WHERE locktype = 'advisory' AND NOT granted"
+                " AND database = (SELECT oid FROM pg_database WHERE datname = current_database())"
+                " AND (classid::bigint << 32) | objid::bigint = :key"
+            ),
+            {"key": SIGN_IN_LOCK_KEY},
         ).scalar_one()
     return waiting > 0
 
