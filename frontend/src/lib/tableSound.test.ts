@@ -18,7 +18,7 @@ import {
     TRICK,
     WAKING_SAMPLE_STARTS,
 } from "./tableSound.fixtures.ts";
-import { everyRecording } from "./voice.ts";
+import { everyRecording, grumbleOf } from "./voice.ts";
 import { stubBrowser } from "../testing/stubBrowser.ts";
 
 describe("the sound of a card", () => {
@@ -282,6 +282,85 @@ describe("the sound of a word of Kontra", () => {
 
         expect(earliest(quiet)).toBeGreaterThan(earliest(still));
         expect(earliest(playful)).toBeGreaterThan(earliest(quiet));
+    });
+});
+
+const NUDGED: Cue = { kind: "nudged", seat: OTHER_SEAT, pick: 0 };
+
+describe("the sound of a nudge", () => {
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])("rings the cowbell in the set %s", (soundSet) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forCues([NUDGED], tableSeenFrom(OWN_SEAT));
+
+        expect(port.played.length).toBeGreaterThan(0);
+    });
+
+    it("rings differently in each sound set", () => {
+        const heard = (soundSet: SoundSetId): string => {
+            const port = new FakePort();
+            soundAt(port, { soundSet }).forCues([NUDGED], tableSeenFrom(OWN_SEAT));
+            return JSON.stringify(port.played);
+        };
+
+        const sets = Object.keys(SOUND_SETS) as SoundSetId[];
+
+        expect(new Set(sets.map(heard)).size).toBe(sets.length);
+    });
+
+    it("rings alike on the page of the nudger, of the nudged and of a watcher", () => {
+        const heard = (ownSeat: number): string => {
+            const port = new FakePort();
+            soundAt(port).forCues([NUDGED], tableSeenFrom(ownSeat));
+            return JSON.stringify(port.played);
+        };
+
+        expect(new Set([OWN_SEAT, OTHER_SEAT, 0].map(heard)).size).toBe(1);
+    });
+
+    it("rings when the bell has swung in, in the set the table moves in", () => {
+        const [still, playful] = [new FakePort(), new FakePort()];
+
+        soundAt(still).forCues([NUDGED], tableSeenFrom(OWN_SEAT));
+        soundAt(playful, { motion: "verspielt" }).forCues([NUDGED], tableSeenFrom(OWN_SEAT));
+
+        expect(earliest(playful) - earliest(still)).toBeCloseTo(MOTION_SETS.verspielt.bellRingsSeconds);
+    });
+
+    it("is silent while muted", () => {
+        const port = new FakePort();
+
+        soundAt(port, { muted: true, voice: true }).forCues([NUDGED], tableSeenFrom(OWN_SEAT));
+
+        expect([port.played, port.spoken]).toEqual([[], []]);
+    });
+
+    it("grumbles from the recording of the line the pick chooses, after the bell has rung", () => {
+        const port = new FakePort();
+
+        soundAt(port, { voice: true, motion: "verspielt" }).forCues([NUDGED], tableSeenFrom(OWN_SEAT));
+
+        expect(port.spoken.map(({ url }) => url)).toEqual([RECORDING_OF(grumbleOf(NUDGED.pick))]);
+        expect(port.spoken[0]?.afterSeconds).toBeGreaterThan(MOTION_SETS.verspielt.bellRingsSeconds);
+    });
+
+    it("grumbles another line for another pick", () => {
+        const spoken = (pick: number): string[] => {
+            const port = new FakePort();
+            soundAt(port, { voice: true }).forCues([{ ...NUDGED, pick }], tableSeenFrom(OWN_SEAT));
+            return port.spoken.map(({ url }) => url);
+        };
+
+        expect(spoken(1)).not.toEqual(spoken(2));
+    });
+
+    it("rings without a grumble while the voice is off", () => {
+        const port = new FakePort();
+
+        soundAt(port, { voice: false }).forCues([NUDGED], tableSeenFrom(OWN_SEAT));
+
+        expect(port.spoken).toEqual([]);
+        expect(port.played.length).toBeGreaterThan(0);
     });
 });
 

@@ -24,6 +24,7 @@ const MOMENTS: SoundMoment[] = [
     "chair-taken",
     "chair-stood",
     "chair-opened",
+    "nudged",
 ];
 const LONGEST_SOUND_SECONDS = 0.6;
 const LONGEST_SWEEP_SECONDS = 0.4;

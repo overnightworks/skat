@@ -231,6 +231,9 @@ export type Words = {
     readonly "voice.re": string;
     readonly "voice.supra": string;
     readonly "voice.hirsch": string;
+    readonly "voice.grumbleComing": string;
+    readonly "voice.grumbleRush": string;
+    readonly "voice.grumbleThinking": string;
     readonly "voice.value18": string;
     readonly "voice.value20": string;
     readonly "voice.value22": string;
@@ -795,6 +798,9 @@ export const words: Words = {
     "voice.re": "Re",
     "voice.supra": "Supra",
     "voice.hirsch": "Hirsch",
+    "voice.grumbleComing": "Jaja, ich komm ja schon!",
+    "voice.grumbleRush": "Hetz mich nicht!",
+    "voice.grumbleThinking": "Moment, ich denk noch!",
     "voice.value18": "achtzehn",
     "voice.value20": "zwanzig",
     "voice.value22": "zweiundzwanzig",
