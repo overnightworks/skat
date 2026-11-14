@@ -356,10 +356,7 @@ class TableService:
         )
 
     def shorten(
-        self,
-        actor: Actor,
-        command: ShortenCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: ShortenCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
