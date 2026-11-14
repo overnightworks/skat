@@ -18,6 +18,11 @@ def run_in_transaction(engine, statement):
         connection.execute(statement)
 
 
+def only_row(engine, statement):
+    with engine.connect() as connection:
+        return tuple(connection.execute(statement).one())
+
+
 def insert_into_game_list(columns):
     names, values = ", ".join(columns), ", ".join(str(value) for value in columns.values())
     return f"INSERT INTO game_list ({names}) VALUES ({values})"  # noqa: S608 - only a test's fixed literals reach this text

@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from skat.store.migrate import create_store_engine, migrate
-from tests.support.migrations import list_row, run_in_transaction, upgrade_to
+from tests.support.migrations import list_row, only_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
@@ -27,15 +27,15 @@ class TestFromALiveTableAtRevisionThirtyNine:
         engine.dispose()
 
     def test_reads_the_give_up_as_a_give_up_with_no_open_cards(self, migrated):
-        with migrated.connect() as connection:
-            row = connection.execute(
-                text(
-                    "SELECT give_up_asked_by, give_up_declined_by, give_up_claim, give_up_agreed_by,"
-                    " shortening_refused_by FROM tables"
-                )
-            ).one()
+        row = only_row(
+            migrated,
+            text(
+                "SELECT give_up_asked_by, give_up_declined_by, give_up_claim, give_up_agreed_by,"
+                " shortening_refused_by FROM tables"
+            ),
+        )
 
-        assert tuple(row) == ("middlehand", "rearhand", None, None, None)
+        assert row == ("middlehand", "rearhand", None, None, None)
 
     @pytest.mark.parametrize(
         "statement",
