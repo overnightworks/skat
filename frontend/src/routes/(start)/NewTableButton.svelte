@@ -14,7 +14,8 @@
     import { words } from "#lib/words.ts";
     import { differs, isOn, OFFICIAL, requestOf, suggestedName } from "./openingRules.ts";
     import RuleUnit from "./RuleUnit.svelte";
-    import { createTable, readRuleSets, saveRuleSet, type Options, type RuleSet, type Visibility } from "./tables.ts";
+    import { createTable, readRuleSets, saveRuleSet, type RuleSet, type Visibility } from "./openTable.ts";
+    import type { Options } from "./tables.ts";
 
     let choosing = $state(false);
     let length = $state(SERIES_LENGTH_DEFAULT);
