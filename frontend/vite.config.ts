@@ -22,8 +22,8 @@ export default defineConfig(({ mode }) => ({
                 "src/routes/(start)/openingRules.ts",
             ],
             // wire.ts is generated.
-            // The words loader is generated.
-            exclude: ["src/lib/**/wire.ts", "src/lib/**/words/index.ts", "**/*.test.ts"],
+            // The words loader and the per-language word modules are generated.
+            exclude: ["src/lib/**/wire.ts", "src/lib/**/words/*.ts", "**/*.test.ts"],
             reporter: [
                 ["text", { skipFull: false }],
                 ["lcov", { projectRoot: ".." }],

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import pytest
 from playwright.sync_api import Locator, Page, Route, expect
@@ -7,7 +7,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,13 +19,17 @@ pytestmark = pytest.mark.e2e
 
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "play.commandFailed")
 KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
+SWIPE_HINT = text(SOURCE_LANGUAGE, "play.swipeHint")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 HAND_CARD = ".own-hand .card"
 LEGAL_CARD = f"{HAND_CARD}.ok"
 LIFTED_CARD = f"{HAND_CARD}.touch"
 DIMMED_CARD = f"{HAND_CARD}.no"
+DRAGGED_CARD = f"{HAND_CARD}.dragging"
+SWIPE_ARROW = f"{LIFTED_CARD} .swipe"
 PLAYABLE_CARD = f"{HAND_CARD} button"
 FELT_CARD = ".trick .laid"
+CARD_SLOT = ".trick .lead-slot"
 CARDS_IN_A_HAND = 10
 CARDS_IN_A_TRICK = 3
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
@@ -80,6 +84,94 @@ def tap(card: Locator) -> None:
     card.click(position=INSIDE_THE_VISIBLE_STRIP)
 
 
+FIRST_FINGER = 0
+SECOND_FINGER = 1
+
+
+class Pointer:
+    """A finger or a mouse pressed on a page, moved in steps and let go."""
+
+    STEPS = 6
+
+    def __init__(self, person: Page, *, touch: bool) -> None:
+        self.person = person
+        self.touch = touch
+        self.cdp = person.context.new_cdp_session(person) if touch else None
+        self.at = (0.0, 0.0)
+        self.button: Literal["left", "right"] = "left"
+        self.second: tuple[float, float] | None = None
+
+    def _touch_event(self, kind: str, points: dict[int, tuple[float, float]]) -> None:
+        assert self.cdp is not None
+        self.cdp.send(
+            "Input.dispatchTouchEvent",
+            {"type": kind, "touchPoints": [{"x": x, "y": y, "id": finger} for finger, (x, y) in points.items()]},
+        )
+
+    def press(self, x: float, y: float, *, button: Literal["left", "right"] = "left") -> None:
+        self.at = (x, y)
+        self.button = button
+        if self.touch:
+            self._touch_event("touchStart", {FIRST_FINGER: self.at})
+        else:
+            self.person.mouse.move(x, y)
+            self.person.mouse.down(button=button)
+
+    def press_second_finger(self, x: float, y: float) -> None:
+        self.second = (x, y)
+        self._touch_event("touchStart", {FIRST_FINGER: self.at, SECOND_FINGER: self.second})
+
+    def move_second_finger_by(self, dy: float) -> None:
+        assert self.second is not None
+        x, y = self.second
+        for step in range(1, self.STEPS + 1):
+            self._touch_event("touchMove", {FIRST_FINGER: self.at, SECOND_FINGER: (x, y + dy * step / self.STEPS)})
+        self.second = (x, y + dy)
+
+    def lift_second_finger(self) -> None:
+        assert self.second is not None
+        self._touch_event("touchEnd", {SECOND_FINGER: self.second})
+        self.second = None
+
+    def move_by(self, dx: float, dy: float) -> None:
+        x, y = self.at
+        for step in range(1, self.STEPS + 1):
+            point = (x + dx * step / self.STEPS, y + dy * step / self.STEPS)
+            if self.touch:
+                self._touch_event("touchMove", {FIRST_FINGER: point})
+            else:
+                self.person.mouse.move(*point)
+        self.at = (x + dx, y + dy)
+
+    def release(self) -> None:
+        if self.touch:
+            self._touch_event("touchEnd", {})
+        else:
+            self.person.mouse.up(button=self.button)
+
+    def cancel(self) -> None:
+        assert self.touch
+        self._touch_event("touchCancel", {})
+
+
+def strip_of(card: Locator) -> tuple[float, float]:
+    box = card.bounding_box()
+    assert box is not None
+    return box["x"] + INSIDE_THE_VISIBLE_STRIP["x"], box["y"] + INSIDE_THE_VISIBLE_STRIP["y"]
+
+
+def height_of(card: Locator) -> float:
+    box = card.bounding_box()
+    assert box is not None
+    return box["height"]
+
+
+def top_of(card: Locator) -> float:
+    box = card.bounding_box()
+    assert box is not None
+    return box["y"]
+
+
 def card_posts(person: Page) -> list[str]:
     posts: list[str] = []
     person.on(
@@ -128,8 +220,10 @@ def lead_after_moving_the_lift(table: PlayingTable, posts: dict[int, list[str]])
     forehand = table.pages[forehand_seat]
     expect(forehand.locator(LEGAL_CARD)).to_have_count(CARDS_IN_A_HAND)
     expect(forehand.locator(DIMMED_CARD)).to_have_count(0)
+    expect(forehand.locator(CARD_SLOT)).to_have_count(1)
     for seat, person in table.pages.items():
         if seat != forehand_seat:
+            expect(person.locator(CARD_SLOT)).to_have_count(0)
             expect(person.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
             expect(person.locator(PLAYABLE_CARD)).to_have_count(0)
             tap(person.locator(HAND_CARD).first)
@@ -147,6 +241,7 @@ def lead_after_moving_the_lift(table: PlayingTable, posts: dict[int, list[str]])
 
     tap(card_in_hand(forehand, lead))
     expect_on_the_felt(table, [(forehand_seat, lead)])
+    expect(forehand.locator(CARD_SLOT)).to_have_count(0)
     assert len(posts[forehand_seat]) == 1
     return lead
 
@@ -158,6 +253,7 @@ def follow_by_a_double_tap(table: PlayingTable, posts: dict[int, list[str]]) -> 
     legal = table.legal_cards(middlehand_seat)
     held = set(table.own_cards(middlehand_seat))
     assert set() < legal < held
+    expect(middlehand.locator(CARD_SLOT)).to_have_count(1)
     expect(middlehand.locator(LEGAL_CARD)).to_have_count(len(legal))
     assert faces_of(middlehand.locator(LEGAL_CARD)) == legal
     assert faces_of(middlehand.locator(DIMMED_CARD)) == held - legal
@@ -308,4 +404,203 @@ def test_after_the_thirtieth_card_no_card_can_be_tapped_and_nothing_breathes(
     for person in table.everyone:
         expect(person.locator(HAND_CARD)).to_have_count(0)
         expect(person.locator(TURN_CHAIR)).to_have_count(0)
+    assert page_errors == []
+
+
+POINTERS = [pytest.param(False, id="mouse"), pytest.param(True, id="touch")]
+# A move of a fifth of the card's height is far short of playing it, one of its whole height far past.
+SHORT_RISE = 0.2
+LONG_RISE = 1.0
+
+
+@pytest.mark.parametrize("touch", POINTERS)
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_card_moved_upward_past_the_threshold_plays_and_a_short_move_puts_it_back(
+    deal_a_playing_table: Callable[..., PlayingTable],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    touch: bool,
+) -> None:
+    table = deal_a_playing_table(form_factor)
+    forehand_seat, middlehand_seat = table.seat_at["forehand"], table.seat_at["middlehand"]
+    forehand, middlehand = table.pages[forehand_seat], table.pages[middlehand_seat]
+    lead = table.a_lead_the_middlehand_must_follow()
+    short = next(card for card in sorted(table.own_cards(forehand_seat)) if card != lead)
+    posts = card_posts(forehand)
+
+    held = card_in_hand(forehand, short)
+    height, resting = height_of(held), top_of(held)
+    pointer = Pointer(forehand, touch=touch)
+    pointer.press(*strip_of(held))
+    pointer.move_by(0, -height * SHORT_RISE)
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(1)
+    assert top_of(held) < resting
+    pointer.release()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(0)
+    assert top_of(held) == resting
+    assert posts == []
+
+    led = card_in_hand(forehand, lead)
+    pointer.press(*strip_of(led))
+    pointer.move_by(0, -height * LONG_RISE)
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(1)
+    pointer.release()
+    expect_on_the_felt(table, [(forehand_seat, lead)])
+    assert len(posts) == 1
+
+    dimmed = middlehand.locator(DIMMED_CARD).first
+    hand = middlehand.locator(".own-hand")
+    resting = top_of(dimmed) - top_of(hand)
+    middle_posts = card_posts(middlehand)
+    pointer = Pointer(middlehand, touch=touch)
+    pointer.press(*strip_of(dimmed))
+    pointer.move_by(0, -height * LONG_RISE)
+    # A finger dragging on the table may scroll the page, so the card is judged against its hand.
+    assert top_of(dimmed) - top_of(hand) == resting
+    pointer.release()
+    expect(middlehand.locator(LIFTED_CARD)).to_have_count(0)
+    expect(middlehand.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+    assert middle_posts == []
+    assert page_errors == []
+
+
+def test_a_move_the_system_cancels_puts_the_card_back_without_playing_it(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(PHONE)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    lead = table.a_lead_the_middlehand_must_follow()
+    posts = card_posts(forehand)
+    held = card_in_hand(forehand, lead)
+    resting = top_of(held)
+    pointer = Pointer(forehand, touch=True)
+    pointer.press(*strip_of(held))
+    pointer.move_by(0, -height_of(held) * LONG_RISE)
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(1)
+    pointer.cancel()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(0)
+    assert top_of(held) == resting
+    assert posts == []
+    assert page_errors == []
+
+
+def test_only_the_primary_mouse_button_drags_a_card(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(DESKTOP)
+    forehand = table.pages[table.seat_at["forehand"]]
+    held = card_in_hand(forehand, table.a_lead_the_middlehand_must_follow())
+    resting = top_of(held)
+    posts = card_posts(forehand)
+    pointer = Pointer(forehand, touch=False)
+    pointer.press(*strip_of(held), button="right")
+    pointer.move_by(0, -height_of(held) * LONG_RISE)
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    assert top_of(held) == resting
+    pointer.release()
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(0)
+    assert top_of(held) == resting
+    assert posts == []
+    assert page_errors == []
+
+
+def test_a_second_finger_neither_replaces_the_drag_nor_plays_its_card(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(PHONE)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    dragged, other = sorted(table.legal_cards(forehand_seat))[:2]
+    held, touched = card_in_hand(forehand, dragged), card_in_hand(forehand, other)
+    resting = top_of(touched)
+    posts = card_posts(forehand)
+    pointer = Pointer(forehand, touch=True)
+    pointer.press(*strip_of(held))
+    pointer.move_by(0, -height_of(held) * SHORT_RISE)
+    pointer.press_second_finger(*strip_of(touched))
+    pointer.move_second_finger_by(-height_of(touched) * LONG_RISE)
+    assert faces_of(forehand.locator(DRAGGED_CARD)) == {dragged}
+    assert top_of(touched) == resting
+    pointer.lift_second_finger()
+    assert faces_of(forehand.locator(DRAGGED_CARD)) == {dragged}
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(0)
+    assert posts == []
+    pointer.release()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    assert posts == []
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("touch", POINTERS)
+def test_a_dragged_card_stays_displaced_until_its_refused_play_puts_it_back_with_the_note(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], *, touch: bool
+) -> None:
+    # The browser logs the refused card as a console error; that refusal is the point of this test.
+    table = deal_a_playing_table(PHONE if touch else DESKTOP, console=False)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    shown, played_elsewhere = sorted(table.legal_cards(forehand_seat))[:2]
+    pending: list[Route] = []
+    forehand.route(f"**{table.declaring.api_path}{TABLE_CARD_SUFFIX}", lambda route: pending.append(route))
+    held = card_in_hand(forehand, shown)
+    resting = top_of(held)
+    pointer = Pointer(forehand, touch=touch)
+    pointer.press(*strip_of(held))
+    pointer.move_by(0, -height_of(held) * LONG_RISE)
+    with forehand.expect_request(lambda request: request.url.endswith(TABLE_CARD_SUFFIX)):
+        pointer.release()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(1)
+    assert top_of(held) < resting
+    assert len(pending) == 1
+
+    table.play_through_the_api(played_elsewhere)
+    pending[0].continue_()
+
+    expect(forehand.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    # The refused card is dimmed now, so it rests lower than before, never above its old place.
+    assert top_of(held) >= resting
+    assert page_errors == []
+
+
+def test_a_mouse_pressed_outside_the_hand_and_let_go_over_a_card_neither_plays_nor_lifts_it(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(DESKTOP)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    lead = table.a_lead_the_middlehand_must_follow()
+    posts = card_posts(forehand)
+    over = card_in_hand(forehand, lead)
+    resting = top_of(over)
+    pointer = Pointer(forehand, touch=False)
+    pointer.press(0, 0)
+    pointer.move_by(*strip_of(over))
+    pointer.release()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(0)
+    assert top_of(over) == resting
+    assert posts == []
+    assert page_errors == []
+
+
+@pytest.mark.parametrize(
+    ("motion", "nudging"), [pytest.param("reduce", False, id="reduced"), pytest.param("no-preference", True, id="full")]
+)
+def test_the_lifted_card_shows_an_arrow_that_nudges_only_without_reduced_motion(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], motion: str, *, nudging: bool
+) -> None:
+    table = deal_a_playing_table({**DESKTOP, "reduced_motion": motion})
+    forehand = table.pages[table.seat_at["forehand"]]
+    expect(forehand.locator(SWIPE_ARROW)).to_have_count(0)
+
+    tap(forehand.locator(LEGAL_CARD).first)
+
+    expect(forehand.get_by_role("img", name=SWIPE_HINT)).to_be_visible()
+    expect(forehand.locator(SWIPE_ARROW)).to_have_count(1)
+    animations = forehand.locator(SWIPE_ARROW).evaluate("(arrow) => arrow.getAnimations().length")
+    assert (animations > 0) is nudging
     assert page_errors == []

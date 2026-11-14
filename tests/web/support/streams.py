@@ -1,7 +1,7 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from skat.table.records import Actor
+from skat.table.records import Actor, TableId
 from skat.web.streams import SourceMessage, TableSource, stream_messages
 from skat.web.tables import TableAnswer
 
@@ -17,6 +17,21 @@ def reader(service, table_id):
         return service.view(actor, table_id, connected)
 
     return read_view
+
+
+def version_reader(service, table_id):
+    async def read_version():
+        versions = service.table_versions([TableId(table_id)])
+        return versions[0].version if versions else None
+
+    return read_version
+
+
+def leased_reader(service, table_id):
+    async def read_leased():
+        return frozenset(seat.account_id for seat in service.leased_seats([TableId(table_id)]))
+
+    return read_leased
 
 
 def admitting(actor):
@@ -36,7 +51,14 @@ def stream_of(
     read_view=None,
     more_sources=(),
 ):
-    table = TableSource(presence, read_view or reader(service, table_id), table_id, actor.account_id)
+    table = TableSource(
+        presence,
+        read_view or reader(service, table_id),
+        version_reader(service, table_id),
+        leased_reader(service, table_id),
+        table_id,
+        actor.account_id,
+    )
     return stream_messages(
         [table, *more_sources], admit or admitting(actor), lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
     )

@@ -19,8 +19,15 @@ const TRICK_SLOTS = ["left", "right", "near"] as const;
 export type TrickSlot = (typeof TRICK_SLOTS)[number];
 export type LaidCard = { card: Card; seat: number; slot: TrickSlot; name: string; initial: string };
 export type SideNames = { declarer: string; opponents: string };
-// What the hand needs while its holder is on turn to play: a first tap lifts a legal card, a second plays it.
-export type PlayingHand = { legal: readonly Card[]; lifted: Card | null; disabled: boolean; tap: (card: Card) => void };
+// What the hand needs while its holder is on turn to play: a first tap lifts a legal card, a second plays it, and a
+// card moved upward past the threshold plays at once; a play settles as accepted or refused.
+export type PlayingHand = {
+    legal: readonly Card[];
+    lifted: Card | null;
+    disabled: boolean;
+    tap: (card: Card) => void;
+    play: (card: Card) => Promise<boolean>;
+};
 
 // The turn goes forehand, middlehand, rearhand and round again; while a hand runs every chair holds a position.
 function seatsInTurnFrom(chairs: readonly Chair[], leaderSeat: number): number[] {
@@ -55,6 +62,16 @@ export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
             initial: accountName.slice(0, 1),
         };
     });
+}
+
+// The viewer's dashed slot on the felt, where their card will lie: it is their turn and the near place holds no card.
+export function ownCardSlotOpen(
+    chairs: readonly Chair[],
+    laid: readonly LaidCard[],
+    turnSeat: number | null | undefined,
+): boolean {
+    const own = chairs.find((chair) => chair.is_mine);
+    return own !== undefined && own.seat === turnSeat && !laid.some(({ slot }) => slot === "near");
 }
 
 // The declarer reads „Du“ against the opponents, an opponent counts their own side as „Wir“, and a watcher sees the declarer by name.
@@ -103,4 +120,17 @@ export function cardLook(playing: PlayingHand | undefined, card: Card): CardLook
     if (playing === undefined) return "plain";
     if (playing.lifted !== null && includesCard([playing.lifted], card)) return "lifted";
     return includesCard(playing.legal, card) ? "legal" : "dimmed";
+}
+
+export type DragVerdict = "tap" | "play" | "return";
+
+// A press that moves less than this many pixels is a tap, whatever the pointer's tremor.
+const TAP_SLOP_PIXELS = 8;
+// A card moved upward by this share of its height is played; a shorter move puts it back.
+const PLAY_RISE_SHARE = 0.5;
+
+// What a pressed card comes to when the pointer lets go after moving by dx and dy (dy grows downward).
+export function dragVerdict(move: { dx: number; dy: number }, cardHeight: number): DragVerdict {
+    if (Math.hypot(move.dx, move.dy) < TAP_SLOP_PIXELS) return "tap";
+    return -move.dy >= cardHeight * PLAY_RISE_SHARE ? "play" : "return";
 }

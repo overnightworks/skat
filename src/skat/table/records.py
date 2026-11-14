@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
     from skat.engine.bock import BockOptions, BockRounds
     from skat.engine.deal import Deal, Position
-    from skat.engine.declaration import DeclaringStep
+    from skat.engine.declaration import Announcement, DeclaringStep
     from skat.engine.kontra import Word, WordSaid
     from skat.engine.ramsch import RamschOptions
     from skat.engine.schieberamsch import DeclareGrandHand, Push, PushingRule, Put, Take
@@ -52,6 +52,16 @@ class OccupantKind(StrEnum):
     AGENT = "agent"
 
 
+class Visibility(StrEnum):
+    """Who the lobby lists a table to, chosen when it is opened and never changed: an open table is listed to every
+    member, a private one only to its chair holders; both stay reachable by their link. The stored token, also the
+    request's.
+    """
+
+    OPEN = "open"
+    PRIVATE = "private"
+
+
 class TableId(OpaqueId):
     """The id of a table."""
 
@@ -75,9 +85,23 @@ class Actor:
 
 
 class RamschOccasion(StrEnum):
-    """When a table plays a Ramsch; the stored token, also the request's and the answer's."""
+    """When a table plays a Ramsch; the stored token, also the request's and the answer's.
+
+    `PASSED_IN` plays a hand all three pass as a Ramsch. `BOCK_ROUNDS` follows each Bock round with a Ramsch round of
+    three games with no auction and passes a hand all three pass in. `PASSED_IN_AND_BOCK_ROUNDS` does both.
+    """
 
     PASSED_IN = "passed-in"
+    BOCK_ROUNDS = "bock-rounds"
+    PASSED_IN_AND_BOCK_ROUNDS = "passed-in-and-bock-rounds"
+
+    @property
+    def on_the_third_pass(self) -> bool:
+        return self is not RamschOccasion.BOCK_ROUNDS
+
+    @property
+    def after_bock_rounds(self) -> bool:
+        return self is not RamschOccasion.PASSED_IN
 
 
 @dataclass(frozen=True)
@@ -118,12 +142,14 @@ class TableOptions:
 @dataclass(frozen=True)
 class CreateTable:
     """The command to open a table; `command_id` is the client's key for retrying it, `series_length` the number of
-    games its series runs, or None for a table that plays on, and `options` the table's rule options.
+    games its series runs, or None for a table that plays on, `options` the table's rule options and `visibility`
+    who the lobby lists it to.
     """
 
     command_id: str
     series_length: int | None = None
     options: TableOptions = TableOptions()
+    visibility: Visibility = Visibility.OPEN
 
 
 @dataclass(frozen=True)
@@ -172,6 +198,7 @@ class Refusal(StrEnum):
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
     NO_REQUEST = "no-request"
+    ALREADY_ANSWERED = "already-answered"
     REQUEST_PENDING = "request-pending"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
@@ -232,12 +259,19 @@ class Chair:
 
 @dataclass(frozen=True)
 class GiveUpAsked:
-    """A give-up waiting for the other side's answer: who asked, the declarer or an opponent, and the opponent who said
-    no to the declarer's.
+    """A request waiting for the other side's answer: who asked, the declarer or an opponent, and the opponent who said
+    no to the declarer's give-up.
+
+    The declarer's shortening has a `claim`, the level he demands, and the opponent who said yes so far in `agreed_by`;
+    it needs both yeses and ends with the first no. A give-up has no claim. An opponent's open play that the check found
+    wrong is asked of the declarer alone as `open_play`.
     """
 
     asker: Position
     declined_by: Position | None = None
+    claim: Announcement | None = None
+    agreed_by: Position | None = None
+    open_play: bool = False
 
 
 type PushingStep = Take | Put | Push | DeclareGrandHand
@@ -278,6 +312,11 @@ class HandProgress:
     abort the hand while one of its chairs is open; empty means no proposal. `seats_held` ends with the hand likewise.
     A chair left in the hand names its leaver in `former_holders` until someone sits in it or the hand ends.
 
+    `shortening_refused_by` is the opponent whose no to the declarer's shortening left his cards open for the rest of
+    the hand; a card keeps it and the end of the hand or a deal clears it. `played_open` is the opponents whose wrong
+    open play the declarer answered with a demand to play on: their cards stay open for the rest of the hand the same
+    way.
+
     `aborted` says the hand ended by a vote to abort it; such a hand keeps no step, and the next deal clears the end.
     """
 
@@ -285,6 +324,8 @@ class HandProgress:
     declaring: tuple[DeclaringStep, ...] = ()
     plays: tuple[CardPlayed, ...] = ()
     give_up: GiveUpAsked | None = None
+    shortening_refused_by: Position | None = None
+    played_open: frozenset[Position] = frozenset()
     words: tuple[WordSaid, ...] = ()
     no_words: frozenset[NoWordSaid] = frozenset()
     pushing: tuple[PushingStep, ...] = ()
@@ -361,6 +402,7 @@ class TableRecord:
     series: Series | None
     options: TableOptions
     bock: BockRounds
+    visibility: Visibility
 
 
 class EndReason(StrEnum):

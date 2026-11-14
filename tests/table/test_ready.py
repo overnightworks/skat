@@ -27,6 +27,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    Visibility,
     parsed_refusal,
 )
 from skat.table.service import CommandIdReusedError, TableService
@@ -58,6 +59,7 @@ def pending(*ready_seats: int, games: int = 2) -> TableRecord:
         series=None,
         options=TableOptions(),
         bock=BockRounds.start(),
+        visibility=Visibility.OPEN,
     )
 
 

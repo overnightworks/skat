@@ -10,13 +10,17 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.engine.deal import Position
+from skat.table.acts import ActKind, next_seq_of
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.member_place import Acceptance
+from skat.table.member_place import Acceptance, InvitationOffer
+from skat.table.moment import TableMoment
 from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
     CreateTable,
+    EndedTable,
+    Ending,
     EndProposal,
     HandProgress,
     OccupantKind,
@@ -26,6 +30,7 @@ from skat.table.records import (
 )
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
+from skat.table.transactions import TableVersion
 from tests.support.calls import call_facts
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import (
@@ -68,11 +73,16 @@ class Scene:
     def view_of(self, account, table_id=None):
         return self.service.member_view(account, table_id or self.table_id, NOBODY)
 
+    def acts_of(self, account, table_id=None):
+        return self.service.member_acts(account, table_id or self.table_id)
+
     def command_id(self):
         return f"command-{next(self.commands)}"
 
-    def seat_three(self, second=MOZART, third=BACH):
-        self.table_id = self.service.create(ANNA, CreateTable(command_id="command-open")).id
+    def seat_three(self, second=MOZART, third=BACH, series_length=None):
+        self.table_id = self.service.create(
+            ANNA, CreateTable(command_id="command-open", series_length=series_length)
+        ).id
         self.service.sit(second, SitDown(self.command_id(), self.table_id, 2), NOBODY)
         self.service.sit(third, SitDown(self.command_id(), self.table_id, 3), NOBODY)
         self.signals.clear()
@@ -132,6 +142,44 @@ class TestTheViewOfAMember:
         assert scene.view_of(MOZART.account_id) is None
 
 
+class TestTheActsOfAMember:
+    def test_a_seated_account_reads_the_acts_of_the_dealt_hand_with_its_own_seat(self):
+        acts = Scene().seat_three(series_length=36).acts_of(MOZART.account_id)
+
+        assert (acts.own_seat, [each.kind for each in acts.acts], acts.starts_at) == (
+            2,
+            [ActKind.DEAL],
+            acts.acts[0].seq,
+        )
+
+    def test_a_table_before_its_first_deal_has_no_act_and_says_the_number_of_the_next(self):
+        scene = Scene()
+        scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open", series_length=36)).id
+
+        acts = scene.acts_of(ANNA.account_id)
+
+        assert (acts.acts, acts.starts_at) == ((), next_seq_of(scene.table))
+
+    @pytest.mark.parametrize(
+        ("account", "table_id"),
+        [
+            pytest.param(WATCHER.account_id, None, id="without-a-chair"),
+            pytest.param(MOZART.account_id, UNKNOWN_TABLE, id="unknown-table"),
+            pytest.param(MOZART.account_id, "not-an-id", id="malformed-table"),
+        ],
+    )
+    def test_an_account_without_a_chair_and_a_table_that_is_not_there_have_no_acts(self, scene, account, table_id):
+        assert scene.acts_of(account, table_id) is None
+
+    def test_an_ended_table_has_no_acts(self):
+        scene = Scene()
+        scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+        scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+
+        assert scene.acts_of(MOZART.account_id) is None
+
+
 class TestTheAgentInAChair:
     @pytest.mark.parametrize(
         ("seat", "account"),
@@ -169,6 +217,11 @@ def an_actor(position):
 
 def auction_bid(service, actor, table_id, version):
     command = AuctionCommand("act", table_id, version, AuctionAction.BID, 18)
+    return service.take_auction_step(actor, command, NOBODY)
+
+
+def auction_pass(service, actor, table_id, version):
+    command = AuctionCommand("act", table_id, version, AuctionAction.PASS, None)
     return service.take_auction_step(actor, command, NOBODY)
 
 
@@ -360,3 +413,53 @@ class TestTheSignalOfACommit:
         auction_bid(scene.service, mover, scene.table_id, scene.table.version)
 
         assert scene.signals == []
+
+
+class TestTheMomentsOfAnAccount:
+    def test_an_account_that_holds_no_chair_is_in_the_lobby(self, scene):
+        assert scene.service.moments_of(WATCHER.account_id) == {TableMoment.LOBBY}
+
+    def test_a_seated_account_is_in_the_moment_of_its_seat(self, scene):
+        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.AUCTION}
+
+    def test_an_account_at_two_tables_in_different_moments_is_in_both(self, scene):
+        second_table_id = scene.service.create(CLEO, CreateTable(command_id="command-open-second")).id
+        scene.service.sit(MOZART, SitDown(scene.command_id(), second_table_id, 2), NOBODY)
+
+        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.AUCTION, TableMoment.WAITING}
+
+    def test_a_table_that_ended_after_the_candidates_were_listed_counts_for_no_moment(self, scene, monkeypatch):
+        scene.store.tables[scene.table_id] = EndedTable(TableId(scene.table_id), 9, Ending.empty(3600))
+        monkeypatch.setattr(scene.store, "tables_of", lambda _account: (TableVersion(TableId(scene.table_id), 8),))
+
+        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.LOBBY}
+
+
+class TestTheToolsSignal:
+    def test_the_agents_whose_moment_a_commit_changed_are_told_and_a_commit_that_keeps_it_tells_nobody(self):
+        told = []
+        scene = Scene().seat_three()
+        scene.service = scene.service.with_tools_signal(told.append)
+
+        def on_turn():
+            return next(actor for actor in (ANNA, MOZART, BACH) if scene.view_of(actor.account_id).awaits_you)
+
+        auction_bid(scene.service, on_turn(), scene.table_id, scene.table.version)
+        auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
+        kept = list(told)
+        auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
+
+        assert (kept, told) == ([], [{MOZART.account_id, BACH.account_id}])
+
+    def test_inviting_an_agent_sends_no_tools_notice(self):
+        told = []
+        scene = Scene()
+        scene.service = scene.service.with_tools_signal(told.append)
+        scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+
+        offer = scene.service.invite_agent(
+            TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
+        )
+
+        assert isinstance(offer, InvitationOffer)
+        assert told == []

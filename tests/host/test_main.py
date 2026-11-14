@@ -2,17 +2,20 @@ import logging
 import secrets
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 
 from skat.host.main import create_database_engine, main, uvicorn_options
-from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine
+from skat.store import migrate as migrate_module
+from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate
 from skat.store.rule_sets import PostgresRuleSets
 from skat.web.constants import UVICORN_LOG_LEVEL
 from skat.web.secret_files import StartRefusedError
 from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
+from tests.support.migrations import revision_before_head, upgrade_to
 from tests.support.page_build import FIXTURE_DIRECTORY
 
 
@@ -24,6 +27,12 @@ class ServerRecorder:
 
     def __call__(self, app, **options) -> None:
         self.runs.append({"app": app, **options})
+
+
+@pytest.fixture(autouse=True)
+def every_health_ask_probes_and_awaits_it(monkeypatch):
+    monkeypatch.setattr(migrate_module, "READINESS_REUSE_SECONDS", 0)
+    monkeypatch.setattr(migrate_module, "READINESS_PATIENCE_SECONDS", 60)
 
 
 @pytest.fixture
@@ -62,6 +71,63 @@ class TestMain:
             main(["serve"], run_server=server, build_directory=tmp_path / "build")
 
         assert server.runs == []
+
+    def test_the_served_app_answers_its_health_probe_from_the_database_it_serves(
+        self, server, configured_environment, database_url
+    ):
+        configured_environment(database_url)
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+        probe = TestClient(server.runs[0]["app"])
+        engine = create_store_engine(database_url)
+        before = probe.get("/health").status_code
+
+        with engine.begin() as connection:
+            head = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            connection.execute(text("UPDATE alembic_version SET version_num = 'older'"))
+        stale = probe.get("/health").status_code
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE alembic_version SET version_num = :head"), {"head": head})
+        after = probe.get("/health").status_code
+
+        engine.dispose()
+        assert (before, stale, after) == (200, 503, 200)
+
+    @pytest.mark.parametrize("fault", ["refuses", "stalls"])
+    def test_the_served_app_answers_503_while_the_database_cannot_be_reached_and_200_when_it_can_again(
+        self, server, configured_environment, database_url, relay_in_front_of, monkeypatch, fault
+    ):
+        monkeypatch.setattr(migrate_module, "HEALTH_DEADLINE_SECONDS", 1)
+        relay = relay_in_front_of(database_url)
+        configured_environment(relay.url)
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+        probe = TestClient(server.runs[0]["app"])
+        before = probe.get("/health").status_code
+
+        {"refuses": relay.refuse, "stalls": relay.stall}[fault]()
+        faulty = probe.get("/health").status_code
+        relay.forward()
+        after = probe.get("/health").status_code
+
+        assert (before, faulty, after) == (200, 503, 200)
+
+    def test_the_served_app_answers_503_while_the_database_is_one_migration_behind_until_it_is_migrated(
+        self, server, configured_environment, database_url, unmigrated_database_url, relay_in_front_of
+    ):
+        engine_one_behind = create_store_engine(unmigrated_database_url)
+        upgrade_to(engine_one_behind, revision_before_head())
+        relay = relay_in_front_of(database_url)
+        configured_environment(relay.url)
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+        probe = TestClient(server.runs[0]["app"])
+        before = probe.get("/health").status_code
+
+        relay.serve_as(make_url(database_url).database, make_url(unmigrated_database_url).database)
+        behind = probe.get("/health").status_code
+        migrate(engine_one_behind)
+        migrated = probe.get("/health").status_code
+
+        engine_one_behind.dispose()
+        assert (before, behind, migrated) == (200, 503, 200)
 
     def test_refuses_to_serve_a_database_that_is_not_at_head_and_starts_nothing(
         self, server, configured_environment, unmigrated_database_url

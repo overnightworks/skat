@@ -17,6 +17,7 @@ from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
+    CloseTable,
     CreateTable,
     HandProgress,
     Refusal,
@@ -25,6 +26,7 @@ from skat.table.records import (
     StandUp,
     TableId,
     TableOptions,
+    Visibility,
 )
 from skat.table.service import CommandIdReusedError, TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
@@ -85,6 +87,20 @@ def test_a_table_stored_without_a_switch_reads_it_off(service, engine):
         )
 
     assert service.view(OPENER, old_id, frozenset()).options == TableOptions(show_running_points=False)
+
+
+def test_a_table_opened_private_is_listed_to_nobody_and_an_open_one_is_after_a_reload(service):
+    listed = service.create(OPENER, CreateTable(command_id="command-1")).id
+    service.create(OPENER, CreateTable(command_id="command-2", visibility=Visibility.PRIVATE))
+
+    assert service.open_table_ids() == (TableId(listed),)
+
+
+def test_an_ended_open_table_is_listed_to_nobody(service):
+    table_id = service.create(OPENER, CreateTable(command_id="command-1")).id
+    service.close(OPENER, CloseTable("command-close", table_id))
+
+    assert service.open_table_ids() == ()
 
 
 def test_another_member_reads_the_table_without_a_chair_of_their_own(service):

@@ -711,6 +711,18 @@ def test_a_level_the_opponents_put_out_of_reach_cannot_be_demanded_and_nothing_c
     assert outcome.state == state
 
 
+@pytest.mark.parametrize("all_agreed", [False, True])
+@pytest.mark.parametrize("claim", [SCHNEIDER, SCHWARZ])
+@pytest.mark.parametrize("taken", [(), ((MIDDLEHAND, 0),)], ids=["before a trick", "after an opponent trick"])
+def test_a_level_demanded_in_null_is_out_of_reach_whatever_the_opponents_hold(
+    claim: Announcement, taken: tuple[tuple[Position, int], ...], *, all_agreed: bool
+) -> None:
+    state = scenario(**{**NULL_23, "taken": taken})  # type: ignore[arg-type]
+    outcome = shorten(state, all_agreed=all_agreed, claim=claim)
+    assert outcome.refusal is PlayRefusal.CLAIM_OUT_OF_REACH
+    assert outcome.state == state
+
+
 @pytest.mark.parametrize(
     ("scene", "claim"),
     [

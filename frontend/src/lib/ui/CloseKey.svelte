@@ -48,7 +48,8 @@
         <div class="btns">
             <button type="button" class="confirm leave" onclick={confirm}>
                 {@render power()}
-                {words["table.closeConfirm"]}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                {`${words["table.closeConfirm"]}`}
             </button>
             <button
                 type="button"

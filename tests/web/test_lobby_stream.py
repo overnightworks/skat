@@ -11,11 +11,11 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, SitDown, TableId
 from skat.table.service import TableService
 from skat.web.lobby import LOBBY_EVENTS_PATH
-from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent
+from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.wakes import AccountTopic
 from tests.support.fake_tables import FakeTableStore
 from tests.web.support.agent import SUBJECT
-from tests.web.support.lobby_scene import Scene
+from tests.web.support.lobby_scene import ANNA, BEN, CLEO, Scene, ids_of, next_mine
 from tests.web.support.skat import FETCH, Skat
 from tests.web.support.streams import (
     SHORT_HEARTBEAT_SECONDS,
@@ -23,10 +23,6 @@ from tests.web.support.streams import (
     next_item,
     run_on_a_loop_of_its_own,
 )
-
-ANNA = Actor(account_id="account-anna", display_name="Anna")
-BEN = Actor(account_id="account-ben", display_name="Ben")
-CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 
 
 @pytest.fixture
@@ -53,18 +49,6 @@ def tables_skat(request, hold, issuer):
     with (skat := Skat(lambda: hold, store=PostgresTableTransactions(engine), **options)).client:
         yield skat
     engine.dispose()
-
-
-async def next_mine(stream):
-    """The tables of the next `mine`; fails on any other item."""
-    item = await next_item(stream)
-    assert isinstance(item, SourceMessage)
-    assert item.event is StreamEvent.MINE
-    return json.loads(item.data)["tables"]
-
-
-def ids_of(entries):
-    return [entry["id"] for entry in entries]
 
 
 class TestWhoReceivesWhichTable:
@@ -225,6 +209,19 @@ class TestTheWakes:
 
         assert run_on_a_loop_of_its_own(scenario()) == (0, 1)
 
+    def test_a_table_opened_before_the_first_read_of_the_open_list_wakes_it(self):
+        scene = Scene()
+        woken = []
+
+        async def scenario():
+            source = scene.open_source(BEN)
+            await source.open(lambda: woken.append(1))
+            scene.open_table(ANNA)
+            source.close()
+            return len(woken)
+
+        assert run_on_a_loop_of_its_own(scenario()) == 1
+
     def test_a_table_that_ended_holds_no_registration_after_the_next_read(self):
         scene = Scene()
         table_id = scene.open_table(ANNA)
@@ -326,8 +323,8 @@ class PlayingInTheWindow(TableService):
         super().__init__(store)
         self.window = None
 
-    def tables_held_by(self, account_id):
-        held = super().tables_held_by(account_id)
+    def held_tables(self, account_id):
+        held = super().held_tables(account_id)
         window, self.window = self.window, None
         if window is not None:
             window()
@@ -480,6 +477,7 @@ class TestWhatTheEntriesCarry:
 
 ENTRY_FIELDS = {
     "id",
+    "private",
     "title_name",
     "game_number",
     "game_count",
@@ -491,31 +489,43 @@ ENTRY_FIELDS = {
     "ends_at",
     "chairs",
 }
-CHAIR_FIELDS = {"seat", "occupant_name", "occupant_kind", "is_mine", "ready", "total", "is_away", "is_turn"}
-
-
+CHAIR_FIELDS = {
+    "seat",
+    "occupant_name",
+    "occupant_kind",
+    "is_mine",
+    "ready",
+    "total",
+    "is_away",
+    "is_turn",
+    "hold_seconds_left",
+}
 EMPTY = {"tables": []}
 HEARTBEAT_LINE = ": "
 HEARTBEATS_AWAITED = 10
 
 
-def next_event(lines):
-    """The next event of a response's lines as (name, decoded data), past any heartbeat comment."""
-    line = next(lines)
-    while line == HEARTBEAT_LINE:
-        assert next(lines) == ""
+def next_event(lines, named="mine"):
+    """The next event of a response's lines with the given name as (name, decoded data), past any heartbeat comment
+    and any event of another name.
+    """
+    while True:
         line = next(lines)
-    name = line.removeprefix("event: ")
-    data = json.loads(next(lines).removeprefix("data: "))
-    assert next(lines) == ""
-    return name, data
+        if line == HEARTBEAT_LINE:
+            assert next(lines) == ""
+            continue
+        name = line.removeprefix("event: ")
+        data = json.loads(next(lines).removeprefix("data: "))
+        assert next(lines) == ""
+        if name == named:
+            return name, data
 
 
 class TestTheRoute:
     def test_signed_out_gets_no_stream_and_no_data(self, skat):
         answer = skat.client.get(LOBBY_EVENTS_PATH, headers=FETCH)
 
-        assert (answer.status_code, "tables" in answer.text) == (401, False)
+        assert (answer.status_code, "tables" in answer.text, "event: open" in answer.text) == (401, False, False)
 
     def test_an_agents_bearer_token_gets_no_stream(self, skat, agent, issuer):
         agent.admitted()
@@ -535,7 +545,7 @@ class TestTheRoute:
 
         with skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=headers) as answer:
             lines = answer.iter_lines()
-            read = [next(lines) for _ in range(5)]
+            read = [next(lines) for _ in range(8)]
             answer.close()
 
         assert (answer.status_code, answer.headers["content-type"], answer.headers["cache-control"]) == (
@@ -543,7 +553,16 @@ class TestTheRoute:
             "text/event-stream; charset=utf-8",
             "no-store",
         )
-        assert read == ["event: mine", 'data: {"tables":[]}', "", ": ", ""]
+        assert read == [
+            "event: mine",
+            'data: {"tables":[]}',
+            "",
+            "event: open",
+            'data: {"tables":[]}',
+            "",
+            ": ",
+            "",
+        ]
 
     def test_a_table_opened_and_one_sat_at_through_the_routes_reach_the_open_lobbies_of_their_accounts_and_no_stranger(
         self, tables_skat
@@ -575,13 +594,41 @@ class TestTheRoute:
             bens.close()
 
         assert firsts == [("mine", EMPTY)] * 3
-        assert not any(line.startswith("event") for line in strangers_seen)
+        assert "event: mine" not in strangers_seen
         assert ids_of(opened["tables"]) == [table_id]
         assert [chair["occupant_name"] for chair in named["tables"][0]["chairs"]] == [anna.username, ben.username, None]
         assert (sat["tables"][0]["id"], [chair["is_mine"] for chair in sat["tables"][0]["chairs"]]) == (
             table_id,
             [False, True, False],
         )
+
+    def test_a_table_opened_private_through_the_route_reaches_only_its_opener_and_an_open_one_every_member(
+        self, tables_skat
+    ):
+        skat = tables_skat
+        annas_headers, _ = skat.member()
+        bens_headers, _ = skat.member()
+        skat.client.cookies.clear()
+
+        with (
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=annas_headers) as annas,
+            skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=bens_headers) as bens,
+        ):
+            annas_lines, bens_lines = annas.iter_lines(), bens.iter_lines()
+            for lines in (annas_lines, bens_lines):
+                next_event(lines)
+                next_event(lines, "open")
+            skat.client.cookies.clear()
+            hidden = skat.create(annas_headers, command_id="command-private", visibility="private").json()["id"]
+            _, annas_mine = next_event(annas_lines)
+            skat.client.cookies.clear()
+            listed = skat.create(annas_headers, command_id="command-open").json()["id"]
+            _, bens_open = next_event(bens_lines, "open")
+            annas.close()
+            bens.close()
+
+        assert [(entry["id"], entry["private"]) for entry in annas_mine["tables"]] == [(hidden, True)]
+        assert ids_of(bens_open["tables"]) == [listed]
 
     def test_no_message_carries_a_card_a_card_count_or_the_account_of_anybody(self, skat):
         people = [skat.member() for _ in range(3)]
@@ -627,10 +674,9 @@ class TestTheRoute:
 
         with skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=headers) as answer:
             lines = answer.iter_lines()
-            first = next(lines)
+            first = [next(lines) for _ in range(6)]
             skat.stores.sessions.delete_for_user(member.id)
             rest = list(lines)
 
-        assert first == "event: mine"
-        assert rest[-1] == ""
+        assert first[0] == "event: mine"
         assert not any(line.startswith("event") for line in rest)

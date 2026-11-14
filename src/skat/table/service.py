@@ -16,7 +16,7 @@ from skat.table.hand_abort import (
     decide_refuse_to_abort,
 )
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
-from skat.table.lobby import my_tables, paused_tables
+from skat.table.lobby import LobbyReads
 from skat.table.member_place import (
     Acceptance,
     AcceptResult,
@@ -34,12 +34,24 @@ from skat.table.member_place import (
     standings_of,
     table_offers_of,
 )
-from skat.table.member_view import MemberView, ViewSignal, member_view_of, view_recipients
+from skat.table.member_view import (
+    MemberActs,
+    MemberView,
+    ViewSignal,
+    member_acts_of,
+    member_view_of,
+    moment_at,
+    moment_recipients,
+    view_recipients,
+)
+from skat.table.moment import TableMoment
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
+    PlayOpenCommand,
+    ShortenCommand,
     ThrowDownCommand,
     agree_to_give_up_payload,
     card_payload,
@@ -47,9 +59,13 @@ from skat.table.playing import (
     decide_card,
     decide_decline_give_up,
     decide_give_up,
+    decide_play_open,
+    decide_shorten,
     decide_throw_down,
     decline_give_up_payload,
     give_up_payload,
+    play_open_payload,
+    shorten_payload,
     throw_down_payload,
 )
 from skat.table.pushing import PUSHING_STEP_COMMAND, PushingCommand, decide_pushing_step, pushing_payload
@@ -81,6 +97,8 @@ from skat.table.rules import (
     DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
+    PLAY_OPEN_COMMAND,
+    SHORTEN_COMMAND,
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
     THROW_DOWN_COMMAND,
@@ -113,15 +131,14 @@ from skat.table.series_end import (
 )
 from skat.table.server_steps import ServerSteps
 from skat.table.transactions import DuplicateReceiptError
-from skat.table.views import CommandResult, PausedEntryView, TableView, view_of
+from skat.table.views import CommandResult, TableView, view_of
 
 if TYPE_CHECKING:
     import random
-    from collections.abc import Callable, Iterable, Mapping, Sequence
+    from collections.abc import Callable, Sequence
     from contextlib import AbstractContextManager
 
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
-    from skat.table.lobby import LobbyEntryView
     from skat.table.member_place import CallFacts
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
@@ -132,7 +149,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class TableService:
+class TableService(LobbyReads):
     """The table commands and views; every command is one transaction."""
 
     def __init__(
@@ -146,6 +163,7 @@ class TableService:
         self._live_leases: Callable[[], frozenset[str]] = frozenset
         self._standings_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
         self._view_changed: ViewSignal = lambda _table_id, _accounts: None
+        self._tools_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -175,6 +193,15 @@ class TableService:
         clone._view_changed = signal  # noqa: SLF001 - the clone is this class's own instance
         return clone
 
+    def with_tools_signal(self, signal: Callable[[frozenset[str]], None]) -> TableService:
+        """The same service where each commit that seats an agent, frees its chair or moves its seat on to another
+        moment tells `signal` the agents it concerns, after the commit and on the thread the command ran on; no change
+        tells it nothing.
+        """
+        clone = copy.copy(self)
+        clone._tools_changed = signal  # noqa: SLF001 - the clone is this class's own instance
+        return clone
+
     def create(self, actor: Actor, command: CreateTable) -> TableView:
         try:
             return self._create_once(actor, command)
@@ -187,11 +214,13 @@ class TableService:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset(), actor.account_id)
-            table = decide_create(actor, self._new_table_id(), command.series_length, command.options)
+            table = decide_create(
+                actor, self._new_table_id(), command.series_length, command.options, command.visibility
+            )
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
-        self._tell(agents_seated_at(table))
+        self._tell_seats(agents_seated_at(table))
         return view_of(table, actor.account_id, frozenset(), actor.account_id)
 
     def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> CommandResult | None:
@@ -247,10 +276,7 @@ class TableService:
         return None if replay is None else replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
 
     def take_auction_step(
-        self,
-        actor: Actor,
-        command: AuctionCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -289,10 +315,7 @@ class TableService:
         )
 
     def play_card(
-        self,
-        actor: Actor,
-        command: PlayCardCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: PlayCardCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -317,12 +340,7 @@ class TableService:
             lambda table: decide_kontra(table, actor, command),
         )
 
-    def give_up(
-        self,
-        actor: Actor,
-        command: GiveUpCommand,
-        connected_accounts: frozenset[str],
-    ) -> CommandResult | None:
+    def give_up(self, actor: Actor, command: GiveUpCommand, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
             actor,
             connected_accounts,
@@ -333,11 +351,34 @@ class TableService:
             lambda table: decide_give_up(table, actor, command),
         )
 
+    def shorten(
+        self, actor: Actor, command: ShortenCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            SHORTEN_COMMAND,
+            shorten_payload(command),
+            lambda table: decide_shorten(table, actor, command),
+        )
+
+    def play_open(
+        self, actor: Actor, command: PlayOpenCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            PLAY_OPEN_COMMAND,
+            play_open_payload(command),
+            lambda table: decide_play_open(table, actor, command),
+        )
+
     def agree_to_give_up(
-        self,
-        actor: Actor,
-        command: AgreeToGiveUpCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AgreeToGiveUpCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -363,10 +404,7 @@ class TableService:
         )
 
     def throw_down(
-        self,
-        actor: Actor,
-        command: ThrowDownCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: ThrowDownCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -488,7 +526,13 @@ class TableService:
 
     def _server_steps(self) -> ServerSteps:
         return ServerSteps(
-            self._transactions, self._live_leases, self._now, self._random_source, self._tell, self._tell_view
+            self._transactions,
+            self._live_leases,
+            self._now,
+            self._random_source,
+            self._tell_seats,
+            self._tell_view,
+            self._tell_moments,
         )
 
     def unplayed_tables(self, days: int) -> tuple[TableId, ...]:
@@ -501,7 +545,7 @@ class TableService:
         members = end_unplayed_table(self._transactions, table_id, days, writing, self._now)
         if members is None:
             return False
-        self._tell(members)
+        self._tell_seats(members)
         return True
 
     def close(self, actor: Actor, command: CloseTable) -> CommandResult | None:
@@ -511,25 +555,12 @@ class TableService:
         closed = close_table(self._transactions, actor, command, self._now)
         if closed is None:
             return None
-        self._tell(closed.members)
+        self._tell_seats(closed.members)
         return closed.result
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
             return transaction.occupied_chairs()
-
-    def tables_held_by(self, account_id: str) -> tuple[TableId, ...]:
-        """The tables the account holds a chair at, each once, in id order; an unlocked read, so a candidate list."""
-        with self._transactions.begin() as transaction:
-            return tuple(held.table_id for held in transaction.tables_of(account_id))
-
-    def my_tables(
-        self, account_id: str, held_ids: Iterable[TableId], connected_by_table: Mapping[str, frozenset[str]], days: int
-    ) -> tuple[LobbyEntryView, ...]:
-        return my_tables(self._transactions, self._live_leases(), account_id, held_ids, connected_by_table, days)
-
-    def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
-        return paused_tables(self._transactions, self.tables_held_by(actor.account_id), actor.account_id, days)
 
     def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
         """Write the call as an invitation standing `lasting` from now, if the decision under the locks offers it."""
@@ -594,6 +625,9 @@ class TableService:
         if decision.entry != entry:
             self._tell(frozenset({agent.account_id}))
         self._tell_view(table_id, view_recipients(table, decision.table))
+        self._tell_moments(
+            moment_recipients(table, decision.table) | (agents_seated_at(decision.table) - agents_seated_at(table))
+        )
         return AcceptResult(decision.refusal, result_pending(decision.table))
 
     def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
@@ -603,9 +637,18 @@ class TableService:
         if accounts:
             self._standings_changed(accounts)
 
+    def _tell_seats(self, accounts: frozenset[str]) -> None:
+        """Tell agents that sat down or left: their standing changed and, with it, the tools they are offered."""
+        self._tell(accounts)
+        self._tell_moments(accounts)
+
     def _tell_view(self, table_id: TableId, accounts: frozenset[str]) -> None:
         if accounts:
             self._view_changed(table_id, accounts)
+
+    def _tell_moments(self, accounts: frozenset[str]) -> None:
+        if accounts:
+            self._tools_changed(accounts)
 
     def _run_command(
         self,
@@ -650,6 +693,7 @@ class TableService:
             seated_when_hand_ended: frozenset[str] = frozenset()
             told: frozenset[str] = frozenset()
             viewers: frozenset[str] = frozenset()
+            moved_on: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
@@ -658,6 +702,7 @@ class TableService:
                         after_accepted(transaction, decision.table)
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                     viewers = view_recipients(table, decision.table)
+                    moved_on = moment_recipients(table, decision.table)
                 if decision.refusal is not Refusal.NOT_ALLOWED:
                     # A refused authority is no outcome: the id stays free once the person has the right.
                     transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
@@ -672,8 +717,9 @@ class TableService:
                 decision.holder,
                 seated_when_hand_ended,
             )
-        self._tell(told)
+        self._tell_seats(told)
         self._tell_view(identifier, viewers)
+        self._tell_moments(moved_on)
         return result
 
     def _save_decided(
@@ -716,6 +762,22 @@ class TableService:
             return None
         present = present_at(table, connected_accounts, self._live_leases())
         return member_view_of(table, account_id, present, opener)
+
+    def member_acts(self, account_id: str, table_id: str) -> MemberActs | None:
+        """The acts of the live table's latest hand for the account that holds a chair there; None for any other
+        account, an ended table and a table that is not there.
+        """
+        table = self._table_read(table_id)
+        return member_acts_of(table, account_id) if isinstance(table, TableRecord) else None
+
+    def moments_of(self, account_id: str) -> frozenset[TableMoment]:
+        """The moments of the account's seats at the live tables it holds a chair at, from one read; the lobby moment
+        when it holds none.
+        """
+        with self._transactions.begin() as transaction:
+            tables = [transaction.table(held.table_id) for held in transaction.tables_of(account_id)]
+        moments = frozenset(moment_at(table, account_id) for table in tables if isinstance(table, TableRecord))
+        return moments or frozenset({TableMoment.LOBBY})
 
     def agent_in_chair(self, table_id: str, seat: int) -> str | None:
         """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,

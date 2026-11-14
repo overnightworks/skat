@@ -46,7 +46,7 @@ from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, text
 from tests.support.end_session_page import EndSessionPage
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import in_memory_stores
-from tests.support.page_build import FIXTURE_DIRECTORY, fixture_page_build, served_page
+from tests.support.page_build import fixture_page_build, served_page
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import new_id_token
 
@@ -202,7 +202,7 @@ def cookie_scope(raw_cookie: str) -> tuple[str, frozenset[str]]:
 def assert_refused(harness: SignInHarness, response: Response, *, cleared_under_start_name: bool = True) -> None:
     assert response.status_code == 403
     assert response.headers["content-type"].startswith("text/html")
-    assert response.content == served_page(FIXTURE_DIRECTORY / "login-failed.html")
+    assert response.content == served_page("login-failed.html", SOURCE_LANGUAGE)
     assert_pending_login_cleared(harness, response, cleared_under_start_name=cleared_under_start_name)
 
 
@@ -312,7 +312,7 @@ class TestMemberSignIn:
 
     def test_the_signed_out_page_is_served_unchanged_without_a_return_path(self, harness):
         response = harness.browser().get(LOGIN_PATH)
-        assert response.content == served_page(FIXTURE_DIRECTORY / "login.html")
+        assert response.content == served_page("login.html", SOURCE_LANGUAGE)
 
     @pytest.mark.parametrize(
         ("requested", "encoded"),
@@ -323,11 +323,12 @@ class TestMemberSignIn:
             ("", ""),
         ],
     )
+    @pytest.mark.parametrize("language", LANGUAGES)
     def test_the_signed_out_page_carries_the_raw_return_path_encoded_onto_its_sign_in_address(
-        self, harness, requested, encoded
+        self, harness, requested, encoded, language
     ):
-        response = harness.browser().get(LOGIN_PATH, params={"next": requested})
-        original = served_page(FIXTURE_DIRECTORY / "login.html")
+        response = harness.browser().get(LOGIN_PATH, params={"next": requested}, headers={"accept-language": language})
+        original = served_page("login.html", language)
         expected = original.replace(b'href="/auth/start"', f'href="/auth/start?next={encoded}"'.encode())
         assert response.content == expected
         assert response.headers["etag"] == BuiltPage.of(expected).etag
@@ -373,10 +374,13 @@ class TestMemberSignIn:
 
     def test_the_call_sign_in_page_is_served_as_built(self, harness):
         response = harness.browser().get(CALL_SIGN_IN_PATH)
-        assert response.content == served_page(FIXTURE_DIRECTORY / "login" / "call.html")
+        assert response.content == served_page("login/call.html", SOURCE_LANGUAGE)
 
-    def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness):
-        page_build = replace(fixture_page_build(), signed_out=BuiltPage.of(b"<html></html>"))
+    @pytest.mark.parametrize("language", LANGUAGES)
+    def test_start_refuses_a_signed_out_page_without_its_sign_in_address(self, make_harness, language):
+        built = fixture_page_build()
+        broken = replace(built.sign_in_pages[language], signed_out=BuiltPage.of(b"<html></html>"))
+        page_build = replace(built, sign_in_pages={**built.sign_in_pages, language: broken})
         with pytest.raises(StartRefusedError, match="signed-out page"):
             make_harness(page_build=page_build)
 
@@ -630,7 +634,7 @@ class TestRefusedLogin:
         harness.start(browser, "/c/first-requested")
         refused = browser.get(f"{AUTH_CALLBACK_PATH}?state=forged&code=x")
         assert_refused(harness, refused, cleared_under_start_name=False)
-        again = re.search(r'href="([^"]+)">Try again</a>', refused.text)
+        again = re.search(r'href="([^"]+)">Nochmal versuchen</a>', refused.text)
         assert again is not None
 
         start = browser.get(again.group(1))

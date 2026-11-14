@@ -1,0 +1,1747 @@
+msgid ""
+msgstr ""
+"Language: en\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgctxt "app.name"
+msgid "Skat"
+msgstr "Skat"
+
+msgctxt "app.reconnecting"
+msgid "verbinde neu"
+msgstr "reconnecting"
+
+msgctxt "app.unreachable"
+msgid "Skat ist gerade nicht erreichbar."
+msgstr "Skat is not reachable right now."
+
+msgctxt "app.pageNotFound"
+msgid "Diese Seite gibt es nicht."
+msgstr "This page does not exist."
+
+msgctxt "app.pageFailed"
+msgid "Diese Seite lässt sich nicht laden."
+msgstr "This page cannot be loaded."
+
+msgctxt "account.title"
+msgid "Konto"
+msgstr "Account"
+
+msgctxt "start.newTable"
+msgid "Neuer Tisch"
+msgstr "New table"
+
+msgctxt "start.seriesLength"
+msgid "Länge der Serie"
+msgstr "Length of the series"
+
+msgctxt "start.seriesGames.one"
+msgid "Spiel"
+msgstr "game"
+
+msgctxt "start.seriesGames.other"
+msgid "Spiele"
+msgstr "games"
+
+msgctxt "start.seriesFewer"
+msgid "3 Spiele weniger"
+msgstr "3 games fewer"
+
+msgctxt "start.seriesMore"
+msgid "3 Spiele mehr"
+msgstr "3 games more"
+
+msgctxt "start.openTable"
+msgid "Aufmachen"
+msgstr "Open"
+
+msgctxt "start.cancelNewTable"
+msgid "Abbrechen"
+msgstr "Cancel"
+
+msgctxt "start.newTableFailed"
+msgid "Der Tisch konnte nicht eröffnet werden."
+msgstr "The table could not be opened."
+
+msgctxt "lobby.myTables"
+msgid "Meine Tische"
+msgstr "My tables"
+
+msgctxt "lobby.openTable"
+msgid "{title} öffnen"
+msgstr "Open {title}"
+
+msgctxt "lobby.title"
+msgid "{name}s Tisch"
+msgstr "{name}'s table"
+
+msgctxt "lobby.titleSibilant"
+msgid "{name}' Tisch"
+msgstr "{name}' table"
+
+msgctxt "lobby.titleNameless"
+msgid "Tisch"
+msgstr "Table"
+
+msgctxt "lobby.progress"
+msgid "Spiel {game} von {count}"
+msgstr "Game {game} of {count}"
+
+msgctxt "lobby.length.one"
+msgid "{count} Spiel"
+msgstr "{count} game"
+
+msgctxt "lobby.length.other"
+msgid "{count} Spiele"
+msgstr "{count} games"
+
+msgctxt "lobby.sideYou"
+msgid "Du"
+msgstr "You"
+
+msgctxt "lobby.seatFree"
+msgid "Frei"
+msgstr "Free"
+
+msgctxt "lobby.seatAway"
+msgid "nicht da"
+msgstr "away"
+
+msgctxt "lobby.minutesLeft.one"
+msgid "noch {minutes} Min"
+msgstr "{minutes} min left"
+
+msgctxt "lobby.minutesLeft.other"
+msgid "noch {minutes} Min"
+msgstr "{minutes} min left"
+
+msgctxt "lobby.ownSeatFreeIn.one"
+msgid "Dein Platz wird in {minutes} Minute frei"
+msgstr "Your seat frees up in {minutes} minute"
+
+msgctxt "lobby.ownSeatFreeIn.other"
+msgid "Dein Platz wird in {minutes} Minuten frei"
+msgstr "Your seat frees up in {minutes} minutes"
+
+msgctxt "lobby.otherSeatFreeIn.one"
+msgid "{name}s Platz wird in {minutes} Minute frei"
+msgstr "{name}'s seat frees up in {minutes} minute"
+
+msgctxt "lobby.otherSeatFreeIn.other"
+msgid "{name}s Platz wird in {minutes} Minuten frei"
+msgstr "{name}'s seat frees up in {minutes} minutes"
+
+msgctxt "lobby.otherSeatFreeInSibilant.one"
+msgid "{name}' Platz wird in {minutes} Minute frei"
+msgstr "{name}' seat frees up in {minutes} minute"
+
+msgctxt "lobby.otherSeatFreeInSibilant.other"
+msgid "{name}' Platz wird in {minutes} Minuten frei"
+msgstr "{name}' seat frees up in {minutes} minutes"
+
+msgctxt "lobby.chipYourTurn"
+msgid "Du bist dran"
+msgstr "Your turn"
+
+msgctxt "lobby.chipResultWaits"
+msgid "Ergebnis wartet"
+msgstr "Result waiting"
+
+msgctxt "lobby.chipSeriesOver"
+msgid "Serie vorbei"
+msgstr "Series over"
+
+msgctxt "lobby.endsInDays.one"
+msgid "endet in {days} Tag"
+msgstr "ends in {days} day"
+
+msgctxt "lobby.endsInDays.other"
+msgid "endet in {days} Tagen"
+msgstr "ends in {days} days"
+
+msgctxt "lobby.endsToday"
+msgid "endet heute"
+msgstr "ends today"
+
+msgctxt "table.waitingForPlayers"
+msgid "Warte auf Mitspieler"
+msgstr "Waiting for players"
+
+msgctxt "table.seatFree"
+msgid "Frei"
+msgstr "Free"
+
+msgctxt "table.seatAway"
+msgid "nicht da"
+msgstr "away"
+
+msgctxt "table.copyLink"
+msgid "Link kopieren"
+msgstr "Copy link"
+
+msgctxt "table.linkCopied"
+msgid "Link kopiert"
+msgstr "Link copied"
+
+msgctxt "table.linkCopyFailed"
+msgid "Der Link ließ sich nicht kopieren"
+msgstr "The link could not be copied"
+
+msgctxt "table.loadFailed"
+msgid "Der Tisch lässt sich gerade nicht laden"
+msgstr "The table cannot be loaded right now"
+
+msgctxt "table.loadFailedHint"
+msgid "Lade die Seite neu, um es noch einmal zu versuchen."
+msgstr "Reload the page to try again."
+
+msgctxt "table.watchers"
+msgid "Zuschauer"
+msgstr "Spectators"
+
+msgctxt "table.lobby"
+msgid "Lobby"
+msgstr "Lobby"
+
+msgctxt "table.lobbyWaiting.one"
+msgid "Lobby, {count} Tisch wartet auf dich"
+msgstr "Lobby, {count} table is waiting for you"
+
+msgctxt "table.lobbyWaiting.other"
+msgid "Lobby, {count} Tische warten auf dich"
+msgstr "Lobby, {count} tables are waiting for you"
+
+msgctxt "table.reconnecting"
+msgid "verbinde neu"
+msgstr "reconnecting"
+
+msgctxt "table.sitDown"
+msgid "Hinsetzen"
+msgstr "Sit down"
+
+msgctxt "table.standUp"
+msgid "Aufstehen"
+msgstr "Stand up"
+
+msgctxt "table.standUpArmed"
+msgid "Wirklich aufstehen?"
+msgstr "Really stand up?"
+
+msgctxt "table.seatTaken"
+msgid "Platz vergeben"
+msgstr "Seat taken"
+
+msgctxt "table.commandFailed"
+msgid "Das hat nicht geklappt"
+msgstr "That did not work"
+
+msgctxt "table.bidding"
+msgid "Reizen"
+msgstr "Bidding"
+
+msgctxt "table.pass"
+msgid "Weg"
+msgstr "Pass"
+
+msgctxt "table.waitingFor"
+msgid "Warte auf {names}"
+msgstr "Waiting for {names}"
+
+msgctxt "table.wantsToGiveUp"
+msgid "{name} will aufgeben"
+msgstr "{name} wants to give up"
+
+msgctxt "table.givesUp"
+msgid "{name} gibt auf"
+msgstr "{name} gives up"
+
+msgctxt "table.giveUp"
+msgid "Aufgeben"
+msgstr "Give up"
+
+msgctxt "table.giveUpSure"
+msgid "Wirklich aufgeben?"
+msgstr "Really give up?"
+
+msgctxt "table.accept"
+msgid "Annehmen"
+msgstr "Accept"
+
+msgctxt "table.playOn"
+msgid "Weiterspielen"
+msgstr "Play on"
+
+msgctxt "table.saidNo"
+msgid "sagte Nein"
+msgstr "said no"
+
+msgctxt "table.noAnswerYet"
+msgid "noch keine Antwort"
+msgstr "no answer yet"
+
+msgctxt "table.abort"
+msgid "Abbrechen"
+msgstr "Abort"
+
+msgctxt "table.abortSure"
+msgid "Wirklich abbrechen?"
+msgstr "Really abort?"
+
+msgctxt "table.abortWait"
+msgid "Warten"
+msgstr "Wait"
+
+msgctxt "table.wantsToAbort"
+msgid "{name} will abbrechen"
+msgstr "{name} wants to abort"
+
+msgctxt "table.aborted"
+msgid "Spiel abgebrochen"
+msgstr "Game aborted"
+
+msgctxt "table.passedIn"
+msgid "Eingepasst"
+msgstr "Passed in"
+
+msgctxt "table.gives"
+msgid "{name} gibt"
+msgstr "{name} deals"
+
+msgctxt "table.waitsForYou"
+msgid "wartet auf dich"
+msgstr "waiting for you"
+
+msgctxt "table.bidValue"
+msgid "Reizwert {value}"
+msgstr "Bid {value}"
+
+msgctxt "table.plays"
+msgid "spielt"
+msgstr "plays"
+
+msgctxt "table.playsValue"
+msgid "{name} spielt, {value}"
+msgstr "{name} plays, {value}"
+
+msgctxt "table.chooses"
+msgid "{name} wählt"
+msgstr "{name} chooses"
+
+msgctxt "table.discards"
+msgid "{name} drückt"
+msgstr "{name} discards"
+
+msgctxt "table.ramsch"
+msgid "Ramsch"
+msgstr "Ramsch"
+
+msgctxt "table.pushCount"
+msgid "{count}× geschoben"
+msgstr "pushed {count}×"
+
+msgctxt "table.pushFactor"
+msgid "×{factor}"
+msgstr "×{factor}"
+
+msgctxt "table.push"
+msgid "Schieben"
+msgstr "Push"
+
+msgctxt "table.thinks"
+msgid "denkt"
+msgstr "thinking"
+
+msgctxt "table.dealer"
+msgid "Geber"
+msgstr "Dealer"
+
+msgctxt "table.cardCount"
+msgid "Karten"
+msgstr "Cards"
+
+msgctxt "table.open"
+msgid "Offen"
+msgstr "Open"
+
+msgctxt "table.openForAll"
+msgid "Offen für alle"
+msgstr "Open to all"
+
+msgctxt "table.sideYou"
+msgid "Du"
+msgstr "You"
+
+msgctxt "table.weiter"
+msgid "Weiter"
+msgstr "Continue"
+
+msgctxt "table.seriesCount"
+msgid "Spiel {game} von {count}"
+msgstr "Game {game} of {count}"
+
+msgctxt "table.seriesList"
+msgid "Liste der Spiele"
+msgstr "List of games"
+
+msgctxt "table.seriesListTitle"
+msgid "Spiele"
+msgstr "Games"
+
+msgctxt "table.seriesListEmpty"
+msgid "Noch kein Spiel gespielt"
+msgstr "No game played yet"
+
+msgctxt "table.seriesListFailed"
+msgid "Die Liste lässt sich nicht laden."
+msgstr "The list cannot be loaded."
+
+msgctxt "table.seriesEnded"
+msgid "Serie zu Ende"
+msgstr "Series over"
+
+msgctxt "table.seriesGames.one"
+msgid "{count} Spiel"
+msgstr "{count} game"
+
+msgctxt "table.seriesGames.other"
+msgid "{count} Spiele"
+msgstr "{count} games"
+
+msgctxt "table.seriesRecord"
+msgid "{won} gewonnen · {lost} verloren"
+msgstr "{won} won · {lost} lost"
+
+msgctxt "table.seriesGone"
+msgid "gegangen"
+msgstr "left"
+
+msgctxt "table.seriesNameless"
+msgid "Jemand"
+msgstr "Someone"
+
+msgctxt "table.seriesRamschOf"
+msgid "Ramsch, {name}"
+msgstr "Ramsch, {name}"
+
+msgctxt "table.seriesPushed"
+msgid "{count}× geschoben"
+msgstr "{count}× pushed"
+
+msgctxt "table.newSeries"
+msgid "Neue Serie"
+msgstr "New series"
+
+msgctxt "table.wantsToEndSeries"
+msgid "{name} will die Serie beenden"
+msgstr "{name} wants to end the series"
+
+msgctxt "table.endSeries"
+msgid "Serie beenden"
+msgstr "End series"
+
+msgctxt "table.endSeriesSure"
+msgid "Wirklich beenden?"
+msgstr "Really end it?"
+
+msgctxt "table.yes"
+msgid "Ja"
+msgstr "Yes"
+
+msgctxt "table.no"
+msgid "Nein"
+msgstr "No"
+
+msgctxt "table.watchingOnly"
+msgid "Du schaust zu"
+msgstr "You are watching"
+
+msgctxt "table.readyMark"
+msgid "Weiter getippt"
+msgstr "Continue tapped"
+
+msgctxt "table.notReadyMark"
+msgid "noch nicht getippt"
+msgstr "not tapped yet"
+
+msgctxt "result.seatFree"
+msgid "Frei"
+msgstr "Free"
+
+msgctxt "result.hand"
+msgid "Hand"
+msgstr "Hand"
+
+msgctxt "result.levelSpiel"
+msgid "Spiel"
+msgstr "Game"
+
+msgctxt "result.levelSchneider"
+msgid "Schneider"
+msgstr "Schneider"
+
+msgctxt "result.levelSchwarz"
+msgid "Schwarz"
+msgstr "Schwarz"
+
+msgctxt "result.levelOuvert"
+msgid "Ouvert"
+msgstr "Ouvert"
+
+msgctxt "result.matadorsWith.one"
+msgid "mit {count}"
+msgstr "with {count}"
+
+msgctxt "result.matadorsWith.other"
+msgid "mit {count}"
+msgstr "with {count}"
+
+msgctxt "result.matadorsWithout.one"
+msgid "ohne {count}"
+msgstr "without {count}"
+
+msgctxt "result.matadorsWithout.other"
+msgid "ohne {count}"
+msgstr "without {count}"
+
+msgctxt "result.listGame"
+msgid "Spiel {score}"
+msgstr "Game {score}"
+
+msgctxt "result.listGameWord"
+msgid "Spiel · {word} {score}"
+msgstr "Game · {word} {score}"
+
+msgctxt "result.wordKontra"
+msgid "Kontra"
+msgstr "Kontra"
+
+msgctxt "result.wordRe"
+msgid "Re"
+msgstr "Re"
+
+msgctxt "result.wordSupra"
+msgid "Supra"
+msgstr "Supra"
+
+msgctxt "result.wordHirsch"
+msgid "Hirsch"
+msgstr "Hirsch"
+
+msgctxt "result.wordFactor"
+msgid "{word} ×{factor}"
+msgstr "{word} ×{factor}"
+
+msgctxt "result.listBonus"
+msgid "Liste {bonus}"
+msgstr "List {bonus}"
+
+msgctxt "result.share"
+msgid "· {opponents} je {gain}"
+msgstr "· {opponents} {gain} each"
+
+msgctxt "result.announcedSchneider"
+msgid "Schneider angesagt"
+msgstr "Schneider declared"
+
+msgctxt "result.announcedSchwarz"
+msgid "Schwarz angesagt"
+msgstr "Schwarz declared"
+
+msgctxt "result.sideThem"
+msgid "Gegner"
+msgstr "Opponents"
+
+msgctxt "result.trickPoints"
+msgid "Augen"
+msgstr "Points"
+
+msgctxt "result.sideYou"
+msgid "Du"
+msgstr "You"
+
+msgctxt "result.won"
+msgid "Gewonnen!"
+msgstr "Won!"
+
+msgctxt "result.lost"
+msgid "Verloren"
+msgstr "Lost"
+
+msgctxt "result.overbid"
+msgid "Überreizt"
+msgstr "Overbid"
+
+msgctxt "result.givenUp"
+msgid "Aufgegeben"
+msgstr "Given up"
+
+msgctxt "result.declarerWins"
+msgid "{name} gewinnt"
+msgstr "{name} wins"
+
+msgctxt "result.declarerLoses"
+msgid "{name} verliert"
+msgstr "{name} loses"
+
+msgctxt "result.opponentGameLine"
+msgid "{declarer}, {game}"
+msgstr "{declarer}, {game}"
+
+msgctxt "result.missedSchneider"
+msgid "Schneider angesagt, nicht erreicht"
+msgstr "Schneider declared, not reached"
+
+msgctxt "result.missedSchwarz"
+msgid "Schwarz angesagt, nicht erreicht"
+msgstr "Schwarz declared, not reached"
+
+msgctxt "result.raise"
+msgid "Wert {value} < Reizwert {bid} → {settled}"
+msgstr "Value {value} < bid {bid} → {settled}"
+
+msgctxt "bock.factor"
+msgid "Bock ×{factor}"
+msgstr "Bock ×{factor}"
+
+msgctxt "bock.plaque"
+msgid "Bock {#factor}×{factor}{/factor}"
+msgstr "Bock {#factor}×{factor}{/factor}"
+
+msgctxt "rules.chipBock"
+msgid "Bock"
+msgstr "Bock"
+
+msgctxt "rules.bockLeft"
+msgid "noch {count}"
+msgstr "{count} left"
+
+msgctxt "result.sidePoints"
+msgid "{#side}{side}{/side} {#tally}{points}{/tally}"
+msgstr "{#side}{side}{/side} {#tally}{points}{/tally}"
+
+msgctxt "result.eyes"
+msgid "{points} Augen"
+msgstr "{points} points"
+
+msgctxt "result.eyeCount"
+msgid "{name} {points}"
+msgstr "{name} {points}"
+
+msgctxt "result.loses"
+msgid "{name} verliert"
+msgstr "{name} loses"
+
+msgctxt "result.losesTogether"
+msgid "{names} verlieren"
+msgstr "{names} lose"
+
+msgctxt "result.byTen"
+msgid "÷ 10"
+msgstr "÷ 10"
+
+msgctxt "result.jungfrau"
+msgid "Jungfrau ×2"
+msgstr "Jungfrau ×2"
+
+msgctxt "result.durchmarsch"
+msgid "Durchmarsch"
+msgstr "Durchmarsch"
+
+msgctxt "push.times"
+msgid "{count}× geschoben ×{factor}"
+msgstr "pushed {count}× ×{factor}"
+
+msgctxt "push.timesFlat"
+msgid "{count}× geschoben"
+msgstr "pushed {count}×"
+
+msgctxt "closed.notFound"
+msgid "Tisch nicht gefunden"
+msgstr "Table not found"
+
+msgctxt "closed.emptySeconds.one"
+msgid "{count} Sekunde niemand da: Tisch geschlossen"
+msgstr "Nobody here for {count} second: table closed"
+
+msgctxt "closed.emptySeconds.other"
+msgid "{count} Sekunden niemand da: Tisch geschlossen"
+msgstr "Nobody here for {count} seconds: table closed"
+
+msgctxt "closed.emptyMinutes.one"
+msgid "{minutes} Minute niemand da: Tisch geschlossen"
+msgstr "Nobody here for {minutes} minute: table closed"
+
+msgctxt "closed.emptyMinutes.other"
+msgid "{minutes} Minuten niemand da: Tisch geschlossen"
+msgstr "Nobody here for {minutes} minutes: table closed"
+
+msgctxt "closed.unplayedDays.one"
+msgid "{count} Tag nicht gespielt: Tisch geschlossen"
+msgstr "Not played for {count} day: table closed"
+
+msgctxt "closed.unplayedDays.other"
+msgid "{count} Tage nicht gespielt: Tisch geschlossen"
+msgstr "Not played for {count} days: table closed"
+
+msgctxt "closed.closedBy"
+msgid "{name} hat den Tisch geschlossen"
+msgstr "{name} closed the table"
+
+msgctxt "declare.commandFailed"
+msgid "Das hat nicht geklappt"
+msgstr "That did not work"
+
+msgctxt "declare.takeSkat"
+msgid "Aufnehmen"
+msgstr "Pick up"
+
+msgctxt "push.takeSkat"
+msgid "Skat nehmen"
+msgstr "Take the Skat"
+
+msgctxt "push.grandHand"
+msgid "Grand Hand"
+msgstr "Grand Hand"
+
+msgctxt "push.grandHandAsk"
+msgid "Grand Hand?"
+msgstr "Grand Hand?"
+
+msgctxt "declare.putBack"
+msgid "Drücken"
+msgstr "Discard"
+
+msgctxt "declare.announceGame"
+msgid "Ansagen"
+msgstr "Declare"
+
+msgctxt "declare.hand"
+msgid "Hand"
+msgstr "Hand"
+
+msgctxt "declare.levelSchneider"
+msgid "Schneider"
+msgstr "Schneider"
+
+msgctxt "declare.levelSchwarz"
+msgid "Schwarz"
+msgstr "Schwarz"
+
+msgctxt "declare.levelOuvert"
+msgid "Ouvert"
+msgstr "Ouvert"
+
+msgctxt "play.commandFailed"
+msgid "Das hat nicht geklappt"
+msgstr "That did not work"
+
+msgctxt "play.swipeHint"
+msgid "Nochmal tippen oder hochwischen spielt die Karte"
+msgstr "Tap again or swipe up to play the card"
+
+msgctxt "play.sideUs"
+msgid "Wir"
+msgstr "Us"
+
+msgctxt "play.sideThem"
+msgid "Gegner"
+msgstr "Opponents"
+
+msgctxt "play.trick"
+msgid "Stich"
+msgstr "Trick"
+
+msgctxt "play.sideYou"
+msgid "Du"
+msgstr "You"
+
+msgctxt "kontra.kontra"
+msgid "Kontra"
+msgstr "Kontra"
+
+msgctxt "kontra.re"
+msgid "Re"
+msgstr "Re"
+
+msgctxt "kontra.supra"
+msgid "Supra"
+msgstr "Supra"
+
+msgctxt "kontra.hirsch"
+msgid "Hirsch"
+msgstr "Hirsch"
+
+msgctxt "kontra.plaque"
+msgid "{word} {#factor}×{factor}{/factor}"
+msgstr "{word} {#factor}×{factor}{/factor}"
+
+msgctxt "kontra.stamp"
+msgid "{word}!"
+msgstr "{word}!"
+
+msgctxt "kontra.saidBy"
+msgid "{name} sagt {word}"
+msgstr "{name} says {word}"
+
+msgctxt "kontra.commandFailed"
+msgid "Das hat nicht geklappt"
+msgstr "That did not work"
+
+msgctxt "bid.hold"
+msgid "Halten"
+msgstr "Hold"
+
+msgctxt "bid.pass"
+msgid "Weg"
+msgstr "Pass"
+
+msgctxt "voice.pass"
+msgid "Weg"
+msgstr "Pass"
+
+msgctxt "voice.kontra"
+msgid "Kontra"
+msgstr "Kontra"
+
+msgctxt "voice.re"
+msgid "Re"
+msgstr "Re"
+
+msgctxt "voice.supra"
+msgid "Supra"
+msgstr "Supra"
+
+msgctxt "voice.hirsch"
+msgid "Hirsch"
+msgstr "Hirsch"
+
+msgctxt "voice.value18"
+msgid "achtzehn"
+msgstr "eighteen"
+
+msgctxt "voice.value20"
+msgid "zwanzig"
+msgstr "twenty"
+
+msgctxt "voice.value22"
+msgid "zweiundzwanzig"
+msgstr "twenty-two"
+
+msgctxt "voice.value23"
+msgid "dreiundzwanzig"
+msgstr "twenty-three"
+
+msgctxt "voice.value24"
+msgid "vierundzwanzig"
+msgstr "twenty-four"
+
+msgctxt "voice.value27"
+msgid "siebenundzwanzig"
+msgstr "twenty-seven"
+
+msgctxt "voice.value30"
+msgid "dreißig"
+msgstr "thirty"
+
+msgctxt "voice.value33"
+msgid "dreiunddreißig"
+msgstr "thirty-three"
+
+msgctxt "voice.value35"
+msgid "fünfunddreißig"
+msgstr "thirty-five"
+
+msgctxt "voice.value36"
+msgid "sechsunddreißig"
+msgstr "thirty-six"
+
+msgctxt "voice.value40"
+msgid "vierzig"
+msgstr "forty"
+
+msgctxt "voice.value44"
+msgid "vierundvierzig"
+msgstr "forty-four"
+
+msgctxt "voice.value45"
+msgid "fünfundvierzig"
+msgstr "forty-five"
+
+msgctxt "voice.value46"
+msgid "sechsundvierzig"
+msgstr "forty-six"
+
+msgctxt "voice.value48"
+msgid "achtundvierzig"
+msgstr "forty-eight"
+
+msgctxt "voice.value50"
+msgid "fünfzig"
+msgstr "fifty"
+
+msgctxt "voice.value54"
+msgid "vierundfünfzig"
+msgstr "fifty-four"
+
+msgctxt "voice.value55"
+msgid "fünfundfünfzig"
+msgstr "fifty-five"
+
+msgctxt "voice.value59"
+msgid "neunundfünfzig"
+msgstr "fifty-nine"
+
+msgctxt "voice.value60"
+msgid "sechzig"
+msgstr "sixty"
+
+msgctxt "voice.value63"
+msgid "dreiundsechzig"
+msgstr "sixty-three"
+
+msgctxt "voice.value66"
+msgid "sechsundsechzig"
+msgstr "sixty-six"
+
+msgctxt "voice.value70"
+msgid "siebzig"
+msgstr "seventy"
+
+msgctxt "voice.value72"
+msgid "zweiundsiebzig"
+msgstr "seventy-two"
+
+msgctxt "voice.value77"
+msgid "siebenundsiebzig"
+msgstr "seventy-seven"
+
+msgctxt "voice.value80"
+msgid "achtzig"
+msgstr "eighty"
+
+msgctxt "voice.value81"
+msgid "einundachtzig"
+msgstr "eighty-one"
+
+msgctxt "voice.value84"
+msgid "vierundachtzig"
+msgstr "eighty-four"
+
+msgctxt "voice.value88"
+msgid "achtundachtzig"
+msgstr "eighty-eight"
+
+msgctxt "voice.value90"
+msgid "neunzig"
+msgstr "ninety"
+
+msgctxt "voice.value96"
+msgid "sechsundneunzig"
+msgstr "ninety-six"
+
+msgctxt "voice.value99"
+msgid "neunundneunzig"
+msgstr "ninety-nine"
+
+msgctxt "voice.value100"
+msgid "hundert"
+msgstr "one hundred"
+
+msgctxt "voice.value108"
+msgid "hundertacht"
+msgstr "one hundred and eight"
+
+msgctxt "voice.value110"
+msgid "hundertzehn"
+msgstr "one hundred and ten"
+
+msgctxt "voice.value117"
+msgid "hundertsiebzehn"
+msgstr "one hundred and seventeen"
+
+msgctxt "voice.value120"
+msgid "hundertzwanzig"
+msgstr "one hundred and twenty"
+
+msgctxt "voice.value121"
+msgid "hunderteinundzwanzig"
+msgstr "one hundred and twenty-one"
+
+msgctxt "voice.value126"
+msgid "hundertsechsundzwanzig"
+msgstr "one hundred and twenty-six"
+
+msgctxt "voice.value130"
+msgid "hundertdreißig"
+msgstr "one hundred and thirty"
+
+msgctxt "voice.value132"
+msgid "hundertzweiunddreißig"
+msgstr "one hundred and thirty-two"
+
+msgctxt "voice.value135"
+msgid "hundertfünfunddreißig"
+msgstr "one hundred and thirty-five"
+
+msgctxt "voice.value140"
+msgid "hundertvierzig"
+msgstr "one hundred and forty"
+
+msgctxt "voice.value143"
+msgid "hundertdreiundvierzig"
+msgstr "one hundred and forty-three"
+
+msgctxt "voice.value144"
+msgid "hundertvierundvierzig"
+msgstr "one hundred and forty-four"
+
+msgctxt "voice.value150"
+msgid "hundertfünfzig"
+msgstr "one hundred and fifty"
+
+msgctxt "voice.value153"
+msgid "hundertdreiundfünfzig"
+msgstr "one hundred and fifty-three"
+
+msgctxt "voice.value154"
+msgid "hundertvierundfünfzig"
+msgstr "one hundred and fifty-four"
+
+msgctxt "voice.value156"
+msgid "hundertsechsundfünfzig"
+msgstr "one hundred and fifty-six"
+
+msgctxt "voice.value160"
+msgid "hundertsechzig"
+msgstr "one hundred and sixty"
+
+msgctxt "voice.value162"
+msgid "hundertzweiundsechzig"
+msgstr "one hundred and sixty-two"
+
+msgctxt "voice.value165"
+msgid "hundertfünfundsechzig"
+msgstr "one hundred and sixty-five"
+
+msgctxt "voice.value168"
+msgid "hundertachtundsechzig"
+msgstr "one hundred and sixty-eight"
+
+msgctxt "voice.value170"
+msgid "hundertsiebzig"
+msgstr "one hundred and seventy"
+
+msgctxt "voice.value176"
+msgid "hundertsechsundsiebzig"
+msgstr "one hundred and seventy-six"
+
+msgctxt "voice.value180"
+msgid "hundertachtzig"
+msgstr "one hundred and eighty"
+
+msgctxt "voice.value187"
+msgid "hundertsiebenundachtzig"
+msgstr "one hundred and eighty-seven"
+
+msgctxt "voice.value192"
+msgid "hundertzweiundneunzig"
+msgstr "one hundred and ninety-two"
+
+msgctxt "voice.value198"
+msgid "hundertachtundneunzig"
+msgstr "one hundred and ninety-eight"
+
+msgctxt "voice.value204"
+msgid "zweihundertvier"
+msgstr "two hundred and four"
+
+msgctxt "voice.value216"
+msgid "zweihundertsechzehn"
+msgstr "two hundred and sixteen"
+
+msgctxt "voice.value240"
+msgid "zweihundertvierzig"
+msgstr "two hundred and forty"
+
+msgctxt "voice.value264"
+msgid "zweihundertvierundsechzig"
+msgstr "two hundred and sixty-four"
+
+msgctxt "game.forehand"
+msgid "Vorhand"
+msgstr "Forehand"
+
+msgctxt "game.middlehand"
+msgid "Mittelhand"
+msgstr "Middlehand"
+
+msgctxt "game.rearhand"
+msgid "Hinterhand"
+msgstr "Rearhand"
+
+msgctxt "game.handName"
+msgid "{game} Hand"
+msgstr "{game} Hand"
+
+msgctxt "game.announcedSchneider"
+msgid "Schneider angesagt"
+msgstr "Schneider declared"
+
+msgctxt "game.announcedSchwarz"
+msgid "Schwarz angesagt"
+msgstr "Schwarz declared"
+
+msgctxt "game.ouvertName"
+msgid "{game} ouvert"
+msgstr "{game} ouvert"
+
+msgctxt "game.ouvertHandName"
+msgid "{game} ouvert Hand"
+msgstr "{game} ouvert Hand"
+
+msgctxt "game.karo"
+msgid "Karo"
+msgstr "Diamonds"
+
+msgctxt "game.herz"
+msgid "Herz"
+msgstr "Hearts"
+
+msgctxt "game.pik"
+msgid "Pik"
+msgstr "Spades"
+
+msgctxt "game.kreuz"
+msgid "Kreuz"
+msgstr "Clubs"
+
+msgctxt "game.grand"
+msgid "Grand"
+msgstr "Grand"
+
+msgctxt "game.null"
+msgid "Null"
+msgstr "Null"
+
+msgctxt "game.ramsch"
+msgid "Ramsch"
+msgstr "Ramsch"
+
+msgctxt "game.rankSeven"
+msgid "Sieben"
+msgstr "Seven"
+
+msgctxt "game.rankEight"
+msgid "Acht"
+msgstr "Eight"
+
+msgctxt "game.rankNine"
+msgid "Neun"
+msgstr "Nine"
+
+msgctxt "game.rankTen"
+msgid "Zehn"
+msgstr "Ten"
+
+msgctxt "game.rankJack"
+msgid "Bube"
+msgstr "Jack"
+
+msgctxt "game.rankQueen"
+msgid "Dame"
+msgstr "Queen"
+
+msgctxt "game.rankKing"
+msgid "König"
+msgstr "King"
+
+msgctxt "game.rankAce"
+msgid "Ass"
+msgstr "Ace"
+
+msgctxt "game.cardName"
+msgid "{suit} {rank}"
+msgstr "{suit} {rank}"
+
+msgctxt "legal.imprint"
+msgid "Impressum"
+msgstr "Legal notice"
+
+msgctxt "legal.privacy"
+msgid "Datenschutz"
+msgstr "Privacy"
+
+msgctxt "legal.terms"
+msgid "Nutzungsbedingungen"
+msgstr "Terms of use"
+
+msgctxt "sound.panelName"
+msgid "Ton und Bewegung"
+msgstr "Sound and motion"
+
+msgctxt "sound.muted"
+msgid "Ton aus"
+msgstr "Sound off"
+
+msgctxt "sound.on"
+msgid "Ton"
+msgstr "Sound"
+
+msgctxt "sound.tone"
+msgid "Ton"
+msgstr "Sound"
+
+msgctxt "sound.volume"
+msgid "Lautstärke"
+msgstr "Volume"
+
+msgctxt "sound.sets"
+msgid "Klänge"
+msgstr "Sounds"
+
+msgctxt "sound.voice"
+msgid "Stimme"
+msgstr "Voice"
+
+msgctxt "sound.motion"
+msgid "Bewegung"
+msgstr "Motion"
+
+msgctxt "sound.replayMotion"
+msgid "Bewegung trotzdem abspielen"
+msgstr "Play motion anyway"
+
+msgctxt "sound.reducedMotionNote"
+msgid ""
+"Dein Gerät sagt „Bewegung reduzieren“. Darum zeigt Skat jeden Zustand "
+"sofort."
+msgstr "Your device says “reduce motion”. So Skat shows every state at once."
+
+msgctxt "sound.playsOnce"
+msgid "spielt einmal"
+msgstr "plays once"
+
+msgctxt "sound.more"
+msgid "mehr"
+msgstr "more"
+
+msgctxt "sound.setLeise"
+msgid "Leise"
+msgstr "Quiet"
+
+msgctxt "sound.setStammtisch"
+msgid "Stammtisch"
+msgstr "Regulars’ table"
+
+msgctxt "sound.setFunkeln"
+msgid "Funkeln"
+msgstr "Sparkle"
+
+msgctxt "sound.motionDezent"
+msgid "dezent"
+msgstr "subtle"
+
+msgctxt "sound.motionVerspielt"
+msgid "verspielt"
+msgstr "playful"
+
+msgctxt "card.letterJack"
+msgid "B"
+msgstr "J"
+
+msgctxt "card.letterQueen"
+msgid "D"
+msgstr "Q"
+
+msgctxt "card.letterKing"
+msgid "K"
+msgstr "K"
+
+msgctxt "card.letterAce"
+msgid "A"
+msgstr "A"
+
+msgctxt "agents.pill"
+msgid "Agenten"
+msgstr "Agents"
+
+msgctxt "table.agentSits"
+msgid "{name} setzt sich"
+msgstr "{name} sits down"
+
+msgctxt "table.agentLeft"
+msgid "{name} ist gegangen"
+msgstr "{name} left"
+
+msgctxt "table.standUpNotice"
+msgid "{name} ist aufgestanden"
+msgstr "{name} stood up"
+
+msgctxt "table.chairLocked"
+msgid "Gesperrt"
+msgstr "Locked"
+
+msgctxt "table.playsOn"
+msgid "{name} spielt weiter"
+msgstr "{name} plays on"
+
+msgctxt "table.playingOn"
+msgid "{names} spielen weiter"
+msgstr "{names} play on"
+
+msgctxt "table.sitQuestion"
+msgid "Mitten ins Spiel setzen?"
+msgstr "Sit down in the middle of a game?"
+
+msgctxt "table.sitQuestionCancel"
+msgid "Abbrechen"
+msgstr "Cancel"
+
+msgctxt "table.close"
+msgid "Tisch schließen"
+msgstr "Close table"
+
+msgctxt "table.closeQuestion"
+msgid "Tisch für alle schließen?"
+msgstr "Close the table for everyone?"
+
+msgctxt "table.closeConfirm"
+msgid "Schließen"
+msgstr "Close"
+
+msgctxt "table.closeCancel"
+msgid "Abbrechen"
+msgstr "Cancel"
+
+msgctxt "table.takeOverNamed"
+msgid "Du übernimmst {name}s Karten."
+msgstr "You take over {name}’s cards."
+
+msgctxt "table.takeOverApostrophe"
+msgid "Du übernimmst {name}’ Karten."
+msgstr "You take over {name}’s cards."
+
+msgctxt "table.takeOverUnnamed"
+msgid "Du übernimmst die Karten dieses Platzes."
+msgstr "You take over the cards of this seat."
+
+msgctxt "logout.button"
+msgid "Abmelden"
+msgstr "Log out"
+
+msgctxt "start.rulePoints"
+msgid "Laufende Augen zeigen"
+msgstr "Show running points"
+
+msgctxt "start.rulePointsLine"
+msgid "Alle sehen die Augen im Spiel"
+msgstr "Everyone sees the points during play"
+
+msgctxt "start.ruleSets"
+msgid "Regeln"
+msgstr "Rules"
+
+msgctxt "start.setOfficial"
+msgid "Offiziell"
+msgstr "Official"
+
+msgctxt "start.setsUnreadable"
+msgid "Deine eigenen Regeln ließen sich nicht lesen."
+msgstr "Your own rules could not be read."
+
+msgctxt "start.saveRules"
+msgid "Als eigene Regeln speichern"
+msgstr "Save as your own rules"
+
+msgctxt "start.saveName"
+msgid "Name"
+msgstr "Name"
+
+msgctxt "start.savedNameWith"
+msgid "{set}, mit {rules}"
+msgstr "{set}, with {rules}"
+
+msgctxt "start.savedNameAdjusted"
+msgid "{set}, angepasst"
+msgstr "{set}, adjusted"
+
+msgctxt "start.saveNameTaken"
+msgid "Diesen Namen hast du schon für andere Regeln."
+msgstr "You already have this name for other rules."
+
+msgctxt "start.saveFailed"
+msgid "Die Regeln ließen sich nicht speichern."
+msgstr "The rules could not be saved."
+
+msgctxt "start.ruleKontra"
+msgid "Kontra und Re"
+msgstr "Kontra and Re"
+
+msgctxt "start.ruleKontraLine"
+msgid "Verdoppeln und zurückdoppeln"
+msgstr "Double and redouble"
+
+msgctxt "start.ruleRamsch"
+msgid "Ramsch beim Einpassen"
+msgstr "Ramsch when everyone passes"
+
+msgctxt "start.ruleRamschLine"
+msgid "Alle passen: jeder gegen jeden"
+msgstr "Everyone passes: each plays against all"
+
+msgctxt "start.rulePushing"
+msgid "Schieberamsch"
+msgstr "Pushing Ramsch"
+
+msgctxt "start.rulePushingLine"
+msgid "Den Skat weiterschieben"
+msgstr "Push the skat on"
+
+msgctxt "start.ruleBock"
+msgid "Bockrunden"
+msgstr "Bock rounds"
+
+msgctxt "start.ruleBockLine"
+msgid "Manche Spiele zählen doppelt"
+msgstr "Some games count double"
+
+msgctxt "start.askKontraSayer"
+msgid "Wer darf Kontra sagen?"
+msgstr "Who may say Kontra?"
+
+msgctxt "start.pillAnyOpponent"
+msgid "Jeder Gegner"
+msgstr "Any opponent"
+
+msgctxt "start.pillBiddersOnly"
+msgid "Nur wer gereizt hat"
+msgstr "Only those who bid"
+
+msgctxt "start.askKontraReach"
+msgid "Wie weit geht es?"
+msgstr "How far does it go?"
+
+msgctxt "start.pillKontraRe"
+msgid "Kontra, Re"
+msgstr "Kontra, Re"
+
+msgctxt "start.pillKontraReStandings"
+msgid "mit Ständen"
+msgstr "with standings"
+
+msgctxt "start.pillUpToHirsch"
+msgid "bis Hirsch"
+msgstr "up to Hirsch"
+
+msgctxt "start.askRamschScoring"
+msgid "Wie zählt der Ramsch?"
+msgstr "How does Ramsch score?"
+
+msgctxt "start.pillScoringPoints"
+msgid "Augen"
+msgstr "Points"
+
+msgctxt "start.pillScoringPointsByTen"
+msgid "Augen durch 10"
+msgstr "Points divided by 10"
+
+msgctxt "start.pillScoringSkatToLoser"
+msgid "Skat zum Verlierer"
+msgstr "Skat to the loser"
+
+msgctxt "start.askJungfrau"
+msgid "Jungfrau (kein Stich)"
+msgstr "Jungfrau (no trick)"
+
+msgctxt "start.pillJungfrauDoublesLoser"
+msgid "Verlierer doppelt"
+msgstr "Loser doubled"
+
+msgctxt "start.pillJungfrauOff"
+msgid "Aus"
+msgstr "Off"
+
+msgctxt "start.askDurchmarsch"
+msgid "Durchmarsch (alle Stiche)"
+msgstr "Durchmarsch (all tricks)"
+
+msgctxt "start.pillDurchmarschWins120"
+msgid "Gewinnt 120"
+msgstr "Wins 120"
+
+msgctxt "start.pillDurchmarschWins120Flat"
+msgid "120, nicht doppelt"
+msgstr "120, not doubled"
+
+msgctxt "start.pillDurchmarschOff"
+msgid "Aus"
+msgstr "Off"
+
+msgctxt "start.askPushingRule"
+msgid "Was beim Schieben gilt"
+msgstr "What applies when pushing"
+
+msgctxt "start.pillPushingJacksStay"
+msgid "Buben bleiben"
+msgstr "Jacks stay"
+
+msgctxt "start.pillPushingJacksMayGo"
+msgid "Buben dürfen weg"
+msgstr "Jacks may go"
+
+msgctxt "start.pillPushingNoDoubling"
+msgid "Nicht doppelt"
+msgstr "Not doubled"
+
+msgctxt "start.askGrandHand"
+msgid "Grand Hand statt Ramsch"
+msgstr "Grand Hand instead of Ramsch"
+
+msgctxt "start.pillGrandHandOff"
+msgid "Aus"
+msgstr "Off"
+
+msgctxt "start.pillGrandHandAllowed"
+msgid "Erlaubt"
+msgstr "Allowed"
+
+msgctxt "start.askBockTriggers"
+msgid "Bock gibt es nach"
+msgstr "Bock comes after"
+
+msgctxt "start.flagSixtySixty"
+msgid "60 zu 60"
+msgstr "60 to 60"
+
+msgctxt "start.flagWonGrandHand"
+msgid "Grand Hand gewonnen"
+msgstr "Grand Hand won"
+
+msgctxt "start.flagLostAfterKontra"
+msgid "Verloren nach Kontra"
+msgstr "Lost after Kontra"
+
+msgctxt "start.flagRe"
+msgid "Re"
+msgstr "Re"
+
+msgctxt "start.flagPassedIn"
+msgid "Alle gepasst"
+msgstr "Everyone passed"
+
+msgctxt "start.flagSchneider"
+msgid "Schneider"
+msgstr "Schneider"
+
+msgctxt "start.askBockOverlap"
+msgid "Neuer Auslöser im Bock"
+msgstr "New trigger during Bock"
+
+msgctxt "start.pillOverlapAppend"
+msgid "Runden dazu"
+msgstr "Add rounds"
+
+msgctxt "start.pillOverlapMultiply"
+msgid "Nochmal doppelt"
+msgstr "Doubles again"
+
+msgctxt "start.pillOverlapIgnore"
+msgid "Zählt nicht"
+msgstr "Does not count"
+
+msgctxt "rules.button"
+msgid "Regeln"
+msgstr "Rules"
+
+msgctxt "rules.title"
+msgid "Regeln"
+msgstr "Rules"
+
+msgctxt "rules.lockBadge"
+msgid "Fest für diesen Tisch"
+msgstr "Fixed for this table"
+
+msgctxt "rules.lockInfo"
+msgid "Andere Regeln heißen neuer Tisch."
+msgstr "Other rules mean a new table."
+
+msgctxt "rules.info"
+msgid "Info"
+msgstr "Info"
+
+msgctxt "rules.close"
+msgid "Schließen"
+msgstr "Close"
+
+msgctxt "rules.chipOfficial"
+msgid "Offiziell"
+msgstr "Official"
+
+msgctxt "rules.chipPoints"
+msgid "Augen"
+msgstr "Points"
+
+msgctxt "rules.chipKontra"
+msgid "Kontra"
+msgstr "Kontra"
+
+msgctxt "rules.chipRamsch"
+msgid "Ramsch"
+msgstr "Ramsch"
+
+msgctxt "rules.namePoints"
+msgid "Laufende Augen zeigen"
+msgstr "Show running points"
+
+msgctxt "rules.nameKontra"
+msgid "Kontra und Re"
+msgstr "Kontra and Re"
+
+msgctxt "rules.nameRamsch"
+msgid "Ramsch beim Einpassen"
+msgstr "Ramsch when everyone passes"
+
+msgctxt "rules.nameRamschBockRounds"
+msgid "Ramschrunde nach jeder Bockrunde"
+msgstr "Ramsch round after each Bock round"
+
+msgctxt "rules.nameRamschPassedInAndBockRounds"
+msgid "Ramsch beim Einpassen und Ramschrunde nach jeder Bockrunde"
+msgstr "Ramsch when everyone passes and Ramsch round after each Bock round"
+
+msgctxt "rules.namePushing"
+msgid "Schieberamsch"
+msgstr "Push Ramsch"
+
+msgctxt "rules.nameBock"
+msgid "Bockrunden"
+msgstr "Bock rounds"
+
+msgctxt "rules.pointsFromTricks"
+msgid "Aus fertigen Stichen, nie in einer Null"
+msgstr "From finished tricks, never in a Null"
+
+msgctxt "rules.kontraSayerAnyOpponent"
+msgid "Jeder Gegner"
+msgstr "Any opponent"
+
+msgctxt "rules.kontraSayerBiddersOnly"
+msgid "Nur wer gereizt hat"
+msgstr "Only those who bid"
+
+msgctxt "rules.kontraReachKontraRe"
+msgid "Nur Kontra und Re"
+msgstr "Only Kontra and Re"
+
+msgctxt "rules.kontraReachKontraReStandings"
+msgid "Kontra und Re, auch 50 und 40"
+msgstr "Kontra and Re, also 50 and 40"
+
+msgctxt "rules.kontraReachUpToHirsch"
+msgid "bis Hirsch"
+msgstr "up to Hirsch"
+
+msgctxt "rules.kontraDeadlineOwnCard"
+msgid "bis zur eigenen Karte"
+msgstr "until your own card"
+
+msgctxt "rules.kontraDeadlineFirstCard"
+msgid "bis zur ersten Karte"
+msgstr "until the first card"
+
+msgctxt "rules.ramschScoringPoints"
+msgid "Meiste Augen minus"
+msgstr "Most points minus"
+
+msgctxt "rules.ramschScoringPointsByTen"
+msgid "Augen durch zehn"
+msgstr "Points divided by ten"
+
+msgctxt "rules.ramschScoringSkatToLoser"
+msgid "Skat zum Verlierer"
+msgstr "Skat to the loser"
+
+msgctxt "rules.jungfrauDoublesLoser"
+msgid "Jungfrau ×2"
+msgstr "Jungfrau ×2"
+
+msgctxt "rules.jungfrauOff"
+msgid "Jungfrau ohne Wirkung"
+msgstr "Jungfrau without effect"
+
+msgctxt "rules.durchmarschWins120"
+msgid "Durchmarsch +120"
+msgstr "Durchmarsch +120"
+
+msgctxt "rules.durchmarschWins120Flat"
+msgid "Durchmarsch +120, nie doppelt"
+msgstr "Durchmarsch +120, never doubled"
+
+msgctxt "rules.durchmarschOff"
+msgid "Kein Durchmarsch"
+msgstr "No Durchmarsch"
+
+msgctxt "rules.pushingJacksStay"
+msgid "Ohne Buben, je doppelt"
+msgstr "Without Jacks, doubled each"
+
+msgctxt "rules.pushingJacksMayGo"
+msgid "Mit Buben, je doppelt"
+msgstr "With Jacks, doubled each"
+
+msgctxt "rules.pushingNoDoubling"
+msgid "Ohne Verdopplung"
+msgstr "No doubling"
+
+msgctxt "rules.grandHandAllowed"
+msgid "Grand Hand statt Ramsch"
+msgstr "Grand Hand instead of Ramsch"
+
+msgctxt "rules.bockTriggers"
+msgid "Bei {triggers}"
+msgstr "On {triggers}"
+
+msgctxt "rules.bockTriggerSixtySixty"
+msgid "60 zu 60"
+msgstr "60 to 60"
+
+msgctxt "rules.bockTriggerWonGrandHand"
+msgid "gewonnenem Grand Hand"
+msgstr "a won Grand Hand"
+
+msgctxt "rules.bockTriggerLostAfterKontra"
+msgid "Verlust nach Kontra"
+msgstr "a loss after Kontra"
+
+msgctxt "rules.bockTriggerRe"
+msgid "Re"
+msgstr "Re"
+
+msgctxt "rules.bockTriggerPassedIn"
+msgid "Einpassen"
+msgstr "passing in"
+
+msgctxt "rules.bockTriggerSchneider"
+msgid "Schneider"
+msgstr "Schneider"
+
+msgctxt "rules.bockTriggerSchwarz"
+msgid "Schwarz"
+msgstr "Schwarz"
+
+msgctxt "rules.bockTriggerTotalEndingIn00"
+msgid "Stand auf 00"
+msgstr "a total ending in 00"
+
+msgctxt "rules.bockOverlapAppend"
+msgid "neue Runden hängen sich an"
+msgstr "new rounds are appended"
+
+msgctxt "rules.bockOverlapMultiply"
+msgid "neue Runden multiplizieren sich"
+msgstr "new rounds multiply"
+
+msgctxt "rules.bockOverlapIgnore"
+msgid "neue Runden zählen nicht"
+msgstr "new rounds do not count"
+

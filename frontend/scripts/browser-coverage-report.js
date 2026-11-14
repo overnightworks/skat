@@ -4,36 +4,56 @@ import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { decode } from "@jridgewell/sourcemap-codec";
-import { CoverageReport } from "monocart-coverage-reports";
+import { CoverageReport, Util } from "monocart-coverage-reports";
 
 const [rawDirectory, buildDirectory, reportDirectory] = process.argv.slice(2);
 const bundlePath = (entry) => path.join(buildDirectory, new URL(entry.url).pathname);
 // Vite's own preload helper is a bundle with no map and no source of ours.
 const hasMap = (entry) => entry.url.includes("/_app/") && existsSync(`${bundlePath(entry)}.map`);
 
+// The generated word modules are measured by neither coverage path (vite.config.ts excludes the same files).
+const GENERATED_WORDS = "frontend/src/lib/words/*.ts";
+const isGenerated = (name) => path.matchesGlob(name, GENERATED_WORDS);
+
 const report = new CoverageReport({
     name: "Browser coverage",
     outputDir: reportDirectory,
     reports: ["lcovonly", "console-summary"],
-    outputFilter: { "frontend/src/**": true, "**/*": false },
+    outputFilter: { [GENERATED_WORDS]: false, "frontend/src/**": true, "**/*": false },
 });
 
-// Chromium reports a script's coverage without its text, and the bundles carry no pointer to their hidden maps.
-async function withBundleAndMap(entry) {
-    const bundle = bundlePath(entry);
-    return {
-        ...entry,
-        source: await readFile(bundle, "utf8"),
-        sourceMap: JSON.parse(await readFile(`${bundle}.map`, "utf8")),
-    };
-}
-
+// Chromium reports a script's coverage without its text, and the bundles carry no pointer to their hidden maps. Thousands
+// of raw files name the same few bundles, each under the port of its own test server, and the report keeps a full copy
+// of source and map per added entry, which exhausts the heap. So the coverage of each bundle is merged first, and the
+// report gets each bundle once.
+const entriesByBundle = new Map();
+const MERGE_EVERY = 64;
+const mergeEntries = (entries) => ({ ...entries[0], ...Util.mergeV8Coverage(entries) });
 for (const file of await readdir(rawDirectory)) {
     const { result } = JSON.parse(await readFile(path.join(rawDirectory, file), "utf8"));
-    const bundles = result.filter(hasMap);
-    if (bundles.length > 0) {
-        await report.add(await Promise.all(bundles.map(withBundleAndMap)));
+    for (const entry of result.filter(hasMap)) {
+        // The merge drops the counts of a function without block coverage from its blocks; as one root block, such a
+        // function counts for all of its blocks, as it does for the report.
+        for (const fn of entry.functions) fn.isBlockCoverage = true;
+        const bundle = bundlePath(entry);
+        const entries = [...(entriesByBundle.get(bundle) ?? []), entry];
+        entriesByBundle.set(bundle, entries.length < MERGE_EVERY ? entries : [mergeEntries(entries)]);
     }
+}
+
+async function mergedWithBundleAndMap([bundle, entries]) {
+    const merged = mergeEntries(entries);
+    // Some raw entries lack the bundle's top-level function, and the report reads every byte outside the reported
+    // functions as run; merged, the other entries supply it. Without it the whole bundle would read as covered.
+    if (!merged.functions.some((fn) => fn.ranges[0].startOffset === 0)) {
+        throw new Error(`No coverage entry of ${bundle} reports its top-level code`);
+    }
+    const [source, sourceMap] = await Promise.all([readFile(bundle, "utf8"), readFile(`${bundle}.map`, "utf8")]);
+    return { ...merged, source, sourceMap: JSON.parse(sourceMap) };
+}
+
+if (entriesByBundle.size > 0) {
+    await report.add(await Promise.all([...entriesByBundle].map(mergedWithBundleAndMap)));
 }
 await report.generate();
 
@@ -41,9 +61,9 @@ await report.generate();
 // Any other missing source gets a test that loads it, or is deleted.
 const PRERENDER_ONLY = [
     "frontend/src/lib/ui/SignIn.svelte",
-    "frontend/src/routes/(sign-in)/login-failed/+page.svelte",
-    "frontend/src/routes/(sign-in)/login/+page.svelte",
-    "frontend/src/routes/(sign-in)/no-access/+page.svelte",
+    "frontend/src/routes/(sign-in)/[language=language]/login-failed/+page.svelte",
+    "frontend/src/routes/(sign-in)/[language=language]/login/+page.svelte",
+    "frontend/src/routes/(sign-in)/[language=language]/no-access/+page.svelte",
 ];
 const repositoryRoot = path.resolve("..");
 
@@ -62,7 +82,7 @@ async function sourcesWithCode() {
             segmentCounts.set(name, (segmentCounts.get(name) ?? 0) + 1);
         }
     }
-    return new Set([...segmentCounts.keys()].filter((name) => name.startsWith("frontend/src/")));
+    return new Set([...segmentCounts.keys()].filter((name) => name.startsWith("frontend/src/") && !isGenerated(name)));
 }
 
 const reported = new Set(

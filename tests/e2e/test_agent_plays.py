@@ -1,5 +1,6 @@
 import itertools
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -8,6 +9,7 @@ from playwright.sync_api import expect
 from skat.engine.bidding import VALID_BIDS
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX, TABLE_AUCTION_PLAY_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
+from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.mcp import (
     AUCTION_BID_TOOL,
     AUCTION_PASS_TOOL,
@@ -15,6 +17,7 @@ from skat.web.mcp import (
     DECLARE_GAME_TOOL,
     PLAY_CARD_TOOL,
     READ_TABLE_TOOL,
+    SAY_KONTRA_TOOL,
     SIT_DOWN_TOOL,
 )
 from skat.web.playing import TABLE_CARD_SUFFIX
@@ -23,8 +26,9 @@ from skat.web.words import SOURCE_LANGUAGE
 from skat.web.words import text as word_text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
+from tests.e2e.support.kontra import KONTRA_OPTIONS
 from tests.e2e.support.people import DESKTOP, McpAgent
-from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
+from tests.e2e.support.tables import open_new_table, open_table_with_options, sit_in, table_id_of, watch
 from tests.support.signed_in import seed_member
 
 if TYPE_CHECKING:
@@ -73,7 +77,7 @@ def take_step(
     assert not failed, text
 
 
-def play_until_the_agents_turn(
+def let_the_agent_declare(
     sessions: Mapping[int, AddressedSession], api_path: str, seat_at: Mapping[str, int], agent: McpAgent
 ) -> None:
     """The seat the lot gave the agent wins the auction with the highest bid there is and declares Hand."""
@@ -103,6 +107,13 @@ def play_until_the_agents_turn(
         ouvert=False,
         announcement="none",
     )
+
+
+def play_until_the_agents_turn(
+    sessions: Mapping[int, AddressedSession], api_path: str, seat_at: Mapping[str, int], agent: McpAgent
+) -> None:
+    """The agent declares Hand, then each seat before it plays its first legal card."""
+    let_the_agent_declare(sessions, api_path, seat_at, agent)
     turn_seat = json.loads(sessions[1].get(api_path))["hand"]["playing"]["turn_seat"]
     while turn_seat != AGENT_SEAT:
         legal = json.loads(sessions[turn_seat].get(api_path))["hand"]["playing"]["legal_cards"]
@@ -116,7 +127,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> None:
-    agent = McpAgent(e2e_server, "agent-subject-mozart")
+    agent = McpAgent(e2e_server, "agent-subject-mozart-plays")
     agent.request("tools/list")
     account = e2e_server.stores.accounts.get(agent.subject)
     assert account is not None
@@ -156,3 +167,44 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
         card_on_the_felt = person.locator(f"{FELT_CARD}[data-seat='{AGENT_SEAT}'] .card-face")
         expect(card_on_the_felt).to_have_attribute("data-suit", legal[0]["suit"])
         expect(card_on_the_felt).to_have_attribute("data-rank", legal[0]["rank"])
+
+
+def test_a_word_an_agent_says_stamps_the_felt_with_the_agents_mark(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    agent = McpAgent(e2e_server, "agent-subject-mozart-says-re")
+    agent.request("tools/list")
+    account = e2e_server.stores.accounts.get(agent.subject)
+    assert account is not None
+    anna = record_page_errors(open_person(username="anna-hears-re", **DESKTOP), page_errors)
+    opener = AddressedSession(e2e_server, member_of(anna))
+    path = open_table_with_options(anna, e2e_server, opener, {"kontra": KONTRA_OPTIONS})
+    ben = record_page_errors(open_person(username="ben-hears-re", **DESKTOP), page_errors)
+    watch(ben, e2e_server, path)
+    sit_in(ben, 2)
+    api_path = f"{TABLES_PATH}/{table_id_of(path)}"
+    sessions = {
+        1: opener,
+        2: AddressedSession(e2e_server, member_of(ben)),
+        AGENT_SEAT: AddressedSession(e2e_server, seed_member(e2e_server.stores, e2e_server.config, account=account)),
+    }
+    sat_failed, _ = agent.call(SIT_DOWN_TOOL, table_id=table_id_of(path), seat=AGENT_SEAT, command_id=next_command_id())
+    assert not sat_failed
+    chairs = json.loads(sessions[1].get(api_path))["chairs"]
+    seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
+    let_the_agent_declare(sessions, api_path, seat_at, agent)
+    # Before any card, an opponent says Kontra, which the declaring agent may answer.
+    take_step(sessions, api_path, 1, agent, TABLE_KONTRA_SUFFIX, SAY_KONTRA_TOOL, word="kontra")
+
+    take_step(sessions, api_path, AGENT_SEAT, agent, TABLE_KONTRA_SUFFIX, SAY_KONTRA_TOOL, word="re")
+
+    said = word_text(SOURCE_LANGUAGE, "kontra.saidBy", name=AGENT_NAME, word=word_text(SOURCE_LANGUAGE, "kontra.re"))
+    for person in (anna, ben):
+        stamp = person.get_by_role("img", name=said)
+        expect(stamp).to_be_visible()
+        expect(stamp).to_have_class(re.compile(r"\bagent\b"))
+        expect(stamp.locator(".by")).to_have_text("")
+    assert page_errors == []

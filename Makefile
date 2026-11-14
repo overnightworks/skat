@@ -1,4 +1,4 @@
-.PHONY: install lint wire wire-check words words-check format test dead check run e2e frontend frontend-check
+.PHONY: install lint wire wire-check words words-sync words-check voice format test dead check run e2e frontend frontend-check
 
 install:
 	uv sync --all-extras
@@ -20,8 +20,14 @@ wire-check:
 words:
 	uv run design-catalogs
 
+words-sync:
+	uv run design-catalogs --sync
+
 words-check:
 	uv run design-catalogs --check
+
+voice:
+	uv run python scripts/record_voice.py
 
 format:
 	uv run ruff check --fix .

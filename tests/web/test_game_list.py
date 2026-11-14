@@ -33,7 +33,8 @@ class TestReadingTheList:
         assert {row["kind"] for row in as_member} == {"declared"}
         assert {row["declarer_name"] for row in as_member} <= set(names)
         assert all(
-            {"game", "hand", "ouvert", "announcement", "levels", "settled_value", "score"} <= set(row)
+            {"game", "hand", "ouvert", "announcement", "levels", "settled_value", "score", "declarer_points"}
+            <= set(row)
             for row in as_member
         )
 

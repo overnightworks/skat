@@ -7,14 +7,9 @@ from starlette.concurrency import run_in_threadpool
 from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.game_list import RamschSeriesEntryView
+from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
 from skat.web.mcp import READ_SERIES_LIST_MARK
-from skat.web.tables import (
-    ANNOUNCEMENT_TOKENS,
-    GAME_TOKENS,
-    TABLES_PATH,
-    AnnouncementToken,
-    GameToken,
-)
+from skat.web.tables import TABLES_PATH
 
 if TYPE_CHECKING:
     from skat.table.game_list import SeriesEntryView
@@ -35,6 +30,7 @@ class SeriesEntryAnswer(BaseModel):
     levels: list[Level]
     settled_value: int
     score: int
+    declarer_points: int
     kontra_word: Word | None
     bock_factor: int
 
@@ -83,6 +79,7 @@ def _entry_answer_of(entry: SeriesEntryView | RamschSeriesEntryView) -> SeriesEn
         levels=list(entry.levels),
         settled_value=entry.settled_value,
         score=entry.score,
+        declarer_points=entry.declarer_points,
         kontra_word=entry.kontra_word,
         bock_factor=entry.bock_factor,
     )

@@ -5,7 +5,7 @@ import pytest
 from skat.engine.cards import Rank
 from skat.engine.deal import Position
 from skat.engine.tricks import ALL_POINTS
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import GameToken
 from skat.web.playing import TABLE_THROW_DOWN_SUFFIX
 from tests.support.payload_cards import FOREHAND_CARDS, KNOWN_DEAL, cards_in_text
 from tests.web.support.playing import Table, card, ending_of, game_of, points_of_cards

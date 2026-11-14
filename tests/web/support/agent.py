@@ -3,10 +3,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_view_uri
+from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_view_uri, place_window_uri
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.mcp import OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
+from skat.web.mcp import MCP_GROUP, OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import card_body
@@ -24,6 +24,11 @@ def agent_account_id(skat):
 def view_uri_of(table_id):
     """The resource a seated agent reads its table through."""
     return place_view_uri(PlaceRef(kind="table", id=table_id))
+
+
+def window_uri_of(table_id):
+    """The resource a seated agent reads what happened at its table through."""
+    return place_window_uri(PlaceRef(kind="table", id=table_id))
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,13 @@ class Agent:
             json=body,
             headers={"authorization": f"Bearer {token}", **headers, **(extra_headers or {})},
         )
+
+    def offered_every_tool(self):
+        """The same account under a token without agent facts, which is offered every tool whatever its table does.
+        The account exists from the agent's first call on.
+        """
+        self.admitted()
+        return Agent(self.skat, self.issuer, self.subject, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
 
     @contextmanager
     def listening(self):
@@ -98,10 +110,22 @@ class Agent:
         assert answer.status_code == 200, answer.text
         return json.loads(answer.json()["result"]["contents"][0]["text"])
 
+    def window(self, table_id):
+        """The agent's window of its table, as a runner reads it: generation, starts_at and entries."""
+        answer = self.read_resource(window_uri_of(table_id))
+        assert answer.status_code == 200, answer.text
+        return json.loads(answer.json()["result"]["contents"][0]["text"])
+
     def listed_resources(self):
         answer = self.request("resources/list")
         assert answer.status_code == 200, answer.text
         return [resource["uri"] for resource in answer.json()["result"]["resources"]]
+
+    def listed_tools(self):
+        """The names of the tools `tools/list` answers this client with now, in the order it lists them."""
+        answer = self.request("tools/list")
+        assert answer.status_code == 200, answer.text
+        return [tool["name"] for tool in answer.json()["result"]["tools"]]
 
     def accept(self, table_id, offer, **changes):
         """`accept_invitation` for the offer's id and epoch; a change replaces one argument."""

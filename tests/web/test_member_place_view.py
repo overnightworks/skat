@@ -11,6 +11,7 @@ from agents.member import LEASE_SECONDS, STANDING_URI
 from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
 
+from skat.engine.cards import DECK
 from skat.engine.deal import Position
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.table.asking import revision_of
@@ -42,7 +43,8 @@ from tests.support.calls import call_facts
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of
+from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of, window_uri_of
+from tests.web.support.calling import running_skat
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.sdk_agent import SdkAgent
@@ -93,16 +95,7 @@ def view_signal_through(tap):
 
 @pytest.fixture
 def skat(hold, issuer, time, view_signal_through):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        view_signal_through=view_signal_through,
-    )
-    with skat.client:
-        yield skat
+    yield from running_skat(hold, issuer, time, view_signal_through=view_signal_through)
 
 
 @pytest.fixture
@@ -156,8 +149,18 @@ class TestTheViewIsAServedResource:
     ):
         standing = json.loads(agent.standing())["standings"]
 
-        assert agent.listed_resources() == sorted([STANDING_URI, view_uri_of(middlehand_auction.table_id)])
+        assert agent.listed_resources() == sorted(
+            [STANDING_URI, window_uri_of(middlehand_auction.table_id), view_uri_of(middlehand_auction.table_id)]
+        )
         assert [(each["state"], each["serves_view"]) for each in standing] == [("active", True)]
+
+    def test_the_window_beside_the_view_holds_the_deal_and_its_generation_is_the_table(self, agent, middlehand_auction):
+        window = agent.window(middlehand_auction.table_id)
+
+        assert (window["generation"], window["starts_at"]) == (middlehand_auction.table_id, window["entries"][0]["seq"])
+        assert [(line["kind"], line["name"], line["own"], line["act"]) for line in window["entries"]] == [
+            ("deal", "Table", False, True)
+        ]
 
     def test_the_revision_is_the_tables_version_with_no_ask_and_the_seat_on_turn_awaits(
         self, agent, middlehand_auction
@@ -187,6 +190,52 @@ def without_presence(state):
     state = {key: value for key, value in state.items() if key != "watchers"}
     chairs = state.get("chairs", [])
     return {**state, "chairs": [{key: value for key, value in chair.items() if key != "is_away"} for chair in chairs]}
+
+
+class TestTheWindowTellsWhatHappenedSinceTheDeal:
+    def test_the_agents_own_bid_is_a_line_that_is_its_own_and_an_act_and_no_speech(self, agent, middlehand_auction):
+        agent.take_step(AUCTION_BID_TOOL, middlehand_auction, command_id="agent-bid", value=18)
+
+        deal, bid = agent.window(middlehand_auction.table_id)["entries"]
+
+        assert (bid["seq"], bid["kind"], bid["text"], bid["own"], bid["act"], bid["spoken"]) == (
+            deal["seq"] + 1,
+            "bid",
+            "bids 18",
+            True,
+            True,
+            False,
+        )
+
+    def test_another_seats_bid_is_a_line_that_is_not_the_agents_and_names_the_seat(self, agent, forehand_auction):
+        forehand_auction.middlehand_bids()
+
+        _, bid = agent.window(forehand_auction.table_id)["entries"]
+
+        assert (bid["name"], bid["kind"], bid["own"]) == ("Seat 1", "bid", False)
+
+    def test_the_lines_of_a_game_in_play_name_the_declaration_and_each_card_as_the_view_does(
+        self, agent, forehand_table
+    ):
+        assert not agent.play(forehand_table, HERZ_GAME[0]).is_error
+
+        entries = agent.window(forehand_table.table_id)["entries"]
+
+        assert [(line["kind"], line["text"], line["own"]) for line in entries[1:]] == [
+            ("bid", "bids 18", False),
+            ("pass", "passes", True),
+            ("pass", "passes", False),
+            ("declare", "declares herz hand", False),
+            ("play", "plays pik seven", True),
+        ]
+        assert [line["seq"] for line in entries] == list(range(entries[0]["seq"], entries[0]["seq"] + len(entries)))
+
+    def test_a_put_back_names_no_card(self, agent, forehand_auction):
+        forehand_auction.declared_after_putting_back(DECK[30:32])
+
+        texts = [line["text"] for line in agent.window(forehand_auction.table_id)["entries"]]
+
+        assert texts[-3:] == ["takes the skat", "puts two cards back", "declares herz"]
 
 
 class TestOnlyTheSeatedAgentReadsItsView:
@@ -219,6 +268,15 @@ class TestOnlyTheSeatedAgentReadsItsView:
 
         assert (unknown(other.read_resource(uri)), other.listed_resources()) == (True, [STANDING_URI])
 
+    def test_the_window_is_read_only_by_the_seated_agent(self, skat, issuer, agent, middlehand_auction):
+        window = window_uri_of(middlehand_auction.table_id)
+
+        assert (
+            unknown(a_person(skat, issuer).read_resource(window)),
+            unknown(another_agent(skat, issuer).read_resource(window)),
+            unknown(agent.read_resource(window_uri_of(UNKNOWN_ID))),
+        ) == (True, True, True)
+
     def test_a_table_that_does_not_exist_reads_an_unknown_resource(self, agent, middlehand_auction):
         assert unknown(agent.read_resource(view_uri_of(UNKNOWN_ID)))
 
@@ -228,7 +286,6 @@ class TestOnlyTheSeatedAgentReadsItsView:
             pytest.param(str.upper, id="upper-case"),
             pytest.param(lambda uri: uri + "/", id="trailing-slash"),
             pytest.param(lambda uri: uri + "?x=1", id="query"),
-            pytest.param(lambda uri: uri.removesuffix("/view"), id="the-window-without-the-view"),
             pytest.param(lambda uri: uri.replace("/table/", "/room/"), id="another-kind-of-place"),
             pytest.param(lambda uri: uri.replace("member://", "MEMBER://"), id="another-scheme-spelling"),
         ],
@@ -396,7 +453,7 @@ class TestAPersonsMoveSignalsEachSeatedAgent:
 
         return lambda _signal: view_signal(Recording(), ISSUER)
 
-    def test_each_agent_is_signalled_on_its_own_view_uri(self, skat, issuer, pulses):
+    def test_each_agent_is_signalled_on_its_own_window_and_view_uri(self, skat, issuer, pulses):
         first = Agent(skat, issuer, "first-agent", agent_name="Mozart")
         second = another_agent(skat, issuer)
         person = skat.member()
@@ -412,7 +469,11 @@ class TestAPersonsMoveSignalsEachSeatedAgent:
             headers={"origin": TEST_PUBLIC_ORIGIN, **person[0]},
         )
 
-        assert sorted(pulses) == sorted((agent_account(skat, each), view_uri_of(table_id)) for each in (first, second))
+        assert sorted(pulses) == sorted(
+            (agent_account(skat, each), uri)
+            for each in (first, second)
+            for uri in (window_uri_of(table_id), view_uri_of(table_id))
+        )
 
 
 class TestASignalThatFailsAfterTheCommit:
@@ -431,13 +492,13 @@ class TestASignalThatFailsAfterTheCommit:
             forehand_auction.middlehand_bids()
 
         assert forehand_auction.record.version == before + 1
-        assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"]
+        assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"] * 2
         assert agent.view(forehand_auction.table_id)["revision"] == revision_of(before + 1, 0)
 
 
 class TestTheToolDescriptionsNameTheView:
     def test_every_description_that_sends_a_seated_agent_to_read_table_also_names_the_table_view(self, agent):
-        tools = agent.request("tools/list").json()["result"]["tools"]
+        tools = agent.offered_every_tool().request("tools/list").json()["result"]["tools"]
         before_a_chair = {"sit_down", "open_table", "read_paused_tables"}
 
         naming_read_table = {tool["name"] for tool in tools if "read_table" in tool["description"]} - before_a_chair
@@ -448,8 +509,11 @@ class TestTheToolDescriptionsNameTheView:
 
 
 class TestARestartReadsTheSameView:
-    def test_the_view_after_a_restart_is_the_view_before_it(self, skat, issuer, hold, time, agent, middlehand_auction):
+    def test_the_view_and_window_after_a_restart_are_those_before_it(
+        self, skat, issuer, hold, time, agent, middlehand_auction
+    ):
         before = agent.view(middlehand_auction.table_id)
+        window_before = agent.window(middlehand_auction.table_id)
 
         restarted = Skat(
             lambda: hold,
@@ -460,9 +524,11 @@ class TestARestartReadsTheSameView:
         )
         with restarted.client:
             after = Agent(restarted, issuer, agent.subject).view(middlehand_auction.table_id)
+            window_after = Agent(restarted, issuer, agent.subject).window(middlehand_auction.table_id)
 
         assert without_presence(after["state"]) == without_presence(before["state"])
         assert (after["revision"], after["awaits_you"]) == (before["revision"], True)
+        assert window_after == window_before
 
 
 class TestARefusedActIsAnErrorResult:

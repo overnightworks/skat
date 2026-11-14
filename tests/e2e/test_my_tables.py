@@ -1,4 +1,3 @@
-import json
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -167,16 +166,17 @@ def test_a_dealt_table_everybody_left_shows_the_away_marks_and_its_end(
     expect(card.locator(".lobby-chips .chip", has_text=ENDS_IN_DAYS)).to_have_count(1)
 
 
-def mine_event(table: LobbyTableAnswer, hold_seconds_left: dict[int, int]) -> str:
-    """The stream's `mine` event, in which the chairs named by seat hold their place for that many seconds."""
-    answer = json.loads(MineAnswer(tables=[table]).model_dump_json())
-    for chair in answer["tables"][0]["chairs"]:
-        chair["hold_seconds_left"] = hold_seconds_left.get(chair["seat"])
-    return f"event: mine\ndata: {json.dumps(answer)}\n\n"
+def mine_event(table: LobbyTableAnswer) -> str:
+    """The stream's `mine` event carrying the one table."""
+    return f"event: mine\ndata: {MineAnswer(tables=[table]).model_dump_json()}\n\n"
 
 
-def waiting_table(opener: str) -> LobbyTableAnswer:
-    """A table where no hand was dealt, the own chair and the opener's away, the third chair free."""
+def waiting_table(opener: str, hold_seconds_left: dict[int, int] | None = None) -> LobbyTableAnswer:
+    """A table where no hand was dealt, the own chair and the opener's away, the third chair free.
+
+    The chairs named by seat in `hold_seconds_left` hold their place for that many seconds.
+    """
+    holds = hold_seconds_left or {}
 
     def chair(seat: int, name: str | None, *, mine: bool) -> LobbyChairAnswer:
         return LobbyChairAnswer(
@@ -188,10 +188,12 @@ def waiting_table(opener: str) -> LobbyTableAnswer:
             total=None,
             is_away=name is not None and not mine,
             is_turn=False,
+            hold_seconds_left=holds.get(seat),
         )
 
     return LobbyTableAnswer(
         id="c" * 32,
+        private=False,
         title_name=opener,
         game_number=0,
         game_count=SERIES_LENGTH_DEFAULT,
@@ -222,7 +224,7 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
         route.fulfill(
             status=200,
             headers={"content-type": EVENT_STREAM},
-            body=mine_event(waiting_table("Mara"), {0: 300, 1: 240}),
+            body=mine_event(waiting_table("Mara", {0: 300, 1: 240})),
         )
         # The stream ends with its first list, so the line stays lost until the test brings it back.
         line["state"] = "lost"
@@ -276,7 +278,7 @@ def test_a_stood_result_and_a_finished_series_each_draw_their_chip_with_the_trop
             route.abort()
             return
         fulfilled["once"] = True
-        route.fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=mine_event(table, {}))
+        route.fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=mine_event(table))
 
     person.route(f"**{LOBBY_EVENTS_PATH}", answer)
 

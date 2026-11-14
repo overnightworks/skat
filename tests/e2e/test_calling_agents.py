@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from playwright.sync_api import expect
 
-from skat.web.calling import AGENT_ADDERS_GROUP
+from skat.web.calling import AGENT_ADDERS_GROUP, TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.kit_words import kit_text
@@ -31,6 +31,8 @@ CALLING = kit_text("agent.calling")
 BUSY = kit_text("agent.busy")
 EMPTY = kit_text("agent.empty")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
+# A point of the page outside the pill and its list.
+BESIDE_THE_LIST = (4, 4)
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
 # The list keeps this far from either edge of the viewport, in pixels.
@@ -234,10 +236,14 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
             expect(pill(caller)).to_be_visible()
             pill(caller).click()
             caller.get_by_role("button", name=call_label(name)).click()
-            agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
+            seated = agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
             expect(caller.locator(f".chair:has-text('{name}')")).to_have_count(1)
             pill(caller).click()
         expect(caller.locator(".chair .plate:has(.ai-mark)")).to_have_count(2)
+        for agent in (mozart, leonardo):
+            window = agent.window(seated["place"]["id"])
+            assert len(agent.listed()) == 3
+            assert [line["kind"] for line in window["entries"]] == ["deal"]
     finally:
         mozart.close()
         leonardo.close()
@@ -273,6 +279,44 @@ def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one
 
         expect(felix.get_by_text(BUSY)).to_be_visible()
         expect(pill(guests[0])).to_have_count(0)
+    finally:
+        agent.close()
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+def test_a_caller_who_left_the_calling_group_keeps_the_list_until_he_has_read_the_refusal(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused call as a console error; that refusal is the point of this test.
+    felix = record_page_errors(
+        open_person(username="felix-leaves-the-group", groups=(AGENT_ADDERS_GROUP,), **DESKTOP),
+        page_errors,
+        console=False,
+    )
+    path = open_new_table(felix, e2e_server)
+    account = member_of(felix).account.id
+    agent = ListeningAgent(e2e_server, account, "Raffael", "agent-subject-raffael")
+    try:
+        pill(felix).click()
+        e2e_server.issuer.grant_groups(account, ())
+
+        felix.get_by_role("button", name=call_label("Raffael")).click()
+
+        expect(felix.get_by_role("dialog", name=PILL).get_by_role("alert")).to_be_visible()
+        expect(pill(felix)).to_be_visible()
+        # A table change streams to the open list, which reads the agents again and is told the control is gone.
+        anna = record_page_errors(open_person(username="anna-arrives", **DESKTOP), page_errors)
+        with felix.expect_response(
+            lambda response: response.request.method == "GET" and response.url.endswith(TABLE_AGENTS_SUFFIX)
+        ):
+            watch(anna, e2e_server, path)
+        expect(felix.get_by_role("dialog", name=PILL).get_by_role("alert")).to_be_visible()
+        expect(pill(felix)).to_be_visible()
+        felix.mouse.click(*BESIDE_THE_LIST)
+        expect(pill(felix)).to_have_count(0)
     finally:
         agent.close()
 

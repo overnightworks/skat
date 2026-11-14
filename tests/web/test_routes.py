@@ -9,20 +9,56 @@ from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import fixture_page_build
 
 
+class Database:
+    """The readiness of the database the route asks, set by the test."""
+
+    def __init__(self) -> None:
+        self.ready = True
+
+    async def __call__(self) -> bool:
+        return self.ready
+
+
 @pytest.fixture
-def client(sign_in_settings):
+def database() -> Database:
+    return Database()
+
+
+@pytest.fixture
+def client(sign_in_settings, database):
     application = FastAPI()
     sessions = in_memory_stores().sessions
     web_auth = build_sign_in_configs(sign_in_settings().settings).web_auth
-    application.include_router(create_router(fixture_page_build(), sessions, web_auth))
+    application.include_router(create_router(fixture_page_build(), sessions, web_auth, database))
     return TestClient(application)
 
 
 class TestHealthEndpoint:
-    def test_returns_ok_status(self, client):
+    def test_answers_200_while_the_database_is_ready(self, client):
         response = client.get(HEALTH_PATH)
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+    def test_answers_503_with_nothing_but_the_status_while_the_database_is_not_ready(self, client, database):
+        database.ready = False
+
+        response = client.get(HEALTH_PATH)
+
+        assert response.status_code == 503
+        assert response.json() == {"status": "unavailable"}
+
+    def test_follows_the_database_from_one_probe_to_the_next(self, client, database):
+        answers = []
+        for ready in (True, False, True):
+            database.ready = ready
+            answers.append(client.get(HEALTH_PATH).status_code)
+
+        assert answers == [200, 503, 200]
+
+    def test_a_head_probe_answers_503_while_the_database_is_not_ready(self, client, database):
+        database.ready = False
+
+        assert client.head(HEALTH_PATH).status_code == 503
 
 
 class TestHomePage:

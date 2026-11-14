@@ -5,7 +5,7 @@ import pytest
 from skat.engine.deal import Deal, Position, next_dealer
 from skat.engine.tricks import PlayRefusal
 from skat.table.records import Refusal
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -14,7 +14,7 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from skat.web.ready import TABLE_READY_SUFFIX
-from skat.web.tables import TABLES_PATH, AnnouncementToken
+from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import DECLARER_SEAT, Table, card, cards, ending_of, game_of, reason_of
@@ -136,7 +136,7 @@ class TestKontraAndTheRequestAreIndependent:
         assert kontra_of(kontra_table)["factor"] == 2
         assert request_of(kontra_table, kontra_table.watcher) == ASKED_BY_THE_DECLARER
         result = agree(kontra_table, REARHAND).json()["result"]
-        assert (result["kontra"]["word"], result["score"], result["list_bonus"]) == ("kontra", -120, -50)
+        assert (result["kontra"]["steps"][-1]["word"], result["score"], result["list_bonus"]) == ("kontra", -120, -50)
         assert [entry.kontra_word for entry in kontra_table.record.game_list] == ["kontra"]
 
     def test_a_word_said_while_the_request_stands_keeps_it_and_the_yes_doubles_by_every_word(self, kontra_table):
@@ -151,7 +151,7 @@ class TestKontraAndTheRequestAreIndependent:
         assert kontra_of(kontra_table)["factor"] == 8
         assert request_of(kontra_table, kontra_table.watcher) == ASKED_BY_THE_DECLARER
         result = agree(kontra_table, REARHAND).json()["result"]
-        assert (result["kontra"]["word"], result["score"]) == ("supra", -480)
+        assert (result["kontra"]["steps"][-1]["word"], result["score"]) == ("supra", -480)
 
 
 class TestTheDeclarerAsks:

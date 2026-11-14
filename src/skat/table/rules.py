@@ -27,6 +27,7 @@ from skat.table.records import (
     StandUp,
     TableId,
     TableRecord,
+    Visibility,
 )
 
 if TYPE_CHECKING:
@@ -46,11 +47,20 @@ SIT_DOWN_COMMAND: Final = "sit-down"
 STAND_UP_COMMAND: Final = "stand-up"
 PLAY_CARD_COMMAND: Final = "play-card"
 GIVE_UP_COMMAND: Final = "give-up"
+SHORTEN_COMMAND: Final = "shorten"
+PLAY_OPEN_COMMAND: Final = "play-open"
 THROW_DOWN_COMMAND: Final = "throw-down"
 AGREE_TO_GIVE_UP_COMMAND: Final = "give-up-agree"
 DECLINE_GIVE_UP_COMMAND: Final = "give-up-decline"
 STEP_OF_PLAY_COMMANDS: Final = frozenset(
-    {PLAY_CARD_COMMAND, GIVE_UP_COMMAND, AGREE_TO_GIVE_UP_COMMAND, THROW_DOWN_COMMAND}
+    {
+        PLAY_CARD_COMMAND,
+        GIVE_UP_COMMAND,
+        SHORTEN_COMMAND,
+        PLAY_OPEN_COMMAND,
+        AGREE_TO_GIVE_UP_COMMAND,
+        THROW_DOWN_COMMAND,
+    }
 )
 
 
@@ -58,9 +68,11 @@ class CommandIdReusedError(Exception):
     """A command id came back with a request other than the one it first carried."""
 
 
-def decide_create(actor: Actor, table_id: TableId, series_length: int | None, options: TableOptions) -> TableRecord:
-    """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length and
-    the options it is opened with.
+def decide_create(
+    actor: Actor, table_id: TableId, series_length: int | None, options: TableOptions, visibility: Visibility
+) -> TableRecord:
+    """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length, the
+    options it is opened with and the visibility it is listed by.
     """
     opener = Chair(1, Occupant(actor.account_id, actor.display_name, actor.kind, actor.owner_account))
     return TableRecord(
@@ -74,6 +86,7 @@ def decide_create(actor: Actor, table_id: TableId, series_length: int | None, op
         series=None if series_length is None else Series(series_length, 0),
         options=options,
         bock=BockRounds.start(),
+        visibility=visibility,
     )
 
 
@@ -86,7 +99,8 @@ def _pushing_member(ramsch: RamschSetting) -> str:
 
 def create_payload(command: CreateTable) -> str:
     """The receipt's payload: a table with no length and every option off keeps the text it always had, so older
-    receipts replay; an option that is on adds its own member, the Grand Hand a stage allows among them.
+    receipts replay; an option that is on adds its own member, the Grand Hand a stage allows among them, and so does a
+    private table, while an open one adds none.
     """
     members = [] if command.series_length is None else [f'"series_length":{command.series_length}']
     if command.options.show_running_points:
@@ -108,6 +122,8 @@ def create_payload(command: CreateTable) -> str:
             f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
             f'{_pushing_member(ramsch)}"scoring":"{ramsch.reckoning.scoring.value}"}}'
         )
+    if command.visibility is Visibility.PRIVATE:
+        members.append(f'"visibility":"{Visibility.PRIVATE.value}"')
     return "{" + ",".join(members) + "}"
 
 
@@ -163,6 +179,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
         series=series,
         options=table.options,
         bock=table.bock,
+        visibility=table.visibility,
     )
     return _abort_if_agreed(_abort_while_open(changed))
 
@@ -198,8 +215,8 @@ def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | 
 
 
 def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
-    """A chair's change takes its holder's part of the standing give-up request: the asker's goes with the request,
-    an opponent's no alone, anyone else's changes nothing.
+    """A chair's change takes its holder's part of the standing request: the asker's goes with the request, an
+    opponent's no to a give-up or yes to a shortening alone, anyone else's changes nothing.
     """
     asked = table.progress.give_up
     if asked is None or table.dealer is None:
@@ -209,6 +226,8 @@ def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
         return None
     if asked.declined_by is position:
         return GiveUpAsked(asked.asker)
+    if asked.agreed_by is position:
+        return GiveUpAsked(asked.asker, claim=asked.claim)
     return asked
 
 
@@ -243,6 +262,7 @@ def _abort_while_open(table: TableRecord) -> TableRecord:
         series=table.series,
         options=table.options,
         bock=table.bock,
+        visibility=table.visibility,
     )
 
 
@@ -267,6 +287,7 @@ def aborted_hand(table: TableRecord) -> TableRecord:
         series=table.series,
         options=table.options,
         bock=bock,
+        visibility=table.visibility,
     )
 
 
@@ -276,16 +297,20 @@ def bock_at_series_end() -> BockRounds:
 
 
 def bock_rounds_after(table: TableRecord, triggered_by: Callable[[BockOptions], bool]) -> BockRounds:
-    """The pending Bock rounds once the table's running hand has ended: it uses up a Bock game, then a trigger acts by
-    the option; no Bock options mean no rounds, and the series' last game lets every round lapse (an early end by
-    consent goes through `skat.table.series_end`). `triggered_by` is asked only when the rounds go on.
+    """The pending Bock rounds and Ramsch-round games once the table's running hand has ended: it uses up a Bock game,
+    or a Ramsch-round game while no Bock game is pending, then a trigger acts by the option, and a Bock round it ended
+    adds its Ramsch round at a table that plays one; no Bock options mean no rounds, and the series' last game lets
+    every round lapse (an early end by consent goes through `skat.table.series_end`). `triggered_by` is asked only
+    when the rounds go on.
     """
     options = table.options.bock
     if options is None:
         return BockRounds.start()
     if series_games_left(table) == 1:  # the running hand counts as a game left
         return bock_at_series_end()
-    return advance(table.bock, options.overlap, triggered=triggered_by(options))
+    ramsch = table.options.ramsch
+    ramsch_follows = ramsch is not None and ramsch.occasion.after_bock_rounds
+    return advance(table.bock, options.overlap, triggered=triggered_by(options), ramsch_follows=ramsch_follows)
 
 
 def sit_deals(table: TableRecord) -> bool:
@@ -301,8 +326,8 @@ def hand_runs(table: TableRecord) -> bool:
 def is_deal_or_step_of_play(command: str, before: TableRecord, after: TableRecord) -> bool:
     """An accepted decision dealt a hand, or was a step of play that changed the table.
 
-    A step is a played card, a give-up request, its agreement or a throw-down whose table version rose: a second
-    give-up request while one stands changes nothing. A take, a put-back and a push are none of these. The third pass
+    A step is a played card, a give-up or shortening request, its agreement or a throw-down whose table version rose: a
+    second request while one stands changes nothing. A take, a put-back and a push are none of these. The third pass
     that starts a Ramsch deals nothing, since the hand runs before and after it.
     """
     dealt = not hand_runs(before) and hand_runs(after)
@@ -362,6 +387,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         series=series,
         options=table.options,
         bock=table.bock,
+        visibility=table.visibility,
     )
 
 

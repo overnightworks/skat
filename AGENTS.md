@@ -11,7 +11,9 @@
 - `make run`: builds the page, then serves the app; the server refuses to start without that build.
 - `make frontend-check`: svelte-check, the frontend linter and Vitest.
 - `make wire`: regenerates `frontend/src/lib/wire.ts` from the Python path constants.
-- `make words`: regenerates `frontend/src/lib/words/` and `src/skat/web/words.py` from `frontend/src/lib/catalogs/de.po`.
+- `make words-sync`: brings every further language's catalog in line with `de.po` by key; the model that writes a translation runs it before translating.
+- `make words`: regenerates `frontend/src/lib/words/` and `src/skat/web/words.py` from the catalogs in `frontend/src/lib/catalogs/`.
+- `make voice`: records the voice, one MP3 per `voice.` catalog key and language, through a local run of overnightworks/speech; the script's docstring names the settings it needs. It keeps recordings that exist; `--again` makes all anew. Needs `ffmpeg`.
 
 ## Rules
 

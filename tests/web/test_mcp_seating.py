@@ -1,13 +1,14 @@
 """An agent opens a table, sits and stands like a person, and its chair says agent with the name its token carries."""
 
 import copy
+import json
 
 import pytest
 
 from skat.engine.deal import Position, seats_from
-from skat.table.records import Refusal
+from skat.table.records import Refusal, TableId
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.mcp import READ_SERIES_LIST_TOOL, THROW_DOWN_CARDS_TOOL
+from skat.web.mcp import OPEN_TABLE_TOOL, READ_SERIES_LIST_TOOL, THROW_DOWN_CARDS_TOOL
 from skat.web.tables import TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -77,14 +78,35 @@ class TestOpenTable:
         view = answer.json()
         assert (view["series"]["game_count"], view["options"]["show_running_points"]) == (12, True)
 
+    def test_a_table_is_open_unless_the_agent_opens_it_private_and_the_tool_offers_both(self, skat, agent):
+        agent.admitted()
+        tools = {tool["name"]: tool for tool in agent.request("tools/list").json()["result"]["tools"]}
+
+        opened = agent.open_table(command_id="agent-open-open")
+        hidden = agent.offered_every_tool().open_table(command_id="agent-open-private", visibility="private")
+
+        assert "private" in json.dumps(tools[OPEN_TABLE_TOOL]["inputSchema"]["properties"]["visibility"])
+        assert skat.tables.open_table_ids() == (TableId(opened.json()["id"]),)
+        assert hidden.json()["id"] != opened.json()["id"]
+
+    def test_a_visibility_the_tool_does_not_know_is_refused_and_opens_nothing(self, skat, agent):
+        agent.admitted()
+        before = stored(skat)
+
+        refused = agent.open_table(visibility="secret")
+
+        assert refused.is_error
+        assert stored(skat)[0] == before[0]
+
     def test_the_same_id_with_the_same_request_opens_no_second_table_and_with_another_request_is_refused(
         self, skat, agent
     ):
         first = agent.open_table(series_length=12)
         tables_before = len(skat.store.tables)
 
-        again = agent.open_table(series_length=12)
-        other = agent.open_table(series_length=15)
+        every_tool = agent.offered_every_tool()
+        again = every_tool.open_table(series_length=12)
+        other = every_tool.open_table(series_length=15)
 
         assert again.json() == first.json()
         assert len(skat.store.tables) == tables_before
@@ -144,7 +166,7 @@ class TestSitDown:
         _, _, table_id = person_opens(skat)
         agent.sit_down(table_id, 2)
 
-        refused = agent.sit_down(table_id, 3, command_id="agent-sit-0002")
+        refused = agent.offered_every_tool().sit_down(table_id, 3, command_id="agent-sit-0002")
 
         assert refused.is_error
         assert refused.json()["reason"] == Refusal.ALREADY_SEATED
@@ -200,8 +222,9 @@ class TestSitDown:
         first = agent.sit_down(table_id, 2)
         before = stored(skat)
 
-        again = agent.sit_down(table_id, 2)
-        other = agent.sit_down(table_id, 3)
+        every_tool = agent.offered_every_tool()
+        again = every_tool.sit_down(table_id, 2)
+        other = every_tool.sit_down(table_id, 3)
 
         assert again.json() == first.json()
         assert other.is_error
@@ -306,7 +329,7 @@ class TestStandUp:
         _, _, table_id = person_opens(skat)
         before = stored(skat)
 
-        refused = agent.stand_up(table_id)
+        refused = agent.offered_every_tool().stand_up(table_id)
 
         assert refused.json()["reason"] == Refusal.NOT_SEATED
         assert stored(skat)[0] == before[0]
@@ -329,7 +352,7 @@ class TestStandUp:
         first = agent.stand_up(table_id)
         before = stored(skat)
 
-        again = agent.stand_up(table_id)
+        again = agent.offered_every_tool().stand_up(table_id)
 
         assert again.json() == first.json()
         assert stored(skat)[0] == before[0]

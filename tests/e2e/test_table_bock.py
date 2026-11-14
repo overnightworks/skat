@@ -205,11 +205,13 @@ def test_a_table_without_bock_shows_nothing_of_it(
 def expect_the_kontra_row_to_hold_the_factor(table: PlayingTable) -> None:
     result = table.result()
     kontra_word = text(SOURCE_LANGUAGE, "result.wordKontra")
-    kontra = text(SOURCE_LANGUAGE, "result.wordFactor", word=kontra_word, factor=str(result["kontra"]["factor"]))
+    kontra = text(
+        SOURCE_LANGUAGE, "result.wordFactor", word=kontra_word, factor=str(result["kontra"]["steps"][-1]["factor"])
+    )
     bock = text(SOURCE_LANGUAGE, "bock.factor", factor=str(result["bock_factor"]))
     doubled_by_loss = 1 if result["won"] else 2
     assert abs(result["score"]) == (
-        result["settled_value"] * doubled_by_loss * result["kontra"]["factor"] * result["bock_factor"]
+        result["settled_value"] * doubled_by_loss * result["kontra"]["steps"][-1]["factor"] * result["bock_factor"]
     )
     for person in table.everyone:
         row = person.locator(CARD).locator(".ladder").nth(1)

@@ -4,6 +4,7 @@ export const AUTH_START_PATH = "/auth/start";
 export const RETURN_PATH_QUERY_NAME = "next";
 export const SIGNED_IN_AGAIN_QUERY_NAME = "signedInAgain";
 export const NO_ACCESS_PATH = "/no-access";
+export const CALL_SIGN_IN_PATH = "/login/call";
 export const MODE_QUERY_NAME = "mode";
 export const CALL_MODE = "call";
 export const LOGOUT_PATH = "/logout";
@@ -78,14 +79,14 @@ export const BOCK_TRIGGER_TOKENS = [
     "total-ending-in-00",
 ] as const;
 export const BOCK_OVERLAP_TOKENS = ["append", "multiply", "ignore"] as const;
-export const RAMSCH_OCCASION_TOKENS = ["passed-in"] as const;
+export const RAMSCH_OCCASION_TOKENS = ["passed-in", "bock-rounds", "passed-in-and-bock-rounds"] as const;
 export const RAMSCH_SCORING_TOKENS = ["points", "points-by-ten", "skat-to-loser"] as const;
 export const JUNGFRAU_TOKENS = ["doubles-loser", "off"] as const;
 export const DURCHMARSCH_TOKENS = ["wins-120", "wins-120-flat", "off"] as const;
 export const PUSHING_RULE_TOKENS = ["jacks-stay", "jacks-may-go", "no-doubling"] as const;
 export const GRAND_HAND_TOKENS = ["allowed", "off"] as const;
 export const WAITING_CASE_TOKENS = ["turn", "give_up", "kontra", "end_proposal", "result", "series_end"] as const;
-export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down"] as const;
+export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down", "shortened", "played-open"] as const;
 export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
@@ -99,6 +100,7 @@ export const SERIES_LENGTH_STEP = 3;
 export const SERIES_LENGTH_DEFAULT = 36;
 export const CHAIRS_PER_TABLE = 3;
 export const RULE_SET_NAME_MAX = 40;
+export const STREAM_HEARTBEAT_SECONDS = 15;
 export const SWITCH_ON_OPTIONS = {
     show_running_points: false,
     kontra: {

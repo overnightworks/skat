@@ -3,7 +3,9 @@ import {
     bidLineOfGameDeclaredInTheStage,
     cardLook,
     cardsToPlay,
+    dragVerdict,
     gameInPlay,
+    ownCardSlotOpen,
     sideNames,
     trickOnTheFelt,
     type PlayingHand,
@@ -41,6 +43,11 @@ function playing(changes: Partial<Playing>): Playing {
         turn_seat: 1,
         current_trick: [],
         last_trick: null,
+        taken: [
+            { seat: 1, tricks: 0 },
+            { seat: 2, tricks: 0 },
+            { seat: 3, tricks: 0 },
+        ],
         legal_cards: [],
         running_points: null,
         give_up: null,
@@ -157,6 +164,25 @@ describe("the trick on the felt", () => {
         expect(trickOnTheFelt(chairs(WATCHER), next).map(({ card }) => card)).toEqual([HERZ_TEN]);
     });
 
+    it.each([
+        { name: "leads", viewer: 2, turn: 2, current: [], open: true },
+        { name: "follows after the cards of both others", viewer: 2, turn: 2, current: [1, 3], open: true },
+        { name: "has played already", viewer: 2, turn: 3, current: [1, 2], open: false },
+        { name: "waits for another's card", viewer: 2, turn: 1, current: [], open: false },
+        { name: "only watches", viewer: WATCHER, turn: 2, current: [], open: false },
+    ])("opens the viewer's slot only when the viewer $name", ({ viewer, turn, current, open }) => {
+        const cards = current.map((seat) => ({ seat, card: KARO_SEVEN }));
+        const view = playing({ turn_seat: turn, current_trick: cards });
+
+        expect(ownCardSlotOpen(chairs(viewer), trickOnTheFelt(chairs(viewer), view), turn)).toBe(open);
+    });
+
+    it("keeps the viewer's slot shut while the turn is held back", () => {
+        const view = playing({ turn_seat: 2 });
+
+        expect(ownCardSlotOpen(chairs(2), trickOnTheFelt(chairs(2), view), undefined)).toBe(false);
+    });
+
     it("lays nothing before the first card", () => {
         expect(trickOnTheFelt(chairs(WATCHER), playing({}))).toEqual([]);
     });
@@ -224,6 +250,7 @@ describe("how a card of the own hand looks", () => {
         lifted,
         disabled: false,
         tap: () => undefined,
+        play: () => Promise.resolve(true),
     });
 
     it.each([
@@ -234,6 +261,26 @@ describe("how a card of the own hand looks", () => {
         { name: "legal beside the lifted one", playing: onTurn(KARO_ACE), card: KARO_SEVEN, look: "legal" },
     ])("is $name", ({ playing, card, look }) => {
         expect(cardLook(playing, card)).toBe(look);
+    });
+});
+
+describe("what a press on a card that moves comes to", () => {
+    const CARD_HEIGHT = 140;
+
+    it.each([
+        { name: "a tap while it hardly moves", move: { dx: 2, dy: -3 }, verdict: "tap" },
+        { name: "a tap when it hardly moves downward", move: { dx: -4, dy: 5 }, verdict: "tap" },
+        {
+            name: "a return when it is moved upward but short of the threshold",
+            move: { dx: 0, dy: -40 },
+            verdict: "return",
+        },
+        { name: "a play when it is moved upward past the threshold", move: { dx: 0, dy: -90 }, verdict: "play" },
+        { name: "a play when it is moved upward and a little aside", move: { dx: 25, dy: -90 }, verdict: "play" },
+        { name: "a return when it is moved downward", move: { dx: 0, dy: 120 }, verdict: "return" },
+        { name: "a return when it is moved sideways", move: { dx: 150, dy: -10 }, verdict: "return" },
+    ])("is $name", ({ move, verdict }) => {
+        expect(dragVerdict(move, CARD_HEIGHT)).toBe(verdict);
     });
 });
 

@@ -27,7 +27,7 @@ from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from tests.support.sign_in_settings import SignInSettings
 
@@ -117,11 +117,18 @@ class Deployment:
         return browser.post(path, content="logout_token=not-a-token", headers=FORM_POST).status_code
 
 
+def readiness(*, ready: bool) -> Callable[[], Awaitable[bool]]:
+    async def verdict() -> bool:
+        return ready
+
+    return verdict
+
+
 @pytest.fixture
 def make_deployment(sign_in_settings: Callable[..., SignInSettings]) -> Callable[..., Deployment]:
     clock = LimiterClock()
 
-    def make(**overrides: str) -> Deployment:
+    def make(database_ready: Callable[[], Awaitable[bool]] | None = None, **overrides: str) -> Deployment:
         sign_in = sign_in_settings(**overrides)
         issuer = FakeIssuer(sign_in)
         app = create_app(
@@ -130,6 +137,7 @@ def make_deployment(sign_in_settings: Callable[..., SignInSettings]) -> Callable
             tables=in_memory_tables(),
             rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
+            database_ready=database_ready or readiness(ready=True),
         )
         install_web_auth_config(
             app, replace(installed_web_auth_config(app), rate_limits=ClockedRateLimitBackend(clock))
@@ -219,6 +227,15 @@ class TestExemptions:
         assert browser.get(AUTH_START_PATH).status_code == HTTPStatus.SEE_OTHER
         assert browser.get(HEALTH_PATH).status_code == HTTPStatus.OK
         assert exhausted_default.post_malformed_logout_token(browser) != HTTPStatus.TOO_MANY_REQUESTS
+
+    def test_the_health_check_answers_its_503_after_the_default_budget_is_spent(self, make_deployment):
+        deployment = make_deployment(database_ready=readiness(ready=False))
+        browser = deployment.client()
+        for _ in range(DEFAULT_BUDGET_REQUESTS):
+            assert browser.get(LOGIN_PATH).status_code == HTTPStatus.OK
+        assert browser.get(LOGIN_PATH).status_code == HTTPStatus.TOO_MANY_REQUESTS
+
+        assert browser.get(HEALTH_PATH).status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
     @pytest.mark.parametrize(
         ("method", "path"),

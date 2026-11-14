@@ -16,6 +16,8 @@ from skat.store.member_book import accounts_at, forget_table, locked_entries_of,
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.pushing import append_pushing_steps, pushing_steps, read_pushing_steps
 from skat.store.schema import (
+    ANNOUNCEMENT_OF_TEXT,
+    ANNOUNCEMENT_TEXT,
     POSITION_OF_TEXT,
     POSITION_TEXT,
     RANK_TEXT,
@@ -47,20 +49,21 @@ from skat.table.records import (
     Series,
     TableId,
     TableRecord,
+    Visibility,
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
 from skat.table.transactions import (
     DuplicateReceiptError,
-    HeldTable,
     LiveWait,
     OccupiedChair,
     PausedFacts,
     TableTransaction,
+    TableVersion,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Iterable, Sequence
     from datetime import datetime
 
     from sqlalchemy import Row
@@ -142,6 +145,23 @@ def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
     return Chair(seat.seat, occupant, ready=seat.ready)
 
 
+def _read_seats(connection: Connection, table_id: str) -> Sequence[Row[*tuple[Any, ...]]]:
+    return connection.execute(
+        select(
+            chairs.c.seat,
+            chairs.c.account_id,
+            chairs.c.display_name,
+            chairs.c.occupant_kind,
+            chairs.c.owner_account,
+            chairs.c.ready,
+            chairs.c.held_in_hand,
+            chairs.c.former_holder_name,
+        )
+        .where(chairs.c.table_id == table_id)
+        .order_by(chairs.c.seat)
+    ).all()
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -157,20 +177,7 @@ def _table_record(
             table.version,
             Ending(EndReason(table.end_reason), table.empty_seconds, table.unplayed_days, table.closed_by_name),
         )
-    seats = connection.execute(
-        select(
-            chairs.c.seat,
-            chairs.c.account_id,
-            chairs.c.display_name,
-            chairs.c.occupant_kind,
-            chairs.c.owner_account,
-            chairs.c.ready,
-            chairs.c.held_in_hand,
-            chairs.c.former_holder_name,
-        )
-        .where(chairs.c.table_id == table_id)
-        .order_by(chairs.c.seat)
-    ).all()
+    seats = _read_seats(connection, table_id)
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
@@ -181,7 +188,9 @@ def _table_record(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
-            give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
+            give_up=_read_give_up(table),
+            shortening_refused_by=_position_of(table.shortening_refused_by),
+            played_open=frozenset(POSITION_OF_TEXT[each] for each in table.played_open),
             words=read_words(connection, table_id),
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
@@ -197,14 +206,29 @@ def _table_record(
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
         options=options_of(table),
-        bock=BockRounds(tuple(table.bock_rounds)),
+        bock=BockRounds(tuple(table.bock_rounds), table.ramsch_round_games),
+        visibility=Visibility(table.visibility),
     )
 
 
-def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked | None:
-    if asked_by is None:
+def _position_of(text: str | None) -> Position | None:
+    return None if text is None else POSITION_OF_TEXT[text]
+
+
+def _text_of(position: Position | None) -> str | None:
+    return None if position is None else POSITION_TEXT[position]
+
+
+def _read_give_up(table: Row[Any]) -> GiveUpAsked | None:
+    if table.give_up_asked_by is None:
         return None
-    return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
+    return GiveUpAsked(
+        POSITION_OF_TEXT[table.give_up_asked_by],
+        _position_of(table.give_up_declined_by),
+        None if table.give_up_claim is None else ANNOUNCEMENT_OF_TEXT[table.give_up_claim],
+        _position_of(table.give_up_agreed_by),
+        table.give_up_open,
+    )
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
@@ -262,7 +286,8 @@ class _PostgresTableTransaction:
         return table if isinstance(table, TableRecord) else None
 
     def _write_table_row(self, table: TableRecord, played_at: datetime | None) -> None:
-        """The row's changing columns: the series length, the options and the opener's name are written by `add_table`
+        """The row's changing columns: the series length, the options, the visibility and the opener's name are written
+        by `add_table`
         and never here; no time leaves the last played time as it is.
         """
         asked = table.progress.give_up
@@ -278,12 +303,16 @@ class _PostgresTableTransaction:
                 series_number=series_number_of(table),
                 **_series_end_columns(table.series),
                 bock_rounds=list(table.bock.remaining),
+                ramsch_round_games=table.bock.ramsch_games,
                 abort_yes_seats=sorted(table.progress.abort_yes),
                 hand_aborted=table.progress.aborted,
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
-                give_up_declined_by=None
-                if asked is None or asked.declined_by is None
-                else POSITION_TEXT[asked.declined_by],
+                give_up_declined_by=None if asked is None else _text_of(asked.declined_by),
+                give_up_claim=None if asked is None or asked.claim is None else ANNOUNCEMENT_TEXT[asked.claim],
+                give_up_agreed_by=None if asked is None else _text_of(asked.agreed_by),
+                give_up_open=asked is not None and asked.open_play,
+                shortening_refused_by=_text_of(table.progress.shortening_refused_by),
+                played_open=sorted(POSITION_TEXT[each] for each in table.progress.played_open),
             )
         )
 
@@ -346,6 +375,7 @@ class _PostgresTableTransaction:
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
                 series_number=series_number_of(table),
+                visibility=table.visibility.value,
                 **option_values(table.options),
             )
         )
@@ -375,6 +405,11 @@ class _PostgresTableTransaction:
                 opener_name=None,
                 give_up_asked_by=None,
                 give_up_declined_by=None,
+                give_up_claim=None,
+                give_up_agreed_by=None,
+                give_up_open=False,
+                shortening_refused_by=None,
+                played_open=[],
                 ended_at=at,
                 end_reason=ending.reason.value,
                 empty_seconds=ending.empty_seconds,
@@ -437,14 +472,45 @@ class _PostgresTableTransaction:
             )
         )
 
-    def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
+    def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(
-            HeldTable(TableId(row.id), row.version)
+            TableVersion(TableId(row.id), row.version)
             for row in self._connection.execute(
                 select(tables.c.id, tables.c.version)
                 .join(chairs, chairs.c.table_id == tables.c.id)
                 .where(chairs.c.account_id == account_id, tables.c.end_reason.is_(None))
                 .order_by(tables.c.id)
+            )
+        )
+
+    def open_table_ids(self) -> tuple[TableId, ...]:
+        return tuple(
+            TableId(table_id)
+            for table_id in self._connection.execute(
+                select(tables.c.id)
+                .where(tables.c.end_reason.is_(None), tables.c.visibility == Visibility.OPEN.value)
+                .order_by(tables.c.id)
+            ).scalars()
+        )
+
+    def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
+        return tuple(
+            TableVersion(TableId(row.id), row.version)
+            for row in self._connection.execute(
+                select(tables.c.id, tables.c.version)
+                .where(tables.c.id.in_([table_id.value for table_id in table_ids]), tables.c.end_reason.is_(None))
+                .order_by(tables.c.id)
+            )
+        )
+
+    def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
+        return frozenset(
+            OccupiedChair(TableId(row.table_id), row.account_id)
+            for row in self._connection.execute(
+                select(chairs.c.table_id, chairs.c.account_id).where(
+                    chairs.c.table_id.in_([table_id.value for table_id in table_ids]),
+                    chairs.c.account_id.in_(account_ids),
+                )
             )
         )
 

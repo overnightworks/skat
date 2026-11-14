@@ -52,6 +52,7 @@ export const DECLARED_ENTRY: Extract<SeriesEntry, { kind: "declared" }> = {
     levels: ["spiel", "hand", "schneider"],
     settled_value: 48,
     score: 98,
+    declarer_points: 95,
     kontra_word: null,
     bock_factor: 1,
 };
@@ -63,6 +64,7 @@ export const LOST_ENTRY: SeriesEntry = {
     hand: false,
     levels: ["spiel"],
     score: -86,
+    declarer_points: 54,
 };
 
 export const RAMSCH_ENTRY: SeriesEntry = {

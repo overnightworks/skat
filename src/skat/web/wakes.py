@@ -19,7 +19,12 @@ class AccountTopic:
     account_id: str
 
 
-Topic = TableTopic | AccountTopic
+@dataclass(frozen=True)
+class OpenTablesTopic:
+    """What a wake is about: the set of open tables, which a table opened joins."""
+
+
+Topic = TableTopic | AccountTopic | OpenTablesTopic
 
 
 @dataclass(frozen=True, eq=False)

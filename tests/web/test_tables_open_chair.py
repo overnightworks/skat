@@ -7,8 +7,8 @@ from skat.web.mcp import AUCTION_PASS_TOOL, RAMSCH_TAKE_SKAT_TOOL
 from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.calling import running_skat
 from tests.web.support.changes import RecordedChanges
-from tests.web.support.skat import Skat
 from tests.web.support.waiting_table import SENT_SEAT, WaitingTable
 
 PUSHING = {
@@ -29,16 +29,7 @@ def changes():
 
 @pytest.fixture
 def skat(hold, issuer, time, changes):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        resource_changes=changes.wired,
-    )
-    with skat.client:
-        yield skat
+    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
 
 
 @pytest.fixture
@@ -80,7 +71,7 @@ class TestAnOpenChairInThePushingStage:
             json={"command_id": "person-push", "version": before.version},
             headers={"origin": TEST_PUBLIC_ORIGIN, **waiting.person_headers},
         )
-        by_tool = waiting.staying.call(
+        by_tool = waiting.staying.offered_every_tool().call(
             RAMSCH_TAKE_SKAT_TOOL, table_id=waiting.table_id, command_id="agent-take", version=before.version
         )
 
@@ -181,7 +172,7 @@ class TestEveryHandCommandIsRefused:
     def test_an_agent_through_the_tool_is_refused_seat_open(self, waiting):
         before = waiting.record
 
-        answer = waiting.staying.call(
+        answer = waiting.staying.offered_every_tool().call(
             AUCTION_PASS_TOOL, table_id=waiting.table_id, command_id="agent-pass", version=before.version
         )
 

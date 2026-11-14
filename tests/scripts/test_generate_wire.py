@@ -36,11 +36,13 @@ from skat.web.constants import (
     ACCOUNT_PATH,
     AUTH_START_PATH,
     CALL_MODE,
+    CALL_SIGN_IN_PATH,
     LOGOUT_PATH,
     MODE_QUERY_NAME,
     NO_ACCESS_PATH,
     VERSION_FILE_PATH,
 )
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -61,9 +63,7 @@ from skat.web.table_options import options_answer_of
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
-    AnnouncementToken,
     AwaitingToken,
-    GameToken,
     PositionToken,
     RankToken,
     StageToken,
@@ -108,6 +108,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("TABLE_READY_SUFFIX", TABLE_READY_SUFFIX),
         ("LOBBY_EVENTS_PATH", LOBBY_EVENTS_PATH),
         ("NO_ACCESS_PATH", NO_ACCESS_PATH),
+        ("CALL_SIGN_IN_PATH", CALL_SIGN_IN_PATH),
         ("MODE_QUERY_NAME", MODE_QUERY_NAME),
         ("CALL_MODE", CALL_MODE),
         ("TABLE_ID_PATTERN", TABLE_ID_PATTERN),
