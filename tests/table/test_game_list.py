@@ -24,7 +24,16 @@ from skat.table.game_list import (
     standings_of,
     total_of,
 )
-from skat.table.records import Chair, HandProgress, Occupant, OccupantKind, TableId, TableOptions, TableRecord
+from skat.table.records import (
+    Chair,
+    HandProgress,
+    Occupant,
+    OccupantKind,
+    TableId,
+    TableOptions,
+    TableRecord,
+    Visibility,
+)
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, KREUZ, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.NULL
@@ -89,6 +98,7 @@ def seated_table():
         series=None,
         options=TableOptions(),
         bock=BockRounds.start(),
+        visibility=Visibility.OPEN,
     )
 
 

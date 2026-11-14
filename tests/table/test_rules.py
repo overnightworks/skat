@@ -20,6 +20,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    Visibility,
 )
 from skat.table.rules import (
     PresenceStep,
@@ -61,6 +62,7 @@ def table_with(*seated: tuple[int, Actor]) -> TableRecord:
         series=None,
         options=TableOptions(),
         bock=BockRounds.start(),
+        visibility=Visibility.OPEN,
     )
 
 
