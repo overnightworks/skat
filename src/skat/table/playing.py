@@ -306,7 +306,7 @@ def _agree_to_shortening(
     table: TableRecord, state: Playing, asked: GiveUpAsked, position: Position, claim: Announcement
 ) -> Decision:
     if asked.agreed_by is None:
-        return _with_request(table, replace(asked, agreed_by=position))
+        return _with_request(table, GiveUpAsked(asked.asker, claim=claim, agreed_by=position))
     if asked.agreed_by is position:
         return Decision(table, Refusal.ALREADY_ANSWERED)
     return _end_of(table, shorten(state, all_agreed=True, claim=claim), GameEnding.SHORTENED, asked.asker)

@@ -209,9 +209,9 @@ def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
     if asked.asker is position:
         return None
     if asked.declined_by is position:
-        return replace(asked, declined_by=None)
+        return GiveUpAsked(asked.asker)
     if asked.agreed_by is position:
-        return replace(asked, agreed_by=None)
+        return GiveUpAsked(asked.asker, claim=asked.claim)
     return asked
 
 
