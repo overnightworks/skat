@@ -2442,11 +2442,11 @@ const SHELL=`<svg viewBox="0 0 72 62" aria-hidden="true"><ellipse cx="36" cy="57
   <path d="M30 56h12l-2 4H32z" fill="#e8bfae"/></svg>`;
 const strandDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
   const rim=(deg)=>[cx+a*Math.cos(rad(deg)),cy+b*Math.sin(rad(deg))];
-  const [gx,gy]=!d&&phoneAt?phoneAt.glass:rim(d?38:36),[sx,sy]=!d&&phoneAt?phoneAt.shell:rim(d?150:144);
+  const [gx,gy]=!d&&phoneAt?.glass||rim(d?38:36),[sx,sy]=!d&&phoneAt?.shell||rim(d?150:144);
   return `<span class="decor cocktail" style="${at({left:gx,top:gy,'--h':d?84:62})}">${COCKTAIL}</span><span class="decor shell" style="${at({left:sx,top:sy,'--h':d?44:34})}">${SHELL}</span>`;};
 /* a scene of Klassik drawn in the style: the beach behind, the style's card backs, the decoration at the rim */
 const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];
-  return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt);};
+  return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt?.[w]??phoneAt);};
 const SEA_CAPTION='Dazu klingt das Meer: leises, gleichmäßiges Rauschen der Brandung unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Wellen am Strand rollen langsam ein und aus; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ stehen sie still, wie dieses Bild.';
 const LOOK_PREVIEW={
   Klassik:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#1b130d"/><rect x="8" y="10" width="104" height="56" rx="28" fill="#7a4c2a"/><rect x="12" y="14" width="96" height="48" rx="24" fill="#1d7a55"/><rect x="48" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(-8 54 36)"/><rect x="60" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(7 66 36)"/><rect x="2" y="30" width="16" height="14" rx="3" fill="#3a3a40"/><rect x="102" y="30" width="16" height="14" rx="3" fill="#2a3b5e"/></svg>`,
@@ -2457,7 +2457,7 @@ const strandRows=(s)=>[{kind:'look',label:'Stil',options:STYLES,picked:'Strandba
 const STRAND_SCENES=[
   ['strand-auction','Strandbar: Reizen',[360,390,1280],strandView(BID_SCENES.find(([id])=>id==='bid-middle')[2]),
     ['Der Tisch „Reizen“, dieselben Stühle, Karten und Tasten wie in Klassik, im Stil Strandbar: Strand in der Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer an den Plätzen, eigene Kartenrücken. Muschel und Cocktail stehen am Rand des Tisches und decken keine Karte und keine Taste.',SEA_CAPTION]],
-  ['strand-trick','Strandbar: ein Stich',[360,390,1280],strandView((d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1})),
+  ['strand-trick','Strandbar: ein Stich',[360,390,1280],strandView((d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1}),{360:{shell:[41,424]}}),
     ['Der Stich liegt mit seinen Namen auf dem Tisch: Annas Pik-König, Novas Sieben, Felix’ Ass. Neben Annas Stuhl liegt ihr Stapel mit dem letzten Stich und dem hellen Rand, neben Felix sein erster.',SEA_CAPTION]],
   ['strand-result','Strandbar: das Ergebnis',[360,390,1280],strandView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],shell:[54,596]}),
     ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, die Strohuntersetzer tragen die Punkte.',SEA_CAPTION]],
@@ -2750,6 +2750,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .strand .chair::after{content:"";position:absolute;left:-4%;right:-4%;bottom:-9px;height:20px;border-radius:12px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--l1) 55%,#fff),var(--l1) 45%,var(--l2));box-shadow:0 5px 8px -3px rgba(25,12,30,.7),inset 0 1.5px 0 rgba(255,255,255,.5)}
 .strand .watchers .chair::after{display:none}
+.d1280.strand:has(.snd-pop) .chair::after{left:0;right:0}
 .strand .seat:not(.free):not(.away)::before{content:"";position:absolute;z-index:-2;left:16%;right:16%;top:calc(100% + 6px);height:clamp(30px,24%,48px);pointer-events:none;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%237a5430' stroke-width='6'/%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%23e4c590' stroke-width='2.4' stroke-opacity='.8'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%237a5430' stroke-width='4'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%23e4c590' stroke-width='1.6' stroke-opacity='.8'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat}
 .strand .watchers .seat::before{display:none}
