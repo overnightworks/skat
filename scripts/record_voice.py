@@ -64,9 +64,8 @@ class SpokenLine:
     key: Key
     text: str
 
-    @property
-    def path(self) -> Path:
-        return RECORDINGS_DIRECTORY / self.language / f"{self.key}{RECORDING_SUFFIX}"
+    def path_in(self, directory: Path) -> Path:
+        return directory / self.language / f"{self.key}{RECORDING_SUFFIX}"
 
 
 @dataclass(frozen=True)
@@ -147,6 +146,7 @@ def recording_of(
 
 def record(
     lines: Sequence[SpokenLine],
+    directory: Path,
     *,
     again: bool,
     speak_line: Callable[[SpokenLine], bytes],
@@ -155,10 +155,11 @@ def record(
     """Records each line whose file is missing (or every line with `again`) and returns how many it made."""
     made = 0
     for line in lines:
-        if line.path.exists() and not again:
+        path = line.path_in(directory)
+        if path.exists() and not again:
             continue
-        line.path.parent.mkdir(parents=True, exist_ok=True)
-        line.path.write_bytes(recording_of(line, speak_line, encode_wav))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(recording_of(line, speak_line, encode_wav))
         made += 1
         print(f"{line.language} {line.key}: {line.text}")
     return made
@@ -180,7 +181,9 @@ def main(arguments: Sequence[str], environment: dict[str, str]) -> int:
     parser.add_argument("--again", action="store_true", help="record every key anew, not only the missing ones")
     parsed = parser.parse_args(arguments)
     service = service_from(environment)
-    made = record(spoken_lines(), again=parsed.again, speak_line=lambda line: speak(service, line))
+    made = record(
+        spoken_lines(), RECORDINGS_DIRECTORY, again=parsed.again, speak_line=lambda line: speak(service, line)
+    )
     print(f"{made} recordings made")
     return 0
 
