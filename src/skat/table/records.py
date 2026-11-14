@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
     from skat.engine.bock import BockOptions, BockRounds
     from skat.engine.deal import Deal, Position
-    from skat.engine.declaration import DeclaringStep
+    from skat.engine.declaration import Announcement, DeclaringStep
     from skat.engine.kontra import Word, WordSaid
     from skat.engine.ramsch import RamschOptions
     from skat.engine.schieberamsch import DeclareGrandHand, Push, PushingRule, Put, Take
@@ -184,6 +184,7 @@ class Refusal(StrEnum):
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
     NO_REQUEST = "no-request"
+    ALREADY_ANSWERED = "already-answered"
     REQUEST_PENDING = "request-pending"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
@@ -244,12 +245,17 @@ class Chair:
 
 @dataclass(frozen=True)
 class GiveUpAsked:
-    """A give-up waiting for the other side's answer: who asked, the declarer or an opponent, and the opponent who said
-    no to the declarer's.
+    """A request waiting for the other side's answer: who asked, the declarer or an opponent, and the opponent who said
+    no to the declarer's give-up.
+
+    The declarer's shortening has a `claim`, the level he demands, and the opponent who said yes so far in `agreed_by`;
+    it needs both yeses and ends with the first no. A give-up has no claim.
     """
 
     asker: Position
     declined_by: Position | None = None
+    claim: Announcement | None = None
+    agreed_by: Position | None = None
 
 
 type PushingStep = Take | Put | Push | DeclareGrandHand
@@ -290,6 +296,9 @@ class HandProgress:
     abort the hand while one of its chairs is open; empty means no proposal. `seats_held` ends with the hand likewise.
     A chair left in the hand names its leaver in `former_holders` until someone sits in it or the hand ends.
 
+    `shortening_refused_by` is the opponent whose no to the declarer's shortening left his cards open for the rest of
+    the hand; a card keeps it and the end of the hand or a deal clears it.
+
     `aborted` says the hand ended by a vote to abort it; such a hand keeps no step, and the next deal clears the end.
     """
 
@@ -297,6 +306,7 @@ class HandProgress:
     declaring: tuple[DeclaringStep, ...] = ()
     plays: tuple[CardPlayed, ...] = ()
     give_up: GiveUpAsked | None = None
+    shortening_refused_by: Position | None = None
     words: tuple[WordSaid, ...] = ()
     no_words: frozenset[NoWordSaid] = frozenset()
     pushing: tuple[PushingStep, ...] = ()

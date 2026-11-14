@@ -50,6 +50,7 @@ from skat.table.playing import (
     DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
+    ShortenCommand,
     ThrowDownCommand,
     agree_to_give_up_payload,
     card_payload,
@@ -57,9 +58,11 @@ from skat.table.playing import (
     decide_card,
     decide_decline_give_up,
     decide_give_up,
+    decide_shorten,
     decide_throw_down,
     decline_give_up_payload,
     give_up_payload,
+    shorten_payload,
     throw_down_payload,
 )
 from skat.table.pushing import PUSHING_STEP_COMMAND, PushingCommand, decide_pushing_step, pushing_payload
@@ -91,6 +94,7 @@ from skat.table.rules import (
     DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
+    SHORTEN_COMMAND,
     SIT_DOWN_COMMAND,
     STAND_UP_COMMAND,
     THROW_DOWN_COMMAND,
@@ -352,6 +356,19 @@ class TableService(LobbyReads):
             GIVE_UP_COMMAND,
             give_up_payload(command),
             lambda table: decide_give_up(table, actor, command),
+        )
+
+    def shorten(
+        self, actor: Actor, command: ShortenCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            SHORTEN_COMMAND,
+            shorten_payload(command),
+            lambda table: decide_shorten(table, actor, command),
         )
 
     def agree_to_give_up(

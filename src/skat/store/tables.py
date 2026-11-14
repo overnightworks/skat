@@ -16,6 +16,8 @@ from skat.store.member_book import accounts_at, forget_table, locked_entries_of,
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.pushing import append_pushing_steps, pushing_steps, read_pushing_steps
 from skat.store.schema import (
+    ANNOUNCEMENT_OF_TEXT,
+    ANNOUNCEMENT_TEXT,
     POSITION_OF_TEXT,
     POSITION_TEXT,
     RANK_TEXT,
@@ -182,7 +184,8 @@ def _table_record(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
             plays=read_plays(connection, table_id),
-            give_up=_read_give_up(table.give_up_asked_by, table.give_up_declined_by),
+            give_up=_read_give_up(table),
+            shortening_refused_by=_position_of(table.shortening_refused_by),
             words=read_words(connection, table_id),
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
@@ -203,10 +206,23 @@ def _table_record(
     )
 
 
-def _read_give_up(asked_by: str | None, declined_by: str | None) -> GiveUpAsked | None:
-    if asked_by is None:
+def _position_of(text: str | None) -> Position | None:
+    return None if text is None else POSITION_OF_TEXT[text]
+
+
+def _text_of(position: Position | None) -> str | None:
+    return None if position is None else POSITION_TEXT[position]
+
+
+def _read_give_up(table: Row[Any]) -> GiveUpAsked | None:
+    if table.give_up_asked_by is None:
         return None
-    return GiveUpAsked(POSITION_OF_TEXT[asked_by], None if declined_by is None else POSITION_OF_TEXT[declined_by])
+    return GiveUpAsked(
+        POSITION_OF_TEXT[table.give_up_asked_by],
+        _position_of(table.give_up_declined_by),
+        None if table.give_up_claim is None else ANNOUNCEMENT_OF_TEXT[table.give_up_claim],
+        _position_of(table.give_up_agreed_by),
+    )
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
@@ -284,9 +300,10 @@ class _PostgresTableTransaction:
                 abort_yes_seats=sorted(table.progress.abort_yes),
                 hand_aborted=table.progress.aborted,
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
-                give_up_declined_by=None
-                if asked is None or asked.declined_by is None
-                else POSITION_TEXT[asked.declined_by],
+                give_up_declined_by=None if asked is None else _text_of(asked.declined_by),
+                give_up_claim=None if asked is None or asked.claim is None else ANNOUNCEMENT_TEXT[asked.claim],
+                give_up_agreed_by=None if asked is None else _text_of(asked.agreed_by),
+                shortening_refused_by=_text_of(table.progress.shortening_refused_by),
             )
         )
 
@@ -379,6 +396,9 @@ class _PostgresTableTransaction:
                 opener_name=None,
                 give_up_asked_by=None,
                 give_up_declined_by=None,
+                give_up_claim=None,
+                give_up_agreed_by=None,
+                shortening_refused_by=None,
                 ended_at=at,
                 end_reason=ending.reason.value,
                 empty_seconds=ending.empty_seconds,

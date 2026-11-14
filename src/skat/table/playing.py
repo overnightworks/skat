@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
-from skat.engine.giving_up import give_up, opponent_gives_up, throw_down
+from skat.engine.giving_up import give_up, opponent_gives_up, shorten, throw_down
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
 from skat.engine.tricks import CardPlayed, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from skat.engine.bock import BockRounds
     from skat.engine.cards import Card
     from skat.engine.deal import Position
+    from skat.engine.declaration import Announcement
     from skat.engine.tricks import PlayedOut, PlayOutcome, Sides
     from skat.table.game_list import GameEntry
     from skat.table.kontra import KontraView
@@ -53,8 +54,20 @@ class ThrowDownCommand:
 
 
 @dataclass(frozen=True)
+class ShortenCommand:
+    """The declarer shortens the game, demanding the level `claim` or none; the actor's seat and position come from the
+    session, never from the client.
+    """
+
+    command_id: str
+    table_id: str
+    version: int
+    claim: Announcement
+
+
+@dataclass(frozen=True)
 class AgreeToGiveUpCommand:
-    """The other side says yes to a give-up; the actor's seat and position come from the session."""
+    """The other side says yes to a give-up or a shortening; the actor's seat and position come from the session."""
 
     command_id: str
     table_id: str
@@ -63,7 +76,7 @@ class AgreeToGiveUpCommand:
 
 @dataclass(frozen=True)
 class DeclineGiveUpCommand:
-    """The other side says no to a give-up; the actor's seat and position come from the session."""
+    """The other side says no to a give-up or a shortening; the actor's seat and position come from the session."""
 
     command_id: str
     table_id: str
@@ -98,8 +111,21 @@ class GiveUpView:
 
 
 @dataclass(frozen=True)
+class ShorteningView:
+    """The declarer's shortening waiting for both opponents' yes, by seat: who asked, the level he demands and the
+    opponent who said yes so far.
+    """
+
+    asking_seat: int
+    claim: Announcement
+    agreed_seat: int | None
+
+
+@dataclass(frozen=True)
 class PlayingView:
-    """The game in play as one viewer may see it; the turn is the seat that plays next."""
+    """The game in play as one viewer may see it; the turn is the seat that plays next. `shortening_refused_seat` is
+    the opponent whose no to the declarer's shortening left his cards open.
+    """
 
     turn_seat: int
     current_trick: tuple[SeatedCard, ...]
@@ -107,6 +133,8 @@ class PlayingView:
     legal_cards: tuple[Card, ...]
     running_points: Sides | None
     give_up: GiveUpView | None
+    shortening: ShorteningView | None
+    shortening_refused_seat: int | None
     kontra: KontraView | None
 
 
@@ -185,12 +213,45 @@ def _declarer_gives_up(table: TableRecord, state: Playing, asked: GiveUpAsked | 
     if outcome.refusal is not PlayRefusal.NEEDS_CONSENT:
         return _end_of(table, outcome, GameEnding.GIVEN_UP, state.declared.declarer)
     if asked is not None:
-        return Decision(table)
+        return Decision(table) if asked.claim is None else Decision(table, Refusal.REQUEST_PENDING)
     return _with_request(table, GiveUpAsked(state.declared.declarer))
 
 
 def _with_request(table: TableRecord, asked: GiveUpAsked | None) -> Decision:
     return Decision(replace(table, version=table.version + 1, progress=replace(table.progress, give_up=asked)))
+
+
+def _with_the_cards_open(table: TableRecord, refused_by: Position) -> Decision:
+    progress = replace(table.progress, give_up=None, shortening_refused_by=refused_by)
+    return Decision(replace(table, version=table.version + 1, progress=progress))
+
+
+def shorten_payload(command: ShortenCommand) -> str:
+    """The receipt's payload: a retry repeats its original version, so another version is another request."""
+    return f"{command.table_id}:{command.version}:{command.claim.value}"
+
+
+def decide_shorten(table: TableRecord, actor: Actor, command: ShortenCommand) -> Decision:
+    """The declarer shortens the game, with or without a demanded level: no hand, no chair, a stale version, the wrong
+    phase, not the declarer, another request waiting, then the engine, which refuses a level the opponents put out of
+    reach before anyone is asked. The request is stored and the opponents are asked; the same request again changes
+    nothing.
+    """
+    position = acting_position(table, actor, command.version)
+    if isinstance(position, Refusal):
+        return Decision(table, position)
+    state = playing_of(table)
+    if state is None:
+        return Decision(table, Refusal.WRONG_PHASE)
+    if position is not state.declared.declarer:
+        return Decision(table, Refusal.NOT_DECLARER)
+    asked = table.progress.give_up
+    if asked is not None and (game_waits_for_the_declarers_answer(state, asked) or asked.claim != command.claim):
+        return Decision(table, Refusal.REQUEST_PENDING)
+    outcome = shorten(state, claim=command.claim)
+    if outcome.refusal is PlayRefusal.CLAIM_OUT_OF_REACH:
+        return Decision(table, outcome.refusal)
+    return Decision(table) if asked is not None else _with_request(table, GiveUpAsked(position, claim=command.claim))
 
 
 def agree_to_give_up_payload(command: AgreeToGiveUpCommand) -> str:
@@ -226,20 +287,36 @@ def _answerer(
 
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
-    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked."""
+    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked. The declarer's
+    shortening needs both opponents' yes: the first is kept, the same opponent's again is refused as already
+    answered, and the other's ends the game as the engine settles the shortening.
+    """
     answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
-    state, asked, _ = answering
+    state, asked, position = answering
     if game_waits_for_the_declarers_answer(state, asked):
         return _end_of(table, opponent_gives_up(state), GameEnding.GIVEN_UP, asked.asker)
+    if asked.claim is not None:
+        return _agree_to_shortening(table, state, asked, position, asked.claim)
     return _end_of(table, give_up(state, consented=True), GameEnding.GIVEN_UP, asked.asker)
+
+
+def _agree_to_shortening(
+    table: TableRecord, state: Playing, asked: GiveUpAsked, position: Position, claim: Announcement
+) -> Decision:
+    if asked.agreed_by is None:
+        return _with_request(table, GiveUpAsked(asked.asker, claim=claim, agreed_by=position))
+    if asked.agreed_by is position:
+        return Decision(table, Refusal.ALREADY_ANSWERED)
+    return _end_of(table, shorten(state, all_agreed=True, claim=claim), GameEnding.SHORTENED, asked.asker)
 
 
 def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiveUpCommand) -> Decision:
     """The other side says no. The declarer's no to an opponent's give-up demands play on: the request ends. An
-    opponent's no to the declarer's keeps the request for the other opponent, whose no ends it; a second no of the same
-    opponent changes nothing.
+    opponent's no to the declarer's give-up keeps the request for the other opponent, whose no ends it; a second no of
+    the same opponent changes nothing. An opponent's no to the declarer's shortening ends it at once, and the game
+    goes on scored by its play alone, with the declarer's cards open for the rest of the hand.
     """
     answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
@@ -247,6 +324,8 @@ def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiv
     state, asked, position = answering
     if game_waits_for_the_declarers_answer(state, asked):
         return _with_request(table, None)
+    if asked.claim is not None:
+        return _with_the_cards_open(table, position)
     if asked.declined_by is position:
         return Decision(table)
     if asked.declined_by is not None:
@@ -324,6 +403,7 @@ def playing_view_of(
     *,
     show_running_points: bool,
     asked: GiveUpAsked | None,
+    shortening_refused_by: Position | None,
     kontra: KontraView | None,
 ) -> PlayingView | None:
     """The game in play for one viewer; None until a game is played.
@@ -333,7 +413,8 @@ def playing_view_of(
     game for the declarer's answer to an opponent's give-up, which the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
     the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
-    A give-up waiting for the other side's answer is the same for every viewer.
+    A give-up or a shortening waiting for the other side's answer, and the opponent whose no to a shortening left the
+    declarer's cards open, are the same for every viewer.
     """
     if state is None:
         return None
@@ -347,10 +428,16 @@ def playing_view_of(
         running_points=state.tally.points
         if show_running_points and isinstance(state, Playing) and state.counts_card_points
         else None,
-        give_up=None if asked is None else _give_up_view_of(asked, seats),
+        give_up=None if asked is None or asked.claim is not None else _give_up_view_of(asked, seats),
+        shortening=None if asked is None or asked.claim is None else _shortening_view_of(asked, asked.claim, seats),
+        shortening_refused_seat=None if shortening_refused_by is None else seats[shortening_refused_by],
         kontra=kontra,
     )
 
 
 def _give_up_view_of(asked: GiveUpAsked, seats: dict[Position, int]) -> GiveUpView:
     return GiveUpView(seats[asked.asker], None if asked.declined_by is None else seats[asked.declined_by])
+
+
+def _shortening_view_of(asked: GiveUpAsked, claim: Announcement, seats: dict[Position, int]) -> ShorteningView:
+    return ShorteningView(seats[asked.asker], claim, None if asked.agreed_by is None else seats[asked.agreed_by])

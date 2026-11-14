@@ -148,6 +148,13 @@ def asked_by_the_declarer(declined_by: Position | None = None) -> TableRecord:
     return replace(table, progress=replace(table.progress, give_up=asked))
 
 
+def asked_to_shorten(agreed_by: Position | None = None) -> TableRecord:
+    """The declared Herz Hand game where the declarer asked the opponents to shorten it, `agreed_by` having agreed."""
+    table = table_in(declared_herz_hand())
+    asked = GiveUpAsked(Position.MIDDLEHAND, claim=Announcement.NONE, agreed_by=agreed_by)
+    return replace(table, progress=replace(table.progress, give_up=asked))
+
+
 def asked_by_an_opponent(opponent: Position = Position.FOREHAND, options: TableOptions | None = None) -> TableRecord:
     """The declared Herz Hand game where `opponent` gave up and the declarer has not answered."""
     table = table_in(declared_herz_hand(), options)

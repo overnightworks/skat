@@ -168,6 +168,7 @@ ANNOUNCEMENT_TOKENS: Final = {
     Announcement.SCHNEIDER: AnnouncementToken.SCHNEIDER,
     Announcement.SCHWARZ: AnnouncementToken.SCHWARZ,
 }
+ANNOUNCEMENTS_OF_TOKEN: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
 
 class CardAnswer(BaseModel):
@@ -236,6 +237,12 @@ class GiveUpAnswer(BaseModel):
     declined_seat: int | None
 
 
+class ShorteningAnswer(BaseModel):
+    asking_seat: int
+    claim: AnnouncementToken
+    agreed_seat: int | None
+
+
 class SaidWordAnswer(BaseModel):
     seat: int
     word: Word
@@ -255,6 +262,8 @@ class PlayingAnswer(BaseModel):
     legal_cards: list[CardAnswer]
     running_points: SidesAnswer | None
     give_up: GiveUpAnswer | None
+    shortening: ShorteningAnswer | None
+    shortening_refused_seat: int | None
     kontra: KontraAnswer | None
 
 
@@ -520,6 +529,14 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
         give_up=None
         if playing.give_up is None
         else GiveUpAnswer(asking_seat=playing.give_up.asking_seat, declined_seat=playing.give_up.declined_seat),
+        shortening=None
+        if playing.shortening is None
+        else ShorteningAnswer(
+            asking_seat=playing.shortening.asking_seat,
+            claim=ANNOUNCEMENT_TOKENS[playing.shortening.claim],
+            agreed_seat=playing.shortening.agreed_seat,
+        ),
+        shortening_refused_seat=playing.shortening_refused_seat,
         kontra=kontra_answer_of(playing.kontra),
     )
 

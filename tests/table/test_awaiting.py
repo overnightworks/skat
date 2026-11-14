@@ -34,6 +34,7 @@ from tests.support.played_game import (
     a_whole_game,
     asked_by_an_opponent,
     asked_by_the_declarer,
+    asked_to_shorten,
     between_games,
     declared_herz_hand,
     table_in,
@@ -230,6 +231,18 @@ class TestAGiveUpQuestion:
     )
     def test_the_opponents_who_have_not_answered_are_awaited(self, declined_by, waiting):
         assert waiting_for(asked_by_the_declarer(declined_by)) == waiting
+
+
+class TestAShorteningQuestion:
+    @pytest.mark.parametrize(
+        ("agreed_by", "waiting"),
+        [
+            pytest.param(None, {FOREHAND, REARHAND}, id="both-opponents-who-have-not-answered"),
+            pytest.param(Position.REARHAND, {FOREHAND}, id="not-the-opponent-who-agreed-nor-the-asker"),
+        ],
+    )
+    def test_the_opponents_who_have_not_agreed_are_awaited(self, agreed_by, waiting):
+        assert waiting_for(asked_to_shorten(agreed_by)) == waiting
 
 
 class TestAnOpponentsGiveUp:

@@ -1,9 +1,9 @@
 """Whether the table waits for the viewer's seat to act, decided from the viewer's own view so that the view and the
-decision cannot disagree. A running hand waits for the seat on turn and, while the declarer's give-up is asked, for the
-opponent who has not answered, and for each seat with a Kontra word open that it has not answered with no word, play
-never waiting for it, unless a chair of the hand is open: then it waits for a sitter and for no seat. While an
-opponent's give-up is asked it waits for the declarer alone. Between hands it waits for each seat that has not
-continued, and for each that has not answered a proposal to end the series early.
+decision cannot disagree. A running hand waits for the seat on turn and, while the declarer's give-up or shortening
+is asked, for the opponent who has not answered, and for each seat with a Kontra word open that it has not answered
+with no word, play never waiting for it, unless a chair of the hand is open: then it waits for a sitter and for no
+seat. While an opponent's give-up is asked it waits for the declarer alone. Between hands it waits for each seat that
+has not continued, and for each that has not answered a proposal to end the series early.
 
 `awaited_seats` names those seats for any viewer; `awaits_you` adds the viewer's own open Kontra word, which no other
 viewer's view holds.
@@ -96,7 +96,12 @@ def _declarer_awaited_for_an_opponents_give_up(hand: HandView) -> int | None:
 
 
 def _give_up_waits_for(view: TableView, seat: int) -> bool:
-    asked = None if view.hand is None or view.hand.playing is None else view.hand.playing.give_up
+    playing = None if view.hand is None else view.hand.playing
+    if playing is None:
+        return False
+    if playing.shortening is not None:
+        return seat not in (playing.shortening.asking_seat, playing.shortening.agreed_seat)
+    asked = playing.give_up
     return asked is not None and seat not in (asked.asking_seat, asked.declined_seat)
 
 

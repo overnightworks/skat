@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.store.migrate import create_store_engine, migrate
 from skat.store.tables import metadata
-from tests.support.migrations import list_row, run_in_transaction, upgrade_to
+from tests.support.migrations import list_row, only_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
@@ -618,12 +618,9 @@ class TestFromAGameListRowAtRevisionTen:
         return unmigrated_engine
 
     def test_the_old_row_keeps_its_accounts_and_has_no_names(self, migrated):
-        with migrated.connect() as connection:
-            row = connection.execute(
-                text("SELECT seat_1_account, seat_1_name, seat_2_name, seat_3_name FROM game_list")
-            ).one()
+        row = only_row(migrated, text("SELECT seat_1_account, seat_1_name, seat_2_name, seat_3_name FROM game_list"))
 
-        assert tuple(row) == ("account-anna", None, None, None)
+        assert row == ("account-anna", None, None, None)
 
 
 class TestFromALiveTableAtRevisionEleven:

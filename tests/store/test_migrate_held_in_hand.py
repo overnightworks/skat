@@ -37,6 +37,9 @@ LATER_COLUMNS = (
     "hand_aborted",
     "closed_by_name",
     "visibility",
+    "give_up_claim",
+    "give_up_agreed_by",
+    "shortening_refused_by",
 )
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
 
