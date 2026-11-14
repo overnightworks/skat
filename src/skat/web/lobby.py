@@ -197,7 +197,7 @@ class _TopicHoldingSource(ABC):
         self._wake = wake
         self._registration = self._wakes.register([AccountTopic(self._account_id), *self._standing], wake)
 
-    async def moved(self, actor: Actor) -> bool:
+    async def moved(self, actor: Actor, /) -> bool:
         listed = await self._listed(actor)
         return self._standing_at(listed, await self._leased_seats(listed)) != self._read_stood_on
 

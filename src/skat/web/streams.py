@@ -69,7 +69,7 @@ class StreamSource(Protocol):  # pragma: no cover - a port's method bodies are s
         """The whole state for `actor`."""
         ...
 
-    async def moved(self, actor: Actor) -> bool:
+    async def moved(self, actor: Actor, /) -> bool:
         """Whether the state may differ from the last `read`, asked without reading it: a heartbeat reads again only a
         source that answers true. It answers true for a state it cannot tell is the same, and false only for one that
         it knows is.
@@ -130,7 +130,7 @@ class TableSource:
         self._first_read = False
         return _table_message(view, nudges)
 
-    async def moved(self, actor: Actor) -> bool:  # noqa: ARG002 - the port passes the actor; a table's version needs none
+    async def moved(self, _actor: Actor, /) -> bool:
         version = await self._read_version()
         standing = (version, self._presence.connected(self._table_id), await self._read_leased())
         return version is None or standing != self._read_standing
