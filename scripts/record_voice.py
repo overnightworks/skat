@@ -3,7 +3,8 @@
 
 The fleet's speech service speaks each text in Qwen3-TTS's `ryan`; ffmpeg trims the silence around it, this script
 brings it to the loudness in `level.json` (the loudness the sound sets are held to, measured as a phone's speaker plays
-it) and ffmpeg writes a compact MP3, the format every browser's Web Audio decodes. The table never calls the service at play time.
+it) and ffmpeg writes a compact MP3, the format every browser's Web Audio decodes. The table never calls the service
+at play time.
 Run a local speech service (its README says how) and give this script its address and the two tokens it asks for:
 
     SPEECH_URL=http://127.0.0.1:8080 SPEECH_WORKLOAD_TOKEN=... SPEECH_PERSON_TOKEN=... make voice
