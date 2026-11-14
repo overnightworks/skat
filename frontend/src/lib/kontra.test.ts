@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keyWord, plaqueLine } from "#lib/kontra.ts";
+import { declinableWord, firstCardWait, keyWord, plaqueLine } from "#lib/kontra.ts";
 import { words } from "#lib/words.ts";
 import type { Chair, Hand, Kontra, Table, Word } from "../routes/(start)/tables.ts";
 
@@ -29,8 +29,18 @@ function chairs(): Chair[] {
     }));
 }
 
-function kontra(said: Kontra["said"], myWord: Word | null = null): Kontra {
-    return { said, factor: 2 ** said.length, my_word: myWord };
+function kontra(
+    said: Kontra["said"],
+    myWord: Word | null = null,
+    firstCard: { waitsOn: number[]; declined: number[] } = { waitsOn: [], declined: [] },
+): Kontra {
+    return {
+        said,
+        factor: 2 ** said.length,
+        my_word: myWord,
+        first_card_waits_on: firstCard.waitsOn,
+        first_card_declined: firstCard.declined,
+    };
 }
 
 function table(version: number, playingKontra: Kontra | null | "no hand"): Table {
@@ -100,6 +110,55 @@ describe("the key of a seat", () => {
     });
 });
 
+describe("the first card waiting on a word", () => {
+    const waiting = (waitsOn: number[], declined: number[] = [], myWord: Word | null = "kontra") =>
+        table(5, kontra([], myWord, { waitsOn, declined }));
+
+    it("is none while the first card waits on no one", () => {
+        expect(firstCardWait(waiting([]))).toBeNull();
+        expect(firstCardWait(table(5, null))).toBeNull();
+    });
+
+    it("names the viewer as you and another seat by its name, and marks the seats that said no", () => {
+        const wait = firstCardWait(waiting([OPPONENT, AGENT], [DECLARER])) as NonNullable<
+            ReturnType<typeof firstCardWait>
+        >;
+
+        expect(wait.text).toContain(words["kontra.you"]);
+        expect(wait.text).toContain("Nova");
+        expect(wait.initials).toEqual(["F", "N"]);
+        expect([OPPONENT, AGENT, DECLARER].map((seat) => wait.owes(seat))).toEqual([true, true, false]);
+        expect(wait.marks.get(DECLARER)).toBe("declined");
+    });
+
+    it("is none while the awaited seat has stood up and its chair is open", () => {
+        const awaited = waiting([AGENT]);
+        const open = {
+            ...awaited,
+            chairs: awaited.chairs.map((chair) => (chair.seat === AGENT ? { ...chair, occupant_name: null } : chair)),
+            hand: { ...(awaited.hand as Hand), waiting_seat: AGENT },
+        };
+
+        expect(firstCardWait(open)).toBeNull();
+        expect(declinableWord(open)).toBeNull();
+    });
+
+    it("holds back the cards of the seat that leads", () => {
+        const wait = firstCardWait(waiting([DECLARER])) as NonNullable<ReturnType<typeof firstCardWait>>;
+
+        expect([OPPONENT, DECLARER, undefined].map((seat) => wait.held(seat))).toEqual([true, false, false]);
+    });
+
+    it.each([
+        ["the viewer owes a word", waiting([OPPONENT]), "kontra"],
+        ["another seat owes a word", waiting([DECLARER]), null],
+        ["the first card waits on no one", waiting([]), null],
+        ["the viewer's seat is awaited with no word open", waiting([OPPONENT], [], null), null],
+    ])("offers the decline of a word when %s", (_name, value, expected) => {
+        expect(declinableWord(value)).toBe(expected);
+    });
+});
+
 describe("the plaque's line", () => {
     it.each([
         { said: ["kontra"], word: "kontra", factor: 2 },
@@ -107,7 +166,13 @@ describe("the plaque's line", () => {
         { said: ["kontra", "re", "supra"], word: "supra", factor: 8 },
         { said: ["kontra", "re", "supra", "hirsch"], word: "hirsch", factor: 16 },
     ] as const)("names the last word $word with the table's factor $factor", ({ said, word, factor }) => {
-        const line = plaqueLine({ said: said.map((each) => ({ seat: OPPONENT, word: each })), factor, my_word: null });
+        const line = plaqueLine({
+            said: said.map((each) => ({ seat: OPPONENT, word: each })),
+            factor,
+            my_word: null,
+            first_card_waits_on: [],
+            first_card_declined: [],
+        });
 
         expect(line).toEqual(words["kontra.plaque"]({ word: words[`kontra.${word}`], factor: String(factor) }));
     });

@@ -3,16 +3,14 @@ from functools import partial
 import pytest
 
 from skat.engine.deal import Position
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaration_tokens import GameToken
-from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import HERZ_GAME, Table, cards
+from tests.web.support.playing import HERZ_GAME, Table, cards, contested_auction
 from tests.web.support.presence import view_of_version
 from tests.web.support.series import tap_weiter
 from tests.web.support.skat import streams_of
@@ -32,8 +30,8 @@ def kontra_options(sayer=ANY, reach=KONTRA_RE, deadline="own-card"):
 def open_table(server, monkeypatch):
     """A table for the three people and a watcher, opened through the API with the options a test names."""
 
-    def open_with(sayer=ANY, reach=KONTRA_RE):
-        monkeypatch.setattr(server, "create", partial(server.create, options=kontra_options(sayer, reach)))
+    def open_with(sayer=ANY, reach=KONTRA_RE, deadline="own-card"):
+        monkeypatch.setattr(server, "create", partial(server.create, options=kontra_options(sayer, reach, deadline)))
         return Table(server)
 
     return open_with
@@ -237,6 +235,85 @@ class TestTheDoubledScoreOfAPlayedGame:
         assert [entry["kontra_word"] for entry in entries] == [word]
 
 
+class TestTheFirstCardDeadline:
+    @pytest.fixture
+    def first_card_hand(self, open_table):
+        table = open_table(deadline="first-card")
+        table.declared_hand_game()
+        return table
+
+    def first_card_refused(self, table, reason="words-due"):
+        table.refused(table.at[FOREHAND], HERZ_GAME[0], reason)
+
+    def test_the_first_card_is_refused_until_both_opponents_said_a_word_or_answered_no_word(self, first_card_hand):
+        table = first_card_hand
+        self.first_card_refused(table)
+
+        answered_no_word(table, FOREHAND)
+        self.first_card_refused(table)
+        answered_no_word(table, REARHAND)
+
+        table.accepted(HERZ_GAME[0])
+
+    def test_the_view_of_every_viewer_tells_which_seats_the_first_card_waits_on_until_the_words_are_in(
+        self, first_card_hand
+    ):
+        table = first_card_hand
+        viewers = (table.at[FOREHAND], table.at[MIDDLEHAND], table.watcher)
+        waiting = [kontra_view(table, headers)["first_card_waits_on"] for headers in viewers]
+        answered_no_word(table, FOREHAND)
+        declined = [kontra_view(table, headers) for headers in viewers]
+        answered_no_word(table, REARHAND)
+        decided = [kontra_view(table, headers)["first_card_waits_on"] for headers in viewers]
+
+        assert waiting == [[SEAT[REARHAND], SEAT[FOREHAND]]] * 3
+        assert [(view["first_card_waits_on"], view["first_card_declined"]) for view in declined] == [
+            ([SEAT[REARHAND]], [SEAT[FOREHAND]])
+        ] * 3
+        assert decided == [[]] * 3
+
+    def test_a_no_word_answer_is_a_decline_the_opponent_cannot_take_back_by_saying_kontra(self, first_card_hand):
+        answered_no_word(first_card_hand, FOREHAND)
+        before = first_card_hand.record
+
+        answered_no_word(first_card_hand, FOREHAND)
+        refused(first_card_hand, FOREHAND, "kontra", "not-your-word")
+
+        assert first_card_hand.record == before
+
+    def test_the_declarer_owes_re_to_a_kontra_and_the_opponent_left_with_no_word_is_not_awaited(self, first_card_hand):
+        table = first_card_hand
+        said(table, FOREHAND, "kontra")
+        self.first_card_refused(table)
+
+        said(table, MIDDLEHAND, "re")
+
+        table.accepted(HERZ_GAME[0])
+
+    def test_the_declarers_no_word_answer_to_a_kontra_clears_the_first_card(self, first_card_hand):
+        said(first_card_hand, FOREHAND, "kontra")
+
+        answered_no_word(first_card_hand, MIDDLEHAND)
+
+        first_card_hand.accepted(HERZ_GAME[0])
+
+    def test_where_the_table_asks_it_the_answer_of_an_opponent_who_never_bid_is_refused_and_he_is_not_awaited(
+        self, open_table
+    ):
+        table = open_table(BIDDERS, deadline="first-card")
+        contested_auction(table)
+        self.first_card_refused(table)
+
+        table.refused_act(TABLE_NO_WORD_SUFFIX, table.at[REARHAND], "did-not-bid")
+        answered_no_word(table, FOREHAND)
+
+        table.accepted(HERZ_GAME[0])
+
+    def test_the_table_with_the_time_of_the_own_card_plays_the_first_card_at_once(self, herz_hand):
+        herz_hand.accepted(HERZ_GAME[0])
+        assert kontra_view(herz_hand, herz_hand.watcher)["first_card_waits_on"] == []
+
+
 class TestTheDeadlines:
     def test_forehand_who_led_says_no_kontra(self, herz_hand):
         play(herz_hand, 1)
@@ -318,28 +395,6 @@ class TestAnsweringNoWord:
 
     def test_a_watcher_cannot_answer_no_word(self, herz_hand):
         herz_hand.refused_act(TABLE_NO_WORD_SUFFIX, herz_hand.watcher, "not-seated")
-
-
-def contested_auction(table):
-    """Middlehand bids 18, forehand holds, middlehand bids 20, both opponents pass; middlehand declares Herz Hand."""
-
-    def step(position, suffix, **body):
-        answer = table.act(suffix, table.at[position], body=body)
-        assert answer.status_code == 200, answer.text
-
-    step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, value=18)
-    step(FOREHAND, TABLE_AUCTION_HOLD_SUFFIX)
-    step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, value=20)
-    step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
-    step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
-    step(
-        MIDDLEHAND,
-        TABLE_DECLARING_DECLARE_SUFFIX,
-        game="herz",
-        hand=True,
-        ouvert=False,
-        announcement="none",
-    )
 
 
 class TestTheOtherRefusals:
@@ -452,7 +507,14 @@ class TestWhatEveryViewerSees:
 
         assert table.record.progress.words == ()
         assert [(kontra_view(table, table.at[position])) for position in (FOREHAND, REARHAND)] == [
-            {"said": [], "factor": 1, "my_word": "kontra", "my_word_answered": False}
+            {
+                "said": [],
+                "factor": 1,
+                "my_word": "kontra",
+                "my_word_answered": False,
+                "first_card_waits_on": [],
+                "first_card_declined": [],
+            }
         ] * 2
 
 
@@ -463,6 +525,7 @@ class TestOpeningATable:
             pytest.param(kontra_options(), id="kontra"),
             pytest.param(kontra_options(BIDDERS, UP_TO_HIRSCH), id="bidders-up-to-hirsch"),
             pytest.param(kontra_options(ANY, WITH_STANDINGS), id="standings"),
+            pytest.param(kontra_options(deadline="first-card"), id="first-card"),
         ],
     )
     def test_the_answer_carries_the_options_as_sent(self, server, options):
@@ -506,7 +569,7 @@ class TestOpeningATable:
     @pytest.mark.parametrize(
         "options",
         [
-            pytest.param(kontra_options(deadline="first-card"), id="first-card"),
+            pytest.param(kontra_options(deadline="at-the-end"), id="unknown-deadline"),
             pytest.param(kontra_options(sayer="everyone"), id="unknown-sayer"),
             pytest.param(kontra_options(reach="all-words"), id="unknown-reach"),
             pytest.param({"kontra": {"sayer": ANY, "reach": KONTRA_RE}}, id="missing-deadline"),

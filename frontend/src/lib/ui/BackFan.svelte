@@ -5,7 +5,7 @@
     // In the card's own 100 x 140 units: the pivot lies below the card, so the cards open like a held hand.
     const PIVOT = "50 161";
 
-    let { count, dim }: { count: number; dim: boolean } = $props();
+    let { count, dim }: { count: number; dim: boolean | undefined } = $props();
 
     const turns = $derived(
         Array.from(

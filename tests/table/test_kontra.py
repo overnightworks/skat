@@ -39,8 +39,9 @@ from skat.table.records import (
     TableOptions,
     parsed_refusal,
 )
-from skat.table.rules import create_payload
+from skat.table.rules import create_payload, decide_sit
 from skat.table.views import view_of
+from tests.support.open_chairs import FOREHAND_SEAT, newcomer, sent_away
 from tests.support.played_game import (
     HERZ_HAND,
     a_whole_game,
@@ -52,12 +53,12 @@ from tests.support.played_game import (
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KONTRA, RE, SUPRA, HIRSCH = Word.KONTRA, Word.RE, Word.SUPRA, Word.HIRSCH
-OWN_CARD = KontraDeadline.OWN_CARD
+OWN_CARD, FIRST_CARD = KontraDeadline.OWN_CARD, KontraDeadline.FIRST_CARD
 VERSION = 7
 
 
-def options_of(sayer=KontraSayer.ANY_OPPONENT, reach=KontraReach.KONTRA_RE):
-    return TableOptions(kontra=KontraOptions(sayer, reach, OWN_CARD))
+def options_of(sayer=KontraSayer.ANY_OPPONENT, reach=KontraReach.KONTRA_RE, deadline=OWN_CARD):
+    return TableOptions(kontra=KontraOptions(sayer, reach, deadline))
 
 
 def actor(position):
@@ -315,6 +316,195 @@ class TestAnsweringNoWord:
 
         assert kontra_payload(command) == "table:5:no-word"
         assert kontra_payload(replace(command, word=KONTRA)) != kontra_payload(command)
+
+
+BIDDING_FOREHAND = HandProgress(
+    auction=(Bid(MIDDLEHAND, 18), Hold(FOREHAND), Bid(MIDDLEHAND, 20), Pass(FOREHAND), Pass(REARHAND)),
+    declaring=(HERZ_HAND,),
+)
+
+
+def first_card_table(sayer=KontraSayer.ANY_OPPONENT, reach=KontraReach.KONTRA_RE, progress=None):
+    return kontra_table(options_of(sayer, reach, FIRST_CARD), progress)
+
+
+def lead(table):
+    """The first card of the hand, played by forehand."""
+    first = a_whole_game(table)[0]
+    command = PlayCardCommand("command-1", table.id.value, table.version, first.card)
+    return decide_card(table, actor(first.position), command)
+
+
+def after_answers(table, *positions):
+    for position in positions:
+        table = answer_as(table, position, table.version).table
+    return table
+
+
+class TestTheFirstCardDeadline:
+    def test_the_first_card_is_refused_while_an_opponent_has_neither_said_kontra_nor_declined(self):
+        table = first_card_table()
+
+        decision = lead(table)
+
+        assert (decision.refusal, decision.table) == (KontraRefusal.WORDS_DUE, table)
+
+    def test_the_first_card_is_played_where_the_table_gives_the_opponents_the_time_of_their_own_card(self):
+        assert lead(kontra_table()).refusal is None
+
+    def test_a_table_without_kontra_plays_the_first_card(self):
+        assert lead(kontra_table(options=TableOptions())).refusal is None
+
+    def test_each_opponents_answer_of_no_word_is_a_decline_that_clears_his_block_on_the_first_card(self):
+        one_answered = after_answers(first_card_table(), FOREHAND)
+        both_answered = after_answers(one_answered, REARHAND)
+
+        assert lead(one_answered).refusal is KontraRefusal.WORDS_DUE
+        assert lead(both_answered).refusal is None
+        assert doubling_of(both_answered).declined == {FOREHAND, REARHAND}
+
+    def test_a_second_answer_of_the_same_seat_changes_nothing(self):
+        answered = after_answers(first_card_table(), FOREHAND)
+
+        again = answer_as(answered, FOREHAND, answered.version)
+
+        assert (again.refusal, again.table) == (None, answered)
+
+    def test_an_opponent_who_declined_says_no_kontra_after_it(self):
+        answered = after_answers(first_card_table(), FOREHAND)
+
+        assert say_as(answered, FOREHAND, KONTRA, answered.version).refusal is KontraRefusal.NOT_YOUR_WORD
+
+    def test_a_decline_stays_binding_when_the_chair_changes_hands_before_the_first_card(self):
+        answered = after_answers(first_card_table(), FOREHAND)
+        sitter = newcomer()
+
+        taken = decide_sit(sent_away(answered, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+
+        word = KontraCommand("command-2", taken.id.value, taken.version, KONTRA)
+        assert decide_kontra(taken, sitter, word).refusal is KontraRefusal.NOT_YOUR_WORD
+        assert doubling_of(taken).declined == {FOREHAND}
+
+    def test_a_non_bidders_answer_of_no_word_is_refused_as_did_not_bid_where_only_bidders_say_kontra(self):
+        table = first_card_table(KontraSayer.BIDDERS_ONLY, progress=BIDDING_FOREHAND)
+
+        decision = answer_as(table, REARHAND)
+
+        assert (decision.refusal, decision.table) == (KontraRefusal.DID_NOT_BID, table)
+
+    def test_the_first_card_waits_for_the_bidder_alone_where_only_bidders_say_kontra(self):
+        table = first_card_table(KontraSayer.BIDDERS_ONLY, progress=BIDDING_FOREHAND)
+
+        assert lead(table).refusal is KontraRefusal.WORDS_DUE
+        assert lead(after_answers(table, FOREHAND)).refusal is None
+
+    def test_the_first_card_waits_for_no_one_where_no_opponent_bid_and_only_bidders_say_kontra(self):
+        assert lead(first_card_table(KontraSayer.BIDDERS_ONLY)).refusal is None
+
+    def test_the_declarer_owes_his_answer_to_a_kontra_before_the_first_card(self):
+        said = say_as(first_card_table(), FOREHAND, KONTRA).table
+
+        assert lead(said).refusal is KontraRefusal.WORDS_DUE
+        assert lead(say_as(said, MIDDLEHAND, RE, said.version).table).refusal is None
+        assert lead(after_answers(said, MIDDLEHAND)).refusal is None
+
+    def test_the_table_declines_for_the_opponent_left_with_no_word_once_a_kontra_stands(self):
+        declined = after_answers(say_as(first_card_table(), FOREHAND, KONTRA).table, MIDDLEHAND)
+
+        assert REARHAND not in doubling_of(declined).declined
+        assert lead(declined).refusal is None
+
+    def test_the_declarer_who_answered_a_kontra_with_no_word_says_no_re_after_it(self):
+        declined = after_answers(say_as(first_card_table(), FOREHAND, KONTRA).table, MIDDLEHAND)
+
+        assert say_as(declined, MIDDLEHAND, RE, declined.version).refusal is KontraRefusal.NOT_YOUR_WORD
+
+    @pytest.mark.parametrize(
+        ("words", "owing"),
+        [
+            pytest.param((WordSaid(REARHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0)), REARHAND, id="supra"),
+            pytest.param(
+                (WordSaid(REARHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0), WordSaid(REARHAND, SUPRA, 0)),
+                MIDDLEHAND,
+                id="hirsch",
+            ),
+        ],
+    )
+    def test_each_stage_up_to_hirsch_waits_for_its_speaker_to_say_the_word_or_decline(self, words, owing):
+        table = with_words(first_card_table(reach=KontraReach.UP_TO_HIRSCH), *words)
+
+        assert lead(table).refusal is KontraRefusal.WORDS_DUE
+        assert lead(after_answers(table, owing)).refusal is None
+
+    def test_a_card_once_played_ends_the_words_and_the_answers(self):
+        played = with_words(first_card_table(), plays=1)
+
+        assert answer_as(played, FOREHAND).refusal is KontraRefusal.TOO_LATE
+        assert say_as(played, FOREHAND, KONTRA).refusal is KontraRefusal.TOO_LATE
+
+    def test_the_cards_after_the_first_wait_for_no_word(self):
+        table = first_card_table()
+        played = with_words(table, plays=1)
+        next_card = a_whole_game(table)[1]
+        command = PlayCardCommand("command-1", played.id.value, played.version, next_card.card)
+
+        assert decide_card(played, actor(next_card.position), command).refusal is None
+
+
+class TestTheFirstCardWaitingInTheViewer:
+    @pytest.mark.parametrize(
+        "viewer",
+        [
+            pytest.param(frozenset({FOREHAND}), id="the-leader"),
+            pytest.param(frozenset({MIDDLEHAND}), id="the-declarer"),
+            pytest.param(frozenset(), id="a-watcher"),
+        ],
+    )
+    def test_every_viewer_is_told_which_seats_the_first_card_waits_on_until_the_words_are_in(self, viewer):
+        table = first_card_table()
+        decided = after_answers(table, FOREHAND, REARHAND)
+        seats = seats_from(table.dealer)
+
+        before = kontra_view_of(table, playing_of(table), table.dealer, viewer)
+        after = kontra_view_of(decided, playing_of(decided), decided.dealer, viewer)
+
+        assert (before.first_card_waits_on, after.first_card_waits_on) == (
+            tuple(sorted((seats[FOREHAND], seats[REARHAND]))),
+            (),
+        )
+
+    def test_every_viewer_is_told_which_seats_declined_while_the_first_card_still_waits(self):
+        table = after_answers(first_card_table(), FOREHAND)
+        seats = seats_from(table.dealer)
+
+        view = kontra_view_of(table, playing_of(table), table.dealer, frozenset())
+
+        assert (view.first_card_waits_on, view.first_card_declined) == ((seats[REARHAND],), (seats[FOREHAND],))
+
+    def test_a_table_with_the_time_of_the_own_card_does_not_tell_that_the_first_card_waits(self):
+        table = answer_as(kontra_table(), FOREHAND).table
+
+        view = kontra_view_of(table, playing_of(table), table.dealer, frozenset({FOREHAND}))
+
+        assert (view.first_card_waits_on, view.first_card_declined) == ((), ())
+
+    def test_the_first_card_no_longer_waits_after_it_is_played(self):
+        table = with_words(first_card_table(), plays=1)
+
+        view = kontra_view_of(table, playing_of(table), table.dealer, frozenset({FOREHAND}))
+
+        assert view.first_card_waits_on == ()
+
+    def test_a_seat_that_declined_is_offered_no_word_and_a_seat_still_undecided_keeps_its_kontra(self):
+        table = after_answers(first_card_table(), FOREHAND)
+
+        mine = {
+            position: kontra_view_of(table, playing_of(table), table.dealer, frozenset({position}))
+            for position in (FOREHAND, REARHAND)
+        }
+
+        assert mine[REARHAND].my_word is KONTRA
+        assert mine[FOREHAND].my_word is None
 
 
 class TestAnAnswerInTheViewer:

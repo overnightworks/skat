@@ -646,6 +646,35 @@ body.solo section.shot .rule{display:none}
     <pattern id="lattice" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
       <path d="M0 0H9M0 0V9" stroke="#d6b46a" stroke-opacity=".38" stroke-width="1.1"/><circle cx="4.5" cy="4.5" r="1" fill="#d6b46a" fill-opacity=".45"/>
     </pattern>
+    <linearGradient id="sbSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#11173f"/><stop offset=".42" stop-color="#3c2f72"/><stop offset=".74" stop-color="#b6507a"/><stop offset="1" stop-color="#ff9f68"/></linearGradient>
+    <linearGradient id="sbSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8798e"/><stop offset=".22" stop-color="#4d6f98"/><stop offset=".7" stop-color="#1d5273"/><stop offset="1" stop-color="#103c58"/></linearGradient>
+    <linearGradient id="sbSand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a6a54"/><stop offset=".08" stop-color="#b68f68"/><stop offset=".5" stop-color="#cba57a"/><stop offset="1" stop-color="#a98259"/></linearGradient>
+    <radialGradient id="sbGlow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffd8a0" stop-opacity=".75"/><stop offset=".4" stop-color="#ff9f68" stop-opacity=".3"/><stop offset="1" stop-color="#ff9f68" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sbBulbGlow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffd98a" stop-opacity=".85"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sbShade" cx=".5" cy=".42" r=".75"><stop offset=".55" stop-color="#1a0f24" stop-opacity="0"/><stop offset="1" stop-color="#1a0f24" stop-opacity=".55"/></radialGradient>
+    <linearGradient id="sbFoam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="lkSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2760"/><stop offset="1" stop-color="#f08a63"/></linearGradient>
+    <linearGradient id="sbDrink" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5d73"/><stop offset="1" stop-color="#ffa23a"/></linearGradient>
+    <radialGradient id="sbShell" cx=".5" cy=".75" r=".8"><stop offset="0" stop-color="#fff3ec"/><stop offset=".6" stop-color="#f6cfc1"/><stop offset="1" stop-color="#e8a99a"/></radialGradient>
+    <linearGradient id="sb-dusk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14305f"/><stop offset=".55" stop-color="#4a4f8f"/><stop offset=".85" stop-color="#e9806a"/><stop offset="1" stop-color="#ffc47e"/></linearGradient>
+    <radialGradient id="sb-sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff6d0"/><stop offset="1" stop-color="#ffc47e"/></radialGradient>
+    <clipPath id="sb-inner"><rect x="6" y="6" width="88" height="128" rx="4"/></clipPath>
+    <clipPath id="sb-upper"><rect x="0" y="0" width="100" height="70"/></clipPath>
+    <!-- the Strandbar card back: one half of a dusk sea, turned half a round for the other, so it reads the same either way up -->
+    <g id="sb-half" clip-path="url(#sb-upper)">
+      <rect x="6" y="6" width="88" height="64" fill="url(#sb-dusk)"/>
+      <circle cx="26" cy="20" r=".9" fill="#fff"/><circle cx="72" cy="15" r="1.1" fill="#fff"/><circle cx="48" cy="28" r=".8" fill="#fff" opacity=".8"/><circle cx="84" cy="32" r=".8" fill="#fff" opacity=".8"/><circle cx="16" cy="36" r=".7" fill="#fff" opacity=".7"/>
+      <g fill="#ffd9b0" opacity=".55"><rect x="62" y="52" width="26" height="2.2" rx="1.1"/><rect x="68" y="58" width="18" height="2.2" rx="1.1"/><rect x="12" y="46" width="22" height="2.2" rx="1.1"/></g>
+      <circle cx="50" cy="70" r="17" fill="url(#sb-sun)"/>
+      <path d="M21 70C21 62 22 56 25 50" fill="none" stroke="#14213f" stroke-width="2.2" stroke-linecap="round"/>
+      <g fill="#14213f" transform="translate(25 50)"><path d="M0 0C-3-7-12-9-18-5C-11-5-5-4 0 0Z"/><path d="M0 0C-1-8-6-14-13-14C-7-11-3-6 0 0Z"/><path d="M0 0C4-7 11-9 17-5C10-5 4-4 0 0Z"/><path d="M0 0C3-8 8-13 15-12C9-10 4-6 0 0Z"/><path d="M0 0C-6 1-12 6-13 12C-8 7-4 3 0 0Z"/><path d="M0 0C5 1 11 5 13 11C8 6 4 3 0 0Z"/></g>
+    </g>
+    <symbol id="cardback-strand" viewBox="0 0 100 140">
+      <rect x=".75" y=".75" width="98.5" height="138.5" rx="7" fill="#fbf8f0" stroke="#cfc6b1" stroke-width="1.5"/>
+      <g clip-path="url(#sb-inner)"><use href="#sb-half"/><use href="#sb-half" transform="rotate(180 50 70)"/>
+        <path d="M6 70H94" stroke="#ffe3b0" stroke-width="1.3"/></g>
+      <rect x="10.5" y="10.5" width="79" height="119" rx="2.5" fill="none" stroke="#f4dfae" stroke-opacity=".85" stroke-width="1.3"/>
+    </symbol>
     <symbol id="cardback" viewBox="0 0 100 140">
       <rect x=".75" y=".75" width="98.5" height="138.5" rx="7" fill="#fbf8f0" stroke="#cfc6b1" stroke-width="1.5"/>
       <rect x="6" y="6" width="88" height="128" rx="4" fill="url(#backfill)"/>
@@ -1076,6 +1105,7 @@ const IDEAS=[
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet die Leiste „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
+  ['🏖','Stil Strandbar','Ein zweiter Stil für den Tisch, pro Gerät in der Tafel „Ton und Bewegung“ gewählt: Strand bei Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer, eigene Kartenrücken, dazu Meeresrauschen. Klassik bleibt der Standard.','strand-auction, strand-trick, strand-result, strand-choose'],
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp macht die Taste scharf, der zweite sagt an, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-arm, push-grand-done, push-grand-off'],
@@ -2285,6 +2315,7 @@ const soundSwitch=(on)=>`<span class="snd-sw ${on?'on':''}" aria-hidden="true"><
 const soundRow={
   switch:(r)=>`<div class="snd-row" role="switch" tabindex="0" aria-checked="${r.on}"><b>${r.label}</b>${soundSwitch(r.on)}</div>`,
   volume:(r)=>`<div class="snd-row vol"><b>${r.label}</b><span class="val">${r.value}</span><div class="snd-slider" role="slider" tabindex="0" aria-label="${r.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${r.value}" style="--vol:${r.value}"><i></i><u></u></div></div>`,
+  look:(r)=>`<div class="snd-row stack look" data-row="${r.label}" role="radiogroup" aria-label="${r.label}"><b>${r.label}</b><div class="snd-look">${r.options.map(o=>`<span class="${o.name===r.picked?'on':''}" role="radio" aria-checked="${o.name===r.picked}" tabindex="0">${o.preview}<em>${o.name===r.picked?I.check:''}${o.name}</em></span>`).join('')}</div></div>`,
   choice:(r)=>`<div class="snd-row stack ${r.greyed?'greyed':''}" data-row="${r.label}" role="radiogroup" aria-label="${r.label}"${r.greyed?' aria-disabled="true"':''}><b>${r.label}</b>${r.played?`<span class="snd-played">${I.speaker}spielt einmal</span>`:''}`
     +`<div class="snd-seg">${r.options.map(name=>`<span class="${name===r.picked?'on':''}" role="radio" aria-checked="${name===r.picked}" tabindex="0">${name===r.picked?I.check:''}${name}</span>`).join('')}</div>${r.note?`<p class="snd-note">${r.note}</p>`:''}</div>`,
 };
@@ -2320,9 +2351,9 @@ const SOUND_SCENES=[
   ['sound-call-panel','Ton: im Anruf, die Tafel',[390],(d)=>soundCall(d,{open:true,over:soundPanel(d,soundRows(soundState()),{above:true})}),
     ['Im Anruf öffnet sich die Tafel über dem Lautsprecher und ist höchstens so hoch wie der Platz über der Leiste; der Rest rollt in ihr.']],
 ];
-const soundScenes=(list)=>list.forEach(([id,title,widths,draw,notes])=>widths.forEach(w=>{
+const soundScenes=(list,look='')=>list.forEach(([id,title,widths,draw,notes])=>widths.forEach(w=>{
   const desk=w===1280,html=w===360?withPhone360(()=>draw(false,w)):draw(desk,w);
-  frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,desk?'d1280':w===360?'p390 p360':'p390',html,notes);
+  frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,`${desk?'d1280':w===360?'p390 p360':'p390'} ${look}`,html,notes);
   ORDER.push(`${id}-${w}`);}));
 soundScenes(SOUND_SCENES);
 /* ===== S15.4: the trick goes to its winner: it rests, sweeps onto the winner's pile, and the last trick can be looked at again ===== */
@@ -2372,6 +2403,68 @@ const TRICK_SCENES=[
     ['Ein Tipp auf den Stapel hebt den letzten Stich aufgedeckt darüber, in der Reihenfolge, in der er fiel, jede Karte mit ihrem Namen, das stechende Ass mit dem Messingrand des Stapels. Ein Tipp irgendwo legt ihn zurück, ohne eine Karte zu spielen; landet inzwischen die nächste Karte auf dem Filz, sinkt er von selbst zurück.']],
 ];
 soundScenes(TRICK_SCENES);
+/* ===== Strandbar: the table's second style, drawn from the same scenes: only the look changes (a beach at dusk, a round bar table of light wood with a woven rim, stools, straw coasters, the style's own card backs, a shell and a cocktail at the rim) ===== */
+const STRAND_SIZE={360:[360,780],390:[390,844],1280:[1280,800]};
+/* the beach behind the table: dusk sky, the sea's horizon with the sun's path, foam along the shore, sand; sized to its frame */
+const beach=(w,h,d)=>{
+  const horizon=Math.round(h*(d?.21:.095)),shore=Math.round(h*(d?.38:.17)),sunX=Math.round(w*(d?.7:.68));
+  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const wave=(y,amp,len)=>{let p=`M-${len} ${y}`;for(let x=-len;x<=w+len;x+=len)p+=`Q${x+len/4} ${y-amp} ${x+len/2} ${y}T${x+len} ${y}`;return p;};
+  const stars=Array.from({length:d?26:14},()=>`<circle cx="${(rnd()*w).toFixed(0)}" cy="${(rnd()*horizon*.8).toFixed(0)}" r="${(.6+rnd()*.9).toFixed(1)}" fill="#fff" opacity="${(.45+rnd()*.5).toFixed(2)}"/>`).join('');
+  const path=Array.from({length:9},(_,i)=>`<rect x="${(sunX-(52-i*5.5)/2*(d?1.6:1)).toFixed(0)}" y="${horizon+4+i*(d?8:6)}" width="${((52-i*5.5)*(d?1.6:1)).toFixed(0)}" height="${d?3:2.4}" rx="1.5" fill="#ffd9a0" opacity="${(.7-i*.07).toFixed(2)}"/>`).join('');
+  const sea=Array.from({length:d?9:4},(_,i)=>`<path d="${wave(horizon+14+i*((shore-horizon-20)/(d?9:4)),d?2.5:2,d?70:50)}" fill="none" stroke="#fff" stroke-opacity="${(.05+i*.014).toFixed(2)}" stroke-width="1.4"/>`).join('');
+  const speckle=Array.from({length:d?150:90},()=>`<circle cx="${(rnd()*w).toFixed(0)}" cy="${(shore+16+rnd()*(h-shore-16)).toFixed(0)}" r="${(.7+rnd()*1.3).toFixed(1)}" fill="${rnd()>.5?'#fff3d6':'#7a5a38'}" opacity=".22"/>`).join('');
+  const bulbs=d?Array.from({length:17},(_,i)=>{const x=330+i*38.75,y=22+Math.sin(i/16*Math.PI)*22+12;return `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="14" fill="url(#sbBulbGlow)"/><circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="3.6" fill="#fff1c9"/>`;}).join('')+`<path d="M330 34Q640 78 980 34" fill="none" stroke="#2a1f3d" stroke-width="1.2" opacity=".8"/>`:'';
+  return `<svg class="beach" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none" aria-hidden="true">
+  <rect width="${w}" height="${horizon+1}" fill="url(#sbSky)"/>${stars}
+  <ellipse cx="${w*.3}" cy="${horizon*.62}" rx="${w*.16}" ry="${d?7:4}" fill="#ffb4a0" opacity=".28"/><ellipse cx="${w*.78}" cy="${horizon*.5}" rx="${w*.12}" ry="${d?6:3.5}" fill="#ffc9a8" opacity=".25"/>
+  <circle cx="${sunX}" cy="${horizon}" r="${d?260:150}" fill="url(#sbGlow)"/>
+  <path d="M${sunX-(d?40:26)} ${horizon}A${d?40:26} ${d?40:26} 0 0 1 ${sunX+(d?40:26)} ${horizon}Z" fill="#fff0c2"/>
+  <rect y="${horizon}" width="${w}" height="${shore-horizon}" fill="url(#sbSea)"/>${path}${sea}
+  ${d?`<g fill="#241d4a" opacity=".85"><path d="M1010 ${horizon}Q1060 ${horizon-12} 1112 ${horizon}Z"/><path d="M1058 ${horizon-9}L1060 ${horizon-28}M1060 ${horizon-28}Q1070 ${horizon-34} 1078 ${horizon-28}M1060 ${horizon-28}Q1052 ${horizon-36} 1044 ${horizon-30}" fill="none" stroke="#241d4a" stroke-width="1.6" stroke-linecap="round"/></g>`:''}
+  <rect y="${shore}" width="${w}" height="${h-shore}" fill="url(#sbSand)"/>${speckle}
+  <path d="${wave(shore,d?4:3,d?90:60)}V${shore+(d?26:16)}H0Z" fill="url(#sbFoam)" transform="translate(0 ${d?6:4})"/>
+  <path d="${wave(shore+(d?5:3),d?4:3,d?90:60)}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="${d?3:2.4}" stroke-linecap="round"/>
+  <path d="${wave(shore+(d?18:11),d?3:2.4,d?90:60)}" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.6"/>
+  ${bulbs}
+  <rect width="${w}" height="${h}" fill="url(#sbShade)"/></svg>`;
+};
+/* the decoration at the table's rim: a straw-mat coaster with a cocktail, and a shell; they sit on the rim's edge, away from every card and key; a scene whose card fills the phone's table moves them to the sand beside its rim */
+const COCKTAIL=`<svg viewBox="0 0 64 100" aria-hidden="true"><ellipse cx="32" cy="94" rx="28" ry="5.5" fill="#d9b66e"/><ellipse cx="32" cy="93" rx="22" ry="3.4" fill="none" stroke="#a9843f" stroke-width="1"/>
+  <path d="M30.5 54h3v36h-3z" fill="#e4f2f2" opacity=".85"/><ellipse cx="32" cy="90" rx="13" ry="3" fill="#e4f2f2" opacity=".9"/>
+  <path d="M5 16h54L36 56h-8z" fill="#ffffff" fill-opacity=".2" stroke="#f0fbfb" stroke-width="1.6" stroke-linejoin="round"/><path d="M9.5 21h45L35.5 52h-7z" fill="url(#sbDrink)"/><path d="M13 23h14" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>
+  <path d="M40 40L52 4" stroke="#e5484d" stroke-width="3" stroke-linecap="round"/><path d="M42.5 33L45 26M47 19.5L49.5 12" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="53" cy="17" r="9" fill="#ffae2b"/><circle cx="53" cy="17" r="6.6" fill="#ffd36a"/><path d="M53 10.4v13.2M46.4 17h13.2M48.3 12.3l9.4 9.4M57.7 12.3l-9.4 9.4" stroke="#ffae2b" stroke-width=".8"/>
+  <path d="M14 22L16 3" stroke="#6d4a2b" stroke-width="1.4" stroke-linecap="round"/><path d="M7 7Q16-5 25 7Q21 4.5 16 5.5Q11 4.5 7 7Z" fill="#2fb7a6"/></svg>`;
+const SHELL=`<svg viewBox="0 0 72 62" aria-hidden="true"><ellipse cx="36" cy="57" rx="26" ry="4" fill="#000" opacity=".22"/>
+  <path d="M36 55C10 50 2 29 10 17C18 5 54 5 62 17C70 29 62 50 36 55Z" fill="url(#sbShell)" stroke="#d7a99a" stroke-width="1.2"/>
+  <path d="M36 52L14 18M36 52L22 12M36 52L31 9M36 52L41 9M36 52L50 12M36 52L58 18M36 52L10 28M36 52L62 28" fill="none" stroke="#d99a8c" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M30 56h12l-2 4H32z" fill="#e8bfae"/></svg>`;
+const strandDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
+  const rim=(deg)=>[cx+a*Math.cos(rad(deg)),cy+b*Math.sin(rad(deg))];
+  const [gx,gy]=!d&&phoneAt?.glass||rim(d?38:36),[sx,sy]=!d&&phoneAt?.shell||rim(d?150:144);
+  return `<span class="decor cocktail" style="${at({left:gx,top:gy,'--h':d?84:62})}">${COCKTAIL}</span><span class="decor shell" style="${at({left:sx,top:sy,'--h':d?44:34})}">${SHELL}</span>`;};
+/* a scene of Klassik drawn in the style: the beach behind, the style's card backs, the decoration at the rim */
+const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];
+  return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt?.[w]??phoneAt);};
+const SEA_CAPTION='Dazu klingt das Meer: leises, gleichmäßiges Rauschen der Brandung unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Wellen am Strand rollen langsam ein und aus; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ stehen sie still, wie dieses Bild.';
+const LOOK_PREVIEW={
+  Klassik:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#1b130d"/><rect x="8" y="10" width="104" height="56" rx="28" fill="#7a4c2a"/><rect x="12" y="14" width="96" height="48" rx="24" fill="#1d7a55"/><rect x="48" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(-8 54 36)"/><rect x="60" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(7 66 36)"/><rect x="2" y="30" width="16" height="14" rx="3" fill="#3a3a40"/><rect x="102" y="30" width="16" height="14" rx="3" fill="#2a3b5e"/></svg>`,
+  Strandbar:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#cba57a"/><rect width="120" height="24" fill="url(#lkSky)"/><circle cx="84" cy="24" r="7" fill="#fff0c2"/><rect y="24" width="120" height="12" fill="#2f6285"/><path d="M0 36Q8 33 16 36T32 36T48 36T64 36T80 36T96 36T112 36T128 36" fill="none" stroke="#fff" stroke-width="1.6" opacity=".85"/><circle cx="60" cy="48" r="26" fill="#e8cf9f"/><circle cx="60" cy="48" r="22" fill="#d7b27c"/><circle cx="60" cy="48" r="20" fill="none" stroke="#fff3d0" stroke-opacity=".6" stroke-width="1"/><rect x="50" y="38" width="12" height="17" rx="2" fill="#26427a" stroke="#f4dfae" stroke-width=".8" transform="rotate(-8 56 46)"/><rect x="59" y="38" width="12" height="17" rx="2" fill="#26427a" stroke="#f4dfae" stroke-width=".8" transform="rotate(7 65 46)"/><circle cx="14" cy="48" r="8" fill="#e6c88c"/><circle cx="106" cy="48" r="8" fill="#e6c88c"/></svg>`,
+};
+const STYLES=Object.entries(LOOK_PREVIEW).map(([name,preview])=>({name,preview}));
+const strandRows=(s)=>[{kind:'look',label:'Stil',options:STYLES,picked:'Strandbar'},...soundRows(s)];
+const STRAND_SCENES=[
+  ['strand-auction','Strandbar: Reizen',[360,390,1280],strandView(BID_SCENES.find(([id])=>id==='bid-middle')[2]),
+    ['Der Tisch „Reizen“, dieselben Stühle, Karten und Tasten wie in Klassik, im Stil Strandbar: Strand in der Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer an den Plätzen, eigene Kartenrücken. Muschel und Cocktail stehen am Rand des Tisches und decken keine Karte und keine Taste.',SEA_CAPTION]],
+  ['strand-trick','Strandbar: ein Stich',[360,390,1280],strandView((d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1}),{360:{shell:[41,424]}}),
+    ['Der Stich liegt mit seinen Namen auf dem Tisch: Annas Pik-König, Novas Sieben, Felix’ Ass. Neben Annas Stuhl liegt ihr Stapel mit dem letzten Stich und dem hellen Rand, neben Felix sein erster.',SEA_CAPTION]],
+  ['strand-result','Strandbar: das Ergebnis',[360,390,1280],strandView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],shell:[54,596]}),
+    ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, die Strohuntersetzer tragen die Punkte.',SEA_CAPTION]],
+  ['strand-choose','Strandbar: der Stil in der Tafel',[360,390,1280],strandView((d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,strandRows(soundState()))})),
+    ['Die Tafel „Ton und Bewegung“ führt den Stil als erste Zeile: Klassik oder Strandbar, je mit einer kleinen Vorschau; die gewählte trägt Haken und Farbe. Der Stil gilt für dieses Gerät und nur für die Person, und er ändert den Tisch hinter der Tafel sofort.',SEA_CAPTION]],
+];
+soundScenes(STRAND_SCENES,'strand');
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
@@ -2619,6 +2712,104 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
   .lastshow{animation:liftoff .35s cubic-bezier(.2,.9,.3,1.2) both}
   @keyframes liftoff{from{opacity:0;translate:0 24px;scale:.8}}
 }
+/* ---------- Strandbar: a second look for the same table; every rule hangs on .strand, so Klassik's frames stay as they are ---------- */
+.frame.strand{--sand:#f3e2bd;--straw:#e4c27d;--straw-deep:#b98f48;--driftwood:#d9b27c;--rattan:#e9cf9b;--cream:#fbf6ea;--ink:#2b1b10;
+  --glass-dark:rgba(28,17,22,.72);--stage-fade:rgba(25,19,46,.94);--lamp:rgba(255,196,120,.2);
+  border-color:#3a2f5c;background:#1a1c44}
+.strand > .beach{inset:0;width:100%;height:100%;z-index:-3;pointer-events:none}
+/* the table: a round top of pale boards inside a woven rattan rim */
+.strand .table{border-radius:50%;padding:calc(var(--rim) * 1.55);
+  background:
+    repeating-linear-gradient(45deg,rgba(255,246,222,.5) 0 2px,transparent 2px 7px),
+    repeating-linear-gradient(-45deg,rgba(96,58,22,.42) 0 2px,transparent 2px 7px),
+    linear-gradient(180deg,#f0d9a6,#cba768 55%,#a8814a);
+  box-shadow:0 34px 46px -22px rgba(25,12,30,.75),0 0 0 1.5px rgba(86,52,22,.8),inset 0 1.5px 0 rgba(255,250,235,.7),inset 0 -2px 0 rgba(86,52,22,.45)}
+.strand .table::before{inset:calc(var(--rim) * .55);border-radius:50%;border:2px solid rgba(255,248,225,.7);box-shadow:0 0 0 1.5px rgba(96,58,22,.55),inset 0 0 0 1.5px rgba(96,58,22,.4)}
+.p390.strand .table{aspect-ratio:374 / 420;height:auto!important;top:150px!important}
+.strand .result{z-index:4}
+.strand .felt{border-radius:50%;
+  background:
+    radial-gradient(60% 50% at 50% 40%,rgba(255,236,190,.55),transparent 72%),
+    repeating-linear-gradient(0deg,rgba(100,62,26,.2) 0 1.5px,transparent 1.5px 34px),
+    repeating-linear-gradient(0deg,rgba(255,250,235,.1) 0 3px,transparent 3px 11px),
+    linear-gradient(180deg,#d9b57c,#c39a5e 60%,#b08550);
+  box-shadow:inset 0 10px 22px rgba(90,52,20,.35),inset 0 -6px 16px rgba(90,52,20,.28),inset 0 0 0 1.5px rgba(90,52,20,.4)}
+.strand .felt::before{border-radius:50%;border:1.5px solid rgba(255,248,225,.5)}
+.strand .seatglow{background:radial-gradient(calc(var(--gw) / 2) calc(var(--gh) / 2) at var(--gx) var(--gy),rgba(122,167,240,.4),rgba(122,167,240,.12) 60%,transparent)}
+/* the stool: a woven frame around the picture, a cushion in the person's own colour and splayed legs with a footrest */
+.strand .seat{--pad:9px}
+.strand .seat.sm{--pad:6px}
+.strand .watchers .seat{--pad:4px}
+.strand .chair{border-radius:28px 28px 20px 20px;
+  background:
+    repeating-linear-gradient(45deg,rgba(255,246,222,.45) 0 1.4px,transparent 1.4px 5px),
+    repeating-linear-gradient(-45deg,rgba(80,48,20,.4) 0 1.4px,transparent 1.4px 5px),
+    linear-gradient(180deg,color-mix(in srgb,var(--l1) 30%,#ecd3a0),color-mix(in srgb,var(--l2) 22%,#a97f48));
+  box-shadow:0 14px 22px -12px rgba(25,12,30,.85),inset 0 0 0 1px rgba(255,246,222,.45),inset 0 -5px 10px rgba(80,48,20,.3)}
+.strand .seat.sm .chair{border-radius:20px 20px 14px 14px}
+.strand .chair::after{content:"";position:absolute;left:-4%;right:-4%;bottom:-9px;height:20px;border-radius:12px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--l1) 55%,#fff),var(--l1) 45%,var(--l2));box-shadow:0 5px 8px -3px rgba(25,12,30,.7),inset 0 1.5px 0 rgba(255,255,255,.5)}
+.strand .watchers .chair::after{display:none}
+.d1280.strand:has(.snd-pop) .chair::after{left:0;right:0}
+.strand .seat:not(.free):not(.away)::before{content:"";position:absolute;z-index:-2;left:16%;right:16%;top:calc(100% + 6px);height:clamp(30px,24%,48px);pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%237a5430' stroke-width='6'/%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%23e4c590' stroke-width='2.4' stroke-opacity='.8'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%237a5430' stroke-width='4'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%23e4c590' stroke-width='1.6' stroke-opacity='.8'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat}
+.strand .watchers .seat::before{display:none}
+.strand .plate{color:#3a2410;border-radius:999px;padding:3px 14px 4px;
+  background:
+    radial-gradient(circle at 7px 50%,#8a6a3a 0 1.4px,transparent 2px),radial-gradient(circle at calc(100% - 7px) 50%,#8a6a3a 0 1.4px,transparent 2px),
+    linear-gradient(180deg,#fbeccb,#ecd29b 60%,#d7b574);
+  box-shadow:0 4px 8px -3px rgba(25,12,30,.75),inset 0 1px 0 rgba(255,255,255,.7),inset 0 0 0 1px rgba(122,84,48,.45)}
+.strand .plate small{color:rgba(58,36,16,.82)}
+.strand .plate .ai-mark{color:#1d3566}
+/* the straw mat at each seat carries the score */
+.strand .coaster{background:
+    radial-gradient(circle,transparent 70%,rgba(110,76,30,.55) 71% 74%,transparent 75%),
+    repeating-radial-gradient(circle,rgba(110,76,30,.22) 0 1.5px,transparent 1.5px 4.5px),
+    repeating-conic-gradient(rgba(255,244,210,.35) 0 8deg,transparent 8deg 16deg),
+    radial-gradient(circle at 40% 30%,#f2d894,#dcb468);
+  color:var(--ink);box-shadow:0 3px 0 #a9823f,0 8px 12px -4px rgba(25,12,30,.7)}
+.strand .coaster::after{content:"";position:absolute;inset:20%;border-radius:50%;background:#f7edd2;box-shadow:inset 0 0 0 1px rgba(110,76,30,.35);z-index:-1}
+.strand .coaster{isolation:isolate}
+.strand .coaster{text-shadow:none}
+.strand .reck{background:
+    repeating-radial-gradient(circle at 50% 38%,rgba(110,76,30,.2) 0 1.5px,transparent 1.5px 5px),
+    radial-gradient(circle at 40% 25%,#f4dc9f,#dcb468);
+  color:var(--ink);box-shadow:0 3px 0 #a9823f,0 10px 16px -6px rgba(25,12,30,.8)}
+.strand .reck .dl{color:#0f5a36}
+.strand .reck .dl.minus{color:#4a3a2e}
+.strand .reck .tot{color:#4a3a2e}
+.strand .reck.win{box-shadow:0 0 0 3px #f3cf7a,0 3px 0 #a9823f,0 10px 22px -6px rgba(243,207,122,.5)}
+/* text on the lighter top stays readable: dark glass behind light text */
+.strand .plaque,.strand .tag-glass,.strand .pass{background:rgba(28,17,22,.74)}
+.strand .ladder span,.strand .ladder.up span:not(.held):not(.now){background:rgba(28,17,22,.74);color:var(--on-stage)}
+.strand .ladder span.held{background:rgba(28,17,22,.8);color:var(--on-stage)}
+.strand .ladder span.now{background:var(--cream);color:var(--ink)}
+.strand .cbar,.strand .sbar{--glass:rgba(28,17,22,.66)}
+.strand .ladder.up span.more{opacity:.9}
+/* the 360 frame is 64 px shorter and its near stool steps up, so the bid's ladder and keys step up with it */
+.p360.strand > .ladder.up{translate:-15px -38px}
+.p360.strand > .btns{translate:-15px -52px}
+.p360.strand .result.end{padding:10px 14px;gap:7px}
+.strand .button-glass{background:rgba(28,17,22,.62);color:var(--on-stage)}
+.strand .result{background:rgba(28,17,22,.84);box-shadow:inset 0 0 0 1.5px rgba(243,207,122,.4),0 24px 50px -16px rgba(25,12,30,.9)}
+.strand .stamp{background:rgba(28,17,22,.84);color:var(--cream)}
+.strand .tag{background:rgba(28,17,22,.84)}
+.strand .confetti i{box-shadow:0 3px 6px rgba(25,12,30,.4)}
+.p390.strand .cbar,.p390.strand .sbar{background:linear-gradient(to top,var(--stage-fade) 55%,transparent)}
+.strand .card{filter:drop-shadow(0 1px 1px rgba(30,15,10,.5)) drop-shadow(0 6px 8px rgba(30,15,10,.4))}
+/* the shell and the cocktail on the rim */
+.decor{z-index:3;pointer-events:none;height:var(--h);transform:translate(-50%,-78%);filter:drop-shadow(0 6px 5px rgba(25,12,30,.5))}
+.decor svg{display:block;height:100%;width:auto}
+.decor.shell{transform:translate(-50%,-62%) rotate(-14deg)}
+/* the style row of the panel: two tiles, each with a small preview */
+.snd-look{flex:1 0 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.snd-look span{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 6px 8px;border-radius:14px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);font-size:14px;font-weight:600;cursor:pointer}
+.snd-look span.on{background:var(--accent-stage);color:var(--stage)}
+.snd-look .prev{display:block;width:100%;height:auto;border-radius:9px}
+.snd-look em{display:inline-flex;align-items:center;gap:5px;min-height:20px;font-style:normal}
+.snd-look em svg{width:14px;height:14px}
+.d1280 .snd-row.stack.look{flex-wrap:wrap;padding:8px 16px 10px}
+.d1280 .snd-row.stack.look b{flex:1 0 100%}
 </style>
 <script>
 /* the panel hangs on its button: centred under it (above it in a call), never closer than 16 px to the frame's edge, the caret over the button's centre, the rows rolled as the scene says, the „mehr“ strip shown while rows follow; only the shown frames are touched */

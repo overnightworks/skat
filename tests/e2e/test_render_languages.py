@@ -52,6 +52,8 @@ FINDINGS_OF_A_RENDER = """(keys) => {
     const overflowing = [...document.body.querySelectorAll("*")]
         .filter((element) => [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim()))
         .filter((element) => !["auto", "scroll"].includes(getComputedStyle(element).overflowX))
+        // An ellipsis is a name the design clips to its box, as a long account name at a lobby card.
+        .filter((element) => getComputedStyle(element).textOverflow !== "ellipsis")
         // A one pixel box is a label only a screen reader reads.
         .filter((element) => element.clientWidth > 1 && element.scrollWidth > element.clientWidth)
         .map((element) => `${element.tagName.toLowerCase()}.${element.className} ${element.textContent.trim()}`);
@@ -163,10 +165,14 @@ def test_the_call_sign_in_page_hydrates_in_the_language_the_browser_asks_for(
 def test_the_start_page_reads_in_the_language_the_browser_asks_for(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
     form_factor: dict[str, Any],
     language: Language,
 ) -> None:
+    # An open table whose opener has the long name an account gets without a username: the lobby clips it to its plate.
+    opener = open_person()
+    open_table_with_options(opener, e2e_server, RawSession(e2e_server, member_of(opener)), {})
     person = record_page_errors(open_person(locale=language, **form_factor), page_errors)
 
     person.goto(f"{e2e_server.base_url}/")

@@ -1736,6 +1736,12 @@ body {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
 }
 
+/* While the first card waits for a word the leader holds its cards back, open ones as well as hidden. */
+.room .open.dim .open-row .card {
+    filter: brightness(0.5) saturate(0.55) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45))
+        drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+}
+
 .room .open-row .card + .card {
     margin-left: calc(var(--open-step) - var(--open-width));
 }
@@ -6616,6 +6622,24 @@ body {
 @media (max-width: 379px) {
     .room .copy.kontra {
         padding: 0 14px;
+    }
+}
+
+/* While the first card waits on the viewer's word, the key that says it and the key that gives it up stand side by side; on a phone the pair takes a row above the rest of the strip. */
+.room .kontra-keys {
+    display: flex;
+    gap: 10px;
+}
+
+@media (max-width: 899px) {
+    .room .actions:has(.kontra-keys) {
+        flex-wrap: wrap;
+    }
+
+    .room .kontra-keys {
+        flex: 1 0 100%;
+        justify-content: center;
+        gap: 8px;
     }
 }
 

@@ -4,7 +4,7 @@ from dataclasses import replace
 from skat.engine.bock import BockRounds
 from skat.engine.cards import Card, Rank, Suit
 from skat.engine.deal import Deal, Position, positions_from
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
@@ -286,6 +286,28 @@ class Table:
     def played_out(self, game):
         for played in game:
             self.accepted(played)
+
+
+def contested_auction(table):
+    """Middlehand bids 18, forehand holds, middlehand bids 20, both opponents pass; middlehand declares Herz Hand."""
+
+    def step(position, suffix, **body):
+        answer = table.act(suffix, table.at[position], body=body)
+        assert answer.status_code == 200, answer.text
+
+    step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, value=18)
+    step(FOREHAND, TABLE_AUCTION_HOLD_SUFFIX)
+    step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, value=20)
+    step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
+    step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
+    step(
+        MIDDLEHAND,
+        TABLE_DECLARING_DECLARE_SUFFIX,
+        game="herz",
+        hand=True,
+        ouvert=False,
+        announcement="none",
+    )
 
 
 def three_pass(table):

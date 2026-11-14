@@ -130,7 +130,8 @@ def _add_play_card(router: APIRouter, tables: TableService, presence: Presence) 
         """Play one card from the caller's own hand on its turn at a Skat table.
 
         The card comes from the legal cards of read_table or your table's view. Refused: a stale version, a card that is
-        not legal, not the caller's turn, an opponent's give-up waiting for the declarer.
+        not legal, not the caller's turn, a first card that waits for a Kontra word or its decline, an opponent's
+        give-up waiting for the declarer.
         """
         command = PlayCardCommand(
             command_id=body.command_id, table_id=table_id, version=body.version, card=card_of(body)
