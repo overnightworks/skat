@@ -4,7 +4,7 @@ import socket
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 import psycopg
 from alembic import command
@@ -13,6 +13,9 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.engine import make_url
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
@@ -85,11 +88,15 @@ def _current_revisions(connection: Connection) -> tuple[str, ...]:
     return MigrationContext.configure(connection).get_current_heads()
 
 
+def _at_head(current: Sequence[str]) -> bool:
+    return tuple(current) == (_head_revision(),)
+
+
 def require_head(engine: Engine) -> None:
     head = _head_revision()
     with engine.connect() as connection:
         current = _current_revisions(connection)
-    if current != (head,):
+    if not _at_head(current):
         raise DatabaseNotAtHeadError(
             f"The database is at revision {', '.join(current) or 'none'} but Skat needs {head}; run skat migrate first"
         )
@@ -144,4 +151,4 @@ def database_health(engine: Engine) -> DatabaseHealth:
         current = asyncio.run(_read_current_revisions(engine))
     except psycopg.Error, TimeoutError:
         return DatabaseHealth(serves_queries=False, at_head=False)
-    return DatabaseHealth(serves_queries=True, at_head=current == (_head_revision(),))
+    return DatabaseHealth(serves_queries=True, at_head=_at_head(current))

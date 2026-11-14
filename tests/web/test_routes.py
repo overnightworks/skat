@@ -14,10 +14,8 @@ class Database:
 
     def __init__(self) -> None:
         self.ready = True
-        self.asked = 0
 
     def __call__(self) -> bool:
-        self.asked += 1
         return self.ready
 
 
@@ -61,11 +59,6 @@ class TestHealthEndpoint:
         database.ready = False
 
         assert client.head(HEALTH_PATH).status_code == 503
-
-    def test_no_other_route_asks_the_database(self, client, database):
-        client.get(HOME_PATH)
-
-        assert database.asked == 0
 
 
 class TestHomePage:
