@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from skat.engine.cards import DECK
 from skat.engine.deal import SEATS, positions_from, seats_from
 from skat.engine.declaration import TakeSkat
+from skat.engine.ramsch import RamschPlayedOut
 from skat.engine.schieberamsch import Put
 from skat.engine.tricks import PlayedOut
 
@@ -12,7 +13,6 @@ if TYPE_CHECKING:
 
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.engine.ramsch import RamschPlayedOut
     from skat.engine.tricks import CompletedTrick
     from skat.table.records import TableRecord
 
@@ -30,13 +30,15 @@ class GameCards:
     """Every card of one finished game, by seat: the ten each seat was dealt, in deck order, the skat as dealt, the
     cards put away (a declarer's two, or each Schieberamsch seat's), in seat then deck order, and the
     tricks in the order played, each with its cards from the lead on. A trick an early end interrupted has fewer than
-    three cards.
+    three cards. `laid_skat` is the skat as it lay when a Schieberamsch's play began, which is what the Ramsch counted
+    for the skat's takers; it is empty when it lay as dealt.
     """
 
     hands: tuple[tuple[Card, ...], tuple[Card, ...], tuple[Card, ...]]
     skat: tuple[Card, ...]
     put_away: tuple[SeatedCard, ...]
     tricks: tuple[tuple[SeatedCard, ...], ...]
+    laid_skat: tuple[Card, ...] = ()
 
 
 def in_deck_order(cards: Iterable[Card]) -> tuple[Card, ...]:
@@ -71,6 +73,10 @@ def _put_away_of(
     return puts
 
 
+def _laid_skat_of(played: PlayedOut | RamschPlayedOut) -> tuple[Card, ...]:
+    return in_deck_order(played.skat) if isinstance(played, RamschPlayedOut) else ()
+
+
 def game_cards_of(table: TableRecord, played: PlayedOut | RamschPlayedOut) -> GameCards:
     """The cards of the hand that ends with `played`, read before the table forgets its steps: the hands and the skat
     as dealt, whatever a Schieberamsch's takes and puts did to them, the engine's completed tricks, and the cards of a
@@ -87,9 +93,11 @@ def game_cards_of(table: TableRecord, played: PlayedOut | RamschPlayedOut) -> Ga
         SeatedCard(seats[play.position], play.card) for play in table.progress.plays[3 * len(played.tricks) :]
     )
     tricks = tuple(_seated_trick(trick, seats) for trick in played.tricks)
+    skat, laid_skat = in_deck_order(deal.skat), _laid_skat_of(played)
     return GameCards(
         hands=(first, second, third),
-        skat=in_deck_order(deal.skat),
+        skat=skat,
+        laid_skat=() if laid_skat == skat else laid_skat,
         put_away=put_away_in_order(_put_away_of(table, played, seats)),
         tricks=(*tricks, interrupted) if interrupted else tricks,
     )

@@ -120,6 +120,7 @@ export const GIVEN_UP_SHEET: GameSheet = {
             { seat: 3, cards: [{ card: { suit: "karo", rank: "seven" }, state: "played" }] },
         ],
         skat: [HERZ_TEN, PIK_SEVEN],
+        laid_skat: [],
         put_away: [{ seat: 2, card: HERZ_TEN }],
         tricks: [
             {
@@ -168,6 +169,7 @@ export const RAMSCH_SHEET: GameSheet = {
             { seat: 3, cards: [{ card: KREUZ_JACK, state: "played" }] },
         ],
         skat: [HERZ_TEN],
+        laid_skat: [],
         put_away: [{ seat: 3, card: HERZ_TEN }],
         tricks: [
             {
@@ -183,6 +185,12 @@ export const RAMSCH_SHEET: GameSheet = {
         ],
         skat_takers: [1],
     },
+};
+
+// A Schieberamsch in which seat 3 took the skat and put back the cards that went to seat 1 with the last trick.
+export const SCHIEBERAMSCH_SHEET: GameSheet = {
+    ...RAMSCH_SHEET,
+    cards: { ...(RAMSCH_SHEET.cards as NonNullable<GameSheet["cards"]>), skat: [PIK_SEVEN], laid_skat: [HERZ_TEN] },
 };
 
 // A game finished before games kept their cards.

@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from skat.engine.bidding import Pass
+from skat.engine.cards import DECK
 from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
@@ -354,6 +355,11 @@ class TestTheCardsOfTheGame:
         ("second", "cards"),
         [
             pytest.param(replace(END_OVER, cards=a_game_cards()), a_game_cards(), id="an-entry-with-cards"),
+            pytest.param(
+                replace(END_OVER, cards=a_game_cards(laid_skat=DECK[0:2])),
+                a_game_cards(laid_skat=DECK[0:2]),
+                id="an-entry-with-a-skat-as-it-lay",
+            ),
             pytest.param(END_OVER, None, id="an-entry-without-cards"),
         ],
     )

@@ -150,6 +150,14 @@ class TestARamsch:
 
         assert sheet_of(a_ramsch_entry(), cards, options).cards.skat_takers == skat_takers
 
+    def test_a_schieberamsch_s_skat_takers_get_the_skat_as_it_lay_not_the_skat_as_dealt(self):
+        options = TableOptions(ramsch=RamschSetting(RamschOccasion.PASSED_IN, RECKONING))
+        laid = (HERZ_SEVEN, KARO_JACK)
+
+        cards = sheet_of(a_ramsch_entry(), cards_of(put_away=(), laid_skat=laid), options).cards
+
+        assert (cards.skat, cards.laid_skat, cards.skat_takers) == (cards_of().skat, laid, (1,))
+
 
 class TestAGameStoredWithoutCards:
     def test_has_its_count_and_no_cards(self):

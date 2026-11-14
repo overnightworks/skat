@@ -23,6 +23,8 @@ export type SheetCount =
     | { kind: "ramsch"; seats: { seat: SheetSeat; points: number; most: boolean }[] };
 export type SheetCards = {
     skat: Card[];
+    // The skat as it lay when a Schieberamsch's play began, empty when it lay as dealt.
+    laidSkat: Card[];
     // A Ramsch's skat counted for these seats.
     skatTakers: SheetSeat[];
     putAway: { by: SheetSeat; cards: Card[] }[];
@@ -115,6 +117,7 @@ function cardsView(
     const putBy = [...new Set(cards.put_away.map((put) => put.seat))];
     return {
         skat: cards.skat,
+        laidSkat: cards.laid_skat,
         skatTakers: cards.skat_takers.map(seatOf),
         putAway: putBy.map((seat) => ({
             by: seatOf(seat),

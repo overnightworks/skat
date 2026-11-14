@@ -1961,12 +1961,12 @@ const declaredSheet=(d,g)=>{const row=GAMES_PLAYED.find(r=>r[0]===g.n),declarer=
       +pointsNamed([own,theirs],[P[declarer].n,viewerSide])+handRows(handsOf(game,tricks,declarer)),
     tricks:tricks.map((t,i)=>trickRow(t,i,(k)=>k===declarer?'decl':'opp')).join(''),
     end:g.ended?`<div class="trick ended"><span class="nr">${I.flag}</span><b>Aufgegeben</b>${takerDot(g.ended.by)}</div>`:''});};
-/* a Ramsch: every seat counts its own points, the most lose them; the skat as it lay goes to the last trick */
+/* a Ramsch: every seat counts its own points, the most lose them; the skat as it lay at the end goes to the last trick */
 const ramschSheet=(d,g)=>{const row=LIST_WITH_RAMSCH.find(r=>r.n===g.n),{tricks,eyes,lastTaker}=playedOut(g),most=Math.max(...Object.values(eyes));
   if(eyes[row.k]!==most||most*2**row.pushes!==-row.score)throw new Error(`game ${g.n}: ${P[row.k].n} has ${eyes[row.k]} points, the row says ${row.score}`);
   return gameSheet(d,{n:g.n,count:11,row:ramschRow(row),
-    top:`<div class="skatline"><span class="pair"><small>Skat</small>${minis(g.aside)}${takerDot(lastTaker)}</span>${(g.puts||[]).map(p=>`<span class="pair"><small>Gedrückt</small>${takerDot(p.by)}${minis(p.cards)}</span>`).join('')}</div>`
-      +`<div class="seat-eyes">${PLAY_ORDER.map(k=>`<span class="${eyes[k]===most?'most':''}">${takerDot(k)}${eyes[k]}</span>`).join('')}</div>`+handRows(handsOf(g,tricks,null)),
+    top:`<div class="skatline"><span class="pair"><small>Skat</small>${minis(g.skat)}${g.puts?'':takerDot(lastTaker)}</span>${(g.puts||[]).map(p=>`<span class="pair"><small>Gedrückt</small>${takerDot(p.by)}${minis(p.cards)}</span>`).join('')}${g.puts?`<span class="pair"><small>Skat am Ende</small>${minis(g.aside)}${takerDot(lastTaker)}</span>`:''}</div>`
+      +`<div class="seat-eyes">${PLAY_ORDER.map(k=>`<span class="${eyes[k]===most?'most':''}">${takerDot(k)}${eyes[k]}</span>`).join('')}</div>`+handRows(handsOf(g,tricks,g.puts?g.puts[0].by:null)),
     tricks:tricks.map((t,i)=>trickRow(t,i,()=>'')).join('')});};
 /* game 18: you play Pik with the ♣ jack, take the ♥ ten and the ♠ seven from the skat and put away the ♣ queen and the ♦ eight */
 const SUIT_GAME={n:18,trump:'s',lead:'felix',skat:['10h','7s'],aside:['Dc','8d'],tricks:[
@@ -1975,15 +1975,15 @@ const SUIT_GAME={n:18,trump:'s',lead:'felix',skat:['10h','7s'],aside:['Dc','8d']
 /* game 12: Anna's Grand without the two black jacks; after three tricks she gives up */
 const EARLY_GAME={n:12,trump:'',lead:'felix',skat:['Dc','9h'],aside:['Dc','Ks'],ended:{by:'anna'},tricks:[
   ['Bc','Bd','Bs'],['As','7s','10s'],['Ac','7c','10c']]};
-/* game 8: Felix takes the skat and puts the ♦ seven and eight back, Anna and Ben push it on unseen, and Ben loses with 86 points */
-const RAMSCH_GAME={n:8,trump:'',lead:'felix',aside:['7d','8d'],puts:[{by:'felix',cards:['7d','8d']}],tricks:[
+/* game 8: Felix takes the skat (the ♠ nine and the ♥ seven), keeps both and puts the ♦ seven and eight back, Anna and Ben push it on unseen, and Ben loses with 86 points */
+const RAMSCH_GAME={n:8,trump:'',lead:'felix',skat:['9s','7h'],aside:['7d','8d'],puts:[{by:'felix',cards:['7d','8d']}],tricks:[
   ['Kh','10h','Ah'],['Ac','9c','10c'],['As','Ds','Ks'],['Kd','Kc','9d'],['Bc','Bd','10s'],
   ['7s','9s','8s'],['Bs','10d','Bh'],['7c','Dc','8c'],['Ad','Dd','7h'],['Dh','9h','8h']]};
 const GAME_SCENES=[
   ['game-tricks','Ein Spiel mit seinen Stichen',(d)=>seriesPlay(d,'')+declaredSheet(d,SUIT_GAME),
     ['Ein Tipp auf eine Zeile der Liste öffnet das Spiel an derselben Stelle: oben die Zeile, darunter der Skat und die zwei gedrückten Karten und die Augen gegen die 61; dann die zehn Stiche mit Nummer, den drei Karten in der gespielten Reihenfolge, unter jeder der Anfangsbuchstabe dessen, der sie legte, dem Punkt dessen, der stach, und seinen Augen. Stiche des Alleinspielers in seiner Farbe, die der Gegner in ihrer; der Pfeil führt zurück zur Liste, und nur die Stiche rollen.']],
   ['game-ramsch','Ein Ramsch mit seinen Stichen',(d)=>seriesPlay(d,'')+ramschSheet(d,RAMSCH_GAME),
-    ['Ein Ramsch hat keinen Alleinspieler: oben stehen die Augen jedes Stuhls, die meisten hervorgehoben, und der Skat mit dem Punkt dessen, der den letzten Stich und damit den Skat bekam.']],
+    ['Ein Ramsch hat keinen Alleinspieler: oben stehen die Augen jedes Stuhls, die meisten hervorgehoben, und der Skat, wie er ausgeteilt wurde. Nahm ein Spieler ihn, stehen darunter seine zwei gedrückten Karten und der Skat am Ende mit dem Punkt dessen, der den letzten Stich und damit den Skat bekam; blieb der Skat liegen, trägt der Skat selbst diesen Punkt.']],
   ['game-ended','Ein Spiel, früh zu Ende',(d)=>seriesPlay(d,'')+declaredSheet(d,EARLY_GAME),
     ['Ein Spiel, das früh endete, zeigt die gespielten Stiche und darunter, wie es endete, mit dem Gesicht dessen, der es beendete; die Augen zählen nur, was gespielt wurde.']],
 ];

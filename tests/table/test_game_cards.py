@@ -117,3 +117,20 @@ class TestARamsch:
         assert cards.skat == SKAT
         assert cards.hands == DEALT
         assert cards.tricks == in_threes(plays)
+
+    def test_a_schieberamsch_keeps_the_skat_as_it_lay_beside_the_skat_as_dealt(self):
+        taken = (DECK[0], DECK[1])
+        steps = (Take(FOREHAND), Put(FOREHAND, taken), Push(MIDDLEHAND), Push(REARHAND))
+        table = table_in(HandProgress(auction=all_pass(), pushing=steps), ramsch_options(PushingRule.JACKS_STAY))
+
+        ended, _ = a_ramsch_ended_by_its_last_card(table)
+
+        assert (ended.game_list[-1].cards.skat, ended.game_list[-1].cards.laid_skat) == (SKAT, taken)
+
+    def test_a_schieberamsch_whose_taker_put_the_dealt_skat_back_keeps_no_skat_as_it_lay(self):
+        steps = (Take(FOREHAND), Put(FOREHAND, SKAT), Push(MIDDLEHAND), Push(REARHAND))
+        table = table_in(HandProgress(auction=all_pass(), pushing=steps), ramsch_options(PushingRule.JACKS_MAY_GO))
+
+        ended, _ = a_ramsch_ended_by_its_last_card(table)
+
+        assert ended.game_list[-1].cards.laid_skat == ()

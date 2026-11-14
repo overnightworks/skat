@@ -59,11 +59,13 @@ class SheetTrick:
 @dataclass(frozen=True)
 class SheetCards:
     """Every card of a game: the hands and the skat as dealt, what each seat put away and the tricks; `skat_takers` are
-    the seats a Ramsch's skat counted for, none for a declared game.
+    the seats a Ramsch's skat counted for, none for a declared game, and `laid_skat` the skat they got when it lay
+    otherwise than as dealt, else empty.
     """
 
     hands: tuple[SheetHand, ...]
     skat: tuple[Card, ...]
+    laid_skat: tuple[Card, ...]
     put_away: tuple[SeatedCard, ...]
     tricks: tuple[SheetTrick, ...]
     skat_takers: tuple[int, ...]
@@ -184,13 +186,14 @@ def _sheet_cards_of(table: TableRecord, entry: GameEntry, cards: GameCards) -> S
         message = f"table {table.id.value} lists a Ramsch without playing one"
         raise RuntimeError(message)
     takers = (
-        _skat_takers_of(tricks, cards.skat, ramsch.reckoning.scoring)
+        _skat_takers_of(tricks, cards.laid_skat or cards.skat, ramsch.reckoning.scoring)
         if isinstance(entry, RamschEntry) and ramsch is not None
         else ()
     )
     return SheetCards(
         hands=tuple(_hand_of(seat, cards, played, put_away) for seat in SEATS),
         skat=cards.skat,
+        laid_skat=cards.laid_skat,
         put_away=cards.put_away,
         tricks=tricks,
         skat_takers=takers,

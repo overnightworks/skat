@@ -122,6 +122,7 @@ export type Words = {
     readonly "table.sheetFailed": string;
     readonly "table.sheetNoCards": string;
     readonly "table.sheetSkat": string;
+    readonly "table.sheetSkatLaid": string;
     readonly "table.sheetPutAway": string;
     readonly "table.sheetSkatTaker": (gaps: { readonly name: string }) => string;
     readonly "table.sheetPutBy": (gaps: { readonly name: string }) => string;
@@ -650,6 +651,7 @@ export const words: Words = {
     "table.sheetFailed": "Das Spiel lässt sich nicht laden",
     "table.sheetNoCards": "Für dieses Spiel sind keine Karten gespeichert.",
     "table.sheetSkat": "Skat",
+    "table.sheetSkatLaid": "Skat am Ende",
     "table.sheetPutAway": "Gedrückt",
     "table.sheetSkatTaker": (gaps: { readonly name: string }) => "Der Skat ging an " + gaps.name,
     "table.sheetPutBy": (gaps: { readonly name: string }) => "Gedrückt von " + gaps.name,

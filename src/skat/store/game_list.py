@@ -171,12 +171,13 @@ game_list = Table(
 
 
 class Pile(StrEnum):
-    """Where a stored card lay: in a seat's hand as dealt, in the skat as dealt, put away by a seat or in a
-    trick.
+    """Where a stored card lay: in a seat's hand as dealt, in the skat as dealt, in the skat as it lay when a
+    Schieberamsch's play began, put away by a seat or in a trick.
     """
 
     HAND = "hand"
     SKAT = "skat"
+    LAID_SKAT = "laid-skat"
     PUT_AWAY = "put-away"
     TRICK = "trick"
 
@@ -185,6 +186,7 @@ _CARDS_PER_TRICK: Final = len(Position)
 _SHAPE_OF_A_PILE: Final = {
     Pile.HAND: "seat IS NOT NULL AND trick IS NULL AND place IS NULL",
     Pile.SKAT: "seat IS NULL AND trick IS NULL AND place IS NULL",
+    Pile.LAID_SKAT: "seat IS NULL AND trick IS NULL AND place IS NULL",
     Pile.PUT_AWAY: "seat IS NOT NULL AND trick IS NULL AND place IS NULL",
     Pile.TRICK: "seat IS NOT NULL AND trick IS NOT NULL AND place IS NOT NULL",
 }
@@ -229,6 +231,16 @@ game_cards = Table(
         "rank",
         unique=True,
         postgresql_where=text(_DEALT_PILES),
+    ),
+    Index(
+        "game_cards_each_card_laid_once",
+        "table_id",
+        "series_number",
+        "ordinal",
+        "suit",
+        "rank",
+        unique=True,
+        postgresql_where=text(f"pile = '{Pile.LAID_SKAT.value}'"),
     ),
     Index(
         "game_cards_each_card_played_once",
@@ -389,6 +401,7 @@ def _card_rows_of(cards: GameCards) -> list[dict[str, object]]:
     return [
         *(_card_row(Pile.HAND, card, seat) for seat, hand in enumerate(cards.hands, start=1) for card in hand),
         *(_card_row(Pile.SKAT, card) for card in cards.skat),
+        *(_card_row(Pile.LAID_SKAT, card) for card in cards.laid_skat),
         *(_card_row(Pile.PUT_AWAY, put.card, put.seat) for put in cards.put_away),
         *(
             _card_row(Pile.TRICK, played.card, played.seat, number, place)
@@ -402,6 +415,7 @@ def _cards_of(rows: Iterable[Row[tuple[object, ...]]]) -> GameCards:
     """The game's cards from its rows, each pile in the order the record keeps it."""
     hands: dict[int, list[Card]] = {seat: [] for seat in SEATS}
     skat: list[Card] = []
+    laid_skat: list[Card] = []
     put_away: list[SeatedCard] = []
     tricks: dict[int, list[SeatedCard]] = {}
     for row in sorted(rows, key=lambda each: (each.trick or 0, each.place or 0)):
@@ -411,9 +425,11 @@ def _cards_of(rows: Iterable[Row[tuple[object, ...]]]) -> GameCards:
                 hands[row.seat].append(card)
             case Pile.SKAT:
                 skat.append(card)
+            case Pile.LAID_SKAT:
+                laid_skat.append(card)
             case Pile.PUT_AWAY:
                 put_away.append(SeatedCard(row.seat, card))
-            case _:  # the trick pile, the last of the four
+            case _:  # the trick pile, the last of the five
                 tricks.setdefault(row.trick, []).append(SeatedCard(row.seat, card))
     first, second, third = (in_deck_order(hands[seat]) for seat in SEATS)
     return GameCards(
@@ -421,6 +437,7 @@ def _cards_of(rows: Iterable[Row[tuple[object, ...]]]) -> GameCards:
         skat=in_deck_order(skat),
         put_away=put_away_in_order(put_away),
         tricks=tuple(tuple(tricks[number]) for number in sorted(tricks)),
+        laid_skat=in_deck_order(laid_skat),
     )
 
 

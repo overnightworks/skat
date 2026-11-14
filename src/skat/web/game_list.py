@@ -108,6 +108,7 @@ class SheetTrickAnswer(BaseModel):
 class SheetCardsAnswer(BaseModel):
     hands: list[SheetHandAnswer]
     skat: list[CardAnswer]
+    laid_skat: list[CardAnswer]
     put_away: list[SeatedCardAnswer]
     tricks: list[SheetTrickAnswer]
     skat_takers: list[int]
@@ -160,6 +161,7 @@ def _cards_answer_of(cards: SheetCards) -> SheetCardsAnswer:
     return SheetCardsAnswer(
         hands=[_sheet_hand_answer_of(hand) for hand in cards.hands],
         skat=[card_answer_of(card) for card in cards.skat],
+        laid_skat=[card_answer_of(card) for card in cards.laid_skat],
         put_away=[_seated_answer_of(put) for put in cards.put_away],
         tricks=[_sheet_trick_answer_of(trick) for trick in cards.tricks],
         skat_takers=list(cards.skat_takers),
@@ -232,11 +234,12 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         It has its `number` in the list, the `seat_names` stored with the game (null for a game stored before names
         were kept), what it `count`ed (the declarer's and the opponents' card points and how it `ended`, or each
         seat's points in a Ramsch) and its `cards`, or null for a game finished before games kept their cards. The
-        cards are every seat's `hands` as dealt with what became of each card (`played`, `put-away` or
-        `unplayed`), the `skat` as dealt, the cards `put_away` with the seat that put each away, and the `tricks` in
-        the order played, each with its cards from the lead on, its `taker_seat` and its card `points`, both null for
-        a trick an early end interrupted. A Ramsch names the seats its skat counted for in `skat_takers`. A 404 means
-        no table has this id or its list has no game of this number; a table that has ended has no game.
+        cards are every seat's `hands` as dealt with what became of each card (`played`, `put-away` or `unplayed`),
+        the `skat` as dealt, the cards `put_away` with the seat that put each away, and the `tricks` in the order
+        played, each with its cards from the lead on, its `taker_seat` and its card `points`, both null for a trick an
+        early end interrupted. A Ramsch names the seats its skat counted for in `skat_takers`, and the skat as it lay
+        when a Schieberamsch's take changed it in `laid_skat`, else empty. A 404 means no table has this id or its
+        list has no game of this number; a table that has ended has no game.
         """
 
         response.headers["Cache-Control"] = "no-store"

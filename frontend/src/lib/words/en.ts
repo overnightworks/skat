@@ -185,6 +185,7 @@ const translated = {
     "table.sheetFailed": "The game cannot be loaded",
     "table.sheetNoCards": "No cards are stored for this game.",
     "table.sheetSkat": "Skat",
+    "table.sheetSkatLaid": "Skat at the end",
     "table.sheetPutAway": "Put away",
     "table.sheetSkatTaker": (gaps: { readonly name: string }) => "The skat went to " + gaps.name,
     "table.sheetPutBy": (gaps: { readonly name: string }) => "Put away by " + gaps.name,

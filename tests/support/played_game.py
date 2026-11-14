@@ -2,7 +2,7 @@ from dataclasses import replace
 
 from skat.engine.bidding import Bid, Pass
 from skat.engine.bock import BockRounds
-from skat.engine.cards import DECK
+from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
@@ -182,13 +182,19 @@ def with_agents(record: TableRecord, *seats: int, owner_account: str | None = No
     return replace(record, chairs=chairs)
 
 
-def a_game_cards() -> GameCards:
+def a_game_cards(laid_skat: tuple[Card, ...] = ()) -> GameCards:
     """The cards of a played-out game on the deck as dealt to seats 1 to 3: seat 1 put the skat away, and each trick
-    is led by seat 1 and holds the next card of each hand.
+    is led by seat 1 and holds the next card of each hand; `laid_skat` is the skat as it lay when it lay otherwise.
     """
     hands = (DECK[0:10], DECK[10:20], DECK[20:30])
     skat = DECK[30:32]
     tricks = tuple(
         tuple(SeatedCard(seat, hand[number]) for seat, hand in enumerate(hands, start=1)) for number in range(10)
     )
-    return GameCards(hands=hands, skat=skat, put_away=tuple(SeatedCard(1, card) for card in skat), tricks=tricks)
+    return GameCards(
+        hands=hands,
+        skat=skat,
+        put_away=tuple(SeatedCard(1, card) for card in skat),
+        tricks=tricks,
+        laid_skat=laid_skat,
+    )

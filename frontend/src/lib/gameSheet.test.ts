@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gameSheetView, hasEleventhRow } from "#lib/gameSheet.ts";
-import { GIVEN_UP_SHEET, OLD_SHEET, RAMSCH_SHEET } from "#lib/series.fixtures.ts";
+import { GIVEN_UP_SHEET, OLD_SHEET, RAMSCH_SHEET, SCHIEBERAMSCH_SHEET } from "#lib/series.fixtures.ts";
 import { words } from "#lib/words.ts";
 
 describe("gameSheetView of a declared game", () => {
@@ -103,6 +103,19 @@ describe("gameSheetView of a Ramsch", () => {
     it("names the seat the skat counted for and draws no side for a trick", () => {
         expect(view.cards?.skatTakers.map((seat) => seat.name)).toEqual(["Anna"]);
         expect(view.cards?.tricks[0]?.side).toBe("none");
+    });
+
+    it("lays no skat as it lay beside the dealt skat when the skat lay as dealt", () => {
+        expect(view.cards?.laidSkat).toEqual([]);
+    });
+
+    it("keeps the skat as it lay, which the skat counted for, apart from the skat as dealt after a take", () => {
+        const schieberamsch = gameSheetView(SCHIEBERAMSCH_SHEET);
+
+        expect([schieberamsch.cards?.skat, schieberamsch.cards?.laidSkat]).toEqual([
+            [{ suit: "pik", rank: "seven" }],
+            [{ suit: "herz", rank: "ten" }],
+        ]);
     });
 
     it("draws a Ramsch with no stored cards by its count alone", () => {

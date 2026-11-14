@@ -507,6 +507,10 @@ msgctxt "table.sheetSkat"
 msgid "Skat"
 msgstr ""
 
+msgctxt "table.sheetSkatLaid"
+msgid "Skat am Ende"
+msgstr ""
+
 msgctxt "table.sheetPutAway"
 msgid "Gedrückt"
 msgstr ""

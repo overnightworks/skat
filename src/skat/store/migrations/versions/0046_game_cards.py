@@ -1,5 +1,6 @@
-"""A finished game keeps its cards, one row per card and pile: the hands as dealt, the skat as dealt, the
-cards put away and the tricks with the seat and place of each card. A game finished before has no rows.
+"""A finished game keeps its cards, one row per card and pile: the hands as dealt, the skat as dealt and as it lay
+when a Schieberamsch's play began, the cards put away and the tricks with the seat and place of each card. A game
+finished before has no rows.
 """
 
 import sqlalchemy as sa
@@ -10,7 +11,7 @@ down_revision = "0045"
 
 SUITS = ("diamonds", "hearts", "spades", "clubs")
 RANKS = ("seven", "eight", "nine", "ten", "jack", "queen", "king", "ace")
-PILES = ("hand", "skat", "put-away", "trick")
+PILES = ("hand", "skat", "laid-skat", "put-away", "trick")
 GAME = ("table_id", "series_number", "ordinal")
 
 
@@ -37,6 +38,7 @@ def upgrade() -> None:
             "CASE pile"
             " WHEN 'hand' THEN seat IS NOT NULL AND trick IS NULL AND place IS NULL"
             " WHEN 'skat' THEN seat IS NULL AND trick IS NULL AND place IS NULL"
+            " WHEN 'laid-skat' THEN seat IS NULL AND trick IS NULL AND place IS NULL"
             " WHEN 'put-away' THEN seat IS NOT NULL AND trick IS NULL AND place IS NULL"
             " WHEN 'trick' THEN seat IS NOT NULL AND trick IS NOT NULL AND place IS NOT NULL END",
             name="game_cards_a_pile_names_what_it_is_in",
@@ -48,6 +50,13 @@ def upgrade() -> None:
         [*GAME, "suit", "rank"],
         unique=True,
         postgresql_where=sa.text("pile IN ('hand', 'skat')"),
+    )
+    op.create_index(
+        "game_cards_each_card_laid_once",
+        "game_cards",
+        [*GAME, "suit", "rank"],
+        unique=True,
+        postgresql_where=sa.text("pile = 'laid-skat'"),
     )
     op.create_index(
         "game_cards_each_card_played_once",

@@ -24,6 +24,10 @@ def a_skat_card(**changed):
     return card_row(**{"pile": "skat", "seat": None, "trick": None, "place": None, **changed})
 
 
+def a_laid_skat_card(**changed):
+    return card_row(**{"pile": "laid-skat", "seat": None, "trick": None, "place": None, **changed})
+
+
 def a_put_away_card(**changed):
     return card_row(**{"pile": "put-away", "trick": None, "place": None, **changed})
 
@@ -50,6 +54,7 @@ class TestFromAGameListedAtTheRevisionBefore:
         [
             pytest.param(a_hand_card(), id="a-hand-card"),
             pytest.param(a_skat_card(), id="a-skat-card"),
+            pytest.param(a_laid_skat_card(), id="a-laid-skat-card"),
             pytest.param(a_put_away_card(), id="a-put-away-card"),
             pytest.param(card_row(), id="a-trick-card"),
         ],
@@ -69,6 +74,7 @@ class TestFromAGameListedAtTheRevisionBefore:
             pytest.param(a_hand_card(seat=None), id="a-hand-card-without-its-seat"),
             pytest.param(a_hand_card(trick=1), id="a-hand-card-in-a-trick"),
             pytest.param(a_skat_card(seat=1), id="a-skat-card-of-a-seat"),
+            pytest.param(a_laid_skat_card(seat=1), id="a-laid-skat-card-of-a-seat"),
             pytest.param(a_put_away_card(seat=None), id="a-put-away-card-without-its-seat"),
             pytest.param(card_row(place=None), id="a-trick-card-without-its-place"),
             pytest.param(card_row(ordinal=2), id="a-card-of-no-game"),
@@ -83,6 +89,7 @@ class TestFromAGameListedAtTheRevisionBefore:
         [
             pytest.param(a_hand_card(seat=1), a_hand_card(seat=2), id="a-card-dealt-twice"),
             pytest.param(a_hand_card(), a_skat_card(), id="a-card-dealt-to-a-seat-and-the-skat"),
+            pytest.param(a_laid_skat_card(), a_laid_skat_card(), id="a-card-laid-twice"),
             pytest.param(card_row(), card_row(trick=2), id="a-card-played-twice"),
             pytest.param(card_row(), card_row(rank="king"), id="a-place-taken-twice"),
             pytest.param(a_put_away_card(), a_put_away_card(), id="a-card-put-away-twice-by-a-seat"),
@@ -100,6 +107,8 @@ class TestFromAGameListedAtTheRevisionBefore:
             pytest.param(a_hand_card(), card_row(), id="a-dealt-card-played"),
             pytest.param(a_put_away_card(seat=1), a_put_away_card(seat=2), id="a-card-put-away-by-two-seats"),
             pytest.param(a_skat_card(), a_put_away_card(), id="a-skat-card-put-away-again"),
+            pytest.param(a_skat_card(), a_laid_skat_card(), id="a-dealt-skat-card-laid-again"),
+            pytest.param(a_hand_card(), a_laid_skat_card(), id="a-dealt-card-laid-in-the-skat"),
         ],
     )
     def test_accepts_a_card_in_two_piles_and_a_card_put_away_by_two_seats(self, migrated, first, second):

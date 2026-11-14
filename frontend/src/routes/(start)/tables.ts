@@ -764,6 +764,7 @@ export type GameSheet = {
     cards: {
         hands: { seat: number; cards: { card: Card; state: CardState }[] }[];
         skat: Card[];
+        laid_skat: Card[];
         put_away: SeatedCard[];
         tricks: { number: number; cards: SeatedCard[]; taker_seat: number | null; points: number | null }[];
         skat_takers: number[];

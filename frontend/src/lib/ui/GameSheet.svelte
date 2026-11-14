@@ -34,6 +34,12 @@
     <span class={["dot", `seat-${String(seat.seat)}`]} role="img" aria-label={label ?? seat.name}>{seat.initial}</span>
 {/snippet}
 
+{#snippet skatTakers(takers: readonly SheetSeat[])}
+    {#each takers as taker (taker.seat)}
+        {@render dot(taker, words["table.sheetSkatTaker"]({ name: taker.name }))}
+    {/each}
+{/snippet}
+
 {#snippet minis(cards: readonly Card[])}
     <span class="minis">
         {#each cards as card (`${card.suit}-${card.rank}`)}
@@ -79,9 +85,7 @@
                 <span class="pair">
                     <small>{words["table.sheetSkat"]}</small>
                     {@render minis(cards.skat)}
-                    {#each cards.skatTakers as taker (taker.seat)}
-                        {@render dot(taker, words["table.sheetSkatTaker"]({ name: taker.name }))}
-                    {/each}
+                    {#if cards.laidSkat.length === 0}{@render skatTakers(cards.skatTakers)}{/if}
                 </span>
                 {#if cards.putAway.length > 0}
                     <span class="puts">
@@ -95,6 +99,13 @@
                                 {@render minis(put.cards)}
                             </span>
                         {/each}
+                    </span>
+                {/if}
+                {#if cards.laidSkat.length > 0}
+                    <span class="pair">
+                        <small>{words["table.sheetSkatLaid"]}</small>
+                        {@render minis(cards.laidSkat)}
+                        {@render skatTakers(cards.skatTakers)}
                     </span>
                 {/if}
             </div>
