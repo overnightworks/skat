@@ -13,6 +13,10 @@ version, the asks due for a seat the table waits for (`skat.table.asking`) and t
 the signal that a table changed tells it after the commit; once the lease has lapsed the view is neither listed nor
 read, so an open stream gets no more of it until the agent calls again.
 
+The window beside the view holds the acts of the table's latest hand (`skat.table.acts`), each told as the view
+tells it: a seat as its number, a card, a game and a word by the tokens of `skat.web.tables`. The commit that adds
+an act tells the window and the view; the revision of the view alone moves with the asks and the nudges.
+
 The asks follow from when the table began to wait, which `AskClock` (`skat.web.waits`) keeps in this process only.
 Every touch of it runs on the event loop's thread, in the read of the view, which also schedules the pulses that tell
 the awaited agent at each deadline; the signal of a commit, which runs on a worker thread, touches neither.
@@ -33,6 +37,7 @@ from agents.member import (
     AcceptInvitationRefused,
     Invitation,
     MemberStanding,
+    PlaceEntry,
     PlaceRef,
     PlaceView,
     PlaceWindow,
@@ -49,11 +54,23 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import HTTPConnection
 from webauth.middleware.bearer_gate import resource_person
 
+from skat.engine.cards import Card
+from skat.engine.declaration import Announcement, Declaration
+from skat.engine.kontra import Word
+from skat.table.acts import Act, ActKind
 from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, asks_due, revision_of
+from skat.table.game_list import RamschResultView, ResultView
 from skat.table.member_place import Acceptance, MembershipState
 from skat.table.nudging import own_nudges
 from skat.web.mcp import token_carries_agent_facts
-from skat.web.tables import actor_for, answer_of
+from skat.web.tables import (
+    ANNOUNCEMENT_TOKENS,
+    GAME_TOKENS,
+    RANK_TOKENS,
+    SUIT_TOKENS,
+    actor_for,
+    answer_of,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Collection, Iterable
@@ -62,7 +79,7 @@ if TYPE_CHECKING:
     from agents.tools import JsonObject
 
     from skat.table.member_place import TableStanding
-    from skat.table.member_view import MemberView, ViewSignal
+    from skat.table.member_view import MemberActs, MemberView, ViewSignal
     from skat.table.moment import TableMoment
     from skat.table.records import TableId
     from skat.table.service import TableService
@@ -70,6 +87,7 @@ if TYPE_CHECKING:
     from skat.web.waits import AskClock
 
 TABLE_PLACE_KIND: Final = "table"
+NOBODY_NAME: Final = "Table"
 
 logger = structlog.get_logger()
 
@@ -106,6 +124,83 @@ def _listed(standings: Iterable[Standing]) -> tuple[str, ...]:
     return (STANDING_URI, *(place_window_uri(place) for place in served), *(place_view_uri(place) for place in served))
 
 
+_VALUE_TEXTS: Final = {
+    ActKind.DEAL: "deals a new hand, seat {} is the dealer",
+    ActKind.BID: "bids {}",
+    ActKind.HOLD: "holds {}",
+}
+_FIXED_TEXTS: Final = {
+    ActKind.PASS: "passes",
+    ActKind.TAKE_SKAT: "takes the skat",
+    ActKind.PUT_BACK: "puts two cards back",
+    ActKind.PUSH: "pushes the skat on unseen",
+    ActKind.GIVE_UP: "gives up the game",
+    ActKind.THROW_DOWN: "throws the cards down",
+    ActKind.PASSED_IN: "ends the hand: all passed",
+    ActKind.ABORTED: "ends the hand: the seats voted to abort it",
+}
+
+
+def _card_text(card: Card) -> str:
+    return f"{SUIT_TOKENS[card.suit].value} {RANK_TOKENS[card.rank].value}"
+
+
+def _declaration_text(declaration: Declaration) -> str:
+    parts = ["declares", GAME_TOKENS[declaration.kind].value]
+    parts += ["hand"] if declaration.hand else []
+    parts += ["ouvert"] if declaration.ouvert else []
+    if declaration.announcement is not Announcement.NONE:
+        parts.append(ANNOUNCEMENT_TOKENS[declaration.announcement].value)
+    return " ".join(parts)
+
+
+def _result_text(result: ResultView | RamschResultView) -> str:
+    if isinstance(result, RamschResultView):
+        scores = ", ".join(f"seat {each.seat} {each.score:+d}" for each in result.seats)
+        return f"ends the Ramsch, the scores are {scores}"
+    outcome = "won" if result.won else "lost"
+    declared = GAME_TOKENS[result.declaration.kind].value
+    return f"ends the game: seat {result.declarer_seat} {outcome} {declared} for {result.score}"
+
+
+def _text_of(act: Act) -> str:
+    """The act in words: by what it adds to its kind when it adds something, else by its kind alone."""
+    match act.detail:
+        case int():
+            return _VALUE_TEXTS[act.kind].format(act.detail)
+        case Card():
+            return f"plays {_card_text(act.detail)}"
+        case Declaration():
+            return _declaration_text(act.detail)
+        case Word():
+            return f"says {act.detail.value}"
+        case ResultView() | RamschResultView():
+            return _result_text(act.detail)
+        case _:
+            return _FIXED_TEXTS[act.kind]
+
+
+def _entry_of(act: Act, member: MemberActs) -> PlaceEntry:
+    """The act as a line of the member's window: written, an act, and its own when the member's seat took it."""
+    return PlaceEntry(
+        seq=act.seq,
+        kind=act.kind.value,
+        name=NOBODY_NAME if act.seat is None else f"Seat {act.seat}",
+        text=_text_of(act),
+        own=act.seat == member.own_seat,
+        act=True,
+    )
+
+
+def window_of(member: MemberActs, table_id: str) -> PlaceWindow:
+    """The window of a table for the member: its acts as lines, the generation being the table."""
+    return PlaceWindow(
+        generation=table_id,
+        starts_at=member.starts_at,
+        entries=tuple(_entry_of(act, member) for act in member.acts),
+    )
+
+
 class MemberStandings:
     """What an agent reads: its standing at the tables and the view of each table it sits at, and nothing for a token
     without agent facts.
@@ -137,7 +232,7 @@ class MemberStandings:
             return MemberStanding(standings=await self._standings(principal))
         window_place = place_ref_from_window_uri(uri)
         if window_place is not None and window_place.kind == TABLE_PLACE_KIND:
-            return await self._empty_window(principal, window_place)
+            return await self._window(principal, window_place)
         place = place_ref_from_view_uri(uri)
         if place is None or place.kind != TABLE_PLACE_KIND:
             return None
@@ -156,14 +251,10 @@ class MemberStandings:
             state=answer_of(member.view, nudges).model_dump(mode="json"),
         )
 
-    async def _empty_window(self, principal: Principal, place: PlaceRef) -> PlaceWindow | None:
-        """The window of a table the principal holds a chair at: the table says what happened in its view, so the
-        window holds no line.
-        """
-        member = await run_in_threadpool(
-            self._tables.member_view, principal.sub, place.id, self._presence.connected(place.id)
-        )
-        return None if member is None else PlaceWindow(generation=place.id, starts_at=1, entries=())
+    async def _window(self, principal: Principal, place: PlaceRef) -> PlaceWindow | None:
+        """The window of a table the principal holds a chair at: the acts of the table's latest hand."""
+        member = await run_in_threadpool(self._tables.member_acts, principal.sub, place.id)
+        return None if member is None else window_of(member, place.id)
 
     def _asks_due(self, principal: Principal, uri: str, table_id: str, member: MemberView) -> int:
         """The asks due for the reader at the version it read, and, on the first read of a version the table waits
@@ -300,11 +391,12 @@ def nudge_signal(changes: ResourceChanges, issuer: str) -> Callable[[str, str], 
 
 def view_signal(changes: ResourceChanges, issuer: str) -> ViewSignal:
     """The signal `TableService` tells after a commit that raised a table's version: each agent seated there is told
-    on the view's URI.
+    on the window's URI and on the view's, both of which the commit has made readable.
     """
 
     def tell(table_id: TableId, accounts: frozenset[str]) -> None:
         place = PlaceRef(kind=TABLE_PLACE_KIND, id=table_id.value)
+        _pulse_uri(changes, issuer, accounts, place_window_uri(place))
         _pulse_uri(changes, issuer, accounts, place_view_uri(place))
 
     return tell

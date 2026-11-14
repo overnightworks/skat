@@ -11,7 +11,7 @@ from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any
 
 import httpx2
-from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
+from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_window_uri
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.client.subscriptions import SubscriptionLost
@@ -102,6 +102,15 @@ class ListeningAgent:
                 return invited[0]
         message = "no wake of the stream brought an invitation"
         raise AssertionError(message)
+
+    def listed(self) -> list[str]:
+        """The resources the agent lists now."""
+        return [each.uri for each in self._run(self._client.list_resources()).resources]
+
+    def window(self, table_id: str) -> dict[str, Any]:
+        """The window of the table the agent sits at, as the server answers it."""
+        uri = place_window_uri(PlaceRef(kind="table", id=table_id))
+        return json.loads(self._run(self._client.read_resource(uri)).contents[0].text)
 
     def accept(self, standing: dict[str, Any]) -> dict[str, Any]:
         invitation = standing["invitation"]
