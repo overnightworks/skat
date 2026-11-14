@@ -1,8 +1,0 @@
-claim_id = "ebb1240b1653472d84397deefc93e02d"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "0b8c73ad9537737cd67f31f3f1bffd62d0173d1d"
-branch = "claude/issue-543-move-quality-to-v0-16-0-and-record-the-l"
-scope = [".github/workflows/ci.yml", ".github/workflows/code-scanning.yml", ".github/workflows/release.yml", "quality/baseline.toml"]
-opened_commit = "01ef005191b946e11923430169fd145028b8c981"
-whole_reason = "One pin bump across the three workflows plus the baseline table it records; the bump and the table only work together."
