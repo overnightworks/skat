@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from skat.engine.cards import Card
     from skat.engine.ramsch import RamschScoring
     from skat.table.game_cards import GameCards, SeatedCard
-    from skat.table.game_list import GameEntry
+    from skat.table.game_list import GameEntry, ListEntry
     from skat.table.records import TableRecord
 
 # A Ramsch's tricks name seats, and the engine's Ramsch rules name positions: any one-to-one pairing of the two
