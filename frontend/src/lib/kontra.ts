@@ -63,7 +63,7 @@ export function firstCardWait(table: Table): FirstCardWait | null {
     return {
         owes: (seat) => kontra.first_card_waits_on.includes(seat),
         marks: new Map(kontra.first_card_declined.map((seat) => [seat, "declined"])),
-        held: (seat) => seat !== undefined && seat === playing?.turn_seat,
+        held: (seat) => seat !== undefined && seat === playing.turn_seat,
         initials: chairs.map((chair) => (chair.occupant_name as string).slice(0, 1)),
         text: words["kontra.firstCardWaits"]({ names: listFormat.format(names) }),
     };
