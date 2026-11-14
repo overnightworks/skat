@@ -4654,11 +4654,11 @@ body {
 }
 
 .room[data-motion="dezent"] .result .reck .dl.count {
-    animation: count 0.7s ease-out 0.35s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+    animation: count 0.7s ease-out 0.3s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 .room[data-motion="verspielt"] .result .reck .dl.count {
-    animation: count 1.1s ease-out 0.5s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+    animation: count 1.1s ease-out 0.3s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes count {
