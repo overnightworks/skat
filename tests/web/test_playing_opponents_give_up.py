@@ -195,11 +195,11 @@ class TestAnOpponentGivesUp:
         with everyones_streams(herz_hand) as streams:
             gives_up(herz_hand, FOREHAND)
             for _, stream in streams:
-                next(stream)
+                next(frame for frame in stream if frame["hand"]["playing"]["give_up"] is not None)
 
             accepted_end(herz_hand)
 
-            frames = [next(stream) for _, stream in streams]
+            frames = [next(frame for frame in stream if frame["result"] is not None) for _, stream in streams]
         assert [cards_in(frame) for frame in frames] == [set()] * 4
         assert {str(frame["result"]) for frame in frames} == {str(frames[0]["result"])}
         assert ending_of(frames[0]["result"]) == ("given-up", SEAT[FOREHAND])
@@ -585,7 +585,10 @@ class TestWhatTheViewsOfferWhileItWaits:
     def test_every_stream_carries_the_request_with_no_card_or_word_to_play_and_then_the_no(self, kontra_table):
         with everyones_streams(kontra_table) as streams:
             gives_up(kontra_table, FOREHAND)
-            waiting = [(position, next(stream)) for position, stream in streams]
+            waiting = [
+                (position, next(frame for frame in stream if frame["hand"]["playing"]["give_up"] is not None))
+                for position, stream in streams
+            ]
 
             assert decline(kontra_table).status_code == 200
             playing_on = [(position, next(stream)) for position, stream in streams]

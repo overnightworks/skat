@@ -490,6 +490,22 @@ def test_picking_a_sound_set_sounds_its_card_once_and_says_so_only_while_the_sou
     assert page_errors == []
 
 
+@pytest.mark.parametrize("sound_on", [True, False], ids=["sound-on", "sound-off"])
+def test_releasing_the_volume_slider_sounds_one_card_while_the_sound_is_on(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], sound_on: bool
+) -> None:
+    watcher = open_at(open_person, page_errors, table, **PHONE)
+    if not sound_on:
+        switch_the_sound(watcher, on=False)
+    open_the_panel(watcher)
+
+    volume_of(watcher).focus()
+    watcher.keyboard.press("End")
+
+    assert len(voices_started(watcher)) == (VOICES_OF_ONE_CARD if sound_on else 0)
+    assert page_errors == []
+
+
 @pytest.mark.parametrize(("soundset", "kinds"), [(STAMMTISCH, STAMMTISCH_KINDS), (FUNKELN, FUNKELN_KINDS)])
 def test_a_played_card_sounds_in_the_picked_set(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], soundset: str, kinds: list[str]
