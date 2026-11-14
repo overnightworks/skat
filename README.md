@@ -43,7 +43,7 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_STREAMS_PER_ACCOUNT` | `12` | How many lobby and table streams one account may hold open at once; one more gets a 429 before anything is held open, and closing a stream frees its slot. A positive whole number. |
 | `SKAT_HOST` | `0.0.0.0` | The listen address. |
 | `SKAT_PORT` | `8080` | The listen port. |
-| `LOG_LEVEL` | `info` | The level of every log line, read by [logline](https://github.com/overnightworks/logline): `debug`, `info`, `warning`, `error` or `critical`; Skat refuses to start on anything else. |
+| `LOG_LEVEL` | `info` | The root logging threshold, read by [logline](https://github.com/overnightworks/logline): `debug`, `info`, `warning`, `error` or `critical`, in any letter case; Skat refuses to start on anything else. Request lines stay at `info` whatever it is set to. |
 | `SERVICE_VERSION` | unset | The `version` of every log line. The image sets it to its release. |
 
 ## Release
