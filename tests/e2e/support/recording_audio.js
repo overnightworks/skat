@@ -36,6 +36,9 @@
         Q = new Param();
         threshold = new Param();
         ratio = new Param();
+        knee = new Param();
+        attack = new Param();
+        release = new Param();
         next = undefined;
 
         connect(next) {

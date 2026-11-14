@@ -21,8 +21,12 @@ interface Graph {
     readonly noise: AudioBuffer;
 }
 
-const COMPRESSOR_THRESHOLD_DECIBELS = -14;
-const COMPRESSOR_RATIO = 6;
+/** Above this level the limiter takes over; the sets play below it, so it acts on voices that land on top of each other. */
+export const LIMITER_THRESHOLD_DECIBELS = -1;
+const LIMITER_KNEE_DECIBELS = 0;
+const LIMITER_RATIO = 20;
+const LIMITER_ATTACK_SECONDS = 0.001;
+const LIMITER_RELEASE_SECONDS = 0.1;
 const NOISE_SECONDS = 1.5;
 const TONE_ATTACK_SECONDS = 0.004;
 const NOISE_ATTACK_SECONDS = 0.003;
@@ -54,11 +58,14 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
         if (environment.navigator.audioSession) environment.navigator.audioSession.type = "ambient";
         const context = new environment.AudioContext();
         const master = context.createGain();
-        const compressor = context.createDynamicsCompressor();
-        compressor.threshold.value = COMPRESSOR_THRESHOLD_DECIBELS;
-        compressor.ratio.value = COMPRESSOR_RATIO;
-        master.connect(compressor);
-        compressor.connect(context.destination);
+        const limiter = context.createDynamicsCompressor();
+        limiter.threshold.value = LIMITER_THRESHOLD_DECIBELS;
+        limiter.knee.value = LIMITER_KNEE_DECIBELS;
+        limiter.ratio.value = LIMITER_RATIO;
+        limiter.attack.value = LIMITER_ATTACK_SECONDS;
+        limiter.release.value = LIMITER_RELEASE_SECONDS;
+        master.connect(limiter);
+        limiter.connect(context.destination);
         return { context, master, noise: noiseBuffer(context) };
     }
 

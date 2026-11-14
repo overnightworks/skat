@@ -25,6 +25,9 @@ class FakeNode {
     readonly Q = new FakeParam();
     readonly threshold = new FakeParam();
     readonly ratio = new FakeParam();
+    readonly knee = new FakeParam();
+    readonly attack = new FakeParam();
+    readonly release = new FakeParam();
     type = "";
     buffer: unknown;
     startedAt: number | undefined;
@@ -297,14 +300,24 @@ describe("a browser that cannot make sound", () => {
 describe("the master", () => {
     beforeEachReset();
 
-    it("runs through a compressor to the destination", async () => {
+    it("runs through a limiter to the destination", async () => {
         await readyPort();
         const context = onlyContext();
 
         const [master] = context.gains;
-        const [compressor] = context.compressors;
-        expect(master?.connectedTo).toEqual([compressor]);
-        expect(compressor?.connectedTo).toEqual([context.destination]);
+        const [limiter] = context.compressors;
+        expect(master?.connectedTo).toEqual([limiter]);
+        expect(limiter?.connectedTo).toEqual([context.destination]);
+    });
+
+    it("limits hard from a level below full scale on, without lowering what stays under it", async () => {
+        await readyPort();
+
+        const [limiter] = onlyContext().compressors;
+
+        expect(limiter?.threshold.value).toBeLessThan(0);
+        expect(limiter?.knee.value).toBe(0);
+        expect(limiter?.ratio.value).toBeGreaterThanOrEqual(10);
     });
 
     it("takes the loudness from the context's time on", async () => {
