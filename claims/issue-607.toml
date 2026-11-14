@@ -1,0 +1,8 @@
+claim_id = "004d7d08f8184714b19b3efb3ce2fa95"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "f34153e626a06b0716da90e397f83141ffb927a6"
+branch = "claude/issue-607-strandbar-a-seated-person-switches-the-w"
+scope = ["docs/ARCHITECTURE.md", "docs/mockups/table.html", "frontend/src", "src/skat", "tests"]
+opened_commit = "51e324808d0b3f7336595ca9c36bb884d67a769c"
+whole_reason = "One table-wide style crosses store, table, web and page in one vertical slice; a split would land a field no page reads or a look no table stores."
