@@ -17,7 +17,7 @@ from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets
 from tests.e2e.support.raw_http import RawSession
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -29,6 +29,14 @@ TURN_CHAIR = ".chair.turn"
 command_numbers = itertools.count(1)
 
 type WireCard = tuple[str, str]
+
+
+def leave_the_last_trick_on_the_felt(pages: Iterable[Page]) -> None:
+    """Every page asks for „liegen lassen“, so a finished trick lies until the next lead, as a reload shows it."""
+    for person in pages:
+        person.evaluate("localStorage.setItem('skat.settings', JSON.stringify({ lastTrick: 'stay' }))")
+        person.reload()
+        expect(person.locator(".chair")).to_have_count(3)
 
 
 class AddressedSession(RawSession):
@@ -71,11 +79,7 @@ class PlayingTable:
             expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(self.seat_at["forehand"]))
 
     def leave_the_last_trick_on_the_felt(self) -> None:
-        """Every page asks for „liegen lassen“, so a finished trick lies until the next lead, as a reload shows it."""
-        for person in self.everyone:
-            person.evaluate("localStorage.setItem('skat.settings', JSON.stringify({ lastTrick: 'stay' }))")
-            person.reload()
-            expect(person.locator(".chair")).to_have_count(3)
+        leave_the_last_trick_on_the_felt(self.everyone)
 
     @staticmethod
     def seat_of(person: Page) -> int:
