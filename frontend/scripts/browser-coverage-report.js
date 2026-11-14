@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { decode } from "@jridgewell/sourcemap-codec";
-import { CoverageReport } from "monocart-coverage-reports";
+import { CoverageReport, Util } from "monocart-coverage-reports";
 
 const [rawDirectory, buildDirectory, reportDirectory] = process.argv.slice(2);
 const bundlePath = (entry) => path.join(buildDirectory, new URL(entry.url).pathname);
@@ -22,22 +22,32 @@ const report = new CoverageReport({
     outputFilter: { [GENERATED_WORDS]: false, "frontend/src/**": true, "**/*": false },
 });
 
-// Chromium reports a script's coverage without its text, and the bundles carry no pointer to their hidden maps.
-async function withBundleAndMap(entry) {
-    const bundle = bundlePath(entry);
-    return {
-        ...entry,
-        source: await readFile(bundle, "utf8"),
-        sourceMap: JSON.parse(await readFile(`${bundle}.map`, "utf8")),
-    };
-}
-
+// Chromium reports a script's coverage without its text, and the bundles carry no pointer to their hidden maps. Thousands
+// of raw files name the same few bundles, each under the port of its own test server, and the report keeps a full copy
+// of source and map per added entry, which exhausts the heap. So the coverage of each bundle is merged first, and the
+// report gets each bundle once.
+const entriesByBundle = new Map();
+const MERGE_EVERY = 64;
+const mergeEntries = (entries) => ({ ...entries[0], ...Util.mergeV8Coverage(entries) });
 for (const file of await readdir(rawDirectory)) {
     const { result } = JSON.parse(await readFile(path.join(rawDirectory, file), "utf8"));
-    const bundles = result.filter(hasMap);
-    if (bundles.length > 0) {
-        await report.add(await Promise.all(bundles.map(withBundleAndMap)));
+    for (const entry of result.filter(hasMap)) {
+        // The merge drops the counts of a function without block coverage from its blocks; as one root block, such a
+        // function counts for all of its blocks, as it does for the report.
+        for (const fn of entry.functions) fn.isBlockCoverage = true;
+        const bundle = bundlePath(entry);
+        const entries = [...(entriesByBundle.get(bundle) ?? []), entry];
+        entriesByBundle.set(bundle, entries.length < MERGE_EVERY ? entries : [mergeEntries(entries)]);
     }
+}
+
+async function mergedWithBundleAndMap([bundle, entries]) {
+    const [source, sourceMap] = await Promise.all([readFile(bundle, "utf8"), readFile(`${bundle}.map`, "utf8")]);
+    return { ...mergeEntries(entries), source, sourceMap: JSON.parse(sourceMap) };
+}
+
+if (entriesByBundle.size > 0) {
+    await report.add(await Promise.all([...entriesByBundle].map(mergedWithBundleAndMap)));
 }
 await report.generate();
 
