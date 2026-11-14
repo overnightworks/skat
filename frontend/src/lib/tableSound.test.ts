@@ -4,6 +4,7 @@ import { MOTION_SETS, type MotionSetId } from "./motionSets.ts";
 import type { AudioPort, Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundSetId } from "./soundSets.ts";
 import { createTableSound, type TableSound } from "./tableSound.ts";
+import { everyRecording } from "./voice.ts";
 import type { Card, Chair, Table } from "../routes/(start)/tables.ts";
 
 const OWN_SEAT = 1;
@@ -169,18 +170,21 @@ describe("the sound of a card", () => {
 describe("cues without a sound", () => {
     it.each([
         { name: "an auction that ended", cues: [{ kind: "auction-ended" } satisfies Cue] },
+        { name: "a give-up refused", cues: [{ kind: "give-up-refused", seats: [OTHER_SEAT] } satisfies Cue] },
         { name: "no cue at all", cues: [] },
     ])("start no voice for $name", ({ cues }) => {
         const port = new FakePort();
 
-        soundAt(port).forCues(cues, tableSeenFrom(OWN_SEAT));
+        soundAt(port, { motion: "verspielt", voice: true }).forCues(cues, tableSeenFrom(OWN_SEAT));
 
         expect(port.played).toEqual([]);
+        expect(port.spoken).toEqual([]);
     });
 });
 
 const BID_EIGHTEEN: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "bid", value: 18 } };
 const PASS: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "pass", value: null } };
+const KNOCKS_OF_LEISE = 6;
 const KONTRA_SAID: Cue = { kind: "word-said", said: { seat: OTHER_SEAT, word: "kontra" } };
 
 describe("the sound of a bid", () => {
@@ -381,6 +385,11 @@ describe("the page's sound", () => {
             stop: vi.fn(),
         });
         class StubContext {
+            static made: StubContext[] = [];
+            constructor() {
+                StubContext.made.push(this);
+            }
+
             state = "suspended";
             currentTime = 0;
             sampleRate = 4;
@@ -395,6 +404,7 @@ describe("the page's sound", () => {
             createOscillator = node;
             createBiquadFilter = node;
             createBuffer = (_channels: number, length: number) => ({ getChannelData: () => new Float32Array(length) });
+            decodeAudioData = vi.fn(() => Promise.resolve({}));
             resume = () => {
                 this.state = "running";
                 return Promise.resolve();
@@ -402,6 +412,7 @@ describe("the page's sound", () => {
         }
         const listeners = new Map<string, () => void>();
         vi.stubGlobal("window", {
+            fetch: vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(1)) })),
             AudioContext: StubContext,
             navigator: {},
             document: { hidden: false },
@@ -410,7 +421,14 @@ describe("the page's sound", () => {
             addEventListener: (type: string, handler: () => void) => listeners.set(type, handler),
             removeEventListener: (type: string) => listeners.delete(type),
         });
-        return { started, listeners, masterLoudness: () => gains[0]?.setValueAtTime.mock.calls[0]?.[0] as number };
+        const decodes = (): number =>
+            StubContext.made.reduce((all, one) => all + one.decodeAudioData.mock.calls.length, 0);
+        return {
+            started,
+            listeners,
+            decodes,
+            masterLoudness: () => gains[0]?.setValueAtTime.mock.calls[0]?.[0] as number,
+        };
     }
 
     it("sounds a card only after the first tap and none before it", async () => {
@@ -465,6 +483,35 @@ describe("the page's sound", () => {
         soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
 
         expect(started).toHaveLength(voices);
+    });
+
+    it("says a word of Kontra from its recording once the voice is stored on and the recordings are fetched", async () => {
+        const { started, listeners, decodes } = stubBrowser({
+            reducedMotion: true,
+            stored: JSON.stringify({ voice: true }),
+        });
+        const { armSound, soundForCues } = await import("./tableSound.ts");
+        armSound();
+        listeners.get("keydown")?.();
+        await vi.waitFor(() => {
+            expect(decodes()).toBe(everyRecording().length);
+        });
+        const before = started.length;
+
+        soundForCues([KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+
+        expect(started.length - before).toBe(KNOCKS_OF_LEISE + 1);
+    });
+
+    it("fetches no recording while the voice is off", async () => {
+        const { listeners, decodes } = stubBrowser({ reducedMotion: true });
+        const { armSound, prepareVoice } = await import("./tableSound.ts");
+        armSound();
+        listeners.get("keydown")?.();
+
+        await prepareVoice();
+
+        expect(decodes()).toBe(0);
     });
 
     async function loudnessOfStored(stored: object): Promise<number> {

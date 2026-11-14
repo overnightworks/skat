@@ -11,6 +11,7 @@ A recording that exists is kept; `--again` records every key anew.
 """
 
 import argparse
+import http.client
 import json
 import os
 import subprocess
@@ -37,7 +38,7 @@ SPEECH_PATH: Final = "/v1/audio/speech"
 SPEECH_MODEL: Final = "qwen3-tts-1.7b"
 SPEECH_VOICE: Final = "ryan"
 SPEECH_FORMAT: Final = "wav"
-SPEECH_TIMEOUT_SECONDS: Final = 120
+SPEECH_TIMEOUT_SECONDS: Final = 60
 SERVICE_VARIABLE: Final = "SPEECH_URL"
 WORKLOAD_TOKEN_VARIABLE: Final = "SPEECH_WORKLOAD_TOKEN"  # noqa: S105 - the name of the variable, not a secret
 PERSON_TOKEN_VARIABLE: Final = "SPEECH_PERSON_TOKEN"  # noqa: S105 - the name of the variable, not a secret
@@ -47,7 +48,14 @@ FILTER: Final = (
     "silenceremove=start_periods=1:start_threshold=-50dB,areverse,"
     "loudnorm=I=-20:TP=-2:LRA=7"
 )
-ENCODER_ARGUMENTS: Final = ("-ac", "1", "-ar", "44100", "-codec:a", "libmp3lame", "-b:a", "48k")
+MP3_BITS_PER_SECOND: Final = 48_000
+ENCODER_ARGUMENTS: Final = ("-ac", "1", "-ar", "44100", "-codec:a", "libmp3lame", "-b:a", f"{MP3_BITS_PER_SECOND}")
+# The model now and then runs on past its text for seconds; a spoken line is about 0.1 s a letter after the silence is
+# trimmed, so a recording past this many seconds per letter, and a second more, is made again.
+SECONDS_PER_LETTER_LIMIT: Final = 0.15
+SECONDS_LIMIT_BASE: Final = 1.5
+ATTEMPTS: Final = 5
+BITS_PER_BYTE: Final = 8
 
 
 @dataclass(frozen=True)
@@ -115,6 +123,28 @@ def encode(wav: bytes) -> bytes:
     return done.stdout
 
 
+def seconds_of(recording: bytes) -> float:
+    """The length of an MP3 this script encoded, which has a constant bit rate."""
+    return len(recording) * BITS_PER_BYTE / MP3_BITS_PER_SECOND
+
+
+def recording_of(
+    line: SpokenLine, speak_line: Callable[[SpokenLine], bytes], encode_wav: Callable[[bytes], bytes]
+) -> bytes:
+    """A recording of the line that does not run on past its text, made again while it does."""
+    longest = SECONDS_LIMIT_BASE + SECONDS_PER_LETTER_LIMIT * len(line.text)
+    for _ in range(ATTEMPTS):
+        try:
+            recording = encode_wav(speak_line(line))
+        except OSError, http.client.HTTPException:
+            # A model that runs on is cut off by the service, which ends the answer or leaves it unfinished.
+            continue
+        if seconds_of(recording) <= longest:
+            return recording
+    message = f"record_voice: {line.language} {line.key} gave no recording within {longest:.1f} s in {ATTEMPTS} tries"
+    raise SystemExit(message)
+
+
 def record(
     lines: Sequence[SpokenLine],
     *,
@@ -128,7 +158,7 @@ def record(
         if line.path.exists() and not again:
             continue
         line.path.parent.mkdir(parents=True, exist_ok=True)
-        line.path.write_bytes(encode_wav(speak_line(line)))
+        line.path.write_bytes(recording_of(line, speak_line, encode_wav))
         made += 1
         print(f"{line.language} {line.key}: {line.text}")
     return made

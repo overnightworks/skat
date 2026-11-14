@@ -60,19 +60,13 @@ function momentOf(cue: Cue, table: Table): Moment | undefined {
 }
 
 // From the cue to the moment the table shows it: a card touches the felt, a bubble has sprung, the stamp hits.
-function landsAfter(cue: Cue, motion: MotionSet | undefined): number {
-    if (motion === undefined) return 0;
-    switch (cue.kind) {
-        case "card-played":
-            return motion.cardLandsSeconds;
-        case "bid-said":
-            return motion.bidSpringsSeconds;
-        case "word-said":
-            return motion.stampLandsSeconds;
-        default:
-            return 0;
-    }
-}
+const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
+    "card-played": (motion) => motion.cardLandsSeconds,
+    "bid-said": (motion) => motion.bidSpringsSeconds,
+    "word-said": (motion) => motion.stampLandsSeconds,
+    "auction-ended": () => 0,
+    "give-up-refused": () => 0,
+};
 
 export function createTableSound({
     port,
@@ -102,10 +96,15 @@ export function createTableSound({
         },
         forCues(cues, table) {
             const set = soundSet();
-            const voices = cues
-                .flatMap((cue) => {
+            const moving = motion();
+            const landings = cues.map((cue) => ({
+                cue,
+                lands: moving === undefined ? 0 : LANDS_AFTER[cue.kind](moving),
+            }));
+            const voices = landings
+                .flatMap(({ cue, lands }) => {
                     const moment = momentOf(cue, table);
-                    return moment === undefined ? [] : [{ ...moment, lands: landsAfter(cue, motion()) }];
+                    return moment === undefined ? [] : [{ ...moment, lands }];
                 })
                 .flatMap(({ moment, gain, lands }, index): Voice[] =>
                     set.voices[moment](gain).map((voice) => ({
@@ -115,10 +114,10 @@ export function createTableSound({
                 );
             if (voices.length > 0) sound.play(voices);
             if (!voiceOn()) return;
-            for (const cue of cues) {
+            for (const { cue, lands } of landings) {
                 const key = voiceKeyOf(cue);
                 const url = key === undefined ? undefined : recording(key);
-                if (url !== undefined) sound.speak(url, landsAfter(cue, motion()));
+                if (url !== undefined) sound.speak(url, lands);
             }
         },
         async preview() {

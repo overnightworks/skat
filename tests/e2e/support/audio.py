@@ -45,3 +45,17 @@ def open_watcher(
 
 def tap(page: Page) -> None:
     page.keyboard.press("Shift")
+
+
+def recordings_started(page: Page) -> list[dict[str, Any]]:
+    """The recordings the page played on the stand-in in the order they started, with the path each came from."""
+    return page.evaluate("window.recordingsStarted")
+
+
+def wait_for_recordings_decoded(page: Page, count: int) -> None:
+    """Waits until the page has decoded `count` recordings, which is when its voice can say any word at once."""
+    page.wait_for_function("count => window.recordingsDecoded >= count", arg=count)
+
+
+def wait_for_recordings_started(page: Page, count: int) -> None:
+    page.wait_for_function("count => window.recordingsStarted.length >= count", arg=count)

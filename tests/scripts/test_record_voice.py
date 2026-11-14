@@ -1,5 +1,6 @@
 """Tests for the script that records the voice from the speech service."""
 
+import http.client
 import json
 from typing import TYPE_CHECKING
 
@@ -81,6 +82,50 @@ def test_a_run_with_again_records_every_key_anew(tmp_path: Path, monkeypatch: py
 
     assert made == len(lines)
     assert lines[0].path.read_bytes() == b"new"
+
+
+def test_a_recording_that_runs_on_past_its_text_is_made_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(record_voice, "RECORDINGS_DIRECTORY", tmp_path)
+    line = record_voice.SpokenLine("de", "voice.kontra", "Kontra")
+    seconds = [20.0, 1.0]
+    bytes_per_second = record_voice.MP3_BITS_PER_SECOND // record_voice.BITS_PER_BYTE
+
+    def speak(_: record_voice.SpokenLine) -> bytes:
+        return b"x" * round(seconds.pop(0) * bytes_per_second)
+
+    made = record_voice.record([line], again=False, speak_line=speak, encode_wav=lambda wav: wav)
+
+    assert made == 1
+    assert len(line.path.read_bytes()) == bytes_per_second
+
+
+def test_a_recording_the_service_cut_off_is_made_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(record_voice, "RECORDINGS_DIRECTORY", tmp_path)
+    line = record_voice.SpokenLine("de", "voice.kontra", "Kontra")
+    answers: list[bytes | Exception] = [http.client.IncompleteRead(b""), TimeoutError(), b"mp3"]
+
+    def speak(_: record_voice.SpokenLine) -> bytes:
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    record_voice.record([line], again=False, speak_line=speak, encode_wav=lambda wav: wav)
+
+    assert line.path.read_bytes() == b"mp3"
+
+
+def test_a_line_that_always_runs_on_stops_the_run_and_keeps_no_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(record_voice, "RECORDINGS_DIRECTORY", tmp_path)
+    line = record_voice.SpokenLine("de", "voice.kontra", "Kontra")
+    runaway = b"x" * (20 * record_voice.MP3_BITS_PER_SECOND // record_voice.BITS_PER_BYTE)
+
+    with pytest.raises(SystemExit, match=r"voice\.kontra"):
+        record_voice.record([line], again=False, speak_line=lambda _: runaway, encode_wav=lambda wav: wav)
+
+    assert not line.path.exists()
 
 
 def test_the_service_and_both_tokens_come_from_the_environment() -> None:
