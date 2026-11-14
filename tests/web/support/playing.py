@@ -294,8 +294,8 @@ def three_pass(table):
         table.passes(position)
 
 
-def with_pending(table, *rounds):
-    table.skat.store.tables[table.table_id] = replace(table.record, bock=BockRounds(rounds))
+def with_pending(table, *rounds, ramsch_games=0):
+    table.skat.store.tables[table.table_id] = replace(table.record, bock=BockRounds(rounds, ramsch_games))
 
 
 def bock_of(table):
