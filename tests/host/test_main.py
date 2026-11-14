@@ -2,8 +2,9 @@ import logging
 import secrets
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 
 from skat.host.main import create_database_engine, main, uvicorn_options
@@ -62,6 +63,26 @@ class TestMain:
             main(["serve"], run_server=server, build_directory=tmp_path / "build")
 
         assert server.runs == []
+
+    def test_the_served_app_answers_its_health_probe_from_the_database_it_serves(
+        self, server, configured_environment, database_url
+    ):
+        configured_environment(database_url)
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+        probe = TestClient(server.runs[0]["app"])
+        engine = create_store_engine(database_url)
+        before = probe.get("/health").status_code
+
+        with engine.begin() as connection:
+            head = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            connection.execute(text("UPDATE alembic_version SET version_num = 'older'"))
+        stale = probe.get("/health").status_code
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE alembic_version SET version_num = :head"), {"head": head})
+        after = probe.get("/health").status_code
+
+        engine.dispose()
+        assert (before, stale, after) == (200, 503, 200)
 
     def test_refuses_to_serve_a_database_that_is_not_at_head_and_starts_nothing(
         self, server, configured_environment, unmigrated_database_url

@@ -374,6 +374,7 @@ def create_app(
     chair_scheduler: Scheduler | None = None,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
+    database_ready: Callable[[], bool] = lambda: True,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
 
@@ -392,7 +393,7 @@ def create_app(
     presence = _presence(settings, tables, chair_clock, scheduler, wakes)
 
     app = _new_app(_serving(settings, tables, presence, scheduler, unplayed_sweep_seconds))
-    app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth))
+    app.include_router(create_router(page_build, sign_in_stores.sessions, sign_in_configs.web_auth, database_ready))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
     _include_table_routers(app, tables, page_build, presence, wakes, sign_in_stores.sessions, sign_in_configs.web_auth)
