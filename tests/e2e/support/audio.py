@@ -37,7 +37,15 @@ def playing_table(
 def open_watcher(
     open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **form_factor: object
 ) -> Page:
-    watcher = record_page_errors(open_person(**PHONE, **form_factor), page_errors)
+    """The table's watcher on a phone."""
+    return open_watcher_at(open_person, page_errors, table, **PHONE, **form_factor)
+
+
+def open_watcher_at(
+    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **context: object
+) -> Page:
+    """The table's watcher in a browser context of the caller's choosing."""
+    watcher = record_page_errors(open_person(**context), page_errors)
     watcher.goto(table.watcher.url)
     expect(watcher.locator(".chair")).to_have_count(3)
     return watcher
