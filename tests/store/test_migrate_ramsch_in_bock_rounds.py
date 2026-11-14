@@ -2,8 +2,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import create_store_engine, migrate
-from tests.support.migrations import only_row, run_in_transaction, upgrade_to
+from tests.support.migrations import migrated_from, only_row, run_in_transaction
 
 pytestmark = pytest.mark.postgres
 
@@ -12,25 +11,19 @@ RAMSCH_OPTIONS = "ramsch_scoring = 'points', ramsch_jungfrau = 'off', ramsch_dur
 
 class TestFromATableAndARuleSetWithRamschAtRevisionFortyOne:
     @pytest.fixture
-    def migrated(self, unmigrated_database_url):
-        engine = create_store_engine(unmigrated_database_url)
-        upgrade_to(engine, "0041")
-        with engine.begin() as connection:
-            connection.execute(
-                text(
-                    "INSERT INTO tables (id, version, ramsch_occasion, ramsch_scoring, ramsch_jungfrau,"
-                    " ramsch_durchmarsch) VALUES ('t', 3, 'passed-in', 'points', 'off', 'off')"
-                )
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO rule_sets (id, owner_account, name, ramsch_occasion, ramsch_scoring, ramsch_jungfrau,"
-                    " ramsch_durchmarsch) VALUES ('1', 'a', 'x', 'passed-in', 'points', 'off', 'off')"
-                )
-            )
-        migrate(engine)
-        yield engine
-        engine.dispose()
+    def migrated(self, unmigrated_engine):
+        return migrated_from(
+            unmigrated_engine,
+            "0041",
+            text(
+                "INSERT INTO tables (id, version, ramsch_occasion, ramsch_scoring, ramsch_jungfrau,"
+                " ramsch_durchmarsch) VALUES ('t', 3, 'passed-in', 'points', 'off', 'off')"
+            ),
+            text(
+                "INSERT INTO rule_sets (id, owner_account, name, ramsch_occasion, ramsch_scoring, ramsch_jungfrau,"
+                " ramsch_durchmarsch) VALUES ('1', 'a', 'x', 'passed-in', 'points', 'off', 'off')"
+            ),
+        )
 
     @pytest.mark.parametrize("table", ["tables", "rule_sets"])
     def test_keeps_the_stored_occasion(self, migrated, table):
