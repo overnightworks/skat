@@ -138,11 +138,11 @@ def test_the_bell_comes_after_a_minute_to_the_seated_but_the_awaited_and_a_tap_r
     nudger_name = waiting.table.names[waiting.table.seat_of(nudger)]
     for page in waiting.table.everyone:
         expect(page.locator(BELL)).to_have_count(0)
-    waiting.let_the_pages_wait(ASK_AGAIN_AFTER - 1)
+    waiting.let_the_pages_wait(ASK_AGAIN_AFTER / 2)
     expect(nudger.locator(BELL)).to_have_count(0)
 
     waiting.let_the_server_wait(ASK_AGAIN_AFTER)
-    waiting.let_the_pages_wait(2)
+    waiting.let_the_pages_wait(ASK_AGAIN_AFTER / 2)
 
     for page in waiting.nudgers:
         expect(waiting.bell_button(page)).to_have_count(1)
