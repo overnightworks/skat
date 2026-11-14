@@ -20,6 +20,7 @@ from skat.web.presence import Presence
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.seating import create_seating_router
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX
+from skat.web.style import TABLE_STYLE_SUFFIX
 from skat.web.tables import (
     AWAITING_TOKENS,
     POSITION_TOKENS,
@@ -767,6 +768,7 @@ class TestAnEmptyTableEnds:
             pytest.param(TABLE_NEW_SERIES_SUFFIX, {"series": 1}, id="new-series"),
             pytest.param(TABLE_SERIES_END_AGREE_SUFFIX, {}, id="series-end-agree"),
             pytest.param(TABLE_SERIES_END_REFUSE_SUFFIX, {}, id="series-end-refuse"),
+            pytest.param(TABLE_STYLE_SUFFIX, {"style": "strandbar"}, id="style"),
         ],
     )
     def test_a_command_at_the_ended_table_is_not_found_and_writes_nothing(self, server, ended, suffix, body):

@@ -630,6 +630,7 @@ class TestHandOnTheStream:
             "result",
             "series",
             "options",
+            "style",
             "bock",
             "ended",
             "opened_by_me",

@@ -102,9 +102,7 @@ def test_a_style_a_member_chose_reads_back_for_every_viewer_after_a_reload(servi
     created = service.create(OPENER, CreateTable(command_id="command-1"))
     assert created.style is TableStyle.KLASSIK
 
-    changed = service.change_style(
-        OPENER, StyleCommand("command-style", created.id, TableStyle.STRANDBAR), frozenset()
-    )
+    changed = service.change_style(OPENER, StyleCommand("command-style", created.id, TableStyle.STRANDBAR), frozenset())
 
     assert changed.refusal is None
     assert service.view(VISITOR, created.id, frozenset()).style is TableStyle.STRANDBAR

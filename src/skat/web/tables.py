@@ -15,7 +15,7 @@ from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field ty
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.records import Actor, CommandRefusal, EndReason, OccupantKind
+from skat.table.records import Actor, CommandRefusal, EndReason, OccupantKind, TableStyle
 from skat.table.service import CommandIdReusedError
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
 from skat.web.languages import LANGUAGE_VARY, language_of_request
@@ -349,6 +349,7 @@ class TableAnswer(BaseModel):
     result: Annotated[ResultAnswer | RamschResultAnswer, Field(discriminator="kind")] | None
     series: SeriesAnswer | None
     options: OptionsAnswer | None
+    style: TableStyle | None
     bock: BockAnswer | None
     ended: EndedAnswer | None
     opened_by_me: bool
@@ -536,6 +537,7 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
         result=result_answer_of(view.result),
         series=series_answer_of(view.series),
         options=None if view.options is None else options_answer_of(view.options),
+        style=view.style,
         bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
         ended=None
         if view.ended is None
