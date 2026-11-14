@@ -16,7 +16,7 @@ from skat.table.hand_abort import (
     decide_refuse_to_abort,
 )
 from skat.table.kontra import KONTRA_COMMAND, KontraCommand, decide_kontra, kontra_payload
-from skat.table.lobby import my_tables, open_tables, paused_tables
+from skat.table.lobby import LobbyReads
 from skat.table.member_place import (
     Acceptance,
     AcceptResult,
@@ -121,15 +121,14 @@ from skat.table.series_end import (
 )
 from skat.table.server_steps import ServerSteps
 from skat.table.transactions import DuplicateReceiptError
-from skat.table.views import CommandResult, PausedEntryView, TableView, view_of
+from skat.table.views import CommandResult, TableView, view_of
 
 if TYPE_CHECKING:
     import random
-    from collections.abc import Callable, Iterable, Mapping, Sequence
+    from collections.abc import Callable, Sequence
     from contextlib import AbstractContextManager
 
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
-    from skat.table.lobby import LobbyEntryView, OpenEntryView
     from skat.table.member_place import CallFacts
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
@@ -140,7 +139,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class TableService:
+class TableService(LobbyReads):
     """The table commands and views; every command is one transaction."""
 
     def __init__(
@@ -543,55 +542,6 @@ class TableService:
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         with self._transactions.begin() as transaction:
             return transaction.occupied_chairs()
-
-    def tables_held_by(self, account_id: str) -> tuple[TableId, ...]:
-        """The tables the account holds a chair at, each once, in id order; an unlocked read, so a candidate list."""
-        with self._transactions.begin() as transaction:
-            return tuple(held.table_id for held in transaction.tables_of(account_id))
-
-    def open_table_ids(self) -> tuple[TableId, ...]:
-        """The live open tables, in id order; an unlocked read, so a candidate list."""
-        with self._transactions.begin() as transaction:
-            return transaction.open_table_ids()
-
-    def my_tables(
-        self,
-        account_id: str,
-        held_ids: Iterable[TableId],
-        connected_by_table: Mapping[str, frozenset[str]],
-        hold_left_by_table: Mapping[str, Mapping[str, int]],
-        days: int,
-    ) -> tuple[LobbyEntryView, ...]:
-        return my_tables(
-            self._transactions,
-            self._live_leases(),
-            account_id,
-            held_ids,
-            connected_by_table,
-            hold_left_by_table,
-            days,
-        )
-
-    def open_tables(
-        self,
-        account_id: str,
-        listed_ids: Iterable[TableId],
-        connected_by_table: Mapping[str, frozenset[str]],
-        hold_left_by_table: Mapping[str, Mapping[str, int]],
-        days: int,
-    ) -> tuple[OpenEntryView, ...]:
-        return open_tables(
-            self._transactions,
-            self._live_leases(),
-            account_id,
-            listed_ids,
-            connected_by_table,
-            hold_left_by_table,
-            days,
-        )
-
-    def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
-        return paused_tables(self._transactions, self.tables_held_by(actor.account_id), actor.account_id, days)
 
     def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
         """Write the call as an invitation standing `lasting` from now, if the decision under the locks offers it."""

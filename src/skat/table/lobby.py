@@ -24,22 +24,20 @@ from skat.table.rules import (
 from skat.table.views import paused_entry_of, turn_seat_of
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
     from datetime import datetime
 
     from skat.table.member_view import MemberView
-    from skat.table.records import Chair, TableId, TableOptions
+    from skat.table.records import Actor, Chair, TableId, TableOptions
     from skat.table.transactions import PausedFacts, TableTransactions
     from skat.table.views import PausedEntryView
 
 __all__ = [
     "LobbyChairView",
     "LobbyEntryView",
+    "LobbyReads",
     "OpenChairView",
     "OpenEntryView",
-    "my_tables",
-    "open_tables",
-    "paused_tables",
 ]
 
 # A Kontra word is a question in a running hand as the give-up is, so both share a rank.
@@ -127,88 +125,108 @@ class LobbyEntryView:
     chairs: tuple[LobbyChairView, ...]
 
 
-def my_tables(
-    transactions: TableTransactions,
-    live_leases: frozenset[str],
-    account_id: str,
-    held_ids: Iterable[TableId],
-    connected_by_table: Mapping[str, frozenset[str]],
-    hold_left_by_table: Mapping[str, Mapping[str, int]],
-    days: int,
-) -> tuple[LobbyEntryView, ...]:
-    """The entries of the tables the account holds a chair at, in the lobby's order.
+class LobbyReads:
+    """The reads behind the lobby's lists; the table service is built on them.
 
-    `held_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
-    shared row lock: an ended table and a table whose chair the account left meanwhile are skipped. A table with
-    nobody in `connected_by_table` has nobody connected; `live_leases` are the agents whose lease runs.
-    `hold_left_by_table` gives the seconds each away member's hold has left, by table and account.
+    A subclass sets the transactions and the live-lease read these reads use.
     """
-    entries: list[LobbyEntryView] = []
-    with transactions.begin() as transaction:
-        for table_id in held_ids:
-            table = transaction.table(table_id)
-            if not isinstance(table, TableRecord):
-                continue
-            present = present_at(table, connected_by_table.get(table_id.value, frozenset()), live_leases)
-            member = member_view_of(table, account_id, present, transaction.opener_account(table_id))
-            if member is not None:
+
+    _transactions: TableTransactions
+    _live_leases: Callable[[], frozenset[str]]
+
+    def tables_held_by(self, account_id: str) -> tuple[TableId, ...]:
+        """The tables the account holds a chair at, each once, in id order; an unlocked read, so a candidate list."""
+        with self._transactions.begin() as transaction:
+            return tuple(held.table_id for held in transaction.tables_of(account_id))
+
+    def open_table_ids(self) -> tuple[TableId, ...]:
+        """The live open tables, in id order; an unlocked read, so a candidate list."""
+        with self._transactions.begin() as transaction:
+            return transaction.open_table_ids()
+
+    def my_tables(
+        self,
+        account_id: str,
+        held_ids: Iterable[TableId],
+        connected_by_table: Mapping[str, frozenset[str]],
+        hold_left_by_table: Mapping[str, Mapping[str, int]],
+        days: int,
+    ) -> tuple[LobbyEntryView, ...]:
+        """The entries of the tables the account holds a chair at, in the lobby's order.
+
+        `held_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
+        shared row lock: an ended table and a table whose chair the account left meanwhile are skipped. A table with
+        nobody in `connected_by_table` has nobody connected; the agents whose lease runs count as present.
+        `hold_left_by_table` gives the seconds each away member's hold has left, by table and account.
+        """
+        live_leases = self._live_leases()
+        entries: list[LobbyEntryView] = []
+        with self._transactions.begin() as transaction:
+            for table_id in held_ids:
+                table = transaction.table(table_id)
+                if not isinstance(table, TableRecord):
+                    continue
+                present = present_at(table, connected_by_table.get(table_id.value, frozenset()), live_leases)
+                member = member_view_of(table, account_id, present, transaction.opener_account(table_id))
+                if member is not None:
+                    holds = hold_left_by_table.get(table_id.value, {})
+                    entries.append(_entry_of(table, member, present, holds, transaction.paused_facts(table_id), days))
+        return tuple(sorted(entries, key=_order_of))
+
+    def open_tables(
+        self,
+        account_id: str,
+        listed_ids: Iterable[TableId],
+        connected_by_table: Mapping[str, frozenset[str]],
+        hold_left_by_table: Mapping[str, Mapping[str, int]],
+        days: int,
+    ) -> tuple[OpenEntryView, ...]:
+        """The entries of the open tables the account holds no chair at, the fewest free chairs first, the full
+        tables last and ties in id order.
+
+        `listed_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under
+        its shared row lock: an ended table, a private one and a table whose chair the account took meanwhile are
+        skipped. The other parameters are those of `my_tables`.
+        """
+        live_leases = self._live_leases()
+        entries: list[OpenEntryView] = []
+        with self._transactions.begin() as transaction:
+            for table_id in listed_ids:
+                table = transaction.table(table_id)
+                if not isinstance(table, TableRecord) or table.visibility is not Visibility.OPEN:
+                    continue
+                if seat_of(table, account_id) is not None:
+                    continue
+                connected = connected_by_table.get(table_id.value, frozenset())
+                present = present_at(table, connected, live_leases)
                 holds = hold_left_by_table.get(table_id.value, {})
-                entries.append(_entry_of(table, member, present, holds, transaction.paused_facts(table_id), days))
-    return tuple(sorted(entries, key=_order_of))
+                facts = transaction.paused_facts(table_id)
+                entries.append(_open_entry_of(table, connected, present, holds, facts, days))
+        return tuple(sorted(entries, key=_open_order_of))
 
+    def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
+        """The live tables on which a hand was dealt and whose chair the actor holds, the soonest end first, ties in
+        id order; a table ends `days` days after the time of its last deal or step of play.
 
-def open_tables(
-    transactions: TableTransactions,
-    live_leases: frozenset[str],
-    account_id: str,
-    listed_ids: Iterable[TableId],
-    connected_by_table: Mapping[str, frozenset[str]],
-    hold_left_by_table: Mapping[str, Mapping[str, int]],
-    days: int,
-) -> tuple[OpenEntryView, ...]:
-    """The entries of the open tables the account holds no chair at, the fewest free chairs first, the full tables
-    last and ties in id order.
-
-    `listed_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
-    shared row lock: an ended table, a private one and a table whose chair the account took meanwhile are skipped.
-    The other parameters are those of `my_tables`.
-    """
-    entries: list[OpenEntryView] = []
-    with transactions.begin() as transaction:
-        for table_id in listed_ids:
-            table = transaction.table(table_id)
-            if not isinstance(table, TableRecord) or table.visibility is not Visibility.OPEN:
-                continue
-            if seat_of(table, account_id) is not None:
-                continue
-            connected = connected_by_table.get(table_id.value, frozenset())
-            present = present_at(table, connected, live_leases)
-            holds = hold_left_by_table.get(table_id.value, {})
-            facts = transaction.paused_facts(table_id)
-            entries.append(_open_entry_of(table, connected, present, holds, facts, days))
-    return tuple(sorted(entries, key=_open_order_of))
-
-
-def paused_tables(
-    transactions: TableTransactions, held_ids: Iterable[TableId], account_id: str, days: int
-) -> tuple[PausedEntryView, ...]:
-    """The live tables on which a hand was dealt and whose chair the account holds, the soonest end first, ties in
-    id order; a table ends `days` days after the time of its last deal or step of play.
-
-    `held_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
-    shared row lock: an ended table, a table without a dealt hand and one whose chair the account left meanwhile are
-    skipped.
-    """
-    with transactions.begin() as transaction:
-        tables = (transaction.table(table_id) for table_id in held_ids)
-        entries: list[PausedEntryView] = []
-        for table in tables:
-            if isinstance(table, TableRecord) and hand_was_dealt(table) and seat_of(table, account_id) is not None:
-                facts = transaction.paused_facts(table.id)
-                assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
-                ends_at = unplayed_end(facts.last_played_at, days)
-                entries.append(paused_entry_of(table, account_id, ends_at, facts.opener_name))
-    return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
+        The held tables are a candidate list from an unlocked read, so each table is read again in one transaction
+        under its shared row lock: an ended table, a table without a dealt hand and one whose chair the actor left
+        meanwhile are skipped.
+        """
+        held_ids = self.tables_held_by(actor.account_id)
+        with self._transactions.begin() as transaction:
+            tables = (transaction.table(table_id) for table_id in held_ids)
+            entries: list[PausedEntryView] = []
+            for table in tables:
+                if (
+                    isinstance(table, TableRecord)
+                    and hand_was_dealt(table)
+                    and seat_of(table, actor.account_id) is not None
+                ):
+                    facts = transaction.paused_facts(table.id)
+                    assert facts.last_played_at is not None  # noqa: S101 - narrows the type; a dealt table has its time
+                    ends_at = unplayed_end(facts.last_played_at, days)
+                    entries.append(paused_entry_of(table, actor.account_id, ends_at, facts.opener_name))
+        return tuple(sorted(entries, key=lambda entry: (entry.ends_at, entry.id)))
 
 
 def _entry_of(
