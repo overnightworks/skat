@@ -39,7 +39,7 @@ const CHECKS: { readonly [Field in keyof Settings]: (value: unknown) => value is
     motionSet: (value): value is MotionSetId => typeof value === "string" && Object.hasOwn(MOTION_SETS, value),
     replayMotion: (value): value is boolean => typeof value === "boolean",
     voice: (value): value is boolean => typeof value === "boolean",
-    lastTrick: (value): value is LastTrickMode => LAST_TRICK_MODES.some((mode) => mode === value),
+    lastTrick: (value): value is LastTrickMode => LAST_TRICK_MODES.includes(value as LastTrickMode),
 };
 
 const FIELDS = Object.keys(CHECKS) as (keyof Settings)[];
