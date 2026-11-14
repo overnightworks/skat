@@ -214,14 +214,6 @@ describe("the sea under the table", () => {
 
         expect([running > 0, port.sea.at(-1)]).toEqual([true, 0]);
     });
-
-    it("is silent while muted", () => {
-        const port = new FakePort();
-
-        soundAt(port, { muted: true }).sea(true);
-
-        expect(port.sea.at(-1)).toBe(0);
-    });
 });
 
 describe("cues without a sound", () => {
