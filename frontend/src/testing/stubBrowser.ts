@@ -33,6 +33,7 @@ export function stubBrowser(options: { reducedMotion: boolean; stored?: string; 
             return gain;
         };
         createDynamicsCompressor = node;
+        createWaveShaper = node;
         createBufferSource = node;
         createOscillator = node;
         createBiquadFilter = node;

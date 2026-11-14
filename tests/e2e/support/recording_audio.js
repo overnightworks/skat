@@ -90,6 +90,10 @@
             return new Node();
         }
 
+        createWaveShaper() {
+            return new Node();
+        }
+
         createBiquadFilter() {
             return new Node();
         }

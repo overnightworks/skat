@@ -21,8 +21,11 @@ const WAKING_SAMPLE_STARTS = 1;
 class FakePort implements AudioPort {
     resumed = 0;
     played: { voice: Voice; afterSeconds: number }[] = [];
+    // What each sound asked of the window: true for a sound that is wanted while it is hidden.
+    askedWhenHidden: boolean[] = [];
 
-    ready(): boolean {
+    ready(whenHidden: boolean): boolean {
+        this.askedWhenHidden.push(whenHidden);
         return true;
     }
 
@@ -89,13 +92,23 @@ function tableSeenFrom(ownSeat: number): Table {
 
 const RECORDING_OF = (key: string): string => `/voice/${key}.mp3`;
 
-function soundAt(
-    port: FakePort,
-    options: { motion?: MotionSetId; soundSet?: SoundSetId; voice?: boolean } = {},
-): TableSound {
+interface Options {
+    motion?: MotionSetId;
+    soundSet?: SoundSetId;
+    voice?: boolean;
+    muted?: boolean;
+    background?: boolean;
+    vibration?: boolean;
+    vibrate?: (pattern: readonly number[]) => void;
+}
+
+function soundAt(port: FakePort, options: Options = {}): TableSound {
     return createTableSound({
         port,
-        settings: () => SETTINGS,
+        settings: () => ({ ...SETTINGS, muted: options.muted ?? false }),
+        turnInBackground: () => options.background ?? false,
+        vibrationOn: () => options.vibration ?? false,
+        vibrate: options.vibrate ?? (() => undefined),
         soundSet: () => SOUND_SETS[options.soundSet ?? "leise"],
         motion: () => (options.motion === undefined ? undefined : MOTION_SETS[options.motion]),
         voiceOn: () => options.voice ?? false,
@@ -191,17 +204,8 @@ describe("the sound of a swept trick", () => {
 
     it("is silent while muted", () => {
         const port = new FakePort();
-        const muted = createTableSound({
-            port,
-            settings: () => ({ ...SETTINGS, muted: true }),
-            soundSet: () => SOUND_SETS.leise,
-            motion: () => undefined,
-            voiceOn: () => false,
-            recording: () => undefined,
-            recordings: () => [],
-        });
 
-        muted.forGlide();
+        soundAt(port, { muted: true }).forGlide();
 
         expect(port.played).toEqual([]);
     });
@@ -569,5 +573,154 @@ describe("the page's sound", () => {
         soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
 
         expect(started.length).toBeGreaterThan(0);
+    });
+});
+
+const TURN: Cue = { kind: "turn-came" };
+
+describe("the sound of the viewer's turn", () => {
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])("is the turn of the set %s", (soundSet) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forTurn([]);
+
+        expect(port.played.map(({ voice }) => voice)).toEqual(SOUND_SETS[soundSet].voices["turn-came"](1));
+    });
+
+    it("sounds nothing when the cue arrives, since the stage hands the turn over when it has settled", () => {
+        const port = new FakePort();
+
+        soundAt(port, { motion: "verspielt" }).forCues([TURN], tableSeenFrom(OWN_SEAT));
+
+        expect(port.played).toEqual([]);
+    });
+
+    it("waits for the card another chair laid to land, and for nothing when no cue came with it", () => {
+        const [after, alone] = [new FakePort(), new FakePort()];
+
+        soundAt(after, { motion: "verspielt" }).forTurn([cardPlayedBy(OTHER_SEAT)]);
+        soundAt(alone, { motion: "verspielt" }).forTurn([]);
+
+        expect(earliest(after)).toBe(MOTION_SETS.verspielt.cardLandsSeconds);
+        expect(earliest(alone)).toBe(0);
+    });
+
+    it("does not wait without a motion set", () => {
+        const port = new FakePort();
+
+        soundAt(port).forTurn([cardPlayedBy(OTHER_SEAT)]);
+
+        expect(earliest(port)).toBe(0);
+    });
+
+    it.each([
+        { name: "is not wanted in a hidden window by default", background: false },
+        { name: "is wanted in a hidden window when the player asked for it", background: true },
+    ])("$name", ({ background }) => {
+        const port = new FakePort();
+
+        soundAt(port, { background }).forTurn([]);
+
+        expect(port.askedWhenHidden).toEqual([background]);
+    });
+
+    it("is silent while muted", () => {
+        const port = new FakePort();
+
+        soundAt(port, { muted: true, background: true }).forTurn([]);
+
+        expect(port.played).toEqual([]);
+    });
+
+    it("vibrates once for the turn when the player switched vibration on, even while muted", () => {
+        const patterns: (readonly number[])[] = [];
+
+        soundAt(new FakePort(), { vibration: true, muted: true, vibrate: (pattern) => patterns.push(pattern) }).forTurn(
+            [],
+        );
+
+        expect(patterns).toHaveLength(1);
+        expect(patterns[0]?.reduce((sum, each) => sum + each, 0)).toBeGreaterThan(0);
+    });
+
+    it("does not vibrate while vibration is off", () => {
+        const patterns: (readonly number[])[] = [];
+
+        soundAt(new FakePort(), { vibrate: (pattern) => patterns.push(pattern) }).forTurn([]);
+
+        expect(patterns).toEqual([]);
+    });
+});
+
+describe("the sound of a deal", () => {
+    const DEALT: Cue = { kind: "dealt" };
+
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])("is the deal of the set %s", (soundSet) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forCues([DEALT], tableSeenFrom(OWN_SEAT));
+
+        expect(port.played.map(({ voice }) => voice)).toEqual(SOUND_SETS[soundSet].voices.dealt(1));
+    });
+
+    it("does not wait for the motion set, since the cards fly in with the cue", () => {
+        const [still, playful] = [new FakePort(), new FakePort()];
+
+        soundAt(still).forCues([DEALT], tableSeenFrom(OWN_SEAT));
+        soundAt(playful, { motion: "verspielt" }).forCues([DEALT], tableSeenFrom(OWN_SEAT));
+
+        expect(playful.played).toEqual(still.played);
+    });
+});
+
+describe("the sound of a result", () => {
+    const appeared = (won: boolean, counts = true): Cue => ({ kind: "result-appeared", ordinal: 3, won, counts });
+    const heard = (port: FakePort): Voice[] => port.played.map(({ voice }) => voice);
+
+    it.each([
+        { name: "a win", won: true, moment: "result-won" },
+        { name: "a loss", won: false, moment: "result-lost" },
+    ] as const)("stamps $name with the voices of the set", ({ won, moment }) => {
+        const port = new FakePort();
+
+        soundAt(port).forCues([appeared(won, false)], tableSeenFrom(OWN_SEAT));
+
+        expect(heard(port)).toEqual(SOUND_SETS.leise.voices[moment](1));
+    });
+
+    it.each(Object.keys(MOTION_SETS) as MotionSetId[])("stamps when the card of the set %s has risen", (motion) => {
+        const port = new FakePort();
+
+        soundAt(port, { motion }).forCues([appeared(true, false)], tableSeenFrom(OWN_SEAT));
+
+        expect(earliest(port)).toBe(MOTION_SETS[motion].resultLandsSeconds);
+    });
+
+    it.each(Object.keys(MOTION_SETS) as MotionSetId[])("ticks while the gains count up in the set %s", (motion) => {
+        const stamped = new FakePort();
+        const counted = new FakePort();
+
+        soundAt(stamped, { motion }).forCues([appeared(true, false)], tableSeenFrom(OWN_SEAT));
+        soundAt(counted, { motion }).forCues([appeared(true)], tableSeenFrom(OWN_SEAT));
+
+        const ticks = counted.played.slice(stamped.played.length).map(({ voice }) => voice);
+        expect(ticks.map((voice) => voice.at)).toEqual(
+            SOUND_SETS.leise
+                .counts(1, MOTION_SETS[motion].countSeconds)
+                .map((voice) => voice.at + MOTION_SETS[motion].countStartsSeconds),
+        );
+    });
+
+    it.each([
+        { name: "no motion set is in force, where nothing counts", motion: undefined, counts: true },
+        { name: "no seat gained anything", motion: "verspielt", counts: false },
+    ] as const)("does not tick when $name", ({ motion, counts }) => {
+        const stamped = new FakePort();
+        const port = new FakePort();
+
+        soundAt(stamped, { motion }).forCues([appeared(true, false)], tableSeenFrom(OWN_SEAT));
+        soundAt(port, { motion }).forCues([appeared(true, counts)], tableSeenFrom(OWN_SEAT));
+
+        expect(port.played).toEqual(stamped.played);
     });
 });

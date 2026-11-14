@@ -1317,6 +1317,14 @@ msgctxt "sound.lastTrickStay"
 msgid "liegen lassen"
 msgstr "leave in place"
 
+msgctxt "sound.turnInBackground"
+msgid "Du bist dran im Hintergrund"
+msgstr "Your turn in the background"
+
+msgctxt "sound.vibration"
+msgid "Vibration"
+msgstr "Vibration"
+
 msgctxt "sound.motionDezent"
 msgid "dezent"
 msgstr "subtle"

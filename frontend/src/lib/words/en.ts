@@ -417,6 +417,8 @@ const translated = {
     "sound.lastTrick": "Last trick",
     "sound.lastTrickSweep": "sweep away",
     "sound.lastTrickStay": "leave in place",
+    "sound.turnInBackground": "Your turn in the background",
+    "sound.vibration": "Vibration",
     "sound.motionDezent": "subtle",
     "sound.motionVerspielt": "playful",
     "card.letterJack": "J",
