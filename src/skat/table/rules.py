@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Final, overload
 
 from skat.engine.bock import BockRounds, advance
 from skat.engine.deal import deal, draw_dealer, next_dealer, positions_from
+from skat.engine.kontra import KontraDeadline
 from skat.engine.schieberamsch import GrandHandRule
 from skat.table.records import (
     Actor,
@@ -224,8 +225,11 @@ def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
 
 
 def _no_words_without(table: TableRecord, seat: int) -> frozenset[NoWordSaid]:
-    """A chair's change takes its holder's answers of no word, so whoever sits there is asked the word afresh."""
-    if table.dealer is None:
+    """A chair's change takes its holder's answers of no word, so whoever sits there is asked the word afresh; at a
+    table whose words end with the first card the answer is a decline for good and stays with the seat.
+    """
+    kontra = table.options.kontra
+    if table.dealer is None or (kontra is not None and kontra.deadline is KontraDeadline.FIRST_CARD):
         return table.progress.no_words
     position = positions_from(table.dealer)[seat]
     return frozenset(answered for answered in table.progress.no_words if answered.position is not position)

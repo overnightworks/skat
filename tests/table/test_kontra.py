@@ -39,8 +39,9 @@ from skat.table.records import (
     TableOptions,
     parsed_refusal,
 )
-from skat.table.rules import create_payload
+from skat.table.rules import create_payload, decide_sit
 from skat.table.views import view_of
+from tests.support.open_chairs import FOREHAND_SEAT, newcomer, sent_away
 from tests.support.played_game import (
     HERZ_HAND,
     a_whole_game,
@@ -373,6 +374,16 @@ class TestTheFirstCardDeadline:
         answered = after_answers(first_card_table(), FOREHAND)
 
         assert say_as(answered, FOREHAND, KONTRA, answered.version).refusal is KontraRefusal.NOT_YOUR_WORD
+
+    def test_a_decline_stays_binding_when_the_chair_changes_hands_before_the_first_card(self):
+        answered = after_answers(first_card_table(), FOREHAND)
+        sitter = newcomer()
+
+        taken = decide_sit(sent_away(answered, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+
+        word = KontraCommand("command-2", taken.id.value, taken.version, KONTRA)
+        assert decide_kontra(taken, sitter, word).refusal is KontraRefusal.NOT_YOUR_WORD
+        assert doubling_of(taken).declined == {FOREHAND}
 
     def test_a_non_bidders_answer_of_no_word_is_refused_as_did_not_bid_where_only_bidders_say_kontra(self):
         table = first_card_table(KontraSayer.BIDDERS_ONLY, progress=BIDDING_FOREHAND)
