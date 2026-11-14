@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import func, select
+from sqlalchemy.exc import NoResultFound
 from webauth.ports import AccountEvent, AccountEventKind, AccountKind
 
 from skat.store.schema import accounts, sessions
@@ -128,6 +129,38 @@ class TestASignInEntry:
         assert (failures, count(engine, accounts), count(engine, sessions)) == ([], 1, 2)
 
 
+class TestAnAccount:
+    def test_is_found_by_its_exact_subject_only(self, stores):
+        sign_in(stores)
+
+        with stores.transaction() as entry:
+            found = [entry.accounts.get(subject) for subject in (SUBJECT, SUBJECT.upper(), f"{SUBJECT} ")]
+
+        assert [account and account.id for account in found] == [SUBJECT, None, None]
+
+    def test_changes_its_role_and_its_kind_and_keeps_the_rest(self, stores):
+        sign_in(stores)
+
+        with stores.transaction() as entry:
+            entry.accounts.set_role(SUBJECT, "admin")
+            changed = entry.accounts.set_kind(SUBJECT, AccountKind.AGENT)
+
+        assert (changed.id, changed.username, changed.role, changed.kind) == (
+            SUBJECT,
+            "Anna",
+            "admin",
+            AccountKind.AGENT,
+        )
+
+    def test_that_is_not_there_cannot_be_changed(self, stores):
+        def change_a_stranger():
+            with stores.transaction() as entry:
+                entry.accounts.set_role("subject-nobody", "admin")
+
+        with pytest.raises(NoResultFound):
+            change_a_stranger()
+
+
 class TestTheStoredSession:
     def test_has_the_hash_of_the_cookies_id_as_its_id_column_and_the_raw_id_nowhere(self, engine, stores):
         session = sign_in(stores)
@@ -151,6 +184,17 @@ class TestTheStoredSession:
         )
         assert (loaded.created_at, loaded.expires_at) == (NOW, NOW + LIFETIME)
         assert (loaded.refresh_token, loaded.id_token) == (SecretStr("refresh-token"), SecretStr("id-token"))
+
+    def test_without_tokens_is_loaded_without_tokens(self, stores):
+        with stores.transaction() as entry:
+            entry.accounts.create_for_subject(SUBJECT, "Anna", "user", AccountKind.PERSON)
+            session = entry.sessions.create(
+                SUBJECT, now=NOW, expires_at=NOW + LIFETIME, refresh_token=None, id_token=None, account_language=None
+            )
+
+        loaded = stores.sessions.load(session.id)
+
+        assert (loaded.refresh_token, loaded.id_token, loaded.account_language) == (None, None, None)
 
     def test_is_not_found_by_the_text_of_the_stored_hash(self, engine, stores):
         sign_in(stores)
