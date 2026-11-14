@@ -211,9 +211,7 @@
             onclick={() => {
                 infoShown = !infoShown;
             }}
-        >
-            i
-        </button>
+        ></button>
         <div class="choice" role="radiogroup" aria-label={words["start.visibility"]}>
             <label class="opt" class:on={visibility === "open"}>
                 <input

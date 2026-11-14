@@ -793,6 +793,11 @@ body {
     cursor: pointer;
 }
 
+/* The italic i is the mark of the button, not a word; the button's name is its aria-label. */
+.sheet .info::before {
+    content: "i";
+}
+
 .sheet .choice {
     display: flex;
     gap: 12px;
