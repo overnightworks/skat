@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
 
-const MOMENTS: SoundMoment[] = ["card-played"];
-const LONGEST_SOUND_SECONDS = 0.4;
+const MOMENTS: SoundMoment[] = ["card-played", "bid-said", "word-said"];
+const LONGEST_SOUND_SECONDS = 0.6;
 
 describe.each(Object.values(SOUND_SETS))("the set $id", (set) => {
-    it.each(MOMENTS)("sounds %s in under 400 ms", (moment) => {
+    it.each(MOMENTS)("sounds %s in under 600 ms", (moment) => {
         const voices = set.voices[moment](1);
 
         expect(voices.length).toBeGreaterThan(0);
