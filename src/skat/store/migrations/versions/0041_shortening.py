@@ -6,8 +6,8 @@ widens.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0040"
-down_revision = "0039"
+revision = "0041"
+down_revision = "0040"
 
 _POSITIONS = ("forehand", "middlehand", "rearhand")
 _ANNOUNCEMENTS = ("none", "schneider", "schwarz")

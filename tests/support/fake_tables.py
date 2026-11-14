@@ -2,7 +2,7 @@ import copy
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
+from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.table.transactions import DuplicateReceiptError, HeldTable, LiveWait, OccupiedChair, PausedFacts
@@ -152,6 +152,13 @@ class FakeTableStore:
             for table in sorted(self.tables.values(), key=lambda each: each.id.value)
             if isinstance(table, TableRecord)
             if any(chair.occupant is not None and chair.occupant.account_id == account_id for chair in table.chairs)
+        )
+
+    def open_table_ids(self) -> tuple[TableId, ...]:
+        return tuple(
+            table.id
+            for table in sorted(self.tables.values(), key=lambda each: each.id.value)
+            if isinstance(table, TableRecord) and table.visibility is Visibility.OPEN
         )
 
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:

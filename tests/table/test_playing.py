@@ -33,6 +33,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    Visibility,
     parsed_refusal,
 )
 from skat.table.rules import decide_sit, decide_stand, waiting_seat_of
@@ -88,6 +89,7 @@ def table_in(progress):
         series=None,
         options=TableOptions(),
         bock=BockRounds.start(),
+        visibility=Visibility.OPEN,
     )
 
 

@@ -52,6 +52,16 @@ class OccupantKind(StrEnum):
     AGENT = "agent"
 
 
+class Visibility(StrEnum):
+    """Who the lobby lists a table to, chosen when it is opened and never changed: an open table is listed to every
+    member, a private one only to its chair holders; both stay reachable by their link. The stored token, also the
+    request's.
+    """
+
+    OPEN = "open"
+    PRIVATE = "private"
+
+
 class TableId(OpaqueId):
     """The id of a table."""
 
@@ -118,12 +128,14 @@ class TableOptions:
 @dataclass(frozen=True)
 class CreateTable:
     """The command to open a table; `command_id` is the client's key for retrying it, `series_length` the number of
-    games its series runs, or None for a table that plays on, and `options` the table's rule options.
+    games its series runs, or None for a table that plays on, `options` the table's rule options and `visibility`
+    who the lobby lists it to.
     """
 
     command_id: str
     series_length: int | None = None
     options: TableOptions = TableOptions()
+    visibility: Visibility = Visibility.OPEN
 
 
 @dataclass(frozen=True)
@@ -371,6 +383,7 @@ class TableRecord:
     series: Series | None
     options: TableOptions
     bock: BockRounds
+    visibility: Visibility
 
 
 class EndReason(StrEnum):

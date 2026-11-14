@@ -1,7 +1,7 @@
 from alembic import command
 from alembic.config import Config
 
-from skat.store.migrate import MIGRATIONS_DIRECTORY
+from skat.store.migrate import MIGRATIONS_DIRECTORY, migrate
 
 
 def upgrade_to(engine, revision, operator_account_id=None):
@@ -11,6 +11,16 @@ def upgrade_to(engine, revision, operator_account_id=None):
         config.attributes["connection"] = connection
         config.attributes["operator_account_id"] = operator_account_id
         command.upgrade(config, revision)
+
+
+def migrated_from(engine, revision, *statements):
+    """The engine migrated to the head from a store that held the given rows at the revision."""
+    upgrade_to(engine, revision)
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(statement)
+    migrate(engine)
+    return engine
 
 
 def run_in_transaction(engine, statement):

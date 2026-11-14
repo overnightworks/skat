@@ -49,6 +49,7 @@ from skat.table.records import (
     Series,
     TableId,
     TableRecord,
+    Visibility,
     parsed_refusal,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
@@ -201,6 +202,7 @@ def _table_record(
         series=_series_of(table),
         options=options_of(table),
         bock=BockRounds(tuple(table.bock_rounds)),
+        visibility=Visibility(table.visibility),
     )
 
 
@@ -278,7 +280,8 @@ class _PostgresTableTransaction:
         return table if isinstance(table, TableRecord) else None
 
     def _write_table_row(self, table: TableRecord, played_at: datetime | None) -> None:
-        """The row's changing columns: the series length, the options and the opener's name are written by `add_table`
+        """The row's changing columns: the series length, the options, the visibility and the opener's name are written
+        by `add_table`
         and never here; no time leaves the last played time as it is.
         """
         asked = table.progress.give_up
@@ -363,6 +366,7 @@ class _PostgresTableTransaction:
                 series_length=None if table.series is None else table.series.length,
                 series_deals=None if table.series is None else table.series.deals,
                 series_number=series_number_of(table),
+                visibility=table.visibility.value,
                 **option_values(table.options),
             )
         )
@@ -466,6 +470,16 @@ class _PostgresTableTransaction:
                 .where(chairs.c.account_id == account_id, tables.c.end_reason.is_(None))
                 .order_by(tables.c.id)
             )
+        )
+
+    def open_table_ids(self) -> tuple[TableId, ...]:
+        return tuple(
+            TableId(table_id)
+            for table_id in self._connection.execute(
+                select(tables.c.id)
+                .where(tables.c.end_reason.is_(None), tables.c.visibility == Visibility.OPEN.value)
+                .order_by(tables.c.id)
+            ).scalars()
         )
 
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:

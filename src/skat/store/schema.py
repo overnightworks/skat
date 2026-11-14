@@ -36,6 +36,7 @@ from skat.table.records import (
     RamschOccasion,
     RamschSetting,
     TableOptions,
+    Visibility,
 )
 from skat.table.rule_sets import RULE_SET_NAME_MAX
 
@@ -215,6 +216,7 @@ tables = Table(
     Column("empty_seconds", Integer),
     Column("unplayed_days", Integer),
     Column("closed_by_name", Text),
+    Column("visibility", Text, nullable=False, server_default=Visibility.OPEN.value),
     Column("empty_since", DateTime(timezone=True)),
     Column("last_played_at", DateTime(timezone=True)),
     Column("opener_name", Text),
@@ -255,6 +257,7 @@ tables = Table(
     ),
     CheckConstraint("ended_at IS NULL OR opener_name IS NULL", name="tables_an_ended_table_keeps_no_opener_name"),
     CheckConstraint("char_length(opener_name) >= 1", name="tables_opener_name_is_not_empty"),
+    one_of("visibility", (visibility.value for visibility in Visibility), "tables_visibility_is_a_visibility"),
     CheckConstraint("(series_length IS NULL) = (series_deals IS NULL)", name="tables_series_is_both_or_neither"),
     CheckConstraint(
         f"series_length BETWEEN {SERIES_LENGTH_MIN} AND {SERIES_LENGTH_MAX}"

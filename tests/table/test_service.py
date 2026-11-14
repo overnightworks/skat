@@ -11,7 +11,17 @@ from skat.engine.deal import SEATS, Position, next_dealer, positions_from
 from skat.engine.tricks import CardPlayed
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
-from skat.table.records import Actor, CreateTable, HandProgress, Receipt, Refusal, SitDown, StandUp, TableId
+from skat.table.records import (
+    Actor,
+    CreateTable,
+    HandProgress,
+    Receipt,
+    Refusal,
+    SitDown,
+    StandUp,
+    TableId,
+    Visibility,
+)
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.transactions import OccupiedChair
 from tests.support.fake_tables import FakeTableStore
@@ -80,6 +90,34 @@ class TestCreate:
             service.create(OPENER, command)
 
         assert list(store.tables) == [first.id]
+
+    def test_a_table_is_open_unless_it_is_opened_private(self, service, store):
+        opened = service.create(OPENER, CreateTable(command_id="command-1"))
+        hidden = service.create(OPENER, CreateTable(command_id="command-2", visibility=Visibility.PRIVATE))
+
+        assert (store.tables[opened.id].visibility, store.tables[hidden.id].visibility) == (
+            Visibility.OPEN,
+            Visibility.PRIVATE,
+        )
+        assert service.open_table_ids() == (TableId(opened.id),)
+
+    def test_a_receipt_from_before_visibility_replays_as_an_open_table(self, service, store):
+        first = service.create(OPENER, CreateTable(command_id="command-1", series_length=12))
+        receipt = store.receipts[(OPENER.account_id, "command-1")]
+        store.receipts[(OPENER.account_id, "command-1")] = replace(receipt, payload='{"series_length":12}')
+
+        again = service.create(OPENER, CreateTable(command_id="command-1", series_length=12))
+
+        assert again == first
+        assert len(store.tables) == 1
+
+    def test_a_private_create_retried_replays_and_the_same_key_as_open_is_refused(self, service, store):
+        command = CreateTable(command_id="command-1", visibility=Visibility.PRIVATE)
+        first = service.create(OPENER, command)
+
+        assert service.create(OPENER, command) == first
+        with pytest.raises(CommandIdReusedError):
+            service.create(OPENER, CreateTable(command_id="command-1"))
 
     def test_a_failure_between_the_table_write_and_the_receipt_persists_nothing(self, service, store):
         faulty = TableService(FaultyTableTransactions(store, receipt_failure=RuntimeError("connection lost")))
