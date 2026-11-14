@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const KEY = "skat.settings";
-const DEFAULTS = { muted: false, volume: 70, soundSet: "leise", motionSet: "verspielt", replayMotion: false };
+const DEFAULTS = {
+    muted: false,
+    volume: 70,
+    soundSet: "leise",
+    motionSet: "verspielt",
+    replayMotion: false,
+    voice: false,
+};
 
 // The record is module state, so each test reads a module of its own.
 async function freshSettings() {
@@ -55,7 +62,14 @@ describe("loadSettings", () => {
     });
 
     it("reads every field back, also from a record with other fields", async () => {
-        const kept = { muted: true, volume: 30, soundSet: "funkeln", motionSet: "dezent", replayMotion: true };
+        const kept = {
+            muted: true,
+            volume: 30,
+            soundSet: "funkeln",
+            motionSet: "dezent",
+            replayMotion: true,
+            voice: true,
+        };
         storeHolding(JSON.stringify({ ...kept, other: "x" }));
         const { currentSettings, loadSettings } = await freshSettings();
 
@@ -74,8 +88,16 @@ describe("loadSettings", () => {
         { field: "soundSet", bad: "toString" },
         { field: "motionSet", bad: 7 },
         { field: "replayMotion", bad: 1 },
+        { field: "voice", bad: "on" },
     ])("gives a $field of $bad its default and keeps the other fields as stored", async ({ field, bad }) => {
-        const kept = { muted: true, volume: 30, soundSet: "funkeln", motionSet: "dezent", replayMotion: true };
+        const kept = {
+            muted: true,
+            volume: 30,
+            soundSet: "funkeln",
+            motionSet: "dezent",
+            replayMotion: true,
+            voice: true,
+        };
         storeHolding(JSON.stringify({ ...kept, [field]: bad }));
         const { currentSettings, loadSettings } = await freshSettings();
 
@@ -111,6 +133,7 @@ describe("changeSetting", () => {
         { field: "soundSet", value: "stammtisch", record: '{"soundSet":"stammtisch"}' },
         { field: "motionSet", value: "dezent", record: '{"motionSet":"dezent"}' },
         { field: "replayMotion", value: true, record: '{"replayMotion":true}' },
+        { field: "voice", value: true, record: '{"voice":true}' },
     ] as const)("writes exactly the record for $field $value under the one key", async ({ field, value, record }) => {
         const storage = storeHolding(null);
         const { changeSetting, currentSettings } = await freshSettings();
