@@ -735,6 +735,10 @@ msgctxt "play.commandFailed"
 msgid "Das hat nicht geklappt"
 msgstr ""
 
+msgctxt "play.swipeHint"
+msgid "Nochmal tippen oder hochwischen spielt die Karte"
+msgstr ""
+
 msgctxt "play.sideUs"
 msgid "Wir"
 msgstr ""

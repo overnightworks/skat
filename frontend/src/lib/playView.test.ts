@@ -3,6 +3,7 @@ import {
     bidLineOfGameDeclaredInTheStage,
     cardLook,
     cardsToPlay,
+    dragVerdict,
     gameInPlay,
     ownCardSlotOpen,
     sideNames,
@@ -249,6 +250,7 @@ describe("how a card of the own hand looks", () => {
         lifted,
         disabled: false,
         tap: () => undefined,
+        play: () => Promise.resolve(true),
     });
 
     it.each([
@@ -259,6 +261,26 @@ describe("how a card of the own hand looks", () => {
         { name: "legal beside the lifted one", playing: onTurn(KARO_ACE), card: KARO_SEVEN, look: "legal" },
     ])("is $name", ({ playing, card, look }) => {
         expect(cardLook(playing, card)).toBe(look);
+    });
+});
+
+describe("what a press on a card that moves comes to", () => {
+    const CARD_HEIGHT = 140;
+
+    it.each([
+        { name: "a tap while it hardly moves", move: { dx: 2, dy: -3 }, verdict: "tap" },
+        { name: "a tap when it hardly moves downward", move: { dx: -4, dy: 5 }, verdict: "tap" },
+        {
+            name: "a return when it is moved upward but short of the threshold",
+            move: { dx: 0, dy: -40 },
+            verdict: "return",
+        },
+        { name: "a play when it is moved upward past the threshold", move: { dx: 0, dy: -90 }, verdict: "play" },
+        { name: "a play when it is moved upward and a little aside", move: { dx: 25, dy: -90 }, verdict: "play" },
+        { name: "a return when it is moved downward", move: { dx: 0, dy: 120 }, verdict: "return" },
+        { name: "a return when it is moved sideways", move: { dx: 150, dy: -10 }, verdict: "return" },
+    ])("is $name", ({ move, verdict }) => {
+        expect(dragVerdict(move, CARD_HEIGHT)).toBe(verdict);
     });
 });
 

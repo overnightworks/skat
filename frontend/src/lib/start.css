@@ -2439,7 +2439,8 @@ body {
     border-radius: calc(var(--card-width) * 0.075);
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
     transform-origin: 50% 100%;
-    transform: translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
+    transform: translate(var(--drag-x, 0px), var(--drag-y, 0px))
+        translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
         rotate(calc(var(--step) * var(--fan-turn)));
     --step: calc((var(--from-start) - var(--from-end)) / 2);
 }
@@ -2620,6 +2621,11 @@ body {
     cursor: pointer;
 }
 
+/* A pressed card is dragged by the pointer, so the browser must not scroll or zoom under the finger. */
+.room .own-hand .play {
+    touch-action: none;
+}
+
 .room .own-hand .pick:focus-visible,
 .room .own-hand .play:focus-visible {
     outline: 3px solid var(--accent-stage, #7aa7f0);
@@ -2680,6 +2686,39 @@ body {
 
 .room .own-hand .card.no {
     filter: brightness(0.5) saturate(0.55) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+/* A dragged card follows the pointer at once and stands above its neighbours. */
+.room .own-hand .card.dragging {
+    z-index: 3;
+    transition: none;
+}
+
+/* The lifted card carries the arrow that tells: tap again or swipe up. */
+.room .own-hand .swipe {
+    position: absolute;
+    left: 50%;
+    top: calc(var(--card-width) * -0.36);
+    translate: -50% 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    background: var(--accent-stage, #7aa7f0);
+    color: var(--stage-ink, #0c0e11);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.room .own-hand .swipe svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* While a game is played the trick takes a row of its own between the far chairs and the near one. */
@@ -3046,6 +3085,17 @@ body {
 @media (prefers-reduced-motion: no-preference) {
     .room .own-hand .card {
         transition: transform 0.15s ease-out;
+    }
+
+    /* The arrow nudges upward twice after the card has lifted. */
+    .room .own-hand .swipe {
+        animation: swipe-nudge 0.7s ease-in-out 0.7s 2;
+    }
+
+    @keyframes swipe-nudge {
+        50% {
+            translate: -50% -9px;
+        }
     }
 }
 

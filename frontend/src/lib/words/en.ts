@@ -272,6 +272,7 @@ const translated = {
     "declare.levelSchwarz": "Schwarz",
     "declare.levelOuvert": "Ouvert",
     "play.commandFailed": "That did not work",
+    "play.swipeHint": "Tap again or swipe up to play the card",
     "play.sideUs": "Us",
     "play.sideThem": "Opponents",
     "play.trick": "Trick",
